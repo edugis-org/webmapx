@@ -1,0 +1,26 @@
+{
+  "name": "wc-map",
+  "version": "1.0.0",
+  "description": "A highly modular and map-library-agnostic User Interface built for dynamic Web GIS applications. This project is architected to allow easy swapping of map backends (MapLibre, OpenLayers, Cesium) and features a centralized, robust state management system to ensure consistency and performance.",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@shoelace-style/shoelace": "^2.20.1",
+    "lit": "^3.3.1"
+  },
+  "devDependencies": {
+    "vite": "^7.2.6",
+    "vite-plugin-static-copy": "^3.1.4"
+  }
+}

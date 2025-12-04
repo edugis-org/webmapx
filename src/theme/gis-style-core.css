@@ -1,0 +1,24 @@
+/* src/theme/gis-style-core.css */
+
+:root {
+    /* Define required CSS Custom Properties for Theming */
+    --color-primary: #007bff; /* Blue */
+    --color-background-secondary: #f4f4f4;
+    --color-text-primary: #333;
+    --color-border: #ccc;
+    
+    /* Global styles */
+    font-family: Arial, sans-serif;
+}
+
+body {
+    margin: 0;
+}
+
+/* Position the new tool component for visibility */
+gis-new-tool {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+}
