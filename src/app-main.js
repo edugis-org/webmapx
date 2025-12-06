@@ -12,6 +12,7 @@ import '@shoelace-style/shoelace/dist/components/input/input.js';
 setBasePath('/shoelace-assets/'); 
 
 // 2. Register your custom Web Components
+import './components/modules/gis-map.js';
 import './components/modules/gis-new-tool.js';
 import './components/modules/gis-zoom-display.js';
 

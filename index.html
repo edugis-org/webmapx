@@ -10,26 +10,12 @@
     <link rel="stylesheet" href="./src/theme/gis-style-core.css"> 
     
     <script type="module" src="./src/app-main.js"></script> 
-    <style>
-      body, html {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-      }
-      #map-container {
-        width: 100%;
-        height: 100%;
-        box-sizing: border-box;
-        border: 1px solid black;
-      }
-    </style>
 </head>
 <body>
-    <div id="map-container"></div>
-    
-    <gis-new-tool></gis-new-tool>
-    <gis-zoom-display></gis-zoom-display>
+    <gis-map id="map-container">
+        <div slot="map-view"></div>
+        <gis-new-tool></gis-new-tool>
+        <gis-zoom-display></gis-zoom-display>
+    </gis-map>
 </body>
 </html>

@@ -54,10 +54,11 @@ export class MapCoreService implements IMapCore {
         const center = options?.center ?? this.initialConfig.center;
         const zoom = options?.zoom ?? this.initialConfig.zoom;
         const styleUrl = options?.styleUrl;
+        const containerTarget = this.resolveContainer(containerId);
 
         // MAP INSTANTIATION AND STORAGE
         this.mapInstance = new maplibregl.Map({ // Instantiate using maplibregl.Map
-            container: containerId, // The ID of the HTML element
+            container: containerTarget,
             center,
             zoom,
             pitch: this.initialConfig.pitch,
@@ -103,5 +104,26 @@ export class MapCoreService implements IMapCore {
 
     public getZoom(): number {
         return this.mapInstance ? this.mapInstance.getZoom() : this.initialConfig.zoom;
+    }
+
+    private resolveContainer(containerId: string): string | HTMLElement {
+        const hostElement = document.getElementById(containerId);
+
+        if (!hostElement) {
+            console.warn(`[CORE SERVICE] Container #${containerId} not found. Falling back to ID.`);
+            return containerId;
+        }
+
+        if (hostElement.tagName.toLowerCase() === 'gis-map') {
+            const mapSlot = hostElement.querySelector<HTMLElement>('[slot="map-view"]');
+
+            if (mapSlot) {
+                return mapSlot;
+            }
+
+            console.warn('[CORE SERVICE] <gis-map> is missing a [slot="map-view"] element. Using host as fallback.');
+        }
+
+        return hostElement;
     }
 }
