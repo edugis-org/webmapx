@@ -9,7 +9,7 @@ A highly modular and map-library-agnostic User Interface built for dynamic Web G
 3.  **Robustness and Performance:** Solutions for common web map challenges are built directly into the architecture:
     * **Feedback Loop Prevention:** State changes are tagged with their `source` ('UI' or 'MAP') to prevent components from endlessly updating themselves.
     * **Throttling:** Expensive map API calls are rate-limited to maintain high frame rates during continuous interactions (like slider drags).
-4.  **Theming and Consistency (Design System):** All UI elements rely on **CSS Custom Properties** defined in the `/src/theme` directory, allowing for instant, global theme switching (Dark/Light).
+4.  **Theming and Consistency (Design System):** All UI elements rely on **CSS Custom Properties** defined in the `/src/theme` directory, allowing for instant, global theme switching (Dark/Light). Rule: never use css z-index unless proven necessary (unlikely).
 
 ## 📂 Project Structure Overview
 

@@ -16,6 +16,13 @@ export interface IMapCore {
     initialize(containerId: string): void;
 }
 
+export interface IMapZoomController {
+    // Method the UI calls to change the map zoom
+    setZoom(zoomLevel: number): void;
+    // Method the Map Adapter calls to update the central store
+    notifyZoomChange(zoomLevel: number): void;
+}
+
 /**
  * Interface for handling the display and styling of layers.
  * Referenced by a 'GIS Legend' or 'Style Editor' module.

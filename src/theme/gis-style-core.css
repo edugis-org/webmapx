@@ -7,6 +7,13 @@
     --color-text-primary: #333;
     --color-border: #ccc;
     
+    /* 💡 NEW: Variables for Compact Controls */
+    --tool-background-opacity: 0.95; /* Slight transparency for controls */
+    --font-size-small: 12px;
+    --compact-padding-vertical: 2px;
+    --compact-padding-horizontal: 8px;
+    --compact-gap: 8px;
+    
     /* Global styles */
     font-family: Arial, sans-serif;
 }
@@ -20,5 +27,11 @@ gis-new-tool {
     position: absolute;
     top: 20px;
     left: 20px;
-    z-index: 1000;
+}
+
+gis-zoom-display {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    border: 1px solid var(--color-border);
 }

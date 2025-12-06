@@ -1,9 +1,13 @@
-/** Defines the shape of the entire application state. */
+/**
+ * The single source of truth for the entire application state.
+ * Any property added here must be initialized in the central-state.ts file.
+ */
 export interface IAppState {
     // Example state properties
     mapLoaded: boolean;
     currentTool: 'Buffer' | 'Legend' | 'None';
     bufferRadiusKm: number;
+    zoomLevel: number;
     // ... add all other global state properties here
 }
 
