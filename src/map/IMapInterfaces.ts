@@ -12,8 +12,24 @@ export interface IMapCore {
     /** Sets the map viewport, used by UI components like a 'Location Finder'. */
     setViewport(center: [number, number], zoom: number): void;
     
-    /** Initializes the map in the target HTML element. */
-    initialize(containerId: string): void;
+    /** Initializes the map in the target HTML element. Supports initial config. */
+    initialize(
+        containerId: string,
+        options?: {
+            center?: [number, number];
+            zoom?: number;
+            styleUrl?: string;
+        }
+    ): void;
+
+    /** Sets the map zoom level in a library-agnostic way. */
+    setZoom(level: number): void;
+
+    /** Subscribes to zoom-end events and provides the resulting zoom level. */
+    onZoomEnd(callback: (level: number) => void): void;
+
+    /** Gets the current zoom level. */
+    getZoom(): number;
 }
 
 export interface IMapZoomController {

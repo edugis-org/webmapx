@@ -23,3 +23,12 @@ A highly modular and map-library-agnostic User Interface built for dynamic Web G
 ## 🛠️ Getting Started
 
 For a detailed guide on creating new components, understanding the data flow, and adhering to architectural rules, please read the **Developer Experience Guide:** [`DEVELOPER_GUIDE.md`](./docs/DEVELOPER_GUIDE.md).
+
+## 🎛️ Map Initialization (OSM demo)
+- The entry `src/app-main.js` initializes the map with a custom viewport and an OpenStreetMap style via MapLibre:
+    - `mapAdapter.core.initialize('map-container', { center: [4.9041, 52.3676], zoom: 11, styleUrl: 'https://demotiles.maplibre.org/style.json' })`
+- Change `center`, `zoom`, or `styleUrl` to use your own basemap.
+
+## 📡 Current Status
+- Zoom: wired via `MapZoomController` using `IMapCore` methods (`setZoom`, `onZoomEnd`).
+- Geoprocessing: service present with throttling; map operations are stubs pending full integration.

@@ -48,33 +48,60 @@ export class MapCoreService implements IMapCore {
         }
     }
 
-    public initialize(containerId: string): void {
+    public initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; styleUrl?: string }): void {
         console.log(`[CORE SERVICE] Initializing MapLibre instance in #${containerId}`);
         
+        const center = options?.center ?? this.initialConfig.center;
+        const zoom = options?.zoom ?? this.initialConfig.zoom;
+        const styleUrl = options?.styleUrl;
+
         // MAP INSTANTIATION AND STORAGE
         this.mapInstance = new maplibregl.Map({ // Instantiate using maplibregl.Map
             container: containerId, // The ID of the HTML element
-            center: this.initialConfig.center,
-            zoom: this.initialConfig.zoom,
+            center,
+            zoom,
             pitch: this.initialConfig.pitch,
             bearing: this.initialConfig.bearing            
         });
 
-        this.mapInstance.setStyle(this.initialConfig.style);
+        if (styleUrl) {
+            this.mapInstance.setStyle(styleUrl);
+        } else {
+            // Fallback minimal style
+            this.mapInstance.setStyle(this.initialConfig.style);
+        }
 
         // EVENT HANDLING FOR MAP.ON('LOAD')
         this.mapInstance.on('load', () => {
             console.log(`[CORE SERVICE] MapLibre map is fully loaded.`);
             
             // SIGNAL READINESS AND INITIAL ZOOM to the Central State Store
-            store.dispatch({ mapLoaded: true, zoomLevel: this.initialConfig.zoom }, 'MAP');
+            store.dispatch({ mapLoaded: true, zoomLevel: zoom }, 'MAP');
         });
         
-        // EVENT HANDLING for the Zoom Display component
+        // Default internal subscription updates central store
         this.mapInstance.on('zoomend', () => {
              const currentZoom = this.mapInstance!.getZoom();
-             // Push the map's current zoom to the store, ensuring UI updates
              store.dispatch({ zoomLevel: currentZoom }, 'MAP');
         });
+    }
+
+    // Library-agnostic zoom controls
+    public setZoom(level: number): void {
+        if (this.mapInstance) {
+            this.mapInstance.setZoom(level);
+        }
+    }
+
+    public onZoomEnd(callback: (level: number) => void): void {
+        if (this.mapInstance) {
+            this.mapInstance.on('zoomend', () => {
+                callback(this.mapInstance!.getZoom());
+            });
+        }
+    }
+
+    public getZoom(): number {
+        return this.mapInstance ? this.mapInstance.getZoom() : this.initialConfig.zoom;
     }
 }

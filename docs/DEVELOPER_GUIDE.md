@@ -51,3 +51,63 @@ Copy the template and hook it up to the store and adapter.
 * **Template:** Start by copying and renaming [`../src/components/modules/gis-new-tool-template.ts`](../src/components/modules/gis-new-tool-template.ts).
 * **Subscription:** Ensure the component subscribes to the store and implements the **Temporary Muting** logic (checking `this.isSettingValue` flag) to prevent feedback loops.
 * **Styling:** Use only Atomic Components and reference CSS variables (e.g., `var(--color-primary)`) for styling, never hardcoded values.
+
+## IV. Architecture Overview
+```mermaid
+flowchart LR
+        subgraph Adapter[mapAdapter]
+            MCS[MapCoreService]
+            GAS[GeoprocessingAdapterService]
+            MZC[MapZoomController]
+        end
+
+        MAP[Map Instance]
+        STORE[Central State Store]
+
+        ZCOMP[gis-zoom-display]
+        TCOMP[gis-new-tool]
+        APP[app-main.js]
+
+        %% App initializes core which creates the map instance
+        APP --> MCS
+        MCS --> MAP
+
+        %% Controllers/services depend on core
+        MZC --- MCS
+        GAS --- MCS
+
+        %% Components use controllers/services and subscribe to store
+        ZCOMP --> MZC
+        TCOMP --> GAS
+        ZCOMP --> STORE
+        TCOMP --> STORE
+
+        %% Zoom flow (UI intent -> core -> map -> store)
+        ZCOMP --> MZC
+        MZC --> MCS
+        MCS --> MAP
+        MZC --> STORE
+
+        %% Map emits zoomend -> core -> controller -> store -> UI update
+        MAP --> MCS
+        MCS --> MZC
+        MZC --> STORE
+        STORE --> ZCOMP
+
+        %% Geoprocessing flow (UI intent -> service -> core/map -> store)
+        TCOMP --> GAS
+        GAS --> MCS
+        GAS --> STORE
+```
+
+### Legend & Responsibilities
+- MapCoreService: Core map facade (initialize, set zoom, events); library-agnostic via `IMapCore`.
+- MapZoomController: Orchestrates zoom UX; binds to core, throttles UI intents, relays map zoom-end to store.
+- GeoprocessingAdapterService: Encapsulates heavy map operations (e.g., buffer/measure) with throttling; updates store.
+- Central State Store: Single source of truth; all components subscribe; updates tagged with source ('UI'|'MAP'|'INIT').
+- Components: Plugin-style Web Components; dispatch intents to controllers/services; never call map APIs directly.
+
+Notes
+- Controllers focus on a specific behavior (zoom). Services encapsulate broader operations (geoprocessing). Both live on the adapter side and use `IMapCore`.
+- For new map libraries (Leaflet/OpenLayers/Cesium), implement `MapCoreService` in `src/map/<lib>-services/` and bind it in `<lib>-adapter.ts`; components stay unchanged.
+```

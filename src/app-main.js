@@ -22,7 +22,13 @@ import { mapAdapter } from './map/maplibre-adapter.js';
 document.addEventListener('DOMContentLoaded', () => {
     const mapContainerId = 'map-container';
     
-    mapAdapter.core.initialize(mapContainerId);
+    // Initialize with OpenStreetMap style and custom viewport
+    mapAdapter.core.initialize(mapContainerId, {
+        center: [4.9041, 52.3676], // Amsterdam
+        zoom: 4.5,
+        // Use MapLibre demo OSM style; replace with your own if needed
+        styleUrl: 'https://demotiles.maplibre.org/style.json'
+    });
     
     console.log("Modular GIS UI is running. Map initialized and components registered.");
 });
