@@ -1,4 +1,4 @@
-/* src/theme/gis-style-core.css */
+/* src/theme/webmapx-style-core.css */
 
 :root {
     /* Define required CSS Custom Properties for Theming */
@@ -31,7 +31,7 @@ body {
     font-family: inherit;
 }
 
-gis-map {
+webmapx-map {
     position: relative;
     display: block;
     width: calc(100% - 100px);

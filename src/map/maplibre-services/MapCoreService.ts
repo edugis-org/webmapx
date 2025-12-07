@@ -116,14 +116,14 @@ export class MapCoreService implements IMapCore {
             return containerId;
         }
 
-        if (hostElement.tagName.toLowerCase() === 'gis-map') {
+        if (hostElement.tagName.toLowerCase() === 'webmapx-map') {
             const mapSlot = hostElement.querySelector<HTMLElement>('[slot="map-view"]');
 
             if (mapSlot) {
                 return mapSlot;
             }
 
-            console.warn('[CORE SERVICE] <gis-map> is missing a [slot="map-view"] element. Using host as fallback.');
+            console.warn('[CORE SERVICE] <webmapx-map> is missing a [slot="map-view"] element. Using host as fallback.');
         }
 
         return hostElement;

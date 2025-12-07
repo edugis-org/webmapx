@@ -1,12 +1,12 @@
 const MAP_VIEW_SLOT = 'map-view';
-const MAP_SURFACE_CLASS = 'gis-map__surface';
+const MAP_SURFACE_CLASS = 'webmapx-map__surface';
 
 /**
  * Lightweight map wrapper that keeps the map canvas and overlay tools grouped
  * without using Shadow DOM. Consumers provide one child with slot="map-view"
  * for the mapping library plus any number of default children for tools.
  */
-export class GisMapElement extends HTMLElement {
+export class WebmapxMapElement extends HTMLElement {
   private surfaceObserver?: MutationObserver;
   private currentSurface: HTMLElement | null = null;
 
@@ -33,7 +33,7 @@ export class GisMapElement extends HTMLElement {
 
     const fallback = document.createElement('div');
     fallback.setAttribute('slot', MAP_VIEW_SLOT);
-    fallback.classList.add('gis-map__auto-view');
+    fallback.classList.add('webmapx-map__auto-view');
     this.prepend(fallback);
     return fallback;
   }
@@ -94,6 +94,6 @@ export class GisMapElement extends HTMLElement {
   }
 }
 
-if (!customElements.get('gis-map')) {
-  customElements.define('gis-map', GisMapElement);
+if (!customElements.get('webmapx-map')) {
+  customElements.define('webmapx-map', WebmapxMapElement);
 }

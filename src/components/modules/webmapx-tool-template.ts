@@ -1,4 +1,4 @@
-// src/components/modules/gis-new-tool-template.ts
+// src/components/modules/webmapx-tool-template.ts
 
 // Lit library imports
 import { LitElement, html, css } from 'lit';
@@ -10,8 +10,8 @@ import { IGeoprocessingTool } from '../../map/IMapInterfaces';
 import { mapAdapter } from '../../map/maplibre-adapter'; 
 
 
-@customElement('gis-new-tool')
-export class GisNewTool extends LitElement {
+@customElement('webmapx-tool-template')
+export class WebmapxToolTemplate extends LitElement {
     
     // FIX: Both properties must be decorated with @state() to exist on the component type
     @state()

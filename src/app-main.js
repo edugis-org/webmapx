@@ -12,11 +12,11 @@ import '@shoelace-style/shoelace/dist/components/input/input.js';
 setBasePath('/shoelace-assets/'); 
 
 // 2. Register your custom Web Components
-import './components/modules/gis-map.js';
-import './components/modules/gis-new-tool.js';
-import './components/modules/gis-zoom-display.js';
-import './components/modules/gis-map-layout.ts';
-import './components/modules/gis-inset-map.ts';
+import './components/modules/webmapx-map.ts';
+import './components/modules/webmapx-tool-template.ts';
+import './components/modules/webmapx-zoom-level.ts';
+import './components/modules/webmapx-layout.ts';
+import './components/modules/webmapx-inset-map.ts';
 
 // 3. Import the Central State Store and Map Adapter
 import { mapAdapter } from './map/maplibre-adapter.js'; 

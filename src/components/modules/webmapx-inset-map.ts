@@ -2,8 +2,8 @@ import { css, html, LitElement, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { mapAdapter } from '../../map/maplibre-adapter';
 
-@customElement('gis-inset-map')
-export class GisInsetMap extends LitElement {
+@customElement('webmapx-inset-map')
+export class WebmapxInsetMap extends LitElement {
   @property({ type: Number, attribute: 'zoom-offset' })
   public zoomOffset = -3;
 
@@ -20,8 +20,8 @@ export class GisInsetMap extends LitElement {
   static styles = css`
     :host {
       display: inline-block;
-      width: var(--gis-inset-width, 256px);
-      height: var(--gis-inset-height, 256px);
+      width: var(--webmapx-inset-width, 256px);
+      height: var(--webmapx-inset-height, 256px);
       border: 1px solid var(--color-border, #ccc);
       border-radius: 6px;
       overflow: hidden;
@@ -41,10 +41,10 @@ export class GisInsetMap extends LitElement {
       position: absolute;
       top: 50%;
       left: 50%;
-      width: var(--gis-inset-internal-size, 512px);
-      height: var(--gis-inset-internal-size, 512px);
+      width: var(--webmapx-inset-internal-size, 512px);
+      height: var(--webmapx-inset-internal-size, 512px);
       transform-origin: center;
-      transform: translate(-50%, -50%) scale(var(--gis-inset-scale, 0.5));
+      transform: translate(-50%, -50%) scale(var(--webmapx-inset-scale, 0.5));
     }
   `;
 

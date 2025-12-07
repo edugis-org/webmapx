@@ -5,8 +5,8 @@ import { customElement, property } from 'lit/decorators.js';
  * Lightweight overlay layout that mirrors the positioning pattern from the provided map-positioner
  * example while staying pointer-transparent for the underlying map canvas.
  */
-@customElement('gis-map-layout')
-export class GisMapLayout extends LitElement {
+@customElement('webmapx-layout')
+export class WebmapxLayout extends LitElement {
   /** Optional z-index that gets applied to the host element when set. */
   @property({ type: Number, attribute: 'z-index' })
   public zIndex?: number;
@@ -23,7 +23,7 @@ export class GisMapLayout extends LitElement {
       position: relative;
       width: 100%;
       height: 100%;
-      padding: var(--gis-map-layout-inset, 16px);
+      padding: var(--webmapx-layout-inset, 16px);
       box-sizing: border-box;
     }
 
@@ -32,27 +32,27 @@ export class GisMapLayout extends LitElement {
       pointer-events: auto;
       display: flex;
       flex-direction: column;
-      gap: var(--gis-map-layout-slot-gap, 12px);
+      gap: var(--webmapx-layout-slot-gap, 12px);
     }
 
     .slot-zone--top-left {
-      top: var(--gis-map-layout-edge-offset, 16px);
-      left: var(--gis-map-layout-edge-offset, 16px);
+      top: var(--webmapx-layout-edge-offset, 16px);
+      left: var(--webmapx-layout-edge-offset, 16px);
     }
 
     .slot-zone--middle-left {
       top: 50%;
-      left: var(--gis-map-layout-edge-offset, 16px);
+      left: var(--webmapx-layout-edge-offset, 16px);
       transform: translateY(-50%);
     }
 
     .slot-zone--bottom-left {
-      bottom: var(--gis-map-layout-edge-offset, 16px);
-      left: var(--gis-map-layout-edge-offset, 16px);
+      bottom: var(--webmapx-layout-edge-offset, 16px);
+      left: var(--webmapx-layout-edge-offset, 16px);
     }
 
     .slot-zone--top-center {
-      top: var(--gis-map-layout-edge-offset, 16px);
+      top: var(--webmapx-layout-edge-offset, 16px);
       left: 50%;
       transform: translateX(-50%);
       align-items: center;
@@ -66,28 +66,28 @@ export class GisMapLayout extends LitElement {
     }
 
     .slot-zone--bottom-center {
-      bottom: var(--gis-map-layout-edge-offset, 16px);
+      bottom: var(--webmapx-layout-edge-offset, 16px);
       left: 50%;
       transform: translateX(-50%);
       align-items: center;
     }
 
     .slot-zone--top-right {
-      top: var(--gis-map-layout-edge-offset, 16px);
-      right: var(--gis-map-layout-edge-offset, 16px);
+      top: var(--webmapx-layout-edge-offset, 16px);
+      right: var(--webmapx-layout-edge-offset, 16px);
       align-items: flex-end;
     }
 
     .slot-zone--middle-right {
       top: 50%;
-      right: var(--gis-map-layout-edge-offset, 16px);
+      right: var(--webmapx-layout-edge-offset, 16px);
       transform: translateY(-50%);
       align-items: flex-end;
     }
 
     .slot-zone--bottom-right {
-      bottom: var(--gis-map-layout-edge-offset, 16px);
-      right: var(--gis-map-layout-edge-offset, 16px);
+      bottom: var(--webmapx-layout-edge-offset, 16px);
+      right: var(--webmapx-layout-edge-offset, 16px);
       align-items: flex-end;
     }
   `;

@@ -1,4 +1,4 @@
-// src/components/modules/gis-zoom-display.ts
+// src/components/modules/webmapx-zoom-level.ts
 
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
@@ -6,8 +6,8 @@ import { store } from '../../store/central-state';
 import { IAppState, StateSource } from '../../store/IState'; 
 import { mapZoomController } from '../../map/maplibre-services/MapZoomController'; // Conceptual service import
 
-@customElement('gis-zoom-display')
-export class GisZoomDisplay extends LitElement {
+@customElement('webmapx-zoom-level')
+export class WebmapxZoomLevel extends LitElement {
     
     @state()
     private currentZoom: number | null = store.getState().zoomLevel;

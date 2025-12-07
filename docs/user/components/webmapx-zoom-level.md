@@ -1,4 +1,4 @@
-# `gis-zoom-display`
+# `webmapx-zoom-level`
 
 Compact zoom readout/input that stays synchronized with the map's zoom level.
 
@@ -9,7 +9,7 @@ Compact zoom readout/input that stays synchronized with the map's zoom level.
 
 ## Usage
 ```html
-<gis-zoom-display slot="bottom-left"></gis-zoom-display>
+<webmapx-zoom-level slot="bottom-left"></webmapx-zoom-level>
 ```
 
 ## Behavior

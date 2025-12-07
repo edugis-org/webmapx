@@ -66,7 +66,7 @@ export class MapInsetController {
     map.touchZoomRotate?.disable();
 
     this.contexts.set(container, { container, map, options: resolvedOptions });
-    container.style.setProperty('--gis-inset-scale', `${resolvedOptions.baseScale}`);
+    container.style.setProperty('--webmapx-inset-scale', `${resolvedOptions.baseScale}`);
     this.ensureSubscription();
     this.applyStateToContext(this.contexts.get(container)!, state);
   }
@@ -115,7 +115,7 @@ export class MapInsetController {
     const requestedZoom = (state.zoomLevel ?? 0) + context.options.zoomOffset;
     const view = this.resolveViewState(requestedZoom, context.options);
 
-    context.container.style.setProperty('--gis-inset-scale', `${view.scale}`);
+    context.container.style.setProperty('--webmapx-inset-scale', `${view.scale}`);
     context.map.jumpTo({ center: state.mapCenter, zoom: view.mapZoom, bearing: 0, pitch: 0 });
   }
 
