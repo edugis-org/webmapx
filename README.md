@@ -1,6 +1,6 @@
 # 🗺️ WebMapX - Modular Web Map UI
 
-A highly modular and map-library-agnostic User Interface built for dynamic Web GIS applications. This project is architected to allow easy swapping of map backends (MapLibre, OpenLayers, Cesium) and features a centralized, robust state management system to ensure consistency and performance.
+A highly modular and map-library-agnostic User Interface built for dynamic Web GIS applications. This project is architected to allow easy swapping of map backends (MapLibre, OpenLayers, Cesium) and features a scoped, per-map state management system to ensure consistency and performance.
 
 ## 🚀 Architectural Pillars
 
