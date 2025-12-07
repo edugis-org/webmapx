@@ -24,4 +24,4 @@ All notable changes to this project will be documented here.
 
 ### Changed
 - Exposed `zoomController` via adapter and bound to core internally; removed unsafe casts.
-- `IMapCore.initialize` accepts `{ center, zoom, styleUrl }`; `src/app-main.js` configures OSM demo style and non-default viewport.
+- `IMapCore.initialize` accepts `{ center, zoom, styleUrl }`; `src/app.js` configures OSM demo style and non-default viewport.

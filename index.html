@@ -9,18 +9,26 @@
     
     <link rel="stylesheet" href="./src/theme/webmapx-style-core.css"> 
     
-    <script type="module" src="./src/app-main.js"></script> 
+    <link rel="stylesheet" href="./app.css">
+    <script type="module" src="./src/app.js"></script> 
 </head>
 <body>
-    <webmapx-map id="map-container" adapter="maplibre">
-        <webmapx-layout>
-          <webmapx-tool-template slot="bottom-right"></webmapx-tool-template>
-          <webmapx-zoom-level slot="bottom-right" ></webmapx-zoom-level>
-          <webmapx-zoom-level slot="bottom-left" ></webmapx-zoom-level>
-          <webmapx-inset-map slot="middle-left" zoom-offset="-3"></webmapx-inset-map>
-        </webmapx-layout>
-        <webmapx-tool-template></webmapx-tool-template>
-        <webmapx-zoom-level></webmapx-zoom-level>
-    </webmapx-map>
+    <div class="table">
+        <div>
+            <webmapx-map id="map-container" adapter="maplibre">
+                <webmapx-layout>
+                <webmapx-tool-template slot="bottom-right"></webmapx-tool-template>
+                <webmapx-zoom-level slot="bottom-right" ></webmapx-zoom-level>
+                <webmapx-zoom-level slot="bottom-left" ></webmapx-zoom-level>
+                <webmapx-inset-map slot="middle-left" zoom-offset="-3"></webmapx-inset-map>
+                </webmapx-layout>
+                <webmapx-tool-template></webmapx-tool-template>
+                <webmapx-zoom-level></webmapx-zoom-level>
+            </webmapx-map>
+        </div>
+        <div>
+            <webmapx-zoom-level map="#map-container"></webmapx-zoom-level>
+        </div>
+    </div>
 </body>
 </html>

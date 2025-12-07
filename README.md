@@ -45,10 +45,10 @@ For a detailed guide on creating new components, understanding the data flow, an
     - `"target": "es2020"` and `"module": "esnext"` so emitted code matches modern evergreen browsers.
     - `"experimentalDecorators": true` and `"useDefineForClassFields": false` enable Lit's decorator syntax (`@customElement`, `@state`, etc.) and align with its class-field semantics.
     - `"moduleResolution": "node"` ensures bare module specifiers (Shoelace, Lit, MapLibre) resolve the same way in both TS and Vite.
-- Component authoring pattern: `.ts` files in `src/components/modules` export Lit elements that are registered once and side-effect imported from `src/app-main.js`, keeping TypeScript (for DX) while Vite handles bundling and dev-time transpilation automatically.
+- Component authoring pattern: `.ts` files in `src/components/modules` export Lit elements that are registered once and side-effect imported from `src/app.js`, keeping TypeScript (for DX) while Vite handles bundling and dev-time transpilation automatically.
 
 ## 🎛️ Map Initialization (OSM demo)
-- The entry `src/app-main.js` initializes the map with a custom viewport and an OpenStreetMap style via MapLibre:
+- The entry `src/app.js` initializes the map with a custom viewport and an OpenStreetMap style via MapLibre:
     - `mapAdapter.core.initialize('map-container', { center: [4.9041, 52.3676], zoom: 11, styleUrl: 'https://demotiles.maplibre.org/style.json' })`
 - Change `center`, `zoom`, or `styleUrl` to use your own basemap.
 

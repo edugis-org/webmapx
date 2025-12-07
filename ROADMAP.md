@@ -17,7 +17,7 @@ Goals: keep components plugin-like, map-agnostic, and state-driven.
 
 ## Recent Updates
 - `IMapCore.initialize` accepts `{ center, zoom, styleUrl }` for runtime configuration.
-- `app-main.js` initializes OSM demo style and Amsterdam viewport.
+- `app.js` initializes OSM demo style and Amsterdam viewport.
 - Mermaid architecture diagram added to `docs/DEVELOPER_GUIDE.md`.
 
 ## Guardrails

@@ -1,4 +1,4 @@
-// src/app-main.js (Final Corrected Version)
+// src/app.js (Final Corrected Version)
 
 // 0. Import setBasePath using the bare module specifier
 import { setBasePath } from '@shoelace-style/shoelace/dist/utilities/base-path.js';
@@ -23,13 +23,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const mapContainerId = 'map-container';
     const mapElement = document.getElementById(mapContainerId);
     if (!mapElement) {
-        console.error(`[app-main] Unable to find <webmapx-map id="${mapContainerId}">`);
+        console.error(`[app] Unable to find <webmapx-map id="${mapContainerId}">`);
         return;
     }
 
     const adapter = mapElement.adapter;
     if (!adapter) {
-        console.error('[app-main] Map adapter is not available on <webmapx-map>.');
+        console.error('[app] Map adapter is not available on <webmapx-map>.');
         return;
     }
     

@@ -14,7 +14,7 @@ Example geoprocessing control that demonstrates how UI modules integrate with th
 
 ## Behavior
 - Host element is `inline-flex` with pointer events enabled, so it can live inside or outside `<webmapx-layout>` without extra CSS.
-- Internal Shoelace controls (`sl-range`, `sl-button`) are imported in `src/app-main.js`—ensure that file remains the single registration point.
+- Internal Shoelace controls (`sl-range`, `sl-button`) are imported in `src/app.js`—ensure that file remains the single registration point.
 - An internal temporary-muting flag avoids feedback loops when responding to store updates.
 
 ## When to Copy

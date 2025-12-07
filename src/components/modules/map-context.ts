@@ -18,9 +18,10 @@ export function resolveMapElement(host: HTMLElement): WebmapxMapElement | null {
   const explicitSelector = host.getAttribute('map');
   if (explicitSelector) {
     const explicitMatch = queryWithSelector(explicitSelector);
-    if (explicitMatch) {
-      return explicitMatch;
+    if (!explicitMatch) {
+      console.error(`[webmapx] No <webmapx-map> found for selector "${explicitSelector}" on ${host.tagName.toLowerCase()}.`);
     }
+    return explicitMatch;
   }
 
   const ancestor = host.closest('webmapx-map');

@@ -14,7 +14,7 @@ Compact zoom readout/input that stays synchronized with the map's zoom level.
 
 ## Behavior
 - Host is `inline-flex` with its own card styling; additional CSS is optional.
-- Uses Shoelace `<sl-input>` (imported in `src/app-main.js`).
+- Uses Shoelace `<sl-input>` (imported in `src/app.js`).
 - Emits intents through the adapter layer instead of calling MapLibre directly, keeping the architecture loop-safe.
 
 ## Tips

@@ -14,7 +14,7 @@ This guide explains how to assemble the Modular GIS Web UI as an application dev
      </webmapx-layout>
    </webmapx-map>
    ```
-4. Initialize the map in `src/app-main.js` via `mapAdapter.core.initialize('map-container', config)`.
+4. Initialize the map in `src/app.js` via `mapAdapter.core.initialize('map-container', config)`.
 
 ## Core Concepts
 - **Map Host (`<webmapx-map>`):** Wraps the mapping library surface and any overlay elements. No knowledge of internal slots is required—the element injects a canvas automatically if none is provided.
