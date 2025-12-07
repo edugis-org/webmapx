@@ -4,6 +4,7 @@ All notable changes to this project will be documented here.
 ## [Unreleased]
 - Refactor `gis-zoom-display` to adapter-based zoom controller.
 - Implement real MapLibre calls in services.
+- Added `mapCenter` state, MapLibre move tracking, inset controller, and `<gis-inset-map>` component for overview maps.
 
 ## [2025-12-06]
 ### Added

@@ -32,6 +32,7 @@ For a detailed guide on creating new components, understanding the data flow, an
 - `<gis-map>` now self-manages its map surface: if you omit a `[slot="map-view"]`, it injects one, styles it with the required absolute positioning, and keeps it in sync if you replace the node later. Consumers no longer need to know about the internal slot to get a working canvas.
 - `<gis-map-layout>` is an optional overlay scaffold that sits above the map, is pointer-transparent by default, and exposes nine positional slots (`top-left`, `middle-left`, … `bottom-right`). Each slot wrapper is absolutely positioned so your tools retain intrinsic sizing without requiring grid/flex boilerplate.
 - Tools placed outside the layout (`<gis-new-tool>`, `<gis-zoom-display>`, custom components) still render correctly thanks to their own `inline-flex` host styling; use regular CSS if you want to anchor them without the layout helper.
+- `<gis-inset-map>` consumes the shared store (center + zoom) to render a passive overview map with a configurable zoom offset. Place it in any layout slot to give users spatial context.
 
 ## ⚙️ Build & Dev Workflow
 - `npm install` once after cloning to pull dependencies.

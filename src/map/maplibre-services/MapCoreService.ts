@@ -77,13 +77,19 @@ export class MapCoreService implements IMapCore {
             console.log(`[CORE SERVICE] MapLibre map is fully loaded.`);
             
             // SIGNAL READINESS AND INITIAL ZOOM to the Central State Store
-            store.dispatch({ mapLoaded: true, zoomLevel: zoom }, 'MAP');
+            store.dispatch({ mapLoaded: true, zoomLevel: zoom, mapCenter: center }, 'MAP');
         });
         
         // Default internal subscription updates central store
         this.mapInstance.on('zoomend', () => {
              const currentZoom = this.mapInstance!.getZoom();
              store.dispatch({ zoomLevel: currentZoom }, 'MAP');
+        });
+
+        this.mapInstance.on('moveend', () => {
+            const currentCenter = this.mapInstance!.getCenter().toArray() as [number, number];
+            const currentZoom = this.mapInstance!.getZoom();
+            store.dispatch({ mapCenter: currentCenter, zoomLevel: currentZoom }, 'MAP');
         });
     }
 

@@ -24,6 +24,7 @@ This guide explains how to assemble the Modular GIS Web UI as an application dev
 ## Component Reference
 - [`gis-map`](./components/gis-map.md)
 - [`gis-map-layout`](./components/gis-map-layout.md)
+- [`gis-inset-map`](./components/gis-inset-map.md)
 - [`gis-new-tool`](./components/gis-new-tool.md)
 - [`gis-zoom-display`](./components/gis-zoom-display.md)
 
