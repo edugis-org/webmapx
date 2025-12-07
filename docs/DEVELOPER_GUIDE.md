@@ -55,66 +55,64 @@ Copy the template and hook it up to the store and adapter.
 ## IV. Architecture Overview
 ```mermaid
 flowchart LR
-    subgraph Registry["adapter-registry"]
-        REG["registerMapAdapter()"]
+    %% Diagram A: Adapter selection
+    subgraph A["A. Adapter Selection"]
+        subgraph Registry["adapter-registry"]
+            REG["registerMapAdapter()"]
+        end
+        subgraph MapElement["<webmapx-map>"]
+            ATTR["adapter attr"]
+            ADAPTER["IMapAdapter"]
+        end
+        REG --> ATTR
+        ATTR --> ADAPTER
     end
 
-    subgraph MapElement["<webmapx-map>"]
-        ATTR["adapter attribute"]
-        ADAPTER["IMapAdapter instance"]
+    %% Diagram B: Adapter composition
+    subgraph B["B. Adapter Composition"]
+        subgraph Services["IMapAdapter Internals"]
+            MCS["MapCoreService"]
+            MST["MapServiceTemplate"]
+            MZC["MapZoomController"]
+            INSET["MapInsetController"]
+            STORE["Map State Store"]
+        end
+        MCS --> MAP["Map Library"]
+        MAP --> MCS
+        MCS --> STORE
+        MST --> STORE
+        MZC --> STORE
+        STORE --> INSET
     end
-
-    subgraph Adapter["Adapter Implementation"]
-        MCS["MapCoreService"]
-        MST["MapServiceTemplate"]
-        MZC["MapZoomController"]
-        INSET["MapInsetController"]
-    end
-
-    MAP["Map Library Instance"]
-    STORE["Map State Store"]
-
-    ZCOMP["webmapx-zoom-level"]
-    TCOMP["webmapx-tool-template"]
-    APP["app-main.js"]
-
-    %% Registry injects the adapter factory used by each map element
-    REG --> ATTR
-    ATTR --> ADAPTER
-
-    %% Map element exposes adapter to app/components
-    APP --> ADAPTER
-    ZCOMP --> ADAPTER
-    TCOMP --> ADAPTER
-
-    %% Adapter composes services/controllers/core
     ADAPTER --> MCS
     ADAPTER --> MST
     ADAPTER --> MZC
     ADAPTER --> INSET
 
-    %% Core controls the concrete map library instance
-    MCS --> MAP
-    MAP --> MCS
+    %% Diagram C: UI <-> Store flows
+    subgraph C["C. UI ↔ Store Flows"]
+        ZCOMP["webmapx-zoom-level"]
+        TCOMP["webmapx-tool-template"]
+        MZC2["MapZoomController"]
+        MST2["MapServiceTemplate"]
+        MCS2["MapCoreService"]
+        MAP2["Map Library"]
 
-    %% Services/controllers collaborate with core
-    MZC --- MCS
-    MST --- MCS
-    INSET --> STORE
+        ZCOMP --> MZC2
+        MZC2 --> MCS2
+        MCS2 --> MAP2
+        MZC2 --> STORE
+        STORE --> ZCOMP
 
-    %% Components subscribe to store
-    ZCOMP --> STORE
-    TCOMP --> STORE
+        TCOMP --> MST2
+        MST2 --> MCS2
+        MST2 --> STORE
+        STORE --> TCOMP
 
-    %% Zoom flow (UI intent -> adapter -> core -> map -> store)
-    ZCOMP --> MZC
-    MZC --> MCS
-    MZC --> STORE
-
-    %% Tool flow (UI intent -> adapter service -> core/map -> store)
-    TCOMP --> MST
-    MST --> MCS
-    MST --> STORE
+        %% Map events propagated to store
+        MAP2 --> MCS2
+        MCS2 --> STORE
+    end
 ```
 
 ### Legend & Responsibilities

@@ -1,14 +1,14 @@
 // src/components/modules/webmapx-zoom-level.ts
 
-import { LitElement, html, css } from 'lit';
+import { html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { MapStateStore } from '../../store/map-state-store';
-import { IAppState, StateSource } from '../../store/IState'; 
+import { WebmapxBaseTool } from './webmapx-base-tool';
+import { IAppState } from '../../store/IState'; 
 import { IMapZoomController } from '../../map/IMapInterfaces';
-import { resolveMapAdapter } from './map-context';
+import { IMapAdapter } from '../../map/IMapAdapter';
 
 @customElement('webmapx-zoom-level')
-export class WebmapxZoomLevel extends LitElement {
+export class WebmapxZoomLevel extends WebmapxBaseTool {
     
     @state()
     private currentZoom: number | null = null;
@@ -17,8 +17,6 @@ export class WebmapxZoomLevel extends LitElement {
     @state()
     private inputValue: string = '';
 
-    private unsubscribe: (() => void) | null = null; 
-    private store: MapStateStore | null = null;
     private zoomController: IMapZoomController | null = null;
 
     static styles = css`
@@ -72,42 +70,17 @@ export class WebmapxZoomLevel extends LitElement {
         }
     `;
 
-    connectedCallback(): void {
-        super.connectedCallback();
-        this.bindToMap();
-    }
-
-    disconnectedCallback(): void {
-        this.releaseStore();
-        super.disconnectedCallback();
-    }
-
-    private bindToMap(): void {
-        this.releaseStore();
-        const adapter = resolveMapAdapter(this);
-        if (!adapter) {
-            return;
-        }
-
-        this.store = adapter.store;
+    protected onMapAttached(adapter: IMapAdapter): void {
         this.zoomController = adapter.zoomController;
-        this.unsubscribe = this.store.subscribe(this.handleStateChange);
-        this.syncFromState(this.store.getState());
     }
 
-    private releaseStore(): void {
-        if (this.unsubscribe) {
-            this.unsubscribe();
-            this.unsubscribe = null;
-        }
-        this.store = null;
+    protected onMapDetached(): void {
         this.zoomController = null;
     }
 
-    private handleStateChange = (state: IAppState, source: StateSource) => {
-        // Update both the component's internal zoom state and the input field value
+    protected onStateChanged(state: IAppState): void {
         this.syncFromState(state);
-    };
+    }
 
     private syncFromState(state: IAppState): void {
         if (state.zoomLevel == null) {
@@ -147,7 +120,6 @@ export class WebmapxZoomLevel extends LitElement {
 
         const zoomValue = parseFloat(this.inputValue);
         if (!isNaN(zoomValue) && zoomValue >= 0) {
-            // Dispatch Intent to the Adapter Service
             this.zoomController?.setZoom(zoomValue); 
         }
     }
