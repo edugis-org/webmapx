@@ -6,7 +6,7 @@ import { customElement, state } from 'lit/decorators.js'; // <- CRITICAL IMPORTS
 
 import { store } from '../../store/central-state';
 import { IAppState, StateSource } from '../../store/IState'; 
-import { IGeoprocessingTool } from '../../map/IMapInterfaces'; 
+import { IToolService } from '../../map/IMapInterfaces'; 
 import { mapAdapter } from '../../map/maplibre-adapter'; 
 
 
@@ -21,7 +21,7 @@ export class WebmapxToolTemplate extends LitElement {
     private isToolActive: boolean = store.getState().currentTool === 'Buffer';
 
     private isSettingValue: boolean = false; 
-    private geoToolService: IGeoprocessingTool = mapAdapter.geoprocessingTool;
+    private toolService: IToolService = mapAdapter.toolService;
     private unsubscribe: (() => void) | null = null;
 
     // Define component styles
@@ -83,7 +83,7 @@ export class WebmapxToolTemplate extends LitElement {
         store.dispatch({ bufferRadiusKm: value }, 'UI'); 
 
         // 2. Dispatch Intent to the Adapter (tells the *map* to perform the action)
-        this.geoToolService.setBufferRadius(value); 
+        this.toolService.setBufferRadius(value); 
 
         // Reset muting flag after a short delay
         setTimeout(() => { this.isSettingValue = false; }, 50); 
@@ -93,7 +93,7 @@ export class WebmapxToolTemplate extends LitElement {
      * Handles the tool toggle button (Dispatches Intent).
      */
     private handleToolToggle() {
-        this.geoToolService.toggleTool();
+        this.toolService.toggleTool();
     }
 
     /**

@@ -1,9 +1,9 @@
 // src/map/maplibre-adapter.ts
 
-import { IMapCore, IGeoprocessingTool } from './IMapInterfaces'; 
+import { IMapCore, IToolService } from './IMapInterfaces';
 // FIX: Import the service classes from their new dedicated files
 import { MapCoreService } from './maplibre-services/MapCoreService';
-import { GeoprocessingAdapterService } from './maplibre-services/GeoprocessingAdapterService';
+import { MapServiceTemplate } from './maplibre-services/MapServiceTemplate';
 import { mapZoomController } from './maplibre-services/MapZoomController';
 import { mapInsetController } from './maplibre-services/MapInsetController';
 
@@ -17,14 +17,14 @@ class MapLibreAdapter {
 
     // The composed services adhering to the contracts
     public core: IMapCore;
-    public geoprocessingTool: IGeoprocessingTool;
+    public toolService: IToolService;
     public zoomController: any;
     public inset = mapInsetController;
 
     constructor() {
         // Now assigned correctly via import, resolving the "Cannot find name" error
         this.core = new MapCoreService();
-        this.geoprocessingTool = new GeoprocessingAdapterService(this.mapInstance);
+        this.toolService = new MapServiceTemplate(this.mapInstance);
         this.zoomController = mapZoomController;
         // Bind core to the zoom controller for map-agnostic wiring
         this.zoomController.setCore(this.core);

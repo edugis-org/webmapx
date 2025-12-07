@@ -52,16 +52,16 @@ export interface ILayerStyleEditor {
 }
 
 /**
- * Interface for Geoprocessing Tools (e.g., Buffer or Measure).
- * Referenced by a 'Buffer Tool' module.
- * * NOTE: This is where you would define the new capability for a feature.
+ * Template interface for tool services.
+ * Copy and adapt this interface when creating new tool services.
+ * NOTE: This is where you would define the new capability for a feature.
  */
-export interface IGeoprocessingTool {
-    /** Toggles the activation state of the buffer drawing/measurement tool. */
+export interface IToolService {
+    /** Toggles the activation state of the tool. */
     toggleTool(): void;
-    
-    /** Sets the radius for a geo-buffer operation. 
-     * This method must be handled by an Adapter Service to ensure robustness 
+
+    /** Sets the radius for a geo-buffer operation.
+     * This method must be handled by an Adapter Service to ensure robustness
      * (e.g., using throttle() if it's an expensive API call).
      */
     setBufferRadius(radiusKm: number): void;

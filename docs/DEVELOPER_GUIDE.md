@@ -20,7 +20,7 @@ The system operates on a strict **Unidirectional Data Flow**. A UI component **N
 
 | Task | Where it Belongs | File Path |
 | :--- | :--- | :--- |
-| **GIS Buffering** | Geoprocessing Adapter Service | [`../src/map/maplibre-services/GeoprocessingAdapterService.ts`](../src/map/maplibre-services/GeoprocessingAdapterService.ts) |
+| **GIS Buffering** | Map Service Template | [`../src/map/maplibre-services/MapServiceTemplate.ts`](../src/map/maplibre-services/MapServiceTemplate.ts) |
 | **Opacity Throttling** | Style Adapter Service | [`../src/map/maplibre-services/StyleAdapterService.ts`](../src/map/maplibre-services/StyleAdapterService.ts) |
 | **Calculating New State** | Central State Store (actions/reducers) | [`../src/store/central-state.ts`](../src/store/central-state.ts) |
 
@@ -57,7 +57,7 @@ Copy the template and hook it up to the store and adapter.
 flowchart LR
         subgraph Adapter[mapAdapter]
             MCS[MapCoreService]
-            GAS[GeoprocessingAdapterService]
+            MST[MapServiceTemplate]
             MZC[MapZoomController]
         end
 
@@ -74,11 +74,11 @@ flowchart LR
 
         %% Controllers/services depend on core
         MZC --- MCS
-        GAS --- MCS
+        MST --- MCS
 
         %% Components use controllers/services and subscribe to store
         ZCOMP --> MZC
-        TCOMP --> GAS
+        TCOMP --> MST
         ZCOMP --> STORE
         TCOMP --> STORE
 
@@ -94,16 +94,16 @@ flowchart LR
         MZC --> STORE
         STORE --> ZCOMP
 
-        %% Geoprocessing flow (UI intent -> service -> core/map -> store)
-        TCOMP --> GAS
-        GAS --> MCS
-        GAS --> STORE
+        %% Tool service flow (UI intent -> service -> core/map -> store)
+        TCOMP --> MST
+        MST --> MCS
+        MST --> STORE
 ```
 
 ### Legend & Responsibilities
 - MapCoreService: Core map facade (initialize, set zoom, events); library-agnostic via `IMapCore`.
 - MapZoomController: Orchestrates zoom UX; binds to core, throttles UI intents, relays map zoom-end to store.
-- GeoprocessingAdapterService: Encapsulates heavy map operations (e.g., buffer/measure) with throttling; updates store.
+- MapServiceTemplate: Template for tool services; encapsulates map operations with throttling; updates store.
 - Central State Store: Single source of truth; all components subscribe; updates tagged with source ('UI'|'MAP'|'INIT').
 - Components: Plugin-style Web Components; dispatch intents to controllers/services; never call map APIs directly.
 
