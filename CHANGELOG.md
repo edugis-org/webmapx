@@ -2,6 +2,9 @@
 All notable changes to this project will be documented here.
 
 ## [Unreleased]
+- Added `IMapAdapter` contract plus `adapter-registry` so `<webmapx-map>` can instantiate adapters by name (default `maplibre`) and remain map-library agnostic.
+- Introduced per-component map context helpers so every tool resolves its host map instead of depending on global singletons.
+- Renamed `central-state` to `map-state-store`; each adapter now owns an isolated `MapStateStore` instance with updated documentation across README, roadmap, and developer/user guides.
 - Renamed project to WebMapX; all `gis-*` components renamed to `webmapx-*`:
   - `gis-map` → `webmapx-map`
   - `gis-map-layout` → `webmapx-layout`

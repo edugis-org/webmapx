@@ -2,7 +2,7 @@
 // subscribed UI components. It is also where the Feedback Loop Prevention logic 
 // is implemented, by tagging state changes with their source ('UI' or 'MAP').
 
-// src/store/central-state.ts
+// src/store/map-state-store.ts
 
 import { IAppState, StateSource } from './IState'; 
 
@@ -11,7 +11,7 @@ import { IAppState, StateSource } from './IState';
 // Simple Observer pattern setup
 type Listener = (state: IAppState, source: StateSource) => void;
 
-class CentralStateStore {
+export class MapStateStore {
     // ... (implementation code from previous step)
     private state: IAppState = {
         mapLoaded: false,
@@ -44,6 +44,3 @@ class CentralStateStore {
         };
     }
 }
-
-// Export the singleton store instance
-export const store = new CentralStateStore();

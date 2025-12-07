@@ -5,7 +5,7 @@ A highly modular and map-library-agnostic User Interface built for dynamic Web G
 ## 🚀 Architectural Pillars
 
 1.  **Map Library Agnosticism (Adapter Pattern):** All UI components interact with the map through specialized interfaces (e.g., ILayerStyleEditor), shielding the UI from MapLibre-specific APIs.
-2.  **Central State Management:** The entire application state is stored in a single source of truth (`/src/store/central-state.ts`) to ensure components are synchronized and reactive.
+2.  **Map State Management:** Each map owns a scoped state store (`/src/store/map-state-store.ts`) so components stay synchronized with their host map instance while remaining isolated from other maps.
 3.  **Robustness and Performance:** Solutions for common web map challenges are built directly into the architecture:
     * **Feedback Loop Prevention:** State changes are tagged with their `source` ('UI' or 'MAP') to prevent components from endlessly updating themselves.
     * **Throttling:** Expensive map API calls are rate-limited to maintain high frame rates during continuous interactions (like slider drags).
@@ -16,7 +16,7 @@ A highly modular and map-library-agnostic User Interface built for dynamic Web G
 | Directory | Role | Example File Path | Key Architectural Element |
 | :--- | :--- | :--- | :--- |
 | `/src/components/modules` | Feature Components | [`./src/components/modules/webmapx-tool-template.ts`](./src/components/modules/webmapx-tool-template.ts) | **Low Complexity** (Reads State, Dispatches Intent) |
-| `/src/store` | Application State | [`./src/store/central-state.ts`](./src/store/central-state.ts) | **Central State Store** (Source of Truth, Loop Prevention) |
+| `/src/store` | Application State | [`./src/store/map-state-store.ts`](./src/store/map-state-store.ts) | **Map State Store** (Source of Truth, Loop Prevention) |
 | `/src/map` | Map Abstraction Layer | [`./src/map/maplibre-adapter.ts`](./src/map/maplibre-adapter.ts) | **Modular Adapter Pattern** (Composition / Proxy) |
 | `/src/utils` | Shared Code | [`./src/utils/throttle.ts`](./src/utils/throttle.ts) | **Performance Utilities** (Throttling) |
 

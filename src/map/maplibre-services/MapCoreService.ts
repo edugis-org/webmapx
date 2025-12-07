@@ -1,7 +1,7 @@
 // src/map/maplibre-services/MapCoreService.ts
 
 import { IMapCore } from '../IMapInterfaces'; 
-import { store } from '../../store/central-state';
+import { MapStateStore } from '../../store/map-state-store';
 
 // 💡 FIX: Use wildcard import (* as) instead of default import (import maplibregl)
 import * as maplibregl from 'maplibre-gl'; 
@@ -11,6 +11,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
  * Implements the core map contract (IMapCore) for the MapLibre engine.
  */
 export class MapCoreService implements IMapCore {
+    constructor(private readonly store: MapStateStore) {}
     
     // The Map type is now accessed as maplibregl.Map
     private mapInstance: maplibregl.Map | null = null; 
@@ -73,19 +74,19 @@ export class MapCoreService implements IMapCore {
         }
 
         this.mapInstance.on('load', () => {
-            store.dispatch({ mapLoaded: true, zoomLevel: zoom, mapCenter: center }, 'MAP');
+            this.store.dispatch({ mapLoaded: true, zoomLevel: zoom, mapCenter: center }, 'MAP');
         });
         
-        // Default internal subscription updates central store
+        // Default internal subscription updates the map state store
         this.mapInstance.on('zoomend', () => {
              const currentZoom = this.mapInstance!.getZoom();
-             store.dispatch({ zoomLevel: currentZoom }, 'MAP');
+             this.store.dispatch({ zoomLevel: currentZoom }, 'MAP');
         });
 
         this.mapInstance.on('moveend', () => {
             const currentCenter = this.mapInstance!.getCenter().toArray() as [number, number];
             const currentZoom = this.mapInstance!.getZoom();
-            store.dispatch({ mapCenter: currentCenter, zoomLevel: currentZoom }, 'MAP');
+            this.store.dispatch({ mapCenter: currentCenter, zoomLevel: currentZoom }, 'MAP');
         });
     }
 

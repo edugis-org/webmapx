@@ -26,5 +26,5 @@ Entry 2025-12-07
 - Changes: None yet—planning for next session.
 - Decisions: None.
 - Next steps:
-	1. Move the central store from global scope into each `<webmapx-map>` instance (one store per map) so multiple maps can coexist without shared state collisions.
+	1. Move the map state store from global scope into each `<webmapx-map>` instance (one store per map) so multiple maps can coexist without shared state collisions.
 	2. Allow tools to live outside `<webmapx-map>` but reference the intended map via an attribute (e.g., `map-target="map-container"`); automatically resolve the host map when a tool is slotted inside `<webmapx-map>` so authors only set the attribute for out-of-map tools.

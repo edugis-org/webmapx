@@ -4,7 +4,7 @@ Provides a miniature map that mirrors the main map's center/zoom so users always
 
 ## What It Does
 - Renders its own MapLibre instance with a lightweight basemap (override via `style-url`).
-- Subscribes to the central store; whenever the main map's center or zoom changes, the inset updates automatically.
+- Subscribes to the map state store; whenever the main map's center or zoom changes, the inset updates automatically.
 - Applies a configurable `zoom-offset` so the inset can stay more zoomed out (default `-3`).
 
 ## Usage

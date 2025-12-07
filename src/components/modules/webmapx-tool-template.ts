@@ -4,10 +4,10 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js'; // <- CRITICAL IMPORTS
 
-import { store } from '../../store/central-state';
+import { MapStateStore } from '../../store/map-state-store';
 import { IAppState, StateSource } from '../../store/IState'; 
 import { IToolService } from '../../map/IMapInterfaces'; 
-import { mapAdapter } from '../../map/maplibre-adapter'; 
+import { resolveMapAdapter } from './map-context'; 
 
 
 @customElement('webmapx-tool-template')
@@ -15,13 +15,14 @@ export class WebmapxToolTemplate extends LitElement {
     
     // FIX: Both properties must be decorated with @state() to exist on the component type
     @state()
-    private bufferRadius: number = store.getState().bufferRadiusKm;
+    private bufferRadius: number = 0;
 
     @state() // <- THIS IS LIKELY THE MISSING DECORATOR
-    private isToolActive: boolean = store.getState().currentTool === 'Buffer';
+    private isToolActive: boolean = false;
 
     private isSettingValue: boolean = false; 
-    private toolService: IToolService = mapAdapter.toolService;
+    private toolService: IToolService | null = null;
+    private store: MapStateStore | null = null;
     private unsubscribe: (() => void) | null = null;
 
     // Define component styles
@@ -47,18 +48,39 @@ export class WebmapxToolTemplate extends LitElement {
 
     connectedCallback(): void {
         super.connectedCallback();
-        this.unsubscribe = store.subscribe(this.handleStateChange);
+        this.bindToMap();
     }
 
     disconnectedCallback(): void {
-        if (this.unsubscribe) {
-            this.unsubscribe();
-        }
+        this.releaseStore();
         super.disconnectedCallback();
     }
 
+    private bindToMap(): void {
+        this.releaseStore();
+        const adapter = resolveMapAdapter(this);
+        if (!adapter) {
+            return;
+        }
+
+        this.toolService = adapter.toolService;
+        this.store = adapter.store;
+        this.unsubscribe = this.store.subscribe(this.handleStateChange);
+        this.bufferRadius = this.store.getState().bufferRadiusKm;
+        this.isToolActive = this.store.getState().currentTool === 'Buffer';
+    }
+
+    private releaseStore(): void {
+        if (this.unsubscribe) {
+            this.unsubscribe();
+            this.unsubscribe = null;
+        }
+        this.store = null;
+        this.toolService = null;
+    }
+
     /**
-     * Handles updates from the Central State Store, implementing Temporary Muting.
+     * Handles updates from the Map State Store, implementing Temporary Muting.
      */
     private handleStateChange = (state: IAppState, source: StateSource) => {
         // Implementation of Temporary Muting / Loop Prevention:
@@ -79,8 +101,12 @@ export class WebmapxToolTemplate extends LitElement {
         
         this.isSettingValue = true; 
 
-        // 1. Dispatch Intent to the Central Store (updates the *state*)
-        store.dispatch({ bufferRadiusKm: value }, 'UI'); 
+        // 1. Dispatch Intent to the Map State Store (updates the *state*)
+        if (!this.store || !this.toolService) {
+            return;
+        }
+
+        this.store.dispatch({ bufferRadiusKm: value }, 'UI'); 
 
         // 2. Dispatch Intent to the Adapter (tells the *map* to perform the action)
         this.toolService.setBufferRadius(value); 
@@ -93,7 +119,7 @@ export class WebmapxToolTemplate extends LitElement {
      * Handles the tool toggle button (Dispatches Intent).
      */
     private handleToolToggle() {
-        this.toolService.toggleTool();
+        this.toolService?.toggleTool();
     }
 
     /**

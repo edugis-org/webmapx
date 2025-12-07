@@ -1,10 +1,10 @@
 # `webmapx-tool-template`
 
-Example geoprocessing control that demonstrates how UI modules integrate with the central store and map adapter.
+Example geoprocessing control that demonstrates how UI modules integrate with the map state store and map adapter.
 
 ## What It Does
 - Displays and edits the buffer radius stored in `store.getState().bufferRadiusKm`.
-- Dispatches changes to the central store (`source: 'UI'`) and calls the geoprocessing adapter so the map reflects the new buffer.
+- Dispatches changes to the map state store (`source: 'UI'`) and calls the geoprocessing adapter so the map reflects the new buffer.
 - Toggles tool activation state through the adapter.
 
 ## Usage

@@ -1,6 +1,7 @@
 import * as maplibregl from 'maplibre-gl';
-import { store } from '../../store/central-state';
+import { MapStateStore } from '../../store/map-state-store';
 import { IAppState } from '../../store/IState';
+import { IInsetController } from '../IMapAdapter';
 
 interface InsetOptions {
   zoomOffset?: number;
@@ -26,9 +27,11 @@ const MIN_INSET_ZOOM = 0;
 const MAX_INSET_ZOOM = 22;
 const POSITIVE_SCALE_CAP = 1;
 
-export class MapInsetController {
+export class MapInsetController implements IInsetController {
   private contexts = new Map<HTMLElement, InsetContext>();
   private unsubscribe: (() => void) | null = null;
+
+  constructor(private readonly store: MapStateStore) {}
 
   public attach(container: HTMLElement, options?: InsetOptions): void {
     if (!container) {
@@ -43,7 +46,7 @@ export class MapInsetController {
       baseScale: options?.baseScale ?? 0.5,
     };
 
-    const state = store.getState();
+    const state = this.store.getState();
     const map = new maplibregl.Map({
       container,
       style: resolvedOptions.styleUrl,
@@ -91,7 +94,7 @@ export class MapInsetController {
       return;
     }
 
-    this.unsubscribe = store.subscribe((state, _source) => {
+    this.unsubscribe = this.store.subscribe((state, _source) => {
       this.handleStateChange(state);
     });
   }
@@ -142,4 +145,3 @@ export class MapInsetController {
   }
 }
 
-export const mapInsetController = new MapInsetController();

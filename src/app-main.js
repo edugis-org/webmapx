@@ -18,15 +18,23 @@ import './components/modules/webmapx-zoom-level.ts';
 import './components/modules/webmapx-layout.ts';
 import './components/modules/webmapx-inset-map.ts';
 
-// 3. Import the Central State Store and Map Adapter
-import { mapAdapter } from './map/maplibre-adapter.js'; 
-
-// 4. Initialize the map when the DOM is ready
+// 3. Initialize the map when the DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     const mapContainerId = 'map-container';
+    const mapElement = document.getElementById(mapContainerId);
+    if (!mapElement) {
+        console.error(`[app-main] Unable to find <webmapx-map id="${mapContainerId}">`);
+        return;
+    }
+
+    const adapter = mapElement.adapter;
+    if (!adapter) {
+        console.error('[app-main] Map adapter is not available on <webmapx-map>.');
+        return;
+    }
     
     // Initialize with OpenStreetMap style and custom viewport
-    mapAdapter.core.initialize(mapContainerId, {
+    adapter.core.initialize(mapContainerId, {
         center: [4.9041, 52.3676], // Amsterdam
         zoom: 4.5,
         // Use MapLibre demo OSM style; replace with your own if needed

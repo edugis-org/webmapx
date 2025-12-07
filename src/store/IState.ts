@@ -1,6 +1,6 @@
 /**
  * The single source of truth for the entire application state.
- * Any property added here must be initialized in the central-state.ts file.
+ * Any property added here must be initialized in the map-state-store.ts file.
  */
 export interface IAppState {
     // Example state properties

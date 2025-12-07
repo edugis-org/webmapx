@@ -1,14 +1,11 @@
-import { store } from '../../store/central-state';
+import { MapStateStore } from '../../store/map-state-store';
 import { IMapZoomController, IMapCore } from '../IMapInterfaces';
 import { throttle } from '../../utils/throttle'; // For performance during continuous input
 
-// Assuming maplibre's map instance is available via a core adapter instance
-// const map = mapAdapter.core.getMapInstance(); 
-
-class MapZoomController implements IMapZoomController {
+export class MapZoomController implements IMapZoomController {
     private core: IMapCore | null = null;
 
-    constructor(core?: IMapCore) {
+    constructor(private readonly store: MapStateStore, core?: IMapCore) {
         if (core) {
             this.setCore(core);
         }
@@ -33,20 +30,11 @@ class MapZoomController implements IMapZoomController {
         this.executeZoom(zoomLevel); 
         
         // Optimistically update the store to reflect the UI intent immediately
-        store.dispatch({ zoomLevel: zoomLevel }, 'UI'); 
+        this.store.dispatch({ zoomLevel: zoomLevel }, 'UI'); 
     }
     
     // Map Adapter calls this when the map actually finishes zooming (Updates State)
     public notifyZoomChange(zoomLevel: number): void {
-        store.dispatch({ zoomLevel: zoomLevel }, 'MAP'); 
+        this.store.dispatch({ zoomLevel: zoomLevel }, 'MAP'); 
     }
-
-    // private handleMapZoomEnd(): void {
-    //     if (this.core) {
-    //         const newZoom = this.core.getZoom();
-    //         this.notifyZoomChange(newZoom);
-    //     }
-    // }
 }
-
-export const mapZoomController = new MapZoomController();

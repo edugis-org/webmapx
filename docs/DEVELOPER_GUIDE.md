@@ -4,15 +4,15 @@ This guide outlines the standard procedure for adding a new UI feature (e.g., a 
 
 ## I. Unidirectional Data Flow
 
-The system operates on a strict **Unidirectional Data Flow**. A UI component **NEVER** directly calls a map function that changes state without first updating the Central Store.
+The system operates on a strict **Unidirectional Data Flow**. A UI component **NEVER** directly calls a map function that changes state without first updating the Map State Store.
 
 
 
 * **UI Component:** Dispatches intent (calls Adapter).
 * **Adapter Service:** Translates intent into Map API call.
 * **Map API:** Performs action and fires event.
-* **Adapter Service:** Captures Map event and pushes resulting data to the **Central State Store**.
-* **Central State Store:** Notifies all subscribed UI components.
+* **Adapter Service:** Captures Map event and pushes resulting data to the **Map State Store**.
+* **Map State Store:** Notifies all subscribed UI components.
 
 ## II. The Low Complexity Rule
 
@@ -22,7 +22,7 @@ The system operates on a strict **Unidirectional Data Flow**. A UI component **N
 | :--- | :--- | :--- |
 | **GIS Buffering** | Map Service Template | [`../src/map/maplibre-services/MapServiceTemplate.ts`](../src/map/maplibre-services/MapServiceTemplate.ts) |
 | **Opacity Throttling** | Style Adapter Service | [`../src/map/maplibre-services/StyleAdapterService.ts`](../src/map/maplibre-services/StyleAdapterService.ts) |
-| **Calculating New State** | Central State Store (actions/reducers) | [`../src/store/central-state.ts`](../src/store/central-state.ts) |
+| **Calculating New State** | Map State Store (actions/reducers) | [`../src/store/map-state-store.ts`](../src/store/map-state-store.ts) |
 
 ## III. Building a New Module (The 3-Step Process)
 
@@ -55,56 +55,75 @@ Copy the template and hook it up to the store and adapter.
 ## IV. Architecture Overview
 ```mermaid
 flowchart LR
-        subgraph Adapter[mapAdapter]
-            MCS[MapCoreService]
-            MST[MapServiceTemplate]
-            MZC[MapZoomController]
-        end
+    subgraph Registry["adapter-registry"]
+        REG["registerMapAdapter()"]
+    end
 
-        MAP[Map Instance]
-        STORE[Central State Store]
+    subgraph MapElement["<webmapx-map>"]
+        ATTR["adapter attribute"]
+        ADAPTER["IMapAdapter instance"]
+    end
 
-        ZCOMP[webmapx-zoom-level]
-        TCOMP[webmapx-tool-template]
-        APP[app-main.js]
+    subgraph Adapter["Adapter Implementation"]
+        MCS["MapCoreService"]
+        MST["MapServiceTemplate"]
+        MZC["MapZoomController"]
+        INSET["MapInsetController"]
+    end
 
-        %% App initializes core which creates the map instance
-        APP --> MCS
-        MCS --> MAP
+    MAP["Map Library Instance"]
+    STORE["Map State Store"]
 
-        %% Controllers/services depend on core
-        MZC --- MCS
-        MST --- MCS
+    ZCOMP["webmapx-zoom-level"]
+    TCOMP["webmapx-tool-template"]
+    APP["app-main.js"]
 
-        %% Components use controllers/services and subscribe to store
-        ZCOMP --> MZC
-        TCOMP --> MST
-        ZCOMP --> STORE
-        TCOMP --> STORE
+    %% Registry injects the adapter factory used by each map element
+    REG --> ATTR
+    ATTR --> ADAPTER
 
-        %% Zoom flow (UI intent -> core -> map -> store)
-        ZCOMP --> MZC
-        MZC --> MCS
-        MCS --> MAP
-        MZC --> STORE
+    %% Map element exposes adapter to app/components
+    APP --> ADAPTER
+    ZCOMP --> ADAPTER
+    TCOMP --> ADAPTER
 
-        %% Map emits zoomend -> core -> controller -> store -> UI update
-        MAP --> MCS
-        MCS --> MZC
-        MZC --> STORE
-        STORE --> ZCOMP
+    %% Adapter composes services/controllers/core
+    ADAPTER --> MCS
+    ADAPTER --> MST
+    ADAPTER --> MZC
+    ADAPTER --> INSET
 
-        %% Tool service flow (UI intent -> service -> core/map -> store)
-        TCOMP --> MST
-        MST --> MCS
-        MST --> STORE
+    %% Core controls the concrete map library instance
+    MCS --> MAP
+    MAP --> MCS
+
+    %% Services/controllers collaborate with core
+    MZC --- MCS
+    MST --- MCS
+    INSET --> STORE
+
+    %% Components subscribe to store
+    ZCOMP --> STORE
+    TCOMP --> STORE
+
+    %% Zoom flow (UI intent -> adapter -> core -> map -> store)
+    ZCOMP --> MZC
+    MZC --> MCS
+    MZC --> STORE
+
+    %% Tool flow (UI intent -> adapter service -> core/map -> store)
+    TCOMP --> MST
+    MST --> MCS
+    MST --> STORE
 ```
 
 ### Legend & Responsibilities
 - MapCoreService: Core map facade (initialize, set zoom, events); library-agnostic via `IMapCore`.
+- IMapAdapter: Composite adapter contract in `src/map/IMapAdapter.ts` defining the store, `IMapCore`, `IToolService`, zoom, and inset controllers required by `webmapx-map`.
+- Adapter Registry: `src/map/adapter-registry.ts` exposes `registerMapAdapter()` and `createMapAdapter()` so each `<webmapx-map>` can select an implementation via its `adapter` attribute (defaults to `maplibre`).
 - MapZoomController: Orchestrates zoom UX; binds to core, throttles UI intents, relays map zoom-end to store.
 - MapServiceTemplate: Template for tool services; encapsulates map operations with throttling; updates store.
-- Central State Store: Single source of truth; all components subscribe; updates tagged with source ('UI'|'MAP'|'INIT').
+- Map State Store: Single source of truth per adapter; components subscribe; updates tagged with source ('UI'|'MAP'|'INIT').
 - Components: Plugin-style Web Components; dispatch intents to controllers/services; never call map APIs directly.
 
 Notes

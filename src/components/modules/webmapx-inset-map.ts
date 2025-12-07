@@ -1,6 +1,6 @@
 import { css, html, LitElement, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { mapAdapter } from '../../map/maplibre-adapter';
+import { resolveMapAdapter } from './map-context';
 
 @customElement('webmapx-inset-map')
 export class WebmapxInsetMap extends LitElement {
@@ -64,7 +64,12 @@ export class WebmapxInsetMap extends LitElement {
       return;
     }
 
-    mapAdapter.inset.attach(container, {
+    const adapter = resolveMapAdapter(this);
+    if (!adapter) {
+      return;
+    }
+
+    adapter.inset.attach(container, {
       zoomOffset: this.zoomOffset,
       styleUrl: this.styleUrl,
       baseScale: this.baseScale,
@@ -74,7 +79,8 @@ export class WebmapxInsetMap extends LitElement {
   disconnectedCallback(): void {
     const container = this.insetContainer;
     if (container) {
-      mapAdapter.inset.detach(container);
+      const adapter = resolveMapAdapter(this);
+      adapter?.inset.detach(container);
     }
     super.disconnectedCallback();
   }
