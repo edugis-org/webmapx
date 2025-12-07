@@ -5,11 +5,11 @@ Goals: keep components plugin-like, map-agnostic, and state-driven.
 - Adapter cohesion: access map services via `mapAdapter.core.*`.
 - Central state: all UI/MAP updates tagged with `source` ('UI'|'MAP'|'INIT').
 - Performance: throttle expensive map ops; avoid feedback loops.
-- Theming: use `src/theme/gis-style-core.css` variables; avoid z-index.
+- Theming: use `src/theme/webmapx-style-core.css` variables; avoid z-index.
 
 ## Near-Term Tasks
 - Expose `zoomController` via adapter (done).
-- Refactor `gis-zoom-display` to use `mapAdapter.zoomController`.
+- Refactor `webmapx-zoom-level` to use `mapAdapter.zoomController`.
 - Wire MapLibre zoom via `IMapCore.setZoom` and `onZoomEnd` (done).
 - Implement geoprocessing actions using MapLibre+worker where applicable.
 - Ensure `MapCoreService` dispatches tool activation state to `central-state`.

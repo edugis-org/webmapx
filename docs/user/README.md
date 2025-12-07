@@ -5,27 +5,27 @@ This guide explains how to assemble the Modular GIS Web UI as an application dev
 ## Quick Start
 1. Install dependencies: `npm install`.
 2. Start the dev server: `npm run start` (Vite provides hot reloads).
-3. Place `<gis-map>` on your page. It auto-creates the map canvas, so you only add overlay tools:
+3. Place `<webmapx-map>` on your page. It auto-creates the map canvas, so you only add overlay tools:
    ```html
-   <gis-map id="map-container">
-     <gis-map-layout>
-       <gis-zoom-display slot="bottom-left"></gis-zoom-display>
-       <gis-new-tool slot="top-right"></gis-new-tool>
-     </gis-map-layout>
-   </gis-map>
+   <webmapx-map id="map-container">
+     <webmapx-layout>
+       <webmapx-zoom-level slot="bottom-left"></webmapx-zoom-level>
+       <webmapx-tool-template slot="top-right"></webmapx-tool-template>
+     </webmapx-layout>
+   </webmapx-map>
    ```
 4. Initialize the map in `src/app-main.js` via `mapAdapter.core.initialize('map-container', config)`.
 
 ## Core Concepts
-- **Map Host (`<gis-map>`):** Wraps the mapping library surface and any overlay elements. No knowledge of internal slots is required—the element injects a canvas automatically if none is provided.
-- **Layout Overlay (`<gis-map-layout>`):** Optional helper that floats nine slot zones over the map (top/middle/bottom × left/center/right) while keeping the host pointer-transparent.
-- **Tools:** Components such as `<gis-new-tool>` and `<gis-zoom-display>` include their own styling so they render correctly whether or not they live inside the layout helper.
+- **Map Host (`<webmapx-map>`):** Wraps the mapping library surface and any overlay elements. No knowledge of internal slots is required—the element injects a canvas automatically if none is provided.
+- **Layout Overlay (`<webmapx-layout>`):** Optional helper that floats nine slot zones over the map (top/middle/bottom × left/center/right) while keeping the host pointer-transparent.
+- **Tools:** Components such as `<webmapx-tool-template>` and `<webmapx-zoom-level>` include their own styling so they render correctly whether or not they live inside the layout helper.
 
 ## Component Reference
-- [`gis-map`](./components/gis-map.md)
-- [`gis-map-layout`](./components/gis-map-layout.md)
-- [`gis-inset-map`](./components/gis-inset-map.md)
-- [`gis-new-tool`](./components/gis-new-tool.md)
-- [`gis-zoom-display`](./components/gis-zoom-display.md)
+- [`webmapx-map`](./components/webmapx-map.md)
+- [`webmapx-layout`](./components/webmapx-layout.md)
+- [`webmapx-inset-map`](./components/webmapx-inset-map.md)
+- [`webmapx-tool-template`](./components/webmapx-tool-template.md)
+- [`webmapx-zoom-level`](./components/webmapx-zoom-level.md)
 
 Refer to the individual pages for usage tips, attributes, and slot details.

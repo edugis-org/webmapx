@@ -1,15 +1,15 @@
-# `gis-map`
+# `webmapx-map`
 
 Host element for the mapping library canvas plus any overlay UI. It injects a `[slot="map-view"]` surface automatically, so you can simply drop it in your markup.
 
 ## Usage
 ```html
-<gis-map id="map-container">
+<webmapx-map id="map-container">
   <!-- Optional: overlays, layouts, tools -->
-  <gis-map-layout>
-    <gis-zoom-display slot="bottom-left"></gis-zoom-display>
-  </gis-map-layout>
-</gis-map>
+  <webmapx-map-layout>
+    <webmapx-zoom-display slot="bottom-left"></webmapx-zoom-display>
+  </webmapx-map-layout>
+</webmapx-map>
 ```
 
 ## Behavior

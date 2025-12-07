@@ -1,4 +1,4 @@
-# `gis-inset-map`
+# `webmapx-inset-map`
 
 Provides a miniature map that mirrors the main map's center/zoom so users always know where they are relative to the broader area.
 
@@ -9,9 +9,9 @@ Provides a miniature map that mirrors the main map's center/zoom so users always
 
 ## Usage
 ```html
-<gis-map-layout>
-  <gis-inset-map slot="top-right" zoom-offset="-4" style-url="https://demotiles.maplibre.org/style.json"></gis-inset-map>
-</gis-map-layout>
+<webmapx-layout>
+  <webmapx-inset-map slot="top-right" zoom-offset="-4" style-url="https://demotiles.maplibre.org/style.json"></webmapx-inset-map>
+</webmapx-layout>
 ```
 
 ## Attributes
@@ -22,5 +22,5 @@ Provides a miniature map that mirrors the main map's center/zoom so users always
 | `base-scale` | number | `0.5` | Base CSS scale applied to the 512×512 inset canvas. For derived zoom ≤ 0, the inset stays at zoom 0 and holds this scale steady.
 
 ## Behavior
-- Host element defines its own size via CSS variables `--gis-inset-width` / `--gis-inset-height` (defaults 256px). Internally, the map renders on a 512×512 canvas that is scaled down via CSS. The controller animates `--gis-inset-scale` between the configured base value (for derived zoom ≤ 0) and 1 (as zoom increases) before handing off additional zoom to MapLibre.
+- Host element defines its own size via CSS variables `--webmapx-inset-width` / `--webmapx-inset-height` (defaults 256px). Internally, the map renders on a 512×512 canvas that is scaled down via CSS. The controller animates `--webmapx-inset-scale` between the configured base value (for derived zoom ≤ 0) and 1 (as zoom increases) before handing off additional zoom to MapLibre.
 - Interactions are disabled—this map is a passive indicator. If you want it to drive the main map, wire that through a dedicated adapter/controller per the architecture guidelines.

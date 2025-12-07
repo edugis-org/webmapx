@@ -1,5 +1,5 @@
 {
-  "name": "wc-map",
+  "name": "webmapx",
   "version": "1.0.0",
   "description": "A highly modular and map-library-agnostic User Interface built for dynamic Web GIS applications. This project is architected to allow easy swapping of map backends (MapLibre, OpenLayers, Cesium) and features a centralized, robust state management system to ensure consistency and performance.",
   "license": "ISC",

@@ -1,4 +1,4 @@
-# `gis-new-tool`
+# `webmapx-tool-template`
 
 Example geoprocessing control that demonstrates how UI modules integrate with the central store and map adapter.
 
@@ -9,11 +9,11 @@ Example geoprocessing control that demonstrates how UI modules integrate with th
 
 ## Usage
 ```html
-<gis-new-tool slot="top-right"></gis-new-tool>
+<webmapx-tool-template slot="top-right"></webmapx-tool-template>
 ```
 
 ## Behavior
-- Host element is `inline-flex` with pointer events enabled, so it can live inside or outside `<gis-map-layout>` without extra CSS.
+- Host element is `inline-flex` with pointer events enabled, so it can live inside or outside `<webmapx-layout>` without extra CSS.
 - Internal Shoelace controls (`sl-range`, `sl-button`) are imported in `src/app-main.js`—ensure that file remains the single registration point.
 - An internal temporary-muting flag avoids feedback loops when responding to store updates.
 

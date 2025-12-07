@@ -26,7 +26,7 @@ The system operates on a strict **Unidirectional Data Flow**. A UI component **N
 
 ## III. Building a New Module (The 3-Step Process)
 
-To create a new feature (e.g., `gis-new-tool`), follow this process:
+To create a new feature (e.g., `webmapx-tool-template`), follow this process:
 
 ### 1. Define the Contract (The Interface)
 
@@ -48,7 +48,7 @@ Create the concrete implementation that adheres to the new contract and handles 
 
 Copy the template and hook it up to the store and adapter.
 
-* **Template:** Start by copying and renaming [`../src/components/modules/gis-new-tool-template.ts`](../src/components/modules/gis-new-tool-template.ts).
+* **Template:** Start by copying and renaming [`../src/components/modules/webmapx-tool-template.ts`](../src/components/modules/webmapx-tool-template.ts).
 * **Subscription:** Ensure the component subscribes to the store and implements the **Temporary Muting** logic (checking `this.isSettingValue` flag) to prevent feedback loops.
 * **Styling:** Use only Atomic Components and reference CSS variables (e.g., `var(--color-primary)`) for styling, never hardcoded values.
 
@@ -64,8 +64,8 @@ flowchart LR
         MAP[Map Instance]
         STORE[Central State Store]
 
-        ZCOMP[gis-zoom-display]
-        TCOMP[gis-new-tool]
+        ZCOMP[webmapx-zoom-level]
+        TCOMP[webmapx-tool-template]
         APP[app-main.js]
 
         %% App initializes core which creates the map instance
