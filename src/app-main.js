@@ -15,6 +15,7 @@ setBasePath('/shoelace-assets/');
 import './components/modules/gis-map.js';
 import './components/modules/gis-new-tool.js';
 import './components/modules/gis-zoom-display.js';
+import './components/modules/gis-map-layout.ts';
 
 // 3. Import the Central State Store and Map Adapter
 import { mapAdapter } from './map/maplibre-adapter.js'; 

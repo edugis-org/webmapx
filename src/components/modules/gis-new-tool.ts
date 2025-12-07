@@ -26,6 +26,12 @@ export class GisNewTool extends LitElement {
 
     // Define component styles
     static styles = css`
+        :host {
+            position: relative;
+            display: inline-flex;
+            pointer-events: auto;
+        }
+
         .tool-container {
             border: 1px solid var(--color-border);
             padding: 15px;

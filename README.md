@@ -24,6 +24,12 @@ A highly modular and map-library-agnostic User Interface built for dynamic Web G
 
 For a detailed guide on creating new components, understanding the data flow, and adhering to architectural rules, please read the **Developer Experience Guide:** [`DEVELOPER_GUIDE.md`](./docs/DEVELOPER_GUIDE.md).
 
+## ⚙️ Build & Dev Workflow
+- `npm install` once after cloning to pull dependencies.
+- `npm run start` launches the Vite dev server; its "magic" (module graph, hot-module reload, CSS/asset handling) lets you edit files under `src/` and see the result instantly without manual builds.
+- `npm run build` invokes `vite build`, emitting the optimized static bundle into `dist/`—this folder is what you deploy to any static host or edge worker.
+- `npm run preview` serves the fresh `dist/` output locally so you can smoke-test the optimized build before shipping.
+
 ## 🎛️ Map Initialization (OSM demo)
 - The entry `src/app-main.js` initializes the map with a custom viewport and an OpenStreetMap style via MapLibre:
     - `mapAdapter.core.initialize('map-container', { center: [4.9041, 52.3676], zoom: 11, styleUrl: 'https://demotiles.maplibre.org/style.json' })`

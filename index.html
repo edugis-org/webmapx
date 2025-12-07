@@ -13,7 +13,12 @@
 </head>
 <body>
     <gis-map id="map-container">
-        <div slot="map-view"></div>
+        <gis-map-layout>
+          <gis-new-tool slot="middle-center"></gis-new-tool>
+          <gis-zoom-display slot="middle-center" ></gis-zoom-display>
+          <gis-zoom-display slot="bottom-left" ></gis-zoom-display>
+          
+        </gis-map-layout>
         <gis-new-tool></gis-new-tool>
         <gis-zoom-display></gis-zoom-display>
     </gis-map>

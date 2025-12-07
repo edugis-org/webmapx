@@ -19,13 +19,20 @@ export class GisZoomDisplay extends LitElement {
     private unsubscribe: (() => void) | null = null; 
 
     static styles = css`
+        :host {
+            position: relative;
+            display: inline-flex;
+            pointer-events: auto;
+        }
+
         .tool-container {
             border: 1px solid var(--color-border);
             /* Use defined padding variables (which should ideally be in em or derived units) */
             padding: var(--compact-padding-vertical) var(--compact-padding-horizontal);
             
-            /* Apply transparency from global theme variable */
-            background: rgba(var(--color-background-secondary), var(--tool-background-opacity));
+            /* Apply background color; transparency can be tuned via the opacity variable */
+            background: var(--color-background-secondary);
+            opacity: var(--tool-background-opacity);
             
             color: var(--color-text-primary);
             display: inline-flex;
