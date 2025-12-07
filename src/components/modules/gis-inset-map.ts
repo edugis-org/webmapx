@@ -10,6 +10,9 @@ export class GisInsetMap extends LitElement {
   @property({ type: String, attribute: 'style-url' })
   public styleUrl?: string;
 
+  @property({ type: Number, attribute: 'base-scale' })
+  public baseScale = 0.5;
+
   private get insetContainer(): HTMLElement | null {
     return this.renderRoot.querySelector('.inset-map');
   }
@@ -17,8 +20,8 @@ export class GisInsetMap extends LitElement {
   static styles = css`
     :host {
       display: inline-block;
-      width: var(--gis-inset-width, 180px);
-      height: var(--gis-inset-height, 180px);
+      width: var(--gis-inset-width, 256px);
+      height: var(--gis-inset-height, 256px);
       border: 1px solid var(--color-border, #ccc);
       border-radius: 6px;
       overflow: hidden;
@@ -27,9 +30,21 @@ export class GisInsetMap extends LitElement {
       pointer-events: auto;
     }
 
-    .inset-map {
+    .inset-map-frame {
+      position: relative;
       width: 100%;
       height: 100%;
+      overflow: hidden;
+    }
+
+    .inset-map {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: var(--gis-inset-internal-size, 512px);
+      height: var(--gis-inset-internal-size, 512px);
+      transform-origin: center;
+      transform: translate(-50%, -50%) scale(var(--gis-inset-scale, 0.5));
     }
   `;
 
@@ -52,6 +67,7 @@ export class GisInsetMap extends LitElement {
     mapAdapter.inset.attach(container, {
       zoomOffset: this.zoomOffset,
       styleUrl: this.styleUrl,
+      baseScale: this.baseScale,
     });
   }
 
@@ -64,6 +80,10 @@ export class GisInsetMap extends LitElement {
   }
 
   protected render() {
-    return html`<div class="inset-map"></div>`;
+    return html`
+      <div class="inset-map-frame">
+        <div class="inset-map"></div>
+      </div>
+    `;
   }
 }
