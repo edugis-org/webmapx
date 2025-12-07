@@ -17,8 +17,8 @@ class CentralStateStore {
         mapLoaded: false,
         currentTool: 'None',
         bufferRadiusKm: 5,
-        zoomLevel: 1,
-        mapCenter: [0, 0]
+        zoomLevel: null,
+        mapCenter: null
     };
     private listeners: Listener[] = [];
 

@@ -10,11 +10,11 @@ import { mapZoomController } from '../../map/maplibre-services/MapZoomController
 export class GisZoomDisplay extends LitElement {
     
     @state()
-    private currentZoom: number = store.getState().zoomLevel || 1.0;
+    private currentZoom: number | null = store.getState().zoomLevel;
 
     // Use string for the input field value
     @state()
-    private inputValue: string = String(this.currentZoom.toFixed(2));
+    private inputValue: string = this.currentZoom != null ? String(this.currentZoom.toFixed(2)) : '';
 
     private unsubscribe: (() => void) | null = null; 
 
@@ -83,6 +83,9 @@ export class GisZoomDisplay extends LitElement {
 
     private handleStateChange = (state: IAppState, source: StateSource) => {
         // Update both the component's internal zoom state and the input field value
+        if (state.zoomLevel == null) {
+            return;
+        }
         this.currentZoom = state.zoomLevel;
         this.inputValue = this.currentZoom.toFixed(2);
     };
@@ -111,6 +114,10 @@ export class GisZoomDisplay extends LitElement {
     }
     
     private dispatchZoomIntent() {
+        if (!this.inputValue) {
+            return;
+        }
+
         const zoomValue = parseFloat(this.inputValue);
         if (!isNaN(zoomValue) && zoomValue >= 0) {
             // Dispatch Intent to the Adapter Service

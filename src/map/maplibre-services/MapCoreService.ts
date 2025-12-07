@@ -72,11 +72,7 @@ export class MapCoreService implements IMapCore {
             this.mapInstance.setStyle(this.initialConfig.style);
         }
 
-        // EVENT HANDLING FOR MAP.ON('LOAD')
         this.mapInstance.on('load', () => {
-            console.log(`[CORE SERVICE] MapLibre map is fully loaded.`);
-            
-            // SIGNAL READINESS AND INITIAL ZOOM to the Central State Store
             store.dispatch({ mapLoaded: true, zoomLevel: zoom, mapCenter: center }, 'MAP');
         });
         

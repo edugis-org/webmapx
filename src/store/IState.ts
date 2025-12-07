@@ -7,8 +7,8 @@ export interface IAppState {
     mapLoaded: boolean;
     currentTool: 'Buffer' | 'Legend' | 'None';
     bufferRadiusKm: number;
-    zoomLevel: number;
-    mapCenter: [number, number];
+    zoomLevel: number | null;
+    mapCenter: [number, number] | null;
     // ... add all other global state properties here
 }
 
