@@ -22,13 +22,29 @@ A highly modular and map-library-agnostic User Interface built for dynamic Web G
 
 ## 🛠️ Getting Started
 
-For a detailed guide on creating new components, understanding the data flow, and adhering to architectural rules, please read the **Developer Experience Guide:** [`DEVELOPER_GUIDE.md`](./docs/DEVELOPER_GUIDE.md).
+For a detailed guide on creating new components, understanding the data flow, and adhering to architectural rules, please read the **Developer Experience Guide:** [`DEVELOPER_GUIDE.md`](./docs/DEVELOPER_GUIDE.md). To follow project-wide decisions or session history, see [`DEV_JOURNAL.md`](./DEV_JOURNAL.md) and the current [`CHANGELOG.md`](./CHANGELOG.md).
+
+## 📘 User Documentation
+- High-level usage guide plus per-component reference lives in [`docs/user/README.md`](./docs/user/README.md).
+- Each user doc links to deeper component write-ups under `docs/user/components/` (map host, layout, zoom display, new tool templates, etc.).
+
+## 🧱 Map Layout System
+- `<gis-map>` now self-manages its map surface: if you omit a `[slot="map-view"]`, it injects one, styles it with the required absolute positioning, and keeps it in sync if you replace the node later. Consumers no longer need to know about the internal slot to get a working canvas.
+- `<gis-map-layout>` is an optional overlay scaffold that sits above the map, is pointer-transparent by default, and exposes nine positional slots (`top-left`, `middle-left`, … `bottom-right`). Each slot wrapper is absolutely positioned so your tools retain intrinsic sizing without requiring grid/flex boilerplate.
+- Tools placed outside the layout (`<gis-new-tool>`, `<gis-zoom-display>`, custom components) still render correctly thanks to their own `inline-flex` host styling; use regular CSS if you want to anchor them without the layout helper.
 
 ## ⚙️ Build & Dev Workflow
 - `npm install` once after cloning to pull dependencies.
 - `npm run start` launches the Vite dev server; its "magic" (module graph, hot-module reload, CSS/asset handling) lets you edit files under `src/` and see the result instantly without manual builds.
 - `npm run build` invokes `vite build`, emitting the optimized static bundle into `dist/`—this folder is what you deploy to any static host or edge worker.
 - `npm run preview` serves the fresh `dist/` output locally so you can smoke-test the optimized build before shipping.
+
+## 🧾 TypeScript Configuration
+- The repo compiles via Vite using the `tsconfig.json` at the root. Key options:
+    - `"target": "es2020"` and `"module": "esnext"` so emitted code matches modern evergreen browsers.
+    - `"experimentalDecorators": true` and `"useDefineForClassFields": false` enable Lit's decorator syntax (`@customElement`, `@state`, etc.) and align with its class-field semantics.
+    - `"moduleResolution": "node"` ensures bare module specifiers (Shoelace, Lit, MapLibre) resolve the same way in both TS and Vite.
+- Component authoring pattern: `.ts` files in `src/components/modules` export Lit elements that are registered once and side-effect imported from `src/app-main.js`, keeping TypeScript (for DX) while Vite handles bundling and dev-time transpilation automatically.
 
 ## 🎛️ Map Initialization (OSM demo)
 - The entry `src/app-main.js` initializes the map with a custom viewport and an OpenStreetMap style via MapLibre:

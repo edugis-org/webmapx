@@ -1,0 +1,21 @@
+# `gis-zoom-display`
+
+Compact zoom readout/input that stays synchronized with the map's zoom level.
+
+## What It Does
+- Subscribes to the central store and reflects `zoomLevel`.
+- Allows the user to enter a target zoom value; on blur/Enter it dispatches intent via `mapZoomController`.
+- Acts as an example of throttled map interactions (controller handles debouncing/throttling).
+
+## Usage
+```html
+<gis-zoom-display slot="bottom-left"></gis-zoom-display>
+```
+
+## Behavior
+- Host is `inline-flex` with its own card styling; additional CSS is optional.
+- Uses Shoelace `<sl-input>` (imported in `src/app-main.js`).
+- Emits intents through the adapter layer instead of calling MapLibre directly, keeping the architecture loop-safe.
+
+## Tips
+- If you place more than one zoom display in the layout, each stays synced because they all read from the same central state.
