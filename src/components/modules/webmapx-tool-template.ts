@@ -9,6 +9,9 @@ import { IAppState } from '../../store/IState';
 import { IToolService } from '../../map/IMapInterfaces'; 
 import { IMapAdapter } from '../../map/IMapAdapter';
 
+import '@shoelace-style/shoelace/dist/components/range/range.js';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
+
 
 @customElement('webmapx-tool-template')
 export class WebmapxToolTemplate extends WebmapxBaseTool {

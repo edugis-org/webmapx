@@ -7,6 +7,8 @@ import { IAppState } from '../../store/IState';
 import { IMapZoomController } from '../../map/IMapInterfaces';
 import { IMapAdapter } from '../../map/IMapAdapter';
 
+import '@shoelace-style/shoelace/dist/components/input/input.js';
+
 @customElement('webmapx-zoom-level')
 export class WebmapxZoomLevel extends WebmapxBaseTool {
     

@@ -3,11 +3,6 @@
 // 0. Import setBasePath using the bare module specifier
 import { setBasePath } from '@shoelace-style/shoelace/dist/utilities/base-path.js';
 
-// 1. Import Shoelace components used by your modules
-import '@shoelace-style/shoelace/dist/components/button/button.js';
-import '@shoelace-style/shoelace/dist/components/range/range.js';
-import '@shoelace-style/shoelace/dist/components/input/input.js';
-
 // CRITICAL: Set the base path to the public directory where assets are copied.
 setBasePath('/shoelace-assets/'); 
 
@@ -17,6 +12,9 @@ import './components/modules/webmapx-tool-template.ts';
 import './components/modules/webmapx-zoom-level.ts';
 import './components/modules/webmapx-layout.ts';
 import './components/modules/webmapx-inset-map.ts';
+import './components/modules/webmapx-toolbar.ts';
+import './components/modules/webmapx-tool-panel.ts';
+import './components/modules/webmapx-layer-tree.ts';
 
 // 3. Initialize the map when the DOM is ready
 document.addEventListener('DOMContentLoaded', () => {

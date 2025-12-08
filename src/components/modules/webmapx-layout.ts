@@ -29,15 +29,22 @@ export class WebmapxLayout extends LitElement {
 
     .slot-zone {
       position: absolute;
-      pointer-events: auto;
+      pointer-events: none;
       display: flex;
       flex-direction: column;
       gap: var(--webmapx-layout-slot-gap, 12px);
     }
 
+    /* Make top-left a full-height column so percentage heights work in children */
     .slot-zone--top-left {
       top: var(--webmapx-layout-edge-offset, 16px);
       left: var(--webmapx-layout-edge-offset, 16px);
+      bottom: var(--webmapx-layout-edge-offset, 16px);
+    }
+
+    /* Ensure the wrapper div in the slot takes full height */
+    .slot-zone--top-left ::slotted(*) {
+      height: 100%;
     }
 
     .slot-zone--middle-left {
@@ -105,11 +112,20 @@ export class WebmapxLayout extends LitElement {
   protected render() {
     return html`
       <div class="overlay-surface">
-        <div class="slot-zone slot-zone--top-left">
-          <slot name="top-left"></slot>
-        </div>
+        <!-- Middle zones first (lower stacking order) -->
         <div class="slot-zone slot-zone--middle-left">
           <slot name="middle-left"></slot>
+        </div>
+        <div class="slot-zone slot-zone--middle-right">
+          <slot name="middle-right"></slot>
+        </div>
+        <div class="slot-zone slot-zone--middle-center">
+          <slot name="middle-center"></slot>
+        </div>
+
+        <!-- Corner and Center zones (higher stacking order) -->
+        <div class="slot-zone slot-zone--top-left">
+          <slot name="top-left"></slot>
         </div>
         <div class="slot-zone slot-zone--bottom-left">
           <slot name="bottom-left"></slot>
@@ -117,17 +133,11 @@ export class WebmapxLayout extends LitElement {
         <div class="slot-zone slot-zone--top-center">
           <slot name="top-center"></slot>
         </div>
-        <div class="slot-zone slot-zone--middle-center">
-          <slot name="middle-center"></slot>
-        </div>
         <div class="slot-zone slot-zone--bottom-center">
           <slot name="bottom-center"></slot>
         </div>
         <div class="slot-zone slot-zone--top-right">
           <slot name="top-right"></slot>
-        </div>
-        <div class="slot-zone slot-zone--middle-right">
-          <slot name="middle-right"></slot>
         </div>
         <div class="slot-zone slot-zone--bottom-right">
           <slot name="bottom-right"></slot>

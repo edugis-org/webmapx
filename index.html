@@ -11,24 +11,128 @@
     
     <link rel="stylesheet" href="./app.css">
     <script type="module" src="./src/app.js"></script> 
+    <style>
+        /* Hide tools by default */
+        #layer-tool, #settings-tool { display: none; height: 100%; }
+    </style>
 </head>
 <body>
     <div class="table">
         <div>
             <webmapx-map id="map-container" adapter="maplibre">
+                
                 <webmapx-layout>
-                <webmapx-tool-template slot="bottom-right"></webmapx-tool-template>
-                <webmapx-zoom-level slot="bottom-right" ></webmapx-zoom-level>
-                <webmapx-zoom-level slot="bottom-left" ></webmapx-zoom-level>
-                <webmapx-inset-map slot="middle-left" zoom-offset="-3"></webmapx-inset-map>
+                    <!-- Top Left: Toolbar + Panel -->
+                    <div slot="top-left" style="display: flex; flex-direction: row; align-items: flex-start; max-height: 100%;">
+                        <webmapx-toolbar id="main-toolbar">
+                            <sl-button name="layers" size="medium" circle>
+                                <sl-icon name="layers" label="Layers"></sl-icon>
+                            </sl-button>
+                            <sl-button name="settings" size="medium" circle>
+                                <sl-icon name="gear" label="Settings"></sl-icon>
+                            </sl-button>
+                        </webmapx-toolbar>
+
+                        <webmapx-tool-panel id="tool-panel" label="Tools">
+                            <webmapx-layer-tree id="layer-tool"></webmapx-layer-tree>
+                            <div id="settings-tool">
+                                <div style="padding: 1rem;">
+                                    <p>Application Settings</p>
+                                    <sl-input label="API Key" type="password"></sl-input>
+                                </div>
+                            </div>
+                        </webmapx-tool-panel>
+                    </div>
+
+                    <webmapx-tool-template slot="bottom-right"></webmapx-tool-template>
+                    <webmapx-zoom-level slot="bottom-right"></webmapx-zoom-level>
+                    <webmapx-zoom-level slot="bottom-left"></webmapx-zoom-level>
+                    <webmapx-inset-map slot="middle-left" zoom-offset="-3"></webmapx-inset-map>
                 </webmapx-layout>
-                <webmapx-tool-template></webmapx-tool-template>
-                <webmapx-zoom-level></webmapx-zoom-level>
+
             </webmapx-map>
         </div>
+        
+        <!-- External Tools Column -->
         <div>
+            <h3>External Tools</h3>
+            <p>This zoom control is outside the map but linked to it.</p>
             <webmapx-zoom-level map="#map-container"></webmapx-zoom-level>
         </div>
     </div>
+
+    <script>
+        const toolbar = document.getElementById('main-toolbar');
+        const panel = document.getElementById('tool-panel');
+        const layerTool = document.getElementById('layer-tool');
+        const settingsTool = document.getElementById('settings-tool');
+
+        // Sample Data for Layer Tree
+        // In a real app, this might come from the map adapter or a config file
+        layerTool.config = [
+            { 
+                label: "Base Maps", 
+                expanded: true,
+                children: [
+                    { label: "OpenStreetMap", layerId: "osm", checked: true },
+                    { label: "Satellite Imagery", layerId: "sat", checked: false }
+                ]
+            },
+            {
+                label: "Data Layers",
+                expanded: true,
+                children: [
+                    { label: "Population Density", layerId: "pop", checked: false },
+                    { label: "Transport Network", layerId: "transport", checked: true },
+                    { 
+                        label: "Environmental",
+                        children: [
+                            { label: "Air Quality", layerId: "air", checked: false },
+                            { label: "Water Quality", layerId: "water", checked: false }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+        // Listen for tool selection
+        toolbar.addEventListener('webmapx-tool-select', (e) => {
+            const toolId = e.detail.toolId;
+            
+            if (!toolId) {
+                panel.active = false;
+                return;
+            }
+
+            panel.active = true;
+            
+            // Reset views
+            layerTool.style.display = 'none';
+            settingsTool.style.display = 'none';
+
+            if (toolId === 'layers') {
+                layerTool.style.display = 'block';
+                panel.label = 'Layers';
+            } else if (toolId === 'settings') {
+                settingsTool.style.display = 'block';
+                panel.label = 'Settings';
+            }
+        });
+
+        // Listen for panel close event (from the X button inside the component)
+        panel.addEventListener('webmapx-panel-close', () => {
+             // Deactivate toolbar buttons manually to sync state
+             const buttons = toolbar.querySelectorAll('sl-button');
+             buttons.forEach(b => {
+                 b.removeAttribute('active');
+                 b.setAttribute('variant', 'default');
+             });
+        });
+
+        // Listen for layer toggles
+        layerTool.addEventListener('layer-toggle', (e) => {
+            console.log('Layer toggled:', e.detail);
+        });
+    </script>
 </body>
 </html>
