@@ -23,7 +23,7 @@
                 
                 <webmapx-layout>
                     <!-- Top Left: Toolbar + Panel -->
-                    <div slot="top-left" style="display: flex; flex-direction: row; align-items: flex-start; max-height: 100%;">
+                    <webmapx-control-group slot="top-right" orientation="horizontal" panel-position="after" alignment="end">
                         <webmapx-toolbar id="main-toolbar">
                             <sl-button name="layers" size="medium" circle>
                                 <sl-icon name="layers" label="Layers"></sl-icon>
@@ -42,7 +42,7 @@
                                 </div>
                             </div>
                         </webmapx-tool-panel>
-                    </div>
+                    </webmapx-control-group>
 
                     <webmapx-tool-template slot="bottom-right"></webmapx-tool-template>
                     <webmapx-zoom-level slot="bottom-right"></webmapx-zoom-level>

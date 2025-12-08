@@ -24,8 +24,13 @@ This guide explains how to assemble the Modular GIS Web UI as an application dev
 ## Component Reference
 - [`webmapx-map`](./components/webmapx-map.md)
 - [`webmapx-layout`](./components/webmapx-layout.md)
+- [`webmapx-control-group`](./components/webmapx-control-group.md)
+- [`webmapx-toolbar`](./components/webmapx-toolbar.md)
+- [`webmapx-tool-panel`](./components/webmapx-tool-panel.md)
 - [`webmapx-inset-map`](./components/webmapx-inset-map.md)
 - [`webmapx-tool-template`](./components/webmapx-tool-template.md)
 - [`webmapx-zoom-level`](./components/webmapx-zoom-level.md)
+
+See also: [Toolbar and Panel Interaction Guide](./components/interaction-guide.md)
 
 Refer to the individual pages for usage tips, attributes, and slot details.

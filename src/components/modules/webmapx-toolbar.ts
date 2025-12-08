@@ -1,8 +1,10 @@
 import { LitElement, html, css } from 'lit';
-import { customElement, queryAssignedElements } from 'lit/decorators.js';
+import { customElement, queryAssignedElements, property } from 'lit/decorators.js';
 
 @customElement('webmapx-toolbar')
 export class WebmapxToolbar extends LitElement {
+  @property({ type: String, reflect: true }) orientation = 'vertical';
+
   static styles = css`
     :host {
       display: flex;
@@ -11,13 +13,22 @@ export class WebmapxToolbar extends LitElement {
       background: var(--webmapx-toolbar-bg, var(--sl-color-neutral-0, #fff));
       border: 1px solid var(--sl-color-neutral-200, #e5e5e5);
       height: fit-content;
-      max-height: 80%; /* Limit height */
       width: fit-content;
       padding: 0.5rem;
       gap: 0.5rem;
       pointer-events: auto;
       box-shadow: var(--sl-shadow-small);
       z-index: 10;
+    }
+
+    :host([orientation="vertical"]) {
+      flex-direction: column;
+      max-height: 100%;
+    }
+
+    :host([orientation="horizontal"]) {
+      flex-direction: row;
+      max-width: 100%;
     }
   `;
 
