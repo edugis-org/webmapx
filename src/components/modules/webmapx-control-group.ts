@@ -12,9 +12,9 @@ export class WebmapxControlGroup extends LitElement {
       display: flex;
       pointer-events: none; /* Pass through clicks in gaps */
       gap: 0.5rem;
-      max-height: 100%;
+      height: 100%;
       max-width: 100%;
-      align-items: flex-start; /* Default */
+      align-items: stretch; /* Stretch children to full available cross-size */
     }
 
     /* Alignment overrides */
@@ -41,6 +41,7 @@ export class WebmapxControlGroup extends LitElement {
     ::slotted(*) {
       pointer-events: auto;
     }
+    /* Let slotted components size themselves; tool panel uses max-height */
   `;
 
   @queryAssignedElements()

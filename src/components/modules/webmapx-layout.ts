@@ -35,15 +35,25 @@ export class WebmapxLayout extends LitElement {
       gap: var(--webmapx-layout-slot-gap, 12px);
     }
 
-    /* Make top-left a full-height column so percentage heights work in children */
+    /* Make top-left and top-right full-height columns so percentage heights work in children */
     .slot-zone--top-left {
       top: var(--webmapx-layout-edge-offset, 16px);
       left: var(--webmapx-layout-edge-offset, 16px);
       bottom: var(--webmapx-layout-edge-offset, 16px);
     }
 
-    /* Ensure the wrapper div in the slot takes full height */
+    .slot-zone--top-right {
+      top: var(--webmapx-layout-edge-offset, 16px);
+      right: var(--webmapx-layout-edge-offset, 16px);
+      bottom: var(--webmapx-layout-edge-offset, 16px);
+      align-items: flex-end;
+    }
+
+    /* Ensure the wrapper element slotted into top-left/right takes full height */
     .slot-zone--top-left ::slotted(*) {
+      height: 100%;
+    }
+    .slot-zone--top-right ::slotted(*) {
       height: 100%;
     }
 

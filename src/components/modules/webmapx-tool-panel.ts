@@ -15,13 +15,13 @@ export class WebmapxToolPanel extends LitElement {
       box-sizing: border-box;
       flex-direction: column;
       width: 300px;
-      max-height: 100%;
-      height: fit-content;
+      max-height: 80%;
+      min-height: 0; /* allow flex item to shrink and enable child scroll */
       background: var(--webmapx-panel-bg, var(--sl-color-neutral-0, #fff));
       border: 1px solid var(--sl-color-neutral-200, #e5e5e5);
       box-shadow: var(--sl-shadow-medium);
       pointer-events: auto;
-      overflow: hidden;
+      overflow: hidden; /* clamp host; inner content manages scroll */
     }
 
     :host([active]) {
@@ -46,12 +46,18 @@ export class WebmapxToolPanel extends LitElement {
     }
 
     .panel-content {
-      flex: 1;
+      box-sizing: border-box;
+      flex: 1 1 auto;
+      min-height: 0;
       overflow-y: auto;
       overflow-x: hidden;
-      min-height: 0; /* Important for nested flex scrolling */
     }
+
   `;
+
+  firstUpdated() {
+    // No runtime sizing; rely on flex layout
+  }
 
   private handleClose() {
     this.active = false;

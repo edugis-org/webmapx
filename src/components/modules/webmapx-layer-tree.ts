@@ -20,12 +20,20 @@ export class WebmapxLayerTree extends LitElement {
     static styles = css`
         :host {
             display: block;
-            height: 100%;
-            overflow-y: auto;
-            padding: 0.5rem;
+            height: auto; /* let parent control available height */
+            overflow: visible; /* do not create a nested scroll container */
+            padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+            box-sizing: border-box;
             background: var(--sl-color-neutral-0);
             border-left: 1px solid var(--sl-color-neutral-200);
-            width: 300px; /* Default width, can be overridden */
+            width: 100%; /* inherit panel width; avoid forcing overflow */
+            margin: 0;
+        }
+        sl-tree {
+            display: block;
+            height: auto;
+            overflow: visible;
+            box-sizing: border-box;
         }
     `;
 
