@@ -28,3 +28,13 @@ Entry 2025-12-07
 - Next steps:
 	1. Move the map state store from global scope into each `<webmapx-map>` instance (one store per map) so multiple maps can coexist without shared state collisions.
 	2. Allow tools to live outside `<webmapx-map>` but reference the intended map via an attribute (e.g., `map-target="map-container"`); automatically resolve the host map when a tool is slotted inside `<webmapx-map>` so authors only set the attribute for out-of-map tools.
+
+Entry 2025-12-09
+- Context: Introduced `webmapx-control-group` to orchestrate toolbar + tool-panel positioning with `orientation`, `panel-position`, and `alignment` attributes. Toolbar now supports vertical/horizontal modes.
+- Changes: Added `webmapx-control-group.ts`; updated `webmapx-toolbar.ts` to accept `orientation`; created user docs for control group, toolbar, tool panel, and the interaction guide; updated docs overview.
+- Decisions: Keep components loosely coupled via events (`webmapx-tool-select`, `webmapx-panel-close`). Avoid z-index; rely on DOM order for stacking. Use percentage-based `max-height` when parent height is constrained.
+- To do:
+	1. Verify behavior when toolbar/panel content exceeds map bounds: scrollbars must appear on the panel; empty layout areas remain click-through.
+	2. Ensure toolbar wraps buttons: when vertical, wrap to 2+ columns; when horizontal, wrap to 2+ rows if needed.
+	3. Confirm alignment on right-side placement: toolbar should remain right-aligned relative to the panel when expanding.
+	4. Add examples to docs demonstrating overflow/wrap scenarios for both orientations.
