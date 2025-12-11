@@ -103,6 +103,7 @@ export class WebmapxLayout extends LitElement {
     }
 
     .slot-zone--bottom-right {
+      top: var(--webmapx-layout-edge-offset, 16px);
       bottom: var(--webmapx-layout-edge-offset, 16px);
       right: var(--webmapx-layout-edge-offset, 16px);
       align-items: flex-end;

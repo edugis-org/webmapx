@@ -22,8 +22,11 @@
             <webmapx-map id="map-container" adapter="maplibre">
                 
                 <webmapx-layout>
+                    <webmapx-tool-template slot="bottom-left"></webmapx-tool-template>
+                    <webmapx-zoom-level slot="bottom-left"></webmapx-zoom-level>
+                    
                     <!-- Top Left: Toolbar + Panel -->
-                    <webmapx-control-group slot="top-right" orientation="horizontal" panel-position="after" alignment="end">
+                    <webmapx-control-group slot="bottom-right" orientation="horizontal" panel-position="before" alignment="end">
                         <webmapx-toolbar id="main-toolbar">
                             <sl-button name="layers" size="medium" circle>
                                 <sl-icon name="layers" label="Layers"></sl-icon>
@@ -44,8 +47,6 @@
                         </webmapx-tool-panel>
                     </webmapx-control-group>
 
-                    <webmapx-tool-template slot="bottom-left"></webmapx-tool-template>
-                    <webmapx-zoom-level slot="bottom-left"></webmapx-zoom-level>
                     <webmapx-inset-map slot="middle-left" zoom-offset="-3"></webmapx-inset-map>
                 </webmapx-layout>
 
