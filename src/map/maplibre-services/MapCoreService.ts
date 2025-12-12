@@ -2,6 +2,7 @@
 
 import { IMapCore } from '../IMapInterfaces'; 
 import { MapStateStore } from '../../store/map-state-store';
+import { throttle } from '../../utils/throttle';
 
 // 💡 FIX: Use wildcard import (* as) instead of default import (import maplibregl)
 import * as maplibregl from 'maplibre-gl'; 
@@ -15,6 +16,9 @@ export class MapCoreService implements IMapCore {
     
     // The Map type is now accessed as maplibregl.Map
     private mapInstance: maplibregl.Map | null = null; 
+    private readonly throttledViewportDispatch = throttle(() => {
+        this.dispatchViewportBoundsSnapshot();
+    }, 100);
 
     // Basic configuration needed for a standard map
     private readonly initialConfig = {
@@ -74,19 +78,26 @@ export class MapCoreService implements IMapCore {
         }
 
         this.mapInstance.on('load', () => {
-            this.store.dispatch({ mapLoaded: true, zoomLevel: zoom, mapCenter: center }, 'MAP');
+            const viewportBounds = this.buildViewportFeature();
+            this.store.dispatch({ mapLoaded: true, zoomLevel: zoom, mapCenter: center, mapViewportBounds: viewportBounds }, 'MAP');
         });
         
         // Default internal subscription updates the map state store
         this.mapInstance.on('zoomend', () => {
              const currentZoom = this.mapInstance!.getZoom();
-             this.store.dispatch({ zoomLevel: currentZoom }, 'MAP');
+             const viewportBounds = this.buildViewportFeature();
+             this.store.dispatch({ zoomLevel: currentZoom, mapViewportBounds: viewportBounds }, 'MAP');
         });
 
         this.mapInstance.on('moveend', () => {
             const currentCenter = this.mapInstance!.getCenter().toArray() as [number, number];
             const currentZoom = this.mapInstance!.getZoom();
-            this.store.dispatch({ mapCenter: currentCenter, zoomLevel: currentZoom }, 'MAP');
+            const viewportBounds = this.buildViewportFeature();
+            this.store.dispatch({ mapCenter: currentCenter, zoomLevel: currentZoom, mapViewportBounds: viewportBounds }, 'MAP');
+        });
+
+        this.mapInstance.on('move', () => {
+            this.throttledViewportDispatch();
         });
     }
 
@@ -107,6 +118,41 @@ export class MapCoreService implements IMapCore {
 
     public getZoom(): number {
         return this.mapInstance ? this.mapInstance.getZoom() : this.initialConfig.zoom;
+    }
+
+    private dispatchViewportBoundsSnapshot(): void {
+        const viewportBounds = this.buildViewportFeature();
+        this.store.dispatch({ mapViewportBounds: viewportBounds }, 'MAP');
+    }
+
+    private buildViewportFeature(): GeoJSON.Feature<GeoJSON.Polygon> | null {
+        if (!this.mapInstance) {
+            return null;
+        }
+
+        const bounds = this.mapInstance.getBounds();
+        if (!bounds) {
+            return null;
+        }
+
+        const sw = bounds.getSouthWest();
+        const ne = bounds.getNorthEast();
+        const coordinates: [number, number][] = [
+            [sw.lng, sw.lat],
+            [sw.lng, ne.lat],
+            [ne.lng, ne.lat],
+            [ne.lng, sw.lat],
+            [sw.lng, sw.lat],
+        ];
+
+        return {
+            type: 'Feature',
+            properties: { role: 'mapViewport' },
+            geometry: {
+                type: 'Polygon',
+                coordinates: [coordinates],
+            },
+        };
     }
 
     private resolveContainer(containerId: string): string | HTMLElement {

@@ -18,7 +18,8 @@ export class MapStateStore {
         currentTool: 'None',
         bufferRadiusKm: 5,
         zoomLevel: null,
-        mapCenter: null
+        mapCenter: null,
+        mapViewportBounds: null
     };
     private listeners: Listener[] = [];
 

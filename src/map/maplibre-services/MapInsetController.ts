@@ -13,6 +13,8 @@ interface InsetContext {
   container: HTMLElement;
   map: maplibregl.Map;
   options: ResolvedInsetOptions;
+  lastCenter: [number, number] | null;
+  lastZoom: number | null;
 }
 
 type ResolvedInsetOptions = {
@@ -26,6 +28,9 @@ const DEFAULT_OFFSET = -3;
 const MIN_INSET_ZOOM = 0;
 const MAX_INSET_ZOOM = 22;
 const POSITIVE_SCALE_CAP = 1;
+const VIEWPORT_SOURCE_ID = 'webmapx-inset-viewport-source';
+const VIEWPORT_FILL_LAYER_ID = 'webmapx-inset-viewport-fill';
+const VIEWPORT_OUTLINE_LAYER_ID = 'webmapx-inset-viewport-outline';
 
 export class MapInsetController implements IInsetController {
   private contexts = new Map<HTMLElement, InsetContext>();
@@ -68,9 +73,22 @@ export class MapInsetController implements IInsetController {
     map.doubleClickZoom?.disable();
     map.touchZoomRotate?.disable();
 
-    this.contexts.set(container, { container, map, options: resolvedOptions });
+    const context: InsetContext = {
+      container,
+      map,
+      options: resolvedOptions,
+      lastCenter: null,
+      lastZoom: null,
+    };
+
+    this.contexts.set(container, context);
     container.style.setProperty('--webmapx-inset-scale', `${resolvedOptions.baseScale}`);
     this.ensureSubscription();
+    if (map.isStyleLoaded()) {
+      this.ensureViewportLayer(map);
+    } else {
+      map.once('load', () => this.ensureViewportLayer(map));
+    }
     this.applyStateToContext(this.contexts.get(container)!, state);
   }
 
@@ -111,15 +129,100 @@ export class MapInsetController implements IInsetController {
   }
 
   private applyStateToContext(context: InsetContext, state: IAppState): void {
-    if (!context.map || !state.mapCenter) {
+    if (!context.map) {
       return;
     }
 
-    const requestedZoom = (state.zoomLevel ?? 0) + context.options.zoomOffset;
-    const view = this.resolveViewState(requestedZoom, context.options);
+    if (state.mapCenter) {
+      const requestedZoom = (state.zoomLevel ?? 0) + context.options.zoomOffset;
+      const view = this.resolveViewState(requestedZoom, context.options);
+      const shouldUpdateView = !this.isSameView(context, state.mapCenter, view.mapZoom);
 
-    context.container.style.setProperty('--webmapx-inset-scale', `${view.scale}`);
-    context.map.jumpTo({ center: state.mapCenter, zoom: view.mapZoom, bearing: 0, pitch: 0 });
+      context.container.style.setProperty('--webmapx-inset-scale', `${view.scale}`);
+
+      if (shouldUpdateView) {
+        context.map.jumpTo({ center: state.mapCenter, zoom: view.mapZoom, bearing: 0, pitch: 0 });
+        context.lastCenter = [...state.mapCenter] as [number, number];
+        context.lastZoom = view.mapZoom;
+      }
+    }
+
+    this.updateViewportSource(context.map, state.mapViewportBounds);
+  }
+
+  private isSameView(context: InsetContext, center: [number, number], zoom: number): boolean {
+    if (!context.lastCenter || context.lastZoom === null) {
+      return false;
+    }
+
+    return context.lastCenter[0] === center[0] && context.lastCenter[1] === center[1] && context.lastZoom === zoom;
+  }
+
+  private ensureViewportLayer(map: maplibregl.Map): void {
+    const emptyData: GeoJSON.FeatureCollection<GeoJSON.Polygon> = {
+      type: 'FeatureCollection',
+      features: [],
+    };
+
+    if (!map.getSource(VIEWPORT_SOURCE_ID)) {
+      map.addSource(VIEWPORT_SOURCE_ID, {
+        type: 'geojson',
+        data: emptyData,
+      });
+    }
+
+    if (!map.getLayer(VIEWPORT_FILL_LAYER_ID)) {
+      map.addLayer({
+        id: VIEWPORT_FILL_LAYER_ID,
+        type: 'fill',
+        source: VIEWPORT_SOURCE_ID,
+        paint: {
+          'fill-color': '#0f62fe',
+          'fill-opacity': 0.15,
+        },
+      });
+    }
+
+    if (!map.getLayer(VIEWPORT_OUTLINE_LAYER_ID)) {
+      map.addLayer({
+        id: VIEWPORT_OUTLINE_LAYER_ID,
+        type: 'line',
+        source: VIEWPORT_SOURCE_ID,
+        paint: {
+          'line-color': '#0f62fe',
+          'line-width': 1.5,
+        },
+      });
+    }
+  }
+
+  private updateViewportSource(
+    map: maplibregl.Map,
+    feature: GeoJSON.Feature<GeoJSON.Polygon> | null | undefined,
+  ): void {
+    const applyData = () => {
+      const source = map.getSource(VIEWPORT_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+      if (!source) {
+        return;
+      }
+
+      const collection: GeoJSON.FeatureCollection<GeoJSON.Polygon> = {
+        type: 'FeatureCollection',
+        features: feature ? [feature] : [],
+      };
+
+      source.setData(collection);
+    };
+
+    if (map.isStyleLoaded()) {
+      this.ensureViewportLayer(map);
+      applyData();
+    } else {
+      map.once('load', () => {
+        this.ensureViewportLayer(map);
+        applyData();
+      });
+    }
   }
 
   private clampZoom(value: number): number {

@@ -9,6 +9,7 @@ export interface IAppState {
     bufferRadiusKm: number;
     zoomLevel: number | null;
     mapCenter: [number, number] | null;
+    mapViewportBounds: GeoJSON.Feature<GeoJSON.Polygon> | null;
     // ... add all other global state properties here
 }
 
