@@ -10,6 +10,7 @@ export class WebmapxToolbar extends LitElement {
       display: flex;
       flex-direction: column;
       flex-wrap: wrap; /* Allow wrapping to new column */
+      flex: 0 0 auto;
       background: var(--webmapx-toolbar-bg, var(--sl-color-neutral-0, #fff));
       border: 1px solid var(--sl-color-neutral-200, #e5e5e5);
       height: fit-content;
@@ -18,7 +19,6 @@ export class WebmapxToolbar extends LitElement {
       gap: 0.5rem;
       pointer-events: auto;
       box-shadow: var(--sl-shadow-small);
-      z-index: 10;
     }
 
     :host([orientation="vertical"]) {

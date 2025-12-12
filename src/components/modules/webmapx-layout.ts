@@ -1,5 +1,5 @@
-import { css, html, LitElement, PropertyValues } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { css, html, LitElement } from 'lit';
+import { customElement } from 'lit/decorators.js';
 
 /**
  * Lightweight overlay layout that mirrors the positioning pattern from the provided map-positioner
@@ -7,9 +7,6 @@ import { customElement, property } from 'lit/decorators.js';
  */
 @customElement('webmapx-layout')
 export class WebmapxLayout extends LitElement {
-  /** Optional z-index that gets applied to the host element when set. */
-  @property({ type: Number, attribute: 'z-index' })
-  public zIndex?: number;
 
   static styles = css`
     :host {
@@ -23,102 +20,108 @@ export class WebmapxLayout extends LitElement {
       position: relative;
       width: 100%;
       height: 100%;
-      padding: var(--webmapx-layout-inset, 16px);
       box-sizing: border-box;
     }
 
     .slot-zone {
       position: absolute;
-      pointer-events: none;
       display: flex;
       flex-direction: column;
       gap: var(--webmapx-layout-slot-gap, 12px);
+      pointer-events: none;
+      min-height: 0;
+      max-height: 100%;
+      overflow: hidden;
     }
 
-    /* Make top-left and top-right full-height columns so percentage heights work in children */
+    .slot-zone ::slotted(*) {
+      pointer-events: auto;
+    }
+
+    /* Left column */
     .slot-zone--top-left {
-      top: var(--webmapx-layout-edge-offset, 16px);
-      left: var(--webmapx-layout-edge-offset, 16px);
-      bottom: var(--webmapx-layout-edge-offset, 16px);
-    }
-
-    .slot-zone--top-right {
-      top: var(--webmapx-layout-edge-offset, 16px);
-      right: var(--webmapx-layout-edge-offset, 16px);
-      bottom: var(--webmapx-layout-edge-offset, 16px);
-      align-items: flex-end;
-    }
-
-    /* Ensure the wrapper element slotted into top-left/right takes full height */
-    .slot-zone--top-left ::slotted(*) {
-      height: 100%;
-    }
-    .slot-zone--top-right ::slotted(*) {
-      height: 100%;
+      top: var(--webmapx-zone-top-left-top, var(--webmapx-layout-inset, 16px));
+      bottom: var(--webmapx-zone-top-left-bottom, var(--webmapx-layout-inset, 16px));
+      left: var(--webmapx-zone-top-left-left, var(--webmapx-layout-inset, 16px));
+      right: var(--webmapx-zone-top-left-right, var(--webmapx-layout-inset, 16px));
+      justify-content: flex-start;
+      align-items: flex-start;
     }
 
     .slot-zone--middle-left {
-      top: 50%;
-      left: var(--webmapx-layout-edge-offset, 16px);
-      transform: translateY(-50%);
+      top: var(--webmapx-zone-middle-left-top, var(--webmapx-layout-inset, 16px));
+      bottom: var(--webmapx-zone-middle-left-bottom, var(--webmapx-layout-inset, 16px));
+      left: var(--webmapx-zone-middle-left-left, var(--webmapx-layout-inset, 16px));
+      right: var(--webmapx-zone-middle-left-right, var(--webmapx-layout-inset, 16px));
+      justify-content: center;
+      align-items: flex-start;
     }
 
     .slot-zone--bottom-left {
-      bottom: var(--webmapx-layout-edge-offset, 16px);
-      left: var(--webmapx-layout-edge-offset, 16px);
+      top: var(--webmapx-zone-bottom-left-top, var(--webmapx-layout-inset, 16px));
+      bottom: var(--webmapx-zone-bottom-left-bottom, var(--webmapx-layout-inset, 16px));
+      left: var(--webmapx-zone-bottom-left-left, var(--webmapx-layout-inset, 16px));
+      right: var(--webmapx-zone-bottom-left-right, var(--webmapx-layout-inset, 16px));
+      justify-content: flex-end;
+      align-items: flex-start;
     }
 
+    /* Center column */
     .slot-zone--top-center {
-      top: var(--webmapx-layout-edge-offset, 16px);
-      left: 50%;
-      transform: translateX(-50%);
+      top: var(--webmapx-zone-top-center-top, var(--webmapx-layout-inset, 16px));
+      bottom: var(--webmapx-zone-top-center-bottom, var(--webmapx-layout-inset, 16px));
+      left: var(--webmapx-zone-top-center-left, var(--webmapx-layout-inset, 16px));
+      right: var(--webmapx-zone-top-center-right, var(--webmapx-layout-inset, 16px));
+      justify-content: flex-start;
       align-items: center;
     }
 
     .slot-zone--middle-center {
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
+      top: var(--webmapx-zone-middle-center-top, var(--webmapx-layout-inset, 16px));
+      bottom: var(--webmapx-zone-middle-center-bottom, var(--webmapx-layout-inset, 16px));
+      left: var(--webmapx-zone-middle-center-left, var(--webmapx-layout-inset, 16px));
+      right: var(--webmapx-zone-middle-center-right, var(--webmapx-layout-inset, 16px));
+      justify-content: center;
       align-items: center;
     }
 
     .slot-zone--bottom-center {
-      bottom: var(--webmapx-layout-edge-offset, 16px);
-      left: 50%;
-      transform: translateX(-50%);
+      top: var(--webmapx-zone-bottom-center-top, var(--webmapx-layout-inset, 16px));
+      bottom: var(--webmapx-zone-bottom-center-bottom, var(--webmapx-layout-inset, 16px));
+      left: var(--webmapx-zone-bottom-center-left, var(--webmapx-layout-inset, 16px));
+      right: var(--webmapx-zone-bottom-center-right, var(--webmapx-layout-inset, 16px));
+      justify-content: flex-end;
       align-items: center;
     }
 
+    /* Right column */
     .slot-zone--top-right {
-      top: var(--webmapx-layout-edge-offset, 16px);
-      right: var(--webmapx-layout-edge-offset, 16px);
+      top: var(--webmapx-zone-top-right-top, var(--webmapx-layout-inset, 16px));
+      bottom: var(--webmapx-zone-top-right-bottom, var(--webmapx-layout-inset, 16px));
+      left: var(--webmapx-zone-top-right-left, var(--webmapx-layout-inset, 16px));
+      right: var(--webmapx-zone-top-right-right, var(--webmapx-layout-inset, 16px));
+      justify-content: flex-start;
       align-items: flex-end;
     }
 
     .slot-zone--middle-right {
-      top: 50%;
-      right: var(--webmapx-layout-edge-offset, 16px);
-      transform: translateY(-50%);
+      top: var(--webmapx-zone-middle-right-top, var(--webmapx-layout-inset, 16px));
+      bottom: var(--webmapx-zone-middle-right-bottom, var(--webmapx-layout-inset, 16px));
+      left: var(--webmapx-zone-middle-right-left, var(--webmapx-layout-inset, 16px));
+      right: var(--webmapx-zone-middle-right-right, var(--webmapx-layout-inset, 16px));
+      justify-content: center;
       align-items: flex-end;
     }
 
     .slot-zone--bottom-right {
-      top: var(--webmapx-layout-edge-offset, 16px);
-      bottom: var(--webmapx-layout-edge-offset, 16px);
-      right: var(--webmapx-layout-edge-offset, 16px);
+      top: var(--webmapx-zone-bottom-right-top, var(--webmapx-layout-inset, 16px));
+      bottom: var(--webmapx-zone-bottom-right-bottom, var(--webmapx-layout-inset, 16px));
+      left: var(--webmapx-zone-bottom-right-left, var(--webmapx-layout-inset, 16px));
+      right: var(--webmapx-zone-bottom-right-right, var(--webmapx-layout-inset, 16px));
+      justify-content: flex-end;
       align-items: flex-end;
     }
   `;
-
-  protected updated(changed: PropertyValues): void {
-    if (changed.has('zIndex')) {
-      if (this.zIndex === undefined || this.zIndex === null) {
-        this.style.removeProperty('z-index');
-      } else {
-        this.style.zIndex = `${this.zIndex}`;
-      }
-    }
-  }
 
   protected render() {
     return html`

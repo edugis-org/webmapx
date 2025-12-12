@@ -19,14 +19,19 @@
 <body>
     <div class="table">
         <div>
-            <webmapx-map id="map-container" adapter="maplibre">
-                
+            <webmapx-map id="map-container" adapter="maplibre">                
                 <webmapx-layout>
+                    <webmapx-zoom-level slot="top-center"></webmapx-zoom-level>
+                    <webmapx-zoom-level slot="top-right"></webmapx-zoom-level>
+                    <webmapx-zoom-level slot="middle-right"></webmapx-zoom-level>
+                    <webmapx-zoom-level slot="bottom-right"></webmapx-zoom-level>
+                    <webmapx-zoom-level slot="bottom-center"></webmapx-zoom-level>
+                    
                     <webmapx-tool-template slot="bottom-left"></webmapx-tool-template>
                     <webmapx-zoom-level slot="bottom-left"></webmapx-zoom-level>
                     
                     <!-- Top Left: Toolbar + Panel -->
-                    <webmapx-control-group slot="bottom-right" orientation="horizontal" panel-position="before" alignment="end">
+                    <webmapx-control-group slot="bottom-left" orientation="horizontal" panel-position="before" alignment="start">
                         <webmapx-toolbar id="main-toolbar">
                             <sl-button name="layers" size="medium" circle>
                                 <sl-icon name="layers" label="Layers"></sl-icon>
@@ -47,7 +52,7 @@
                         </webmapx-tool-panel>
                     </webmapx-control-group>
 
-                    <webmapx-inset-map slot="middle-left" zoom-offset="-3"></webmapx-inset-map>
+                    <webmapx-inset-map slot="top-left" zoom-offset="-3"></webmapx-inset-map>
                 </webmapx-layout>
 
             </webmapx-map>

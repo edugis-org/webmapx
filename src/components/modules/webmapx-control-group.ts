@@ -10,9 +10,11 @@ export class WebmapxControlGroup extends LitElement {
   static styles = css`
     :host {
       display: flex;
-      pointer-events: none; /* Pass through clicks in gaps */
+      pointer-events: auto; /* Allow interaction for slotted controls */
       gap: 0.5rem;
-      height: 100%;
+      flex: 0 1 auto; /* keep intrinsic height but allow shrinking when space is tight */
+      min-height: 0; /* let child flex items manage their own minimums */
+      max-height: 100%;
       max-width: 100%;
       align-items: stretch; /* Stretch children to full available cross-size */
     }
@@ -37,11 +39,10 @@ export class WebmapxControlGroup extends LitElement {
       flex-direction: column-reverse;
     }
     
-    /* Ensure children (toolbar/panel) capture pointer events */
+    /* Ensure children capture pointer events; sizing handled by each component */
     ::slotted(*) {
       pointer-events: auto;
     }
-    /* Let slotted components size themselves; tool panel uses max-height */
   `;
 
   @queryAssignedElements()

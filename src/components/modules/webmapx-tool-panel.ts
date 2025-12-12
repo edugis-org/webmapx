@@ -15,8 +15,11 @@ export class WebmapxToolPanel extends LitElement {
       box-sizing: border-box;
       flex-direction: column;
       width: 300px;
-      max-height: 80%;
-      min-height: 0; /* allow flex item to shrink and enable child scroll */
+      max-height: 100%;
+      min-height: calc(
+        var(--webmapx-panel-header-min-height, 3rem) +
+        var(--webmapx-panel-min-content, 8px)
+      );
       background: var(--webmapx-panel-bg, var(--sl-color-neutral-0, #fff));
       border: 1px solid var(--sl-color-neutral-200, #e5e5e5);
       box-shadow: var(--sl-shadow-medium);
@@ -25,7 +28,7 @@ export class WebmapxToolPanel extends LitElement {
     }
 
     :host([active]) {
-      display: flex;
+      display: flex;      
     }
 
     .panel-header {
@@ -54,11 +57,6 @@ export class WebmapxToolPanel extends LitElement {
     }
 
   `;
-
-  firstUpdated() {
-    // No runtime sizing; rely on flex layout
-  }
-
   private handleClose() {
     this.active = false;
     this.dispatchEvent(new CustomEvent('webmapx-panel-close', {
