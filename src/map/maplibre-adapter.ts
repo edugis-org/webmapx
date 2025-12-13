@@ -2,10 +2,10 @@
 
 import { IMapCore, IToolService } from './IMapInterfaces';
 import { MapStateStore } from '../store/map-state-store';
+import { MapEventBus } from '../store/map-events';
 import { IMapAdapter } from './IMapAdapter';
 import { MapCoreService } from './maplibre-services/MapCoreService';
 import { MapServiceTemplate } from './maplibre-services/MapServiceTemplate';
-import { MapZoomController } from './maplibre-services/MapZoomController';
 import { MapInsetController } from './maplibre-services/MapInsetController';
 import { MapPointerController } from './maplibre-services/MapPointerController';
 
@@ -15,25 +15,28 @@ import { MapPointerController } from './maplibre-services/MapPointerController';
  */
 export class MapLibreAdapter implements IMapAdapter {
     // Placeholder for the actual MapLibre object
-    private mapInstance: any = {}; 
+    private mapInstance: any = {};
 
     // The composed services adhering to the contracts
     public core: IMapCore;
     public toolService: IToolService;
-    public zoomController: MapZoomController;
     public inset: MapInsetController;
     public pointerController: MapPointerController;
     public readonly store: MapStateStore;
 
+    /**
+     * Event bus for normalized map events.
+     * Tools subscribe here to receive library-agnostic events (pointer-move, click, etc.)
+     */
+    public readonly events: MapEventBus;
+
     constructor() {
         this.store = new MapStateStore();
-        this.core = new MapCoreService(this.store);
+        this.events = new MapEventBus();
+        this.core = new MapCoreService(this.store, this.events);
         this.toolService = new MapServiceTemplate(this.mapInstance);
-        this.zoomController = new MapZoomController(this.store);
-        // Bind core to the zoom controller for map-agnostic wiring
-        this.zoomController.setCore(this.core);
         this.inset = new MapInsetController(this.store);
-        this.pointerController = new MapPointerController(this.store);
+        this.pointerController = new MapPointerController(this.store, this.events);
 
         if (this.core instanceof MapCoreService) {
             this.core.onMapReady((mapInstance) => {

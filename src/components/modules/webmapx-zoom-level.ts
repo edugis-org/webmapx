@@ -3,23 +3,32 @@
 import { html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import { IAppState } from '../../store/IState'; 
-import { IMapZoomController } from '../../map/IMapInterfaces';
+import { IAppState } from '../../store/IState';
 import { IMapAdapter } from '../../map/IMapAdapter';
+import { ViewChangeEndEvent } from '../../store/map-events';
 
 import '@shoelace-style/shoelace/dist/components/input/input.js';
 
+/**
+ * Zoom level display and input tool.
+ *
+ * This component demonstrates the event bus pattern:
+ * - Listens to 'view-change-end' events for zoom updates (library-agnostic)
+ * - Commands zoom changes via adapter.core.setZoom() (IMapCore interface)
+ *
+ * No MapZoomController dependency - works with any map library that
+ * implements IMapAdapter and emits view-change events.
+ */
 @customElement('webmapx-zoom-level')
 export class WebmapxZoomLevel extends WebmapxBaseTool {
-    
+
     @state()
     private currentZoom: number | null = null;
 
-    // Use string for the input field value
     @state()
     private inputValue: string = '';
 
-    private zoomController: IMapZoomController | null = null;
+    private unsubscribeEvents: (() => void) | null = null;
 
     static styles = css`
         :host {
@@ -30,99 +39,89 @@ export class WebmapxZoomLevel extends WebmapxBaseTool {
 
         .tool-container {
             border: 1px solid var(--color-border);
-            /* Use defined padding variables (which should ideally be in em or derived units) */
             padding: var(--compact-padding-vertical) var(--compact-padding-horizontal);
-            
-            /* Apply background color; transparency can be tuned via the opacity variable */
             background: var(--color-background-secondary);
             opacity: var(--tool-background-opacity);
-            
             color: var(--color-text-primary);
             display: inline-flex;
             align-items: center;
             gap: var(--compact-gap);
-            
-            /* Apply the small font size */
-            font-size: var(--font-size-small); 
+            font-size: var(--font-size-small);
         }
-        
+
         sl-input {
-            /* 💡 FIX: Use EM units for width based on font size. 4.5em is enough space 
-               for a 4-digit number (e.g., 99.99) plus internal padding. */
-            width: 4.5em; 
-            
-            /* 🛠️ FIX: Target the Shoelace input's internal parts for compactness using EM units */
-            /* These properties control the component's derived height and padding */
-            --sl-input-height-small: 1.8em; /* Roughly 20px at 12px font size */
-            --sl-input-spacing-small: 0.2em; /* Roughly 2px internal padding */
-            --sl-input-font-size-small: var(--font-size-small); 
+            width: 4.5em;
+            --sl-input-height-small: 1.8em;
+            --sl-input-spacing-small: 0.2em;
+            --sl-input-font-size-small: var(--font-size-small);
         }
-        
-        /* Apply the blue bottom line on hover/focus using Shoelace parts */
-        sl-input::part(base):hover, 
+
+        sl-input::part(base):hover,
         sl-input::part(base):focus-within {
-            /* This mimics the hover effect desired by adding a border/box-shadow */
-            border-bottom-color: var(--color-primary); 
+            border-bottom-color: var(--color-primary);
             box-shadow: 0 1px 0 0 var(--color-primary);
         }
-        
-        /* Style the actual input element */
+
         sl-input::part(input) {
-            padding: 0; /* Remove internal padding to ensure compactness is driven by --sl-input-spacing-small */
+            padding: 0;
         }
     `;
 
     protected onMapAttached(adapter: IMapAdapter): void {
-        this.zoomController = adapter.zoomController;
+        // Subscribe to view-change-end events via the event bus
+        this.unsubscribeEvents = adapter.events.on('view-change-end', (event: ViewChangeEndEvent) => {
+            this.handleViewChange(event);
+        });
     }
 
     protected onMapDetached(): void {
-        this.zoomController = null;
+        // Clean up event subscription
+        this.unsubscribeEvents?.();
+        this.unsubscribeEvents = null;
     }
 
     protected onStateChanged(state: IAppState): void {
-        this.syncFromState(state);
-    }
-
-    private syncFromState(state: IAppState): void {
-        if (state.zoomLevel == null) {
-            return;
+        // Initial sync from state store (for first load before events fire)
+        if (state.zoomLevel != null && this.currentZoom === null) {
+            this.currentZoom = state.zoomLevel;
+            this.inputValue = this.currentZoom.toFixed(2);
         }
-        this.currentZoom = state.zoomLevel;
-        this.inputValue = this.currentZoom.toFixed(2);
-    }
-    
-    private handleInputChange(event: Event) {
-        // Keep the input field synced with what the user types
-        this.inputValue = (event.target as HTMLInputElement).value;
     }
 
     /**
-     * Handles the 'Enter' key press on the input field.
+     * Handle view-change-end events from the event bus.
      */
+    private handleViewChange(event: ViewChangeEndEvent): void {
+        this.currentZoom = event.zoom;
+        this.inputValue = event.zoom.toFixed(2);
+    }
+
+    private handleInputChange(event: Event) {
+        this.inputValue = (event.target as HTMLInputElement).value;
+    }
+
     private handleInputSubmit(event: KeyboardEvent) {
         if (event.key === 'Enter') {
             this.dispatchZoomIntent();
         }
     }
-    
-    /**
-     * Called by the throttle function when the user 'waits long enough' 
-     * (the throttled function is set up in the MapZoomController service).
-     * Shoelace sl-input fires 'sl-input' continuously and 'sl-change' on blur/enter.
-     */
+
     private handleInputBlur() {
         this.dispatchZoomIntent();
     }
-    
+
+    /**
+     * Set zoom via IMapCore interface (library-agnostic command).
+     */
     private dispatchZoomIntent() {
-        if (!this.inputValue) {
+        if (!this.inputValue || !this.adapter) {
             return;
         }
 
         const zoomValue = parseFloat(this.inputValue);
         if (!isNaN(zoomValue) && zoomValue >= 0) {
-            this.zoomController?.setZoom(zoomValue); 
+            // Use IMapCore.setZoom() - works with any map library
+            this.adapter.core.setZoom(zoomValue);
         }
     }
 
@@ -130,9 +129,9 @@ export class WebmapxZoomLevel extends WebmapxBaseTool {
         return html`
             <div class="tool-container">
                 <label>Zoom:</label>
-                
+
                 <sl-input
-                    .value="${this.inputValue}" 
+                    .value="${this.inputValue}"
                     type="number"
                     min="1"
                     max="20"

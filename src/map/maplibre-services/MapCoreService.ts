@@ -1,23 +1,28 @@
 // src/map/maplibre-services/MapCoreService.ts
 
-import { IMapCore } from '../IMapInterfaces'; 
+import { IMapCore } from '../IMapInterfaces';
 import { MapStateStore } from '../../store/map-state-store';
+import { MapEventBus, LngLat } from '../../store/map-events';
 import { throttle } from '../../utils/throttle';
 
 // 💡 FIX: Use wildcard import (* as) instead of default import (import maplibregl)
-import * as maplibregl from 'maplibre-gl'; 
+import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css'; 
 
 /**
  * Implements the core map contract (IMapCore) for the MapLibre engine.
  */
 export class MapCoreService implements IMapCore {
-    constructor(private readonly store: MapStateStore) {}
-    
+    constructor(
+        private readonly store: MapStateStore,
+        private readonly eventBus?: MapEventBus
+    ) {}
+
     // The Map type is now accessed as maplibregl.Map
-    private mapInstance: maplibregl.Map | null = null; 
+    private mapInstance: maplibregl.Map | null = null;
     private readonly throttledViewportDispatch = throttle(() => {
         this.dispatchViewportBoundsSnapshot();
+        this.emitViewChange();
     }, 100);
     private mapReadyCallbacks: Array<(map: maplibregl.Map) => void> = [];
 
@@ -97,10 +102,57 @@ export class MapCoreService implements IMapCore {
             const currentZoom = this.mapInstance!.getZoom();
             const viewportBounds = this.buildViewportFeature();
             this.store.dispatch({ mapCenter: currentCenter, zoomLevel: currentZoom, mapViewportBounds: viewportBounds }, 'MAP');
+
+            // Emit view-change-end event
+            this.emitViewChangeEnd();
         });
 
         this.mapInstance.on('move', () => {
             this.throttledViewportDispatch();
+        });
+    }
+
+    /**
+     * Emit a view-change event (throttled, during movement).
+     */
+    private emitViewChange(): void {
+        if (!this.eventBus || !this.mapInstance) return;
+
+        const center = this.mapInstance.getCenter();
+        const bounds = this.mapInstance.getBounds();
+
+        this.eventBus.emit({
+            type: 'view-change',
+            center: [center.lng, center.lat] as LngLat,
+            zoom: this.mapInstance.getZoom(),
+            bearing: this.mapInstance.getBearing(),
+            pitch: this.mapInstance.getPitch(),
+            bounds: {
+                sw: [bounds.getSouthWest().lng, bounds.getSouthWest().lat] as LngLat,
+                ne: [bounds.getNorthEast().lng, bounds.getNorthEast().lat] as LngLat,
+            }
+        });
+    }
+
+    /**
+     * Emit a view-change-end event (after movement completes).
+     */
+    private emitViewChangeEnd(): void {
+        if (!this.eventBus || !this.mapInstance) return;
+
+        const center = this.mapInstance.getCenter();
+        const bounds = this.mapInstance.getBounds();
+
+        this.eventBus.emit({
+            type: 'view-change-end',
+            center: [center.lng, center.lat] as LngLat,
+            zoom: this.mapInstance.getZoom(),
+            bearing: this.mapInstance.getBearing(),
+            pitch: this.mapInstance.getPitch(),
+            bounds: {
+                sw: [bounds.getSouthWest().lng, bounds.getSouthWest().lat] as LngLat,
+                ne: [bounds.getNorthEast().lng, bounds.getNorthEast().lat] as LngLat,
+            }
         });
     }
 
