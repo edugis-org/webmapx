@@ -4,13 +4,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WebMapX</title>
-    
+
+    <!-- Shoelace themes - both loaded, class on html determines active -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.14.0/cdn/themes/light.css" />
-    
-    <link rel="stylesheet" href="./src/theme/webmapx-style-core.css"> 
-    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.14.0/cdn/themes/dark.css" />
+
+    <link rel="stylesheet" href="./src/theme/webmapx-style-core.css">
+
     <link rel="stylesheet" href="./app.css">
-    <script type="module" src="./src/app.js"></script> 
+    <script type="module" src="./src/app.js"></script>
     <style>
         /* Hide tools by default */
         #layer-tool, #settings-tool { display: none; height: 100%; }
@@ -43,12 +45,7 @@
 
                         <webmapx-tool-panel id="tool-panel" label="Tools">
                             <webmapx-layer-tree id="layer-tool"></webmapx-layer-tree>
-                            <div id="settings-tool">
-                                <div style="padding: 1rem;">
-                                    <p>Application Settings</p>
-                                    <sl-input label="API Key" type="password"></sl-input>
-                                </div>
-                            </div>
+                            <webmapx-settings id="settings-tool"></webmapx-settings>
                         </webmapx-tool-panel>
                     </webmapx-control-group>
 
@@ -63,6 +60,7 @@
             <h3>External Tools</h3>
             <p>This zoom control is outside the map but linked to it.</p>
             <webmapx-zoom-level map="#map-container"></webmapx-zoom-level>
+            <webmapx-inset-map zoom-offset="-5"></webmapx-inset-map>
         </div>
     </div>
 
