@@ -19,6 +19,7 @@ export class MapCoreService implements IMapCore {
     private readonly throttledViewportDispatch = throttle(() => {
         this.dispatchViewportBoundsSnapshot();
     }, 100);
+    private mapReadyCallbacks: Array<(map: maplibregl.Map) => void> = [];
 
     // Basic configuration needed for a standard map
     private readonly initialConfig = {
@@ -70,6 +71,8 @@ export class MapCoreService implements IMapCore {
             bearing: this.initialConfig.bearing            
         });
 
+        this.flushMapReadyCallbacks();
+
         if (styleUrl) {
             this.mapInstance.setStyle(styleUrl);
         } else {
@@ -81,7 +84,7 @@ export class MapCoreService implements IMapCore {
             const viewportBounds = this.buildViewportFeature();
             this.store.dispatch({ mapLoaded: true, zoomLevel: zoom, mapCenter: center, mapViewportBounds: viewportBounds }, 'MAP');
         });
-        
+
         // Default internal subscription updates the map state store
         this.mapInstance.on('zoomend', () => {
              const currentZoom = this.mapInstance!.getZoom();
@@ -99,6 +102,14 @@ export class MapCoreService implements IMapCore {
         this.mapInstance.on('move', () => {
             this.throttledViewportDispatch();
         });
+    }
+
+    public onMapReady(callback: (map: maplibregl.Map) => void): void {
+        if (this.mapInstance) {
+            callback(this.mapInstance);
+            return;
+        }
+        this.mapReadyCallbacks.push(callback);
     }
 
     // Library-agnostic zoom controls
@@ -174,5 +185,20 @@ export class MapCoreService implements IMapCore {
         }
 
         return hostElement;
+    }
+
+    private flushMapReadyCallbacks(): void {
+        if (!this.mapInstance) {
+            return;
+        }
+
+        const pending = this.mapReadyCallbacks.splice(0);
+        pending.forEach(callback => {
+            try {
+                callback(this.mapInstance!);
+            } catch (error) {
+                console.error('[CORE SERVICE] mapReady callback failed.', error);
+            }
+        });
     }
 }

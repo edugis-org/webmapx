@@ -19,7 +19,11 @@ export class MapStateStore {
         bufferRadiusKm: 5,
         zoomLevel: null,
         mapCenter: null,
-        mapViewportBounds: null
+        mapViewportBounds: null,
+        pointerCoordinates: null,
+        lastClickedCoordinates: null,
+        pointerResolution: null,
+        lastClickedResolution: null
     };
     private listeners: Listener[] = [];
 

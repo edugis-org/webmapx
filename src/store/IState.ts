@@ -10,6 +10,10 @@ export interface IAppState {
     zoomLevel: number | null;
     mapCenter: [number, number] | null;
     mapViewportBounds: GeoJSON.Feature<GeoJSON.Polygon> | null;
+    pointerCoordinates: [number, number] | null;
+    lastClickedCoordinates: [number, number] | null;
+    pointerResolution: { lng: number; lat: number } | null;
+    lastClickedResolution: { lng: number; lat: number } | null;
     // ... add all other global state properties here
 }
 

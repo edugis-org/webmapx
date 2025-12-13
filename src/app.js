@@ -17,6 +17,7 @@ import './components/modules/webmapx-control-group.ts';
 import './components/modules/webmapx-tool-panel.ts';
 import './components/modules/webmapx-layer-tree.ts';
 import './components/modules/webmapx-settings.ts';
+import './components/modules/webmapx-coordinates-tool.ts';
 
 // 3. Initialize the map when the DOM is ready
 document.addEventListener('DOMContentLoaded', () => {

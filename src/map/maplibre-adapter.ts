@@ -7,6 +7,7 @@ import { MapCoreService } from './maplibre-services/MapCoreService';
 import { MapServiceTemplate } from './maplibre-services/MapServiceTemplate';
 import { MapZoomController } from './maplibre-services/MapZoomController';
 import { MapInsetController } from './maplibre-services/MapInsetController';
+import { MapPointerController } from './maplibre-services/MapPointerController';
 
 /**
  * The concrete Map Adapter implementation (MapLibre).
@@ -21,6 +22,7 @@ export class MapLibreAdapter implements IMapAdapter {
     public toolService: IToolService;
     public zoomController: MapZoomController;
     public inset: MapInsetController;
+    public pointerController: MapPointerController;
     public readonly store: MapStateStore;
 
     constructor() {
@@ -31,5 +33,12 @@ export class MapLibreAdapter implements IMapAdapter {
         // Bind core to the zoom controller for map-agnostic wiring
         this.zoomController.setCore(this.core);
         this.inset = new MapInsetController(this.store);
+        this.pointerController = new MapPointerController(this.store);
+
+        if (this.core instanceof MapCoreService) {
+            this.core.onMapReady((mapInstance) => {
+                this.pointerController.attach(mapInstance);
+            });
+        }
     }
 }
