@@ -1,17 +1,53 @@
 // src/map/IMapInterfaces.ts
 
 /**
+ * Options for creating a map instance.
+ */
+export interface MapCreateOptions {
+    center?: [number, number];
+    zoom?: number;
+    styleUrl?: string;
+    interactive?: boolean;
+}
+
+/**
+ * Paint properties for fill layers.
+ */
+export interface FillPaint {
+    'fill-color'?: string;
+    'fill-opacity'?: number;
+}
+
+/**
+ * Paint properties for line layers.
+ */
+export interface LinePaint {
+    'line-color'?: string;
+    'line-width'?: number;
+    'line-opacity'?: number;
+}
+
+/**
+ * Library-agnostic layer specification.
+ */
+export interface LayerSpec {
+    id: string;
+    type: 'fill' | 'line' | 'circle' | 'symbol';
+    sourceId: string;
+    paint?: FillPaint | LinePaint;
+}
+
+/**
  * Interface for core map capabilities (e.g., controlling position and state).
  * This is implemented by the concrete MapLibreAdapter, OpenLayersAdapter, etc.
  */
 export interface IMapCore {
     /** Gets the current map viewport settings (center, zoom, bearing). */
-    // Note the strict tuple type [number, number] for center
-    getViewportState(): { center: [number, number], zoom: number, bearing: number }; 
-    
+    getViewportState(): { center: [number, number], zoom: number, bearing: number };
+
     /** Sets the map viewport, used by UI components like a 'Location Finder'. */
     setViewport(center: [number, number], zoom: number): void;
-    
+
     /** Initializes the map in the target HTML element. Supports initial config. */
     initialize(
         containerId: string,
@@ -30,6 +66,65 @@ export interface IMapCore {
 
     /** Gets the current zoom level. */
     getZoom(): number;
+}
+
+/**
+ * A GeoJSON source belonging to a map.
+ */
+export interface ISource {
+    /** The source ID. */
+    readonly id: string;
+
+    /** Updates the GeoJSON data of this source. */
+    setData(data: GeoJSON.FeatureCollection): void;
+}
+
+/**
+ * A layer belonging to a map.
+ */
+export interface ILayer {
+    /** The layer ID. */
+    readonly id: string;
+
+    /** Gets the source this layer uses. */
+    getSource(): ISource;
+
+    /** Removes this layer from the map. */
+    remove(): void;
+}
+
+/**
+ * A map instance created by the factory.
+ */
+export interface IMap {
+    /** Sets the viewport (center, zoom, bearing, pitch). */
+    setViewport(center: [number, number], zoom: number, bearing?: number, pitch?: number): void;
+
+    /** Creates a GeoJSON source on this map. */
+    createSource(sourceId: string, data: GeoJSON.FeatureCollection): ISource;
+
+    /** Gets an existing source by ID. */
+    getSource(sourceId: string): ISource | null;
+
+    /** Creates a layer on this map. */
+    createLayer(spec: LayerSpec): ILayer;
+
+    /** Gets an existing layer by ID. */
+    getLayer(layerId: string): ILayer | null;
+
+    /** Registers a callback for when the map is ready (style loaded). */
+    onReady(callback: () => void): void;
+
+    /** Destroys the map and cleans up resources. */
+    destroy(): void;
+}
+
+/**
+ * Factory for creating map instances.
+ */
+export interface IMapFactory {
+    /** Creates a new map instance. */
+    createMap(container: HTMLElement, options?: MapCreateOptions): IMap;
 }
 
 /**

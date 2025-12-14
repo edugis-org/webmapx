@@ -1,13 +1,13 @@
 // src/map/maplibre-adapter.ts
 
-import { IMapCore, IToolService } from './IMapInterfaces';
+import { IMapCore, IToolService, IMapFactory } from './IMapInterfaces';
 import { MapStateStore } from '../store/map-state-store';
 import { MapEventBus } from '../store/map-events';
 import { IMapAdapter } from './IMapAdapter';
 import { MapCoreService } from './maplibre-services/MapCoreService';
 import { MapServiceTemplate } from './maplibre-services/MapServiceTemplate';
-import { MapInsetController } from './maplibre-services/MapInsetController';
 import { MapPointerController } from './maplibre-services/MapPointerController';
+import { MapFactoryService } from './maplibre-services/MapFactoryService';
 
 /**
  * The concrete Map Adapter implementation (MapLibre).
@@ -20,7 +20,7 @@ export class MapLibreAdapter implements IMapAdapter {
     // The composed services adhering to the contracts
     public core: IMapCore;
     public toolService: IToolService;
-    public inset: MapInsetController;
+    public mapFactory: IMapFactory;
     public pointerController: MapPointerController;
     public readonly store: MapStateStore;
 
@@ -35,7 +35,7 @@ export class MapLibreAdapter implements IMapAdapter {
         this.events = new MapEventBus();
         this.core = new MapCoreService(this.store, this.events);
         this.toolService = new MapServiceTemplate(this.mapInstance);
-        this.inset = new MapInsetController(this.store);
+        this.mapFactory = new MapFactoryService();
         this.pointerController = new MapPointerController(this.store, this.events);
 
         if (this.core instanceof MapCoreService) {
