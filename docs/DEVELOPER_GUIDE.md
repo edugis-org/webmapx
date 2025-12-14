@@ -2,6 +2,68 @@
 
 This guide outlines the standard procedure for adding new tools to WebMapX while maintaining architectural consistency.
 
+---
+
+## 0. Configuring the Map Library
+
+WebMapX supports multiple mapping libraries through the adapter pattern. Currently supported:
+
+| Adapter | Library | Tile Size | Registration Names |
+| :--- | :--- | :--- | :--- |
+| MapLibre GL | `maplibre-gl` | 512px | `maplibre` (default) |
+| OpenLayers | `ol` | 256px | `openlayers`, `ol` |
+
+### Setting the Adapter in HTML
+
+Use the `adapter` attribute on `<webmapx-map>`:
+
+```html
+<!-- MapLibre GL (default) -->
+<webmapx-map id="map-container"></webmapx-map>
+<webmapx-map id="map-container" adapter="maplibre"></webmapx-map>
+
+<!-- OpenLayers -->
+<webmapx-map id="map-container" adapter="openlayers"></webmapx-map>
+<webmapx-map id="map-container" adapter="ol"></webmapx-map>
+```
+
+### Runtime Adapter Switching
+
+Users can switch adapters at runtime via the Settings tool. The preference is stored in `localStorage`:
+
+```javascript
+// Programmatic adapter switching
+localStorage.setItem('webmapx-adapter', 'openlayers');
+window.location.reload();  // Required to reinitialize
+```
+
+**Priority order:** `localStorage` > `adapter` attribute > default (`maplibre`)
+
+### Zoom Level Normalization
+
+Different map libraries use different tile sizes, causing zoom level differences:
+- **MapLibre GL:** 512px tiles
+- **OpenLayers/OSM:** 256px tiles
+
+WebMapX normalizes this internally with a `ZOOM_OFFSET = 1` for OpenLayers. This means:
+- Logical zoom 4 in WebMapX = OL internal zoom 5
+- When switching adapters, the same geographic extent is preserved
+- Tools always receive consistent "logical" zoom values
+
+### Available Adapters API
+
+```typescript
+import { getRegisteredAdapters, DEFAULT_ADAPTER_NAME } from './map/adapter-registry';
+
+// Get list of registered adapters
+const adapters = getRegisteredAdapters();  // ['maplibre', 'openlayers', 'ol']
+
+// Default adapter name
+console.log(DEFAULT_ADAPTER_NAME);  // 'maplibre'
+```
+
+---
+
 ## I. Architecture Rules
 
 1. **Adapter = Thin Wrapper:** Fixed methods/events only. Translates library-specific APIs to generic interfaces. **No business logic in adapter.**
@@ -245,12 +307,143 @@ flowchart TB
 
 ### Adding New Map Library Support
 
-To add OpenLayers/Leaflet/Cesium support:
+To add support for a new map library (e.g., Leaflet, Cesium), follow this pattern (using OpenLayers as reference):
 
-1. Create `src/map/openlayers-services/MapCoreService.ts` implementing `IMapCore`
-2. Create `src/map/openlayers-services/MapFactoryService.ts` implementing `IMapFactory`
-3. Create implementations of `IMap`, `ISource`, `ILayer` wrapping OpenLayers objects
-4. Create `src/map/openlayers-adapter.ts` composing the services
-5. Register in `adapter-registry.ts`
+#### Step 1: Create the Services Directory
 
-**Tools stay unchanged** - they only use the interfaces, not the implementations.
+```
+src/map/{library}-services/
+├── MapCoreService.ts      # Main map + events
+├── MapFactoryService.ts   # IMap/ISource/ILayer implementations
+└── MapServiceTemplate.ts  # Tool service (optional)
+```
+
+#### Step 2: Implement MapCoreService
+
+Implements `IMapCore` - handles main map initialization and event normalization:
+
+```typescript
+// src/map/leaflet-services/MapCoreService.ts
+import { IMapCore } from '../IMapInterfaces';
+import { MapStateStore } from '../../store/map-state-store';
+import { MapEventBus } from '../../store/map-events';
+
+export class MapCoreService implements IMapCore {
+    private mapInstance: L.Map | null = null;
+
+    // Zoom offset if library uses different tile sizes
+    private static readonly ZOOM_OFFSET = 0;  // Leaflet uses 256px like OL
+
+    constructor(
+        private readonly store: MapStateStore,
+        private readonly eventBus?: MapEventBus
+    ) {}
+
+    public initialize(containerId: string, options?: {...}): void {
+        // Create map instance
+        // Attach event listeners
+        // Dispatch to store and eventBus
+    }
+
+    public getViewportState(): { center, zoom, bearing } { ... }
+    public setViewport(center, zoom): void { ... }
+    public setZoom(level): void { ... }
+    public getZoom(): number { ... }
+}
+```
+
+#### Step 3: Implement MapFactoryService
+
+Implements `IMapFactory`, `IMap`, `ISource`, `ILayer`:
+
+```typescript
+// src/map/leaflet-services/MapFactoryService.ts
+
+class LeafletSource implements ISource {
+    constructor(public readonly id: string, private layer: L.GeoJSON) {}
+    setData(data: GeoJSON.FeatureCollection): void {
+        this.layer.clearLayers();
+        this.layer.addData(data);
+    }
+}
+
+class LeafletLayer implements ILayer {
+    constructor(public readonly id: string, private layer: L.GeoJSON) {}
+    getSource(): ISource { return new LeafletSource(this.id, this.layer); }
+    remove(): void { this.layer.remove(); }
+}
+
+class LeafletMap implements IMap {
+    setViewport(center, zoom, bearing?, pitch?): void { ... }
+    createSource(sourceId, data): ISource { ... }
+    getSource(sourceId): ISource | null { ... }
+    createLayer(spec: LayerSpec): ILayer { ... }
+    getLayer(layerId): ILayer | null { ... }
+    onReady(callback): void { ... }
+    destroy(): void { ... }
+}
+
+export class MapFactoryService implements IMapFactory {
+    createMap(container: HTMLElement, options?: MapCreateOptions): IMap {
+        // Create Leaflet map, return wrapped IMap
+    }
+}
+```
+
+#### Step 4: Create the Adapter
+
+Compose services into `IMapAdapter`:
+
+```typescript
+// src/map/leaflet-adapter.ts
+import { IMapAdapter } from './IMapAdapter';
+import { MapStateStore } from '../store/map-state-store';
+import { MapEventBus } from '../store/map-events';
+import { MapCoreService } from './leaflet-services/MapCoreService';
+import { MapFactoryService } from './leaflet-services/MapFactoryService';
+
+export class LeafletAdapter implements IMapAdapter {
+    public readonly store: MapStateStore;
+    public readonly events: MapEventBus;
+    public readonly core: IMapCore;
+    public readonly toolService: IToolService;
+    public readonly mapFactory: IMapFactory;
+
+    constructor() {
+        this.store = new MapStateStore();
+        this.events = new MapEventBus();
+        this.core = new MapCoreService(this.store, this.events);
+        this.toolService = new MapServiceTemplate();
+        this.mapFactory = new MapFactoryService();
+    }
+}
+```
+
+#### Step 5: Register in adapter-registry.ts
+
+```typescript
+// src/map/adapter-registry.ts
+import { LeafletAdapter } from './leaflet-adapter';
+
+registerMapAdapter('leaflet', () => new LeafletAdapter());
+registerMapAdapter('l', () => new LeafletAdapter());  // optional alias
+```
+
+#### Step 6: Handle Zoom Normalization
+
+If the library uses different tile sizes than MapLibre (512px), add zoom offset:
+
+| Library | Tile Size | ZOOM_OFFSET |
+| :--- | :--- | :--- |
+| MapLibre GL | 512px | 0 (reference) |
+| OpenLayers | 256px | +1 |
+| Leaflet | 256px | +1 |
+| Cesium | varies | depends on terrain provider |
+
+Apply offset in all zoom-related methods:
+- `toLibraryZoom(logical)` = `logical + ZOOM_OFFSET`
+- `fromLibraryZoom(internal)` = `internal - ZOOM_OFFSET`
+
+#### Result
+
+**Tools stay unchanged** - they only use the interfaces (`IMap`, `ISource`, `ILayer`), not the implementations. Users can switch libraries via the `adapter` attribute or Settings UI.

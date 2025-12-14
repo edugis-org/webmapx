@@ -1,6 +1,33 @@
 # Changelog
 All notable changes to this project will be documented here.
 
+## [2025-12-14] - OpenLayers Support & Adapter Switcher
+
+### Added
+- **OpenLayers adapter** - Full OpenLayers support as an alternative to MapLibre GL
+  - `src/map/openlayers-adapter.ts` - Main adapter composing OL services
+  - `src/map/openlayers-services/MapCoreService.ts` - Core map functionality
+  - `src/map/openlayers-services/MapFactoryService.ts` - IMap/ISource/ILayer implementations
+  - `src/map/openlayers-services/MapServiceTemplate.ts` - Tool service template
+- **Adapter switcher in Settings tool** - UI to switch between MapLibre and OpenLayers at runtime
+  - Preserves viewport state (center, zoom) when switching
+  - Stores adapter preference in localStorage
+- **Zoom level normalization** - Consistent zoom levels between MapLibre (512px tiles) and OpenLayers (256px tiles)
+  - Added `ZOOM_OFFSET = 1` constant to compensate for tile size difference
+  - Switching adapters now shows the same geographic extent
+
+### Changed
+- `webmapx-map` now reads adapter preference from localStorage (priority: localStorage > attribute > default)
+- `webmapx-settings` includes "Map Engine" dropdown with available adapters
+- `adapter-registry.ts` registers OpenLayers under both `'openlayers'` and `'ol'` aliases
+
+### Technical Notes
+- MapLibre uses 512px tiles, OpenLayers/OSM uses 256px tiles
+- This causes a 1-level zoom offset: OL zoom 5 ≈ MapLibre zoom 4
+- The adapter normalizes this internally so tools see consistent "logical" zoom levels
+
+---
+
 ## [2025-12-14] - Architecture Refactoring
 
 ### Added

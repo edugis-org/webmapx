@@ -4,11 +4,18 @@ import { customElement, state } from 'lit/decorators.js';
 import '@shoelace-style/shoelace/dist/components/switch/switch.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
 import '@shoelace-style/shoelace/dist/components/divider/divider.js';
+import '@shoelace-style/shoelace/dist/components/select/select.js';
+import '@shoelace-style/shoelace/dist/components/option/option.js';
+
+import { getRegisteredAdapters, DEFAULT_ADAPTER_NAME } from '../../map/adapter-registry';
+import { WebmapxMapElement } from './webmapx-map';
 
 @customElement('webmapx-settings')
 export class WebmapxSettings extends LitElement {
     @state() private darkMode = false;
     @state() private apiKey = '';
+    @state() private currentAdapter = DEFAULT_ADAPTER_NAME;
+    @state() private availableAdapters: string[] = [];
 
     static styles = css`
         :host {
@@ -41,6 +48,14 @@ export class WebmapxSettings extends LitElement {
         sl-input {
             margin-top: 0.5rem;
         }
+
+        sl-select {
+            margin-top: 0.5rem;
+        }
+
+        sl-select::part(combobox) {
+            min-height: 2.5rem;
+        }
     `;
 
     connectedCallback() {
@@ -60,6 +75,31 @@ export class WebmapxSettings extends LitElement {
 
         // Load API key
         this.apiKey = localStorage.getItem('webmapx-api-key') || '';
+
+        // Load adapter settings
+        this.availableAdapters = getRegisteredAdapters().filter(
+            name => name !== 'ol' // Filter out alias
+        );
+        this.currentAdapter = this.detectCurrentAdapter();
+    }
+
+    private detectCurrentAdapter(): string {
+        // Check localStorage first
+        const saved = localStorage.getItem('webmapx-adapter');
+        if (saved && this.availableAdapters.includes(saved)) {
+            return saved;
+        }
+
+        // Fall back to what's in the DOM
+        const mapElement = document.querySelector('webmapx-map') as WebmapxMapElement | null;
+        if (mapElement) {
+            const attr = mapElement.getAttribute('adapter');
+            if (attr && this.availableAdapters.includes(attr.toLowerCase())) {
+                return attr.toLowerCase();
+            }
+        }
+
+        return DEFAULT_ADAPTER_NAME;
     }
 
     private applyTheme() {
@@ -98,8 +138,57 @@ export class WebmapxSettings extends LitElement {
         }));
     }
 
+    private handleAdapterChange(e: Event) {
+        const target = e.target as HTMLSelectElement;
+        const newAdapter = target.value;
+
+        if (newAdapter === this.currentAdapter) {
+            return;
+        }
+
+        // Get current viewport state before switching
+        const mapElement = document.querySelector('webmapx-map') as WebmapxMapElement | null;
+        const adapter = mapElement?.adapter;
+
+        if (adapter) {
+            const viewportState = adapter.core.getViewportState();
+            localStorage.setItem('webmapx-viewport', JSON.stringify(viewportState));
+        }
+
+        // Save new adapter preference
+        localStorage.setItem('webmapx-adapter', newAdapter);
+
+        // Reload the page to apply the new adapter
+        window.location.reload();
+    }
+
+    private formatAdapterName(name: string): string {
+        const names: Record<string, string> = {
+            'maplibre': 'MapLibre GL',
+            'openlayers': 'OpenLayers'
+        };
+        return names[name] || name;
+    }
+
     render() {
         return html`
+            <div class="setting-group">
+                <h4>Map Engine</h4>
+                <sl-select
+                    label="Adapter"
+                    value=${this.currentAdapter}
+                    @sl-change=${this.handleAdapterChange}
+                >
+                    ${this.availableAdapters.map(adapter => html`
+                        <sl-option value=${adapter}>
+                            ${this.formatAdapterName(adapter)}
+                        </sl-option>
+                    `)}
+                </sl-select>
+            </div>
+
+            <sl-divider></sl-divider>
+
             <div class="setting-group">
                 <h4>Appearance</h4>
                 <sl-switch

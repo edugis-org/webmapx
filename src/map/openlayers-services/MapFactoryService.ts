@@ -51,6 +51,12 @@ class OpenLayersLayer implements ILayer {
 }
 
 /**
+ * Zoom offset to normalize between MapLibre (512px tiles) and OpenLayers/OSM (256px tiles).
+ * OpenLayers needs +1 zoom to show the same geographic extent as MapLibre.
+ */
+const ZOOM_OFFSET = 1;
+
+/**
  * OpenLayers implementation of IMap.
  */
 class OpenLayersMap implements IMap {
@@ -59,10 +65,10 @@ class OpenLayersMap implements IMap {
 
     constructor(private readonly map: OLMap) {}
 
-    setViewport(center: [number, number], zoom: number, bearing?: number, pitch?: number): void {
+    setViewport(center: [number, number], zoom: number, bearing?: number, _pitch?: number): void {
         this.map.getView().animate({
             center: fromLonLat(center),
-            zoom: zoom,
+            zoom: zoom + ZOOM_OFFSET,
             rotation: bearing ? (bearing * Math.PI) / 180 : 0,
             duration: 0
         });
@@ -200,7 +206,8 @@ class OpenLayersMap implements IMap {
 export class MapFactoryService implements IMapFactory {
     createMap(container: HTMLElement, options?: MapCreateOptions): IMap {
         const center = options?.center ?? [0, 0];
-        const zoom = options?.zoom ?? 2;
+        const logicalZoom = options?.zoom ?? 2;
+        const olZoom = logicalZoom + ZOOM_OFFSET;
 
         const map = new OLMap({
             target: container,
@@ -211,7 +218,7 @@ export class MapFactoryService implements IMapFactory {
             ],
             view: new View({
                 center: fromLonLat(center),
-                zoom: zoom
+                zoom: olZoom
             }),
             controls: []
         });

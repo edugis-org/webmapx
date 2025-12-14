@@ -110,7 +110,11 @@ export class WebmapxMapElement extends HTMLElement {
       return;
     }
 
-    const requestedAdapter = this.getAttribute(MAP_ADAPTER_ATTRIBUTE) ?? DEFAULT_ADAPTER_NAME;
+    // Priority: localStorage > attribute > default
+    const savedAdapter = localStorage.getItem('webmapx-adapter');
+    const attributeAdapter = this.getAttribute(MAP_ADAPTER_ATTRIBUTE);
+    const requestedAdapter = savedAdapter ?? attributeAdapter ?? DEFAULT_ADAPTER_NAME;
+
     const adapter = createMapAdapter(requestedAdapter);
     if (!adapter) {
       console.error(`[webmapx-map] No adapter available for "${requestedAdapter}".`);

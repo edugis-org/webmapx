@@ -18,6 +18,12 @@ import 'ol/ol.css';
 export class MapCoreService implements IMapCore {
     private mapInstance: OLMap | null = null;
 
+    /**
+     * Zoom offset to normalize between MapLibre (512px tiles) and OpenLayers/OSM (256px tiles).
+     * OpenLayers needs +1 zoom to show the same geographic extent as MapLibre.
+     */
+    private static readonly ZOOM_OFFSET = 1;
+
     constructor(
         private readonly store: MapStateStore,
         private readonly eventBus?: MapEventBus
@@ -28,11 +34,21 @@ export class MapCoreService implements IMapCore {
         zoom: 4
     };
 
+    /** Convert logical zoom (MapLibre-compatible) to OpenLayers internal zoom */
+    private toOLZoom(logicalZoom: number): number {
+        return logicalZoom + MapCoreService.ZOOM_OFFSET;
+    }
+
+    /** Convert OpenLayers internal zoom to logical zoom (MapLibre-compatible) */
+    private fromOLZoom(olZoom: number): number {
+        return olZoom - MapCoreService.ZOOM_OFFSET;
+    }
+
     public getViewportState(): { center: [number, number]; zoom: number; bearing: number } {
         if (this.mapInstance) {
             const view = this.mapInstance.getView();
             const center = toLonLat(view.getCenter() || [0, 0]) as [number, number];
-            const zoom = view.getZoom() || 1;
+            const zoom = this.fromOLZoom(view.getZoom() || 1);
             const bearing = (view.getRotation() * 180) / Math.PI;
             return { center, zoom, bearing };
         }
@@ -43,7 +59,7 @@ export class MapCoreService implements IMapCore {
         if (this.mapInstance) {
             this.mapInstance.getView().animate({
                 center: fromLonLat(center),
-                zoom,
+                zoom: this.toOLZoom(zoom),
                 duration: 500
             });
         }
@@ -54,7 +70,8 @@ export class MapCoreService implements IMapCore {
         options?: { center?: [number, number]; zoom?: number; styleUrl?: string }
     ): void {
         const center = options?.center ?? this.initialConfig.center;
-        const zoom = options?.zoom ?? this.initialConfig.zoom;
+        const logicalZoom = options?.zoom ?? this.initialConfig.zoom;
+        const olZoom = this.toOLZoom(logicalZoom);
         const container = this.resolveContainer(containerId);
 
         this.mapInstance = new OLMap({
@@ -66,7 +83,7 @@ export class MapCoreService implements IMapCore {
             ],
             view: new View({
                 center: fromLonLat(center),
-                zoom
+                zoom: olZoom
             }),
             controls: []
         });
@@ -75,7 +92,7 @@ export class MapCoreService implements IMapCore {
         this.mapInstance.once('rendercomplete', () => {
             const viewportBounds = this.buildViewportFeature();
             this.store.dispatch(
-                { mapLoaded: true, zoomLevel: zoom, mapCenter: center, mapViewportBounds: viewportBounds },
+                { mapLoaded: true, zoomLevel: logicalZoom, mapCenter: center, mapViewportBounds: viewportBounds },
                 'MAP'
             );
         });
@@ -84,14 +101,14 @@ export class MapCoreService implements IMapCore {
         const view = this.mapInstance.getView();
 
         view.on('change:resolution', () => {
-            const currentZoom = view.getZoom() || 0;
+            const currentZoom = this.fromOLZoom(view.getZoom() || 0);
             const viewportBounds = this.buildViewportFeature();
             this.store.dispatch({ zoomLevel: currentZoom, mapViewportBounds: viewportBounds }, 'MAP');
         });
 
         view.on('change:center', () => {
             const currentCenter = toLonLat(view.getCenter() || [0, 0]) as [number, number];
-            const currentZoom = view.getZoom() || 0;
+            const currentZoom = this.fromOLZoom(view.getZoom() || 0);
             const viewportBounds = this.buildViewportFeature();
             this.store.dispatch(
                 { mapCenter: currentCenter, zoomLevel: currentZoom, mapViewportBounds: viewportBounds },
@@ -223,7 +240,7 @@ export class MapCoreService implements IMapCore {
         this.eventBus.emit({
             type: 'view-change',
             center,
-            zoom: view.getZoom() || 0,
+            zoom: this.fromOLZoom(view.getZoom() || 0),
             bearing: (view.getRotation() * 180) / Math.PI,
             pitch: 0,
             bounds: { sw, ne }
@@ -242,7 +259,7 @@ export class MapCoreService implements IMapCore {
         this.eventBus.emit({
             type: 'view-change-end',
             center,
-            zoom: view.getZoom() || 0,
+            zoom: this.fromOLZoom(view.getZoom() || 0),
             bearing: (view.getRotation() * 180) / Math.PI,
             pitch: 0,
             bounds: { sw, ne }
@@ -251,20 +268,20 @@ export class MapCoreService implements IMapCore {
 
     public setZoom(level: number): void {
         if (this.mapInstance) {
-            this.mapInstance.getView().setZoom(level);
+            this.mapInstance.getView().setZoom(this.toOLZoom(level));
         }
     }
 
     public onZoomEnd(callback: (level: number) => void): void {
         if (this.mapInstance) {
             this.mapInstance.getView().on('change:resolution', () => {
-                callback(this.mapInstance!.getView().getZoom() || 0);
+                callback(this.fromOLZoom(this.mapInstance!.getView().getZoom() || 0));
             });
         }
     }
 
     public getZoom(): number {
-        return this.mapInstance?.getView().getZoom() || this.initialConfig.zoom;
+        return this.fromOLZoom(this.mapInstance?.getView().getZoom() || this.toOLZoom(this.initialConfig.zoom));
     }
 
     private dispatchViewportBoundsSnapshot(): void {

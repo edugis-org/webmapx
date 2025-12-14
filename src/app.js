@@ -33,14 +33,31 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('[app] Map adapter is not available on <webmapx-map>.');
         return;
     }
-    
-    // Initialize with OpenStreetMap style and custom viewport
-    adapter.core.initialize(mapContainerId, {
-        center: [4.9041, 52.3676], // Amsterdam
+
+    // Check for saved viewport state (from adapter switch)
+    const savedViewport = localStorage.getItem('webmapx-viewport');
+    let initOptions = {
+        center: [4.9041, 52.3676], // Amsterdam (default)
         zoom: 4.5,
-        // Use MapLibre demo OSM style; replace with your own if needed
         styleUrl: 'https://demotiles.maplibre.org/style.json'
-    });
-    
+    };
+
+    if (savedViewport) {
+        try {
+            const viewport = JSON.parse(savedViewport);
+            initOptions.center = viewport.center;
+            initOptions.zoom = viewport.zoom;
+            // Clear the saved viewport after using it
+            localStorage.removeItem('webmapx-viewport');
+            console.log('[app] Restored viewport from adapter switch:', viewport);
+        } catch (e) {
+            console.warn('[app] Failed to parse saved viewport:', e);
+            localStorage.removeItem('webmapx-viewport');
+        }
+    }
+
+    // Initialize the map
+    adapter.core.initialize(mapContainerId, initOptions);
+
     console.log("Modular GIS UI is running. Map initialized and components registered.");
 });
