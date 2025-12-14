@@ -14,12 +14,20 @@ This guide explains how to assemble the Modular GIS Web UI as an application dev
      </webmapx-layout>
    </webmapx-map>
    ```
-4. Initialize the map in `src/app.js` via `mapAdapter.core.initialize('map-container', config)`.
+4. Load a configuration via URL parameter: `http://localhost:5173/?config=./config/demo.json`
 
 ## Core Concepts
 - **Map Host (`<webmapx-map>`):** Wraps the mapping library surface and any overlay elements. No knowledge of internal slots is required—the element injects a canvas automatically if none is provided.
 - **Layout Overlay (`<webmapx-layout>`):** Optional helper that floats nine slot zones over the map (top/middle/bottom × left/center/right) while keeping the host pointer-transparent.
 - **Tools:** Components such as `<webmapx-tool-template>` and `<webmapx-zoom-level>` include their own styling so they render correctly whether or not they live inside the layout helper.
+- **Configuration:** JSON files define map settings, data sources, layers, and tools. Load via URL parameter `?config=path/to/config.json`.
+
+## Configuration
+See [Configuration](./configuration.md) for details on:
+- Loading config files via URL parameter
+- Config file format (map, catalog, tools sections)
+- Source and layer definitions
+- Layer tree structure
 
 ## Component Reference
 - [`webmapx-map`](./components/webmapx-map.md)

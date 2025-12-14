@@ -23,7 +23,8 @@ export class MapStateStore {
         pointerCoordinates: null,
         lastClickedCoordinates: null,
         pointerResolution: null,
-        lastClickedResolution: null
+        lastClickedResolution: null,
+        visibleLayers: []
     };
     private listeners: Listener[] = [];
 

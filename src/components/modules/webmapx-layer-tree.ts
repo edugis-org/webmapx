@@ -1,9 +1,12 @@
 import { LitElement, html, css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 
 import '@shoelace-style/shoelace/dist/components/tree/tree.js';
 import '@shoelace-style/shoelace/dist/components/tree-item/tree-item.js';
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
+
+import type { TreeNodeConfig } from '../../config/types';
+import type { WebmapxMapElement } from './webmapx-map';
 
 export interface LayerNode {
     label: string;
@@ -13,9 +16,22 @@ export interface LayerNode {
     expanded?: boolean;
 }
 
+/**
+ * Layer tree component that displays a hierarchical tree of map layers.
+ *
+ * Can receive tree data in two ways:
+ * 1. Via `tree` property (external control)
+ * 2. Automatically from parent webmapx-map's config (declarative usage)
+ */
 @customElement('webmapx-layer-tree')
 export class WebmapxLayerTree extends LitElement {
-    @property({ type: Array }) config: LayerNode[] = [];
+    /** Externally provided tree data (takes precedence over config) */
+    @property({ type: Array }) tree: LayerNode[] = [];
+
+    /** Tree data loaded from config */
+    @state() private configTree: TreeNodeConfig[] = [];
+
+    private configHandler: ((e: Event) => void) | null = null;
 
     static styles = css`
         :host {
@@ -36,6 +52,60 @@ export class WebmapxLayerTree extends LitElement {
             box-sizing: border-box;
         }
     `;
+
+    connectedCallback(): void {
+        super.connectedCallback();
+        this.subscribeToConfig();
+    }
+
+    disconnectedCallback(): void {
+        this.unsubscribeFromConfig();
+        super.disconnectedCallback();
+    }
+
+    /** Returns the parent webmapx-map element */
+    private get mapHost(): WebmapxMapElement | null {
+        return this.closest('webmapx-map') as WebmapxMapElement | null;
+    }
+
+    /** Subscribe to config-ready events from parent map */
+    private subscribeToConfig(): void {
+        this.unsubscribeFromConfig();
+
+        // Check if config is already available
+        const existingConfig = this.mapHost?.catalogConfig;
+        if (existingConfig?.tree) {
+            this.configTree = existingConfig.tree;
+        }
+
+        // Listen for future config changes
+        this.configHandler = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            const tree = detail.config?.catalog?.tree;
+            if (tree) {
+                this.configTree = tree;
+            }
+        };
+
+        this.mapHost?.addEventListener('webmapx-config-ready', this.configHandler);
+    }
+
+    /** Unsubscribe from config events */
+    private unsubscribeFromConfig(): void {
+        if (this.configHandler) {
+            this.mapHost?.removeEventListener('webmapx-config-ready', this.configHandler);
+            this.configHandler = null;
+        }
+    }
+
+    /** Returns the effective tree data (property takes precedence over config) */
+    private get effectiveTree(): LayerNode[] {
+        if (this.tree.length > 0) {
+            return this.tree;
+        }
+        // TreeNodeConfig is compatible with LayerNode
+        return this.configTree as LayerNode[];
+    }
 
     renderNode(node: LayerNode) {
         if (node.children && node.children.length > 0) {
@@ -78,7 +148,7 @@ export class WebmapxLayerTree extends LitElement {
     render() {
         return html`
             <sl-tree>
-                ${this.config.map(node => this.renderNode(node))}
+                ${this.effectiveTree.map(node => this.renderNode(node))}
             </sl-tree>
         `;
     }

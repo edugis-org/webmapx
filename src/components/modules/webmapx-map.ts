@@ -1,19 +1,30 @@
 import { IMapAdapter } from '../../map/IMapAdapter';
 import { createMapAdapter, DEFAULT_ADAPTER_NAME } from '../../map/adapter-registry';
+import type { AppConfig, CatalogConfig, MapConfig, ToolsConfig } from '../../config/types';
 
 const MAP_VIEW_SLOT = 'map-view';
 const MAP_SURFACE_CLASS = 'webmapx-map__surface';
 const MAP_ADAPTER_ATTRIBUTE = 'adapter';
 
+/** Event detail for webmapx-config-ready */
+export interface ConfigReadyEventDetail {
+  config: AppConfig;
+  map: WebmapxMapElement;
+}
+
 /**
  * Lightweight map wrapper that keeps the map canvas and overlay tools grouped
  * without using Shadow DOM. Consumers provide one child with slot="map-view"
  * for the mapping library plus any number of default children for tools.
+ *
+ * Stores configuration and makes it available to child tool components.
+ * Tools can access config via `this.closest('webmapx-map')?.config`.
  */
 export class WebmapxMapElement extends HTMLElement {
   private surfaceObserver?: MutationObserver;
   private currentSurface: HTMLElement | null = null;
   private adapterInstance: IMapAdapter | null = null;
+  private configInstance: AppConfig | null = null;
 
   connectedCallback(): void {
     this.ensureAdapter();
@@ -103,6 +114,40 @@ export class WebmapxMapElement extends HTMLElement {
   /** Returns the element that should host the mapping library instance. */
   public get mapElement(): HTMLElement | null {
     return this.querySelector<HTMLElement>(`[slot="${MAP_VIEW_SLOT}"]`);
+  }
+
+  /** Returns the full configuration for this map. */
+  public get config(): AppConfig | null {
+    return this.configInstance;
+  }
+
+  /** Returns the map section of the config. */
+  public get mapConfig(): MapConfig | undefined {
+    return this.configInstance?.map;
+  }
+
+  /** Returns the catalog section of the config. */
+  public get catalogConfig(): CatalogConfig | undefined {
+    return this.configInstance?.catalog;
+  }
+
+  /** Returns the tools section of the config. */
+  public get toolsConfig(): ToolsConfig | undefined {
+    return this.configInstance?.tools;
+  }
+
+  /**
+   * Sets the configuration for this map and notifies child components.
+   * Dispatches a 'webmapx-config-ready' event that bubbles up.
+   */
+  public setConfig(config: AppConfig): void {
+    this.configInstance = config;
+    this.dispatchEvent(new CustomEvent<ConfigReadyEventDetail>('webmapx-config-ready', {
+      detail: { config, map: this },
+      bubbles: true,
+      composed: true,
+    }));
+    console.log(`[webmapx-map] Config set for "${this.id || 'unnamed'}":`, config);
   }
 
   private ensureAdapter(): void {

@@ -1,0 +1,141 @@
+{
+  "map": 
+  {
+    "label": "Demo Map",
+    "center": [0, 0],
+    "zoom": 2,
+    "maxZoom": 18,
+    "minZoom": 1,
+    "type": "maplibre"
+  },
+  "catalog": 
+  {
+    "label": "Demo Catalog",
+    "tree": 
+    [
+      {
+        "label": "Base Maps",
+        "expanded": true,
+        "children": [
+          { "label": "OpenStreetMap (xyz)", "layerId": "osm", "checked": false },
+          { "label": "Blue Marble (WMS)", "layerId": "bluemarble", "checked": false }
+        ]
+      },
+      {
+        "label": "Data Layers",
+        "expanded": true,
+        "children": [
+          { "label": "Population Density", "layerId": "earthquake", "checked": false },
+          { "label": "Transport Network", "layerId": "transport", "checked": true },
+          {
+            "label": "Environmental",
+            "children": [
+              { "label": "Air Quality", "layerId": "air", "checked": false },
+              { "label": "Water Quality", "layerId": "water", "checked": false }
+            ]
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "xyz-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "tileSize": 256,
+        "attribution": "© OpenStreetMap contributors"
+      },
+      {
+        "id": "bluemarble-source",
+        "type": "raster",
+        "service": "wms",
+        "url": "https://demo.mapserver.org/cgi-bin/wms?layer=bluemarble",
+        "tileSize": 256,
+        "attribution": "NASA Blue Marble"
+      },
+      {
+        "id": "earthquake-source",
+        "type": "geojson",
+        "data": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson",
+        "attribution": "USGS Earthquake Data"
+      },
+      {
+        "id": "transport-source",
+        "type": "geojson",
+        "data": "https://data.example.com/transport_network.geojson"
+      },
+      {
+        "id": "air-source",
+        "type": "geojson",
+        "data": "https://data.example.com/air_quality.geojson"
+      },
+      {
+        "id": "water-source",
+        "type": "geojson",
+        "data": "https://data.example.com/water_quality.geojson"
+      }
+    ],
+    "layers": [
+      {
+        "id": "osm",
+        "layerset": [
+          {
+            "type": "raster",
+            "source": "xyz-source"
+          }
+        ]
+      },
+      {
+        "id": "bluemarble",
+        "layerset": [
+          {
+            "type": "raster",
+            "source": "bluemarble-source"
+          }
+        ]
+      },
+      {
+        "id": "earthquake",
+        "layerset": [
+          {
+            "type": "fill",
+            "source": "earthquake-source"
+          }
+        ]
+      },
+      {
+        "id": "transport",
+        "layerset": [
+          {
+            "type": "line",
+            "source": "transport-source"
+          }
+        ]
+      },
+      {
+        "id": "air",
+        "layerset": [
+          {
+            "type": "circle",
+            "source": "air-source"
+          }
+        ]
+      },
+      {
+        "id": "water",
+        "layerset": [
+          {
+            "type": "circle",
+            "source": "water-source"
+          }
+        ]
+      }
+    ]
+  },
+  "tools": {
+    "coordinates": { "enabled": true },
+    "layerTree": { "enabled": true },
+    "legend": { "enabled": true }
+  }
+}

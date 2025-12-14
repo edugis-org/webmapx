@@ -14,7 +14,9 @@ export interface IAppState {
     lastClickedCoordinates: [number, number] | null;
     pointerResolution: { lng: number; lat: number } | null;
     lastClickedResolution: { lng: number; lat: number } | null;
-    // ... add all other global state properties here
+
+    /** IDs of currently visible layers (from catalog config) */
+    visibleLayers: string[];
 }
 
 /** Defines who initiated the state change for loop prevention. */

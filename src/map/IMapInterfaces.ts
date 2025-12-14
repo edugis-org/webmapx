@@ -1,5 +1,7 @@
 // src/map/IMapInterfaces.ts
 
+import type { LayerConfig, SourceConfig, CatalogConfig } from '../config/types';
+
 /**
  * Options for creating a map instance.
  */
