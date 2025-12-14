@@ -1,32 +1,38 @@
 # Roadmap
 
-Goals: keep components plugin-like, map-agnostic, and state-driven.
+## Architecture Rules
 
-- Adapter cohesion: access map services via `mapAdapter.core.*`.
-- Map state: all UI/MAP updates tagged with `source` ('UI'|'MAP'|'INIT').
-- Performance: throttle expensive map ops; avoid feedback loops.
-- Theming: use `src/theme/webmapx-style-core.css` variables; avoid z-index.
+1. **Adapter = Thin Wrapper:** Fixed methods/events only. Translates library-specific APIs to generic interfaces. **No business logic.**
+2. **Tools = Composite Logic:** All calculations, orchestration, and state management live in tools.
+3. **Consumer-Side Throttling:** Adapter emits all events immediately. Tools use `throttle` utility as needed.
+4. **OOP Map API:** `IMapFactory` → `IMap` → `ISource` / `ILayer`
+
+## Completed (2025-12-14)
+- [x] Implement `IMapFactory` with OOP API (`createMap` → `IMap`)
+- [x] Implement `IMap` interface (`setViewport`, `createSource`, `createLayer`, `destroy`)
+- [x] Implement `ISource` interface (`setData`)
+- [x] Implement `ILayer` interface (`getSource`, `remove`)
+- [x] Remove all controllers (InsetController, PointerController)
+- [x] Move pointer event handling into `MapCoreService`
+- [x] Remove throttling from adapter layer
+- [x] Refactor `webmapx-inset-map` to use new architecture (tool contains all logic)
+- [x] Add consumer-side throttling to inset-map tool
 
 ## Near-Term Tasks
-- Expose `zoomController` via adapter (done).
-- Refactor `webmapx-zoom-level` to use `mapAdapter.zoomController`.
-- Wire MapLibre zoom via `IMapCore.setZoom` and `onZoomEnd` (done).
-- Implement geoprocessing actions using MapLibre+worker where applicable.
-- Ensure `MapCoreService` dispatches tool activation state to `map-state-store`.
-- Formalize state updates: validate shapes and sources before merge.
-
-## Recent Updates
-- `IMapCore.initialize` accepts `{ center, zoom, styleUrl }` for runtime configuration.
-- `app.js` initializes OSM demo style and Amsterdam viewport.
-- Mermaid architecture diagram added to `docs/DEVELOPER_GUIDE.md`.
+- [ ] Refactor remaining tools to follow new architecture pattern
+- [ ] Add OpenLayers adapter implementation
+- [ ] Add Leaflet adapter implementation
+- [ ] Implement layer management tools using `IMap.createLayer`
+- [ ] Add draw/edit tools using new architecture
 
 ## Guardrails
-- Components never import MapLibre directly.
-- Services encapsulate map instance via `MapCoreService.initialize()`.
-- Prevent UI jitter: temporary mute on optimistic updates when needed.
-- Keep interfaces in `src/map/IMapInterfaces.ts` authoritative.
+- Tools never import MapLibre/OL/Leaflet directly
+- Adapter only translates events and delegates to map library
+- Keep interfaces in `src/map/IMapInterfaces.ts` authoritative
+- Throttling decisions belong in tools, not adapter
 
 ## Milestones
-- M1: Zoom + style polish, adapter surface unified.
-- M2: Geoprocessing basic ops, worker offloading.
-- M3: Layer management, selection tools, accessibility checks.
+- M1: ~~Adapter architecture~~ (done)
+- M2: Multi-library support (OpenLayers, Leaflet adapters)
+- M3: Layer management, draw tools, selection tools
+- M4: Accessibility checks, performance optimization

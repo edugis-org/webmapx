@@ -4,6 +4,7 @@ import { resolveMapAdapter } from './map-context';
 import { IMapAdapter } from '../../map/IMapAdapter';
 import { IMap, ISource } from '../../map/IMapInterfaces';
 import { IAppState } from '../../store/IState';
+import { throttle } from '../../utils/throttle';
 
 const DEFAULT_STYLE = 'https://demotiles.maplibre.org/style.json';
 const MIN_ZOOM = 0;
@@ -30,6 +31,11 @@ export class WebmapxInsetMap extends LitElement {
   private unsubscribe: (() => void) | null = null;
   private lastCenter: [number, number] | null = null;
   private lastZoom: number | null = null;
+
+  // Throttle state updates to avoid excessive rendering during map movement
+  private throttledApplyState = throttle((state: IAppState) => {
+    this.applyState(state);
+  }, 50);
 
   private get insetContainer(): HTMLElement | null {
     return this.renderRoot.querySelector('.inset-map');
@@ -108,9 +114,9 @@ export class WebmapxInsetMap extends LitElement {
       this.applyState(state);
     });
 
-    // Subscribe to state changes
+    // Subscribe to state changes (throttled)
     this.unsubscribe = this.adapter.store.subscribe((newState) => {
-      this.applyState(newState);
+      this.throttledApplyState(newState);
     });
   }
 

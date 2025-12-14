@@ -38,3 +38,28 @@ Entry 2025-12-09
 	2. Ensure toolbar wraps buttons: when vertical, wrap to 2+ columns; when horizontal, wrap to 2+ rows if needed.
 	3. Confirm alignment on right-side placement: toolbar should remain right-aligned relative to the panel when expanding.
 	4. Add examples to docs demonstrating overflow/wrap scenarios for both orientations.
+
+Entry 2025-12-14
+- Context: Major architecture refactoring session. Established new rules: adapter = thin wrapper, tools = composite logic, no business logic in adapter.
+- Changes:
+	- Created `IMapFactory` interface with OOP API returning `IMap` objects
+	- Created `IMap`, `ILayer`, `ISource` interfaces for object-oriented map management
+	- Implemented `MapLibreMap`, `MapLibreLayer`, `MapLibreSource` classes in `MapFactoryService.ts`
+	- Removed `IInsetController` from adapter (was in `IMapAdapter`)
+	- Removed `MapInsetController.ts` - logic moved to tool
+	- Removed `MapPointerController.ts` - merged into `MapCoreService`
+	- Removed `MapRegistry.ts`, `GeoJSONSourceService.ts`, `LayerService.ts` (consolidated)
+	- Removed all throttling from `MapCoreService` - adapter now emits all events immediately
+	- Refactored `webmapx-inset-map.ts` to contain all composite logic and use `adapter.mapFactory.createMap()`
+	- Added consumer-side throttling to inset-map tool using `throttle` utility
+- Decisions:
+	1. Adapter is thin wrapper only - translates library events to generic events, no logic
+	2. Tools contain all composite logic - calculations, state management, layer setup
+	3. Consumers decide throttling - use `throttle` utility from `/src/utils/throttle.ts`
+	4. OOP API - `map.createSource()` returns `ISource`, `map.createLayer()` returns `ILayer`
+	5. No separate controller classes - either in adapter (translation) or in tool (logic)
+- Next steps:
+	1. Refactor remaining tools to follow new architecture
+	2. Implement OpenLayers adapter using same interfaces
+	3. Implement Leaflet adapter
+	4. Add layer management tools using new `IMap.createLayer` API

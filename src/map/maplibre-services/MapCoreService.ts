@@ -2,15 +2,14 @@
 
 import { IMapCore } from '../IMapInterfaces';
 import { MapStateStore } from '../../store/map-state-store';
-import { MapEventBus, LngLat } from '../../store/map-events';
-import { throttle } from '../../utils/throttle';
-
-// 💡 FIX: Use wildcard import (* as) instead of default import (import maplibregl)
+import { MapEventBus, LngLat, Pixel, PointerResolution } from '../../store/map-events';
 import * as maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css'; 
+import 'maplibre-gl/dist/maplibre-gl.css';
 
 /**
  * Implements the core map contract (IMapCore) for the MapLibre engine.
+ * Thin wrapper that translates MapLibre events to generic events.
+ * No throttling - consumers handle their own rate limiting.
  */
 export class MapCoreService implements IMapCore {
     constructor(
@@ -18,12 +17,7 @@ export class MapCoreService implements IMapCore {
         private readonly eventBus?: MapEventBus
     ) {}
 
-    // The Map type is now accessed as maplibregl.Map
     private mapInstance: maplibregl.Map | null = null;
-    private readonly throttledViewportDispatch = throttle(() => {
-        this.dispatchViewportBoundsSnapshot();
-        this.emitViewChange();
-    }, 100);
     private mapReadyCallbacks: Array<(map: maplibregl.Map) => void> = [];
 
     // Basic configuration needed for a standard map
@@ -108,12 +102,115 @@ export class MapCoreService implements IMapCore {
         });
 
         this.mapInstance.on('move', () => {
-            this.throttledViewportDispatch();
+            this.dispatchViewportBoundsSnapshot();
+            this.emitViewChange();
+        });
+
+        // Pointer event handlers
+        this.attachPointerEvents(this.mapInstance);
+    }
+
+    private attachPointerEvents(map: maplibregl.Map): void {
+        map.on('mousemove', (event: maplibregl.MapMouseEvent) => {
+            const coords: LngLat = [event.lngLat.lng, event.lngLat.lat];
+            const pixel: Pixel = [event.point.x, event.point.y];
+            const resolution = this.computePointerResolution(event);
+
+            this.eventBus?.emit({
+                type: 'pointer-move',
+                coords,
+                pixel,
+                resolution,
+                originalEvent: event.originalEvent
+            });
+
+            this.store.dispatch({
+                pointerCoordinates: coords,
+                pointerResolution: resolution,
+            }, 'MAP');
+        });
+
+        map.on('mouseout', (event: maplibregl.MapMouseEvent) => {
+            this.eventBus?.emit({
+                type: 'pointer-leave',
+                originalEvent: event.originalEvent
+            });
+            this.store.dispatch({ pointerCoordinates: null, pointerResolution: null }, 'MAP');
+        });
+
+        map.on('click', (event: maplibregl.MapMouseEvent) => {
+            const coords: LngLat = [event.lngLat.lng, event.lngLat.lat];
+            const pixel: Pixel = [event.point.x, event.point.y];
+            const resolution = this.computePointerResolution(event);
+
+            this.eventBus?.emit({
+                type: 'click',
+                coords,
+                pixel,
+                resolution,
+                originalEvent: event.originalEvent
+            });
+
+            this.store.dispatch({
+                lastClickedCoordinates: coords,
+                lastClickedResolution: resolution,
+                pointerCoordinates: coords,
+                pointerResolution: resolution,
+            }, 'MAP');
+        });
+
+        map.on('dblclick', (event: maplibregl.MapMouseEvent) => {
+            const coords: LngLat = [event.lngLat.lng, event.lngLat.lat];
+            const pixel: Pixel = [event.point.x, event.point.y];
+
+            this.eventBus?.emit({
+                type: 'dblclick',
+                coords,
+                pixel,
+                originalEvent: event.originalEvent
+            });
+        });
+
+        map.on('contextmenu', (event: maplibregl.MapMouseEvent) => {
+            const coords: LngLat = [event.lngLat.lng, event.lngLat.lat];
+            const pixel: Pixel = [event.point.x, event.point.y];
+
+            this.eventBus?.emit({
+                type: 'contextmenu',
+                coords,
+                pixel,
+                originalEvent: event.originalEvent
+            });
         });
     }
 
+    private computePointerResolution(event: maplibregl.MapMouseEvent): PointerResolution | null {
+        if (!this.mapInstance || !event.point) {
+            return null;
+        }
+
+        const map = this.mapInstance;
+        const basePoint = event.point;
+        const baseLngLat = event.lngLat;
+
+        const lngSample = map.unproject([basePoint.x + 1, basePoint.y]);
+        const latSample = map.unproject([basePoint.x, basePoint.y + 1]);
+
+        const lngDelta = Math.abs(lngSample.lng - baseLngLat.lng);
+        const latDelta = Math.abs(latSample.lat - baseLngLat.lat);
+
+        if (!isFinite(lngDelta) || !isFinite(latDelta)) {
+            return null;
+        }
+
+        return {
+            lng: Math.max(lngDelta, 1e-12),
+            lat: Math.max(latDelta, 1e-12),
+        };
+    }
+
     /**
-     * Emit a view-change event (throttled, during movement).
+     * Emit a view-change event (during movement).
      */
     private emitViewChange(): void {
         if (!this.eventBus || !this.mapInstance) return;

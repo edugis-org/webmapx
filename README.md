@@ -1,24 +1,40 @@
 # 🗺️ WebMapX - Modular Web Map UI
 
-A highly modular and map-library-agnostic User Interface built for dynamic Web GIS applications. This project is architected to allow easy swapping of map backends (MapLibre, OpenLayers, Cesium) and features a scoped, per-map state management system to ensure consistency and performance.
+A highly modular and map-library-agnostic User Interface built for dynamic Web GIS applications. This project is architected to allow easy swapping of map backends (MapLibre, OpenLayers, Leaflet, Cesium) and features a scoped, per-map state management system to ensure consistency and performance.
 
-## 🚀 Architectural Pillars
+## 🚀 Architecture Rules
 
-1.  **Map Library Agnosticism (Adapter Pattern):** All UI components interact with the map through specialized interfaces (e.g., ILayerStyleEditor), shielding the UI from MapLibre-specific APIs.
-2.  **Map State Management:** Each map owns a scoped state store (`/src/store/map-state-store.ts`) so components stay synchronized with their host map instance while remaining isolated from other maps.
-3.  **Robustness and Performance:** Solutions for common web map challenges are built directly into the architecture:
-    * **Feedback Loop Prevention:** State changes are tagged with their `source` ('UI' or 'MAP') to prevent components from endlessly updating themselves.
-    * **Throttling:** Expensive map API calls are rate-limited to maintain high frame rates during continuous interactions (like slider drags).
-4.  **Theming and Consistency (Design System):** All UI elements rely on **CSS Custom Properties** defined in the `/src/theme` directory, allowing for instant, global theme switching (Dark/Light). Rule: never use css z-index unless proven necessary (unlikely).
+1.  **Adapter = Thin Wrapper:** The adapter layer provides fixed methods/events only. It translates library-specific APIs (MapLibre, OpenLayers, etc.) to generic interfaces. **No business logic in the adapter.**
+
+2.  **Tools = Composite Logic:** All business logic, calculations, and orchestration live in the tool components. Tools use the adapter's thin wrappers and decide their own throttling/rate-limiting.
+
+3.  **OOP Map API:** Tools create and manage maps via an object-oriented interface:
+    ```typescript
+    const map = adapter.mapFactory.createMap(container, { interactive: false });
+    map.onReady(() => {
+      const source = map.createSource('viewport', emptyGeoJSON);
+      const layer = map.createLayer({ id: 'fill', type: 'fill', sourceId: 'viewport' });
+      source.setData(newGeoJSON);
+    });
+    map.setViewport(center, zoom);
+    map.destroy();
+    ```
+
+4.  **Map State Management:** Each map owns a scoped state store (`/src/store/map-state-store.ts`). State changes are tagged with `source` ('UI' or 'MAP') to prevent feedback loops.
+
+5.  **Consumer-Side Throttling:** The adapter emits all events immediately. Consumers (tools, stores) use the `throttle` utility to rate-limit as needed.
+
+6.  **Theming:** All UI elements use CSS Custom Properties from `/src/theme`. Rule: never use z-index unless proven necessary.
 
 ## 📂 Project Structure Overview
 
 | Directory | Role | Example File Path | Key Architectural Element |
 | :--- | :--- | :--- | :--- |
-| `/src/components/modules` | Feature Components | [`./src/components/modules/webmapx-tool-template.ts`](./src/components/modules/webmapx-tool-template.ts) | **Low Complexity** (Reads State, Dispatches Intent) |
+| `/src/components/modules` | Tools (UI + Logic) | [`./src/components/modules/webmapx-inset-map.ts`](./src/components/modules/webmapx-inset-map.ts) | **Composite Logic** (creates maps, layers, handles state) |
 | `/src/store` | Application State | [`./src/store/map-state-store.ts`](./src/store/map-state-store.ts) | **Map State Store** (Source of Truth, Loop Prevention) |
-| `/src/map` | Map Abstraction Layer | [`./src/map/maplibre-adapter.ts`](./src/map/maplibre-adapter.ts) | **Modular Adapter Pattern** (Composition / Proxy) |
-| `/src/utils` | Shared Code | [`./src/utils/throttle.ts`](./src/utils/throttle.ts) | **Performance Utilities** (Throttling) |
+| `/src/map` | Adapter Layer | [`./src/map/maplibre-adapter.ts`](./src/map/maplibre-adapter.ts) | **Thin Wrapper** (translates to MapLibre/OL/Leaflet) |
+| `/src/map/IMapInterfaces.ts` | Contracts | [`./src/map/IMapInterfaces.ts`](./src/map/IMapInterfaces.ts) | **IMap, ILayer, ISource, IMapFactory** interfaces |
+| `/src/utils` | Shared Utilities | [`./src/utils/throttle.ts`](./src/utils/throttle.ts) | **Throttle utility** (consumers decide rate-limiting) |
 
 ## 🛠️ Getting Started
 
@@ -53,5 +69,7 @@ For a detailed guide on creating new components, understanding the data flow, an
 - Change `center`, `zoom`, or `styleUrl` to use your own basemap.
 
 ## 📡 Current Status
-- Zoom: wired via `MapZoomController` using `IMapCore` methods (`setZoom`, `onZoomEnd`).
-- Geoprocessing: service present with throttling; map operations are stubs pending full integration.
+- **Adapter:** Thin wrapper pattern implemented. `MapCoreService` translates MapLibre events to generic `MapEventBus` events. No controllers.
+- **IMapFactory:** OOP API for creating maps (`IMap`), sources (`ISource`), and layers (`ILayer`).
+- **Inset Map:** Refactored to use new architecture. Tool contains all composite logic, uses `mapFactory.createMap()` and manages its own throttling.
+- **Events:** `view-change`, `view-change-end`, `pointer-move`, `click`, `dblclick`, `contextmenu`, `pointer-leave` available via `adapter.events`.
