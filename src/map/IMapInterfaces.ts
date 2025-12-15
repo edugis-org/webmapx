@@ -156,3 +156,40 @@ export interface IToolService {
      */
     setBufferRadius(radiusKm: number): void;
 }
+
+/**
+ * Service for managing catalog layers on the map.
+ * Converts config-based layer definitions to native map layers.
+ * Updates the store with visible layer state.
+ */
+export interface ILayerService {
+    /**
+     * Sets the catalog configuration containing sources and layers.
+     * Must be called before adding layers.
+     */
+    setCatalog(catalog: CatalogConfig): void;
+
+    /**
+     * Adds a layer to the map using logical and source config.
+     * @param layerId Logical layer ID
+     * @param layerConfig LayerConfig object
+     * @param sourceConfig SourceConfig object
+     * @returns true if layer was added successfully, false on failure
+     */
+    addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig): Promise<boolean>;
+
+    /**
+     * Removes a layer from the map by its ID.
+     */
+    removeLayer(layerId: string): void;
+
+    /**
+     * Returns the list of currently visible layer IDs.
+     */
+    getVisibleLayers(): string[];
+
+    /**
+     * Checks if a layer is currently visible.
+     */
+    isLayerVisible(layerId: string): boolean;
+}

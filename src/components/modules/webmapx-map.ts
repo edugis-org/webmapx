@@ -21,20 +21,41 @@ export interface ConfigReadyEventDetail {
  * Tools can access config via `this.closest('webmapx-map')?.config`.
  */
 export class WebmapxMapElement extends HTMLElement {
+    // Only one connectedCallback/disconnectedCallback allowed. Add event listener in the main one.
+    connectedCallback(): void {
+      this.ensureAdapter();
+      this.upsertAndStyleSurface();
+      this.observeSurfaceChanges();
+      this.addEventListener('add-layer', this.handleLayerAddRequest as EventListener);
+    }
+
+    disconnectedCallback(): void {
+      this.surfaceObserver?.disconnect();
+      this.removeEventListener('add-layer', this.handleLayerAddRequest as EventListener);
+    }
+
+    /** Handles add-layer events from the layer tree */
+    private async handleLayerAddRequest(e: CustomEvent) {
+      const { layerInformation, checked } = e.detail;
+      // Use 'any' to access layerService, since it's not in IMapAdapter interface
+      const adapter: any = this.adapter;
+      if (!adapter || !adapter.layerService) return;
+      if (checked) {
+        // Compose for new signature: addLayer(layerId, layerConfig, sourceConfig)
+        const layer = layerInformation.layer;
+        // Support multiple sources, but call addLayer for each source referenced by the layer
+        for (const source of layerInformation.sources) {
+          await adapter.layerService.addLayer(layer.id, layer, source);
+        }
+      } else {
+        // Remove the layer by id
+        adapter.layerService.removeLayer(layerInformation.layer.id);
+      }
+    }
   private surfaceObserver?: MutationObserver;
   private currentSurface: HTMLElement | null = null;
   private adapterInstance: IMapAdapter | null = null;
   private configInstance: AppConfig | null = null;
-
-  connectedCallback(): void {
-    this.ensureAdapter();
-    this.upsertAndStyleSurface();
-    this.observeSurfaceChanges();
-  }
-
-  disconnectedCallback(): void {
-    this.surfaceObserver?.disconnect();
-  }
 
   private upsertAndStyleSurface(): void {
     const surface = this.ensureMapViewElement();

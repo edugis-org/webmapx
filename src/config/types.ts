@@ -47,9 +47,21 @@ export interface RasterSourceConfig extends SourceConfigBase {
   /** Service protocol */
   service: RasterServiceType;
   /** Tile URL template or service endpoint */
-  url: string;
+  url: string | string[];
   /** Tile size in pixels */
   tileSize?: number;
+  /** Bounds: [west, south, east, north] */
+  bounds?: [number, number, number, number];
+  /** Minimum zoom level supported by the source */
+  minzoom?: number;
+  /** Maximum zoom level supported by the source */
+  maxzoom?: number;
+  /** Tile scheme: 'xyz' or 'tms' */
+  scheme?: 'xyz' | 'tms';
+  /** Attribution string */
+  attribution?: string;
+  /** Volatile flag */
+  volatile?: boolean;
 }
 
 /**

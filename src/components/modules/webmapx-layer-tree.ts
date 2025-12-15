@@ -134,12 +134,30 @@ export class WebmapxLayerTree extends LitElement {
     handleCheck(e: Event, node: LayerNode) {
         const checkbox = e.target as any;
         const isChecked = checkbox.checked;
-        
-        // Update local state (optional, depending on if we want to be controlled or uncontrolled)
         node.checked = isChecked;
-        
-        this.dispatchEvent(new CustomEvent('layer-toggle', {
-            detail: { layerId: node.layerId, checked: isChecked },
+
+        // Only handle leaf nodes with a layerId
+        if (!node.layerId) return;
+
+        // Look up catalog from parent map
+        const mapHost = this.mapHost;
+        const catalog = mapHost?.catalogConfig;
+        if (!catalog) return;
+
+        // Find the layer config
+        const layer = catalog.layers.find(l => l.id === node.layerId);
+        if (!layer) return;
+
+        // Find all unique source IDs referenced by the layer's layerset
+        const sourceIds = Array.from(new Set(layer.layerset.map(sl => sl.source)));
+        const sources = catalog.sources.filter(s => sourceIds.includes(s.id));
+
+        // Compose the layerInformation object
+        const layerInformation = { layer, sources };
+
+        // Dispatch a custom event for the map to handle
+        this.dispatchEvent(new CustomEvent('add-layer', {
+            detail: { layerInformation, checked: isChecked },
             bubbles: true,
             composed: true
         }));
