@@ -11,6 +11,8 @@ export class MapLayerService implements ILayerService {
     private store: MapStateStore;
     private logicalToNative: Map<string, string[]> = new Map();
     private logicalSourceToNative: Map<string, string> = new Map();
+    // Map native layer id to native source id
+    private nativeLayerToSource: Map<string, string> = new Map();
     private catalog: any;
     private sourceIdCounter = 0;
 
@@ -91,6 +93,8 @@ export class MapLayerService implements ILayerService {
                 this.map.addLayer(layerSpec);
             }
             nativeLayerIds.push(layerSpec.id);
+            // Track which source this native layer uses
+            this.nativeLayerToSource.set(layerSpec.id, nativeSourceId);
         }
         this.logicalToNative.set(layerId, nativeLayerIds);
         return true;
@@ -98,12 +102,34 @@ export class MapLayerService implements ILayerService {
 
     removeLayer(layerId: string): void {
         const nativeIds = this.logicalToNative.get(layerId) || [];
+        // Find the native source ids for these layers using the mapping
+        const nativeSourceIds = new Set<string>();
         for (const id of nativeIds) {
+            const sourceId = this.nativeLayerToSource.get(id);
+            if (sourceId) {
+                nativeSourceIds.add(sourceId);
+            }
             if (this.map.getLayer(id)) {
                 this.map.removeLayer(id);
             }
+            this.nativeLayerToSource.delete(id);
         }
         this.logicalToNative.delete(layerId);
+
+        // For each native source, check if any remaining native layers reference it
+        for (const sourceId of nativeSourceIds) {
+            let stillUsed = false;
+            for (const usedSourceId of this.nativeLayerToSource.values()) {
+                if (usedSourceId === sourceId) {
+                    stillUsed = true;
+                    break;
+                }
+            }
+            // Only remove if not used and source exists
+            if (!stillUsed && this.map.getSource(sourceId)) {
+                this.map.removeSource(sourceId);
+            }
+        }
     }
 
     getVisibleLayers(): string[] {
