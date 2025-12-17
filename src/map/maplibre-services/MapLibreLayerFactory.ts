@@ -1,6 +1,6 @@
 // src/map/maplibre-services/MapLibreLayerFactory.ts
 
-import type { LayerConfig, StyleLayerConfig, SourceConfig } from '../../config/types';
+import type { LayerConfig, SourceConfig } from '../../config/types';
 import type { LayerSpecification } from 'maplibre-gl';
 
 /**
@@ -22,39 +22,37 @@ export class MapLibreLayerFactory {
             type: 'raster',
             source: nativeSourceId,
           };
-          if (typeof style.minZoom === 'number') layerSpec.minzoom = style.minZoom;
-          if (typeof style.maxZoom === 'number') layerSpec.maxzoom = style.maxZoom;
+          if ('minZoom' in style) layerSpec.minzoom = style.minZoom;
+          if ('maxZoom' in style) layerSpec.maxzoom = style.maxZoom;
           layers.push(layerSpec);
         } else if (sourceConfig.service === 'wms') {
-          // Compose WMS URL with bbox param (MapLibre expects a tile URL template)
-          // This is a simplification; real WMS support may require a custom source type or plugin
-          const wmsUrl = `${sourceConfig.url}&service=WMS&request=GetMap&bbox={bbox-epsg-3857}`;
-          layers.push({
+          const layerSpec: any = {
             id: `${layerConfig.id}-raster-wms`,
             type: 'raster',
             source: nativeSourceId,
-            paint: style.paint as any,
-            layout: style.layout as any,
-            minzoom: style.minZoom,
-            maxzoom: style.maxZoom,
-          });
+          };
+          if (style.paint && typeof style.paint === 'object') layerSpec.paint = style.paint;
+          if (style.layout && typeof style.layout === 'object') layerSpec.layout = style.layout;
+          if ('minZoom' in style) layerSpec.minzoom = style.minZoom;
+          if ('maxZoom' in style) layerSpec.maxzoom = style.maxZoom;
+          layers.push(layerSpec);
         } else if (sourceConfig.service === 'wmts') {
           // Add WMTS support if needed
         }
       }
       // Vector/GeoJSON
       else if (['fill', 'line', 'circle', 'symbol'].includes(style.type) && ['geojson', 'vector'].includes(sourceConfig.type)) {
-        const layerSpec: LayerSpecification = {
+        const layerSpec: any = {
           id: `${layerConfig.id}-${style.type}`,
           type: style.type as any,
           source: nativeSourceId,
-          paint: style.paint as any,
-          layout: style.layout as any,
-          minzoom: style.minZoom,
-          maxzoom: style.maxZoom,
         };
+        if (style.paint && typeof style.paint === 'object') layerSpec.paint = style.paint;
+        if (style.layout && typeof style.layout === 'object') layerSpec.layout = style.layout;
+        if ('minZoom' in style) layerSpec.minzoom = style.minZoom;
+        if ('maxZoom' in style) layerSpec.maxzoom = style.maxZoom;
         if (style.sourceLayer) {
-          (layerSpec as any)['source-layer'] = style.sourceLayer;
+          layerSpec['source-layer'] = style.sourceLayer;
         }
         layers.push(layerSpec);
       }

@@ -1,10 +1,11 @@
 // src/map/maplibre-services/MapLayerService.ts
 
 import { ILayerService } from '../IMapInterfaces';
-import type { LayerConfig, SourceConfig } from '../../config/types';
+import type { LayerConfig, SourceConfig, WMSSourceConfig } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import * as maplibregl from 'maplibre-gl';
 import { MapLibreLayerFactory } from './MapLibreLayerFactory';
+import { buildWMSGetMapUrl } from '../../utils/wms-url-builder';
 
 export class MapLayerService implements ILayerService {
     private map: maplibregl.Map;
@@ -43,38 +44,50 @@ export class MapLayerService implements ILayerService {
      */
     private ensureNativeSource(nativeSourceId: string, sourceConfig: SourceConfig): void {
         if (!this.map.getSource(nativeSourceId)) {
-            // Compose a native source object from sourceConfig (remove id property)
-            const { id, ...rest } = sourceConfig as any;
-            let nativeSource = { ...rest };
-            // Special handling for raster xyz: convert url to tiles array
-            if (sourceConfig.type === 'raster' && sourceConfig.service === 'xyz') {
-                // url can be a string or array; always convert to array
-                let tiles: string[] = [];
-                if (Array.isArray(sourceConfig.url)) {
-                    tiles = sourceConfig.url;
-                } else if (typeof sourceConfig.url === 'string') {
-                    tiles = [sourceConfig.url];
+            let nativeSource: any;
+            if (sourceConfig.type === 'raster') {
+                if (sourceConfig.service === 'xyz') {
+                    let tiles: string[] = [];
+                    if (Array.isArray(sourceConfig.url)) {
+                        tiles = sourceConfig.url;
+                    } else if (sourceConfig.url) {
+                        tiles = [sourceConfig.url];
+                    }
+                    nativeSource = { type: 'raster', tiles };
+                    if ('tileSize' in sourceConfig) nativeSource.tileSize = sourceConfig.tileSize;
+                    if ('bounds' in sourceConfig) nativeSource.bounds = sourceConfig.bounds;
+                    if ('minzoom' in sourceConfig) nativeSource.minzoom = sourceConfig.minzoom;
+                    if ('maxzoom' in sourceConfig) nativeSource.maxzoom = sourceConfig.maxzoom;
+                    if ('scheme' in sourceConfig) nativeSource.scheme = sourceConfig.scheme;
+                    if ('attribution' in sourceConfig) nativeSource.attribution = sourceConfig.attribution;
+                    if ('volatile' in sourceConfig) nativeSource.volatile = sourceConfig.volatile;
+                } else if (sourceConfig.service === 'wms') {
+                    const wmsConfig = sourceConfig as WMSSourceConfig;
+                    const wmsUrl = buildWMSGetMapUrl({
+                        baseUrl: Array.isArray(wmsConfig.url) ? wmsConfig.url[0] : wmsConfig.url,
+                        layers: wmsConfig.layers || '',
+                        version: wmsConfig.version,
+                        styles: wmsConfig.styles,
+                        format: wmsConfig.format,
+                        transparent: wmsConfig.transparent,
+                        crs: wmsConfig.crs,
+                        tileSize: wmsConfig.tileSize,
+                    }, 'maplibre');
+                    nativeSource = { type: 'raster', tiles: [wmsUrl] };
+                    if ('tileSize' in sourceConfig) nativeSource.tileSize = sourceConfig.tileSize;
+                    if ('bounds' in sourceConfig) nativeSource.bounds = sourceConfig.bounds;
+                    if ('minzoom' in sourceConfig) nativeSource.minzoom = sourceConfig.minzoom;
+                    if ('maxzoom' in sourceConfig) nativeSource.maxzoom = sourceConfig.maxzoom;
+                    if ('scheme' in sourceConfig) nativeSource.scheme = sourceConfig.scheme;
+                    if ('attribution' in sourceConfig) nativeSource.attribution = sourceConfig.attribution;
+                    if ('volatile' in sourceConfig) nativeSource.volatile = sourceConfig.volatile;
                 }
-                // Build native source with all valid optional members if present
-                nativeSource = {
-                    type: 'raster',
-                    tiles,
-                };
-                // Optional members
-                if (typeof sourceConfig.tileSize === 'number') nativeSource.tileSize = sourceConfig.tileSize;
-                if (Array.isArray(sourceConfig.bounds) && sourceConfig.bounds.length === 4) nativeSource.bounds = sourceConfig.bounds;
-                if (typeof sourceConfig.minzoom === 'number') nativeSource.minzoom = sourceConfig.minzoom;
-                if (typeof sourceConfig.maxzoom === 'number') nativeSource.maxzoom = sourceConfig.maxzoom;
-                if (typeof sourceConfig.scheme === 'string') nativeSource.scheme = sourceConfig.scheme;
-                if (typeof sourceConfig.attribution === 'string') nativeSource.attribution = sourceConfig.attribution;
-                if (typeof sourceConfig.volatile === 'boolean') nativeSource.volatile = sourceConfig.volatile;
-                // Remove undefined values
-                Object.keys(nativeSource).forEach(
-                    (k) => nativeSource[k] === undefined && delete nativeSource[k]
-                );
-            } else {
-                // Remove url property if present (not valid for other types)
-                if ('url' in nativeSource) delete nativeSource.url;
+            } else if (sourceConfig.type === 'geojson') {
+                nativeSource = { type: 'geojson', data: (sourceConfig as any).data };
+                if ('attribution' in sourceConfig) nativeSource.attribution = (sourceConfig as any).attribution;
+            } else if (sourceConfig.type === 'vector') {
+                nativeSource = { type: 'vector', url: (sourceConfig as any).url };
+                if ('attribution' in sourceConfig) nativeSource.attribution = (sourceConfig as any).attribution;
             }
             this.map.addSource(nativeSourceId, nativeSource);
         }

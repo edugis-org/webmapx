@@ -50,8 +50,8 @@
         "id": "bluemarble-source",
         "type": "raster",
         "service": "wms",
-        "url": "https://demo.mapserver.org/cgi-bin/wms?layer=bluemarble",
-        "tileSize": 256,
+        "url": "https://demo.mapserver.org/cgi-bin/wms?layers=bluemarble",
+        "tileSize": 512,
         "attribution": "NASA Blue Marble"
       },
       {

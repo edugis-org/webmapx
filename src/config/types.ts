@@ -40,12 +40,10 @@ interface SourceConfigBase {
 }
 
 /**
- * Raster source configuration (XYZ, WMS, WMTS).
+ * Base raster source properties shared by all raster service types.
  */
-export interface RasterSourceConfig extends SourceConfigBase {
+interface RasterSourceConfigBase extends SourceConfigBase {
   type: 'raster';
-  /** Service protocol */
-  service: RasterServiceType;
   /** Tile URL template or service endpoint */
   url: string | string[];
   /** Tile size in pixels */
@@ -63,6 +61,52 @@ export interface RasterSourceConfig extends SourceConfigBase {
   /** Volatile flag */
   volatile?: boolean;
 }
+
+/**
+ * XYZ tile source configuration.
+ */
+export interface XYZSourceConfig extends RasterSourceConfigBase {
+  service: 'xyz';
+}
+
+/**
+ * WMS source configuration.
+ */
+export interface WMSSourceConfig extends RasterSourceConfigBase {
+  service: 'wms';
+  /** WMS layer name(s) - can also be specified in the URL */
+  layers?: string;
+  /** WMS styles parameter */
+  styles?: string;
+  /** Image format (e.g., 'image/png', 'image/jpeg') */
+  format?: string;
+  /** Whether to request transparent background */
+  transparent?: boolean;
+  /** WMS version (e.g., '1.1.1', '1.3.0') */
+  version?: string;
+  /** Coordinate reference system (e.g., 'EPSG:3857') */
+  crs?: string;
+}
+
+/**
+ * WMTS source configuration.
+ */
+export interface WMTSSourceConfig extends RasterSourceConfigBase {
+  service: 'wmts';
+  /** WMTS layer identifier */
+  layer?: string;
+  /** WMTS style identifier */
+  style?: string;
+  /** Tile matrix set identifier */
+  tileMatrixSet?: string;
+  /** Image format */
+  format?: string;
+}
+
+/**
+ * Union of all raster source configuration types.
+ */
+export type RasterSourceConfig = XYZSourceConfig | WMSSourceConfig | WMTSSourceConfig;
 
 /**
  * GeoJSON source configuration.
