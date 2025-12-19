@@ -17,6 +17,7 @@ import 'ol/ol.css';
  */
 export class MapCoreService implements IMapCore {
     private mapInstance: OLMap | null = null;
+    private mapReadyCallbacks: Array<(map: OLMap) => void> = [];
 
     /**
      * Zoom offset to normalize between MapLibre (512px tiles) and OpenLayers/OSM (256px tiles).
@@ -95,6 +96,7 @@ export class MapCoreService implements IMapCore {
                 { mapLoaded: true, zoomLevel: logicalZoom, mapCenter: center, mapViewportBounds: viewportBounds },
                 'MAP'
             );
+            this.flushMapReadyCallbacks();
         });
 
         // View change events
@@ -282,6 +284,36 @@ export class MapCoreService implements IMapCore {
 
     public getZoom(): number {
         return this.fromOLZoom(this.mapInstance?.getView().getZoom() || this.toOLZoom(this.initialConfig.zoom));
+    }
+
+    /**
+     * Register a callback to be invoked when the map instance is ready.
+     * If the map is already initialized, the callback is invoked immediately.
+     */
+    public onMapReady(callback: (map: OLMap) => void): void {
+        if (this.mapInstance) {
+            callback(this.mapInstance);
+            return;
+        }
+        this.mapReadyCallbacks.push(callback);
+    }
+
+    /**
+     * Flush all pending map-ready callbacks.
+     */
+    private flushMapReadyCallbacks(): void {
+        if (!this.mapInstance) {
+            return;
+        }
+
+        const pending = this.mapReadyCallbacks.splice(0);
+        pending.forEach(callback => {
+            try {
+                callback(this.mapInstance!);
+            } catch (error) {
+                console.error('[OL CORE SERVICE] mapReady callback failed.', error);
+            }
+        });
     }
 
     private dispatchViewportBoundsSnapshot(): void {

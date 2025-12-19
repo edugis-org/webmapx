@@ -7,6 +7,7 @@ import { IMapAdapter } from './IMapAdapter';
 import { MapCoreService } from './openlayers-services/MapCoreService';
 import { MapServiceTemplate } from './openlayers-services/MapServiceTemplate';
 import { MapFactoryService } from './openlayers-services/MapFactoryService';
+import { MapLayerService } from './openlayers-services/MapLayerService';
 
 /**
  * The concrete Map Adapter implementation (OpenLayers).
@@ -18,6 +19,7 @@ export class OpenLayersAdapter implements IMapAdapter {
     public readonly core: IMapCore;
     public readonly toolService: IToolService;
     public readonly mapFactory: IMapFactory;
+    public layerService: any;
 
     constructor() {
         this.store = new MapStateStore();
@@ -25,5 +27,10 @@ export class OpenLayersAdapter implements IMapAdapter {
         this.core = new MapCoreService(this.store, this.events);
         this.toolService = new MapServiceTemplate();
         this.mapFactory = new MapFactoryService();
+        this.layerService = undefined;
+        // Wait for mapInstance to be ready, then initialize layerService
+        (this.core as any).onMapReady?.((map: any) => {
+            this.layerService = new MapLayerService(map, this.store);
+        });
     }
 }
