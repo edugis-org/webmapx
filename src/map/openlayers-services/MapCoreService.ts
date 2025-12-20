@@ -99,6 +99,9 @@ export class MapCoreService implements IMapCore {
             this.flushMapReadyCallbacks();
         });
 
+        // Loading state detection
+        this.attachLoadingEvents(this.mapInstance);
+
         // View change events
         const view = this.mapInstance.getView();
 
@@ -313,6 +316,53 @@ export class MapCoreService implements IMapCore {
             } catch (error) {
                 console.error('[OL CORE SERVICE] mapReady callback failed.', error);
             }
+        });
+    }
+
+    private pendingTileLoads = 0;
+
+    /**
+     * Attach loading state tracking to the map.
+     * Tracks tile loading across all layers and rendercomplete for idle detection.
+     */
+    private attachLoadingEvents(map: OLMap): void {
+        // Track loading on existing and future layers
+        const attachLayerEvents = (layer: any) => {
+            const source = layer.getSource?.();
+            if (!source) return;
+
+            source.on?.('tileloadstart', () => {
+                this.pendingTileLoads++;
+                this.store.dispatch({ mapBusy: true }, 'MAP');
+            });
+
+            source.on?.('tileloadend', () => {
+                this.pendingTileLoads = Math.max(0, this.pendingTileLoads - 1);
+            });
+
+            source.on?.('tileloaderror', () => {
+                this.pendingTileLoads = Math.max(0, this.pendingTileLoads - 1);
+            });
+        };
+
+        // Attach to existing layers
+        map.getLayers().forEach(attachLayerEvents);
+
+        // Attach to layers added in the future
+        map.getLayers().on('add', (e) => {
+            attachLayerEvents(e.element);
+        });
+
+        // Use rendercomplete as the idle signal
+        map.on('rendercomplete', () => {
+            if (this.pendingTileLoads === 0) {
+                this.store.dispatch({ mapBusy: false }, 'MAP');
+            }
+        });
+
+        // Also mark busy when loading starts (on move/zoom)
+        map.on('loadstart', () => {
+            this.store.dispatch({ mapBusy: true }, 'MAP');
         });
     }
 

@@ -5,6 +5,8 @@
 export interface IAppState {
     // Example state properties
     mapLoaded: boolean;
+    /** True when the map is busy loading tiles/data or rendering */
+    mapBusy: boolean;
     currentTool: 'Buffer' | 'Legend' | 'None';
     bufferRadiusKm: number;
     zoomLevel: number | null;

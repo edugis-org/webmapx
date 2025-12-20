@@ -84,6 +84,15 @@ export class MapCoreService implements IMapCore {
             this.store.dispatch({ mapLoaded: true, zoomLevel: zoom, mapCenter: center, mapViewportBounds: viewportBounds }, 'MAP');
         });
 
+        // Loading state detection
+        this.mapInstance.on('dataloading', () => {
+            this.store.dispatch({ mapBusy: true }, 'MAP');
+        });
+
+        this.mapInstance.on('idle', () => {
+            this.store.dispatch({ mapBusy: false }, 'MAP');
+        });
+
         // Default internal subscription updates the map state store
         this.mapInstance.on('zoomend', () => {
              const currentZoom = this.mapInstance!.getZoom();
