@@ -113,11 +113,9 @@ export function buildWMSGetMapUrl(
   }
 
   // Set bbox placeholder based on engine
-  if (!paramMap.has('bbox')) {
-    const bboxPlaceholder = engine === 'maplibre' ? '{bbox-epsg-3857}' : '{bbox}';
-    paramMap.set('bbox', bboxPlaceholder);
-  }
-
+  const bboxPlaceholder = engine === 'maplibre' ? '{bbox-epsg-3857}' : '{bbox}';
+  paramMap.set('bbox', bboxPlaceholder);
+  
   // Set width/height: use actual tileSize values for MapLibre, placeholders for others
   if (!paramMap.has('width')) {
     paramMap.set('width', engine === 'maplibre' ? String(tileSize) : '{width}');
