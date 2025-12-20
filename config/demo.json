@@ -25,7 +25,7 @@
         "label": "Data Layers",
         "expanded": true,
         "children": [
-          { "label": "Population Density", "layerId": "earthquake", "checked": false },
+          { "label": "Earthquakes", "layerId": "earthquake", "checked": false },
           { "label": "Transport Network", "layerId": "transport", "checked": true },
           {
             "label": "Environmental",
@@ -99,7 +99,14 @@
         "id": "earthquake",
         "layerset": [
           {
-            "type": "fill",
+            "type": "circle",
+            "paint": {
+              "circle-color": "#FF5722",
+              "circle-radius": 14,
+              "circle-opacity": 0.8,
+              "circle-stroke-color": "#FFFFFF",
+              "circle-stroke-width": 1
+            },
             "source": "earthquake-source"
           }
         ]

@@ -74,34 +74,6 @@
         const layerTool = document.getElementById('layer-tool');
         const settingsTool = document.getElementById('settings-tool');
 
-        // Sample Data for Layer Tree
-        // In a real app, this might come from the map adapter or a config file
-        layerTool.config = [
-            { 
-                label: "Base Maps", 
-                expanded: true,
-                children: [
-                    { label: "OpenStreetMap", layerId: "osm", checked: true },
-                    { label: "Satellite Imagery", layerId: "sat", checked: false }
-                ]
-            },
-            {
-                label: "Data Layers",
-                expanded: true,
-                children: [
-                    { label: "Population Density", layerId: "pop", checked: false },
-                    { label: "Transport Network", layerId: "transport", checked: true },
-                    { 
-                        label: "Environmental",
-                        children: [
-                            { label: "Air Quality", layerId: "air", checked: false },
-                            { label: "Water Quality", layerId: "water", checked: false }
-                        ]
-                    }
-                ]
-            }
-        ];
-
         // Listen for tool selection
         toolbar.addEventListener('webmapx-tool-select', (e) => {
             const toolId = e.detail.toolId;
