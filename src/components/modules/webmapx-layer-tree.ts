@@ -38,7 +38,7 @@ export class WebmapxLayerTree extends LitElement {
             display: block;
             height: auto; /* let parent control available height */
             overflow: visible; /* do not create a nested scroll container */
-            padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+            padding: 0.25rem;
             box-sizing: border-box;
             background: var(--sl-color-neutral-0);
             border-left: 1px solid var(--sl-color-neutral-200);
@@ -50,6 +50,28 @@ export class WebmapxLayerTree extends LitElement {
             height: auto;
             overflow: visible;
             box-sizing: border-box;
+        }
+        sl-tree-item::part(item) {
+            padding-top: 0;
+            padding-bottom: 0;
+            min-height: 1.5rem;
+        }
+        sl-tree-item::part(label) {
+            line-height: 1.2;
+        }
+        sl-tree-item::part(expand-button) {
+            padding: 0;
+        }
+        sl-checkbox {
+            --sl-input-height-medium: 1rem;
+        }
+        sl-checkbox::part(control) {
+            width: 0.875rem;
+            height: 0.875rem;
+        }
+        sl-checkbox::part(label) {
+            line-height: 1.2;
+            padding-left: 0.375rem;
         }
     `;
 
@@ -119,10 +141,9 @@ export class WebmapxLayerTree extends LitElement {
             // Leaf node with checkbox
             return html`
                 <sl-tree-item>
-                    <sl-checkbox 
+                    <sl-checkbox
                         ?checked=${node.checked}
                         @sl-change=${(e: Event) => this.handleCheck(e, node)}
-                        style="--sl-input-height-medium: 1.2rem;"
                     >
                         ${node.label}
                     </sl-checkbox>
