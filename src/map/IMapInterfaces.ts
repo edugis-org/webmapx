@@ -1,6 +1,6 @@
 // src/map/IMapInterfaces.ts
 
-import type { LayerConfig, SourceConfig, CatalogConfig } from '../config/types';
+import type { LayerConfig, SourceConfig, CatalogConfig, MapStyle } from '../config/types';
 
 /**
  * Options for creating a map instance.
@@ -56,7 +56,10 @@ export interface IMapCore {
         options?: {
             center?: [number, number];
             zoom?: number;
+            /** URL to a MapLibre/Mapbox style JSON */
             styleUrl?: string;
+            /** Inline style object (takes precedence over styleUrl) */
+            style?: MapStyle;
         }
     ): void;
 

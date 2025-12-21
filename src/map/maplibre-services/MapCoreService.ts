@@ -3,6 +3,7 @@
 import { IMapCore } from '../IMapInterfaces';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel, PointerResolution } from '../../store/map-events';
+import type { MapStyle } from '../../config/types';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -53,12 +54,11 @@ export class MapCoreService implements IMapCore {
         }
     }
 
-    public initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; styleUrl?: string }): void {
+    public initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; styleUrl?: string; style?: MapStyle }): void {
         console.log(`[CORE SERVICE] Initializing MapLibre instance in #${containerId}`);
-        
+
         const center = options?.center ?? this.initialConfig.center;
         const zoom = options?.zoom ?? this.initialConfig.zoom;
-        const styleUrl = options?.styleUrl;
         const containerTarget = this.resolveContainer(containerId);
 
         // MAP INSTANTIATION AND STORAGE
@@ -67,15 +67,27 @@ export class MapCoreService implements IMapCore {
             center,
             zoom,
             pitch: this.initialConfig.pitch,
-            bearing: this.initialConfig.bearing            
+            bearing: this.initialConfig.bearing
         });
 
         this.flushMapReadyCallbacks();
 
-        if (styleUrl) {
-            this.mapInstance.setStyle(styleUrl);
+        // Determine which style to use (inline style takes precedence)
+        if (options?.style) {
+            // Convert MapStyle to MapLibre style spec (add version if missing)
+            const maplibreStyle: maplibregl.StyleSpecification = {
+                version: 8,
+                sources: (options.style.sources || {}) as { [_: string]: maplibregl.SourceSpecification },
+                layers: (options.style.layers || []) as maplibregl.LayerSpecification[],
+                ...(options.style.glyphs && { glyphs: options.style.glyphs }),
+                ...(options.style.sprite && { sprite: options.style.sprite }),
+                ...(options.style.name && { name: options.style.name })
+            };
+            this.mapInstance.setStyle(maplibreStyle);
+        } else if (options?.styleUrl) {
+            this.mapInstance.setStyle(options.styleUrl);
         } else {
-            // Fallback minimal style
+            // Empty map - no background layers
             this.mapInstance.setStyle(this.initialConfig.style);
         }
 

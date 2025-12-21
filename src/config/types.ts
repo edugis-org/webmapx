@@ -7,6 +7,56 @@
 export type MapAdapterType = 'maplibre' | 'openlayers';
 
 /**
+ * MapLibre-compatible style specification (version optional).
+ * Used to define initial background layers.
+ */
+export interface MapStyle {
+  /** Style specification version (optional, defaults to 8) */
+  version?: number;
+  /** Optional name for the style */
+  name?: string;
+  /** Source definitions */
+  sources?: Record<string, MapStyleSource>;
+  /** Layer definitions */
+  layers?: MapStyleLayer[];
+  /** URL template for glyphs (fonts) */
+  glyphs?: string;
+  /** URL for sprite images */
+  sprite?: string;
+}
+
+/**
+ * Source definition within a map style.
+ */
+export interface MapStyleSource {
+  type: 'raster' | 'vector' | 'geojson' | 'image' | 'video';
+  tiles?: string[];
+  url?: string;
+  data?: string | GeoJSON.FeatureCollection | GeoJSON.Feature;
+  tileSize?: number;
+  attribution?: string;
+  minzoom?: number;
+  maxzoom?: number;
+  bounds?: [number, number, number, number];
+  scheme?: 'xyz' | 'tms';
+}
+
+/**
+ * Layer definition within a map style.
+ */
+export interface MapStyleLayer {
+  id: string;
+  type: 'raster' | 'fill' | 'line' | 'circle' | 'symbol' | 'background';
+  source?: string;
+  'source-layer'?: string;
+  minzoom?: number;
+  maxzoom?: number;
+  paint?: Record<string, unknown>;
+  layout?: Record<string, unknown>;
+  filter?: unknown[];
+}
+
+/**
  * Map configuration - defines the base map settings.
  */
 export interface MapConfig {
@@ -22,6 +72,13 @@ export interface MapConfig {
   minZoom?: number;
   /** Map adapter/library to use */
   type: MapAdapterType;
+  /**
+   * Initial map style. Can be:
+   * - A MapLibre-compatible style object
+   * - A URL string pointing to a style JSON file
+   * If undefined or empty, map starts with no background layers.
+   */
+  style?: MapStyle | string;
 }
 
 /**

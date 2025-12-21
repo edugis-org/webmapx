@@ -87,10 +87,16 @@ async function initializeMap(mapElement, appConfig) {
 
     // Check for saved viewport state (from adapter switch)
     const savedViewport = localStorage.getItem('webmapx-viewport');
+
+    // Determine style options: string = URL, object = inline style
+    const styleConfig = mapConfig.style;
+    const isStyleUrl = typeof styleConfig === 'string';
+
     let initOptions = {
         center: mapConfig.center,
         zoom: mapConfig.zoom,
-        styleUrl: 'https://demotiles.maplibre.org/style.json'
+        // Use styleUrl if string, otherwise inline style object
+        ...(isStyleUrl ? { styleUrl: styleConfig } : { style: styleConfig })
     };
 
     if (savedViewport) {
