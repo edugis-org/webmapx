@@ -2,18 +2,12 @@
 
 import OLMap from 'ol/Map';
 import View from 'ol/View';
-import TileLayer from 'ol/layer/Tile';
-import VectorLayer from 'ol/layer/Vector';
-import XYZ from 'ol/source/XYZ';
-import VectorSource from 'ol/source/Vector';
-import GeoJSON from 'ol/format/GeoJSON';
 import { fromLonLat, toLonLat } from 'ol/proj';
-import { Fill, Stroke, Style, Circle as CircleStyle } from 'ol/style';
+import { apply } from 'ol-mapbox-style';
 import { IMapCore } from '../IMapInterfaces';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel, PointerResolution } from '../../store/map-events';
-import type { MapStyle, MapStyleSource, MapStyleLayer } from '../../config/types';
-import type BaseLayer from 'ol/layer/Base';
+import type { MapStyle } from '../../config/types';
 import 'ol/ol.css';
 
 /**
@@ -91,14 +85,17 @@ export class MapCoreService implements IMapCore {
             controls: []
         });
 
-        // Load style (inline or from URL)
-        if (options?.style) {
-            // Inline style object
-            const layers = this.createLayersFromStyle(options.style);
-            layers.forEach(layer => this.mapInstance!.addLayer(layer));
-        } else if (options?.styleUrl) {
-            // Fetch style from URL
-            this.loadStyleFromUrl(options.styleUrl);
+        // Apply MapLibre/Mapbox style using ol-mapbox-style
+        if (options?.styleUrl) {
+            apply(this.mapInstance, options.styleUrl).catch(err => {
+                console.error('[OL CORE] Failed to apply style from URL:', err);
+            });
+        } else if (options?.style) {
+            // Inline style object - add version if missing
+            const styleWithVersion = { version: 8, ...options.style };
+            apply(this.mapInstance, styleWithVersion).catch(err => {
+                console.error('[OL CORE] Failed to apply inline style:', err);
+            });
         }
 
         // Map load event
@@ -376,165 +373,6 @@ export class MapCoreService implements IMapCore {
         map.on('loadstart', () => {
             this.store.dispatch({ mapBusy: true }, 'MAP');
         });
-    }
-
-    /**
-     * Load a MapLibre-style JSON from a URL and apply it.
-     */
-    private async loadStyleFromUrl(url: string): Promise<void> {
-        try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                console.error(`[OL CORE] Failed to fetch style from ${url}: ${response.status}`);
-                return;
-            }
-            const style = await response.json() as MapStyle;
-            const layers = this.createLayersFromStyle(style);
-            layers.forEach(layer => this.mapInstance?.addLayer(layer));
-        } catch (error) {
-            console.error(`[OL CORE] Error loading style from ${url}:`, error);
-        }
-    }
-
-    /**
-     * Convert a MapLibre-style style object to OpenLayers layers.
-     */
-    private createLayersFromStyle(style: MapStyle): BaseLayer[] {
-        const layers: BaseLayer[] = [];
-        const sources = style.sources || {};
-
-        for (const layerDef of style.layers || []) {
-            const sourceId = layerDef.source;
-            if (!sourceId) continue;
-
-            const sourceDef = sources[sourceId];
-            if (!sourceDef) continue;
-
-            const olLayer = this.createLayerFromStyleDef(layerDef, sourceDef);
-            if (olLayer) {
-                layers.push(olLayer);
-            }
-        }
-
-        return layers;
-    }
-
-    /**
-     * Create a single OpenLayers layer from MapLibre-style layer and source definitions.
-     */
-    private createLayerFromStyleDef(layerDef: MapStyleLayer, sourceDef: MapStyleSource): BaseLayer | null {
-        // Raster tile layers
-        if (layerDef.type === 'raster' && sourceDef.type === 'raster') {
-            const tiles = sourceDef.tiles || [];
-            if (tiles.length === 0) return null;
-
-            return new TileLayer({
-                source: new XYZ({
-                    urls: tiles,
-                    tileSize: sourceDef.tileSize,
-                    attributions: sourceDef.attribution
-                }),
-                minZoom: layerDef.minzoom,
-                maxZoom: layerDef.maxzoom,
-                opacity: (layerDef.paint as any)?.['raster-opacity'] ?? 1
-            });
-        }
-
-        // GeoJSON vector layers
-        if (['fill', 'line', 'circle'].includes(layerDef.type) && sourceDef.type === 'geojson') {
-            const data = sourceDef.data;
-            const source = new VectorSource({
-                features: typeof data === 'string'
-                    ? undefined
-                    : new GeoJSON().readFeatures(data, { featureProjection: 'EPSG:3857' }),
-                url: typeof data === 'string' ? data : undefined,
-                format: typeof data === 'string' ? new GeoJSON() : undefined,
-                attributions: sourceDef.attribution
-            });
-
-            return new VectorLayer({
-                source,
-                style: this.createOLStyle(layerDef),
-                minZoom: layerDef.minzoom,
-                maxZoom: layerDef.maxzoom
-            });
-        }
-
-        return null;
-    }
-
-    /**
-     * Create an OpenLayers Style from a MapLibre-style layer definition.
-     */
-    private createOLStyle(layerDef: MapStyleLayer): Style {
-        const paint = layerDef.paint || {};
-
-        switch (layerDef.type) {
-            case 'fill':
-                return new Style({
-                    fill: new Fill({
-                        color: this.toRgba(
-                            (paint as any)['fill-color'] || '#000000',
-                            (paint as any)['fill-opacity'] ?? 1
-                        )
-                    }),
-                    stroke: new Stroke({
-                        color: this.toRgba(
-                            (paint as any)['fill-outline-color'] || (paint as any)['fill-color'] || '#000000',
-                            (paint as any)['fill-opacity'] ?? 1
-                        ),
-                        width: 1
-                    })
-                });
-
-            case 'line':
-                return new Style({
-                    stroke: new Stroke({
-                        color: this.toRgba(
-                            (paint as any)['line-color'] || '#000000',
-                            (paint as any)['line-opacity'] ?? 1
-                        ),
-                        width: (paint as any)['line-width'] || 1
-                    })
-                });
-
-            case 'circle':
-                return new Style({
-                    image: new CircleStyle({
-                        radius: (paint as any)['circle-radius'] || 5,
-                        fill: new Fill({
-                            color: this.toRgba(
-                                (paint as any)['circle-color'] || '#3399CC',
-                                (paint as any)['circle-opacity'] ?? 1
-                            )
-                        }),
-                        stroke: new Stroke({
-                            color: this.toRgba(
-                                (paint as any)['circle-stroke-color'] || '#ffffff',
-                                (paint as any)['circle-stroke-opacity'] ?? 1
-                            ),
-                            width: (paint as any)['circle-stroke-width'] || 1
-                        })
-                    })
-                });
-
-            default:
-                return new Style();
-        }
-    }
-
-    /**
-     * Convert a hex color and opacity to an rgba string.
-     */
-    private toRgba(color: string, opacity: number): string {
-        if (color.startsWith('#')) {
-            const hex = color.slice(1);
-            const r = parseInt(hex.slice(0, 2), 16);
-            const g = parseInt(hex.slice(2, 4), 16);
-            const b = parseInt(hex.slice(4, 6), 16);
-            return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-        }
-        return color;
     }
 
     private dispatchViewportBoundsSnapshot(): void {

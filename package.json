@@ -19,7 +19,8 @@
     "@shoelace-style/shoelace": "^2.20.1",
     "lit": "^3.3.1",
     "maplibre-gl": "^5.14.0",
-    "ol": "^10.7.0"
+    "ol": "^10.7.0",
+    "ol-mapbox-style": "^13.2.0"
   },
   "devDependencies": {
     "vite": "^7.2.6",

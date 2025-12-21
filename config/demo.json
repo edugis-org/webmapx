@@ -7,23 +7,7 @@
     "maxZoom": 18,
     "minZoom": 1,
     "type": "maplibre",
-    "style": {
-      "sources": {
-        "osm-bg": {
-          "type": "raster",
-          "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-          "tileSize": 256,
-          "attribution": "&copy; OpenStreetMap contributors"
-        }
-      },
-      "layers": [
-        {
-          "id": "osm-background",
-          "type": "raster",
-          "source": "osm-bg"
-        }
-      ]
-    }
+    "style":"https://demotiles.maplibre.org/style.json"
   },
   "catalog": 
   {

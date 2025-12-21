@@ -43,7 +43,19 @@ Defines the base map settings.
     "zoom": 10,
     "minZoom": 1,
     "maxZoom": 18,
-    "type": "maplibre"
+    "type": "maplibre",
+    "style": {
+      "sources": {
+        "osm": {
+          "type": "raster",
+          "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+          "tileSize": 256
+        }
+      },
+      "layers": [
+        { "id": "background", "type": "raster", "source": "osm" }
+      ]
+    }
   }
 }
 ```
@@ -56,6 +68,76 @@ Defines the base map settings.
 | `minZoom` | number | No | Minimum zoom level |
 | `maxZoom` | number | No | Maximum zoom level |
 | `type` | string | Yes | Map adapter: `maplibre` or `openlayers` |
+| `style` | object or string | No | Initial background style (see below) |
+
+#### Style Property
+
+The `style` property defines the initial background layers for the map. It can be:
+
+1. **An inline style object** (MapLibre-compatible format)
+2. **A URL string** pointing to a style JSON file
+
+If `style` is omitted or empty, the map starts with no background layers.
+
+**Inline style example:**
+```json
+{
+  "style": {
+    "sources": {
+      "osm": {
+        "type": "raster",
+        "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+        "tileSize": 256,
+        "attribution": "© OpenStreetMap contributors"
+      }
+    },
+    "layers": [
+      { "id": "osm-layer", "type": "raster", "source": "osm" }
+    ]
+  }
+}
+```
+
+**URL reference example:**
+```json
+{
+  "style": "https://demotiles.maplibre.org/style.json"
+}
+```
+
+**Style object properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `sources` | object | Map of source ID to source definition |
+| `layers` | array | Array of layer definitions |
+| `glyphs` | string | URL template for fonts (optional) |
+| `sprite` | string | URL for sprite images (optional) |
+
+**Source definition:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `type` | string | `raster`, `vector`, `geojson`, `image`, or `video` |
+| `tiles` | array | Array of tile URL templates (for raster/vector) |
+| `url` | string | URL to data source |
+| `data` | string or object | GeoJSON URL or inline data |
+| `tileSize` | number | Tile size in pixels |
+| `attribution` | string | Attribution text |
+
+**Layer definition:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | string | Unique layer identifier |
+| `type` | string | `raster`, `fill`, `line`, `circle`, `symbol`, or `background` |
+| `source` | string | Reference to a source ID |
+| `minzoom` | number | Minimum visibility zoom |
+| `maxzoom` | number | Maximum visibility zoom |
+| `paint` | object | Paint properties (colors, opacity, etc.) |
+| `layout` | object | Layout properties |
+
+> **Note:** The style format is compatible with MapLibre GL style specification. The `version` property is optional and defaults to 8.
 
 ### Catalog Section
 
