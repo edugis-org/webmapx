@@ -55,7 +55,24 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
 
     /** Whether the tool is active and capturing events */
     @property({ type: Boolean, reflect: true })
-    active = false;
+    get active(): boolean {
+        return this._active;
+    }
+    set active(value: boolean) {
+        const oldValue = this._active;
+        this._active = value;
+
+        if (value && !oldValue) {
+            // Activating
+            this.onActivate();
+        } else if (!value && oldValue) {
+            // Deactivating
+            this.onDeactivate();
+        }
+
+        this.requestUpdate('active', oldValue);
+    }
+    private _active = false;
 
     /** Tool name for toolbar integration */
     @property({ type: String })
@@ -189,30 +206,10 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
         this.loadConfigDefaults();
         this.detectAdapterType();
 
-        // Setup layers when map is ready
+        // Store map reference when ready (layers are created on activation)
         const core = adapter.core as any;
         core.onMapReady?.((map: any) => {
             this.nativeMap = map;
-
-            // For MapLibre, check if already loaded (loaded() returns true if fully loaded)
-            if (map.loaded && map.loaded()) {
-                this.createMeasureLayers(map);
-            } else if (map.isStyleLoaded && map.isStyleLoaded()) {
-                this.createMeasureLayers(map);
-            } else if (map.on) {
-                // MapLibre: wait for load event
-                map.once('load', () => {
-                    if (!this.layersCreated) {
-                        this.createMeasureLayers(map);
-                    }
-                });
-            } else if (map.getView && typeof map.getView === 'function') {
-                // OpenLayers - create layers directly
-                this.createMeasureLayers(map);
-            } else {
-                // Fallback: just try to create layers
-                this.createMeasureLayers(map);
-            }
         });
     }
 
@@ -310,17 +307,26 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
     // ─────────────────────────────────────────────────────────────────────
 
     private createMeasureLayers(map: any): void {
-        if (this.layersCreated) return;
+        if (this.layersCreated) {
+            console.log('[Measure] createMeasureLayers - already created');
+            return;
+        }
+
+        console.log('[Measure] createMeasureLayers - addSource?:', !!map.addSource, 'addLayer?:', !!map.addLayer, 'getView?:', typeof map.getView);
 
         // MapLibre style layer creation
         if (map.addSource && map.addLayer) {
+            console.log('[Measure] Creating MapLibre layers');
             this.createMapLibreLayers(map);
             this.layersCreated = true;
         }
         // OpenLayers uses a different approach - we'll add vector layer
         else if (map.addLayer && typeof map.getView === 'function') {
+            console.log('[Measure] Creating OpenLayers layers');
             this.createOpenLayersLayers(map as OLMap);
             this.layersCreated = true;
+        } else {
+            console.log('[Measure] No matching map type found!');
         }
     }
 
@@ -442,8 +448,35 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
     }
 
     private cleanupMapLayers(): void {
-        this.layersCreated = false;
+        this.removeMeasureLayers();
         this.nativeMap = null;
+    }
+
+    private removeMeasureLayers(): void {
+        if (!this.nativeMap || !this.layersCreated) return;
+
+        const map = this.nativeMap as any;
+
+        // MapLibre: remove layers and source
+        if (map.getLayer && map.removeLayer && map.removeSource) {
+            // Remove layers first (in reverse order of creation)
+            if (map.getLayer(POINTS_LAYER_ID)) map.removeLayer(POINTS_LAYER_ID);
+            if (map.getLayer(RUBBERBAND_LAYER_ID)) map.removeLayer(RUBBERBAND_LAYER_ID);
+            if (map.getLayer(LINES_LAYER_ID)) map.removeLayer(LINES_LAYER_ID);
+            if (map.getLayer(POLYGON_LAYER_ID)) map.removeLayer(POLYGON_LAYER_ID);
+            // Then remove source
+            if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+        }
+
+        // OpenLayers: remove layer from map
+        if (this.olMeasureLayer && map.removeLayer) {
+            map.removeLayer(this.olMeasureLayer);
+            this.olMeasureLayer = null;
+            this.olMeasureSource = null;
+            this.olGeoJSONFormat = null;
+        }
+
+        this.layersCreated = false;
     }
 
     /** Immediate update - used when adding/removing points */
@@ -470,6 +503,7 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
         if (this.olMeasureSource && this.olGeoJSONFormat) {
             this.olMeasureSource.clear();
             const features = this.olGeoJSONFormat.readFeatures(geojson, {
+                dataProjection: 'EPSG:4326',
                 featureProjection: 'EPSG:3857'
             });
             this.olMeasureSource.addFeatures(features);
@@ -684,10 +718,21 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
     // ─────────────────────────────────────────────────────────────────────
 
     public activate(): void {
-        if (this.active) return;
+        this.active = true;  // Triggers setter which calls onActivate()
+    }
 
-        this.active = true;
+    /** Called when tool becomes active */
+    private onActivate(): void {
         this.clearMeasurement();
+
+        console.log('[Measure] onActivate - nativeMap?:', !!this.nativeMap, 'layersCreated?:', this.layersCreated);
+
+        // Create layers when activating (ensures they're on top)
+        if (this.nativeMap && !this.layersCreated) {
+            this.ensureLayersCreated();
+        } else if (!this.nativeMap) {
+            console.log('[Measure] onActivate - no nativeMap yet!');
+        }
 
         // Update store to notify other tools
         this.isSettingValue = true;
@@ -701,11 +746,63 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
         }));
     }
 
-    public deactivate(): void {
-        if (!this.active) return;
+    /** Ensure layers are created, waiting for map to be ready if needed */
+    private ensureLayersCreated(): void {
+        if (!this.nativeMap || this.layersCreated) return;
 
-        this.active = false;
+        const map = this.nativeMap as any;
+
+        // Detect map type
+        const isOpenLayers = typeof map.getView === 'function' && !map.loaded;
+        const isMapLibre = typeof map.loaded === 'function';
+
+        console.log('[Measure] ensureLayersCreated - isOL:', isOpenLayers, 'isML:', isMapLibre);
+        console.log('[Measure] map.isStyleLoaded?:', map.isStyleLoaded?.());
+        console.log('[Measure] map.loaded?:', map.loaded?.());
+
+        if (isOpenLayers) {
+            // OpenLayers - can add layers immediately
+            console.log('[Measure] Creating OL layers');
+            this.createMeasureLayers(map);
+        } else if (isMapLibre) {
+            // MapLibre - check if style is loaded
+            if (map.isStyleLoaded && map.isStyleLoaded()) {
+                console.log('[Measure] Style loaded, creating ML layers');
+                this.createMeasureLayers(map);
+            } else {
+                console.log('[Measure] Style not loaded, waiting...');
+                // Wait for style to load
+                map.once('style.load', () => {
+                    console.log('[Measure] style.load event fired');
+                    if (this.active && !this.layersCreated) {
+                        this.createMeasureLayers(map);
+                    }
+                });
+                // Also try 'load' event as fallback
+                map.once('load', () => {
+                    console.log('[Measure] load event fired');
+                    if (this.active && !this.layersCreated) {
+                        this.createMeasureLayers(map);
+                    }
+                });
+            }
+        } else {
+            // Fallback
+            console.log('[Measure] Fallback - creating layers');
+            this.createMeasureLayers(map);
+        }
+    }
+
+    public deactivate(): void {
+        this.active = false;  // Triggers setter which calls onDeactivate()
+    }
+
+    /** Called when tool becomes inactive */
+    private onDeactivate(): void {
         this.clearMeasurement();
+
+        // Remove layers when deactivating to reduce map overhead
+        this.removeMeasureLayers();
 
         // Update store
         this.isSettingValue = true;
