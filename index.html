@@ -15,7 +15,7 @@
     <script type="module" src="./src/app.js"></script>
     <style>
         /* Hide tools by default */
-        #layer-tool, #settings-tool { display: none; height: 100%; }
+        #layer-tool, #settings-tool, #measure-tool { display: none; height: 100%; }
     </style>
 </head>
 <body>
@@ -37,6 +37,9 @@
                             <sl-button name="layers" size="medium" circle>
                                 <sl-icon name="layers" label="Layers"></sl-icon>
                             </sl-button>
+                            <sl-button name="measure" size="medium" circle>
+                                <sl-icon name="rulers" label="Measure"></sl-icon>
+                            </sl-button>
                             <sl-button name="settings" size="medium" circle>
                                 <sl-icon name="gear" label="Settings"></sl-icon>
                             </sl-button>
@@ -44,6 +47,7 @@
 
                         <webmapx-tool-panel id="tool-panel" label="Tools">
                             <webmapx-layer-tree id="layer-tool"></webmapx-layer-tree>
+                            <webmapx-measure-tool id="measure-tool"></webmapx-measure-tool>
                             <webmapx-settings id="settings-tool"></webmapx-settings>
                         </webmapx-tool-panel>
                     </webmapx-control-group>
@@ -72,26 +76,34 @@
         const toolbar = document.getElementById('main-toolbar');
         const panel = document.getElementById('tool-panel');
         const layerTool = document.getElementById('layer-tool');
+        const measureTool = document.getElementById('measure-tool');
         const settingsTool = document.getElementById('settings-tool');
 
         // Listen for tool selection
         toolbar.addEventListener('webmapx-tool-select', (e) => {
             const toolId = e.detail.toolId;
-            
+
             if (!toolId) {
                 panel.active = false;
+                measureTool.active = false;
                 return;
             }
 
             panel.active = true;
-            
+
             // Reset views
             layerTool.style.display = 'none';
+            measureTool.style.display = 'none';
+            measureTool.active = false;
             settingsTool.style.display = 'none';
 
             if (toolId === 'layers') {
                 layerTool.style.display = 'block';
                 panel.label = 'Layers';
+            } else if (toolId === 'measure') {
+                measureTool.style.display = 'block';
+                measureTool.active = true;
+                panel.label = 'Measure';
             } else if (toolId === 'settings') {
                 settingsTool.style.display = 'block';
                 panel.label = 'Settings';
@@ -106,6 +118,8 @@
                  b.removeAttribute('active');
                  b.setAttribute('variant', 'default');
              });
+             // Deactivate measure tool
+             measureTool.active = false;
         });
 
         // Listen for layer toggles

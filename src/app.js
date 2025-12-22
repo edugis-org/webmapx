@@ -22,6 +22,7 @@ import './components/modules/webmapx-layer-tree.ts';
 import './components/modules/webmapx-settings.ts';
 import './components/modules/webmapx-coordinates-tool.ts';
 import './components/modules/webmapx-spinner.ts';
+import './components/modules/webmapx-measure-tool.ts';
 
 // 3. Initialize the app when the DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {

@@ -19,6 +19,14 @@ export interface IAppState {
 
     /** IDs of currently visible layers (from catalog config) */
     visibleLayers: string[];
+
+    /**
+     * Currently active tool that captures map events.
+     * Used for tool coordination - passive tools (like coordinates) ignore this,
+     * while exclusive tools (like feature-info) check before processing events.
+     * null means no tool is capturing events exclusively.
+     */
+    activeTool: 'measure' | 'feature-info' | null;
 }
 
 /** Defines who initiated the state change for loop prevention. */

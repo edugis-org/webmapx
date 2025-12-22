@@ -268,13 +268,31 @@ export interface ToolConfig {
 }
 
 /**
+ * Measure tool configuration.
+ */
+export interface MeasureToolConfig extends ToolConfig {
+  /** Pixel threshold for closing polygon (clicking near first point). Default: 10 */
+  closeThreshold?: number;
+  /** Pixel threshold for finishing on last point click. Default: 10 */
+  finishThreshold?: number;
+  /** Colors for visualization */
+  colors?: {
+    point?: string;
+    line?: string;
+    rubberBand?: string;
+    polygon?: string;
+  };
+}
+
+/**
  * Tools configuration - enables/configures UI tools.
  */
 export interface ToolsConfig {
   coordinates?: ToolConfig;
   layerTree?: ToolConfig;
   legend?: ToolConfig;
-  [toolName: string]: ToolConfig | undefined;
+  measure?: MeasureToolConfig;
+  [toolName: string]: ToolConfig | MeasureToolConfig | undefined;
 }
 
 /**

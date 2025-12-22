@@ -25,7 +25,8 @@ export class MapStateStore {
         lastClickedCoordinates: null,
         pointerResolution: null,
         lastClickedResolution: null,
-        visibleLayers: []
+        visibleLayers: [],
+        activeTool: null
     };
     private listeners: Listener[] = [];
 
