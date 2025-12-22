@@ -15,6 +15,9 @@ import ImageLayer from 'ol/layer/Image';
 import TileWMS from 'ol/source/TileWMS';
 import { createXYZ } from 'ol/tilegrid';
 import type BaseLayer from 'ol/layer/Base';
+import { WarpedMapLayer } from '@allmaps/openlayers';
+
+const WARPEDMAP_PROTOCOL = 'warpedmap://';
 
 export class MapLayerService implements ILayerService {
     private map: OLMap;
@@ -23,6 +26,8 @@ export class MapLayerService implements ILayerService {
     private logicalSourceToNative: Map<string, string> = new Map();
     private nativeLayerToSource: Map<string, string> = new Map();
     private nativeLayerInstances: Map<string, BaseLayer> = new Map();
+    // Track WarpedMapLayer instances for cleanup
+    private warpedMapLayers: Map<string, WarpedMapLayer> = new Map();
     private catalog: CatalogConfig | null = null;
     private sourceIdCounter = 0;
 
@@ -44,7 +49,71 @@ export class MapLayerService implements ILayerService {
         return nativeSourceId;
     }
 
+    /**
+     * Check if a source URL uses the warpedmap:// protocol.
+     */
+    private isWarpedMapSource(sourceConfig: SourceConfig): boolean {
+        if (sourceConfig.type === 'raster' && 'url' in sourceConfig) {
+            const url = Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url;
+            return url.startsWith(WARPEDMAP_PROTOCOL);
+        }
+        return false;
+    }
+
+    /**
+     * Parse a warpedmap:// URL and return the annotation URL.
+     */
+    private parseWarpedMapUrl(url: string): string {
+        if (url.startsWith(WARPEDMAP_PROTOCOL)) {
+            return 'https://' + url.slice(WARPEDMAP_PROTOCOL.length);
+        }
+        return url;
+    }
+
+    /**
+     * Create and add a WarpedMapLayer for Allmaps georeferenced images.
+     */
+    private async addWarpedMapLayer(layerId: string, sourceConfig: SourceConfig): Promise<boolean> {
+        const url = 'url' in sourceConfig
+            ? (Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url)
+            : '';
+        const annotationUrl = this.parseWarpedMapUrl(url);
+
+        // Create a unique layer ID for the WarpedMapLayer
+        const warpedLayerId = `warpedmap-${layerId}`;
+
+        // Create and configure the WarpedMapLayer
+        const warpedMapLayer = new WarpedMapLayer();
+
+        // Compatibility shim: @allmaps/openlayers uses OL 8.x which lacks methods required by OL 10.x
+        const layer = warpedMapLayer as any;
+        if (typeof layer.getDeclutter !== 'function') {
+            layer.getDeclutter = () => false;
+        }
+        if (typeof layer.renderDeferred !== 'function') {
+            layer.renderDeferred = () => {};
+        }
+
+        // Add the layer to the map
+        // Type assertion needed due to OL type version differences between project and @allmaps/openlayers
+        this.map.addLayer(warpedMapLayer as unknown as BaseLayer);
+
+        // Load the georeference annotation
+        await warpedMapLayer.addGeoreferenceAnnotationByUrl(annotationUrl);
+
+        // Track the layer
+        this.warpedMapLayers.set(layerId, warpedMapLayer);
+        this.nativeLayerInstances.set(warpedLayerId, warpedMapLayer as unknown as BaseLayer);
+        this.logicalToNative.set(layerId, [warpedLayerId]);
+
+        return true;
+    }
+
     async addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig): Promise<boolean> {
+        // Check for warpedmap:// protocol
+        if (this.isWarpedMapSource(sourceConfig)) {
+            return this.addWarpedMapLayer(layerId, sourceConfig);
+        }
         const nativeSourceId = this.getOrCreateNativeSourceId(sourceConfig);
         const nativeLayerIds: string[] = [];
 
@@ -307,6 +376,21 @@ export class MapLayerService implements ILayerService {
     }
 
     removeLayer(layerId: string): void {
+        // Check if this is a WarpedMapLayer
+        if (this.warpedMapLayers.has(layerId)) {
+            const warpedMapLayer = this.warpedMapLayers.get(layerId)!;
+            // Type assertion needed due to OL type version differences
+            this.map.removeLayer(warpedMapLayer as unknown as BaseLayer);
+
+            const nativeIds = this.logicalToNative.get(layerId) || [];
+            for (const id of nativeIds) {
+                this.nativeLayerInstances.delete(id);
+            }
+            this.warpedMapLayers.delete(layerId);
+            this.logicalToNative.delete(layerId);
+            return;
+        }
+
         const nativeIds = this.logicalToNative.get(layerId) || [];
         const nativeSourceIds = new Set<string>();
 

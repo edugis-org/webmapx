@@ -6,6 +6,9 @@ import { MapStateStore } from '../../store/map-state-store';
 import * as maplibregl from 'maplibre-gl';
 import { MapLibreLayerFactory } from './MapLibreLayerFactory';
 import { buildWMSGetMapUrl } from '../../utils/wms-url-builder';
+import { WarpedMapLayer } from '@allmaps/maplibre';
+
+const WARPEDMAP_PROTOCOL = 'warpedmap://';
 
 export class MapLayerService implements ILayerService {
     private map: maplibregl.Map;
@@ -14,6 +17,8 @@ export class MapLayerService implements ILayerService {
     private logicalSourceToNative: Map<string, string> = new Map();
     // Map native layer id to native source id
     private nativeLayerToSource: Map<string, string> = new Map();
+    // Track WarpedMapLayer instances for cleanup
+    private warpedMapLayers: Map<string, WarpedMapLayer> = new Map();
     private catalog: any;
     private sourceIdCounter = 0;
 
@@ -93,7 +98,62 @@ export class MapLayerService implements ILayerService {
         }
     }
 
+    /**
+     * Check if a source URL uses the warpedmap:// protocol.
+     */
+    private isWarpedMapSource(sourceConfig: SourceConfig): boolean {
+        if (sourceConfig.type === 'raster' && 'url' in sourceConfig) {
+            const url = Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url;
+            return url.startsWith(WARPEDMAP_PROTOCOL);
+        }
+        return false;
+    }
+
+    /**
+     * Parse a warpedmap:// URL and return the annotation URL.
+     */
+    private parseWarpedMapUrl(url: string): string {
+        if (url.startsWith(WARPEDMAP_PROTOCOL)) {
+            return 'https://' + url.slice(WARPEDMAP_PROTOCOL.length);
+        }
+        return url;
+    }
+
+    /**
+     * Create and add a WarpedMapLayer for Allmaps georeferenced images.
+     */
+    private async addWarpedMapLayer(layerId: string, sourceConfig: SourceConfig): Promise<boolean> {
+        const url = 'url' in sourceConfig
+            ? (Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url)
+            : '';
+        const annotationUrl = this.parseWarpedMapUrl(url);
+
+        // Create a unique layer ID for the WarpedMapLayer
+        const warpedLayerId = `warpedmap-${layerId}`;
+
+        // Create and configure the WarpedMapLayer
+        const warpedMapLayer = new WarpedMapLayer({ layerId: warpedLayerId });
+
+        // Add the layer to the map
+        // Type assertion needed due to MapLibre type version differences
+        this.map.addLayer(warpedMapLayer as unknown as maplibregl.CustomLayerInterface);
+
+        // Load the georeference annotation
+        await warpedMapLayer.addGeoreferenceAnnotationByUrl(annotationUrl);
+
+        // Track the layer
+        this.warpedMapLayers.set(layerId, warpedMapLayer);
+        this.logicalToNative.set(layerId, [warpedLayerId]);
+
+        return true;
+    }
+
     async addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig): Promise<boolean> {
+        // Check for warpedmap:// protocol
+        if (this.isWarpedMapSource(sourceConfig)) {
+            return this.addWarpedMapLayer(layerId, sourceConfig);
+        }
+
         // Get or create a unique native source id for this logical source
         const nativeSourceId = this.getOrCreateNativeSourceId(sourceConfig);
         // Ensure the native source exists in the map
@@ -114,6 +174,20 @@ export class MapLayerService implements ILayerService {
     }
 
     removeLayer(layerId: string): void {
+        // Check if this is a WarpedMapLayer
+        if (this.warpedMapLayers.has(layerId)) {
+            // Remove from map - WarpedMapLayer handles its own cleanup
+            const nativeIds = this.logicalToNative.get(layerId) || [];
+            for (const id of nativeIds) {
+                if (this.map.getLayer(id)) {
+                    this.map.removeLayer(id);
+                }
+            }
+            this.warpedMapLayers.delete(layerId);
+            this.logicalToNative.delete(layerId);
+            return;
+        }
+
         const nativeIds = this.logicalToNative.get(layerId) || [];
         // Find the native source ids for these layers using the mapping
         const nativeSourceIds = new Set<string>();

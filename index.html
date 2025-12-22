@@ -28,9 +28,6 @@
                     <webmapx-zoom-level slot="middle-right"></webmapx-zoom-level>
                     <webmapx-zoom-level slot="bottom-right"></webmapx-zoom-level>
                     
-                    <webmapx-tool-template slot="bottom-left"></webmapx-tool-template>
-                    <webmapx-zoom-level slot="bottom-left"></webmapx-zoom-level>
-                    
                     <!-- Top Left: Toolbar + Panel -->
                     <webmapx-control-group slot="bottom-left" orientation="horizontal" panel-position="before" alignment="start">
                         <webmapx-toolbar id="main-toolbar">
@@ -63,11 +60,13 @@
         <!-- External Tools Column -->
         <div>
             <h3>External Tools</h3>
-            <p>This zoom control is outside the map but linked to it.</p>
+            <p>The tools below are outside the map but linked to it.</p>
             <webmapx-zoom-level map="#map-container"></webmapx-zoom-level>
             <br/>
             <webmapx-inset-map zoom-offset="-5"></webmapx-inset-map>
             <br/>
+            <br/>
+            <webmapx-tool-template></webmapx-tool-template>
             <webmapx-spinner></webmapx-spinner>
         </div>
     </div>

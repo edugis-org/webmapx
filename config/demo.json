@@ -12,7 +12,7 @@
   "catalog": 
   {
     "label": "Demo Catalog",
-    "tree": 
+    "tree":
     [
       {
         "label": "Base Maps",
@@ -20,6 +20,13 @@
         "children": [
           { "label": "OpenStreetMap (xyz)", "layerId": "osm", "checked": false },
           { "label": "Blue Marble (WMS)", "layerId": "bluemarble", "checked": false }
+        ]
+      },
+      {
+        "label": "Historical Maps",
+        "expanded": true,
+        "children": [
+          { "label": "NYC 1836 (Allmaps)", "layerId": "nyc-historical", "checked": false }
         ]
       },
       {
@@ -75,6 +82,13 @@
         "id": "water-source",
         "type": "geojson",
         "data": "https://data.example.com/water_quality.geojson"
+      },
+      {
+        "id": "nyc-historical-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": "warpedmap://annotations.allmaps.org/images/d180902cb93d5bf2",
+        "attribution": "NYPL via Allmaps"
       }
     ],
     "layers": [
@@ -136,6 +150,15 @@
           {
             "type": "circle",
             "source": "water-source"
+          }
+        ]
+      },
+      {
+        "id": "nyc-historical",
+        "layerset": [
+          {
+            "type": "raster",
+            "source": "nyc-historical-source"
           }
         ]
       }
