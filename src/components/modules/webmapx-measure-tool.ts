@@ -21,11 +21,13 @@ import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 
 // Layer IDs for visualization
-const SOURCE_ID = 'webmapx-measure-source';
+const STATIC_SOURCE_ID = 'webmapx-measure-static-source';
 const POINTS_LAYER_ID = 'webmapx-measure-points';
 const LINES_LAYER_ID = 'webmapx-measure-lines';
-const RUBBERBAND_LAYER_ID = 'webmapx-measure-rubberband';
 const POLYGON_LAYER_ID = 'webmapx-measure-polygon';
+
+const RUBBERBAND_SOURCE_ID = 'webmapx-measure-rubberband-source';
+const RUBBERBAND_LAYER_ID = 'webmapx-measure-rubberband-layer';
 
 // Segment info for display
 interface MeasureSegment {
@@ -96,7 +98,7 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
 
     // Throttled update function for rubber-band visualization (50ms = ~20fps)
     private throttledUpdateVisualization = throttle(() => {
-        this.doUpdateMapVisualization();
+        this.doUpdateRubberbandVisualization();
     }, 50);
 
     // Event unsubscribe functions
@@ -284,79 +286,36 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
             return;
         }
 
+        // Source for static points and lines
         this.dispatchEvent(new CustomEvent('webmapx-add-source', {
-            detail: {
-                id: SOURCE_ID,
-                config: {
-                    type: 'geojson',
-                    data: this.buildGeoJSON(),
-                }
-            },
-            bubbles: true,
-            composed: true
+            detail: { id: STATIC_SOURCE_ID, config: { type: 'geojson', data: this.buildStaticGeoJSON() } },
+            bubbles: true, composed: true
         }));
 
-        this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
-            detail: {
-                id: POLYGON_LAYER_ID,
-                type: 'fill',
-                source: SOURCE_ID,
-                filter: ['==', ['geometry-type'], 'Polygon'],
-                paint: {
-                    'fill-color': '#0f62fe',
-                    'fill-opacity': 0.1,
-                },
-            },
-            bubbles: true,
-            composed: true
+        // Source for the dynamic rubber-band line
+        this.dispatchEvent(new CustomEvent('webmapx-add-source', {
+            detail: { id: RUBBERBAND_SOURCE_ID, config: { type: 'geojson', data: this.buildRubberbandGeoJSON() } },
+            bubbles: true, composed: true
         }));
 
+        // --- Layers for STATIC source ---
         this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
-            detail: {
-                id: LINES_LAYER_ID,
-                type: 'line',
-                source: SOURCE_ID,
-                filter: ['==', ['get', 'type'], 'line'],
-                paint: {
-                    'line-color': '#0f62fe',
-                    'line-width': 2,
-                },
-            },
-            bubbles: true,
-            composed: true
+            detail: { id: POLYGON_LAYER_ID, type: 'fill', source: STATIC_SOURCE_ID, filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': '#0f62fe', 'fill-opacity': 0.1 } },
+            bubbles: true, composed: true
+        }));
+        this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
+            detail: { id: LINES_LAYER_ID, type: 'line', source: STATIC_SOURCE_ID, filter: ['==', ['get', 'type'], 'line'], paint: { 'line-color': '#0f62fe', 'line-width': 2 } },
+            bubbles: true, composed: true
+        }));
+        this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
+            detail: { id: POINTS_LAYER_ID, type: 'circle', source: STATIC_SOURCE_ID, filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-color': '#fff', 'circle-stroke-color': '#0f62fe', 'circle-stroke-width': 2 } },
+            bubbles: true, composed: true
         }));
 
+        // --- Layer for RUBBERBAND source ---
         this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
-            detail: {
-                id: RUBBERBAND_LAYER_ID,
-                type: 'line',
-                source: SOURCE_ID,
-                filter: ['==', ['get', 'type'], 'rubberband'],
-                paint: {
-                    'line-color': '#0f62fe',
-                    'line-width': 2,
-                    'line-dasharray': [4, 4],
-                },
-            },
-            bubbles: true,
-            composed: true
-        }));
-
-        this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
-            detail: {
-                id: POINTS_LAYER_ID,
-                type: 'circle',
-                source: SOURCE_ID,
-                filter: ['==', ['geometry-type'], 'Point'],
-                paint: {
-                    'circle-radius': 5,
-                    'circle-color': '#fff',
-                    'circle-stroke-color': '#0f62fe',
-                    'circle-stroke-width': 2,
-                },
-            },
-            bubbles: true,
-            composed: true
+            detail: { id: RUBBERBAND_LAYER_ID, type: 'line', source: RUBBERBAND_SOURCE_ID, paint: { 'line-color': '#0f62fe', 'line-width': 2, 'line-dasharray': [4, 4] } },
+            bubbles: true, composed: true
         }));
 
         this.layersCreated = true;
@@ -372,72 +331,79 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
             return;
         }
 
+        // Remove all layers
         this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: POINTS_LAYER_ID, bubbles: true, composed: true }));
-        this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: RUBBERBAND_LAYER_ID, bubbles: true, composed: true }));
         this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: LINES_LAYER_ID, bubbles: true, composed: true }));
         this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: POLYGON_LAYER_ID, bubbles: true, composed: true }));
-        this.dispatchEvent(new CustomEvent('webmapx-remove-source', { detail: SOURCE_ID, bubbles: true, composed: true }));
+        this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: RUBBERBAND_LAYER_ID, bubbles: true, composed: true }));
+
+        // Remove all sources
+        this.dispatchEvent(new CustomEvent('webmapx-remove-source', { detail: STATIC_SOURCE_ID, bubbles: true, composed: true }));
+        this.dispatchEvent(new CustomEvent('webmapx-remove-source', { detail: RUBBERBAND_SOURCE_ID, bubbles: true, composed: true }));
 
         this.layersCreated = false;
     }
 
     /** Immediate update - used when adding/removing points */
     private updateMapVisualization(): void {
-        this.doUpdateMapVisualization();
+        this.doUpdateStaticVisualization();
     }
 
     /** Actual visualization update logic */
-    private doUpdateMapVisualization(): void {
-        if (!this.layersCreated) {
-            return;
-        }
-
-        const geojson = this.buildGeoJSON();
+    private doUpdateStaticVisualization(): void {
+        if (!this.layersCreated) return;
+        const geojson = this.buildStaticGeoJSON();
         this.dispatchEvent(new CustomEvent('webmapx-set-source-data', {
-            detail: {
-                id: SOURCE_ID,
-                data: geojson,
-            },
-            bubbles: true,
-            composed: true
+            detail: { id: STATIC_SOURCE_ID, data: geojson },
+            bubbles: true, composed: true
         }));
     }
 
-    private buildGeoJSON(): GeoJSON.FeatureCollection {
+    private doUpdateRubberbandVisualization(): void {
+        if (!this.layersCreated) return;
+        const geojson = this.buildRubberbandGeoJSON();
+        this.dispatchEvent(new CustomEvent('webmapx-set-source-data', {
+            detail: { id: RUBBERBAND_SOURCE_ID, data: geojson },
+            bubbles: true, composed: true
+        }));
+    }
+
+    private buildStaticGeoJSON(): GeoJSON.FeatureCollection {
         const features: GeoJSON.Feature[] = [];
 
         // Points
         this.points.forEach((point, index) => {
             features.push({
                 type: 'Feature',
-                properties: {
-                    index,
-                    type: 'point',
-                    isFirst: index === 0,
-                    isLast: index === this.points.length - 1
-                },
-                geometry: {
-                    type: 'Point',
-                    coordinates: point
-                }
+                properties: { index, type: 'point', isFirst: index === 0, isLast: index === this.points.length - 1 },
+                geometry: { type: 'Point', coordinates: point }
             });
         });
 
         // Line segments
         if (this.points.length >= 2) {
-            const lineCoords = this.isClosed
-                ? [...this.points, this.points[0]]
-                : this.points;
-
+            const lineCoords = this.isClosed ? [...this.points, this.points[0]] : this.points;
             features.push({
                 type: 'Feature',
                 properties: { type: 'line' },
-                geometry: {
-                    type: 'LineString',
-                    coordinates: lineCoords
-                }
+                geometry: { type: 'LineString', coordinates: lineCoords }
             });
         }
+
+        // Closed polygon
+        if (this.isClosed && this.points.length >= 3) {
+            features.push({
+                type: 'Feature',
+                properties: { type: 'polygon' },
+                geometry: { type: 'Polygon', coordinates: [[...this.points, this.points[0]]] }
+            });
+        }
+
+        return { type: 'FeatureCollection', features };
+    }
+
+    private buildRubberbandGeoJSON(): GeoJSON.FeatureCollection {
+        const features: GeoJSON.Feature[] = [];
 
         // Rubber band line (from last point to cursor)
         if (!this.isClosed && this.points.length > 0 && this.cursorPosition && this.active) {
@@ -451,22 +417,7 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
             });
         }
 
-        // Closed polygon
-        if (this.isClosed && this.points.length >= 3) {
-            features.push({
-                type: 'Feature',
-                properties: { type: 'polygon' },
-                geometry: {
-                    type: 'Polygon',
-                    coordinates: [[...this.points, this.points[0]]]
-                }
-            });
-        }
-
-        return {
-            type: 'FeatureCollection',
-            features
-        };
+        return { type: 'FeatureCollection', features };
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -603,7 +554,8 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
         this.isClosed = false;
         this.areaM2 = 0;
 
-        this.updateMapVisualization();
+        this.doUpdateStaticVisualization();
+        this.doUpdateRubberbandVisualization();
     }
 
     // ─────────────────────────────────────────────────────────────────────
