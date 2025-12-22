@@ -9,6 +9,26 @@ export class WebmapxToolPanel extends LitElement {
   @property({ type: String }) label = 'Tools';
   @property({ type: Boolean, reflect: true }) active = false;
 
+  connectedCallback(): void {
+    super.connectedCallback();
+    this.addEventListener('webmapx-content-updated', this.handleContentUpdated as EventListener);
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this.removeEventListener('webmapx-content-updated', this.handleContentUpdated as EventListener);
+  }
+
+  private handleContentUpdated(): void {
+    const panelContent = this.shadowRoot?.querySelector('.panel-content');
+    if (panelContent) {
+      // Use requestAnimationFrame to ensure layout is settled before scrolling
+      requestAnimationFrame(() => {
+        panelContent.scrollTop = panelContent.scrollHeight;
+      });
+    }
+  }
+
   static styles = css`
     :host {
       display: none;

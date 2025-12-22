@@ -131,8 +131,7 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
         }
 
         .segment-list {
-            max-height: 200px;
-            overflow-y: auto;
+            /* max-height is removed to allow the panel to grow */
         }
 
         .segment {
@@ -209,6 +208,19 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
     disconnectedCallback(): void {
         this.cleanupEventListeners();
         super.disconnectedCallback();
+    }
+
+    protected async updated(changedProperties: Map<string | number | symbol, unknown>): Promise<void> {
+        if (changedProperties.has('segments')) {
+            // Ensure the component's own rendering is complete
+            await this.updateComplete;
+
+            // Dispatch an event to notify parent to scroll
+            this.dispatchEvent(new CustomEvent('webmapx-content-updated', {
+                bubbles: true,
+                composed: true
+            }));
+        }
     }
 
     protected onStateChanged(state: IAppState): void {
