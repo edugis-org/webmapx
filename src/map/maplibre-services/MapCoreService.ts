@@ -301,6 +301,28 @@ export class MapCoreService implements IMapCore {
         return this.mapInstance ? this.mapInstance.getZoom() : this.initialConfig.zoom;
     }
 
+    public addLayer(layer: any): void {
+        this.mapInstance?.addLayer(layer);
+    }
+
+    public removeLayer(id: string): void {
+        this.mapInstance?.removeLayer(id);
+    }
+
+    public addSource(id: string, config: any): void {
+        this.mapInstance?.addSource(id, config);
+    }
+
+    public removeSource(id: string): void {
+        if (this.mapInstance?.getSource(id)) {
+            this.mapInstance.removeSource(id);
+        }
+    }
+
+    public getSource(id: string) {
+        return this.mapInstance?.getSource(id) as any;
+    }
+
     private dispatchViewportBoundsSnapshot(): void {
         const viewportBounds = this.buildViewportFeature();
         this.store.dispatch({ mapViewportBounds: viewportBounds }, 'MAP');

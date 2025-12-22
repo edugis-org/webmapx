@@ -3,12 +3,16 @@
 import OLMap from 'ol/Map';
 import View from 'ol/View';
 import { fromLonLat, toLonLat } from 'ol/proj';
-import { apply } from 'ol-mapbox-style';
-import { IMapCore } from '../IMapInterfaces';
+import { apply, stylefunction } from 'ol-mapbox-style';
+import { IMapCore, ISource } from '../IMapInterfaces';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel, PointerResolution } from '../../store/map-events';
 import type { MapStyle } from '../../config/types';
 import 'ol/ol.css';
+import VectorLayer from 'ol/layer/Vector';
+import VectorSource from 'ol/source/Vector';
+import GeoJSON from 'ol/format/GeoJSON';
+import { Circle, Fill, Stroke, Style } from 'ol/style';
 
 /**
  * Implements the core map contract (IMapCore) for OpenLayers.
@@ -296,6 +300,98 @@ export class MapCoreService implements IMapCore {
 
     public getZoom(): number {
         return this.fromOLZoom(this.mapInstance?.getView().getZoom() || this.toOLZoom(this.initialConfig.zoom));
+    }
+
+    private sources: Map<string, { source: VectorSource, layers: any[], olLayer: VectorLayer<any> }> = new Map();
+
+    public addLayer(layerConfig: any): void {
+        if (!this.mapInstance) return;
+
+        const sourceId = layerConfig.source;
+        const sourceInfo = this.sources.get(sourceId);
+        if (!sourceInfo) {
+            console.error(`[OL CORE] Source "${sourceId}" not found for layer "${layerConfig.id}".`);
+            return;
+        }
+
+        // Add the new layer config and update the style
+        sourceInfo.layers.push(layerConfig);
+        this.updateStyle(sourceId);
+    }
+
+    public removeLayer(id: string): void {
+        for (const [sourceId, sourceInfo] of this.sources.entries()) {
+            const layerIndex = sourceInfo.layers.findIndex(l => l.id === id);
+            if (layerIndex > -1) {
+                sourceInfo.layers.splice(layerIndex, 1);
+                if (sourceInfo.layers.length === 0) {
+                    // Last layer for this source, remove the whole thing
+                    this.mapInstance?.removeLayer(sourceInfo.olLayer);
+                    this.sources.delete(sourceId);
+                } else {
+                    // Other layers remain, just update the style
+                    this.updateStyle(sourceId);
+                }
+                return;
+            }
+        }
+    }
+
+    public addSource(id: string, config: any): void {
+        if (this.sources.has(id)) return;
+
+        const source = new VectorSource({
+            features: new GeoJSON().readFeatures(config.data, {
+                dataProjection: 'EPSG:4326',
+                featureProjection: 'EPSG:3857'
+            })
+        });
+
+        const olLayer = new VectorLayer({
+            source,
+        });
+
+        this.sources.set(id, { source, layers: [], olLayer });
+        this.mapInstance?.addLayer(olLayer);
+    }
+
+    public removeSource(id: string): void {
+        const sourceInfo = this.sources.get(id);
+        if (sourceInfo) {
+            this.mapInstance?.removeLayer(sourceInfo.olLayer);
+            this.sources.delete(id);
+        }
+    }
+
+    public getSource(id: string): ISource | undefined {
+        const sourceInfo = this.sources.get(id);
+        if (!sourceInfo) return undefined;
+
+        return {
+            id,
+            setData: (data: GeoJSON.FeatureCollection) => {
+                sourceInfo.source.clear();
+                sourceInfo.source.addFeatures(new GeoJSON().readFeatures(data, {
+                    dataProjection: 'EPSG:4326',
+                    featureProjection: 'EPSG:3857'
+                }));
+            }
+        };
+    }
+
+    private updateStyle(sourceId: string) {
+        const sourceInfo = this.sources.get(sourceId);
+        if (!sourceInfo) return;
+
+        const glStyle = {
+            version: 8,
+            sources: {
+                [sourceId]: { type: 'geojson' }
+            },
+            layers: sourceInfo.layers
+        };
+
+        stylefunction(sourceInfo.olLayer, glStyle, sourceId);
     }
 
     /**

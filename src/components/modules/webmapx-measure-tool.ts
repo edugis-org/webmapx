@@ -15,14 +15,7 @@ import {
 } from '../../utils/geo-calculations';
 import { throttle } from '../../utils/throttle';
 import type { MeasureToolConfig } from '../../config/types';
-
-// OpenLayers imports (static to avoid dynamic import warnings)
-import VectorLayer from 'ol/layer/Vector';
-import VectorSource from 'ol/source/Vector';
-import { Style, Fill, Stroke, Circle as CircleStyle } from 'ol/style';
-import GeoJSON from 'ol/format/GeoJSON';
 import { fromLonLat } from 'ol/proj';
-import type OLMap from 'ol/Map';
 
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
@@ -100,12 +93,6 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
     // Map resources
     private nativeMap: ProjectableMap | null = null;
     private layersCreated = false;
-    private adapterType: 'maplibre' | 'openlayers' | null = null;
-
-    // OpenLayers-specific resources
-    private olMeasureSource: VectorSource | null = null;
-    private olMeasureLayer: VectorLayer<VectorSource> | null = null;
-    private olGeoJSONFormat: GeoJSON | null = null;
 
     // Throttled update function for rubber-band visualization (50ms = ~20fps)
     private throttledUpdateVisualization = throttle(() => {
@@ -204,7 +191,6 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
         this.setupEventListeners(adapter);
         this.setupToolbarListener();
         this.loadConfigDefaults();
-        this.detectAdapterType();
 
         // Store map reference when ready (layers are created on activation)
         const core = adapter.core as any;
@@ -240,19 +226,6 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
         if (config) {
             this.closeThreshold = config.closeThreshold ?? 10;
             this.finishThreshold = config.finishThreshold ?? 10;
-        }
-    }
-
-    private detectAdapterType(): void {
-        // Detect which map adapter is being used
-        const mapHost = this.mapHost;
-        if (mapHost) {
-            const adapterAttr = mapHost.getAttribute('adapter');
-            if (adapterAttr === 'openlayers') {
-                this.adapterType = 'openlayers';
-            } else {
-                this.adapterType = 'maplibre';
-            }
         }
     }
 
@@ -306,70 +279,55 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
     // Map Layer Setup
     // ─────────────────────────────────────────────────────────────────────
 
-    private createMeasureLayers(map: any): void {
+    private createMeasureLayers(): void {
         if (this.layersCreated) {
-            console.log('[Measure] createMeasureLayers - already created');
             return;
         }
 
-        console.log('[Measure] createMeasureLayers - addSource?:', !!map.addSource, 'addLayer?:', !!map.addLayer, 'getView?:', typeof map.getView);
+        this.dispatchEvent(new CustomEvent('webmapx-add-source', {
+            detail: {
+                id: SOURCE_ID,
+                config: {
+                    type: 'geojson',
+                    data: this.buildGeoJSON(),
+                }
+            },
+            bubbles: true,
+            composed: true
+        }));
 
-        // MapLibre style layer creation
-        if (map.addSource && map.addLayer) {
-            console.log('[Measure] Creating MapLibre layers');
-            this.createMapLibreLayers(map);
-            this.layersCreated = true;
-        }
-        // OpenLayers uses a different approach - we'll add vector layer
-        else if (map.addLayer && typeof map.getView === 'function') {
-            console.log('[Measure] Creating OpenLayers layers');
-            this.createOpenLayersLayers(map as OLMap);
-            this.layersCreated = true;
-        } else {
-            console.log('[Measure] No matching map type found!');
-        }
-    }
-
-    private createMapLibreLayers(map: any): void {
-        // Create source for measure geometry
-        if (!map.getSource(SOURCE_ID)) {
-            map.addSource(SOURCE_ID, {
-                type: 'geojson',
-                data: this.buildGeoJSON()
-            });
-        }
-
-        // Polygon fill (for closed shapes)
-        if (!map.getLayer(POLYGON_LAYER_ID)) {
-            map.addLayer({
+        this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
+            detail: {
                 id: POLYGON_LAYER_ID,
                 type: 'fill',
                 source: SOURCE_ID,
                 filter: ['==', ['geometry-type'], 'Polygon'],
                 paint: {
                     'fill-color': '#0f62fe',
-                    'fill-opacity': 0.1
-                }
-            });
-        }
+                    'fill-opacity': 0.1,
+                },
+            },
+            bubbles: true,
+            composed: true
+        }));
 
-        // Lines
-        if (!map.getLayer(LINES_LAYER_ID)) {
-            map.addLayer({
+        this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
+            detail: {
                 id: LINES_LAYER_ID,
                 type: 'line',
                 source: SOURCE_ID,
                 filter: ['==', ['get', 'type'], 'line'],
                 paint: {
                     'line-color': '#0f62fe',
-                    'line-width': 2
-                }
-            });
-        }
+                    'line-width': 2,
+                },
+            },
+            bubbles: true,
+            composed: true
+        }));
 
-        // Rubber band line
-        if (!map.getLayer(RUBBERBAND_LAYER_ID)) {
-            map.addLayer({
+        this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
+            detail: {
                 id: RUBBERBAND_LAYER_ID,
                 type: 'line',
                 source: SOURCE_ID,
@@ -377,14 +335,15 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
                 paint: {
                     'line-color': '#0f62fe',
                     'line-width': 2,
-                    'line-dasharray': [4, 4]
-                }
-            });
-        }
+                    'line-dasharray': [4, 4],
+                },
+            },
+            bubbles: true,
+            composed: true
+        }));
 
-        // Points
-        if (!map.getLayer(POINTS_LAYER_ID)) {
-            map.addLayer({
+        this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
+            detail: {
                 id: POINTS_LAYER_ID,
                 type: 'circle',
                 source: SOURCE_ID,
@@ -393,58 +352,14 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
                     'circle-radius': 5,
                     'circle-color': '#fff',
                     'circle-stroke-color': '#0f62fe',
-                    'circle-stroke-width': 2
-                }
-            });
-        }
-    }
+                    'circle-stroke-width': 2,
+                },
+            },
+            bubbles: true,
+            composed: true
+        }));
 
-    private createOpenLayersLayers(map: OLMap): void {
-        const source = new VectorSource();
-        this.olMeasureSource = source;
-
-        const layer = new VectorLayer({
-            source,
-            style: (feature) => {
-                const type = feature.get('type');
-                const geomType = feature.getGeometry()?.getType();
-
-                if (geomType === 'Point') {
-                    return new Style({
-                        image: new CircleStyle({
-                            radius: 5,
-                            fill: new Fill({ color: '#fff' }),
-                            stroke: new Stroke({ color: '#0f62fe', width: 2 })
-                        })
-                    });
-                }
-
-                if (type === 'rubberband') {
-                    return new Style({
-                        stroke: new Stroke({
-                            color: '#0f62fe',
-                            width: 2,
-                            lineDash: [4, 4]
-                        })
-                    });
-                }
-
-                if (type === 'polygon' || geomType === 'Polygon') {
-                    return new Style({
-                        fill: new Fill({ color: 'rgba(15, 98, 254, 0.1)' }),
-                        stroke: new Stroke({ color: '#0f62fe', width: 2 })
-                    });
-                }
-
-                return new Style({
-                    stroke: new Stroke({ color: '#0f62fe', width: 2 })
-                });
-            }
-        });
-
-        this.olMeasureLayer = layer;
-        this.olGeoJSONFormat = new GeoJSON();
-        map.addLayer(layer);
+        this.layersCreated = true;
     }
 
     private cleanupMapLayers(): void {
@@ -453,28 +368,15 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
     }
 
     private removeMeasureLayers(): void {
-        if (!this.nativeMap || !this.layersCreated) return;
-
-        const map = this.nativeMap as any;
-
-        // MapLibre: remove layers and source
-        if (map.getLayer && map.removeLayer && map.removeSource) {
-            // Remove layers first (in reverse order of creation)
-            if (map.getLayer(POINTS_LAYER_ID)) map.removeLayer(POINTS_LAYER_ID);
-            if (map.getLayer(RUBBERBAND_LAYER_ID)) map.removeLayer(RUBBERBAND_LAYER_ID);
-            if (map.getLayer(LINES_LAYER_ID)) map.removeLayer(LINES_LAYER_ID);
-            if (map.getLayer(POLYGON_LAYER_ID)) map.removeLayer(POLYGON_LAYER_ID);
-            // Then remove source
-            if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+        if (!this.layersCreated) {
+            return;
         }
 
-        // OpenLayers: remove layer from map
-        if (this.olMeasureLayer && map.removeLayer) {
-            map.removeLayer(this.olMeasureLayer);
-            this.olMeasureLayer = null;
-            this.olMeasureSource = null;
-            this.olGeoJSONFormat = null;
-        }
+        this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: POINTS_LAYER_ID, bubbles: true, composed: true }));
+        this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: RUBBERBAND_LAYER_ID, bubbles: true, composed: true }));
+        this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: LINES_LAYER_ID, bubbles: true, composed: true }));
+        this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: POLYGON_LAYER_ID, bubbles: true, composed: true }));
+        this.dispatchEvent(new CustomEvent('webmapx-remove-source', { detail: SOURCE_ID, bubbles: true, composed: true }));
 
         this.layersCreated = false;
     }
@@ -486,28 +388,19 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
 
     /** Actual visualization update logic */
     private doUpdateMapVisualization(): void {
-        if (!this.nativeMap || !this.layersCreated) return;
+        if (!this.layersCreated) {
+            return;
+        }
 
-        const map = this.nativeMap as any;
         const geojson = this.buildGeoJSON();
-
-        // MapLibre update
-        if (map.getSource) {
-            const source = map.getSource(SOURCE_ID);
-            if (source?.setData) {
-                source.setData(geojson);
-            }
-        }
-
-        // OpenLayers update
-        if (this.olMeasureSource && this.olGeoJSONFormat) {
-            this.olMeasureSource.clear();
-            const features = this.olGeoJSONFormat.readFeatures(geojson, {
-                dataProjection: 'EPSG:4326',
-                featureProjection: 'EPSG:3857'
-            });
-            this.olMeasureSource.addFeatures(features);
-        }
+        this.dispatchEvent(new CustomEvent('webmapx-set-source-data', {
+            detail: {
+                id: SOURCE_ID,
+                data: geojson,
+            },
+            bubbles: true,
+            composed: true
+        }));
     }
 
     private buildGeoJSON(): GeoJSON.FeatureCollection {
@@ -725,13 +618,9 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
     private onActivate(): void {
         this.clearMeasurement();
 
-        console.log('[Measure] onActivate - nativeMap?:', !!this.nativeMap, 'layersCreated?:', this.layersCreated);
-
         // Create layers when activating (ensures they're on top)
-        if (this.nativeMap && !this.layersCreated) {
-            this.ensureLayersCreated();
-        } else if (!this.nativeMap) {
-            console.log('[Measure] onActivate - no nativeMap yet!');
+        if (!this.layersCreated) {
+            this.createMeasureLayers();
         }
 
         // Update store to notify other tools
@@ -744,53 +633,6 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
             bubbles: true,
             composed: true
         }));
-    }
-
-    /** Ensure layers are created, waiting for map to be ready if needed */
-    private ensureLayersCreated(): void {
-        if (!this.nativeMap || this.layersCreated) return;
-
-        const map = this.nativeMap as any;
-
-        // Detect map type
-        const isOpenLayers = typeof map.getView === 'function' && !map.loaded;
-        const isMapLibre = typeof map.loaded === 'function';
-
-        console.log('[Measure] ensureLayersCreated - isOL:', isOpenLayers, 'isML:', isMapLibre);
-        console.log('[Measure] map.isStyleLoaded?:', map.isStyleLoaded?.());
-        console.log('[Measure] map.loaded?:', map.loaded?.());
-
-        if (isOpenLayers) {
-            // OpenLayers - can add layers immediately
-            console.log('[Measure] Creating OL layers');
-            this.createMeasureLayers(map);
-        } else if (isMapLibre) {
-            // MapLibre - check if style is loaded
-            if (map.isStyleLoaded && map.isStyleLoaded()) {
-                console.log('[Measure] Style loaded, creating ML layers');
-                this.createMeasureLayers(map);
-            } else {
-                console.log('[Measure] Style not loaded, waiting...');
-                // Wait for style to load
-                map.once('style.load', () => {
-                    console.log('[Measure] style.load event fired');
-                    if (this.active && !this.layersCreated) {
-                        this.createMeasureLayers(map);
-                    }
-                });
-                // Also try 'load' event as fallback
-                map.once('load', () => {
-                    console.log('[Measure] load event fired');
-                    if (this.active && !this.layersCreated) {
-                        this.createMeasureLayers(map);
-                    }
-                });
-            }
-        } else {
-            // Fallback
-            console.log('[Measure] Fallback - creating layers');
-            this.createMeasureLayers(map);
-        }
     }
 
     public deactivate(): void {

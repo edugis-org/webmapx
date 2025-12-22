@@ -71,6 +71,12 @@ export interface IMapCore {
 
     /** Gets the current zoom level. */
     getZoom(): number;
+
+    addLayer(layer: any): void;
+    removeLayer(id: string): void;
+    addSource(id: string, config: any): void;
+    removeSource(id: string): void;
+    getSource(id: string): ISource | undefined;
 }
 
 /**

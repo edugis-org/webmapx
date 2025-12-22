@@ -27,11 +27,52 @@ export class WebmapxMapElement extends HTMLElement {
       this.upsertAndStyleSurface();
       this.observeSurfaceChanges();
       this.addEventListener('add-layer', this.handleLayerAddRequest as EventListener);
+      this.addEventListener('webmapx-add-layer', this.handleAddLayerEvent as EventListener);
+      this.addEventListener('webmapx-remove-layer', this.handleRemoveLayerEvent as EventListener);
+      this.addEventListener('webmapx-add-source', this.handleAddSourceEvent as EventListener);
+      this.addEventListener('webmapx-remove-source', this.handleRemoveSourceEvent as EventListener);
+      this.addEventListener('webmapx-set-source-data', this.handleSetSourceDataEvent as EventListener);
     }
 
     disconnectedCallback(): void {
       this.surfaceObserver?.disconnect();
       this.removeEventListener('add-layer', this.handleLayerAddRequest as EventListener);
+      this.removeEventListener('webmapx-add-layer', this.handleAddLayerEvent as EventListener);
+      this.removeEventListener('webmapx-remove-layer', this.handleRemoveLayerEvent as EventListener);
+      this.removeEventListener('webmapx-add-source', this.handleAddSourceEvent as EventListener);
+      this.removeEventListener('webmapx-remove-source', this.handleRemoveSourceEvent as EventListener);
+      this.removeEventListener('webmapx-set-source-data', this.handleSetSourceDataEvent as EventListener);
+    }
+
+    private handleAddLayerEvent(e: CustomEvent) {
+        if (this.adapter) {
+            this.adapter.core.addLayer(e.detail);
+        }
+    }
+
+    private handleRemoveLayerEvent(e: CustomEvent) {
+        if (this.adapter) {
+            this.adapter.core.removeLayer(e.detail);
+        }
+    }
+
+    private handleAddSourceEvent(e: CustomEvent) {
+        if (this.adapter) {
+            this.adapter.core.addSource(e.detail.id, e.detail.config);
+        }
+    }
+
+    private handleRemoveSourceEvent(e: CustomEvent) {
+        if (this.adapter) {
+            this.adapter.core.removeSource(e.detail);
+        }
+    }
+
+    private handleSetSourceDataEvent(e: CustomEvent) {
+        const source = this.adapter?.core.getSource(e.detail.id);
+        if (source) {
+            source.setData(e.detail.data);
+        }
     }
 
     /** Handles add-layer events from the layer tree */
