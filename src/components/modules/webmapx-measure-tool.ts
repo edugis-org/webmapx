@@ -575,6 +575,10 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
             this.createMeasureLayers();
         }
 
+        // Tell the core to ignore busy signals from the measure tool's sources
+        this.dispatchEvent(new CustomEvent('webmapx-suppress-busy-for-source', { detail: RUBBERBAND_SOURCE_ID, bubbles: true, composed: true }));
+        this.dispatchEvent(new CustomEvent('webmapx-suppress-busy-for-source', { detail: STATIC_SOURCE_ID, bubbles: true, composed: true }));
+
         // Update store to notify other tools
         this.isSettingValue = true;
         this.store?.dispatch({ activeTool: 'measure' }, 'UI');
@@ -597,6 +601,10 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
 
         // Remove layers when deactivating to reduce map overhead
         this.removeMeasureLayers();
+
+        // Un-suppress busy signals from the measure tool's sources
+        this.dispatchEvent(new CustomEvent('webmapx-unsuppress-busy-for-source', { detail: RUBBERBAND_SOURCE_ID, bubbles: true, composed: true }));
+        this.dispatchEvent(new CustomEvent('webmapx-unsuppress-busy-for-source', { detail: STATIC_SOURCE_ID, bubbles: true, composed: true }));
 
         // Update store
         this.isSettingValue = true;

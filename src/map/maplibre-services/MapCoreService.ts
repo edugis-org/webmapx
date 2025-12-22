@@ -7,6 +7,15 @@ import type { MapStyle } from '../../config/types';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
+// Type guard to check for the sourceId property on MapDataEvent
+interface MapDataEventWithSource extends maplibregl.MapDataEvent {
+    sourceId?: string;
+}
+
+function eventHasSourceId(event: maplibregl.MapDataEvent): event is MapDataEventWithSource {
+    return 'sourceId' in event;
+}
+
 /**
  * Implements the core map contract (IMapCore) for the MapLibre engine.
  * Thin wrapper that translates MapLibre events to generic events.
@@ -20,6 +29,7 @@ export class MapCoreService implements IMapCore {
 
     private mapInstance: maplibregl.Map | null = null;
     private mapReadyCallbacks: Array<(map: maplibregl.Map) => void> = [];
+    private silentSourceIds = new Set<string>();
 
     // Basic configuration needed for a standard map
     private readonly initialConfig = {
@@ -97,7 +107,10 @@ export class MapCoreService implements IMapCore {
         });
 
         // Loading state detection
-        this.mapInstance.on('dataloading', () => {
+        this.mapInstance.on('dataloading', (e) => {
+            if (eventHasSourceId(e) && e.sourceId && this.silentSourceIds.has(e.sourceId)) {
+                return;
+            }
             this.store.dispatch({ mapBusy: true }, 'MAP');
         });
 
@@ -321,6 +334,14 @@ export class MapCoreService implements IMapCore {
 
     public getSource(id: string) {
         return this.mapInstance?.getSource(id) as any;
+    }
+
+    public suppressBusySignalForSource(sourceId: string): void {
+        this.silentSourceIds.add(sourceId);
+    }
+
+    public unsuppressBusySignalForSource(sourceId: string): void {
+        this.silentSourceIds.delete(sourceId);
     }
 
     private dispatchViewportBoundsSnapshot(): void {

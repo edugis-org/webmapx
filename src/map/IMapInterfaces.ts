@@ -77,6 +77,8 @@ export interface IMapCore {
     addSource(id: string, config: any): void;
     removeSource(id: string): void;
     getSource(id: string): ISource | undefined;
+    suppressBusySignalForSource(sourceId: string): void;
+    unsuppressBusySignalForSource(sourceId: string): void;
 }
 
 /**

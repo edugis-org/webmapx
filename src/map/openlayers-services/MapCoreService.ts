@@ -21,6 +21,7 @@ import { Circle, Fill, Stroke, Style } from 'ol/style';
 export class MapCoreService implements IMapCore {
     private mapInstance: OLMap | null = null;
     private mapReadyCallbacks: Array<(map: OLMap) => void> = [];
+    private silentSourceIds = new Set<string>();
 
     /**
      * Zoom offset to normalize between MapLibre (512px tiles) and OpenLayers/OSM (256px tiles).
@@ -346,6 +347,7 @@ export class MapCoreService implements IMapCore {
                 featureProjection: 'EPSG:3857'
             })
         });
+        source.set('_webmapx_source_id', id); // Set custom property for later lookup
 
         const olLayer = new VectorLayer({
             source,
@@ -394,6 +396,14 @@ export class MapCoreService implements IMapCore {
         stylefunction(sourceInfo.olLayer, glStyle, sourceId);
     }
 
+    public suppressBusySignalForSource(sourceId: string): void {
+        this.silentSourceIds.add(sourceId);
+    }
+
+    public unsuppressBusySignalForSource(sourceId: string): void {
+        this.silentSourceIds.delete(sourceId);
+    }
+
     /**
      * Register a callback to be invoked when the map instance is ready.
      * If the map is already initialized, the callback is invoked immediately.
@@ -436,7 +446,12 @@ export class MapCoreService implements IMapCore {
             const source = layer.getSource?.();
             if (!source) return;
 
+            const sourceId = source.get?.('_webmapx_source_id');
+
             source.on?.('tileloadstart', () => {
+                if (sourceId && this.silentSourceIds.has(sourceId)) {
+                    return;
+                }
                 this.pendingTileLoads++;
                 this.store.dispatch({ mapBusy: true }, 'MAP');
             });

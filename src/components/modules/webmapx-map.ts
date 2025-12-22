@@ -32,6 +32,8 @@ export class WebmapxMapElement extends HTMLElement {
       this.addEventListener('webmapx-add-source', this.handleAddSourceEvent as EventListener);
       this.addEventListener('webmapx-remove-source', this.handleRemoveSourceEvent as EventListener);
       this.addEventListener('webmapx-set-source-data', this.handleSetSourceDataEvent as EventListener);
+      this.addEventListener('webmapx-suppress-busy-for-source', this.handleSuppressBusyForSource as EventListener);
+      this.addEventListener('webmapx-unsuppress-busy-for-source', this.handleUnsuppressBusyForSource as EventListener);
     }
 
     disconnectedCallback(): void {
@@ -42,6 +44,8 @@ export class WebmapxMapElement extends HTMLElement {
       this.removeEventListener('webmapx-add-source', this.handleAddSourceEvent as EventListener);
       this.removeEventListener('webmapx-remove-source', this.handleRemoveSourceEvent as EventListener);
       this.removeEventListener('webmapx-set-source-data', this.handleSetSourceDataEvent as EventListener);
+      this.removeEventListener('webmapx-suppress-busy-for-source', this.handleSuppressBusyForSource as EventListener);
+      this.removeEventListener('webmapx-unsuppress-busy-for-source', this.handleUnsuppressBusyForSource as EventListener);
     }
 
     private handleAddLayerEvent(e: CustomEvent) {
@@ -72,6 +76,18 @@ export class WebmapxMapElement extends HTMLElement {
         const source = this.adapter?.core.getSource(e.detail.id);
         if (source) {
             source.setData(e.detail.data);
+        }
+    }
+
+    private handleSuppressBusyForSource(e: CustomEvent) {
+        if (this.adapter) {
+            this.adapter.core.suppressBusySignalForSource(e.detail);
+        }
+    }
+
+    private handleUnsuppressBusyForSource(e: CustomEvent) {
+        if (this.adapter) {
+            this.adapter.core.unsuppressBusySignalForSource(e.detail);
         }
     }
 
