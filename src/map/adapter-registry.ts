@@ -1,6 +1,7 @@
 import { IMapAdapter } from './IMapAdapter';
 import { MapLibreAdapter } from './maplibre-adapter';
 import { OpenLayersAdapter } from './openlayers-adapter';
+import { LeafletAdapter } from './leaflet-adapter';
 
 export type MapAdapterFactory = () => IMapAdapter;
 
@@ -34,3 +35,5 @@ export function createMapAdapter(requestedName?: string): IMapAdapter | null {
 registerMapAdapter(DEFAULT_ADAPTER_NAME, () => new MapLibreAdapter());
 registerMapAdapter('openlayers', () => new OpenLayersAdapter());
 registerMapAdapter('ol', () => new OpenLayersAdapter());
+registerMapAdapter('leaflet', () => new LeafletAdapter());
+registerMapAdapter('l', () => new LeafletAdapter());
