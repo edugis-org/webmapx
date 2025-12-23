@@ -26,7 +26,8 @@
         "label": "Historical Maps",
         "expanded": true,
         "children": [
-          { "label": "NYC 1836 (Allmaps)", "layerId": "nyc-historical", "checked": false }
+          { "label": "NYC 1836 (Allmaps)", "layerId": "nyc-historical", "checked": false },
+          { "label": "Amsterdam 1625 (Allmaps)", "layerId": "amsterdam-historical", "checked": false }
         ]
       },
       {
@@ -89,6 +90,13 @@
         "service": "xyz",
         "url": "warpedmap://annotations.allmaps.org/images/d180902cb93d5bf2",
         "attribution": "NYPL via Allmaps"
+      },
+      {
+        "id": "amsterdam-historical-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": "warpedmap://annotations.allmaps.org/maps/f60ecda322d09956",
+        "attribution": "via Allmaps"
       }
     ],
     "layers": [
@@ -159,6 +167,15 @@
           {
             "type": "raster",
             "source": "nyc-historical-source"
+          }
+        ]
+      },
+      {
+        "id": "amsterdam-historical",
+        "layerset": [
+          {
+            "type": "raster",
+            "source": "amsterdam-historical-source"
           }
         ]
       }
