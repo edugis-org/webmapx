@@ -3,8 +3,7 @@
 
 import { html, css, nothing, TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { WebmapxBaseTool } from './webmapx-base-tool';
-import { IAppState } from '../../store/IState';
+import { WebmapxModalTool } from './webmapx-modal-tool';
 import { IMapAdapter } from '../../map/IMapAdapter';
 import { LngLat, Pixel, ClickEvent, PointerMoveEvent, ContextMenuEvent } from '../../store/map-events';
 import {
@@ -43,35 +42,17 @@ interface ProjectableMap {
 }
 
 @customElement('webmapx-measure-tool')
-export class WebmapxMeasureTool extends WebmapxBaseTool {
+export class WebmapxMeasureTool extends WebmapxModalTool {
+    // ─────────────────────────────────────────────────────────────────────
+    // IModalTool implementation
+    // ─────────────────────────────────────────────────────────────────────
+
+    /** Unique identifier for this tool */
+    readonly toolId = 'measure';
+
     // ─────────────────────────────────────────────────────────────────────
     // Public Properties
     // ─────────────────────────────────────────────────────────────────────
-
-    /** Whether the tool is active and capturing events */
-    @property({ type: Boolean, reflect: true })
-    get active(): boolean {
-        return this._active;
-    }
-    set active(value: boolean) {
-        const oldValue = this._active;
-        this._active = value;
-
-        if (value && !oldValue) {
-            // Activating
-            this.onActivate();
-        } else if (!value && oldValue) {
-            // Deactivating
-            this.onDeactivate();
-        }
-
-        this.requestUpdate('active', oldValue);
-    }
-    private _active = false;
-
-    /** Tool name for toolbar integration */
-    @property({ type: String })
-    name = 'measure';
 
     /** Pixel threshold for closing polygon */
     @property({ type: Number, attribute: 'close-threshold' })
@@ -106,7 +87,6 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
     private unsubPointerMove: (() => void) | null = null;
     private unsubContextMenu: (() => void) | null = null;
     private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
-    private toolSelectHandler: ((e: Event) => void) | null = null;
 
     // ─────────────────────────────────────────────────────────────────────
     // Styles
@@ -189,8 +169,9 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
     // ─────────────────────────────────────────────────────────────────────
 
     protected onMapAttached(adapter: IMapAdapter): void {
-        this.setupEventListeners(adapter);
-        this.setupToolbarListener();
+        super.onMapAttached(adapter);
+
+        this.setupMapEventListeners(adapter);
         this.loadConfigDefaults();
 
         // Store map reference when ready (layers are created on activation)
@@ -203,6 +184,7 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
     protected onMapDetached(): void {
         this.cleanupEventListeners();
         this.cleanupMapLayers();
+        super.onMapDetached();
     }
 
     disconnectedCallback(): void {
@@ -223,14 +205,6 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
         }
     }
 
-    protected onStateChanged(state: IAppState): void {
-        // React to external tool activation changes
-        if (state.activeTool !== 'measure' && state.activeTool !== null && this.active) {
-            // Another exclusive tool became active, deactivate this one
-            this.deactivate();
-        }
-    }
-
     // ─────────────────────────────────────────────────────────────────────
     // Configuration
     // ─────────────────────────────────────────────────────────────────────
@@ -247,7 +221,7 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
     // Event Setup
     // ─────────────────────────────────────────────────────────────────────
 
-    private setupEventListeners(adapter: IMapAdapter): void {
+    private setupMapEventListeners(adapter: IMapAdapter): void {
         // Subscribe to map events
         this.unsubClick = adapter.events.on('click', this.handleClick.bind(this));
         this.unsubPointerMove = adapter.events.on('pointer-move', this.handlePointerMove.bind(this));
@@ -258,21 +232,6 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
         document.addEventListener('keydown', this.keydownHandler);
     }
 
-    private setupToolbarListener(): void {
-        // Listen for toolbar selection events
-        this.toolSelectHandler = (e: Event) => {
-            const detail = (e as CustomEvent).detail;
-            if (detail.toolId === this.name) {
-                this.activate();
-            } else if (this.active && detail.toolId !== null) {
-                this.deactivate();
-            }
-        };
-
-        // Listen on the map host for bubbling events
-        this.mapHost?.addEventListener('webmapx-tool-select', this.toolSelectHandler);
-    }
-
     private cleanupEventListeners(): void {
         this.unsubClick?.();
         this.unsubPointerMove?.();
@@ -281,11 +240,6 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
         if (this.keydownHandler) {
             document.removeEventListener('keydown', this.keydownHandler);
             this.keydownHandler = null;
-        }
-
-        if (this.toolSelectHandler) {
-            this.mapHost?.removeEventListener('webmapx-tool-select', this.toolSelectHandler);
-            this.toolSelectHandler = null;
         }
     }
 
@@ -571,15 +525,11 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // Activation / Deactivation
+    // Activation / Deactivation (WebmapxModalTool lifecycle hooks)
     // ─────────────────────────────────────────────────────────────────────
 
-    public activate(): void {
-        this.active = true;  // Triggers setter which calls onActivate()
-    }
-
     /** Called when tool becomes active */
-    private onActivate(): void {
+    protected onActivate(): void {
         this.clearMeasurement();
 
         // Create layers when activating (ensures they're on top)
@@ -591,24 +541,15 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
         this.dispatchEvent(new CustomEvent('webmapx-suppress-busy-for-source', { detail: RUBBERBAND_SOURCE_ID, bubbles: true, composed: true }));
         this.dispatchEvent(new CustomEvent('webmapx-suppress-busy-for-source', { detail: STATIC_SOURCE_ID, bubbles: true, composed: true }));
 
-        // Update store to notify other tools
-        this.isSettingValue = true;
-        this.store?.dispatch({ activeTool: 'measure' }, 'UI');
-        setTimeout(() => { this.isSettingValue = false; }, 50);
-
-        // Dispatch activation event
+        // Dispatch tool-specific activation event
         this.dispatchEvent(new CustomEvent('webmapx-measure-activate', {
             bubbles: true,
             composed: true
         }));
     }
 
-    public deactivate(): void {
-        this.active = false;  // Triggers setter which calls onDeactivate()
-    }
-
     /** Called when tool becomes inactive */
-    private onDeactivate(): void {
+    protected onDeactivate(): void {
         this.clearMeasurement();
 
         // Remove layers when deactivating to reduce map overhead
@@ -618,12 +559,7 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
         this.dispatchEvent(new CustomEvent('webmapx-unsuppress-busy-for-source', { detail: RUBBERBAND_SOURCE_ID, bubbles: true, composed: true }));
         this.dispatchEvent(new CustomEvent('webmapx-unsuppress-busy-for-source', { detail: STATIC_SOURCE_ID, bubbles: true, composed: true }));
 
-        // Update store
-        this.isSettingValue = true;
-        this.store?.dispatch({ activeTool: null }, 'UI');
-        setTimeout(() => { this.isSettingValue = false; }, 50);
-
-        // Dispatch deactivation event
+        // Dispatch tool-specific deactivation event
         this.dispatchEvent(new CustomEvent('webmapx-measure-deactivate', {
             bubbles: true,
             composed: true
@@ -695,7 +631,7 @@ export class WebmapxMeasureTool extends WebmapxBaseTool {
 
     protected render(): TemplateResult {
         return html`
-            <div class="measure-container">
+            <div class="tool-content measure-container">
                 <div class="measure-content">
                     ${this.renderInstructions()}
                     ${this.renderSegments()}

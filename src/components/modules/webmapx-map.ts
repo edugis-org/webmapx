@@ -1,6 +1,7 @@
 import { IMapAdapter } from '../../map/IMapAdapter';
 import { createMapAdapter, DEFAULT_ADAPTER_NAME } from '../../map/adapter-registry';
 import type { AppConfig, CatalogConfig, MapConfig, ToolsConfig } from '../../config/types';
+import { ToolManager } from '../../tools/tool-manager';
 
 const MAP_VIEW_SLOT = 'map-view';
 const MAP_SURFACE_CLASS = 'webmapx-map__surface';
@@ -113,6 +114,7 @@ export class WebmapxMapElement extends HTMLElement {
   private currentSurface: HTMLElement | null = null;
   private adapterInstance: IMapAdapter | null = null;
   private configInstance: AppConfig | null = null;
+  private toolManagerInstance: ToolManager | null = null;
 
   private upsertAndStyleSurface(): void {
     const surface = this.ensureMapViewElement();
@@ -215,6 +217,39 @@ export class WebmapxMapElement extends HTMLElement {
   }
 
   /**
+   * Returns the ToolManager for this map instance.
+   * Lazy-initialized on first access.
+   */
+  public get toolManager(): ToolManager {
+    if (!this.toolManagerInstance) {
+      this.toolManagerInstance = new ToolManager();
+
+      // Set store for activeTool sync (if adapter is ready)
+      if (this.adapterInstance?.store) {
+        this.toolManagerInstance.setStore(this.adapterInstance.store);
+      }
+
+      // Forward tool events to map element
+      this.toolManagerInstance.addEventListener('webmapx-tool-activated', (e) => {
+        this.dispatchEvent(new CustomEvent('webmapx-tool-activated', {
+          detail: (e as CustomEvent).detail,
+          bubbles: true,
+          composed: true
+        }));
+      });
+
+      this.toolManagerInstance.addEventListener('webmapx-tool-deactivated', (e) => {
+        this.dispatchEvent(new CustomEvent('webmapx-tool-deactivated', {
+          detail: (e as CustomEvent).detail,
+          bubbles: true,
+          composed: true
+        }));
+      });
+    }
+    return this.toolManagerInstance;
+  }
+
+  /**
    * Sets the configuration for this map and notifies child components.
    * Dispatches a 'webmapx-config-ready' event that bubbles up.
    */
@@ -245,6 +280,12 @@ export class WebmapxMapElement extends HTMLElement {
     }
 
     this.adapterInstance = adapter;
+
+    // If ToolManager was already created, give it the store
+    if (this.toolManagerInstance && adapter.store) {
+      this.toolManagerInstance.setStore(adapter.store);
+    }
+
     this.dispatchEvent(new CustomEvent('webmapx-map-ready', {
       detail: { adapter: this.adapterInstance, map: this },
       bubbles: true,

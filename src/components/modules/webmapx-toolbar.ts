@@ -1,5 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, queryAssignedElements, property } from 'lit/decorators.js';
+import type { ToolManager } from '../../tools/tool-manager';
+import type { WebmapxMapElement } from './webmapx-map';
 
 @customElement('webmapx-toolbar')
 export class WebmapxToolbar extends LitElement {
@@ -35,6 +37,32 @@ export class WebmapxToolbar extends LitElement {
   @queryAssignedElements()
   buttons!: HTMLElement[];
 
+  private toolManager: ToolManager | null = null;
+  private boundHandleToolActivated = (e: Event) => this.handleToolActivated(e as CustomEvent);
+  private boundHandleToolDeactivated = (e: Event) => this.handleToolDeactivated(e as CustomEvent);
+
+  connectedCallback(): void {
+    super.connectedCallback();
+
+    // Try to get ToolManager from parent map element
+    const mapHost = this.closest('webmapx-map') as WebmapxMapElement | null;
+    if (mapHost?.toolManager) {
+      this.toolManager = mapHost.toolManager;
+    }
+
+    // Listen for tool activation/deactivation events to sync button states
+    mapHost?.addEventListener('webmapx-tool-activated', this.boundHandleToolActivated);
+    mapHost?.addEventListener('webmapx-tool-deactivated', this.boundHandleToolDeactivated);
+  }
+
+  disconnectedCallback(): void {
+    const mapHost = this.closest('webmapx-map');
+    mapHost?.removeEventListener('webmapx-tool-activated', this.boundHandleToolActivated);
+    mapHost?.removeEventListener('webmapx-tool-deactivated', this.boundHandleToolDeactivated);
+    this.toolManager = null;
+    super.disconnectedCallback();
+  }
+
   handleSlotChange() {
     // Re-bind click listeners when slot content changes
     this.buttons.forEach(btn => {
@@ -50,41 +78,82 @@ export class WebmapxToolbar extends LitElement {
     const clickedBtn = e.currentTarget as HTMLElement;
     // Look for a 'name' or 'data-tool' attribute to identify the tool
     const toolId = clickedBtn.getAttribute('name') || clickedBtn.getAttribute('data-tool');
-    
+
     if (!toolId) return;
 
-    // Check if this button is currently 'active' (using a variant or attribute)
-    // Assuming we use sl-button, we might toggle 'variant="primary"' or a custom 'active' attribute
+    // Check if this tool is registered with ToolManager
+    const isRegisteredTool = this.toolManager?.getTool(toolId) !== undefined;
+
+    // Use ToolManager for registered modal tools
+    if (this.toolManager && isRegisteredTool) {
+      this.toolManager.toggle(toolId);
+      // Button state will be updated by tool events
+      return;
+    }
+
+    // Fallback for non-modal tools: manual button state management and event dispatch
     const isActive = clickedBtn.hasAttribute('active') || clickedBtn.getAttribute('variant') === 'primary';
 
     // Deactivate all buttons
-    this.buttons.forEach(btn => {
-        btn.removeAttribute('active');
-        if (btn.tagName.toLowerCase() === 'sl-button') {
-            btn.setAttribute('variant', 'default');
-        }
-    });
+    this.clearActiveButtons();
+
+    // Also deactivate any modal tool that might be active
+    if (this.toolManager?.activeToolId) {
+      this.toolManager.deactivate();
+    }
 
     if (!isActive) {
       // Activate the clicked button
-      clickedBtn.setAttribute('active', '');
-      if (clickedBtn.tagName.toLowerCase() === 'sl-button') {
-          clickedBtn.setAttribute('variant', 'primary');
-      }
+      this.setActiveButton(toolId);
 
-      this.dispatchEvent(new CustomEvent('webmapx-tool-select', { 
+      this.dispatchEvent(new CustomEvent('webmapx-tool-select', {
         detail: { toolId },
         bubbles: true,
         composed: true
       }));
     } else {
       // If it was active, we just deactivated it (toggle off)
-      this.dispatchEvent(new CustomEvent('webmapx-tool-select', { 
+      this.dispatchEvent(new CustomEvent('webmapx-tool-select', {
         detail: { toolId: null },
         bubbles: true,
         composed: true
       }));
     }
+  }
+
+  /** Handle tool activation events from ToolManager */
+  private handleToolActivated(e: CustomEvent): void {
+    const { toolId } = e.detail;
+    this.clearActiveButtons();
+    this.setActiveButton(toolId);
+  }
+
+  /** Handle tool deactivation events from ToolManager */
+  private handleToolDeactivated(_e: CustomEvent): void {
+    this.clearActiveButtons();
+  }
+
+  /** Set a specific button as active by toolId */
+  private setActiveButton(toolId: string): void {
+    const btn = this.buttons.find(b =>
+      b.getAttribute('name') === toolId || b.getAttribute('data-tool') === toolId
+    );
+    if (btn) {
+      btn.setAttribute('active', '');
+      if (btn.tagName.toLowerCase() === 'sl-button') {
+        btn.setAttribute('variant', 'primary');
+      }
+    }
+  }
+
+  /** Clear active state from all buttons */
+  private clearActiveButtons(): void {
+    this.buttons.forEach(btn => {
+      btn.removeAttribute('active');
+      if (btn.tagName.toLowerCase() === 'sl-button') {
+        btn.setAttribute('variant', 'default');
+      }
+    });
   }
 
   render() {
