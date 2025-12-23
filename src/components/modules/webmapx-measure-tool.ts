@@ -14,8 +14,6 @@ import {
 } from '../../utils/geo-calculations';
 import { throttle } from '../../utils/throttle';
 import type { MeasureToolConfig } from '../../config/types';
-import { fromLonLat } from 'ol/proj';
-
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 
@@ -33,12 +31,6 @@ interface MeasureSegment {
     from: LngLat;
     to: LngLat;
     distanceCm: number;
-}
-
-// Native map interface for coordinate projection
-interface ProjectableMap {
-    project?(coords: LngLat): { x: number; y: number };
-    getPixelFromCoordinate?(coords: number[]): [number, number] | null;
 }
 
 @customElement('webmapx-measure-tool')
@@ -73,8 +65,6 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     @state() private isClosed = false;
     @state() private areaM2 = 0;
 
-    // Map resources
-    private nativeMap: ProjectableMap | null = null;
     private layersCreated = false;
 
     // Throttled update function for rubber-band visualization (50ms = ~20fps)
@@ -174,11 +164,6 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         this.setupMapEventListeners(adapter);
         this.loadConfigDefaults();
 
-        // Store map reference when ready (layers are created on activation)
-        const core = adapter.core as any;
-        core.onMapReady?.((map: any) => {
-            this.nativeMap = map;
-        });
     }
 
     protected onMapDetached(): void {
@@ -289,7 +274,6 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
     private cleanupMapLayers(): void {
         this.removeMeasureLayers();
-        this.nativeMap = null;
     }
 
     private removeMeasureLayers(): void {
@@ -444,28 +428,11 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     }
 
     private isWithinThreshold(pixel: Pixel, targetCoords: LngLat, threshold: number): boolean {
-        if (!this.nativeMap) return false;
-
-        const map = this.nativeMap as any;
-        let targetPixel: { x: number; y: number } | null = null;
-
-        // MapLibre projection
-        if (map.project) {
-            targetPixel = map.project(targetCoords);
-        }
-        // OpenLayers projection
-        else if (map.getPixelFromCoordinate) {
-            const projectedCoords = fromLonLat(targetCoords);
-            const olPixel = map.getPixelFromCoordinate(projectedCoords);
-            if (olPixel) {
-                targetPixel = { x: olPixel[0], y: olPixel[1] };
-            }
-        }
-
+        const targetPixel = this.adapter?.project(targetCoords);
         if (!targetPixel) return false;
 
-        const dx = pixel[0] - targetPixel.x;
-        const dy = pixel[1] - targetPixel.y;
+        const dx = pixel[0] - targetPixel[0];
+        const dy = pixel[1] - targetPixel[1];
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         return distance <= threshold;

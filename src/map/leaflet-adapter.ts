@@ -2,7 +2,7 @@
 
 import { IMapCore, IToolService, IMapFactory } from './IMapInterfaces';
 import { MapStateStore } from '../store/map-state-store';
-import { MapEventBus } from '../store/map-events';
+import { MapEventBus, LngLat, Pixel } from '../store/map-events';
 import { IMapAdapter } from './IMapAdapter';
 import { MapCoreService } from './leaflet-services/MapCoreService';
 import { MapServiceTemplate } from './leaflet-services/MapServiceTemplate';
@@ -32,5 +32,9 @@ export class LeafletAdapter implements IMapAdapter {
         (this.core as any).onMapReady?.((map: any) => {
             this.layerService = new MapLayerService(map, this.store);
         });
+    }
+
+    public project(coords: LngLat): Pixel {
+        return this.core.project(coords);
     }
 }

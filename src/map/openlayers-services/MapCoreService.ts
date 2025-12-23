@@ -381,6 +381,17 @@ export class MapCoreService implements IMapCore {
         };
     }
 
+    public project(coords: LngLat): Pixel {
+        if (!this.mapInstance) {
+            console.warn('[CORE SERVICE - OpenLayers] project called before map instance is ready.');
+            return [0, 0];
+        }
+        const coordinate = fromLonLat(coords);
+        const pixel = this.mapInstance.getPixelFromCoordinate(coordinate);
+        if (!pixel) return [0, 0];
+        return [pixel[0], pixel[1]];
+    }
+
     private updateStyle(sourceId: string) {
         const sourceInfo = this.sources.get(sourceId);
         if (!sourceInfo) return;

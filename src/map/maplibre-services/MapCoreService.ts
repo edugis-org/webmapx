@@ -336,6 +336,15 @@ export class MapCoreService implements IMapCore {
         return this.mapInstance?.getSource(id) as any;
     }
 
+    public project(coords: LngLat): Pixel {
+        if (!this.mapInstance) {
+            console.warn('[CORE SERVICE - MapLibre] project called before map instance is ready.');
+            return [0, 0];
+        }
+        const point = this.mapInstance.project(coords); // MapLibre's project method takes LngLat directly
+        return [point.x, point.y];
+    }
+
     public suppressBusySignalForSource(sourceId: string): void {
         this.silentSourceIds.add(sourceId);
     }

@@ -1,6 +1,7 @@
 // src/map/IMapInterfaces.ts
 
 import type { LayerConfig, SourceConfig, CatalogConfig, MapStyle } from '../config/types';
+import type { LngLat, Pixel } from '../store/map-events';
 
 /**
  * Options for creating a map instance.
@@ -79,6 +80,9 @@ export interface IMapCore {
     getSource(id: string): ISource | undefined;
     suppressBusySignalForSource(sourceId: string): void;
     unsuppressBusySignalForSource(sourceId: string): void;
+
+    /** Given a geographic coordinate (LngLat), returns its pixel coordinate [x, y]. */
+    project(coords: LngLat): Pixel;
 }
 
 /**

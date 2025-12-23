@@ -73,18 +73,20 @@ export class LeafletLayerFactory {
      * Create a GeoJSON layer with appropriate styling.
      */
     static createGeoJSONLayer(
-        layerConfig: LayerConfig,
+        layerConfig: any, // Can be LayerConfig or a single layer spec
         sourceConfig: SourceConfig,
         data: GeoJSON.FeatureCollection | GeoJSON.Feature
     ): LeafletLayerSpec[] {
         const specs: LeafletLayerSpec[] = [];
+        const styles = layerConfig.layerset || [layerConfig]; // Handle both structures
 
-        for (const style of layerConfig.layerset) {
+        for (const style of styles) {
             if (!['fill', 'line', 'circle', 'symbol'].includes(style.type)) {
                 continue;
             }
 
             const leafletStyle = LeafletLayerFactory.convertPaintToLeafletStyle(style);
+            const filterFunction = LeafletLayerFactory.createFilterFunction(style.filter);
 
             const layer = L.geoJSON(data as GeoJSON.GeoJsonObject, {
                 style: () => leafletStyle,
@@ -93,21 +95,54 @@ export class LeafletLayerFactory {
                         const radius = (style.paint as any)?.['circle-radius'] || 6;
                         return L.circleMarker(latlng, {
                             radius,
-                            ...leafletStyle
+                            ...leafletStyle,
+                            interactive: true // Re-enable interactivity for circle markers
                         });
                     }
-                    return L.marker(latlng);
-                }
+                    // For line/polygon features, Leaflet uses the 'style' option.
+                    // We must return a layer for Point features, but we don't want a visible marker.
+                    return L.marker(latlng, { opacity: 0, interactive: false });
+                },
+                filter: filterFunction,
+                interactive: true // Re-enable interactivity for GeoJSON layer
             });
 
+            const layerId = layerConfig.layerset ? layerConfig.id : style.id;
             specs.push({
-                id: `${layerConfig.id}-${style.type}`,
+                id: `${layerId}-${style.type}`,
                 type: 'geojson',
                 layer
             });
         }
 
         return specs;
+    }
+
+    /**
+     * Creates a filter function for a GeoJSON layer from a MapLibre-style filter array.
+     * Supports simple '==' filters on geometry-type and properties.
+     */
+    static createFilterFunction(filter: any[]): ((feature: GeoJSON.Feature) => boolean) | undefined {
+        if (!filter || !Array.isArray(filter) || filter.length !== 3) {
+            return undefined;
+        }
+
+        const [operator, operand1, operand2] = filter;
+
+        if (operator === '==') {
+            if (Array.isArray(operand1) && operand1[0] === 'geometry-type') {
+                const geometryType = operand2;
+                return (feature: GeoJSON.Feature) => feature.geometry.type === geometryType;
+            }
+            
+            if (Array.isArray(operand1) && operand1[0] === 'get') {
+                const propertyName = operand1[1];
+                const propertyValue = operand2;
+                return (feature: GeoJSON.Feature) => feature.properties?.[propertyName] === propertyValue;
+            }
+        }
+
+        return undefined;
     }
 
     /**

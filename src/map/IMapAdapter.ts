@@ -1,5 +1,5 @@
 import { MapStateStore } from '../store/map-state-store';
-import { MapEventBus } from '../store/map-events';
+import { MapEventBus, LngLat, Pixel } from '../store/map-events';
 import { IMapCore, IToolService, IMapFactory } from './IMapInterfaces';
 
 export interface IMapAdapter {
@@ -31,4 +31,7 @@ export interface IMapAdapter {
    * });
    */
   readonly events: MapEventBus;
+
+  /** Projects geographic coordinates (LngLat) to pixel coordinates [x, y]. */
+  project(coords: LngLat): Pixel;
 }
