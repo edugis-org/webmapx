@@ -1,6 +1,6 @@
 # 🗺️ WebMapX - Modular Web Map UI
 
-A highly modular and map-library-agnostic User Interface built for dynamic Web GIS applications. This project is architected to allow easy swapping of map backends (MapLibre, OpenLayers, Leaflet, Cesium) and features a scoped, per-map state management system to ensure consistency and performance.
+A web component library that provides ready-to-use, extensible, and customizable UI tools for web maps, with an extensibility API for registering custom map adapters and tools (MapLibre, OpenLayers, Leaflet, Cesium).
 
 ## 🚀 Architecture Rules
 
@@ -73,3 +73,38 @@ For a detailed guide on creating new components, understanding the data flow, an
 - **IMapFactory:** OOP API for creating maps (`IMap`), sources (`ISource`), and layers (`ILayer`).
 - **Inset Map:** Refactored to use new architecture. Tool contains all composite logic, uses `mapFactory.createMap()` and manages its own throttling.
 - **Events:** `view-change`, `view-change-end`, `pointer-move`, `click`, `dblclick`, `contextmenu`, `pointer-leave` available via `adapter.events`.
+
+## 🔌 Extensibility
+
+This project exposes clear extension points for adapters and tools rather than a generic "plugin" runtime. Two common extension patterns are:
+
+- **Registering a custom map adapter** — use the `registerMapAdapter` API to make a new adapter available by name. See [`src/map/adapter-registry.ts`](src/map/adapter-registry.ts) for details. Example:
+
+```typescript
+import { registerMapAdapter } from './src/map/adapter-registry';
+import { MyLeafletAdapter } from './src/map/leaflet-adapter';
+
+registerMapAdapter('leaflet', () => new MyLeafletAdapter());
+```
+
+- **Creating a custom tool** — extend `WebmapxModalTool` or `WebmapxBaseTool` in `src/components/modules` to build tools that auto-register with the `ToolManager`. See [`src/components/modules/webmapx-modal-tool.ts`](src/components/modules/webmapx-modal-tool.ts) and [`src/tools/tool-manager.ts`](src/tools/tool-manager.ts). Minimal example:
+
+```typescript
+import { WebmapxModalTool } from './src/components/modules/webmapx-modal-tool';
+
+export class MyMeasureTool extends WebmapxModalTool {
+    readonly toolId = 'my-measure';
+
+    protected onActivate(): void {
+        // subscribe to adapter events, create layers, etc.
+    }
+
+    protected onDeactivate(): void {
+        // cleanup
+    }
+}
+
+customElements.define('my-measure', MyMeasureTool);
+```
+
+These extension points are documented further in the Developer Guide: [`docs/DEVELOPER_GUIDE.md`](./docs/DEVELOPER_GUIDE.md).
