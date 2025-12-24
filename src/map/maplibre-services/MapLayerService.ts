@@ -6,7 +6,7 @@ import { MapStateStore } from '../../store/map-state-store';
 import * as maplibregl from 'maplibre-gl';
 import { MapLibreLayerFactory } from './MapLibreLayerFactory';
 import { buildWMSGetMapUrl } from '../../utils/wms-url-builder';
-import { WarpedMapLayer } from '@allmaps/maplibre';
+import type { WarpedMapLayer } from '@allmaps/maplibre';
 
 const WARPEDMAP_PROTOCOL = 'warpedmap://';
 
@@ -123,6 +123,7 @@ export class MapLayerService implements ILayerService {
      * Create and add a WarpedMapLayer for Allmaps georeferenced images.
      */
     private async addWarpedMapLayer(layerId: string, sourceConfig: SourceConfig): Promise<boolean> {
+        const { WarpedMapLayer } = await import('@allmaps/maplibre');
         const url = 'url' in sourceConfig
             ? (Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url)
             : '';

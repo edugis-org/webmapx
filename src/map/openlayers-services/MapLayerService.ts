@@ -15,7 +15,7 @@ import ImageLayer from 'ol/layer/Image';
 import TileWMS from 'ol/source/TileWMS';
 import { createXYZ } from 'ol/tilegrid';
 import type BaseLayer from 'ol/layer/Base';
-import { WarpedMapLayer } from '@allmaps/openlayers';
+import type { WarpedMapLayer } from '@allmaps/openlayers';
 
 const WARPEDMAP_PROTOCOL = 'warpedmap://';
 
@@ -74,6 +74,7 @@ export class MapLayerService implements ILayerService {
      * Create and add a WarpedMapLayer for Allmaps georeferenced images.
      */
     private async addWarpedMapLayer(layerId: string, sourceConfig: SourceConfig): Promise<boolean> {
+        const { WarpedMapLayer } = await import('@allmaps/openlayers');
         const url = 'url' in sourceConfig
             ? (Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url)
             : '';
