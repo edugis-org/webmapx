@@ -7,6 +7,14 @@ export default defineConfig({
     viteStaticCopy({
       targets: [
         {
+          src: 'config/**/*.json',
+          dest: 'config'
+        },
+        {
+          src: 'favicon.ico',
+          dest: ''
+        },
+        {
           src: 'node_modules/@shoelace-style/shoelace/dist/assets',
           // Assets will be copied to dist/shoelace-assets/assets
           dest: 'shoelace-assets' 
