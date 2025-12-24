@@ -113,6 +113,7 @@ export class WebmapxMapElement extends HTMLElement {
   private surfaceObserver?: MutationObserver;
   private currentSurface: HTMLElement | null = null;
   private adapterInstance: IMapAdapter | null = null;
+  private adapterPromise: Promise<IMapAdapter | null> | null = null;
   private configInstance: AppConfig | null = null;
   private toolManagerInstance: ToolManager | null = null;
 
@@ -191,6 +192,12 @@ export class WebmapxMapElement extends HTMLElement {
     return this.adapterInstance;
   }
 
+  /** Resolves once the adapter has been created (or null on failure). */
+  public getAdapterAsync(): Promise<IMapAdapter | null> {
+    this.ensureAdapter();
+    return this.adapterPromise ?? Promise.resolve(this.adapterInstance);
+  }
+
   /** Returns the element that should host the mapping library instance. */
   public get mapElement(): HTMLElement | null {
     return this.querySelector<HTMLElement>(`[slot="${MAP_VIEW_SLOT}"]`);
@@ -267,30 +274,37 @@ export class WebmapxMapElement extends HTMLElement {
     if (this.adapterInstance) {
       return;
     }
+    if (this.adapterPromise) {
+      return;
+    }
 
     // Priority: localStorage > attribute > default
     const savedAdapter = localStorage.getItem('webmapx-adapter');
     const attributeAdapter = this.getAttribute(MAP_ADAPTER_ATTRIBUTE);
     const requestedAdapter = savedAdapter ?? attributeAdapter ?? DEFAULT_ADAPTER_NAME;
 
-    const adapter = createMapAdapter(requestedAdapter);
-    if (!adapter) {
-      console.error(`[webmapx-map] No adapter available for "${requestedAdapter}".`);
-      return;
-    }
+    this.adapterPromise = (async () => {
+      const adapter = await createMapAdapter(requestedAdapter);
+      if (!adapter) {
+        console.error(`[webmapx-map] No adapter available for "${requestedAdapter}".`);
+        return null;
+      }
 
-    this.adapterInstance = adapter;
+      this.adapterInstance = adapter;
 
-    // If ToolManager was already created, give it the store
-    if (this.toolManagerInstance && adapter.store) {
-      this.toolManagerInstance.setStore(adapter.store);
-    }
+      // If ToolManager was already created, give it the store
+      if (this.toolManagerInstance && adapter.store) {
+        this.toolManagerInstance.setStore(adapter.store);
+      }
 
-    this.dispatchEvent(new CustomEvent('webmapx-map-ready', {
-      detail: { adapter: this.adapterInstance, map: this },
-      bubbles: true,
-      composed: true
-    }));
+      this.dispatchEvent(new CustomEvent('webmapx-map-ready', {
+        detail: { adapter: this.adapterInstance, map: this },
+        bubbles: true,
+        composed: true
+      }));
+
+      return adapter;
+    })();
   }
 }
 

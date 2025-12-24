@@ -45,8 +45,8 @@ export function resolveMapAdapter(host: HTMLElement): IMapAdapter | null {
   }
 
   const adapter = mapElement.adapter;
-  if (!adapter) {
-    console.error('[webmapx] Map adapter not initialized yet.');
-  }
+  // Adapter creation is async (lazy-loaded engines). It's normal for tools/components to
+  // connect before the adapter is ready; callers can subscribe to `webmapx-map-ready` or
+  // use `webmapx-map.getAdapterAsync()`.
   return adapter;
 }

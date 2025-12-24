@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function initializeMap(mapElement, appConfig) {
     const mapId = mapElement.id || 'unnamed-map';
 
-    const adapter = mapElement.adapter;
+    const adapter = await mapElement.getAdapterAsync?.();
     if (!adapter) {
         console.error(`[app] Map adapter is not available on <webmapx-map id="${mapId}">.`);
         return;

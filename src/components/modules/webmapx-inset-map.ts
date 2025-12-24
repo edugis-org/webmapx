@@ -1,6 +1,6 @@
 import { css, html, LitElement, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { resolveMapAdapter } from './map-context';
+import { resolveMapElement } from './map-context';
 import { IMapAdapter } from '../../map/IMapAdapter';
 import { IMap, ISource } from '../../map/IMapInterfaces';
 import { IAppState } from '../../store/IState';
@@ -31,6 +31,8 @@ export class WebmapxInsetMap extends LitElement {
   private unsubscribe: (() => void) | null = null;
   private lastCenter: [number, number] | null = null;
   private lastZoom: number | null = null;
+  private lastBoundsKey: string | null = null;
+  private initPromise: Promise<void> | null = null;
 
   // Throttle state updates to avoid excessive rendering during map movement
   private throttledApplyState = throttle((state: IAppState) => {
@@ -73,13 +75,13 @@ export class WebmapxInsetMap extends LitElement {
   `;
 
   protected firstUpdated(): void {
-    this.initializeInset();
+    void this.initializeInset();
   }
 
   protected updated(changed: PropertyValues): void {
     if (changed.has('zoomOffset') || changed.has('styleUrl') || changed.has('baseScale')) {
       this.destroyInset();
-      this.initializeInset();
+      void this.initializeInset();
     }
   }
 
@@ -88,12 +90,30 @@ export class WebmapxInsetMap extends LitElement {
     super.disconnectedCallback();
   }
 
-  private initializeInset(): void {
+  private async initializeInset(): Promise<void> {
+    if (this.initPromise) {
+      await this.initPromise;
+      return;
+    }
+
+    this.initPromise = this.doInitializeInset();
+    try {
+      await this.initPromise;
+    } finally {
+      this.initPromise = null;
+    }
+  }
+
+  private async doInitializeInset(): Promise<void> {
     const container = this.insetContainer;
     if (!container) return;
 
-    this.adapter = resolveMapAdapter(this);
-    if (!this.adapter) return;
+    const mapElement = resolveMapElement(this);
+    if (!mapElement) return;
+
+    const adapter = await (mapElement as any).getAdapterAsync?.();
+    if (!adapter) return;
+    this.adapter = adapter as IMapAdapter;
 
     const state = this.adapter.store.getState();
 
@@ -116,6 +136,9 @@ export class WebmapxInsetMap extends LitElement {
 
     // Subscribe to state changes (throttled)
     this.unsubscribe = this.adapter.store.subscribe((newState) => {
+      if (!this.hasRelevantStateChange(newState)) {
+        return;
+      }
       this.throttledApplyState(newState);
     });
   }
@@ -132,6 +155,7 @@ export class WebmapxInsetMap extends LitElement {
     this.viewportSource = null;
     this.lastCenter = null;
     this.lastZoom = null;
+    this.lastBoundsKey = null;
   }
 
   private setupViewportLayers(): void {
@@ -205,12 +229,54 @@ export class WebmapxInsetMap extends LitElement {
   private updateViewportRectangle(bounds: GeoJSON.Feature<GeoJSON.Polygon> | null | undefined): void {
     if (!this.viewportSource) return;
 
+    const nextKey = this.computeBoundsKey(bounds);
+    if (nextKey === this.lastBoundsKey) {
+      return;
+    }
+    this.lastBoundsKey = nextKey;
+
     const data: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
       features: bounds ? [bounds] : [],
     };
 
     this.viewportSource.setData(data);
+  }
+
+  private hasRelevantStateChange(state: IAppState): boolean {
+    const center = state.mapCenter;
+    const zoom = state.zoomLevel;
+    const boundsKey = this.computeBoundsKey(state.mapViewportBounds);
+
+    const centerChanged = !!center && !this.isSameCenter(center, this.lastCenter);
+    const zoomChanged = zoom !== this.lastZoom;
+    const boundsChanged = boundsKey !== this.lastBoundsKey;
+
+    // If we haven't applied anything yet, allow initialization updates through.
+    if (!this.lastCenter && center) return true;
+    if (this.lastZoom === null && zoom !== null) return true;
+
+    return centerChanged || zoomChanged || boundsChanged;
+  }
+
+  private isSameCenter(a: [number, number], b: [number, number] | null): boolean {
+    if (!b) return false;
+    return a[0] === b[0] && a[1] === b[1];
+  }
+
+  private computeBoundsKey(bounds: GeoJSON.Feature<GeoJSON.Polygon> | null | undefined): string | null {
+    if (!bounds) return null;
+    const ring = bounds.geometry?.coordinates?.[0];
+    if (!ring || ring.length < 4) return null;
+    const lngs = ring.map(pt => pt[0]);
+    const lats = ring.map(pt => pt[1]);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    // Round to reduce churn from floating noise
+    const r = (n: number) => n.toFixed(6);
+    return `${r(minLng)},${r(minLat)},${r(maxLng)},${r(maxLat)}`;
   }
 
   private clampZoom(value: number): number {

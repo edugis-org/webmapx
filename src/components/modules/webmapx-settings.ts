@@ -78,7 +78,7 @@ export class WebmapxSettings extends LitElement {
 
         // Load adapter settings
         this.availableAdapters = getRegisteredAdapters().filter(
-            name => name !== 'ol' // Filter out alias
+            name => !['ol', 'l', 'c'].includes(name) // Filter out aliases
         );
         this.currentAdapter = this.detectCurrentAdapter();
     }
@@ -165,7 +165,9 @@ export class WebmapxSettings extends LitElement {
     private formatAdapterName(name: string): string {
         const names: Record<string, string> = {
             'maplibre': 'MapLibre GL',
-            'openlayers': 'OpenLayers'
+            'openlayers': 'OpenLayers',
+            'leaflet': 'Leaflet',
+            'cesium': 'Cesium'
         };
         return names[name] || name;
     }

@@ -2,7 +2,7 @@ import { LitElement } from 'lit';
 import { MapStateStore } from '../../store/map-state-store';
 import { IAppState, StateSource } from '../../store/IState';
 import { IMapAdapter } from '../../map/IMapAdapter';
-import { resolveMapAdapter } from './map-context';
+import { resolveMapAdapter, resolveMapElement } from './map-context';
 import type { AppConfig, CatalogConfig, MapConfig, ToolsConfig } from '../../config/types';
 import type { WebmapxMapElement } from './webmapx-map';
 
@@ -16,6 +16,7 @@ export abstract class WebmapxBaseTool extends LitElement {
     protected store: MapStateStore | null = null;
     private unsubscribe: (() => void) | null = null;
     private configReadyHandler: ((e: Event) => void) | null = null;
+    private mapReadyHandler: ((e: Event) => void) | null = null;
 
     /**
      * Flag to prevent infinite loops when updating the store from the UI.
@@ -39,8 +40,7 @@ export abstract class WebmapxBaseTool extends LitElement {
         this.releaseStore();
         const adapter = resolveMapAdapter(this);
         if (!adapter) {
-            // If the map isn't ready, we might want to retry or wait for an event.
-            // For now, we follow the existing pattern.
+            this.subscribeToMapReady();
             return;
         }
 
@@ -56,6 +56,7 @@ export abstract class WebmapxBaseTool extends LitElement {
     }
 
     protected releaseStore(): void {
+        this.unsubscribeFromMapReady();
         if (this.unsubscribe) {
             this.unsubscribe();
             this.unsubscribe = null;
@@ -63,6 +64,27 @@ export abstract class WebmapxBaseTool extends LitElement {
         this.store = null;
         this.adapter = null;
         this.onMapDetached();
+    }
+
+    private subscribeToMapReady(): void {
+        if (this.mapReadyHandler) return;
+
+        const mapElement = resolveMapElement(this);
+        if (!mapElement) return;
+
+        this.mapReadyHandler = () => {
+            this.unsubscribeFromMapReady();
+            this.bindToMap();
+        };
+
+        mapElement.addEventListener('webmapx-map-ready', this.mapReadyHandler);
+    }
+
+    private unsubscribeFromMapReady(): void {
+        if (!this.mapReadyHandler) return;
+        const mapElement = resolveMapElement(this);
+        mapElement?.removeEventListener('webmapx-map-ready', this.mapReadyHandler);
+        this.mapReadyHandler = null;
     }
 
     /**

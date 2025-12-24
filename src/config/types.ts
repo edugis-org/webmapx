@@ -4,7 +4,7 @@
 /**
  * Supported map adapter types.
  */
-export type MapAdapterType = 'maplibre' | 'openlayers' | 'leaflet';
+export type MapAdapterType = 'maplibre' | 'openlayers' | 'leaflet' | 'cesium';
 
 /**
  * MapLibre-compatible style specification (version optional).
