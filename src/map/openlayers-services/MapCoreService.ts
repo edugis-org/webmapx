@@ -392,6 +392,14 @@ export class MapCoreService implements IMapCore {
         return [pixel[0], pixel[1]];
     }
 
+    public fitBounds(bbox: [number, number, number, number]): void {
+        if (!this.mapInstance) return;
+        const sw = fromLonLat([bbox[0], bbox[1]]);
+        const ne = fromLonLat([bbox[2], bbox[3]]);
+        const extent = [sw[0], sw[1], ne[0], ne[1]] as [number, number, number, number];
+        this.mapInstance.getView().fit(extent, { size: this.mapInstance.getSize(), padding: [40, 40, 40, 40], duration: 300 });
+    }
+
     private updateStyle(sourceId: string) {
         const sourceInfo = this.sources.get(sourceId);
         if (!sourceInfo) return;

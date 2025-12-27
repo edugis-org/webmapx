@@ -292,7 +292,27 @@ export interface ToolsConfig {
   layerTree?: ToolConfig;
   legend?: ToolConfig;
   measure?: MeasureToolConfig;
+  /** Search tool configuration */
+  search?: SearchToolConfig;
   [toolName: string]: ToolConfig | MeasureToolConfig | undefined;
+}
+
+/**
+ * Search tool configuration.
+ */
+export interface SearchToolConfig extends ToolConfig {
+  /** Endpoint URL for search (default: Nominatim) */
+  endpoint?: string;
+  /** Default params included in search requests (e.g., format, polygon_geojson) */
+  params?: Record<string, string | number | boolean>;
+  /** Maximum results to request */
+  maxResults?: number;
+  /** Default zoom when centering point results */
+  defaultZoom?: number;
+  /** Whether selecting a result should add a marker (default false) */
+  marker?: boolean;
+  /** Whether selecting a result should automatically persist feature on map (default false) */
+  persistOnSelect?: boolean;
 }
 
 /**

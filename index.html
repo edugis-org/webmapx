@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="./app.css">
     <script type="module" src="./src/app.js"></script>
     <style>
-        /* Hide tools by default */
+        /* Hide tools by default (tool element itself should manage visibility) */
         #layer-tool, #settings-tool, #measure-tool { display: none; height: 100%; }
     </style>
 </head>
@@ -34,6 +34,9 @@
                             <sl-button name="layers" size="medium" circle>
                                 <sl-icon name="layers" label="Layers"></sl-icon>
                             </sl-button>
+                            <sl-button name="search" size="medium" circle>
+                                <sl-icon name="search" label="Search"></sl-icon>
+                            </sl-button>
                             <sl-button name="measure" size="medium" circle>
                                 <sl-icon name="rulers" label="Measure"></sl-icon>
                             </sl-button>
@@ -44,6 +47,7 @@
 
                         <webmapx-tool-panel id="tool-panel" label="Tools">
                             <webmapx-layer-tree id="layer-tool"></webmapx-layer-tree>
+                            <webmapx-search-tool id="search-tool"></webmapx-search-tool>
                             <webmapx-measure-tool id="measure-tool"></webmapx-measure-tool>
                             <webmapx-settings id="settings-tool"></webmapx-settings>
                         </webmapx-tool-panel>
@@ -87,11 +91,16 @@
             layerTool.style.display = 'none';
             measureTool.style.display = 'none';
             settingsTool.style.display = 'none';
+            const searchTool = document.getElementById('search-tool');
+            if (searchTool) searchTool.style.display = 'none';
 
             // Show requested
             if (toolId === 'layers') {
                 layerTool.style.display = 'block';
                 panel.label = 'Layers';
+            } else if (toolId === 'search') {
+                if (searchTool) searchTool.style.display = 'block';
+                panel.label = 'Search';
             } else if (toolId === 'measure') {
                 measureTool.style.display = 'block';
                 panel.label = 'Measure';

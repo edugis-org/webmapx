@@ -345,6 +345,20 @@ export class MapCoreService implements IMapCore {
         return [point.x, point.y];
     }
 
+    public fitBounds(bbox: [number, number, number, number]): void {
+        if (!this.mapInstance) return;
+        // MapLibre expects [[west, south], [east, north]]
+        try {
+            // fitBounds expects [[west, south], [east, north]] as [lng, lat]
+            this.mapInstance.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 40, animate: true });
+        } catch (e) {
+            // fallback: set center + approximate zoom
+            const lon = (bbox[0] + bbox[2]) / 2;
+            const lat = (bbox[1] + bbox[3]) / 2;
+            this.setViewport([lon, lat], this.initialConfig.zoom);
+        }
+    }
+
     public suppressBusySignalForSource(sourceId: string): void {
         this.silentSourceIds.add(sourceId);
     }

@@ -209,6 +209,15 @@ export class MapCoreService implements IMapCore {
         return [pixel.x, pixel.y];
     }
 
+    public fitBounds(bbox: [number, number, number, number]): void {
+        if (!this.mapInstance) return;
+        // Leaflet expects [[south, west], [north, east]] in lat/lng order
+        const southWest = L.latLng(bbox[1], bbox[0]);
+        const northEast = L.latLng(bbox[3], bbox[2]);
+        const bounds = L.latLngBounds(southWest, northEast);
+        this.mapInstance.fitBounds(bounds, { padding: [40, 40], animate: true });
+    }
+
     private computePointerResolution(event: L.LeafletMouseEvent): PointerResolution | null {
         if (!this.mapInstance || !event.layerPoint) return null;
         const { x, y } = event.layerPoint; // Use layerPoint for consistency

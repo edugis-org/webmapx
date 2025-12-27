@@ -210,6 +210,26 @@ export class MapCoreService implements IMapCore {
         return [point.x, point.y];
     }
 
+    public fitBounds(bbox: [number, number, number, number]): void {
+        const Cesium = getCesium();
+        if (!Cesium || !this.viewer) return;
+        try {
+            const west = bbox[0];
+            const south = bbox[1];
+            const east = bbox[2];
+            const north = bbox[3];
+            const rectangle = Cesium.Rectangle.fromDegrees(west, south, east, north);
+            const camera = this.viewer.camera;
+            camera.flyTo({ destination: rectangle, duration: 0.7 });
+        } catch (e) {
+            // fallback: center
+            const lon = (bbox[0] + bbox[2]) / 2;
+            const lat = (bbox[1] + bbox[3]) / 2;
+            const height = this.zoomToCameraHeightMeters(this.getViewportState().zoom, lat);
+            this.viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(lon, lat, height), duration: 0.7 });
+        }
+    }
+
     public onMapReady(callback: (viewer: any) => void): void {
         if (this.viewer) {
             callback(this.viewer);

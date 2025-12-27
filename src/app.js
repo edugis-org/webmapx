@@ -15,6 +15,7 @@ import './components/modules/webmapx-tool-template.ts';
 import './components/modules/webmapx-zoom-level.ts';
 import './components/modules/webmapx-layout.ts';
 import './components/modules/webmapx-inset-map.ts';
+import './components/modules/webmapx-search-tool.ts';
 import './components/modules/webmapx-toolbar.ts';
 import './components/modules/webmapx-control-group.ts';
 import './components/modules/webmapx-tool-panel.ts';
