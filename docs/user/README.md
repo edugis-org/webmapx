@@ -63,11 +63,25 @@ See [Configuration](./configuration.md) for details on:
 - [`webmapx-control-group`](./components/webmapx-control-group.md)
 - [`webmapx-toolbar`](./components/webmapx-toolbar.md)
 - [`webmapx-tool-panel`](./components/webmapx-tool-panel.md)
+- [`webmapx-layer-tree`](./components/webmapx-layer-tree.md)
 - [`webmapx-inset-map`](./components/webmapx-inset-map.md)
+- [`webmapx-settings`](./components/webmapx-settings.md)
 - [`webmapx-tool-template`](./components/webmapx-tool-template.md)
 - [`webmapx-search-tool`](./components/webmapx-search-tool.md)
+- [`webmapx-coordinates-tool`](./components/webmapx-coordinates-tool.md)
 - [`webmapx-zoom-level`](./components/webmapx-zoom-level.md)
 
 See also: [Toolbar and Panel Interaction Guide](./components/interaction-guide.md)
 
 Refer to the individual pages for usage tips, attributes, and slot details.
+
+## Tool Documentation
+- [`webmapx-measure-tool`](./components/webmapx-measure-tool.md)
+- [`webmapx-search-tool`](./components/webmapx-search-tool.md)
+- [`webmapx-spinner`](./components/webmapx-spinner.md)
+- [`webmapx-layer-tree`](./components/webmapx-layer-tree.md)
+- [`webmapx-inset-map`](./components/webmapx-inset-map.md)
+- [`webmapx-settings`](./components/webmapx-settings.md)
+- [`webmapx-coordinates-tool`](./components/webmapx-coordinates-tool.md)
+- [`webmapx-tool-template`](./components/webmapx-tool-template.md)
+- [`webmapx-zoom-level`](./components/webmapx-zoom-level.md)
