@@ -20,15 +20,15 @@ export interface ValidationResult {
 // Known keys for each config section
 const KNOWN_KEYS = {
   root: ['map', 'catalog', 'tools'],
-  map: ['label', 'center', 'zoom', 'maxZoom', 'minZoom', 'type'],
+  map: ['label', 'center', 'zoom', 'minZoom', 'maxZoom', 'type', 'style', 'styleUrl'],
   catalog: ['label', 'tree', 'sources', 'layers'],
   treeNode: ['label', 'layerId', 'checked', 'expanded', 'children'],
   sourceBase: ['id', 'type', 'attribution'],
-  sourceRaster: ['service', 'url', 'tileSize'],
-  sourceGeojson: ['data'],
-  sourceVector: ['url'],
+  sourceRaster: ['service', 'url', 'tileSize', 'minZoom', 'maxZoom', 'bounds', 'scheme', 'volatile', 'attribution'],
+  sourceGeojson: ['data', 'attribution', 'minzoom', 'maxzoom', 'bounds', 'buffer', 'tolerance', 'cluster', 'clusterRadius', 'clusterMaxZoom', 'lineMetrics', 'generateId'],
+  sourceVector: ['url', 'tiles', 'bounds', 'scheme', 'minzoom', 'maxzoom', 'attribution', 'volatile'],
   layer: ['id', 'layerset'],
-  styleLayer: ['type', 'source', 'sourceLayer', 'minZoom', 'maxZoom', 'paint', 'layout', 'filter'],
+  styleLayer: ['type', 'source', 'sourceLayer', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
   tool: ['enabled'],
 };
 
@@ -127,19 +127,18 @@ function validateMapSection(
     });
   }
 
-  // Optional: minZoom, maxZoom
-  if (m.minZoom !== undefined && (typeof m.minZoom !== 'number' || m.minZoom < 0 || m.minZoom > 24)) {
-    errors.push({ severity: 'error', path: `${path}.minZoom`, message: '"minZoom" must be a number between 0 and 24' });
+  if (m.minzoom !== undefined && (typeof m.minzoom !== 'number' || m.minzoom < 0 || m.minzoom > 24)) {
+    errors.push({ severity: 'error', path: `${path}.minzoom`, message: '"minzoom" must be a number between 0 and 24' });
   }
-  if (m.maxZoom !== undefined && (typeof m.maxZoom !== 'number' || m.maxZoom < 0 || m.maxZoom > 24)) {
-    errors.push({ severity: 'error', path: `${path}.maxZoom`, message: '"maxZoom" must be a number between 0 and 24' });
+  if (m.maxzoom !== undefined && (typeof m.maxzoom !== 'number' || m.maxzoom < 0 || m.maxzoom > 24)) {
+    errors.push({ severity: 'error', path: `${path}.maxzoom`, message: '"maxzoom" must be a number between 0 and 24' });
   }
   if (
-    typeof m.minZoom === 'number' &&
-    typeof m.maxZoom === 'number' &&
-    m.minZoom > m.maxZoom
+    typeof m.minzoom === 'number' &&
+    typeof m.maxzoom === 'number' &&
+    m.minzoom > m.maxzoom
   ) {
-    errors.push({ severity: 'error', path: `${path}.minZoom`, message: '"minZoom" cannot be greater than "maxZoom"' });
+    errors.push({ severity: 'error', path: `${path}.minzoom`, message: '"minzoom" cannot be greater than "maxzoom"' });
   }
 }
 
@@ -352,11 +351,11 @@ function validateLayerset(
     }
 
     // Optional zoom validation
-    if (sl.minZoom !== undefined && (typeof sl.minZoom !== 'number' || sl.minZoom < 0 || sl.minZoom > 24)) {
-      errors.push({ severity: 'error', path: `${path}.minZoom`, message: '"minZoom" must be a number between 0 and 24' });
+    if (sl.minzoom !== undefined && (typeof sl.minzoom !== 'number' || sl.minzoom < 0 || sl.minzoom > 24)) {
+      errors.push({ severity: 'error', path: `${path}.minzoom`, message: '"minzoom" must be a number between 0 and 24' });
     }
-    if (sl.maxZoom !== undefined && (typeof sl.maxZoom !== 'number' || sl.maxZoom < 0 || sl.maxZoom > 24)) {
-      errors.push({ severity: 'error', path: `${path}.maxZoom`, message: '"maxZoom" must be a number between 0 and 24' });
+    if (sl.maxzoom !== undefined && (typeof sl.maxzoom !== 'number' || sl.maxzoom < 0 || sl.maxzoom > 24)) {
+      errors.push({ severity: 'error', path: `${path}.maxzoom`, message: '"maxzoom" must be a number between 0 and 24' });
     }
   });
 }
@@ -423,14 +422,6 @@ function validateTreeNode(
     if (!Array.isArray(n.children)) {
       errors.push({ severity: 'error', path: `${path}.children`, message: '"children" must be an array' });
     } else {
-      // Warn if group node is missing expanded property
-      if (n.expanded === undefined) {
-        warnings.push({
-          severity: 'warning',
-          path,
-          message: 'Group node is missing "expanded" property',
-        });
-      }
       n.children.forEach((child, index) => {
         validateTreeNode(child, `${path}.children[${index}]`, layerIds, errors, warnings);
       });

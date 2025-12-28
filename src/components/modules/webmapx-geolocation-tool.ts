@@ -136,7 +136,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     (this as HTMLElement).hidden = false;
     this.flownTo = false;
     this.lastUpdate = null;
-    this.status = 'watching';
+    this.status = 'locating';
     this.message = 'Determining position...';
     this.incrementActiveState();
     this.startGeolocation();
@@ -238,7 +238,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
   }
 
   private handleSharedPosition(position: GeolocationPosition): void {
-    this.status = 'success';
+    this.status = 'watching';
     this.updateMessage(position);
     this.lastUpdate = new Date().toLocaleTimeString();
     this.dispatchEvent(new CustomEvent('webmapx-geolocation-success', {
@@ -249,8 +249,19 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
   }
 
   private handleSharedError(error: GeolocationPositionError): void {
-    this.status = 'error';
-    this.message = error.message || 'Unable to retrieve location.';
+    const codeMap: Record<number, string> = {
+      1: 'Permission denied',
+      2: 'Position unavailable',
+      3: 'Timeout'
+    };
+    const codeText = codeMap[error.code] || 'Unknown error';
+    const parts = [
+      `Error: ${codeText}`,
+      `Code: ${error.code}`,
+      error.message ? `Details: ${error.message}` : null
+    ].filter(Boolean);
+    this.message = parts.join('\n');
+    this.status = WebmapxGeolocationTool.globalWatchId !== null ? 'watching' : 'error';
     this.dispatchEvent(new CustomEvent('webmapx-geolocation-error', {
       detail: { error },
       bubbles: true,

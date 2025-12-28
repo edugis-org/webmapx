@@ -34,7 +34,6 @@ export class WebmapxSearchTool extends WebmapxModalTool {
   @state()
   private selectedIndex: number = -1;
 
-  private adapter: IMapAdapter | null = null;
   private previewSourceId = 'search-preview';
   private previewLayerIds = ['search-preview-fill', 'search-preview-line', 'search-preview-point'];
   private previewLayersAdded = false;
@@ -364,12 +363,12 @@ export class WebmapxSearchTool extends WebmapxModalTool {
     if (!this.adapter) return;
     const core = this.adapter.core;
 
-    // Remove existing preview layers if present
-    for (const lid of this.previewLayerIds) {
-      try { core.removeLayer(lid); } catch (e) { /* ignore */ }
+    if (this.previewLayersAdded) {
+      for (const lid of this.previewLayerIds) {
+        try { core.removeLayer(lid); } catch (e) { /* ignore */ }
+      }
     }
 
-    // Re-add preview layers with optional override colors
     try {
       core.addLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, paint: { 'fill-color': colors?.fill ?? '#f1c40f', 'fill-opacity': 0.25 } });
       core.addLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, paint: { 'line-color': colors?.line ?? '#f39c12', 'line-width': 3 } });
@@ -398,14 +397,12 @@ export class WebmapxSearchTool extends WebmapxModalTool {
   }
 
   private clearPreview() {
-    if (!this.adapter) return;
+    if (!this.adapter || !this.previewLayersAdded) return;
     const core = this.adapter.core;
     try {
-      // remove layers
       for (const lid of this.previewLayerIds) {
         try { core.removeLayer(lid); } catch (e) { /* ignore */ }
       }
-      // remove source
       try { core.removeSource(this.previewSourceId); } catch (e) { /* ignore */ }
     } catch (e) {
       // ignore
