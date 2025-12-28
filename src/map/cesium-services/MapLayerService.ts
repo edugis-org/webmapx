@@ -87,6 +87,8 @@ export class MapLayerService implements ILayerService {
                 const provider = new Cesium.UrlTemplateImageryProvider({
                     url,
                     credit: sourceConfig.attribution ?? '',
+                    minimumLevel: sourceConfig.minzoom,
+                    maximumLevel: sourceConfig.maxzoom,
                 });
                 const imageryLayer = new Cesium.ImageryLayer(provider);
                 this.viewer.imageryLayers.add(imageryLayer);
@@ -106,6 +108,8 @@ export class MapLayerService implements ILayerService {
                         styles: wms.styles ?? '',
                         version: wms.version ?? '1.1.1',
                     },
+                    minimumLevel: wms.minzoom,
+                    maximumLevel: wms.maxzoom,
                     credit: wms.attribution ?? '',
                 });
                 const imageryLayer = new Cesium.ImageryLayer(provider);
