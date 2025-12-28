@@ -37,6 +37,7 @@ import { IMapAdapter } from '../../map/IMapAdapter';
 import type { IModalTool } from '../../tools/IModalTool';
 import type { ToolManager } from '../../tools/tool-manager';
 import type { WebmapxMapElement } from './webmapx-map';
+import { resolveMapElement } from './map-context';
 
 export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModalTool {
     // ─────────────────────────────────────────────────────────────────────
@@ -85,6 +86,13 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
     @property({ type: String, attribute: 'render-target' })
     renderTarget?: string;
 
+    /**
+     * When false, the tool will not register with ToolManager.
+     * Useful for external tool instances that should not be modal.
+     */
+    @property({ type: Boolean, attribute: 'register-with-toolmanager' })
+    registerWithToolManager = true;
+
     // ─────────────────────────────────────────────────────────────────────
     // Internal state
     // ─────────────────────────────────────────────────────────────────────
@@ -100,8 +108,8 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
         super.onMapAttached(adapter);
 
         // Register with ToolManager
-        const mapHost = this.mapHost as WebmapxMapElement & { toolManager?: ToolManager };
-        if (mapHost?.toolManager) {
+        const mapHost = resolveMapElement(this) as WebmapxMapElement & { toolManager?: ToolManager } | null;
+        if (this.registerWithToolManager && mapHost?.toolManager) {
             this.toolManager = mapHost.toolManager;
             this.toolManager.register(this);
         }
@@ -150,7 +158,7 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
         // Check if we're being called by ToolManager (it will have already set itself as active)
         const calledByToolManager = this.toolManager?.activeToolId === this.toolId;
 
-        if (this.toolManager && !calledByToolManager) {
+        if (this.registerWithToolManager && this.toolManager && !calledByToolManager) {
             // Called directly by user code - delegate to ToolManager for coordination
             this.toolManager.activate(this.toolId);
             return;
@@ -169,7 +177,7 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
         // Check if we're being called by ToolManager
         const calledByToolManager = this.toolManager?.activeToolId !== this.toolId;
 
-        if (this.toolManager && !calledByToolManager) {
+        if (this.registerWithToolManager && this.toolManager && !calledByToolManager) {
             // Called directly by user code - delegate to ToolManager for coordination
             this.toolManager.deactivate(this.toolId);
             return;
@@ -183,7 +191,7 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
      * Toggle this tool on/off.
      */
     toggle(): void {
-        if (this.toolManager) {
+        if (this.registerWithToolManager && this.toolManager) {
             this.toolManager.toggle(this.toolId);
         } else if (this._active) {
             this.deactivate();

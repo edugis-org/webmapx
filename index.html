@@ -39,6 +39,9 @@
                             <sl-button name="settings" size="medium" circle>
                                 <sl-icon name="gear" label="Settings"></sl-icon>
                             </sl-button>
+                            <sl-button name="geolocation" size="medium" circle>
+                                <sl-icon name="crosshair" label="Geolocation"></sl-icon>
+                            </sl-button>
                         </webmapx-toolbar>
 
                         <webmapx-tool-panel id="tool-panel" label="Tools">
@@ -46,6 +49,7 @@
                             <webmapx-search-tool id="search-tool" tool-id="search"></webmapx-search-tool>
                             <webmapx-measure-tool id="measure-tool" tool-id="measure"></webmapx-measure-tool>
                             <webmapx-settings id="settings-tool" tool-id="settings"></webmapx-settings>
+                            <webmapx-geolocation-tool id="geolocation-tool" tool-id="geolocation"></webmapx-geolocation-tool>
                         </webmapx-tool-panel>
                     </webmapx-control-group>
 
@@ -68,8 +72,59 @@
             <br/>
             <webmapx-tool-template></webmapx-tool-template>
             <webmapx-spinner></webmapx-spinner>
+            <br/>
+            <div>
+                <button id="external-geolocation-button">Use Geolocation</button>
+                <div id="external-geolocation-output"></div>
+            </div>
         </div>
     </div>
+
+    <script>
+        const map = document.getElementById('map-container');
+        const externalGeoButton = document.getElementById('external-geolocation-button');
+        const externalGeoOutput = document.getElementById('external-geolocation-output');
+        const externalToolsHost = externalGeoButton?.closest('div');
+
+        const setExternalGeoLabel = (active) => {
+            if (!externalGeoButton) return;
+            externalGeoButton.textContent = active ? 'Stop Geolocation' : 'Use Geolocation';
+        };
+
+        const updateExternalLabelFromTool = () => {
+            const tool = externalToolsHost?.querySelector('webmapx-geolocation-tool');
+            setExternalGeoLabel(Boolean(tool?.active));
+        };
+
+        map?.addEventListener('webmapx-tool-activated', (e) => {
+            if (e.detail?.toolId === 'geolocation') {
+                updateExternalLabelFromTool();
+            }
+        });
+
+        map?.addEventListener('webmapx-tool-deactivated', (e) => {
+            if (e.detail?.toolId === 'geolocation') {
+                updateExternalLabelFromTool();
+            }
+        });
+
+        externalGeoButton?.addEventListener('click', () => {
+            if (!externalGeoOutput || !externalToolsHost) return;
+            let tool = externalToolsHost.querySelector('webmapx-geolocation-tool');
+            if (!tool) {
+                tool = document.createElement('webmapx-geolocation-tool');
+                tool.setAttribute('map', '#map-container');
+                tool.setAttribute('render-target', '#external-geolocation-output');
+                externalToolsHost.appendChild(tool);
+            }
+            if (tool.active) {
+                tool.deactivate?.();
+            } else {
+                tool.activate?.();
+            }
+            updateExternalLabelFromTool();
+        });
+    </script>
 
 </body>
 </html>

@@ -53,7 +53,8 @@
         "service": "xyz",
         "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
         "tileSize": 256,
-        "attribution": "© OpenStreetMap contributors"
+        "attribution": "© OpenStreetMap contributors",
+        "maxZoom": 19
       },
       {
         "id": "bluemarble-source",
