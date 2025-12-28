@@ -11,12 +11,12 @@ The `<webmapx-tool-panel>` is a collapsible container for displaying the detaile
 
 ## Usage
 
-Place the specific tool interfaces (like layer trees or forms) inside the panel.
+Place the specific tool interfaces (like layer trees or forms) inside the panel and assign each tool a `tool-id` that matches the toolbar button `name`.
 
 ```html
 <webmapx-tool-panel id="tool-panel" label="Tools">
-    <div id="layers-ui">...</div>
-    <div id="settings-ui" style="display: none;">...</div>
+    <webmapx-layer-tree tool-id="layers"></webmapx-layer-tree>
+    <webmapx-settings tool-id="settings"></webmapx-settings>
 </webmapx-tool-panel>
 ```
 
@@ -35,9 +35,8 @@ Place the specific tool interfaces (like layer trees or forms) inside the panel.
 
 ## Interaction Pattern
 
-The panel does not automatically know which content to show. The application logic (usually in `app.js` or `index.html`) is responsible for:
+The panel automatically syncs with toolbar selections and modal tool activation when tool IDs are provided:
 
-1.  Listening to `webmapx-tool-select` from the toolbar.
-2.  Setting `panel.active = true`.
-3.  Updating `panel.label`.
-4.  Toggling the visibility of the child elements (e.g., showing `#layers-ui` and hiding `#settings-ui`).
+1.  Toolbar buttons emit `webmapx-tool-select`, and modal tools emit `webmapx-tool-activated`.
+2.  The panel opens, updates its label, and shows only the tool matching the active ID.
+3.  Closing the panel emits `webmapx-panel-close`, which the toolbar listens to for reset.

@@ -13,10 +13,6 @@
 
     <link rel="stylesheet" href="./app.css">
     <script type="module" src="./src/app.js"></script>
-    <style>
-        /* Hide tools by default (tool element itself should manage visibility) */
-        #layer-tool, #settings-tool, #measure-tool { display: none; height: 100%; }
-    </style>
 </head>
 <body>
     <div class="table">
@@ -46,10 +42,10 @@
                         </webmapx-toolbar>
 
                         <webmapx-tool-panel id="tool-panel" label="Tools">
-                            <webmapx-layer-tree id="layer-tool"></webmapx-layer-tree>
-                            <webmapx-search-tool id="search-tool"></webmapx-search-tool>
-                            <webmapx-measure-tool id="measure-tool"></webmapx-measure-tool>
-                            <webmapx-settings id="settings-tool"></webmapx-settings>
+                            <webmapx-layer-tree id="layer-tool" tool-id="layers"></webmapx-layer-tree>
+                            <webmapx-search-tool id="search-tool" tool-id="search"></webmapx-search-tool>
+                            <webmapx-measure-tool id="measure-tool" tool-id="measure"></webmapx-measure-tool>
+                            <webmapx-settings id="settings-tool" tool-id="settings"></webmapx-settings>
                         </webmapx-tool-panel>
                     </webmapx-control-group>
 
@@ -75,104 +71,5 @@
         </div>
     </div>
 
-    <script>
-        const map = document.getElementById('map-container');
-        const panel = document.getElementById('tool-panel');
-        const layerTool = document.getElementById('layer-tool');
-        const measureTool = document.getElementById('measure-tool');
-        const settingsTool = document.getElementById('settings-tool');
-
-        // Track which panel content is shown
-        let currentPanelTool = null;
-
-        // Helper: show a specific tool in the panel
-        function showPanelContent(toolId) {
-            // Hide all
-            layerTool.style.display = 'none';
-            measureTool.style.display = 'none';
-            settingsTool.style.display = 'none';
-            const searchTool = document.getElementById('search-tool');
-            if (searchTool) searchTool.style.display = 'none';
-
-            // Show requested
-            if (toolId === 'layers') {
-                layerTool.style.display = 'block';
-                panel.label = 'Layers';
-            } else if (toolId === 'search') {
-                if (searchTool) searchTool.style.display = 'block';
-                panel.label = 'Search';
-            } else if (toolId === 'measure') {
-                measureTool.style.display = 'block';
-                panel.label = 'Measure';
-            } else if (toolId === 'settings') {
-                settingsTool.style.display = 'block';
-                panel.label = 'Settings';
-            }
-
-            currentPanelTool = toolId;
-        }
-
-        // Listen for tool activation (from ToolManager)
-        // Note: 'measure' is a modal tool, it uses ToolManager
-        map.addEventListener('webmapx-tool-activated', (e) => {
-            const toolId = e.detail.toolId;
-            panel.active = true;
-            showPanelContent(toolId);
-        });
-
-        // Listen for tool deactivation
-        map.addEventListener('webmapx-tool-deactivated', (e) => {
-            const toolId = e.detail.toolId;
-            // Only close panel if the deactivated tool was the current one
-            if (toolId === currentPanelTool) {
-                // Check if another tool is now active
-                if (!map.toolManager.activeToolId) {
-                    panel.active = false;
-                    currentPanelTool = null;
-                }
-            }
-        });
-
-        // For non-modal tools (layers, settings), we still use the old event
-        // The toolbar falls back to webmapx-tool-select when tool isn't in ToolManager
-        map.addEventListener('webmapx-tool-select', (e) => {
-            const toolId = e.detail.toolId;
-
-            // If measure was selected, ToolManager handles it
-            if (toolId === 'measure') return;
-
-            if (!toolId) {
-                panel.active = false;
-                currentPanelTool = null;
-                return;
-            }
-
-            panel.active = true;
-            showPanelContent(toolId);
-        });
-
-        // Listen for panel close event (from the X button inside the panel)
-        panel.addEventListener('webmapx-panel-close', () => {
-            // Deactivate any active modal tool
-            if (map.toolManager.activeToolId) {
-                map.toolManager.deactivate();
-            }
-
-            // Deactivate toolbar buttons manually for non-modal tools
-            const toolbar = document.getElementById('main-toolbar');
-            const buttons = toolbar.querySelectorAll('sl-button');
-            buttons.forEach(b => {
-                b.removeAttribute('active');
-                b.setAttribute('variant', 'default');
-            });
-
-            currentPanelTool = null;
-        });
-
-        // Listen for layer toggles
-        layerTool.addEventListener('layer-toggle', (e) => {
-            console.log('Layer toggled:', e.detail);
-        });
-    </script>
 </body>
 </html>

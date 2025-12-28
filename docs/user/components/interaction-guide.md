@@ -1,64 +1,34 @@
 # Toolbar and Tool Panel Interaction
 
-The `webmapx-toolbar` and `webmapx-tool-panel` components are designed to work together, but they are loosely coupled. They do not communicate directly; instead, they rely on the application to coordinate them via events.
+The `webmapx-toolbar` and `webmapx-tool-panel` components are designed to work together. The panel now listens to toolbar and modal tool events directly, so the application no longer needs to wire them together.
 
 ## How it Works
 
-1.  **Identification**: Each button in the toolbar must have a unique identifier, set via the `name` or `data-tool` attribute.
+1.  **Identification**: Each button in the toolbar must have a unique identifier, set via the `name` or `data-tool` attribute. Tool panel children should set `tool-id` to the same value.
     ```html
     <sl-button name="layers">...</sl-button>
+    <webmapx-layer-tree tool-id="layers"></webmapx-layer-tree>
     ```
 
 2.  **Selection Event**: When a user clicks a button, the toolbar emits a `webmapx-tool-select` event containing the `toolId` (e.g., `'layers'`).
 
-3.  **Application Logic**: The application listens for this event and updates the panel state.
-    *   It sets `panel.active = true` to open the panel.
-    *   It sets `panel.label` to the appropriate title.
-    *   It shows the specific content associated with that tool ID and hides others.
+3.  **Panel Sync**: The panel listens for tool events and automatically:
+    *   Opens/closes itself.
+    *   Updates its label.
+    *   Shows the content for the active tool and hides others.
 
-4.  **Closing**: When the user closes the panel (via the X button), the panel emits `webmapx-panel-close`. The application listens for this and resets the toolbar state (deactivating buttons).
+4.  **Closing**: When the user closes the panel (via the X button), the panel emits `webmapx-panel-close`. The toolbar listens for this and resets button state (and deactivates any active modal tool).
 
 ## Example Implementation
 
-```javascript
-const toolbar = document.getElementById('main-toolbar');
-const panel = document.getElementById('tool-panel');
-const layerUI = document.getElementById('layer-ui');
-const settingsUI = document.getElementById('settings-ui');
+```html
+<webmapx-toolbar id="main-toolbar">
+    <sl-button name="layers">...</sl-button>
+    <sl-button name="settings">...</sl-button>
+</webmapx-toolbar>
 
-// 1. Handle Tool Selection
-toolbar.addEventListener('webmapx-tool-select', (e) => {
-    const toolId = e.detail.toolId;
-
-    // If toolId is null, the user clicked the active button to toggle it off
-    if (!toolId) {
-        panel.active = false;
-        return;
-    }
-
-    // Open the panel
-    panel.active = true;
-
-    // Switch Content
-    layerUI.style.display = 'none';
-    settingsUI.style.display = 'none';
-
-    if (toolId === 'layers') {
-        layerUI.style.display = 'block';
-        panel.label = 'Layers';
-    } else if (toolId === 'settings') {
-        settingsUI.style.display = 'block';
-        panel.label = 'Settings';
-    }
-});
-
-// 2. Handle Panel Closing
-panel.addEventListener('webmapx-panel-close', () => {
-    // Manually reset toolbar buttons to "inactive" state
-    const buttons = toolbar.querySelectorAll('sl-button');
-    buttons.forEach(btn => {
-        btn.removeAttribute('active');
-        btn.setAttribute('variant', 'default'); // If using Shoelace
-    });
-});
+<webmapx-tool-panel id="tool-panel" label="Tools">
+    <webmapx-layer-tree tool-id="layers"></webmapx-layer-tree>
+    <webmapx-settings tool-id="settings"></webmapx-settings>
+</webmapx-tool-panel>
 ```

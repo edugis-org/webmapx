@@ -22,6 +22,34 @@ This guide explains how to assemble the Modular GIS Web UI as an application dev
 - **Tools:** Components such as `<webmapx-tool-template>` and `<webmapx-zoom-level>` include their own styling so they render correctly whether or not they live inside the layout helper.
 - **Configuration:** JSON files define map settings, data sources, layers, and tools. Load via URL parameter `?config=path/to/config.json`.
 
+## Toolbar + Panel Example
+
+```html
+<webmapx-control-group slot="bottom-left" orientation="horizontal" panel-position="before">
+  <webmapx-toolbar id="main-toolbar">
+    <sl-button name="layers" circle>
+      <sl-icon name="layers"></sl-icon>
+    </sl-button>
+    <sl-button name="search" circle>
+      <sl-icon name="search"></sl-icon>
+    </sl-button>
+    <sl-button name="measure" circle>
+      <sl-icon name="rulers"></sl-icon>
+    </sl-button>
+    <sl-button name="settings" circle>
+      <sl-icon name="gear"></sl-icon>
+    </sl-button>
+  </webmapx-toolbar>
+
+  <webmapx-tool-panel id="tool-panel" label="Tools">
+    <webmapx-layer-tree tool-id="layers"></webmapx-layer-tree>
+    <webmapx-search-tool tool-id="search"></webmapx-search-tool>
+    <webmapx-measure-tool tool-id="measure"></webmapx-measure-tool>
+    <webmapx-settings tool-id="settings"></webmapx-settings>
+  </webmapx-tool-panel>
+</webmapx-control-group>
+```
+
 ## Configuration
 See [Configuration](./configuration.md) for details on:
 - Loading config files via URL parameter
@@ -37,6 +65,7 @@ See [Configuration](./configuration.md) for details on:
 - [`webmapx-tool-panel`](./components/webmapx-tool-panel.md)
 - [`webmapx-inset-map`](./components/webmapx-inset-map.md)
 - [`webmapx-tool-template`](./components/webmapx-tool-template.md)
+- [`webmapx-search-tool`](./components/webmapx-search-tool.md)
 - [`webmapx-zoom-level`](./components/webmapx-zoom-level.md)
 
 See also: [Toolbar and Panel Interaction Guide](./components/interaction-guide.md)

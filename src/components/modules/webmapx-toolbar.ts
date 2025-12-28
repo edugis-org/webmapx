@@ -38,8 +38,10 @@ export class WebmapxToolbar extends LitElement {
   buttons!: HTMLElement[];
 
   private toolManager: ToolManager | null = null;
+  private toolPanel: HTMLElement | null = null;
   private boundHandleToolActivated = (e: Event) => this.handleToolActivated(e as CustomEvent);
   private boundHandleToolDeactivated = (e: Event) => this.handleToolDeactivated(e as CustomEvent);
+  private boundHandlePanelClose = (e: Event) => this.handlePanelClose(e as CustomEvent);
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -53,12 +55,17 @@ export class WebmapxToolbar extends LitElement {
     // Listen for tool activation/deactivation events to sync button states
     mapHost?.addEventListener('webmapx-tool-activated', this.boundHandleToolActivated);
     mapHost?.addEventListener('webmapx-tool-deactivated', this.boundHandleToolDeactivated);
+
+    this.toolPanel = this.resolveToolPanel();
+    this.toolPanel?.addEventListener('webmapx-panel-close', this.boundHandlePanelClose);
   }
 
   disconnectedCallback(): void {
     const mapHost = this.closest('webmapx-map');
     mapHost?.removeEventListener('webmapx-tool-activated', this.boundHandleToolActivated);
     mapHost?.removeEventListener('webmapx-tool-deactivated', this.boundHandleToolDeactivated);
+    this.toolPanel?.removeEventListener('webmapx-panel-close', this.boundHandlePanelClose);
+    this.toolPanel = null;
     this.toolManager = null;
     super.disconnectedCallback();
   }
@@ -131,6 +138,23 @@ export class WebmapxToolbar extends LitElement {
   /** Handle tool deactivation events from ToolManager */
   private handleToolDeactivated(_e: CustomEvent): void {
     this.clearActiveButtons();
+  }
+
+  private handlePanelClose(_e: CustomEvent): void {
+    if (this.toolManager?.activeToolId) {
+      this.toolManager.deactivate();
+    }
+    this.clearActiveButtons();
+  }
+
+  private resolveToolPanel(): HTMLElement | null {
+    const controlGroup = this.closest('webmapx-control-group');
+    if (controlGroup) {
+      const panel = controlGroup.querySelector('webmapx-tool-panel');
+      if (panel) return panel as HTMLElement;
+    }
+    const mapHost = this.closest('webmapx-map');
+    return mapHost?.querySelector('webmapx-tool-panel') ?? null;
   }
 
   /** Set a specific button as active by toolId */

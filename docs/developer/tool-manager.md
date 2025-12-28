@@ -213,19 +213,15 @@ document.addEventListener('keydown', (e) => {
 
 ### With Tool Panel Visibility
 
-```javascript
-const panel = document.querySelector('webmapx-tool-panel');
+The tool panel now listens to tool events directly. As long as your panel children declare matching `tool-id` values, no extra wiring is required.
 
-map.addEventListener('webmapx-tool-activated', (e) => {
-    panel.active = true;
-    panel.label = e.detail.toolId;
-});
-
-map.addEventListener('webmapx-tool-deactivated', () => {
-    if (!map.toolManager.activeToolId) {
-        panel.active = false;
-    }
-});
+```html
+<webmapx-tool-panel id="tool-panel" label="Tools">
+    <webmapx-layer-tree tool-id="layers"></webmapx-layer-tree>
+    <webmapx-search-tool tool-id="search"></webmapx-search-tool>
+    <webmapx-measure-tool tool-id="measure"></webmapx-measure-tool>
+    <webmapx-settings tool-id="settings"></webmapx-settings>
+</webmapx-tool-panel>
 ```
 
 ## State Store Integration

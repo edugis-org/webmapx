@@ -11,7 +11,9 @@ The `<webmapx-control-group>` component is a layout container designed to orches
 
 ## Usage
 
-Wrap your `<webmapx-toolbar>` and `<webmapx-tool-panel>` inside this component.
+Wrap your `<webmapx-toolbar>` and `<webmapx-tool-panel>` inside this component. For automatic panel syncing, ensure each panel child sets `tool-id` to match the corresponding toolbar button `name`.
+
+See also: [Toolbar and Panel Interaction Guide](./interaction-guide.md)
 
 ```html
 <webmapx-control-group 
@@ -19,8 +21,12 @@ Wrap your `<webmapx-toolbar>` and `<webmapx-tool-panel>` inside this component.
     panel-position="after" 
     alignment="start">
     
-    <webmapx-toolbar>...</webmapx-toolbar>
-    <webmapx-tool-panel>...</webmapx-tool-panel>
+    <webmapx-toolbar>
+        <sl-button name="layers">...</sl-button>
+    </webmapx-toolbar>
+    <webmapx-tool-panel>
+        <webmapx-layer-tree tool-id="layers"></webmapx-layer-tree>
+    </webmapx-tool-panel>
 
 </webmapx-control-group>
 ```

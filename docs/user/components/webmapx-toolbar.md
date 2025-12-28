@@ -36,8 +36,11 @@ The `<webmapx-toolbar>` component is a container for tool buttons. It manages th
 
 ## Integration
 
-The toolbar relies on the `name` or `data-tool` attribute of its children to identify tools.
+The toolbar relies on the `name` or `data-tool` attribute of its children to identify tools. When used with `<webmapx-tool-panel>`, make sure the panel child sets a matching `tool-id`.
 
 ```html
 <sl-button name="my-tool">...</sl-button>
+<webmapx-tool-panel>
+    <my-tool-element tool-id="my-tool"></my-tool-element>
+</webmapx-tool-panel>
 ```
