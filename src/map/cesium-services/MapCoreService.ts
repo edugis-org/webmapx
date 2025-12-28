@@ -44,10 +44,13 @@ export class MapCoreService implements IMapCore {
     private zoomEndCallbacks: Array<(level: number) => void> = [];
     private sources = new Map<string, ISource>();
     private sourceState = new Map<string, { dataSource: any | null; layers: any[] }>();
+    private minZoom?: number;
+    private maxZoom?: number;
+    private isClamping = false;
 
     public initialize(
         containerId: string,
-        options?: { center?: [number, number]; zoom?: number; styleUrl?: string; style?: MapStyle }
+        options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; styleUrl?: string; style?: MapStyle }
     ): void {
         const Cesium = getCesium();
         if (!Cesium) {
@@ -57,6 +60,8 @@ export class MapCoreService implements IMapCore {
         const center = options?.center ?? [0, 0];
         const zoom = options?.zoom ?? 1;
         const target = this.resolveContainer(containerId);
+        this.minZoom = options?.minZoom;
+        this.maxZoom = options?.maxZoom;
 
         const osmProvider = new Cesium.UrlTemplateImageryProvider({
             url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -81,10 +86,9 @@ export class MapCoreService implements IMapCore {
             terrainProvider: new Cesium.EllipsoidTerrainProvider(),
         });
 
-        const height = this.zoomToCameraHeightMeters(zoom, center[1]);
-        this.viewer.camera.setView({
-            destination: Cesium.Cartesian3.fromDegrees(center[0], center[1], height),
-        });
+        const clampedZoom = this.clampZoom(zoom);
+        this.setCameraView(center, clampedZoom, false);
+        this.applyZoomDistanceLimits(center[1]);
 
         this.attachEvents();
 
@@ -110,15 +114,18 @@ export class MapCoreService implements IMapCore {
         if (!this.viewer) return;
         const Cesium = getCesium();
         if (!Cesium) return;
-        const height = this.zoomToCameraHeightMeters(zoom, center[1]);
-        this.viewer.camera.flyTo({
-            destination: Cesium.Cartesian3.fromDegrees(center[0], center[1], height),
-            duration: 0.5,
-        });
+        const clampedZoom = this.clampZoom(zoom);
+        this.setCameraView(center, clampedZoom, true);
+        this.applyZoomDistanceLimits(center[1]);
     }
 
     public setZoom(level: number): void {
         const current = this.getViewportState();
+        const clampedZoom = this.clampZoom(level);
+        if (current.zoom === clampedZoom && clampedZoom !== level) {
+            this.dispatchViewportState();
+            return;
+        }
         this.setViewport(current.center, level);
     }
 
@@ -285,20 +292,7 @@ export class MapCoreService implements IMapCore {
         });
 
         this.viewer.camera.moveEnd.addEventListener(() => {
-            const viewport = this.getViewportState();
-            const bounds = this.computeViewportBounds();
-            this.store.dispatch({ zoomLevel: viewport.zoom, mapCenter: viewport.center, mapViewportBounds: bounds }, 'MAP');
-            const sw = bounds ? (bounds.geometry.coordinates[0][0] as LngLat) : viewport.center;
-            const ne = bounds ? (bounds.geometry.coordinates[0][2] as LngLat) : viewport.center;
-            this.eventBus?.emit({
-                type: 'view-change-end',
-                center: viewport.center,
-                zoom: viewport.zoom,
-                bearing: viewport.bearing,
-                pitch: 0,
-                bounds: { sw, ne },
-            });
-            this.zoomEndCallbacks.forEach(cb => cb(viewport.zoom));
+            this.dispatchViewportState();
         });
     }
 
@@ -401,6 +395,71 @@ export class MapCoreService implements IMapCore {
         const denom = LOGICAL_TILE_SIZE * metersPerPixel;
         if (!isFinite(denom) || denom <= 0) return 0;
         return Math.log2((circumference * Math.cos(phi)) / denom);
+    }
+
+    private clampZoom(zoom: number): number {
+        let next = zoom;
+        if (this.minZoom !== undefined) {
+            next = Math.max(next, this.minZoom);
+        }
+        if (this.maxZoom !== undefined) {
+            next = Math.min(next, this.maxZoom);
+        }
+        return next;
+    }
+
+    private applyZoomDistanceLimits(lat: number): void {
+        if (!this.viewer) return;
+        const controller = this.viewer.scene?.screenSpaceCameraController;
+        if (!controller) return;
+
+        if (this.maxZoom !== undefined) {
+            controller.minimumZoomDistance = this.zoomToCameraHeightMeters(this.maxZoom, lat);
+        }
+        if (this.minZoom !== undefined) {
+            controller.maximumZoomDistance = this.zoomToCameraHeightMeters(this.minZoom, lat);
+        }
+    }
+
+    private setCameraView(center: [number, number], zoom: number, animate: boolean): void {
+        if (!this.viewer) return;
+        const Cesium = getCesium();
+        if (!Cesium) return;
+        const height = this.zoomToCameraHeightMeters(zoom, center[1]);
+        const destination = Cesium.Cartesian3.fromDegrees(center[0], center[1], height);
+        if (animate) {
+            this.viewer.camera.flyTo({ destination, duration: 0.5 });
+        } else {
+            this.viewer.camera.setView({ destination });
+        }
+    }
+
+    private dispatchViewportState(): void {
+        if (this.isClamping) {
+            this.isClamping = false;
+        }
+        const viewport = this.getViewportState();
+        const clampedZoom = this.clampZoom(viewport.zoom);
+        if (clampedZoom !== viewport.zoom) {
+            this.isClamping = true;
+            this.setCameraView(viewport.center, clampedZoom, false);
+            this.applyZoomDistanceLimits(viewport.center[1]);
+            return;
+        }
+        this.applyZoomDistanceLimits(viewport.center[1]);
+        const bounds = this.computeViewportBounds();
+        this.store.dispatch({ zoomLevel: viewport.zoom, mapCenter: viewport.center, mapViewportBounds: bounds }, 'MAP');
+        const sw = bounds ? (bounds.geometry.coordinates[0][0] as LngLat) : viewport.center;
+        const ne = bounds ? (bounds.geometry.coordinates[0][2] as LngLat) : viewport.center;
+        this.eventBus?.emit({
+            type: 'view-change-end',
+            center: viewport.center,
+            zoom: viewport.zoom,
+            bearing: viewport.bearing,
+            pitch: 0,
+            bounds: { sw, ne },
+        });
+        this.zoomEndCallbacks.forEach(cb => cb(viewport.zoom));
     }
 
     private applySourceStyles(sourceId: string): void {

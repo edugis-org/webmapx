@@ -22,6 +22,8 @@ export class MapCoreService implements IMapCore {
     private mapInstance: OLMap | null = null;
     private mapReadyCallbacks: Array<(map: OLMap) => void> = [];
     private silentSourceIds = new Set<string>();
+    private minZoom?: number;
+    private maxZoom?: number;
 
     /**
      * Zoom offset to normalize between MapLibre (512px tiles) and OpenLayers/OSM (256px tiles).
@@ -62,30 +64,48 @@ export class MapCoreService implements IMapCore {
 
     public setViewport(center: [number, number], zoom: number): void {
         if (this.mapInstance) {
+            const clampedZoom = this.clampZoom(zoom);
             this.mapInstance.getView().animate({
                 center: fromLonLat(center),
-                zoom: this.toOLZoom(zoom),
+                zoom: this.toOLZoom(clampedZoom),
                 duration: 500
             });
+            if (clampedZoom !== zoom) {
+                this.scheduleViewportSync();
+            }
         }
     }
 
     public initialize(
         containerId: string,
-        options?: { center?: [number, number]; zoom?: number; styleUrl?: string; style?: MapStyle }
+        options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; styleUrl?: string; style?: MapStyle }
     ): void {
         const center = options?.center ?? this.initialConfig.center;
         const logicalZoom = options?.zoom ?? this.initialConfig.zoom;
         const olZoom = this.toOLZoom(logicalZoom);
+        this.minZoom = options?.minZoom;
+        this.maxZoom = options?.maxZoom;
+        const minZoom = options?.minZoom;
+        const maxZoom = options?.maxZoom;
         const container = this.resolveContainer(containerId);
 
         // Start with empty layers, add style layers after
+        const viewOptions: { center: number[]; zoom: number; minZoom?: number; maxZoom?: number } = {
+            center: fromLonLat(center),
+            zoom: olZoom
+        };
+        if (minZoom !== undefined) {
+            viewOptions.minZoom = this.toOLZoom(minZoom);
+        }
+        if (maxZoom !== undefined) {
+            viewOptions.maxZoom = this.toOLZoom(maxZoom);
+        }
+
         this.mapInstance = new OLMap({
             target: container,
             layers: [],
             view: new View({
-                center: fromLonLat(center),
-                zoom: olZoom
+                ...viewOptions
             }),
             controls: []
         });
@@ -287,7 +307,14 @@ export class MapCoreService implements IMapCore {
 
     public setZoom(level: number): void {
         if (this.mapInstance) {
-            this.mapInstance.getView().setZoom(this.toOLZoom(level));
+            const clampedZoom = this.clampZoom(level);
+            const view = this.mapInstance.getView();
+            const currentZoom = this.fromOLZoom(view.getZoom() || 0);
+            if (currentZoom === clampedZoom && clampedZoom !== level) {
+                this.scheduleViewportSync();
+                return;
+            }
+            view.setZoom(this.toOLZoom(clampedZoom));
         }
     }
 
@@ -301,6 +328,30 @@ export class MapCoreService implements IMapCore {
 
     public getZoom(): number {
         return this.fromOLZoom(this.mapInstance?.getView().getZoom() || this.toOLZoom(this.initialConfig.zoom));
+    }
+
+    private scheduleViewportSync(): void {
+        if (!this.mapInstance) return;
+        requestAnimationFrame(() => {
+            if (!this.mapInstance) return;
+            const view = this.mapInstance.getView();
+            const center = toLonLat(view.getCenter() || [0, 0]) as [number, number];
+            const zoom = this.fromOLZoom(view.getZoom() || 0);
+            const viewportBounds = this.buildViewportFeature();
+            this.store.dispatch({ zoomLevel: zoom, mapCenter: center, mapViewportBounds: viewportBounds }, 'MAP');
+            this.emitViewChangeEnd();
+        });
+    }
+
+    private clampZoom(zoom: number): number {
+        let next = zoom;
+        if (this.minZoom !== undefined) {
+            next = Math.max(next, this.minZoom);
+        }
+        if (this.maxZoom !== undefined) {
+            next = Math.min(next, this.maxZoom);
+        }
+        return next;
     }
 
     private sources: Map<string, { source: VectorSource, layers: any[], olLayer: VectorLayer<any> }> = new Map();

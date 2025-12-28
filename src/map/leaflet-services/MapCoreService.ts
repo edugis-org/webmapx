@@ -31,6 +31,8 @@ export class MapCoreService implements IMapCore {
     private mapInstance: L.Map | null = null;
     private mapReadyCallbacks: Array<(map: L.Map) => void> = [];
     private silentSourceIds = new Set<string>();
+    private minZoom?: number;
+    private maxZoom?: number;
 
     // State for dynamic sources and layers
     private sources: Map<string, any> = new Map();
@@ -77,15 +79,23 @@ export class MapCoreService implements IMapCore {
 
     public setViewport(center: [number, number], zoom: number): void {
         if (this.mapInstance) {
-            const leafletZoom = Math.round(zoom) + ZOOM_OFFSET;
+            const clampedZoom = this.clampZoom(zoom);
+            const leafletZoom = Math.round(clampedZoom) + ZOOM_OFFSET;
             this.mapInstance.flyTo([center[1], center[0]], leafletZoom);
+            if (clampedZoom !== zoom) {
+                this.scheduleViewportSync();
+            }
         }
     }
 
-    public initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; styleUrl?: string; style?: MapStyle }): void {
+    public initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; styleUrl?: string; style?: MapStyle }): void {
         const center = options?.center ? [options.center[1], options.center[0]] as [number, number] : this.initialConfig.center;
         const logicalZoom = options?.zoom ?? this.initialConfig.zoom;
         const leafletZoom = Math.round(logicalZoom) + ZOOM_OFFSET;
+        this.minZoom = options?.minZoom;
+        this.maxZoom = options?.maxZoom;
+        const minZoom = options?.minZoom !== undefined ? Math.round(options.minZoom) + ZOOM_OFFSET : undefined;
+        const maxZoom = options?.maxZoom !== undefined ? Math.round(options.maxZoom) + ZOOM_OFFSET : undefined;
         const containerTarget = this.resolveContainer(containerId);
 
         if (containerTarget instanceof HTMLElement) {
@@ -96,6 +106,8 @@ export class MapCoreService implements IMapCore {
         this.mapInstance = L.map(containerTarget, {
             center: center,
             zoom: leafletZoom,
+            minZoom,
+            maxZoom,
             zoomControl: true,
         });
 
@@ -271,7 +283,14 @@ export class MapCoreService implements IMapCore {
     }
 
     public setZoom(level: number): void {
-        this.mapInstance?.setZoom(Math.round(level) + ZOOM_OFFSET);
+        if (!this.mapInstance) return;
+        const clampedZoom = this.clampZoom(level);
+        const currentZoom = this.mapInstance.getZoom() - ZOOM_OFFSET;
+        if (currentZoom === clampedZoom && clampedZoom !== level) {
+            this.scheduleViewportSync();
+            return;
+        }
+        this.mapInstance.setZoom(Math.round(clampedZoom) + ZOOM_OFFSET);
     }
 
     public onZoomEnd(callback: (level: number) => void): void {
@@ -280,6 +299,33 @@ export class MapCoreService implements IMapCore {
 
     public getZoom(): number {
         return this.mapInstance ? this.mapInstance.getZoom() - ZOOM_OFFSET : this.initialConfig.zoom;
+    }
+
+    private scheduleViewportSync(): void {
+        if (!this.mapInstance) return;
+        requestAnimationFrame(() => {
+            if (!this.mapInstance) return;
+            const center = this.mapInstance.getCenter();
+            const logicalZoom = this.mapInstance.getZoom() - ZOOM_OFFSET;
+            const viewportBounds = this.buildViewportFeature();
+            this.store.dispatch({
+                mapCenter: [center.lng, center.lat],
+                zoomLevel: logicalZoom,
+                mapViewportBounds: viewportBounds
+            }, 'MAP');
+            this.emitViewChangeEnd();
+        });
+    }
+
+    private clampZoom(zoom: number): number {
+        let next = zoom;
+        if (this.minZoom !== undefined) {
+            next = Math.max(next, this.minZoom);
+        }
+        if (this.maxZoom !== undefined) {
+            next = Math.min(next, this.maxZoom);
+        }
+        return next;
     }
 
     public addLayer(layerSpec: any): void {

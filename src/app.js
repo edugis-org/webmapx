@@ -98,6 +98,8 @@ async function initializeMap(mapElement, appConfig) {
     let initOptions = {
         center: mapConfig.center,
         zoom: mapConfig.zoom,
+        minZoom: mapConfig.minZoom,
+        maxZoom: mapConfig.maxZoom,
         // Use styleUrl if string, otherwise inline style object
         ...(isStyleUrl ? { styleUrl: styleConfig } : { style: styleConfig })
     };

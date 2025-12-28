@@ -127,18 +127,18 @@ function validateMapSection(
     });
   }
 
-  if (m.minzoom !== undefined && (typeof m.minzoom !== 'number' || m.minzoom < 0 || m.minzoom > 24)) {
-    errors.push({ severity: 'error', path: `${path}.minzoom`, message: '"minzoom" must be a number between 0 and 24' });
+  if (m.minZoom !== undefined && (typeof m.minZoom !== 'number' || m.minZoom < 0 || m.minZoom > 24)) {
+    errors.push({ severity: 'error', path: `${path}.minZoom`, message: '"minZoom" must be a number between 0 and 24' });
   }
-  if (m.maxzoom !== undefined && (typeof m.maxzoom !== 'number' || m.maxzoom < 0 || m.maxzoom > 24)) {
-    errors.push({ severity: 'error', path: `${path}.maxzoom`, message: '"maxzoom" must be a number between 0 and 24' });
+  if (m.maxZoom !== undefined && (typeof m.maxZoom !== 'number' || m.maxZoom < 0 || m.maxZoom > 24)) {
+    errors.push({ severity: 'error', path: `${path}.maxZoom`, message: '"maxZoom" must be a number between 0 and 24' });
   }
   if (
-    typeof m.minzoom === 'number' &&
-    typeof m.maxzoom === 'number' &&
-    m.minzoom > m.maxzoom
+    typeof m.minZoom === 'number' &&
+    typeof m.maxZoom === 'number' &&
+    m.minZoom > m.maxZoom
   ) {
-    errors.push({ severity: 'error', path: `${path}.minzoom`, message: '"minzoom" cannot be greater than "maxzoom"' });
+    errors.push({ severity: 'error', path: `${path}.minZoom`, message: '"minZoom" cannot be greater than "maxZoom"' });
   }
 }
 
