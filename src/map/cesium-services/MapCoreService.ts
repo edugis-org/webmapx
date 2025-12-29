@@ -217,6 +217,17 @@ export class MapCoreService implements IMapCore {
         return [point.x, point.y];
     }
 
+    public unproject(pixel: Pixel): LngLat | null {
+        const Cesium = getCesium();
+        if (!Cesium || !this.viewer) return null;
+        const canvas = this.viewer.scene.canvas;
+        const position = new Cesium.Cartesian2(pixel[0], pixel[1]);
+        const cartesian = this.viewer.camera.pickEllipsoid(position, Cesium.Ellipsoid.WGS84);
+        if (!cartesian) return null;
+        const carto = Cesium.Ellipsoid.WGS84.cartesianToCartographic(cartesian);
+        return [(carto.longitude * 180) / Math.PI, (carto.latitude * 180) / Math.PI];
+    }
+
     public fitBounds(bbox: [number, number, number, number]): void {
         const Cesium = getCesium();
         if (!Cesium || !this.viewer) return;

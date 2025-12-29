@@ -217,8 +217,15 @@ export class MapCoreService implements IMapCore {
             return [0, 0];
         }
         const latLng = L.latLng(coords[1], coords[0]);
-        const pixel = this.mapInstance.latLngToLayerPoint(latLng);
+        const pixel = this.mapInstance.latLngToContainerPoint(latLng);
         return [pixel.x, pixel.y];
+    }
+
+    public unproject(pixel: Pixel): LngLat | null {
+        if (!this.mapInstance) return null;
+        const latLng = this.mapInstance.containerPointToLatLng({ x: pixel[0], y: pixel[1] } as any);
+        if (!latLng) return null;
+        return [latLng.lng, latLng.lat];
     }
 
     public fitBounds(bbox: [number, number, number, number]): void {

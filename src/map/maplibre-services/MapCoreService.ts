@@ -347,6 +347,15 @@ export class MapCoreService implements IMapCore {
         return [point.x, point.y];
     }
 
+    public unproject(pixel: Pixel): LngLat | null {
+        if (!this.mapInstance) {
+            console.warn('[CORE SERVICE - MapLibre] unproject called before map instance is ready.');
+            return null;
+        }
+        const lngLat = this.mapInstance.unproject({ x: pixel[0], y: pixel[1] });
+        return [lngLat.lng, lngLat.lat];
+    }
+
     public fitBounds(bbox: [number, number, number, number]): void {
         if (!this.mapInstance) return;
         // MapLibre expects [[west, south], [east, north]]

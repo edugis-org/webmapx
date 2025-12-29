@@ -83,6 +83,8 @@ export interface IMapCore {
 
     /** Given a geographic coordinate (LngLat), returns its pixel coordinate [x, y]. */
     project(coords: LngLat): Pixel;
+    /** Given a pixel coordinate [x, y] in the map container, returns geographic [lng, lat]. */
+    unproject(pixel: Pixel): LngLat | null;
     /** Fit the map view to the given bbox [west, south, east, north]. Implementations should choose the best native method. */
     fitBounds(bbox: [number, number, number, number]): void;
 }

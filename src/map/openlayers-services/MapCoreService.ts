@@ -443,6 +443,14 @@ export class MapCoreService implements IMapCore {
         return [pixel[0], pixel[1]];
     }
 
+    public unproject(pixel: Pixel): LngLat | null {
+        if (!this.mapInstance) return null;
+        const coordinate = this.mapInstance.getCoordinateFromPixel([pixel[0], pixel[1]]);
+        if (!coordinate) return null;
+        const lngLat = toLonLat(coordinate) as LngLat;
+        return lngLat;
+    }
+
     public fitBounds(bbox: [number, number, number, number]): void {
         if (!this.mapInstance) return;
         const sw = fromLonLat([bbox[0], bbox[1]]);
