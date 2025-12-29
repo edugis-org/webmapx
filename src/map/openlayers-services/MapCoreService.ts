@@ -41,6 +41,12 @@ export class MapCoreService implements IMapCore {
         zoom: 4
     };
 
+    private toLogicalBearing(view: View): number {
+        const rotation = view.getRotation() || 0;
+        // Negate to align with MapLibre-style clockwise bearings.
+        return (-rotation * 180) / Math.PI;
+    }
+
     /** Convert logical zoom (MapLibre-compatible) to OpenLayers internal zoom */
     private toOLZoom(logicalZoom: number): number {
         return logicalZoom + MapCoreService.ZOOM_OFFSET;
@@ -56,7 +62,7 @@ export class MapCoreService implements IMapCore {
             const view = this.mapInstance.getView();
             const center = toLonLat(view.getCenter() || [0, 0]) as [number, number];
             const zoom = this.fromOLZoom(view.getZoom() || 1);
-            const bearing = (view.getRotation() * 180) / Math.PI;
+            const bearing = this.toLogicalBearing(view);
             return { center, zoom, bearing, pitch: 0 };
         }
         return { center: [0, 0], zoom: 1, bearing: 0, pitch: 0 };
@@ -280,7 +286,7 @@ export class MapCoreService implements IMapCore {
             type: 'view-change',
             center,
             zoom: this.fromOLZoom(view.getZoom() || 0),
-            bearing: (view.getRotation() * 180) / Math.PI,
+            bearing: this.toLogicalBearing(view),
             pitch: 0,
             bounds: { sw, ne }
         });
@@ -299,7 +305,7 @@ export class MapCoreService implements IMapCore {
             type: 'view-change-end',
             center,
             zoom: this.fromOLZoom(view.getZoom() || 0),
-            bearing: (view.getRotation() * 180) / Math.PI,
+            bearing: this.toLogicalBearing(view),
             pitch: 0,
             bounds: { sw, ne }
         });
@@ -336,13 +342,14 @@ export class MapCoreService implements IMapCore {
 
     public getBearing(): number {
         const view = this.mapInstance?.getView();
-        return view ? (view.getRotation() * 180) / Math.PI : 0;
+        return view ? this.toLogicalBearing(view) : 0;
     }
 
     public setBearing(bearing: number): void {
         const view = this.mapInstance?.getView();
         if (!view) return;
-        view.setRotation((bearing * Math.PI) / 180);
+        // MapLibre rotates clockwise for positive bearings; negate to align drag direction.
+        view.setRotation((-bearing * Math.PI) / 180);
     }
 
     public getPitch(): number {

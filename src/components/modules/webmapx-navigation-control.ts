@@ -39,9 +39,14 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
   private zoomMax: number | null = null;
   private compassRect: DOMRect | null = null;
   private compassPointerId: number | null = null;
+  private compassPointerTarget: HTMLElement | null = null;
   private startBearing = 0;
   private startPitch = 0;
   private startPointer: { x: number; y: number } | null = null;
+  private compassDragMoved = false;
+  private suppressNextCompassClick = false;
+  private readonly compassClickTolerance = 4;
+  private compassDragMode: 'rotate' | 'pitch' | null = null;
 
   static styles = css`
     :host {
@@ -58,6 +63,7 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
       box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05));
       overflow: hidden;
       border-radius: 8px;
+      touch-action: none;
     }
 
     :host([orientation='vertical']) .nav-shell {
@@ -81,6 +87,7 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
       cursor: pointer;
       color: inherit;
       transition: background 120ms ease, transform 120ms ease;
+      touch-action: none;
     }
 
     .nav-btn + .nav-btn {
@@ -219,6 +226,10 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
   };
 
   private handleCompassClick = () => {
+    if (this.suppressNextCompassClick) {
+      this.suppressNextCompassClick = false;
+      return;
+    }
     if (!this.adapter) return;
     const caps = this.adapter.core.getNavigationCapabilities?.();
     if (caps?.pitch && this.visualizePitch) {
@@ -234,28 +245,43 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
     if (!target) return;
     event.preventDefault();
     this.compassPointerId = event.pointerId;
+    this.compassPointerTarget = target;
     this.compassRect = target.getBoundingClientRect();
     this.startBearing = this.bearing;
     this.startPitch = this.pitch;
     this.startPointer = { x: event.clientX, y: event.clientY };
+    this.compassDragMoved = false;
+    this.suppressNextCompassClick = false;
+    this.compassDragMode = this.resolveCompassDragMode(event);
+    if (!this.compassDragMode) {
+      return;
+    }
+    try {
+      target.setPointerCapture(event.pointerId);
+    } catch {
+      // ignore if not supported
+    }
     window.addEventListener('pointermove', this.handleCompassPointerMove);
     window.addEventListener('pointerup', this.handleCompassPointerUp);
   };
 
   private handleCompassPointerMove = (event: PointerEvent) => {
-    if (event.pointerId !== this.compassPointerId || !this.adapter || !this.compassRect) return;
-    const caps = this.adapter.core.getNavigationCapabilities?.();
+    if (event.pointerId !== this.compassPointerId || !this.adapter || !this.compassRect || !this.compassDragMode) return;
     const cx = this.compassRect.left + this.compassRect.width / 2;
     const cy = this.compassRect.top + this.compassRect.height / 2;
-    const angle = Math.atan2(event.clientY - cy, event.clientX - cx);
-    const startAngle = Math.atan2((this.startPointer?.y ?? cy) - cy, (this.startPointer?.x ?? cx) - cx);
-    const deltaDeg = (angle - startAngle) * (180 / Math.PI);
-    if (caps?.bearing) {
+    const dist = Math.hypot(event.clientX - (this.startPointer?.x ?? event.clientX), event.clientY - (this.startPointer?.y ?? event.clientY));
+    if (dist > this.compassClickTolerance) {
+      this.compassDragMoved = true;
+    }
+
+    if (this.compassDragMode === 'rotate') {
+      const angle = Math.atan2(event.clientY - cy, event.clientX - cx);
+      const startAngle = Math.atan2((this.startPointer?.y ?? cy) - cy, (this.startPointer?.x ?? cx) - cx);
+      const deltaDeg = (angle - startAngle) * (180 / Math.PI);
       const targetBearing = this.normalizeBearing(this.startBearing - deltaDeg);
       this.adapter.core.setBearing(targetBearing);
       this.bearing = targetBearing;
-    }
-    if (caps?.pitch && this.visualizePitch && this.startPointer) {
+    } else if (this.compassDragMode === 'pitch' && this.startPointer) {
       const deltaY = event.clientY - this.startPointer.y;
       const targetPitch = this.clampPitch(this.startPitch - deltaY * 0.35);
       this.adapter.core.setPitch(targetPitch);
@@ -265,15 +291,52 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
 
   private handleCompassPointerUp = (event: PointerEvent) => {
     if (event.pointerId !== this.compassPointerId) return;
+    if (this.compassDragMoved) {
+      this.suppressNextCompassClick = true;
+    }
     this.releaseCompassPointer();
   };
 
   private releaseCompassPointer(): void {
+    const pointerId = this.compassPointerId;
     this.compassPointerId = null;
     this.compassRect = null;
     this.startPointer = null;
+    this.compassDragMoved = false;
+    this.compassDragMode = null;
+    // Release pointer capture if held
+    if (pointerId !== null && this.compassPointerTarget?.releasePointerCapture) {
+      try {
+        this.compassPointerTarget.releasePointerCapture(pointerId);
+      } catch {
+        // ignore
+      }
+    }
+    this.compassPointerTarget = null;
     window.removeEventListener('pointermove', this.handleCompassPointerMove);
     window.removeEventListener('pointerup', this.handleCompassPointerUp);
+  }
+
+  private resolveCompassDragMode(event: PointerEvent): 'rotate' | 'pitch' | null {
+    if (!this.compassRect || !this.adapter) return null;
+    const caps = this.adapter.core.getNavigationCapabilities?.() ?? { bearing: false, pitch: false };
+    const cx = this.compassRect.left + this.compassRect.width / 2;
+    const cy = this.compassRect.top + this.compassRect.height / 2;
+    const dx = event.clientX - cx;
+    const dy = event.clientY - cy;
+
+    const prefersPitch = Math.abs(dy) > Math.abs(dx);
+    if (prefersPitch && this.visualizePitch && caps.pitch) {
+      return 'pitch';
+    }
+    if (!prefersPitch && caps.bearing) {
+      return 'rotate';
+    }
+
+    // Fallbacks if preferred mode unsupported
+    if (caps.bearing) return 'rotate';
+    if (this.visualizePitch && caps.pitch) return 'pitch';
+    return null;
   }
 
   private renderCompass() {
