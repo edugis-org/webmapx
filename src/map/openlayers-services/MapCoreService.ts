@@ -4,7 +4,7 @@ import OLMap from 'ol/Map';
 import View from 'ol/View';
 import { fromLonLat, toLonLat } from 'ol/proj';
 import { apply, stylefunction } from 'ol-mapbox-style';
-import { IMapCore, ISource } from '../IMapInterfaces';
+import { IMapCore, ISource, NavigationCapabilities } from '../IMapInterfaces';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel, PointerResolution } from '../../store/map-events';
 import type { MapStyle } from '../../config/types';
@@ -51,15 +51,15 @@ export class MapCoreService implements IMapCore {
         return olZoom - MapCoreService.ZOOM_OFFSET;
     }
 
-    public getViewportState(): { center: [number, number]; zoom: number; bearing: number } {
+    public getViewportState(): { center: [number, number]; zoom: number; bearing: number; pitch: number } {
         if (this.mapInstance) {
             const view = this.mapInstance.getView();
             const center = toLonLat(view.getCenter() || [0, 0]) as [number, number];
             const zoom = this.fromOLZoom(view.getZoom() || 1);
             const bearing = (view.getRotation() * 180) / Math.PI;
-            return { center, zoom, bearing };
+            return { center, zoom, bearing, pitch: 0 };
         }
-        return { center: [0, 0], zoom: 1, bearing: 0 };
+        return { center: [0, 0], zoom: 1, bearing: 0, pitch: 0 };
     }
 
     public setViewport(center: [number, number], zoom: number): void {
@@ -328,6 +328,37 @@ export class MapCoreService implements IMapCore {
 
     public getZoom(): number {
         return this.fromOLZoom(this.mapInstance?.getView().getZoom() || this.toOLZoom(this.initialConfig.zoom));
+    }
+
+    public getNavigationCapabilities(): NavigationCapabilities {
+        return { bearing: true, pitch: false };
+    }
+
+    public getBearing(): number {
+        const view = this.mapInstance?.getView();
+        return view ? (view.getRotation() * 180) / Math.PI : 0;
+    }
+
+    public setBearing(bearing: number): void {
+        const view = this.mapInstance?.getView();
+        if (!view) return;
+        view.setRotation((bearing * Math.PI) / 180);
+    }
+
+    public getPitch(): number {
+        return 0;
+    }
+
+    public setPitch(_pitch: number): void {
+        // Pitch not supported in OpenLayers 2D mode
+    }
+
+    public resetNorth(): void {
+        this.setBearing(0);
+    }
+
+    public resetNorthPitch(): void {
+        this.resetNorth();
     }
 
     private scheduleViewportSync(): void {

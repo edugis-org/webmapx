@@ -1,6 +1,6 @@
 // src/map/maplibre-services/MapCoreService.ts
 
-import { IMapCore } from '../IMapInterfaces';
+import { IMapCore, NavigationCapabilities } from '../IMapInterfaces';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel, PointerResolution } from '../../store/map-events';
 import type { MapStyle } from '../../config/types';
@@ -45,16 +45,17 @@ export class MapCoreService implements IMapCore {
     };
 
     // The explicit return type of the tuple [number, number] is retained here
-    public getViewportState(): { center: [number, number], zoom: number, bearing: number } { 
+    public getViewportState(): { center: [number, number], zoom: number, bearing: number, pitch: number } { 
         // Return real map values if initialized, otherwise fall back to defaults
         if (this.mapInstance) {
             return { 
                 center: this.mapInstance.getCenter().toArray() as [number, number], 
                 zoom: this.mapInstance.getZoom(), 
-                bearing: this.mapInstance.getBearing()
+                bearing: this.mapInstance.getBearing(),
+                pitch: this.mapInstance.getPitch()
             };
         }
-        return { center: [0, 0], zoom: 1, bearing: 0 }; 
+        return { center: [0, 0], zoom: 1, bearing: 0, pitch: 0 }; 
     }
     
     public setViewport(center: [number, number], zoom: number): void {
@@ -352,7 +353,8 @@ export class MapCoreService implements IMapCore {
             console.warn('[CORE SERVICE - MapLibre] unproject called before map instance is ready.');
             return null;
         }
-        const lngLat = this.mapInstance.unproject({ x: pixel[0], y: pixel[1] });
+        const point: maplibregl.PointLike = [pixel[0], pixel[1]];
+        const lngLat = this.mapInstance.unproject(point);
         return [lngLat.lng, lngLat.lat];
     }
 
@@ -376,6 +378,35 @@ export class MapCoreService implements IMapCore {
 
     public unsuppressBusySignalForSource(sourceId: string): void {
         this.silentSourceIds.delete(sourceId);
+    }
+
+    public getNavigationCapabilities(): NavigationCapabilities {
+        return { bearing: true, pitch: true };
+    }
+
+    public getBearing(): number {
+        return this.mapInstance?.getBearing() ?? 0;
+    }
+
+    public setBearing(bearing: number): void {
+        this.mapInstance?.setBearing(bearing);
+    }
+
+    public getPitch(): number {
+        return this.mapInstance?.getPitch() ?? 0;
+    }
+
+    public setPitch(pitch: number): void {
+        this.mapInstance?.setPitch(pitch);
+    }
+
+    public resetNorth(): void {
+        this.mapInstance?.resetNorth();
+    }
+
+    public resetNorthPitch(): void {
+        // resetNorthPitch also resets bearing
+        this.mapInstance?.resetNorthPitch();
     }
 
     private dispatchViewportBoundsSnapshot(): void {

@@ -1,6 +1,6 @@
 // src/map/cesium-services/MapCoreService.ts
 
-import type { IMapCore, ISource } from '../IMapInterfaces';
+import type { IMapCore, ISource, NavigationCapabilities } from '../IMapInterfaces';
 import type { MapStyle } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel } from '../../store/map-events';
@@ -97,17 +97,18 @@ export class MapCoreService implements IMapCore {
         this.flushReady();
     }
 
-    public getViewportState(): { center: [number, number]; zoom: number; bearing: number } {
-        if (!this.viewer) return { center: [0, 0], zoom: 1, bearing: 0 };
+    public getViewportState(): { center: [number, number]; zoom: number; bearing: number; pitch: number } {
+        if (!this.viewer) return { center: [0, 0], zoom: 1, bearing: 0, pitch: 0 };
         const Cesium = getCesium();
-        if (!Cesium) return { center: [0, 0], zoom: 1, bearing: 0 };
+        if (!Cesium) return { center: [0, 0], zoom: 1, bearing: 0, pitch: 0 };
 
         const camera = this.viewer.camera;
         const center = this.computeViewportCenter() ?? [0, 0];
         const height = camera.positionCartographic?.height ?? Cesium.Ellipsoid.WGS84.cartesianToCartographic(camera.positionWC).height;
         const zoom = this.cameraHeightMetersToZoom(height, center[1]);
         const bearing = (camera.heading * 180) / Math.PI;
-        return { center, zoom, bearing };
+        const pitch = Cesium.Math.toDegrees(camera.pitch + Math.PI / 2);
+        return { center, zoom, bearing, pitch };
     }
 
     public setViewport(center: [number, number], zoom: number): void {
@@ -135,6 +136,65 @@ export class MapCoreService implements IMapCore {
 
     public getZoom(): number {
         return this.getViewportState().zoom;
+    }
+
+    public getNavigationCapabilities(): NavigationCapabilities {
+        return { bearing: true, pitch: true };
+    }
+
+    public getBearing(): number {
+        return this.getViewportState().bearing;
+    }
+
+    public setBearing(bearing: number): void {
+        if (!this.viewer) return;
+        const Cesium = getCesium();
+        if (!Cesium) return;
+        const center = this.computeViewportCenter();
+        if (!center) return;
+        const pitch = this.getPitch();
+        this.applyHeadingPitch(center, bearing, pitch);
+    }
+
+    public getPitch(): number {
+        const Cesium = getCesium();
+        if (!Cesium || !this.viewer) return 0;
+        return Cesium.Math.toDegrees(this.viewer.camera.pitch + Math.PI / 2);
+    }
+
+    public setPitch(pitch: number): void {
+        if (!this.viewer) return;
+        const Cesium = getCesium();
+        if (!Cesium) return;
+        const center = this.computeViewportCenter();
+        if (!center) return;
+        const bearing = this.getBearing();
+        const clampedPitch = Math.max(0, Math.min(89, pitch));
+        this.applyHeadingPitch(center, bearing, clampedPitch);
+    }
+
+    public resetNorth(): void {
+        this.setBearing(0);
+    }
+
+    public resetNorthPitch(): void {
+        if (!this.viewer) return;
+        this.setBearing(0);
+        this.setPitch(0);
+    }
+
+    private applyHeadingPitch(center: [number, number], bearingDeg: number, pitchDeg: number): void {
+        if (!this.viewer) return;
+        const Cesium = getCesium();
+        if (!Cesium) return;
+        const camera = this.viewer.camera;
+        const target = Cesium.Cartesian3.fromDegrees(center[0], center[1]);
+        const range = Math.max(1, Cesium.Cartesian3.distance(camera.positionWC, target));
+        const heading = Cesium.Math.toRadians(bearingDeg);
+        const pitch = Cesium.Math.toRadians(-90 + pitchDeg);
+
+        camera.lookAt(target, new Cesium.HeadingPitchRange(heading, pitch, range));
+        camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
     }
 
     public addLayer(_layer: any): void {
@@ -467,7 +527,7 @@ export class MapCoreService implements IMapCore {
             center: viewport.center,
             zoom: viewport.zoom,
             bearing: viewport.bearing,
-            pitch: 0,
+            pitch: viewport.pitch,
             bounds: { sw, ne },
         });
         this.zoomEndCallbacks.forEach(cb => cb(viewport.zoom));

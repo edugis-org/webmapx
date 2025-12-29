@@ -45,8 +45,8 @@ export interface LayerSpec {
  * This is implemented by the concrete MapLibreAdapter, OpenLayersAdapter, etc.
  */
 export interface IMapCore {
-    /** Gets the current map viewport settings (center, zoom, bearing). */
-    getViewportState(): { center: [number, number], zoom: number, bearing: number };
+    /** Gets the current map viewport settings (center, zoom, bearing, pitch). */
+    getViewportState(): { center: [number, number], zoom: number, bearing: number, pitch: number };
 
     /** Sets the map viewport, used by UI components like a 'Location Finder'. */
     setViewport(center: [number, number], zoom: number): void;
@@ -80,6 +80,20 @@ export interface IMapCore {
     getSource(id: string): ISource | undefined;
     suppressBusySignalForSource(sourceId: string): void;
     unsuppressBusySignalForSource(sourceId: string): void;
+    /** Returns whether the current engine supports interactive rotation/pitch. */
+    getNavigationCapabilities(): NavigationCapabilities;
+    /** Gets the current map bearing (degrees clockwise from north). */
+    getBearing(): number;
+    /** Sets the map bearing (degrees clockwise from north). */
+    setBearing(bearing: number): void;
+    /** Gets the current map pitch/tilt in degrees (0 = top-down). */
+    getPitch(): number;
+    /** Sets the map pitch/tilt in degrees (0 = top-down). */
+    setPitch(pitch: number): void;
+    /** Resets map bearing to north/up. */
+    resetNorth(): void;
+    /** Resets map bearing to north and pitch to top-down (when supported). */
+    resetNorthPitch(): void;
 
     /** Given a geographic coordinate (LngLat), returns its pixel coordinate [x, y]. */
     project(coords: LngLat): Pixel;
@@ -146,6 +160,13 @@ export interface IMap {
 export interface IMapFactory {
     /** Creates a new map instance. */
     createMap(container: HTMLElement, options?: MapCreateOptions): IMap;
+}
+
+export interface NavigationCapabilities {
+    /** True if map supports bearing/rotation. */
+    bearing: boolean;
+    /** True if map supports pitch/tilt adjustments. */
+    pitch: boolean;
 }
 
 /**

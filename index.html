@@ -18,13 +18,14 @@
     <div class="table">
         <div>
             <webmapx-map id="map-container" adapter="maplibre" src="config/demo.json">                
-                <webmapx-layout>
-                    <webmapx-zoom-level slot="top-center"></webmapx-zoom-level>
-                    <webmapx-zoom-level slot="top-right"></webmapx-zoom-level>
-                    <webmapx-zoom-level slot="middle-right"></webmapx-zoom-level>
-                    
-                    <!-- Top Left: Toolbar + Panel -->
-                    <webmapx-control-group slot="bottom-left" orientation="horizontal" panel-position="before" alignment="start">
+                    <webmapx-layout>
+                        <webmapx-zoom-level slot="top-center"></webmapx-zoom-level>
+                        <webmapx-zoom-level slot="top-right"></webmapx-zoom-level>
+                        <webmapx-zoom-level slot="middle-right"></webmapx-zoom-level>
+                        <webmapx-navigation-control slot="top-right" orientation="vertical"></webmapx-navigation-control>
+                        
+                        <!-- Top Left: Toolbar + Panel -->
+                        <webmapx-control-group slot="bottom-left" orientation="horizontal" panel-position="before" alignment="start">
                         <webmapx-toolbar id="main-toolbar">
                             <sl-button name="layers" size="medium" circle>
                                 <sl-icon name="layers" label="Layers"></sl-icon>

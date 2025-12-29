@@ -1,6 +1,6 @@
 // src/map/leaflet-services/MapCoreService.ts
 
-import { IMapCore, ISource } from '../IMapInterfaces';
+import { IMapCore, ISource, NavigationCapabilities } from '../IMapInterfaces';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel, PointerResolution } from '../../store/map-events';
 import type { MapStyle } from '../../config/types';
@@ -64,17 +64,18 @@ export class MapCoreService implements IMapCore {
         document.head.appendChild(style);
     }
 
-    public getViewportState(): { center: [number, number], zoom: number, bearing: number } {
+    public getViewportState(): { center: [number, number], zoom: number, bearing: number, pitch: number } {
         if (this.mapInstance) {
             const center = this.mapInstance.getCenter();
             const logicalZoom = this.mapInstance.getZoom() - ZOOM_OFFSET;
             return {
                 center: [center.lng, center.lat],
                 zoom: logicalZoom,
-                bearing: 0
+                bearing: 0,
+                pitch: 0
             };
         }
-        return { center: [0, 0], zoom: 1, bearing: 0 };
+        return { center: [0, 0], zoom: 1, bearing: 0, pitch: 0 };
     }
 
     public setViewport(center: [number, number], zoom: number): void {
@@ -306,6 +307,34 @@ export class MapCoreService implements IMapCore {
 
     public getZoom(): number {
         return this.mapInstance ? this.mapInstance.getZoom() - ZOOM_OFFSET : this.initialConfig.zoom;
+    }
+
+    public getNavigationCapabilities(): NavigationCapabilities {
+        return { bearing: false, pitch: false };
+    }
+
+    public getBearing(): number {
+        return 0;
+    }
+
+    public setBearing(_bearing: number): void {
+        // Rotation not supported in default Leaflet
+    }
+
+    public getPitch(): number {
+        return 0;
+    }
+
+    public setPitch(_pitch: number): void {
+        // Pitch not supported in Leaflet
+    }
+
+    public resetNorth(): void {
+        // No-op (already north-up)
+    }
+
+    public resetNorthPitch(): void {
+        this.resetNorth();
     }
 
     private scheduleViewportSync(): void {
