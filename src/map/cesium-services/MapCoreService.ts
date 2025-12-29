@@ -47,6 +47,7 @@ export class MapCoreService implements IMapCore {
     private minZoom?: number;
     private maxZoom?: number;
     private isClamping = false;
+    private lastCenter: [number, number] = [0, 0];
 
     public initialize(
         containerId: string,
@@ -98,12 +99,13 @@ export class MapCoreService implements IMapCore {
     }
 
     public getViewportState(): { center: [number, number]; zoom: number; bearing: number; pitch: number } {
-        if (!this.viewer) return { center: [0, 0], zoom: 1, bearing: 0, pitch: 0 };
+        if (!this.viewer) return { center: this.lastCenter, zoom: 1, bearing: 0, pitch: 0 };
         const Cesium = getCesium();
-        if (!Cesium) return { center: [0, 0], zoom: 1, bearing: 0, pitch: 0 };
+        if (!Cesium) return { center: this.lastCenter, zoom: 1, bearing: 0, pitch: 0 };
 
         const camera = this.viewer.camera;
-        const center = this.computeViewportCenter() ?? [0, 0];
+        const center = this.computeViewportCenter() ?? this.lastCenter;
+        this.lastCenter = center;
         const height = camera.positionCartographic?.height ?? Cesium.Ellipsoid.WGS84.cartesianToCartographic(camera.positionWC).height;
         const zoom = this.cameraHeightMetersToZoom(height, center[1]);
         const bearing = (camera.heading * 180) / Math.PI;
@@ -116,6 +118,7 @@ export class MapCoreService implements IMapCore {
         const Cesium = getCesium();
         if (!Cesium) return;
         const clampedZoom = this.clampZoom(zoom);
+        this.lastCenter = center;
         this.setCameraView(center, clampedZoom, true);
         this.applyZoomDistanceLimits(center[1]);
     }
@@ -496,12 +499,26 @@ export class MapCoreService implements IMapCore {
         if (!this.viewer) return;
         const Cesium = getCesium();
         if (!Cesium) return;
-        const height = this.zoomToCameraHeightMeters(zoom, center[1]);
-        const destination = Cesium.Cartesian3.fromDegrees(center[0], center[1], height);
+        const camera = this.viewer.camera;
+        const heading = camera.heading;
+        const pitch = camera.pitch;
+        const target = Cesium.Cartesian3.fromDegrees(center[0], center[1]);
+        const desiredHeight = this.zoomToCameraHeightMeters(zoom, center[1]);
+        const verticalComponent = Math.max(0.01, Math.abs(Math.sin(pitch)));
+        const range = Math.max(1, desiredHeight / verticalComponent);
+        const action = () => {
+            camera.lookAt(target, new Cesium.HeadingPitchRange(heading, pitch, range));
+            camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+        };
         if (animate) {
-            this.viewer.camera.flyTo({ destination, duration: 0.5 });
+            camera.flyTo({
+                destination: target,
+                orientation: { heading, pitch, roll: camera.roll },
+                duration: 0.1,
+                complete: action
+            });
         } else {
-            this.viewer.camera.setView({ destination });
+            action();
         }
     }
 
@@ -518,6 +535,7 @@ export class MapCoreService implements IMapCore {
             return;
         }
         this.applyZoomDistanceLimits(viewport.center[1]);
+        this.lastCenter = viewport.center;
         const bounds = this.computeViewportBounds();
         this.store.dispatch({ zoomLevel: viewport.zoom, mapCenter: viewport.center, mapViewportBounds: bounds }, 'MAP');
         const sw = bounds ? (bounds.geometry.coordinates[0][0] as LngLat) : viewport.center;
