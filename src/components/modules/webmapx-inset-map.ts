@@ -268,15 +268,9 @@ export class WebmapxInsetMap extends LitElement {
     if (!bounds) return null;
     const ring = bounds.geometry?.coordinates?.[0];
     if (!ring || ring.length < 4) return null;
-    const lngs = ring.map(pt => pt[0]);
-    const lats = ring.map(pt => pt[1]);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    // Round to reduce churn from floating noise
     const r = (n: number) => n.toFixed(6);
-    return `${r(minLng)},${r(minLat)},${r(maxLng)},${r(maxLat)}`;
+    // Use ordered corner list so rotations update even when the bbox is unchanged
+    return ring.map(pt => `${r(pt[0])}:${r(pt[1])}`).join('|');
   }
 
   private clampZoom(value: number): number {

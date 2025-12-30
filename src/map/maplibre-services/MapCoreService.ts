@@ -420,27 +420,52 @@ export class MapCoreService implements IMapCore {
             return null;
         }
 
-        const bounds = this.mapInstance.getBounds();
-        if (!bounds) {
-            return null;
+        const corners: [number, number][] = [];
+        const canvas = this.mapInstance.getCanvas();
+        const pixelRatio = (this.mapInstance as any).pixelRatio ?? window.devicePixelRatio ?? 1;
+        const width = (canvas?.width ?? 0) / pixelRatio || canvas?.clientWidth || 0;
+        const height = (canvas?.height ?? 0) / pixelRatio || canvas?.clientHeight || 0;
+
+        if (width > 0 && height > 0) {
+            // Screen corners: bottom-left, bottom-right, top-right, top-left
+            const screenPoints: [number, number][] = [
+                [0, height],
+                [width, height],
+                [width, 0],
+                [0, 0],
+            ];
+
+            for (const pt of screenPoints) {
+                const lngLat = this.mapInstance.unproject(pt as maplibregl.PointLike);
+                corners.push([lngLat.lng, lngLat.lat]);
+            }
+            // Close the ring
+            corners.push(corners[0]);
         }
 
-        const sw = bounds.getSouthWest();
-        const ne = bounds.getNorthEast();
-        const coordinates: [number, number][] = [
-            [sw.lng, sw.lat],
-            [sw.lng, ne.lat],
-            [ne.lng, ne.lat],
-            [ne.lng, sw.lat],
-            [sw.lng, sw.lat],
-        ];
+        // Fallback to axis-aligned bounds if unproject failed
+        if (corners.length === 0) {
+            const bounds = this.mapInstance.getBounds();
+            if (!bounds) {
+                return null;
+            }
+            const sw = bounds.getSouthWest();
+            const ne = bounds.getNorthEast();
+            corners.push(
+                [sw.lng, sw.lat],
+                [sw.lng, ne.lat],
+                [ne.lng, ne.lat],
+                [ne.lng, sw.lat],
+                [sw.lng, sw.lat],
+            );
+        }
 
         return {
             type: 'Feature',
             properties: { role: 'mapViewport' },
             geometry: {
                 type: 'Polygon',
-                coordinates: [coordinates],
+                coordinates: [corners],
             },
         };
     }

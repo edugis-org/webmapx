@@ -32,6 +32,7 @@ export class WebmapxLayerTree extends LitElement {
     @state() private configTree: TreeNodeConfig[] = [];
 
     private configHandler: ((e: Event) => void) | null = null;
+    private addLayerFailedHandler: ((e: CustomEvent) => void) | null = null;
 
     static styles = css`
         :host {
@@ -78,10 +79,12 @@ export class WebmapxLayerTree extends LitElement {
     connectedCallback(): void {
         super.connectedCallback();
         this.subscribeToConfig();
+        this.subscribeToAddLayerFailed();
     }
 
     disconnectedCallback(): void {
         this.unsubscribeFromConfig();
+        this.unsubscribeFromAddLayerFailed();
         super.disconnectedCallback();
     }
 
@@ -110,6 +113,52 @@ export class WebmapxLayerTree extends LitElement {
         };
 
         this.mapHost?.addEventListener('webmapx-config-ready', this.configHandler);
+    }
+
+    /** Subscribe to add-layer failure events */
+    private subscribeToAddLayerFailed(): void {
+        this.unsubscribeFromAddLayerFailed();
+        this.addLayerFailedHandler = (e: CustomEvent) => {
+            const layerId = e.detail?.layerId as string | undefined;
+            if (!layerId) return;
+            this.uncheckLayerById(layerId);
+        };
+        this.mapHost?.addEventListener('webmapx-addlayer-failed', this.addLayerFailedHandler);
+    }
+
+    private unsubscribeFromAddLayerFailed(): void {
+        if (this.addLayerFailedHandler) {
+            this.mapHost?.removeEventListener('webmapx-addlayer-failed', this.addLayerFailedHandler);
+            this.addLayerFailedHandler = null;
+        }
+    }
+
+    /** Uncheck the UI and node state for a given layerId */
+    private uncheckLayerById(layerId: string): void {
+        const uncheckNode = (nodes: LayerNode[]): boolean => {
+            for (const node of nodes) {
+                if (node.layerId === layerId) {
+                    node.checked = false;
+                    return true;
+                }
+                if (node.children && uncheckNode(node.children)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        if (uncheckNode(this.effectiveTree)) {
+            this.requestUpdate();
+        }
+
+        // Immediately sync any rendered checkbox in the shadow DOM
+        const checkboxes = this.shadowRoot?.querySelectorAll<HTMLInputElement>('sl-checkbox[data-layer-id]');
+        checkboxes?.forEach(cb => {
+            if ((cb as any).dataset?.layerId === layerId) {
+                (cb as any).checked = false;
+            }
+        });
     }
 
     /** Unsubscribe from config events */
@@ -143,6 +192,7 @@ export class WebmapxLayerTree extends LitElement {
                 <sl-tree-item>
                     <sl-checkbox
                         ?checked=${node.checked}
+                        data-layer-id=${node.layerId ?? ''}
                         @sl-change=${(e: Event) => this.handleCheck(e, node)}
                     >
                         ${node.label}
@@ -153,7 +203,7 @@ export class WebmapxLayerTree extends LitElement {
     }
 
     handleCheck(e: Event, node: LayerNode) {
-        const checkbox = e.target as any;
+        const checkbox = e.target as HTMLInputElement;
         const isChecked = checkbox.checked;
         node.checked = isChecked;
 

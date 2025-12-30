@@ -161,6 +161,17 @@ export class MapCoreService implements IMapCore {
             );
         });
 
+        view.on('change:rotation', () => {
+            const currentCenter = toLonLat(view.getCenter() || [0, 0]) as [number, number];
+            const currentZoom = this.fromOLZoom(view.getZoom() || 0);
+            const viewportBounds = this.buildViewportFeature();
+            this.store.dispatch(
+                { mapCenter: currentCenter, zoomLevel: currentZoom, mapViewportBounds: viewportBounds },
+                'MAP'
+            );
+            this.emitViewChange();
+        });
+
         // Move end event
         this.mapInstance.on('moveend', () => {
             this.emitViewChangeEnd();
@@ -614,24 +625,43 @@ export class MapCoreService implements IMapCore {
         const size = this.mapInstance.getSize();
         if (!size) return null;
 
-        const extent = view.calculateExtent(size);
-        const sw = toLonLat([extent[0], extent[1]]);
-        const ne = toLonLat([extent[2], extent[3]]);
-
-        const coordinates: [number, number][] = [
-            [sw[0], sw[1]],
-            [sw[0], ne[1]],
-            [ne[0], ne[1]],
-            [ne[0], sw[1]],
-            [sw[0], sw[1]]
+        const corners: [number, number][] = [];
+        const pixels: [number, number][] = [
+            [0, size[1]],            // bottom-left
+            [size[0], size[1]],      // bottom-right
+            [size[0], 0],            // top-right
+            [0, 0],                  // top-left
         ];
+
+        for (const px of pixels) {
+            const coordinate = this.mapInstance.getCoordinateFromPixel(px);
+            if (!coordinate) continue;
+            const lonlat = toLonLat(coordinate) as [number, number];
+            corners.push([lonlat[0], lonlat[1]]);
+        }
+
+        if (corners.length === 0) {
+            const extent = view.calculateExtent(size);
+            const sw = toLonLat([extent[0], extent[1]]);
+            const ne = toLonLat([extent[2], extent[3]]);
+            corners.push(
+                [sw[0], sw[1]],
+                [sw[0], ne[1]],
+                [ne[0], ne[1]],
+                [ne[0], sw[1]],
+            );
+        }
+
+        if (corners.length > 0) {
+            corners.push(corners[0]);
+        }
 
         return {
             type: 'Feature',
             properties: { role: 'mapViewport' },
             geometry: {
                 type: 'Polygon',
-                coordinates: [coordinates]
+                coordinates: [corners]
             }
         };
     }

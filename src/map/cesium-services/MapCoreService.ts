@@ -4,6 +4,7 @@ import type { IMapCore, ISource, NavigationCapabilities } from '../IMapInterface
 import type { MapStyle } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel } from '../../store/map-events';
+import { throttle } from '../../utils/throttle';
 
 function getCesium(): any {
     return (globalThis as any).Cesium;
@@ -48,6 +49,7 @@ export class MapCoreService implements IMapCore {
     private maxZoom?: number;
     private isClamping = false;
     private lastCenter: [number, number] = [0, 0];
+    private readonly dispatchViewportStateThrottled = throttle(() => this.dispatchViewportState(), 100);
 
     public initialize(
         containerId: string,
@@ -368,6 +370,11 @@ export class MapCoreService implements IMapCore {
         this.viewer.camera.moveEnd.addEventListener(() => {
             this.dispatchViewportState();
         });
+
+        // Capture rotation/pitch/zoom changes continuously (throttled)
+        this.viewer.camera.changed.addEventListener(() => {
+            this.dispatchViewportStateThrottled();
+        });
     }
 
     private resolveContainer(containerId: string): HTMLElement {
@@ -398,35 +405,25 @@ export class MapCoreService implements IMapCore {
         if (!Cesium || !this.viewer) return null;
         const canvas = this.viewer.scene.canvas;
         const corners = [
-            new Cesium.Cartesian2(0, 0),
-            new Cesium.Cartesian2(canvas.clientWidth, 0),
-            new Cesium.Cartesian2(canvas.clientWidth, canvas.clientHeight),
-            new Cesium.Cartesian2(0, canvas.clientHeight),
+            new Cesium.Cartesian2(0, canvas.clientHeight),                // bottom-left
+            new Cesium.Cartesian2(canvas.clientWidth, canvas.clientHeight), // bottom-right
+            new Cesium.Cartesian2(canvas.clientWidth, 0),                 // top-right
+            new Cesium.Cartesian2(0, 0),                                  // top-left
         ];
 
-        const points: Array<[number, number]> = [];
+        const ring: Array<[number, number]> = [];
         for (const corner of corners) {
             const cartesian = this.viewer.camera.pickEllipsoid(corner, Cesium.Ellipsoid.WGS84);
             if (!cartesian) continue;
             const carto = Cesium.Ellipsoid.WGS84.cartesianToCartographic(cartesian);
-            points.push([(carto.longitude * 180) / Math.PI, (carto.latitude * 180) / Math.PI]);
+            ring.push([(carto.longitude * 180) / Math.PI, (carto.latitude * 180) / Math.PI]);
         }
-        if (points.length < 2) return null;
 
-        const lngs = points.map(p => p[0]);
-        const lats = points.map(p => p[1]);
-        const minLng = Math.min(...lngs);
-        const maxLng = Math.max(...lngs);
-        const minLat = Math.min(...lats);
-        const maxLat = Math.max(...lats);
-
-        const ring: [number, number][] = [
-            [minLng, minLat],
-            [minLng, maxLat],
-            [maxLng, maxLat],
-            [maxLng, minLat],
-            [minLng, minLat],
-        ];
+        if (ring.length === 0) return null;
+        // Close ring if needed
+        if (ring.length > 0 && (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1])) {
+            ring.push(ring[0]);
+        }
 
         return {
             type: 'Feature',

@@ -102,8 +102,22 @@ export class WebmapxMapElement extends HTMLElement {
         // Compose for new signature: addLayer(layerId, layerConfig, sourceConfig)
         const layer = layerInformation.layer;
         // Support multiple sources, but call addLayer for each source referenced by the layer
+        let allSucceeded = true;
         for (const source of layerInformation.sources) {
-          await adapter.layerService.addLayer(layer.id, layer, source);
+          const success = await adapter.layerService.addLayer(layer.id, layer, source);
+          if (!success) {
+            allSucceeded = false;
+            // Clean up any partial additions
+            adapter.layerService.removeLayer(layer.id);
+            break;
+          }
+        }
+        if (!allSucceeded) {
+          this.dispatchEvent(new CustomEvent('webmapx-addlayer-failed', {
+            detail: { layerId: layer.id },
+            bubbles: true,
+            composed: true
+          }));
         }
       } else {
         // Remove the layer by id
