@@ -1,6 +1,6 @@
 // src/map/openlayers-adapter.ts
 
-import { IMapCore, IToolService, IMapFactory } from './IMapInterfaces';
+import { IMapCore, IToolService, IMapFactory, ILayerService } from './IMapInterfaces';
 import { MapStateStore } from '../store/map-state-store';
 import { MapEventBus, LngLat, Pixel } from '../store/map-events';
 import { IMapAdapter } from './IMapAdapter';
@@ -19,7 +19,7 @@ export class OpenLayersAdapter implements IMapAdapter {
     public readonly core: IMapCore;
     public readonly toolService: IToolService;
     public readonly mapFactory: IMapFactory;
-    public layerService: any;
+    public layerService?: ILayerService;
 
     constructor() {
         this.store = new MapStateStore();

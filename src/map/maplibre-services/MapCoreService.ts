@@ -80,7 +80,8 @@ export class MapCoreService implements IMapCore {
             minZoom: options?.minZoom,
             maxZoom: options?.maxZoom,
             pitch: this.initialConfig.pitch,
-            bearing: this.initialConfig.bearing
+            bearing: this.initialConfig.bearing,
+            attributionControl: false
         });
 
         this.flushMapReadyCallbacks();

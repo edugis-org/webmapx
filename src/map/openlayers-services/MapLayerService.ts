@@ -36,6 +36,10 @@ export class MapLayerService implements ILayerService {
         this.store = store;
     }
 
+    private updateVisibleLayers(): void {
+        this.store.dispatch({ visibleLayers: Array.from(this.logicalToNative.keys()) }, 'MAP');
+    }
+
     setCatalog(catalog: CatalogConfig): void {
         this.catalog = catalog;
     }
@@ -106,6 +110,7 @@ export class MapLayerService implements ILayerService {
         this.warpedMapLayers.set(layerId, warpedMapLayer);
         this.nativeLayerInstances.set(warpedLayerId, warpedMapLayer as unknown as BaseLayer);
         this.logicalToNative.set(layerId, [warpedLayerId]);
+        this.updateVisibleLayers();
 
         return true;
     }
@@ -134,6 +139,7 @@ export class MapLayerService implements ILayerService {
         }
 
         this.logicalToNative.set(layerId, nativeLayerIds);
+        this.updateVisibleLayers();
         return true;
     }
 
@@ -393,6 +399,7 @@ export class MapLayerService implements ILayerService {
             }
             this.warpedMapLayers.delete(layerId);
             this.logicalToNative.delete(layerId);
+            this.updateVisibleLayers();
             return;
         }
 
@@ -432,6 +439,8 @@ export class MapLayerService implements ILayerService {
                 }
             }
         }
+
+        this.updateVisibleLayers();
     }
 
     getVisibleLayers(): string[] {

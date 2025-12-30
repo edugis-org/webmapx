@@ -67,6 +67,14 @@ export class MapLayerService implements ILayerService {
         });
     }
 
+    private updateVisibleLayers(): void {
+        const layerIds = new Set<string>();
+        for (const key of this.handles.keys()) {
+            layerIds.add(key.split('::')[0]);
+        }
+        this.store.dispatch({ visibleLayers: Array.from(layerIds) }, 'MAP');
+    }
+
     setCatalog(_catalog: any): void {
         // Not needed; layer tree passes configs directly.
     }
@@ -93,6 +101,7 @@ export class MapLayerService implements ILayerService {
                 const imageryLayer = new Cesium.ImageryLayer(provider);
                 this.viewer.imageryLayers.add(imageryLayer);
                 this.handles.set(handleKey, { kind: 'imagery', imageryLayer });
+                this.updateVisibleLayers();
                 return true;
             }
 
@@ -115,6 +124,7 @@ export class MapLayerService implements ILayerService {
                 const imageryLayer = new Cesium.ImageryLayer(provider);
                 this.viewer.imageryLayers.add(imageryLayer);
                 this.handles.set(handleKey, { kind: 'imagery', imageryLayer });
+                this.updateVisibleLayers();
                 return true;
             }
 
@@ -131,6 +141,7 @@ export class MapLayerService implements ILayerService {
 
             this.applyGeoJsonStyles(dataSource, layerConfig);
             this.handles.set(handleKey, { kind: 'geojson', dataSource, sourceId: sourceConfig.id, layerConfig });
+            this.updateVisibleLayers();
             return true;
         }
 
@@ -159,6 +170,7 @@ export class MapLayerService implements ILayerService {
             }
             this.handles.delete(key);
         }
+        this.updateVisibleLayers();
     }
 
     getVisibleLayers(): string[] {

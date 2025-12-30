@@ -1,11 +1,12 @@
 import { MapStateStore } from '../store/map-state-store';
 import { MapEventBus, LngLat, Pixel } from '../store/map-events';
-import { IMapCore, IToolService, IMapFactory } from './IMapInterfaces';
+import { IMapCore, IToolService, IMapFactory, ILayerService } from './IMapInterfaces';
 
 export interface IMapAdapter {
   readonly store: MapStateStore;
   readonly core: IMapCore;
   readonly toolService: IToolService;
+  readonly layerService?: ILayerService;
 
   /**
    * Factory for creating map instances.

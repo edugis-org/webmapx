@@ -27,6 +27,7 @@ import './components/modules/webmapx-measure-tool.ts';
 import './components/modules/webmapx-geolocation-tool.ts';
 import './components/modules/webmapx-scale-control.ts';
 import './components/modules/webmapx-navigation-control.ts';
+import './components/modules/webmapx-attribution-control.ts';
 
 // 3. Initialize the app when the DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
