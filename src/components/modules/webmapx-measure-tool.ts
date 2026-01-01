@@ -332,7 +332,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
         // Line segments
         if (this.points.length >= 2) {
-            const lineCoords = this.isClosed ? [...this.points, this.points[0]] : this.points;
+            const lineCoords = this.buildLineCoordinates(this.points, this.isClosed);
             features.push({
                 type: 'Feature',
                 properties: { type: 'line' },
@@ -342,10 +342,11 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
         // Closed polygon
         if (this.isClosed && this.points.length >= 3) {
+            const polygonCoords = this.buildLineCoordinates(this.points, true);
             features.push({
                 type: 'Feature',
                 properties: { type: 'polygon' },
-                geometry: { type: 'Polygon', coordinates: [[...this.points, this.points[0]]] }
+                geometry: { type: 'Polygon', coordinates: [polygonCoords] }
             });
         }
 
@@ -357,12 +358,13 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
         // Rubber band line (from last point to cursor)
         if (!this.isClosed && this.points.length > 0 && this.cursorPosition && this.active) {
+            const coords = this.buildSegmentCoordinates(this.points[this.points.length - 1], this.cursorPosition);
             features.push({
                 type: 'Feature',
                 properties: { type: 'rubberband' },
                 geometry: {
                     type: 'LineString',
-                    coordinates: [this.points[this.points.length - 1], this.cursorPosition]
+                    coordinates: coords
                 }
             });
         }
@@ -436,6 +438,98 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         return distance <= threshold;
+    }
+
+    /** Returns a segment broken into great-circle points when spanning >1° */
+    private buildSegmentCoordinates(from: LngLat, to: LngLat): LngLat[] {
+        const latDiff = Math.abs(to[1] - from[1]);
+        const lonDiff = Math.abs(this.normalizeLongitudeDeltaDegrees(to[0] - from[0]));
+        const spansMoreThanDegree = latDiff > 1 || lonDiff > 1;
+
+        if (!spansMoreThanDegree) {
+            return [from, to];
+        }
+
+        const angularDistance = this.computeAngularDistanceRad(from, to);
+        if (angularDistance === 0) {
+            return [from];
+        }
+
+        const angularDistanceDeg = angularDistance * 180 / Math.PI;
+        const steps = Math.max(1, Math.ceil(angularDistanceDeg));
+        const coords: LngLat[] = [];
+        for (let i = 0; i <= steps; i++) {
+            const fraction = i / steps;
+            coords.push(this.interpolateGreatCirclePoint(from, to, fraction, angularDistance));
+        }
+        return coords;
+    }
+
+    /** Builds line coordinates with optional closure, densifying each edge */
+    private buildLineCoordinates(points: LngLat[], close: boolean): LngLat[] {
+        if (points.length < 2) return points;
+
+        const targetPoints = close ? [...points, points[0]] : points;
+        const coords: LngLat[] = [];
+
+        for (let i = 1; i < targetPoints.length; i++) {
+            const segment = this.buildSegmentCoordinates(targetPoints[i - 1], targetPoints[i]);
+            if (coords.length === 0) {
+                coords.push(...segment);
+            } else {
+                coords.push(...segment.slice(1));
+            }
+        }
+
+        return coords;
+    }
+
+    private computeAngularDistanceRad(from: LngLat, to: LngLat): number {
+        const lat1 = this.toRadians(from[1]);
+        const lat2 = this.toRadians(to[1]);
+        const deltaLat = lat2 - lat1;
+        const deltaLon = this.normalizeLongitudeDeltaRadians(this.toRadians(to[0] - from[0]));
+
+        const a = Math.sin(deltaLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2;
+        return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    private interpolateGreatCirclePoint(from: LngLat, to: LngLat, fraction: number, angularDistance: number): LngLat {
+        const lat1 = this.toRadians(from[1]);
+        const lon1 = this.toRadians(from[0]);
+        const lat2 = this.toRadians(to[1]);
+        const lon2 = this.toRadians(to[0]);
+
+        const sinTotal = Math.sin(angularDistance);
+        if (sinTotal === 0) return from;
+
+        const a = Math.sin((1 - fraction) * angularDistance) / sinTotal;
+        const b = Math.sin(fraction * angularDistance) / sinTotal;
+
+        const x = a * Math.cos(lat1) * Math.cos(lon1) + b * Math.cos(lat2) * Math.cos(lon2);
+        const y = a * Math.cos(lat1) * Math.sin(lon1) + b * Math.cos(lat2) * Math.sin(lon2);
+        const z = a * Math.sin(lat1) + b * Math.sin(lat2);
+
+        const lat = Math.atan2(z, Math.sqrt(x * x + y * y));
+        const lon = Math.atan2(y, x);
+
+        return [this.toDegrees(lon), this.toDegrees(lat)];
+    }
+
+    private toRadians(degrees: number): number {
+        return degrees * Math.PI / 180;
+    }
+
+    private toDegrees(radians: number): number {
+        return radians * 180 / Math.PI;
+    }
+
+    private normalizeLongitudeDeltaDegrees(delta: number): number {
+        return ((delta + 540) % 360) - 180;
+    }
+
+    private normalizeLongitudeDeltaRadians(delta: number): number {
+        return ((delta + 3 * Math.PI) % (2 * Math.PI)) - Math.PI;
     }
 
     // ─────────────────────────────────────────────────────────────────────
