@@ -2,6 +2,7 @@ import { css, html, nothing, TemplateResult } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import { IAppState } from '../../store/IState';
+import { epsgLookupManager } from '../../utils/epsg-lookup-manager';
 
 type LngLatTuple = [number, number]; // [lng, lat]
 type PointerResolution = { lng: number; lat: number };
@@ -16,6 +17,17 @@ const CARDINAL_DIRECTIONS: Record<string, { N: string; E: string; S: string; W: 
   de: { N: 'N', E: 'O', S: 'S', W: 'W' }, // German: Nord, Ost, Süd, West
   es: { N: 'N', E: 'E', S: 'S', W: 'O' }, // Spanish: Norte, Este, Sur, Oeste
 };
+
+interface LocalCRS {
+  code: string;
+  name: string;
+  coords?: string;
+  accuracy?: string;
+}
+
+// Lazy-loaded modules
+let proj4Module: any = null;
+let epsgDefinitions: any = null;
 
 @customElement('webmapx-coordinates-tool')
 export class WebmapxCoordinatesTool extends WebmapxBaseTool {
@@ -36,6 +48,12 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
 
   @state()
   private popupDirection: 'up' | 'down' = 'up';
+
+  @state()
+  private localCRS: LocalCRS[] = [];
+
+  @state()
+  private loadingCRS: boolean = false;
 
   @query('.click-row')
   private clickRowElement?: HTMLElement;
@@ -58,6 +76,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
       font-variant-numeric: tabular-nums;
       line-height: 1.3;
       min-width: 150px;
+      pointer-events: auto;
     }
 
     .value-line {
@@ -74,8 +93,10 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
     }
 
     .click-row {
+      position: relative;
       cursor: pointer;
       transition: background-color 0.15s ease;
+      pointer-events: auto;
     }
 
     .click-row:hover {
@@ -99,12 +120,13 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
       position: absolute;
       left: 0;
       right: 0;
-      z-index: 1000;
       background: var(--color-background-primary, #ffffff);
       border: 1px solid var(--color-border);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       padding: 8px;
       min-width: 250px;
+      max-width: 400px;
+      pointer-events: auto;
     }
 
     .popup-container.direction-up {
@@ -139,6 +161,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
       display: flex;
       flex-direction: column;
       gap: 2px;
+      min-width: 0;
     }
 
     .format-label {
@@ -153,6 +176,9 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
       font-family: monospace;
       font-size: 0.9em;
       color: var(--color-text-primary, #000);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .copy-button {
@@ -180,17 +206,54 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
       transform: scale(0.95);
     }
 
+    .copy-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     .copy-icon {
       width: 14px;
       height: 14px;
+    }
+
+    .loading-indicator {
+      padding: 8px;
+      text-align: center;
+      color: var(--color-text-secondary, #666);
+      font-size: 0.85em;
+      font-style: italic;
+    }
+
+    .crs-section-header {
+      padding: 8px;
+      font-size: 0.75em;
+      color: var(--color-text-secondary, #666);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      background: var(--color-background-hover, rgba(0, 0, 0, 0.02));
+      margin: 4px 0;
+    }
+
+    .accuracy-note {
+      font-size: 0.7em;
+      color: var(--color-text-secondary, #999);
+      font-style: italic;
+      margin-top: 2px;
     }
   `;
 
   protected onStateChanged(state: IAppState): void {
     this.cursorCoords = state.pointerCoordinates;
+    const previousPinnedCoords = this.pinnedCoords;
     this.pinnedCoords = state.lastClickedCoordinates;
     this.resolution = state.pointerResolution;
     this.pinnedResolution = state.lastClickedResolution;
+
+    // Fetch local CRS only if popup is visible and coordinates changed
+    if (this.showPopup && this.pinnedCoords && this.pinnedCoords !== previousPinnedCoords) {
+      this.fetchLocalCRS(this.pinnedCoords);
+    }
   }
 
   private formatPair(coords: LngLatTuple | null, resolution: PointerResolution | null): string {
@@ -294,6 +357,34 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
               </svg>
             </button>
           </div>
+        ` : nothing}
+
+        ${this.loadingCRS ? html`
+          <div class="loading-indicator">Loading local coordinate systems...</div>
+        ` : nothing}
+
+        ${this.localCRS.length > 0 ? html`
+          <div class="crs-section-header">Local Coordinate Systems</div>
+          ${this.localCRS.map(crs => html`
+            <div class="format-line">
+              <div class="format-content">
+                <div class="format-label">${crs.name} (${crs.code})</div>
+                <div class="format-value">${crs.coords || 'Transforming...'}</div>
+                ${crs.accuracy ? html`<div class="accuracy-note">Accuracy: ${crs.accuracy}</div>` : nothing}
+              </div>
+              <button 
+                class="copy-button" 
+                ?disabled=${!crs.coords}
+                @click=${(e: MouseEvent) => crs.coords && this.copyToClipboard(crs.coords, e)}
+                title="Copy to clipboard"
+              >
+                <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              </button>
+            </div>
+          `)}
         ` : nothing}
       </div>
     `;
@@ -453,9 +544,201 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
     const spaceAbove = rect.top;
     const spaceBelow = window.innerHeight - rect.bottom;
     
-    // Popup is approximately 150px tall, prefer upward if there's space
-    this.popupDirection = spaceAbove >= 150 ? 'up' : 'down';
+    // Popup is approximately 150px tall (more with local CRS), prefer upward if there's space
+    const estimatedHeight = 150 + (this.localCRS.length * 60);
+    this.popupDirection = spaceAbove >= estimatedHeight ? 'up' : 'down';
+    
+    const wasShown = this.showPopup;
     this.showPopup = !this.showPopup;
+    
+    // Fetch CRS when opening popup for the first time
+    if (!wasShown && this.showPopup && this.pinnedCoords) {
+      this.fetchLocalCRS(this.pinnedCoords);
+    }
+  }
+
+  private async fetchLocalCRS(coords: LngLatTuple): Promise<void> {
+    const [lng, lat] = coords;
+    this.loadingCRS = true;
+    this.localCRS = [];
+
+    try {
+      // Lazy load proj4 and EPSG definitions only on first use
+      if (!proj4Module) {
+        const [proj4Import, epsgImport] = await Promise.all([
+          import('proj4'),
+          import('../../utils/epsg-definitions')
+        ]);
+        proj4Module = proj4Import.default;
+        epsgDefinitions = epsgImport;
+        
+        // Register all EPSG definitions with proj4
+        Object.entries(epsgDefinitions.EPSG_DEFS).forEach(([code, def]) => {
+          proj4Module.defs(`EPSG:${code}`, def);
+        });
+      }
+
+      // First, try to get country-specific EPSG codes from the lookup worker
+      let epsgCodesMap: Map<string, {name: string; codes: string[]}> = new Map();
+      
+      try {
+        const lookupResult = await epsgLookupManager.lookup(lat, lng);
+        if (lookupResult.success && lookupResult.epsgCodes) {
+          // Add primary country
+          epsgCodesMap.set(lookupResult.countryCode!, {
+            name: lookupResult.countryName!,
+            codes: lookupResult.epsgCodes
+          });
+          
+          // Add alternative countries (border areas)
+          if (lookupResult.alternativeMatches && lookupResult.alternativeMatches.length > 0) {
+            console.log(`Border area detected: ${lookupResult.alternativeMatches.length} additional countries`);
+            for (const alt of lookupResult.alternativeMatches) {
+              epsgCodesMap.set(alt.countryCode, {
+                name: alt.countryName,
+                codes: alt.epsgCodes
+              });
+            }
+          }
+          
+          const countryNames = Array.from(epsgCodesMap.values()).map(c => c.name).join(', ');
+          console.log(`Found EPSG codes for ${countryNames}`);
+        }
+      } catch (error) {
+        console.warn('EPSG lookup worker failed, falling back to regional bounds:', error);
+      }
+
+      let applicableCRS: any[] = [];
+
+      // If we got EPSG codes from the worker, use those
+      if (epsgCodesMap.size > 0) {
+        const allCodes: Array<{code: string; countryName: string}> = [];
+        
+        // Collect all codes from all countries (excluding 4326 as it's already shown as lat/lon)
+        for (const [countryCode, {name, codes}] of epsgCodesMap) {
+          for (const code of codes) {
+            if (code !== '4326') {
+              allCodes.push({code, countryName: name});
+            }
+          }
+        }
+        
+        applicableCRS = allCodes.map(({code, countryName}) => {
+          // Try to find the CRS in our regional definitions
+          const existing = epsgDefinitions.REGIONAL_CRS.find((crs: any) => crs.code === code);
+          if (existing) {
+            return {
+              ...existing,
+              name: `${existing.name} (${countryName})`
+            };
+          }
+          
+          // If not found in predefined list, check if we have a proj4 definition
+          const epsgKey = `EPSG:${code}`;
+          const proj4Def = proj4Module.defs(epsgKey) || epsgDefinitions.EPSG_DEFS[code];
+          
+          if (proj4Def) {
+            // Register it if we have the definition
+            if (!proj4Module.defs(epsgKey)) {
+              proj4Module.defs(epsgKey, proj4Def);
+            }
+            return {
+              code,
+              name: `EPSG:${code} (${countryName})`,
+              bounds: [-180, -90, 180, 90],
+              proj4: proj4Def
+            };
+          }
+          
+          return null;
+        }).filter(Boolean);
+        
+        // Remove duplicates by code
+        const uniqueCRS = new Map();
+        for (const crs of applicableCRS) {
+          if (!uniqueCRS.has(crs.code)) {
+            uniqueCRS.set(crs.code, crs);
+          }
+        }
+        applicableCRS = Array.from(uniqueCRS.values());
+      }
+
+      // Fall back to regional bounds if no codes from worker or if none were valid
+      if (applicableCRS.length === 0) {
+        applicableCRS = epsgDefinitions.REGIONAL_CRS.filter((crs: any) => {
+          const [west, south, east, north] = crs.bounds;
+          return lng >= west && lng <= east && lat >= south && lat <= north;
+        });
+      }
+
+      // If still no CRS found, use UTM zone as final fallback
+      if (applicableCRS.length === 0) {
+        const utmZone = Math.floor((lng + 180) / 6) + 1;
+        const isNorth = lat >= 0;
+        const utmCode = isNorth ? `326${utmZone.toString().padStart(2, '0')}` : `327${utmZone.toString().padStart(2, '0')}`;
+        
+        // Register UTM zone if not already registered
+        const epsgCode = `EPSG:${utmCode}`;
+        if (!proj4Module.defs(epsgCode)) {
+          const utmDef = `+proj=utm +zone=${utmZone} ${isNorth ? '' : '+south '}+datum=WGS84 +units=m +no_defs`;
+          proj4Module.defs(epsgCode, utmDef);
+        }
+        
+        applicableCRS.push({
+          code: utmCode,
+          name: `WGS 84 / UTM zone ${utmZone}${isNorth ? 'N' : 'S'}`,
+          bounds: [-180, -90, 180, 90],
+          proj4: proj4Module.defs(epsgCode)
+        });
+      }
+
+      // Limit based on number of countries: 3 for single country, 5 for border areas
+      const maxCRS = epsgCodesMap.size > 1 ? 5 : 3;
+      const selectedCRS = applicableCRS.slice(0, maxCRS);
+
+      // Transform and display coordinates for each CRS
+      this.localCRS = selectedCRS.map((crs: any) => {
+        const transformed = this.transformCoordinatesClientSide(coords, crs.code);
+        return {
+          code: crs.code,
+          name: crs.name,
+          coords: transformed
+        };
+      });
+    } catch (error) {
+      console.error('Error determining local coordinate systems:', error);
+    } finally {
+      this.loadingCRS = false;
+    }
+  }
+
+  private transformCoordinatesClientSide(coords: LngLatTuple, epsgCode: string): string {
+    if (!proj4Module) {
+      return 'Error: proj4 not loaded';
+    }
+
+    try {
+      const [lng, lat] = coords;
+      // Transform from WGS84 (EPSG:4326) to target CRS
+      const transformed = proj4Module('EPSG:4326', `EPSG:${epsgCode}`, [lng, lat]);
+      
+      if (!transformed || !Array.isArray(transformed)) {
+        return 'Transformation failed';
+      }
+      
+      const [x, y] = transformed;
+      const precision = this.getTransformedPrecision(epsgCode);
+      return `${x.toFixed(precision)}, ${y.toFixed(precision)}`;
+    } catch (error) {
+      console.error(`Error transforming to EPSG:${epsgCode}:`, error);
+      return 'Transformation failed';
+    }
+  }
+
+  private getTransformedPrecision(epsgCode: string): number {
+    // Most projected coordinate systems use meters, so 2 decimal places is usually sufficient
+    // For specific systems, you could add custom precision rules
+    return 2;
   }
 
   private async copyToClipboard(text: string, e: MouseEvent): Promise<void> {

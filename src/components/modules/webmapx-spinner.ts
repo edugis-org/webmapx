@@ -26,6 +26,7 @@ export class WebmapxSpinner extends WebmapxBaseTool {
     static styles = css`
         :host {
             display: block;
+            --webmapx-pointer-events: none;
             pointer-events: none;
         }
         .spinner-container {

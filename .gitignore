@@ -3,3 +3,4 @@ dist/
 .claude/
 .vscode/
 public/cesium/
+scripts/temp/

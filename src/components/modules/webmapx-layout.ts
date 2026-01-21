@@ -35,7 +35,7 @@ export class WebmapxLayout extends LitElement {
     }
 
     .slot-zone ::slotted(*) {
-      pointer-events: auto;
+      pointer-events: var(--webmapx-pointer-events, auto);
     }
 
     /* Left column */

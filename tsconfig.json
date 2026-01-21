@@ -4,6 +4,9 @@
     "useDefineForClassFields": false,
     "target": "es2020",
     "module": "esnext",
-    "moduleResolution": "bundler"
-  }
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
+    "types": ["vite/client"]
+  },
+  "include": ["src/**/*"]
 }

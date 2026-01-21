@@ -120,7 +120,8 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
             display: flex;
             justify-content: flex-end;
             width: 100%;
-            pointer-events: auto;
+            --webmapx-pointer-events: none;
+            pointer-events: none;
             font-size: 12px;
             color: var(--color-text-secondary, #444);
             box-sizing: border-box;
@@ -141,11 +142,17 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
             white-space: normal;
             word-break: break-word;
             box-sizing: border-box;
+            pointer-events: none;
+        }
+
+        .attribution-item {
+            pointer-events: auto;
         }
 
         .attribution-item a {
             color: inherit;
             text-decoration: underline;
+            pointer-events: auto;
         }
 
         .separator {
