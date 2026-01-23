@@ -4,6 +4,36 @@ This directory contains build and maintenance scripts that are part of the repos
 
 ## Available Scripts
 
+### `setup-cesium.sh`
+
+Copies Cesium static assets from node_modules to public/cesium/. These assets are required for Cesium to run but are excluded from git to avoid repository bloat.
+
+**Usage:**
+```bash
+./scripts/setup-cesium.sh
+```
+
+**What it does:**
+1. Checks if Cesium is installed in node_modules
+2. Creates `public/cesium/` directory
+3. Copies all assets from `node_modules/cesium/Build/Cesium/`
+4. Reports the number of files and total size copied
+
+**Requirements:**
+- Cesium package installed via npm (`npm install`)
+
+**When to run:**
+- After `npm install` (first time or after dependencies change)
+- When Cesium assets are missing
+- After updating the cesium package version
+
+**Output:**
+- `public/cesium/` - Contains Workers/, ThirdParty/, Widgets/, and other Cesium runtime assets
+
+**Note:** The `public/cesium/` directory is git-ignored. Run this script on each machine/environment after cloning the repository.
+
+---
+
 ### `prepare-country-data.sh`
 
 Downloads and processes Natural Earth country boundary data for use in the EPSG lookup worker.
