@@ -4,7 +4,7 @@
     "label": "Demo Map",
     "center": [0, 0],
     "zoom": 2,
-    "maxZoom": 22,
+    "maxZoom": 20,
     "minZoom": 0,
     "type": "maplibre",
     "style":"https://demotiles.maplibre.org/style.json"
@@ -54,7 +54,7 @@
         "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
         "tileSize": 256,
         "attribution": "© OpenStreetMap contributors",
-        "maxZoom": 19
+        "maxzoom": 19
       },
       {
         "id": "bluemarble-source",
