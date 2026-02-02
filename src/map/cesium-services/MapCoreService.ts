@@ -559,6 +559,7 @@ export class MapCoreService implements IMapCore {
         const fillLayer = layers.filter(l => l?.type === 'fill').at(-1);
         const lineLayer = layers.filter(l => l?.type === 'line').at(-1);
         const circleLayer = layers.filter(l => l?.type === 'circle').at(-1);
+        const circleMetadata = circleLayer?.metadata ?? {};
 
         const fillPaint = fillLayer?.paint ?? {};
         const linePaint = lineLayer?.paint ?? {};
@@ -602,8 +603,12 @@ export class MapCoreService implements IMapCore {
                 entity.point.pixelSize = Number(circleRadius) * 2;
                 entity.point.outlineColor = Cesium.Color.fromCssColorString(circleStrokeColor).withAlpha(1);
                 entity.point.outlineWidth = Number(circleStrokeWidth);
+                const shouldClamp = !circleMetadata.isToolLayer;
                 if (Cesium.HeightReference?.CLAMP_TO_GROUND) {
-                    entity.point.heightReference = Cesium.HeightReference.CLAMP_TO_GROUND;
+                    entity.point.heightReference = shouldClamp ? Cesium.HeightReference.CLAMP_TO_GROUND : Cesium.HeightReference.NONE;
+                }
+                if (!shouldClamp && typeof entity.point.disableDepthTestDistance !== 'undefined') {
+                    entity.point.disableDepthTestDistance = Number.POSITIVE_INFINITY;
                 }
             }
         }
