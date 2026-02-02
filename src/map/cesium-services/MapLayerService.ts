@@ -30,6 +30,21 @@ function toNumber(value: unknown, fallback: number): number {
     return typeof value === 'number' && isFinite(value) ? value : fallback;
 }
 
+function getMinZoom(source: Partial<{ minzoom?: number; minZoom?: number }>): number | undefined {
+    const value = source.minzoom ?? source.minZoom;
+    return typeof value === 'number' && isFinite(value) ? value : undefined;
+}
+
+function getMaxZoom(source: Partial<{ maxzoom?: number; maxZoom?: number }>): number | undefined {
+    const value = source.maxzoom ?? source.maxZoom;
+    return typeof value === 'number' && isFinite(value) ? value : undefined;
+}
+
+function normalizeLevel(value?: number): number | undefined {
+    if (typeof value !== 'number' || !isFinite(value)) return undefined;
+    return Math.max(0, Math.floor(value));
+}
+
 function parseWmsUrl(url: string): { baseUrl: string; layers: string } {
     try {
         const u = new URL(url, window.location.origin);
@@ -44,7 +59,7 @@ function parseWmsUrl(url: string): { baseUrl: string; layers: string } {
 }
 
 type CesiumLayerHandle =
-    | { kind: 'imagery'; imageryLayer: any }
+    | { kind: 'imagery'; imageryLayer: any; maxLevel?: number }
     | { kind: 'geojson'; dataSource: any; sourceId: string; layerConfig: LayerConfig };
 
 export class MapLayerService implements ILayerService {
@@ -64,6 +79,7 @@ export class MapLayerService implements ILayerService {
             if (state.zoomLevel === this.lastZoomLevel) return;
             this.lastZoomLevel = state.zoomLevel;
             this.applyGeoJsonStylesThrottled();
+            this.applyImageryVisibility(state.zoomLevel);
         });
     }
 
@@ -92,22 +108,29 @@ export class MapLayerService implements ILayerService {
                 // Ignore warpedmap:// for Cesium (not supported)
                 if (url.startsWith('warpedmap://')) return false;
 
+                const minLevel = normalizeLevel(getMinZoom(sourceConfig));
+                const maxLevel = normalizeLevel(getMaxZoom(sourceConfig));
+
                 const provider = new Cesium.UrlTemplateImageryProvider({
                     url,
                     credit: sourceConfig.attribution ?? '',
-                    minimumLevel: sourceConfig.minzoom,
-                    maximumLevel: sourceConfig.maxzoom,
+                    minimumLevel: minLevel,
+                    maximumLevel: maxLevel,
                 });
+                this.enforceMaxLevel(provider, maxLevel);
                 const imageryLayer = new Cesium.ImageryLayer(provider);
                 this.viewer.imageryLayers.add(imageryLayer);
-                this.handles.set(handleKey, { kind: 'imagery', imageryLayer });
+                this.handles.set(handleKey, { kind: 'imagery', imageryLayer, maxLevel });
                 this.updateVisibleLayers();
+                this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
                 return true;
             }
 
             if (sourceConfig.service === 'wms') {
                 const wms = sourceConfig as WMSSourceConfig;
                 const { baseUrl, layers } = parseWmsUrl(url);
+                const minLevel = normalizeLevel(getMinZoom(wms));
+                const maxLevel = normalizeLevel(getMaxZoom(wms));
                 const provider = new Cesium.WebMapServiceImageryProvider({
                     url: baseUrl,
                     layers: wms.layers ?? layers,
@@ -117,14 +140,16 @@ export class MapLayerService implements ILayerService {
                         styles: wms.styles ?? '',
                         version: wms.version ?? '1.1.1',
                     },
-                    minimumLevel: wms.minzoom,
-                    maximumLevel: wms.maxzoom,
+                    minimumLevel: minLevel,
+                    maximumLevel: maxLevel,
                     credit: wms.attribution ?? '',
                 });
+                this.enforceMaxLevel(provider, maxLevel);
                 const imageryLayer = new Cesium.ImageryLayer(provider);
                 this.viewer.imageryLayers.add(imageryLayer);
-                this.handles.set(handleKey, { kind: 'imagery', imageryLayer });
+                this.handles.set(handleKey, { kind: 'imagery', imageryLayer, maxLevel });
                 this.updateVisibleLayers();
+                this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
                 return true;
             }
 
@@ -186,6 +211,55 @@ export class MapLayerService implements ILayerService {
             if (key.startsWith(`${layerId}::`)) return true;
         }
         return false;
+    }
+
+    private enforceMaxLevel(provider: any, maxLevel?: number): void {
+        if (typeof maxLevel !== 'number' || !isFinite(maxLevel)) {
+            return;
+        }
+        if (typeof provider.requestImage !== 'function') {
+            return;
+        }
+        const original = provider.requestImage.bind(provider);
+        provider.requestImage = (x: number, y: number, level: number, ...rest: unknown[]) => {
+            if (level > maxLevel) {
+                return undefined;
+            }
+            return original(x, y, Math.min(level, maxLevel), ...rest);
+        };
+        if (provider.tilingScheme && typeof provider.tilingScheme.getNumberOfXTilesAtLevel === 'function') {
+            const originalTiles = provider.tilingScheme.getNumberOfXTilesAtLevel.bind(provider.tilingScheme);
+            provider.tilingScheme.getNumberOfXTilesAtLevel = (level: number) => originalTiles(Math.min(level, maxLevel));
+        }
+        if (provider.tilingScheme && typeof provider.tilingScheme.getNumberOfYTilesAtLevel === 'function') {
+            const originalTilesY = provider.tilingScheme.getNumberOfYTilesAtLevel.bind(provider.tilingScheme);
+            provider.tilingScheme.getNumberOfYTilesAtLevel = (level: number) => originalTilesY(Math.min(level, maxLevel));
+        }
+    }
+
+    private applyImageryVisibility(currentZoom: number): void {
+        for (const handle of this.handles.values()) {
+            if (handle.kind !== 'imagery') continue;
+            const maxLevel = handle.maxLevel;
+            if (typeof maxLevel === 'number' && isFinite(maxLevel)) {
+                const shouldHide = currentZoom > maxLevel;
+                if (handle.imageryLayer.show === shouldHide) {
+                    handle.imageryLayer.show = !shouldHide;
+                }
+                const provider = handle.imageryLayer?.imageryProvider;
+                if (provider && typeof provider.requestImage === 'function' && !shouldHide) {
+                    provider.requestImage = provider.requestImage.bind(provider);
+                }
+                if (handle.imageryLayer?.imageryProvider && typeof handle.imageryLayer.imageryProvider._requestImage === 'undefined') {
+                    handle.imageryLayer.imageryProvider._requestImage = handle.imageryLayer.imageryProvider.requestImage;
+                }
+                if (shouldHide && handle.imageryLayer?.imageryProvider) {
+                    handle.imageryLayer.imageryProvider.requestImage = () => undefined;
+                } else if (!shouldHide && handle.imageryLayer?.imageryProvider?._requestImage) {
+                    handle.imageryLayer.imageryProvider.requestImage = handle.imageryLayer.imageryProvider._requestImage;
+                }
+            }
+        }
     }
 
     private applyGeoJsonStyles(dataSource: any, layerConfig: LayerConfig): void {

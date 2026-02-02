@@ -71,6 +71,7 @@ export class MapCoreService implements IMapCore {
             subdomains: ['a', 'b', 'c'],
             credit: '&copy; OpenStreetMap contributors',
         });
+        this.clampImageryProviderMaxLevel(osmProvider, 19);
 
         this.viewer = new Cesium.Viewer(target, {
             animation: false,
@@ -364,7 +365,7 @@ export class MapCoreService implements IMapCore {
             const coords = toLngLat(position);
             if (!coords) return;
             const pixel: Pixel = [position.x, position.y];
-            this.eventBus?.emit({ type: 'contextmenu', coords, pixel, resolution: null, originalEvent: event });
+            this.eventBus?.emit({ type: 'contextmenu', coords, pixel, originalEvent: event });
         });
 
         this.viewer.camera.moveEnd.addEventListener(() => {
@@ -556,9 +557,12 @@ export class MapCoreService implements IMapCore {
         if (!state || !dataSource) return;
 
         const layers = state.layers;
-        const fillLayer = layers.filter(l => l?.type === 'fill').at(-1);
-        const lineLayer = layers.filter(l => l?.type === 'line').at(-1);
-        const circleLayer = layers.filter(l => l?.type === 'circle').at(-1);
+        const fillFiltered = layers.filter(l => l?.type === 'fill');
+        const fillLayer = fillFiltered.length > 0 ? fillFiltered[fillFiltered.length - 1] : undefined;
+        const lineFiltered = layers.filter(l => l?.type === 'line');
+        const lineLayer = lineFiltered.length > 0 ? lineFiltered[lineFiltered.length - 1] : undefined;
+        const circleFiltered = layers.filter(l => l?.type === 'circle');
+        const circleLayer = circleFiltered.length > 0 ? circleFiltered[circleFiltered.length - 1] : undefined;
         const circleMetadata = circleLayer?.metadata ?? {};
 
         const fillPaint = fillLayer?.paint ?? {};
@@ -610,6 +614,34 @@ export class MapCoreService implements IMapCore {
                 if (!shouldClamp && typeof entity.point.disableDepthTestDistance !== 'undefined') {
                     entity.point.disableDepthTestDistance = Number.POSITIVE_INFINITY;
                 }
+            }
+        }
+    }
+
+    private clampImageryProviderMaxLevel(provider: any, maxLevel: number): void {
+        if (!provider || typeof maxLevel !== 'number' || !isFinite(maxLevel)) {
+            return;
+        }
+        if (typeof provider.requestImage === 'function') {
+            const original = provider.requestImage.bind(provider);
+            provider.requestImage = (x: number, y: number, level: number, ...rest: unknown[]) => {
+                const clampedLevel = Math.min(level, maxLevel);
+                return original(x, y, clampedLevel, ...rest);
+            };
+        }
+        const scheme = provider.tilingScheme;
+        const clampLevel = (fn?: (level: number) => number) =>
+            fn
+                ? (level: number) => fn.call(scheme, Math.min(level, maxLevel))
+                : undefined;
+        if (scheme) {
+            if (typeof scheme.getNumberOfXTilesAtLevel === 'function') {
+                const original = scheme.getNumberOfXTilesAtLevel;
+                scheme.getNumberOfXTilesAtLevel = clampLevel(original) as any;
+            }
+            if (typeof scheme.getNumberOfYTilesAtLevel === 'function') {
+                const original = scheme.getNumberOfYTilesAtLevel;
+                scheme.getNumberOfYTilesAtLevel = clampLevel(original) as any;
             }
         }
     }
