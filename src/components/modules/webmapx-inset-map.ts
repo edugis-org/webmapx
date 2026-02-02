@@ -47,7 +47,7 @@ export class WebmapxInsetMap extends LitElement {
   }, 50);
 
   private throttledRenderLog = throttle((label: string) => {
-    console.log('[inset-debug]', label);
+    //console.log('[inset-debug]', label);
   }, 50);
 
   private get insetContainer(): HTMLElement | null {
@@ -279,26 +279,33 @@ export class WebmapxInsetMap extends LitElement {
 
     // Debug ring size to monitor CPU load
     const densifiedRing = densified ? this.coerceRing(densified.geometry.coordinates?.[0]) : undefined;
+    const ringSpan = densifiedRing && densifiedRing.length ? this.computeSpan(densifiedRing) : null;
     const maxLat = densifiedRing && densifiedRing.length ? Math.max(...densifiedRing.map(([, lat]) => lat)) : null;
     const minLat = densifiedRing && densifiedRing.length ? Math.min(...densifiedRing.map(([, lat]) => lat)) : null;
 
     const hasIntersection = densifiedRing ? this.hasSelfIntersection(densifiedRing) : false;
-    console.log('[inset-debug] ring sizes', {
+    /*console.log('[inset-debug] ring sizes', {
       densifiedLength: densifiedRing?.length ?? 0,
       densifiedKey: nextKey,
       maxLat,
       minLat,
       latExceeded: maxLat !== null && Math.abs(maxLat) > 90 || minLat !== null && Math.abs(minLat) > 90,
-      span: densifiedRing && densifiedRing.length ? this.computeSpan(densifiedRing) : null,
+      span: ringSpan,
       selfIntersection: hasIntersection,
     });
     if (hasIntersection && densifiedRing) {
       console.log('[inset-debug] self-intersection ring', densifiedRing);
+    }*/
+
+    const nearPole = maxLat !== null && Math.abs(maxLat) >= 75 || minLat !== null && Math.abs(minLat) >= 75;
+    const badSpan = ringSpan && ((nearPole && ringSpan.lon > 170) || ringSpan.lon >= 330);
+    if (badSpan) {
+      console.warn('[inset-debug] skip render due to span', { ringSpan, nearPole });
     }
 
     const data: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
-      features: (!densified || hasIntersection) ? [] : [densified],
+      features: (!densified || hasIntersection || badSpan) ? [] : [densified],
     };
 
     this.throttledRenderLog('start render');
@@ -382,7 +389,7 @@ export class WebmapxInsetMap extends LitElement {
     const unwrapped = this.ensureClosed(this.unwrapLongitudes(ring));
     const span = this.computeSpan(unwrapped);
     const maxAbsLat = unwrapped.reduce((m, [, lat]) => Math.max(m, Math.abs(lat)), 0);
-    const nearPole = maxAbsLat >= 80;
+    const nearPole = maxAbsLat >= 75;
     if (span.lat <= 2 && span.lon <= 2) {
       return closedRing;
     }
@@ -438,7 +445,8 @@ export class WebmapxInsetMap extends LitElement {
       .filter(([, lat]) => Math.abs(lat) <= 90);
 
     const continuous = this.rewrapContinuousLongitudes(safeCoords.length ? safeCoords : closedRing);
-    const bounded = nearPole ? this.limitLongitudeSpan(continuous, 170) : continuous;
+    const maxSpan = nearPole ? 160 : 300;
+    const bounded = this.limitLongitudeSpan(continuous, maxSpan);
     const deduped = this.dedupeSequential(bounded);
     const collapsed = this.collapseFlatRuns(deduped);
     const candidate = collapsed.length >= 4 ? collapsed : (bounded.length >= 4 ? bounded : closedRing);
