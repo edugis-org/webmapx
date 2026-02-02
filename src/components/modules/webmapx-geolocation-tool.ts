@@ -296,6 +296,8 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     } catch (error) {
       // ignore if source exists
     }
+    // Track whether any add operations failed so we only mark layers ready when everything succeeded
+    let hadLayerErrors = false;
     try {
       core.addLayer({
         id: this.radiusLayerId,
@@ -303,13 +305,14 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         source: this.sourceId,
         metadata: { isToolLayer: true },
         paint: {
-          'fill-color': 'rgba(149, 201, 253, 0.3)',
-          'fill-opacity': 0.3
+          'fill-color': 'rgb(149, 201, 253)',
+          'fill-opacity': 0.5,
+          'fill-outline-color': 'rgb(66, 133, 244)'
         },
-        filter: ['all', ['==', '$type', 'Polygon']]
+        filter: ['==', '$type', 'Polygon']
       });
     } catch (error) {
-      // ignore if layer exists
+      hadLayerErrors = true;
     }
     try {
       core.addLayer({
@@ -323,12 +326,15 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
           'circle-stroke-color': '#fff',
           'circle-stroke-width': 1
         },
-        filter: ['all', ['==', '$type', 'Point']]
+        filter: ['==', '$type', 'Point']
       });
     } catch (error) {
-      // ignore if layer exists
+      hadLayerErrors = true;
     }
-    state.layersReady = true;
+
+    // Only mark layers ready if no add operation failed. If there were errors (e.g., style not loaded),
+    // leave layersReady false so ensureMapLayers will retry later.
+    state.layersReady = !hadLayerErrors;
   }
 
   private clearMapLayers(): void {
