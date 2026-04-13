@@ -25,6 +25,7 @@ import './components/modules/webmapx-toolbar.ts';
 import './components/modules/webmapx-control-group.ts';
 import './components/modules/webmapx-tool-panel.ts';
 import './components/modules/webmapx-layer-tree.ts';
+import './components/modules/webmapx-layer-overview.ts';
 import './components/modules/webmapx-settings.ts';
 import './components/modules/webmapx-coordinates-tool.ts';
 import './components/modules/webmapx-spinner.ts';

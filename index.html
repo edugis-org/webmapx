@@ -19,10 +19,17 @@
         <div>
             <webmapx-map id="map-container" adapter="maplibre" src="config/demo.json">                
                     <webmapx-layout>
-                        <webmapx-zoom-level slot="top-center"></webmapx-zoom-level>
-                        <webmapx-zoom-level slot="top-right"></webmapx-zoom-level>
-                        <webmapx-zoom-level slot="middle-right"></webmapx-zoom-level>
-                        <webmapx-navigation-control slot="top-right" orientation="vertical"></webmapx-navigation-control>
+                        <webmapx-control-group slot="top-right" orientation="vertical" panel-position="after" alignment="start">
+                        <webmapx-toolbar id="legend-toolbar">
+                            <sl-button name="legend" size="medium" circle>
+                                <sl-icon name="card-list" label="Legend"></sl-icon>
+                            </sl-button>
+                        </webmapx-toolbar>
+
+                        <webmapx-tool-panel id="legend-panel" label="Legenda">
+                            <webmapx-layer-overview id="legend-tool" tool-id="legend"></webmapx-layer-overview>
+                        </webmapx-tool-panel>
+                    </webmapx-control-group>
                         
                         <!-- Top Left: Toolbar + Panel -->
                         <webmapx-control-group slot="top-left" orientation="vertical" panel-position="after" alignment="start">
@@ -56,6 +63,8 @@
                     <webmapx-attribution-control slot="bottom-right"></webmapx-attribution-control>
 
                     <webmapx-coordinates-tool slot="bottom-center"></webmapx-coordinates-tool>
+                    <webmapx-navigation-control slot="bottom-left" direction="horizontal" orientation="vertical"></webmapx-navigation-control>
+                    <webmapx-zoom-level slot="bottom-left"></webmapx-zoom-level>
                     <webmapx-inset-map slot="bottom-left" zoom-offset="-4"></webmapx-inset-map>
                     <webmapx-spinner slot="middle-center"></webmapx-spinner>
                 </webmapx-layout>

@@ -2,6 +2,11 @@ import { LitElement, html, css } from 'lit';
 import { customElement, queryAssignedElements, property } from 'lit/decorators.js';
 import type { ToolManager } from '../../tools/tool-manager';
 import type { WebmapxMapElement } from './webmapx-map';
+import {
+  resolveToolbarSelectionState,
+  toolbarOwnsTool,
+  type ToolSelectEventDetail
+} from './tool-selection-scope';
 
 @customElement('webmapx-toolbar')
 export class WebmapxToolbar extends LitElement {
@@ -41,6 +46,7 @@ export class WebmapxToolbar extends LitElement {
   private toolPanel: HTMLElement | null = null;
   private boundHandleToolActivated = (e: Event) => this.handleToolActivated(e as CustomEvent);
   private boundHandleToolDeactivated = (e: Event) => this.handleToolDeactivated(e as CustomEvent);
+  private boundHandleToolSelect = (e: Event) => this.handleToolSelect(e as CustomEvent);
   private boundHandlePanelClose = (e: Event) => this.handlePanelClose(e as CustomEvent);
 
   connectedCallback(): void {
@@ -55,6 +61,7 @@ export class WebmapxToolbar extends LitElement {
     // Listen for tool activation/deactivation events to sync button states
     mapHost?.addEventListener('webmapx-tool-activated', this.boundHandleToolActivated);
     mapHost?.addEventListener('webmapx-tool-deactivated', this.boundHandleToolDeactivated);
+    mapHost?.addEventListener('webmapx-tool-select', this.boundHandleToolSelect);
 
     this.toolPanel = this.resolveToolPanel();
     this.toolPanel?.addEventListener('webmapx-panel-close', this.boundHandlePanelClose);
@@ -64,6 +71,7 @@ export class WebmapxToolbar extends LitElement {
     const mapHost = this.closest('webmapx-map');
     mapHost?.removeEventListener('webmapx-tool-activated', this.boundHandleToolActivated);
     mapHost?.removeEventListener('webmapx-tool-deactivated', this.boundHandleToolDeactivated);
+    mapHost?.removeEventListener('webmapx-tool-select', this.boundHandleToolSelect);
     this.toolPanel?.removeEventListener('webmapx-panel-close', this.boundHandlePanelClose);
     this.toolPanel = null;
     this.toolManager = null;
@@ -114,14 +122,14 @@ export class WebmapxToolbar extends LitElement {
       this.setActiveButton(toolId);
 
       this.dispatchEvent(new CustomEvent('webmapx-tool-select', {
-        detail: { toolId },
+        detail: { toolId, previousToolId: null, sourceToolbar: this },
         bubbles: true,
         composed: true
       }));
     } else {
       // If it was active, we just deactivated it (toggle off)
       this.dispatchEvent(new CustomEvent('webmapx-tool-select', {
-        detail: { toolId: null },
+        detail: { toolId: null, previousToolId: toolId, sourceToolbar: this },
         bubbles: true,
         composed: true
       }));
@@ -131,13 +139,39 @@ export class WebmapxToolbar extends LitElement {
   /** Handle tool activation events from ToolManager */
   private handleToolActivated(e: CustomEvent): void {
     const { toolId } = e.detail;
+    if (!this.hasButtonForTool(toolId)) {
+      return;
+    }
     this.clearActiveButtons();
     this.setActiveButton(toolId);
   }
 
   /** Handle tool deactivation events from ToolManager */
-  private handleToolDeactivated(_e: CustomEvent): void {
+  private handleToolDeactivated(e: CustomEvent): void {
+    const { toolId } = e.detail;
+    if (!this.hasButtonForTool(toolId)) {
+      return;
+    }
     this.clearActiveButtons();
+  }
+
+  private handleToolSelect(e: CustomEvent): void {
+    const detail = (e.detail ?? {}) as ToolSelectEventDetail;
+    const nextActiveToolId = resolveToolbarSelectionState({
+      toolIds: this.getToolIds(),
+      currentActiveToolId: this.getActiveButtonToolId(),
+      detail,
+      ownToolbar: this
+    });
+
+    if (nextActiveToolId === undefined) {
+      return;
+    }
+
+    this.clearActiveButtons();
+    if (nextActiveToolId) {
+      this.setActiveButton(nextActiveToolId);
+    }
   }
 
   private handlePanelClose(_e: CustomEvent): void {
@@ -178,6 +212,23 @@ export class WebmapxToolbar extends LitElement {
         btn.setAttribute('variant', 'default');
       }
     });
+  }
+
+  private hasButtonForTool(toolId: string | null | undefined): boolean {
+    return toolbarOwnsTool(this.getToolIds(), toolId);
+  }
+
+  private getToolIds(): string[] {
+    return this.buttons
+      .map((btn) => btn.getAttribute('name') || btn.getAttribute('data-tool'))
+      .filter((toolId): toolId is string => Boolean(toolId));
+  }
+
+  private getActiveButtonToolId(): string | null {
+    const activeButton = this.buttons.find((btn) =>
+      btn.hasAttribute('active') || btn.getAttribute('variant') === 'primary'
+    );
+    return activeButton?.getAttribute('name') || activeButton?.getAttribute('data-tool') || null;
   }
 
   render() {

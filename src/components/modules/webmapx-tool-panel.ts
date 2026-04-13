@@ -1,6 +1,10 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { WebmapxMapElement } from './webmapx-map';
+import {
+  isToolSelectFromDifferentToolbar,
+  type ToolSelectEventDetail
+} from './tool-selection-scope';
 
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
@@ -151,12 +155,21 @@ export class WebmapxToolPanel extends LitElement {
   }
 
   private handleToolSelect(e: CustomEvent): void {
-    const toolId = (e.detail?.toolId as string | null | undefined) ?? null;
+    const detail = (e.detail ?? {}) as ToolSelectEventDetail;
+    if (isToolSelectFromDifferentToolbar(detail, this.resolveToolbar())) {
+      return;
+    }
+
+    const toolId = (detail.toolId as string | null | undefined) ?? null;
+    const previousToolId = (detail.previousToolId as string | null | undefined) ?? null;
     if (toolId && this.mapHost?.toolManager?.getTool(toolId)) {
       return;
     }
 
     if (!toolId) {
+      if (previousToolId && !this.toolIndex.has(previousToolId) && this.activeToolId !== previousToolId) {
+        return;
+      }
       this.activeToolId = null;
       this.applyVisibility();
       return;
@@ -168,6 +181,18 @@ export class WebmapxToolPanel extends LitElement {
 
     this.activeToolId = toolId;
     this.applyVisibility();
+  }
+
+  private resolveToolbar(): HTMLElement | null {
+    const controlGroup = this.closest('webmapx-control-group');
+    if (controlGroup) {
+      const toolbar = controlGroup.querySelector('webmapx-toolbar');
+      if (toolbar) {
+        return toolbar as HTMLElement;
+      }
+    }
+
+    return this.mapHost?.querySelector('webmapx-toolbar') ?? null;
   }
 
   static styles = css`

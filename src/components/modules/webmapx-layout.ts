@@ -1,5 +1,5 @@
 import { css, html, LitElement } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, state } from 'lit/decorators.js';
 
 /**
  * Lightweight overlay layout that mirrors the positioning pattern from the provided map-positioner
@@ -7,6 +7,17 @@ import { customElement } from 'lit/decorators.js';
  */
 @customElement('webmapx-layout')
 export class WebmapxLayout extends LitElement {
+  @state() private slotDirections: Record<string, 'vertical' | 'horizontal'> = {
+    'top-left': 'vertical',
+    'middle-left': 'vertical',
+    'bottom-left': 'vertical',
+    'top-center': 'vertical',
+    'middle-center': 'vertical',
+    'bottom-center': 'vertical',
+    'top-right': 'vertical',
+    'middle-right': 'vertical',
+    'bottom-right': 'vertical'
+  };
 
   static styles = css`
     :host {
@@ -32,6 +43,10 @@ export class WebmapxLayout extends LitElement {
       min-height: 0;
       max-height: 100%;
       overflow: hidden;
+    }
+
+    .slot-zone[data-direction='horizontal'] {
+      flex-direction: row;
     }
 
     .slot-zone ::slotted(*) {
@@ -64,6 +79,11 @@ export class WebmapxLayout extends LitElement {
       right: var(--webmapx-zone-bottom-left-right, var(--webmapx-layout-inset, 16px));
       justify-content: flex-end;
       align-items: flex-start;
+    }
+
+    .slot-zone--bottom-left[data-direction='horizontal'] {
+      justify-content: flex-start;
+      align-items: flex-end;
     }
 
     /* Center column */
@@ -127,36 +147,84 @@ export class WebmapxLayout extends LitElement {
     return html`
       <div class="overlay-surface">
         <!-- Middle zones first (lower stacking order) -->
-        <div class="slot-zone slot-zone--middle-left">
-          <slot name="middle-left"></slot>
+        <div class="slot-zone slot-zone--middle-left" data-direction=${this.slotDirections['middle-left']}>
+          <slot name="middle-left" @slotchange=${this.handleSlotChange}></slot>
         </div>
-        <div class="slot-zone slot-zone--middle-right">
-          <slot name="middle-right"></slot>
+        <div class="slot-zone slot-zone--middle-right" data-direction=${this.slotDirections['middle-right']}>
+          <slot name="middle-right" @slotchange=${this.handleSlotChange}></slot>
         </div>
-        <div class="slot-zone slot-zone--middle-center">
-          <slot name="middle-center"></slot>
+        <div class="slot-zone slot-zone--middle-center" data-direction=${this.slotDirections['middle-center']}>
+          <slot name="middle-center" @slotchange=${this.handleSlotChange}></slot>
         </div>
 
         <!-- Corner and Center zones (higher stacking order) -->
-        <div class="slot-zone slot-zone--top-left">
-          <slot name="top-left"></slot>
+        <div class="slot-zone slot-zone--top-left" data-direction=${this.slotDirections['top-left']}>
+          <slot name="top-left" @slotchange=${this.handleSlotChange}></slot>
         </div>
-        <div class="slot-zone slot-zone--bottom-left">
-          <slot name="bottom-left"></slot>
+        <div class="slot-zone slot-zone--bottom-left" data-direction=${this.slotDirections['bottom-left']}>
+          <slot name="bottom-left" @slotchange=${this.handleSlotChange}></slot>
         </div>
-        <div class="slot-zone slot-zone--top-center">
-          <slot name="top-center"></slot>
+        <div class="slot-zone slot-zone--top-center" data-direction=${this.slotDirections['top-center']}>
+          <slot name="top-center" @slotchange=${this.handleSlotChange}></slot>
         </div>
-        <div class="slot-zone slot-zone--bottom-center">
-          <slot name="bottom-center"></slot>
+        <div class="slot-zone slot-zone--bottom-center" data-direction=${this.slotDirections['bottom-center']}>
+          <slot name="bottom-center" @slotchange=${this.handleSlotChange}></slot>
         </div>
-        <div class="slot-zone slot-zone--top-right">
-          <slot name="top-right"></slot>
+        <div class="slot-zone slot-zone--top-right" data-direction=${this.slotDirections['top-right']}>
+          <slot name="top-right" @slotchange=${this.handleSlotChange}></slot>
         </div>
-        <div class="slot-zone slot-zone--bottom-right">
-          <slot name="bottom-right"></slot>
+        <div class="slot-zone slot-zone--bottom-right" data-direction=${this.slotDirections['bottom-right']}>
+          <slot name="bottom-right" @slotchange=${this.handleSlotChange}></slot>
         </div>
       </div>
     `;
+  }
+
+  protected firstUpdated(): void {
+    this.updateAllSlotDirections();
+  }
+
+  private handleSlotChange(event: Event): void {
+    const slot = event.target as HTMLSlotElement | null;
+    const slotName = slot?.name;
+    if (!slotName) {
+      return;
+    }
+
+    const nextDirection = this.resolveSlotDirection(slot);
+    if (this.slotDirections[slotName] === nextDirection) {
+      return;
+    }
+
+    this.slotDirections = {
+      ...this.slotDirections,
+      [slotName]: nextDirection
+    };
+  }
+
+  private updateAllSlotDirections(): void {
+    const slots = this.shadowRoot?.querySelectorAll('slot') ?? [];
+    const nextDirections = { ...this.slotDirections };
+
+    slots.forEach((slotNode) => {
+      const slot = slotNode as HTMLSlotElement;
+      if (!slot.name) {
+        return;
+      }
+      nextDirections[slot.name] = this.resolveSlotDirection(slot);
+    });
+
+    this.slotDirections = nextDirections;
+  }
+
+  private resolveSlotDirection(slot: HTMLSlotElement): 'vertical' | 'horizontal' {
+    const assignedElements = slot.assignedElements({ flatten: true });
+    const directionSource = assignedElements.find((element) => {
+      const direction = element.getAttribute('direction');
+      return direction === 'horizontal' || direction === 'vertical';
+    });
+
+    const direction = directionSource?.getAttribute('direction');
+    return direction === 'horizontal' ? 'horizontal' : 'vertical';
   }
 }

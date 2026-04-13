@@ -6,6 +6,10 @@ export class WebmapxControlGroup extends LitElement {
   @property({ type: String, reflect: true }) orientation = 'vertical'; // 'vertical' | 'horizontal'
   @property({ type: String, reflect: true, attribute: 'panel-position' }) panelPosition = 'after'; // 'after' | 'before'
   @property({ type: String, reflect: true }) alignment = 'start'; // 'start' | 'end' | 'center'
+  @property({ type: String, reflect: true, attribute: 'slot-anchor-y' }) slotAnchorY = 'top';
+  @property({ type: Boolean, reflect: true, attribute: 'panel-active' }) panelActive = false;
+
+  private panelObserver: MutationObserver | null = null;
 
   static styles = css`
     :host {
@@ -43,13 +47,51 @@ export class WebmapxControlGroup extends LitElement {
     ::slotted(*) {
       pointer-events: auto;
     }
+
+    /* Keep the panel attached to the slot edge. */
+    :host([slot-anchor-y="top"])::slotted(webmapx-tool-panel) {
+      align-self: flex-start;
+    }
+
+    :host([slot-anchor-y="bottom"])::slotted(webmapx-tool-panel) {
+      align-self: flex-end;
+    }
+
+    :host([slot-anchor-y="middle"])::slotted(webmapx-tool-panel) {
+      align-self: center;
+    }
+
+    /* When closed, the toolbar follows the same edge as the panel. */
+    :host(:not([panel-active])[slot-anchor-y="top"])::slotted(webmapx-toolbar) {
+      align-self: flex-start;
+    }
+
+    :host(:not([panel-active])[slot-anchor-y="bottom"])::slotted(webmapx-toolbar) {
+      align-self: flex-end;
+    }
+
+    :host(:not([panel-active])[slot-anchor-y="middle"])::slotted(webmapx-toolbar) {
+      align-self: center;
+    }
+
   `;
 
   @queryAssignedElements()
   childrenElements!: HTMLElement[];
 
+  connectedCallback() {
+    super.connectedCallback();
+    this.updateSlotAnchor();
+  }
+
+  disconnectedCallback() {
+    this.disconnectPanelObserver();
+    super.disconnectedCallback();
+  }
+
   handleSlotChange() {
     this.updateToolbarOrientation();
+    this.observePanelState();
   }
 
   updateToolbarOrientation() {
@@ -61,9 +103,40 @@ export class WebmapxControlGroup extends LitElement {
     }
   }
 
+  private updateSlotAnchor() {
+    const slotName = this.getAttribute('slot') ?? '';
+    this.slotAnchorY = slotName.includes('bottom') ? 'bottom' : slotName.includes('middle') ? 'middle' : 'top';
+  }
+
+  private observePanelState() {
+    this.disconnectPanelObserver();
+    const panel = this.childrenElements.find(el => el.tagName.toLowerCase() === 'webmapx-tool-panel');
+    if (!panel) {
+      this.panelActive = false;
+      return;
+    }
+
+    this.panelActive = panel.hasAttribute('active');
+    this.panelObserver = new MutationObserver(() => {
+      this.panelActive = panel.hasAttribute('active');
+    });
+    this.panelObserver.observe(panel, {
+      attributes: true,
+      attributeFilter: ['active']
+    });
+  }
+
+  private disconnectPanelObserver() {
+    this.panelObserver?.disconnect();
+    this.panelObserver = null;
+  }
+
   updated(changedProperties: Map<string, any>) {
     if (changedProperties.has('orientation')) {
       this.updateToolbarOrientation();
+    }
+    if (changedProperties.has('slot')) {
+      this.updateSlotAnchor();
     }
   }
 
