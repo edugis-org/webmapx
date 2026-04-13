@@ -4,7 +4,7 @@ A web component library that provides ready-to-use, extensible, and customizable
 
 ## 🚀 Architecture Rules
 
-1.  **Adapter = Thin Wrapper:** The adapter layer provides fixed methods/events only. It translates library-specific APIs (MapLibre, OpenLayers, etc.) to generic interfaces. **No business logic in the adapter.**
+1.  **Adapter = Thin Wrapper:** The adapter layer provides fixed methods/events only. It translates library-specific APIs (MapLibre, OpenLayers, Leaflet, Cesium) to generic interfaces. **No business logic in the adapter.**
 
 2.  **Tools = Composite Logic:** All business logic, calculations, and orchestration live in the tool components. Tools use the adapter's thin wrappers and decide their own throttling/rate-limiting.
 
@@ -20,7 +20,7 @@ A web component library that provides ready-to-use, extensible, and customizable
     map.destroy();
     ```
 
-4.  **Map State Management:** Each map owns a scoped state store (`/src/store/map-state-store.ts`). State changes are tagged with `source` ('UI' or 'MAP') to prevent feedback loops.
+4.  **Map State Management:** Each map owns a scoped state store (`/src/store/map-state-store.ts`). State changes are tagged with `source` ('UI' or 'MAP') to prevent feedback loops. The current active tool is stored as `activeTool: { toolId: string } | null`, which keeps the model open-ended as new modal tools are added.
 
 5.  **Consumer-Side Throttling:** The adapter emits all events immediately. Consumers (tools, stores) use the `throttle` utility to rate-limit as needed.
 
@@ -32,7 +32,7 @@ A web component library that provides ready-to-use, extensible, and customizable
 | :--- | :--- | :--- | :--- |
 | `/src/components/modules` | Tools (UI + Logic) | [`./src/components/modules/webmapx-inset-map.ts`](./src/components/modules/webmapx-inset-map.ts) | **Composite Logic** (creates maps, layers, handles state) |
 | `/src/store` | Application State | [`./src/store/map-state-store.ts`](./src/store/map-state-store.ts) | **Map State Store** (Source of Truth, Loop Prevention) |
-| `/src/map` | Adapter Layer | [`./src/map/maplibre-adapter.ts`](./src/map/maplibre-adapter.ts) | **Thin Wrapper** (translates to MapLibre/OL/Leaflet) |
+| `/src/map` | Adapter Layer | [`./src/map/maplibre-adapter.ts`](./src/map/maplibre-adapter.ts) | **Thin Wrapper** (built-in MapLibre, OpenLayers, Leaflet, Cesium adapters) |
 | `/src/map/IMapInterfaces.ts` | Contracts | [`./src/map/IMapInterfaces.ts`](./src/map/IMapInterfaces.ts) | **IMap, ILayer, ISource, IMapFactory** interfaces |
 | `/src/utils` | Shared Utilities | [`./src/utils/throttle.ts`](./src/utils/throttle.ts) | **Throttle utility** (consumers decide rate-limiting) |
 
@@ -52,16 +52,18 @@ For a detailed guide on creating new components, understanding the data flow, an
 
 ## ⚙️ Build & Dev Workflow
 - `npm install` once after cloning to pull dependencies.
-- `npm run start` launches the Vite dev server; its "magic" (module graph, hot-module reload, CSS/asset handling) lets you edit files under `src/` and see the result instantly without manual builds.
-- `npm run build` invokes `vite build`, emitting the optimized static bundle into `dist/`—this folder is what you deploy to any static host or edge worker.
-- `npm run preview` serves the fresh `dist/` output locally so you can smoke-test the optimized build before shipping.
+- `npm run dev` or `npm run start` launches the Vite dev server; hot reload, module graph handling, and asset processing let you iterate on `src/` without manual rebuilds.
+- `npm run build` invokes `vite build`, emitting the optimized static bundle into `dist/` for static hosting or an edge worker.
+- `npm run preview` serves the freshly built `dist/` output locally for a final smoke test.
+- `npm run test` runs the lightweight Node-based test suite for core logic such as adapter resolution and modal tool coordination.
 
 ## 🧾 TypeScript Configuration
-- The repo compiles via Vite using the `tsconfig.json` at the root. Key options:
-    - `"target": "es2020"` and `"module": "esnext"` so emitted code matches modern evergreen browsers.
-    - `"experimentalDecorators": true` and `"useDefineForClassFields": false` enable Lit's decorator syntax (`@customElement`, `@state`, etc.) and align with its class-field semantics.
-    - `"moduleResolution": "node"` ensures bare module specifiers (Shoelace, Lit, MapLibre) resolve the same way in both TS and Vite.
-- Component authoring pattern: `.ts` files in `src/components/modules` export Lit elements that are registered once and side-effect imported from `src/app.js`, keeping TypeScript (for DX) while Vite handles bundling and dev-time transpilation automatically.
+- The repo compiles via Vite using the root `tsconfig.json`. Key options:
+    - `"target": "es2020"` and `"module": "esnext"` keep the output aligned with modern evergreen browsers.
+    - `"experimentalDecorators": true` and `"useDefineForClassFields": false` enable Lit decorator syntax (`@customElement`, `@state`, etc.) and preserve the expected class-field semantics.
+    - `"moduleResolution": "bundler"` matches Vite's resolver model for bare module specifiers.
+- The package is marked as ESM (`"type": "module"`), which keeps `vite.config.js` in module mode without the CommonJS warning.
+- Component authoring pattern: `.ts` files in `src/components/modules` export Lit elements that are registered once and side-effect imported from `src/app.js`, while Vite handles bundling and dev-time transpilation.
 
 ## 🎛️ Map Initialization (OSM demo)
 - The entry `src/app.js` initializes the map with a custom viewport and an OpenStreetMap style via MapLibre:
@@ -69,14 +71,15 @@ For a detailed guide on creating new components, understanding the data flow, an
 - Change `center`, `zoom`, or `styleUrl` to use your own basemap.
 
 ## 📡 Current Status
-- **Adapter:** Thin wrapper pattern implemented. `MapCoreService` translates MapLibre events to generic `MapEventBus` events. No controllers.
-- **IMapFactory:** OOP API for creating maps (`IMap`), sources (`ISource`), and layers (`ILayer`).
-- **Inset Map:** Refactored to use new architecture. Tool contains all composite logic, uses `mapFactory.createMap()` and manages its own throttling.
-- **Events:** `view-change`, `view-change-end`, `pointer-move`, `click`, `dblclick`, `contextmenu`, `pointer-leave` available via `adapter.events`.
+- **Adapters:** Built-in adapters are registered for `maplibre`, `openlayers`/`ol`, `leaflet`/`l`, and `cesium`/`c`.
+- **IMapFactory:** The adapter layer exposes the OOP map API for creating maps (`IMap`), sources (`ISource`), and layers (`ILayer`).
+- **Inset Map:** The inset tool owns its composite logic, uses `mapFactory.createMap()`, and manages its own throttling.
+- **Events:** `view-change`, `view-change-end`, `pointer-move`, `click`, `dblclick`, `contextmenu`, and `pointer-leave` are available via `adapter.events`.
+- **Tests:** A lightweight Node-based test suite covers adapter resolution precedence and modal tool manager transitions.
 
 ## 🔌 Extensibility
 
-This project exposes clear extension points for adapters and tools rather than a generic "plugin" runtime. Two common extension patterns are:
+This project exposes clear extension points for adapters and tools rather than a generic plugin runtime. Two common extension patterns are:
 
 - **Registering a custom map adapter** — use the `registerMapAdapter` API to make a new adapter available by name. See [`src/map/adapter-registry.ts`](src/map/adapter-registry.ts) for details. Example:
 
@@ -84,7 +87,7 @@ This project exposes clear extension points for adapters and tools rather than a
 import { registerMapAdapter } from './src/map/adapter-registry';
 import { MyLeafletAdapter } from './src/map/leaflet-adapter';
 
-registerMapAdapter('leaflet', () => new MyLeafletAdapter());
+registerMapAdapter('leaflet', async () => new MyLeafletAdapter());
 ```
 
 - **Creating a custom tool** — extend `WebmapxModalTool` or `WebmapxBaseTool` in `src/components/modules` to build tools that auto-register with the `ToolManager`. See [`src/components/modules/webmapx-modal-tool.ts`](src/components/modules/webmapx-modal-tool.ts) and [`src/tools/tool-manager.ts`](src/tools/tool-manager.ts). Minimal example:

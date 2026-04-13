@@ -7,7 +7,6 @@ export interface IAppState {
     mapLoaded: boolean;
     /** True when the map is busy loading tiles/data or rendering */
     mapBusy: boolean;
-    currentTool: 'Buffer' | 'Legend' | 'None';
     bufferRadiusKm: number;
     zoomLevel: number | null;
     mapCenter: [number, number] | null;
@@ -21,12 +20,15 @@ export interface IAppState {
     visibleLayers: string[];
 
     /**
-     * Currently active tool that captures map events.
-     * Used for tool coordination - passive tools (like coordinates) ignore this,
-     * while exclusive tools (like feature-info) check before processing events.
-     * null means no tool is capturing events exclusively.
+     * Currently active tool in the UI state model.
+     * The shape is intentionally generic so any tool can participate without
+     * extending a hardcoded union.
      */
-    activeTool: 'measure' | 'feature-info' | null;
+    activeTool: ActiveToolState | null;
+}
+
+export interface ActiveToolState {
+    toolId: string;
 }
 
 /** Defines who initiated the state change for loop prevention. */

@@ -1,19 +1,20 @@
 {
   "name": "webmapx",
   "version": "1.0.0",
-  "description": "A highly modular and map-library-agnostic User Interface built for dynamic Web GIS applications. This project is architected to allow easy swapping of map backends (MapLibre, OpenLayers, Cesium) and features a scoped, robust map state management system to ensure consistency and performance.",
+  "description": "A modular web map UI with built-in adapters for MapLibre, OpenLayers, Leaflet, and Cesium.",
   "license": "ISC",
   "author": "",
-  "type": "commonjs",
+  "type": "module",
   "main": "index.js",
   "directories": {
     "doc": "docs"
   },
   "scripts": {
+    "dev": "vite",
     "start": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node ./scripts/run-tests.mjs"
   },
   "dependencies": {
     "@allmaps/leaflet": "^1.0.0-beta.52",

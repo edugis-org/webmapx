@@ -14,12 +14,20 @@ Provides a miniature map that mirrors the main map's center/zoom so users always
 </webmapx-layout>
 ```
 
+If the inset lives outside the `<webmapx-map>` element, point it at the map explicitly when the page can contain more than one map:
+
+```html
+<webmapx-map id="main-map"></webmapx-map>
+<webmapx-inset-map map="#main-map" zoom-offset="-4"></webmapx-inset-map>
+```
+
 ## Attributes
 | Attribute | Type | Default | Description |
 | --- | --- | --- | --- |
 | `zoom-offset` | number | `-3` | Added to the main map's zoom before rendering the inset. Use negative values to zoom out. |
 | `style-url` | string | MapLibre demo style | Optional custom style URL for the inset. |
 | `base-scale` | number | `0.5` | Base CSS scale applied to the 512×512 inset canvas. For derived zoom ≤ 0, the inset stays at zoom 0 and holds this scale steady.
+| `map` | string | - | Optional CSS selector for the target `<webmapx-map>`. Recommended when the inset is rendered outside the map host or the page has multiple maps. |
 
 ## Behavior
 - Host element defines its own size via CSS variables `--webmapx-inset-width` / `--webmapx-inset-height` (defaults 256px). Internally, the map renders on a 512×512 canvas that is scaled down via CSS. The controller animates `--webmapx-inset-scale` between the configured base value (for derived zoom ≤ 0) and 1 (as zoom increases) before handing off additional zoom to MapLibre.

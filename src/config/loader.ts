@@ -1,10 +1,27 @@
 // src/config/loader.ts
 // Configuration loader with priority cascade
 
-import type { AppConfig, MapConfig } from './types.js';
+import type { AppConfig, MapAdapterType, MapConfig } from './types.js';
 import { validateConfig } from './validator.js';
 
 const CONFIG_URL_PARAM = 'config';
+const MAP_ADAPTER_ALIASES: Record<string, MapAdapterType> = {
+  maplibre: 'maplibre',
+  openlayers: 'openlayers',
+  ol: 'openlayers',
+  leaflet: 'leaflet',
+  l: 'leaflet',
+  cesium: 'cesium',
+  c: 'cesium',
+};
+
+function normalizeAdapterType(value: string | null): MapAdapterType | null {
+  if (!value) {
+    return null;
+  }
+
+  return MAP_ADAPTER_ALIASES[value.toLowerCase()] ?? null;
+}
 
 /** Default map configuration */
 export const DEFAULT_MAP_CONFIG: MapConfig = {
@@ -101,8 +118,9 @@ export function parseAttributeConfig(element: HTMLElement): Partial<MapConfig> {
     }
   }
 
-  const type = element.getAttribute('type');
-  if (type === 'maplibre' || type === 'openlayers') {
+  const adapter = normalizeAdapterType(element.getAttribute('adapter'));
+  const type = adapter ?? normalizeAdapterType(element.getAttribute('type'));
+  if (type) {
     config.type = type;
   }
 
@@ -167,10 +185,12 @@ export async function resolveMapConfig(
   element: HTMLElement,
   appConfig?: AppConfig | null
 ): Promise<MapConfig> {
+  const attrConfig = parseAttributeConfig(element);
+
   // Priority 1: App-level config overrides everything for this map
   if (appConfig?.map) {
     console.log('[config] Using app-level config for map');
-    return mergeMapConfigs(appConfig.map);
+    return attrConfig.type ? mergeMapConfigs(appConfig.map, { type: attrConfig.type }) : mergeMapConfigs(appConfig.map);
   }
 
   // Priority 2: src attribute (map-specific config)
@@ -179,7 +199,7 @@ export async function resolveMapConfig(
     try {
       const config = await fetchConfig(srcPath);
       console.log(`[config] Loaded map config from src="${srcPath}"`);
-      return mergeMapConfigs(config.map);
+      return attrConfig.type ? mergeMapConfigs(config.map, { type: attrConfig.type }) : mergeMapConfigs(config.map);
     } catch (error) {
       console.error(`[config] Failed to load map config from src:`, error);
       // Fall through to next priority
@@ -187,7 +207,6 @@ export async function resolveMapConfig(
   }
 
   // Priority 3: Individual attributes
-  const attrConfig = parseAttributeConfig(element);
   const hasAttributes = Object.keys(attrConfig).length > 0;
 
   if (hasAttributes) {

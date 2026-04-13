@@ -155,16 +155,11 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
     activate(): void {
         if (this._active) return;
 
-        // Check if we're being called by ToolManager (it will have already set itself as active)
-        const calledByToolManager = this.toolManager?.activeToolId === this.toolId;
-
-        if (this.registerWithToolManager && this.toolManager && !calledByToolManager) {
-            // Called directly by user code - delegate to ToolManager for coordination
+        if (this.registerWithToolManager && this.toolManager && this.toolManager.activeToolId !== this.toolId) {
             this.toolManager.activate(this.toolId);
             return;
         }
 
-        // Actually activate (called by ToolManager, or no ToolManager available)
         this.active = true;
     }
 
@@ -174,16 +169,11 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
     deactivate(): void {
         if (!this._active) return;
 
-        // Check if we're being called by ToolManager
-        const calledByToolManager = this.toolManager?.activeToolId !== this.toolId;
-
-        if (this.registerWithToolManager && this.toolManager && !calledByToolManager) {
-            // Called directly by user code - delegate to ToolManager for coordination
+        if (this.registerWithToolManager && this.toolManager && this.toolManager.activeToolId === this.toolId) {
             this.toolManager.deactivate(this.toolId);
             return;
         }
 
-        // Actually deactivate (called by ToolManager, or no ToolManager available)
         this.active = false;
     }
 

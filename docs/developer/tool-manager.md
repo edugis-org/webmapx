@@ -1,6 +1,6 @@
 # ToolManager
 
-The ToolManager is the central coordinator for modal tools in WebMapX. It handles tool registration, activation, and ensures mutual exclusion (only one modal tool active at a time).
+The ToolManager is the central coordinator for modal tools in WebMapX. It handles tool registration, activation, and ensures mutual exclusion (only one modal tool active at a time). It is the single source of truth for the active modal tool state.
 
 ## Overview
 
@@ -26,7 +26,7 @@ The ToolManager is the central coordinator for modal tools in WebMapX. It handle
 The ToolManager is accessed via the `webmapx-map` element:
 
 ```javascript
-const map = document.querySelector('webmapx-map');
+const map = document.querySelector('#map');
 const toolManager = map.toolManager;
 ```
 
@@ -59,6 +59,7 @@ toolManager.activate('measure');
 ```
 
 - If another modal tool is active, it will be deactivated first
+- The manager updates the tool's `active` flag directly during the transition
 - Dispatches `webmapx-tool-activated` event
 - Updates `activeTool` in state store
 
@@ -230,7 +231,7 @@ ToolManager automatically updates the `activeTool` property in the state store:
 
 ```typescript
 // When tool is activated
-store.dispatch({ activeTool: 'measure' }, 'UI');
+store.dispatch({ activeTool: { toolId: 'measure' } }, 'UI');
 
 // When tool is deactivated
 store.dispatch({ activeTool: null }, 'UI');
@@ -240,8 +241,18 @@ This allows passive tools to check if a modal tool is active:
 
 ```typescript
 protected onStateChanged(state: IAppState): void {
-    if (state.activeTool) {
+    if (state.activeTool?.toolId) {
         // A modal tool is active, maybe reduce updates
     }
 }
 ```
+
+`activeTool` is intentionally generic:
+
+```typescript
+interface ActiveToolState {
+    toolId: string;
+}
+```
+
+That lets new tool IDs flow through state without extending a union every time a modal tool is added.

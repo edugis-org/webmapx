@@ -55,7 +55,7 @@ export class WebmapxToolTemplate extends WebmapxBaseTool {
 
     protected onStateChanged(state: IAppState): void {
         this.bufferRadius = state.bufferRadiusKm;
-        this.isToolActive = state.currentTool === 'Buffer';
+        this.isToolActive = state.activeTool?.toolId === 'Buffer';
     }
     
     /**

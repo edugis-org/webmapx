@@ -94,7 +94,7 @@ You can render the measure tool's output to any element on the page using the `r
 You can activate/deactivate the measure tool programmatically via the `ToolManager`:
 
 ```javascript
-const map = document.querySelector('webmapx-map');
+const map = document.querySelector('#map');
 
 // Activate the measure tool
 map.toolManager.activate('measure');
@@ -123,7 +123,7 @@ The `webmapx-measure-tool` dispatches custom events for activation and deactivat
 You can also listen to global tool events on the map element:
 
 ```javascript
-const map = document.querySelector('webmapx-map');
+const map = document.querySelector('#map');
 
 map.addEventListener('webmapx-tool-activated', (e) => {
   if (e.detail.toolId === 'measure') {

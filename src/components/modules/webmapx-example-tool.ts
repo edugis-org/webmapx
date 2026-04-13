@@ -31,7 +31,7 @@
  *
  * Or activate programmatically:
  * ```javascript
- * const map = document.querySelector('webmapx-map');
+ * const map = document.querySelector('#map');
  * map.toolManager.activate('example');
  * ```
  */

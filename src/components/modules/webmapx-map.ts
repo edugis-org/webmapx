@@ -1,6 +1,10 @@
 import { IMapAdapter } from '../../map/IMapAdapter';
 import { createMapAdapter, DEFAULT_ADAPTER_NAME } from '../../map/adapter-registry';
 import type { AppConfig, CatalogConfig, MapConfig, ToolsConfig } from '../../config/types';
+import {
+  getMapScopedStorageKey,
+  resolveAdapterSelection
+} from '../../config/adapter-resolution';
 import { ToolManager } from '../../tools/tool-manager';
 
 const MAP_VIEW_SLOT = 'map-view';
@@ -24,7 +28,6 @@ export interface ConfigReadyEventDetail {
 export class WebmapxMapElement extends HTMLElement {
     // Only one connectedCallback/disconnectedCallback allowed. Add event listener in the main one.
     connectedCallback(): void {
-      this.ensureAdapter();
       this.upsertAndStyleSurface();
       this.observeSurfaceChanges();
       this.addEventListener('add-layer', this.handleLayerAddRequest as EventListener);
@@ -284,6 +287,28 @@ export class WebmapxMapElement extends HTMLElement {
     console.log(`[webmapx-map] Config set for "${this.id || 'unnamed'}":`, config);
   }
 
+  private getScopedStorageKey(kind: 'adapter' | 'viewport'): string | null {
+    return getMapScopedStorageKey(this.id, kind);
+  }
+
+  private getSavedAdapterPreference(): string | null {
+    const key = this.getScopedStorageKey('adapter');
+    if (!key) {
+      return null;
+    }
+
+    return localStorage.getItem(key);
+  }
+
+  private resolveRequestedAdapter(): string {
+    return resolveAdapterSelection({
+      explicitAdapter: this.getAttribute(MAP_ADAPTER_ATTRIBUTE) ?? this.getAttribute('type'),
+      savedAdapter: this.getSavedAdapterPreference(),
+      configuredAdapter: this.mapConfig?.type ?? null,
+      defaultAdapter: DEFAULT_ADAPTER_NAME,
+    });
+  }
+
   private ensureAdapter(): void {
     if (this.adapterInstance) {
       return;
@@ -292,10 +317,7 @@ export class WebmapxMapElement extends HTMLElement {
       return;
     }
 
-    // Priority: localStorage > attribute > default
-    const savedAdapter = localStorage.getItem('webmapx-adapter');
-    const attributeAdapter = this.getAttribute(MAP_ADAPTER_ATTRIBUTE);
-    const requestedAdapter = savedAdapter ?? attributeAdapter ?? DEFAULT_ADAPTER_NAME;
+    const requestedAdapter = this.resolveRequestedAdapter();
 
     this.adapterPromise = (async () => {
       const adapter = await createMapAdapter(requestedAdapter);

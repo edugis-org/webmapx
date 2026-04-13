@@ -8,7 +8,12 @@ import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 
 import { getRegisteredAdapters, DEFAULT_ADAPTER_NAME } from '../../map/adapter-registry';
-import { WebmapxMapElement } from './webmapx-map';
+import {
+    getMapScopedStorageKey,
+    normalizeAdapterName,
+    resolveAdapterSelection
+} from '../../config/adapter-resolution';
+import { resolveMapElement } from './map-context';
 
 @customElement('webmapx-settings')
 export class WebmapxSettings extends LitElement {
@@ -83,23 +88,24 @@ export class WebmapxSettings extends LitElement {
         this.currentAdapter = this.detectCurrentAdapter();
     }
 
+    private getMapStorageKey(mapElement: HTMLElement, kind: 'adapter' | 'viewport'): string | null {
+        return getMapScopedStorageKey(mapElement.id, kind);
+    }
+
     private detectCurrentAdapter(): string {
-        // Check localStorage first
-        const saved = localStorage.getItem('webmapx-adapter');
-        if (saved && this.availableAdapters.includes(saved)) {
-            return saved;
+        const mapElement = resolveMapElement(this);
+        if (!mapElement) {
+            return DEFAULT_ADAPTER_NAME;
         }
 
-        // Fall back to what's in the DOM
-        const mapElement = document.querySelector('webmapx-map') as WebmapxMapElement | null;
-        if (mapElement) {
-            const attr = mapElement.getAttribute('adapter');
-            if (attr && this.availableAdapters.includes(attr.toLowerCase())) {
-                return attr.toLowerCase();
-            }
-        }
-
-        return DEFAULT_ADAPTER_NAME;
+        const storedKey = this.getMapStorageKey(mapElement, 'adapter');
+        const resolved = resolveAdapterSelection({
+            explicitAdapter: mapElement.getAttribute('adapter') ?? mapElement.getAttribute('type'),
+            savedAdapter: storedKey ? localStorage.getItem(storedKey) : null,
+            configuredAdapter: mapElement.mapConfig?.type ?? null,
+            defaultAdapter: DEFAULT_ADAPTER_NAME
+        });
+        return this.availableAdapters.includes(resolved) ? resolved : DEFAULT_ADAPTER_NAME;
     }
 
     private applyTheme() {
@@ -140,23 +146,37 @@ export class WebmapxSettings extends LitElement {
 
     private handleAdapterChange(e: Event) {
         const target = e.target as HTMLSelectElement;
-        const newAdapter = target.value;
+        const newAdapter = normalizeAdapterName(target.value);
+
+        if (!newAdapter) {
+            return;
+        }
 
         if (newAdapter === this.currentAdapter) {
             return;
         }
 
-        // Get current viewport state before switching
-        const mapElement = document.querySelector('webmapx-map') as WebmapxMapElement | null;
+        const mapElement = resolveMapElement(this);
+        if (!mapElement) {
+            console.error('[webmapx-settings] No <webmapx-map> found for adapter switching.');
+            return;
+        }
+
         const adapter = mapElement?.adapter;
+        const adapterKey = this.getMapStorageKey(mapElement, 'adapter');
+        const viewportKey = this.getMapStorageKey(mapElement, 'viewport');
 
         if (adapter) {
             const viewportState = adapter.core.getViewportState();
-            localStorage.setItem('webmapx-viewport', JSON.stringify(viewportState));
+            if (viewportKey) {
+                localStorage.setItem(viewportKey, JSON.stringify(viewportState));
+            }
         }
 
         // Save new adapter preference
-        localStorage.setItem('webmapx-adapter', newAdapter);
+        if (adapterKey) {
+            localStorage.setItem(adapterKey, newAdapter);
+        }
 
         // Reload the page to apply the new adapter
         window.location.reload();

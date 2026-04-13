@@ -21,7 +21,7 @@ Place the component inside a tool panel and assign it a `tool-id` that matches y
 ## Behavior
 
 - **Theme toggle:** Persists `webmapx-theme` in `localStorage` and toggles the `sl-theme-dark` class on `<html>`.
-- **Adapter selection:** Saves `webmapx-adapter` and reloads the page after capturing the current viewport.
+- **Adapter selection:** Saves `webmapx-adapter:<map-id>` and `webmapx-viewport:<map-id>` in `localStorage`, then reloads the page after capturing the current viewport for that map.
 - **API key:** Stores `webmapx-api-key` in `localStorage` for use by services that read it.
 
 ## Events
@@ -33,4 +33,4 @@ Place the component inside a tool panel and assign it a `tool-id` that matches y
 
 ## Notes
 
-Adapter switching triggers a full page reload to recreate the map with the selected adapter.
+Adapter switching triggers a full page reload to recreate the map with the selected adapter. Preferences are scoped to the resolved parent `<webmapx-map>` element rather than shared across every map on the page.

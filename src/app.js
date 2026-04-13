@@ -7,7 +7,12 @@ import { setBasePath } from '@shoelace-style/shoelace/dist/utilities/base-path.j
 setBasePath('/shoelace-assets/');
 
 // 1. Import configuration loader
-import { loadAppConfig, resolveMapConfig, fetchConfig, DEFAULT_MAP_CONFIG } from './config/index.ts';
+import { loadAppConfig, resolveMapConfig, fetchConfig } from './config/index.ts';
+import { DEFAULT_ADAPTER_NAME } from './map/adapter-registry';
+import {
+    getMapScopedStorageKey,
+    resolveAdapterSelection
+} from './config/adapter-resolution.ts';
 
 // 2. Register your custom Web Components
 import './components/modules/webmapx-map.ts';
@@ -53,6 +58,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log("Modular GIS UI is running. Map(s) initialized and components registered.");
 });
 
+function resolveRequestedAdapter(mapElement, mapConfig) {
+    const savedKey = getMapScopedStorageKey(mapElement.id, 'adapter');
+    return resolveAdapterSelection({
+        explicitAdapter: mapElement.getAttribute('adapter') ?? mapElement.getAttribute('type'),
+        savedAdapter: savedKey ? localStorage.getItem(savedKey) : null,
+        configuredAdapter: mapConfig?.type ?? null,
+        defaultAdapter: DEFAULT_ADAPTER_NAME
+    });
+}
+
 /**
  * Initialize a single webmapx-map element with resolved configuration.
  * @param {HTMLElement} mapElement - The webmapx-map element
@@ -60,12 +75,6 @@ document.addEventListener('DOMContentLoaded', async () => {
  */
 async function initializeMap(mapElement, appConfig) {
     const mapId = mapElement.id || 'unnamed-map';
-
-    const adapter = await mapElement.getAdapterAsync?.();
-    if (!adapter) {
-        console.error(`[app] Map adapter is not available on <webmapx-map id="${mapId}">.`);
-        return;
-    }
 
     // Determine the full config for this map
     let fullConfig = appConfig;
@@ -83,16 +92,30 @@ async function initializeMap(mapElement, appConfig) {
         }
     }
 
-    // If we have a full config, set it on the map element for tools to access
-    if (fullConfig) {
-        mapElement.setConfig(fullConfig);
-    }
-
     // Resolve map configuration with priority cascade
     const mapConfig = await resolveMapConfig(mapElement, fullConfig);
+    const resolvedAdapter = resolveRequestedAdapter(mapElement, mapConfig);
 
-    // Check for saved viewport state (from adapter switch)
-    const savedViewport = localStorage.getItem('webmapx-viewport');
+    // If we have a full config, set the resolved map config on the map element for tools to access
+    if (fullConfig) {
+        mapElement.setConfig({
+            ...fullConfig,
+            map: {
+                ...mapConfig,
+                type: resolvedAdapter
+            }
+        });
+    }
+
+    const adapter = await mapElement.getAdapterAsync?.();
+    if (!adapter) {
+        console.error(`[app] Map adapter is not available on <webmapx-map id="${mapId}">.`);
+        return;
+    }
+
+    // Check for saved viewport state (from a map-scoped adapter switch)
+    const savedViewportKey = getMapScopedStorageKey(mapElement.id, 'viewport');
+    const savedViewport = savedViewportKey ? localStorage.getItem(savedViewportKey) : null;
 
     // Determine style options: string = URL, object = inline style
     const styleConfig = mapConfig.style;
@@ -112,11 +135,15 @@ async function initializeMap(mapElement, appConfig) {
             const viewport = JSON.parse(savedViewport);
             initOptions.center = viewport.center;
             initOptions.zoom = viewport.zoom;
-            localStorage.removeItem('webmapx-viewport');
+            if (savedViewportKey) {
+                localStorage.removeItem(savedViewportKey);
+            }
             console.log(`[app] Restored viewport for "${mapId}" from adapter switch:`, viewport);
         } catch (e) {
             console.warn(`[app] Failed to parse saved viewport for "${mapId}":`, e);
-            localStorage.removeItem('webmapx-viewport');
+            if (savedViewportKey) {
+                localStorage.removeItem(savedViewportKey);
+            }
         }
     }
 

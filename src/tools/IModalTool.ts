@@ -29,7 +29,7 @@ export interface IModalTool {
     /**
      * Whether the tool is currently active.
      */
-    readonly active: boolean;
+    active: boolean;
 
     /**
      * Optional CSS selector for portal rendering.

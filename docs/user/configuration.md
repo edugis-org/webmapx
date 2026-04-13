@@ -1,6 +1,6 @@
 # Configuration
 
-WebMapX uses JSON configuration files to define maps, data sources, layers, and tools. The app loads configuration at startup and applies it to all maps on the page.
+WebMapX uses JSON configuration files to define maps, data sources, layers, and tools. The app can load a page-level config via `?config=` or a per-map config via the `src` attribute on `<webmapx-map>`.
 
 ## Loading Configuration
 
@@ -13,7 +13,7 @@ https://example.com/?config=./config/demo.json
 https://example.com/?config=/api/configs/production.json
 ```
 
-When present, this overrides all other configuration sources for maps on the page.
+When present, this overrides per-map configuration sources for maps on the page.
 
 ### Per-Map Configuration
 
@@ -67,8 +67,10 @@ Defines the base map settings.
 | `zoom` | number | Yes | Initial zoom level (0-24) |
 | `minZoom` | number | No | Minimum zoom level |
 | `maxZoom` | number | No | Maximum zoom level |
-| `type` | string | Yes | Map adapter: `maplibre` or `openlayers` |
+| `type` | string | Yes | Declared adapter type in the schema: `maplibre`, `openlayers`, `leaflet`, or `cesium` |
 | `style` | object or string | No | Initial background style (see below) |
+
+At runtime, the active adapter is resolved from the map-scoped Settings preference first, then the element `adapter` attribute, then the resolved `map.type`, then the default adapter. The `type` field is part of the configuration schema and now participates in runtime selection when no explicit override is present.
 
 #### Style Property
 

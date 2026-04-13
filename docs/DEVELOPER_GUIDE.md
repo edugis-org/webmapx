@@ -6,12 +6,14 @@ This guide outlines the standard procedure for adding new tools to WebMapX while
 
 ## 0. Configuring the Map Library
 
-WebMapX supports multiple mapping libraries through the adapter pattern. Currently supported:
+WebMapX supports multiple mapping libraries through the adapter pattern. Built-in adapters currently include:
 
 | Adapter | Library | Tile Size | Registration Names |
 | :--- | :--- | :--- | :--- |
 | MapLibre GL | `maplibre-gl` | 512px | `maplibre` (default) |
 | OpenLayers | `ol` | 256px | `openlayers`, `ol` |
+| Leaflet | `leaflet` | 256px | `leaflet`, `l` |
+| Cesium | `cesium` | n/a | `cesium`, `c` |
 
 ### Setting the Adapter in HTML
 
@@ -25,28 +27,41 @@ Use the `adapter` attribute on `<webmapx-map>`:
 <!-- OpenLayers -->
 <webmapx-map id="map-container" adapter="openlayers"></webmapx-map>
 <webmapx-map id="map-container" adapter="ol"></webmapx-map>
+
+<!-- Leaflet -->
+<webmapx-map id="map-container" adapter="leaflet"></webmapx-map>
+<webmapx-map id="map-container" adapter="l"></webmapx-map>
+
+<!-- Cesium -->
+<webmapx-map id="map-container" adapter="cesium"></webmapx-map>
+<webmapx-map id="map-container" adapter="c"></webmapx-map>
 ```
 
 ### Runtime Adapter Switching
 
-Users can switch adapters at runtime via the Settings tool. The preference is stored in `localStorage`:
+Users can switch adapters at runtime via the Settings tool. The preference is stored per map id in `localStorage` and the page reloads to reinitialize the map:
 
 ```javascript
 // Programmatic adapter switching
-localStorage.setItem('webmapx-adapter', 'openlayers');
+localStorage.setItem('webmapx-adapter:map-container', 'openlayers');
 window.location.reload();  // Required to reinitialize
 ```
 
-**Priority order:** `localStorage` > `adapter` attribute > default (`maplibre`)
+**Priority order:** map-scoped runtime preference > `adapter` attribute on `<webmapx-map>` > resolved `map.type` > default (`maplibre`)
+
+The `map.type` field is part of the JSON schema and now participates in runtime adapter selection when the element does not declare an explicit adapter.
 
 ### Zoom Level Normalization
 
 Different map libraries use different tile sizes, causing zoom level differences:
 - **MapLibre GL:** 512px tiles
 - **OpenLayers/OSM:** 256px tiles
+- **Leaflet/OSM:** 256px tiles
+- **Cesium:** camera-height based rather than fixed tile zoom
 
 WebMapX normalizes this internally with a `ZOOM_OFFSET = 1` for OpenLayers. This means:
 - Logical zoom 4 in WebMapX = OL internal zoom 5
+- Logical zoom 4 in WebMapX = Leaflet internal zoom 5
 - When switching adapters, the same geographic extent is preserved
 - Tools always receive consistent "logical" zoom values
 
@@ -56,7 +71,7 @@ WebMapX normalizes this internally with a `ZOOM_OFFSET = 1` for OpenLayers. This
 import { getRegisteredAdapters, DEFAULT_ADAPTER_NAME } from './map/adapter-registry';
 
 // Get list of registered adapters
-const adapters = getRegisteredAdapters();  // ['maplibre', 'openlayers', 'ol']
+const adapters = getRegisteredAdapters();  // ['maplibre', 'openlayers', 'ol', 'leaflet', 'l', 'cesium', 'c']
 
 // Default adapter name
 console.log(DEFAULT_ADAPTER_NAME);  // 'maplibre'
@@ -73,6 +88,8 @@ console.log(DEFAULT_ADAPTER_NAME);  // 'maplibre'
 3. **Consumer-Side Throttling:** Adapter emits all events immediately. Tools use `throttle` utility as needed.
 
 4. **OOP Map API:** Tools create maps via `IMapFactory` → `IMap` → `ISource` / `ILayer`
+
+5. **Modal Tool Ownership:** `ToolManager` owns the active modal tool transition. Tools may call into the manager when invoked directly, but the manager writes the tool's `active` flag and the `activeTool` state entry itself.
 
 ## II. Data Flow
 
@@ -201,7 +218,7 @@ map.onReady(() => {
 ```typescript
 // Via EventBus (for map events)
 adapter.events.on('view-change-end', (e) => {
-  console.log(`View changed to ${e.center}, zoom ${e.zoom}`);
+    console.log(`View changed to ${e.center}, zoom ${e.zoom}`);
 });
 
 // Via Store (for state)
@@ -210,6 +227,13 @@ adapter.store.subscribe((state) => {
     // React to center change
   }
 });
+```
+
+**Tracking the Active Tool:**
+```typescript
+if (state.activeTool?.toolId === 'measure') {
+  // measure tool is active
+}
 ```
 
 **Throttling (tool decides):**
@@ -267,7 +291,7 @@ flowchart TB
     end
 
     subgraph Maps["Map Instances"]
-        MAIN["Main Map (MapLibre)"]
+        MAIN["Main Map"]
         IMAP["IMap instances"]
     end
 
@@ -301,7 +325,7 @@ flowchart TB
 | **IMap** | Map instance with `setViewport`, `createSource`, `createLayer`, `destroy` | `src/map/IMapInterfaces.ts` |
 | **ISource** | GeoJSON source with `setData` method | `src/map/IMapInterfaces.ts` |
 | **ILayer** | Layer with `getSource`, `remove` methods | `src/map/IMapInterfaces.ts` |
-| **MapCoreService** | Translates MapLibre events to generic events (thin) | `src/map/maplibre-services/` |
+| **MapCoreService** | Translates map-library events to generic events (thin) | `src/map/*-services/` |
 | **MapEventBus** | Emits normalized events (`view-change`, `click`, etc.) | `src/store/map-events.ts` |
 | **MapStateStore** | Holds app state, notifies subscribers | `src/store/map-state-store.ts` |
 
@@ -332,7 +356,7 @@ export class MapCoreService implements IMapCore {
     private mapInstance: L.Map | null = null;
 
     // Zoom offset if library uses different tile sizes
-    private static readonly ZOOM_OFFSET = 0;  // Leaflet uses 256px like OL
+    private static readonly ZOOM_OFFSET = 1;  // Leaflet uses the same +1 logical zoom offset as OpenLayers
 
     constructor(
         private readonly store: MapStateStore,
@@ -425,8 +449,8 @@ export class LeafletAdapter implements IMapAdapter {
 // src/map/adapter-registry.ts
 import { LeafletAdapter } from './leaflet-adapter';
 
-registerMapAdapter('leaflet', () => new LeafletAdapter());
-registerMapAdapter('l', () => new LeafletAdapter());  // optional alias
+registerMapAdapter('leaflet', async () => new LeafletAdapter());
+registerMapAdapter('l', async () => new LeafletAdapter());  // optional alias
 ```
 
 #### Step 6: Handle Zoom Normalization
@@ -438,7 +462,7 @@ If the library uses different tile sizes than MapLibre (512px), add zoom offset:
 | MapLibre GL | 512px | 0 (reference) |
 | OpenLayers | 256px | +1 |
 | Leaflet | 256px | +1 |
-| Cesium | varies | depends on terrain provider |
+| Cesium | varies | camera-height based, not a fixed offset |
 
 Apply offset in all zoom-related methods:
 - `toLibraryZoom(logical)` = `logical + ZOOM_OFFSET`
@@ -446,4 +470,4 @@ Apply offset in all zoom-related methods:
 
 #### Result
 
-**Tools stay unchanged** - they only use the interfaces (`IMap`, `ISource`, `ILayer`), not the implementations. Users can switch libraries via the `adapter` attribute or Settings UI.
+**Tools stay unchanged** - they only use the interfaces (`IMap`, `ISource`, `ILayer`), not the implementations. Users can switch libraries via the `adapter` attribute or Settings UI, while the runtime resolves the adapter through the map-scoped preference path above.

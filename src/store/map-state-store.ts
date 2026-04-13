@@ -16,7 +16,6 @@ export class MapStateStore {
     private state: IAppState = {
         mapLoaded: false,
         mapBusy: false,
-        currentTool: 'None',
         bufferRadiusKm: 5,
         zoomLevel: null,
         mapCenter: null,

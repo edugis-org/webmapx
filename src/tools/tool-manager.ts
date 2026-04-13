@@ -10,7 +10,7 @@
  * @example
  * ```typescript
  * // Access via map element
- * const map = document.querySelector('webmapx-map');
+ * const map = document.querySelector('#map');
  * map.toolManager.toggle('measure');
  *
  * // Listen for tool changes
@@ -78,18 +78,20 @@ export class ToolManager extends EventTarget {
             return true;
         }
 
-        // Deactivate current tool if modal
-        if (this._activeToolId && tool.isModal) {
-            const currentTool = this.tools.get(this._activeToolId);
-            if (currentTool) {
-                currentTool.deactivate();
-                this.dispatchDeactivatedEvent(this._activeToolId, currentTool);
-            }
+        const previousToolId = this._activeToolId;
+        const previousTool = previousToolId ? this.tools.get(previousToolId) ?? null : null;
+
+        // Deactivate the current tool first so transitions stay manager-owned.
+        if (previousTool && previousToolId !== toolId && tool.isModal) {
+            this._activeToolId = null;
+            previousTool.active = false;
+            this.updateStoreActiveTool(null);
+            this.dispatchDeactivatedEvent(previousToolId, previousTool);
         }
 
         // Activate new tool
         this._activeToolId = toolId;
-        tool.activate();
+        tool.active = true;
 
         // Update state store
         this.updateStoreActiveTool(toolId);
@@ -116,15 +118,11 @@ export class ToolManager extends EventTarget {
 
         // Only deactivate if it's actually active
         if (this._activeToolId === targetId) {
-            // Clear activeToolId BEFORE calling tool.deactivate()
-            // This allows the tool to detect it's being called by ToolManager
+            // Clear activeToolId before mutating the tool so direct calls do
+            // not bounce back into ToolManager.
             this._activeToolId = null;
-
-            // Update state store
+            tool.active = false;
             this.updateStoreActiveTool(null);
-
-            // Now deactivate the tool
-            tool.deactivate();
 
             // Dispatch event
             this.dispatchDeactivatedEvent(targetId, tool);
@@ -180,7 +178,7 @@ export class ToolManager extends EventTarget {
 
     private updateStoreActiveTool(toolId: string | null): void {
         if (this.store) {
-            this.store.dispatch({ activeTool: toolId as 'measure' | 'feature-info' | null }, 'UI');
+            this.store.dispatch({ activeTool: toolId ? { toolId } : null }, 'UI');
         }
     }
 

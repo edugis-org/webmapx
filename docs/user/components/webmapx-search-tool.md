@@ -70,7 +70,7 @@ Configure the search tool via the `tools.search` section of the app config:
 ## JavaScript API
 
 ```javascript
-const map = document.querySelector('webmapx-map');
+const map = document.querySelector('#map');
 map.toolManager.activate('search');
 map.toolManager.deactivate('search');
 map.toolManager.toggle('search');
@@ -89,7 +89,7 @@ map.toolManager.toggle('search');
 You can also listen to global tool events on the map element:
 
 ```javascript
-const map = document.querySelector('webmapx-map');
+const map = document.querySelector('#map');
 
 map.addEventListener('webmapx-tool-activated', (e) => {
   if (e.detail.toolId === 'search') {

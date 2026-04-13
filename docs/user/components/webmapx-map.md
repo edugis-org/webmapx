@@ -23,8 +23,8 @@ Host element for the mapping library canvas plus any overlay UI. It injects a `[
 | `zoom` | number | Initial zoom level (0-24). |
 | `min-zoom` | number | Minimum allowed zoom level. |
 | `max-zoom` | number | Maximum allowed zoom level. |
-| `type` | string | Map adapter: `maplibre` or `openlayers`. |
-| `adapter` | string | Alias for `type`. |
+| `adapter` | string | Preferred map adapter. Takes precedence over config. |
+| `type` | string | Legacy alias for `adapter`. |
 
 ### Configuration Priority
 
@@ -35,6 +35,13 @@ When the app initializes a map, configuration is resolved with this priority (hi
 3. Individual attributes (`center`, `zoom`, etc.)
 4. Default values
 
+Adapter selection is resolved separately. The order is:
+
+1. A map-scoped Settings preference stored under `webmapx-adapter:<map-id>`
+2. `adapter` attribute on the element
+3. The resolved map config's `type`
+4. Default adapter (`maplibre`)
+
 ### Examples
 
 ```html
@@ -42,7 +49,7 @@ When the app initializes a map, configuration is resolved with this priority (hi
 <webmapx-map id="map1"></webmapx-map>
 
 <!-- With inline attributes -->
-<webmapx-map id="map2" center="[10, 50]" zoom="8" type="openlayers"></webmapx-map>
+<webmapx-map id="map2" center="[10, 50]" zoom="8" adapter="openlayers"></webmapx-map>
 
 <!-- With config file -->
 <webmapx-map id="map3" src="./config/my-map.json"></webmapx-map>
