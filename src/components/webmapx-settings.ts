@@ -7,12 +7,12 @@ import '@shoelace-style/shoelace/dist/components/divider/divider.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 
-import { getRegisteredAdapters, DEFAULT_ADAPTER_NAME } from '../../map/adapter-registry';
+import { getRegisteredAdapters, DEFAULT_ADAPTER_NAME } from '../map/adapter-registry';
 import {
     getMapScopedStorageKey,
     normalizeAdapterName,
     resolveAdapterSelection
-} from '../../config/adapter-resolution';
+} from '../config/adapter-resolution';
 import { resolveMapElement } from './map-context';
 
 @customElement('webmapx-settings')

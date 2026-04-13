@@ -1,10 +1,10 @@
 import { css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import type { IMapAdapter } from '../../map/IMapAdapter';
-import type { IAppState } from '../../store/IState';
-import type { ViewChangeEndEvent, ViewChangeEvent } from '../../store/map-events';
-import type { NavigationCapabilities } from '../../map/IMapInterfaces';
+import type { IMapAdapter } from '../map/IMapAdapter';
+import type { IAppState } from '../store/IState';
+import type { ViewChangeEndEvent, ViewChangeEvent } from '../store/map-events';
+import type { NavigationCapabilities } from '../map/IMapInterfaces';
 
 type Orientation = 'vertical' | 'horizontal';
 

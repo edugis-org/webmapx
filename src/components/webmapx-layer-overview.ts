@@ -1,8 +1,8 @@
 import { css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import type { IAppState } from '../../store/IState';
-import { buildLayerPanelSections, type LayerPanelItem } from '../../utils/layer-panel-model';
+import type { IAppState } from '../store/IState';
+import { buildLayerPanelSections, type LayerPanelItem } from '../utils/layer-panel-model';
 
 @customElement('webmapx-layer-overview')
 export class WebmapxLayerOverview extends WebmapxBaseTool {

@@ -5,7 +5,7 @@ import '@shoelace-style/shoelace/dist/components/tree/tree.js';
 import '@shoelace-style/shoelace/dist/components/tree-item/tree-item.js';
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 
-import type { TreeNodeConfig } from '../../config/types';
+import type { TreeNodeConfig } from '../config/types';
 import type { WebmapxMapElement } from './webmapx-map';
 
 export interface LayerNode {

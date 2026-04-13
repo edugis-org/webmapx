@@ -1,11 +1,11 @@
-// src/components/modules/webmapx-zoom-level.ts
+// src/components/webmapx-zoom-level.ts
 
 import { html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import { IAppState } from '../../store/IState';
-import { IMapAdapter } from '../../map/IMapAdapter';
-import { ViewChangeEndEvent } from '../../store/map-events';
+import { IAppState } from '../store/IState';
+import { IMapAdapter } from '../map/IMapAdapter';
+import { ViewChangeEndEvent } from '../store/map-events';
 
 import '@shoelace-style/shoelace/dist/components/input/input.js';
 

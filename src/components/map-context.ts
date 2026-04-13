@@ -1,4 +1,4 @@
-import { IMapAdapter } from '../../map/IMapAdapter';
+import { IMapAdapter } from '../map/IMapAdapter';
 import { WebmapxMapElement } from './webmapx-map';
 
 function queryWithSelector(root: ParentNode, selector: string): WebmapxMapElement | null {

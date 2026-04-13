@@ -1,9 +1,9 @@
 import { LitElement } from 'lit';
-import { MapStateStore } from '../../store/map-state-store';
-import { IAppState, StateSource } from '../../store/IState';
-import { IMapAdapter } from '../../map/IMapAdapter';
+import { MapStateStore } from '../store/map-state-store';
+import { IAppState, StateSource } from '../store/IState';
+import { IMapAdapter } from '../map/IMapAdapter';
 import { resolveMapAdapter, resolveMapElement } from './map-context';
-import type { AppConfig, CatalogConfig, MapConfig, ToolsConfig } from '../../config/types';
+import type { AppConfig, CatalogConfig, MapConfig, ToolsConfig } from '../config/types';
 import type { WebmapxMapElement } from './webmapx-map';
 
 /**

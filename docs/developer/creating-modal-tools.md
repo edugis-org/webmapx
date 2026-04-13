@@ -240,4 +240,4 @@ The toolbar automatically:
 
 ## Full Example
 
-See `src/components/modules/webmapx-example-tool.ts` for a complete, well-documented example.
+See `src/components/webmapx-example-tool.ts` for a complete, well-documented example.

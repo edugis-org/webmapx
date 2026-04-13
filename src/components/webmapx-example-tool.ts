@@ -39,8 +39,8 @@
 import { html, css, TemplateResult } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
-import { IMapAdapter } from '../../map/IMapAdapter';
-import type { ClickEvent } from '../../store/map-events';
+import { IMapAdapter } from '../map/IMapAdapter';
+import type { ClickEvent } from '../store/map-events';
 
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 

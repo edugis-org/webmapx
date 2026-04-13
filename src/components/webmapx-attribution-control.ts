@@ -1,8 +1,8 @@
 import { css, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import type { IAppState } from '../../store/IState';
-import type { AppConfig, CatalogConfig, LayerConfig, SourceConfig } from '../../config/types';
+import type { IAppState } from '../store/IState';
+import type { AppConfig, CatalogConfig, LayerConfig, SourceConfig } from '../config/types';
 
 const URL_REGEX = /(https?:\/\/[^\s]+)/g;
 

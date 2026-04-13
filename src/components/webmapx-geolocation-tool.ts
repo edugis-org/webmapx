@@ -1,7 +1,7 @@
 import { html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import type { IMapAdapter } from '../../map/IMapAdapter';
+import type { IMapAdapter } from '../map/IMapAdapter';
 import type { WebmapxMapElement } from './webmapx-map';
 import { resolveMapElement } from './map-context';
 

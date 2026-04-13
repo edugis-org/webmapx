@@ -2,8 +2,8 @@ import { html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 
 import { WebmapxModalTool } from './webmapx-modal-tool';
-import type { IMapAdapter } from '../../map/IMapAdapter';
-import type { IAppState } from '../../store/IState';
+import type { IMapAdapter } from '../map/IMapAdapter';
+import type { IAppState } from '../store/IState';
 
 /**
  * Simple search modal tool inspired by edugis map-search.

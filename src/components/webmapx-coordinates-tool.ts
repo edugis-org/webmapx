@@ -1,8 +1,8 @@
 import { css, html, nothing, TemplateResult } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import { IAppState } from '../../store/IState';
-import { epsgLookupManager } from '../../utils/epsg-lookup-manager';
+import { IAppState } from '../store/IState';
+import { epsgLookupManager } from '../utils/epsg-lookup-manager';
 
 type LngLatTuple = [number, number]; // [lng, lat]
 type PointerResolution = { lng: number; lat: number };
@@ -567,7 +567,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
       if (!proj4Module) {
         const [proj4Import, epsgImport] = await Promise.all([
           import('proj4'),
-          import('../../utils/epsg-definitions')
+          import('../utils/epsg-definitions')
         ]);
         proj4Module = proj4Import.default;
         epsgDefinitions = epsgImport;

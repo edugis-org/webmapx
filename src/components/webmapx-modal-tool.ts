@@ -32,10 +32,10 @@
 
 import { property } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import { IAppState } from '../../store/IState';
-import { IMapAdapter } from '../../map/IMapAdapter';
-import type { IModalTool } from '../../tools/IModalTool';
-import type { ToolManager } from '../../tools/tool-manager';
+import { IAppState } from '../store/IState';
+import { IMapAdapter } from '../map/IMapAdapter';
+import type { IModalTool } from '../tools/IModalTool';
+import type { ToolManager } from '../tools/tool-manager';
 import type { WebmapxMapElement } from './webmapx-map';
 import { resolveMapElement } from './map-context';
 

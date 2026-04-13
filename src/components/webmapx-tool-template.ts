@@ -1,13 +1,13 @@
-// src/components/modules/webmapx-tool-template.ts
+// src/components/webmapx-tool-template.ts
 
 // Lit library imports
 import { html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js'; 
 
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import { IAppState } from '../../store/IState'; 
-import { IToolService } from '../../map/IMapInterfaces'; 
-import { IMapAdapter } from '../../map/IMapAdapter';
+import { IAppState } from '../store/IState'; 
+import { IToolService } from '../map/IMapInterfaces'; 
+import { IMapAdapter } from '../map/IMapAdapter';
 
 import '@shoelace-style/shoelace/dist/components/range/range.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';

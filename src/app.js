@@ -15,25 +15,25 @@ import {
 } from './config/adapter-resolution.ts';
 
 // 2. Register your custom Web Components
-import './components/modules/webmapx-map.ts';
-import './components/modules/webmapx-tool-template.ts';
-import './components/modules/webmapx-zoom-level.ts';
-import './components/modules/webmapx-layout.ts';
-import './components/modules/webmapx-inset-map.ts';
-import './components/modules/webmapx-search-tool.ts';
-import './components/modules/webmapx-toolbar.ts';
-import './components/modules/webmapx-control-group.ts';
-import './components/modules/webmapx-tool-panel.ts';
-import './components/modules/webmapx-layer-tree.ts';
-import './components/modules/webmapx-layer-overview.ts';
-import './components/modules/webmapx-settings.ts';
-import './components/modules/webmapx-coordinates-tool.ts';
-import './components/modules/webmapx-spinner.ts';
-import './components/modules/webmapx-measure-tool.ts';
-import './components/modules/webmapx-geolocation-tool.ts';
-import './components/modules/webmapx-scale-control.ts';
-import './components/modules/webmapx-navigation-control.ts';
-import './components/modules/webmapx-attribution-control.ts';
+import './components/webmapx-map.ts';
+import './components/webmapx-tool-template.ts';
+import './components/webmapx-zoom-level.ts';
+import './components/webmapx-layout.ts';
+import './components/webmapx-inset-map.ts';
+import './components/webmapx-search-tool.ts';
+import './components/webmapx-toolbar.ts';
+import './components/webmapx-control-group.ts';
+import './components/webmapx-tool-panel.ts';
+import './components/webmapx-layer-tree.ts';
+import './components/webmapx-layer-overview.ts';
+import './components/webmapx-settings.ts';
+import './components/webmapx-coordinates-tool.ts';
+import './components/webmapx-spinner.ts';
+import './components/webmapx-measure-tool.ts';
+import './components/webmapx-geolocation-tool.ts';
+import './components/webmapx-scale-control.ts';
+import './components/webmapx-navigation-control.ts';
+import './components/webmapx-attribution-control.ts';
 
 // 3. Initialize the app when the DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {

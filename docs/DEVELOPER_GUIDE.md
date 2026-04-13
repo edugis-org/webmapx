@@ -141,7 +141,7 @@ Most tools only need the existing adapter interfaces:
 Copy `webmapx-tool-template.ts` and implement your logic:
 
 ```typescript
-import { throttle } from '../../utils/throttle';
+import { throttle } from '../utils/throttle';
 
 @customElement('webmapx-my-tool')
 export class WebmapxMyTool extends LitElement {
@@ -240,7 +240,7 @@ if (state.activeTool?.toolId === 'measure') {
 
 **Throttling (tool decides):**
 ```typescript
-import { throttle } from '../../utils/throttle';
+import { throttle } from '../utils/throttle';
 
 private throttledHandler = throttle((data) => {
   this.expensiveOperation(data);
@@ -322,7 +322,7 @@ flowchart TB
 
 | Component | Role | Location |
 | :--- | :--- | :--- |
-| **Tools** | All composite logic, calculations, layer setup, throttling | `src/components/modules/` |
+| **Tools** | All composite logic, calculations, layer setup, throttling | `src/components/` |
 | **IMapFactory** | Creates `IMap` instances (thin wrapper around map library) | `src/map/IMapInterfaces.ts` |
 | **IMap** | Map instance with `setViewport`, `createSource`, `createLayer`, `destroy` | `src/map/IMapInterfaces.ts` |
 | **ISource** | GeoJSON source with `setData` method | `src/map/IMapInterfaces.ts` |
@@ -351,8 +351,8 @@ Implements `IMapCore` - handles main map initialization and event normalization:
 ```typescript
 // src/map/leaflet-services/MapCoreService.ts
 import { IMapCore } from '../IMapInterfaces';
-import { MapStateStore } from '../../store/map-state-store';
-import { MapEventBus } from '../../store/map-events';
+import { MapStateStore } from '../store/map-state-store';
+import { MapEventBus } from '../store/map-events';
 
 export class MapCoreService implements IMapCore {
     private mapInstance: L.Map | null = null;

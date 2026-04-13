@@ -1,19 +1,19 @@
-// src/components/modules/webmapx-measure-tool.ts
+// src/components/webmapx-measure-tool.ts
 // Interactive measure tool for distance and area measurement
 
 import { html, css, nothing, TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
-import { IMapAdapter } from '../../map/IMapAdapter';
-import { LngLat, Pixel, ClickEvent, PointerMoveEvent, ContextMenuEvent } from '../../store/map-events';
+import { IMapAdapter } from '../map/IMapAdapter';
+import { LngLat, Pixel, ClickEvent, PointerMoveEvent, ContextMenuEvent } from '../store/map-events';
 import {
     haversineDistanceCm,
     geodesicAreaM2,
     formatDistance,
     formatArea
-} from '../../utils/geo-calculations';
-import { throttle } from '../../utils/throttle';
-import type { MeasureToolConfig } from '../../config/types';
+} from '../utils/geo-calculations';
+import { throttle } from '../utils/throttle';
+import type { MeasureToolConfig } from '../config/types';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 

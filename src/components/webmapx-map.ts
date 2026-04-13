@@ -1,11 +1,11 @@
-import { IMapAdapter } from '../../map/IMapAdapter';
-import { createMapAdapter, DEFAULT_ADAPTER_NAME } from '../../map/adapter-registry';
-import type { AppConfig, CatalogConfig, MapConfig, ToolsConfig } from '../../config/types';
+import { IMapAdapter } from '../map/IMapAdapter';
+import { createMapAdapter, DEFAULT_ADAPTER_NAME } from '../map/adapter-registry';
+import type { AppConfig, CatalogConfig, MapConfig, ToolsConfig } from '../config/types';
 import {
   getMapScopedStorageKey,
   resolveAdapterSelection
-} from '../../config/adapter-resolution';
-import { ToolManager } from '../../tools/tool-manager';
+} from '../config/adapter-resolution';
+import { ToolManager } from '../tools/tool-manager';
 
 const MAP_VIEW_SLOT = 'map-view';
 const MAP_SURFACE_CLASS = 'webmapx-map__surface';

@@ -1,6 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, queryAssignedElements, property } from 'lit/decorators.js';
-import type { ToolManager } from '../../tools/tool-manager';
+import type { ToolManager } from '../tools/tool-manager';
 import type { WebmapxMapElement } from './webmapx-map';
 import {
   resolveToolbarSelectionState,

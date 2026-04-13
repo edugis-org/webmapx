@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import { IAppState } from '../../store/IState';
+import { IAppState } from '../store/IState';
 
 /**
  * A spinner overlay that shows when the map is busy loading tiles or rendering.

@@ -1,10 +1,10 @@
 import { css, html, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import type { IAppState } from '../../store/IState';
-import type { IMapAdapter } from '../../map/IMapAdapter';
-import type { LngLat, Pixel, ViewChangeEndEvent, ViewChangeEvent } from '../../store/map-events';
-import { haversineDistanceCm } from '../../utils/geo-calculations';
+import type { IAppState } from '../store/IState';
+import type { IMapAdapter } from '../map/IMapAdapter';
+import type { LngLat, Pixel, ViewChangeEndEvent, ViewChangeEvent } from '../store/map-events';
+import { haversineDistanceCm } from '../utils/geo-calculations';
 
 type ScaleUnit = 'metric' | 'imperial' | 'nautical';
 

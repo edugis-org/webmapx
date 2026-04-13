@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .claude/
+.codex
 .vscode/
 public/cesium/
 scripts/temp/

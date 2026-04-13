@@ -1,11 +1,11 @@
 import { css, html, LitElement, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { resolveMapElement } from './map-context';
-import { IMapAdapter } from '../../map/IMapAdapter';
-import { IMap, ISource } from '../../map/IMapInterfaces';
-import { IAppState } from '../../store/IState';
-import { throttle } from '../../utils/throttle';
-import type { LngLat } from '../../store/map-events';
+import { IMapAdapter } from '../map/IMapAdapter';
+import { IMap, ISource } from '../map/IMapInterfaces';
+import { IAppState } from '../store/IState';
+import { throttle } from '../utils/throttle';
+import type { LngLat } from '../store/map-events';
 
 const DEFAULT_STYLE = 'https://demotiles.maplibre.org/style.json';
 const MIN_ZOOM = 0;
