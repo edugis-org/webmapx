@@ -2,6 +2,8 @@
 
 This guide outlines the standard procedure for adding new tools to WebMapX while maintaining architectural consistency.
 
+Before making changes, also read the short engineering checklist in [`docs/developer/engineering-rules.md`](./developer/engineering-rules.md).
+
 ---
 
 ## 0. Configuring the Map Library

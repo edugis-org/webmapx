@@ -38,7 +38,7 @@ A web component library that provides ready-to-use, extensible, and customizable
 
 ## 🛠️ Getting Started
 
-For a detailed guide on creating new components, understanding the data flow, and adhering to architectural rules, please read the **Developer Experience Guide:** [`DEVELOPER_GUIDE.md`](./docs/DEVELOPER_GUIDE.md). To follow project-wide decisions or session history, see [`DEV_JOURNAL.md`](./DEV_JOURNAL.md) and the current [`CHANGELOG.md`](./CHANGELOG.md).
+For a detailed guide on creating new components, understanding the data flow, and adhering to architectural rules, please read the **Developer Experience Guide:** [`DEVELOPER_GUIDE.md`](./docs/DEVELOPER_GUIDE.md). For the short practical checklist used during ongoing development, see [`docs/developer/engineering-rules.md`](./docs/developer/engineering-rules.md). To follow project-wide decisions or session history, see [`DEV_JOURNAL.md`](./DEV_JOURNAL.md) and the current [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## 📘 User Documentation
 - High-level usage guide plus per-component reference lives in [`docs/user/README.md`](./docs/user/README.md).
