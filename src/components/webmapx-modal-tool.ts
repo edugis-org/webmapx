@@ -37,7 +37,7 @@ import { IMapAdapter } from '../map/IMapAdapter';
 import type { IModalTool } from '../tools/IModalTool';
 import type { ToolManager } from '../tools/tool-manager';
 import type { WebmapxMapElement } from './webmapx-map';
-import { resolveMapElement } from './map-context';
+import { resolveMapElement } from './internal/map-context';
 
 export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModalTool {
     // ─────────────────────────────────────────────────────────────────────

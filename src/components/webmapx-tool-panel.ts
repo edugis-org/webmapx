@@ -4,7 +4,7 @@ import type { WebmapxMapElement } from './webmapx-map';
 import {
   isToolSelectFromDifferentToolbar,
   type ToolSelectEventDetail
-} from './tool-selection-scope';
+} from './internal/tool-selection-scope';
 
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';

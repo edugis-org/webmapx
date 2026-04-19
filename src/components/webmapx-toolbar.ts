@@ -6,7 +6,7 @@ import {
   resolveToolbarSelectionState,
   toolbarOwnsTool,
   type ToolSelectEventDetail
-} from './tool-selection-scope';
+} from './internal/tool-selection-scope';
 
 @customElement('webmapx-toolbar')
 export class WebmapxToolbar extends LitElement {

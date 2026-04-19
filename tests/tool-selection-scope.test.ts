@@ -6,7 +6,7 @@ import {
   resolveToolbarSelectionState,
   toolbarOwnsTool,
   type ToolSelectEventDetail
-} from '../src/components/tool-selection-scope.ts';
+} from '../src/components/internal/tool-selection-scope.ts';
 
 test('toolbarOwnsTool only matches tools that belong to the toolbar', () => {
   assert.equal(toolbarOwnsTool(['layers', 'search'], 'layers'), true);

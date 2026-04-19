@@ -1,6 +1,6 @@
 import { css, html, LitElement, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { resolveMapElement } from './map-context';
+import { resolveMapElement } from './internal/map-context';
 import { IMapAdapter } from '../map/IMapAdapter';
 import { IMap, ISource } from '../map/IMapInterfaces';
 import { IAppState } from '../store/IState';

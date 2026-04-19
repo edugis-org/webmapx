@@ -13,7 +13,7 @@ import {
     normalizeAdapterName,
     resolveAdapterSelection
 } from '../config/adapter-resolution';
-import { resolveMapElement } from './map-context';
+import { resolveMapElement } from './internal/map-context';
 
 @customElement('webmapx-settings')
 export class WebmapxSettings extends LitElement {

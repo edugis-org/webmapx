@@ -73,6 +73,9 @@ export class MapCoreService implements IMapCore {
         });
         this.clampImageryProviderMaxLevel(osmProvider, 19);
 
+        const creditContainer = document.createElement('div');
+        creditContainer.style.display = 'none';
+
         this.viewer = new Cesium.Viewer(target, {
             animation: false,
             baseLayerPicker: false,
@@ -88,6 +91,7 @@ export class MapCoreService implements IMapCore {
             scene3DOnly: true,
             baseLayer: new Cesium.ImageryLayer(osmProvider),
             terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+            creditContainer,
         });
 
         const clampedZoom = this.clampZoom(zoom);
@@ -346,7 +350,7 @@ export class MapCoreService implements IMapCore {
             const coords = toLngLat(movement.endPosition);
             if (!coords) return;
             const pixel: Pixel = [movement.endPosition.x, movement.endPosition.y];
-            this.eventBus.emit({ type: 'pointer-move', coords, pixel, resolution: null, originalEvent: movement });
+            this.eventBus?.emit({ type: 'pointer-move', coords, pixel, resolution: null, originalEvent: movement });
             this.store.dispatch({ pointerCoordinates: coords, pointerResolution: null }, 'MAP');
         }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 

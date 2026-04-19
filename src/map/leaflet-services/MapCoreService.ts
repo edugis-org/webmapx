@@ -109,7 +109,8 @@ export class MapCoreService implements IMapCore {
             zoom: leafletZoom,
             minZoom,
             maxZoom,
-            zoomControl: true,
+            attributionControl: false,
+            zoomControl: false,
         });
 
         this.flushMapReadyCallbacks();
