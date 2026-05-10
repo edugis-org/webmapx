@@ -1,0 +1,353 @@
+{
+  "version": 1,
+  "project": {
+    "id": "sample-project-draft",
+    "title": "Sample Project Draft",
+    "description": "Draft WebMapX project configuration example",
+    "language": "en"
+  },
+  "map": {
+    "center": [4.8967, 52.3728],
+    "zoom": 11,
+    "pitch": 0,
+    "bearing": 0,
+    "srs": "EPSG:3857",
+    "backgroundColor": "#f5f3ef",
+    "minZoom": 0,
+    "maxZoom": 24,
+    "maxPitch": 85
+  },
+  "library": {
+    "sources": {
+      "osmraster": {
+        "type": "raster",
+        "tiles": [
+          "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "attribution": "© OpenStreetMap contributors"
+      },
+      "pdok-luchtfoto": {
+        "type": "raster",
+        "tiles": [
+          "https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0?service=WMS&version=1.1.1&request=GetMap&layers=Actueel_orthoHR&styles=&format=image/png&transparent=true&srs={requestCrs}&bbox={bbox-epsg-3857}&width=256&height=256"
+        ],
+        "tileSize": 256,
+        "requestCrs": "EPSG:3857",
+        "bounds": [2.75, 50.5, 7.5, 53.6],
+        "auth": {
+          "credentialRef": "pdokApiKey"
+        },
+        "attribution": "PDOK"
+      },
+      "knmi-temperature": {
+        "type": "raster",
+        "tiles": [
+          "https://example.org/wmst/temperature/{time}/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "requestCrs": "EPSG:3857",
+        "attribution": "Example temporal service"
+      }
+    },
+    "layers": {
+      "osm-bright": {
+        "version": 8,
+        "name": "OSM Bright",
+        "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+        "sprite": "https://demotiles.maplibre.org/styles/osm-bright-gl-style/sprite",
+        "sources": {
+          "openmaptiles": {
+            "type": "vector",
+            "url": "https://demotiles.maplibre.org/tiles/tiles.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "background",
+            "type": "background",
+            "paint": {
+              "background-color": "#f8f4f0"
+            },
+            "metadata": {
+              "webmapx:title": "Background"
+            }
+          },
+          {
+            "id": "water",
+            "type": "fill",
+            "source": "openmaptiles",
+            "source-layer": "water",
+            "paint": {
+              "fill-color": "#a0c8f0"
+            },
+            "metadata": {
+              "webmapx:title": "Water"
+            }
+          }
+        ],
+        "metadata": {
+          "webmapx:title": "OSM Bright",
+          "webmapx:description": "Styled vector basemap",
+          "webmapx:category": "background",
+          "webmapx:thumbnail": "img/osm-bright.png"
+        }
+      },
+      "traffic-speed-amsterdam": {
+        "version": 8,
+        "name": "Traffic Speed Amsterdam",
+        "sources": {
+          "traffic": {
+            "type": "geojson",
+            "data": "data/traffic-speed-amsterdam.geojson",
+            "attribution": "StevenF"
+          }
+        },
+        "layers": [
+          {
+            "id": "traffic-speed-highway",
+            "type": "line",
+            "source": "traffic",
+            "filter": [
+              "all",
+              ["==", "$type", "LineString"],
+              ["==", ["get", "Type"], "H"]
+            ],
+            "paint": {
+              "line-color": [
+                "step",
+                ["get", "Velocity"],
+                "#D0D0D0",
+                1,   "#BE0000",
+                30,  "#FF0000",
+                50,  "#FF9E00",
+                70,  "#FFFF00",
+                90,  "#AAFF00",
+                120, "#00B22D"
+              ],
+              "line-width": 4
+            },
+            "metadata": {
+              "webmapx:title": "Traffic speed highway"
+            }
+          },
+          {
+            "id": "traffic-speed-other",
+            "type": "line",
+            "source": "traffic",
+            "filter": [
+              "all",
+              ["==", "$type", "LineString"],
+              ["!=", ["get", "Type"], "H"]
+            ],
+            "paint": {
+              "line-color": "#377eb8",
+              "line-width": 2
+            },
+            "metadata": {
+              "webmapx:title": "Traffic speed other"
+            }
+          }
+        ],
+        "metadata": {
+          "webmapx:title": "Verkeerssnelheid Amsterdam",
+          "webmapx:description": "Realtime traffic speed lines",
+          "webmapx:category": "overlay",
+          "webmapx:icon": "traffic",
+          "webmapx:attributes": {
+            "properties": [
+              { "name": "Type", "type": "string" },
+              { "name": "Velocity", "type": "number" }
+            ],
+            "translations": [
+              { "name": "Type", "translation": "wegtype" },
+              { "name": "Velocity", "translation": "snelheid" }
+            ]
+          }
+        }
+      },
+      "osm-standard-raster": {
+        "type": "raster",
+        "source": "osmraster",
+        "metadata": {
+          "webmapx:title": "OSM Standard Raster",
+          "webmapx:description": "Raster fallback basemap",
+          "webmapx:category": "background",
+          "webmapx:thumbnail": "img/osm-standard-raster.png"
+        }
+      },
+      "pdok-luchtfoto-wms": {
+        "type": "raster",
+        "source": "pdok-luchtfoto",
+        "metadata": {
+          "webmapx:title": "PDOK Luchtfoto WMS",
+          "webmapx:description": "Authenticated raster background",
+          "webmapx:category": "background",
+          "webmapx:thumbnail": "img/pdok-luchtfoto-wms.png"
+        }
+      },
+      "knmi-temperature-time": {
+        "type": "raster",
+        "source": "knmi-temperature",
+        "paint": {
+          "raster-opacity": 0.75
+        },
+        "metadata": {
+          "webmapx:title": "Temperature (time-aware)",
+          "webmapx:description": "Example temporal raster layer",
+          "webmapx:category": "overlay",
+          "webmapx:timeAware": true,
+          "webmapx:time": {
+            "default": "2024-01-15T12:00:00Z",
+            "interval": "PT1H"
+          }
+        }
+      },
+      "drawn-lines": {
+        "type": "line",
+        "source": {
+          "type": "geojson",
+          "data": {
+            "type": "FeatureCollection",
+            "features": [
+              {
+                "id": "4e524b8d03d20056ca8ab5e9950c2c5f",
+                "type": "Feature",
+                "properties": {
+                  "id": 1,
+                  "name": "test"
+                },
+                "geometry": {
+                  "type": "LineString",
+                  "coordinates": [
+                    [1.561514217719747, 48.33611770695572],
+                    [6.671924384825104, 52.14650599849975],
+                    [14.62145131143265, 49.82367545973136],
+                    [12.917981255730552, 45.026363081422176]
+                  ]
+                }
+              }
+            ]
+          },
+          "attribution": "EduGIS"
+        },
+        "paint": {
+          "line-color": "#000000",
+          "line-width": 3
+        },
+        "metadata": {
+          "webmapx:title": "lijnenlaag",
+          "webmapx:description": "User drawn line layer",
+          "webmapx:category": "drawing",
+          "webmapx:attributes": {
+            "properties": [
+              { "name": "id", "type": "number" },
+              { "name": "name", "type": "string" }
+            ],
+            "translations": [
+              { "name": "name", "translation": "naam" }
+            ]
+          }
+        }
+      }
+    },
+    "catalogs": {
+      "main": {
+        "title": "Main catalog",
+        "items": [
+          {
+            "kind": "group",
+            "title": "Background layers",
+            "children": [
+              { "kind": "layer", "ref": "osm-bright" },
+              { "kind": "layer", "ref": "osm-standard-raster" },
+              { "kind": "layer", "ref": "pdok-luchtfoto-wms" }
+            ]
+          },
+          {
+            "kind": "group",
+            "title": "Theme layers",
+            "children": [
+              { "kind": "layer", "ref": "traffic-speed-amsterdam" },
+              { "kind": "layer", "ref": "knmi-temperature-time" }
+            ]
+          },
+          {
+            "kind": "group",
+            "title": "Drawings",
+            "children": [
+              { "kind": "layer", "ref": "drawn-lines" }
+            ]
+          }
+        ]
+      }
+    },
+    "backgroundSets": {
+      "default": {
+        "preferred": "osm-bright",
+        "fallbacks": {
+          "openlayers": "pdok-luchtfoto-wms",
+          "leaflet": "osm-standard-raster",
+          "cesium": "osm-standard-raster"
+        }
+      }
+    }
+  },
+  "state": {
+    "activeBackground": "osm-bright",
+    "activeLayers": [
+      {
+        "id": "traffic-speed-amsterdam#1",
+        "ref": "traffic-speed-amsterdam",
+        "visible": true
+      },
+      {
+        "id": "knmi-temperature-time#1",
+        "ref": "knmi-temperature-time",
+        "visible": true,
+        "timeState": {
+          "selectedTime": "2024-01-15T12:00:00Z"
+        }
+      },
+      {
+        "id": "drawn-lines#1",
+        "ref": "drawn-lines",
+        "visible": true,
+        "paint": {
+          "line-color": "#cc0000"
+        }
+      },
+      {
+        "id": "local-buffered-lines#1",
+        "visible": true,
+        "type": "fill",
+        "source": {
+          "type": "geojson",
+          "data": "data/local-buffered-lines.geojson"
+        },
+        "paint": {
+          "fill-color": "#ff6600",
+          "fill-opacity": 0.35
+        },
+        "metadata": {
+          "webmapx:title": "Buffered lines",
+          "webmapx:category": "overlay",
+          "webmapx:provenance": {
+            "sourceLayerRefs": ["drawn-lines#1"],
+            "operation": "buffer",
+            "parameters": {
+              "distance": 100,
+              "units": "meter"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "ui": {
+    "catalog": "main",
+    "backgroundSelector": {
+      "backgroundSet": "default"
+    }
+  }
+}
