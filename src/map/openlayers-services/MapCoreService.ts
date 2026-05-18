@@ -149,6 +149,7 @@ export class MapCoreService implements IMapCore {
             const currentZoom = this.fromOLZoom(view.getZoom() || 0);
             const viewportBounds = this.buildViewportFeature();
             this.store.dispatch({ zoomLevel: currentZoom, mapViewportBounds: viewportBounds }, 'MAP');
+            this.eventBus?.emit({ type: 'zoom-end', zoom: currentZoom });
         });
 
         view.on('change:center', () => {
@@ -335,13 +336,7 @@ export class MapCoreService implements IMapCore {
         }
     }
 
-    public onZoomEnd(callback: (level: number) => void): void {
-        if (this.mapInstance) {
-            this.mapInstance.getView().on('change:resolution', () => {
-                callback(this.fromOLZoom(this.mapInstance!.getView().getZoom() || 0));
-            });
-        }
-    }
+
 
     public getZoom(): number {
         return this.fromOLZoom(this.mapInstance?.getView().getZoom() || this.toOLZoom(this.initialConfig.zoom));

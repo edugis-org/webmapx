@@ -161,6 +161,7 @@ export class MapCoreService implements IMapCore {
         map.on('zoomend', () => {
             const logicalZoom = map.getZoom() - ZOOM_OFFSET;
             this.store.dispatch({ zoomLevel: logicalZoom, mapViewportBounds: this.buildViewportFeature() }, 'MAP');
+            this.eventBus?.emit({ type: 'zoom-end', zoom: logicalZoom });
         });
 
         map.on('moveend', () => {
@@ -302,9 +303,7 @@ export class MapCoreService implements IMapCore {
         this.mapInstance.setZoom(Math.round(clampedZoom) + ZOOM_OFFSET);
     }
 
-    public onZoomEnd(callback: (level: number) => void): void {
-        this.mapInstance?.on('zoomend', () => callback(this.mapInstance!.getZoom() - ZOOM_OFFSET));
-    }
+
 
     public getZoom(): number {
         return this.mapInstance ? this.mapInstance.getZoom() - ZOOM_OFFSET : this.initialConfig.zoom;

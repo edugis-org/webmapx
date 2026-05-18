@@ -42,7 +42,7 @@ export class MapCoreService implements IMapCore {
 
     private viewer: any = null;
     private readyCbs: Array<(viewer: any) => void> = [];
-    private zoomEndCallbacks: Array<(level: number) => void> = [];
+
     private sources = new Map<string, ISource>();
     private sourceState = new Map<string, { dataSource: any | null; layers: any[] }>();
     private minZoom?: number;
@@ -140,9 +140,7 @@ export class MapCoreService implements IMapCore {
         this.setViewport(current.center, level);
     }
 
-    public onZoomEnd(callback: (level: number) => void): void {
-        this.zoomEndCallbacks.push(callback);
-    }
+
 
     public getZoom(): number {
         return this.getViewportState().zoom;
@@ -550,7 +548,7 @@ export class MapCoreService implements IMapCore {
             pitch: viewport.pitch,
             bounds: { sw, ne },
         });
-        this.zoomEndCallbacks.forEach(cb => cb(viewport.zoom));
+        this.eventBus?.emit({ type: 'zoom-end', zoom: viewport.zoom });
     }
 
     private applySourceStyles(sourceId: string): void {

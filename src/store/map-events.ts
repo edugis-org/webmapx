@@ -118,6 +118,14 @@ export interface ViewChangeEndEvent extends ViewChangeEvent {
 }
 
 /**
+ * Zoom end event - emitted specifically when a zoom interaction completes.
+ */
+export interface ZoomEndEvent extends BaseMapEvent {
+    type: 'zoom-end';
+    zoom: number;
+}
+
+/**
  * Union of all map events.
  */
 export type MapEvent =
@@ -130,7 +138,8 @@ export type MapEvent =
     | DragEvent
     | DragEndEvent
     | ViewChangeEvent
-    | ViewChangeEndEvent;
+    | ViewChangeEndEvent
+    | ZoomEndEvent;
 
 /**
  * Map of event types to their corresponding event interfaces.
@@ -146,6 +155,7 @@ export interface MapEventMap {
     'drag-end': DragEndEvent;
     'view-change': ViewChangeEvent;
     'view-change-end': ViewChangeEndEvent;
+    'zoom-end': ZoomEndEvent;
 }
 
 export type MapEventType = keyof MapEventMap;

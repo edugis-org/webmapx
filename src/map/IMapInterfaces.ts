@@ -67,9 +67,6 @@ export interface IMapCore {
     /** Sets the map zoom level in a library-agnostic way. */
     setZoom(level: number): void;
 
-    /** Subscribes to zoom-end events and provides the resulting zoom level. */
-    onZoomEnd(callback: (level: number) => void): void;
-
     /** Gets the current zoom level. */
     getZoom(): number;
 
