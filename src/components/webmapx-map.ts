@@ -26,7 +26,7 @@ export interface ConfigReadyEventDetail {
  * Tools can access config via `this.closest('webmapx-map')?.config`.
  */
 export class WebmapxMapElement extends HTMLElement {
-  private initialCheckedLayersApplied = false;
+  private initialStateLayersApplied = false;
     // Only one connectedCallback/disconnectedCallback allowed. Add event listener in the main one.
     connectedCallback(): void {
       this.upsertAndStyleSurface();
@@ -279,7 +279,7 @@ export class WebmapxMapElement extends HTMLElement {
    */
   public setConfig(config: AppConfig): void {
     this.configInstance = config;
-    this.initialCheckedLayersApplied = false;
+    this.initialStateLayersApplied = false;
     this.applyCatalogToAdapter();
     this.dispatchEvent(new CustomEvent<ConfigReadyEventDetail>('webmapx-config-ready', {
       detail: { config, map: this },
@@ -356,29 +356,36 @@ export class WebmapxMapElement extends HTMLElement {
 
     adapter.setCatalog?.(catalog);
 
-    if (!this.initialCheckedLayersApplied) {
-      this.initialCheckedLayersApplied = true;
-      void this.applyInitialCheckedLayers(adapter, catalog);
+    if (!this.initialStateLayersApplied) {
+      this.initialStateLayersApplied = true;
+      void this.applyInitialStateLayers(adapter, catalog);
     }
   }
 
-  private collectInitiallyCheckedLayerIds(): string[] {
-    const ids: string[] = [];
+  private collectInitialActiveLayerRefs(): string[] {
+    const activeLayers = this.configInstance?.state?.activeLayers ?? [];
+    const refs: string[] = [];
 
-    const visit = (nodes: Array<{ layerId?: string; checked?: boolean; children?: any[] }>) => {
-      for (const node of nodes) {
-        if (node.layerId && node.checked) {
-          ids.push(node.layerId);
-        }
-        if (Array.isArray(node.children) && node.children.length) {
-          visit(node.children);
-        }
+    for (const entry of activeLayers) {
+      if (typeof entry === 'string') {
+        refs.push(entry);
+        continue;
       }
-    };
 
-    const tree = this.catalogConfig?.tree ?? [];
-    visit(tree as any[]);
-    return ids;
+      if (!entry || typeof entry !== 'object') {
+        continue;
+      }
+
+      const ref = typeof (entry as any).ref === 'string'
+        ? (entry as any).ref
+        : (typeof (entry as any).layerId === 'string' ? (entry as any).layerId : null);
+      const visible = (entry as any).visible !== false;
+      if (ref && visible) {
+        refs.push(ref);
+      }
+    }
+
+    return Array.from(new Set(refs));
   }
 
   private getCatalogLayerInformation(layerId: string): { layer: any; sources: any[] } | null {
@@ -393,9 +400,9 @@ export class WebmapxMapElement extends HTMLElement {
     return { layer, sources };
   }
 
-  private async applyInitialCheckedLayers(adapter: any, _catalog: CatalogConfig): Promise<void> {
-    const checkedLayerIds = this.collectInitiallyCheckedLayerIds();
-    for (const layerId of checkedLayerIds) {
+  private async applyInitialStateLayers(adapter: any, _catalog: CatalogConfig): Promise<void> {
+    const activeLayerRefs = this.collectInitialActiveLayerRefs();
+    for (const layerId of activeLayerRefs) {
       const layerInformation = this.getCatalogLayerInformation(layerId);
       if (!layerInformation) continue;
 

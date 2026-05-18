@@ -12,6 +12,8 @@ export type {
   LayerConfig,
   StyleLayerConfig,
   TreeNodeConfig,
+  AppStateConfig,
+  ActiveLayerStateEntry,
   ToolsConfig,
   ToolConfig,
   MapAdapterType,

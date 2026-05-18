@@ -1,54 +1,23 @@
 {
-  "map":
-  {
+  "version": 1,
+  "project": {
+    "id": "demo-project",
+    "title": "WebMapX Demo Project",
+    "description": "Demo configuration using library/state structure",
+    "language": "en"
+  },
+  "map": {
     "label": "Demo Map",
     "center": [0, 0],
     "zoom": 2,
     "maxZoom": 20,
     "minZoom": 0,
     "type": "maplibre",
-    "style":"https://demotiles.maplibre.org/style.json"
+    "style": "https://demotiles.maplibre.org/style.json"
   },
-  "catalog": 
-  {
-    "label": "Demo Catalog",
-    "tree":
-    [
-      {
-        "label": "Base Maps",
-        "expanded": true,
-        "children": [
-          { "label": "OpenStreetMap (xyz)", "layerId": "osm", "checked": false },
-          { "label": "Google Satellite", "layerId": "google-satellite", "checked": false }
-        ]
-      },
-      {
-        "label": "Historical Maps",
-        "expanded": true,
-        "children": [
-          { "label": "NYC 1836 (Allmaps)", "layerId": "nyc-historical", "checked": false },
-          { "label": "Amsterdam 1625 (Allmaps)", "layerId": "amsterdam-historical", "checked": false }
-        ]
-      },
-      {
-        "label": "Data Layers",
-        "expanded": true,
-        "children": [
-          { "label": "Earthquakes", "layerId": "earthquake", "checked": false },
-          { "label": "Transport Network", "layerId": "transport", "checked": true },
-          {
-            "label": "Environmental",
-            "children": [
-              { "label": "Air Quality", "layerId": "air", "checked": false },
-              { "label": "Water Quality", "layerId": "water", "checked": false }
-            ]
-          }
-        ]
-      }
-    ],
-    "sources": [
-      {
-        "id": "xyz-source",
+  "library": {
+    "sources": {
+      "xyz-source": {
         "type": "raster",
         "service": "xyz",
         "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -56,71 +25,55 @@
         "attribution": "© OpenStreetMap contributors",
         "maxzoom": 19
       },
-      {
-          "id": "google-satellite-source",
-          "type": "raster",
-          "service": "xyz",
-          "url": "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
-          "tileSize": 256,
-          "attribution": "© Google Satellite"
+      "google-satellite-source": {
+        "type": "raster",
+        "service": "xyz",
+        "url": "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+        "tileSize": 256,
+        "attribution": "© Google Satellite"
       },
-      {
-        "id": "earthquake-source",
+      "earthquake-source": {
         "type": "geojson",
         "data": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson",
         "attribution": "USGS Earthquake Data"
       },
-      {
-        "id": "transport-source",
+      "transport-source": {
         "type": "geojson",
         "data": "https://data.example.com/transport_network.geojson"
       },
-      {
-        "id": "air-source",
+      "air-source": {
         "type": "geojson",
         "data": "https://data.example.com/air_quality.geojson"
       },
-      {
-        "id": "water-source",
+      "water-source": {
         "type": "geojson",
         "data": "https://data.example.com/water_quality.geojson"
       },
-      {
-        "id": "nyc-historical-source",
+      "nyc-historical-source": {
         "type": "raster",
         "service": "xyz",
         "url": "warpedmap://annotations.allmaps.org/images/d180902cb93d5bf2",
         "attribution": "NYPL via Allmaps"
       },
-      {
-        "id": "amsterdam-historical-source",
+      "amsterdam-historical-source": {
         "type": "raster",
         "service": "xyz",
         "url": "warpedmap://annotations.allmaps.org/maps/f60ecda322d09956",
         "attribution": "via Allmaps"
       }
-    ],
-    "layers": [
-      {
-        "id": "osm",
+    },
+    "layers": {
+      "osm": {
         "layerset": [
-          {
-            "type": "raster",
-            "source": "xyz-source"
-          }
+          { "type": "raster", "source": "xyz-source" }
         ]
       },
-      {
-        "id": "google-satellite",
+      "google-satellite": {
         "layerset": [
-          {
-            "type": "raster",
-            "source": "google-satellite-source"
-          }
+          { "type": "raster", "source": "google-satellite-source" }
         ]
       },
-      {
-        "id": "earthquake",
+      "earthquake": {
         "layerset": [
           {
             "type": "circle",
@@ -135,56 +88,87 @@
           }
         ]
       },
-      {
-        "id": "transport",
+      "transport": {
         "layerset": [
-          {
-            "type": "line",
-            "source": "transport-source"
-          }
+          { "type": "line", "source": "transport-source" }
         ]
       },
-      {
-        "id": "air",
+      "air": {
         "layerset": [
-          {
-            "type": "circle",
-            "source": "air-source"
-          }
+          { "type": "circle", "source": "air-source" }
         ]
       },
-      {
-        "id": "water",
+      "water": {
         "layerset": [
-          {
-            "type": "circle",
-            "source": "water-source"
-          }
+          { "type": "circle", "source": "water-source" }
         ]
       },
-      {
-        "id": "nyc-historical",
+      "nyc-historical": {
         "layerset": [
-          {
-            "type": "raster",
-            "source": "nyc-historical-source"
-          }
+          { "type": "raster", "source": "nyc-historical-source" }
         ]
       },
-      {
-        "id": "amsterdam-historical",
+      "amsterdam-historical": {
         "layerset": [
+          { "type": "raster", "source": "amsterdam-historical-source" }
+        ]
+      }
+    },
+    "catalogs": {
+      "main": {
+        "title": "Demo Catalog",
+        "items": [
           {
-            "type": "raster",
-            "source": "amsterdam-historical-source"
+            "kind": "group",
+            "title": "Base Maps",
+            "expanded": true,
+            "children": [
+              { "kind": "layer", "title": "OpenStreetMap (xyz)", "ref": "osm" },
+              { "kind": "layer", "title": "Google Satellite", "ref": "google-satellite" }
+            ]
+          },
+          {
+            "kind": "group",
+            "title": "Historical Maps",
+            "expanded": true,
+            "children": [
+              { "kind": "layer", "title": "NYC 1836 (Allmaps)", "ref": "nyc-historical" },
+              { "kind": "layer", "title": "Amsterdam 1625 (Allmaps)", "ref": "amsterdam-historical" }
+            ]
+          },
+          {
+            "kind": "group",
+            "title": "Data Layers",
+            "expanded": true,
+            "children": [
+              { "kind": "layer", "title": "Earthquakes", "ref": "earthquake" },
+              { "kind": "layer", "title": "Transport Network", "ref": "transport" },
+              {
+                "kind": "group",
+                "title": "Environmental",
+                "children": [
+                  { "kind": "layer", "title": "Air Quality", "ref": "air" },
+                  { "kind": "layer", "title": "Water Quality", "ref": "water" }
+                ]
+              }
+            ]
           }
         ]
       }
+    }
+  },
+  "state": {
+    "activeBackground": "osm",
+    "activeLayers": [
+      { "ref": "transport", "visible": true }
     ]
   },
   "tools": {
     "coordinates": { "enabled": true },
     "layerTree": { "enabled": true },
     "legend": { "enabled": true }
+  },
+  "ui": {
+    "catalog": "main"
   }
 }

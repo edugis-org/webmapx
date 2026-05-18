@@ -35,6 +35,161 @@ export const DEFAULT_MAP_CONFIG: MapConfig = {
 /** Cache for loaded configs to avoid duplicate fetches */
 const configCache = new Map<string, AppConfig>();
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizeSourceMap(sourceMap: unknown): unknown[] {
+  if (!isObject(sourceMap)) {
+    return [];
+  }
+
+  return Object.entries(sourceMap).map(([id, value]) => {
+    if (!isObject(value)) {
+      return { id, type: 'geojson', data: value };
+    }
+
+    const normalized: Record<string, unknown> = { id, ...value };
+    if (normalized.type === 'raster' && normalized.url === undefined && Array.isArray(normalized.tiles)) {
+      normalized.url = normalized.tiles;
+    }
+    if (normalized.type === 'raster' && normalized.service === undefined) {
+      normalized.service = 'xyz';
+    }
+
+    return normalized;
+  });
+}
+
+function normalizeLayerMap(layerMap: unknown): unknown[] {
+  if (!isObject(layerMap)) {
+    return [];
+  }
+
+  return Object.entries(layerMap)
+    .map(([id, value]) => {
+      if (!isObject(value)) {
+        return null;
+      }
+
+      // Current runtime contract (preferred): logical layer with layerset[]
+      if (Array.isArray(value.layerset)) {
+        return { id, ...value };
+      }
+
+      // Single MapLibre style-layer form
+      if (typeof value.type === 'string' && typeof value.source === 'string') {
+        return {
+          id,
+          layerset: [{
+            type: value.type,
+            source: value.source,
+            sourceLayer: value.sourceLayer,
+            minZoom: value.minZoom,
+            maxZoom: value.maxZoom,
+            paint: value.paint,
+            layout: value.layout,
+            filter: value.filter,
+          }],
+        };
+      }
+
+      return null;
+    })
+    .filter((entry): entry is Record<string, unknown> => entry !== null);
+}
+
+function normalizeCatalogTree(catalogs: unknown, fallbackLayers: unknown[]): unknown[] {
+  const mapItem = (item: unknown): Record<string, unknown> | null => {
+    if (!isObject(item)) {
+      return null;
+    }
+
+    const kind = typeof item.kind === 'string' ? item.kind : undefined;
+    if (kind === 'group') {
+      const children = Array.isArray(item.children)
+        ? item.children.map(mapItem).filter((n): n is Record<string, unknown> => n !== null)
+        : [];
+      return {
+        label: typeof item.title === 'string' ? item.title : 'Group',
+        expanded: item.expanded === true,
+        children,
+      };
+    }
+
+    if (kind === 'layer') {
+      const ref = typeof item.ref === 'string' ? item.ref : undefined;
+      if (!ref) return null;
+      return {
+        label: typeof item.title === 'string' ? item.title : ref,
+        layerId: ref,
+      };
+    }
+
+    return null;
+  };
+
+  if (!isObject(catalogs)) {
+    return fallbackLayers
+      .map((layer) => {
+        if (!isObject(layer) || typeof layer.id !== 'string') return null;
+        return { label: layer.id, layerId: layer.id };
+      })
+      .filter((node): node is Record<string, unknown> => node !== null);
+  }
+
+  const firstCatalog = Object.values(catalogs).find((c) => isObject(c)) as Record<string, unknown> | undefined;
+  const items = Array.isArray(firstCatalog?.items) ? firstCatalog.items : [];
+  const normalized = items.map(mapItem).filter((n): n is Record<string, unknown> => n !== null);
+
+  if (normalized.length > 0) {
+    return normalized;
+  }
+
+  return fallbackLayers
+    .map((layer) => {
+      if (!isObject(layer) || typeof layer.id !== 'string') return null;
+      return { label: layer.id, layerId: layer.id };
+    })
+    .filter((node): node is Record<string, unknown> => node !== null);
+}
+
+function normalizeAppConfig(rawConfig: unknown): AppConfig {
+  if (!isObject(rawConfig)) {
+    return rawConfig as AppConfig;
+  }
+
+  const raw = rawConfig as Record<string, unknown>;
+  if (isObject(raw.catalog)) {
+    return raw as AppConfig;
+  }
+
+  if (!isObject(raw.library)) {
+    return raw as AppConfig;
+  }
+
+  const library = raw.library as Record<string, unknown>;
+  const sources = normalizeSourceMap(library.sources);
+  const layers = normalizeLayerMap(library.layers);
+  const tree = normalizeCatalogTree(library.catalogs, layers);
+
+  const normalized: AppConfig = {
+    map: raw.map as MapConfig,
+    catalog: {
+      label: 'Catalog',
+      tree: tree as any,
+      sources: sources as any,
+      layers: layers as any,
+    },
+    tools: isObject(raw.tools) ? (raw.tools as any) : undefined,
+    state: isObject(raw.state) ? (raw.state as any) : undefined,
+    version: typeof raw.version === 'number' ? raw.version : undefined,
+    project: isObject(raw.project) ? (raw.project as Record<string, unknown>) : undefined,
+  };
+
+  return normalized;
+}
+
 /**
  * Gets the config URL from the query string (?config=path/to/config.json)
  */
@@ -57,7 +212,8 @@ export async function fetchConfig(url: string): Promise<AppConfig> {
     throw new Error(`Failed to load config from "${url}": ${response.status} ${response.statusText}`);
   }
 
-  const config = await response.json();
+  const rawConfig = await response.json();
+  const config = normalizeAppConfig(rawConfig);
 
   // Validate the loaded config
   const result = validateConfig(config);

@@ -19,10 +19,12 @@ export interface ValidationResult {
 
 // Known keys for each config section
 const KNOWN_KEYS = {
-  root: ['map', 'catalog', 'tools'],
+  root: ['version', 'project', 'map', 'catalog', 'library', 'state', 'ui', 'tools'],
   map: ['label', 'center', 'zoom', 'minZoom', 'maxZoom', 'type', 'style', 'styleUrl'],
   catalog: ['label', 'tree', 'sources', 'layers'],
   treeNode: ['label', 'layerId', 'checked', 'expanded', 'children'],
+  state: ['activeBackground', 'activeLayers'],
+  stateLayer: ['id', 'ref', 'layerId', 'visible', 'timeState', 'paint', 'layout', 'metadata', 'source', 'type'],
   sourceBase: ['id', 'type', 'attribution'],
   sourceRaster: ['service', 'url', 'tileSize', 'minZoom', 'maxZoom', 'bounds', 'scheme', 'volatile', 'attribution'],
   sourceGeojson: ['data', 'attribution', 'minzoom', 'maxzoom', 'bounds', 'buffer', 'tolerance', 'cluster', 'clusterRadius', 'clusterMaxZoom', 'lineMetrics', 'generateId'],
@@ -59,6 +61,9 @@ export function validateConfig(config: unknown): ValidationResult {
 
   // Validate catalog section
   const { sourceIds, layerIds } = validateCatalogSection(cfg.catalog, errors, warnings);
+
+  // Validate optional state section
+  validateStateSection(cfg.state, layerIds, errors, warnings);
 
   // Validate tools section (optional)
   if (cfg.tools !== undefined) {
@@ -192,6 +197,70 @@ function validateCatalogSection(
   }
 
   return { sourceIds, layerIds };
+}
+
+function validateStateSection(
+  state: unknown,
+  layerIds: Set<string>,
+  errors: ValidationMessage[],
+  warnings: ValidationMessage[]
+): void {
+  const path = 'state';
+  if (state === undefined) {
+    return;
+  }
+
+  if (!isObject(state)) {
+    errors.push({ severity: 'error', path, message: '"state" must be an object' });
+    return;
+  }
+
+  const s = state as Record<string, unknown>;
+  checkUnknownKeys(s, KNOWN_KEYS.state, path, warnings);
+
+  if (s.activeBackground !== undefined && typeof s.activeBackground !== 'string') {
+    errors.push({ severity: 'error', path: `${path}.activeBackground`, message: '"activeBackground" must be a string' });
+  }
+
+  if (s.activeLayers === undefined) {
+    return;
+  }
+
+  if (!Array.isArray(s.activeLayers)) {
+    errors.push({ severity: 'error', path: `${path}.activeLayers`, message: '"activeLayers" must be an array' });
+    return;
+  }
+
+  s.activeLayers.forEach((entry, index) => {
+    const entryPath = `${path}.activeLayers[${index}]`;
+
+    if (typeof entry === 'string') {
+      if (!layerIds.has(entry)) {
+        errors.push({ severity: 'error', path: entryPath, message: `Layer "${entry}" not found in layers` });
+      }
+      return;
+    }
+
+    if (!isObject(entry)) {
+      errors.push({ severity: 'error', path: entryPath, message: 'Active layer entry must be a string ref or object' });
+      return;
+    }
+
+    const e = entry as Record<string, unknown>;
+    checkUnknownKeys(e, KNOWN_KEYS.stateLayer, entryPath, warnings);
+
+    const ref = typeof e.ref === 'string'
+      ? e.ref
+      : (typeof e.layerId === 'string' ? e.layerId : null);
+
+    if (ref && !layerIds.has(ref)) {
+      errors.push({ severity: 'error', path: `${entryPath}.ref`, message: `Layer "${ref}" not found in layers` });
+    }
+
+    if (e.visible !== undefined && typeof e.visible !== 'boolean') {
+      errors.push({ severity: 'error', path: `${entryPath}.visible`, message: '"visible" must be a boolean' });
+    }
+  });
 }
 
 function validateSources(

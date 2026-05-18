@@ -235,7 +235,7 @@ export interface TreeNodeConfig {
   label: string;
   /** Reference to a layer ID (leaf nodes only) */
   layerId?: string;
-  /** Initial checked/visible state */
+  /** Deprecated startup checkbox hint. Use `state.activeLayers` for initial active layers. */
   checked?: boolean;
   /** Initial expanded state (group nodes only) */
   expanded?: boolean;
@@ -255,6 +255,29 @@ export interface CatalogConfig {
   sources: SourceConfig[];
   /** Layer definitions that reference sources */
   layers: LayerConfig[];
+}
+
+/**
+ * Active layer entry in persisted map state.
+ * - String form references a catalog/library layer by ID.
+ * - Object form can include visibility and optional metadata.
+ */
+export type ActiveLayerStateEntry = string | {
+  ref?: string;
+  layerId?: string;
+  visible?: boolean;
+  id?: string;
+  [key: string]: unknown;
+};
+
+/**
+ * Mutable project/map state persisted in config.
+ */
+export interface AppStateConfig {
+  /** Active background layer/style reference (if supported by the config). */
+  activeBackground?: string;
+  /** Active overlay layers in draw/top order. */
+  activeLayers?: ActiveLayerStateEntry[];
 }
 
 /**
@@ -319,10 +342,16 @@ export interface SearchToolConfig extends ToolConfig {
  * Root application configuration.
  */
 export interface AppConfig {
+  /** Optional config version marker */
+  version?: number;
+  /** Optional project metadata */
+  project?: Record<string, unknown>;
   /** Map settings */
   map: MapConfig;
   /** Layer catalog with sources, layers, and tree */
   catalog: CatalogConfig;
+  /** Optional runtime state snapshot */
+  state?: AppStateConfig;
   /** Tool configurations */
   tools?: ToolsConfig;
 }
