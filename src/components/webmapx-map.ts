@@ -26,6 +26,7 @@ export interface ConfigReadyEventDetail {
  * Tools can access config via `this.closest('webmapx-map')?.config`.
  */
 export class WebmapxMapElement extends HTMLElement {
+  private initialCheckedLayersApplied = false;
     // Only one connectedCallback/disconnectedCallback allowed. Add event listener in the main one.
     connectedCallback(): void {
       this.upsertAndStyleSurface();
@@ -278,6 +279,8 @@ export class WebmapxMapElement extends HTMLElement {
    */
   public setConfig(config: AppConfig): void {
     this.configInstance = config;
+    this.initialCheckedLayersApplied = false;
+    this.applyCatalogToAdapter();
     this.dispatchEvent(new CustomEvent<ConfigReadyEventDetail>('webmapx-config-ready', {
       detail: { config, map: this },
       bubbles: true,
@@ -332,6 +335,8 @@ export class WebmapxMapElement extends HTMLElement {
         this.toolManagerInstance.setStore(adapter.store);
       }
 
+      this.applyCatalogToAdapter();
+
       this.dispatchEvent(new CustomEvent('webmapx-map-ready', {
         detail: { adapter: this.adapterInstance, map: this },
         bubbles: true,
@@ -340,6 +345,78 @@ export class WebmapxMapElement extends HTMLElement {
 
       return adapter;
     })();
+  }
+
+  private applyCatalogToAdapter(): void {
+    const adapter: any = this.adapterInstance;
+    const catalog = this.catalogConfig;
+    if (!adapter || !catalog) {
+      return;
+    }
+
+    adapter.setCatalog?.(catalog);
+
+    if (!this.initialCheckedLayersApplied) {
+      this.initialCheckedLayersApplied = true;
+      void this.applyInitialCheckedLayers(adapter, catalog);
+    }
+  }
+
+  private collectInitiallyCheckedLayerIds(): string[] {
+    const ids: string[] = [];
+
+    const visit = (nodes: Array<{ layerId?: string; checked?: boolean; children?: any[] }>) => {
+      for (const node of nodes) {
+        if (node.layerId && node.checked) {
+          ids.push(node.layerId);
+        }
+        if (Array.isArray(node.children) && node.children.length) {
+          visit(node.children);
+        }
+      }
+    };
+
+    const tree = this.catalogConfig?.tree ?? [];
+    visit(tree as any[]);
+    return ids;
+  }
+
+  private getCatalogLayerInformation(layerId: string): { layer: any; sources: any[] } | null {
+    const catalog = this.catalogConfig;
+    if (!catalog) return null;
+
+    const layer = catalog.layers.find((entry) => entry.id === layerId);
+    if (!layer) return null;
+
+    const sourceIds = Array.from(new Set(layer.layerset.map((styleLayer) => styleLayer.source)));
+    const sources = catalog.sources.filter((source) => sourceIds.includes(source.id));
+    return { layer, sources };
+  }
+
+  private async applyInitialCheckedLayers(adapter: any, _catalog: CatalogConfig): Promise<void> {
+    const checkedLayerIds = this.collectInitiallyCheckedLayerIds();
+    for (const layerId of checkedLayerIds) {
+      const layerInformation = this.getCatalogLayerInformation(layerId);
+      if (!layerInformation) continue;
+
+      let allSucceeded = true;
+      for (const source of layerInformation.sources) {
+        const success = await adapter.addCatalogLayer?.(layerInformation.layer.id, layerInformation.layer, source);
+        if (!success) {
+          allSucceeded = false;
+          adapter.removeCatalogLayer?.(layerInformation.layer.id);
+          break;
+        }
+      }
+
+      if (!allSucceeded) {
+        this.dispatchEvent(new CustomEvent('webmapx-addlayer-failed', {
+          detail: { layerId: layerInformation.layer.id },
+          bubbles: true,
+          composed: true
+        }));
+      }
+    }
   }
 }
 

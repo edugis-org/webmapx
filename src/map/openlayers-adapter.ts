@@ -20,6 +20,7 @@ export class OpenLayersAdapter implements IMap {
     public readonly toolService: IToolService;
     public readonly mapFactory: ISubMapFactory;
     private layerService?: ILayerService;
+    private lastVisibleLayers: string[] = [];
 
     constructor() {
         this.store = new MapStateStore();
@@ -28,6 +29,9 @@ export class OpenLayersAdapter implements IMap {
         this.toolService = new MapServiceTemplate();
         this.mapFactory = new MapFactoryService();
         this.layerService = undefined;
+        this.store.subscribe((state) => {
+            this.emitVisibleLayerEvents(state.visibleLayers ?? []);
+        });
         // Wait for mapInstance to be ready, then initialize layerService
         (this.core as any).onMapReady?.((map: any) => {
             this.layerService = new MapLayerService(map, this.store);
@@ -142,5 +146,24 @@ export class OpenLayersAdapter implements IMap {
 
     isCatalogLayerVisible(layerId: string): boolean {
         return this.layerService?.isLayerVisible(layerId) ?? false;
+    }
+
+    private emitVisibleLayerEvents(nextVisibleLayers: string[]): void {
+        const previous = new Set(this.lastVisibleLayers);
+        const next = new Set(nextVisibleLayers);
+
+        for (const layerId of nextVisibleLayers) {
+            if (!previous.has(layerId)) {
+                this.events.emit({ type: 'layer-add', layerId, visibleLayers: [...nextVisibleLayers] });
+            }
+        }
+
+        for (const layerId of this.lastVisibleLayers) {
+            if (!next.has(layerId)) {
+                this.events.emit({ type: 'layer-remove', layerId, visibleLayers: [...nextVisibleLayers] });
+            }
+        }
+
+        this.lastVisibleLayers = [...nextVisibleLayers];
     }
 }

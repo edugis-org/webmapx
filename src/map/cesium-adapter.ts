@@ -72,6 +72,7 @@ export class CesiumAdapter implements IMap {
     public readonly toolService: IToolService;
     public readonly mapFactory: ISubMapFactory;
     private layerService?: ILayerService;
+    private lastVisibleLayers: string[] = [];
 
     constructor() {
         this.store = new MapStateStore();
@@ -80,6 +81,9 @@ export class CesiumAdapter implements IMap {
         this.toolService = new MapServiceTemplate();
         this.mapFactory = new MapFactoryService();
         this.layerService = undefined;
+        this.store.subscribe((state) => {
+            this.emitVisibleLayerEvents(state.visibleLayers ?? []);
+        });
         (this.core as any).onMapReady?.((viewer: any) => {
             this.layerService = new MapLayerService(viewer, this.store);
         });
@@ -193,6 +197,25 @@ export class CesiumAdapter implements IMap {
 
     isCatalogLayerVisible(layerId: string): boolean {
         return this.layerService?.isLayerVisible(layerId) ?? false;
+    }
+
+    private emitVisibleLayerEvents(nextVisibleLayers: string[]): void {
+        const previous = new Set(this.lastVisibleLayers);
+        const next = new Set(nextVisibleLayers);
+
+        for (const layerId of nextVisibleLayers) {
+            if (!previous.has(layerId)) {
+                this.events.emit({ type: 'layer-add', layerId, visibleLayers: [...nextVisibleLayers] });
+            }
+        }
+
+        for (const layerId of this.lastVisibleLayers) {
+            if (!next.has(layerId)) {
+                this.events.emit({ type: 'layer-remove', layerId, visibleLayers: [...nextVisibleLayers] });
+            }
+        }
+
+        this.lastVisibleLayers = [...nextVisibleLayers];
     }
 }
 

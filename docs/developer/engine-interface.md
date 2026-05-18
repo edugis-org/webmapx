@@ -35,7 +35,6 @@ The top-level handle for a running map engine instance. Returned by the adapter 
 | `resetNorth` | `() => void` | Resets bearing to north |
 | `resetNorthPitch` | `() => void` | Resets bearing and pitch |
 | `fitBounds` | `(bbox: [west, south, east, north]) => void` | Fits view to a bounding box |
-| `events` | `MapEventBus` | Typed event bus for normalized map events |
 | `project` | `(coords: LngLat) => Pixel` | Converts geographic coordinates to screen pixels |
 | `unproject` | `(pixel: Pixel) => LngLat \| null` | Converts screen pixels to geographic coordinates |
 
@@ -51,8 +50,8 @@ These methods are part of `IMap`.
 |---|---|---|
 | `addLayer` | `(layer: any) => void` | Adds a layer object |
 | `removeLayer` | `(id: string) => void` | Removes a layer by ID |
-| `addSource` | `(id: string, config: any) => void` | Adds a native source |
-| `removeSource` | `(id: string) => void` | Removes a native source by ID |
+| `addSource` | `(id: string, config: any) => void` | Adds a source |
+| `removeSource` | `(id: string) => void` | Removes a source by ID |
 | `getSource` | `(id: string) => ISource \| undefined` | Retrieves a source by ID |
 | `suppressBusySignalForSource` | `(sourceId: string) => void` | Suppresses loading indicator for a source |
 | `unsuppressBusySignalForSource` | `(sourceId: string) => void` | Re-enables loading indicator for a source |
@@ -126,6 +125,8 @@ Use `map.events.once(...)` for a single-fire subscription.
 | `view-change` | Viewport changing (continuous, during animation/pan) | `center`, `zoom`, `bearing`, `pitch`, `bounds.sw`, `bounds.ne` |
 | `view-change-end` | Viewport settled after movement | same as `view-change` |
 | `zoom-end` | Zoom interaction completed | `zoom: number` |
+| `layer-add` | Logical layer became active on the map | `layerId`, `visibleLayers` |
+| `layer-remove` | Logical layer was removed from the map | `layerId`, `visibleLayers` |
 
 ### Common Properties
 

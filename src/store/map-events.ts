@@ -126,6 +126,24 @@ export interface ZoomEndEvent extends BaseMapEvent {
 }
 
 /**
+ * Layer add event - emitted when a logical layer becomes active on the map.
+ */
+export interface LayerAddEvent extends BaseMapEvent {
+    type: 'layer-add';
+    layerId: string;
+    visibleLayers: string[];
+}
+
+/**
+ * Layer remove event - emitted when a logical layer is removed from the map.
+ */
+export interface LayerRemoveEvent extends BaseMapEvent {
+    type: 'layer-remove';
+    layerId: string;
+    visibleLayers: string[];
+}
+
+/**
  * Union of all map events.
  */
 export type MapEvent =
@@ -139,7 +157,9 @@ export type MapEvent =
     | DragEndEvent
     | ViewChangeEvent
     | ViewChangeEndEvent
-    | ZoomEndEvent;
+    | ZoomEndEvent
+    | LayerAddEvent
+    | LayerRemoveEvent;
 
 /**
  * Map of event types to their corresponding event interfaces.
@@ -156,6 +176,8 @@ export interface MapEventMap {
     'view-change': ViewChangeEvent;
     'view-change-end': ViewChangeEndEvent;
     'zoom-end': ZoomEndEvent;
+    'layer-add': LayerAddEvent;
+    'layer-remove': LayerRemoveEvent;
 }
 
 export type MapEventType = keyof MapEventMap;

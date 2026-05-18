@@ -7,6 +7,8 @@ import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 
 import type { TreeNodeConfig } from '../config/types';
 import type { WebmapxMapElement } from './webmapx-map';
+import type { IMap } from '../map/IMapInterfaces';
+import type { LayerAddEvent, LayerRemoveEvent } from '../store/map-events';
 
 export interface LayerNode {
     label: string;
@@ -33,6 +35,10 @@ export class WebmapxLayerTree extends LitElement {
 
     private configHandler: ((e: Event) => void) | null = null;
     private addLayerFailedHandler: ((e: CustomEvent) => void) | null = null;
+    private mapReadyHandler: ((e: Event) => void) | null = null;
+    private adapter: IMap | null = null;
+    private unsubscribeLayerAdd: (() => void) | null = null;
+    private unsubscribeLayerRemove: (() => void) | null = null;
 
     static styles = css`
         :host {
@@ -80,11 +86,13 @@ export class WebmapxLayerTree extends LitElement {
         super.connectedCallback();
         this.subscribeToConfig();
         this.subscribeToAddLayerFailed();
+        this.bindToMapEvents();
     }
 
     disconnectedCallback(): void {
         this.unsubscribeFromConfig();
         this.unsubscribeFromAddLayerFailed();
+        this.unsubscribeFromMapEvents();
         super.disconnectedCallback();
     }
 
@@ -101,6 +109,7 @@ export class WebmapxLayerTree extends LitElement {
         const existingConfig = this.mapHost?.catalogConfig;
         if (existingConfig?.tree) {
             this.configTree = existingConfig.tree;
+            this.syncCheckedLayersFromStore();
         }
 
         // Listen for future config changes
@@ -109,10 +118,62 @@ export class WebmapxLayerTree extends LitElement {
             const tree = detail.config?.catalog?.tree;
             if (tree) {
                 this.configTree = tree;
+                this.syncCheckedLayersFromStore();
             }
         };
 
         this.mapHost?.addEventListener('webmapx-config-ready', this.configHandler);
+    }
+
+    private async bindToMapEvents(): Promise<void> {
+        this.unsubscribeFromMapEvents();
+
+        const mapHost = this.mapHost;
+        if (!mapHost) return;
+
+        const adapter = await mapHost.getAdapterAsync?.();
+        if (!adapter) {
+            this.subscribeToMapReady();
+            return;
+        }
+
+        this.adapter = adapter;
+        this.unsubscribeLayerAdd = adapter.events.on('layer-add', (e: LayerAddEvent) => {
+            this.setLayerCheckedState(e.layerId, true);
+        });
+        this.unsubscribeLayerRemove = adapter.events.on('layer-remove', (e: LayerRemoveEvent) => {
+            this.setLayerCheckedState(e.layerId, false);
+        });
+
+        this.syncCheckedLayersFromStore();
+    }
+
+    private subscribeToMapReady(): void {
+        if (this.mapReadyHandler) return;
+        const mapHost = this.mapHost;
+        if (!mapHost) return;
+
+        this.mapReadyHandler = () => {
+            this.unsubscribeFromMapReady();
+            void this.bindToMapEvents();
+        };
+
+        mapHost.addEventListener('webmapx-map-ready', this.mapReadyHandler);
+    }
+
+    private unsubscribeFromMapReady(): void {
+        if (!this.mapReadyHandler) return;
+        this.mapHost?.removeEventListener('webmapx-map-ready', this.mapReadyHandler);
+        this.mapReadyHandler = null;
+    }
+
+    private unsubscribeFromMapEvents(): void {
+        this.unsubscribeFromMapReady();
+        this.unsubscribeLayerAdd?.();
+        this.unsubscribeLayerRemove?.();
+        this.unsubscribeLayerAdd = null;
+        this.unsubscribeLayerRemove = null;
+        this.adapter = null;
     }
 
     /** Subscribe to add-layer failure events */
@@ -135,20 +196,24 @@ export class WebmapxLayerTree extends LitElement {
 
     /** Uncheck the UI and node state for a given layerId */
     private uncheckLayerById(layerId: string): void {
-        const uncheckNode = (nodes: LayerNode[]): boolean => {
+        this.setLayerCheckedState(layerId, false);
+    }
+
+    private setLayerCheckedState(layerId: string, checked: boolean): void {
+        const updateNode = (nodes: LayerNode[]): boolean => {
             for (const node of nodes) {
                 if (node.layerId === layerId) {
-                    node.checked = false;
+                    node.checked = checked;
                     return true;
                 }
-                if (node.children && uncheckNode(node.children)) {
+                if (node.children && updateNode(node.children)) {
                     return true;
                 }
             }
             return false;
         };
 
-        if (uncheckNode(this.effectiveTree)) {
+        if (updateNode(this.effectiveTree)) {
             this.requestUpdate();
         }
 
@@ -156,9 +221,28 @@ export class WebmapxLayerTree extends LitElement {
         const checkboxes = this.shadowRoot?.querySelectorAll<HTMLInputElement>('sl-checkbox[data-layer-id]');
         checkboxes?.forEach(cb => {
             if ((cb as any).dataset?.layerId === layerId) {
-                (cb as any).checked = false;
+                (cb as any).checked = checked;
             }
         });
+    }
+
+    private syncCheckedLayersFromStore(): void {
+        const activeLayerIds = this.adapter?.store.getState().visibleLayers ?? [];
+        const active = new Set(activeLayerIds);
+
+        const syncNodes = (nodes: LayerNode[]): void => {
+            for (const node of nodes) {
+                if (node.layerId) {
+                    node.checked = active.has(node.layerId);
+                }
+                if (node.children?.length) {
+                    syncNodes(node.children);
+                }
+            }
+        };
+
+        syncNodes(this.effectiveTree);
+        this.requestUpdate();
     }
 
     /** Unsubscribe from config events */
