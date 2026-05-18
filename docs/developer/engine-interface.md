@@ -41,16 +41,16 @@ The top-level handle for a running map engine instance. Returned by the adapter 
 
 ---
 
-## Native Layer And Source Methods
+## Layer And Source Methods
 
-These methods are part of `IMap`, but they operate on engine-level/native layers and sources rather than catalog layers.
+These methods are part of `IMap`.
 
 ### Methods
 
 | Method | Signature | Description |
 |---|---|---|
-| `addNativeLayer` | `(layer: any) => void` | Adds a native layer object |
-| `removeLayer` | `(id: string) => void` | Removes a native layer by ID |
+| `addLayer` | `(layer: any) => void` | Adds a layer object |
+| `removeLayer` | `(id: string) => void` | Removes a layer by ID |
 | `addSource` | `(id: string, config: any) => void` | Adds a native source |
 | `removeSource` | `(id: string) => void` | Removes a native source by ID |
 | `getSource` | `(id: string) => ISource \| undefined` | Retrieves a source by ID |
@@ -59,21 +59,6 @@ These methods are part of `IMap`, but they operate on engine-level/native layers
 | `getNavigationCapabilities` | `() => NavigationCapabilities` | Returns what camera controls this engine supports |
 
 > All events are delivered through `IMap.events` (the `MapEventBus`).
-
----
-
-## Catalog Layer Methods
-
-These methods are also part of `IMap`. They translate config-based layer definitions into native map layers and operate on logical layer IDs from the catalog.
-
-### Methods
-
-| Method | Signature | Description |
-|---|---|---|
-| `setCatalog` | `(catalog: CatalogConfig) => void` | Loads the catalog of sources and layers. Must be called before `addLayer` |
-| `addLayer` | `(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig) => Promise<boolean>` | Adds a layer; returns `true` on success |
-| `getVisibleLayers` | `() => string[]` | Returns IDs of all currently visible layers |
-| `isLayerVisible` | `(layerId: string) => boolean` | Checks whether a specific layer is visible |
 
 ---
 

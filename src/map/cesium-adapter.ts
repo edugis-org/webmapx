@@ -147,8 +147,8 @@ export class CesiumAdapter implements IMap {
         return this.core.getNavigationCapabilities();
     }
 
-    addNativeLayer(layer: any): void {
-        this.core.addNativeLayer(layer);
+    addLayer(layer: any): void {
+        this.core.addLayer(layer);
     }
 
     addSource(id: string, config: any): void {
@@ -179,18 +179,21 @@ export class CesiumAdapter implements IMap {
         this.layerService?.setCatalog(catalog);
     }
 
-    async addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig): Promise<boolean> {
+    async addCatalogLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig): Promise<boolean> {
         return this.layerService?.addLayer(layerId, layerConfig, sourceConfig) ?? false;
     }
 
-    getVisibleLayers(): string[] {
+    removeCatalogLayer(layerId: string): void {
+        this.layerService?.removeLayer(layerId);
+    }
+
+    getVisibleCatalogLayers(): string[] {
         return this.layerService?.getVisibleLayers() ?? [];
     }
 
-    isLayerVisible(layerId: string): boolean {
+    isCatalogLayerVisible(layerId: string): boolean {
         return this.layerService?.isLayerVisible(layerId) ?? false;
     }
-
 }
 
 export async function createCesiumAdapter(): Promise<CesiumAdapter> {

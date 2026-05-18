@@ -54,7 +54,7 @@ export class WebmapxMapElement extends HTMLElement {
 
     private handleAddLayerEvent(e: CustomEvent) {
         if (this.adapter) {
-            this.adapter.addNativeLayer(e.detail);
+        this.adapter.addLayer(e.detail);
         }
     }
 
@@ -106,11 +106,11 @@ export class WebmapxMapElement extends HTMLElement {
         // Support multiple sources, but call addLayer for each source referenced by the layer
         let allSucceeded = true;
         for (const source of layerInformation.sources) {
-          const success = await adapter.addLayer(layer.id, layer, source);
+          const success = await adapter.addCatalogLayer(layer.id, layer, source);
           if (!success) {
             allSucceeded = false;
             // Clean up any partial additions
-            adapter.removeLayer(layer.id);
+            adapter.removeCatalogLayer?.(layer.id);
             break;
           }
         }
@@ -123,7 +123,7 @@ export class WebmapxMapElement extends HTMLElement {
         }
       } else {
         // Remove the layer by id
-        adapter.removeLayer(layerInformation.layer.id);
+        adapter.removeCatalogLayer?.(layerInformation.layer.id);
       }
     }
   private surfaceObserver?: MutationObserver;

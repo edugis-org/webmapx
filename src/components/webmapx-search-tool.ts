@@ -290,12 +290,12 @@ export class WebmapxSearchTool extends WebmapxModalTool {
       const pointId = `${sourceId}-point`;
 
       if (geom === 'Polygon' || geom === 'MultiPolygon') {
-        map.addNativeLayer({ id: fillId, type: 'fill', source: sourceId, paint: { 'fill-color': color, 'fill-opacity': 0.25 } });
-        map.addNativeLayer({ id: lineId, type: 'line', source: sourceId, paint: { 'line-color': color, 'line-width': 2 } });
+        map.addLayer({ id: fillId, type: 'fill', source: sourceId, paint: { 'fill-color': color, 'fill-opacity': 0.25 } });
+        map.addLayer({ id: lineId, type: 'line', source: sourceId, paint: { 'line-color': color, 'line-width': 2 } });
       } else if (geom === 'LineString' || geom === 'MultiLineString') {
-        map.addNativeLayer({ id: lineId, type: 'line', source: sourceId, paint: { 'line-color': color, 'line-width': 3 } });
+        map.addLayer({ id: lineId, type: 'line', source: sourceId, paint: { 'line-color': color, 'line-width': 3 } });
       } else { // Point / MultiPoint fallback
-        map.addNativeLayer({ id: pointId, type: 'circle', source: sourceId, paint: { 'circle-color': color, 'circle-radius': 6 } });
+        map.addLayer({ id: pointId, type: 'circle', source: sourceId, paint: { 'circle-color': color, 'circle-radius': 6 } });
       }
 
       this.persistedMap.set(feature, { sourceId, color });
@@ -346,11 +346,11 @@ export class WebmapxSearchTool extends WebmapxModalTool {
     if (!this.previewLayersAdded) {
       try {
         // Fill for polygons (default preview colors)
-        map.addNativeLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, paint: { 'fill-color': '#f1c40f', 'fill-opacity': 0.25 } });
+        map.addLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, paint: { 'fill-color': '#f1c40f', 'fill-opacity': 0.25 } });
         // Line for lines
-        map.addNativeLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, paint: { 'line-color': '#f39c12', 'line-width': 3 } });
+        map.addLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, paint: { 'line-color': '#f39c12', 'line-width': 3 } });
         // Circle for points
-        map.addNativeLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, paint: { 'circle-color': '#e67e22', 'circle-radius': 6 } });
+        map.addLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, paint: { 'circle-color': '#e67e22', 'circle-radius': 6 } });
         this.previewLayersAdded = true;
       } catch (e) {
         console.warn('adding preview layers failed', e);
@@ -369,9 +369,9 @@ export class WebmapxSearchTool extends WebmapxModalTool {
     }
 
     try {
-      map.addNativeLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, paint: { 'fill-color': colors?.fill ?? '#f1c40f', 'fill-opacity': 0.25 } });
-      map.addNativeLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, paint: { 'line-color': colors?.line ?? '#f39c12', 'line-width': 3 } });
-      map.addNativeLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, paint: { 'circle-color': colors?.point ?? '#e67e22', 'circle-radius': 6 } });
+      map.addLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, paint: { 'fill-color': colors?.fill ?? '#f1c40f', 'fill-opacity': 0.25 } });
+      map.addLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, paint: { 'line-color': colors?.line ?? '#f39c12', 'line-width': 3 } });
+      map.addLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, paint: { 'circle-color': colors?.point ?? '#e67e22', 'circle-radius': 6 } });
       this.previewLayersAdded = true;
     } catch (e) {
       console.warn('update preview layers failed', e);

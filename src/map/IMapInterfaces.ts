@@ -70,7 +70,7 @@ export interface IMapCore {
     /** Gets the current zoom level. */
     getZoom(): number;
 
-    addNativeLayer(layer: any): void;
+    addLayer(layer: any): void;
     removeLayer(id: string): void;
     addSource(id: string, config: any): void;
     removeSource(id: string): void;
@@ -221,8 +221,8 @@ export interface IMap {
     getNavigationCapabilities(): NavigationCapabilities;
 
     // ===== Native Layer/Source Management =====
-    /** Adds a native layer object to the map (internal use). */
-    addNativeLayer(layer: any): void;
+    /** Adds a layer object to the map. */
+    addLayer(layer: any): void;
 
     /** Adds a native source to the map. */
     addSource(id: string, config: any): void;
@@ -241,32 +241,6 @@ export interface IMap {
 
     /** Re-enables the busy/loading indicator for a source. */
     unsuppressBusySignalForSource(sourceId: string): void;
-
-    // ===== Catalog Layer Management =====
-    /**
-     * Sets the catalog configuration containing sources and layers.
-     * Must be called before adding catalog layers.
-     */
-    setCatalog(catalog: CatalogConfig): void;
-
-    /**
-     * Adds a catalog layer to the map.
-     * @param layerId Logical layer ID from the catalog
-     * @param layerConfig Layer configuration
-     * @param sourceConfig Source configuration
-     * @returns true if added successfully, false on failure
-     */
-    addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig): Promise<boolean>;
-
-    /**
-     * Returns the list of currently visible catalog layer IDs.
-     */
-    getVisibleLayers(): string[];
-
-    /**
-     * Checks if a catalog layer is currently visible.
-     */
-    isLayerVisible(layerId: string): boolean;
 
     // ===== Initialization & Cleanup =====
     /**

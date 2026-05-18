@@ -298,7 +298,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     // Track whether any add operations failed so we only mark layers ready when everything succeeded
     let hadLayerErrors = false;
     try {
-      targetAdapter.addNativeLayer({
+      targetAdapter.addLayer({
         id: this.radiusLayerId,
         type: 'fill',
         source: this.sourceId,
@@ -314,7 +314,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
       hadLayerErrors = true;
     }
     try {
-      targetAdapter.addNativeLayer({
+      targetAdapter.addLayer({
         id: this.pointLayerId,
         type: 'circle',
         source: this.sourceId,
