@@ -149,6 +149,6 @@ async function initializeMap(mapElement, appConfig) {
     }
 
     // Initialize the map
-    adapter.core.initialize(mapElement.id, initOptions);
+    adapter.initialize(mapElement.id, initOptions);
     console.log(`[app] Initialized map "${mapId}" with config:`, mapConfig);
 }

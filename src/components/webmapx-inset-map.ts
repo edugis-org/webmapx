@@ -1,8 +1,7 @@
 import { css, html, LitElement, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { resolveMapElement } from './internal/map-context';
-import { IMapAdapter } from '../map/IMapAdapter';
-import { IMap, ISource } from '../map/IMapInterfaces';
+import type { IMap, ISource, ISubMap } from '../map/IMapInterfaces';
 import { IAppState } from '../store/IState';
 import { throttle } from '../utils/throttle';
 import type { LngLat } from '../store/map-events';
@@ -26,8 +25,8 @@ export class WebmapxInsetMap extends LitElement {
   @property({ type: Number, attribute: 'base-scale' })
   public baseScale = 0.5;
 
-  private adapter: IMapAdapter | null = null;
-  private insetMap: IMap | null = null;
+  private adapter: IMap | null = null;
+  private insetMap: ISubMap | null = null;
   private viewportSource: ISource | null = null;
   private unsubscribe: (() => void) | null = null;
   private lastCenter: [number, number] | null = null;
@@ -124,7 +123,7 @@ export class WebmapxInsetMap extends LitElement {
 
     const adapter = await (mapElement as any).getAdapterAsync?.();
     if (!adapter) return;
-    this.adapter = adapter as IMapAdapter;
+    this.adapter = adapter as IMap;
 
     const state = this.adapter.store.getState();
 
@@ -395,7 +394,7 @@ export class WebmapxInsetMap extends LitElement {
     }
 
     const pixelRing = unwrapped
-      .map(pt => this.adapter?.core.project(pt as LngLat))
+      .map(pt => this.adapter?.project(pt as LngLat))
       .filter((px): px is [number, number] => Array.isArray(px) && px.length === 2 && px.every(Number.isFinite));
 
     if (pixelRing.length < 2) {
@@ -430,7 +429,7 @@ export class WebmapxInsetMap extends LitElement {
 
     const coords: [number, number][] = [];
     for (const px of sampledPixels) {
-      const lngLat = this.adapter.core.unproject(px as [number, number]);
+      const lngLat = this.adapter.unproject(px as [number, number]);
       if (!lngLat || !Number.isFinite(lngLat[0]) || !Number.isFinite(lngLat[1])) {
         continue;
       }

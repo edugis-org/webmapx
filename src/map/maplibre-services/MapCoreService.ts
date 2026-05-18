@@ -313,7 +313,7 @@ export class MapCoreService implements IMapCore {
         return this.mapInstance ? this.mapInstance.getZoom() : this.initialConfig.zoom;
     }
 
-    public addLayer(layer: any): void {
+    public addNativeLayer(layer: any): void {
         this.mapInstance?.addLayer(layer);
     }
 

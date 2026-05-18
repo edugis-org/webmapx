@@ -205,7 +205,7 @@ export class MapCoreService implements IMapCore {
         camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
     }
 
-    public addLayer(_layer: any): void {
+    public addNativeLayer(_layer: any): void {
         const layer = _layer as any;
         const sourceId = layer?.source;
         if (!sourceId) return;

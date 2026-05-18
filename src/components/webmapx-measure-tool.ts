@@ -4,7 +4,7 @@
 import { html, css, nothing, TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
-import { IMapAdapter } from '../map/IMapAdapter';
+import type { IMap } from '../map/IMapInterfaces';
 import { LngLat, Pixel, ClickEvent, PointerMoveEvent, ContextMenuEvent } from '../store/map-events';
 import {
     haversineDistanceCm,
@@ -158,7 +158,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     // Lifecycle
     // ─────────────────────────────────────────────────────────────────────
 
-    protected onMapAttached(adapter: IMapAdapter): void {
+    protected onMapAttached(adapter: IMap): void {
         super.onMapAttached(adapter);
 
         this.setupMapEventListeners(adapter);
@@ -206,7 +206,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     // Event Setup
     // ─────────────────────────────────────────────────────────────────────
 
-    private setupMapEventListeners(adapter: IMapAdapter): void {
+    private setupMapEventListeners(adapter: IMap): void {
         // Subscribe to map events
         this.unsubClick = adapter.events.on('click', this.handleClick.bind(this));
         this.unsubPointerMove = adapter.events.on('pointer-move', this.handlePointerMove.bind(this));

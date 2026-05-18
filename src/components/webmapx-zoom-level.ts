@@ -4,7 +4,7 @@ import { html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import { IAppState } from '../store/IState';
-import { IMapAdapter } from '../map/IMapAdapter';
+import type { IMap } from '../map/IMapInterfaces';
 import { ViewChangeEndEvent } from '../store/map-events';
 
 import '@shoelace-style/shoelace/dist/components/input/input.js';
@@ -14,10 +14,10 @@ import '@shoelace-style/shoelace/dist/components/input/input.js';
  *
  * This component demonstrates the event bus pattern:
  * - Listens to 'view-change-end' events for zoom updates (library-agnostic)
- * - Commands zoom changes via adapter.core.setZoom() (IMapCore interface)
+ * - Commands zoom changes via map.setZoom() (IMap interface)
  *
  * No MapZoomController dependency - works with any map library that
- * implements IMapAdapter and emits view-change events.
+ * implements IMap and emits view-change events.
  */
 @customElement('webmapx-zoom-level')
 export class WebmapxZoomLevel extends WebmapxBaseTool {
@@ -67,7 +67,7 @@ export class WebmapxZoomLevel extends WebmapxBaseTool {
         }
     `;
 
-    protected onMapAttached(adapter: IMapAdapter): void {
+    protected onMapAttached(adapter: IMap): void {
         // Subscribe to view-change-end events via the event bus
         this.unsubscribeEvents = adapter.events.on('view-change-end', (event: ViewChangeEndEvent) => {
             this.handleViewChange(event);
@@ -111,7 +111,7 @@ export class WebmapxZoomLevel extends WebmapxBaseTool {
     }
 
     /**
-     * Set zoom via IMapCore interface (library-agnostic command).
+     * Set zoom via IMap interface (library-agnostic command).
      */
     private dispatchZoomIntent() {
         if (!this.inputValue || !this.adapter) {
@@ -120,8 +120,7 @@ export class WebmapxZoomLevel extends WebmapxBaseTool {
 
         const zoomValue = parseFloat(this.inputValue);
         if (!isNaN(zoomValue) && zoomValue >= 0) {
-            // Use IMapCore.setZoom() - works with any map library
-            this.adapter.core.setZoom(zoomValue);
+            this.adapter.setZoom(zoomValue);
         }
     }
 

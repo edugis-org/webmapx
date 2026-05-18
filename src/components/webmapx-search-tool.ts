@@ -2,7 +2,7 @@ import { html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 
 import { WebmapxModalTool } from './webmapx-modal-tool';
-import type { IMapAdapter } from '../map/IMapAdapter';
+import type { IMap } from '../map/IMapInterfaces';
 import type { IAppState } from '../store/IState';
 
 /**
@@ -101,7 +101,7 @@ export class WebmapxSearchTool extends WebmapxModalTool {
     .meta { font-size: small; color: var(--color-text-secondary); }
   `;
 
-  protected onMapAttached(adapter: IMapAdapter): void {
+  protected onMapAttached(adapter: IMap): void {
     super.onMapAttached(adapter);
     this.adapter = adapter;
     this.subscribeToConfig();
@@ -201,9 +201,8 @@ export class WebmapxSearchTool extends WebmapxModalTool {
       const lat = (bbox[1] + bbox[3]) / 2;
       center = [lon, lat];
       try {
-        const core = this.adapter.core as any;
-        if (typeof core.fitBounds === 'function') {
-          core.fitBounds(bbox as [number, number, number, number]);
+        if (typeof this.adapter.fitBounds === 'function') {
+          this.adapter.fitBounds(bbox as [number, number, number, number]);
           return;
         }
       } catch (e) {
@@ -220,7 +219,7 @@ export class WebmapxSearchTool extends WebmapxModalTool {
     const zoom = (feature.properties && (feature.properties.zoom || this.cfg.defaultZoom)) || this.cfg.defaultZoom;
     if (center && this.adapter) {
       try {
-        this.adapter.core.setViewport(center, zoom);
+        this.adapter.setViewport(center, zoom);
       } catch (e) {
         console.warn('setViewport failed', e);
       }
@@ -266,7 +265,7 @@ export class WebmapxSearchTool extends WebmapxModalTool {
 
   private addPersistedFeature(feature: GeoJSON.Feature) {
     if (!this.adapter) return;
-    const core = this.adapter.core;
+    const map = this.adapter;
 
     // Determine source id
     let sourceId = null as string | null;
@@ -282,7 +281,7 @@ export class WebmapxSearchTool extends WebmapxModalTool {
     try {
       // choose a color per feature
       const color = this.randomColorHex();
-      core.addSource(sourceId, { type: 'geojson', data: fc });
+      map.addSource(sourceId, { type: 'geojson', data: fc });
 
       // Add appropriate layers depending on geometry type
       const geom = feature.geometry?.type;
@@ -291,12 +290,12 @@ export class WebmapxSearchTool extends WebmapxModalTool {
       const pointId = `${sourceId}-point`;
 
       if (geom === 'Polygon' || geom === 'MultiPolygon') {
-        core.addLayer({ id: fillId, type: 'fill', source: sourceId, paint: { 'fill-color': color, 'fill-opacity': 0.25 } });
-        core.addLayer({ id: lineId, type: 'line', source: sourceId, paint: { 'line-color': color, 'line-width': 2 } });
+        map.addNativeLayer({ id: fillId, type: 'fill', source: sourceId, paint: { 'fill-color': color, 'fill-opacity': 0.25 } });
+        map.addNativeLayer({ id: lineId, type: 'line', source: sourceId, paint: { 'line-color': color, 'line-width': 2 } });
       } else if (geom === 'LineString' || geom === 'MultiLineString') {
-        core.addLayer({ id: lineId, type: 'line', source: sourceId, paint: { 'line-color': color, 'line-width': 3 } });
+        map.addNativeLayer({ id: lineId, type: 'line', source: sourceId, paint: { 'line-color': color, 'line-width': 3 } });
       } else { // Point / MultiPoint fallback
-        core.addLayer({ id: pointId, type: 'circle', source: sourceId, paint: { 'circle-color': color, 'circle-radius': 6 } });
+        map.addNativeLayer({ id: pointId, type: 'circle', source: sourceId, paint: { 'circle-color': color, 'circle-radius': 6 } });
       }
 
       this.persistedMap.set(feature, { sourceId, color });
@@ -307,17 +306,17 @@ export class WebmapxSearchTool extends WebmapxModalTool {
 
   private removePersistedFeature(feature: GeoJSON.Feature) {
     if (!this.adapter) return;
-    const core = this.adapter.core;
+    const map = this.adapter;
     const info = this.persistedMap.get(feature);
     if (!info) return;
     const sourceId = info.sourceId;
     try {
       // Remove layers if present
-      try { core.removeLayer(`${sourceId}-fill`); } catch (e) {}
-      try { core.removeLayer(`${sourceId}-line`); } catch (e) {}
-      try { core.removeLayer(`${sourceId}-point`); } catch (e) {}
+      try { map.removeLayer(`${sourceId}-fill`); } catch (e) {}
+      try { map.removeLayer(`${sourceId}-line`); } catch (e) {}
+      try { map.removeLayer(`${sourceId}-point`); } catch (e) {}
       // Remove source
-      try { core.removeSource(sourceId); } catch (e) {}
+      try { map.removeSource(sourceId); } catch (e) {}
     } catch (e) {
       console.warn('Error removing persisted feature', e);
     }
@@ -328,16 +327,16 @@ export class WebmapxSearchTool extends WebmapxModalTool {
   private async ensurePreviewSourceAndLayers(featureCollection: GeoJSON.FeatureCollection) {
     if (!this.adapter) return;
 
-    const core = this.adapter.core;
+    const map = this.adapter;
 
     // Add or update source
     try {
-      const existing = core.getSource(this.previewSourceId as string);
+      const existing = map.getSource(this.previewSourceId as string);
       if (existing && typeof existing.setData === 'function') {
         existing.setData(featureCollection as GeoJSON.FeatureCollection);
       } else {
         // Add source with geojson data
-        core.addSource(this.previewSourceId, { type: 'geojson', data: featureCollection });
+        map.addSource(this.previewSourceId, { type: 'geojson', data: featureCollection });
       }
     } catch (e) {
       console.warn('preview source update failed', e);
@@ -347,11 +346,11 @@ export class WebmapxSearchTool extends WebmapxModalTool {
     if (!this.previewLayersAdded) {
       try {
         // Fill for polygons (default preview colors)
-        core.addLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, paint: { 'fill-color': '#f1c40f', 'fill-opacity': 0.25 } });
+        map.addNativeLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, paint: { 'fill-color': '#f1c40f', 'fill-opacity': 0.25 } });
         // Line for lines
-        core.addLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, paint: { 'line-color': '#f39c12', 'line-width': 3 } });
+        map.addNativeLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, paint: { 'line-color': '#f39c12', 'line-width': 3 } });
         // Circle for points
-        core.addLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, paint: { 'circle-color': '#e67e22', 'circle-radius': 6 } });
+        map.addNativeLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, paint: { 'circle-color': '#e67e22', 'circle-radius': 6 } });
         this.previewLayersAdded = true;
       } catch (e) {
         console.warn('adding preview layers failed', e);
@@ -361,18 +360,18 @@ export class WebmapxSearchTool extends WebmapxModalTool {
 
   private updatePreviewLayersPaint(colors?: { fill?: string; line?: string; point?: string }) {
     if (!this.adapter) return;
-    const core = this.adapter.core;
+    const map = this.adapter;
 
     if (this.previewLayersAdded) {
       for (const lid of this.previewLayerIds) {
-        try { core.removeLayer(lid); } catch (e) { /* ignore */ }
+        try { map.removeLayer(lid); } catch (e) { /* ignore */ }
       }
     }
 
     try {
-      core.addLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, paint: { 'fill-color': colors?.fill ?? '#f1c40f', 'fill-opacity': 0.25 } });
-      core.addLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, paint: { 'line-color': colors?.line ?? '#f39c12', 'line-width': 3 } });
-      core.addLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, paint: { 'circle-color': colors?.point ?? '#e67e22', 'circle-radius': 6 } });
+      map.addNativeLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, paint: { 'fill-color': colors?.fill ?? '#f1c40f', 'fill-opacity': 0.25 } });
+      map.addNativeLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, paint: { 'line-color': colors?.line ?? '#f39c12', 'line-width': 3 } });
+      map.addNativeLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, paint: { 'circle-color': colors?.point ?? '#e67e22', 'circle-radius': 6 } });
       this.previewLayersAdded = true;
     } catch (e) {
       console.warn('update preview layers failed', e);
@@ -398,12 +397,12 @@ export class WebmapxSearchTool extends WebmapxModalTool {
 
   private clearPreview() {
     if (!this.adapter || !this.previewLayersAdded) return;
-    const core = this.adapter.core;
+    const map = this.adapter;
     try {
       for (const lid of this.previewLayerIds) {
-        try { core.removeLayer(lid); } catch (e) { /* ignore */ }
+        try { map.removeLayer(lid); } catch (e) { /* ignore */ }
       }
-      try { core.removeSource(this.previewSourceId); } catch (e) { /* ignore */ }
+      try { map.removeSource(this.previewSourceId); } catch (e) { /* ignore */ }
     } catch (e) {
       // ignore
     }

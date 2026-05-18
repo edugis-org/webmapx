@@ -1,6 +1,6 @@
-import { IMapAdapter } from './IMapAdapter';
+import { IMap } from './IMapInterfaces';
 
-export type MapAdapterFactory = () => Promise<IMapAdapter>;
+export type MapAdapterFactory = () => Promise<IMap>;
 
 const registry = new Map<string, MapAdapterFactory>();
 
@@ -18,7 +18,7 @@ export function getRegisteredAdapters(): string[] {
   return Array.from(registry.keys());
 }
 
-export async function createMapAdapter(requestedName?: string): Promise<IMapAdapter | null> {
+export async function createMapAdapter(requestedName?: string): Promise<IMap | null> {
   const key = (requestedName ?? DEFAULT_ADAPTER_NAME).toLowerCase();
   const factory = registry.get(key);
   if (!factory) {

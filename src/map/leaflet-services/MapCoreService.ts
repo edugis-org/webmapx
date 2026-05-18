@@ -364,7 +364,7 @@ export class MapCoreService implements IMapCore {
         return next;
     }
 
-    public addLayer(layerSpec: any): void {
+    public addNativeLayer(layerSpec: any): void {
         if (!this.mapInstance) return;
     
         const sourceId = layerSpec.source;

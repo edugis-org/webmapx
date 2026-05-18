@@ -39,7 +39,7 @@
 import { html, css, TemplateResult } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
-import { IMapAdapter } from '../map/IMapAdapter';
+import type { IMap } from '../map/IMapInterfaces';
 import type { ClickEvent } from '../store/map-events';
 
 import '@shoelace-style/shoelace/dist/components/button/button.js';
@@ -119,7 +119,7 @@ export class WebmapxExampleTool extends WebmapxModalTool {
      * Called when the map adapter is attached.
      * Good place for one-time setup.
      */
-    protected onMapAttached(adapter: IMapAdapter): void {
+    protected onMapAttached(adapter: IMap): void {
         super.onMapAttached(adapter);
         // One-time setup can go here
     }

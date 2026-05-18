@@ -6,8 +6,7 @@ import { customElement, state } from 'lit/decorators.js';
 
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import { IAppState } from '../store/IState'; 
-import { IToolService } from '../map/IMapInterfaces'; 
-import { IMapAdapter } from '../map/IMapAdapter';
+import type { IMap, IToolService } from '../map/IMapInterfaces'; 
 
 import '@shoelace-style/shoelace/dist/components/range/range.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
@@ -45,7 +44,7 @@ export class WebmapxToolTemplate extends WebmapxBaseTool {
         }
     `;
 
-    protected onMapAttached(adapter: IMapAdapter): void {
+    protected onMapAttached(adapter: IMap): void {
         this.toolService = adapter.toolService;
     }
 

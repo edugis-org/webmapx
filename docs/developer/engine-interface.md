@@ -1,12 +1,12 @@
 # Engine Interface
 
-This document describes the generic interface that connects the application to the underlying map engines (MapLibre, OpenLayers, Leaflet, Cesium). Engine implementations must satisfy these interfaces. Configuration concerns are **not** part of this interface.
+This document describes the generic interface that connects the application to the underlying map engines (MapLibre, OpenLayers, Leaflet, Cesium). Engine implementations must satisfy a single public `IMap` contract. Configuration concerns are **not** part of this interface.
 
-Source files: [src/map/IMapAdapter.ts](../../src/map/IMapAdapter.ts), [src/map/IMapInterfaces.ts](../../src/map/IMapInterfaces.ts), [src/store/map-events.ts](../../src/store/map-events.ts)
+Source files: [src/map/IMapInterfaces.ts](../../src/map/IMapInterfaces.ts), [src/store/map-events.ts](../../src/store/map-events.ts)
 
 ---
 
-## IMapAdapter
+## IMap
 
 The top-level handle for a running map engine instance. Returned by the adapter registry and used by tools and components.
 
@@ -15,25 +15,11 @@ The top-level handle for a running map engine instance. Returned by the adapter 
 | Property | Type | Description |
 |---|---|---|
 | `store` | `MapStateStore` | Shared application state store |
-| `core` | `IMapCore` | Core map operations |
-| `toolService` | `IToolService` | Active tool service for the map |
-| `layerService` | `ILayerService?` | Layer management (optional, not all engines support it) |
-| `mapFactory` | `IMapFactory` | Creates independent sub-map instances (e.g. inset maps) |
 | `events` | `MapEventBus` | Typed event bus for normalized map events |
+| `toolService` | `IToolService` | Tool-facing command surface for engine-backed actions |
+| `mapFactory` | `ISubMapFactory` | Creates independent sub-map instances (e.g. inset maps) |
 
-### Methods
-
-| Method | Signature | Description |
-|---|---|---|
-| `project` | `(coords: LngLat) => Pixel` | Converts geographic coordinates to screen pixels |
-
----
-
-## IMapCore
-
-Core map controls: viewport, camera, layers/sources, and coordinate conversion. Implemented per engine.
-
-### Methods
+### Main Methods
 
 | Method | Signature | Description |
 |---|---|---|
@@ -49,9 +35,21 @@ Core map controls: viewport, camera, layers/sources, and coordinate conversion. 
 | `resetNorth` | `() => void` | Resets bearing to north |
 | `resetNorthPitch` | `() => void` | Resets bearing and pitch |
 | `fitBounds` | `(bbox: [west, south, east, north]) => void` | Fits view to a bounding box |
-| `project` | `(coords: LngLat) => Pixel` | Geo → screen pixel |
-| `unproject` | `(pixel: Pixel) => LngLat \| null` | Screen pixel → geo |
-| `addLayer` | `(layer: any) => void` | Adds a native layer object |
+| `events` | `MapEventBus` | Typed event bus for normalized map events |
+| `project` | `(coords: LngLat) => Pixel` | Converts geographic coordinates to screen pixels |
+| `unproject` | `(pixel: Pixel) => LngLat \| null` | Converts screen pixels to geographic coordinates |
+
+---
+
+## Native Layer And Source Methods
+
+These methods are part of `IMap`, but they operate on engine-level/native layers and sources rather than catalog layers.
+
+### Methods
+
+| Method | Signature | Description |
+|---|---|---|
+| `addNativeLayer` | `(layer: any) => void` | Adds a native layer object |
 | `removeLayer` | `(id: string) => void` | Removes a native layer by ID |
 | `addSource` | `(id: string, config: any) => void` | Adds a native source |
 | `removeSource` | `(id: string) => void` | Removes a native source by ID |
@@ -60,13 +58,13 @@ Core map controls: viewport, camera, layers/sources, and coordinate conversion. 
 | `unsuppressBusySignalForSource` | `(sourceId: string) => void` | Re-enables loading indicator for a source |
 | `getNavigationCapabilities` | `() => NavigationCapabilities` | Returns what camera controls this engine supports |
 
-> All events are delivered through `IMapAdapter.events` (the `MapEventBus`). `IMapCore` has no event callbacks.
+> All events are delivered through `IMap.events` (the `MapEventBus`).
 
 ---
 
-## ILayerService
+## Catalog Layer Methods
 
-Translates config-based layer definitions into native map layers. Operates on logical layer IDs from the catalog.
+These methods are also part of `IMap`. They translate config-based layer definitions into native map layers and operate on logical layer IDs from the catalog.
 
 ### Methods
 
@@ -74,23 +72,22 @@ Translates config-based layer definitions into native map layers. Operates on lo
 |---|---|---|
 | `setCatalog` | `(catalog: CatalogConfig) => void` | Loads the catalog of sources and layers. Must be called before `addLayer` |
 | `addLayer` | `(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig) => Promise<boolean>` | Adds a layer; returns `true` on success |
-| `removeLayer` | `(layerId: string) => void` | Removes a layer by its logical ID |
 | `getVisibleLayers` | `() => string[]` | Returns IDs of all currently visible layers |
 | `isLayerVisible` | `(layerId: string) => boolean` | Checks whether a specific layer is visible |
 
 ---
 
-## IMapFactory / IMap
+## ISubMapFactory / ISubMap
 
 Used to create independent map instances (e.g. an inset/overview map), without sharing state with the main map.
 
-### IMapFactory
+### ISubMapFactory
 
 | Method | Signature | Description |
 |---|---|---|
-| `createMap` | `(container: HTMLElement, options?: MapCreateOptions) => IMap` | Creates and returns a new map instance |
+| `createMap` | `(container: HTMLElement, options?: MapCreateOptions) => ISubMap` | Creates and returns a new map instance |
 
-### IMap
+### ISubMap
 
 | Member | Type / Signature | Description |
 |---|---|---|
@@ -121,13 +118,13 @@ All events are library-agnostic. Adapters translate native events into these typ
 ### Subscribing
 
 ```ts
-const unsub = adapter.events.on('view-change-end', (e) => {
+const unsub = map.events.on('view-change-end', (e) => {
     console.log(e.center, e.zoom);
 });
 // Call unsub() to remove the listener
 ```
 
-Use `adapter.events.once(...)` for a single-fire subscription.
+Use `map.events.once(...)` for a single-fire subscription.
 
 ### Event Types
 
@@ -158,7 +155,7 @@ Use `adapter.events.once(...)` for a single-fire subscription.
 
 ## NavigationCapabilities
 
-Reported by `IMapCore.getNavigationCapabilities()`. Tells the UI which camera controls to show.
+Reported by `IMap.getNavigationCapabilities()`. Tells the UI which camera controls to show.
 
 | Property | Type | Description |
 |---|---|---|
@@ -169,7 +166,7 @@ Reported by `IMapCore.getNavigationCapabilities()`. Tells the UI which camera co
 
 ## MapCreateOptions
 
-Passed to `IMapFactory.createMap()` and `IMapCore.initialize()`.
+Passed to `ISubMapFactory.createMap()` and `IMap.initialize()`.
 
 | Option | Type | Description |
 |---|---|---|

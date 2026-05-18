@@ -1,7 +1,7 @@
 import { html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import type { IMapAdapter } from '../map/IMapAdapter';
+import type { IMap } from '../map/IMapInterfaces';
 import type { WebmapxMapElement } from './webmapx-map';
 import { resolveMapElement } from './internal/map-context';
 
@@ -106,7 +106,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     super.disconnectedCallback();
   }
 
-  protected onMapAttached(adapter: IMapAdapter): void {
+  protected onMapAttached(adapter: IMap): void {
     this.adapter = adapter;
     this.mapElement = resolveMapElement(this);
     this.incrementSharedState();
@@ -277,21 +277,20 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     );
   }
 
-  private ensureMapLayers(adapter?: IMapAdapter, mapElement?: WebmapxMapElement): void {
+  private ensureMapLayers(adapter?: IMap, mapElement?: WebmapxMapElement): void {
     const targetAdapter = adapter ?? this.adapter;
     const targetMap = mapElement ?? this.mapElement;
     if (!targetAdapter || !targetMap) {
       return;
     }
     const state = this.getMapState(targetMap);
-    const core = targetAdapter.core;
-    const existingSource = core.getSource(this.sourceId);
+    const existingSource = targetAdapter.getSource(this.sourceId);
     if (state.layersReady && existingSource) {
       return;
     }
     try {
       if (!existingSource) {
-        core.addSource(this.sourceId, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        targetAdapter.addSource(this.sourceId, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       }
     } catch (error) {
       // ignore if source exists
@@ -299,7 +298,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     // Track whether any add operations failed so we only mark layers ready when everything succeeded
     let hadLayerErrors = false;
     try {
-      core.addLayer({
+      targetAdapter.addNativeLayer({
         id: this.radiusLayerId,
         type: 'fill',
         source: this.sourceId,
@@ -315,7 +314,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
       hadLayerErrors = true;
     }
     try {
-      core.addLayer({
+      targetAdapter.addNativeLayer({
         id: this.pointLayerId,
         type: 'circle',
         source: this.sourceId,
@@ -348,10 +347,9 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     if (state && !state.layersReady) {
       return;
     }
-    const core = this.adapter.core;
-    try { core.removeLayer(this.radiusLayerId); } catch (error) {}
-    try { core.removeLayer(this.pointLayerId); } catch (error) {}
-    try { core.removeSource(this.sourceId); } catch (error) {}
+    try { this.adapter.removeLayer(this.radiusLayerId); } catch (error) {}
+    try { this.adapter.removeLayer(this.pointLayerId); } catch (error) {}
+    try { this.adapter.removeSource(this.sourceId); } catch (error) {}
     if (state) {
       state.layersReady = false;
     }
@@ -361,7 +359,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     if (!this.adapter) {
       return;
     }
-    const source = this.adapter.core.getSource(this.sourceId);
+    const source = this.adapter.getSource(this.sourceId);
     if (source) {
       source.setData({ type: 'FeatureCollection', features: [] });
     }
@@ -501,7 +499,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
   private maybeRecenter(
     position: GeolocationPosition,
     listeners: Set<WebmapxGeolocationTool>,
-    adapter: IMapAdapter
+    adapter: IMap
   ): void {
     let shouldCenter = false;
     let targetZoom: number | null = null;
@@ -509,7 +507,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
       const wantsCenter = listener.follow || !listener.flownTo;
       if (wantsCenter) {
         shouldCenter = true;
-        const fallbackZoom = adapter.core.getViewportState().zoom ?? 0;
+        const fallbackZoom = adapter.getViewportState().zoom ?? 0;
         const desiredZoom = typeof listener.zoom === 'number' ? listener.zoom : Math.max(fallbackZoom, 15);
         targetZoom = targetZoom === null ? desiredZoom : Math.max(targetZoom, desiredZoom);
         listener.flownTo = true;
@@ -520,7 +518,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     }
     const center: [number, number] = [position.coords.longitude, position.coords.latitude];
     try {
-      adapter.core.setViewport(center, targetZoom);
+      adapter.setViewport(center, targetZoom);
     } catch (error) {
       console.warn('geolocation setViewport failed', error);
     }
@@ -542,7 +540,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         this.createPoint(position)
       ]
     } as GeoJSON.FeatureCollection;
-    const source = adapter.core.getSource(this.sourceId);
+    const source = adapter.getSource(this.sourceId);
     if (source) {
       source.setData(geojson);
     }

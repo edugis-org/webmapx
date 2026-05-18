@@ -33,7 +33,7 @@
 import { property } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import { IAppState } from '../store/IState';
-import { IMapAdapter } from '../map/IMapAdapter';
+import type { IMap } from '../map/IMapInterfaces';
 import type { IModalTool } from '../tools/IModalTool';
 import type { ToolManager } from '../tools/tool-manager';
 import type { WebmapxMapElement } from './webmapx-map';
@@ -104,7 +104,7 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
     // Lifecycle
     // ─────────────────────────────────────────────────────────────────────
 
-    protected onMapAttached(adapter: IMapAdapter): void {
+    protected onMapAttached(adapter: IMap): void {
         super.onMapAttached(adapter);
 
         // Register with ToolManager

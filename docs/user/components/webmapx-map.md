@@ -67,11 +67,11 @@ Access the map adapter via the `adapter` property:
 
 ```js
 const mapElement = document.getElementById('map-container');
-const adapter = mapElement.adapter;
+const map = mapElement.adapter;
 
 // Get current viewport
-const { center, zoom } = adapter.core.getViewportState();
+const { center, zoom } = map.getViewportState();
 
 // Set viewport
-adapter.core.setViewport([5.0, 52.0], 10);
+map.setViewport([5.0, 52.0], 10);
 ```

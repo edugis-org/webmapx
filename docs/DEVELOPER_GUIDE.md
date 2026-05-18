@@ -89,7 +89,7 @@ console.log(DEFAULT_ADAPTER_NAME);  // 'maplibre'
 
 3. **Consumer-Side Throttling:** Adapter emits all events immediately. Tools use `throttle` utility as needed.
 
-4. **OOP Map API:** Tools create maps via `IMapFactory` → `IMap` → `ISource` / `ILayer`
+4. **Unified Map API:** The main engine surface is `IMap`; inset and helper maps are created via `ISubMapFactory` → `ISubMap` → `ISource` / `ILayer`
 
 5. **Modal Tool Ownership:** `ToolManager` owns the active modal tool transition. Tools may call into the manager when invoked directly, but the manager writes the tool's `active` flag and the `activeTool` state entry itself.
 
@@ -130,10 +130,11 @@ Most tools only need the existing adapter interfaces:
 
 | Need | Use | Example |
 | :--- | :--- | :--- |
-| Create a map | `adapter.mapFactory.createMap()` | Inset map, comparison view |
+| Create a sub-map | `map.mapFactory.createMap()` | Inset map, comparison view |
+| Send tool command | `map.toolService.toggleTool()` | Engine-backed tool actions |
 | Add GeoJSON layer | `map.createSource()` + `map.createLayer()` | Viewport rectangle, markers |
-| React to map events | `adapter.events.on('view-change')` | Coordinates display |
-| React to state | `adapter.store.subscribe()` | Sync with main map |
+| React to map events | `map.events.on('view-change')` | Coordinates display |
+| React to state | `map.store.subscribe()` | Sync with main map |
 | Throttle updates | `throttle()` from utils | High-frequency handlers |
 
 ### Step 2: Build the Tool Component
@@ -145,8 +146,8 @@ import { throttle } from '../utils/throttle';
 
 @customElement('webmapx-my-tool')
 export class WebmapxMyTool extends LitElement {
-  private adapter: IMapAdapter | null = null;
-  private myMap: IMap | null = null;
+  private map: IMap | null = null;
+  private myMap: ISubMap | null = null;
   private unsubscribe: (() => void) | null = null;
 
   // Tool decides its own throttling
@@ -155,11 +156,11 @@ export class WebmapxMyTool extends LitElement {
   }, 50);
 
   protected firstUpdated(): void {
-    this.adapter = resolveMapAdapter(this);
-    if (!this.adapter) return;
+    this.map = resolveMapAdapter(this);
+    if (!this.map) return;
 
-    // Create map using adapter's thin wrapper
-    this.myMap = this.adapter.mapFactory.createMap(container, {
+    // Create sub-map using the map's sub-map factory
+    this.myMap = this.map.mapFactory.createMap(container, {
       interactive: false,
       styleUrl: 'https://...'
     });
@@ -285,9 +286,9 @@ flowchart TB
         COORDS["webmapx-coordinates"]
     end
 
-    subgraph Adapter["Adapter (Thin Wrapper)"]
-        FACTORY["IMapFactory"]
-        CORE["MapCoreService"]
+    subgraph Adapter["Unified Map Surface"]
+      MAINMAP["IMap"]
+      FACTORY["ISubMapFactory"]
         EVENTS["MapEventBus"]
         STORE["MapStateStore"]
     end
@@ -298,22 +299,22 @@ flowchart TB
     end
 
     %% Tools use adapter
-    INSET --> FACTORY
+    INSET --> MAINMAP
     INSET --> STORE
-    ZOOM --> CORE
+    ZOOM --> MAINMAP
     ZOOM --> EVENTS
     COORDS --> STORE
 
     %% Factory creates maps
     FACTORY --> IMAP
 
-    %% Core manages main map
-    CORE --> MAIN
-    MAIN --> CORE
+    %% Unified map manages main map
+    MAINMAP --> MAIN
+    MAIN --> MAINMAP
 
     %% Events flow
-    CORE --> EVENTS
-    CORE --> STORE
+    MAINMAP --> EVENTS
+    MAINMAP --> STORE
     EVENTS --> Tools
     STORE --> Tools
 ```
@@ -323,8 +324,9 @@ flowchart TB
 | Component | Role | Location |
 | :--- | :--- | :--- |
 | **Tools** | All composite logic, calculations, layer setup, throttling | `src/components/` |
-| **IMapFactory** | Creates `IMap` instances (thin wrapper around map library) | `src/map/IMapInterfaces.ts` |
-| **IMap** | Map instance with `setViewport`, `createSource`, `createLayer`, `destroy` | `src/map/IMapInterfaces.ts` |
+| **IMap** | Main map interface with state, events, viewport, source, and catalog-layer methods | `src/map/IMapInterfaces.ts` |
+| **ISubMapFactory** | Creates `ISubMap` instances (thin wrapper around map library) | `src/map/IMapInterfaces.ts` |
+| **ISubMap** | Sub-map instance with `setViewport`, `createSource`, `createLayer`, `destroy` | `src/map/IMapInterfaces.ts` |
 | **ISource** | GeoJSON source with `setData` method | `src/map/IMapInterfaces.ts` |
 | **ILayer** | Layer with `getSource`, `remove` methods | `src/map/IMapInterfaces.ts` |
 | **MapCoreService** | Translates map-library events to generic events (thin) | `src/map/*-services/` |
@@ -346,7 +348,7 @@ src/map/{library}-services/
 
 #### Step 2: Implement MapCoreService
 
-Implements `IMapCore` - handles main map initialization and event normalization:
+Implements the internal core behavior used by the public `IMap` surface. It handles main map initialization and event normalization:
 
 ```typescript
 // src/map/leaflet-services/MapCoreService.ts
@@ -380,7 +382,7 @@ export class MapCoreService implements IMapCore {
 
 #### Step 3: Implement MapFactoryService
 
-Implements `IMapFactory`, `IMap`, `ISource`, `ILayer`:
+Implements `ISubMapFactory`, `ISubMap`, `ISource`, `ILayer`:
 
 ```typescript
 // src/map/leaflet-services/MapFactoryService.ts
@@ -399,7 +401,7 @@ class LeafletLayer implements ILayer {
     remove(): void { this.layer.remove(); }
 }
 
-class LeafletMap implements IMap {
+class LeafletMap implements ISubMap {
     setViewport(center, zoom, bearing?, pitch?): void { ... }
     createSource(sourceId, data): ISource { ... }
     getSource(sourceId): ISource | null { ... }
@@ -409,37 +411,34 @@ class LeafletMap implements IMap {
     destroy(): void { ... }
 }
 
-export class MapFactoryService implements IMapFactory {
-    createMap(container: HTMLElement, options?: MapCreateOptions): IMap {
-        // Create Leaflet map, return wrapped IMap
+export class MapFactoryService implements ISubMapFactory {
+  createMap(container: HTMLElement, options?: MapCreateOptions): ISubMap {
+    // Create Leaflet map, return wrapped ISubMap
     }
 }
 ```
 
 #### Step 4: Create the Adapter
 
-Compose services into `IMapAdapter`:
+Compose services into the unified `IMap`:
 
 ```typescript
 // src/map/leaflet-adapter.ts
-import { IMapAdapter } from './IMapAdapter';
+import { IMap } from './IMapInterfaces';
 import { MapStateStore } from '../store/map-state-store';
 import { MapEventBus } from '../store/map-events';
 import { MapCoreService } from './leaflet-services/MapCoreService';
 import { MapFactoryService } from './leaflet-services/MapFactoryService';
 
-export class LeafletAdapter implements IMapAdapter {
+export class LeafletAdapter implements IMap {
     public readonly store: MapStateStore;
     public readonly events: MapEventBus;
-    public readonly core: IMapCore;
-    public readonly toolService: IToolService;
-    public readonly mapFactory: IMapFactory;
+  public readonly mapFactory: ISubMapFactory;
 
     constructor() {
         this.store = new MapStateStore();
         this.events = new MapEventBus();
-        this.core = new MapCoreService(this.store, this.events);
-        this.toolService = new MapServiceTemplate();
+    this.core = new MapCoreService(this.store, this.events);
         this.mapFactory = new MapFactoryService();
     }
 }

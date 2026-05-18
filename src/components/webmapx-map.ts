@@ -1,4 +1,4 @@
-import { IMapAdapter } from '../map/IMapAdapter';
+import { IMap } from '../map/IMapInterfaces';
 import { createMapAdapter, DEFAULT_ADAPTER_NAME } from '../map/adapter-registry';
 import type { AppConfig, CatalogConfig, MapConfig, ToolsConfig } from '../config/types';
 import {
@@ -54,30 +54,30 @@ export class WebmapxMapElement extends HTMLElement {
 
     private handleAddLayerEvent(e: CustomEvent) {
         if (this.adapter) {
-            this.adapter.core.addLayer(e.detail);
+            this.adapter.addNativeLayer(e.detail);
         }
     }
 
     private handleRemoveLayerEvent(e: CustomEvent) {
         if (this.adapter) {
-            this.adapter.core.removeLayer(e.detail);
+            this.adapter.removeLayer(e.detail);
         }
     }
 
     private handleAddSourceEvent(e: CustomEvent) {
         if (this.adapter) {
-            this.adapter.core.addSource(e.detail.id, e.detail.config);
+            this.adapter.addSource(e.detail.id, e.detail.config);
         }
     }
 
     private handleRemoveSourceEvent(e: CustomEvent) {
         if (this.adapter) {
-            this.adapter.core.removeSource(e.detail);
+            this.adapter.removeSource(e.detail);
         }
     }
 
     private handleSetSourceDataEvent(e: CustomEvent) {
-        const source = this.adapter?.core.getSource(e.detail.id);
+        const source = this.adapter?.getSource(e.detail.id);
         if (source) {
             source.setData(e.detail.data);
         }
@@ -85,33 +85,32 @@ export class WebmapxMapElement extends HTMLElement {
 
     private handleSuppressBusyForSource(e: CustomEvent) {
         if (this.adapter) {
-            this.adapter.core.suppressBusySignalForSource(e.detail);
+            this.adapter.suppressBusySignalForSource(e.detail);
         }
     }
 
     private handleUnsuppressBusyForSource(e: CustomEvent) {
         if (this.adapter) {
-            this.adapter.core.unsuppressBusySignalForSource(e.detail);
+            this.adapter.unsuppressBusySignalForSource(e.detail);
         }
     }
 
     /** Handles add-layer events from the layer tree */
     private async handleLayerAddRequest(e: CustomEvent) {
       const { layerInformation, checked } = e.detail;
-      // Use 'any' to access layerService, since it's not in IMapAdapter interface
       const adapter: any = this.adapter;
-      if (!adapter || !adapter.layerService) return;
+      if (!adapter) return;
       if (checked) {
         // Compose for new signature: addLayer(layerId, layerConfig, sourceConfig)
         const layer = layerInformation.layer;
         // Support multiple sources, but call addLayer for each source referenced by the layer
         let allSucceeded = true;
         for (const source of layerInformation.sources) {
-          const success = await adapter.layerService.addLayer(layer.id, layer, source);
+          const success = await adapter.addLayer(layer.id, layer, source);
           if (!success) {
             allSucceeded = false;
             // Clean up any partial additions
-            adapter.layerService.removeLayer(layer.id);
+            adapter.removeLayer(layer.id);
             break;
           }
         }
@@ -124,13 +123,13 @@ export class WebmapxMapElement extends HTMLElement {
         }
       } else {
         // Remove the layer by id
-        adapter.layerService.removeLayer(layerInformation.layer.id);
+        adapter.removeLayer(layerInformation.layer.id);
       }
     }
   private surfaceObserver?: MutationObserver;
   private currentSurface: HTMLElement | null = null;
-  private adapterInstance: IMapAdapter | null = null;
-  private adapterPromise: Promise<IMapAdapter | null> | null = null;
+  private adapterInstance: IMap | null = null;
+  private adapterPromise: Promise<IMap | null> | null = null;
   private configInstance: AppConfig | null = null;
   private toolManagerInstance: ToolManager | null = null;
 
@@ -203,14 +202,14 @@ export class WebmapxMapElement extends HTMLElement {
     this.surfaceObserver.observe(this, { childList: true });
   }
 
-  /** Returns the MapLibre adapter owned by this map instance. */
-  public get adapter(): IMapAdapter | null {
+  /** Returns the map instance owned by this map element. */
+  public get adapter(): IMap | null {
     this.ensureAdapter();
     return this.adapterInstance;
   }
 
-  /** Resolves once the adapter has been created (or null on failure). */
-  public getAdapterAsync(): Promise<IMapAdapter | null> {
+  /** Resolves once the map has been created (or null on failure). */
+  public getAdapterAsync(): Promise<IMap | null> {
     this.ensureAdapter();
     return this.adapterPromise ?? Promise.resolve(this.adapterInstance);
   }

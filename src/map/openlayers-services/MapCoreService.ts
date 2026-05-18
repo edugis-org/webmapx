@@ -400,7 +400,7 @@ export class MapCoreService implements IMapCore {
 
     private sources: Map<string, { source: VectorSource, layers: any[], olLayer: VectorLayer<any> }> = new Map();
 
-    public addLayer(layerConfig: any): void {
+    public addNativeLayer(layerConfig: any): void {
         if (!this.mapInstance) return;
 
         const sourceId = layerConfig.source;

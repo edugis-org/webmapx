@@ -65,7 +65,7 @@ export class MyCustomTool extends WebmapxModalTool {
 
 ```typescript
 // Called when map adapter is attached (tool can access map)
-protected onMapAttached(adapter: IMapAdapter): void
+protected onMapAttached(map: IMap): void
 
 // Called when map adapter is detached
 protected onMapDetached(): void
@@ -94,7 +94,7 @@ toggle(): void
 
 ```typescript
 // Access the map adapter
-protected adapter: IMapAdapter | null
+protected adapter: IMap | null
 
 // Access the state store
 protected store: MapStateStore | null

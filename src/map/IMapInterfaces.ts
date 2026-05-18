@@ -70,7 +70,7 @@ export interface IMapCore {
     /** Gets the current zoom level. */
     getZoom(): number;
 
-    addLayer(layer: any): void;
+    addNativeLayer(layer: any): void;
     removeLayer(id: string): void;
     addSource(id: string, config: any): void;
     removeSource(id: string): void;
@@ -126,9 +126,9 @@ export interface ILayer {
 }
 
 /**
- * A map instance created by the factory.
+ * A sub-map instance created by ISubMapFactory (e.g., inset maps, independent child maps).
  */
-export interface IMap {
+export interface ISubMap {
     /** Sets the viewport (center, zoom, bearing, pitch). */
     setViewport(center: [number, number], zoom: number, bearing?: number, pitch?: number): void;
 
@@ -152,11 +152,140 @@ export interface IMap {
 }
 
 /**
- * Factory for creating map instances.
+ * Factory for creating sub-map instances (inset maps, independent child maps).
  */
-export interface IMapFactory {
-    /** Creates a new map instance. */
-    createMap(container: HTMLElement, options?: MapCreateOptions): IMap;
+export interface ISubMapFactory {
+    /** Creates a new sub-map instance. */
+    createMap(container: HTMLElement, options?: MapCreateOptions): ISubMap;
+}
+
+/**
+ * The unified map interface for the main map and all map instances.
+ * Combines core map operations, layer management, state, and events.
+ * Implemented by concrete adapters (MapLibre, OpenLayers, Leaflet, Cesium).
+ */
+export interface IMap {
+    // ===== State and Events =====
+    /** Access to the map's reactive state store. */
+    readonly store: MapStateStore;
+
+    /** Event bus for normalized library-agnostic map events. */
+    readonly events: MapEventBus;
+
+    /** Tool-specific service surface for engine-backed tool commands. */
+    readonly toolService: IToolService;
+
+    // ===== Viewport / Camera =====
+    /** Gets the current viewport state (center, zoom, bearing, pitch). */
+    getViewportState(): { center: [number, number], zoom: number, bearing: number, pitch: number };
+
+    /** Sets the map viewport (center and zoom). */
+    setViewport(center: [number, number], zoom: number): void;
+
+    /** Gets the current zoom level. */
+    getZoom(): number;
+
+    /** Sets the zoom level. */
+    setZoom(level: number): void;
+
+    /** Gets the current bearing (degrees clockwise from north). */
+    getBearing(): number;
+
+    /** Sets the bearing (degrees clockwise from north). */
+    setBearing(bearing: number): void;
+
+    /** Gets the current pitch/tilt (degrees, 0 = top-down). */
+    getPitch(): number;
+
+    /** Sets the pitch/tilt (degrees, 0 = top-down). */
+    setPitch(pitch: number): void;
+
+    /** Resets bearing to north. */
+    resetNorth(): void;
+
+    /** Resets bearing to north and pitch to top-down (if supported). */
+    resetNorthPitch(): void;
+
+    /** Fits the view to a bounding box [west, south, east, north]. */
+    fitBounds(bbox: [number, number, number, number]): void;
+
+    // ===== Coordinate Conversion =====
+    /** Projects geographic [lng, lat] to screen pixel [x, y]. */
+    project(coords: LngLat): Pixel;
+
+    /** Unprojects screen pixel [x, y] to geographic [lng, lat]. */
+    unproject(pixel: Pixel): LngLat | null;
+
+    // ===== Navigation Capabilities =====
+    /** Returns which camera controls this engine supports. */
+    getNavigationCapabilities(): NavigationCapabilities;
+
+    // ===== Native Layer/Source Management =====
+    /** Adds a native layer object to the map (internal use). */
+    addNativeLayer(layer: any): void;
+
+    /** Adds a native source to the map. */
+    addSource(id: string, config: any): void;
+
+    /** Removes a layer or source by ID. */
+    removeLayer(id: string): void;
+
+    /** Removes a native source by ID. */
+    removeSource(id: string): void;
+
+    /** Gets a native source by ID. */
+    getSource(id: string): ISource | undefined;
+
+    /** Suppresses the busy/loading indicator for a source. */
+    suppressBusySignalForSource(sourceId: string): void;
+
+    /** Re-enables the busy/loading indicator for a source. */
+    unsuppressBusySignalForSource(sourceId: string): void;
+
+    // ===== Catalog Layer Management =====
+    /**
+     * Sets the catalog configuration containing sources and layers.
+     * Must be called before adding catalog layers.
+     */
+    setCatalog(catalog: CatalogConfig): void;
+
+    /**
+     * Adds a catalog layer to the map.
+     * @param layerId Logical layer ID from the catalog
+     * @param layerConfig Layer configuration
+     * @param sourceConfig Source configuration
+     * @returns true if added successfully, false on failure
+     */
+    addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig): Promise<boolean>;
+
+    /**
+     * Returns the list of currently visible catalog layer IDs.
+     */
+    getVisibleLayers(): string[];
+
+    /**
+     * Checks if a catalog layer is currently visible.
+     */
+    isLayerVisible(layerId: string): boolean;
+
+    // ===== Initialization & Cleanup =====
+    /**
+     * Initializes the map in the target HTML element.
+     * Must be called before using the map.
+     */
+    initialize(
+        containerId: string,
+        options?: {
+            center?: [number, number];
+            zoom?: number;
+            styleUrl?: string;
+            style?: MapStyle;
+        }
+    ): void;
+
+    // ===== Sub-map Factory =====
+    /** Factory for creating independent sub-map instances (e.g., inset maps). */
+    readonly mapFactory: ISubMapFactory;
 }
 
 export interface NavigationCapabilities {

@@ -2,7 +2,7 @@ import { css, html, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IAppState } from '../store/IState';
-import type { IMapAdapter } from '../map/IMapAdapter';
+import type { IMap } from '../map/IMapInterfaces';
 import type { LngLat, Pixel, ViewChangeEndEvent, ViewChangeEvent } from '../store/map-events';
 import { haversineDistanceCm } from '../utils/geo-calculations';
 
@@ -33,7 +33,7 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
   private lastCenter: LngLat | null = null;
   private lastZoom: number | null = null;
   private hasLiveView = false;
-  private attachedAdapter: IMapAdapter | null = null;
+  private attachedAdapter: IMap | null = null;
   private lastUnprojectStatus: 'ok' | 'off-globe' | 'failed' | 'none' = 'none';
 
   static styles = css`
@@ -83,7 +83,7 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
     super.disconnectedCallback();
   }
 
-  protected onMapAttached(adapter: IMapAdapter): void {
+  protected onMapAttached(adapter: IMap): void {
     this.clearEventSubscriptions();
     this.hasLiveView = false;
     this.attachedAdapter = adapter;
@@ -338,7 +338,7 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
 
     for (let i = 0; i < 24; i++) {
       const mid = (low + high) / 2;
-      const projected = this.attachedAdapter.core.project([lng, mid]);
+      const projected = this.attachedAdapter.project([lng, mid]);
       const py = projected?.[1] ?? NaN;
       if (!isFinite(py)) {
         break;
@@ -389,8 +389,8 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
       const leftPx: Pixel = [centerX - halfSpan, sampleY];
       const rightPx: Pixel = [centerX + halfSpan, sampleY];
 
-      const left = this.attachedAdapter.core.unproject(leftPx);
-      const right = this.attachedAdapter.core.unproject(rightPx);
+      const left = this.attachedAdapter.unproject(leftPx);
+      const right = this.attachedAdapter.unproject(rightPx);
       if (!left || !right) {
         return null;
       }

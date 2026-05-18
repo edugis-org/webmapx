@@ -167,7 +167,7 @@ export class WebmapxSettings extends LitElement {
         const viewportKey = this.getMapStorageKey(mapElement, 'viewport');
 
         if (adapter) {
-            const viewportState = adapter.core.getViewportState();
+            const viewportState = adapter.getViewportState();
             if (viewportKey) {
                 localStorage.setItem(viewportKey, JSON.stringify(viewportState));
             }

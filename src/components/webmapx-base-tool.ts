@@ -1,7 +1,7 @@
 import { LitElement } from 'lit';
 import { MapStateStore } from '../store/map-state-store';
 import { IAppState, StateSource } from '../store/IState';
-import { IMapAdapter } from '../map/IMapAdapter';
+import type { IMap } from '../map/IMapInterfaces';
 import { resolveMapAdapter, resolveMapElement } from './internal/map-context';
 import type { AppConfig, CatalogConfig, MapConfig, ToolsConfig } from '../config/types';
 import type { WebmapxMapElement } from './webmapx-map';
@@ -12,7 +12,7 @@ import type { WebmapxMapElement } from './webmapx-map';
  */
 export abstract class WebmapxBaseTool extends LitElement {
 
-    protected adapter: IMapAdapter | null = null;
+    protected adapter: IMap | null = null;
     protected store: MapStateStore | null = null;
     private unsubscribe: (() => void) | null = null;
     private configReadyHandler: ((e: Event) => void) | null = null;
@@ -104,7 +104,7 @@ export abstract class WebmapxBaseTool extends LitElement {
      * Called when the map adapter is successfully attached.
      * Override this to get references to specific services from the adapter.
      */
-    protected onMapAttached(adapter: IMapAdapter): void {
+    protected onMapAttached(adapter: IMap): void {
         // Optional override
     }
 

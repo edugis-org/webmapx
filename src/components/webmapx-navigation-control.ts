@@ -1,10 +1,9 @@
 import { css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import type { IMapAdapter } from '../map/IMapAdapter';
 import type { IAppState } from '../store/IState';
 import type { ViewChangeEndEvent, ViewChangeEvent } from '../store/map-events';
-import type { NavigationCapabilities } from '../map/IMapInterfaces';
+import type { IMap, NavigationCapabilities } from '../map/IMapInterfaces';
 
 type Orientation = 'vertical' | 'horizontal';
 
@@ -144,13 +143,13 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
     }
   `;
 
-  protected onMapAttached(adapter: IMapAdapter): void {
+  protected onMapAttached(adapter: IMap): void {
     this.cleanup();
     this.compassSupported = this.resolveCompassSupport(adapter);
     this.zoomMin = this.mapConfig?.minZoom ?? null;
     this.zoomMax = this.mapConfig?.maxZoom ?? null;
 
-    const view = adapter.core.getViewportState();
+    const view = adapter.getViewportState();
     this.currentZoom = view.zoom;
     this.bearing = view.bearing ?? 0;
     this.pitch = view.pitch ?? 0;
@@ -187,8 +186,8 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
     this.releaseCompassPointer();
   }
 
-  private resolveCompassSupport(adapter: IMapAdapter | null): boolean {
-    const caps: NavigationCapabilities | null = adapter?.core.getNavigationCapabilities?.() ?? null;
+  private resolveCompassSupport(adapter: IMap | null): boolean {
+    const caps: NavigationCapabilities | null = adapter?.getNavigationCapabilities?.() ?? null;
     if (!caps) return false;
     return Boolean(caps.bearing || (this.visualizePitch && caps.pitch));
   }
@@ -213,16 +212,16 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
 
   private handleZoomIn = () => {
     if (!this.adapter) return;
-    const baseZoom = this.adapter.core.getViewportState().zoom ?? this.currentZoom ?? this.adapter.core.getZoom();
+    const baseZoom = this.adapter.getViewportState().zoom ?? this.currentZoom ?? this.adapter.getZoom();
     const next = this.clampZoom(baseZoom + 1);
-    this.adapter.core.setZoom(next);
+    this.adapter.setZoom(next);
   };
 
   private handleZoomOut = () => {
     if (!this.adapter) return;
-    const baseZoom = this.adapter.core.getViewportState().zoom ?? this.currentZoom ?? this.adapter.core.getZoom();
+    const baseZoom = this.adapter.getViewportState().zoom ?? this.currentZoom ?? this.adapter.getZoom();
     const next = this.clampZoom(baseZoom - 1);
-    this.adapter.core.setZoom(next);
+    this.adapter.setZoom(next);
   };
 
   private handleCompassClick = () => {
@@ -231,11 +230,11 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
       return;
     }
     if (!this.adapter) return;
-    const caps = this.adapter.core.getNavigationCapabilities?.();
+    const caps = this.adapter.getNavigationCapabilities?.();
     if (caps?.pitch && this.visualizePitch) {
-      this.adapter.core.resetNorthPitch();
+      this.adapter.resetNorthPitch();
     } else {
-      this.adapter.core.resetNorth();
+      this.adapter.resetNorth();
     }
   };
 
@@ -279,12 +278,12 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
       const startAngle = Math.atan2((this.startPointer?.y ?? cy) - cy, (this.startPointer?.x ?? cx) - cx);
       const deltaDeg = (angle - startAngle) * (180 / Math.PI);
       const targetBearing = this.normalizeBearing(this.startBearing - deltaDeg);
-      this.adapter.core.setBearing(targetBearing);
+      this.adapter.setBearing(targetBearing);
       this.bearing = targetBearing;
     } else if (this.compassDragMode === 'pitch' && this.startPointer) {
       const deltaY = event.clientY - this.startPointer.y;
       const targetPitch = this.clampPitch(this.startPitch - deltaY * 0.35);
-      this.adapter.core.setPitch(targetPitch);
+      this.adapter.setPitch(targetPitch);
       this.pitch = targetPitch;
     }
   };
@@ -319,7 +318,7 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
 
   private resolveCompassDragMode(event: PointerEvent): 'rotate' | 'pitch' | null {
     if (!this.compassRect || !this.adapter) return null;
-    const caps = this.adapter.core.getNavigationCapabilities?.() ?? { bearing: false, pitch: false };
+    const caps = this.adapter.getNavigationCapabilities?.() ?? { bearing: false, pitch: false };
     const cx = this.compassRect.left + this.compassRect.width / 2;
     const cy = this.compassRect.top + this.compassRect.height / 2;
     const dx = event.clientX - cx;

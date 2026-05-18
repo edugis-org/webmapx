@@ -1,4 +1,4 @@
-import { IMapAdapter } from '../../map/IMapAdapter';
+import type { IMap } from '../../map/IMapInterfaces';
 import { WebmapxMapElement } from '../webmapx-map';
 
 function queryWithSelector(root: ParentNode, selector: string): WebmapxMapElement | null {
@@ -47,7 +47,7 @@ export function resolveMapElement(host: HTMLElement): WebmapxMapElement | null {
   return null;
 }
 
-export function resolveMapAdapter(host: HTMLElement): IMapAdapter | null {
+export function resolveMapAdapter(host: HTMLElement): IMap | null {
   const mapElement = resolveMapElement(host);
   if (!mapElement) {
     return null;
