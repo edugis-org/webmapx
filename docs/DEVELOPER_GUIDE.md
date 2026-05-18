@@ -324,7 +324,7 @@ flowchart TB
 | Component | Role | Location |
 | :--- | :--- | :--- |
 | **Tools** | All composite logic, calculations, layer setup, throttling | `src/components/` |
-| **IMap** | Main map interface with state, events, viewport, source, and catalog-layer methods | `src/map/IMapInterfaces.ts` |
+| **IMap** | Main map interface with state, events, viewport, and source/layer operations | `src/map/IMapInterfaces.ts` |
 | **ISubMapFactory** | Creates `ISubMap` instances (thin wrapper around map library) | `src/map/IMapInterfaces.ts` |
 | **ISubMap** | Sub-map instance with `setViewport`, `createSource`, `createLayer`, `destroy` | `src/map/IMapInterfaces.ts` |
 | **ISource** | GeoJSON source with `setData` method | `src/map/IMapInterfaces.ts` |

@@ -43,6 +43,12 @@ The tree can be provided in two ways:
 |------------|--------|-------------|
 | `add-layer` | `{ layerInformation, checked }` | Fired when a layer checkbox is toggled. Bubbles and is handled by `<webmapx-map>`. |
 
+## Runtime Sync
+
+- `checked` in `catalog.tree` is treated as initial state.
+- After initialization, checkbox state follows active layers from the map state (`visibleLayers`).
+- The map emits `layer-add` and `layer-remove` on `MapEventBus`; the layer tree mirrors those changes.
+
 ## Notes
 
 Leaf nodes should include `layerId` so the component can resolve the layer from the map catalog.
