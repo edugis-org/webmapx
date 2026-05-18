@@ -224,6 +224,10 @@ export interface LayerConfig {
   id: string;
   /** Collection of style layers that make up this logical layer */
   layerset: StyleLayerConfig[];
+  /** Optional display title for UI components */
+  title?: string;
+  /** Optional metadata namespace for extended UI labels and info */
+  metadata?: Record<string, unknown>;
 }
 
 /**

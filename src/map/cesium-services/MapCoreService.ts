@@ -66,13 +66,6 @@ export class MapCoreService implements IMapCore {
         this.minZoom = options?.minZoom;
         this.maxZoom = options?.maxZoom;
 
-        const osmProvider = new Cesium.UrlTemplateImageryProvider({
-            url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-            subdomains: ['a', 'b', 'c'],
-            credit: '&copy; OpenStreetMap contributors',
-        });
-        this.clampImageryProviderMaxLevel(osmProvider, 19);
-
         const creditContainer = document.createElement('div');
         creditContainer.style.display = 'none';
 
@@ -89,7 +82,7 @@ export class MapCoreService implements IMapCore {
             timeline: false,
             vrButton: false,
             scene3DOnly: true,
-            baseLayer: new Cesium.ImageryLayer(osmProvider),
+            baseLayer: false,
             terrainProvider: new Cesium.EllipsoidTerrainProvider(),
             creditContainer,
         });

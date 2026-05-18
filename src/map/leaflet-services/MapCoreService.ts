@@ -8,10 +8,6 @@ import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { LeafletLayerFactory } from './LeafletLayerFactory';
 
-// Default OSM tile layer as fallback
-const DEFAULT_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-const DEFAULT_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-
 /**
  * Zoom offset to normalize between MapLibre (512px tiles) and Leaflet/OSM (256px tiles).
  * Leaflet needs +1 zoom to show the same geographic extent as MapLibre.
@@ -119,7 +115,6 @@ export class MapCoreService implements IMapCore {
     }
 
     private setupBaseLayers(options?: { styleUrl?: string; style?: MapStyle }): void {
-        let hasBaseLayer = false;
         if (options?.style?.sources) {
             for (const source of Object.values(options.style.sources)) {
                 if (source.type === 'raster' && source.tiles?.length) {
@@ -129,19 +124,12 @@ export class MapCoreService implements IMapCore {
                         minZoom: source.minzoom,
                         maxZoom: source.maxzoom,
                     }).addTo(this.mapInstance!);
-                    hasBaseLayer = true;
                 }
             }
         } else if (options?.styleUrl) {
             (async () => {
-                const loaded = await this.loadStyleFromUrl(options.styleUrl!);
-                if (!loaded) this.addDefaultTileLayer();
+                await this.loadStyleFromUrl(options.styleUrl!);
             })();
-            hasBaseLayer = true;
-        }
-
-        if (!hasBaseLayer) {
-            this.addDefaultTileLayer();
         }
     }
 
@@ -496,11 +484,6 @@ export class MapCoreService implements IMapCore {
         this.mapReadyCallbacks.splice(0).forEach(cb => {
             try { cb(this.mapInstance!); } catch (e) { console.error('[CORE SERVICE] mapReady callback failed.', e); }
         });
-    }
-
-    private addDefaultTileLayer(): void {
-        if (!this.mapInstance) return;
-        L.tileLayer(DEFAULT_TILE_URL, { attribution: DEFAULT_ATTRIBUTION, maxZoom: 19 }).addTo(this.mapInstance);
     }
 
     private async loadStyleFromUrl(styleUrl: string): Promise<boolean> {

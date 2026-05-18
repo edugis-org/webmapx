@@ -29,7 +29,7 @@ const KNOWN_KEYS = {
   sourceRaster: ['service', 'url', 'tileSize', 'minZoom', 'maxZoom', 'bounds', 'scheme', 'volatile', 'attribution'],
   sourceGeojson: ['data', 'attribution', 'minzoom', 'maxzoom', 'bounds', 'buffer', 'tolerance', 'cluster', 'clusterRadius', 'clusterMaxZoom', 'lineMetrics', 'generateId'],
   sourceVector: ['url', 'tiles', 'bounds', 'scheme', 'minzoom', 'maxzoom', 'attribution', 'volatile'],
-  layer: ['id', 'layerset'],
+  layer: ['id', 'layerset', 'title', 'metadata'],
   styleLayer: ['type', 'source', 'sourceLayer', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
   tool: ['enabled'],
 };

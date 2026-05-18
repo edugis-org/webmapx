@@ -12,8 +12,7 @@
     "zoom": 2,
     "maxZoom": 20,
     "minZoom": 0,
-    "type": "maplibre",
-    "style": "https://demotiles.maplibre.org/style.json"
+    "type": "maplibre"
   },
   "library": {
     "sources": {
@@ -64,16 +63,19 @@
     },
     "layers": {
       "osm": {
+        "metadata": { "title": "OpenStreetMap (xyz)" },
         "layerset": [
           { "type": "raster", "source": "xyz-source" }
         ]
       },
       "google-satellite": {
+        "metadata": { "title": "Google Satellite" },
         "layerset": [
           { "type": "raster", "source": "google-satellite-source" }
         ]
       },
       "earthquake": {
+        "metadata": { "title": "Earthquakes" },
         "layerset": [
           {
             "type": "circle",
@@ -89,26 +91,31 @@
         ]
       },
       "transport": {
+        "metadata": { "title": "Transport Network" },
         "layerset": [
           { "type": "line", "source": "transport-source" }
         ]
       },
       "air": {
+        "metadata": { "title": "Air Quality" },
         "layerset": [
           { "type": "circle", "source": "air-source" }
         ]
       },
       "water": {
+        "metadata": { "title": "Water Quality" },
         "layerset": [
           { "type": "circle", "source": "water-source" }
         ]
       },
       "nyc-historical": {
+        "metadata": { "title": "NYC 1836 (Allmaps)" },
         "layerset": [
           { "type": "raster", "source": "nyc-historical-source" }
         ]
       },
       "amsterdam-historical": {
+        "metadata": { "title": "Amsterdam 1625 (Allmaps)" },
         "layerset": [
           { "type": "raster", "source": "amsterdam-historical-source" }
         ]

@@ -2,6 +2,8 @@ import { css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IAppState } from '../store/IState';
+import type { IMap } from '../map/IMapInterfaces';
+import type { LayerAddEvent, LayerRemoveEvent } from '../store/map-events';
 import { buildLayerPanelSections, type LayerPanelItem } from '../utils/layer-panel-model';
 
 @customElement('webmapx-layer-overview')
@@ -17,6 +19,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
 
   @state() private backgroundLayers: LayerPanelItem[] = [];
   @state() private overviewLayers: LayerPanelItem[] = [];
+  private unsubscribeLayerAdd: (() => void) | null = null;
+  private unsubscribeLayerRemove: (() => void) | null = null;
 
   static styles = css`
     :host {
@@ -93,9 +97,24 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   `;
 
   protected onStateChanged(state: IAppState): void {
-    const sections = buildLayerPanelSections(this.catalogConfig, state.visibleLayers, this.backgroundGroupLabel);
-    this.backgroundLayers = sections.background;
-    this.overviewLayers = sections.overview;
+    this.applyVisibleLayers(state.visibleLayers);
+  }
+
+  protected onMapAttached(adapter: IMap): void {
+    this.unsubscribeLayerAdd = adapter.events.on('layer-add', (event: LayerAddEvent) => {
+      this.applyVisibleLayers(event.visibleLayers);
+    });
+    this.unsubscribeLayerRemove = adapter.events.on('layer-remove', (event: LayerRemoveEvent) => {
+      this.applyVisibleLayers(event.visibleLayers);
+    });
+    this.applyVisibleLayers(adapter.store.getState().visibleLayers);
+  }
+
+  protected onMapDetached(): void {
+    this.unsubscribeLayerAdd?.();
+    this.unsubscribeLayerRemove?.();
+    this.unsubscribeLayerAdd = null;
+    this.unsubscribeLayerRemove = null;
   }
 
   render() {
@@ -127,5 +146,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
           : html`<div class="empty">${emptyText}</div>`}
       </section>
     `;
+  }
+
+  private applyVisibleLayers(visibleLayers: string[]): void {
+    const sections = buildLayerPanelSections(this.catalogConfig, visibleLayers, this.backgroundGroupLabel);
+    this.backgroundLayers = sections.background;
+    this.overviewLayers = sections.overview;
   }
 }

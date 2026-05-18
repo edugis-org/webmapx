@@ -21,6 +21,14 @@ export class OpenLayersAdapter implements IMap {
     public readonly mapFactory: ISubMapFactory;
     private layerService?: ILayerService;
     private lastVisibleLayers: string[] = [];
+    private pendingCatalog: CatalogConfig | null = null;
+    private pendingAddRequests: Array<{
+        layerId: string;
+        layerConfig: LayerConfig;
+        sourceConfig: SourceConfig;
+        resolve: (value: boolean) => void;
+    }> = [];
+    private pendingRemoveRequests: string[] = [];
 
     constructor() {
         this.store = new MapStateStore();
@@ -35,6 +43,7 @@ export class OpenLayersAdapter implements IMap {
         // Wait for mapInstance to be ready, then initialize layerService
         (this.core as any).onMapReady?.((map: any) => {
             this.layerService = new MapLayerService(map, this.store);
+            this.flushPendingLayerOperations();
         });
     }
 
@@ -129,15 +138,27 @@ export class OpenLayersAdapter implements IMap {
     }
 
     setCatalog(catalog: CatalogConfig): void {
+        this.pendingCatalog = catalog;
         this.layerService?.setCatalog(catalog);
     }
 
     async addCatalogLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig): Promise<boolean> {
-        return this.layerService?.addLayer(layerId, layerConfig, sourceConfig) ?? false;
+        if (this.layerService) {
+            return this.layerService.addLayer(layerId, layerConfig, sourceConfig);
+        }
+
+        return new Promise<boolean>((resolve) => {
+            this.pendingAddRequests.push({ layerId, layerConfig, sourceConfig, resolve });
+        });
     }
 
     removeCatalogLayer(layerId: string): void {
-        this.layerService?.removeLayer(layerId);
+        if (this.layerService) {
+            this.layerService.removeLayer(layerId);
+            return;
+        }
+
+        this.pendingRemoveRequests.push(layerId);
     }
 
     getVisibleCatalogLayers(): string[] {
@@ -165,5 +186,32 @@ export class OpenLayersAdapter implements IMap {
         }
 
         this.lastVisibleLayers = [...nextVisibleLayers];
+    }
+
+    private flushPendingLayerOperations(): void {
+        if (!this.layerService) {
+            return;
+        }
+
+        if (this.pendingCatalog) {
+            this.layerService.setCatalog(this.pendingCatalog);
+        }
+
+        const pendingRemovals = [...this.pendingRemoveRequests];
+        this.pendingRemoveRequests = [];
+        for (const layerId of pendingRemovals) {
+            this.layerService.removeLayer(layerId);
+        }
+
+        const pendingAdds = [...this.pendingAddRequests];
+        this.pendingAddRequests = [];
+        pendingAdds.forEach(async (request) => {
+            try {
+                const success = await this.layerService!.addLayer(request.layerId, request.layerConfig, request.sourceConfig);
+                request.resolve(success);
+            } catch {
+                request.resolve(false);
+            }
+        });
     }
 }

@@ -31,7 +31,7 @@ export class WebmapxMapElement extends HTMLElement {
     connectedCallback(): void {
       this.upsertAndStyleSurface();
       this.observeSurfaceChanges();
-      this.addEventListener('add-layer', this.handleLayerAddRequest as EventListener);
+      this.addEventListener('add-layer', this.handleLayerAddRequest as unknown as EventListener);
       this.addEventListener('webmapx-add-layer', this.handleAddLayerEvent as EventListener);
       this.addEventListener('webmapx-remove-layer', this.handleRemoveLayerEvent as EventListener);
       this.addEventListener('webmapx-add-source', this.handleAddSourceEvent as EventListener);
@@ -43,7 +43,7 @@ export class WebmapxMapElement extends HTMLElement {
 
     disconnectedCallback(): void {
       this.surfaceObserver?.disconnect();
-      this.removeEventListener('add-layer', this.handleLayerAddRequest as EventListener);
+      this.removeEventListener('add-layer', this.handleLayerAddRequest as unknown as EventListener);
       this.removeEventListener('webmapx-add-layer', this.handleAddLayerEvent as EventListener);
       this.removeEventListener('webmapx-remove-layer', this.handleRemoveLayerEvent as EventListener);
       this.removeEventListener('webmapx-add-source', this.handleAddSourceEvent as EventListener);
@@ -365,6 +365,11 @@ export class WebmapxMapElement extends HTMLElement {
   private collectInitialActiveLayerRefs(): string[] {
     const activeLayers = this.configInstance?.state?.activeLayers ?? [];
     const refs: string[] = [];
+
+    const activeBackground = this.configInstance?.state?.activeBackground;
+    if (typeof activeBackground === 'string' && activeBackground.length > 0) {
+      refs.push(activeBackground);
+    }
 
     for (const entry of activeLayers) {
       if (typeof entry === 'string') {

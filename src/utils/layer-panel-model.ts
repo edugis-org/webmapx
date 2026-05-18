@@ -74,9 +74,14 @@ export function buildLayerPanelSections(
       continue;
     }
 
+    const layerMetadata = (fallbackLayer as any)?.metadata as Record<string, unknown> | undefined;
+    const metadataTitle =
+      (typeof layerMetadata?.title === 'string' ? layerMetadata.title : null)
+      ?? (typeof layerMetadata?.['webmapx:title'] === 'string' ? (layerMetadata['webmapx:title'] as string) : null);
+
     const item: LayerPanelItem = {
       layerId,
-      label: indexed?.label ?? fallbackLayer?.id ?? layerId,
+      label: indexed?.label ?? metadataTitle ?? (fallbackLayer as any)?.title ?? fallbackLayer?.id ?? layerId,
       topLevelGroup: indexed?.topLevelGroup ?? null,
     };
 
