@@ -1,7 +1,7 @@
 // src/map/maplibre-services/MapFactoryService.ts
 
 import * as maplibregl from 'maplibre-gl';
-import { IMapFactory, IMap, ILayer, ISource, MapCreateOptions, LayerSpec } from '../IMapInterfaces';
+import { ISubMapFactory, ISubMap, ILayer, ISource, MapCreateOptions, LayerSpec } from '../IMapInterfaces';
 
 const DEFAULT_STYLE = 'https://demotiles.maplibre.org/style.json';
 
@@ -46,7 +46,7 @@ class MapLibreLayer implements ILayer {
 /**
  * MapLibre implementation of IMap.
  */
-class MapLibreMap implements IMap {
+class MapLibreMap implements ISubMap {
     constructor(private readonly map: maplibregl.Map) {}
 
     setViewport(center: [number, number], zoom: number, bearing?: number, pitch?: number): void {
@@ -143,8 +143,8 @@ class MapLibreMap implements IMap {
 /**
  * MapLibre implementation of IMapFactory.
  */
-export class MapFactoryService implements IMapFactory {
-    createMap(container: HTMLElement, options?: MapCreateOptions): IMap {
+export class MapFactoryService implements ISubMapFactory {
+    createMap(container: HTMLElement, options?: MapCreateOptions): ISubMap {
         const map = new maplibregl.Map({
             container,
             style: options?.styleUrl ?? DEFAULT_STYLE,

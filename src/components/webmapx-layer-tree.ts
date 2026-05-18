@@ -1,4 +1,5 @@
 import { LitElement, html, css } from 'lit';
+import type { TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
 import '@shoelace-style/shoelace/dist/components/tree/tree.js';
@@ -34,7 +35,7 @@ export class WebmapxLayerTree extends LitElement {
     @state() private configTree: TreeNodeConfig[] = [];
 
     private configHandler: ((e: Event) => void) | null = null;
-    private addLayerFailedHandler: ((e: CustomEvent) => void) | null = null;
+    private addLayerFailedHandler: ((e: Event) => void) | null = null;
     private mapReadyHandler: ((e: Event) => void) | null = null;
     private adapter: IMap | null = null;
     private unsubscribeLayerAdd: (() => void) | null = null;
@@ -179,8 +180,9 @@ export class WebmapxLayerTree extends LitElement {
     /** Subscribe to add-layer failure events */
     private subscribeToAddLayerFailed(): void {
         this.unsubscribeFromAddLayerFailed();
-        this.addLayerFailedHandler = (e: CustomEvent) => {
-            const layerId = e.detail?.layerId as string | undefined;
+        this.addLayerFailedHandler = (e: Event) => {
+            const detail = (e as CustomEvent<{ layerId?: string }>).detail;
+            const layerId = detail?.layerId;
             if (!layerId) return;
             this.uncheckLayerById(layerId);
         };
@@ -262,7 +264,7 @@ export class WebmapxLayerTree extends LitElement {
         return this.configTree as LayerNode[];
     }
 
-    renderNode(node: LayerNode) {
+    renderNode(node: LayerNode): TemplateResult {
         if (node.children && node.children.length > 0) {
             return html`
                 <sl-tree-item ?expanded=${node.expanded}>

@@ -1,7 +1,7 @@
 // src/map/leaflet-services/MapFactoryService.ts
 
 import * as L from 'leaflet';
-import { IMapFactory, IMap, ILayer, ISource, MapCreateOptions, LayerSpec } from '../IMapInterfaces';
+import { ISubMapFactory, ISubMap, ILayer, ISource, MapCreateOptions, LayerSpec } from '../IMapInterfaces';
 
 const DEFAULT_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const DEFAULT_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
@@ -58,7 +58,7 @@ class LeafletLayer implements ILayer {
 /**
  * Leaflet implementation of IMap.
  */
-class LeafletMap implements IMap {
+class LeafletMap implements ISubMap {
     private sources: Map<string, LeafletSource> = new Map();
     private layers: Map<string, LeafletLayer> = new Map();
     private geoJsonLayers: Map<string, L.GeoJSON> = new Map();
@@ -193,10 +193,10 @@ class LeafletMap implements IMap {
 /**
  * Leaflet implementation of IMapFactory.
  */
-export class MapFactoryService implements IMapFactory {
+export class MapFactoryService implements ISubMapFactory {
     private readonly shadowStyleId = 'webmapx-leaflet-shadow-styles';
 
-    createMap(container: HTMLElement, options?: MapCreateOptions): IMap {
+    createMap(container: HTMLElement, options?: MapCreateOptions): ISubMap {
         this.ensureLeafletShadowStyles(container);
 
         // options.center is [lng, lat], Leaflet expects [lat, lng]

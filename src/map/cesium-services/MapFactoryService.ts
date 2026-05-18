@@ -1,6 +1,6 @@
 // src/map/cesium-services/MapFactoryService.ts
 
-import type { IMapFactory, IMap, ISource, ILayer, LayerSpec, MapCreateOptions } from '../IMapInterfaces';
+import type { ISubMapFactory, ISubMap, ISource, ILayer, LayerSpec, MapCreateOptions } from '../IMapInterfaces';
 import type { LngLat, Pixel } from '../../store/map-events';
 
 function getCesium(): any {
@@ -79,7 +79,7 @@ type CesiumSourceState = {
     layerSpecs: LayerSpec[];
 };
 
-class CesiumMap implements IMap {
+class CesiumMap implements ISubMap {
     private sources = new Map<string, CesiumSource>();
     private sourceState = new Map<string, CesiumSourceState>();
     private layers = new Map<string, CesiumLayer>();
@@ -213,7 +213,7 @@ class CesiumMap implements IMap {
     }
 }
 
-export class MapFactoryService implements IMapFactory {
+export class MapFactoryService implements ISubMapFactory {
     private applyInsetContainerFixes(container: HTMLElement): void {
         if (!container.classList.contains('inset-map')) return;
 
@@ -263,7 +263,7 @@ export class MapFactoryService implements IMapFactory {
         root.appendChild(style);
     }
 
-    createMap(container: HTMLElement, options?: MapCreateOptions): IMap {
+    createMap(container: HTMLElement, options?: MapCreateOptions): ISubMap {
         const Cesium = getCesium();
         if (!Cesium) {
             throw new Error('[Cesium] window.Cesium not found. Load CesiumJS before using the cesium adapter.');

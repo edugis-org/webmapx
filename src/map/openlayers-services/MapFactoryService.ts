@@ -9,7 +9,7 @@ import OSM from 'ol/source/OSM';
 import GeoJSON from 'ol/format/GeoJSON';
 import { Fill, Stroke, Style } from 'ol/style';
 import { fromLonLat, toLonLat } from 'ol/proj';
-import { IMapFactory, IMap, ILayer, ISource, MapCreateOptions, LayerSpec } from '../IMapInterfaces';
+import { ISubMapFactory, ISubMap, ILayer, ISource, MapCreateOptions, LayerSpec } from '../IMapInterfaces';
 import 'ol/ol.css';
 
 /**
@@ -59,7 +59,7 @@ const ZOOM_OFFSET = 1;
 /**
  * OpenLayers implementation of IMap.
  */
-class OpenLayersMap implements IMap {
+class OpenLayersMap implements ISubMap {
     private sources = new globalThis.Map<string, VectorSource>();
     private layers = new globalThis.Map<string, VectorLayer<VectorSource>>();
 
@@ -203,8 +203,8 @@ class OpenLayersMap implements IMap {
 /**
  * OpenLayers implementation of IMapFactory.
  */
-export class MapFactoryService implements IMapFactory {
-    createMap(container: HTMLElement, options?: MapCreateOptions): IMap {
+export class MapFactoryService implements ISubMapFactory {
+    createMap(container: HTMLElement, options?: MapCreateOptions): ISubMap {
         const center = options?.center ?? [0, 0];
         const logicalZoom = options?.zoom ?? 2;
         const olZoom = logicalZoom + ZOOM_OFFSET;
