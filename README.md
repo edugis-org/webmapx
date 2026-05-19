@@ -103,6 +103,14 @@ The default demo configuration lives in `config/demo.json`.
 - `state.activeBackground` controls the active background layer.
 - `state.activeLayers` controls active overlay layers.
 
+## Cesium Runtime Assets
+
+Cesium requires static runtime files (`Workers`, `Assets`, `Widgets`, `ThirdParty`, and `Cesium.js`) at runtime.
+
+In this project, those files are copied automatically from `node_modules/cesium/Build/Cesium` into the build output (`dist/cesium`) during `npm run build`.
+
+This keeps local and CI/GitHub Pages deployments reproducible without committing Cesium vendor files. For that reason, `public/cesium` is intentionally gitignored.
+
 ## Documentation
 
 ### For users

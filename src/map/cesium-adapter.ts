@@ -14,7 +14,7 @@ let cesiumLoadPromise: Promise<void> | null = null;
 function buildCesiumAssetUrl(relativePath: string): string {
     const base = ((import.meta as any)?.env?.BASE_URL as string | undefined) ?? '/';
     const normalizedBase = base.endsWith('/') ? base : `${base}/`;
-    return new URL(relativePath.replace(/^\//, ''), new URL(normalizedBase, window.location.origin)).toString();
+    return new URL(relativePath.replace(/^\//, ''), new URL(normalizedBase, window.location.href)).toString();
 }
 
 async function ensureCesiumLoaded(): Promise<void> {

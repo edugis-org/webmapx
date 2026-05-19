@@ -19,6 +19,13 @@ export default defineConfig({
           src: 'node_modules/@shoelace-style/shoelace/dist/assets',
           // Assets will be copied to dist/shoelace-assets/assets
           dest: 'shoelace-assets' 
+        },
+        {
+          // Cesium runtime assets (Workers, Assets, Widgets, ThirdParty, Cesium.js)
+          // are required at runtime and are copied from node_modules so CI builds
+          // (e.g. GitHub Pages) do not depend on local public/cesium setup.
+          src: 'node_modules/cesium/Build/Cesium/**',
+          dest: 'cesium'
         }
       ]
     })
