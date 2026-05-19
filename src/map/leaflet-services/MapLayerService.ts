@@ -70,14 +70,11 @@ export class MapLayerService implements ILayerService {
             // Create a unique layer ID for the WarpedMapLayer
             const warpedLayerId = `warpedmap-${layerId}`;
 
-            // Create and configure the WarpedMapLayer
-            const warpedMapLayer = new WarpedMapLayer();
+            // Create and configure the WarpedMapLayer with the annotation URL
+            const warpedMapLayer = new WarpedMapLayer(annotationUrl);
 
             // Add the layer to the map
-            warpedMapLayer.addTo(this.map);
-
-            // Load the georeference annotation
-            await warpedMapLayer.addGeoreferenceAnnotationByUrl(annotationUrl);
+            (warpedMapLayer as unknown as L.Layer).addTo(this.map);
 
             // Track the layer
             this.warpedMapLayers.set(layerId, warpedMapLayer);

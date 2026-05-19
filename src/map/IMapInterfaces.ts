@@ -1,7 +1,8 @@
 // src/map/IMapInterfaces.ts
 
 import type { LayerConfig, SourceConfig, CatalogConfig, MapStyle } from '../config/types';
-import type { LngLat, Pixel } from '../store/map-events';
+import type { LngLat, Pixel, MapEventBus } from '../store/map-events';
+import type { MapStateStore } from '../store/map-state-store';
 
 /**
  * Options for creating a map instance.

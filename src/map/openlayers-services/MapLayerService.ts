@@ -174,8 +174,8 @@ export class MapLayerService implements ILayerService {
             urls,
             tileSize: sourceConfig.tileSize,
             attributions: sourceConfig.attribution,
-            minZoom: sourceConfig.minZoom,
-            maxZoom: sourceConfig.maxZoom
+            minZoom: sourceConfig.minzoom,
+            maxZoom: sourceConfig.maxzoom
         });
 
         const layer = new TileLayer({
@@ -224,8 +224,8 @@ export class MapLayerService implements ILayerService {
         if (sourceConfig.tileSize) {
             const tileGrid = createXYZ({
                 tileSize: sourceConfig.tileSize,
-                minZoom: sourceConfig.minZoom,
-                maxZoom: sourceConfig.maxZoom
+                minZoom: sourceConfig.minzoom,
+                maxZoom: sourceConfig.maxzoom
             });
 
             const source = new TileWMS({
