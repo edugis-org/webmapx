@@ -96,7 +96,7 @@ function normalizeLayerMap(layerMap: unknown): unknown[] {
 
       return null;
     })
-    .filter((entry): entry is Record<string, unknown> => entry !== null);
+    .filter(Boolean) as Array<{ id: string; layerset?: unknown[] }>;
 }
 
 function normalizeCatalogTree(catalogs: unknown, fallbackLayers: unknown[]): unknown[] {
@@ -135,7 +135,7 @@ function normalizeCatalogTree(catalogs: unknown, fallbackLayers: unknown[]): unk
         if (!isObject(layer) || typeof layer.id !== 'string') return null;
         return { label: layer.id, layerId: layer.id };
       })
-      .filter((node): node is Record<string, unknown> => node !== null);
+      .filter(Boolean) as Array<{ label: string; layerId: string }>;
   }
 
   const firstCatalog = Object.values(catalogs).find((c) => isObject(c)) as Record<string, unknown> | undefined;
@@ -151,21 +151,21 @@ function normalizeCatalogTree(catalogs: unknown, fallbackLayers: unknown[]): unk
       if (!isObject(layer) || typeof layer.id !== 'string') return null;
       return { label: layer.id, layerId: layer.id };
     })
-    .filter((node): node is Record<string, unknown> => node !== null);
+    .filter(Boolean) as Array<{ label: string; layerId: string }>;
 }
 
 function normalizeAppConfig(rawConfig: unknown): AppConfig {
   if (!isObject(rawConfig)) {
-    return rawConfig as AppConfig;
+    return rawConfig as unknown as AppConfig;
   }
 
   const raw = rawConfig as Record<string, unknown>;
   if (isObject(raw.catalog)) {
-    return raw as AppConfig;
+    return raw as unknown as AppConfig;
   }
 
   if (!isObject(raw.library)) {
-    return raw as AppConfig;
+    return raw as unknown as AppConfig;
   }
 
   const library = raw.library as Record<string, unknown>;

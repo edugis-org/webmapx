@@ -86,7 +86,7 @@ export class ToolManager extends EventTarget {
             this._activeToolId = null;
             previousTool.active = false;
             this.updateStoreActiveTool(null);
-            this.dispatchDeactivatedEvent(previousToolId, previousTool);
+            this.dispatchDeactivatedEvent(previousToolId as string, previousTool);
         }
 
         // Activate new tool

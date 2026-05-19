@@ -389,6 +389,7 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
       const leftPx: Pixel = [centerX - halfSpan, sampleY];
       const rightPx: Pixel = [centerX + halfSpan, sampleY];
 
+      if (!this.attachedAdapter) return null;
       const left = this.attachedAdapter.unproject(leftPx);
       const right = this.attachedAdapter.unproject(rightPx);
       if (!left || !right) {

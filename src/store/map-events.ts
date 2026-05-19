@@ -113,8 +113,16 @@ export interface ViewChangeEvent extends BaseMapEvent {
 /**
  * View change end event - emitted when map movement ends (after animation/interaction).
  */
-export interface ViewChangeEndEvent extends ViewChangeEvent {
+export interface ViewChangeEndEvent {
     type: 'view-change-end';
+    center: LngLat;
+    zoom: number;
+    bearing: number;
+    pitch: number;
+    bounds: {
+        sw: LngLat;
+        ne: LngLat;
+    };
 }
 
 /**

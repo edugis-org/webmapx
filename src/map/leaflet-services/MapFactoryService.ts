@@ -208,13 +208,14 @@ export class MapFactoryService implements ISubMapFactory {
         const leafletZoom = Math.max(0, Math.round(options?.zoom ?? 1) + ZOOM_OFFSET);
         console.log(`[MapFactoryService.createMap] center=[${center}] (input: ${options?.center}), zoom=${leafletZoom}`);
 
-        const map = L.map(container, {
+        const mapOptions: any = {
             center: center,
             zoom: leafletZoom,
             attributionControl: false, // Keep inset map clean
             zoomControl: false, // Inset maps don't need zoom control
             className: 'leaflet-edge-buffered'
-        });
+        };
+        const map = L.map(container, mapOptions);
 
         // Add tile layer - always use OSM for Leaflet since it can't parse style JSON
         // If styleUrl is a direct tile URL (not a .json style), use it
@@ -236,7 +237,7 @@ export class MapFactoryService implements ISubMapFactory {
             map.scrollWheelZoom.disable();
             map.boxZoom.disable();
             map.keyboard.disable();
-            if (map.tap) map.tap.disable();
+            if ((map as any).tap) (map as any).tap.disable();
         }
 
         return new LeafletMap(map);

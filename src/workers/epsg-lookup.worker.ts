@@ -377,6 +377,7 @@ function lookupEpsgCodes(lat: number, lng: number): Omit<LookupResponse, 'type' 
   const alternativeMatches = countries.slice(1)
     .map(country => {
       const code = country.properties.ISO_A3;
+      if (!countryEpsgData) return null;
       const info = countryEpsgData.countries[code];
       if (!info) return null;
       
