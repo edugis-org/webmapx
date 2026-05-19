@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 export default defineConfig({
+  base: './', // Set base to relative path for correct asset loading
   plugins: [
     // Configure the plugin to copy Shoelace assets
     viteStaticCopy({
