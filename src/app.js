@@ -3,8 +3,8 @@
 // 0. Import setBasePath using the bare module specifier
 import { setBasePath } from '@shoelace-style/shoelace/dist/utilities/base-path.js';
 
-// CRITICAL: Set the base path to the public directory where assets are copied.
-setBasePath('/shoelace-assets/');
+// Use Vite's resolved base URL so Shoelace assets work on root and subpath deployments.
+setBasePath(`${import.meta.env.BASE_URL}shoelace-assets/`);
 
 // 1. Import configuration loader
 import { loadAppConfig, resolveMapConfig, fetchConfig } from './config/index.ts';
