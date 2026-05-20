@@ -52,8 +52,8 @@
     },
     "layers": {
       "osm-bright": {
-        "version": 8,
-        "name": "OSM Bright",
+        "kind": "composite",
+        "title": "OSM Bright",
         "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
         "sprite": "https://demotiles.maplibre.org/styles/osm-bright-gl-style/sprite",
         "sources": {
@@ -62,7 +62,7 @@
             "url": "https://demotiles.maplibre.org/tiles/tiles.json"
           }
         },
-        "layers": [
+        "renderLayers": [
           {
             "id": "background",
             "type": "background",
@@ -88,14 +88,13 @@
         ],
         "metadata": {
           "webmapx:title": "OSM Bright",
-          "webmapx:description": "Styled vector basemap",
-          "webmapx:category": "background",
+          "webmapx:description": "Composite OSM vector rendering",
           "webmapx:thumbnail": "img/osm-bright.png"
         }
       },
       "traffic-speed-amsterdam": {
-        "version": 8,
-        "name": "Traffic Speed Amsterdam",
+        "kind": "composite",
+        "title": "Traffic Speed Amsterdam",
         "sources": {
           "traffic": {
             "type": "geojson",
@@ -103,7 +102,7 @@
             "attribution": "StevenF"
           }
         },
-        "layers": [
+        "renderLayers": [
           {
             "id": "traffic-speed-highway",
             "type": "line",
@@ -152,7 +151,6 @@
         "metadata": {
           "webmapx:title": "Verkeerssnelheid Amsterdam",
           "webmapx:description": "Realtime traffic speed lines",
-          "webmapx:category": "overlay",
           "webmapx:icon": "traffic",
           "webmapx:attributes": {
             "properties": [
@@ -167,35 +165,44 @@
         }
       },
       "osm-standard-raster": {
-        "type": "raster",
+        "kind": "single",
+        "title": "OSM Standard Raster",
         "source": "osmraster",
+        "render": {
+          "type": "raster"
+        },
         "metadata": {
           "webmapx:title": "OSM Standard Raster",
-          "webmapx:description": "Raster fallback basemap",
-          "webmapx:category": "background",
+          "webmapx:description": "OSM raster tile rendering",
           "webmapx:thumbnail": "img/osm-standard-raster.png"
         }
       },
       "pdok-luchtfoto-wms": {
-        "type": "raster",
+        "kind": "single",
+        "title": "PDOK Luchtfoto WMS",
         "source": "pdok-luchtfoto",
+        "render": {
+          "type": "raster"
+        },
         "metadata": {
           "webmapx:title": "PDOK Luchtfoto WMS",
-          "webmapx:description": "Authenticated raster background",
-          "webmapx:category": "background",
+          "webmapx:description": "Authenticated raster imagery",
           "webmapx:thumbnail": "img/pdok-luchtfoto-wms.png"
         }
       },
       "knmi-temperature-time": {
-        "type": "raster",
+        "kind": "single",
+        "title": "Temperature (time-aware)",
         "source": "knmi-temperature",
-        "paint": {
-          "raster-opacity": 0.75
+        "render": {
+          "type": "raster",
+          "paint": {
+            "raster-opacity": 0.75
+          }
         },
         "metadata": {
           "webmapx:title": "Temperature (time-aware)",
           "webmapx:description": "Example temporal raster layer",
-          "webmapx:category": "overlay",
           "webmapx:timeAware": true,
           "webmapx:time": {
             "default": "2024-01-15T12:00:00Z",
@@ -204,7 +211,8 @@
         }
       },
       "drawn-lines": {
-        "type": "line",
+        "kind": "single",
+        "title": "lijnenlaag",
         "source": {
           "type": "geojson",
           "data": {
@@ -231,14 +239,16 @@
           },
           "attribution": "EduGIS"
         },
-        "paint": {
-          "line-color": "#000000",
-          "line-width": 3
+        "render": {
+          "type": "line",
+          "paint": {
+            "line-color": "#000000",
+            "line-width": 3
+          }
         },
         "metadata": {
           "webmapx:title": "lijnenlaag",
           "webmapx:description": "User drawn line layer",
-          "webmapx:category": "drawing",
           "webmapx:attributes": {
             "properties": [
               { "name": "id", "type": "number" },
@@ -320,18 +330,20 @@
       {
         "id": "local-buffered-lines#1",
         "visible": true,
-        "type": "fill",
+        "kind": "single",
         "source": {
           "type": "geojson",
           "data": "data/local-buffered-lines.geojson"
         },
-        "paint": {
-          "fill-color": "#ff6600",
-          "fill-opacity": 0.35
+        "render": {
+          "type": "fill",
+          "paint": {
+            "fill-color": "#ff6600",
+            "fill-opacity": 0.35
+          }
         },
         "metadata": {
           "webmapx:title": "Buffered lines",
-          "webmapx:category": "overlay",
           "webmapx:provenance": {
             "sourceLayerRefs": ["drawn-lines#1"],
             "operation": "buffer",
@@ -344,10 +356,130 @@
       }
     ]
   },
-  "ui": {
-    "catalog": "main",
-    "backgroundSelector": {
-      "backgroundSet": "default"
+  "tools": {
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "order": 10,
+      "orientation": "vertical",
+      "panel": {
+        "enabled": true,
+        "label": "Tools",
+        "position": "after"
+      },
+      "items": [
+        {
+          "id": "catalog",
+          "type": "layerTree",
+          "enabled": true,
+          "title": "Catalog",
+          "icon": "layers",
+          "catalog": "main",
+          "order": 10
+        },
+        {
+          "id": "search",
+          "type": "search",
+          "enabled": true,
+          "title": "Search",
+          "icon": "search",
+          "order": 20
+        },
+        {
+          "id": "measure",
+          "type": "measure",
+          "enabled": true,
+          "title": "Measure",
+          "icon": "rulers",
+          "order": 30
+        },
+        {
+          "id": "settings",
+          "type": "settings",
+          "enabled": true,
+          "title": "Settings",
+          "icon": "gear",
+          "order": 40
+        },
+        {
+          "id": "geolocation",
+          "type": "geolocation",
+          "enabled": true,
+          "title": "Geolocation",
+          "icon": "crosshair",
+          "order": 50
+        }
+      ]
+    },
+    "legendToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-right",
+      "order": 20,
+      "orientation": "vertical",
+      "panel": {
+        "enabled": true,
+        "label": "Legend",
+        "position": "after",
+        "opened": false
+      },
+      "items": [
+        {
+          "id": "legend",
+          "type": "layerOverview",
+          "enabled": true,
+          "title": "Legend",
+          "icon": "card-list",
+          "order": 10
+        }
+      ]
+    },
+    "scale": {
+      "type": "scaleControl",
+      "enabled": true,
+      "position": "bottom-right",
+      "order": 10,
+      "maxWidth": 140
+    },
+    "attribution": {
+      "type": "attributionControl",
+      "enabled": true,
+      "position": "bottom-right",
+      "order": 20
+    },
+    "coordinates": {
+      "type": "coordinates",
+      "enabled": true,
+      "position": "bottom-center",
+      "order": 10
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "bottom-left",
+      "order": 10,
+      "direction": "horizontal",
+      "orientation": "vertical"
+    },
+    "zoomLevel": {
+      "type": "zoomLevel",
+      "enabled": true,
+      "position": "bottom-left",
+      "order": 20
+    },
+    "insetMap": {
+      "type": "insetMap",
+      "enabled": true,
+      "position": "bottom-left",
+      "order": 30,
+      "zoomOffset": -4
+    },
+    "spinner": {
+      "type": "spinner",
+      "enabled": true,
+      "position": "middle-center",
+      "order": 10
     }
   }
 }

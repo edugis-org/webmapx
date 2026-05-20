@@ -171,11 +171,129 @@
     ]
   },
   "tools": {
-    "coordinates": { "enabled": true },
-    "layerTree": { "enabled": true },
-    "legend": { "enabled": true }
-  },
-  "ui": {
-    "catalog": "main"
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "order": 10,
+      "orientation": "vertical",
+      "panel": {
+        "enabled": true,
+        "label": "Tools",
+        "position": "after"
+      },
+      "items": [
+        {
+          "id": "catalog",
+          "type": "layerTree",
+          "enabled": true,
+          "title": "Catalog",
+          "icon": "layers",
+          "catalog": "main",
+          "order": 10
+        },
+        {
+          "id": "search",
+          "type": "search",
+          "enabled": true,
+          "title": "Search",
+          "icon": "search",
+          "order": 20
+        },
+        {
+          "id": "measure",
+          "type": "measure",
+          "enabled": true,
+          "title": "Measure",
+          "icon": "rulers",
+          "order": 30
+        },
+        {
+          "id": "settings",
+          "type": "settings",
+          "enabled": true,
+          "title": "Settings",
+          "icon": "gear",
+          "order": 40
+        },
+        {
+          "id": "geolocation",
+          "type": "geolocation",
+          "enabled": true,
+          "title": "Geolocation",
+          "icon": "crosshair",
+          "order": 50
+        }
+      ]
+    },
+    "legendToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-right",
+      "order": 20,
+      "orientation": "vertical",
+      "panel": {
+        "enabled": true,
+        "label": "Legend",
+        "position": "after",
+        "opened": false
+      },
+      "items": [
+        {
+          "id": "legend",
+          "type": "layerOverview",
+          "enabled": true,
+          "title": "Legend",
+          "icon": "card-list",
+          "order": 10
+        }
+      ]
+    },
+    "scale": {
+      "type": "scaleControl",
+      "enabled": true,
+      "position": "bottom-right",
+      "order": 10,
+      "maxWidth": 140
+    },
+    "attribution": {
+      "type": "attributionControl",
+      "enabled": true,
+      "position": "bottom-right",
+      "order": 20
+    },
+    "coordinates": {
+      "type": "coordinates",
+      "enabled": true,
+      "position": "bottom-center",
+      "order": 10
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "bottom-left",
+      "order": 10,
+      "direction": "horizontal",
+      "orientation": "vertical"
+    },
+    "zoomLevel": {
+      "type": "zoomLevel",
+      "enabled": true,
+      "position": "bottom-left",
+      "order": 20
+    },
+    "insetMap": {
+      "type": "insetMap",
+      "enabled": true,
+      "position": "bottom-left",
+      "order": 30,
+      "zoomOffset": -4
+    },
+    "spinner": {
+      "type": "spinner",
+      "enabled": true,
+      "position": "middle-center",
+      "order": 10
+    }
   }
 }

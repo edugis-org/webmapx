@@ -15,7 +15,7 @@ The refactored model should cover:
 - project definitions
 - project state
 - reusable source definitions
-- reusable style definitions
+- reusable single-layer and composite-layer definitions
 - reusable layer definitions
 - layer instances in a running map
 - local and remote catalog definitions
@@ -30,13 +30,15 @@ The configuration models the following map rendering concepts:
 
 - **Source**: a definition of the data to be rendered. A source describes where the data comes from — a tile service, a WMS endpoint, a vector file, or inline GeoJSON. In the case of a GeoJSON source, the source may also contain the data itself.
 
-- **Layer**: a definition of how to render a single visual layer on the map, using `paint` and `layout` properties for styling. A layer references a source, either by naming a source defined elsewhere or by embedding a source definition inline.
+- **Project layer**: a selectable, orderable WebMapX layer in the project. Project layers appear in catalog trees, layer lists, and project state. A project layer may expand to one render layer or to multiple render layers.
 
-- **Style**: a self-contained set of sources and layers, plus associated fonts (`glyphs`) and symbol images (`sprite`). A style's layers reference sources by name within that same style's source definitions. A style may contain many layers that each reference the same source but render different aspects of it — for example, a vector basemap style may contain dozens of layers all drawing from a single vector tile source.
+- **Render layer**: an engine-level visual layer, for example one MapLibre layer object using `type`, `paint`, and `layout` properties. A render layer references a source, either by naming a source defined elsewhere or by embedding a source definition inline where supported.
 
-In WebMapX, what appears as a single item in the map (in the layer list, catalog, or active layer state) may be backed by either a single **layer** or a full **style**. For example, a background basemap such as OSM Bright is a style with many render layers, while a simple WMS overlay is a single raster layer referencing one source.
+- **Single layer definition**: a reusable project-layer definition with `kind: "single"` that expands to one render layer. For example, a simple WMS or XYZ raster layer is a single project layer referencing one source.
 
-Single layers and styles share one reusable library namespace. A library entry is identified as a style by the presence of a top-level `version` property (the MapLibre style marker), and as a single layer by the presence of a top-level `type` property (the MapLibre layer type). This avoids the need for a typed discriminator field on catalog references and background set entries.
+- **Composite layer definition**: a reusable project-layer definition with `kind: "composite"` that expands to multiple render layers. For example, an OSM Bright basemap may define a vector source and many render layers that draw different source layers or geometry classes.
+
+Composite layers may reuse MapLibre-compatible conventions for `sources`, `glyphs`, `sprite`, `paint`, `layout`, filters, and source-layer names where useful, but they are not MapLibre style documents. A composite layer must not require a top-level MapLibre `version: 8` marker and must not be applied by replacing the whole map with `map.setStyle()`. It is expanded into the current project as one ordered WebMapX project layer containing an ordered block of render layers.
 
 ## Core Concepts
 
@@ -55,7 +57,7 @@ The model should distinguish at least the following concepts:
 - The configuration model must include an explicit version identifier for the configuration format.
 - The configuration model must be engine-neutral at the canonical level.
 - The configuration model must provide enough information for the viewer to configure any supported rendering engine, including MapLibre, OpenLayers, Leaflet, and Cesium.
-- Where a style is represented in a MapLibre-compatible style structure, the model must stay as close as reasonably possible to the MapLibre style specification.
+- Where render-layer properties use MapLibre-compatible structures, the model must stay as close as reasonably possible to the relevant MapLibre style specification properties without treating composite layers as full MapLibre style documents.
 - The authored input format must be human-editable and suitable for version control.
 - The supported configuration structure must be documented in a machine-readable form.
 - The configuration structure must have a typed schema, for example via JSON Schema or TypeScript/Zod-derived schema.
@@ -67,17 +69,17 @@ The model should distinguish at least the following concepts:
 - The model must separate project definition from project state.
 - The model must separate catalog structure from project state.
 - The model must separate project state from rendering definitions.
-- The model must separate datasource metadata from layer/style instances that consume the datasource.
+- The model must separate datasource metadata from layer instances that consume the datasource.
 - The model must distinguish catalog node types from render layer types.
 - The model must distinguish reusable layer definitions from mutable layer instances.
 
 ### Reuse
 
 - Shared datasources must be definable once and reusable from multiple projects.
-- Shared styles must be definable once and reusable from multiple projects.
 - Shared layer definitions must be definable once and reusable from multiple projects.
+- Shared composite layer definitions must be definable once and reusable from multiple projects.
 - Shared basemap or preset definitions must be definable once and reusable from multiple projects.
-- A style or preset must be able to expand to multiple rendered layers.
+- A composite layer or preset must be able to expand to multiple render layers.
 
 ### Projects, layers, and packages
 
@@ -99,9 +101,9 @@ The model should distinguish at least the following concepts:
 - The model must support representation of the current map state, not just an initial startup state.
 - The project state must be serializable so that a saved configuration can reflect user changes.
 - The project state must explicitly represent which base/background layer is active.
-- The project state must explicitly represent which overlay layers are active.
+- The project state must explicitly represent which non-background layers are active.
 - The layer order in project state is defined by the order of the active layer list.
-- Exclusive layer roles must be modeled structurally rather than through conventions such as `checked = true`.
+- Exclusive layer usage, such as the active background, must be modeled structurally rather than through conventions such as `checked = true` or reusable layer-level role flags.
 - The model must support per-instance visibility state.
 - The model must support per-instance styling overrides.
 - The model must support persistence of user modifications to imported or predefined layers.
@@ -118,20 +120,32 @@ The model should distinguish at least the following concepts:
 - The model must support a base/background concept with exclusive selection behavior.
 - The model must allow a map to have no active background layer.
 - Base/background layers must always be rendered at the bottom of the stack.
-- A base/background definition must be able to include a background render layer of type `background`.
-- A base/background definition must be able to define its own background color and/or background pattern.
+- A layer used as a base/background must be able to include a background render layer of type `background`.
+- A layer used as a base/background must be able to define its own background color and/or background pattern.
 - The map must always have a defined background color, either explicitly in the configuration or via a documented default when omitted.
-- Background selection metadata and fallback behavior must be representable outside the MapLibre style object itself.
+- Background selection metadata and fallback behavior must be representable outside render-layer definitions.
+- Reusable layer definitions must not declare themselves as background or overlay layers. Project state, background sets, catalog structure, and tool placement determine how a layer is used in a specific project.
 
-### Catalogs and UI
+### Catalogs and tools
 
 - The model must support grouping items in a tree-like catalog structure.
 - A catalog item must be able to reference a reusable definition rather than duplicating its full render configuration inline.
-- The model must support showing the same selectable item in multiple UI contexts, such as a tree view and a background selector.
+- The model must support showing the same selectable item in multiple tool contexts, such as a catalog tree and a background-oriented selector when such a tool exists.
 - The model must support local catalogs authored in the project.
 - The model must support remote catalogs or remote layer sources that can be queried from tools.
 - The model must support adding layers from the internet or from remote catalogs into the current project state.
-- UI-specific metadata such as title, icon, thumbnail, and visibility in specific tools must be representable without affecting render semantics.
+- Tool-specific metadata such as title, icon, thumbnail, and visibility in specific tools must be representable without affecting render semantics.
+
+### Tool configuration
+
+- The model must support a top-level `tools` configuration section for viewer tools and controls.
+- The model must support enabling or disabling individual tools with an explicit boolean property.
+- The model must support positioning tools in named viewer layout regions, such as `top-left`, `top-right`, `bottom-left`, `bottom-center`, `bottom-right`, and `middle-center`.
+- The model must support deterministic ordering of multiple tools within the same layout region.
+- The model must support container tools, such as a toolbar, that own ordered child tools.
+- The model must support toolbar child tools that open or render content in an associated panel.
+- A catalog or layer-tree tool must reference a catalog definition by id rather than embedding the catalog structure in the tool configuration.
+- Tool configuration must remain separate from reusable catalog, source, and layer definitions.
 
 ### Styling and editing
 
@@ -181,20 +195,20 @@ The model should distinguish at least the following concepts:
 ### Engine capability handling
 
 - The model must support engine-specific capability information where needed.
-- The system must define how unsupported layer types, style features, or service capabilities are handled for each engine.
+- The system must define how unsupported layer types, render-layer features, or service capabilities are handled for each engine.
 - The system must be able to validate whether a project or layer is fully supported, partially supported, or unsupported for a chosen engine.
 - The system must support viewer-level fallback policy for background selections.
-- A viewer-level fallback policy must be able to define preferred background alternatives for engines that cannot render the preferred styled background directly.
-- Background fallback policy must be definable globally or by named group, so that alternatives do not need to be repeated for every background definition.
+- A viewer-level fallback policy must be able to define preferred background alternatives for engines that cannot render the preferred composite background directly.
+- Background fallback policy must be definable globally or by named group, so that alternatives do not need to be repeated for every background selection entry.
 
 ### Validation
 
 - Each id-bearing object type must use string ids, and the schema or accompanying specification must define the uniqueness scope for each such id.
 - A validator must detect duplicate ids according to the documented uniqueness scope.
-- A validator must detect missing references to sources, styles, presets, layers, or catalog items.
+- A validator must detect missing references to sources, presets, layers, or catalog items.
 - A validator must detect unsupported or unknown configuration properties.
 - A validator must detect invalid combinations of properties.
-- A validator must detect references from style layers to missing style sources.
+- A validator must detect references from render layers to missing sources in the applicable source scope.
 - A validator must detect invalid project state, including references to non-existent items.
 - A validator must detect invalid service-specific source definitions.
 - Validation must run independently from rendering.
@@ -202,7 +216,7 @@ The model should distinguish at least the following concepts:
 ### Naming and metadata
 
 - Project-level property names and metadata property names must use `camelCase`.
-- MapLibre-defined property names inside MapLibre style objects must keep the naming required by the MapLibre style specification.
+- MapLibre-defined property names inside MapLibre-compatible render-layer objects must keep the naming required by the relevant MapLibre style specification properties.
 - WebMapX-specific keys within `metadata` objects must use the `webmapx:` namespace prefix to avoid conflicts with MapLibre or other tooling that reads the same `metadata` field.
 - The system must define a canonical metadata vocabulary for supported metadata fields.
 - Legacy naming differences must either be rejected or normalized in a documented way.
@@ -221,17 +235,17 @@ The model should distinguish at least the following concepts:
 
 - The project format should embed or reference saved layer documents in a consistent way.
 - The model should support both snapshot and live-reference saving modes for external layers.
-- The model should support deterministic ordering of overlays.
-- The model should support deterministic ordering of rendered style layers within a style definition.
+- The model should support deterministic ordering of non-background layers.
+- The model should support deterministic ordering of render layers within a composite layer definition.
 - The model should support deterministic ordering of layers within a saved layer package.
 
-### Catalogs and UI
+### Catalogs and tools
 
 - The model should support selection rules on groups, such as single-select or multi-select behavior.
-- The model should support separate UI placement metadata, for example whether an item appears in the catalog tree, a background picker, or both.
+- The model should support separate tool placement metadata, for example whether an item appears in the catalog tree, a future background picker, or both.
 - The model should support localized display titles and descriptions if needed.
 - The model should support dedicated user workspaces or groups for imported and user-created layers.
-- Background selector entries should be able to reference MapLibre-compatible styles without requiring viewer-only properties to be embedded inside the style definition.
+- Background selector entries should be able to reference composite layers without requiring viewer-only properties to be embedded inside render-layer definitions.
 
 ### Vector data storage
 
@@ -260,8 +274,8 @@ The model should distinguish at least the following concepts:
 
 ### Authoring conveniences
 
-- The model can support shorthand preset references for common basemaps and overlays.
-- The model can support composition helpers for common style fragments.
+- The model can support shorthand preset references for common basemaps and data layers.
+- The model can support composition helpers for common render-layer fragments.
 - The model can support inheritance or templating if it remains explicit and debuggable.
 - The model can support generated defaults for repeated UI metadata.
 
@@ -270,7 +284,7 @@ The model should distinguish at least the following concepts:
 - The validator can offer autofixes for simple naming or normalization problems.
 - The export tool can emit normalized and prettified JSON.
 - The tooling can emit additional debug output showing how references were resolved.
-- The tooling can include commands to list unused sources, styles, or layer definitions.
+- The tooling can include commands to list unused sources or layer definitions.
 - The tooling can report duplication hotspots to guide further refactoring.
 
 ### Packaging
@@ -284,13 +298,13 @@ The model should distinguish at least the following concepts:
 - A selectable item can appear in more than one presentation surface.
 - Base/background items can define preview thumbnails for a background selector UI.
 - The model can support optional UI hints such as preferred grouping, expanded state, or sort order.
-- The viewer can support named background fallback groups that map preferred styled backgrounds to engine-appropriate alternatives.
+- The viewer can support named background fallback groups that map preferred composite backgrounds to engine-appropriate alternatives.
 
 ## Open Questions
 
 - Should remote imports be saved as live references, local snapshots, or either?
 - Which metadata fields are canonical and supported long-term?
-- Which style properties are guaranteed to be engine-neutral, and which require engine-specific extensions?
+- Which render-layer properties are guaranteed to be engine-neutral, and which require engine-specific extensions?
 - Which layer-creation and transformation operations must be supported in the first iteration?
 
 ## Suggested Minimal First Iteration
