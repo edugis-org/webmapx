@@ -109,6 +109,9 @@ The model should distinguish at least the following concepts:
 - The model must support persistence of user modifications to imported or predefined layers.
 - Layer instances in project state that originate from reusable library objects must be able to reference their source library definition.
 - The project state must support both library-backed layer instances and fully local layer instances with no library reference.
+- A layer instance in `state.activeLayers` must support either a `ref` to a reusable `library.layers` definition or an inline `layer` definition.
+- Inline layer definitions in project state must use the same layer-definition structure as reusable `library.layers` entries.
+- References are preferred when a layer definition is reused; inline layer definitions are preferred for one-off imported, user-created, or project-local layers.
 
 ### Map settings
 
@@ -180,6 +183,9 @@ The model should distinguish at least the following concepts:
 - Service-specific required properties must be expressible in the schema.
 - Service-specific metadata and capabilities must be expressible in the schema.
 - Source and layer definitions must be able to declare a source- or request-level CRS independently from the project display SRS where relevant.
+- Render-layer `source` properties must support either a string reference to a source in the applicable source scope or an inline source definition object.
+- Inline source definitions must use the same typed source-definition structure as reusable `library.sources` entries.
+- Source references are preferred when a source is reused; inline source definitions are preferred for one-off or project-local sources.
 - The model must support temporal layers and temporal services where time is part of the source or layer definition.
 - The model must support persisted temporal state where relevant, such as selected time value, selected interval, or active animation range.
 

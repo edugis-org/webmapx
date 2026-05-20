@@ -63,62 +63,75 @@
     },
     "layers": {
       "osm": {
-        "metadata": { "title": "OpenStreetMap (xyz)" },
-        "layerset": [
-          { "type": "raster", "source": "xyz-source" }
-        ]
+        "kind": "single",
+        "title": "OpenStreetMap (xyz)",
+        "source": "xyz-source",
+        "render": {
+          "type": "raster"
+        }
       },
       "google-satellite": {
-        "metadata": { "title": "Google Satellite" },
-        "layerset": [
-          { "type": "raster", "source": "google-satellite-source" }
-        ]
+        "kind": "single",
+        "title": "Google Satellite",
+        "source": "google-satellite-source",
+        "render": {
+          "type": "raster"
+        }
       },
       "earthquake": {
-        "metadata": { "title": "Earthquakes" },
-        "layerset": [
-          {
-            "type": "circle",
-            "paint": {
-              "circle-color": "#FF5722",
-              "circle-radius": 14,
-              "circle-opacity": 0.8,
-              "circle-stroke-color": "#FFFFFF",
-              "circle-stroke-width": 1
-            },
-            "source": "earthquake-source"
+        "kind": "single",
+        "title": "Earthquakes",
+        "source": "earthquake-source",
+        "render": {
+          "type": "circle",
+          "paint": {
+            "circle-color": "#FF5722",
+            "circle-radius": 14,
+            "circle-opacity": 0.8,
+            "circle-stroke-color": "#FFFFFF",
+            "circle-stroke-width": 1
           }
-        ]
+        }
       },
       "transport": {
-        "metadata": { "title": "Transport Network" },
-        "layerset": [
-          { "type": "line", "source": "transport-source" }
-        ]
+        "kind": "single",
+        "title": "Transport Network",
+        "source": "transport-source",
+        "render": {
+          "type": "line"
+        }
       },
       "air": {
-        "metadata": { "title": "Air Quality" },
-        "layerset": [
-          { "type": "circle", "source": "air-source" }
-        ]
+        "kind": "single",
+        "title": "Air Quality",
+        "source": "air-source",
+        "render": {
+          "type": "circle"
+        }
       },
       "water": {
-        "metadata": { "title": "Water Quality" },
-        "layerset": [
-          { "type": "circle", "source": "water-source" }
-        ]
+        "kind": "single",
+        "title": "Water Quality",
+        "source": "water-source",
+        "render": {
+          "type": "circle"
+        }
       },
       "nyc-historical": {
-        "metadata": { "title": "NYC 1836 (Allmaps)" },
-        "layerset": [
-          { "type": "raster", "source": "nyc-historical-source" }
-        ]
+        "kind": "single",
+        "title": "NYC 1836 (Allmaps)",
+        "source": "nyc-historical-source",
+        "render": {
+          "type": "raster"
+        }
       },
       "amsterdam-historical": {
-        "metadata": { "title": "Amsterdam 1625 (Allmaps)" },
-        "layerset": [
-          { "type": "raster", "source": "amsterdam-historical-source" }
-        ]
+        "kind": "single",
+        "title": "Amsterdam 1625 (Allmaps)",
+        "source": "amsterdam-historical-source",
+        "render": {
+          "type": "raster"
+        }
       }
     },
     "catalogs": {

@@ -68,9 +68,6 @@
             "type": "background",
             "paint": {
               "background-color": "#f8f4f0"
-            },
-            "metadata": {
-              "webmapx:title": "Background"
             }
           },
           {
@@ -80,14 +77,10 @@
             "source-layer": "water",
             "paint": {
               "fill-color": "#a0c8f0"
-            },
-            "metadata": {
-              "webmapx:title": "Water"
             }
           }
         ],
         "metadata": {
-          "webmapx:title": "OSM Bright",
           "webmapx:description": "Composite OSM vector rendering",
           "webmapx:thumbnail": "img/osm-bright.png"
         }
@@ -125,9 +118,6 @@
                 120, "#00B22D"
               ],
               "line-width": 4
-            },
-            "metadata": {
-              "webmapx:title": "Traffic speed highway"
             }
           },
           {
@@ -142,14 +132,10 @@
             "paint": {
               "line-color": "#377eb8",
               "line-width": 2
-            },
-            "metadata": {
-              "webmapx:title": "Traffic speed other"
             }
           }
         ],
         "metadata": {
-          "webmapx:title": "Verkeerssnelheid Amsterdam",
           "webmapx:description": "Realtime traffic speed lines",
           "webmapx:icon": "traffic",
           "webmapx:attributes": {
@@ -172,7 +158,6 @@
           "type": "raster"
         },
         "metadata": {
-          "webmapx:title": "OSM Standard Raster",
           "webmapx:description": "OSM raster tile rendering",
           "webmapx:thumbnail": "img/osm-standard-raster.png"
         }
@@ -185,7 +170,6 @@
           "type": "raster"
         },
         "metadata": {
-          "webmapx:title": "PDOK Luchtfoto WMS",
           "webmapx:description": "Authenticated raster imagery",
           "webmapx:thumbnail": "img/pdok-luchtfoto-wms.png"
         }
@@ -201,7 +185,6 @@
           }
         },
         "metadata": {
-          "webmapx:title": "Temperature (time-aware)",
           "webmapx:description": "Example temporal raster layer",
           "webmapx:timeAware": true,
           "webmapx:time": {
@@ -247,7 +230,6 @@
           }
         },
         "metadata": {
-          "webmapx:title": "lijnenlaag",
           "webmapx:description": "User drawn line layer",
           "webmapx:attributes": {
             "properties": [
@@ -329,6 +311,7 @@
       },
       {
         "id": "local-buffered-lines#1",
+        "title": "Buffered lines",
         "visible": true,
         "kind": "single",
         "source": {
@@ -343,7 +326,6 @@
           }
         },
         "metadata": {
-          "webmapx:title": "Buffered lines",
           "webmapx:provenance": {
             "sourceLayerRefs": ["drawn-lines#1"],
             "operation": "buffer",
