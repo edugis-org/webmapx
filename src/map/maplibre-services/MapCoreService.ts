@@ -313,8 +313,26 @@ export class MapCoreService implements IMapCore {
         return this.mapInstance ? this.mapInstance.getZoom() : this.initialConfig.zoom;
     }
 
-    public addLayer(layer: any): void {
-        this.mapInstance?.addLayer(layer);
+    public addLayer(layer: any, options?: { beforeLayerId?: string; afterLayerId?: string }): void {
+        if (!this.mapInstance) return;
+
+        if (options?.beforeLayerId) {
+            this.mapInstance.addLayer(layer, options.beforeLayerId);
+            return;
+        }
+
+        if (options?.afterLayerId) {
+            const style = this.mapInstance.getStyle();
+            const layers = Array.isArray(style?.layers) ? style.layers : [];
+            const afterIndex = layers.findIndex((entry: any) => entry?.id === options.afterLayerId);
+            const beforeLayerId = afterIndex >= 0 && afterIndex + 1 < layers.length
+                ? layers[afterIndex + 1]?.id
+                : undefined;
+            this.mapInstance.addLayer(layer, beforeLayerId);
+            return;
+        }
+
+        this.mapInstance.addLayer(layer);
     }
 
     public removeLayer(id: string): void {

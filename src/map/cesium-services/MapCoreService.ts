@@ -34,6 +34,59 @@ function webMercatorMetersPerPixelAtLat(zoom: number, lat: number): number {
     return (circumference * Math.cos(phi)) / (LOGICAL_TILE_SIZE * Math.pow(2, zoom));
 }
 
+function globeCurvatureLiftMeters(radiusMeters: number): number {
+    if (!(typeof radiusMeters === 'number' && isFinite(radiusMeters) && radiusMeters > 0)) {
+        return 0;
+    }
+    return (radiusMeters * radiusMeters) / (2 * WEB_MERCATOR_EARTH_RADIUS_M);
+}
+
+function toolCircleLiftMeters(radiusMeters: number): number {
+    if (!(typeof radiusMeters === 'number' && isFinite(radiusMeters) && radiusMeters > 0)) {
+        return 0.05;
+    }
+
+    // Keep the lift subtle at street scale, but let it grow for large low-zoom circles.
+    return Math.max(0.05, Math.min(4, radiusMeters * 0.005));
+}
+
+function zoomOffsetScale(zoom: number): number {
+    if (!(typeof zoom === 'number' && isFinite(zoom))) {
+        return 1;
+    }
+
+    // Higher zoom -> smaller offset. Lower zoom -> larger offset.
+    return Math.max(0.05, Math.min(16, Math.pow(2, 10 - zoom)));
+}
+
+function buildCircleOutlineLonLat(lon: number, lat: number, radiusMeters: number, samples = 48): Array<[number, number]> {
+    const latRad = (lat * Math.PI) / 180;
+    const dLat = (radiusMeters / WEB_MERCATOR_EARTH_RADIUS_M) * (180 / Math.PI);
+    const cosLat = Math.max(1e-6, Math.cos(latRad));
+    const dLon = dLat / cosLat;
+    const positions: Array<[number, number]> = [];
+
+    for (let i = 0; i <= samples; i += 1) {
+        const t = (i / samples) * Math.PI * 2;
+        const ringLon = lon + dLon * Math.cos(t);
+        const ringLat = lat + dLat * Math.sin(t);
+        positions.push([ringLon, ringLat]);
+    }
+
+    return positions;
+}
+
+type CesiumRuntimeLayerState = {
+    spec: any;
+    dataSource: any | null;
+};
+
+type CesiumRuntimeSourceState = {
+    data: GeoJSON.FeatureCollection | null;
+    layers: CesiumRuntimeLayerState[];
+    updateToken: number;
+};
+
 export class MapCoreService implements IMapCore {
     constructor(
         private readonly store: MapStateStore,
@@ -44,12 +97,16 @@ export class MapCoreService implements IMapCore {
     private readyCbs: Array<(viewer: any) => void> = [];
 
     private sources = new Map<string, ISource>();
-    private sourceState = new Map<string, { dataSource: any | null; layers: any[] }>();
+    private sourceState = new Map<string, CesiumRuntimeSourceState>();
     private minZoom?: number;
     private maxZoom?: number;
     private isClamping = false;
     private lastCenter: [number, number] = [0, 0];
+    private lastStyledZoom: number | null = null;
     private readonly dispatchViewportStateThrottled = throttle(() => this.dispatchViewportState(), 100);
+    private runtimeLayerOrder: string[] = [];
+    private readonly layerZStepMeters = 0.5;
+    private readonly basePolylinePositions = new WeakMap<any, any[]>();
 
     public initialize(
         containerId: string,
@@ -198,23 +255,40 @@ export class MapCoreService implements IMapCore {
         camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
     }
 
-    public addLayer(_layer: any): void {
+    public addLayer(_layer: any, options?: { beforeLayerId?: string; afterLayerId?: string }): void {
         const layer = _layer as any;
         const sourceId = layer?.source;
         if (!sourceId) return;
         const state = this.sourceState.get(sourceId);
         if (!state) return;
-        state.layers.push(layer);
-        this.applySourceStyles(sourceId);
+
+        const layerId = typeof layer?.id === 'string' ? layer.id : null;
+        if (layerId) {
+            this.insertRuntimeLayer(layerId, options);
+            state.layers = state.layers.filter((entry) => entry?.id !== layerId);
+        }
+
+        const layerState: CesiumRuntimeLayerState = { spec: layer, dataSource: null };
+        const inserted = this.insertLayerByOptions(state.layers, layerState, options);
+        if (!inserted) {
+            state.layers.push(layerState);
+        }
+
+        this.refreshSourceLayerData(sourceId);
     }
 
     public removeLayer(_id: string): void {
         const id = _id as any;
+        if (typeof id === 'string') this.removeRuntimeLayer(id);
+
         for (const [sourceId, state] of this.sourceState.entries()) {
             const before = state.layers.length;
-            state.layers = state.layers.filter(l => l?.id !== id);
+            const removedLayers = state.layers.filter((layerState) => layerState.spec?.id === id);
+            state.layers = state.layers.filter((layerState) => layerState.spec?.id !== id);
             if (state.layers.length !== before) {
-                this.applySourceStyles(sourceId);
+                for (const layerState of removedLayers) {
+                    this.removeLayerDataSource(layerState);
+                }
                 return;
             }
         }
@@ -228,20 +302,13 @@ export class MapCoreService implements IMapCore {
 
         if (config?.type !== 'geojson' || !config.data) return;
 
-        this.sourceState.set(id, { dataSource: null, layers: [] });
+        this.sourceState.set(id, { data: config.data, layers: [], updateToken: 0 });
 
         const setData = (data: GeoJSON.FeatureCollection) => {
             const state = this.sourceState.get(id);
             if (!state) return;
-            const previous = state.dataSource;
-            void Cesium.GeoJsonDataSource.load(data, { clampToGround: false }).then((next: any) => {
-                if (previous) {
-                    this.viewer.dataSources.remove(previous, true);
-                }
-                state.dataSource = next;
-                this.viewer.dataSources.add(next);
-                this.applySourceStyles(id);
-            });
+            state.data = data;
+            this.refreshSourceLayerData(id);
         };
 
         const source: ISource = { id, setData };
@@ -251,11 +318,11 @@ export class MapCoreService implements IMapCore {
 
     public removeSource(id: string): void {
         const state = this.sourceState.get(id);
-        if (state?.dataSource && this.viewer) {
-            try {
-                this.viewer.dataSources.remove(state.dataSource, true);
-            } catch {
-                // ignore
+        if (state?.layers?.length) {
+            for (const layer of state.layers) {
+                const layerId = typeof layer.spec?.id === 'string' ? layer.spec.id : null;
+                if (layerId) this.removeRuntimeLayer(layerId);
+                this.removeLayerDataSource(layer);
             }
         }
         this.sourceState.delete(id);
@@ -531,6 +598,10 @@ export class MapCoreService implements IMapCore {
         this.lastCenter = viewport.center;
         const bounds = this.computeViewportBounds();
         this.store.dispatch({ zoomLevel: viewport.zoom, mapCenter: viewport.center, mapViewportBounds: bounds }, 'MAP');
+        if (this.lastStyledZoom === null || Math.abs(this.lastStyledZoom - viewport.zoom) > 0.0001) {
+            this.lastStyledZoom = viewport.zoom;
+            this.applyAllSourceStyles();
+        }
         const sw = bounds ? (bounds.geometry.coordinates[0][0] as LngLat) : viewport.center;
         const ne = bounds ? (bounds.geometry.coordinates[0][2] as LngLat) : viewport.center;
         this.eventBus?.emit({
@@ -544,73 +615,368 @@ export class MapCoreService implements IMapCore {
         this.eventBus?.emit({ type: 'zoom-end', zoom: viewport.zoom });
     }
 
+
+    private applyAllSourceStyles(): void {
+        for (const sourceId of this.sourceState.keys()) {
+            this.applySourceStyles(sourceId);
+        }
+    }
+
     private applySourceStyles(sourceId: string): void {
         const Cesium = getCesium();
         if (!Cesium || !this.viewer) return;
         const state = this.sourceState.get(sourceId);
-        const dataSource = state?.dataSource;
-        if (!state || !dataSource) return;
+        if (!state) return;
 
-        const layers = state.layers;
-        const fillFiltered = layers.filter(l => l?.type === 'fill');
-        const fillLayer = fillFiltered.length > 0 ? fillFiltered[fillFiltered.length - 1] : undefined;
-        const lineFiltered = layers.filter(l => l?.type === 'line');
-        const lineLayer = lineFiltered.length > 0 ? lineFiltered[lineFiltered.length - 1] : undefined;
-        const circleFiltered = layers.filter(l => l?.type === 'circle');
-        const circleLayer = circleFiltered.length > 0 ? circleFiltered[circleFiltered.length - 1] : undefined;
-        const circleMetadata = circleLayer?.metadata ?? {};
+        for (const layerState of state.layers) {
+            this.applyLayerStyle(layerState);
+        }
+    }
 
-        const fillPaint = fillLayer?.paint ?? {};
-        const linePaint = lineLayer?.paint ?? {};
-        const circlePaint = circleLayer?.paint ?? {};
+    private applyLayerStyle(layerState: CesiumRuntimeLayerState): void {
+        const Cesium = getCesium();
+        if (!Cesium || !this.viewer || !layerState.dataSource) return;
 
-        const fillColor = fillPaint['fill-color'] ?? '#3388ff';
-        const fillOpacity = fillPaint['fill-opacity'] ?? 0.2;
-        const lineColor = linePaint['line-color'] ?? '#3388ff';
-        const lineWidth = linePaint['line-width'] ?? 2;
-        const circleColor = circlePaint['circle-color'] ?? '#3388ff';
-        const circleRadius = circlePaint['circle-radius'] ?? 6;
-        const circleStrokeColor = circlePaint['circle-stroke-color'] ?? '#ffffff';
-        const circleStrokeWidth = circlePaint['circle-stroke-width'] ?? 1;
+        const layer = layerState.spec;
+        const paint = layer?.paint ?? {};
+        const currentZoom = this.store.getState().zoomLevel ?? 2;
+        const visibleAtZoom = this.isLayerVisibleAtZoom(layer, currentZoom);
+        const zoomScale = zoomOffsetScale(currentZoom);
+        const layerZ = this.getLayerZOffset(layer, zoomScale);
+        const entities = layerState.dataSource.entities?.values ?? [];
 
-        const entities = dataSource.entities?.values ?? [];
         for (const entity of entities) {
+            const geometryType = this.getEntityGeometryType(entity);
+            const matches = visibleAtZoom && this.entityMatchesLayer(entity, layer, geometryType);
+
             if (entity.polygon) {
-                entity.polygon.material = Cesium.Color.fromCssColorString(fillColor).withAlpha(fillOpacity);
-                entity.polygon.outline = true;
-                entity.polygon.outlineColor = Cesium.Color.fromCssColorString(lineColor).withAlpha(1);
+                entity.polygon.show = matches && layer?.type === 'fill';
             }
             if (entity.polyline) {
+                entity.polyline.show = matches && layer?.type === 'line';
+            }
+            if (entity.billboard) {
+                entity.billboard.show = false;
+            }
+            if (entity.point) {
+                entity.point.show = false;
+            }
+            if (entity.ellipse) {
+                entity.ellipse.show = matches && layer?.type === 'circle';
+            }
+
+            if (!matches) {
+                continue;
+            }
+
+            if (layer?.type === 'fill' && entity.polygon) {
+                const fillColor = paint['fill-color'] ?? '#3388ff';
+                const fillOpacity = paint['fill-opacity'] ?? 0.2;
+                entity.polygon.material = Cesium.Color.fromCssColorString(fillColor).withAlpha(fillOpacity);
+                entity.polygon.outline = false;
+                entity.polygon.height = layerZ;
+            }
+
+            if (layer?.type === 'line' && entity.polyline) {
+                const lineColor = paint['line-color'] ?? '#3388ff';
+                const lineWidth = paint['line-width'] ?? 2;
                 entity.polyline.material = Cesium.Color.fromCssColorString(lineColor).withAlpha(1);
                 entity.polyline.width = lineWidth;
-                const dash = linePaint['line-dasharray'];
+                const dash = paint['line-dasharray'];
                 if (Array.isArray(dash) && dash.length >= 2 && Cesium.PolylineDashMaterialProperty) {
                     entity.polyline.material = new Cesium.PolylineDashMaterialProperty({
                         color: Cesium.Color.fromCssColorString(lineColor).withAlpha(1),
                         dashLength: dash[0] + dash[1],
                     });
                 }
+                this.applyPolylineHeightOffset(entity, layerZ);
             }
-            if (circleLayer && (entity.point || entity.billboard)) {
-                // GeoJsonDataSource may create default pin/billboard styling for points.
-                // Replace with small circles to match MapLibre "circle" layers (used by measure/draw tools).
-                if (!entity.point) {
-                    entity.point = new Cesium.PointGraphics();
+
+            if (layer?.type === 'circle' && (entity.position || entity.point || entity.billboard || entity.ellipse)) {
+                const circleMetadata = layer?.metadata ?? {};
+                const circleColor = paint['circle-color'] ?? '#3388ff';
+                const circleOpacity = paint['circle-opacity'] ?? 0.8;
+                const circleRadius = paint['circle-radius'] ?? 6;
+                const circleStrokeColor = paint['circle-stroke-color'] ?? '#3388ff';
+                const circleStrokeWidth = paint['circle-stroke-width'] ?? 1;
+
+                const julian = Cesium.JulianDate.now();
+                const position = entity.position?.getValue?.(julian) ?? entity.position;
+                if (!position) {
+                    continue;
                 }
-                entity.billboard = undefined;
-                entity.point.color = Cesium.Color.fromCssColorString(circleColor).withAlpha(1);
-                entity.point.pixelSize = Number(circleRadius) * 2;
-                entity.point.outlineColor = Cesium.Color.fromCssColorString(circleStrokeColor).withAlpha(1);
-                entity.point.outlineWidth = Number(circleStrokeWidth);
+
+                const carto = Cesium.Ellipsoid.WGS84.cartesianToCartographic(position);
+                const lat = (carto.latitude * 180) / Math.PI;
+                const zoom = currentZoom;
                 const shouldClamp = !circleMetadata.isToolLayer;
+                const metersPerPixel = webMercatorMetersPerPixelAtLat(zoom, lat);
+                const radiusMeters = Math.max(1, Number(circleRadius) * metersPerPixel);
+                const curvatureLiftMeters = shouldClamp ? 0 : globeCurvatureLiftMeters(radiusMeters);
+                const layerLiftMeters = shouldClamp ? 0 : toolCircleLiftMeters(radiusMeters) * zoomScale;
+                const circleZ = shouldClamp ? layerZ : layerZ + layerLiftMeters + curvatureLiftMeters;
+
+                if (!entity.ellipse) {
+                    entity.ellipse = new Cesium.EllipseGraphics();
+                }
+                entity.ellipse.show = true;
+                entity.ellipse.semiMajorAxis = radiusMeters;
+                entity.ellipse.semiMinorAxis = radiusMeters;
+                entity.ellipse.material = Cesium.Color.fromCssColorString(String(circleColor)).withAlpha(Number(circleOpacity));
+                entity.ellipse.outline = true;
+                entity.ellipse.outlineColor = Cesium.Color.fromCssColorString(String(circleStrokeColor)).withAlpha(1);
+                entity.ellipse.outlineWidth = Number(circleStrokeWidth);
+
+                const lon = Cesium.Math.toDegrees(carto.longitude);
+                const ringLonLat = buildCircleOutlineLonLat(lon, lat, radiusMeters, 64);
+                const ringPositions = ringLonLat.map(([ringLon, ringLat]) =>
+                    Cesium.Cartesian3.fromDegrees(ringLon, ringLat, circleZ)
+                );
+                if (!entity.polyline) {
+                    entity.polyline = new Cesium.PolylineGraphics();
+                }
+                entity.polyline.show = true;
+                entity.polyline.positions = ringPositions;
+                entity.polyline.width = Math.max(1, Number(circleStrokeWidth));
+                entity.polyline.material = Cesium.Color.fromCssColorString(String(circleStrokeColor)).withAlpha(1);
+                if ('clampToGround' in entity.polyline) {
+                    entity.polyline.clampToGround = shouldClamp;
+                }
+
                 if (Cesium.HeightReference?.CLAMP_TO_GROUND) {
-                    entity.point.heightReference = shouldClamp ? Cesium.HeightReference.CLAMP_TO_GROUND : Cesium.HeightReference.NONE;
+                    entity.ellipse.heightReference = shouldClamp ? Cesium.HeightReference.CLAMP_TO_GROUND : Cesium.HeightReference.NONE;
                 }
-                if (!shouldClamp && typeof entity.point.disableDepthTestDistance !== 'undefined') {
-                    entity.point.disableDepthTestDistance = Number.POSITIVE_INFINITY;
-                }
+                entity.ellipse.height = circleZ;
+                entity.billboard = undefined;
+                entity.point = undefined;
             }
         }
+    }
+
+    private isLayerVisibleAtZoom(layer: any, zoom: number): boolean {
+        const minzoom = this.toNumericZoom(layer?.minzoom ?? layer?.minZoom);
+        const maxzoom = this.toNumericZoom(layer?.maxzoom ?? layer?.maxZoom);
+
+        if (minzoom !== undefined && zoom < minzoom) {
+            return false;
+        }
+
+        if (maxzoom !== undefined && zoom >= maxzoom) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private toNumericZoom(value: unknown): number | undefined {
+        return typeof value === 'number' && isFinite(value) ? value : undefined;
+    }
+
+    private getLayerZOffset(layer: any, zoomScale = 1): number {
+        const layerId = typeof layer?.id === 'string' ? layer.id : null;
+        if (!layerId) {
+            return 0;
+        }
+        const orderIndex = this.runtimeLayerOrder.indexOf(layerId);
+        if (orderIndex < 0) {
+            return 0;
+        }
+        return (orderIndex + 1) * this.layerZStepMeters * zoomScale;
+    }
+
+    private removeRuntimeLayer(layerId: string): void {
+        this.runtimeLayerOrder = this.runtimeLayerOrder.filter((id) => id !== layerId);
+    }
+
+    private insertRuntimeLayer(layerId: string, options?: { beforeLayerId?: string; afterLayerId?: string }): void {
+        this.removeRuntimeLayer(layerId);
+        const inserted = this.insertByOptions(this.runtimeLayerOrder, layerId, options);
+        if (!inserted) {
+            this.runtimeLayerOrder.push(layerId);
+        }
+    }
+
+    private insertLayerByOptions(list: CesiumRuntimeLayerState[], layerState: CesiumRuntimeLayerState, options?: { beforeLayerId?: string; afterLayerId?: string }): boolean {
+        const layerId = typeof layerState.spec?.id === 'string' ? layerState.spec.id : null;
+        if (!layerId) {
+            return false;
+        }
+
+        const beforeLayerId = options?.beforeLayerId;
+        if (typeof beforeLayerId === 'string') {
+            const index = list.findIndex((entry) => entry.spec?.id === beforeLayerId);
+            if (index >= 0) {
+                list.splice(index, 0, layerState);
+                return true;
+            }
+        }
+
+        const afterLayerId = options?.afterLayerId;
+        if (typeof afterLayerId === 'string') {
+            const index = list.findIndex((entry) => entry.spec?.id === afterLayerId);
+            if (index >= 0) {
+                list.splice(index + 1, 0, layerState);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private insertByOptions(list: string[], layerId: string, options?: { beforeLayerId?: string; afterLayerId?: string }): boolean {
+        const beforeLayerId = options?.beforeLayerId;
+        if (typeof beforeLayerId === 'string') {
+            const beforeIndex = list.indexOf(beforeLayerId);
+            if (beforeIndex >= 0) {
+                list.splice(beforeIndex, 0, layerId);
+                return true;
+            }
+        }
+
+        const afterLayerId = options?.afterLayerId;
+        if (typeof afterLayerId === 'string') {
+            const afterIndex = list.indexOf(afterLayerId);
+            if (afterIndex >= 0) {
+                list.splice(afterIndex + 1, 0, layerId);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private applyPolylineHeightOffset(entity: any, heightOffset: number): void {
+        const Cesium = getCesium();
+        if (!Cesium || !entity?.polyline) {
+            return;
+        }
+
+        const julian = Cesium.JulianDate.now();
+        const polyline = entity.polyline;
+        const currentPositions = polyline.positions?.getValue?.(julian) ?? polyline.positions;
+        if (!Array.isArray(currentPositions) || currentPositions.length === 0) {
+            return;
+        }
+
+        let basePositions = this.basePolylinePositions.get(entity);
+        if (!basePositions) {
+            basePositions = [...currentPositions];
+            this.basePolylinePositions.set(entity, basePositions);
+        }
+
+        if (!(typeof heightOffset === 'number' && isFinite(heightOffset) && heightOffset > 0)) {
+            polyline.positions = basePositions;
+            return;
+        }
+
+        const elevatedPositions = basePositions.map((position) => {
+            const carto = Cesium.Ellipsoid.WGS84.cartesianToCartographic(position);
+            const height = (carto.height ?? 0) + heightOffset;
+            return Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, height);
+        });
+        polyline.positions = elevatedPositions;
+    }
+
+    private refreshSourceLayerData(sourceId: string): void {
+        const Cesium = getCesium();
+        if (!Cesium || !this.viewer) return;
+
+        const state = this.sourceState.get(sourceId);
+        if (!state || !state.data) return;
+
+        const token = ++state.updateToken;
+        for (const layerState of state.layers) {
+            this.loadLayerDataSource(sourceId, layerState, token);
+        }
+    }
+
+    private async loadLayerDataSource(sourceId: string, layerState: CesiumRuntimeLayerState, token: number): Promise<void> {
+        const Cesium = getCesium();
+        if (!Cesium || !this.viewer) return;
+
+        const state = this.sourceState.get(sourceId);
+        if (!state?.data) return;
+
+        const nextDataSource = await Cesium.GeoJsonDataSource.load(state.data, { clampToGround: false });
+        const currentState = this.sourceState.get(sourceId);
+        const stillPresent = currentState?.layers.includes(layerState) ?? false;
+        if (!currentState || currentState.updateToken !== token || !stillPresent) {
+            return;
+        }
+
+        const previousDataSource = layerState.dataSource;
+        layerState.dataSource = nextDataSource;
+        this.viewer.dataSources.add(nextDataSource);
+        this.applyLayerStyle(layerState);
+        this.removeLayerDataSource({ spec: layerState.spec, dataSource: previousDataSource });
+    }
+
+    private removeLayerDataSource(layerState: { dataSource: any | null }): void {
+        if (!layerState.dataSource || !this.viewer) return;
+        try {
+            this.viewer.dataSources.remove(layerState.dataSource, true);
+        } catch {
+            // ignore
+        }
+    }
+
+    private getEntityGeometryType(entity: any): 'Point' | 'LineString' | 'Polygon' | null {
+        if (entity.position || entity.point || entity.billboard || entity.ellipse) return 'Point';
+        if (entity.polygon) return 'Polygon';
+        if (entity.polyline) return 'LineString';
+        return null;
+    }
+
+    private entityMatchesLayer(entity: any, layer: any, geometryType: 'Point' | 'LineString' | 'Polygon' | null): boolean {
+        const expectedGeometryType = layer?.type === 'fill'
+            ? 'Polygon'
+            : layer?.type === 'line'
+                ? 'LineString'
+                : layer?.type === 'circle'
+                    ? 'Point'
+                    : null;
+
+        if (expectedGeometryType && geometryType !== expectedGeometryType) {
+            return false;
+        }
+
+        return this.matchesFilter(entity, layer?.filter);
+    }
+
+    private matchesFilter(entity: any, filter: any): boolean {
+        if (!Array.isArray(filter) || filter.length < 3) {
+            return true;
+        }
+
+        const [operator, lhs, rhs] = filter;
+        if (operator !== '==') {
+            return true;
+        }
+
+        const lhsValue = this.resolveFilterOperand(entity, lhs);
+        return lhsValue === rhs;
+    }
+
+    private resolveFilterOperand(entity: any, operand: any): unknown {
+        const Cesium = getCesium();
+        const julian = Cesium?.JulianDate?.now?.();
+
+        if (Array.isArray(operand) && operand[0] === 'geometry-type') {
+            return this.getEntityGeometryType(entity);
+        }
+
+        if (Array.isArray(operand) && operand[0] === 'get' && typeof operand[1] === 'string') {
+            const property = entity?.properties?.[operand[1]];
+            if (!property) {
+                return undefined;
+            }
+            if (typeof property.getValue === 'function') {
+                return property.getValue(julian);
+            }
+            return property;
+        }
+
+        return operand;
     }
 
     private clampImageryProviderMaxLevel(provider: any, maxLevel: number): void {

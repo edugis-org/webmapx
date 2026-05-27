@@ -30,14 +30,14 @@ const KNOWN_KEYS = {
   sourceGeojson: ['data', 'attribution', 'minzoom', 'maxzoom', 'bounds', 'buffer', 'tolerance', 'cluster', 'clusterRadius', 'clusterMaxZoom', 'lineMetrics', 'generateId'],
   sourceVector: ['url', 'tiles', 'bounds', 'scheme', 'minzoom', 'maxzoom', 'attribution', 'volatile'],
   layer: ['id', 'layerset', 'title', 'metadata'],
-  styleLayer: ['type', 'source', 'sourceLayer', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
+  styleLayer: ['id', 'type', 'source', 'sourceLayer', 'source-layer', 'minzoom', 'maxzoom', 'minZoom', 'maxZoom', 'paint', 'layout', 'filter'],
   tool: ['enabled'],
 };
 
 const VALID_MAP_TYPES = ['maplibre', 'openlayers', 'leaflet', 'cesium'];
 const VALID_SOURCE_TYPES = ['raster', 'geojson', 'vector'];
 const VALID_RASTER_SERVICES = ['xyz', 'wms', 'wmts'];
-const VALID_LAYER_TYPES = ['fill', 'line', 'circle', 'symbol', 'raster'];
+const VALID_LAYER_TYPES = ['background', 'fill', 'line', 'circle', 'symbol', 'raster'];
 
 /**
  * Validates a WebMapX configuration object.
@@ -409,6 +409,10 @@ function validateLayerset(
     }
 
     // Required: source
+    if (sl.type === 'background') {
+      return;
+    }
+
     if (typeof sl.source !== 'string' || sl.source.length === 0) {
       errors.push({ severity: 'error', path: `${path}.source`, message: 'Style layer must have a "source"' });
     } else if (!sourceIds.has(sl.source)) {

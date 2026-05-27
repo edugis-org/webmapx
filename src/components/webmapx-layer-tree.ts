@@ -306,7 +306,11 @@ export class WebmapxLayerTree extends LitElement {
         if (!layer) return;
 
         // Find all unique source IDs referenced by the layer's layerset
-        const sourceIds = Array.from(new Set(layer.layerset.map(sl => sl.source)));
+        const sourceIds = Array.from(new Set(
+            layer.layerset
+                .map(sl => sl.source)
+                .filter((source): source is string => typeof source === 'string' && source.length > 0)
+        ));
         const sources = catalog.sources.filter(s => sourceIds.includes(s.id));
 
         // Compose the layerInformation object

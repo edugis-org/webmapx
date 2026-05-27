@@ -258,14 +258,28 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             detail: { id: LINES_LAYER_ID, type: 'line', source: STATIC_SOURCE_ID, filter: ['==', ['get', 'type'], 'line'], paint: { 'line-color': '#0f62fe', 'line-width': 2 } },
             bubbles: true, composed: true
         }));
+
+        // Add rubber-band line before points so point circles remain visually on top.
         this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
-            detail: { id: POINTS_LAYER_ID, type: 'circle', source: STATIC_SOURCE_ID, filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-color': '#fff', 'circle-stroke-color': '#0f62fe', 'circle-stroke-width': 2 } },
+            detail: { id: RUBBERBAND_LAYER_ID, type: 'line', source: RUBBERBAND_SOURCE_ID, paint: { 'line-color': '#0f62fe', 'line-width': 2, 'line-dasharray': [4, 4] } },
             bubbles: true, composed: true
         }));
 
-        // --- Layer for RUBBERBAND source ---
         this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
-            detail: { id: RUBBERBAND_LAYER_ID, type: 'line', source: RUBBERBAND_SOURCE_ID, paint: { 'line-color': '#0f62fe', 'line-width': 2, 'line-dasharray': [4, 4] } },
+            detail: {
+                id: POINTS_LAYER_ID,
+                type: 'circle',
+                source: STATIC_SOURCE_ID,
+                metadata: { isToolLayer: true },
+                filter: ['==', ['geometry-type'], 'Point'],
+                paint: {
+                    'circle-radius': 5,
+                    'circle-color': '#fff',
+                    'circle-opacity': 1,
+                    'circle-stroke-color': '#0f62fe',
+                    'circle-stroke-width': 2,
+                },
+            },
             bubbles: true, composed: true
         }));
 

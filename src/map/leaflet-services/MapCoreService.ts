@@ -34,6 +34,8 @@ export class MapCoreService implements IMapCore {
     private sources: Map<string, any> = new Map();
     private logicalToNative: Map<string, L.Layer[]> = new Map();
     private sourceToLayers: Map<string, string[]> = new Map();
+    private runtimeLayerOrder: string[] = [];
+    private runtimeLayerZoomRange: Map<string, { minzoom?: number; maxzoom?: number }> = new Map();
 
     private readonly initialConfig = {
         center: [51.17, 10.45] as [number, number],
@@ -122,7 +124,7 @@ export class MapCoreService implements IMapCore {
                         attribution: source.attribution || '',
                         tileSize: source.tileSize || 256,
                         minZoom: source.minzoom,
-                        maxZoom: source.maxzoom,
+                        maxNativeZoom: source.maxzoom,
                     }).addTo(this.mapInstance!);
                 }
             }
@@ -148,6 +150,7 @@ export class MapCoreService implements IMapCore {
 
         map.on('zoomend', () => {
             const logicalZoom = map.getZoom() - ZOOM_OFFSET;
+            this.applyRuntimeLayerVisibility();
             this.store.dispatch({ zoomLevel: logicalZoom, mapViewportBounds: this.buildViewportFeature() }, 'MAP');
             this.eventBus?.emit({ type: 'zoom-end', zoom: logicalZoom });
         });
@@ -352,7 +355,7 @@ export class MapCoreService implements IMapCore {
         return next;
     }
 
-    public addLayer(layerSpec: any): void {
+    public addLayer(layerSpec: any, options?: { beforeLayerId?: string; afterLayerId?: string }): void {
         if (!this.mapInstance) return;
     
         const sourceId = layerSpec.source;
@@ -369,6 +372,7 @@ export class MapCoreService implements IMapCore {
     
         const data = sourceConfig.data || { type: 'FeatureCollection', features: [] };
         const layerFactorySpecs = LeafletLayerFactory.createGeoJSONLayer(layerSpec, sourceConfig, data);
+        this.runtimeLayerZoomRange.set(layerSpec.id, this.readLayerZoomRange(layerSpec));
     
         const nativeLayers: L.Layer[] = [];
         for (const spec of layerFactorySpecs) {
@@ -376,7 +380,12 @@ export class MapCoreService implements IMapCore {
             nativeLayers.push(spec.layer);
         }
     
+        this.removeRuntimeLayer(layerSpec.id);
+        if (!this.insertByOptions(this.runtimeLayerOrder, layerSpec.id, options)) {
+            this.runtimeLayerOrder.push(layerSpec.id);
+        }
         this.logicalToNative.set(layerSpec.id, nativeLayers);
+        this.applyRuntimeLayerVisibility();
     
         // Link source ID to this layer ID for future updates
         if (!this.sourceToLayers.has(sourceId)) {
@@ -390,6 +399,8 @@ export class MapCoreService implements IMapCore {
         if (nativeLayers && this.mapInstance) {
             nativeLayers.forEach(layer => this.mapInstance!.removeLayer(layer));
             this.logicalToNative.delete(id);
+            this.removeRuntimeLayer(id);
+            this.runtimeLayerZoomRange.delete(id);
     
             // Clean up sourceToLayers map
             for (const [sourceId, layerIds] of this.sourceToLayers.entries()) {
@@ -402,6 +413,8 @@ export class MapCoreService implements IMapCore {
                     break;
                 }
             }
+
+            this.applyRuntimeLayerOrder();
         }
     }
 
@@ -415,6 +428,97 @@ export class MapCoreService implements IMapCore {
             layerIds.forEach(layerId => this.removeLayer(layerId));
         }
         this.sources.delete(id);
+    }
+
+    private removeRuntimeLayer(layerId: string): void {
+        this.runtimeLayerOrder = this.runtimeLayerOrder.filter((id) => id !== layerId);
+        this.runtimeLayerZoomRange.delete(layerId);
+    }
+
+    private readLayerZoomRange(layerSpec: any): { minzoom?: number; maxzoom?: number } {
+        return {
+            minzoom: this.toNumericZoom(layerSpec?.minzoom ?? layerSpec?.minZoom),
+            maxzoom: this.toNumericZoom(layerSpec?.maxzoom ?? layerSpec?.maxZoom),
+        };
+    }
+
+    private toNumericZoom(value: unknown): number | undefined {
+        return typeof value === 'number' && isFinite(value) ? value : undefined;
+    }
+
+    private isLayerVisibleAtZoom(layerId: string, zoom: number): boolean {
+        const range = this.runtimeLayerZoomRange.get(layerId);
+        if (!range) {
+            return true;
+        }
+
+        if (range.minzoom !== undefined && zoom < range.minzoom) {
+            return false;
+        }
+
+        if (range.maxzoom !== undefined && zoom >= range.maxzoom) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private applyRuntimeLayerVisibility(): void {
+        if (!this.mapInstance) {
+            return;
+        }
+
+        const logicalZoom = this.mapInstance.getZoom() - ZOOM_OFFSET;
+        for (const layerId of this.runtimeLayerOrder) {
+            const visible = this.isLayerVisibleAtZoom(layerId, logicalZoom);
+            const nativeLayers = this.logicalToNative.get(layerId) ?? [];
+            for (const layer of nativeLayers) {
+                if (visible) {
+                    if (!this.mapInstance.hasLayer(layer)) {
+                        layer.addTo(this.mapInstance);
+                    }
+                } else if (this.mapInstance.hasLayer(layer)) {
+                    this.mapInstance.removeLayer(layer);
+                }
+            }
+        }
+
+        this.applyRuntimeLayerOrder();
+    }
+
+    private insertByOptions(list: string[], layerId: string, options?: { beforeLayerId?: string; afterLayerId?: string }): boolean {
+        const beforeLayerId = options?.beforeLayerId;
+        if (typeof beforeLayerId === 'string') {
+            const beforeIndex = list.indexOf(beforeLayerId);
+            if (beforeIndex >= 0) {
+                list.splice(beforeIndex, 0, layerId);
+                return true;
+            }
+        }
+
+        const afterLayerId = options?.afterLayerId;
+        if (typeof afterLayerId === 'string') {
+            const afterIndex = list.indexOf(afterLayerId);
+            if (afterIndex >= 0) {
+                list.splice(afterIndex + 1, 0, layerId);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private applyRuntimeLayerOrder(): void {
+        if (!this.mapInstance) {
+            return;
+        }
+
+        for (const layerId of this.runtimeLayerOrder) {
+            const nativeLayers = this.logicalToNative.get(layerId) ?? [];
+            for (const layer of nativeLayers) {
+                (layer as any).bringToFront?.();
+            }
+        }
     }
 
     public getSource(id: string): ISource | undefined {
@@ -500,7 +604,7 @@ export class MapCoreService implements IMapCore {
                             attribution: source.attribution || '',
                             tileSize: source.tileSize || 256,
                             minZoom: source.minzoom,
-                            maxZoom: source.maxzoom,
+                            maxNativeZoom: source.maxzoom,
                         }).addTo(this.mapInstance);
                         layersAdded++;
                     }

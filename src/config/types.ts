@@ -197,12 +197,16 @@ export type LayerType = 'fill' | 'line' | 'circle' | 'symbol' | 'raster';
  * Individual style layer within a layerset.
  */
 export interface StyleLayerConfig {
+  /** Optional render-layer id from the authored layer definition */
+  id?: string;
   /** Layer type determines rendering */
-  type: LayerType;
+  type: LayerType | 'background';
   /** Reference to a source ID */
-  source: string;
+  source?: string;
   /** Source layer name (for vector tiles) */
   sourceLayer?: string;
+  /** MapLibre-compatible source layer name */
+  'source-layer'?: string;
   /** Minimum zoom level for visibility */
   minZoom?: number;
   /** Maximum zoom level for visibility */

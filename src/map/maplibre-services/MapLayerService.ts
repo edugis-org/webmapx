@@ -65,8 +65,8 @@ export class MapLayerService implements ILayerService {
                     nativeSource = { type: 'raster', tiles };
                     if ('tileSize' in sourceConfig) nativeSource.tileSize = sourceConfig.tileSize;
                     if ('bounds' in sourceConfig) nativeSource.bounds = sourceConfig.bounds;
-                    if ('minzoom' in sourceConfig) nativeSource.minzoom = sourceConfig.minzoom;
-                    if ('maxzoom' in sourceConfig) nativeSource.maxzoom = sourceConfig.maxzoom;
+                    if (typeof sourceConfig.minzoom === 'number') nativeSource.minzoom = sourceConfig.minzoom;
+                    if (typeof sourceConfig.maxzoom === 'number') nativeSource.maxzoom = sourceConfig.maxzoom;
                     if ('scheme' in sourceConfig) nativeSource.scheme = sourceConfig.scheme;
                     if ('attribution' in sourceConfig) nativeSource.attribution = sourceConfig.attribution;
                     if ('volatile' in sourceConfig) nativeSource.volatile = sourceConfig.volatile;
@@ -85,8 +85,8 @@ export class MapLayerService implements ILayerService {
                     nativeSource = { type: 'raster', tiles: [wmsUrl] };
                     if ('tileSize' in sourceConfig) nativeSource.tileSize = sourceConfig.tileSize;
                     if ('bounds' in sourceConfig) nativeSource.bounds = sourceConfig.bounds;
-                    if ('minzoom' in sourceConfig) nativeSource.minzoom = sourceConfig.minzoom;
-                    if ('maxzoom' in sourceConfig) nativeSource.maxzoom = sourceConfig.maxzoom;
+                    if (typeof sourceConfig.minzoom === 'number') nativeSource.minzoom = sourceConfig.minzoom;
+                    if (typeof sourceConfig.maxzoom === 'number') nativeSource.maxzoom = sourceConfig.maxzoom;
                     if ('scheme' in sourceConfig) nativeSource.scheme = sourceConfig.scheme;
                     if ('attribution' in sourceConfig) nativeSource.attribution = sourceConfig.attribution;
                     if ('volatile' in sourceConfig) nativeSource.volatile = sourceConfig.volatile;
@@ -166,7 +166,7 @@ export class MapLayerService implements ILayerService {
         this.ensureNativeSource(nativeSourceId, sourceConfig);
         // Use the factory to generate all needed MapLibre layer specs, referencing the nativeSourceId
         const layerSpecs = MapLibreLayerFactory.createLayers(layerConfig, sourceConfig, nativeSourceId);
-        const nativeLayerIds: string[] = [];
+        const nativeLayerIds: string[] = [...(this.logicalToNative.get(layerId) || [])];
         for (const layerSpec of layerSpecs) {
             if (!this.map.getLayer(layerSpec.id)) {
                 this.map.addLayer(layerSpec);
@@ -175,7 +175,7 @@ export class MapLayerService implements ILayerService {
             // Track which source this native layer uses
             this.nativeLayerToSource.set(layerSpec.id, nativeSourceId);
         }
-        this.logicalToNative.set(layerId, nativeLayerIds);
+        this.logicalToNative.set(layerId, Array.from(new Set(nativeLayerIds)));
         this.updateVisibleLayers();
         return true;
     }

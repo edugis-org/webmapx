@@ -31,7 +31,7 @@ export class LeafletLayerFactory {
             attribution: sourceConfig.attribution,
             tileSize: sourceConfig.tileSize || 256,
             minZoom: sourceConfig.minzoom,
-            maxZoom: sourceConfig.maxzoom,
+            maxNativeZoom: sourceConfig.maxzoom,
         });
 
         return {
@@ -60,6 +60,8 @@ export class LeafletLayerFactory {
             version: wmsConfig.version || '1.1.1',
             crs: wmsConfig.crs === 'EPSG:4326' ? L.CRS.EPSG4326 : L.CRS.EPSG3857,
             attribution: wmsConfig.attribution,
+            minZoom: wmsConfig.minzoom,
+            maxNativeZoom: wmsConfig.maxzoom,
         });
 
         return {

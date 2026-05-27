@@ -400,7 +400,7 @@ export class MapCoreService implements IMapCore {
 
     private sources: Map<string, { source: VectorSource, layers: any[], olLayer: VectorLayer<any> }> = new Map();
 
-    public addLayer(layerConfig: any): void {
+    public addLayer(layerConfig: any, options?: { beforeLayerId?: string; afterLayerId?: string }): void {
         if (!this.mapInstance) return;
 
         const sourceId = layerConfig.source;
@@ -410,8 +410,26 @@ export class MapCoreService implements IMapCore {
             return;
         }
 
-        // Add the new layer config and update the style
-        sourceInfo.layers.push(layerConfig);
+        // Insert layer config by explicit before/after hints when provided.
+        const beforeLayerId = options?.beforeLayerId;
+        const afterLayerId = options?.afterLayerId;
+        if (typeof beforeLayerId === 'string') {
+            const beforeIndex = sourceInfo.layers.findIndex((layer) => layer?.id === beforeLayerId);
+            if (beforeIndex >= 0) {
+                sourceInfo.layers.splice(beforeIndex, 0, layerConfig);
+            } else {
+                sourceInfo.layers.push(layerConfig);
+            }
+        } else if (typeof afterLayerId === 'string') {
+            const afterIndex = sourceInfo.layers.findIndex((layer) => layer?.id === afterLayerId);
+            if (afterIndex >= 0) {
+                sourceInfo.layers.splice(afterIndex + 1, 0, layerConfig);
+            } else {
+                sourceInfo.layers.push(layerConfig);
+            }
+        } else {
+            sourceInfo.layers.push(layerConfig);
+        }
         this.updateStyle(sourceId);
     }
 

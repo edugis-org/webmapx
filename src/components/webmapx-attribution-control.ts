@@ -64,6 +64,7 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
             const layer = layersById.get(layerId);
             if (!layer) continue;
             for (const style of layer.layerset) {
+                if (!style.source) continue;
                 const source = sourcesById.get(style.source);
                 if (!source || typeof source.attribution !== 'string') continue;
                 const text = source.attribution.trim();

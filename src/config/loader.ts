@@ -39,29 +39,45 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function normalizeSourceMap(sourceMap: unknown): unknown[] {
+function normalizeSourceDefinition(id: string, value: unknown): Record<string, unknown> {
+  if (!isObject(value)) {
+    return { id, type: 'geojson', data: value };
+  }
+
+  const normalized: Record<string, unknown> = { id, ...value };
+  if (normalized.type === 'raster' && normalized.url === undefined && Array.isArray(normalized.tiles)) {
+    normalized.url = normalized.tiles;
+  }
+  if (normalized.type === 'raster' && normalized.service === undefined) {
+    normalized.service = 'xyz';
+  }
+
+  return normalized;
+}
+
+function normalizeSourceMap(sourceMap: unknown): Record<string, unknown>[] {
   if (!isObject(sourceMap)) {
     return [];
   }
 
-  return Object.entries(sourceMap).map(([id, value]) => {
-    if (!isObject(value)) {
-      return { id, type: 'geojson', data: value };
-    }
-
-    const normalized: Record<string, unknown> = { id, ...value };
-    if (normalized.type === 'raster' && normalized.url === undefined && Array.isArray(normalized.tiles)) {
-      normalized.url = normalized.tiles;
-    }
-    if (normalized.type === 'raster' && normalized.service === undefined) {
-      normalized.service = 'xyz';
-    }
-
-    return normalized;
-  });
+  return Object.entries(sourceMap).map(([id, value]) => normalizeSourceDefinition(id, value));
 }
 
-function normalizeLayerMap(layerMap: unknown): unknown[] {
+function normalizeRenderLayer(renderLayer: Record<string, unknown>, fallbackSource?: string): Record<string, unknown> {
+  const source = typeof renderLayer.source === 'string' ? renderLayer.source : fallbackSource;
+  return {
+    ...renderLayer,
+    ...(source ? { source } : {}),
+    sourceLayer: renderLayer.sourceLayer ?? renderLayer['source-layer'],
+    minZoom: renderLayer.minZoom ?? renderLayer.minzoom,
+    maxZoom: renderLayer.maxZoom ?? renderLayer.maxzoom,
+  };
+}
+
+function normalizeLayerMap(
+  layerMap: unknown,
+  extraSources: Record<string, unknown>[]
+): unknown[] {
   if (!isObject(layerMap)) {
     return [];
   }
@@ -72,9 +88,49 @@ function normalizeLayerMap(layerMap: unknown): unknown[] {
         return null;
       }
 
-      // Current runtime contract (preferred): logical layer with layerset[]
+      // Existing runtime contract: logical layer with layerset[].
       if (Array.isArray(value.layerset)) {
         return { id, ...value };
+      }
+
+      // New authored WebMapX layer model: kind: "single" | "composite".
+      if (value.kind === 'single') {
+        const render = isObject(value.render) ? value.render : {};
+        const source = typeof value.source === 'string' ? value.source : undefined;
+        return {
+          id,
+          title: value.title,
+          metadata: value.metadata,
+          layerset: [normalizeRenderLayer(render, source)],
+        };
+      }
+
+      if (value.kind === 'composite') {
+        const sourceAliases = new Map<string, string>();
+        if (isObject(value.sources)) {
+          for (const [sourceId, sourceDefinition] of Object.entries(value.sources)) {
+            const scopedSourceId = `${id}:${sourceId}`;
+            sourceAliases.set(sourceId, scopedSourceId);
+            extraSources.push(normalizeSourceDefinition(scopedSourceId, sourceDefinition));
+          }
+        }
+
+        const renderLayers = Array.isArray(value.renderLayers) ? value.renderLayers : [];
+        return {
+          id,
+          title: value.title,
+          metadata: value.metadata,
+          layerset: renderLayers
+            .filter(isObject)
+            .map((renderLayer) => {
+              const normalized = normalizeRenderLayer(renderLayer);
+              const source = typeof normalized.source === 'string' ? normalized.source : undefined;
+              return {
+                ...normalized,
+                ...(source && sourceAliases.has(source) ? { source: sourceAliases.get(source) } : {}),
+              };
+            }),
+        };
       }
 
       // Single MapLibre style-layer form
@@ -170,7 +226,7 @@ function normalizeAppConfig(rawConfig: unknown): AppConfig {
 
   const library = raw.library as Record<string, unknown>;
   const sources = normalizeSourceMap(library.sources);
-  const layers = normalizeLayerMap(library.layers);
+  const layers = normalizeLayerMap(library.layers, sources);
   const tree = normalizeCatalogTree(library.catalogs, layers);
 
   const normalized: AppConfig = {

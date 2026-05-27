@@ -109,8 +109,8 @@ export class OpenLayersAdapter implements IMap {
         return this.core.getNavigationCapabilities();
     }
 
-    addLayer(layer: any): void {
-        this.core.addLayer(layer);
+    addLayer(layer: any, options?: { beforeLayerId?: string; afterLayerId?: string }): void {
+        this.core.addLayer(layer, options);
     }
 
     addSource(id: string, config: any): void {

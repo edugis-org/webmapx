@@ -22,6 +22,23 @@ function webMercatorMetersPerPixelAtLat(zoom: number, lat: number): number {
     return (circumference * Math.cos(phi)) / (LOGICAL_TILE_SIZE * Math.pow(2, zoom));
 }
 
+function buildCircleOutlineLonLat(lon: number, lat: number, radiusMeters: number, samples = 48): Array<[number, number]> {
+    const latRad = (lat * Math.PI) / 180;
+    const dLat = (radiusMeters / WEB_MERCATOR_EARTH_RADIUS_M) * (180 / Math.PI);
+    const cosLat = Math.max(1e-6, Math.cos(latRad));
+    const dLon = dLat / cosLat;
+    const positions: Array<[number, number]> = [];
+
+    for (let i = 0; i <= samples; i += 1) {
+        const t = (i / samples) * Math.PI * 2;
+        const ringLon = lon + dLon * Math.cos(t);
+        const ringLat = lat + dLat * Math.sin(t);
+        positions.push([ringLon, ringLat]);
+    }
+
+    return positions;
+}
+
 function toCssColor(value: unknown, fallback: string): string {
     return typeof value === 'string' ? value : fallback;
 }
@@ -222,9 +239,6 @@ export class MapLayerService implements ILayerService {
         }
         const original = provider.requestImage.bind(provider);
         provider.requestImage = (x: number, y: number, level: number, ...rest: unknown[]) => {
-            if (level > maxLevel) {
-                return undefined;
-            }
             return original(x, y, Math.min(level, maxLevel), ...rest);
         };
         if (provider.tilingScheme && typeof provider.tilingScheme.getNumberOfXTilesAtLevel === 'function') {
@@ -237,27 +251,12 @@ export class MapLayerService implements ILayerService {
         }
     }
 
-    private applyImageryVisibility(currentZoom: number): void {
+    private applyImageryVisibility(_currentZoom: number): void {
         for (const handle of this.handles.values()) {
             if (handle.kind !== 'imagery') continue;
-            const maxLevel = handle.maxLevel;
-            if (typeof maxLevel === 'number' && isFinite(maxLevel)) {
-                const shouldHide = currentZoom > maxLevel;
-                if (handle.imageryLayer.show === shouldHide) {
-                    handle.imageryLayer.show = !shouldHide;
-                }
-                const provider = handle.imageryLayer?.imageryProvider;
-                if (provider && typeof provider.requestImage === 'function' && !shouldHide) {
-                    provider.requestImage = provider.requestImage.bind(provider);
-                }
-                if (handle.imageryLayer?.imageryProvider && typeof handle.imageryLayer.imageryProvider._requestImage === 'undefined') {
-                    handle.imageryLayer.imageryProvider._requestImage = handle.imageryLayer.imageryProvider.requestImage;
-                }
-                if (shouldHide && handle.imageryLayer?.imageryProvider) {
-                    handle.imageryLayer.imageryProvider.requestImage = () => undefined;
-                } else if (!shouldHide && handle.imageryLayer?.imageryProvider?._requestImage) {
-                    handle.imageryLayer.imageryProvider.requestImage = handle.imageryLayer.imageryProvider._requestImage;
-                }
+            // Keep imagery visible beyond source max level; tile requests are clamped in enforceMaxLevel.
+            if (handle.imageryLayer?.show === false) {
+                handle.imageryLayer.show = true;
             }
         }
     }
@@ -277,7 +276,7 @@ export class MapLayerService implements ILayerService {
         const circleColor = toCssColor(circlePaint['circle-color'], '#FF5722');
         const circleOpacity = toNumber(circlePaint['circle-opacity'], 0.8);
         const circleRadius = toNumber(circlePaint['circle-radius'], 6);
-        const circleStrokeColor = toCssColor(circlePaint['circle-stroke-color'], '#FFFFFF');
+        const circleStrokeColor = toCssColor(circlePaint['circle-stroke-color'], lineColor);
         const circleStrokeWidth = toNumber(circlePaint['circle-stroke-width'], 1);
 
         const lineColor = toCssColor(linePaint['line-color'], '#3388ff');
@@ -307,6 +306,23 @@ export class MapLayerService implements ILayerService {
                     entity.ellipse.material = Cesium.Color.fromCssColorString(circleColor).withAlpha(circleOpacity);
                     entity.ellipse.outline = true;
                     entity.ellipse.outlineColor = Cesium.Color.fromCssColorString(circleStrokeColor).withAlpha(1);
+
+                    // Cesium can skip ellipse outlines when clamped to terrain; draw a clamped ring polyline.
+                    const lon = Cesium.Math.toDegrees(carto.longitude);
+                    const ringLonLat = buildCircleOutlineLonLat(lon, lat, radiusMeters, 64);
+                    const ringPositions = ringLonLat.map(([ringLon, ringLat]) =>
+                        Cesium.Cartesian3.fromDegrees(ringLon, ringLat, 0)
+                    );
+                    if (!entity.polyline) {
+                        entity.polyline = new Cesium.PolylineGraphics();
+                    }
+                    entity.polyline.positions = ringPositions;
+                    entity.polyline.width = Math.max(1, circleStrokeWidth);
+                    entity.polyline.material = Cesium.Color.fromCssColorString(circleStrokeColor).withAlpha(1);
+                    if ('clampToGround' in entity.polyline) {
+                        entity.polyline.clampToGround = true;
+                    }
+
                     if (Cesium.HeightReference?.CLAMP_TO_GROUND) {
                         entity.ellipse.heightReference = Cesium.HeightReference.CLAMP_TO_GROUND;
                     }

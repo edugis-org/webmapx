@@ -42,6 +42,16 @@ export interface LayerSpec {
 }
 
 /**
+ * Optional insertion hints for layer ordering.
+ */
+export interface LayerInsertOptions {
+    /** Insert the new layer before this existing layer id. */
+    beforeLayerId?: string;
+    /** Insert the new layer after this existing layer id. */
+    afterLayerId?: string;
+}
+
+/**
  * Interface for core map capabilities (e.g., controlling position and state).
  * This is implemented by the concrete MapLibreAdapter, OpenLayersAdapter, etc.
  */
@@ -71,7 +81,7 @@ export interface IMapCore {
     /** Gets the current zoom level. */
     getZoom(): number;
 
-    addLayer(layer: any): void;
+    addLayer(layer: any, options?: LayerInsertOptions): void;
     removeLayer(id: string): void;
     addSource(id: string, config: any): void;
     removeSource(id: string): void;
@@ -223,7 +233,7 @@ export interface IMap {
 
     // ===== Native Layer/Source Management =====
     /** Adds a layer object to the map. */
-    addLayer(layer: any): void;
+    addLayer(layer: any, options?: LayerInsertOptions): void;
 
     /** Adds a native source to the map. */
     addSource(id: string, config: any): void;

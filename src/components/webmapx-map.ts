@@ -55,7 +55,13 @@ export class WebmapxMapElement extends HTMLElement {
 
     private handleAddLayerEvent(e: CustomEvent) {
         if (this.adapter) {
-        this.adapter.addLayer(e.detail);
+      const detail = (e.detail ?? {}) as Record<string, unknown>;
+      const { beforeLayerId, afterLayerId, ...layer } = detail;
+      const options = {
+        ...(typeof beforeLayerId === 'string' ? { beforeLayerId } : {}),
+        ...(typeof afterLayerId === 'string' ? { afterLayerId } : {}),
+      };
+      this.adapter.addLayer(layer, Object.keys(options).length > 0 ? options : undefined);
         }
     }
 
@@ -400,7 +406,11 @@ export class WebmapxMapElement extends HTMLElement {
     const layer = catalog.layers.find((entry) => entry.id === layerId);
     if (!layer) return null;
 
-    const sourceIds = Array.from(new Set(layer.layerset.map((styleLayer) => styleLayer.source)));
+    const sourceIds = Array.from(new Set(
+      layer.layerset
+        .map((styleLayer) => styleLayer.source)
+        .filter((source): source is string => typeof source === 'string' && source.length > 0)
+    ));
     const sources = catalog.sources.filter((source) => sourceIds.includes(source.id));
     return { layer, sources };
   }
