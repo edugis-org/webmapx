@@ -100,6 +100,8 @@ export class MapCoreService implements IMapCore {
     private sourceState = new Map<string, CesiumRuntimeSourceState>();
     private minZoom?: number;
     private maxZoom?: number;
+    private minPitch = 0;
+    private maxPitch = 85;
     private isClamping = false;
     private lastCenter: [number, number] = [0, 0];
     private lastStyledZoom: number | null = null;
@@ -110,7 +112,7 @@ export class MapCoreService implements IMapCore {
 
     public initialize(
         containerId: string,
-        options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; styleUrl?: string; style?: MapStyle }
+        options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; styleUrl?: string; style?: MapStyle }
     ): void {
         const Cesium = getCesium();
         if (!Cesium) {
@@ -122,6 +124,11 @@ export class MapCoreService implements IMapCore {
         const target = this.resolveContainer(containerId);
         this.minZoom = options?.minZoom;
         this.maxZoom = options?.maxZoom;
+        this.minPitch = typeof options?.minPitch === 'number' ? Math.max(0, Math.min(85, options.minPitch)) : 0;
+        this.maxPitch = typeof options?.maxPitch === 'number' ? Math.max(0, Math.min(85, options.maxPitch)) : 85;
+        if (this.minPitch > this.maxPitch) {
+            this.minPitch = this.maxPitch;
+        }
 
         const creditContainer = document.createElement('div');
         creditContainer.style.display = 'none';
@@ -227,7 +234,7 @@ export class MapCoreService implements IMapCore {
         const center = this.computeViewportCenter();
         if (!center) return;
         const bearing = this.getBearing();
-        const clampedPitch = Math.max(0, Math.min(89, pitch));
+        const clampedPitch = Math.max(this.minPitch, Math.min(this.maxPitch, pitch));
         this.applyHeadingPitch(center, bearing, clampedPitch);
     }
 

@@ -19,18 +19,19 @@ export interface ValidationResult {
 
 // Known keys for each config section
 const KNOWN_KEYS = {
-  root: ['version', 'project', 'map', 'catalog', 'library', 'state', 'ui', 'tools'],
-  map: ['label', 'center', 'zoom', 'minZoom', 'maxZoom', 'type', 'style', 'styleUrl'],
+  root: ['version', 'project', 'map', 'runtimeMap', 'catalog', 'library', 'state', 'ui', 'tools'],
+  map: ['label', 'center', 'zoom', 'minZoom', 'maxZoom', 'minPitch', 'maxPitch', 'type', 'style', 'styleUrl'],
+  runtimeMap: ['minZoom', 'maxZoom', 'minPitch', 'maxPitch'],
   catalog: ['label', 'tree', 'sources', 'layers'],
-  treeNode: ['label', 'layerId', 'checked', 'expanded', 'children'],
-  state: ['activeBackground', 'activeLayers'],
+  treeNode: ['label', 'layerId', 'selectionMode', 'selectionGroup', 'allowNone', 'stackOrder', 'checked', 'expanded', 'children'],
+  state: ['activeBackground', 'activeLayers', 'activeExclusiveLayers'],
   stateLayer: ['id', 'ref', 'layerId', 'visible', 'timeState', 'paint', 'layout', 'metadata', 'source', 'type'],
   sourceBase: ['id', 'type', 'attribution'],
-  sourceRaster: ['service', 'url', 'tileSize', 'minZoom', 'maxZoom', 'bounds', 'scheme', 'volatile', 'attribution'],
+  sourceRaster: ['service', 'url', 'tileSize', 'minzoom', 'maxzoom', 'bounds', 'scheme', 'volatile', 'attribution'],
   sourceGeojson: ['data', 'attribution', 'minzoom', 'maxzoom', 'bounds', 'buffer', 'tolerance', 'cluster', 'clusterRadius', 'clusterMaxZoom', 'lineMetrics', 'generateId'],
   sourceVector: ['url', 'tiles', 'bounds', 'scheme', 'minzoom', 'maxzoom', 'attribution', 'volatile'],
-  layer: ['id', 'layerset', 'title', 'metadata'],
-  styleLayer: ['id', 'type', 'source', 'sourceLayer', 'source-layer', 'minzoom', 'maxzoom', 'minZoom', 'maxZoom', 'paint', 'layout', 'filter'],
+  layer: ['id', 'layerset', 'fallbackLayerId', 'title', 'metadata'],
+  styleLayer: ['id', 'type', 'source', 'sourceLayer', 'source-layer', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
   tool: ['enabled'],
 };
 
@@ -38,6 +39,7 @@ const VALID_MAP_TYPES = ['maplibre', 'openlayers', 'leaflet', 'cesium'];
 const VALID_SOURCE_TYPES = ['raster', 'geojson', 'vector'];
 const VALID_RASTER_SERVICES = ['xyz', 'wms', 'wmts'];
 const VALID_LAYER_TYPES = ['background', 'fill', 'line', 'circle', 'symbol', 'raster', 'fill-extrusion'];
+const VALID_TREE_SELECTION_MODES = ['multiple', 'single'];
 
 /**
  * Validates a WebMapX configuration object.
@@ -58,6 +60,9 @@ export function validateConfig(config: unknown): ValidationResult {
 
   // Validate map section
   validateMapSection(cfg.map, errors, warnings);
+
+  // Validate optional runtime map section
+  validateRuntimeMapSection(cfg.runtimeMap, errors, warnings);
 
   // Validate catalog section
   const { sourceIds, layerIds } = validateCatalogSection(cfg.catalog, errors, warnings);
@@ -134,9 +139,13 @@ function validateMapSection(
 
   if (m.minZoom !== undefined && (typeof m.minZoom !== 'number' || m.minZoom < 0 || m.minZoom > 24)) {
     errors.push({ severity: 'error', path: `${path}.minZoom`, message: '"minZoom" must be a number between 0 and 24' });
+  } else if (m.minZoom !== undefined) {
+    warnings.push({ severity: 'warning', path: `${path}.minZoom`, message: '"map.minZoom" is deprecated; use "runtimeMap.minZoom"' });
   }
   if (m.maxZoom !== undefined && (typeof m.maxZoom !== 'number' || m.maxZoom < 0 || m.maxZoom > 24)) {
     errors.push({ severity: 'error', path: `${path}.maxZoom`, message: '"maxZoom" must be a number between 0 and 24' });
+  } else if (m.maxZoom !== undefined) {
+    warnings.push({ severity: 'warning', path: `${path}.maxZoom`, message: '"map.maxZoom" is deprecated; use "runtimeMap.maxZoom"' });
   }
   if (
     typeof m.minZoom === 'number' &&
@@ -144,6 +153,76 @@ function validateMapSection(
     m.minZoom > m.maxZoom
   ) {
     errors.push({ severity: 'error', path: `${path}.minZoom`, message: '"minZoom" cannot be greater than "maxZoom"' });
+  }
+
+  if (m.minPitch !== undefined && (typeof m.minPitch !== 'number' || m.minPitch < 0 || m.minPitch > 85)) {
+    errors.push({ severity: 'error', path: `${path}.minPitch`, message: '"minPitch" must be a number between 0 and 85' });
+  } else if (m.minPitch !== undefined) {
+    warnings.push({ severity: 'warning', path: `${path}.minPitch`, message: '"map.minPitch" is deprecated; use "runtimeMap.minPitch"' });
+  }
+  if (m.maxPitch !== undefined && (typeof m.maxPitch !== 'number' || m.maxPitch < 0 || m.maxPitch > 85)) {
+    errors.push({ severity: 'error', path: `${path}.maxPitch`, message: '"maxPitch" must be a number between 0 and 85' });
+  } else if (m.maxPitch !== undefined) {
+    warnings.push({ severity: 'warning', path: `${path}.maxPitch`, message: '"map.maxPitch" is deprecated; use "runtimeMap.maxPitch"' });
+  }
+  if (
+    typeof m.minPitch === 'number' &&
+    typeof m.maxPitch === 'number' &&
+    m.minPitch > m.maxPitch
+  ) {
+    errors.push({ severity: 'error', path: `${path}.minPitch`, message: '"minPitch" cannot be greater than "maxPitch"' });
+  }
+}
+
+function validateRuntimeMapSection(
+  runtimeMap: unknown,
+  errors: ValidationMessage[],
+  warnings: ValidationMessage[]
+): void {
+  const path = 'runtimeMap';
+
+  if (runtimeMap === undefined) {
+    return;
+  }
+
+  if (!isObject(runtimeMap)) {
+    errors.push({ severity: 'error', path, message: '"runtimeMap" must be an object' });
+    return;
+  }
+
+  const r = runtimeMap as Record<string, unknown>;
+  checkUnknownKeys(r, KNOWN_KEYS.runtimeMap, path, warnings);
+
+  if (r.minZoom !== undefined && (typeof r.minZoom !== 'number' || r.minZoom < 0 || r.minZoom > 24)) {
+    errors.push({ severity: 'error', path: `${path}.minZoom`, message: '"minZoom" must be a number between 0 and 24' });
+  }
+
+  if (r.maxZoom !== undefined && (typeof r.maxZoom !== 'number' || r.maxZoom < 0 || r.maxZoom > 24)) {
+    errors.push({ severity: 'error', path: `${path}.maxZoom`, message: '"maxZoom" must be a number between 0 and 24' });
+  }
+
+  if (
+    typeof r.minZoom === 'number' &&
+    typeof r.maxZoom === 'number' &&
+    r.minZoom > r.maxZoom
+  ) {
+    errors.push({ severity: 'error', path: `${path}.minZoom`, message: '"minZoom" cannot be greater than "maxZoom"' });
+  }
+
+  if (r.minPitch !== undefined && (typeof r.minPitch !== 'number' || r.minPitch < 0 || r.minPitch > 85)) {
+    errors.push({ severity: 'error', path: `${path}.minPitch`, message: '"minPitch" must be a number between 0 and 85' });
+  }
+
+  if (r.maxPitch !== undefined && (typeof r.maxPitch !== 'number' || r.maxPitch < 0 || r.maxPitch > 85)) {
+    errors.push({ severity: 'error', path: `${path}.maxPitch`, message: '"maxPitch" must be a number between 0 and 85' });
+  }
+
+  if (
+    typeof r.minPitch === 'number' &&
+    typeof r.maxPitch === 'number' &&
+    r.minPitch > r.maxPitch
+  ) {
+    errors.push({ severity: 'error', path: `${path}.minPitch`, message: '"minPitch" cannot be greater than "maxPitch"' });
   }
 }
 
@@ -185,6 +264,24 @@ function validateCatalogSection(
     errors.push({ severity: 'error', path: `${path}.layers`, message: '"layers" must be an array' });
   } else {
     validateLayers(c.layers, `${path}.layers`, sourceIds, layerIds, errors, warnings);
+
+    // Validate layer-level fallback references after collecting all layer ids.
+    c.layers.forEach((layer, index) => {
+      if (!isObject(layer)) {
+        return;
+      }
+
+      const l = layer as Record<string, unknown>;
+      const layerPath = `${path}.layers[${index}]`;
+      if (l.fallbackLayerId !== undefined && typeof l.fallbackLayerId !== 'string') {
+        errors.push({ severity: 'error', path: `${layerPath}.fallbackLayerId`, message: '"fallbackLayerId" must be a string' });
+        return;
+      }
+
+      if (typeof l.fallbackLayerId === 'string' && !layerIds.has(l.fallbackLayerId)) {
+        errors.push({ severity: 'error', path: `${layerPath}.fallbackLayerId`, message: `Layer "${l.fallbackLayerId}" not found in layers` });
+      }
+    });
   }
 
   // Validate tree (cross-references layers)
@@ -223,44 +320,58 @@ function validateStateSection(
   }
 
   if (s.activeLayers === undefined) {
-    return;
-  }
-
-  if (!Array.isArray(s.activeLayers)) {
+    // continue to validate activeExclusiveLayers below
+  } else if (!Array.isArray(s.activeLayers)) {
     errors.push({ severity: 'error', path: `${path}.activeLayers`, message: '"activeLayers" must be an array' });
-    return;
+  } else {
+    s.activeLayers.forEach((entry, index) => {
+      const entryPath = `${path}.activeLayers[${index}]`;
+
+      if (typeof entry === 'string') {
+        if (!layerIds.has(entry)) {
+          errors.push({ severity: 'error', path: entryPath, message: `Layer "${entry}" not found in layers` });
+        }
+        return;
+      }
+
+      if (!isObject(entry)) {
+        errors.push({ severity: 'error', path: entryPath, message: 'Active layer entry must be a string ref or object' });
+        return;
+      }
+
+      const e = entry as Record<string, unknown>;
+      checkUnknownKeys(e, KNOWN_KEYS.stateLayer, entryPath, warnings);
+
+      const ref = typeof e.ref === 'string'
+        ? e.ref
+        : (typeof e.layerId === 'string' ? e.layerId : null);
+
+      if (ref && !layerIds.has(ref)) {
+        errors.push({ severity: 'error', path: `${entryPath}.ref`, message: `Layer "${ref}" not found in layers` });
+      }
+
+      if (e.visible !== undefined && typeof e.visible !== 'boolean') {
+        errors.push({ severity: 'error', path: `${entryPath}.visible`, message: '"visible" must be a boolean' });
+      }
+    });
   }
 
-  s.activeLayers.forEach((entry, index) => {
-    const entryPath = `${path}.activeLayers[${index}]`;
-
-    if (typeof entry === 'string') {
-      if (!layerIds.has(entry)) {
-        errors.push({ severity: 'error', path: entryPath, message: `Layer "${entry}" not found in layers` });
-      }
-      return;
+  if (s.activeExclusiveLayers !== undefined) {
+    if (!isObject(s.activeExclusiveLayers)) {
+      errors.push({ severity: 'error', path: `${path}.activeExclusiveLayers`, message: '"activeExclusiveLayers" must be an object' });
+    } else {
+      Object.entries(s.activeExclusiveLayers).forEach(([groupId, layerId]) => {
+        const groupPath = `${path}.activeExclusiveLayers.${groupId}`;
+        if (typeof layerId !== 'string' || layerId.length === 0) {
+          errors.push({ severity: 'error', path: groupPath, message: 'Exclusive group value must be a non-empty layer id string' });
+          return;
+        }
+        if (!layerIds.has(layerId)) {
+          errors.push({ severity: 'error', path: groupPath, message: `Layer "${layerId}" not found in layers` });
+        }
+      });
     }
-
-    if (!isObject(entry)) {
-      errors.push({ severity: 'error', path: entryPath, message: 'Active layer entry must be a string ref or object' });
-      return;
-    }
-
-    const e = entry as Record<string, unknown>;
-    checkUnknownKeys(e, KNOWN_KEYS.stateLayer, entryPath, warnings);
-
-    const ref = typeof e.ref === 'string'
-      ? e.ref
-      : (typeof e.layerId === 'string' ? e.layerId : null);
-
-    if (ref && !layerIds.has(ref)) {
-      errors.push({ severity: 'error', path: `${entryPath}.ref`, message: `Layer "${ref}" not found in layers` });
-    }
-
-    if (e.visible !== undefined && typeof e.visible !== 'boolean') {
-      errors.push({ severity: 'error', path: `${entryPath}.visible`, message: '"visible" must be a boolean' });
-    }
-  });
+  }
 }
 
 function validateSources(
@@ -317,6 +428,24 @@ function validateSources(
       }
       if (s.tileSize !== undefined && (typeof s.tileSize !== 'number' || s.tileSize <= 0)) {
         errors.push({ severity: 'error', path: `${path}.tileSize`, message: '"tileSize" must be a positive number' });
+      }
+
+      if (s.minZoom !== undefined) {
+        errors.push({ severity: 'error', path: `${path}.minZoom`, message: '"minZoom" is not supported; use "minzoom" (Mapbox/MapLibre style spec)' });
+      }
+      if (s.maxZoom !== undefined) {
+        errors.push({ severity: 'error', path: `${path}.maxZoom`, message: '"maxZoom" is not supported; use "maxzoom" (Mapbox/MapLibre style spec)' });
+      }
+      const minZoom = s.minzoom;
+      const maxZoom = s.maxzoom;
+      if (minZoom !== undefined && (typeof minZoom !== 'number' || minZoom < 0 || minZoom > 24)) {
+        errors.push({ severity: 'error', path: `${path}.minzoom`, message: '"minzoom" must be a number between 0 and 24' });
+      }
+      if (maxZoom !== undefined && (typeof maxZoom !== 'number' || maxZoom < 0 || maxZoom > 24)) {
+        errors.push({ severity: 'error', path: `${path}.maxzoom`, message: '"maxzoom" must be a number between 0 and 24' });
+      }
+      if (typeof minZoom === 'number' && typeof maxZoom === 'number' && minZoom > maxZoom) {
+        errors.push({ severity: 'error', path: `${path}.minzoom`, message: '"minzoom" cannot be greater than "maxzoom"' });
       }
     } else if (s.type === 'geojson') {
       knownKeys.push(...KNOWN_KEYS.sourceGeojson);
@@ -398,6 +527,13 @@ function validateLayerset(
 
     const sl = styleLayer as Record<string, unknown>;
     checkUnknownKeys(sl, KNOWN_KEYS.styleLayer, path, warnings);
+
+    if (sl.minZoom !== undefined) {
+      errors.push({ severity: 'error', path: `${path}.minZoom`, message: '"minZoom" is not supported; use "minzoom" (Mapbox/MapLibre style spec)' });
+    }
+    if (sl.maxZoom !== undefined) {
+      errors.push({ severity: 'error', path: `${path}.maxZoom`, message: '"maxZoom" is not supported; use "maxzoom" (Mapbox/MapLibre style spec)' });
+    }
 
     // Required: type
     if (!VALID_LAYER_TYPES.includes(sl.type as string)) {
@@ -507,6 +643,42 @@ function validateTreeNode(
   }
   if (n.expanded !== undefined && typeof n.expanded !== 'boolean') {
     errors.push({ severity: 'error', path: `${path}.expanded`, message: '"expanded" must be a boolean' });
+  }
+
+  if (n.selectionMode !== undefined && !VALID_TREE_SELECTION_MODES.includes(n.selectionMode as string)) {
+    errors.push({
+      severity: 'error',
+      path: `${path}.selectionMode`,
+      message: `"selectionMode" must be one of: ${VALID_TREE_SELECTION_MODES.join(', ')}`,
+    });
+  }
+
+  if (n.selectionGroup !== undefined && typeof n.selectionGroup !== 'string') {
+    errors.push({ severity: 'error', path: `${path}.selectionGroup`, message: '"selectionGroup" must be a string' });
+  }
+
+  if (n.allowNone !== undefined && typeof n.allowNone !== 'boolean') {
+    errors.push({ severity: 'error', path: `${path}.allowNone`, message: '"allowNone" must be a boolean' });
+  }
+
+  if (n.stackOrder !== undefined && (typeof n.stackOrder !== 'number' || !Number.isFinite(n.stackOrder))) {
+    errors.push({ severity: 'error', path: `${path}.stackOrder`, message: '"stackOrder" must be a finite number' });
+  }
+
+  if (n.selectionMode === 'single' && !hasChildren) {
+    warnings.push({
+      severity: 'warning',
+      path: `${path}.selectionMode`,
+      message: '"selectionMode: single" is typically used on group nodes with children',
+    });
+  }
+
+  if (n.allowNone !== undefined && n.selectionMode !== 'single') {
+    warnings.push({
+      severity: 'warning',
+      path: `${path}.allowNone`,
+      message: '"allowNone" only applies when "selectionMode" is "single"',
+    });
   }
 }
 

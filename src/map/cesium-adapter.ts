@@ -94,7 +94,7 @@ export class CesiumAdapter implements IMap {
 
     // ===== Delegation Methods =====
 
-    initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; styleUrl?: string; style?: MapStyle }): void {
+    initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; styleUrl?: string; style?: MapStyle }): void {
         this.core.initialize(containerId, options);
     }
 

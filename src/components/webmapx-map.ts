@@ -426,11 +426,6 @@ export class WebmapxMapElement extends HTMLElement {
     const activeLayers = this.configInstance?.state?.activeLayers ?? [];
     const refs: string[] = [];
 
-    const activeBackground = this.configInstance?.state?.activeBackground;
-    if (typeof activeBackground === 'string' && activeBackground.length > 0) {
-      refs.push(activeBackground);
-    }
-
     for (const entry of activeLayers) {
       if (typeof entry === 'string') {
         refs.push(entry);
@@ -886,6 +881,10 @@ export class WebmapxMapElement extends HTMLElement {
   }
 
   private getConfiguredFallbackLayerId(layer: LayerConfig): string | null {
+    if (typeof layer.fallbackLayerId === 'string' && layer.fallbackLayerId.length > 0) {
+      return layer.fallbackLayerId;
+    }
+
     const metadata = this.getLayerMetadata(layer);
     const fallbackLayerId = metadata?.fallbackLayerId;
     return typeof fallbackLayerId === 'string' && fallbackLayerId.length > 0 ? fallbackLayerId : null;

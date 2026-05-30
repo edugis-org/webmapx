@@ -6,7 +6,7 @@ import '@shoelace-style/shoelace/dist/components/tree/tree.js';
 import '@shoelace-style/shoelace/dist/components/tree-item/tree-item.js';
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 
-import type { TreeNodeConfig } from '../config/types';
+import type { TreeNodeConfig, TreeSelectionMode } from '../config/types';
 import type { WebmapxMapElement } from './webmapx-map';
 import type { IMap } from '../map/IMapInterfaces';
 import type { LayerAddEvent, LayerRemoveEvent } from '../store/map-events';
@@ -15,9 +15,28 @@ export interface LayerNode {
     label: string;
     children?: LayerNode[];
     layerId?: string;
+    selectionMode?: TreeSelectionMode;
+    selectionGroup?: string;
+    allowNone?: boolean;
+    stackOrder?: number;
     checked?: boolean;
     expanded?: boolean;
 }
+
+type SelectionContext = {
+    selectionMode: TreeSelectionMode;
+    selectionGroup: string | null;
+    allowNone: boolean;
+    stackOrder?: number;
+};
+
+type LayerCheckDetail = {
+    layerInformation: { layer: unknown; sources: unknown[] };
+    checked: boolean;
+    selectionGroup?: string;
+    selectionMode?: TreeSelectionMode;
+    stackOrder?: number;
+};
 
 /**
  * Layer tree component that displays a hierarchical tree of map layers.
@@ -81,6 +100,19 @@ export class WebmapxLayerTree extends LitElement {
             line-height: 1.2;
             padding-left: 0.375rem;
         }
+        .layer-radio {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            font: inherit;
+            color: inherit;
+            cursor: pointer;
+        }
+        .layer-radio input[type='radio'] {
+            width: 0.875rem;
+            height: 0.875rem;
+            margin: 0;
+        }
     `;
 
     connectedCallback(): void {
@@ -110,7 +142,6 @@ export class WebmapxLayerTree extends LitElement {
         const existingConfig = this.mapHost?.catalogConfig;
         if (existingConfig?.tree) {
             this.configTree = existingConfig.tree;
-            this.syncCheckedLayersFromStore();
         }
 
         // Listen for future config changes
@@ -119,7 +150,9 @@ export class WebmapxLayerTree extends LitElement {
             const tree = detail.config?.catalog?.tree;
             if (tree) {
                 this.configTree = tree;
-                this.syncCheckedLayersFromStore();
+                if (this.adapter) {
+                    this.syncCheckedLayersFromStore();
+                }
             }
         };
 
@@ -201,50 +234,97 @@ export class WebmapxLayerTree extends LitElement {
         this.setLayerCheckedState(layerId, false);
     }
 
-    private setLayerCheckedState(layerId: string, checked: boolean): void {
-        const updateNode = (nodes: LayerNode[]): boolean => {
-            for (const node of nodes) {
-                if (node.layerId === layerId) {
-                    node.checked = checked;
-                    return true;
-                }
-                if (node.children && updateNode(node.children)) {
-                    return true;
-                }
-            }
-            return false;
-        };
+    private mapTreeNodes(
+        nodes: LayerNode[],
+        mapper: (node: LayerNode) => LayerNode,
+    ): LayerNode[] {
+        let changed = false;
 
-        if (updateNode(this.effectiveTree)) {
-            this.requestUpdate();
+        const next = nodes.map((node) => {
+            const mapped = mapper(node);
+            if (mapped !== node) {
+                changed = true;
+            }
+            return mapped;
+        });
+
+        return changed ? next : nodes;
+    }
+
+    private updateEffectiveTree(mapper: (node: LayerNode) => LayerNode): void {
+        if (this.tree.length > 0) {
+            const next = this.mapTreeNodes(this.tree, mapper);
+            if (next !== this.tree) {
+                this.tree = next;
+            }
+            return;
         }
 
-        // Immediately sync any rendered checkbox in the shadow DOM
-        const checkboxes = this.shadowRoot?.querySelectorAll<HTMLInputElement>('sl-checkbox[data-layer-id]');
-        checkboxes?.forEach(cb => {
-            if ((cb as any).dataset?.layerId === layerId) {
-                (cb as any).checked = checked;
+        const source = this.configTree as LayerNode[];
+        const next = this.mapTreeNodes(source, mapper);
+        if (next !== source) {
+            this.configTree = next as unknown as TreeNodeConfig[];
+        }
+    }
+
+    private setLayerCheckedInNode(node: LayerNode, layerId: string, checked: boolean): LayerNode {
+        let changed = false;
+        let nextChildren = node.children;
+
+        if (node.children?.length) {
+            nextChildren = this.mapTreeNodes(node.children, (child) => this.setLayerCheckedInNode(child, layerId, checked));
+            if (nextChildren !== node.children) {
+                changed = true;
             }
-        });
+        }
+
+        if (node.layerId === layerId && node.checked !== checked) {
+            changed = true;
+            return { ...node, checked, ...(nextChildren ? { children: nextChildren } : {}) };
+        }
+
+        if (changed) {
+            return { ...node, ...(nextChildren ? { children: nextChildren } : {}) };
+        }
+
+        return node;
+    }
+
+    private setLayerCheckedState(layerId: string, checked: boolean): void {
+        this.updateEffectiveTree((node) => this.setLayerCheckedInNode(node, layerId, checked));
     }
 
     private syncCheckedLayersFromStore(): void {
         const activeLayerIds = this.adapter?.store.getState().visibleLayers ?? [];
         const active = new Set(activeLayerIds);
 
-        const syncNodes = (nodes: LayerNode[]): void => {
-            for (const node of nodes) {
-                if (node.layerId) {
-                    node.checked = active.has(node.layerId);
-                }
-                if (node.children?.length) {
-                    syncNodes(node.children);
+        const syncNode = (node: LayerNode): LayerNode => {
+            let changed = false;
+            let nextChildren = node.children;
+
+            if (node.children?.length) {
+                nextChildren = this.mapTreeNodes(node.children, syncNode);
+                if (nextChildren !== node.children) {
+                    changed = true;
                 }
             }
+
+            if (node.layerId) {
+                const nextChecked = active.has(node.layerId);
+                if (node.checked !== nextChecked) {
+                    changed = true;
+                    return { ...node, checked: nextChecked, ...(nextChildren ? { children: nextChildren } : {}) };
+                }
+            }
+
+            if (changed) {
+                return { ...node, ...(nextChildren ? { children: nextChildren } : {}) };
+            }
+
+            return node;
         };
 
-        syncNodes(this.effectiveTree);
-        this.requestUpdate();
+        this.updateEffectiveTree(syncNode);
     }
 
     /** Unsubscribe from config events */
@@ -264,48 +344,22 @@ export class WebmapxLayerTree extends LitElement {
         return this.configTree as LayerNode[];
     }
 
-    renderNode(node: LayerNode): TemplateResult {
-        if (node.children && node.children.length > 0) {
-            return html`
-                <sl-tree-item ?expanded=${node.expanded}>
-                    ${node.label}
-                    ${node.children.map(child => this.renderNode(child))}
-                </sl-tree-item>
-            `;
-        } else {
-            // Leaf node with checkbox
-            return html`
-                <sl-tree-item>
-                    <sl-checkbox
-                        ?checked=${node.checked}
-                        data-layer-id=${node.layerId ?? ''}
-                        @sl-change=${(e: Event) => this.handleCheck(e, node)}
-                    >
-                        ${node.label}
-                    </sl-checkbox>
-                </sl-tree-item>
-            `;
-        }
+    private getChildSelectionContext(node: LayerNode, parentContext?: SelectionContext): SelectionContext {
+        return {
+            selectionMode: node.selectionMode ?? parentContext?.selectionMode ?? 'multiple',
+            selectionGroup: node.selectionGroup ?? parentContext?.selectionGroup ?? null,
+            allowNone: node.allowNone ?? parentContext?.allowNone ?? false,
+            stackOrder: node.stackOrder ?? parentContext?.stackOrder,
+        };
     }
 
-    handleCheck(e: Event, node: LayerNode) {
-        const checkbox = e.target as HTMLInputElement;
-        const isChecked = checkbox.checked;
-        node.checked = isChecked;
+    private getLayerInformationById(layerId: string): { layer: unknown; sources: unknown[] } | null {
+        const catalog = this.mapHost?.catalogConfig;
+        if (!catalog) return null;
 
-        // Only handle leaf nodes with a layerId
-        if (!node.layerId) return;
+        const layer = catalog.layers.find(l => l.id === layerId);
+        if (!layer) return null;
 
-        // Look up catalog from parent map
-        const mapHost = this.mapHost;
-        const catalog = mapHost?.catalogConfig;
-        if (!catalog) return;
-
-        // Find the layer config
-        const layer = catalog.layers.find(l => l.id === node.layerId);
-        if (!layer) return;
-
-        // Find all unique source IDs referenced by the layer's layerset
         const sourceIds = Array.from(new Set(
             layer.layerset
                 .map(sl => sl.source)
@@ -313,15 +367,142 @@ export class WebmapxLayerTree extends LitElement {
         ));
         const sources = catalog.sources.filter(s => sourceIds.includes(s.id));
 
-        // Compose the layerInformation object
-        const layerInformation = { layer, sources };
+        return { layer, sources };
+    }
 
-        // Dispatch a custom event for the map to handle
+    private dispatchLayerCheck(detail: LayerCheckDetail): void {
         this.dispatchEvent(new CustomEvent('add-layer', {
-            detail: { layerInformation, checked: isChecked },
+            detail,
             bubbles: true,
             composed: true
         }));
+    }
+
+    private getExclusiveGroupKey(node: LayerNode, context: SelectionContext): string | null {
+        if (context.selectionMode !== 'single') {
+            return null;
+        }
+
+        return context.selectionGroup ?? (typeof node.layerId === 'string' ? `layer:${node.layerId}` : null);
+    }
+
+    private clearExclusiveSelection(
+        nodes: LayerNode[],
+        activeLayerId: string,
+        groupKey: string,
+        context: SelectionContext,
+    ): string[] {
+        const removedLayerIds: string[] = [];
+
+        const walk = (entries: LayerNode[], currentContext?: SelectionContext): void => {
+            for (const entry of entries) {
+                const nextContext = this.getChildSelectionContext(entry, currentContext);
+                if (entry.children?.length) {
+                    walk(entry.children, nextContext);
+                    continue;
+                }
+
+                if (!entry.layerId || entry.layerId === activeLayerId) {
+                    continue;
+                }
+
+                const entryGroupKey = this.getExclusiveGroupKey(entry, nextContext);
+                if (entryGroupKey !== groupKey || entry.checked !== true) {
+                    continue;
+                }
+                removedLayerIds.push(entry.layerId);
+            }
+        };
+
+        walk(nodes, context);
+        return removedLayerIds;
+    }
+
+    renderNode(node: LayerNode, context?: SelectionContext): TemplateResult {
+        const nodeContext = this.getChildSelectionContext(node, context);
+        if (node.children && node.children.length > 0) {
+            return html`
+                <sl-tree-item ?expanded=${node.expanded}>
+                    ${node.label}
+                    ${node.children.map(child => this.renderNode(child, nodeContext))}
+                </sl-tree-item>
+            `;
+        } else {
+            const isExclusive = nodeContext.selectionMode === 'single';
+            const selectionGroup = this.getExclusiveGroupKey(node, nodeContext);
+
+            return html`
+                <sl-tree-item>
+                    ${isExclusive ? html`
+                        <label class="layer-radio">
+                            <input
+                                type="radio"
+                                ?checked=${node.checked}
+                                data-layer-id=${node.layerId ?? ''}
+                                data-selection-group=${selectionGroup ?? ''}
+                                @change=${(e: Event) => this.handleCheck(e, node, nodeContext)}
+                            />
+                            <span>${node.label}</span>
+                        </label>
+                    ` : html`
+                        <sl-checkbox
+                            ?checked=${node.checked}
+                            data-layer-id=${node.layerId ?? ''}
+                            @sl-change=${(e: Event) => this.handleCheck(e, node, nodeContext)}
+                        >
+                            ${node.label}
+                        </sl-checkbox>
+                    `}
+                </sl-tree-item>
+            `;
+        }
+    }
+
+    handleCheck(e: Event, node: LayerNode, context: SelectionContext) {
+        const target = e.target as EventTarget | null;
+        const isChecked = target instanceof HTMLInputElement
+            ? target.checked
+            : (target as unknown as { checked?: boolean })?.checked === true;
+
+        // Only handle leaf nodes with a layerId
+        if (!node.layerId) return;
+
+        this.setLayerCheckedState(node.layerId, isChecked);
+
+        const layerInformation = this.getLayerInformationById(node.layerId);
+        if (!layerInformation) return;
+
+        const groupKey = this.getExclusiveGroupKey(node, context);
+        if (isChecked && groupKey) {
+            const removedLayerIds = this.clearExclusiveSelection(this.effectiveTree, node.layerId, groupKey, context);
+            removedLayerIds.forEach((layerId) => {
+                this.setLayerCheckedState(layerId, false);
+                const removedLayerInfo = this.getLayerInformationById(layerId);
+                if (!removedLayerInfo) {
+                    return;
+                }
+
+                this.dispatchLayerCheck({
+                    layerInformation: removedLayerInfo,
+                    checked: false,
+                    selectionGroup: groupKey,
+                    selectionMode: 'single',
+                    ...(context.stackOrder !== undefined ? { stackOrder: context.stackOrder } : {}),
+                });
+            });
+        }
+
+        if (!isChecked && groupKey && !context.allowNone) {
+            this.setLayerCheckedState(node.layerId, true);
+            return;
+        }
+
+        this.dispatchLayerCheck({
+            layerInformation,
+            checked: isChecked,
+            ...(groupKey ? { selectionGroup: groupKey, selectionMode: 'single' as const } : {}),
+            ...(context.stackOrder !== undefined ? { stackOrder: context.stackOrder } : {}),
+        });
     }
 
     render() {

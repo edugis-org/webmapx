@@ -2,9 +2,16 @@
 
 // 0. Import setBasePath using the bare module specifier
 import { setBasePath } from '@shoelace-style/shoelace/dist/utilities/base-path.js';
+import { ReactiveElement } from 'lit';
 
 // Use Vite's resolved base URL so Shoelace assets work on root and subpath deployments.
 setBasePath(`${import.meta.env.BASE_URL}shoelace-assets/`);
+
+// Suppress noisy dev-only warning emitted by third-party Lit components.
+// This does not affect production behavior.
+if (import.meta.env.DEV) {
+    ReactiveElement.disableWarning?.('change-in-update');
+}
 
 // 1. Import configuration loader
 import { loadAppConfig, resolveMapConfig, fetchConfig } from './config/index.ts';
@@ -127,6 +134,8 @@ async function initializeMap(mapElement, appConfig) {
         zoom: mapConfig.zoom,
         minZoom: mapConfig.minZoom,
         maxZoom: mapConfig.maxZoom,
+        minPitch: mapConfig.minPitch,
+        maxPitch: mapConfig.maxPitch,
         // Use styleUrl if string, otherwise inline style object
         ...(isStyleUrl ? { styleUrl: styleConfig } : { style: styleConfig })
     };

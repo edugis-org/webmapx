@@ -180,10 +180,6 @@ export class WebmapxLayout extends LitElement {
     `;
   }
 
-  protected firstUpdated(): void {
-    this.updateAllSlotDirections();
-  }
-
   private handleSlotChange(event: Event): void {
     const slot = event.target as HTMLSlotElement | null;
     const slotName = slot?.name;
@@ -200,21 +196,6 @@ export class WebmapxLayout extends LitElement {
       ...this.slotDirections,
       [slotName]: nextDirection
     };
-  }
-
-  private updateAllSlotDirections(): void {
-    const slots = this.shadowRoot?.querySelectorAll('slot') ?? [];
-    const nextDirections = { ...this.slotDirections };
-
-    slots.forEach((slotNode) => {
-      const slot = slotNode as HTMLSlotElement;
-      if (!slot.name) {
-        return;
-      }
-      nextDirections[slot.name] = this.resolveSlotDirection(slot);
-    });
-
-    this.slotDirections = nextDirections;
   }
 
   private resolveSlotDirection(slot: HTMLSlotElement): 'vertical' | 'horizontal' {

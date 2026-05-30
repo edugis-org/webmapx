@@ -87,7 +87,7 @@ export class MapCoreService implements IMapCore {
         }
     }
 
-    public initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; styleUrl?: string; style?: MapStyle }): void {
+    public initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; styleUrl?: string; style?: MapStyle }): void {
         const center = options?.center ? [options.center[1], options.center[0]] as [number, number] : this.initialConfig.center;
         const logicalZoom = options?.zoom ?? this.initialConfig.zoom;
         const leafletZoom = Math.round(logicalZoom) + ZOOM_OFFSET;

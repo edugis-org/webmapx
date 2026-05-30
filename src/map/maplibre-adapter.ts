@@ -41,25 +41,19 @@ export class MapLibreAdapter implements IMap {
                 this.logicalLayerExecutor.bind(new MapLayerService(map, this.store));
             };
 
-            const flushWhenStyleReady = () => bindLogicalLayers();
-            if (typeof map?.isStyleLoaded === 'function' && map.isStyleLoaded()) {
-                flushWhenStyleReady();
-                return;
-            }
-
             if (typeof map?.once === 'function') {
-                map.once('load', flushWhenStyleReady);
+                map.once('load', bindLogicalLayers);
                 return;
             }
 
             // Fallback for unexpected map object shapes.
-            flushWhenStyleReady();
+            bindLogicalLayers();
         });
     }
 
     // ===== Delegation Methods =====
 
-    initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; styleUrl?: string; style?: MapStyle }): void {
+    initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; styleUrl?: string; style?: MapStyle }): void {
         this.core.initialize(containerId, options);
     }
 

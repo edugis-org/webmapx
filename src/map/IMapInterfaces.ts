@@ -68,6 +68,10 @@ export interface IMapCore {
         options?: {
             center?: [number, number];
             zoom?: number;
+            minZoom?: number;
+            maxZoom?: number;
+            minPitch?: number;
+            maxPitch?: number;
             /** URL to a MapLibre/Mapbox style JSON */
             styleUrl?: string;
             /** Inline style object (takes precedence over styleUrl) */
@@ -266,6 +270,10 @@ export interface IMap {
         options?: {
             center?: [number, number];
             zoom?: number;
+            minZoom?: number;
+            maxZoom?: number;
+            minPitch?: number;
+            maxPitch?: number;
             styleUrl?: string;
             style?: MapStyle;
         }

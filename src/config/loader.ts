@@ -1,7 +1,7 @@
 // src/config/loader.ts
 // Configuration loader with priority cascade
 
-import type { AppConfig, MapAdapterType, MapConfig } from './types.js';
+import type { AppConfig, MapAdapterType, MapConfig, RuntimeMapConfig } from './types.js';
 import { validateConfig } from './validator.js';
 
 const CONFIG_URL_PARAM = 'config';
@@ -31,6 +31,19 @@ export const DEFAULT_MAP_CONFIG: MapConfig = {
   maxZoom: 22,
   type: 'maplibre',
 };
+
+function toRuntimeMapOverrides(runtimeMap: RuntimeMapConfig | undefined): Partial<MapConfig> {
+  if (!runtimeMap) {
+    return {};
+  }
+
+  return {
+    ...(runtimeMap.minZoom !== undefined ? { minZoom: runtimeMap.minZoom } : {}),
+    ...(runtimeMap.maxZoom !== undefined ? { maxZoom: runtimeMap.maxZoom } : {}),
+    ...(runtimeMap.minPitch !== undefined ? { minPitch: runtimeMap.minPitch } : {}),
+    ...(runtimeMap.maxPitch !== undefined ? { maxPitch: runtimeMap.maxPitch } : {}),
+  };
+}
 
 /** Cache for loaded configs to avoid duplicate fetches */
 const configCache = new Map<string, AppConfig>();
@@ -65,12 +78,14 @@ function normalizeSourceMap(sourceMap: unknown): Record<string, unknown>[] {
 
 function normalizeRenderLayer(renderLayer: Record<string, unknown>, fallbackSource?: string): Record<string, unknown> {
   const source = typeof renderLayer.source === 'string' ? renderLayer.source : fallbackSource;
+  const minZoom = renderLayer.minZoom ?? renderLayer.minzoom;
+  const maxZoom = renderLayer.maxZoom ?? renderLayer.maxzoom;
   return {
     ...renderLayer,
     ...(source ? { source } : {}),
     sourceLayer: renderLayer.sourceLayer ?? renderLayer['source-layer'],
-    minZoom: renderLayer.minZoom ?? renderLayer.minzoom,
-    maxZoom: renderLayer.maxZoom ?? renderLayer.maxzoom,
+    ...(minZoom !== undefined ? { minZoom } : {}),
+    ...(maxZoom !== undefined ? { maxZoom } : {}),
   };
 }
 
@@ -88,9 +103,25 @@ function normalizeLayerMap(
         return null;
       }
 
+      const fallbackLayerId = typeof value.fallbackLayerId === 'string'
+        ? value.fallbackLayerId
+        : (typeof value.fallbackRef === 'string' ? value.fallbackRef : undefined);
+
+      const metadata = isObject(value.metadata)
+        ? {
+            ...value.metadata,
+            ...(fallbackLayerId ? { fallbackLayerId } : {}),
+          }
+        : (fallbackLayerId ? { fallbackLayerId } : undefined);
+
       // Existing runtime contract: logical layer with layerset[].
       if (Array.isArray(value.layerset)) {
-        return { id, ...value };
+        return {
+          id,
+          ...value,
+          ...(fallbackLayerId ? { fallbackLayerId } : {}),
+          ...(metadata ? { metadata } : {}),
+        };
       }
 
       // New authored WebMapX layer model: kind: "single" | "composite".
@@ -100,7 +131,8 @@ function normalizeLayerMap(
         return {
           id,
           title: value.title,
-          metadata: value.metadata,
+          ...(fallbackLayerId ? { fallbackLayerId } : {}),
+          ...(metadata ? { metadata } : {}),
           layerset: [normalizeRenderLayer(render, source)],
         };
       }
@@ -119,7 +151,8 @@ function normalizeLayerMap(
         return {
           id,
           title: value.title,
-          metadata: value.metadata,
+          ...(fallbackLayerId ? { fallbackLayerId } : {}),
+          ...(metadata ? { metadata } : {}),
           layerset: renderLayers
             .filter(isObject)
             .map((renderLayer) => {
@@ -156,6 +189,28 @@ function normalizeLayerMap(
 }
 
 function normalizeCatalogTree(catalogs: unknown, fallbackLayers: unknown[]): unknown[] {
+  const selectionModeFromItem = (item: Record<string, unknown>): 'single' | 'multiple' | undefined => {
+    const value = item.selectionMode;
+    if (value === 'single' || value === 'multiple') {
+      return value;
+    }
+    return undefined;
+  };
+
+  const selectionGroupFromItem = (item: Record<string, unknown>): string | undefined => {
+    return typeof item.selectionGroup === 'string' ? item.selectionGroup : undefined;
+  };
+
+  const allowNoneFromItem = (item: Record<string, unknown>): boolean | undefined => {
+    return typeof item.allowNone === 'boolean' ? item.allowNone : undefined;
+  };
+
+  const stackOrderFromItem = (item: Record<string, unknown>): number | undefined => {
+    return typeof item.stackOrder === 'number' && Number.isFinite(item.stackOrder)
+      ? item.stackOrder
+      : undefined;
+  };
+
   const mapItem = (item: unknown): Record<string, unknown> | null => {
     if (!isObject(item)) {
       return null;
@@ -169,6 +224,10 @@ function normalizeCatalogTree(catalogs: unknown, fallbackLayers: unknown[]): unk
       return {
         label: typeof item.title === 'string' ? item.title : 'Group',
         expanded: item.expanded === true,
+        ...(selectionModeFromItem(item) ? { selectionMode: selectionModeFromItem(item) } : {}),
+        ...(selectionGroupFromItem(item) ? { selectionGroup: selectionGroupFromItem(item) } : {}),
+        ...(allowNoneFromItem(item) !== undefined ? { allowNone: allowNoneFromItem(item) } : {}),
+        ...(stackOrderFromItem(item) !== undefined ? { stackOrder: stackOrderFromItem(item) } : {}),
         children,
       };
     }
@@ -179,6 +238,10 @@ function normalizeCatalogTree(catalogs: unknown, fallbackLayers: unknown[]): unk
       return {
         label: typeof item.title === 'string' ? item.title : ref,
         layerId: ref,
+        ...(selectionModeFromItem(item) ? { selectionMode: selectionModeFromItem(item) } : {}),
+        ...(selectionGroupFromItem(item) ? { selectionGroup: selectionGroupFromItem(item) } : {}),
+        ...(allowNoneFromItem(item) !== undefined ? { allowNone: allowNoneFromItem(item) } : {}),
+        ...(stackOrderFromItem(item) !== undefined ? { stackOrder: stackOrderFromItem(item) } : {}),
       };
     }
 
@@ -231,6 +294,7 @@ function normalizeAppConfig(rawConfig: unknown): AppConfig {
 
   const normalized: AppConfig = {
     map: raw.map as MapConfig,
+    runtimeMap: isObject(raw.runtimeMap) ? (raw.runtimeMap as RuntimeMapConfig) : undefined,
     catalog: {
       label: 'Catalog',
       tree: tree as any,
@@ -330,6 +394,22 @@ export function parseAttributeConfig(element: HTMLElement): Partial<MapConfig> {
     }
   }
 
+  const minPitch = element.getAttribute('min-pitch');
+  if (minPitch) {
+    const parsed = parseFloat(minPitch);
+    if (!isNaN(parsed)) {
+      config.minPitch = parsed;
+    }
+  }
+
+  const maxPitch = element.getAttribute('max-pitch');
+  if (maxPitch) {
+    const parsed = parseFloat(maxPitch);
+    if (!isNaN(parsed)) {
+      config.maxPitch = parsed;
+    }
+  }
+
   const adapter = normalizeAdapterType(element.getAttribute('adapter'));
   const type = adapter ?? normalizeAdapterType(element.getAttribute('type'));
   if (type) {
@@ -402,7 +482,8 @@ export async function resolveMapConfig(
   // Priority 1: App-level config overrides everything for this map
   if (appConfig?.map) {
     console.log('[config] Using app-level config for map');
-    return attrConfig.type ? mergeMapConfigs(appConfig.map, { type: attrConfig.type }) : mergeMapConfigs(appConfig.map);
+    const mapWithRuntime = mergeMapConfigs(appConfig.map, toRuntimeMapOverrides(appConfig.runtimeMap));
+    return attrConfig.type ? mergeMapConfigs(mapWithRuntime, { type: attrConfig.type }) : mapWithRuntime;
   }
 
   // Priority 2: src attribute (map-specific config)
@@ -411,7 +492,8 @@ export async function resolveMapConfig(
     try {
       const config = await fetchConfig(srcPath);
       console.log(`[config] Loaded map config from src="${srcPath}"`);
-      return attrConfig.type ? mergeMapConfigs(config.map, { type: attrConfig.type }) : mergeMapConfigs(config.map);
+      const mapWithRuntime = mergeMapConfigs(config.map, toRuntimeMapOverrides(config.runtimeMap));
+      return attrConfig.type ? mergeMapConfigs(mapWithRuntime, { type: attrConfig.type }) : mapWithRuntime;
     } catch (error) {
       console.error(`[config] Failed to load map config from src:`, error);
       // Fall through to next priority

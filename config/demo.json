@@ -10,8 +10,6 @@
     "label": "Demo Map",
     "center": [0, 0],
     "zoom": 2,
-    "maxZoom": 20,
-    "minZoom": 0,
     "type": "maplibre",
     "style": {
       "version": 8,
@@ -20,6 +18,12 @@
       "sources": {},
       "layers": []
     }
+  },
+  "runtimeMap": {
+    "minZoom": 0,
+    "maxZoom": 20,
+    "minPitch": 0,
+    "maxPitch": 85
   },
   "library": {
     "sources": {
@@ -45,15 +49,18 @@
       },
       "transport-source": {
         "type": "geojson",
-        "data": "https://data.example.com/transport_network.geojson"
+        "data": "https://data.example.com/transport_network.geojson",
+        "attribution": "Example Transport Data"
       },
       "air-source": {
         "type": "geojson",
-        "data": "https://data.example.com/air_quality.geojson"
+        "data": "https://data.example.com/air_quality.geojson",
+        "attribution": "Example Air Quality Data"
       },
       "water-source": {
         "type": "geojson",
-        "data": "https://data.example.com/water_quality.geojson"
+        "data": "https://data.example.com/water_quality.geojson",
+        "attribution": "Example Water Quality Data"
       },
       "nyc-historical-source": {
         "type": "raster",
@@ -89,11 +96,11 @@
         "kind": "single",
         "title": "OpenFreeMap Liberty (style)",
         "source": "xyz-source",
+        "fallbackLayerId": "osm",
         "metadata": {
           "styleUrl": "https://tiles.openfreemap.org/styles/liberty",
           "styleGlyphsUrl": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
-          "styleSpriteUrl": "https://tiles.openfreemap.org/sprites/ofm_f384/ofm",
-          "fallbackLayerId": "osm"
+          "styleSpriteUrl": "https://tiles.openfreemap.org/sprites/ofm_f384/ofm"
         },
         "render": {
           "type": "raster"
@@ -162,6 +169,9 @@
           {
             "kind": "group",
             "title": "Base Maps",
+            "selectionMode": "single",
+            "selectionGroup": "basemap",
+            "allowNone": false,
             "expanded": true,
             "children": [
               { "kind": "layer", "title": "OpenFreeMap Liberty (style)", "ref": "openfreemap-liberty" },
@@ -200,9 +210,11 @@
     }
   },
   "state": {
-    "activeBackground": "osm",
+    "activeExclusiveLayers": {
+      "basemap": "osm"
+    },
     "activeLayers": [
-      { "ref": "transport", "visible": true }
+      { "ref": "osm", "visible": true }
     ]
   },
   "tools": {

@@ -13,8 +13,12 @@
     "bearing": 0,
     "srs": "EPSG:3857",
     "backgroundColor": "#f5f3ef",
+    "type": "maplibre"
+  },
+  "runtimeMap": {
     "minZoom": 0,
     "maxZoom": 24,
+    "minPitch": 0,
     "maxPitch": 85
   },
   "library": {

@@ -70,6 +70,10 @@ export interface MapConfig {
   maxZoom?: number;
   /** Minimum allowed zoom level */
   minZoom?: number;
+  /** Maximum allowed pitch/tilt in degrees */
+  maxPitch?: number;
+  /** Minimum allowed pitch/tilt in degrees */
+  minPitch?: number;
   /** Map adapter/library to use */
   type: MapAdapterType;
   /**
@@ -79,6 +83,20 @@ export interface MapConfig {
    * If undefined or empty, map starts with no background layers.
    */
   style?: MapStyle | string;
+}
+
+/**
+ * Runtime map behavior settings (engine/API options, not style spec).
+ */
+export interface RuntimeMapConfig {
+  /** Maximum allowed zoom level */
+  maxZoom?: number;
+  /** Minimum allowed zoom level */
+  minZoom?: number;
+  /** Maximum allowed pitch/tilt in degrees */
+  maxPitch?: number;
+  /** Minimum allowed pitch/tilt in degrees */
+  minPitch?: number;
 }
 
 /**
@@ -228,11 +246,20 @@ export interface LayerConfig {
   id: string;
   /** Collection of style layers that make up this logical layer */
   layerset: StyleLayerConfig[];
+  /** Optional fallback layer id when this layer cannot be activated (e.g. unsupported style for engine). */
+  fallbackLayerId?: string;
   /** Optional display title for UI components */
   title?: string;
   /** Optional metadata namespace for extended UI labels and info */
   metadata?: Record<string, unknown>;
 }
+
+/**
+ * Layer-tree selection mode for child leaf nodes.
+ * - `multiple`: children behave as independent toggles (checkbox UX).
+ * - `single`: only one child in the group can be active at once (radio UX).
+ */
+export type TreeSelectionMode = 'multiple' | 'single';
 
 /**
  * Tree node configuration - represents an item in the layer tree.
@@ -243,6 +270,27 @@ export interface TreeNodeConfig {
   label: string;
   /** Reference to a layer ID (leaf nodes only) */
   layerId?: string;
+  /**
+   * Selection behavior for group children.
+   * When `single`, children are mutually exclusive and should render as radios.
+   */
+  selectionMode?: TreeSelectionMode;
+  /**
+   * Optional exclusivity group key.
+   * Nodes sharing the same key participate in the same single-select group,
+   * even when located in different branches.
+   */
+  selectionGroup?: string;
+  /**
+   * For single-select groups, whether no active child is allowed.
+   * Defaults to false when omitted.
+   */
+  allowNone?: boolean;
+  /**
+   * Optional stable ordering slot for rendering relative to other layers/groups.
+   * Lower values are rendered below higher values.
+   */
+  stackOrder?: number;
   /** Deprecated startup checkbox hint. Use `state.activeLayers` for initial active layers. */
   checked?: boolean;
   /** Initial expanded state (group nodes only) */
@@ -286,6 +334,11 @@ export interface AppStateConfig {
   activeBackground?: string;
   /** Active overlay layers in draw/top order. */
   activeLayers?: ActiveLayerStateEntry[];
+  /**
+   * Active layer per exclusive selection group.
+   * Key is `selectionGroup`; value is selected `layerId`.
+   */
+  activeExclusiveLayers?: Record<string, string>;
 }
 
 /**
@@ -356,6 +409,8 @@ export interface AppConfig {
   project?: Record<string, unknown>;
   /** Map settings */
   map: MapConfig;
+  /** Runtime map behavior settings (engine/API options) */
+  runtimeMap?: RuntimeMapConfig;
   /** Layer catalog with sources, layers, and tree */
   catalog: CatalogConfig;
   /** Optional runtime state snapshot */

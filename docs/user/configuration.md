@@ -276,6 +276,63 @@ Hierarchical structure for the layer tree UI.
 | `checked` | boolean | Initial visibility state |
 | `expanded` | boolean | Initial expanded state (group nodes) |
 | `children` | array | Child nodes (group nodes) |
+| `selectionMode` | string | Group selection mode: `multiple` (default, checkbox behavior) or `single` (radio behavior) |
+| `selectionGroup` | string | Optional cross-branch exclusivity key; nodes with the same key behave as one exclusive group |
+| `allowNone` | boolean | For `single` groups: whether no option may be selected (`false` by default) |
+| `stackOrder` | number | Optional stable rendering slot. Lower renders below higher |
+
+#### Exclusive Overlay Groups (Time-Slice Example)
+
+Exclusive groups are not only for basemaps. They are useful for overlay time slices where exactly one timestamp should be visible.
+
+```json
+{
+  "catalog": {
+    "tree": [
+      {
+        "label": "Weather",
+        "expanded": true,
+        "children": [
+          {
+            "label": "Rainfall Timeslice",
+            "selectionMode": "single",
+            "selectionGroup": "rainfall-time",
+            "allowNone": false,
+            "stackOrder": 40,
+            "children": [
+              { "label": "10:00", "layerId": "rain-1000" },
+              { "label": "11:00", "layerId": "rain-1100" },
+              { "label": "12:00", "layerId": "rain-1200" }
+            ]
+          },
+          {
+            "label": "Static Overlays",
+            "selectionMode": "multiple",
+            "stackOrder": 60,
+            "children": [
+              { "label": "Road labels", "layerId": "roads-labels" },
+              { "label": "Admin boundaries", "layerId": "admin-boundaries" }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "state": {
+    "activeExclusiveLayers": {
+      "rainfall-time": "rain-1100"
+    },
+    "activeLayers": ["roads-labels"]
+  }
+}
+```
+
+Order guidance when mixing exclusive and non-exclusive overlays:
+
+- Assign each exclusive group a fixed `stackOrder` slot.
+- The selected layer in that group occupies that slot.
+- Non-exclusive overlays use their own group/node `stackOrder` slots.
+- This keeps ordering stable when switching radio options.
 
 ### Tools Section
 
