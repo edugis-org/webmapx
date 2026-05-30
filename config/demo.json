@@ -112,11 +112,29 @@
         "source": "earthquake-source",
         "render": {
           "type": "circle",
+          "filter": [
+            "all",
+            ["==", ["get", "type"], "earthquake"],
+            ["!=", ["get", "mag"], null]
+          ],
           "paint": {
-            "circle-color": "#FF5722",
-            "circle-radius": 14,
-            "circle-opacity": 0.8,
-            "circle-stroke-color": "#FFFFFF",
+            "circle-color": [
+              "interpolate",
+              ["linear"],
+              ["coalesce", ["to-number", ["get", "mag"]], 0],
+              0,
+              "#faf207",
+              2,
+              "#faf207",
+              4,
+              "#faa907",
+              6,
+              "#fa6c07",
+              8,
+              "#fa0707"
+            ],
+            "circle-radius": ["interpolate", ["exponential", 2], ["coalesce", ["to-number", ["get", "mag"]], 0], 0, 4, 2, 5, 4, 10, 6, 20, 8, 50],
+            "circle-stroke-color": "#818181",
             "circle-stroke-width": 1
           }
         }
