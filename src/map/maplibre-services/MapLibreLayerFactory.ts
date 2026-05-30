@@ -38,6 +38,7 @@ export class MapLibreLayerFactory {
         };
         if (style.paint && typeof style.paint === 'object') layerSpec.paint = style.paint;
         if (style.layout && typeof style.layout === 'object') layerSpec.layout = style.layout;
+        if (Array.isArray(style.filter)) layerSpec.filter = style.filter;
         layers.push(layerSpec);
         continue;
       }
@@ -52,6 +53,7 @@ export class MapLibreLayerFactory {
           };
           if (style.paint && typeof style.paint === 'object') layerSpec.paint = style.paint;
           if (style.layout && typeof style.layout === 'object') layerSpec.layout = style.layout;
+          if (Array.isArray(style.filter)) layerSpec.filter = style.filter;
           MapLibreLayerFactory.assignZoomRange(layerSpec, style);
           layers.push(layerSpec);
         } else if (sourceConfig.service === 'wms') {
@@ -62,6 +64,7 @@ export class MapLibreLayerFactory {
           };
           if (style.paint && typeof style.paint === 'object') layerSpec.paint = style.paint;
           if (style.layout && typeof style.layout === 'object') layerSpec.layout = style.layout;
+          if (Array.isArray(style.filter)) layerSpec.filter = style.filter;
           MapLibreLayerFactory.assignZoomRange(layerSpec, style);
           layers.push(layerSpec);
         } else if (sourceConfig.service === 'wmts') {
@@ -69,7 +72,7 @@ export class MapLibreLayerFactory {
         }
       }
       // Vector/GeoJSON
-      else if (['fill', 'line', 'circle', 'symbol'].includes(style.type) && ['geojson', 'vector'].includes(sourceConfig.type)) {
+      else if (['fill', 'line', 'circle', 'symbol', 'fill-extrusion'].includes(style.type) && ['geojson', 'vector'].includes(sourceConfig.type)) {
         const layerSpec: any = {
           id: nativeLayerId,
           type: style.type as any,
@@ -77,6 +80,7 @@ export class MapLibreLayerFactory {
         };
         if (style.paint && typeof style.paint === 'object') layerSpec.paint = style.paint;
         if (style.layout && typeof style.layout === 'object') layerSpec.layout = style.layout;
+        if (Array.isArray(style.filter)) layerSpec.filter = style.filter;
         MapLibreLayerFactory.assignZoomRange(layerSpec, style);
         if (style.sourceLayer) {
           layerSpec['source-layer'] = style.sourceLayer;

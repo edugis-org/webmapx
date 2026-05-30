@@ -12,7 +12,14 @@
     "zoom": 2,
     "maxZoom": 20,
     "minZoom": 0,
-    "type": "maplibre"
+    "type": "maplibre",
+    "style": {
+      "version": 8,
+      "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+      "sprite": "https://tiles.openfreemap.org/sprites/ofm_f384/ofm",
+      "sources": {},
+      "layers": []
+    }
   },
   "library": {
     "sources": {
@@ -74,6 +81,20 @@
         "kind": "single",
         "title": "Google Satellite",
         "source": "google-satellite-source",
+        "render": {
+          "type": "raster"
+        }
+      },
+      "openfreemap-liberty": {
+        "kind": "single",
+        "title": "OpenFreeMap Liberty (style)",
+        "source": "xyz-source",
+        "metadata": {
+          "styleUrl": "https://tiles.openfreemap.org/styles/liberty",
+          "styleGlyphsUrl": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+          "styleSpriteUrl": "https://tiles.openfreemap.org/sprites/ofm_f384/ofm",
+          "fallbackLayerId": "osm"
+        },
         "render": {
           "type": "raster"
         }
@@ -143,6 +164,7 @@
             "title": "Base Maps",
             "expanded": true,
             "children": [
+              { "kind": "layer", "title": "OpenFreeMap Liberty (style)", "ref": "openfreemap-liberty" },
               { "kind": "layer", "title": "OpenStreetMap (xyz)", "ref": "osm" },
               { "kind": "layer", "title": "Google Satellite", "ref": "google-satellite" }
             ]

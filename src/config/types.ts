@@ -46,7 +46,7 @@ export interface MapStyleSource {
  */
 export interface MapStyleLayer {
   id: string;
-  type: 'raster' | 'fill' | 'line' | 'circle' | 'symbol' | 'background';
+  type: 'raster' | 'fill' | 'line' | 'circle' | 'symbol' | 'background' | 'fill-extrusion';
   source?: string;
   'source-layer'?: string;
   minzoom?: number;
@@ -191,7 +191,7 @@ export type SourceConfig = RasterSourceConfig | GeoJSONSourceConfig | VectorSour
 /**
  * Supported layer geometry types.
  */
-export type LayerType = 'fill' | 'line' | 'circle' | 'symbol' | 'raster';
+export type LayerType = 'fill' | 'line' | 'circle' | 'symbol' | 'raster' | 'fill-extrusion';
 
 /**
  * Individual style layer within a layerset.

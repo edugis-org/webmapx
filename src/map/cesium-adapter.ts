@@ -1,13 +1,14 @@
 // src/map/cesium-adapter.ts
 
-import { IMap, IMapCore, IToolService, ISubMapFactory, ILayerService } from './IMapInterfaces';
-import type { LayerConfig, SourceConfig, CatalogConfig, MapStyle } from '../config/types';
+import { IMap, IMapCore, IToolService, ISubMapFactory, ILogicalLayerExecutor } from './IMapInterfaces';
+import type { MapStyle } from '../config/types';
 import { MapStateStore } from '../store/map-state-store';
 import { MapEventBus, LngLat, Pixel } from '../store/map-events';
 import { MapCoreService } from './cesium-services/MapCoreService';
 import { MapServiceTemplate } from './cesium-services/MapServiceTemplate';
 import { MapFactoryService } from './cesium-services/MapFactoryService';
 import { MapLayerService } from './cesium-services/MapLayerService';
+import { DeferredLogicalLayerExecutor } from './logical-layer-executor';
 
 let cesiumLoadPromise: Promise<void> | null = null;
 
@@ -70,31 +71,24 @@ export class CesiumAdapter implements IMap {
     public readonly events: MapEventBus;
     private readonly core: IMapCore;
     public readonly toolService: IToolService;
+    public readonly logicalLayers: ILogicalLayerExecutor;
     public readonly mapFactory: ISubMapFactory;
-    private layerService?: ILayerService;
+    private readonly logicalLayerExecutor: DeferredLogicalLayerExecutor;
     private lastVisibleLayers: string[] = [];
-    private pendingCatalog: CatalogConfig | null = null;
-    private pendingAddRequests: Array<{
-        layerId: string;
-        layerConfig: LayerConfig;
-        sourceConfig: SourceConfig;
-        resolve: (value: boolean) => void;
-    }> = [];
-    private pendingRemoveRequests: string[] = [];
 
     constructor() {
         this.store = new MapStateStore();
         this.events = new MapEventBus();
         this.core = new MapCoreService(this.store, this.events);
         this.toolService = new MapServiceTemplate();
+        this.logicalLayerExecutor = new DeferredLogicalLayerExecutor();
+        this.logicalLayers = this.logicalLayerExecutor;
         this.mapFactory = new MapFactoryService();
-        this.layerService = undefined;
         this.store.subscribe((state) => {
             this.emitVisibleLayerEvents(state.visibleLayers ?? []);
         });
         (this.core as any).onMapReady?.((viewer: any) => {
-            this.layerService = new MapLayerService(viewer, this.store);
-            this.flushPendingLayerOperations();
+            this.logicalLayerExecutor.bind(new MapLayerService(viewer, this.store));
         });
     }
 
@@ -188,38 +182,6 @@ export class CesiumAdapter implements IMap {
         this.core.unsuppressBusySignalForSource(sourceId);
     }
 
-    setCatalog(catalog: CatalogConfig): void {
-        this.pendingCatalog = catalog;
-        this.layerService?.setCatalog(catalog);
-    }
-
-    async addCatalogLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig): Promise<boolean> {
-        if (this.layerService) {
-            return this.layerService.addLayer(layerId, layerConfig, sourceConfig);
-        }
-
-        return new Promise<boolean>((resolve) => {
-            this.pendingAddRequests.push({ layerId, layerConfig, sourceConfig, resolve });
-        });
-    }
-
-    removeCatalogLayer(layerId: string): void {
-        if (this.layerService) {
-            this.layerService.removeLayer(layerId);
-            return;
-        }
-
-        this.pendingRemoveRequests.push(layerId);
-    }
-
-    getVisibleCatalogLayers(): string[] {
-        return this.layerService?.getVisibleLayers() ?? [];
-    }
-
-    isCatalogLayerVisible(layerId: string): boolean {
-        return this.layerService?.isLayerVisible(layerId) ?? false;
-    }
-
     private emitVisibleLayerEvents(nextVisibleLayers: string[]): void {
         const previous = new Set(this.lastVisibleLayers);
         const next = new Set(nextVisibleLayers);
@@ -237,33 +199,6 @@ export class CesiumAdapter implements IMap {
         }
 
         this.lastVisibleLayers = [...nextVisibleLayers];
-    }
-
-    private flushPendingLayerOperations(): void {
-        if (!this.layerService) {
-            return;
-        }
-
-        if (this.pendingCatalog) {
-            this.layerService.setCatalog(this.pendingCatalog);
-        }
-
-        const pendingRemovals = [...this.pendingRemoveRequests];
-        this.pendingRemoveRequests = [];
-        for (const layerId of pendingRemovals) {
-            this.layerService.removeLayer(layerId);
-        }
-
-        const pendingAdds = [...this.pendingAddRequests];
-        this.pendingAddRequests = [];
-        pendingAdds.forEach(async (request) => {
-            try {
-                const success = await this.layerService!.addLayer(request.layerId, request.layerConfig, request.sourceConfig);
-                request.resolve(success);
-            } catch {
-                request.resolve(false);
-            }
-        });
     }
 }
 

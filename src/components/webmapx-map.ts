@@ -1,6 +1,16 @@
-import { IMap } from '../map/IMapInterfaces';
+import { IMap, LayerInsertOptions } from '../map/IMapInterfaces';
 import { createMapAdapter, DEFAULT_ADAPTER_NAME } from '../map/adapter-registry';
-import type { AppConfig, CatalogConfig, MapConfig, ToolsConfig } from '../config/types';
+import type {
+  ActiveLayerStateEntry,
+  AppConfig,
+  CatalogConfig,
+  LayerConfig,
+  MapConfig,
+  MapStyleLayer,
+  SourceConfig,
+  StyleLayerConfig,
+  ToolsConfig,
+} from '../config/types';
 import {
   getMapScopedStorageKey,
   resolveAdapterSelection
@@ -17,6 +27,14 @@ export interface ConfigReadyEventDetail {
   map: WebmapxMapElement;
 }
 
+type RuntimeLayerInformation = {
+  layer: LayerConfig;
+  sources: SourceConfig[];
+};
+
+type RuntimeLayerRequest = Record<string, unknown>;
+type ActiveLayerStateObject = Exclude<ActiveLayerStateEntry, string>;
+
 /**
  * Lightweight map wrapper that keeps the map canvas and overlay tools grouped
  * without using Shadow DOM. Consumers provide one child with slot="map-view"
@@ -27,6 +45,9 @@ export interface ConfigReadyEventDetail {
  */
 export class WebmapxMapElement extends HTMLElement {
   private initialStateLayersApplied = false;
+  private activeAdapterName: string | null = null;
+  private runtimeStyleLayerCounter = 0;
+  private readonly styleLayerCache = new Map<string, RuntimeLayerInformation | null>();
     // Only one connectedCallback/disconnectedCallback allowed. Add event listener in the main one.
     connectedCallback(): void {
       this.upsertAndStyleSurface();
@@ -53,16 +74,26 @@ export class WebmapxMapElement extends HTMLElement {
       this.removeEventListener('webmapx-unsuppress-busy-for-source', this.handleUnsuppressBusyForSource as EventListener);
     }
 
-    private handleAddLayerEvent(e: CustomEvent) {
-        if (this.adapter) {
+    private async handleAddLayerEvent(e: CustomEvent) {
       const detail = (e.detail ?? {}) as Record<string, unknown>;
-      const { beforeLayerId, afterLayerId, ...layer } = detail;
       const options = {
-        ...(typeof beforeLayerId === 'string' ? { beforeLayerId } : {}),
-        ...(typeof afterLayerId === 'string' ? { afterLayerId } : {}),
+        ...(typeof detail.beforeLayerId === 'string' ? { beforeLayerId: detail.beforeLayerId } : {}),
+        ...(typeof detail.afterLayerId === 'string' ? { afterLayerId: detail.afterLayerId } : {}),
       };
-      this.adapter.addLayer(layer, Object.keys(options).length > 0 ? options : undefined);
-        }
+
+      const fallbackFromPayload = this.resolveFallbackFromRequest(detail);
+      const success = await this.addLayerRequest(detail, fallbackFromPayload, options);
+      if (!success) {
+        const catalogLayerId = this.resolveCatalogLayerIdFromAddLayerDetail(detail);
+        this.dispatchEvent(new CustomEvent('webmapx-addlayer-failed', {
+          detail: {
+            ...(catalogLayerId ? { layerId: catalogLayerId } : {}),
+            request: detail,
+          },
+          bubbles: true,
+          composed: true
+        }));
+      }
     }
 
     private handleRemoveLayerEvent(e: CustomEvent) {
@@ -104,33 +135,28 @@ export class WebmapxMapElement extends HTMLElement {
 
     /** Handles add-layer events from the layer tree */
     private async handleLayerAddRequest(e: CustomEvent) {
-      const { layerInformation, checked } = e.detail;
-      const adapter: any = this.adapter;
+      const detail = this.toRecord(e.detail);
+      const layerInformation = this.toRuntimeLayerInformation(detail?.layerInformation);
+      const checked = detail?.checked === true;
+      const adapter = this.adapter;
       if (!adapter) return;
       if (checked) {
-        // Compose for new signature: addLayer(layerId, layerConfig, sourceConfig)
-        const layer = layerInformation.layer;
-        // Support multiple sources, but call addLayer for each source referenced by the layer
-        let allSucceeded = true;
-        for (const source of layerInformation.sources) {
-          const success = await adapter.addCatalogLayer(layer.id, layer, source);
-          if (!success) {
-            allSucceeded = false;
-            // Clean up any partial additions
-            adapter.removeCatalogLayer?.(layer.id);
-            break;
-          }
-        }
-        if (!allSucceeded) {
+        const requestedLayerId = typeof layerInformation?.layer?.id === 'string' ? layerInformation.layer.id : null;
+        if (!requestedLayerId) return;
+
+        const success = await this.tryAddLayerRequest(adapter, { layerId: requestedLayerId });
+        if (!success) {
           this.dispatchEvent(new CustomEvent('webmapx-addlayer-failed', {
-            detail: { layerId: layer.id },
+            detail: { layerId: requestedLayerId },
             bubbles: true,
             composed: true
           }));
         }
       } else {
         // Remove the layer by id
-        adapter.removeCatalogLayer?.(layerInformation.layer.id);
+        if (layerInformation) {
+          adapter.logicalLayers.removeLayer(layerInformation.layer.id);
+        }
       }
     }
   private surfaceObserver?: MutationObserver;
@@ -246,6 +272,33 @@ export class WebmapxMapElement extends HTMLElement {
     return this.configInstance?.tools;
   }
 
+  public async addLayerRequest(
+    layerRequest: RuntimeLayerRequest,
+    fallbackLayer?: RuntimeLayerRequest | string,
+    options?: LayerInsertOptions,
+  ): Promise<boolean> {
+    const adapter = this.adapter;
+    if (!adapter) {
+      return false;
+    }
+
+    const visitedLayerIds = new Set<string>();
+    const primarySuccess = await this.tryAddLayerRequest(adapter, layerRequest, options, visitedLayerIds);
+    if (primarySuccess) {
+      return true;
+    }
+
+    if (!fallbackLayer) {
+      return false;
+    }
+
+    if (typeof fallbackLayer === 'string') {
+      return this.tryAddLayerRequest(adapter, { layerId: fallbackLayer }, options, visitedLayerIds);
+    }
+
+    return this.tryAddLayerRequest(adapter, fallbackLayer, options, visitedLayerIds);
+  }
+
   /**
    * Returns the ToolManager for this map instance.
    * Lazy-initialized on first access.
@@ -335,6 +388,7 @@ export class WebmapxMapElement extends HTMLElement {
       }
 
       this.adapterInstance = adapter;
+      this.activeAdapterName = requestedAdapter;
 
       // If ToolManager was already created, give it the store
       if (this.toolManagerInstance && adapter.store) {
@@ -354,13 +408,13 @@ export class WebmapxMapElement extends HTMLElement {
   }
 
   private applyCatalogToAdapter(): void {
-    const adapter: any = this.adapterInstance;
+    const adapter = this.adapterInstance;
     const catalog = this.catalogConfig;
     if (!adapter || !catalog) {
       return;
     }
 
-    adapter.setCatalog?.(catalog);
+    adapter.logicalLayers.setCatalog(catalog);
 
     if (!this.initialStateLayersApplied) {
       this.initialStateLayersApplied = true;
@@ -387,10 +441,11 @@ export class WebmapxMapElement extends HTMLElement {
         continue;
       }
 
-      const ref = typeof (entry as any).ref === 'string'
-        ? (entry as any).ref
-        : (typeof (entry as any).layerId === 'string' ? (entry as any).layerId : null);
-      const visible = (entry as any).visible !== false;
+      const activeEntry = entry as ActiveLayerStateObject;
+      const ref = typeof activeEntry.ref === 'string'
+        ? activeEntry.ref
+        : (typeof activeEntry.layerId === 'string' ? activeEntry.layerId : null);
+      const visible = activeEntry.visible !== false;
       if (ref && visible) {
         refs.push(ref);
       }
@@ -399,7 +454,7 @@ export class WebmapxMapElement extends HTMLElement {
     return Array.from(new Set(refs));
   }
 
-  private getCatalogLayerInformation(layerId: string): { layer: any; sources: any[] } | null {
+  private getCatalogLayerInformation(layerId: string): RuntimeLayerInformation | null {
     const catalog = this.catalogConfig;
     if (!catalog) return null;
 
@@ -415,30 +470,555 @@ export class WebmapxMapElement extends HTMLElement {
     return { layer, sources };
   }
 
-  private async applyInitialStateLayers(adapter: any, _catalog: CatalogConfig): Promise<void> {
-    const activeLayerRefs = this.collectInitialActiveLayerRefs();
-    for (const layerId of activeLayerRefs) {
-      const layerInformation = this.getCatalogLayerInformation(layerId);
-      if (!layerInformation) continue;
+  private resolveResourceUrl(value: string, baseUrl: string): string {
+    try {
+      const resolved = new URL(value, baseUrl).toString();
+      // Keep tile-template placeholders intact; URL serialization encodes `{`/`}` to `%7B`/`%7D`.
+      return resolved
+        .replace(/%7B/gi, '{')
+        .replace(/%7D/gi, '}');
+    } catch {
+      return value;
+    }
+  }
 
-      let allSucceeded = true;
-      for (const source of layerInformation.sources) {
-        const success = await adapter.addCatalogLayer?.(layerInformation.layer.id, layerInformation.layer, source);
-        if (!success) {
-          allSucceeded = false;
-          adapter.removeCatalogLayer?.(layerInformation.layer.id);
-          break;
+  private resolveStyleBackedSource(sourceId: string, scopedSourceId: string, sourceDef: Record<string, unknown>, styleUrl: string): any | null {
+    const type = sourceDef.type;
+    if (type !== 'vector' && type !== 'raster' && type !== 'geojson') {
+      return null;
+    }
+
+    if (type === 'vector') {
+      const rawUrl = typeof sourceDef.url === 'string' ? sourceDef.url : null;
+      const rawTiles = Array.isArray(sourceDef.tiles)
+        ? sourceDef.tiles.filter((entry): entry is string => typeof entry === 'string')
+        : [];
+      const attribution = typeof sourceDef.attribution === 'string' ? sourceDef.attribution : undefined;
+      const minzoom = typeof sourceDef.minzoom === 'number' ? sourceDef.minzoom : undefined;
+      const maxzoom = typeof sourceDef.maxzoom === 'number' ? sourceDef.maxzoom : undefined;
+      if (!rawUrl && rawTiles.length === 0) return null;
+      return {
+        id: scopedSourceId,
+        type: 'vector',
+        ...(rawUrl ? { url: this.resolveResourceUrl(rawUrl, styleUrl) } : {}),
+        ...(rawTiles.length > 0 ? { tiles: rawTiles.map((tile) => this.resolveResourceUrl(tile, styleUrl)) } : {}),
+        ...(minzoom !== undefined ? { minzoom } : {}),
+        ...(maxzoom !== undefined ? { maxzoom } : {}),
+        ...(attribution ? { attribution } : {}),
+      };
+    }
+
+    if (type === 'raster') {
+      const rawTiles = Array.isArray(sourceDef.tiles) ? sourceDef.tiles.filter((entry): entry is string => typeof entry === 'string') : [];
+      const attribution = typeof sourceDef.attribution === 'string' ? sourceDef.attribution : undefined;
+      if (rawTiles.length === 0) return null;
+      return {
+        id: scopedSourceId,
+        type: 'raster',
+        service: 'xyz',
+        url: rawTiles.map((tile) => this.resolveResourceUrl(tile, styleUrl)),
+        tileSize: typeof sourceDef.tileSize === 'number' ? sourceDef.tileSize : undefined,
+        minzoom: typeof sourceDef.minzoom === 'number' ? sourceDef.minzoom : undefined,
+        maxzoom: typeof sourceDef.maxzoom === 'number' ? sourceDef.maxzoom : undefined,
+        ...(attribution ? { attribution } : {}),
+      };
+    }
+
+    const rawData = sourceDef.data;
+    const attribution = typeof sourceDef.attribution === 'string' ? sourceDef.attribution : undefined;
+    if (typeof rawData !== 'string') {
+      return null;
+    }
+    return {
+      id: scopedSourceId,
+      type: 'geojson',
+      data: this.resolveResourceUrl(rawData, styleUrl),
+      ...(attribution ? { attribution } : {}),
+    };
+  }
+
+  private async expandStyleBackedLayer(layer: LayerConfig): Promise<RuntimeLayerInformation | null> {
+    const metadata = this.getLayerMetadata(layer);
+    const styleUrl = typeof metadata?.styleUrl === 'string' ? metadata.styleUrl : null;
+    const layerId = typeof layer?.id === 'string' ? layer.id : 'style-layer';
+    const scopedPrefix = `style:${layerId}:`;
+    const cacheKey = `${layerId}::${styleUrl ?? ''}`;
+    if (!styleUrl) {
+      return null;
+    }
+
+    if (this.styleLayerCache.has(cacheKey)) {
+      return this.styleLayerCache.get(cacheKey) ?? null;
+    }
+
+    try {
+      const response = await fetch(styleUrl);
+      if (!response.ok) {
+        this.styleLayerCache.set(cacheKey, null);
+        return null;
+      }
+
+      const styleDoc = this.toRecord(await response.json());
+      const expanded = this.buildExpandedStyleLayer(layer, styleDoc, styleUrl, scopedPrefix);
+
+      this.styleLayerCache.set(cacheKey, expanded);
+      return expanded;
+    } catch {
+      this.styleLayerCache.set(cacheKey, null);
+      return null;
+    }
+  }
+
+  private buildExpandedStyleLayer(
+    layer: LayerConfig,
+    styleDoc: Record<string, unknown> | null,
+    styleUrl: string | null,
+    scopedPrefix?: string,
+  ): RuntimeLayerInformation | null {
+    const styleSources = this.toRecord(styleDoc?.sources);
+    const styleLayers = Array.isArray(styleDoc?.layers)
+      ? styleDoc.layers.map((entry) => this.toRecord(entry)).filter((entry): entry is Record<string, unknown> => !!entry)
+      : [];
+    if (!styleSources || styleLayers.length === 0) {
+      return null;
+    }
+
+    const effectivePrefix = scopedPrefix ?? `style:${typeof layer?.id === 'string' ? layer.id : 'style-layer'}:`;
+    const supportedLayerTypes = new Set(['background', 'fill', 'line', 'circle', 'symbol', 'raster', 'fill-extrusion']);
+    const sourceAlias = new Map<string, string>();
+    const normalizedLayers: StyleLayerConfig[] = styleLayers
+      .filter((entry) => typeof entry.type === 'string' && supportedLayerTypes.has(entry.type))
+      .map((entry) => {
+        const mappedSource = typeof entry.source === 'string'
+          ? `${effectivePrefix}${entry.source}`
+          : undefined;
+        if (typeof entry.source === 'string' && mappedSource) {
+          sourceAlias.set(entry.source, mappedSource);
+        }
+        return {
+          id: typeof entry.id === 'string' ? `style:${entry.id}` : undefined,
+          type: entry.type,
+          source: mappedSource,
+          sourceLayer: entry.sourceLayer ?? entry['source-layer'],
+          minZoom: entry.minZoom ?? entry.minzoom,
+          maxZoom: entry.maxZoom ?? entry.maxzoom,
+          paint: entry.paint,
+          layout: entry.layout,
+          filter: entry.filter,
+        };
+      });
+
+    const requiredSourceIds = new Set<string>(
+      normalizedLayers
+        .map((entry) => entry.source)
+        .filter((sourceId: unknown): sourceId is string => typeof sourceId === 'string' && sourceId.length > 0)
+    );
+
+    const normalizedSources: SourceConfig[] = [];
+    for (const [originalSourceId, scopedSourceId] of sourceAlias.entries()) {
+      if (!requiredSourceIds.has(scopedSourceId)) {
+        continue;
+      }
+      const styleSource = this.toRecord(styleSources[originalSourceId]);
+      if (!styleSource) continue;
+      const normalizedSource = styleUrl
+        ? this.resolveStyleBackedSource(originalSourceId, scopedSourceId, styleSource, styleUrl)
+        : this.resolveInlineStyleSource(scopedSourceId, styleSource);
+      if (normalizedSource) {
+        normalizedSources.push(normalizedSource);
+      }
+    }
+
+    const sourceIdSet = new Set(normalizedSources.map((source) => source.id));
+    const filteredLayerset = normalizedLayers.filter((entry) => !entry.source || sourceIdSet.has(entry.source));
+    if (filteredLayerset.length === 0 || normalizedSources.length === 0) {
+      return null;
+    }
+
+    return {
+      layer: {
+        ...layer,
+        metadata: {
+          ...(this.getLayerMetadata(layer) ?? {}),
+          styleSpriteUrl: typeof styleDoc?.sprite === 'string' && styleUrl
+            ? this.resolveResourceUrl(styleDoc.sprite, styleUrl)
+            : (typeof styleDoc?.sprite === 'string' ? styleDoc.sprite : undefined),
+          styleGlyphsUrl: typeof styleDoc?.glyphs === 'string' && styleUrl
+            ? this.resolveResourceUrl(styleDoc.glyphs, styleUrl)
+            : (typeof styleDoc?.glyphs === 'string' ? styleDoc.glyphs : undefined),
+        },
+        layerset: filteredLayerset,
+      },
+      sources: normalizedSources,
+    };
+  }
+
+  private resolveInlineStyleSource(scopedSourceId: string, sourceDef: Record<string, unknown>): SourceConfig | null {
+    const type = sourceDef.type;
+    if (type !== 'vector' && type !== 'raster' && type !== 'geojson') {
+      return null;
+    }
+
+    if (type === 'vector') {
+      const rawUrl = typeof sourceDef.url === 'string' ? sourceDef.url : null;
+      const rawTiles = Array.isArray(sourceDef.tiles)
+        ? sourceDef.tiles.filter((entry): entry is string => typeof entry === 'string')
+        : [];
+      if (!rawUrl && rawTiles.length === 0) {
+        return null;
+      }
+
+      return {
+        id: scopedSourceId,
+        type: 'vector',
+        ...(rawUrl ? { url: rawUrl } : {}),
+        ...(rawTiles.length > 0 ? { tiles: rawTiles } : {}),
+        ...(typeof sourceDef.minzoom === 'number' ? { minzoom: sourceDef.minzoom } : {}),
+        ...(typeof sourceDef.maxzoom === 'number' ? { maxzoom: sourceDef.maxzoom } : {}),
+        ...(typeof sourceDef.attribution === 'string' ? { attribution: sourceDef.attribution } : {}),
+      };
+    }
+
+    if (type === 'raster') {
+      const rawTiles = Array.isArray(sourceDef.tiles)
+        ? sourceDef.tiles.filter((entry): entry is string => typeof entry === 'string')
+        : [];
+      if (rawTiles.length === 0) {
+        return null;
+      }
+
+      return {
+        id: scopedSourceId,
+        type: 'raster',
+        service: 'xyz',
+        url: rawTiles,
+        ...(typeof sourceDef.tileSize === 'number' ? { tileSize: sourceDef.tileSize } : {}),
+        ...(typeof sourceDef.minzoom === 'number' ? { minzoom: sourceDef.minzoom } : {}),
+        ...(typeof sourceDef.maxzoom === 'number' ? { maxzoom: sourceDef.maxzoom } : {}),
+        ...(typeof sourceDef.attribution === 'string' ? { attribution: sourceDef.attribution } : {}),
+      };
+    }
+
+    const rawData = sourceDef.data;
+    if (typeof rawData !== 'string') {
+      return null;
+    }
+
+    return {
+      id: scopedSourceId,
+      type: 'geojson',
+      data: rawData,
+      ...(typeof sourceDef.attribution === 'string' ? { attribution: sourceDef.attribution } : {}),
+    };
+  }
+
+  private async getRuntimeLayerInformation(layerId: string): Promise<RuntimeLayerInformation | null> {
+    const baseLayerInformation = this.getCatalogLayerInformation(layerId);
+    if (!baseLayerInformation) {
+      return null;
+    }
+
+    if (!this.isStyleBackedLayer(baseLayerInformation.layer)) {
+      return baseLayerInformation;
+    }
+
+    return this.expandStyleBackedLayer(baseLayerInformation.layer);
+  }
+
+  private resolveCatalogLayerIdFromAddLayerDetail(detail: Record<string, unknown>): string | null {
+    const candidates = [detail.catalogLayerId, detail.layerId, detail.ref];
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && this.getCatalogLayerInformation(candidate)) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  private isStyleRequest(detail: Record<string, unknown>): boolean {
+    const inlineStyle = this.toRecord(detail.style);
+    if (inlineStyle) {
+      return true;
+    }
+
+    if (typeof detail.styleUrl === 'string' && detail.styleUrl.length > 0) {
+      return true;
+    }
+
+    const metadata = this.toRecord(detail.metadata);
+    return typeof metadata?.styleUrl === 'string' && metadata.styleUrl.length > 0;
+  }
+
+  private resolveStyleUrlFromRequest(detail: Record<string, unknown>): string | null {
+    if (typeof detail.styleUrl === 'string' && detail.styleUrl.length > 0) {
+      return detail.styleUrl;
+    }
+
+    const metadata = this.toRecord(detail.metadata);
+    return typeof metadata?.styleUrl === 'string' && metadata.styleUrl.length > 0
+      ? metadata.styleUrl
+      : null;
+  }
+
+  private resolveFallbackFromRequest(detail: Record<string, unknown>): Record<string, unknown> | string | undefined {
+    const fallbackLayer = this.toRecord(detail.fallbackLayer);
+    if (fallbackLayer) {
+      return fallbackLayer;
+    }
+
+    const fallbackCandidates = [detail.fallbackLayerId, detail.fallbackRef, detail.fallback];
+    for (const candidate of fallbackCandidates) {
+      if (typeof candidate === 'string' && candidate.length > 0) {
+        return candidate;
+      }
+    }
+
+    return undefined;
+  }
+
+  private async tryAddLayerRequest(
+    adapter: IMap,
+    layerRequest: RuntimeLayerRequest,
+    options?: LayerInsertOptions,
+    visitedLayerIds = new Set<string>(),
+  ): Promise<boolean> {
+    const catalogLayerId = this.resolveCatalogLayerIdFromAddLayerDetail(layerRequest);
+    if (catalogLayerId) {
+      if (visitedLayerIds.has(catalogLayerId)) {
+        return false;
+      }
+      visitedLayerIds.add(catalogLayerId);
+
+      const baseLayerInformation = this.getCatalogLayerInformation(catalogLayerId);
+      if (!baseLayerInformation) {
+        return false;
+      }
+
+      const styleBacked = this.isStyleBackedLayer(baseLayerInformation.layer);
+      const runtimeLayerInformation = styleBacked
+        ? await this.expandStyleBackedLayer(baseLayerInformation.layer)
+        : baseLayerInformation;
+
+      if (runtimeLayerInformation && (!styleBacked || !this.hasUnsupportedStyleComponents(runtimeLayerInformation))) {
+        const success = await this.addLogicalLayerInternal(adapter, runtimeLayerInformation);
+        if (success) {
+          return true;
         }
       }
 
-      if (!allSucceeded) {
+      const fallbackLayerId = this.getConfiguredFallbackLayerId(baseLayerInformation.layer);
+      if (!fallbackLayerId) {
+        return false;
+      }
+
+      return this.tryAddLayerRequest(adapter, { layerId: fallbackLayerId }, options, visitedLayerIds);
+    }
+
+    if (this.isStyleRequest(layerRequest)) {
+      const styleLayerInformation = await this.getRuntimeLayerInformationFromStyleRequest(layerRequest);
+      if (!styleLayerInformation || this.hasUnsupportedStyleComponents(styleLayerInformation)) {
+        return false;
+      }
+      return this.addLogicalLayerInternal(adapter, styleLayerInformation);
+    }
+
+    const {
+      beforeLayerId: _beforeLayerId,
+      afterLayerId: _afterLayerId,
+      fallbackLayer: _fallbackLayer,
+      fallbackLayerId: _fallbackLayerId,
+      fallbackRef: _fallbackRef,
+      fallback: _fallback,
+      ...nativeLayer
+    } = layerRequest;
+    adapter.addLayer(nativeLayer, options && Object.keys(options).length > 0 ? options : undefined);
+    return true;
+  }
+
+  private async getRuntimeLayerInformationFromStyleRequest(layerRequest: RuntimeLayerRequest): Promise<RuntimeLayerInformation | null> {
+    const inlineStyle = this.toRecord(layerRequest.style);
+    const styleUrl = this.resolveStyleUrlFromRequest(layerRequest);
+    if (!inlineStyle && !styleUrl) {
+      return null;
+    }
+
+    const metadata = this.toRecord(layerRequest.metadata) ?? {};
+    const styleRequestId = typeof layerRequest.id === 'string' && layerRequest.id.length > 0
+      ? layerRequest.id
+      : `runtime-style-${++this.runtimeStyleLayerCounter}`;
+
+    if (inlineStyle) {
+      return this.buildExpandedStyleLayer(
+        {
+          id: styleRequestId,
+          metadata: {
+            ...metadata,
+            ...(styleUrl ? { styleUrl } : {}),
+          },
+        },
+        inlineStyle,
+        styleUrl,
+      );
+    }
+
+    return this.expandStyleBackedLayer({
+      id: styleRequestId,
+      metadata: {
+        ...metadata,
+        styleUrl,
+      },
+    });
+  }
+
+  private toRecord(value: unknown): Record<string, unknown> | null {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  }
+
+  private getLayerMetadata(layer: Pick<LayerConfig, 'metadata'> | null | undefined): Record<string, unknown> | null {
+    return this.toRecord(layer?.metadata);
+  }
+
+  private isStyleBackedLayer(layer: LayerConfig): boolean {
+    const metadata = this.getLayerMetadata(layer);
+    return typeof metadata?.styleUrl === 'string' && metadata.styleUrl.length > 0;
+  }
+
+  private getConfiguredFallbackLayerId(layer: LayerConfig): string | null {
+    const metadata = this.getLayerMetadata(layer);
+    const fallbackLayerId = metadata?.fallbackLayerId;
+    return typeof fallbackLayerId === 'string' && fallbackLayerId.length > 0 ? fallbackLayerId : null;
+  }
+
+  private isSourceTypeSupportedByActiveEngine(sourceType: string): boolean {
+    const adapterName = this.activeAdapterName;
+    if (adapterName === 'leaflet' || adapterName === 'cesium') {
+      return sourceType === 'raster' || sourceType === 'geojson';
+    }
+
+    if (adapterName === 'maplibre' || adapterName === 'openlayers') {
+      return sourceType === 'raster' || sourceType === 'geojson' || sourceType === 'vector';
+    }
+
+    return false;
+  }
+
+  private hasUnsupportedStyleComponents(layerInformation: RuntimeLayerInformation): boolean {
+    const sources = Array.isArray(layerInformation.sources) ? layerInformation.sources : [];
+    if (sources.length === 0) {
+      return true;
+    }
+
+    return sources.some((source) => {
+      const sourceType = typeof source?.type === 'string' ? source.type : null;
+      return !sourceType || !this.isSourceTypeSupportedByActiveEngine(sourceType);
+    });
+  }
+
+  private async addLogicalLayerInternal(adapter: IMap, layerInformation: RuntimeLayerInformation): Promise<boolean> {
+    const layer = layerInformation.layer;
+    const sources = Array.isArray(layerInformation.sources) ? layerInformation.sources : [];
+    const layerset = Array.isArray(layer?.layerset) ? layer.layerset : [];
+
+    const addLayerForSource = async (source: SourceConfig, includeBackgroundLayers: boolean): Promise<boolean> => {
+      const sourceId = typeof source?.id === 'string' ? source.id : null;
+      if (!sourceId) {
+        return false;
+      }
+
+      const scopedLayer = {
+        ...layer,
+        layerset: layerset.filter((styleLayer) => {
+          if (styleLayer.type === 'background') {
+            return includeBackgroundLayers;
+          }
+          if (typeof styleLayer.source !== 'string') {
+            return false;
+          }
+          return styleLayer.source === sourceId;
+        }),
+      };
+
+      if (!Array.isArray(scopedLayer.layerset) || scopedLayer.layerset.length === 0) {
+        return true;
+      }
+
+      try {
+        const success = await adapter.logicalLayers.addLayer(layer.id, scopedLayer, source);
+        return success === true;
+      } catch {
+        return false;
+      }
+    };
+
+    if (sources.length === 0) {
+      return false;
+    }
+
+    let includeBackgroundLayers = true;
+    for (const source of sources) {
+      const success = await addLayerForSource(source, includeBackgroundLayers);
+      includeBackgroundLayers = false;
+      if (!success) {
+        adapter.logicalLayers.removeLayer(layer.id);
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private async applyInitialStateLayers(adapter: IMap, _catalog: CatalogConfig): Promise<void> {
+    const activeLayerRefs = this.collectInitialActiveLayerRefs();
+    for (const layerId of activeLayerRefs) {
+      const success = await this.tryAddLayerRequest(adapter, { layerId });
+      if (!success) {
         this.dispatchEvent(new CustomEvent('webmapx-addlayer-failed', {
-          detail: { layerId: layerInformation.layer.id },
+          detail: { layerId },
           bubbles: true,
           composed: true
         }));
       }
     }
+  }
+
+  private toRuntimeLayerInformation(value: unknown): RuntimeLayerInformation | null {
+    const record = this.toRecord(value);
+    const layerRecord = this.toRecord(record?.layer);
+    const sourcesValue = record?.sources;
+    if (!layerRecord || !Array.isArray(sourcesValue)) {
+      return null;
+    }
+
+    const layerId = typeof layerRecord.id === 'string' ? layerRecord.id : null;
+    const layerset = Array.isArray(layerRecord.layerset)
+      ? layerRecord.layerset.filter((entry): entry is StyleLayerConfig => this.isStyleLayerConfig(entry))
+      : [];
+    if (!layerId || layerset.length === 0) {
+      return null;
+    }
+
+    const sources = sourcesValue.filter((entry): entry is SourceConfig => this.isSourceConfig(entry));
+    return {
+      layer: {
+        id: layerId,
+        layerset,
+        ...(typeof layerRecord.title === 'string' ? { title: layerRecord.title } : {}),
+        ...(this.toRecord(layerRecord.metadata) ? { metadata: this.toRecord(layerRecord.metadata)! } : {}),
+      },
+      sources,
+    };
+  }
+
+  private isStyleLayerConfig(value: unknown): value is StyleLayerConfig {
+    const record = this.toRecord(value);
+    return !!record && typeof record.type === 'string';
+  }
+
+  private isSourceConfig(value: unknown): value is SourceConfig {
+    const record = this.toRecord(value);
+    return !!record && typeof record.id === 'string' && typeof record.type === 'string';
   }
 }
 

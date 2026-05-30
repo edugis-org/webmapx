@@ -68,8 +68,8 @@ export class MapLayerService implements ILayerService {
                     if (typeof sourceConfig.minzoom === 'number') nativeSource.minzoom = sourceConfig.minzoom;
                     if (typeof sourceConfig.maxzoom === 'number') nativeSource.maxzoom = sourceConfig.maxzoom;
                     if ('scheme' in sourceConfig) nativeSource.scheme = sourceConfig.scheme;
-                    if ('attribution' in sourceConfig) nativeSource.attribution = sourceConfig.attribution;
-                    if ('volatile' in sourceConfig) nativeSource.volatile = sourceConfig.volatile;
+                    if (typeof sourceConfig.attribution === 'string') nativeSource.attribution = sourceConfig.attribution;
+                    if (typeof (sourceConfig as any).volatile === 'boolean') nativeSource.volatile = (sourceConfig as any).volatile;
                 } else if (sourceConfig.service === 'wms') {
                     const wmsConfig = sourceConfig as WMSSourceConfig;
                     const wmsUrl = buildWMSGetMapUrl({
@@ -88,15 +88,28 @@ export class MapLayerService implements ILayerService {
                     if (typeof sourceConfig.minzoom === 'number') nativeSource.minzoom = sourceConfig.minzoom;
                     if (typeof sourceConfig.maxzoom === 'number') nativeSource.maxzoom = sourceConfig.maxzoom;
                     if ('scheme' in sourceConfig) nativeSource.scheme = sourceConfig.scheme;
-                    if ('attribution' in sourceConfig) nativeSource.attribution = sourceConfig.attribution;
-                    if ('volatile' in sourceConfig) nativeSource.volatile = sourceConfig.volatile;
+                    if (typeof sourceConfig.attribution === 'string') nativeSource.attribution = sourceConfig.attribution;
+                    if (typeof (sourceConfig as any).volatile === 'boolean') nativeSource.volatile = (sourceConfig as any).volatile;
                 }
             } else if (sourceConfig.type === 'geojson') {
                 nativeSource = { type: 'geojson', data: (sourceConfig as any).data };
-                if ('attribution' in sourceConfig) nativeSource.attribution = (sourceConfig as any).attribution;
+                if (typeof (sourceConfig as any).attribution === 'string') nativeSource.attribution = (sourceConfig as any).attribution;
             } else if (sourceConfig.type === 'vector') {
-                nativeSource = { type: 'vector', url: (sourceConfig as any).url };
-                if ('attribution' in sourceConfig) nativeSource.attribution = (sourceConfig as any).attribution;
+                const vectorConfig = sourceConfig as any;
+                nativeSource = { type: 'vector' };
+                if (Array.isArray(vectorConfig.tiles)) {
+                    nativeSource.tiles = vectorConfig.tiles;
+                }
+                if (typeof vectorConfig.url === 'string') {
+                    nativeSource.url = vectorConfig.url;
+                }
+                if (typeof vectorConfig.minzoom === 'number') {
+                    nativeSource.minzoom = vectorConfig.minzoom;
+                }
+                if (typeof vectorConfig.maxzoom === 'number') {
+                    nativeSource.maxzoom = vectorConfig.maxzoom;
+                }
+                if (typeof vectorConfig.attribution === 'string') nativeSource.attribution = vectorConfig.attribution;
             }
             this.map.addSource(nativeSourceId, nativeSource);
         }
@@ -164,6 +177,9 @@ export class MapLayerService implements ILayerService {
         const nativeSourceId = this.getOrCreateNativeSourceId(sourceConfig);
         // Ensure the native source exists in the map
         this.ensureNativeSource(nativeSourceId, sourceConfig);
+        if (!this.map.getSource(nativeSourceId)) {
+            return false;
+        }
         // Use the factory to generate all needed MapLibre layer specs, referencing the nativeSourceId
         const layerSpecs = MapLibreLayerFactory.createLayers(layerConfig, sourceConfig, nativeSourceId);
         const nativeLayerIds: string[] = [...(this.logicalToNative.get(layerId) || [])];

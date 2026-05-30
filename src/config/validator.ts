@@ -37,7 +37,7 @@ const KNOWN_KEYS = {
 const VALID_MAP_TYPES = ['maplibre', 'openlayers', 'leaflet', 'cesium'];
 const VALID_SOURCE_TYPES = ['raster', 'geojson', 'vector'];
 const VALID_RASTER_SERVICES = ['xyz', 'wms', 'wmts'];
-const VALID_LAYER_TYPES = ['background', 'fill', 'line', 'circle', 'symbol', 'raster'];
+const VALID_LAYER_TYPES = ['background', 'fill', 'line', 'circle', 'symbol', 'raster', 'fill-extrusion'];
 
 /**
  * Validates a WebMapX configuration object.

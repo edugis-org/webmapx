@@ -186,6 +186,9 @@ export interface IMap {
     /** Tool-specific service surface for engine-backed tool commands. */
     readonly toolService: IToolService;
 
+    /** Engine-neutral executor for config-backed logical layers. */
+    readonly logicalLayers: ILogicalLayerExecutor;
+
     // ===== Viewport / Camera =====
     /** Gets the current viewport state (center, zoom, bearing, pitch). */
     getViewportState(): { center: [number, number], zoom: number, bearing: number, pitch: number };
@@ -309,7 +312,28 @@ export interface IToolService {
 }
 
 /**
- * Service for managing catalog layers on the map.
+ * Engine-neutral executor surface for config-backed logical layers.
+ * Used by runtime callers such as webmapx-map regardless of the active engine.
+ */
+export interface ILogicalLayerExecutor {
+    /** Sets the logical layer catalog/configuration. */
+    setCatalog(catalog: CatalogConfig): void;
+
+    /** Adds a logical layer using its resolved layer and source configs. */
+    addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig): Promise<boolean>;
+
+    /** Removes a logical layer by id. */
+    removeLayer(layerId: string): void;
+
+    /** Returns the currently visible logical layer ids. */
+    getVisibleLayers(): string[];
+
+    /** Returns whether a logical layer is currently visible. */
+    isLayerVisible(layerId: string): boolean;
+}
+
+/**
+ * Engine-specific backend service for logical-layer execution.
  * Converts config-based layer definitions to native map layers.
  * Updates the store with visible layer state.
  */
