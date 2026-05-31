@@ -10,7 +10,12 @@ import type { MapStateStore } from '../store/map-state-store';
 export interface MapCreateOptions {
     center?: [number, number];
     zoom?: number;
+    style?: MapStyle;
     styleUrl?: string;
+    tileUrl?: string;
+    tileUrls?: string[];
+    tileAttribution?: string;
+    tileSize?: number;
     interactive?: boolean;
 }
 

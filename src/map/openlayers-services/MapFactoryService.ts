@@ -6,6 +6,7 @@ import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import OSM from 'ol/source/OSM';
+import XYZ from 'ol/source/XYZ';
 import GeoJSON from 'ol/format/GeoJSON';
 import { Fill, Stroke, Style } from 'ol/style';
 import { fromLonLat, toLonLat } from 'ol/proj';
@@ -209,11 +210,23 @@ export class MapFactoryService implements ISubMapFactory {
         const logicalZoom = options?.zoom ?? 2;
         const olZoom = logicalZoom + ZOOM_OFFSET;
 
+        const baseSource = (options?.tileUrl || (Array.isArray(options?.tileUrls) && options.tileUrls.length > 0))
+            ? new XYZ({
+                ...(Array.isArray(options?.tileUrls) && options.tileUrls.length > 0
+                    ? { urls: options.tileUrls }
+                    : { url: options?.tileUrl }),
+                tileSize: options.tileSize ?? 256,
+                attributions: options.tileAttribution,
+            })
+            : new OSM({
+                attributions: options?.tileAttribution,
+            });
+
         const map = new OLMap({
             target: container,
             layers: [
                 new TileLayer({
-                    source: new OSM()
+                    source: baseSource
                 })
             ],
             view: new View({

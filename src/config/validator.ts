@@ -33,6 +33,8 @@ const KNOWN_KEYS = {
   layer: ['id', 'layerset', 'fallbackLayerId', 'title', 'metadata'],
   styleLayer: ['id', 'type', 'source', 'sourceLayer', 'source-layer', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
   tool: ['enabled'],
+  toolInsetMap: ['enabled', 'type', 'position', 'order', 'zoomOffset', 'baseScale', 'styleUrl', 'background'],
+  toolInsetMapBackground: ['service', 'url', 'tiles', 'attribution', 'tileSize'],
 };
 
 const VALID_MAP_TYPES = ['maplibre', 'openlayers', 'leaflet', 'cesium'];
@@ -416,8 +418,12 @@ function validateSources(
 
     if (s.type === 'raster') {
       knownKeys.push(...KNOWN_KEYS.sourceRaster);
-      if (typeof s.url !== 'string' || s.url.length === 0) {
-        errors.push({ severity: 'error', path: `${path}.url`, message: 'Raster source requires a "url"' });
+      const hasStringUrl = typeof s.url === 'string' && s.url.length > 0;
+      const hasUrlArray = Array.isArray(s.url)
+        && s.url.length > 0
+        && s.url.every((entry) => typeof entry === 'string' && entry.length > 0);
+      if (!hasStringUrl && !hasUrlArray) {
+        errors.push({ severity: 'error', path: `${path}.url`, message: 'Raster source requires a non-empty string "url" or string array' });
       }
       if (s.service !== undefined && !VALID_RASTER_SERVICES.includes(s.service as string)) {
         errors.push({
@@ -705,6 +711,56 @@ function validateToolsSection(
       warnings.push({ severity: 'warning', path: toolPath, message: 'Tool config is missing "enabled" property' });
     } else if (typeof tc.enabled !== 'boolean') {
       warnings.push({ severity: 'warning', path: `${toolPath}.enabled`, message: '"enabled" should be a boolean' });
+    }
+
+    if (toolName === 'insetMap') {
+      checkUnknownKeys(tc, KNOWN_KEYS.toolInsetMap, toolPath, warnings);
+
+      if (tc.zoomOffset !== undefined && (typeof tc.zoomOffset !== 'number' || !Number.isFinite(tc.zoomOffset))) {
+        warnings.push({ severity: 'warning', path: `${toolPath}.zoomOffset`, message: '"zoomOffset" should be a finite number' });
+      }
+
+      if (tc.baseScale !== undefined && (typeof tc.baseScale !== 'number' || !Number.isFinite(tc.baseScale) || tc.baseScale <= 0)) {
+        warnings.push({ severity: 'warning', path: `${toolPath}.baseScale`, message: '"baseScale" should be a positive finite number' });
+      }
+
+      if (tc.styleUrl !== undefined && typeof tc.styleUrl !== 'string') {
+        warnings.push({ severity: 'warning', path: `${toolPath}.styleUrl`, message: '"styleUrl" should be a string' });
+      }
+
+      if (tc.background !== undefined) {
+        if (!isObject(tc.background)) {
+          warnings.push({ severity: 'warning', path: `${toolPath}.background`, message: '"background" should be an object' });
+        } else {
+          const bg = tc.background as Record<string, unknown>;
+          checkUnknownKeys(bg, KNOWN_KEYS.toolInsetMapBackground, `${toolPath}.background`, warnings);
+
+          if (bg.service !== 'xyz') {
+            warnings.push({ severity: 'warning', path: `${toolPath}.background.service`, message: 'Only "xyz" background service is currently supported' });
+          }
+
+          const hasUrl = typeof bg.url === 'string' && bg.url.length > 0;
+          const hasTiles = Array.isArray(bg.tiles) && bg.tiles.length > 0 && bg.tiles.every((entry) => typeof entry === 'string' && entry.length > 0);
+
+          if (!hasUrl && !hasTiles) {
+            warnings.push({ severity: 'warning', path: `${toolPath}.background`, message: 'Provide either "url" or non-empty string array "tiles"' });
+          }
+
+          if (bg.url !== undefined && (typeof bg.url !== 'string' || bg.url.length === 0)) {
+            warnings.push({ severity: 'warning', path: `${toolPath}.background.url`, message: '"url" should be a non-empty string when provided' });
+          }
+
+          if (bg.tiles !== undefined && !hasTiles) {
+            warnings.push({ severity: 'warning', path: `${toolPath}.background.tiles`, message: '"tiles" should be a non-empty string array when provided' });
+          }
+          if (bg.attribution !== undefined && typeof bg.attribution !== 'string') {
+            warnings.push({ severity: 'warning', path: `${toolPath}.background.attribution`, message: '"attribution" should be a string' });
+          }
+          if (bg.tileSize !== undefined && (typeof bg.tileSize !== 'number' || !Number.isFinite(bg.tileSize) || bg.tileSize <= 0)) {
+            warnings.push({ severity: 'warning', path: `${toolPath}.background.tileSize`, message: '"tileSize" should be a positive finite number' });
+          }
+        }
+      }
     }
   });
 }

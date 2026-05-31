@@ -217,16 +217,24 @@ export class MapFactoryService implements ISubMapFactory {
         };
         const map = L.map(container, mapOptions);
 
-        // Add tile layer - always use OSM for Leaflet since it can't parse style JSON
-        // If styleUrl is a direct tile URL (not a .json style), use it
-        if (options?.styleUrl && !isStyleJsonUrl(options.styleUrl)) {
+        // Prefer explicit tile config; otherwise keep existing styleUrl fallback behavior.
+        const tileTemplate = Array.isArray(options?.tileUrls) && options.tileUrls.length > 0
+            ? options.tileUrls[0]
+            : options?.tileUrl;
+
+        if (tileTemplate) {
+            L.tileLayer(tileTemplate, {
+                attribution: options.tileAttribution ?? DEFAULT_ATTRIBUTION,
+                tileSize: options.tileSize
+            }).addTo(map);
+        } else if (options?.styleUrl && !isStyleJsonUrl(options.styleUrl)) {
             L.tileLayer(options.styleUrl, {
-                attribution: DEFAULT_ATTRIBUTION
+                attribution: options.tileAttribution ?? DEFAULT_ATTRIBUTION
             }).addTo(map);
         } else {
             // Default to OSM tiles (or when styleUrl is a MapLibre style JSON)
             L.tileLayer(DEFAULT_TILE_URL, {
-                attribution: DEFAULT_ATTRIBUTION
+                attribution: options?.tileAttribution ?? DEFAULT_ATTRIBUTION
             }).addTo(map);
         }
 

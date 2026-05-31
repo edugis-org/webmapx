@@ -352,6 +352,36 @@ export interface ToolConfig {
 }
 
 /**
+ * Background source for inset maps.
+ */
+export interface InsetMapBackgroundConfig {
+  /** Background service type for inset maps (currently only XYZ). */
+  service: 'xyz';
+  /** XYZ tile URL template. */
+  url?: string;
+  /** Optional explicit tile URL templates (preferred for engines without {s} expansion). */
+  tiles?: string[];
+  /** Optional attribution text shown by engines that support it. */
+  attribution?: string;
+  /** Optional tile size in pixels. */
+  tileSize?: number;
+}
+
+/**
+ * Inset map tool configuration.
+ */
+export interface InsetMapToolConfig extends ToolConfig {
+  /** Offset applied to main-map zoom for inset display. */
+  zoomOffset?: number;
+  /** CSS scale used by inset map frame. */
+  baseScale?: number;
+  /** Optional style URL override (engine-specific, mainly MapLibre). */
+  styleUrl?: string;
+  /** Optional background source definition for inset map base layer. */
+  background?: InsetMapBackgroundConfig;
+}
+
+/**
  * Measure tool configuration.
  */
 export interface MeasureToolConfig extends ToolConfig {
@@ -376,9 +406,10 @@ export interface ToolsConfig {
   layerTree?: ToolConfig;
   legend?: ToolConfig;
   measure?: MeasureToolConfig;
+  insetMap?: InsetMapToolConfig;
   /** Search tool configuration */
   search?: SearchToolConfig;
-  [toolName: string]: ToolConfig | MeasureToolConfig | undefined;
+  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | undefined;
 }
 
 /**

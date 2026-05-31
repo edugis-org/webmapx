@@ -459,7 +459,17 @@
       "enabled": true,
       "position": "bottom-left",
       "order": 30,
-      "zoomOffset": -4
+      "zoomOffset": -4,
+      "background": {
+        "service": "xyz",
+        "tiles": [
+          "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        ],
+        "attribution": "&copy; OpenStreetMap contributors",
+        "tileSize": 256
+      }
     },
     "spinner": {
       "type": "spinner",

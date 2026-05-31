@@ -1,14 +1,17 @@
 import { css, html, LitElement, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { resolveMapElement } from './internal/map-context';
-import type { IMap, ISource, ISubMap } from '../map/IMapInterfaces';
+import type { IMap, ISource, ISubMap, MapCreateOptions } from '../map/IMapInterfaces';
 import { IAppState } from '../store/IState';
 import { throttle } from '../utils/throttle';
 import type { LngLat } from '../store/map-events';
+import type { InsetMapToolConfig } from '../config/types';
 
 const DEFAULT_STYLE = 'https://demotiles.maplibre.org/style.json';
 const MIN_ZOOM = 0;
 const MAX_ZOOM = 22;
+const MAX_MERCATOR_LAT = 85.05112878;
+const MAX_GEODETIC_LAT = 89.999;
 const POSITIVE_SCALE_CAP = 1;
 const VIEWPORT_SOURCE_ID = 'viewport';
 const VIEWPORT_FILL_LAYER_ID = 'viewport-fill';
@@ -31,6 +34,7 @@ export class WebmapxInsetMap extends LitElement {
   private unsubscribe: (() => void) | null = null;
   private lastCenter: [number, number] | null = null;
   private lastZoom: number | null = null;
+  private projectionMode: 'mercator' | 'geodetic' = 'mercator';
   private lastBoundsKey: string | null = null;
   private lastRequestedBoundsKey: string | null = null;
   private initPromise: Promise<void> | null = null;
@@ -38,11 +42,6 @@ export class WebmapxInsetMap extends LitElement {
   private throttledViewportUpdate = throttle(() => {
     this.doUpdateViewportRectangle(this.pendingViewportBounds);
     this.pendingViewportBounds = undefined;
-  }, 50);
-
-  // Throttle state updates to avoid excessive rendering during map movement
-  private throttledApplyState = throttle((state: IAppState) => {
-    this.applyState(state);
   }, 50);
 
   private throttledRenderLog = throttle((label: string) => {
@@ -124,24 +123,40 @@ export class WebmapxInsetMap extends LitElement {
     const adapter = await (mapElement as any).getAdapterAsync?.();
     if (!adapter) return;
     this.adapter = adapter as IMap;
+    this.projectionMode = this.resolveProjectionMode(mapElement);
 
     const state = this.adapter.store.getState();
+    const toolConfig = this.resolveInsetToolConfig(mapElement);
+    const zoomOffset = this.resolveInsetNumber('zoom-offset', this.zoomOffset, toolConfig.zoomOffset);
+    const baseScale = this.resolveInsetNumber('base-scale', this.baseScale, toolConfig.baseScale);
+    const styleUrl = this.hasAttribute('style-url') ? this.styleUrl : toolConfig.styleUrl;
+    const background = this.resolveInsetBackground(toolConfig);
 
     // Create the inset map
-    this.insetMap = this.adapter.mapFactory.createMap(container, {
-      styleUrl: this.styleUrl ?? DEFAULT_STYLE,
+    const createOptions: MapCreateOptions = {
+      styleUrl: styleUrl ?? DEFAULT_STYLE,
       center: state.mapCenter ?? [0, 0],
-      zoom: this.clampZoom((state.zoomLevel ?? 0) + this.zoomOffset),
+      zoom: this.clampZoom((state.zoomLevel ?? 0) + zoomOffset),
       interactive: false,
-    });
+      ...(background ? {
+        tileUrl: background.url,
+        tileUrls: Array.isArray(background.tiles)
+          ? background.tiles.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
+          : undefined,
+        tileAttribution: background.attribution,
+        tileSize: background.tileSize,
+      } : {}),
+    };
+
+    this.insetMap = this.adapter.mapFactory.createMap(container, createOptions);
 
     // Set initial scale
-    container.style.setProperty('--webmapx-inset-scale', `${this.baseScale}`);
+    container.style.setProperty('--webmapx-inset-scale', `${baseScale}`);
 
     // Setup layers when map is ready
     this.insetMap.onReady(() => {
       this.setupViewportLayers();
-      this.applyState(state);
+      this.applyState(state, zoomOffset);
     });
 
     // Subscribe to state changes (throttled)
@@ -149,9 +164,49 @@ export class WebmapxInsetMap extends LitElement {
       if (!this.hasRelevantStateChange(newState)) {
         return;
       }
-      this.throttledApplyState(newState);
+      this.throttledApplyStateWithZoomOffset(newState, zoomOffset);
     });
   }
+
+  private resolveInsetToolConfig(mapElement: HTMLElement): InsetMapToolConfig {
+    const config = (mapElement as any)?.config;
+    const rawInsetConfig = config?.tools?.insetMap;
+    if (!rawInsetConfig || typeof rawInsetConfig !== 'object') {
+      return { enabled: true };
+    }
+    return rawInsetConfig as InsetMapToolConfig;
+  }
+
+  private resolveInsetBackground(config: InsetMapToolConfig): InsetMapToolConfig['background'] | null {
+    const bg = config.background;
+    if (!bg || bg.service !== 'xyz') {
+      return null;
+    }
+    const hasUrl = typeof bg.url === 'string' && bg.url.length > 0;
+    const hasTiles = Array.isArray(bg.tiles)
+      && bg.tiles.length > 0
+      && bg.tiles.every((entry) => typeof entry === 'string' && entry.length > 0);
+    if (!hasUrl && !hasTiles) {
+      return null;
+    }
+    return bg;
+  }
+
+  private resolveInsetNumber(attributeName: string, propertyValue: number, configuredValue: unknown): number {
+    if (this.hasAttribute(attributeName)) {
+      return propertyValue;
+    }
+
+    if (typeof configuredValue === 'number' && Number.isFinite(configuredValue)) {
+      return configuredValue;
+    }
+
+    return propertyValue;
+  }
+
+  private throttledApplyStateWithZoomOffset = throttle((state: IAppState, zoomOffset: number) => {
+    this.applyState(state, zoomOffset);
+  }, 50);
 
   private destroyInset(): void {
     if (this.unsubscribe) {
@@ -165,7 +220,41 @@ export class WebmapxInsetMap extends LitElement {
     this.viewportSource = null;
     this.lastCenter = null;
     this.lastZoom = null;
+    this.projectionMode = 'mercator';
     this.lastBoundsKey = null;
+  }
+
+  private resolveProjectionMode(mapElement: HTMLElement): 'mercator' | 'geodetic' {
+    const mapConfig = (mapElement as any)?.mapConfig;
+    const style = mapConfig?.style;
+
+    if (style && typeof style === 'object') {
+      const projection = (style as Record<string, unknown>).projection;
+      if (projection && typeof projection === 'object') {
+        const type = (projection as Record<string, unknown>).type;
+        if (typeof type === 'string' && type.toLowerCase() === 'globe') {
+          return 'geodetic';
+        }
+      }
+    }
+
+    return 'mercator';
+  }
+
+  private updateProjectionModeFromBounds(bounds: GeoJSON.Feature<GeoJSON.Polygon> | null | undefined): void {
+    const ring = this.coerceRing(bounds?.geometry?.coordinates?.[0]);
+    if (!ring.length) {
+      return;
+    }
+
+    const maxAbsLat = ring.reduce((max, [, lat]) => Math.max(max, Math.abs(lat)), 0);
+    if (maxAbsLat > MAX_MERCATOR_LAT + 0.001) {
+      this.projectionMode = 'geodetic';
+    }
+  }
+
+  private maxViewportLat(): number {
+    return this.projectionMode === 'geodetic' ? MAX_GEODETIC_LAT : MAX_MERCATOR_LAT;
   }
 
   private setupViewportLayers(): void {
@@ -202,14 +291,16 @@ export class WebmapxInsetMap extends LitElement {
     });
   }
 
-  private applyState(state: IAppState): void {
+  private applyState(state: IAppState, zoomOffset = this.zoomOffset): void {
     if (!this.insetMap) return;
 
     const container = this.insetContainer;
     if (!container) return;
 
+    this.updateProjectionModeFromBounds(state.mapViewportBounds);
+
     if (state.mapCenter) {
-      const requestedZoom = (state.zoomLevel ?? 0) + this.zoomOffset;
+      const requestedZoom = (state.zoomLevel ?? 0) + zoomOffset;
       const { mapZoom, scale } = this.resolveViewState(requestedZoom);
 
       // Update CSS scale
@@ -263,6 +354,34 @@ export class WebmapxInsetMap extends LitElement {
       return;
     }
 
+    const fullWidthFeature = this.buildFullWidthViewportFeature(bounds);
+    if (fullWidthFeature) {
+      const fullWidthKey = this.computeBoundsKey(fullWidthFeature);
+      if (fullWidthKey === this.lastBoundsKey) {
+        return;
+      }
+      this.lastBoundsKey = fullWidthKey;
+      this.viewportSource.setData({
+        type: 'FeatureCollection',
+        features: [fullWidthFeature],
+      });
+      return;
+    }
+
+    const wideViewportFeature = this.buildWideViewportFeature(bounds);
+    if (wideViewportFeature) {
+      const wideKey = this.computeBoundsKey(wideViewportFeature);
+      if (wideKey === this.lastBoundsKey) {
+        return;
+      }
+      this.lastBoundsKey = wideKey;
+      this.viewportSource.setData({
+        type: 'FeatureCollection',
+        features: [wideViewportFeature],
+      });
+      return;
+    }
+
     this.throttledRenderLog('start calc');
     const densified = this.densifyViewportBounds(bounds);
     if (!densified) {
@@ -296,15 +415,21 @@ export class WebmapxInsetMap extends LitElement {
       console.log('[inset-debug] self-intersection ring', densifiedRing);
     }*/
 
-    const nearPole = maxLat !== null && Math.abs(maxLat) >= 75 || minLat !== null && Math.abs(minLat) >= 75;
-    const badSpan = ringSpan && ((nearPole && ringSpan.lon > 170) || ringSpan.lon >= 330);
-    if (badSpan) {
-      console.warn('[inset-debug] skip render due to span', { ringSpan, nearPole });
+    const badSpan = ringSpan && ringSpan.lon >= 359.5;
+
+    // At very wide/global zoom levels, keep rendering a simple normalized ring instead
+    // of hiding the rectangle entirely.
+    let featureToRender: GeoJSON.Feature<GeoJSON.Polygon> | null = densified;
+    if (hasIntersection || badSpan) {
+      const fallback = this.normalizeViewportBounds(bounds);
+      const fallbackRing = fallback ? this.coerceRing(fallback.geometry.coordinates?.[0]) : [];
+      const fallbackIntersects = fallbackRing.length ? this.hasSelfIntersection(fallbackRing) : true;
+      featureToRender = fallback && !fallbackIntersects ? fallback : null;
     }
 
     const data: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
-      features: (!densified || hasIntersection || badSpan) ? [] : [densified],
+      features: featureToRender ? [featureToRender] : [],
     };
 
     this.throttledRenderLog('start render');
@@ -345,11 +470,18 @@ export class WebmapxInsetMap extends LitElement {
   /** Normalize/clamp incoming bounds to a closed ring */
   private normalizeViewportBounds(bounds: GeoJSON.Feature<GeoJSON.Polygon> | null | undefined): GeoJSON.Feature<GeoJSON.Polygon> | null {
     if (!bounds) return null;
-    const ring = this.coerceRing(bounds.geometry?.coordinates?.[0]);
+    const rawRing = this.coerceRing(bounds.geometry?.coordinates?.[0]);
+    const anchorLng = this.lastCenter?.[0] ?? rawRing[0]?.[0] ?? 0;
+    const ring = this.ensureClosed(this.unwrapLongitudes(rawRing, anchorLng));
     if (ring.length < 4) return null;
 
     const normalized = ring
-      .map(pt => this.sanitizeCoord(pt as [number, number]))
+      .map(([lng, lat]) => {
+        if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+          return null;
+        }
+        return [this.normalizeLngAround(lng, anchorLng), this.clampLat(lat)] as [number, number];
+      })
       .filter((pt): pt is [number, number] => !!pt);
 
     if (normalized.length < 4) return null;
@@ -385,7 +517,8 @@ export class WebmapxInsetMap extends LitElement {
   private densifyRingWithPixels(ring: [number, number][]): [number, number][] {
     if (!this.adapter) return ring;
     const closedRing = this.ensureClosed(ring);
-    const unwrapped = this.ensureClosed(this.unwrapLongitudes(ring));
+    const anchorLng = this.lastCenter?.[0] ?? closedRing[0]?.[0] ?? 0;
+    const unwrapped = this.ensureClosed(this.unwrapLongitudes(ring, anchorLng));
     const span = this.computeSpan(unwrapped);
     const maxAbsLat = unwrapped.reduce((m, [, lat]) => Math.max(m, Math.abs(lat)), 0);
     const nearPole = maxAbsLat >= 75;
@@ -440,11 +573,13 @@ export class WebmapxInsetMap extends LitElement {
 
     // Filter out-of-bounds latitudes after clamping as a safeguard
     const safeCoords = coords
-      .map(([lng, lat]) => [lng, Math.max(-79, Math.min(79, lat))] as [number, number])
-      .filter(([, lat]) => Math.abs(lat) <= 90);
+      .map(([lng, lat]) => [lng, this.clampLat(lat)] as [number, number])
+      .filter(([, lat]) => Math.abs(lat) <= this.maxViewportLat());
 
     const continuous = this.rewrapContinuousLongitudes(safeCoords.length ? safeCoords : closedRing);
-    const maxSpan = nearPole ? 160 : 300;
+    // Do not shrink wide viewports based on latitude; wrapped/near-global views
+    // need their true horizontal span preserved.
+    const maxSpan = 359;
     const bounded = this.limitLongitudeSpan(continuous, maxSpan);
     const deduped = this.dedupeSequential(bounded);
     const collapsed = this.collapseFlatRuns(deduped);
@@ -462,6 +597,246 @@ export class WebmapxInsetMap extends LitElement {
       maxLat = Math.max(maxLat, lat);
     }
     return { lon: maxLon - minLon, lat: maxLat - minLat };
+  }
+
+  private buildFullWidthViewportFeature(bounds: GeoJSON.Feature<GeoJSON.Polygon>): GeoJSON.Feature<GeoJSON.Polygon> | null {
+    const rawRing = this.coerceRing(bounds.geometry?.coordinates?.[0]);
+    if (rawRing.length < 4) {
+      return null;
+    }
+
+    const anchorLng = this.lastCenter?.[0] ?? rawRing[0][0] ?? 0;
+    const sampledRange = this.sampleViewportLongitudeRange(anchorLng);
+    const sampledViewportWidthDeg = sampledRange?.width;
+    const ringViewportWidthDeg = this.estimateViewportWidthDeg(rawRing, anchorLng);
+    const viewportWidthDeg = Math.max(sampledViewportWidthDeg ?? 0, ringViewportWidthDeg);
+
+    // Only force full-width mode when the visible viewport itself spans (almost) a full world.
+    if (viewportWidthDeg < 345) {
+      return null;
+    }
+
+    const normalized = this.normalizeViewportBounds(bounds);
+    const normalizedRing = normalized ? this.coerceRing(normalized.geometry.coordinates?.[0]) : [];
+    if (!normalizedRing.length) {
+      return null;
+    }
+
+    const latValues = normalizedRing.map(([, lat]) => lat);
+    const maxLatLimit = this.maxViewportLat();
+    const minLat = Math.max(-maxLatLimit, Math.min(...latValues));
+    const maxLat = Math.min(maxLatLimit, Math.max(...latValues));
+    if (!Number.isFinite(minLat) || !Number.isFinite(maxLat) || maxLat < minLat) {
+      return null;
+    }
+
+    const west = -179.999;
+    const east = 179.999;
+    const fullWidthRing: [number, number][] = [
+      [west, minLat],
+      [west, maxLat],
+      [east, maxLat],
+      [east, minLat],
+      [west, minLat],
+    ];
+
+    return {
+      type: 'Feature',
+      properties: bounds.properties ?? {},
+      geometry: {
+        type: 'Polygon',
+        coordinates: [fullWidthRing],
+      },
+    };
+  }
+
+  private buildWideViewportFeature(bounds: GeoJSON.Feature<GeoJSON.Polygon>): GeoJSON.Feature<GeoJSON.Polygon> | null {
+    const rawRing = this.coerceRing(bounds.geometry?.coordinates?.[0]);
+    if (rawRing.length < 4) {
+      return null;
+    }
+
+    const anchorLng = this.lastCenter?.[0] ?? rawRing[0][0] ?? 0;
+    const sampledRange = this.sampleViewportLongitudeRange(anchorLng);
+    const sampledViewportWidthDeg = sampledRange?.width;
+    const ringViewportWidthDeg = this.estimateViewportWidthDeg(rawRing, anchorLng);
+    const viewportWidthDeg = Math.max(sampledViewportWidthDeg ?? 0, ringViewportWidthDeg);
+
+    // Wide (wrapped) but not global-full-width: keep authored viewport ring, skip densify rewrap.
+    if (viewportWidthDeg <= 170 || viewportWidthDeg >= 345) {
+      return null;
+    }
+
+    const normalized = this.normalizeViewportBounds(bounds);
+    if (!normalized) {
+      return null;
+    }
+
+    const normalizedRing = this.coerceRing(normalized.geometry.coordinates?.[0]);
+    if (!normalizedRing.length || this.hasSelfIntersection(normalizedRing)) {
+      return null;
+    }
+
+    // In wide-between mode, prefer sampled horizontal envelope so we don't accidentally
+    // render the narrow complement strip near the dateline switchpoint.
+    if (sampledRange && sampledRange.width > 170 && sampledRange.width < 345) {
+      const latValues = normalizedRing.map(([, lat]) => lat);
+      const maxLatLimit = this.maxViewportLat();
+      const minLat = Math.max(-maxLatLimit, Math.min(...latValues));
+      const maxLat = Math.min(maxLatLimit, Math.max(...latValues));
+      if (Number.isFinite(minLat) && Number.isFinite(maxLat) && maxLat >= minLat) {
+        const sampledRing: [number, number][] = [
+          [sampledRange.minLon, minLat],
+          [sampledRange.minLon, maxLat],
+          [sampledRange.maxLon, maxLat],
+          [sampledRange.maxLon, minLat],
+          [sampledRange.minLon, minLat],
+        ];
+
+        return {
+          type: 'Feature',
+          properties: bounds.properties ?? {},
+          geometry: {
+            type: 'Polygon',
+            coordinates: [sampledRing],
+          },
+        };
+      }
+    }
+
+    return normalized;
+  }
+
+  private estimateViewportWidthFromScreenSamples(anchorLng: number): number | null {
+    if (!this.adapter) {
+      return null;
+    }
+
+    const mapHost = resolveMapElement(this);
+    const mapSurface = mapHost?.mapElement;
+    if (!mapSurface) {
+      return null;
+    }
+
+    const width = mapSurface.clientWidth;
+    const height = mapSurface.clientHeight;
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      return null;
+    }
+
+    const range = this.sampleViewportLongitudeRange(anchorLng);
+    if (!range) {
+      return null;
+    }
+
+    return range.width > 0 ? range.width : null;
+  }
+
+  private sampleViewportLongitudeRange(anchorLng: number): { minLon: number; maxLon: number; width: number } | null {
+    if (!this.adapter) {
+      return null;
+    }
+
+    const mapHost = resolveMapElement(this);
+    const mapSurface = mapHost?.mapElement;
+    if (!mapSurface) {
+      return null;
+    }
+
+    const width = mapSurface.clientWidth;
+    const height = mapSurface.clientHeight;
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      return null;
+    }
+
+    const rowFractions = [0.12, 0.32, 0.5, 0.68, 0.88];
+    const colFractions = Array.from({ length: 21 }, (_, i) => i / 20);
+    let globalMin = Infinity;
+    let globalMax = -Infinity;
+    let sawRow = false;
+
+    for (const row of rowFractions) {
+      const lons: number[] = [];
+      for (const col of colFractions) {
+        const x = width * col;
+        const y = height * row;
+        const lngLat = this.adapter.unproject([x, y]);
+        if (!lngLat || !Number.isFinite(lngLat[0])) {
+          continue;
+        }
+        lons.push(lngLat[0]);
+      }
+
+      if (lons.length < 2) {
+        continue;
+      }
+
+      const normalizedLons = lons.map((lon) => this.normalizeLngAround(lon, anchorLng));
+      const unwrapped = this.unwrapLongitudeSeries(normalizedLons);
+      const minLon = Math.min(...unwrapped);
+      const maxLon = Math.max(...unwrapped);
+      if (Number.isFinite(minLon) && Number.isFinite(maxLon)) {
+        globalMin = Math.min(globalMin, minLon);
+        globalMax = Math.max(globalMax, maxLon);
+        sawRow = true;
+      }
+    }
+
+    if (!sawRow || !Number.isFinite(globalMin) || !Number.isFinite(globalMax)) {
+      return null;
+    }
+
+    return {
+      minLon: globalMin,
+      maxLon: globalMax,
+      width: Math.max(0, globalMax - globalMin),
+    };
+  }
+
+  private unwrapLongitudeSeries(lons: number[]): number[] {
+    if (!lons.length) {
+      return [];
+    }
+
+    const unwrapped: number[] = [lons[0]];
+    let offset = 0;
+
+    for (let i = 1; i < lons.length; i++) {
+      const prev = lons[i - 1];
+      const current = lons[i];
+      const delta = current - prev;
+
+      if (delta < -180) {
+        offset += 360;
+      } else if (delta > 180) {
+        offset -= 360;
+      }
+
+      unwrapped.push(current + offset);
+    }
+
+    return unwrapped;
+  }
+
+  private estimateViewportWidthDeg(rawRing: [number, number][], anchorLng: number): number {
+    if (rawRing.length < 4) {
+      return 0;
+    }
+
+    // Ring order from map cores is expected: bottom-left, bottom-right, top-right, top-left.
+    const bl = rawRing[0][0];
+    const br = rawRing[1][0];
+    const tr = rawRing[2][0];
+    const tl = rawRing[3][0];
+
+    const blA = this.normalizeLngAround(bl, anchorLng);
+    const brA = this.normalizeLngAround(br, anchorLng);
+    const trA = this.normalizeLngAround(tr, anchorLng);
+    const tlA = this.normalizeLngAround(tl, anchorLng);
+
+    const bottomWidth = Math.abs(brA - blA);
+    const topWidth = Math.abs(trA - tlA);
+    return Math.max(bottomWidth, topWidth);
   }
 
   private hasSelfIntersection(ring: [number, number][]): boolean {
@@ -499,16 +874,36 @@ export class WebmapxInsetMap extends LitElement {
     return false;
   }
 
-  private unwrapLongitudes(ring: [number, number][]): [number, number][] {
+  private unwrapLongitudes(ring: [number, number][], anchorLng = 0): [number, number][] {
     if (!ring.length) return [];
-    const unwrapped: [number, number][] = [[ring[0][0], ring[0][1]]];
+    const firstLon = this.normalizeLngAround(ring[0][0], anchorLng);
+    const unwrapped: [number, number][] = [[firstLon, ring[0][1]]];
     for (let i = 1; i < ring.length; i++) {
       const prevLon = unwrapped[i - 1][0];
-      const lon = ring[i][0];
-      const delta = this.shortestDelta(prevLon, lon);
+      const lon = this.normalizeLngAround(ring[i][0], anchorLng);
+      const delta = this.resolveDeltaWithAnchor(prevLon, lon, anchorLng);
       unwrapped.push([prevLon + delta, ring[i][1]]);
     }
     return unwrapped;
+  }
+
+  private resolveDeltaWithAnchor(fromLng: number, toLng: number, anchorLng: number): number {
+    const shortest = this.shortestDelta(fromLng, toLng);
+    const alternate = shortest > 0 ? shortest - 360 : shortest + 360;
+
+    const shortestMid = fromLng + shortest / 2;
+    const alternateMid = fromLng + alternate / 2;
+
+    const shortestDistance = Math.abs(shortestMid - anchorLng);
+    const alternateDistance = Math.abs(alternateMid - anchorLng);
+
+    return alternateDistance + 1e-6 < shortestDistance ? alternate : shortest;
+  }
+
+  private normalizeLngAround(lng: number, anchorLng: number): number {
+    const normalized = this.normalizeLng(lng);
+    const wraps = Math.round((anchorLng - normalized) / 360);
+    return normalized + wraps * 360;
   }
 
   private shortestDelta(fromLng: number, toLng: number): number {
@@ -581,11 +976,12 @@ export class WebmapxInsetMap extends LitElement {
   }
 
   private normalizeLng(lng: number): number {
-    return ((lng + 180) % 360) - 180;
+    return ((((lng + 180) % 360) + 360) % 360) - 180;
   }
 
   private clampLat(lat: number): number {
-    return Math.max(-80, Math.min(80, lat));
+    const maxLat = this.maxViewportLat();
+    return Math.max(-maxLat, Math.min(maxLat, lat));
   }
 
   private ensureClosed(ring: [number, number][]): [number, number][] {

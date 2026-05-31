@@ -275,10 +275,13 @@ export class MapFactoryService implements ISubMapFactory {
         const center = options?.center ?? [0, 0];
         const zoom = options?.zoom ?? 1;
 
+        const tileUrl = (Array.isArray(options?.tileUrls) && options.tileUrls.length > 0
+            ? options.tileUrls[0]
+            : options?.tileUrl) ?? 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
         const osmProvider = new Cesium.UrlTemplateImageryProvider({
-            url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-            subdomains: ['a', 'b', 'c'],
-            credit: '&copy; OpenStreetMap contributors',
+            url: tileUrl,
+            ...(tileUrl.includes('{s}') ? { subdomains: ['a', 'b', 'c'] } : {}),
+            credit: options?.tileAttribution ?? '&copy; OpenStreetMap contributors',
         });
 
         const creditContainer = document.createElement('div');

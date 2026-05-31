@@ -5,6 +5,14 @@ import { ISubMapFactory, ISubMap, ILayer, ISource, MapCreateOptions, LayerSpec }
 
 const DEFAULT_STYLE = 'https://demotiles.maplibre.org/style.json';
 
+function expandSubdomainTemplate(url: string): string[] {
+    if (!url.includes('{s}')) {
+        return [url];
+    }
+
+    return ['a', 'b', 'c'].map((subdomain) => url.replace('{s}', subdomain));
+}
+
 /**
  * MapLibre implementation of ISource.
  */
@@ -145,9 +153,39 @@ class MapLibreMap implements ISubMap {
  */
 export class MapFactoryService implements ISubMapFactory {
     createMap(container: HTMLElement, options?: MapCreateOptions): ISubMap {
+        const resolvedTiles = Array.isArray(options?.tileUrls) && options.tileUrls.length > 0
+            ? options.tileUrls
+            : (typeof options?.tileUrl === 'string' && options.tileUrl.length > 0
+                ? expandSubdomainTemplate(options.tileUrl)
+                : undefined);
+
+        const resolvedStyle = options?.style
+            ?? (resolvedTiles
+                ? {
+                    version: 8,
+                    sources: {
+                        insetBackground: {
+                            type: 'raster',
+                            tiles: resolvedTiles,
+                            tileSize: options.tileSize ?? 256,
+                            ...(options.tileAttribution ? { attribution: options.tileAttribution } : {}),
+                        },
+                    },
+                    layers: [
+                        {
+                            id: 'inset-background',
+                            type: 'raster',
+                            source: 'insetBackground',
+                        },
+                    ],
+                }
+                : undefined)
+            ?? options?.styleUrl
+            ?? DEFAULT_STYLE;
+
         const map = new maplibregl.Map({
             container,
-            style: options?.styleUrl ?? DEFAULT_STYLE,
+            style: resolvedStyle as maplibregl.StyleSpecification | string,
             center: options?.center ?? [0, 0],
             zoom: options?.zoom ?? 1,
             attributionControl: false,
