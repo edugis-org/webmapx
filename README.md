@@ -3,6 +3,8 @@
 WebMapX is a web mapping UI toolkit for building interactive map apps quickly.
 It supports multiple map engines out of the box: MapLibre, OpenLayers, Leaflet, and Cesium.
 
+Live site: https://edugis-org.github.io/webmapx/
+
 ## Why WebMapX
 
 - Build a working map UI fast with reusable components.
