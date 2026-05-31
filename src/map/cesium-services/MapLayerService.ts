@@ -47,6 +47,16 @@ function toNumber(value: unknown, fallback: number): number {
     return typeof value === 'number' && isFinite(value) ? value : fallback;
 }
 
+function parseHexColor(value: string): { r: number; g: number; b: number } | null {
+    const hex = value.trim();
+    if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return null;
+    return {
+        r: parseInt(hex.slice(1, 3), 16),
+        g: parseInt(hex.slice(3, 5), 16),
+        b: parseInt(hex.slice(5, 7), 16),
+    };
+}
+
 function getMinZoom(source: Partial<{ minzoom?: number; minZoom?: number }>): number | undefined {
     const value = source.minzoom ?? source.minZoom;
     return typeof value === 'number' && isFinite(value) ? value : undefined;
@@ -261,6 +271,151 @@ export class MapLayerService implements ILayerService {
         }
     }
 
+    private getEntityProperty(entity: any, key: string): unknown {
+        const Cesium = getCesium();
+        const julian = Cesium?.JulianDate?.now?.();
+        const value = entity?.properties?.[key];
+        if (value?.getValue && julian) {
+            return value.getValue(julian);
+        }
+        if (value && typeof value === 'object' && 'valueOf' in value) {
+            try {
+                return value.valueOf();
+            } catch {
+                return value;
+            }
+        }
+        return value;
+    }
+
+    private resolveExpression(entity: any, expression: unknown): unknown {
+        if (!Array.isArray(expression)) {
+            return expression;
+        }
+
+        const [operator, ...args] = expression;
+        if (operator === 'get' && typeof args[0] === 'string') {
+            return this.getEntityProperty(entity, args[0]);
+        }
+        if (operator === 'to-number') {
+            const value = this.resolveExpression(entity, args[0]);
+            const numberValue = Number(value);
+            return Number.isFinite(numberValue) ? numberValue : null;
+        }
+        if (operator === 'coalesce') {
+            for (const arg of args) {
+                const value = this.resolveExpression(entity, arg);
+                if (value !== null && value !== undefined && !(typeof value === 'number' && !Number.isFinite(value))) {
+                    return value;
+                }
+            }
+            return null;
+        }
+        if (operator === 'interpolate') {
+            return this.resolveInterpolateExpression(entity, expression);
+        }
+
+        return null;
+    }
+
+    private resolveInterpolateExpression(entity: any, expression: unknown[]): unknown {
+        if (expression.length < 6) return null;
+
+        const [, interpolation, inputExpression, ...stops] = expression;
+        const input = Number(this.resolveExpression(entity, inputExpression));
+        if (!Number.isFinite(input)) return null;
+
+        let base = 1;
+        if (Array.isArray(interpolation) && interpolation[0] === 'exponential' && typeof interpolation[1] === 'number') {
+            base = interpolation[1];
+        }
+
+        const parsedStops: Array<{ stop: number; value: unknown }> = [];
+        for (let i = 0; i + 1 < stops.length; i += 2) {
+            const stop = Number(stops[i]);
+            if (!Number.isFinite(stop)) continue;
+            parsedStops.push({ stop, value: stops[i + 1] });
+        }
+        if (!parsedStops.length) return null;
+
+        if (input <= parsedStops[0].stop) return parsedStops[0].value;
+        if (input >= parsedStops[parsedStops.length - 1].stop) return parsedStops[parsedStops.length - 1].value;
+
+        for (let i = 1; i < parsedStops.length; i++) {
+            const prev = parsedStops[i - 1];
+            const next = parsedStops[i];
+            if (input > next.stop) continue;
+
+            const tLinear = (input - prev.stop) / (next.stop - prev.stop);
+            const t = base === 1 ? tLinear : (Math.pow(base, tLinear) - 1) / (base - 1);
+
+            if (typeof prev.value === 'number' && typeof next.value === 'number') {
+                return prev.value + (next.value - prev.value) * t;
+            }
+            if (typeof prev.value === 'string' && typeof next.value === 'string') {
+                const c1 = parseHexColor(prev.value);
+                const c2 = parseHexColor(next.value);
+                if (c1 && c2) {
+                    const r = Math.round(c1.r + (c2.r - c1.r) * t);
+                    const g = Math.round(c1.g + (c2.g - c1.g) * t);
+                    const b = Math.round(c1.b + (c2.b - c1.b) * t);
+                    return `rgb(${r}, ${g}, ${b})`;
+                }
+            }
+            return prev.value;
+        }
+
+        return parsedStops[parsedStops.length - 1].value;
+    }
+
+    private resolveFilterOperand(entity: any, operand: unknown): unknown {
+        if (!Array.isArray(operand)) {
+            return operand;
+        }
+
+        const [operator, ...args] = operand;
+        if (operator === 'get' && typeof args[0] === 'string') {
+            return this.getEntityProperty(entity, args[0]);
+        }
+        if (operator === 'geometry-type') {
+            if (entity?.polygon) return 'Polygon';
+            if (entity?.polyline) return 'LineString';
+            if (entity?.position || entity?.point || entity?.billboard || entity?.ellipse) return 'Point';
+            return undefined;
+        }
+
+        return undefined;
+    }
+
+    private matchesStyleFilter(entity: any, filter: unknown): boolean {
+        if (!Array.isArray(filter) || filter.length < 1) {
+            return true;
+        }
+
+        const [operator, ...rest] = filter;
+        if (operator === 'all') {
+            return rest.every((clause) => this.matchesStyleFilter(entity, clause));
+        }
+        if ((operator === '==' || operator === '!=') && rest.length >= 2) {
+            const lhs = this.resolveFilterOperand(entity, rest[0]);
+            const rhs = rest[1];
+            const matched = lhs === rhs;
+            return operator === '==' ? matched : !matched;
+        }
+
+        return true;
+    }
+
+    private resolveNumber(entity: any, expression: unknown, fallback: number): number {
+        const value = this.resolveExpression(entity, expression);
+        return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+    }
+
+    private resolveColor(entity: any, expression: unknown, fallback: string): string {
+        const value = this.resolveExpression(entity, expression);
+        return typeof value === 'string' && value.length > 0 ? value : fallback;
+    }
+
     private applyGeoJsonStyles(dataSource: any, layerConfig: LayerConfig): void {
         const Cesium = getCesium();
         if (!Cesium) return;
@@ -273,12 +428,6 @@ export class MapLayerService implements ILayerService {
         const linePaint = line?.paint ?? {};
         const fillPaint = fill?.paint ?? {};
 
-        const circleColor = toCssColor(circlePaint['circle-color'], '#FF5722');
-        const circleOpacity = toNumber(circlePaint['circle-opacity'], 0.8);
-        const circleRadius = toNumber(circlePaint['circle-radius'], 6);
-        const circleStrokeColor = toCssColor(circlePaint['circle-stroke-color'], lineColor);
-        const circleStrokeWidth = toNumber(circlePaint['circle-stroke-width'], 1);
-
         const lineColor = toCssColor(linePaint['line-color'], '#3388ff');
         const lineWidth = toNumber(linePaint['line-width'], 2);
         const fillColor = toCssColor(fillPaint['fill-color'], '#3388ff');
@@ -286,13 +435,40 @@ export class MapLayerService implements ILayerService {
 
         const entities = dataSource.entities?.values ?? [];
         for (const entity of entities) {
-            if (circle && (entity.position || entity.billboard || entity.point)) {
+            const circleMatches = this.matchesStyleFilter(entity, circle?.filter);
+            const lineMatches = this.matchesStyleFilter(entity, line?.filter);
+            const fillMatches = this.matchesStyleFilter(entity, fill?.filter);
+            const pointLikeEntity = Boolean(entity.position || entity.point || entity.billboard || entity.ellipse);
+
+            if (circle && pointLikeEntity && !circleMatches) {
+                // If a point does not pass the circle filter, suppress Cesium's default marker rendering.
+                entity.point = undefined;
+                entity.billboard = undefined;
+                entity.ellipse = undefined;
+
+                if (!lineMatches && !fillMatches) {
+                    entity.show = false;
+                    continue;
+                }
+            }
+
+            if (circle && pointLikeEntity && circleMatches) {
+                entity.show = true;
+            }
+
+            if (circle && circleMatches && pointLikeEntity) {
                 // For "circle" layers, draw a ground-aligned ellipse so it conforms to the globe.
                 // MapLibre circle-radius is in pixels; approximate meters based on current zoom.
                 const zoom = this.store.getState().zoomLevel ?? 2;
                 const julian = Cesium.JulianDate.now();
                 const position = entity.position?.getValue?.(julian) ?? entity.position;
                 if (position) {
+                    const circleRadius = this.resolveNumber(entity, circlePaint['circle-radius'], 6);
+                    const circleColor = this.resolveColor(entity, circlePaint['circle-color'], '#FF5722');
+                    const circleOpacity = this.resolveNumber(entity, circlePaint['circle-opacity'], 0.8);
+                    const circleStrokeColor = this.resolveColor(entity, circlePaint['circle-stroke-color'], lineColor);
+                    const circleStrokeWidth = this.resolveNumber(entity, circlePaint['circle-stroke-width'], 1);
+
                     const carto = Cesium.Ellipsoid.WGS84.cartesianToCartographic(position);
                     const lat = (carto.latitude * 180) / Math.PI;
                     const metersPerPixel = webMercatorMetersPerPixelAtLat(zoom, lat);
@@ -331,11 +507,11 @@ export class MapLayerService implements ILayerService {
                     entity.point = undefined;
                 }
             }
-            if (entity.polyline && line) {
+            if (entity.polyline && line && lineMatches) {
                 entity.polyline.material = Cesium.Color.fromCssColorString(lineColor).withAlpha(1);
                 entity.polyline.width = lineWidth;
             }
-            if (entity.polygon && fill) {
+            if (entity.polygon && fill && fillMatches) {
                 entity.polygon.material = Cesium.Color.fromCssColorString(fillColor).withAlpha(fillOpacity);
                 entity.polygon.outline = true;
                 entity.polygon.outlineColor = Cesium.Color.fromCssColorString(lineColor).withAlpha(1);
