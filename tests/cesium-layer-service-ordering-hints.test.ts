@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { MapLayerService } from '../src/map/cesium-services/MapLayerService';
 import { MapStateStore } from '../src/store/map-state-store';
-import type { LayerConfig, SourceConfig } from '../src/config/types';
+import type { AnyLayerConfig, SourceConfig, LayerDataConfig } from '../src/config/types';
 
 type ImageryLayer = { id: string; provider: unknown; show: boolean };
 
@@ -91,25 +91,29 @@ function createViewer() {
   };
 }
 
-function makeLayer(id: string): LayerConfig {
+function makeLayer(id: string): AnyLayerConfig {
   return {
     id,
+    type: 'raster',
+    source: `${id}-source`,
     metadata: { legendRole: 'overlay' },
-    layerset: [{ id: 'r', type: 'raster', source: `${id}-source` }],
   };
 }
 
-function makeSource(id: string): SourceConfig {
+function makeCatalog(ids: string[]): LayerDataConfig {
   return {
-    id: `${id}-source`,
-    type: 'raster',
-    service: 'xyz',
-    url: `https://example.com/${id}/{z}/{x}/{y}.png`,
+    sources: ids.map((id) => ({
+      id: `${id}-source`,
+      type: 'raster' as const,
+      service: 'xyz' as const,
+      url: `https://example.com/${id}/{z}/{x}/{y}.png`,
+    })),
+    layers: ids.map(makeLayer),
   };
 }
 
 async function addRaster(service: MapLayerService, layerId: string, options?: { beforeLayerId?: string; afterLayerId?: string }) {
-  await service.addLayer(layerId, makeLayer(layerId), makeSource(layerId), options);
+  await service.addLayer(makeLayer(layerId), options);
   const internal = service as unknown as { handles: Map<string, { kind: string; imageryLayer?: ImageryLayer }> };
   const handle = internal.handles.get(`${layerId}::${layerId}-source`);
   if (handle?.kind === 'imagery' && handle.imageryLayer) {
@@ -122,6 +126,7 @@ test('Cesium MapLayerService applies beforeLayerId using logical ids', async () 
   try {
     const viewer = createViewer();
     const service = new MapLayerService(viewer as any, new MapStateStore());
+    service.setCatalog(makeCatalog(['a', 'b', 'c']));
 
     await addRaster(service, 'a');
     await addRaster(service, 'b');
@@ -138,6 +143,7 @@ test('Cesium MapLayerService applies afterLayerId using logical ids', async () =
   try {
     const viewer = createViewer();
     const service = new MapLayerService(viewer as any, new MapStateStore());
+    service.setCatalog(makeCatalog(['a', 'b', 'c']));
 
     await addRaster(service, 'a');
     await addRaster(service, 'b');

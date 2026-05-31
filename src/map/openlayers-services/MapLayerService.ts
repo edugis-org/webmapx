@@ -1,7 +1,7 @@
 // src/map/openlayers-services/MapLayerService.ts
 
 import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
-import type { LayerConfig, SourceConfig, WMSSourceConfig, CatalogConfig } from '../../config/types';
+import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, XYZSourceConfig, GeoJSONSourceConfig, VectorSourceConfig, LayerDataConfig, SubLayerSpec } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import OLMap from 'ol/Map';
 import TileLayer from 'ol/layer/Tile';
@@ -36,7 +36,7 @@ export class MapLayerService implements ILayerService {
     private spriteResourceCache: Map<string, Promise<{ spriteData: Record<string, unknown>; spriteImageUrl: string } | null>> = new Map();
     // Track WarpedMapLayer instances for cleanup
     private warpedMapLayers: Map<string, WarpedMapLayer> = new Map();
-    private catalog: CatalogConfig | null = null;
+    private catalog: LayerDataConfig | null = null;
     private sourceIdCounter = 0;
     private logicalLayerLegendRole: Map<string, 'background' | 'overlay'> = new Map();
 
@@ -49,12 +49,38 @@ export class MapLayerService implements ILayerService {
         this.store.dispatch({ visibleLayers: Array.from(this.logicalToNative.keys()) }, 'MAP');
     }
 
-    private resolveLogicalLayerLegendRole(layerConfig: LayerConfig): 'background' | 'overlay' {
+    private resolveLogicalLayerLegendRole(layerConfig: AnyLayerConfig): 'background' | 'overlay' {
         const metadata = (layerConfig?.metadata && typeof layerConfig.metadata === 'object')
             ? (layerConfig.metadata as Record<string, unknown>)
             : null;
 
         return metadata?.legendRole === 'background' ? 'background' : 'overlay';
+    }
+
+    private resolveSource(sourceId: string): SourceConfig | null {
+        return this.catalog?.sources.find((s) => s.id === sourceId) ?? null;
+    }
+
+    private normalizeRawSource(logicalId: string, rawDef: unknown): SourceConfig | null {
+        if (typeof rawDef !== 'object' || rawDef === null) return null;
+        const def = rawDef as Record<string, unknown>;
+        if (def.type === 'raster') {
+            const tiles = Array.isArray(def.tiles)
+                ? def.tiles.filter((t): t is string => typeof t === 'string')
+                : (typeof def.url === 'string' ? [def.url] : []);
+            if (tiles.length === 0) return null;
+            return { id: logicalId, type: 'raster', service: 'xyz', url: tiles } as XYZSourceConfig;
+        }
+        if (def.type === 'geojson') {
+            const data = def.data;
+            if (typeof data !== 'string' && typeof data !== 'object') return null;
+            return { id: logicalId, type: 'geojson', data: data as string } as GeoJSONSourceConfig;
+        }
+        if (def.type === 'vector') {
+            if (typeof def.url !== 'string') return null;
+            return { id: logicalId, type: 'vector', url: def.url } as VectorSourceConfig;
+        }
+        return null;
     }
 
     private findLayerIndexByInstance(target: BaseLayer): number {
@@ -125,7 +151,7 @@ export class MapLayerService implements ILayerService {
         return undefined;
     }
 
-    private resolveInsertIndex(layerConfig: LayerConfig, options?: LayerInsertOptions): number | undefined {
+    private resolveInsertIndex(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): number | undefined {
         const explicit = this.resolveInsertIndexFromOptions(options);
         if (explicit !== undefined) {
             return explicit;
@@ -151,7 +177,7 @@ export class MapLayerService implements ILayerService {
         return clamped + 1;
     }
 
-    setCatalog(catalog: CatalogConfig): void {
+    setCatalog(catalog: LayerDataConfig): void {
         this.catalog = catalog;
     }
 
@@ -188,12 +214,8 @@ export class MapLayerService implements ILayerService {
     /**
      * Create and add a WarpedMapLayer for Allmaps georeferenced images.
      */
-    private async addWarpedMapLayer(layerId: string, sourceConfig: SourceConfig, insertIndex?: number): Promise<boolean> {
+    private async addWarpedMapLayer(layerId: string, annotationUrl: string, insertIndex?: number): Promise<boolean> {
         const { WarpedMapLayer } = await import('@allmaps/openlayers');
-        const url = 'url' in sourceConfig
-            ? (Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url)
-            : '';
-        const annotationUrl = this.parseWarpedMapUrl(url);
 
         // Create a unique layer ID for the WarpedMapLayer
         const warpedLayerId = `warpedmap-${layerId}`;
@@ -226,62 +248,122 @@ export class MapLayerService implements ILayerService {
         return true;
     }
 
-    async addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig, options?: LayerInsertOptions): Promise<boolean> {
+    async addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
+        const layerId = layerConfig.id;
         const legendRole = this.resolveLogicalLayerLegendRole(layerConfig);
         let insertIndex = this.resolveInsertIndex(layerConfig, options);
 
-        // Check for warpedmap:// protocol
-        if (this.isWarpedMapSource(sourceConfig)) {
-            const success = await this.addWarpedMapLayer(layerId, sourceConfig, insertIndex);
-            if (success) {
-                this.logicalLayerLegendRole.set(layerId, legendRole);
-            }
+        if (layerConfig.type === 'allmaps') {
+            const success = await this.addWarpedMapLayer(layerId, layerConfig.annotation, insertIndex);
+            if (success) this.logicalLayerLegendRole.set(layerId, legendRole);
             return success;
         }
+
+        if (layerConfig.type === 'style') {
+            return this.addCompositeLayer(layerConfig, legendRole, insertIndex);
+        }
+
+        // StandardLayerConfig
+        const stdLayer = layerConfig as StandardLayerConfig;
+        if (!stdLayer.source) return false;
+
+        const sourceConfig = this.resolveSource(stdLayer.source);
+        if (!sourceConfig) return false;
+
+        // Legacy warpedmap:// support
+        if (this.isWarpedMapSource(sourceConfig)) {
+            const url = Array.isArray((sourceConfig as any).url) ? (sourceConfig as any).url[0] : (sourceConfig as any).url;
+            const annotationUrl = this.parseWarpedMapUrl(url);
+            const success = await this.addWarpedMapLayer(layerId, annotationUrl, insertIndex);
+            if (success) this.logicalLayerLegendRole.set(layerId, legendRole);
+            return success;
+        }
+
         const nativeSourceId = this.getOrCreateNativeSourceId(sourceConfig);
         const nativeLayerIds: string[] = [];
+        const nativeLayerId = `${layerId}-${sourceConfig.id}-${stdLayer.type}`;
 
-        if (this.isStyleBackedVectorSource(layerConfig, sourceConfig)) {
-            const nativeLayerId = `${layerConfig.id}-${sourceConfig.id}-vector-style`;
-
-            if (!this.nativeLayerInstances.has(nativeLayerId)) {
-                const layer = await this.createStyleBackedVectorTileLayer(nativeLayerId, layerConfig, sourceConfig);
-                if (!layer) {
-                    return false;
-                }
+        if (!this.nativeLayerInstances.has(nativeLayerId)) {
+            const layer = await this.createLayer(nativeLayerId, stdLayer, sourceConfig);
+            if (layer) {
                 insertIndex = this.addMapLayerAtIndex(layer, insertIndex);
                 this.nativeLayerInstances.set(nativeLayerId, layer);
             }
+        }
+        nativeLayerIds.push(nativeLayerId);
+        this.nativeLayerToSource.set(nativeLayerId, nativeSourceId);
 
-            nativeLayerIds.push(nativeLayerId);
-            this.nativeLayerToSource.set(nativeLayerId, nativeSourceId);
-            this.logicalToNative.set(layerId, this.mergeNativeLayerIds(layerId, nativeLayerIds));
-            this.logicalLayerLegendRole.set(layerId, legendRole);
-            this.updateVisibleLayers();
-            return true;
+        this.logicalToNative.set(layerId, this.mergeNativeLayerIds(layerId, nativeLayerIds));
+        this.logicalLayerLegendRole.set(layerId, legendRole);
+        this.updateVisibleLayers();
+        return nativeLayerIds.length > 0;
+    }
+
+    private async addCompositeLayer(
+        layerConfig: CompositeStyleLayerConfig,
+        legendRole: 'background' | 'overlay',
+        insertIndex: number | undefined,
+    ): Promise<boolean> {
+        const layerId = layerConfig.id;
+        const localSources = layerConfig.sources ?? {};
+        const subLayers = layerConfig.layers ?? [];
+
+        // Build local source map: key → SourceConfig
+        const localSourceMap = new Map<string, SourceConfig>();
+        for (const [key, rawDef] of Object.entries(localSources)) {
+            const logicalId = `${layerId}:${key}`;
+            const src = this.normalizeRawSource(logicalId, rawDef);
+            if (src) localSourceMap.set(key, src);
         }
 
-        for (const style of layerConfig.layerset) {
-            const nativeLayerId = style.id
-                ? `${layerConfig.id}-${style.id}`
-                : `${layerConfig.id}-${style.type}`;
+        const nativeLayerIds: string[] = [];
 
-            if (!this.nativeLayerInstances.has(nativeLayerId)) {
-                const layer = await this.createLayer(nativeLayerId, style, sourceConfig);
-                if (layer) {
+        // Check for style-backed vector tile (needs stylefunction)
+        const vectorSources = Array.from(localSourceMap.values()).filter(s => s.type === 'vector');
+        if (vectorSources.length > 0 && typeof layerConfig.metadata?.styleUrl === 'string') {
+            for (const vectorSource of vectorSources) {
+                if (!this.isStyleBackedVectorSource(layerConfig, vectorSource)) continue;
+                const nativeSourceId = this.getOrCreateNativeSourceId(vectorSource);
+                const nativeLayerId = `${layerId}-${vectorSource.id}-vector-style`;
+                if (!this.nativeLayerInstances.has(nativeLayerId)) {
+                    const layer = await this.createStyleBackedVectorTileLayer(nativeLayerId, layerConfig, vectorSource as SourceConfig & { type: 'vector' });
+                    if (!layer) return false;
                     insertIndex = this.addMapLayerAtIndex(layer, insertIndex);
                     this.nativeLayerInstances.set(nativeLayerId, layer);
                 }
+                nativeLayerIds.push(nativeLayerId);
+                this.nativeLayerToSource.set(nativeLayerId, nativeSourceId);
             }
+        } else {
+            // Add sub-layers individually
+            for (const subLayer of subLayers) {
+                const sourceKey = subLayer.source;
+                if (!sourceKey) continue;
 
-            nativeLayerIds.push(nativeLayerId);
-            this.nativeLayerToSource.set(nativeLayerId, nativeSourceId);
+                // Resolve source: local first, then global
+                let sourceConfig: SourceConfig | null = localSourceMap.get(sourceKey) ?? null;
+                if (!sourceConfig) sourceConfig = this.resolveSource(sourceKey);
+                if (!sourceConfig) continue;
+
+                const nativeSourceId = this.getOrCreateNativeSourceId(sourceConfig);
+                const nativeLayerId = subLayer.id ? `${layerId}-${subLayer.id}` : `${layerId}-${sourceKey}-${subLayer.type}`;
+
+                if (!this.nativeLayerInstances.has(nativeLayerId)) {
+                    const layer = await this.createLayer(nativeLayerId, subLayer, sourceConfig);
+                    if (layer) {
+                        insertIndex = this.addMapLayerAtIndex(layer, insertIndex);
+                        this.nativeLayerInstances.set(nativeLayerId, layer);
+                    }
+                }
+                nativeLayerIds.push(nativeLayerId);
+                this.nativeLayerToSource.set(nativeLayerId, nativeSourceId);
+            }
         }
 
         this.logicalToNative.set(layerId, this.mergeNativeLayerIds(layerId, nativeLayerIds));
         this.logicalLayerLegendRole.set(layerId, legendRole);
         this.updateVisibleLayers();
-        return true;
+        return nativeLayerIds.length > 0;
     }
 
     private mergeNativeLayerIds(layerId: string, nativeLayerIds: string[]): string[] {
@@ -289,17 +371,18 @@ export class MapLayerService implements ILayerService {
         return Array.from(new Set([...existing, ...nativeLayerIds]));
     }
 
-    private isStyleBackedVectorSource(layerConfig: LayerConfig, sourceConfig: SourceConfig): sourceConfig is SourceConfig & { type: 'vector' } {
-        const metadata = (layerConfig as any)?.metadata;
+    private isStyleBackedVectorSource(layerConfig: AnyLayerConfig, sourceConfig: SourceConfig): sourceConfig is SourceConfig & { type: 'vector' } {
+        const metadata = layerConfig?.metadata;
         return sourceConfig.type === 'vector'
-            && typeof metadata?.styleUrl === 'string'
-            && Array.isArray(layerConfig.layerset)
-            && layerConfig.layerset.length > 0;
+            && typeof (metadata as any)?.styleUrl === 'string'
+            && layerConfig.type === 'style'
+            && Array.isArray((layerConfig as CompositeStyleLayerConfig).layers)
+            && ((layerConfig as CompositeStyleLayerConfig).layers!.length > 0);
     }
 
     private async createStyleBackedVectorTileLayer(
         layerId: string,
-        layerConfig: LayerConfig,
+        layerConfig: AnyLayerConfig,
         sourceConfig: SourceConfig & { type: 'vector' }
     ): Promise<BaseLayer | null> {
         const resolvedSource = await this.resolveVectorTileSourceInfo(sourceConfig);
@@ -326,7 +409,8 @@ export class MapLayerService implements ILayerService {
 
         const glStyle = this.buildStyleBackedGlStyle(layerConfig, sourceConfig);
         const spriteResources = await this.resolveStyleSpriteResources(((layerConfig as any)?.metadata ?? {}) as Record<string, unknown>);
-        const mapboxLayerIds = layerConfig.layerset
+        const subLayers = layerConfig.type === 'style' ? ((layerConfig as CompositeStyleLayerConfig).layers ?? []) : [];
+        const mapboxLayerIds = subLayers
             .map((entry) => typeof entry.id === 'string' ? entry.id : null)
             .filter((entry): entry is string => typeof entry === 'string' && entry.length > 0);
 
@@ -343,9 +427,9 @@ export class MapLayerService implements ILayerService {
         return layer;
     }
 
-    private buildStyleBackedGlStyle(layerConfig: LayerConfig, sourceConfig: SourceConfig & { type: 'vector' }): Record<string, unknown> {
+    private buildStyleBackedGlStyle(layerConfig: AnyLayerConfig, sourceConfig: SourceConfig & { type: 'vector' }): Record<string, unknown> {
         const metadata = ((layerConfig as any)?.metadata ?? {}) as Record<string, unknown>;
-        const styleLayers = layerConfig.layerset;
+        const styleLayers: SubLayerSpec[] = layerConfig.type === 'style' ? ((layerConfig as CompositeStyleLayerConfig).layers ?? []) : [];
         const sourceDefinition: Record<string, unknown> = {
             type: 'vector',
         };
@@ -379,9 +463,9 @@ export class MapLayerService implements ILayerService {
                 id: styleLayer.id,
                 type: styleLayer.type,
                 source: sourceConfig.id,
-                ...(typeof styleLayer.sourceLayer === 'string' ? { 'source-layer': styleLayer.sourceLayer } : {}),
-                ...(typeof styleLayer.minZoom === 'number' ? { minzoom: styleLayer.minZoom } : {}),
-                ...(typeof styleLayer.maxZoom === 'number' ? { maxzoom: styleLayer.maxZoom } : {}),
+                ...(typeof styleLayer['source-layer'] === 'string' ? { 'source-layer': styleLayer['source-layer'] } : {}),
+                ...(typeof styleLayer.minzoom === 'number' ? { minzoom: styleLayer.minzoom } : {}),
+                ...(typeof styleLayer.maxzoom === 'number' ? { maxzoom: styleLayer.maxzoom } : {}),
                 ...(styleLayer.filter ? { filter: styleLayer.filter } : {}),
                 ...(styleLayer.layout ? { layout: styleLayer.layout } : {}),
                 ...(styleLayer.paint ? { paint: styleLayer.paint } : {}),
@@ -439,7 +523,7 @@ export class MapLayerService implements ILayerService {
 
     private async createLayer(
         layerId: string,
-        style: LayerConfig['layerset'][0],
+        style: SubLayerSpec,
         sourceConfig: SourceConfig
     ): Promise<BaseLayer | null> {
         // Raster layers
@@ -703,7 +787,7 @@ export class MapLayerService implements ILayerService {
     private createVectorTileLayer(
         layerId: string,
         sourceConfig: SourceConfig & { type: 'vector' },
-        style: LayerConfig['layerset'][0]
+        style: SubLayerSpec
     ): Promise<BaseLayer | null> {
         return this.resolveVectorTileSourceInfo(sourceConfig).then((resolvedSource) => {
             if (!resolvedSource) {
@@ -711,7 +795,7 @@ export class MapLayerService implements ILayerService {
             }
 
             const { urlTemplate, minZoom: vectorMinZoom, maxZoom: vectorMaxZoom } = resolvedSource;
-            const sourceLayerName = style.sourceLayer ?? (style as any)['source-layer'];
+            const sourceLayerName = style['source-layer'];
             const source = new VectorTileSource({
                 format: new MVT(),
                 attributions: sourceConfig.attribution,
@@ -724,8 +808,8 @@ export class MapLayerService implements ILayerService {
 
             const layer = new VectorTileLayer({
                 source,
-                minZoom: style.minZoom,
-                maxZoom: style.maxZoom,
+                minZoom: style.minzoom,
+                maxZoom: style.maxzoom,
                 style: (feature: any) => {
                     if (sourceLayerName) {
                         const featureSourceLayer = feature?.get?.('layer') ?? feature?.get?.('source-layer') ?? feature?.get?.('sourceLayer');
@@ -755,7 +839,7 @@ export class MapLayerService implements ILayerService {
     private createXYZLayer(
         layerId: string,
         sourceConfig: SourceConfig & { type: 'raster'; service: 'xyz' },
-        style: LayerConfig['layerset'][0]
+        style: SubLayerSpec
     ): TileLayer<XYZ> {
         const urls = Array.isArray(sourceConfig.url) ? sourceConfig.url : [sourceConfig.url];
 
@@ -769,8 +853,8 @@ export class MapLayerService implements ILayerService {
 
         const layer = new TileLayer({
             source,
-            minZoom: style.minZoom,
-            maxZoom: style.maxZoom,
+            minZoom: style.minzoom,
+            maxZoom: style.maxzoom,
             opacity: this.getLiteralNumberValue((style.paint as any)?.['raster-opacity'], 1)
         });
 
@@ -781,7 +865,7 @@ export class MapLayerService implements ILayerService {
     private createWMSLayer(
         layerId: string,
         sourceConfig: WMSSourceConfig,
-        style: LayerConfig['layerset'][0]
+        style: SubLayerSpec
     ): BaseLayer {
         const fullUrl = Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url;
 
@@ -826,8 +910,8 @@ export class MapLayerService implements ILayerService {
 
             layer = new TileLayer({
                 source,
-                minZoom: style.minZoom,
-                maxZoom: style.maxZoom,
+                minZoom: style.minzoom,
+                maxZoom: style.maxzoom,
                 opacity: this.getLiteralNumberValue((style.paint as any)?.['raster-opacity'], 1)
             });
         } else {
@@ -840,8 +924,8 @@ export class MapLayerService implements ILayerService {
 
             layer = new ImageLayer({
                 source,
-                minZoom: style.minZoom,
-                maxZoom: style.maxZoom,
+                minZoom: style.minzoom,
+                maxZoom: style.maxzoom,
                 opacity: this.getLiteralNumberValue((style.paint as any)?.['raster-opacity'], 1)
             });
         }
@@ -881,7 +965,7 @@ export class MapLayerService implements ILayerService {
     private createGeoJSONLayer(
         layerId: string,
         sourceConfig: SourceConfig & { type: 'geojson' },
-        style: LayerConfig['layerset'][0]
+        style: SubLayerSpec
     ): VectorLayer<VectorSource> {
         const source = new VectorSource({
             features: typeof sourceConfig.data === 'string'
@@ -902,15 +986,15 @@ export class MapLayerService implements ILayerService {
                 }
                 return this.createStyle(style, feature);
             },
-            minZoom: style.minZoom,
-            maxZoom: style.maxZoom
+            minZoom: style.minzoom,
+            maxZoom: style.maxzoom
         });
 
         (layer as any).__layerId = layerId;
         return layer;
     }
 
-    private createStyle(style: LayerConfig['layerset'][0], feature?: any): Style {
+    private createStyle(style: SubLayerSpec, feature?: any): Style {
         const paint = style.paint || {};
 
         switch (style.type) {

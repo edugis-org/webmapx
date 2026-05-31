@@ -52,21 +52,49 @@
         "tileSize": 256,
         "requestCrs": "EPSG:3857",
         "attribution": "Example temporal service"
+      },
+      "openmaptiles": {
+        "type": "vector",
+        "url": "https://demotiles.maplibre.org/tiles/tiles.json"
+      },
+      "traffic": {
+        "type": "geojson",
+        "data": "data/traffic-speed-amsterdam.geojson",
+        "attribution": "StevenF"
+      },
+      "drawn-lines-source": {
+        "type": "geojson",
+        "data": {
+          "type": "FeatureCollection",
+          "features": [
+            {
+              "id": "4e524b8d03d20056ca8ab5e9950c2c5f",
+              "type": "Feature",
+              "properties": {
+                "id": 1,
+                "name": "test"
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [1.561514217719747, 48.33611770695572],
+                  [6.671924384825104, 52.14650599849975],
+                  [14.62145131143265, 49.82367545973136],
+                  [12.917981255730552, 45.026363081422176]
+                ]
+              }
+            }
+          ]
+        },
+        "attribution": "EduGIS"
       }
     },
     "layers": {
       "osm-bright": {
-        "kind": "composite",
         "title": "OSM Bright",
         "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
         "sprite": "https://demotiles.maplibre.org/styles/osm-bright-gl-style/sprite",
-        "sources": {
-          "openmaptiles": {
-            "type": "vector",
-            "url": "https://demotiles.maplibre.org/tiles/tiles.json"
-          }
-        },
-        "renderLayers": [
+        "layerset": [
           {
             "id": "background",
             "type": "background",
@@ -90,16 +118,8 @@
         }
       },
       "traffic-speed-amsterdam": {
-        "kind": "composite",
         "title": "Traffic Speed Amsterdam",
-        "sources": {
-          "traffic": {
-            "type": "geojson",
-            "data": "data/traffic-speed-amsterdam.geojson",
-            "attribution": "StevenF"
-          }
-        },
-        "renderLayers": [
+        "layerset": [
           {
             "id": "traffic-speed-highway",
             "type": "line",
@@ -155,39 +175,42 @@
         }
       },
       "osm-standard-raster": {
-        "kind": "single",
         "title": "OSM Standard Raster",
-        "source": "osmraster",
-        "render": {
-          "type": "raster"
-        },
+        "layerset": [
+          {
+            "type": "raster",
+            "source": "osmraster"
+          }
+        ],
         "metadata": {
           "webmapx:description": "OSM raster tile rendering",
           "webmapx:thumbnail": "img/osm-standard-raster.png"
         }
       },
       "pdok-luchtfoto-wms": {
-        "kind": "single",
         "title": "PDOK Luchtfoto WMS",
-        "source": "pdok-luchtfoto",
-        "render": {
-          "type": "raster"
-        },
+        "layerset": [
+          {
+            "type": "raster",
+            "source": "pdok-luchtfoto"
+          }
+        ],
         "metadata": {
           "webmapx:description": "Authenticated raster imagery",
           "webmapx:thumbnail": "img/pdok-luchtfoto-wms.png"
         }
       },
       "knmi-temperature-time": {
-        "kind": "single",
         "title": "Temperature (time-aware)",
-        "source": "knmi-temperature",
-        "render": {
-          "type": "raster",
-          "paint": {
-            "raster-opacity": 0.75
+        "layerset": [
+          {
+            "type": "raster",
+            "source": "knmi-temperature",
+            "paint": {
+              "raster-opacity": 0.75
+            }
           }
-        },
+        ],
         "metadata": {
           "webmapx:description": "Example temporal raster layer",
           "webmapx:timeAware": true,
@@ -198,41 +221,17 @@
         }
       },
       "drawn-lines": {
-        "kind": "single",
         "title": "lijnenlaag",
-        "source": {
-          "type": "geojson",
-          "data": {
-            "type": "FeatureCollection",
-            "features": [
-              {
-                "id": "4e524b8d03d20056ca8ab5e9950c2c5f",
-                "type": "Feature",
-                "properties": {
-                  "id": 1,
-                  "name": "test"
-                },
-                "geometry": {
-                  "type": "LineString",
-                  "coordinates": [
-                    [1.561514217719747, 48.33611770695572],
-                    [6.671924384825104, 52.14650599849975],
-                    [14.62145131143265, 49.82367545973136],
-                    [12.917981255730552, 45.026363081422176]
-                  ]
-                }
-              }
-            ]
-          },
-          "attribution": "EduGIS"
-        },
-        "render": {
-          "type": "line",
-          "paint": {
-            "line-color": "#000000",
-            "line-width": 3
+        "layerset": [
+          {
+            "type": "line",
+            "source": "drawn-lines-source",
+            "paint": {
+              "line-color": "#000000",
+              "line-width": 3
+            }
           }
-        },
+        ],
         "metadata": {
           "webmapx:description": "User drawn line layer",
           "webmapx:attributes": {
@@ -317,18 +316,19 @@
         "id": "local-buffered-lines#1",
         "title": "Buffered lines",
         "visible": true,
-        "kind": "single",
         "source": {
           "type": "geojson",
           "data": "data/local-buffered-lines.geojson"
         },
-        "render": {
-          "type": "fill",
-          "paint": {
-            "fill-color": "#ff6600",
-            "fill-opacity": 0.35
+        "layerset": [
+          {
+            "type": "fill",
+            "paint": {
+              "fill-color": "#ff6600",
+              "fill-opacity": 0.35
+            }
           }
-        },
+        ],
         "metadata": {
           "webmapx:provenance": {
             "sourceLayerRefs": ["drawn-lines#1"],

@@ -23,7 +23,9 @@ Place the component inside a tool panel and assign it a `tool-id` that matches y
 The tree can be provided in two ways:
 
 1. **`tree` property:** Provide an explicit array of nodes (takes precedence).
-2. **Map config:** If no `tree` is set, it reads `catalog.tree` from the map config.
+2. **Map config:** If no `tree` is set, it reads a `tree` from a configured `layerTree` tool item (`tools.*.items[]` where `type: "layerTree"`).
+
+Legacy fallback: if no tool-owned tree is found, it will still read `catalog.tree`.
 
 ### Node Shape
 
@@ -45,10 +47,9 @@ The tree can be provided in two ways:
 
 ## Runtime Sync
 
-- `checked` in `catalog.tree` is treated as initial state.
 - After initialization, checkbox state follows active layers from the map state (`visibleLayers`).
 - The map emits `layer-add` and `layer-remove` on `MapEventBus`; the layer tree mirrors those changes.
 
 ## Notes
 
-Leaf nodes should include `layerId` so the component can resolve the layer from the map catalog.
+Leaf nodes should include `layerId` so the component can resolve the layer from `layerData.layers` and linked `layerData.sources`.

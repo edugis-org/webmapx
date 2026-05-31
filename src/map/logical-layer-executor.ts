@@ -1,17 +1,15 @@
-import type { CatalogConfig, LayerConfig, SourceConfig } from '../config/types';
+import type { LayerDataConfig, AnyLayerConfig } from '../config/types';
 import type { ILayerService, ILogicalLayerExecutor, LayerInsertOptions } from './IMapInterfaces';
 
 type PendingAddRequest = {
-    layerId: string;
-    layerConfig: LayerConfig;
-    sourceConfig: SourceConfig;
+    layerConfig: AnyLayerConfig;
     options?: LayerInsertOptions;
     resolve: (value: boolean) => void;
 };
 
 export class DeferredLogicalLayerExecutor implements ILogicalLayerExecutor {
     private layerService?: ILayerService;
-    private pendingCatalog: CatalogConfig | null = null;
+    private pendingCatalog: LayerDataConfig | null = null;
     private pendingAddRequests: PendingAddRequest[] = [];
     private pendingRemoveRequests: string[] = [];
 
@@ -20,18 +18,18 @@ export class DeferredLogicalLayerExecutor implements ILogicalLayerExecutor {
         this.flushPendingOperations();
     }
 
-    setCatalog(catalog: CatalogConfig): void {
+    setCatalog(catalog: LayerDataConfig): void {
         this.pendingCatalog = catalog;
         this.layerService?.setCatalog(catalog);
     }
 
-    async addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig, options?: LayerInsertOptions): Promise<boolean> {
+    async addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
         if (this.layerService) {
-            return this.layerService.addLayer(layerId, layerConfig, sourceConfig, options);
+            return this.layerService.addLayer(layerConfig, options);
         }
 
         return new Promise<boolean>((resolve) => {
-            this.pendingAddRequests.push({ layerId, layerConfig, sourceConfig, options, resolve });
+            this.pendingAddRequests.push({ layerConfig, options, resolve });
         });
     }
 
@@ -71,7 +69,7 @@ export class DeferredLogicalLayerExecutor implements ILogicalLayerExecutor {
         this.pendingAddRequests = [];
         pendingAdds.forEach(async (request) => {
             try {
-                const success = await this.layerService!.addLayer(request.layerId, request.layerConfig, request.sourceConfig, request.options);
+                const success = await this.layerService!.addLayer(request.layerConfig, request.options);
                 request.resolve(success);
             } catch {
                 request.resolve(false);

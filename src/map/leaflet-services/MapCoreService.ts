@@ -405,7 +405,8 @@ export class MapCoreService implements IMapCore {
         }
     
         const data = sourceConfig.data || { type: 'FeatureCollection', features: [] };
-        const layerFactorySpecs = LeafletLayerFactory.createGeoJSONLayer(layerSpec, sourceConfig, data);
+        const subLayers = Array.isArray(layerSpec.layers) ? layerSpec.layers : [layerSpec];
+        const layerFactorySpecs = LeafletLayerFactory.createGeoJSONLayer(layerSpec.id ?? layerSpec.source, sourceConfig, data, subLayers);
         this.runtimeLayerZoomRange.set(layerSpec.id, this.readLayerZoomRange(layerSpec));
     
         const nativeLayers: L.Layer[] = [];

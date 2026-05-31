@@ -21,12 +21,13 @@ Individual `<webmapx-map>` elements can specify their own config via the `src` a
 
 ## Configuration File Format
 
-A configuration file has three main sections:
+A configuration file usually has four main sections:
 
 ```json
 {
   "map": { ... },
-  "catalog": { ... },
+  "layerData": { ... },
+  "state": { ... },
   "tools": { ... }
 }
 ```
@@ -141,17 +142,15 @@ If `style` is omitted or empty, the map starts with no background layers.
 
 > **Note:** The style format is compatible with MapLibre GL style specification. The `version` property is optional and defaults to 8.
 
-### Catalog Section
+### LayerData Section
 
-Defines data sources, layers, and the layer tree structure.
+Defines runtime data sources and layers. This section is tree-agnostic.
 
 ```json
 {
-  "catalog": {
-    "label": "My Catalog",
+  "layerData": {
     "sources": [ ... ],
-    "layers": [ ... ],
-    "tree": [ ... ]
+    "layers": [ ... ]
   }
 }
 ```
@@ -206,74 +205,161 @@ Data sources that layers reference.
 
 #### Layers
 
-Layers reference sources and define how data is rendered.
+There are three layer types. All share common base properties.
+
+**Common base properties:**
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `id` | string | Yes | Unique identifier (referenced by tool tree nodes) |
+| `type` | string | Yes | Layer type — see below |
+| `title` | string | No | Display name (used in legend and tree when no `label` override is set) |
+| `singleGroup` | string | No | Exclusive group key — adding this layer removes any existing layer with the same key |
+| `fallbackLayerId` | string | No | Layer to use if this one fails to load |
+| `metadata` | object | No | Engine-specific or custom metadata |
+
+---
+
+**Standard layer** (`type: "raster"` | `"fill"` | `"line"` | `"circle"` | `"symbol"` | `"background"` | `"fill-extrusion"` | `"heatmap"`)
+
+A single MapLibre-spec render layer referencing a global source.
 
 ```json
 {
-  "layers": [
-    {
-      "id": "osm",
-      "layerset": [
-        { "type": "raster", "source": "osm-tiles" }
-      ]
-    },
-    {
-      "id": "earthquakes",
-      "layerset": [
-        { "type": "circle", "source": "earthquakes" }
-      ]
-    }
-  ]
+  "id": "osm",
+  "type": "raster",
+  "source": "osm-tiles",
+  "title": "OpenStreetMap"
 }
 ```
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `id` | string | Yes | Unique identifier (referenced by tree) |
-| `layerset` | array | Yes | One or more style layers |
+| `source` | string | Yes | Reference to a `layerData.sources` entry |
+| `source-layer` | string | No | Vector tile layer name |
+| `minzoom` | number | No | Minimum visibility zoom |
+| `maxzoom` | number | No | Maximum visibility zoom |
+| `paint` | object | No | MapLibre paint properties |
+| `layout` | object | No | MapLibre layout properties |
+| `filter` | array | No | MapLibre filter expression |
 
-**Style layer properties:**
-| Property | Type | Description |
-|----------|------|-------------|
-| `type` | string | `fill`, `line`, `circle`, `symbol`, or `raster` |
-| `source` | string | Reference to a source ID |
-| `sourceLayer` | string | Source layer name (for vector tiles) |
-| `minZoom` | number | Minimum visibility zoom |
-| `maxZoom` | number | Maximum visibility zoom |
-| `paint` | object | Paint properties (colors, widths, etc.) |
-| `layout` | object | Layout properties |
-| `filter` | array | Filter expression |
+---
 
-#### Tree
+**Composite style layer** (`type: "style"`)
 
-Hierarchical structure for the layer tree UI.
+One or more sub-layers, optionally loaded from a remote style URL.
 
 ```json
 {
-  "tree": [
+  "id": "earthquakes",
+  "type": "style",
+  "title": "Earthquakes",
+  "layers": [
     {
-      "label": "Base Maps",
-      "expanded": true,
-      "children": [
-        { "label": "OpenStreetMap", "layerId": "osm", "checked": true }
-      ]
-    },
-    {
-      "label": "Data Layers",
-      "expanded": true,
-      "children": [
-        { "label": "Earthquakes", "layerId": "earthquakes", "checked": false }
-      ]
+      "id": "eq-circles",
+      "type": "circle",
+      "source": "earthquake-source",
+      "filter": ["==", ["get", "type"], "earthquake"],
+      "paint": {
+        "circle-color": "#fa6c07",
+        "circle-radius": 6,
+        "circle-stroke-color": "#818181",
+        "circle-stroke-width": 1
+      }
     }
   ]
 }
 ```
 
+To load a full style from a URL (e.g. a vector basemap), set `metadata.styleUrl`:
+
+```json
+{
+  "id": "openfreemap-liberty",
+  "type": "style",
+  "title": "OpenFreeMap Liberty",
+  "singleGroup": "basemap",
+  "fallbackLayerId": "osm",
+  "metadata": {
+    "styleUrl": "https://tiles.openfreemap.org/styles/liberty"
+  },
+  "layers": []
+}
+```
+
 | Property | Type | Description |
 |----------|------|-------------|
-| `label` | string | Display text |
+| `layers` | array | Sub-layer specs (MapLibre-spec casing: `source-layer`, `minzoom`, `maxzoom`) |
+| `sources` | object | Inline local source definitions (keyed by source id). Sub-layers referencing these keys are scoped automatically; otherwise global `layerData.sources` are used |
+| `metadata.styleUrl` | string | URL of a remote MapLibre style JSON to expand at runtime |
+
+Sub-layer properties follow the MapLibre spec (`source`, `source-layer`, `minzoom`, `maxzoom`, `paint`, `layout`, `filter`).
+
+---
+
+**Allmaps layer** (`type: "allmaps"`)
+
+Renders a georeferenced historical map via the [Allmaps](https://allmaps.org) platform.
+
+```json
+{
+  "id": "nyc-historical",
+  "type": "allmaps",
+  "title": "NYC 1836",
+  "annotation": "https://annotations.allmaps.org/images/d180902cb93d5bf2"
+}
+```
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `annotation` | string | Yes | Allmaps annotation URL |
+
+### Tools Section
+
+Enables and configures UI tools.
+
+The layer tree belongs to the layer-tree tool configuration (not `layerData`).
+
+```json
+{
+  "tools": {
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "items": [
+        {
+          "id": "layers",
+          "type": "layerTree",
+          "enabled": true,
+          "tree": [
+            {
+              "label": "Base Maps",
+              "expanded": true,
+              "children": [
+                { "label": "OpenStreetMap", "layerId": "osm" }
+              ]
+            },
+            {
+              "label": "Data Layers",
+              "expanded": true,
+              "children": [
+                { "label": "Earthquakes", "layerId": "earthquakes" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+#### Layer Tree Node Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `label` | string | Display text. Optional on leaf nodes — falls back to the referenced layer's `title`, then the `layerId`. Required on group nodes (no `layerId` to fall back to) |
 | `layerId` | string | Reference to a layer ID (leaf nodes) |
-| `checked` | boolean | Initial visibility state |
 | `expanded` | boolean | Initial expanded state (group nodes) |
 | `children` | array | Child nodes (group nodes) |
 | `selectionMode` | string | Group selection mode: `multiple` (default, checkbox behavior) or `single` (radio behavior) |
@@ -287,36 +373,44 @@ Exclusive groups are not only for basemaps. They are useful for overlay time sli
 
 ```json
 {
-  "catalog": {
-    "tree": [
-      {
-        "label": "Weather",
-        "expanded": true,
-        "children": [
-          {
-            "label": "Rainfall Timeslice",
-            "selectionMode": "single",
-            "selectionGroup": "rainfall-time",
-            "allowNone": false,
-            "stackOrder": 40,
-            "children": [
-              { "label": "10:00", "layerId": "rain-1000" },
-              { "label": "11:00", "layerId": "rain-1100" },
-              { "label": "12:00", "layerId": "rain-1200" }
-            ]
-          },
-          {
-            "label": "Static Overlays",
-            "selectionMode": "multiple",
-            "stackOrder": 60,
-            "children": [
-              { "label": "Road labels", "layerId": "roads-labels" },
-              { "label": "Admin boundaries", "layerId": "admin-boundaries" }
-            ]
-          }
-        ]
-      }
-    ]
+  "tools": {
+    "mainToolbar": {
+      "items": [
+        {
+          "id": "layers",
+          "type": "layerTree",
+          "tree": [
+            {
+              "label": "Weather",
+              "expanded": true,
+              "children": [
+                {
+                  "label": "Rainfall Timeslice",
+                  "selectionMode": "single",
+                  "selectionGroup": "rainfall-time",
+                  "allowNone": false,
+                  "stackOrder": 40,
+                  "children": [
+                    { "label": "10:00", "layerId": "rain-1000" },
+                    { "label": "11:00", "layerId": "rain-1100" },
+                    { "label": "12:00", "layerId": "rain-1200" }
+                  ]
+                },
+                {
+                  "label": "Static Overlays",
+                  "selectionMode": "multiple",
+                  "stackOrder": 60,
+                  "children": [
+                    { "label": "Road labels", "layerId": "roads-labels" },
+                    { "label": "Admin boundaries", "layerId": "admin-boundaries" }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
   },
   "state": {
     "activeExclusiveLayers": {
@@ -334,16 +428,40 @@ Order guidance when mixing exclusive and non-exclusive overlays:
 - Non-exclusive overlays use their own group/node `stackOrder` slots.
 - This keeps ordering stable when switching radio options.
 
-### Tools Section
+#### Runtime LayerData Shape
 
-Enables and configures UI tools.
+`layerData` can be authored as arrays or as keyed objects. The loader normalizes both forms.
+
+Array form:
 
 ```json
 {
-  "tools": {
-    "coordinates": { "enabled": true },
-    "layerTree": { "enabled": true },
-    "legend": { "enabled": false }
+  "layerData": {
+    "sources": [
+      { "id": "osm", "type": "raster", "service": "xyz", "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png" }
+    ],
+    "layers": [
+      { "id": "osm", "type": "raster", "source": "osm", "title": "OpenStreetMap" }
+    ]
+  }
+}
+```
+
+Object-map form (id is inferred from the key):
+
+```json
+{
+  "layerData": {
+    "sources": {
+      "osm": { "type": "raster", "service": "xyz", "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png" }
+    },
+    "layers": {
+      "osm": {
+        "type": "raster",
+        "source": "osm",
+        "title": "OpenStreetMap"
+      }
+    }
   }
 }
 ```
@@ -362,3 +480,12 @@ Errors prevent the config from loading. Warnings are logged to the console.
 ## Example
 
 See `config/demo.json` for a complete example configuration.
+
+## Legacy Compatibility
+
+- `catalog` is deprecated in favor of `layerData`.
+- `catalog.tree` is deprecated in favor of `tools.*.items[].tree` on `type: "layerTree"` tool items.
+- `layerset` on layer definitions is deprecated — use `type: "style"` with a `layers` array instead.
+- Inline `style: { sources, layers }` on layer definitions is deprecated — use `type: "style"` with inline `sources` and `layers` instead.
+- Legacy `library`/`catalogs` input is still normalized by the loader for backward compatibility.
+- The loader normalizes all deprecated forms at load time; no runtime behavior changes.

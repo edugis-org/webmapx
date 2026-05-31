@@ -12,7 +12,7 @@ import type { IMap } from '../map/IMapInterfaces';
 import type { LayerAddEvent, LayerRemoveEvent } from '../store/map-events';
 
 export interface LayerNode {
-    label: string;
+    label?: string;
     children?: LayerNode[];
     layerId?: string;
     selectionMode?: TreeSelectionMode;
@@ -32,7 +32,7 @@ type SelectionContext = {
 };
 
 type LayerCheckDetail = {
-    layerInformation: { layer: unknown; sources: unknown[] };
+    layerInformation: { layer: unknown };
     checked: boolean;
     selectionGroup?: string;
     selectionMode?: TreeSelectionMode;
@@ -52,6 +52,9 @@ type LayerSupportStatus = 'unknown' | 'checking' | 'supported' | 'unsupported';
 export class WebmapxLayerTree extends LitElement {
     /** Externally provided tree data (takes precedence over config) */
     @property({ type: Array }) tree: LayerNode[] = [];
+
+    /** Optional tool id to bind this component to a specific layerTree tool config entry */
+    @property({ type: String, attribute: 'tool-id' }) toolId: string | null = null;
 
     /** Tree data loaded from config */
     @state() private configTree: TreeNodeConfig[] = [];
@@ -149,9 +152,9 @@ export class WebmapxLayerTree extends LitElement {
         this.unsubscribeFromConfig();
 
         // Check if config is already available
-        const existingConfig = this.mapHost?.catalogConfig;
-        if (existingConfig?.tree) {
-            this.configTree = existingConfig.tree;
+        const existingTree = this.getTreeFromMapConfig(this.mapHost?.config as Record<string, unknown> | null ?? null);
+        if (existingTree.length > 0) {
+            this.configTree = existingTree;
             this.didQueueRootSupportChecks = false;
             this.queueRootLazySupportChecks();
         }
@@ -159,8 +162,8 @@ export class WebmapxLayerTree extends LitElement {
         // Listen for future config changes
         this.configHandler = (e: Event) => {
             const detail = (e as CustomEvent).detail;
-            const tree = detail.config?.catalog?.tree;
-            if (tree) {
+            const tree = this.getTreeFromMapConfig(detail.config ?? null);
+            if (tree.length > 0) {
                 this.configTree = tree;
                 this.didQueueRootSupportChecks = false;
                 if (this.adapter) {
@@ -512,21 +515,80 @@ export class WebmapxLayerTree extends LitElement {
         };
     }
 
-    private getLayerInformationById(layerId: string): { layer: unknown; sources: unknown[] } | null {
-        const catalog = this.mapHost?.catalogConfig;
-        if (!catalog) return null;
+    private resolveNodeLabel(node: LayerNode): string {
+        if (node.label) return node.label;
+        if (node.layerId) {
+            const info = this.getLayerInformationById(node.layerId);
+            const title = (info?.layer as any)?.title;
+            if (typeof title === 'string' && title) return title;
+            return node.layerId;
+        }
+        return '';
+    }
 
-        const layer = catalog.layers.find(l => l.id === layerId);
+    private getLayerInformationById(layerId: string): { layer: unknown } | null {
+        const layerData = this.mapHost?.layerDataConfig;
+        if (!layerData) return null;
+
+        const layer = layerData.layers.find(l => l.id === layerId);
         if (!layer) return null;
 
-        const sourceIds = Array.from(new Set(
-            layer.layerset
-                .map(sl => sl.source)
-                .filter((source): source is string => typeof source === 'string' && source.length > 0)
-        ));
-        const sources = catalog.sources.filter(s => sourceIds.includes(s.id));
+        return { layer };
+    }
 
-        return { layer, sources };
+    private getTreeFromMapConfig(config: Record<string, unknown> | null): TreeNodeConfig[] {
+        if (!config || typeof config !== 'object') {
+            return [];
+        }
+
+        const tools = (config as { tools?: unknown }).tools;
+        const treeFromTools = this.findTreeInTools(tools);
+        if (treeFromTools.length > 0) {
+            return treeFromTools;
+        }
+
+        // Legacy fallback: catalog-owned tree
+        const legacyTree = (config as { catalog?: { tree?: TreeNodeConfig[] } }).catalog?.tree;
+        return Array.isArray(legacyTree) ? legacyTree : [];
+    }
+
+    private findTreeInTools(tools: unknown): TreeNodeConfig[] {
+        if (!tools || typeof tools !== 'object') {
+            return [];
+        }
+
+        const directTree = (tools as { layerTree?: { tree?: TreeNodeConfig[] } }).layerTree?.tree;
+        if (Array.isArray(directTree)) {
+            return directTree;
+        }
+
+        const toolEntries = Object.values(tools as Record<string, unknown>)
+            .filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object');
+
+        for (const entry of toolEntries) {
+            const items = Array.isArray(entry.items) ? entry.items : [];
+            for (const item of items) {
+                if (!item || typeof item !== 'object') {
+                    continue;
+                }
+
+                const toolItem = item as Record<string, unknown>;
+                if (toolItem.type !== 'layerTree') {
+                    continue;
+                }
+
+                const itemId = typeof toolItem.id === 'string' ? toolItem.id : null;
+                if (this.toolId && itemId && itemId !== this.toolId) {
+                    continue;
+                }
+
+                if (Array.isArray(toolItem.tree)) {
+                    return toolItem.tree as TreeNodeConfig[];
+                }
+            }
+        }
+
+        return [];
     }
 
     private dispatchLayerCheck(detail: LayerCheckDetail): void {
@@ -583,7 +645,7 @@ export class WebmapxLayerTree extends LitElement {
         if (node.children && node.children.length > 0) {
             return html`
                 <sl-tree-item ?expanded=${node.expanded} data-node-key=${nodeKey}>
-                    ${node.label}
+                    ${this.resolveNodeLabel(node)}
                     ${node.children.map((child, index) => this.renderNode(child, nodeContext, `${nodeKey}.${index}`))}
                 </sl-tree-item>
             `;
@@ -592,7 +654,8 @@ export class WebmapxLayerTree extends LitElement {
             const selectionGroup = this.getExclusiveGroupKey(node, nodeContext);
             const layerSupportStatus = this.getSupportStatus(node.layerId);
             const disabled = layerSupportStatus === 'unsupported';
-            const label = disabled ? `${node.label} (unsupported for current engine)` : node.label;
+            const resolvedLabel = this.resolveNodeLabel(node);
+            const label = disabled ? `${resolvedLabel} (unsupported for current engine)` : resolvedLabel;
 
             return html`
                 <sl-tree-item data-node-key=${nodeKey}>

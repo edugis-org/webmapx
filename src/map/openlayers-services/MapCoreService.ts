@@ -122,11 +122,14 @@ export class MapCoreService implements IMapCore {
                 console.error('[OL CORE] Failed to apply style from URL:', err);
             });
         } else if (options?.style) {
-            // Inline style object - add version if missing
+            // Inline style object - add version if missing; skip if empty (no layers/sources)
             const styleWithVersion = { version: 8, ...options.style };
-            apply(this.mapInstance, styleWithVersion).catch(err => {
-                console.error('[OL CORE] Failed to apply inline style:', err);
-            });
+            const hasContent = Array.isArray(styleWithVersion.layers) && styleWithVersion.layers.length > 0;
+            if (hasContent) {
+                apply(this.mapInstance, styleWithVersion).catch(err => {
+                    console.error('[OL CORE] Failed to apply inline style:', err);
+                });
+            }
         }
 
         // Map load event

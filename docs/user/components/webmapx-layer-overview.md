@@ -27,8 +27,8 @@ Place the component inside a tool panel and give it a matching `tool-id` if you 
 
 The component reads:
 
-- `catalog.tree` for layer labels and top-level grouping
 - `visibleLayers` from the map state store for the currently active layers
+- `runtimeLayerMetadata` from the map state store for labels and optional grouping/legend role
 
 Visible layers are rendered top-first, so the most recently added layer appears first in the list.
 
@@ -36,12 +36,12 @@ Visible layers are rendered top-first, so the most recently added layer appears 
 
 | Attribute | Type | Default | Description |
 | --- | --- | --- | --- |
-| `background-group-label` | string | `Base Maps` | Top-level tree group treated as background layers. |
+| `background-group-label` | string | `Base Maps` | Fallback group label treated as background when `runtimeLayerMetadata.legendRole` is not set. |
 | `background-title` | string | `Achtergrondlagen` | Heading label for the background section. |
 | `overview-title` | string | `Gekozen kaartlagen` | Heading label for the overview section. |
 
 ## Notes
 
 - If the list grows taller than the available panel space, the component scrolls vertically.
-- Layers that are visible but not present in `catalog.tree` fall back to their layer id as the label.
+- Layers that are visible but have no metadata label fall back to their layer id.
 - This version does not yet render legends or support manual reordering.

@@ -1,4 +1,4 @@
-import type { CatalogConfig, TreeNodeConfig } from '../config/types';
+import type { AnyLayerConfig, LayerDataConfig } from '../config/types';
 
 export interface LayerPanelItem {
   layerId: string;
@@ -11,42 +11,37 @@ export interface LayerPanelSections {
   overview: LayerPanelItem[];
 }
 
-interface LayerTreeIndexEntry {
-  label: string;
-  topLevelGroup: string | null;
+function getLayerMetadata(layer: AnyLayerConfig): Record<string, unknown> | null {
+  if (!layer?.metadata || typeof layer.metadata !== 'object') {
+    return null;
+  }
+  return layer.metadata as Record<string, unknown>;
 }
 
-function indexTreeNodes(
-  nodes: TreeNodeConfig[],
-  topLevelGroup: string | null,
-  index: Map<string, LayerTreeIndexEntry>,
-): void {
-  for (const node of nodes) {
-    const group = topLevelGroup ?? node.label;
-    if (node.layerId) {
-      index.set(node.layerId, {
-        label: node.label,
-        topLevelGroup,
-      });
-    }
-    if (node.children?.length) {
-      indexTreeNodes(node.children, group, index);
-    }
-  }
+function getLayerLabel(layer: AnyLayerConfig): string {
+  const metadata = getLayerMetadata(layer);
+  const metadataTitle =
+    (typeof metadata?.title === 'string' ? metadata.title : null)
+    ?? (typeof metadata?.['webmapx:title'] === 'string' ? (metadata['webmapx:title'] as string) : null)
+    ?? (typeof metadata?.label === 'string' ? metadata.label : null);
+
+  return metadataTitle ?? layer.title ?? layer.id;
 }
 
-function buildLayerTreeIndex(catalog: CatalogConfig): Map<string, LayerTreeIndexEntry> {
-  const index = new Map<string, LayerTreeIndexEntry>();
-  for (const node of catalog.tree) {
-    if (node.layerId) {
-      index.set(node.layerId, { label: node.label, topLevelGroup: null });
-      continue;
-    }
-    if (node.children?.length) {
-      indexTreeNodes(node.children, node.label, index);
-    }
-  }
-  return index;
+function getLayerGroup(layer: AnyLayerConfig): string | null {
+  const metadata = getLayerMetadata(layer);
+  const group =
+    (typeof metadata?.group === 'string' ? metadata.group : null)
+    ?? (typeof metadata?.['webmapx:group'] === 'string' ? (metadata['webmapx:group'] as string) : null);
+
+  return typeof group === 'string' && group.length > 0 ? group : null;
+}
+
+function getLayerLegendRole(layer: AnyLayerConfig): 'background' | 'overlay' | null {
+  const metadata = getLayerMetadata(layer);
+  return metadata?.legendRole === 'background' || metadata?.legendRole === 'overlay'
+    ? metadata.legendRole
+    : null;
 }
 
 function normalizeGroupLabel(label: string | null | undefined): string | null {
@@ -54,38 +49,34 @@ function normalizeGroupLabel(label: string | null | undefined): string | null {
 }
 
 export function buildLayerPanelSections(
-  catalog: CatalogConfig | undefined,
+  layerData: LayerDataConfig | undefined,
   visibleLayerIds: string[],
   backgroundGroupLabel = 'Base Maps',
 ): LayerPanelSections {
-  if (!catalog || visibleLayerIds.length === 0) {
+  if (!layerData || visibleLayerIds.length === 0) {
     return { background: [], overview: [] };
   }
 
-  const treeIndex = buildLayerTreeIndex(catalog);
+  const layersById = new Map<string, AnyLayerConfig>(layerData.layers.map((layer) => [layer.id, layer]));
   const backgroundGroup = normalizeGroupLabel(backgroundGroupLabel);
   const orderedIds = [...visibleLayerIds].reverse();
   const sections: LayerPanelSections = { background: [], overview: [] };
 
   for (const layerId of orderedIds) {
-    const indexed = treeIndex.get(layerId);
-    const fallbackLayer = catalog.layers.find((layer) => layer.id === layerId);
-    if (!indexed && !fallbackLayer) {
+    const layer = layersById.get(layerId);
+    if (!layer) {
       continue;
     }
 
-    const layerMetadata = (fallbackLayer as any)?.metadata as Record<string, unknown> | undefined;
-    const metadataTitle =
-      (typeof layerMetadata?.title === 'string' ? layerMetadata.title : null)
-      ?? (typeof layerMetadata?.['webmapx:title'] === 'string' ? (layerMetadata['webmapx:title'] as string) : null);
-
     const item: LayerPanelItem = {
       layerId,
-      label: indexed?.label ?? metadataTitle ?? (fallbackLayer as any)?.title ?? fallbackLayer?.id ?? layerId,
-      topLevelGroup: indexed?.topLevelGroup ?? null,
+      label: getLayerLabel(layer),
+      topLevelGroup: getLayerGroup(layer),
     };
 
-    if (normalizeGroupLabel(item.topLevelGroup) === backgroundGroup) {
+    const legendRole = getLayerLegendRole(layer);
+
+    if (legendRole === 'background' || normalizeGroupLabel(item.topLevelGroup) === backgroundGroup) {
       sections.background.push(item);
     } else {
       sections.overview.push(item);

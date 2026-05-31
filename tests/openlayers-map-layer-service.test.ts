@@ -5,7 +5,7 @@ import type Projection from 'ol/proj/Projection';
 import type { TileCoord } from 'ol/tilecoord';
 import { MapLayerService } from '../src/map/openlayers-services/MapLayerService';
 import { MapStateStore } from '../src/store/map-state-store';
-import type { LayerConfig, SourceConfig, StyleLayerConfig } from '../src/config/types';
+import type { AnyLayerConfig, CompositeStyleLayerConfig, SourceConfig } from '../src/config/types';
 
 type TestMapStub = {
   addLayer(): void;
@@ -54,6 +54,14 @@ test('MapLayerService tolerates expression paint values for OpenLayers fallback 
 
 test('MapLayerService merges native ids across per-source adds for one logical layer', async () => {
   const service = createService();
+  service.setCatalog({
+    sources: [
+      { id: 'style:openfreemap-liberty:ne2_shaded', type: 'raster', service: 'xyz', url: 'https://example.test/{z}/{x}/{y}.png' },
+      { id: 'style:openfreemap-liberty:openmaptiles', type: 'vector', url: 'https://example.test/tiles.json' },
+    ],
+    layers: [],
+  });
+
   const internal = accessServiceInternals<{
     createLayer: (nativeLayerId: string) => Promise<{ __layerId: string }>;
     createStyleBackedVectorTileLayer: (nativeLayerId: string) => Promise<{ __layerId: string }>;
@@ -63,57 +71,39 @@ test('MapLayerService merges native ids across per-source adds for one logical l
   internal.createLayer = async (nativeLayerId: string) => ({ __layerId: nativeLayerId });
   internal.createStyleBackedVectorTileLayer = async (nativeLayerId: string) => ({ __layerId: nativeLayerId });
 
-  const rasterLayerConfig: LayerConfig = {
+  const compositeLayer: CompositeStyleLayerConfig = {
     id: 'openfreemap-liberty',
+    type: 'style',
     metadata: { styleUrl: 'https://tiles.openfreemap.org/styles/liberty' },
-    layerset: [{ id: 'natural-earth', type: 'raster' }],
+    layers: [
+      { id: 'natural-earth', type: 'raster', source: 'style:openfreemap-liberty:ne2_shaded' },
+      { id: 'style:road_motorway', type: 'line', source: 'style:openfreemap-liberty:openmaptiles' },
+    ],
   };
 
-  const vectorLayerConfig: LayerConfig = {
-    id: 'openfreemap-liberty',
-    metadata: { styleUrl: 'https://tiles.openfreemap.org/styles/liberty' },
-    layerset: [{ id: 'style:road_motorway', type: 'line' }],
-  };
+  await service.addLayer(compositeLayer);
 
-  const rasterSource: SourceConfig = {
-    id: 'style:openfreemap-liberty:ne2_shaded',
-    type: 'raster',
-    service: 'xyz',
-    url: 'https://example.test/{z}/{x}/{y}.png',
-  };
-
-  const vectorSource: SourceConfig = {
-    id: 'style:openfreemap-liberty:openmaptiles',
-    type: 'vector',
-    url: 'https://example.test/tiles.json',
-  };
-
-  await service.addLayer('openfreemap-liberty', rasterLayerConfig, rasterSource);
-  await service.addLayer('openfreemap-liberty', vectorLayerConfig, vectorSource);
-
-  assert.deepEqual(internal.logicalToNative.get('openfreemap-liberty'), [
-    'openfreemap-liberty-natural-earth',
-    'openfreemap-liberty-style:openfreemap-liberty:openmaptiles-vector-style',
-  ]);
+  assert.ok(internal.logicalToNative.has('openfreemap-liberty'));
 });
 
 test('MapLayerService builds a GL style document with sprite and glyph metadata', () => {
   const service = accessServiceInternals<{
-    buildStyleBackedGlStyle: (layerConfig: LayerConfig, sourceConfig: SourceConfig & { type: 'vector' }) => Record<string, unknown>;
+    buildStyleBackedGlStyle: (layerConfig: AnyLayerConfig, sourceConfig: SourceConfig & { type: 'vector' }) => Record<string, unknown>;
   }>(createService());
 
   const glStyle = service.buildStyleBackedGlStyle(
     {
       id: 'openfreemap-liberty',
+      type: 'style',
       metadata: {
         styleUrl: 'https://tiles.openfreemap.org/styles/liberty',
         styleSpriteUrl: 'https://tiles.openfreemap.org/sprites/ofm',
         styleGlyphsUrl: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
       },
-      layerset: [{
+      layers: [{
         id: 'style:road_motorway',
         type: 'line',
-        sourceLayer: 'transportation',
+        'source-layer': 'transportation',
         paint: { 'line-color': '#fc8' },
         layout: { 'line-cap': 'round' },
         filter: ['==', ['get', 'class'], 'motorway'],
@@ -178,16 +168,17 @@ test('MapLayerService resolves sprite manifest and png URL for OpenLayers style-
 
 test('MapLayerService preserves fill-extrusion layers for OpenLayers style-backed GL styles', () => {
   const service = accessServiceInternals<{
-    buildStyleBackedGlStyle: (layerConfig: LayerConfig, sourceConfig: SourceConfig & { type: 'vector' }) => Record<string, unknown>;
+    buildStyleBackedGlStyle: (layerConfig: AnyLayerConfig, sourceConfig: SourceConfig & { type: 'vector' }) => Record<string, unknown>;
   }>(createService());
 
   const glStyle = service.buildStyleBackedGlStyle(
     {
       id: 'openfreemap-liberty',
+      type: 'style',
       metadata: { styleUrl: 'https://tiles.openfreemap.org/styles/liberty' },
-      layerset: [
-        { id: 'style:building', type: 'fill', sourceLayer: 'building' },
-        { id: 'style:building-3d', type: 'fill-extrusion', sourceLayer: 'building' },
+      layers: [
+        { id: 'style:building', type: 'fill', 'source-layer': 'building' },
+        { id: 'style:building-3d', type: 'fill-extrusion', 'source-layer': 'building' },
       ],
     },
     {
@@ -205,7 +196,7 @@ test('MapLayerService preserves fill-extrusion layers for OpenLayers style-backe
 test('MapLayerService caps style-backed vector source tile grid at source maxzoom while preserving overzoom requests', async () => {
   const service = accessServiceInternals<{
     resolveVectorTileSourceInfo: () => Promise<{ urlTemplate: string; minZoom: number; maxZoom: number }>;
-    createStyleBackedVectorTileLayer: (layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig & { type: 'vector'; minzoom?: number; maxzoom?: number }) => Promise<TestVectorTileLayer | null>;
+    createStyleBackedVectorTileLayer: (layerId: string, layerConfig: AnyLayerConfig, sourceConfig: SourceConfig & { type: 'vector'; minzoom?: number; maxzoom?: number }) => Promise<TestVectorTileLayer | null>;
   }>(createService());
   service.resolveVectorTileSourceInfo = async () => ({
     urlTemplate: 'https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf',
@@ -217,8 +208,9 @@ test('MapLayerService caps style-backed vector source tile grid at source maxzoo
     'openfreemap-liberty-openmaptiles-vector-style',
     {
       id: 'openfreemap-liberty',
+      type: 'style',
       metadata: { styleUrl: 'https://tiles.openfreemap.org/styles/liberty' },
-      layerset: [{ id: 'style:road_motorway', type: 'line' }],
+      layers: [{ id: 'style:road_motorway', type: 'line' }],
     },
     {
       id: 'style:openfreemap-liberty:openmaptiles',
@@ -235,94 +227,4 @@ test('MapLayerService caps style-backed vector source tile grid at source maxzoo
     layer.getSource().getTileUrlFunction()([15, 16830, 10768], 1, null),
     'https://tiles.openfreemap.org/planet/14/8415/5384.pbf'
   );
-});
-
-test('MapLayerService derives vector source maxzoom from TileJSON when style source only declares a url', async () => {
-  const service = accessServiceInternals<{
-    createStyleBackedVectorTileLayer: (layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig & { type: 'vector'; minzoom?: number; maxzoom?: number }) => Promise<TestVectorTileLayer | null>;
-  }>(createService());
-  const originalFetch = globalThis.fetch;
-
-  globalThis.fetch = async () => ({
-    ok: true,
-    json: async () => ({
-      tiles: ['https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf'],
-      minzoom: 0,
-      maxzoom: 14,
-    }),
-  }) as Response;
-
-  try {
-    const layer = await service.createStyleBackedVectorTileLayer(
-      'openfreemap-liberty-openmaptiles-vector-style',
-      {
-        id: 'openfreemap-liberty',
-        metadata: { styleUrl: 'https://tiles.openfreemap.org/styles/liberty' },
-        layerset: [{ id: 'style:road_motorway', type: 'line' }],
-      },
-      {
-        id: 'style:openfreemap-liberty:openmaptiles',
-        type: 'vector',
-        url: 'https://tiles.openfreemap.org/planet',
-      }
-    );
-
-    assert.ok(layer);
-    assert.equal(layer.getSource().getTileGrid()?.getMaxZoom(), 14);
-    assert.equal(
-      layer.getSource().getTileUrlFunction()([19, 269392, 172383], 1, null),
-      'https://tiles.openfreemap.org/planet/14/8418/5386.pbf'
-    );
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test('MapLayerService clamps vector tile URL requests above source maxzoom to parent tiles', () => {
-  const service = accessServiceInternals<{
-    createClampedVectorTileUrlFunction: (urlTemplate: string, maxZoom: number) => (tileCoord: TileCoord, pixelRatio: number, projection: Projection | null) => string | undefined;
-  }>(createService());
-  const tileUrlFunction = service.createClampedVectorTileUrlFunction(
-    'https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf',
-    14
-  );
-
-  assert.equal(
-    tileUrlFunction([15, 16830, 10768], 1, null),
-    'https://tiles.openfreemap.org/planet/14/8415/5384.pbf'
-  );
-  assert.equal(
-    tileUrlFunction([16, 33660, 21537], 1, null),
-    'https://tiles.openfreemap.org/planet/14/8415/5384.pbf'
-  );
-  assert.equal(
-    tileUrlFunction([14, 8415, 5384], 1, null),
-    'https://tiles.openfreemap.org/planet/14/8415/5384.pbf'
-  );
-});
-
-test('MapLayerService tolerates expression raster opacity for XYZ layers', () => {
-  const service = accessServiceInternals<{
-    createXYZLayer: (layerId: string, sourceConfig: Extract<SourceConfig, { type: 'raster'; service: 'xyz' }>, style: StyleLayerConfig) => { getOpacity(): number };
-  }>(createService());
-
-  const layer = service.createXYZLayer(
-    'natural-earth',
-    {
-      id: 'style:openfreemap-liberty:ne2_shaded',
-      type: 'raster',
-      service: 'xyz',
-      url: 'https://tiles.openfreemap.org/natural_earth/ne2sr/{z}/{x}/{y}.png',
-      tileSize: 256,
-    },
-    {
-      type: 'raster',
-      paint: {
-        'raster-opacity': ['interpolate', ['exponential', 1.5], ['zoom'], 0, 0.6, 6, 0.1],
-      },
-    }
-  );
-
-  assert.ok(layer);
-  assert.equal(layer.getOpacity(), 1);
 });

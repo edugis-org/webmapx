@@ -1,7 +1,7 @@
 // src/map/leaflet-services/MapLayerService.ts
 
 import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
-import type { LayerConfig, SourceConfig, WMSSourceConfig, GeoJSONSourceConfig } from '../../config/types';
+import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, GeoJSONSourceConfig, XYZSourceConfig, VectorSourceConfig, LayerDataConfig } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import * as L from 'leaflet';
 import { LeafletLayerFactory } from './LeafletLayerFactory';
@@ -16,7 +16,7 @@ export class MapLayerService implements ILayerService {
     private nativeLayerInstances: Map<string, L.Layer> = new Map();
     // Track WarpedMapLayer instances for cleanup (if @allmaps/leaflet is used)
     private warpedMapLayers: Map<string, any> = new Map();
-    private catalog: any;
+    private catalog: LayerDataConfig | null = null;
     private sourceIdCounter = 0;
     private busyOps = 0;
     private logicalOrder: string[] = [];
@@ -107,8 +107,34 @@ export class MapLayerService implements ILayerService {
         }
     }
 
-    setCatalog(catalog: any): void {
+    setCatalog(catalog: LayerDataConfig): void {
         this.catalog = catalog;
+    }
+
+    private resolveSource(sourceId: string): SourceConfig | null {
+        return this.catalog?.sources.find((s) => s.id === sourceId) ?? null;
+    }
+
+    private normalizeRawSource(logicalId: string, rawDef: unknown): SourceConfig | null {
+        if (typeof rawDef !== 'object' || rawDef === null) return null;
+        const def = rawDef as Record<string, unknown>;
+        if (def.type === 'raster') {
+            const tiles = Array.isArray(def.tiles)
+                ? def.tiles.filter((t): t is string => typeof t === 'string')
+                : (typeof def.url === 'string' ? [def.url] : []);
+            if (tiles.length === 0) return null;
+            return { id: logicalId, type: 'raster', service: 'xyz', url: tiles } as XYZSourceConfig;
+        }
+        if (def.type === 'geojson') {
+            const data = def.data;
+            if (typeof data !== 'string' && typeof data !== 'object') return null;
+            return { id: logicalId, type: 'geojson', data: data as string } as GeoJSONSourceConfig;
+        }
+        if (def.type === 'vector') {
+            if (typeof def.url !== 'string') return null;
+            return { id: logicalId, type: 'vector', url: def.url } as VectorSourceConfig;
+        }
+        return null;
     }
 
     /**
@@ -134,13 +160,8 @@ export class MapLayerService implements ILayerService {
 
     /**
      * Create and add a WarpedMapLayer for Allmaps georeferenced images.
-     * Note: Requires @allmaps/leaflet to be installed for full support.
      */
-    private async addWarpedMapLayer(layerId: string, sourceConfig: SourceConfig): Promise<boolean> {
-        const url = 'url' in sourceConfig
-            ? (Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url)
-            : '';
-        const annotationUrl = this.parseWarpedMapUrl(url);
+    private async addWarpedMapLayer(layerId: string, annotationUrl: string): Promise<boolean> {
 
         try {
             this.beginBusyOperation();
@@ -171,57 +192,53 @@ export class MapLayerService implements ILayerService {
         }
     }
 
-    async addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig, options?: LayerInsertOptions): Promise<boolean> {
+    async addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
+        const layerId = layerConfig.id;
         const insertIndex = this.resolveInsertIndex(options);
 
-        // Check for warpedmap:// protocol
+        if (layerConfig.type === 'allmaps') {
+            const success = await this.addWarpedMapLayer(layerId, layerConfig.annotation);
+            if (success) { this.upsertLogicalOrder(layerId, insertIndex); this.reapplyLogicalOrder(); }
+            return success;
+        }
+
+        if (layerConfig.type === 'style') {
+            return this.addCompositeLayer(layerConfig, insertIndex);
+        }
+
+        // StandardLayerConfig
+        const stdLayer = layerConfig as StandardLayerConfig;
+        if (!stdLayer.source) return false;
+        const sourceConfig = this.resolveSource(stdLayer.source);
+        if (!sourceConfig) return false;
+
+        // Legacy warpedmap:// support
         if (this.isWarpedMapSource(sourceConfig)) {
-            const success = await this.addWarpedMapLayer(layerId, sourceConfig);
-            if (success) {
-                this.upsertLogicalOrder(layerId, insertIndex);
-                this.reapplyLogicalOrder();
-            }
+            const url = Array.isArray((sourceConfig as any).url) ? (sourceConfig as any).url[0] : (sourceConfig as any).url;
+            const annotationUrl = this.parseWarpedMapUrl(url);
+            const success = await this.addWarpedMapLayer(layerId, annotationUrl);
+            if (success) { this.upsertLogicalOrder(layerId, insertIndex); this.reapplyLogicalOrder(); }
             return success;
         }
 
         const nativeLayerIds: string[] = [];
+        const subLayers = [stdLayer];
 
-        // Handle different source types
         if (sourceConfig.type === 'raster') {
-            const layerSpecs = LeafletLayerFactory.createLayers(layerConfig, sourceConfig);
-
-            for (const spec of layerSpecs) {
-                if (!this.nativeLayerInstances.has(spec.id)) {
-                    this.attachTileBusyEvents(spec.layer);
-                    spec.layer.addTo(this.map);
-                    this.nativeLayerInstances.set(spec.id, spec.layer);
-                    nativeLayerIds.push(spec.id);
-                }
+            const spec = sourceConfig.service === 'xyz'
+                ? LeafletLayerFactory.createXYZLayer(layerId, sourceConfig)
+                : LeafletLayerFactory.createWMSLayer(layerId, sourceConfig);
+            if (spec && !this.nativeLayerInstances.has(spec.id)) {
+                this.attachTileBusyEvents(spec.layer);
+                spec.layer.addTo(this.map);
+                this.nativeLayerInstances.set(spec.id, spec.layer);
+                nativeLayerIds.push(spec.id);
             }
         } else if (sourceConfig.type === 'geojson') {
-            // Load GeoJSON data
-            const geoJsonConfig = sourceConfig as GeoJSONSourceConfig;
-            let data: GeoJSON.FeatureCollection | GeoJSON.Feature;
-
-            if (typeof geoJsonConfig.data === 'string') {
-                // Fetch from URL
-                try {
-                    this.beginBusyOperation();
-                    const response = await fetch(geoJsonConfig.data);
-                    data = await response.json();
-                } catch (error) {
-                    console.error('[LEAFLET LAYER SERVICE] Failed to fetch GeoJSON:', error);
-                    return false;
-                } finally {
-                    this.endBusyOperation();
-                }
-            } else {
-                data = geoJsonConfig.data;
-            }
-
-            const layerSpecs = LeafletLayerFactory.createGeoJSONLayer(layerConfig, sourceConfig, data);
-
-            for (const spec of layerSpecs) {
+            const data = await this.fetchGeoJSON(sourceConfig as GeoJSONSourceConfig);
+            if (!data) return false;
+            const specs = LeafletLayerFactory.createGeoJSONLayer(layerId, sourceConfig, data, subLayers);
+            for (const spec of specs) {
                 if (!this.nativeLayerInstances.has(spec.id)) {
                     spec.layer.addTo(this.map);
                     this.nativeLayerInstances.set(spec.id, spec.layer);
@@ -229,7 +246,6 @@ export class MapLayerService implements ILayerService {
                 }
             }
         } else if (sourceConfig.type === 'vector') {
-            // Vector tile sources require additional plugins like Leaflet.VectorGrid
             console.warn('[LEAFLET LAYER SERVICE] Vector tile sources require leaflet.vectorgrid plugin');
             return false;
         }
@@ -238,7 +254,78 @@ export class MapLayerService implements ILayerService {
         this.upsertLogicalOrder(layerId, insertIndex);
         this.reapplyLogicalOrder();
         this.updateVisibleLayers();
-        return true;
+        return nativeLayerIds.length > 0;
+    }
+
+    private async fetchGeoJSON(sourceConfig: GeoJSONSourceConfig): Promise<GeoJSON.FeatureCollection | GeoJSON.Feature | null> {
+        if (typeof sourceConfig.data !== 'string') return sourceConfig.data as GeoJSON.FeatureCollection;
+        try {
+            this.beginBusyOperation();
+            const response = await fetch(sourceConfig.data);
+            return await response.json();
+        } catch (error) {
+            console.error('[LEAFLET LAYER SERVICE] Failed to fetch GeoJSON:', error);
+            return null;
+        } finally {
+            this.endBusyOperation();
+        }
+    }
+
+    private async addCompositeLayer(layerConfig: CompositeStyleLayerConfig, insertIndex: number | undefined): Promise<boolean> {
+        const layerId = layerConfig.id;
+        const localSources = layerConfig.sources ?? {};
+        const subLayers = layerConfig.layers ?? [];
+
+        const localSourceMap = new Map<string, SourceConfig>();
+        for (const [key, rawDef] of Object.entries(localSources)) {
+            const src = this.normalizeRawSource(`${layerId}:${key}`, rawDef);
+            if (src) localSourceMap.set(key, src);
+        }
+
+        const nativeLayerIds: string[] = [];
+
+        // Group sub-layers by source
+        const sourceLayerMap = new Map<string, typeof subLayers>();
+        for (const subLayer of subLayers) {
+            const key = subLayer.source ?? '';
+            if (!sourceLayerMap.has(key)) sourceLayerMap.set(key, []);
+            sourceLayerMap.get(key)!.push(subLayer);
+        }
+
+        for (const [sourceKey, layers] of sourceLayerMap.entries()) {
+            let sourceConfig: SourceConfig | null = localSourceMap.get(sourceKey) ?? null;
+            if (!sourceConfig) sourceConfig = this.resolveSource(sourceKey);
+            if (!sourceConfig) continue;
+
+            if (sourceConfig.type === 'raster') {
+                const spec = sourceConfig.service === 'xyz'
+                    ? LeafletLayerFactory.createXYZLayer(layerId, sourceConfig)
+                    : LeafletLayerFactory.createWMSLayer(layerId, sourceConfig);
+                if (spec && !this.nativeLayerInstances.has(spec.id)) {
+                    this.attachTileBusyEvents(spec.layer);
+                    spec.layer.addTo(this.map);
+                    this.nativeLayerInstances.set(spec.id, spec.layer);
+                    nativeLayerIds.push(spec.id);
+                }
+            } else if (sourceConfig.type === 'geojson') {
+                const data = await this.fetchGeoJSON(sourceConfig as GeoJSONSourceConfig);
+                if (!data) continue;
+                const specs = LeafletLayerFactory.createGeoJSONLayer(layerId, sourceConfig, data, layers);
+                for (const spec of specs) {
+                    if (!this.nativeLayerInstances.has(spec.id)) {
+                        spec.layer.addTo(this.map);
+                        this.nativeLayerInstances.set(spec.id, spec.layer);
+                        nativeLayerIds.push(spec.id);
+                    }
+                }
+            }
+        }
+
+        this.logicalToNative.set(layerId, nativeLayerIds);
+        this.upsertLogicalOrder(layerId, insertIndex);
+        this.reapplyLogicalOrder();
+        this.updateVisibleLayers();
+        return nativeLayerIds.length > 0;
     }
 
     removeLayer(layerId: string): void {

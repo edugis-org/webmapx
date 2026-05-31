@@ -1,7 +1,7 @@
 // src/config/validator.ts
 // Runtime validator for WebMapX configuration files
 
-import type { AppConfig, SourceConfig, LayerConfig, TreeNodeConfig } from './types.js';
+import type { AppConfig, SourceConfig, TreeNodeConfig } from './types.js';
 
 export type ValidationSeverity = 'error' | 'warning';
 
@@ -19,9 +19,10 @@ export interface ValidationResult {
 
 // Known keys for each config section
 const KNOWN_KEYS = {
-  root: ['version', 'project', 'map', 'runtimeMap', 'catalog', 'library', 'state', 'ui', 'tools'],
+  root: ['version', 'project', 'map', 'runtimeMap', 'layerData', 'catalog', 'library', 'state', 'ui', 'tools'],
   map: ['label', 'center', 'zoom', 'minZoom', 'maxZoom', 'minPitch', 'maxPitch', 'type', 'style', 'styleUrl'],
   runtimeMap: ['minZoom', 'maxZoom', 'minPitch', 'maxPitch'],
+  layerData: ['sources', 'layers'],
   catalog: ['label', 'tree', 'sources', 'layers'],
   treeNode: ['label', 'layerId', 'selectionMode', 'selectionGroup', 'allowNone', 'stackOrder', 'checked', 'expanded', 'children'],
   state: ['activeBackground', 'activeLayers', 'activeExclusiveLayers'],
@@ -30,7 +31,7 @@ const KNOWN_KEYS = {
   sourceRaster: ['service', 'url', 'tileSize', 'minzoom', 'maxzoom', 'bounds', 'scheme', 'volatile', 'attribution'],
   sourceGeojson: ['data', 'attribution', 'minzoom', 'maxzoom', 'bounds', 'buffer', 'tolerance', 'cluster', 'clusterRadius', 'clusterMaxZoom', 'lineMetrics', 'generateId'],
   sourceVector: ['url', 'tiles', 'bounds', 'scheme', 'minzoom', 'maxzoom', 'attribution', 'volatile'],
-  layer: ['id', 'layerset', 'fallbackLayerId', 'title', 'metadata'],
+  layer: ['id', 'type', 'source', 'source-layer', 'sources', 'layers', 'url', 'annotation', 'fallbackLayerId', 'singleGroup', 'title', 'metadata', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
   styleLayer: ['id', 'type', 'source', 'sourceLayer', 'source-layer', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
   tool: ['enabled'],
   toolInsetMap: ['enabled', 'type', 'position', 'order', 'zoomOffset', 'baseScale', 'styleUrl', 'background'],
@@ -40,7 +41,7 @@ const KNOWN_KEYS = {
 const VALID_MAP_TYPES = ['maplibre', 'openlayers', 'leaflet', 'cesium'];
 const VALID_SOURCE_TYPES = ['raster', 'geojson', 'vector'];
 const VALID_RASTER_SERVICES = ['xyz', 'wms', 'wmts'];
-const VALID_LAYER_TYPES = ['background', 'fill', 'line', 'circle', 'symbol', 'raster', 'fill-extrusion'];
+const VALID_LAYER_TYPES = ['background', 'fill', 'line', 'circle', 'symbol', 'raster', 'fill-extrusion', 'heatmap'];
 const VALID_TREE_SELECTION_MODES = ['multiple', 'single'];
 
 /**
@@ -66,15 +67,32 @@ export function validateConfig(config: unknown): ValidationResult {
   // Validate optional runtime map section
   validateRuntimeMapSection(cfg.runtimeMap, errors, warnings);
 
-  // Validate catalog section
-  const { sourceIds, layerIds } = validateCatalogSection(cfg.catalog, errors, warnings);
+  let sourceIds = new Set<string>();
+  let layerIds = new Set<string>();
+
+  if (cfg.layerData !== undefined) {
+    ({ sourceIds, layerIds } = validateLayerDataSection(cfg.layerData, errors, warnings, 'layerData'));
+  }
+
+  if (cfg.catalog !== undefined) {
+    warnings.push({ severity: 'warning', path: 'catalog', message: '"catalog" is deprecated; use "layerData" and place tree under layerTree tool config' });
+    const legacy = validateCatalogSection(cfg.catalog, errors, warnings);
+    if (cfg.layerData === undefined) {
+      sourceIds = legacy.sourceIds;
+      layerIds = legacy.layerIds;
+    }
+  }
+
+  if (cfg.layerData === undefined && cfg.catalog === undefined) {
+    errors.push({ severity: 'error', path: 'layerData', message: 'Missing required "layerData" section' });
+  }
 
   // Validate optional state section
   validateStateSection(cfg.state, layerIds, errors, warnings);
 
   // Validate tools section (optional)
   if (cfg.tools !== undefined) {
-    validateToolsSection(cfg.tools, 'tools', warnings);
+    validateToolsSection(cfg.tools, 'tools', layerIds, errors, warnings);
   }
 
   // Cross-reference validation is done within validateCatalogSection
@@ -84,6 +102,58 @@ export function validateConfig(config: unknown): ValidationResult {
     errors,
     warnings,
   };
+}
+
+function validateLayerDataSection(
+  layerData: unknown,
+  errors: ValidationMessage[],
+  warnings: ValidationMessage[],
+  path: string,
+): { sourceIds: Set<string>; layerIds: Set<string> } {
+  const sourceIds = new Set<string>();
+  const layerIds = new Set<string>();
+
+  if (!isObject(layerData)) {
+    errors.push({ severity: 'error', path, message: `"${path}" must be an object` });
+    return { sourceIds, layerIds };
+  }
+
+  const c = layerData as Record<string, unknown>;
+  checkUnknownKeys(c, KNOWN_KEYS.layerData, path, warnings);
+
+  if (c.sources === undefined) {
+    errors.push({ severity: 'error', path: `${path}.sources`, message: 'Missing required "sources" array' });
+  } else if (!Array.isArray(c.sources)) {
+    errors.push({ severity: 'error', path: `${path}.sources`, message: '"sources" must be an array' });
+  } else {
+    validateSources(c.sources, `${path}.sources`, sourceIds, errors, warnings);
+  }
+
+  if (c.layers === undefined) {
+    errors.push({ severity: 'error', path: `${path}.layers`, message: 'Missing required "layers" array' });
+  } else if (!Array.isArray(c.layers)) {
+    errors.push({ severity: 'error', path: `${path}.layers`, message: '"layers" must be an array' });
+  } else {
+    validateLayers(c.layers, `${path}.layers`, sourceIds, layerIds, errors, warnings);
+    c.layers.forEach((layer, index) => {
+      if (!isObject(layer)) {
+        return;
+      }
+
+      const l = layer as Record<string, unknown>;
+      const layerPath = `${path}.layers[${index}]`;
+      if (l.fallbackLayerId !== undefined && typeof l.fallbackLayerId !== 'string') {
+        errors.push({ severity: 'error', path: `${layerPath}.fallbackLayerId`, message: '"fallbackLayerId" must be a string' });
+        return;
+      }
+
+      if (typeof l.fallbackLayerId === 'string' && !layerIds.has(l.fallbackLayerId)) {
+        errors.push({ severity: 'error', path: `${layerPath}.fallbackLayerId`, message: `Layer "${l.fallbackLayerId}" not found in layers` });
+      }
+    });
+  }
+
+  return { sourceIds, layerIds };
 }
 
 function validateMapSection(
@@ -505,13 +575,22 @@ function validateLayers(
       layerIds.add(l.id);
     }
 
-    // Required: layerset
-    if (!Array.isArray(l.layerset)) {
-      errors.push({ severity: 'error', path: `${path}.layerset`, message: 'Layer must have a "layerset" array' });
-    } else if (l.layerset.length === 0) {
-      warnings.push({ severity: 'warning', path: `${path}.layerset`, message: '"layerset" is empty' });
-    } else {
-      validateLayerset(l.layerset, `${path}.layerset`, sourceIds, errors, warnings);
+    // Validate type-specific fields
+    const layerType = l.type;
+    if (layerType === 'allmaps') {
+      if (typeof l.annotation !== 'string' || l.annotation.length === 0) {
+        errors.push({ severity: 'error', path: `${path}.annotation`, message: 'Allmaps layer must have an "annotation" URL' });
+      }
+    } else if (layerType === 'style') {
+      if (Array.isArray(l.layers) && l.layers.length > 0) {
+        validateLayerset(l.layers, `${path}.layers`, sourceIds, errors, warnings);
+      }
+    } else if (typeof layerType === 'string' && VALID_LAYER_TYPES.includes(layerType)) {
+      if (typeof l.source !== 'string') {
+        warnings.push({ severity: 'warning', path: `${path}.source`, message: 'Standard layer should have a "source"' });
+      }
+    } else if (layerType !== undefined) {
+      errors.push({ severity: 'error', path: `${path}.type`, message: `Unknown layer type: "${layerType}"` });
     }
   });
 }
@@ -602,8 +681,9 @@ function validateTreeNode(
   const n = node as Record<string, unknown>;
   checkUnknownKeys(n, KNOWN_KEYS.treeNode, path, warnings);
 
-  // Required: label
-  if (typeof n.label !== 'string' || n.label.length === 0) {
+  // Label required on group nodes (no layerId fallback); optional on leaf nodes
+  const isLeaf = typeof n.layerId === 'string' && n.layerId.length > 0;
+  if (!isLeaf && (typeof n.label !== 'string' || n.label.length === 0)) {
     errors.push({ severity: 'error', path: `${path}.label`, message: 'Tree node must have a non-empty "label"' });
   }
 
@@ -691,6 +771,8 @@ function validateTreeNode(
 function validateToolsSection(
   tools: unknown,
   path: string,
+  layerIds: Set<string>,
+  errors: ValidationMessage[],
   warnings: ValidationMessage[]
 ): void {
   if (!isObject(tools)) {
@@ -711,6 +793,35 @@ function validateToolsSection(
       warnings.push({ severity: 'warning', path: toolPath, message: 'Tool config is missing "enabled" property' });
     } else if (typeof tc.enabled !== 'boolean') {
       warnings.push({ severity: 'warning', path: `${toolPath}.enabled`, message: '"enabled" should be a boolean' });
+    }
+
+    if (Array.isArray(tc.items)) {
+      tc.items.forEach((item, index) => {
+        if (!isObject(item)) {
+          return;
+        }
+        const itemPath = `${toolPath}.items[${index}]`;
+        const itemRecord = item as Record<string, unknown>;
+        if (itemRecord.type !== 'layerTree') {
+          return;
+        }
+
+        if (itemRecord.catalog !== undefined) {
+          warnings.push({ severity: 'warning', path: `${itemPath}.catalog`, message: '"catalog" reference is deprecated; embed "tree" in this layerTree tool item' });
+        }
+
+        if (itemRecord.tree === undefined) {
+          warnings.push({ severity: 'warning', path: `${itemPath}.tree`, message: 'LayerTree tool item should define a "tree" array' });
+          return;
+        }
+
+        if (!Array.isArray(itemRecord.tree)) {
+          errors.push({ severity: 'error', path: `${itemPath}.tree`, message: '"tree" must be an array' });
+          return;
+        }
+
+        validateTree(itemRecord.tree, `${itemPath}.tree`, layerIds, errors, warnings);
+      });
     }
 
     if (toolName === 'insetMap') {

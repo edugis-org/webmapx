@@ -1,33 +1,17 @@
 // src/config/types.ts
 // TypeScript types for WebMapX configuration files
 
-/**
- * Supported map adapter types.
- */
 export type MapAdapterType = 'maplibre' | 'openlayers' | 'leaflet' | 'cesium';
 
-/**
- * MapLibre-compatible style specification (version optional).
- * Used to define initial background layers.
- */
 export interface MapStyle {
-  /** Style specification version (optional, defaults to 8) */
   version?: number;
-  /** Optional name for the style */
   name?: string;
-  /** Source definitions */
   sources?: Record<string, MapStyleSource>;
-  /** Layer definitions */
   layers?: MapStyleLayer[];
-  /** URL template for glyphs (fonts) */
   glyphs?: string;
-  /** URL for sprite images */
   sprite?: string;
 }
 
-/**
- * Source definition within a map style.
- */
 export interface MapStyleSource {
   type: 'raster' | 'vector' | 'geojson' | 'image' | 'video';
   tiles?: string[];
@@ -41,9 +25,6 @@ export interface MapStyleSource {
   scheme?: 'xyz' | 'tms';
 }
 
-/**
- * Layer definition within a map style.
- */
 export interface MapStyleLayer {
   id: string;
   type: 'raster' | 'fill' | 'line' | 'circle' | 'symbol' | 'background' | 'fill-extrusion';
@@ -56,268 +37,202 @@ export interface MapStyleLayer {
   filter?: unknown[];
 }
 
-/**
- * Map configuration - defines the base map settings.
- */
 export interface MapConfig {
-  /** Display label for the map */
   label?: string;
-  /** Initial center as [longitude, latitude] */
   center: [number, number];
-  /** Initial zoom level */
   zoom: number;
-  /** Maximum allowed zoom level */
   maxZoom?: number;
-  /** Minimum allowed zoom level */
   minZoom?: number;
-  /** Maximum allowed pitch/tilt in degrees */
   maxPitch?: number;
-  /** Minimum allowed pitch/tilt in degrees */
   minPitch?: number;
-  /** Map adapter/library to use */
   type: MapAdapterType;
-  /**
-   * Initial map style. Can be:
-   * - A MapLibre-compatible style object
-   * - A URL string pointing to a style JSON file
-   * If undefined or empty, map starts with no background layers.
-   */
   style?: MapStyle | string;
 }
 
-/**
- * Runtime map behavior settings (engine/API options, not style spec).
- */
 export interface RuntimeMapConfig {
-  /** Maximum allowed zoom level */
   maxZoom?: number;
-  /** Minimum allowed zoom level */
   minZoom?: number;
-  /** Maximum allowed pitch/tilt in degrees */
   maxPitch?: number;
-  /** Minimum allowed pitch/tilt in degrees */
   minPitch?: number;
 }
 
-/**
- * Service types for raster sources.
- */
 export type RasterServiceType = 'xyz' | 'wms' | 'wmts';
 
-/**
- * Base properties shared by all source types.
- */
 interface SourceConfigBase {
-  /** Unique identifier for the source */
   id: string;
-  /** Attribution text displayed on the map */
   attribution?: string;
 }
 
-/**
- * Base raster source properties shared by all raster service types.
- */
 interface RasterSourceConfigBase extends SourceConfigBase {
   type: 'raster';
-  /** Tile URL template or service endpoint */
   url: string | string[];
-  /** Tile size in pixels */
   tileSize?: number;
-  /** Bounds: [west, south, east, north] */
   bounds?: [number, number, number, number];
-  /** Minimum zoom level supported by the source */
   minzoom?: number;
-  /** Maximum zoom level supported by the source */
   maxzoom?: number;
-  /** Tile scheme: 'xyz' or 'tms' */
   scheme?: 'xyz' | 'tms';
-  /** Attribution string */
   attribution?: string;
-  /** Volatile flag */
   volatile?: boolean;
 }
 
-/**
- * XYZ tile source configuration.
- */
 export interface XYZSourceConfig extends RasterSourceConfigBase {
   service: 'xyz';
 }
 
-/**
- * WMS source configuration.
- */
 export interface WMSSourceConfig extends RasterSourceConfigBase {
   service: 'wms';
-  /** WMS layer name(s) - can also be specified in the URL */
   layers?: string;
-  /** WMS styles parameter */
   styles?: string;
-  /** Image format (e.g., 'image/png', 'image/jpeg') */
   format?: string;
-  /** Whether to request transparent background */
   transparent?: boolean;
-  /** WMS version (e.g., '1.1.1', '1.3.0') */
   version?: string;
-  /** Coordinate reference system (e.g., 'EPSG:3857') */
   crs?: string;
 }
 
-/**
- * WMTS source configuration.
- */
 export interface WMTSSourceConfig extends RasterSourceConfigBase {
   service: 'wmts';
-  /** WMTS layer identifier */
   layer?: string;
-  /** WMTS style identifier */
   style?: string;
-  /** Tile matrix set identifier */
   tileMatrixSet?: string;
-  /** Image format */
   format?: string;
 }
 
-/**
- * Union of all raster source configuration types.
- */
 export type RasterSourceConfig = XYZSourceConfig | WMSSourceConfig | WMTSSourceConfig;
 
-/**
- * GeoJSON source configuration.
- */
 export interface GeoJSONSourceConfig extends SourceConfigBase {
   type: 'geojson';
-  /** URL to GeoJSON file or inline GeoJSON object */
   data: string | GeoJSON.FeatureCollection;
 }
 
-/**
- * Vector tile source configuration.
- */
 export interface VectorSourceConfig extends SourceConfigBase {
   type: 'vector';
-  /** URL to vector tile endpoint or TileJSON */
   url: string;
 }
 
-/**
- * Union of all source configuration types.
- */
 export type SourceConfig = RasterSourceConfig | GeoJSONSourceConfig | VectorSourceConfig;
 
-/**
- * Supported layer geometry types.
- */
-export type LayerType = 'fill' | 'line' | 'circle' | 'symbol' | 'raster' | 'fill-extrusion';
+// ---------------------------------------------------------------------------
+// Layer configuration — maplibre-spec-aligned with webmapx extensions
+// ---------------------------------------------------------------------------
 
-/**
- * Individual style layer within a layerset.
- */
-export interface StyleLayerConfig {
-  /** Optional render-layer id from the authored layer definition */
+/** WebMapX extensions shared by all layer types. */
+interface WebMapXLayerBase {
+  /** Unique identifier */
+  id: string;
+  /** Display label in the layer tree */
+  title?: string;
+  /**
+   * Exclusive group key. When adding this layer, any active layer with the
+   * same singleGroup is replaced at the same z-order slot.
+   */
+  singleGroup?: string;
+  /** Fallback layer id when this layer cannot be activated (e.g. unsupported engine). */
+  fallbackLayerId?: string;
+  /** Extended metadata (legendRole, styleUrl, spriteUrl, etc.) */
+  metadata?: Record<string, unknown>;
+}
+
+/** Sub-layer spec within a CompositeStyleLayerConfig — maplibre-spec layer, no webmapx extensions. */
+export interface SubLayerSpec {
   id?: string;
-  /** Layer type determines rendering */
-  type: LayerType | 'background';
-  /** Reference to a source ID */
+  type: string;
   source?: string;
-  /** Source layer name (for vector tiles) */
-  sourceLayer?: string;
-  /** MapLibre-compatible source layer name */
   'source-layer'?: string;
-  /** Minimum zoom level for visibility */
-  minZoom?: number;
-  /** Maximum zoom level for visibility */
-  maxZoom?: number;
-  /** Paint properties (colors, opacity, widths) */
+  minzoom?: number;
+  maxzoom?: number;
   paint?: Record<string, unknown>;
-  /** Layout properties (visibility, text settings) */
   layout?: Record<string, unknown>;
-  /** Filter expression */
   filter?: unknown[];
 }
 
 /**
- * Layer configuration - groups style layers into a logical unit.
- * A single "layer" in the tree can map to multiple style layers (e.g., fill + outline).
+ * Standard maplibre-compatible render layer.
+ * source references layerData.sources by id (global) or a source defined
+ * inside a parent CompositeStyleLayerConfig (local).
  */
-export interface LayerConfig {
-  /** Unique identifier referenced by tree nodes */
-  id: string;
-  /** Collection of style layers that make up this logical layer */
-  layerset: StyleLayerConfig[];
-  /** Optional fallback layer id when this layer cannot be activated (e.g. unsupported style for engine). */
-  fallbackLayerId?: string;
-  /** Optional display title for UI components */
-  title?: string;
-  /** Optional metadata namespace for extended UI labels and info */
-  metadata?: Record<string, unknown>;
+export interface StandardLayerConfig extends WebMapXLayerBase {
+  type: 'raster' | 'fill' | 'line' | 'circle' | 'symbol' | 'background' | 'fill-extrusion' | 'heatmap';
+  /** Source id — resolved local-first, then from layerData.sources. */
+  source?: string;
+  'source-layer'?: string;
+  minzoom?: number;
+  maxzoom?: number;
+  paint?: Record<string, unknown>;
+  layout?: Record<string, unknown>;
+  filter?: unknown[];
 }
 
 /**
- * Layer-tree selection mode for child leaf nodes.
- * - `multiple`: children behave as independent toggles (checkbox UX).
- * - `single`: only one child in the group can be active at once (radio UX).
+ * Composite style layer — wraps multiple sub-layers.
+ *   url   : fetch a remote maplibre/mapbox style JSON; sources and layers
+ *           are populated at runtime from the fetched document.
+ *   sources/layers: inline sources (local) and sub-layer specs.
+ *
+ * Sub-layers reference sources by id: local sources (layer.sources) first,
+ * then global layerData.sources.
  */
+export interface CompositeStyleLayerConfig extends WebMapXLayerBase {
+  type: 'style';
+  /** Remote style URL (e.g. https://tiles.openfreemap.org/styles/liberty). */
+  url?: string;
+  /**
+   * Inline sources keyed by logical name.
+   * Values are raw source definitions (same shape as layerData.sources values).
+   */
+  sources?: Record<string, unknown>;
+  /** Sub-layer specifications. */
+  layers?: SubLayerSpec[];
+}
+
+/** Allmaps warped historical map layer. */
+export interface AllmapsLayerConfig extends WebMapXLayerBase {
+  type: 'allmaps';
+  /** Annotation URL (https://annotations.allmaps.org/...) */
+  annotation: string;
+}
+
+export type AnyLayerConfig = StandardLayerConfig | CompositeStyleLayerConfig | AllmapsLayerConfig;
+
+// ---------------------------------------------------------------------------
+// Catalog / tree (UI only, optional)
+// ---------------------------------------------------------------------------
+
 export type TreeSelectionMode = 'multiple' | 'single';
 
-/**
- * Tree node configuration - represents an item in the layer tree.
- * Can be a leaf (with layerId) or a group (with children).
- */
 export interface TreeNodeConfig {
-  /** Display label in the tree UI */
-  label: string;
-  /** Reference to a layer ID (leaf nodes only) */
+  label?: string;
   layerId?: string;
-  /**
-   * Selection behavior for group children.
-   * When `single`, children are mutually exclusive and should render as radios.
-   */
   selectionMode?: TreeSelectionMode;
-  /**
-   * Optional exclusivity group key.
-   * Nodes sharing the same key participate in the same single-select group,
-   * even when located in different branches.
-   */
   selectionGroup?: string;
-  /**
-   * For single-select groups, whether no active child is allowed.
-   * Defaults to false when omitted.
-   */
   allowNone?: boolean;
-  /**
-   * Optional stable ordering slot for rendering relative to other layers/groups.
-   * Lower values are rendered below higher values.
-   */
   stackOrder?: number;
-  /** Deprecated startup checkbox hint. Use `state.activeLayers` for initial active layers. */
   checked?: boolean;
-  /** Initial expanded state (group nodes only) */
   expanded?: boolean;
-  /** Child nodes (group nodes only) */
   children?: TreeNodeConfig[];
 }
 
-/**
- * Catalog configuration - contains the full layer catalog.
- */
 export interface CatalogConfig {
-  /** Display label for the catalog */
   label?: string;
-  /** Hierarchical tree structure for the layer tree UI */
   tree: TreeNodeConfig[];
-  /** Data source definitions */
   sources: SourceConfig[];
-  /** Layer definitions that reference sources */
-  layers: LayerConfig[];
+  layers: AnyLayerConfig[];
 }
 
-/**
- * Active layer entry in persisted map state.
- * - String form references a catalog/library layer by ID.
- * - Object form can include visibility and optional metadata.
- */
+// ---------------------------------------------------------------------------
+// Runtime layer data
+// ---------------------------------------------------------------------------
+
+export interface LayerDataConfig {
+  /** Global source definitions. Loader injects id from the JSON object key. */
+  sources: SourceConfig[];
+  /** Ordered layer definitions. Order matters for initial rendering. */
+  layers: AnyLayerConfig[];
+}
+
+// ---------------------------------------------------------------------------
+// Application state & tools
+// ---------------------------------------------------------------------------
+
 export type ActiveLayerStateEntry = string | {
   ref?: string;
   layerId?: string;
@@ -326,70 +241,35 @@ export type ActiveLayerStateEntry = string | {
   [key: string]: unknown;
 };
 
-/**
- * Mutable project/map state persisted in config.
- */
 export interface AppStateConfig {
-  /** Active background layer/style reference (if supported by the config). */
   activeBackground?: string;
-  /** Active overlay layers in draw/top order. */
   activeLayers?: ActiveLayerStateEntry[];
-  /**
-   * Active layer per exclusive selection group.
-   * Key is `selectionGroup`; value is selected `layerId`.
-   */
   activeExclusiveLayers?: Record<string, string>;
 }
 
-/**
- * Individual tool configuration.
- */
 export interface ToolConfig {
-  /** Whether the tool is enabled */
   enabled: boolean;
-  /** Tool-specific options */
   [key: string]: unknown;
 }
 
-/**
- * Background source for inset maps.
- */
 export interface InsetMapBackgroundConfig {
-  /** Background service type for inset maps (currently only XYZ). */
   service: 'xyz';
-  /** XYZ tile URL template. */
   url?: string;
-  /** Optional explicit tile URL templates (preferred for engines without {s} expansion). */
   tiles?: string[];
-  /** Optional attribution text shown by engines that support it. */
   attribution?: string;
-  /** Optional tile size in pixels. */
   tileSize?: number;
 }
 
-/**
- * Inset map tool configuration.
- */
 export interface InsetMapToolConfig extends ToolConfig {
-  /** Offset applied to main-map zoom for inset display. */
   zoomOffset?: number;
-  /** CSS scale used by inset map frame. */
   baseScale?: number;
-  /** Optional style URL override (engine-specific, mainly MapLibre). */
   styleUrl?: string;
-  /** Optional background source definition for inset map base layer. */
   background?: InsetMapBackgroundConfig;
 }
 
-/**
- * Measure tool configuration.
- */
 export interface MeasureToolConfig extends ToolConfig {
-  /** Pixel threshold for closing polygon (clicking near first point). Default: 10 */
   closeThreshold?: number;
-  /** Pixel threshold for finishing on last point click. Default: 10 */
   finishThreshold?: number;
-  /** Colors for visualization */
   colors?: {
     point?: string;
     line?: string;
@@ -398,54 +278,32 @@ export interface MeasureToolConfig extends ToolConfig {
   };
 }
 
-/**
- * Tools configuration - enables/configures UI tools.
- */
+export interface SearchToolConfig extends ToolConfig {
+  endpoint?: string;
+  params?: Record<string, string | number | boolean>;
+  maxResults?: number;
+  defaultZoom?: number;
+  marker?: boolean;
+  persistOnSelect?: boolean;
+}
+
 export interface ToolsConfig {
   coordinates?: ToolConfig;
   layerTree?: ToolConfig;
   legend?: ToolConfig;
   measure?: MeasureToolConfig;
   insetMap?: InsetMapToolConfig;
-  /** Search tool configuration */
   search?: SearchToolConfig;
   [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | undefined;
 }
 
-/**
- * Search tool configuration.
- */
-export interface SearchToolConfig extends ToolConfig {
-  /** Endpoint URL for search (default: Nominatim) */
-  endpoint?: string;
-  /** Default params included in search requests (e.g., format, polygon_geojson) */
-  params?: Record<string, string | number | boolean>;
-  /** Maximum results to request */
-  maxResults?: number;
-  /** Default zoom when centering point results */
-  defaultZoom?: number;
-  /** Whether selecting a result should add a marker (default false) */
-  marker?: boolean;
-  /** Whether selecting a result should automatically persist feature on map (default false) */
-  persistOnSelect?: boolean;
-}
-
-/**
- * Root application configuration.
- */
 export interface AppConfig {
-  /** Optional config version marker */
   version?: number;
-  /** Optional project metadata */
   project?: Record<string, unknown>;
-  /** Map settings */
   map: MapConfig;
-  /** Runtime map behavior settings (engine/API options) */
   runtimeMap?: RuntimeMapConfig;
-  /** Layer catalog with sources, layers, and tree */
-  catalog: CatalogConfig;
-  /** Optional runtime state snapshot */
+  layerData: LayerDataConfig;
+  catalog?: CatalogConfig;
   state?: AppStateConfig;
-  /** Tool configurations */
   tools?: ToolsConfig;
 }

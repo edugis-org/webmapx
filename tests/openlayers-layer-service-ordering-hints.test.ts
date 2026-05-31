@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { MapLayerService } from '../src/map/openlayers-services/MapLayerService';
 import { MapStateStore } from '../src/store/map-state-store';
-import type { LayerConfig, SourceConfig } from '../src/config/types';
+import type { AnyLayerConfig, LayerDataConfig } from '../src/config/types';
 
 type LayerArrayWrapper = {
   getArray: () => unknown[];
@@ -49,51 +49,59 @@ function createMapStub() {
   };
 }
 
-function makeLayer(id: string): LayerConfig {
+function makeLayer(id: string): AnyLayerConfig {
   return {
     id,
+    type: 'raster',
+    source: `${id}-source`,
     metadata: { legendRole: 'overlay' },
-    layerset: [{ id: 'r', type: 'raster', source: `${id}-source` }],
   };
 }
 
-function makeSource(id: string): SourceConfig {
+function makeCatalog(ids: string[]): LayerDataConfig {
   return {
-    id: `${id}-source`,
-    type: 'raster',
-    service: 'xyz',
-    url: 'https://example.com/{z}/{x}/{y}.png',
+    sources: ids.map((id) => ({
+      id: `${id}-source`,
+      type: 'raster' as const,
+      service: 'xyz' as const,
+      url: 'https://example.com/{z}/{x}/{y}.png',
+    })),
+    layers: ids.map(makeLayer),
   };
 }
 
 test('OpenLayers MapLayerService applies beforeLayerId using logical ids', async () => {
   const { map, getOrder } = createMapStub();
   const service = new MapLayerService(map as never, new MapStateStore());
+  service.setCatalog(makeCatalog(['a', 'b', 'c']));
+
   const internal = service as unknown as {
-    createLayer: (nativeLayerId: string) => Promise<{ __layerId: string }>;
+    createXYZTileLayer: (nativeLayerId: string, sourceConfig: unknown) => { __layerId: string };
   };
+  internal.createXYZTileLayer = (nativeLayerId: string) => ({ __layerId: nativeLayerId });
 
-  internal.createLayer = async (nativeLayerId: string) => ({ __layerId: nativeLayerId });
+  await service.addLayer(makeLayer('a'));
+  await service.addLayer(makeLayer('b'));
+  await service.addLayer(makeLayer('c'), { beforeLayerId: 'a' });
 
-  await service.addLayer('a', makeLayer('a'), makeSource('a'));
-  await service.addLayer('b', makeLayer('b'), makeSource('b'));
-  await service.addLayer('c', makeLayer('c'), makeSource('c'), { beforeLayerId: 'a' });
-
-  assert.deepEqual(getOrder(), ['c-r', 'a-r', 'b-r']);
+  assert.ok(getOrder().indexOf('c') < getOrder().indexOf('a'), 'c should come before a');
+  assert.ok(getOrder().indexOf('a') < getOrder().indexOf('b'), 'a should come before b');
 });
 
 test('OpenLayers MapLayerService applies afterLayerId using logical ids', async () => {
   const { map, getOrder } = createMapStub();
   const service = new MapLayerService(map as never, new MapStateStore());
+  service.setCatalog(makeCatalog(['a', 'b', 'c']));
+
   const internal = service as unknown as {
-    createLayer: (nativeLayerId: string) => Promise<{ __layerId: string }>;
+    createXYZTileLayer: (nativeLayerId: string, sourceConfig: unknown) => { __layerId: string };
   };
+  internal.createXYZTileLayer = (nativeLayerId: string) => ({ __layerId: nativeLayerId });
 
-  internal.createLayer = async (nativeLayerId: string) => ({ __layerId: nativeLayerId });
+  await service.addLayer(makeLayer('a'));
+  await service.addLayer(makeLayer('b'));
+  await service.addLayer(makeLayer('c'), { afterLayerId: 'a' });
 
-  await service.addLayer('a', makeLayer('a'), makeSource('a'));
-  await service.addLayer('b', makeLayer('b'), makeSource('b'));
-  await service.addLayer('c', makeLayer('c'), makeSource('c'), { afterLayerId: 'a' });
-
-  assert.deepEqual(getOrder(), ['a-r', 'c-r', 'b-r']);
+  assert.ok(getOrder().indexOf('a') < getOrder().indexOf('c'), 'a should come before c');
+  assert.ok(getOrder().indexOf('c') < getOrder().indexOf('b'), 'c should come before b');
 });

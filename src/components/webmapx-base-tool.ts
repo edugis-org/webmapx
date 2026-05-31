@@ -3,7 +3,7 @@ import { MapStateStore } from '../store/map-state-store';
 import { IMapState, StateSource } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
 import { resolveMapAdapter, resolveMapElement } from './internal/map-context';
-import type { AppConfig, CatalogConfig, MapConfig, ToolsConfig } from '../config/types';
+import type { AppConfig, CatalogConfig, LayerDataConfig, MapConfig, ToolsConfig } from '../config/types';
 import type { WebmapxMapElement } from './webmapx-map';
 
 /**
@@ -148,7 +148,14 @@ export abstract class WebmapxBaseTool extends LitElement {
     }
 
     /**
-     * Returns the catalog section of the config (sources, layers, tree).
+     * Returns runtime layer data from config.
+     */
+    protected get layerDataConfig(): LayerDataConfig | undefined {
+        return this.config?.layerData ?? this.config?.catalog;
+    }
+
+    /**
+     * Legacy alias kept for compatibility with existing tool code.
      */
     protected get catalogConfig(): CatalogConfig | undefined {
         return this.config?.catalog;

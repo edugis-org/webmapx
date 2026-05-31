@@ -1,6 +1,6 @@
 // src/map/IMapInterfaces.ts
 
-import type { LayerConfig, SourceConfig, CatalogConfig, MapStyle } from '../config/types';
+import type { AnyLayerConfig, LayerDataConfig, MapStyle } from '../config/types';
 import type { LngLat, Pixel, MapEventBus } from '../store/map-events';
 import type { MapStateStore } from '../store/map-state-store';
 
@@ -329,11 +329,11 @@ export interface IToolService {
  * Used by runtime callers such as webmapx-map regardless of the active engine.
  */
 export interface ILogicalLayerExecutor {
-    /** Sets the logical layer catalog/configuration. */
-    setCatalog(catalog: CatalogConfig): void;
+    /** Sets the runtime layer data used by logical layer resolution. */
+    setCatalog(catalog: LayerDataConfig): void;
 
-    /** Adds a logical layer using its resolved layer and source configs. */
-    addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig, options?: LayerInsertOptions): Promise<boolean>;
+    /** Adds a logical layer. Source resolution happens inside the service using the catalog. */
+    addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean>;
 
     /** Removes a logical layer by id. */
     removeLayer(layerId: string): void;
@@ -355,16 +355,13 @@ export interface ILayerService {
      * Sets the catalog configuration containing sources and layers.
      * Must be called before adding layers.
      */
-    setCatalog(catalog: CatalogConfig): void;
+    setCatalog(catalog: LayerDataConfig): void;
 
     /**
-     * Adds a layer to the map using logical and source config.
-     * @param layerId Logical layer ID
-     * @param layerConfig LayerConfig object
-     * @param sourceConfig SourceConfig object
+     * Adds a layer to the map. Sources are resolved from the catalog (set via setCatalog).
      * @returns true if layer was added successfully, false on failure
      */
-    addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig, options?: LayerInsertOptions): Promise<boolean>;
+    addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean>;
 
     /**
      * Removes a layer from the map by its ID.

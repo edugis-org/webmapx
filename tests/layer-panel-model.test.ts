@@ -6,28 +6,25 @@ import type { CatalogConfig } from '../src/config/types.ts';
 
 const catalog: CatalogConfig = {
   label: 'Demo',
-  tree: [
-    {
-      label: 'Base Maps',
-      children: [
-        { label: 'OpenStreetMap', layerId: 'osm' },
-        { label: 'Blue Marble', layerId: 'bluemarble' },
-      ],
-    },
-    {
-      label: 'Data Layers',
-      children: [
-        { label: 'Transport Network', layerId: 'transport' },
-        { label: 'Air Quality', layerId: 'air' },
-      ],
-    },
-  ],
+  tree: [],
   sources: [],
   layers: [
-    { id: 'osm', layerset: [{ type: 'raster', source: 'osm-source' }] },
-    { id: 'bluemarble', layerset: [{ type: 'raster', source: 'bluemarble-source' }] },
-    { id: 'transport', layerset: [{ type: 'line', source: 'transport-source' }] },
-    { id: 'air', layerset: [{ type: 'circle', source: 'air-source' }] },
+    {
+      id: 'osm', type: 'raster' as const, source: 'osm-source',
+      metadata: { title: 'OpenStreetMap', legendRole: 'background', group: 'Base Maps' },
+    },
+    {
+      id: 'bluemarble', type: 'raster' as const, source: 'bluemarble-source',
+      metadata: { title: 'Blue Marble', legendRole: 'background', group: 'Base Maps' },
+    },
+    {
+      id: 'transport', type: 'line' as const, source: 'transport-source',
+      metadata: { title: 'Transport Network', group: 'Data Layers' },
+    },
+    {
+      id: 'air', type: 'circle' as const, source: 'air-source',
+      metadata: { title: 'Air Quality', group: 'Data Layers' },
+    },
   ],
 };
 
@@ -38,7 +35,7 @@ test('buildLayerPanelSections splits visible layers into overview and background
   assert.deepEqual(sections.background.map((item) => item.layerId), ['osm']);
 });
 
-test('buildLayerPanelSections uses tree labels and preserves top-first display order', () => {
+test('buildLayerPanelSections uses layer metadata labels and preserves top-first display order', () => {
   const sections = buildLayerPanelSections(catalog, ['bluemarble', 'transport']);
 
   assert.deepEqual(sections.overview, [
@@ -52,14 +49,14 @@ test('buildLayerPanelSections uses tree labels and preserves top-first display o
 test('buildLayerPanelSections supports custom background group labels', () => {
   const customCatalog: CatalogConfig = {
     ...catalog,
-    tree: [
+    layers: [
       {
-        label: 'Background',
-        children: [{ label: 'OpenStreetMap', layerId: 'osm' }],
+        id: 'osm', type: 'raster' as const, source: 'osm-source',
+        metadata: { title: 'OpenStreetMap', group: 'Background' },
       },
       {
-        label: 'Overview',
-        children: [{ label: 'Transport Network', layerId: 'transport' }],
+        id: 'transport', type: 'line' as const, source: 'transport-source',
+        metadata: { title: 'Transport Network', group: 'Overview' },
       },
     ],
   };

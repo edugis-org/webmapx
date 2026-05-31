@@ -1,7 +1,7 @@
 // src/map/cesium-services/MapLayerService.ts
 
 import type { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
-import type { LayerConfig, SourceConfig, WMSSourceConfig } from '../../config/types';
+import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, XYZSourceConfig, GeoJSONSourceConfig, LayerDataConfig, SubLayerSpec } from '../../config/types';
 import type { MapStateStore } from '../../store/map-state-store';
 import { throttle } from '../../utils/throttle';
 
@@ -87,7 +87,7 @@ function parseWmsUrl(url: string): { baseUrl: string; layers: string } {
 
 type CesiumLayerHandle =
     | { kind: 'imagery'; imageryLayer: any; maxLevel?: number }
-    | { kind: 'geojson'; dataSource: any; sourceId: string; layerConfig: LayerConfig };
+    | { kind: 'geojson'; dataSource: any; sourceId: string; layerConfig: AnyLayerConfig };
 
 export class MapLayerService implements ILayerService {
     private readonly handles = new Map<string, CesiumLayerHandle>();
@@ -203,99 +203,162 @@ export class MapLayerService implements ILayerService {
         }
     }
 
-    setCatalog(_catalog: any): void {
-        // Not needed; layer tree passes configs directly.
+    private catalog: LayerDataConfig | null = null;
+
+    setCatalog(catalog: LayerDataConfig): void {
+        this.catalog = catalog;
     }
 
-    async addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig, options?: LayerInsertOptions): Promise<boolean> {
+    private resolveSource(sourceId: string): SourceConfig | null {
+        return this.catalog?.sources.find((s) => s.id === sourceId) ?? null;
+    }
+
+    private normalizeRawSource(logicalId: string, rawDef: unknown): SourceConfig | null {
+        if (typeof rawDef !== 'object' || rawDef === null) return null;
+        const def = rawDef as Record<string, unknown>;
+        if (def.type === 'raster') {
+            const tiles = Array.isArray(def.tiles)
+                ? def.tiles.filter((t): t is string => typeof t === 'string')
+                : (typeof def.url === 'string' ? [def.url] : []);
+            if (tiles.length === 0) return null;
+            return { id: logicalId, type: 'raster', service: 'xyz', url: tiles } as XYZSourceConfig;
+        }
+        if (def.type === 'geojson') {
+            const data = def.data;
+            if (typeof data !== 'string' && typeof data !== 'object') return null;
+            return { id: logicalId, type: 'geojson', data: data as string } as GeoJSONSourceConfig;
+        }
+        return null;
+    }
+
+    private async addImagerySource(layerId: string, sourceId: string, sourceConfig: SourceConfig, options?: LayerInsertOptions): Promise<boolean> {
         const Cesium = getCesium();
         if (!Cesium) return false;
-
-        const handleKey = `${layerId}::${sourceConfig.id}`;
+        const handleKey = `${layerId}::${sourceId}`;
         if (this.handles.has(handleKey)) return true;
+        if (sourceConfig.type !== 'raster') return false;
 
-        if (sourceConfig.type === 'raster') {
-            const url = Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url;
-            if (sourceConfig.service === 'xyz') {
-                // Ignore warpedmap:// for Cesium (not supported)
-                if (url.startsWith('warpedmap://')) {
-                    console.warn('[CESIUM LAYER SERVICE] warpedmap:// (Allmaps) is not supported in Cesium. Use MapLibre/OpenLayers/Leaflet for warped maps or configure a fallback layer.');
-                    return false;
-                }
+        const url = Array.isArray((sourceConfig as any).url) ? (sourceConfig as any).url[0] : (sourceConfig as any).url;
 
-                const minLevel = normalizeLevel(getMinZoom(sourceConfig));
-                const maxLevel = normalizeLevel(getMaxZoom(sourceConfig));
-
-                const provider = new Cesium.UrlTemplateImageryProvider({
-                    url,
-                    credit: sourceConfig.attribution ?? '',
-                    minimumLevel: minLevel,
-                    maximumLevel: maxLevel,
-                });
-                this.enforceMaxLevel(provider, maxLevel);
-                const imageryLayer = new Cesium.ImageryLayer(provider);
-                this.viewer.imageryLayers.add(imageryLayer);
-                this.handles.set(handleKey, { kind: 'imagery', imageryLayer, maxLevel });
-                this.upsertLogicalOrder(layerId, options);
-                this.reapplyImageryOrder();
-                this.updateVisibleLayers();
-                this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
-                return true;
+        if (sourceConfig.service === 'xyz') {
+            if (url.startsWith('warpedmap://')) {
+                console.warn('[CESIUM LAYER SERVICE] warpedmap:// (Allmaps) is not supported in Cesium.');
+                return false;
             }
-
-            if (sourceConfig.service === 'wms') {
-                const wms = sourceConfig as WMSSourceConfig;
-                const { baseUrl, layers } = parseWmsUrl(url);
-                const minLevel = normalizeLevel(getMinZoom(wms));
-                const maxLevel = normalizeLevel(getMaxZoom(wms));
-                const provider = new Cesium.WebMapServiceImageryProvider({
-                    url: baseUrl,
-                    layers: wms.layers ?? layers,
-                    parameters: {
-                        transparent: wms.transparent ?? true,
-                        format: wms.format ?? 'image/png',
-                        styles: wms.styles ?? '',
-                        version: wms.version ?? '1.1.1',
-                    },
-                    minimumLevel: minLevel,
-                    maximumLevel: maxLevel,
-                    credit: wms.attribution ?? '',
-                });
-                this.enforceMaxLevel(provider, maxLevel);
-                const imageryLayer = new Cesium.ImageryLayer(provider);
-                this.viewer.imageryLayers.add(imageryLayer);
-                this.handles.set(handleKey, { kind: 'imagery', imageryLayer, maxLevel });
-                this.upsertLogicalOrder(layerId, options);
-                this.reapplyImageryOrder();
-                this.updateVisibleLayers();
-                this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
-                return true;
-            }
-
-            return false;
+            const minLevel = normalizeLevel(getMinZoom(sourceConfig));
+            const maxLevel = normalizeLevel(getMaxZoom(sourceConfig));
+            const provider = new Cesium.UrlTemplateImageryProvider({ url, credit: sourceConfig.attribution ?? '', minimumLevel: minLevel, maximumLevel: maxLevel });
+            this.enforceMaxLevel(provider, maxLevel);
+            const imageryLayer = new Cesium.ImageryLayer(provider);
+            this.viewer.imageryLayers.add(imageryLayer);
+            this.handles.set(handleKey, { kind: 'imagery', imageryLayer, maxLevel });
+            this.upsertLogicalOrder(layerId, options);
+            this.reapplyImageryOrder();
+            this.updateVisibleLayers();
+            this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
+            return true;
         }
 
-        if (sourceConfig.type === 'geojson') {
-            this.beginBusyOperation();
-            const data = sourceConfig.data;
-            try {
-                const geojson: GeoJSON.FeatureCollection =
-                    typeof data === 'string' ? await (await fetch(data)).json() : data;
-
-                const dataSource = await Cesium.GeoJsonDataSource.load(geojson, { clampToGround: false });
-                await this.viewer.dataSources.add(dataSource);
-
-                this.applyGeoJsonStyles(dataSource, layerConfig);
-                this.handles.set(handleKey, { kind: 'geojson', dataSource, sourceId: sourceConfig.id, layerConfig });
-                this.upsertLogicalOrder(layerId, options);
-                this.updateVisibleLayers();
-                return true;
-            } finally {
-                this.endBusyOperation();
-            }
+        if (sourceConfig.service === 'wms') {
+            const wms = sourceConfig as WMSSourceConfig;
+            const { baseUrl, layers } = parseWmsUrl(url);
+            const minLevel = normalizeLevel(getMinZoom(wms));
+            const maxLevel = normalizeLevel(getMaxZoom(wms));
+            const provider = new Cesium.WebMapServiceImageryProvider({
+                url: baseUrl, layers: wms.layers ?? layers,
+                parameters: { transparent: wms.transparent ?? true, format: wms.format ?? 'image/png', styles: wms.styles ?? '', version: wms.version ?? '1.1.1' },
+                minimumLevel: minLevel, maximumLevel: maxLevel, credit: wms.attribution ?? '',
+            });
+            this.enforceMaxLevel(provider, maxLevel);
+            const imageryLayer = new Cesium.ImageryLayer(provider);
+            this.viewer.imageryLayers.add(imageryLayer);
+            this.handles.set(handleKey, { kind: 'imagery', imageryLayer, maxLevel });
+            this.upsertLogicalOrder(layerId, options);
+            this.reapplyImageryOrder();
+            this.updateVisibleLayers();
+            this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
+            return true;
         }
 
         return false;
+    }
+
+    private async addGeoJSONSource(layerId: string, sourceId: string, sourceConfig: GeoJSONSourceConfig, layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
+        const Cesium = getCesium();
+        if (!Cesium) return false;
+        const handleKey = `${layerId}::${sourceId}`;
+        if (this.handles.has(handleKey)) return true;
+        this.beginBusyOperation();
+        try {
+            const data = sourceConfig.data;
+            const geojson: GeoJSON.FeatureCollection = typeof data === 'string' ? await (await fetch(data)).json() : data;
+            const dataSource = await Cesium.GeoJsonDataSource.load(geojson, { clampToGround: false });
+            await this.viewer.dataSources.add(dataSource);
+            this.applyGeoJsonStyles(dataSource, layerConfig);
+            this.handles.set(handleKey, { kind: 'geojson', dataSource, sourceId, layerConfig });
+            this.upsertLogicalOrder(layerId, options);
+            this.updateVisibleLayers();
+            return true;
+        } finally {
+            this.endBusyOperation();
+        }
+    }
+
+    async addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
+        const Cesium = getCesium();
+        if (!Cesium) return false;
+        const layerId = layerConfig.id;
+
+        if (layerConfig.type === 'allmaps') {
+            console.warn('[CESIUM LAYER SERVICE] Allmaps is not supported in Cesium.');
+            return false;
+        }
+
+        if (layerConfig.type === 'style') {
+            return this.addCompositeLayer(layerConfig, options);
+        }
+
+        // StandardLayerConfig
+        const stdLayer = layerConfig as StandardLayerConfig;
+        if (!stdLayer.source) return false;
+        const sourceConfig = this.resolveSource(stdLayer.source);
+        if (!sourceConfig) return false;
+
+        if (sourceConfig.type === 'raster') return this.addImagerySource(layerId, sourceConfig.id, sourceConfig, options);
+        if (sourceConfig.type === 'geojson') return this.addGeoJSONSource(layerId, sourceConfig.id, sourceConfig as GeoJSONSourceConfig, layerConfig, options);
+        return false;
+    }
+
+    private async addCompositeLayer(layerConfig: CompositeStyleLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
+        const layerId = layerConfig.id;
+        const localSources = layerConfig.sources ?? {};
+        const subLayers = layerConfig.layers ?? [];
+
+        const localSourceMap = new Map<string, SourceConfig>();
+        for (const [key, rawDef] of Object.entries(localSources)) {
+            const src = this.normalizeRawSource(`${layerId}:${key}`, rawDef);
+            if (src) localSourceMap.set(key, src);
+        }
+
+        // Collect unique sources used by sub-layers
+        const usedSourceKeys = new Set(subLayers.map(l => l.source).filter(Boolean) as string[]);
+        let anySuccess = false;
+
+        for (const sourceKey of usedSourceKeys) {
+            let sourceConfig: SourceConfig | null = localSourceMap.get(sourceKey) ?? null;
+            if (!sourceConfig) sourceConfig = this.resolveSource(sourceKey);
+            if (!sourceConfig) continue;
+
+            if (sourceConfig.type === 'raster') {
+                const ok = await this.addImagerySource(layerId, sourceConfig.id, sourceConfig, options);
+                if (ok) anySuccess = true;
+            } else if (sourceConfig.type === 'geojson') {
+                const ok = await this.addGeoJSONSource(layerId, sourceConfig.id, sourceConfig as GeoJSONSourceConfig, layerConfig, options);
+                if (ok) anySuccess = true;
+            }
+        }
+
+        return anySuccess;
     }
 
     removeLayer(layerId: string): void {
@@ -516,13 +579,18 @@ export class MapLayerService implements ILayerService {
         return typeof value === 'string' && value.length > 0 ? value : fallback;
     }
 
-    private applyGeoJsonStyles(dataSource: any, layerConfig: LayerConfig): void {
+    private applyGeoJsonStyles(dataSource: any, layerConfig: AnyLayerConfig): void {
         const Cesium = getCesium();
         if (!Cesium) return;
 
-        const circle = layerConfig.layerset.find(l => l.type === 'circle') as any;
-        const line = layerConfig.layerset.find(l => l.type === 'line') as any;
-        const fill = layerConfig.layerset.find(l => l.type === 'fill') as any;
+        // Get sub-layers: for composite use layer.layers, for standard treat the layer itself as one sub-layer
+        const subLayers: SubLayerSpec[] = layerConfig.type === 'style'
+            ? ((layerConfig as CompositeStyleLayerConfig).layers ?? [])
+            : [layerConfig as unknown as SubLayerSpec];
+
+        const circle = subLayers.find(l => l.type === 'circle') as any;
+        const line = subLayers.find(l => l.type === 'line') as any;
+        const fill = subLayers.find(l => l.type === 'fill') as any;
 
         const circlePaint = circle?.paint ?? {};
         const linePaint = line?.paint ?? {};
@@ -565,7 +633,7 @@ export class MapLayerService implements ILayerService {
                 if (position) {
                     const circleRadius = this.resolveNumber(entity, circlePaint['circle-radius'], 6);
                     const circleColor = this.resolveColor(entity, circlePaint['circle-color'], '#FF5722');
-                    const circleOpacity = this.resolveNumber(entity, circlePaint['circle-opacity'], 0.8);
+                    const circleOpacity = this.resolveNumber(entity, circlePaint['circle-opacity'], 1.0);
                     const circleStrokeColor = this.resolveColor(entity, circlePaint['circle-stroke-color'], lineColor);
                     const circleStrokeWidth = this.resolveNumber(entity, circlePaint['circle-stroke-width'], 1);
 

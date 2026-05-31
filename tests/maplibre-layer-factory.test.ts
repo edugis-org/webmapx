@@ -2,36 +2,27 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { MapLibreLayerFactory } from '../src/map/maplibre-services/MapLibreLayerFactory.ts';
-import type { LayerConfig, SourceConfig } from '../src/config/types.ts';
+import type { SubLayerSpec } from '../src/config/types.ts';
 
 test('MapLibreLayerFactory preserves filter and zoom range for style-backed vector layers', () => {
-  const layerConfig: LayerConfig = {
-    id: 'style-layer',
-    layerset: [{
-      id: 'road-major',
-      type: 'line',
-      source: 'style:test-source',
-      sourceLayer: 'transportation',
-      minZoom: 6,
-      maxZoom: 14,
-      filter: ['==', ['get', 'class'], 'primary'],
-      paint: {
-        'line-color': '#ff9900',
-        'line-width': 2,
-      },
-      layout: {
-        'line-cap': 'round',
-      },
-    }],
+  const spec: SubLayerSpec = {
+    id: 'road-major',
+    type: 'line',
+    source: 'style:test-source',
+    'source-layer': 'transportation',
+    minzoom: 6,
+    maxzoom: 14,
+    filter: ['==', ['get', 'class'], 'primary'],
+    paint: {
+      'line-color': '#ff9900',
+      'line-width': 2,
+    },
+    layout: {
+      'line-cap': 'round',
+    },
   };
 
-  const sourceConfig = {
-    id: 'style:test-source',
-    type: 'vector',
-    url: 'https://example.test/tiles.json',
-  } as SourceConfig;
-
-  const [layerSpec] = MapLibreLayerFactory.createLayers(layerConfig, sourceConfig, 'native-source-id');
+  const layerSpec = MapLibreLayerFactory.createLayer('style-layer-road-major', spec, 'native-source-id');
   assert.ok(layerSpec);
   assert.equal(layerSpec.id, 'style-layer-road-major');
   assert.equal((layerSpec as any).source, 'native-source-id');
@@ -42,31 +33,22 @@ test('MapLibreLayerFactory preserves filter and zoom range for style-backed vect
 });
 
 test('MapLibreLayerFactory supports fill-extrusion vector layers', () => {
-  const layerConfig: LayerConfig = {
-    id: 'style-layer',
-    layerset: [{
-      id: 'building-extrusion',
-      type: 'fill-extrusion',
-      source: 'style:test-source',
-      sourceLayer: 'building',
-      minZoom: 13,
-      maxZoom: 20,
-      filter: ['==', ['get', 'render_height'], 1],
-      paint: {
-        'fill-extrusion-color': '#d9d3c9',
-        'fill-extrusion-height': 20,
-        'fill-extrusion-base': 0,
-      },
-    }],
+  const spec: SubLayerSpec = {
+    id: 'building-extrusion',
+    type: 'fill-extrusion',
+    source: 'style:test-source',
+    'source-layer': 'building',
+    minzoom: 13,
+    maxzoom: 20,
+    filter: ['==', ['get', 'render_height'], 1],
+    paint: {
+      'fill-extrusion-color': '#d9d3c9',
+      'fill-extrusion-height': 20,
+      'fill-extrusion-base': 0,
+    },
   };
 
-  const sourceConfig = {
-    id: 'style:test-source',
-    type: 'vector',
-    url: 'https://example.test/tiles.json',
-  } as SourceConfig;
-
-  const [layerSpec] = MapLibreLayerFactory.createLayers(layerConfig, sourceConfig, 'native-source-id');
+  const layerSpec = MapLibreLayerFactory.createLayer('style-layer-building-extrusion', spec, 'native-source-id');
   assert.ok(layerSpec);
   assert.equal(layerSpec.id, 'style-layer-building-extrusion');
   assert.equal((layerSpec as any).type, 'fill-extrusion');

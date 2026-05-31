@@ -8,6 +8,7 @@ import {
 } from '../src/config/adapter-resolution.ts';
 import {
   clearConfigCache,
+  fetchConfig,
   parseAttributeConfig,
   resolveMapConfig,
 } from '../src/config/index.ts';
@@ -90,6 +91,7 @@ test('resolveMapConfig keeps app config values but lets explicit adapter attribu
       type: 'maplibre',
       maxZoom: 18,
     },
+    layerData: { sources: [], layers: [] },
   });
 
   assert.deepEqual(resolved, {
@@ -112,8 +114,7 @@ test('resolveMapConfig loads per-map src config and still applies explicit adapt
         zoom: 6,
         type: 'maplibre',
       },
-      catalog: {
-        tree: [],
+      layerData: {
         sources: [],
         layers: [],
       },
@@ -134,6 +135,84 @@ test('resolveMapConfig loads per-map src config and still applies explicit adapt
       maxZoom: 22,
       type: 'cesium',
     });
+  } finally {
+    globalThis.fetch = originalFetch;
+    clearConfigCache();
+  }
+});
+
+test('fetchConfig normalizes inline layer style objects into scoped sources and layerset', async () => {
+  clearConfigCache();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      map: {
+        center: [10, 20],
+        zoom: 6,
+        type: 'maplibre',
+      },
+      layerData: {
+        sources: {},
+        layers: {
+          earthquakes: {
+            title: 'Earthquakes',
+            style: {
+              sources: {
+                quakes: {
+                  type: 'geojson',
+                  data: 'https://example.com/quakes.geojson',
+                },
+              },
+              layers: [
+                {
+                  id: 'quake-fill',
+                  type: 'circle',
+                  source: 'quakes',
+                },
+                {
+                  id: 'quake-outline',
+                  type: 'circle',
+                  source: 'quakes',
+                  paint: { 'circle-stroke-width': 1 },
+                },
+              ],
+            },
+          },
+        },
+      },
+      tools: {
+        mainToolbar: {
+          enabled: true,
+          items: [
+            {
+              id: 'layers',
+              type: 'layerTree',
+              enabled: true,
+              tree: [{ label: 'Earthquakes', layerId: 'earthquakes' }],
+            },
+          ],
+        },
+      },
+    }),
+  }) as Response;
+
+  try {
+    const config = await fetchConfig('/config/inline-style-test.json');
+    const layerData = config.layerData;
+    assert.ok(layerData);
+
+    const layer = layerData.layers.find((entry) => entry.id === 'earthquakes');
+    assert.ok(layer);
+    assert.equal(layer.type, 'style');
+    const composite = layer as import('../src/config/types.ts').CompositeStyleLayerConfig;
+    assert.equal(composite.layers?.length, 2);
+    assert.equal(composite.layers?.[0].source, 'earthquakes:quakes');
+    assert.equal(composite.layers?.[1].source, 'earthquakes:quakes');
+
+    const scopedSource = layerData.sources.find((entry) => entry.id === 'earthquakes:quakes');
+    assert.ok(scopedSource);
+    assert.equal(scopedSource.type, 'geojson');
   } finally {
     globalThis.fetch = originalFetch;
     clearConfigCache();

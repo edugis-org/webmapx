@@ -14,7 +14,8 @@
     "start": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node ./scripts/run-tests.mjs"
+    "test": "node ./scripts/run-tests.mjs",
+    "check:architecture": "node ./scripts/check-architecture.mjs"
   },
   "dependencies": {
     "@allmaps/leaflet": "^1.0.0-beta.52",

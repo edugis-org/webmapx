@@ -89,103 +89,145 @@ function normalizeRenderLayer(renderLayer: Record<string, unknown>, fallbackSour
   };
 }
 
+function normalizeSubLayerSpec(renderLayer: Record<string, unknown>, sourceAliases?: Map<string, string>): Record<string, unknown> {
+  const source = typeof renderLayer.source === 'string'
+    ? (sourceAliases?.get(renderLayer.source) ?? renderLayer.source)
+    : undefined;
+  const sourceLayer = renderLayer['source-layer'] ?? renderLayer.sourceLayer;
+  const minzoom = renderLayer.minzoom ?? renderLayer.minZoom;
+  const maxzoom = renderLayer.maxzoom ?? renderLayer.maxZoom;
+  const result: Record<string, unknown> = { ...renderLayer };
+  if (source !== undefined) result.source = source;
+  if (sourceLayer !== undefined) result['source-layer'] = sourceLayer;
+  if (minzoom !== undefined) result.minzoom = minzoom;
+  if (maxzoom !== undefined) result.maxzoom = maxzoom;
+  delete result.sourceLayer;
+  delete result.minZoom;
+  delete result.maxZoom;
+  return result;
+}
+
 function normalizeLayerMap(
   layerMap: unknown,
-  extraSources: Record<string, unknown>[]
+  _extraSources: Record<string, unknown>[]
 ): unknown[] {
+  if (Array.isArray(layerMap)) {
+    // New format: layers array — pass through, normalizing sub-specs
+    return layerMap.filter(isObject).map((value) => normalizeLayerEntry(value, _extraSources));
+  }
+
   if (!isObject(layerMap)) {
     return [];
   }
 
+  // Old format: object keyed by id
   return Object.entries(layerMap)
     .map(([id, value]) => {
-      if (!isObject(value)) {
-        return null;
-      }
-
-      const fallbackLayerId = typeof value.fallbackLayerId === 'string'
-        ? value.fallbackLayerId
-        : (typeof value.fallbackRef === 'string' ? value.fallbackRef : undefined);
-
-      const metadata = isObject(value.metadata)
-        ? {
-            ...value.metadata,
-            ...(fallbackLayerId ? { fallbackLayerId } : {}),
-          }
-        : (fallbackLayerId ? { fallbackLayerId } : undefined);
-
-      // Existing runtime contract: logical layer with layerset[].
-      if (Array.isArray(value.layerset)) {
-        return {
-          id,
-          ...value,
-          ...(fallbackLayerId ? { fallbackLayerId } : {}),
-          ...(metadata ? { metadata } : {}),
-        };
-      }
-
-      // New authored WebMapX layer model: kind: "single" | "composite".
-      if (value.kind === 'single') {
-        const render = isObject(value.render) ? value.render : {};
-        const source = typeof value.source === 'string' ? value.source : undefined;
-        return {
-          id,
-          title: value.title,
-          ...(fallbackLayerId ? { fallbackLayerId } : {}),
-          ...(metadata ? { metadata } : {}),
-          layerset: [normalizeRenderLayer(render, source)],
-        };
-      }
-
-      if (value.kind === 'composite') {
-        const sourceAliases = new Map<string, string>();
-        if (isObject(value.sources)) {
-          for (const [sourceId, sourceDefinition] of Object.entries(value.sources)) {
-            const scopedSourceId = `${id}:${sourceId}`;
-            sourceAliases.set(sourceId, scopedSourceId);
-            extraSources.push(normalizeSourceDefinition(scopedSourceId, sourceDefinition));
-          }
-        }
-
-        const renderLayers = Array.isArray(value.renderLayers) ? value.renderLayers : [];
-        return {
-          id,
-          title: value.title,
-          ...(fallbackLayerId ? { fallbackLayerId } : {}),
-          ...(metadata ? { metadata } : {}),
-          layerset: renderLayers
-            .filter(isObject)
-            .map((renderLayer) => {
-              const normalized = normalizeRenderLayer(renderLayer);
-              const source = typeof normalized.source === 'string' ? normalized.source : undefined;
-              return {
-                ...normalized,
-                ...(source && sourceAliases.has(source) ? { source: sourceAliases.get(source) } : {}),
-              };
-            }),
-        };
-      }
-
-      // Single MapLibre style-layer form
-      if (typeof value.type === 'string' && typeof value.source === 'string') {
-        return {
-          id,
-          layerset: [{
-            type: value.type,
-            source: value.source,
-            sourceLayer: value.sourceLayer,
-            minZoom: value.minZoom,
-            maxZoom: value.maxZoom,
-            paint: value.paint,
-            layout: value.layout,
-            filter: value.filter,
-          }],
-        };
-      }
-
-      return null;
+      if (!isObject(value)) return null;
+      return normalizeLayerEntry({ id, ...value }, _extraSources);
     })
-    .filter(Boolean) as Array<{ id: string; layerset?: unknown[] }>;
+    .filter(Boolean);
+}
+
+function normalizeLayerEntry(value: Record<string, unknown>, extraSources: Record<string, unknown>[]): Record<string, unknown> | null {
+  const id = typeof value.id === 'string' ? value.id : null;
+  if (!id) return null;
+
+  const fallbackLayerId = typeof value.fallbackLayerId === 'string'
+    ? value.fallbackLayerId
+    : (typeof value.fallbackRef === 'string' ? value.fallbackRef : undefined);
+
+  const singleGroup = typeof value.singleGroup === 'string'
+    ? value.singleGroup
+    : (typeof value.selectionGroup === 'string' ? value.selectionGroup : undefined);
+
+  const metadata = isObject(value.metadata)
+    ? {
+        ...value.metadata,
+        ...(singleGroup ? { selectionGroup: singleGroup, singleSelectionGroupKey: singleGroup } : {}),
+        ...(fallbackLayerId ? { fallbackLayerId } : {}),
+      }
+    : (singleGroup || fallbackLayerId
+        ? { ...(singleGroup ? { selectionGroup: singleGroup, singleSelectionGroupKey: singleGroup } : {}), ...(fallbackLayerId ? { fallbackLayerId } : {}) }
+        : undefined);
+
+  const base: Record<string, unknown> = {
+    ...value,
+    id,
+    ...(fallbackLayerId ? { fallbackLayerId } : {}),
+    ...(singleGroup ? { singleGroup } : {}),
+    ...(metadata ? { metadata } : {}),
+  };
+
+  // New format: already has type:'style'|'allmaps'|render-type with layers array
+  if (value.type === 'allmaps') return base;
+  if (value.type === 'style') {
+    // Inline sources are Record<string,unknown> — normalize to scoped ids
+    const localSources: Record<string, unknown> = {};
+    const sourceAliases = new Map<string, string>();
+    if (isObject(value.sources)) {
+      for (const [srcId, srcDef] of Object.entries(value.sources)) {
+        const scoped = `${id}:${srcId}`;
+        sourceAliases.set(srcId, scoped);
+        extraSources.push(normalizeSourceDefinition(scoped, srcDef));
+        localSources[srcId] = srcDef;
+      }
+    }
+    const layers = Array.isArray(value.layers)
+      ? value.layers.filter(isObject).map((l) => normalizeSubLayerSpec(l, sourceAliases))
+      : [];
+    return { ...base, type: 'style', sources: value.sources ?? {}, layers };
+  }
+
+  // New format: StandardLayerConfig (has type + source as strings, no layerset/style)
+  if (typeof value.type === 'string' && typeof value.source === 'string' && !value.layerset && !value.style) {
+    const sourceLayer = value['source-layer'] ?? value.sourceLayer;
+    const minzoom = value.minzoom ?? value.minZoom;
+    const maxzoom = value.maxzoom ?? value.maxZoom;
+    const result: Record<string, unknown> = { ...base };
+    if (sourceLayer !== undefined) result['source-layer'] = sourceLayer;
+    if (minzoom !== undefined) result.minzoom = minzoom;
+    if (maxzoom !== undefined) result.maxzoom = maxzoom;
+    delete result.sourceLayer;
+    delete result.minZoom;
+    delete result.maxZoom;
+    return result;
+  }
+
+  // Legacy: old-format layerset[] → type:'style' with layers
+  if (Array.isArray(value.layerset)) {
+    const layers = value.layerset.filter(isObject).map((l) => normalizeSubLayerSpec(l));
+    return { ...base, type: 'style', layers, layerset: undefined };
+  }
+
+  // Legacy: inline MapLibre style object → type:'style' with scoped sources + layers
+  if (isObject(value.style)) {
+    const style = value.style as Record<string, unknown>;
+    const sourceAliases = new Map<string, string>();
+    const localSources: Record<string, unknown> = {};
+    if (isObject(style.sources)) {
+      for (const [srcId, srcDef] of Object.entries(style.sources)) {
+        const scoped = `${id}:${srcId}`;
+        sourceAliases.set(srcId, scoped);
+        extraSources.push(normalizeSourceDefinition(scoped, srcDef));
+        localSources[srcId] = srcDef;
+      }
+    }
+    const layers = Array.isArray(style.layers)
+      ? style.layers.filter(isObject).map((l) => normalizeSubLayerSpec(l, sourceAliases))
+      : [];
+    const styleUrl = typeof style.url === 'string' ? style.url : undefined;
+    return {
+      ...base,
+      type: 'style',
+      ...(styleUrl ? { url: styleUrl } : {}),
+      sources: localSources,
+      layers,
+      style: undefined,
+    };
+  }
+
+  return null;
 }
 
 function normalizeCatalogTree(catalogs: unknown, fallbackLayers: unknown[]): unknown[] {
@@ -273,14 +315,80 @@ function normalizeCatalogTree(catalogs: unknown, fallbackLayers: unknown[]): unk
     .filter(Boolean) as Array<{ label: string; layerId: string }>;
 }
 
+function injectLayerTreeIntoTools(tools: unknown, tree: unknown[]): Record<string, unknown> | undefined {
+  if (!isObject(tools)) {
+    return undefined;
+  }
+
+  const clonedTools = JSON.parse(JSON.stringify(tools)) as Record<string, unknown>;
+  const toolEntries = Object.values(clonedTools).filter((entry): entry is Record<string, unknown> => isObject(entry));
+
+  for (const entry of toolEntries) {
+    const items = Array.isArray(entry.items) ? entry.items : [];
+    for (const item of items) {
+      if (!isObject(item)) {
+        continue;
+      }
+
+      if (item.type !== 'layerTree') {
+        continue;
+      }
+
+      const hasTree = Array.isArray(item.tree) && item.tree.length > 0;
+      if (!hasTree) {
+        item.tree = tree;
+      }
+      delete item.catalog;
+      return clonedTools;
+    }
+  }
+
+  return clonedTools;
+}
+
+function normalizeLayerDataSection(layerData: unknown): { sources: unknown[]; layers: unknown[] } {
+  if (!isObject(layerData)) {
+    return { sources: [], layers: [] };
+  }
+
+  const record = layerData as Record<string, unknown>;
+  const sources = Array.isArray(record.sources)
+    ? record.sources
+    : normalizeSourceMap(record.sources);
+
+  const extraSources: Record<string, unknown>[] = [];
+  const layers = normalizeLayerMap(record.layers, extraSources);
+
+  return {
+    sources: [...sources, ...extraSources],
+    layers,
+  };
+}
+
 function normalizeAppConfig(rawConfig: unknown): AppConfig {
   if (!isObject(rawConfig)) {
     return rawConfig as unknown as AppConfig;
   }
 
   const raw = rawConfig as Record<string, unknown>;
+  if (isObject(raw.layerData)) {
+    return {
+      ...(raw as unknown as AppConfig),
+      layerData: normalizeLayerDataSection(raw.layerData) as any,
+    };
+  }
+
   if (isObject(raw.catalog)) {
-    return raw as unknown as AppConfig;
+    const catalog = raw.catalog as Record<string, unknown>;
+    const normalizedFromCatalog: AppConfig = {
+      ...(raw as unknown as AppConfig),
+      layerData: {
+        sources: Array.isArray(catalog.sources) ? (catalog.sources as any) : [],
+        layers: Array.isArray(catalog.layers) ? (catalog.layers as any) : [],
+      },
+      catalog: raw.catalog as any,
+    };
+    return normalizedFromCatalog;
   }
 
   if (!isObject(raw.library)) {
@@ -295,13 +403,11 @@ function normalizeAppConfig(rawConfig: unknown): AppConfig {
   const normalized: AppConfig = {
     map: raw.map as MapConfig,
     runtimeMap: isObject(raw.runtimeMap) ? (raw.runtimeMap as RuntimeMapConfig) : undefined,
-    catalog: {
-      label: 'Catalog',
-      tree: tree as any,
+    layerData: {
       sources: sources as any,
       layers: layers as any,
     },
-    tools: isObject(raw.tools) ? (raw.tools as any) : undefined,
+    tools: injectLayerTreeIntoTools(raw.tools, tree) as any,
     state: isObject(raw.state) ? (raw.state as any) : undefined,
     version: typeof raw.version === 'number' ? raw.version : undefined,
     project: isObject(raw.project) ? (raw.project as Record<string, unknown>) : undefined,

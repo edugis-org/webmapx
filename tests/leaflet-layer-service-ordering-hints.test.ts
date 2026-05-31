@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { MapStateStore } from '../src/store/map-state-store';
-import type { LayerConfig, SourceConfig } from '../src/config/types';
+import type { AnyLayerConfig, LayerDataConfig } from '../src/config/types';
 
 function installLeafletDomShim(): () => void {
   const previousWindow = (globalThis as any).window;
@@ -94,20 +94,24 @@ function createLeafletMapStub() {
   };
 }
 
-function makeLayer(id: string): LayerConfig {
+function makeLayer(id: string): AnyLayerConfig {
   return {
     id,
+    type: 'raster',
+    source: `${id}-source`,
     metadata: { legendRole: 'overlay' },
-    layerset: [{ id: 'r', type: 'raster', source: `${id}-source` }],
   };
 }
 
-function makeSource(id: string): SourceConfig {
+function makeCatalog(ids: string[]): LayerDataConfig {
   return {
-    id: `${id}-source`,
-    type: 'raster',
-    service: 'xyz',
-    url: 'https://example.com/{z}/{x}/{y}.png',
+    sources: ids.map((id) => ({
+      id: `${id}-source`,
+      type: 'raster' as const,
+      service: 'xyz' as const,
+      url: 'https://example.com/{z}/{x}/{y}.png',
+    })),
+    layers: ids.map(makeLayer),
   };
 }
 
@@ -119,24 +123,25 @@ test('Leaflet MapLayerService applies beforeLayerId using logical ids', async ()
       import('../src/map/leaflet-services/LeafletLayerFactory'),
     ]);
 
-    const originalCreateLayers = LeafletLayerFactory.createLayers;
-    LeafletLayerFactory.createLayers = (layerConfig: LayerConfig) => [{
-      id: `${layerConfig.id}-r`,
+    const originalCreateXYZ = LeafletLayerFactory.createXYZLayer;
+    LeafletLayerFactory.createXYZLayer = (layerId: string) => ({
+      id: `${layerId}-raster-xyz`,
       type: 'raster',
-      layer: new FakeLeafletLayer(layerConfig.id),
-    }] as any;
+      layer: new FakeLeafletLayer(layerId),
+    }) as any;
 
     try {
       const { map, getOrder } = createLeafletMapStub();
       const service = new MapLayerService(map as any, new MapStateStore());
+      service.setCatalog(makeCatalog(['a', 'b', 'c']));
 
-      await service.addLayer('a', makeLayer('a'), makeSource('a'));
-      await service.addLayer('b', makeLayer('b'), makeSource('b'));
-      await service.addLayer('c', makeLayer('c'), makeSource('c'), { beforeLayerId: 'a' });
+      await service.addLayer(makeLayer('a'));
+      await service.addLayer(makeLayer('b'));
+      await service.addLayer(makeLayer('c'), { beforeLayerId: 'a' });
 
       assert.deepEqual(getOrder(), ['c', 'a', 'b']);
     } finally {
-      LeafletLayerFactory.createLayers = originalCreateLayers;
+      LeafletLayerFactory.createXYZLayer = originalCreateXYZ;
     }
   } finally {
     restore();
@@ -151,24 +156,25 @@ test('Leaflet MapLayerService applies afterLayerId using logical ids', async () 
       import('../src/map/leaflet-services/LeafletLayerFactory'),
     ]);
 
-    const originalCreateLayers = LeafletLayerFactory.createLayers;
-    LeafletLayerFactory.createLayers = (layerConfig: LayerConfig) => [{
-      id: `${layerConfig.id}-r`,
+    const originalCreateXYZ = LeafletLayerFactory.createXYZLayer;
+    LeafletLayerFactory.createXYZLayer = (layerId: string) => ({
+      id: `${layerId}-raster-xyz`,
       type: 'raster',
-      layer: new FakeLeafletLayer(layerConfig.id),
-    }] as any;
+      layer: new FakeLeafletLayer(layerId),
+    }) as any;
 
     try {
       const { map, getOrder } = createLeafletMapStub();
       const service = new MapLayerService(map as any, new MapStateStore());
+      service.setCatalog(makeCatalog(['a', 'b', 'c']));
 
-      await service.addLayer('a', makeLayer('a'), makeSource('a'));
-      await service.addLayer('b', makeLayer('b'), makeSource('b'));
-      await service.addLayer('c', makeLayer('c'), makeSource('c'), { afterLayerId: 'a' });
+      await service.addLayer(makeLayer('a'));
+      await service.addLayer(makeLayer('b'));
+      await service.addLayer(makeLayer('c'), { afterLayerId: 'a' });
 
       assert.deepEqual(getOrder(), ['a', 'c', 'b']);
     } finally {
-      LeafletLayerFactory.createLayers = originalCreateLayers;
+      LeafletLayerFactory.createXYZLayer = originalCreateXYZ;
     }
   } finally {
     restore();

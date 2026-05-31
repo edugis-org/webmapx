@@ -102,8 +102,10 @@ When images are available, include them like this:
 
 The default demo configuration lives in `config/demo.json`.
 
-- `state.activeBackground` controls the active background layer.
-- `state.activeLayers` controls active overlay layers.
+- `layerData` defines runtime sources and layers.
+- `tools.*.items[]` layer-tree entries define the UI tree (`type: "layerTree"`, `tree: [...]`).
+- `state.activeExclusiveLayers` tracks single-selection groups (for example basemaps).
+- `state.activeLayers` controls visible layers.
 
 ## Cesium Runtime Assets
 

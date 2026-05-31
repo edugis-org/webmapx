@@ -5,12 +5,16 @@ export type {
   AppConfig,
   MapConfig,
   CatalogConfig,
+  LayerDataConfig,
   SourceConfig,
   RasterSourceConfig,
   GeoJSONSourceConfig,
   VectorSourceConfig,
-  LayerConfig,
-  StyleLayerConfig,
+  AnyLayerConfig,
+  StandardLayerConfig,
+  CompositeStyleLayerConfig,
+  AllmapsLayerConfig,
+  SubLayerSpec,
   TreeNodeConfig,
   AppStateConfig,
   ActiveLayerStateEntry,
@@ -18,7 +22,6 @@ export type {
   ToolConfig,
   MapAdapterType,
   RasterServiceType,
-  LayerType,
 } from './types.js';
 
 export {

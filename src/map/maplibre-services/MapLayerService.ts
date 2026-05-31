@@ -1,25 +1,20 @@
 // src/map/maplibre-services/MapLayerService.ts
 
 import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
-import type { LayerConfig, SourceConfig, WMSSourceConfig } from '../../config/types';
+import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, XYZSourceConfig, GeoJSONSourceConfig, VectorSourceConfig, LayerDataConfig, SubLayerSpec } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import * as maplibregl from 'maplibre-gl';
-import { MapLibreLayerFactory } from './MapLibreLayerFactory';
 import { buildWMSGetMapUrl } from '../../utils/wms-url-builder';
 import type { WarpedMapLayer } from '@allmaps/maplibre';
-
-const WARPEDMAP_PROTOCOL = 'warpedmap://';
 
 export class MapLayerService implements ILayerService {
     private map: maplibregl.Map;
     private store: MapStateStore;
     private logicalToNative: Map<string, string[]> = new Map();
     private logicalSourceToNative: Map<string, string> = new Map();
-    // Map native layer id to native source id
     private nativeLayerToSource: Map<string, string> = new Map();
-    // Track WarpedMapLayer instances for cleanup
     private warpedMapLayers: Map<string, WarpedMapLayer> = new Map();
-    private catalog: any;
+    private catalog: LayerDataConfig | null = null;
     private sourceIdCounter = 0;
     private logicalLayerLegendRole: Map<string, 'background' | 'overlay'> = new Map();
 
@@ -32,265 +27,277 @@ export class MapLayerService implements ILayerService {
         this.store.dispatch({ visibleLayers: Array.from(this.logicalToNative.keys()) }, 'MAP');
     }
 
-    private resolveLogicalLayerLegendRole(layerConfig: LayerConfig): 'background' | 'overlay' {
+    private resolveLegendRole(layerConfig: AnyLayerConfig): 'background' | 'overlay' {
         const metadata = (layerConfig?.metadata && typeof layerConfig.metadata === 'object')
             ? (layerConfig.metadata as Record<string, unknown>)
             : null;
-
         return metadata?.legendRole === 'background' ? 'background' : 'overlay';
     }
 
     private findNextStyleLayerId(afterNativeLayerId: string): string | undefined {
         const styleLayers = this.map.getStyle()?.layers ?? [];
         for (let index = 0; index < styleLayers.length; index += 1) {
-            if (styleLayers[index].id !== afterNativeLayerId) {
-                continue;
-            }
-            const next = styleLayers[index + 1];
-            return next?.id;
+            if (styleLayers[index].id !== afterNativeLayerId) continue;
+            return styleLayers[index + 1]?.id;
         }
         return undefined;
     }
 
     private resolveInsertBeforeLayerIdFromOptions(options?: LayerInsertOptions): string | undefined {
         if (options?.beforeLayerId) {
-            const beforeNativeLayerIds = this.logicalToNative.get(options.beforeLayerId) ?? [];
-            for (const nativeLayerId of beforeNativeLayerIds) {
-                if (this.map.getLayer(nativeLayerId)) {
-                    return nativeLayerId;
-                }
+            for (const nativeLayerId of this.logicalToNative.get(options.beforeLayerId) ?? []) {
+                if (this.map.getLayer(nativeLayerId)) return nativeLayerId;
             }
         }
-
         if (options?.afterLayerId) {
-            const afterNativeLayerIds = this.logicalToNative.get(options.afterLayerId) ?? [];
-            for (let index = afterNativeLayerIds.length - 1; index >= 0; index -= 1) {
-                const nativeLayerId = afterNativeLayerIds[index];
-                if (!this.map.getLayer(nativeLayerId)) {
-                    continue;
-                }
-                return this.findNextStyleLayerId(nativeLayerId);
+            const ids = this.logicalToNative.get(options.afterLayerId) ?? [];
+            for (let i = ids.length - 1; i >= 0; i -= 1) {
+                if (this.map.getLayer(ids[i])) return this.findNextStyleLayerId(ids[i]);
             }
         }
-
         return undefined;
     }
 
     private collectBackgroundNativeLayerIds(): Set<string> {
         const ids = new Set<string>();
         for (const [logicalLayerId, nativeLayerIds] of this.logicalToNative.entries()) {
-            const role = this.logicalLayerLegendRole.get(logicalLayerId) ?? 'overlay';
-            if (role !== 'background') {
-                continue;
-            }
-
-            for (const nativeLayerId of nativeLayerIds) {
-                ids.add(nativeLayerId);
-            }
+            if ((this.logicalLayerLegendRole.get(logicalLayerId) ?? 'overlay') !== 'background') continue;
+            for (const id of nativeLayerIds) ids.add(id);
         }
         return ids;
     }
 
     private findBackgroundInsertionBeforeLayerId(): string | undefined {
         const styleLayers = this.map.getStyle()?.layers ?? [];
-        if (styleLayers.length === 0) {
-            return undefined;
+        if (styleLayers.length === 0) return undefined;
+        const bgIds = this.collectBackgroundNativeLayerIds();
+        for (const sl of styleLayers) {
+            if (!bgIds.has(sl.id)) return sl.id;
         }
-
-        const backgroundNativeLayerIds = this.collectBackgroundNativeLayerIds();
-        for (const styleLayer of styleLayers) {
-            if (!backgroundNativeLayerIds.has(styleLayer.id)) {
-                return styleLayer.id;
-            }
-        }
-
         return undefined;
     }
 
-    setCatalog(catalog: any): void {
+    setCatalog(catalog: LayerDataConfig): void {
         this.catalog = catalog;
     }
 
-    /**
-     * Generate a unique native source id for a logical source id.
-     */
-    private getOrCreateNativeSourceId(sourceConfig: SourceConfig): string {
-        if (this.logicalSourceToNative.has(sourceConfig.id)) {
-            return this.logicalSourceToNative.get(sourceConfig.id)!;
-        }
-        // Generate a unique id (could be improved for more robust uniqueness)
-        const nativeSourceId = `src-${sourceConfig.id}-${this.sourceIdCounter++}`;
-        this.logicalSourceToNative.set(sourceConfig.id, nativeSourceId);
-        return nativeSourceId;
+    private resolveSource(sourceId: string): SourceConfig | null {
+        if (!this.catalog) return null;
+        return this.catalog.sources.find((s) => s.id === sourceId) ?? null;
     }
 
-    /**
-     * Create the native source in the map if it does not exist.
-     */
+    private getOrCreateNativeSourceId(logicalSourceId: string): string {
+        if (this.logicalSourceToNative.has(logicalSourceId)) {
+            return this.logicalSourceToNative.get(logicalSourceId)!;
+        }
+        const nativeId = `src-${logicalSourceId}-${this.sourceIdCounter++}`;
+        this.logicalSourceToNative.set(logicalSourceId, nativeId);
+        return nativeId;
+    }
+
     private ensureNativeSource(nativeSourceId: string, sourceConfig: SourceConfig): void {
-        if (!this.map.getSource(nativeSourceId)) {
-            let nativeSource: any;
-            if (sourceConfig.type === 'raster') {
-                if (sourceConfig.service === 'xyz') {
-                    let tiles: string[] = [];
-                    if (Array.isArray(sourceConfig.url)) {
-                        tiles = sourceConfig.url;
-                    } else if (sourceConfig.url) {
-                        tiles = [sourceConfig.url];
-                    }
-                    nativeSource = { type: 'raster', tiles };
-                    if ('tileSize' in sourceConfig) nativeSource.tileSize = sourceConfig.tileSize;
-                    if ('bounds' in sourceConfig) nativeSource.bounds = sourceConfig.bounds;
-                    if (typeof sourceConfig.minzoom === 'number') nativeSource.minzoom = sourceConfig.minzoom;
-                    if (typeof sourceConfig.maxzoom === 'number') nativeSource.maxzoom = sourceConfig.maxzoom;
-                    if ('scheme' in sourceConfig) nativeSource.scheme = sourceConfig.scheme;
-                    if (typeof sourceConfig.attribution === 'string') nativeSource.attribution = sourceConfig.attribution;
-                    if (typeof (sourceConfig as any).volatile === 'boolean') nativeSource.volatile = (sourceConfig as any).volatile;
-                } else if (sourceConfig.service === 'wms') {
-                    const wmsConfig = sourceConfig as WMSSourceConfig;
-                    const wmsUrl = buildWMSGetMapUrl({
-                        baseUrl: Array.isArray(wmsConfig.url) ? wmsConfig.url[0] : wmsConfig.url,
-                        layers: wmsConfig.layers || '',
-                        version: wmsConfig.version,
-                        styles: wmsConfig.styles,
-                        format: wmsConfig.format,
-                        transparent: wmsConfig.transparent,
-                        crs: wmsConfig.crs,
-                        tileSize: wmsConfig.tileSize,
-                    }, 'maplibre');
-                    nativeSource = { type: 'raster', tiles: [wmsUrl] };
-                    if ('tileSize' in sourceConfig) nativeSource.tileSize = sourceConfig.tileSize;
-                    if ('bounds' in sourceConfig) nativeSource.bounds = sourceConfig.bounds;
-                    if (typeof sourceConfig.minzoom === 'number') nativeSource.minzoom = sourceConfig.minzoom;
-                    if (typeof sourceConfig.maxzoom === 'number') nativeSource.maxzoom = sourceConfig.maxzoom;
-                    if ('scheme' in sourceConfig) nativeSource.scheme = sourceConfig.scheme;
-                    if (typeof sourceConfig.attribution === 'string') nativeSource.attribution = sourceConfig.attribution;
-                    if (typeof (sourceConfig as any).volatile === 'boolean') nativeSource.volatile = (sourceConfig as any).volatile;
-                }
-            } else if (sourceConfig.type === 'geojson') {
-                nativeSource = { type: 'geojson', data: (sourceConfig as any).data };
-                if (typeof (sourceConfig as any).attribution === 'string') nativeSource.attribution = (sourceConfig as any).attribution;
-            } else if (sourceConfig.type === 'vector') {
-                const vectorConfig = sourceConfig as any;
-                nativeSource = { type: 'vector' };
-                if (Array.isArray(vectorConfig.tiles)) {
-                    nativeSource.tiles = vectorConfig.tiles;
-                }
-                if (typeof vectorConfig.url === 'string') {
-                    nativeSource.url = vectorConfig.url;
-                }
-                if (typeof vectorConfig.minzoom === 'number') {
-                    nativeSource.minzoom = vectorConfig.minzoom;
-                }
-                if (typeof vectorConfig.maxzoom === 'number') {
-                    nativeSource.maxzoom = vectorConfig.maxzoom;
-                }
-                if (typeof vectorConfig.attribution === 'string') nativeSource.attribution = vectorConfig.attribution;
+        if (this.map.getSource(nativeSourceId)) return;
+
+        let nativeSource: any = { type: sourceConfig.type };
+
+        if (sourceConfig.type === 'raster') {
+            if (sourceConfig.service === 'xyz') {
+                const tiles = Array.isArray(sourceConfig.url) ? sourceConfig.url : [sourceConfig.url];
+                nativeSource = { type: 'raster', tiles };
+                if ('tileSize' in sourceConfig) nativeSource.tileSize = sourceConfig.tileSize;
+                if ('bounds' in sourceConfig) nativeSource.bounds = sourceConfig.bounds;
+                if (typeof sourceConfig.minzoom === 'number') nativeSource.minzoom = sourceConfig.minzoom;
+                if (typeof sourceConfig.maxzoom === 'number') nativeSource.maxzoom = sourceConfig.maxzoom;
+                if ('scheme' in sourceConfig) nativeSource.scheme = sourceConfig.scheme;
+                if (typeof sourceConfig.attribution === 'string') nativeSource.attribution = sourceConfig.attribution;
+                if (typeof (sourceConfig as any).volatile === 'boolean') nativeSource.volatile = (sourceConfig as any).volatile;
+            } else if (sourceConfig.service === 'wms') {
+                const wmsConfig = sourceConfig as WMSSourceConfig;
+                const baseUrl = Array.isArray(wmsConfig.url) ? wmsConfig.url[0] : wmsConfig.url;
+                const url = buildWMSGetMapUrl({ baseUrl, layers: wmsConfig.layers ?? '', version: wmsConfig.version, styles: wmsConfig.styles, format: wmsConfig.format, transparent: wmsConfig.transparent, crs: wmsConfig.crs, tileSize: wmsConfig.tileSize }, 'maplibre');
+                nativeSource = { type: 'raster', tiles: [url] };
+                if ('tileSize' in sourceConfig) nativeSource.tileSize = sourceConfig.tileSize;
+                if ('bounds' in sourceConfig) nativeSource.bounds = sourceConfig.bounds;
+                if (typeof sourceConfig.minzoom === 'number') nativeSource.minzoom = sourceConfig.minzoom;
+                if (typeof sourceConfig.maxzoom === 'number') nativeSource.maxzoom = sourceConfig.maxzoom;
+                if ('scheme' in sourceConfig) nativeSource.scheme = sourceConfig.scheme;
+                if (typeof sourceConfig.attribution === 'string') nativeSource.attribution = sourceConfig.attribution;
+                if (typeof (sourceConfig as any).volatile === 'boolean') nativeSource.volatile = (sourceConfig as any).volatile;
             }
-            this.map.addSource(nativeSourceId, nativeSource);
+        } else if (sourceConfig.type === 'geojson') {
+            nativeSource = { type: 'geojson', data: (sourceConfig as any).data };
+            if (typeof (sourceConfig as any).attribution === 'string') nativeSource.attribution = (sourceConfig as any).attribution;
+        } else if (sourceConfig.type === 'vector') {
+            nativeSource = { type: 'vector', url: (sourceConfig as any).url };
+            if (typeof (sourceConfig as any).attribution === 'string') nativeSource.attribution = (sourceConfig as any).attribution;
         }
+
+        this.map.addSource(nativeSourceId, nativeSource);
     }
 
-    /**
-     * Check if a source URL uses the warpedmap:// protocol.
-     */
-    private isWarpedMapSource(sourceConfig: SourceConfig): boolean {
-        if (sourceConfig.type === 'raster' && 'url' in sourceConfig) {
-            const url = Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url;
-            return url.startsWith(WARPEDMAP_PROTOCOL);
-        }
-        return false;
+    private buildNativeLayer(nativeLayerId: string, spec: SubLayerSpec | StandardLayerConfig, nativeSourceId: string): any {
+        const layer: any = { id: nativeLayerId, type: spec.type, source: nativeSourceId };
+        if (spec['source-layer']) layer['source-layer'] = spec['source-layer'];
+        if (spec.minzoom !== undefined) layer.minzoom = spec.minzoom;
+        if (spec.maxzoom !== undefined) layer.maxzoom = spec.maxzoom;
+        if (spec.paint && typeof spec.paint === 'object') layer.paint = spec.paint;
+        if (spec.layout && typeof spec.layout === 'object') layer.layout = spec.layout;
+        if (Array.isArray(spec.filter)) layer.filter = spec.filter;
+        return layer;
     }
 
-    /**
-     * Parse a warpedmap:// URL and return the annotation URL.
-     */
-    private parseWarpedMapUrl(url: string): string {
-        if (url.startsWith(WARPEDMAP_PROTOCOL)) {
-            return 'https://' + url.slice(WARPEDMAP_PROTOCOL.length);
-        }
-        return url;
-    }
-
-    /**
-     * Create and add a WarpedMapLayer for Allmaps georeferenced images.
-     */
-    private async addWarpedMapLayer(layerId: string, sourceConfig: SourceConfig, insertBeforeLayerId?: string): Promise<boolean> {
+    private async addAllmapsLayer(layerId: string, annotationUrl: string, insertBeforeLayerId?: string): Promise<boolean> {
         const { WarpedMapLayer } = await import('@allmaps/maplibre');
-        const url = 'url' in sourceConfig
-            ? (Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url)
-            : '';
-        const annotationUrl = this.parseWarpedMapUrl(url);
-
-        // Create a unique layer ID for the WarpedMapLayer
         const warpedLayerId = `warpedmap-${layerId}`;
-
-        // Create and configure the WarpedMapLayer
         const warpedMapLayer = new WarpedMapLayer({ layerId: warpedLayerId });
-
-        // Add the layer to the map
-        // Type assertion needed due to MapLibre type version differences
         this.map.addLayer(warpedMapLayer as unknown as maplibregl.CustomLayerInterface, insertBeforeLayerId);
-
-        // Load the georeference annotation
         await warpedMapLayer.addGeoreferenceAnnotationByUrl(annotationUrl);
-
-        // Track the layer
         this.warpedMapLayers.set(layerId, warpedMapLayer);
         this.logicalToNative.set(layerId, [warpedLayerId]);
         this.updateVisibleLayers();
-
         return true;
     }
 
-    async addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig, options?: LayerInsertOptions): Promise<boolean> {
-        const legendRole = this.resolveLogicalLayerLegendRole(layerConfig);
-        const explicitInsertBeforeLayerId = this.resolveInsertBeforeLayerIdFromOptions(options);
-        const insertBeforeLayerId = explicitInsertBeforeLayerId
+    private normalizeRawSource(logicalId: string, rawDef: unknown): SourceConfig | null {
+        if (typeof rawDef !== 'object' || rawDef === null) return null;
+        const def = rawDef as Record<string, unknown>;
+        if (def.type === 'raster') {
+            const tiles = Array.isArray(def.tiles)
+                ? def.tiles.filter((t): t is string => typeof t === 'string')
+                : (typeof def.url === 'string' ? [def.url] : []);
+            if (tiles.length === 0) return null;
+            return { id: logicalId, type: 'raster', service: 'xyz', url: tiles, ...(def.attribution ? { attribution: def.attribution as string } : {}) } as XYZSourceConfig;
+        }
+        if (def.type === 'geojson') {
+            const data = def.data;
+            if (typeof data !== 'string' && typeof data !== 'object') return null;
+            return { id: logicalId, type: 'geojson', data: data as string } as GeoJSONSourceConfig;
+        }
+        if (def.type === 'vector') {
+            if (typeof def.url !== 'string') return null;
+            return { id: logicalId, type: 'vector', url: def.url } as VectorSourceConfig;
+        }
+        return null;
+    }
+
+    private addCompositeStyleLayer(
+        layerConfig: CompositeStyleLayerConfig,
+        legendRole: 'background' | 'overlay',
+        insertBeforeLayerId: string | undefined,
+    ): boolean {
+        const layerId = layerConfig.id;
+        const localSources = layerConfig.sources ?? {};
+        const subLayers = layerConfig.layers ?? [];
+
+        // Build a map: local source key → native source id
+        const localSourceNativeIds = new Map<string, string>();
+        for (const [sourceKey, rawDef] of Object.entries(localSources)) {
+            const logicalId = `${layerId}:${sourceKey}`;
+            const sourceConfig = this.normalizeRawSource(logicalId, rawDef);
+            if (!sourceConfig) continue;
+            const nativeSrcId = this.getOrCreateNativeSourceId(logicalId);
+            this.ensureNativeSource(nativeSrcId, sourceConfig);
+            localSourceNativeIds.set(sourceKey, nativeSrcId);
+        }
+
+        const nativeLayerIds: string[] = [...(this.logicalToNative.get(layerId) ?? [])];
+        for (const subLayer of subLayers) {
+            if (subLayer.type === 'background') {
+                const nativeLayerId = subLayer.id ? `${layerId}-${subLayer.id}` : `${layerId}-background`;
+                if (!this.map.getLayer(nativeLayerId)) {
+                    const native: any = { id: nativeLayerId, type: 'background' };
+                    if (subLayer.paint) native.paint = subLayer.paint;
+                    if (subLayer.layout) native.layout = subLayer.layout;
+                    this.map.addLayer(native, insertBeforeLayerId);
+                }
+                nativeLayerIds.push(nativeLayerId);
+                continue;
+            }
+
+            const sourceKey = subLayer.source;
+            if (!sourceKey) continue;
+
+            // Resolve: local first, then global catalog
+            let nativeSourceId: string | undefined = localSourceNativeIds.get(sourceKey);
+            if (!nativeSourceId) {
+                const globalSource = this.resolveSource(sourceKey);
+                if (globalSource) {
+                    nativeSourceId = this.getOrCreateNativeSourceId(globalSource.id);
+                    this.ensureNativeSource(nativeSourceId, globalSource);
+                }
+            }
+            if (!nativeSourceId || !this.map.getSource(nativeSourceId)) continue;
+
+            const nativeLayerId = subLayer.id ? `${layerId}-${subLayer.id}` : `${layerId}-${sourceKey}-${subLayer.type}`;
+            if (!this.map.getLayer(nativeLayerId)) {
+                this.map.addLayer(this.buildNativeLayer(nativeLayerId, subLayer, nativeSourceId), insertBeforeLayerId);
+            }
+            nativeLayerIds.push(nativeLayerId);
+            this.nativeLayerToSource.set(nativeLayerId, nativeSourceId);
+        }
+
+        this.logicalLayerLegendRole.set(layerId, legendRole);
+        this.logicalToNative.set(layerId, Array.from(new Set(nativeLayerIds)));
+        this.updateVisibleLayers();
+        return nativeLayerIds.length > 0;
+    }
+
+    async addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
+        const layerId = layerConfig.id;
+        const legendRole = this.resolveLegendRole(layerConfig);
+        const insertBeforeLayerId = this.resolveInsertBeforeLayerIdFromOptions(options)
             ?? (legendRole === 'background' ? this.findBackgroundInsertionBeforeLayerId() : undefined);
 
-        // Check for warpedmap:// protocol
-        if (this.isWarpedMapSource(sourceConfig)) {
-            const success = await this.addWarpedMapLayer(layerId, sourceConfig, insertBeforeLayerId);
-            if (success) {
-                this.logicalLayerLegendRole.set(layerId, legendRole);
-            }
+        if (layerConfig.type === 'allmaps') {
+            const success = await this.addAllmapsLayer(layerId, layerConfig.annotation, insertBeforeLayerId);
+            if (success) this.logicalLayerLegendRole.set(layerId, legendRole);
             return success;
         }
 
-        // Get or create a unique native source id for this logical source
-        const nativeSourceId = this.getOrCreateNativeSourceId(sourceConfig);
-        // Ensure the native source exists in the map
-        this.ensureNativeSource(nativeSourceId, sourceConfig);
-        if (!this.map.getSource(nativeSourceId)) {
-            return false;
+        if (layerConfig.type === 'style') {
+            return this.addCompositeStyleLayer(layerConfig, legendRole, insertBeforeLayerId);
         }
-        // Use the factory to generate all needed MapLibre layer specs, referencing the nativeSourceId
-        const layerSpecs = MapLibreLayerFactory.createLayers(layerConfig, sourceConfig, nativeSourceId);
-        const nativeLayerIds: string[] = [...(this.logicalToNative.get(layerId) || [])];
-        for (const layerSpec of layerSpecs) {
-            if (!this.map.getLayer(layerSpec.id)) {
-                this.map.addLayer(layerSpec, insertBeforeLayerId);
+
+        // Standard layer
+        const stdLayer = layerConfig as StandardLayerConfig;
+        if (stdLayer.type === 'background') {
+            const nativeLayerId = `${layerId}-background`;
+            if (!this.map.getLayer(nativeLayerId)) {
+                const native: any = { id: nativeLayerId, type: 'background' };
+                if (stdLayer.paint) native.paint = stdLayer.paint;
+                if (stdLayer.layout) native.layout = stdLayer.layout;
+                this.map.addLayer(native, insertBeforeLayerId);
             }
-            nativeLayerIds.push(layerSpec.id);
-            // Track which source this native layer uses
-            this.nativeLayerToSource.set(layerSpec.id, nativeSourceId);
+            this.logicalLayerLegendRole.set(layerId, legendRole);
+            this.logicalToNative.set(layerId, [nativeLayerId]);
+            this.updateVisibleLayers();
+            return true;
+        }
+
+        if (!stdLayer.source) return false;
+        const sourceConfig = this.resolveSource(stdLayer.source);
+        if (!sourceConfig) return false;
+
+        const nativeSourceId = this.getOrCreateNativeSourceId(sourceConfig.id);
+        this.ensureNativeSource(nativeSourceId, sourceConfig);
+        if (!this.map.getSource(nativeSourceId)) return false;
+
+        const nativeLayerId = `${layerId}-${sourceConfig.id}-${stdLayer.type}`;
+        if (!this.map.getLayer(nativeLayerId)) {
+            this.map.addLayer(this.buildNativeLayer(nativeLayerId, stdLayer, nativeSourceId), insertBeforeLayerId);
         }
         this.logicalLayerLegendRole.set(layerId, legendRole);
-        this.logicalToNative.set(layerId, Array.from(new Set(nativeLayerIds)));
+        const existing = this.logicalToNative.get(layerId) ?? [];
+        this.logicalToNative.set(layerId, Array.from(new Set([...existing, nativeLayerId])));
+        this.nativeLayerToSource.set(nativeLayerId, nativeSourceId);
         this.updateVisibleLayers();
         return true;
     }
 
     removeLayer(layerId: string): void {
-        // Check if this is a WarpedMapLayer
         if (this.warpedMapLayers.has(layerId)) {
-            // Remove from map - WarpedMapLayer handles its own cleanup
-            const nativeIds = this.logicalToNative.get(layerId) || [];
-            for (const id of nativeIds) {
-                if (this.map.getLayer(id)) {
-                    this.map.removeLayer(id);
-                }
+            for (const id of this.logicalToNative.get(layerId) ?? []) {
+                if (this.map.getLayer(id)) this.map.removeLayer(id);
             }
             this.warpedMapLayers.delete(layerId);
             this.logicalToNative.delete(layerId);
@@ -299,34 +306,28 @@ export class MapLayerService implements ILayerService {
             return;
         }
 
-        const nativeIds = this.logicalToNative.get(layerId) || [];
-        // Find the native source ids for these layers using the mapping
+        const nativeIds = this.logicalToNative.get(layerId) ?? [];
         const nativeSourceIds = new Set<string>();
         for (const id of nativeIds) {
             const sourceId = this.nativeLayerToSource.get(id);
-            if (sourceId) {
-                nativeSourceIds.add(sourceId);
-            }
-            if (this.map.getLayer(id)) {
-                this.map.removeLayer(id);
-            }
+            if (sourceId) nativeSourceIds.add(sourceId);
+            if (this.map.getLayer(id)) this.map.removeLayer(id);
             this.nativeLayerToSource.delete(id);
         }
         this.logicalToNative.delete(layerId);
         this.logicalLayerLegendRole.delete(layerId);
 
-        // For each native source, check if any remaining native layers reference it
         for (const sourceId of nativeSourceIds) {
             let stillUsed = false;
-            for (const usedSourceId of this.nativeLayerToSource.values()) {
-                if (usedSourceId === sourceId) {
-                    stillUsed = true;
-                    break;
-                }
+            for (const usedId of this.nativeLayerToSource.values()) {
+                if (usedId === sourceId) { stillUsed = true; break; }
             }
-            // Only remove if not used and source exists
             if (!stillUsed && this.map.getSource(sourceId)) {
                 this.map.removeSource(sourceId);
+                // Also clean up logical source tracking
+                for (const [logicalId, nativeId] of this.logicalSourceToNative.entries()) {
+                    if (nativeId === sourceId) { this.logicalSourceToNative.delete(logicalId); break; }
+                }
             }
         }
 
@@ -341,3 +342,4 @@ export class MapLayerService implements ILayerService {
         return this.logicalToNative.has(layerId);
     }
 }
+

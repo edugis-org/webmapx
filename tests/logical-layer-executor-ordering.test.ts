@@ -3,18 +3,12 @@ import assert from 'node:assert/strict';
 
 import { DeferredLogicalLayerExecutor } from '../src/map/logical-layer-executor.ts';
 import type { LayerInsertOptions } from '../src/map/IMapInterfaces.ts';
-import type { LayerConfig, SourceConfig } from '../src/config/types.ts';
+import type { AnyLayerConfig } from '../src/config/types.ts';
 
-const sampleLayer: LayerConfig = {
+const sampleLayer: AnyLayerConfig = {
   id: 'sample',
-  layerset: [{ id: 'r', type: 'raster', source: 'sample-source' }],
-};
-
-const sampleSource: SourceConfig = {
-  id: 'sample-source',
   type: 'raster',
-  service: 'xyz',
-  url: 'https://example.com/{z}/{x}/{y}.png',
+  source: 'sample-source',
 };
 
 test('DeferredLogicalLayerExecutor forwards insertion options when bound', async () => {
@@ -23,7 +17,7 @@ test('DeferredLogicalLayerExecutor forwards insertion options when bound', async
 
   const mockService = {
     setCatalog() {},
-    async addLayer(_layerId: string, _layerConfig: LayerConfig, _sourceConfig: SourceConfig, options?: LayerInsertOptions) {
+    async addLayer(_layerConfig: AnyLayerConfig, options?: LayerInsertOptions) {
       calls.push({ options });
       return true;
     },
@@ -33,7 +27,7 @@ test('DeferredLogicalLayerExecutor forwards insertion options when bound', async
   };
 
   executor.bind(mockService as any);
-  const success = await executor.addLayer('sample', sampleLayer, sampleSource, { beforeLayerId: 'other' });
+  const success = await executor.addLayer(sampleLayer, { beforeLayerId: 'other' });
 
   assert.equal(success, true);
   assert.equal(calls.length, 1);
@@ -44,11 +38,11 @@ test('DeferredLogicalLayerExecutor keeps insertion options for queued adds befor
   const executor = new DeferredLogicalLayerExecutor();
   const calls: Array<{ options?: LayerInsertOptions }> = [];
 
-  const pending = executor.addLayer('sample', sampleLayer, sampleSource, { afterLayerId: 'anchor' });
+  const pending = executor.addLayer(sampleLayer, { afterLayerId: 'anchor' });
 
   const mockService = {
     setCatalog() {},
-    async addLayer(_layerId: string, _layerConfig: LayerConfig, _sourceConfig: SourceConfig, options?: LayerInsertOptions) {
+    async addLayer(_layerConfig: AnyLayerConfig, options?: LayerInsertOptions) {
       calls.push({ options });
       return true;
     },

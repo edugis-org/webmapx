@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { MapLayerService } from '../src/map/maplibre-services/MapLayerService.ts';
 import { MapStateStore } from '../src/store/map-state-store.ts';
-import type { LayerConfig, SourceConfig } from '../src/config/types.ts';
+import type { AnyLayerConfig, LayerDataConfig } from '../src/config/types.ts';
 
 class MockMap {
   private sources = new Map<string, unknown>();
@@ -53,20 +53,24 @@ class MockMap {
   }
 }
 
-function makeRasterLayer(id: string): LayerConfig {
+function makeRasterLayer(id: string): AnyLayerConfig {
   return {
     id,
+    type: 'raster',
+    source: `${id}-source`,
     metadata: { legendRole: 'overlay' },
-    layerset: [{ id: 'r', type: 'raster', source: `${id}-source` }],
   };
 }
 
-function makeRasterSource(id: string): SourceConfig {
+function makeCatalog(ids: string[]): LayerDataConfig {
   return {
-    id: `${id}-source`,
-    type: 'raster',
-    service: 'xyz',
-    url: 'https://example.com/{z}/{x}/{y}.png',
+    sources: ids.map((id) => ({
+      id: `${id}-source`,
+      type: 'raster' as const,
+      service: 'xyz' as const,
+      url: 'https://example.com/{z}/{x}/{y}.png',
+    })),
+    layers: ids.map(makeRasterLayer),
   };
 }
 
@@ -74,22 +78,24 @@ test('MapLibre MapLayerService applies beforeLayerId using logical layer ids', a
   const map = new MockMap();
   const store = new MapStateStore();
   const service = new MapLayerService(map as any, store);
+  service.setCatalog(makeCatalog(['a', 'b', 'c']));
 
-  await service.addLayer('a', makeRasterLayer('a'), makeRasterSource('a'));
-  await service.addLayer('b', makeRasterLayer('b'), makeRasterSource('b'));
-  await service.addLayer('c', makeRasterLayer('c'), makeRasterSource('c'), { beforeLayerId: 'a' });
+  await service.addLayer(makeRasterLayer('a'));
+  await service.addLayer(makeRasterLayer('b'));
+  await service.addLayer(makeRasterLayer('c'), { beforeLayerId: 'a' });
 
-  assert.deepEqual(map.getLayerOrder(), ['c-r', 'a-r', 'b-r']);
+  assert.deepEqual(map.getLayerOrder(), ['c-c-source-raster', 'a-a-source-raster', 'b-b-source-raster']);
 });
 
 test('MapLibre MapLayerService applies afterLayerId using logical layer ids', async () => {
   const map = new MockMap();
   const store = new MapStateStore();
   const service = new MapLayerService(map as any, store);
+  service.setCatalog(makeCatalog(['a', 'b', 'c']));
 
-  await service.addLayer('a', makeRasterLayer('a'), makeRasterSource('a'));
-  await service.addLayer('b', makeRasterLayer('b'), makeRasterSource('b'));
-  await service.addLayer('c', makeRasterLayer('c'), makeRasterSource('c'), { afterLayerId: 'a' });
+  await service.addLayer(makeRasterLayer('a'));
+  await service.addLayer(makeRasterLayer('b'));
+  await service.addLayer(makeRasterLayer('c'), { afterLayerId: 'a' });
 
-  assert.deepEqual(map.getLayerOrder(), ['a-r', 'c-r', 'b-r']);
+  assert.deepEqual(map.getLayerOrder(), ['a-a-source-raster', 'c-c-source-raster', 'b-b-source-raster']);
 });

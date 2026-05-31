@@ -53,9 +53,9 @@ This guide explains how to assemble the Modular GIS Web UI as an application dev
 ## Configuration
 See [Configuration](./configuration.md) for details on:
 - Loading config files via URL parameter
-- Config file format (map, catalog, tools sections)
+- Config file format (map, layerData, state, tools sections)
 - Source and layer definitions
-- Layer tree structure
+- Layer tree structure in `layerTree` tool items
 
 ## Component Reference
 - [`webmapx-map`](./components/webmapx-map.md)

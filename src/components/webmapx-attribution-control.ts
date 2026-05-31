@@ -2,7 +2,7 @@ import { css, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
-import type { AppConfig, CatalogConfig, LayerConfig, SourceConfig } from '../config/types';
+import type { AppConfig, AnyLayerConfig, CompositeStyleLayerConfig, LayerDataConfig, SourceConfig } from '../config/types';
 
 const URL_REGEX = /(https?:\/\/[^\s]+)/g;
 
@@ -11,7 +11,7 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
     @state()
     private attributions: string[] = [];
 
-    private catalog: CatalogConfig | null = null;
+    private layerData: LayerDataConfig | null = null;
     private visibleLayerIds: string[] = [];
 
     connectedCallback(): void {
@@ -20,7 +20,7 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
     }
 
     protected onConfigReady(config: AppConfig): void {
-        this.catalog = config.catalog ?? null;
+        this.layerData = config.layerData ?? config.catalog ?? null;
         this.recalculate();
     }
 
@@ -37,23 +37,23 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
     protected onMapDetached(): void {
         this.attributions = [];
         this.visibleLayerIds = [];
-        this.catalog = null;
+        this.layerData = null;
         super.onMapDetached();
     }
 
     private recalculate(): void {
-        if (!this.catalog) {
+        if (!this.layerData) {
             this.attributions = [];
             return;
         }
 
         const sourcesById = new Map<string, SourceConfig>();
-        for (const source of this.catalog.sources ?? []) {
+        for (const source of this.layerData.sources ?? []) {
             sourcesById.set(source.id, source);
         }
 
-        const layersById = new Map<string, LayerConfig>();
-        for (const layer of this.catalog.layers ?? []) {
+        const layersById = new Map<string, AnyLayerConfig>();
+        for (const layer of this.layerData.layers ?? []) {
             layersById.set(layer.id, layer);
         }
 
@@ -63,9 +63,13 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
         for (const layerId of this.visibleLayerIds) {
             const layer = layersById.get(layerId);
             if (!layer) continue;
-            for (const style of layer.layerset) {
-                if (!style.source) continue;
-                const source = sourcesById.get(style.source);
+            const subLayers = layer.type === 'style'
+                ? ((layer as CompositeStyleLayerConfig).layers ?? [])
+                : [layer];
+            for (const sub of subLayers) {
+                const sourceId = (sub as any).source;
+                if (!sourceId) continue;
+                const source = sourcesById.get(sourceId);
                 if (!source || typeof source.attribution !== 'string') continue;
                 const text = source.attribution.trim();
                 if (!text || unique.has(text)) continue;
