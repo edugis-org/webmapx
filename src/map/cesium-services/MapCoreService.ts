@@ -968,6 +968,10 @@ export class MapCoreService implements IMapCore {
         const Cesium = getCesium();
         const julian = Cesium?.JulianDate?.now?.();
 
+        if (operand === '$type') {
+            return this.getEntityGeometryType(entity);
+        }
+
         if (Array.isArray(operand) && operand[0] === 'geometry-type') {
             return this.getEntityGeometryType(entity);
         }

@@ -18,10 +18,47 @@ export class MapLayerService implements ILayerService {
     private warpedMapLayers: Map<string, any> = new Map();
     private catalog: any;
     private sourceIdCounter = 0;
+    private busyOps = 0;
 
     constructor(map: L.Map, store: MapStateStore) {
         this.map = map;
         this.store = store;
+    }
+
+    private beginBusyOperation(): void {
+        this.busyOps += 1;
+        if (this.busyOps === 1) {
+            this.store.dispatch({ mapBusy: true }, 'MAP');
+        }
+    }
+
+    private endBusyOperation(): void {
+        if (this.busyOps <= 0) {
+            this.busyOps = 0;
+            this.store.dispatch({ mapBusy: false }, 'MAP');
+            return;
+        }
+
+        this.busyOps -= 1;
+        if (this.busyOps === 0) {
+            this.store.dispatch({ mapBusy: false }, 'MAP');
+        }
+    }
+
+    private attachTileBusyEvents(layer: L.Layer): void {
+        const tileLayer = layer as L.TileLayer & { __webmapxBusyBound?: boolean };
+        if (typeof (tileLayer as any).on !== 'function') {
+            return;
+        }
+
+        if (tileLayer.__webmapxBusyBound) {
+            return;
+        }
+
+        tileLayer.__webmapxBusyBound = true;
+        tileLayer.on('loading', () => this.beginBusyOperation());
+        tileLayer.on('load', () => this.endBusyOperation());
+        tileLayer.on('tileerror', () => this.endBusyOperation());
     }
 
     private updateVisibleLayers(): void {
@@ -64,6 +101,7 @@ export class MapLayerService implements ILayerService {
         const annotationUrl = this.parseWarpedMapUrl(url);
 
         try {
+            this.beginBusyOperation();
             // Dynamic import of @allmaps/leaflet
             const { WarpedMapLayer } = await import('@allmaps/leaflet');
 
@@ -86,6 +124,8 @@ export class MapLayerService implements ILayerService {
         } catch (error) {
             console.warn('[LEAFLET LAYER SERVICE] @allmaps/leaflet not available or error loading warped map:', error);
             return false;
+        } finally {
+            this.endBusyOperation();
         }
     }
 
@@ -103,6 +143,7 @@ export class MapLayerService implements ILayerService {
 
             for (const spec of layerSpecs) {
                 if (!this.nativeLayerInstances.has(spec.id)) {
+                    this.attachTileBusyEvents(spec.layer);
                     spec.layer.addTo(this.map);
                     this.nativeLayerInstances.set(spec.id, spec.layer);
                     nativeLayerIds.push(spec.id);
@@ -116,11 +157,14 @@ export class MapLayerService implements ILayerService {
             if (typeof geoJsonConfig.data === 'string') {
                 // Fetch from URL
                 try {
+                    this.beginBusyOperation();
                     const response = await fetch(geoJsonConfig.data);
                     data = await response.json();
                 } catch (error) {
                     console.error('[LEAFLET LAYER SERVICE] Failed to fetch GeoJSON:', error);
                     return false;
+                } finally {
+                    this.endBusyOperation();
                 }
             } else {
                 data = geoJsonConfig.data;

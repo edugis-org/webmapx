@@ -157,6 +157,10 @@ export class LeafletLayerFactory {
     }
 
     private static resolveFilterOperand(feature: GeoJSON.Feature, operand: any): unknown {
+        if (operand === '$type') {
+            return feature.geometry?.type;
+        }
+
         if (!Array.isArray(operand)) {
             return operand;
         }

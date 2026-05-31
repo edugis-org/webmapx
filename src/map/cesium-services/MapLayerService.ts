@@ -94,12 +94,21 @@ export class MapLayerService implements ILayerService {
     private readonly applyGeoJsonStylesThrottled: () => void;
     private lastZoomLevel: number | null = null;
     private unsubscribeStore: (() => void) | null = null;
+    private busyOps = 0;
 
     constructor(
         private readonly viewer: any,
         private readonly store: MapStateStore
     ) {
         this.applyGeoJsonStylesThrottled = throttle(() => this.applyAllGeoJsonStyles(), 100);
+
+        this.viewer?.scene?.globe?.tileLoadProgressEvent?.addEventListener?.((pendingTiles: number) => {
+            if (pendingTiles > 0) {
+                this.store.dispatch({ mapBusy: true }, 'MAP');
+            } else if (this.busyOps === 0) {
+                this.store.dispatch({ mapBusy: false }, 'MAP');
+            }
+        });
 
         this.unsubscribeStore = this.store.subscribe((state) => {
             if (state.zoomLevel == null) return;
@@ -108,6 +117,25 @@ export class MapLayerService implements ILayerService {
             this.applyGeoJsonStylesThrottled();
             this.applyImageryVisibility(state.zoomLevel);
         });
+    }
+
+    private beginBusyOperation(): void {
+        this.busyOps += 1;
+        if (this.busyOps === 1) {
+            this.store.dispatch({ mapBusy: true }, 'MAP');
+        }
+    }
+
+    private endBusyOperation(): void {
+        if (this.busyOps <= 0) {
+            this.busyOps = 0;
+            return;
+        }
+
+        this.busyOps -= 1;
+        if (this.busyOps === 0) {
+            this.store.dispatch({ mapBusy: false }, 'MAP');
+        }
     }
 
     private updateVisibleLayers(): void {
@@ -133,7 +161,10 @@ export class MapLayerService implements ILayerService {
             const url = Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url;
             if (sourceConfig.service === 'xyz') {
                 // Ignore warpedmap:// for Cesium (not supported)
-                if (url.startsWith('warpedmap://')) return false;
+                if (url.startsWith('warpedmap://')) {
+                    console.warn('[CESIUM LAYER SERVICE] warpedmap:// (Allmaps) is not supported in Cesium. Use MapLibre/OpenLayers/Leaflet for warped maps or configure a fallback layer.');
+                    return false;
+                }
 
                 const minLevel = normalizeLevel(getMinZoom(sourceConfig));
                 const maxLevel = normalizeLevel(getMaxZoom(sourceConfig));
@@ -184,17 +215,22 @@ export class MapLayerService implements ILayerService {
         }
 
         if (sourceConfig.type === 'geojson') {
+            this.beginBusyOperation();
             const data = sourceConfig.data;
-            const geojson: GeoJSON.FeatureCollection =
-                typeof data === 'string' ? await (await fetch(data)).json() : data;
+            try {
+                const geojson: GeoJSON.FeatureCollection =
+                    typeof data === 'string' ? await (await fetch(data)).json() : data;
 
-            const dataSource = await Cesium.GeoJsonDataSource.load(geojson, { clampToGround: false });
-            await this.viewer.dataSources.add(dataSource);
+                const dataSource = await Cesium.GeoJsonDataSource.load(geojson, { clampToGround: false });
+                await this.viewer.dataSources.add(dataSource);
 
-            this.applyGeoJsonStyles(dataSource, layerConfig);
-            this.handles.set(handleKey, { kind: 'geojson', dataSource, sourceId: sourceConfig.id, layerConfig });
-            this.updateVisibleLayers();
-            return true;
+                this.applyGeoJsonStyles(dataSource, layerConfig);
+                this.handles.set(handleKey, { kind: 'geojson', dataSource, sourceId: sourceConfig.id, layerConfig });
+                this.updateVisibleLayers();
+                return true;
+            } finally {
+                this.endBusyOperation();
+            }
         }
 
         return false;
