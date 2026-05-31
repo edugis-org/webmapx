@@ -302,7 +302,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         id: this.radiusLayerId,
         type: 'fill',
         source: this.sourceId,
-        metadata: { isToolLayer: true },
+        metadata: { isToolLayer: true, hideFromLegend: true, label: 'Geolocation precision' },
         paint: {
           'fill-color': 'rgb(149, 201, 253)',
           'fill-opacity': 0.5,
@@ -318,7 +318,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         id: this.pointLayerId,
         type: 'circle',
         source: this.sourceId,
-        metadata: { isToolLayer: true },
+        metadata: { isToolLayer: true, hideFromLegend: true, label: 'Geolocation position' },
         paint: {
           'circle-radius': 10,
           'circle-color': 'rgb(66, 133, 244)',

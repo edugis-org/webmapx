@@ -1,7 +1,7 @@
 import { css, html, nothing, TemplateResult } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import { IAppState } from '../store/IState';
+import { IMapState } from '../store/IMapState';
 import { epsgLookupManager } from '../utils/epsg-lookup-manager';
 
 type LngLatTuple = [number, number]; // [lng, lat]
@@ -243,7 +243,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
     }
   `;
 
-  protected onStateChanged(state: IAppState): void {
+  protected onStateChanged(state: IMapState): void {
     this.cursorCoords = state.pointerCoordinates;
     const previousPinnedCoords = this.pinnedCoords;
     this.pinnedCoords = state.lastClickedCoordinates;

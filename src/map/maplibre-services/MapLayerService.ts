@@ -1,6 +1,6 @@
 // src/map/maplibre-services/MapLayerService.ts
 
-import { ILayerService } from '../IMapInterfaces';
+import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
 import type { LayerConfig, SourceConfig, WMSSourceConfig } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import * as maplibregl from 'maplibre-gl';
@@ -21,6 +21,7 @@ export class MapLayerService implements ILayerService {
     private warpedMapLayers: Map<string, WarpedMapLayer> = new Map();
     private catalog: any;
     private sourceIdCounter = 0;
+    private logicalLayerLegendRole: Map<string, 'background' | 'overlay'> = new Map();
 
     constructor(map: maplibregl.Map, store: MapStateStore) {
         this.map = map;
@@ -29,6 +30,81 @@ export class MapLayerService implements ILayerService {
 
     private updateVisibleLayers(): void {
         this.store.dispatch({ visibleLayers: Array.from(this.logicalToNative.keys()) }, 'MAP');
+    }
+
+    private resolveLogicalLayerLegendRole(layerConfig: LayerConfig): 'background' | 'overlay' {
+        const metadata = (layerConfig?.metadata && typeof layerConfig.metadata === 'object')
+            ? (layerConfig.metadata as Record<string, unknown>)
+            : null;
+
+        return metadata?.legendRole === 'background' ? 'background' : 'overlay';
+    }
+
+    private findNextStyleLayerId(afterNativeLayerId: string): string | undefined {
+        const styleLayers = this.map.getStyle()?.layers ?? [];
+        for (let index = 0; index < styleLayers.length; index += 1) {
+            if (styleLayers[index].id !== afterNativeLayerId) {
+                continue;
+            }
+            const next = styleLayers[index + 1];
+            return next?.id;
+        }
+        return undefined;
+    }
+
+    private resolveInsertBeforeLayerIdFromOptions(options?: LayerInsertOptions): string | undefined {
+        if (options?.beforeLayerId) {
+            const beforeNativeLayerIds = this.logicalToNative.get(options.beforeLayerId) ?? [];
+            for (const nativeLayerId of beforeNativeLayerIds) {
+                if (this.map.getLayer(nativeLayerId)) {
+                    return nativeLayerId;
+                }
+            }
+        }
+
+        if (options?.afterLayerId) {
+            const afterNativeLayerIds = this.logicalToNative.get(options.afterLayerId) ?? [];
+            for (let index = afterNativeLayerIds.length - 1; index >= 0; index -= 1) {
+                const nativeLayerId = afterNativeLayerIds[index];
+                if (!this.map.getLayer(nativeLayerId)) {
+                    continue;
+                }
+                return this.findNextStyleLayerId(nativeLayerId);
+            }
+        }
+
+        return undefined;
+    }
+
+    private collectBackgroundNativeLayerIds(): Set<string> {
+        const ids = new Set<string>();
+        for (const [logicalLayerId, nativeLayerIds] of this.logicalToNative.entries()) {
+            const role = this.logicalLayerLegendRole.get(logicalLayerId) ?? 'overlay';
+            if (role !== 'background') {
+                continue;
+            }
+
+            for (const nativeLayerId of nativeLayerIds) {
+                ids.add(nativeLayerId);
+            }
+        }
+        return ids;
+    }
+
+    private findBackgroundInsertionBeforeLayerId(): string | undefined {
+        const styleLayers = this.map.getStyle()?.layers ?? [];
+        if (styleLayers.length === 0) {
+            return undefined;
+        }
+
+        const backgroundNativeLayerIds = this.collectBackgroundNativeLayerIds();
+        for (const styleLayer of styleLayers) {
+            if (!backgroundNativeLayerIds.has(styleLayer.id)) {
+                return styleLayer.id;
+            }
+        }
+
+        return undefined;
     }
 
     setCatalog(catalog: any): void {
@@ -139,7 +215,7 @@ export class MapLayerService implements ILayerService {
     /**
      * Create and add a WarpedMapLayer for Allmaps georeferenced images.
      */
-    private async addWarpedMapLayer(layerId: string, sourceConfig: SourceConfig): Promise<boolean> {
+    private async addWarpedMapLayer(layerId: string, sourceConfig: SourceConfig, insertBeforeLayerId?: string): Promise<boolean> {
         const { WarpedMapLayer } = await import('@allmaps/maplibre');
         const url = 'url' in sourceConfig
             ? (Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url)
@@ -154,7 +230,7 @@ export class MapLayerService implements ILayerService {
 
         // Add the layer to the map
         // Type assertion needed due to MapLibre type version differences
-        this.map.addLayer(warpedMapLayer as unknown as maplibregl.CustomLayerInterface);
+        this.map.addLayer(warpedMapLayer as unknown as maplibregl.CustomLayerInterface, insertBeforeLayerId);
 
         // Load the georeference annotation
         await warpedMapLayer.addGeoreferenceAnnotationByUrl(annotationUrl);
@@ -167,10 +243,19 @@ export class MapLayerService implements ILayerService {
         return true;
     }
 
-    async addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig): Promise<boolean> {
+    async addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig, options?: LayerInsertOptions): Promise<boolean> {
+        const legendRole = this.resolveLogicalLayerLegendRole(layerConfig);
+        const explicitInsertBeforeLayerId = this.resolveInsertBeforeLayerIdFromOptions(options);
+        const insertBeforeLayerId = explicitInsertBeforeLayerId
+            ?? (legendRole === 'background' ? this.findBackgroundInsertionBeforeLayerId() : undefined);
+
         // Check for warpedmap:// protocol
         if (this.isWarpedMapSource(sourceConfig)) {
-            return this.addWarpedMapLayer(layerId, sourceConfig);
+            const success = await this.addWarpedMapLayer(layerId, sourceConfig, insertBeforeLayerId);
+            if (success) {
+                this.logicalLayerLegendRole.set(layerId, legendRole);
+            }
+            return success;
         }
 
         // Get or create a unique native source id for this logical source
@@ -185,12 +270,13 @@ export class MapLayerService implements ILayerService {
         const nativeLayerIds: string[] = [...(this.logicalToNative.get(layerId) || [])];
         for (const layerSpec of layerSpecs) {
             if (!this.map.getLayer(layerSpec.id)) {
-                this.map.addLayer(layerSpec);
+                this.map.addLayer(layerSpec, insertBeforeLayerId);
             }
             nativeLayerIds.push(layerSpec.id);
             // Track which source this native layer uses
             this.nativeLayerToSource.set(layerSpec.id, nativeSourceId);
         }
+        this.logicalLayerLegendRole.set(layerId, legendRole);
         this.logicalToNative.set(layerId, Array.from(new Set(nativeLayerIds)));
         this.updateVisibleLayers();
         return true;
@@ -208,6 +294,7 @@ export class MapLayerService implements ILayerService {
             }
             this.warpedMapLayers.delete(layerId);
             this.logicalToNative.delete(layerId);
+            this.logicalLayerLegendRole.delete(layerId);
             this.updateVisibleLayers();
             return;
         }
@@ -226,6 +313,7 @@ export class MapLayerService implements ILayerService {
             this.nativeLayerToSource.delete(id);
         }
         this.logicalToNative.delete(layerId);
+        this.logicalLayerLegendRole.delete(layerId);
 
         // For each native source, check if any remaining native layers reference it
         for (const sourceId of nativeSourceIds) {

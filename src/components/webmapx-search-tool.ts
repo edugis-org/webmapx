@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators.js';
 
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
-import type { IAppState } from '../store/IState';
+import type { IMapState } from '../store/IMapState';
 
 /**
  * Simple search modal tool inspired by edugis map-search.
@@ -139,7 +139,7 @@ export class WebmapxSearchTool extends WebmapxModalTool {
     this.dispatchEvent(new CustomEvent('webmapx-search-closed', { bubbles: true, composed: true }));
   }
 
-  protected onStateChanged(_state: IAppState): void {
+  protected onStateChanged(_state: IMapState): void {
     // No-op
   }
 
@@ -288,14 +288,25 @@ export class WebmapxSearchTool extends WebmapxModalTool {
       const fillId = `${sourceId}-fill`;
       const lineId = `${sourceId}-line`;
       const pointId = `${sourceId}-point`;
+      const resultName = this.getFeatureTitle(feature);
 
       if (geom === 'Polygon' || geom === 'MultiPolygon') {
-        map.addLayer({ id: fillId, type: 'fill', source: sourceId, paint: { 'fill-color': color, 'fill-opacity': 0.25 } });
-        map.addLayer({ id: lineId, type: 'line', source: sourceId, paint: { 'line-color': color, 'line-width': 2 } });
+        // One style layer for polygons: filled area + outline, with a single legend item.
+        map.addLayer({
+          id: fillId,
+          type: 'fill',
+          source: sourceId,
+          metadata: { label: resultName, hideFromLegend: false },
+          paint: {
+            'fill-color': color,
+            'fill-opacity': 0.25,
+            'fill-outline-color': color,
+          }
+        });
       } else if (geom === 'LineString' || geom === 'MultiLineString') {
-        map.addLayer({ id: lineId, type: 'line', source: sourceId, paint: { 'line-color': color, 'line-width': 3 } });
+        map.addLayer({ id: lineId, type: 'line', source: sourceId, metadata: { label: resultName, hideFromLegend: false }, paint: { 'line-color': color, 'line-width': 3 } });
       } else { // Point / MultiPoint fallback
-        map.addLayer({ id: pointId, type: 'circle', source: sourceId, paint: { 'circle-color': color, 'circle-radius': 6 } });
+        map.addLayer({ id: pointId, type: 'circle', source: sourceId, metadata: { label: resultName, hideFromLegend: false }, paint: { 'circle-color': color, 'circle-radius': 6 } });
       }
 
       this.persistedMap.set(feature, { sourceId, color });
@@ -346,11 +357,11 @@ export class WebmapxSearchTool extends WebmapxModalTool {
     if (!this.previewLayersAdded) {
       try {
         // Fill for polygons (default preview colors)
-        map.addLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, paint: { 'fill-color': '#f1c40f', 'fill-opacity': 0.25 } });
+        map.addLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, metadata: { hideFromLegend: true, label: 'Search preview fill' }, paint: { 'fill-color': '#f1c40f', 'fill-opacity': 0.25 } });
         // Line for lines
-        map.addLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, paint: { 'line-color': '#f39c12', 'line-width': 3 } });
+        map.addLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, metadata: { hideFromLegend: true, label: 'Search preview line' }, paint: { 'line-color': '#f39c12', 'line-width': 3 } });
         // Circle for points
-        map.addLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, paint: { 'circle-color': '#e67e22', 'circle-radius': 6 } });
+        map.addLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, metadata: { hideFromLegend: true, label: 'Search preview point' }, paint: { 'circle-color': '#e67e22', 'circle-radius': 6 } });
         this.previewLayersAdded = true;
       } catch (e) {
         console.warn('adding preview layers failed', e);
@@ -369,9 +380,9 @@ export class WebmapxSearchTool extends WebmapxModalTool {
     }
 
     try {
-      map.addLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, paint: { 'fill-color': colors?.fill ?? '#f1c40f', 'fill-opacity': 0.25 } });
-      map.addLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, paint: { 'line-color': colors?.line ?? '#f39c12', 'line-width': 3 } });
-      map.addLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, paint: { 'circle-color': colors?.point ?? '#e67e22', 'circle-radius': 6 } });
+      map.addLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, metadata: { hideFromLegend: true, label: 'Search preview fill' }, paint: { 'fill-color': colors?.fill ?? '#f1c40f', 'fill-opacity': 0.25 } });
+      map.addLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, metadata: { hideFromLegend: true, label: 'Search preview line' }, paint: { 'line-color': colors?.line ?? '#f39c12', 'line-width': 3 } });
+      map.addLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, metadata: { hideFromLegend: true, label: 'Search preview point' }, paint: { 'circle-color': colors?.point ?? '#e67e22', 'circle-radius': 6 } });
       this.previewLayersAdded = true;
     } catch (e) {
       console.warn('update preview layers failed', e);

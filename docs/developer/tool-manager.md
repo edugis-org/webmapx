@@ -240,7 +240,7 @@ store.dispatch({ activeTool: null }, 'UI');
 This allows passive tools to check if a modal tool is active:
 
 ```typescript
-protected onStateChanged(state: IAppState): void {
+protected onStateChanged(state: IMapState): void {
     if (state.activeTool?.toolId) {
         // A modal tool is active, maybe reduce updates
     }

@@ -4,16 +4,16 @@
 
 // src/store/map-state-store.ts
 
-import { IAppState, StateSource } from './IState'; 
+import { IMapState, StateSource } from './IMapState'; 
 
 // ... (rest of the store implementation)
 
 // Simple Observer pattern setup
-type Listener = (state: IAppState, source: StateSource) => void;
+type Listener = (state: IMapState, source: StateSource) => void;
 
 export class MapStateStore {
     // ... (implementation code from previous step)
-    private state: IAppState = {
+    private state: IMapState = {
         mapLoaded: false,
         mapBusy: false,
         bufferRadiusKm: 5,
@@ -25,15 +25,16 @@ export class MapStateStore {
         pointerResolution: null,
         lastClickedResolution: null,
         visibleLayers: [],
+        runtimeLayerMetadata: {},
         activeTool: null
     };
     private listeners: Listener[] = [];
 
-    public getState(): IAppState {
+    public getState(): IMapState {
         return Object.freeze({ ...this.state });
     }
 
-    public dispatch(newState: Partial<IAppState>, source: StateSource): void {
+    public dispatch(newState: Partial<IMapState>, source: StateSource): void {
         const previousState = this.state;
         this.state = { 
             ...previousState, 

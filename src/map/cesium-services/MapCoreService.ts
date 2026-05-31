@@ -110,6 +110,38 @@ export class MapCoreService implements IMapCore {
     private readonly layerZStepMeters = 0.5;
     private readonly basePolylinePositions = new WeakMap<any, any[]>();
 
+    private registerRuntimeLayer(layer: any): void {
+        const layerId = typeof layer?.id === 'string' ? layer.id : null;
+        if (!layerId) return;
+
+        const metadata = (layer?.metadata && typeof layer.metadata === 'object')
+            ? { ...(layer.metadata as Record<string, unknown>) }
+            : {};
+
+        if (typeof metadata.label !== 'string' || metadata.label.length === 0) {
+            if (typeof layer?.title === 'string' && layer.title.length > 0) {
+                metadata.label = layer.title;
+            } else {
+                metadata.label = layerId;
+            }
+        }
+
+        const current = this.store.getState().runtimeLayerMetadata ?? {};
+        this.store.dispatch({
+            runtimeLayerMetadata: {
+                ...current,
+                [layerId]: metadata,
+            },
+        }, 'MAP');
+    }
+
+    private unregisterRuntimeLayer(layerId: string): void {
+        const current = this.store.getState().runtimeLayerMetadata ?? {};
+        if (!(layerId in current)) return;
+        const { [layerId]: _removed, ...rest } = current;
+        this.store.dispatch({ runtimeLayerMetadata: rest }, 'MAP');
+    }
+
     public initialize(
         containerId: string,
         options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; styleUrl?: string; style?: MapStyle }
@@ -269,10 +301,12 @@ export class MapCoreService implements IMapCore {
         const state = this.sourceState.get(sourceId);
         if (!state) return;
 
+        this.registerRuntimeLayer(layer);
+
         const layerId = typeof layer?.id === 'string' ? layer.id : null;
         if (layerId) {
             this.insertRuntimeLayer(layerId, options);
-            state.layers = state.layers.filter((entry) => entry?.id !== layerId);
+            state.layers = state.layers.filter((entry) => entry?.spec?.id !== layerId);
         }
 
         const layerState: CesiumRuntimeLayerState = { spec: layer, dataSource: null };
@@ -286,7 +320,10 @@ export class MapCoreService implements IMapCore {
 
     public removeLayer(_id: string): void {
         const id = _id as any;
-        if (typeof id === 'string') this.removeRuntimeLayer(id);
+        if (typeof id === 'string') {
+            this.removeRuntimeLayer(id);
+            this.unregisterRuntimeLayer(id);
+        }
 
         for (const [sourceId, state] of this.sourceState.entries()) {
             const before = state.layers.length;
@@ -328,7 +365,10 @@ export class MapCoreService implements IMapCore {
         if (state?.layers?.length) {
             for (const layer of state.layers) {
                 const layerId = typeof layer.spec?.id === 'string' ? layer.spec.id : null;
-                if (layerId) this.removeRuntimeLayer(layerId);
+                if (layerId) {
+                    this.removeRuntimeLayer(layerId);
+                    this.unregisterRuntimeLayer(layerId);
+                }
                 this.removeLayerDataSource(layer);
             }
         }
@@ -915,7 +955,7 @@ export class MapCoreService implements IMapCore {
         layerState.dataSource = nextDataSource;
         this.viewer.dataSources.add(nextDataSource);
         this.applyLayerStyle(layerState);
-        this.removeLayerDataSource({ spec: layerState.spec, dataSource: previousDataSource });
+        this.removeLayerDataSource({ dataSource: previousDataSource });
     }
 
     private removeLayerDataSource(layerState: { dataSource: any | null }): void {

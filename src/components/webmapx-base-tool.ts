@@ -1,6 +1,6 @@
 import { LitElement } from 'lit';
 import { MapStateStore } from '../store/map-state-store';
-import { IAppState, StateSource } from '../store/IState';
+import { IMapState, StateSource } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
 import { resolveMapAdapter, resolveMapElement } from './internal/map-context';
 import type { AppConfig, CatalogConfig, MapConfig, ToolsConfig } from '../config/types';
@@ -91,7 +91,7 @@ export abstract class WebmapxBaseTool extends LitElement {
      * Handles updates from the Map State Store.
      * Implements the "Temporary Muting" pattern.
      */
-    private handleStateChange(state: IAppState, source: StateSource) {
+    private handleStateChange(state: IMapState, source: StateSource) {
         // Ignore the state change if it came from 'UI' and this component is currently setting it.
         if (source === 'UI' && this.isSettingValue) {
             return; 
@@ -120,7 +120,7 @@ export abstract class WebmapxBaseTool extends LitElement {
      * Called when the store state changes (and isn't muted).
      * Override this to update your component's reactive properties.
      */
-    protected abstract onStateChanged(state: IAppState): void;
+    protected abstract onStateChanged(state: IMapState): void;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Configuration Access

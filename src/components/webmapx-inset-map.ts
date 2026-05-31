@@ -2,7 +2,7 @@ import { css, html, LitElement, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { resolveMapElement } from './internal/map-context';
 import type { IMap, ISource, ISubMap, MapCreateOptions } from '../map/IMapInterfaces';
-import { IAppState } from '../store/IState';
+import { IMapState } from '../store/IMapState';
 import { throttle } from '../utils/throttle';
 import type { LngLat } from '../store/map-events';
 import type { InsetMapToolConfig } from '../config/types';
@@ -204,7 +204,7 @@ export class WebmapxInsetMap extends LitElement {
     return propertyValue;
   }
 
-  private throttledApplyStateWithZoomOffset = throttle((state: IAppState, zoomOffset: number) => {
+  private throttledApplyStateWithZoomOffset = throttle((state: IMapState, zoomOffset: number) => {
     this.applyState(state, zoomOffset);
   }, 50);
 
@@ -291,7 +291,7 @@ export class WebmapxInsetMap extends LitElement {
     });
   }
 
-  private applyState(state: IAppState, zoomOffset = this.zoomOffset): void {
+  private applyState(state: IMapState, zoomOffset = this.zoomOffset): void {
     if (!this.insetMap) return;
 
     const container = this.insetContainer;
@@ -437,7 +437,7 @@ export class WebmapxInsetMap extends LitElement {
     this.throttledRenderLog('end render');
   }
 
-  private hasRelevantStateChange(state: IAppState): boolean {
+  private hasRelevantStateChange(state: IMapState): boolean {
     const center = state.mapCenter;
     const zoom = state.zoomLevel;
     const boundsKey = this.computeBoundsKey(this.densifyViewportBounds(state.mapViewportBounds));

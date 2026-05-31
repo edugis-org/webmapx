@@ -26,6 +26,7 @@ export interface LayerNode {
 type SelectionContext = {
     selectionMode: TreeSelectionMode;
     selectionGroup: string | null;
+    exclusiveGroupKey: string | null;
     allowNone: boolean;
     stackOrder?: number;
 };
@@ -37,6 +38,8 @@ type LayerCheckDetail = {
     selectionMode?: TreeSelectionMode;
     stackOrder?: number;
 };
+
+type LayerSupportStatus = 'unknown' | 'checking' | 'supported' | 'unsupported';
 
 /**
  * Layer tree component that displays a hierarchical tree of map layers.
@@ -59,6 +62,13 @@ export class WebmapxLayerTree extends LitElement {
     private adapter: IMap | null = null;
     private unsubscribeLayerAdd: (() => void) | null = null;
     private unsubscribeLayerRemove: (() => void) | null = null;
+    private readonly nodeByKey = new Map<string, LayerNode>();
+    private readonly supportStatusByLayerId = new Map<string, LayerSupportStatus>();
+    private readonly pendingSupportChecks = new Set<string>();
+    private readonly supportQueue: string[] = [];
+    private supportChecksInFlight = 0;
+    private readonly maxConcurrentSupportChecks = 3;
+    private didQueueRootSupportChecks = false;
 
     static styles = css`
         :host {
@@ -142,6 +152,8 @@ export class WebmapxLayerTree extends LitElement {
         const existingConfig = this.mapHost?.catalogConfig;
         if (existingConfig?.tree) {
             this.configTree = existingConfig.tree;
+            this.didQueueRootSupportChecks = false;
+            this.queueRootLazySupportChecks();
         }
 
         // Listen for future config changes
@@ -150,9 +162,11 @@ export class WebmapxLayerTree extends LitElement {
             const tree = detail.config?.catalog?.tree;
             if (tree) {
                 this.configTree = tree;
+                this.didQueueRootSupportChecks = false;
                 if (this.adapter) {
                     this.syncCheckedLayersFromStore();
                 }
+                this.queueRootLazySupportChecks();
             }
         };
 
@@ -180,6 +194,135 @@ export class WebmapxLayerTree extends LitElement {
         });
 
         this.syncCheckedLayersFromStore();
+        this.queueRootLazySupportChecks();
+    }
+
+    private getSupportStatus(layerId: string | undefined): LayerSupportStatus {
+        if (!layerId) return 'unknown';
+        return this.supportStatusByLayerId.get(layerId) ?? 'unknown';
+    }
+
+    private setSupportStatus(layerId: string, status: LayerSupportStatus): void {
+        const current = this.supportStatusByLayerId.get(layerId);
+        if (current === status) {
+            return;
+        }
+        this.supportStatusByLayerId.set(layerId, status);
+        this.requestUpdate();
+    }
+
+    private collectLayerIdsForSupport(node: LayerNode): string[] {
+        if (node.layerId) {
+            return [node.layerId];
+        }
+
+        const children = Array.isArray(node.children) ? node.children : [];
+        const layerIds: string[] = [];
+        for (const child of children) {
+            layerIds.push(...this.collectLayerIdsForSupport(child));
+        }
+        return layerIds;
+    }
+
+    private queueSupportCheck(layerId: string): void {
+        const status = this.getSupportStatus(layerId);
+        if (status === 'supported' || status === 'unsupported' || status === 'checking') {
+            return;
+        }
+        if (this.pendingSupportChecks.has(layerId)) {
+            return;
+        }
+
+        this.pendingSupportChecks.add(layerId);
+        this.supportQueue.push(layerId);
+        this.pumpSupportQueue();
+    }
+
+    private pumpSupportQueue(): void {
+        while (this.supportChecksInFlight < this.maxConcurrentSupportChecks && this.supportQueue.length > 0) {
+            const layerId = this.supportQueue.shift();
+            if (!layerId) {
+                continue;
+            }
+            void this.runSupportCheck(layerId);
+        }
+    }
+
+    private async runSupportCheck(layerId: string): Promise<void> {
+        if (!this.pendingSupportChecks.has(layerId)) {
+            return;
+        }
+
+        const mapHost = this.mapHost;
+        if (!mapHost) {
+            this.pendingSupportChecks.delete(layerId);
+            return;
+        }
+
+        this.pendingSupportChecks.delete(layerId);
+        this.supportChecksInFlight += 1;
+        this.setSupportStatus(layerId, 'checking');
+
+        try {
+            const supported = await mapHost.isCatalogLayerSupported(layerId);
+            this.setSupportStatus(layerId, supported ? 'supported' : 'unsupported');
+
+            if (!supported) {
+                this.setLayerCheckedState(layerId, false);
+            }
+        } catch {
+            this.setSupportStatus(layerId, 'unknown');
+        } finally {
+            this.supportChecksInFlight = Math.max(0, this.supportChecksInFlight - 1);
+            this.pumpSupportQueue();
+        }
+    }
+
+    private queueRootLazySupportChecks(): void {
+        if (!this.adapter) {
+            return;
+        }
+
+        if (this.didQueueRootSupportChecks) {
+            return;
+        }
+
+        const rootNodes = this.effectiveTree;
+        if (!Array.isArray(rootNodes) || rootNodes.length === 0) {
+            return;
+        }
+
+        for (const node of rootNodes) {
+            if (node.layerId) {
+                this.queueSupportCheck(node.layerId);
+                continue;
+            }
+
+            if (node.expanded === true && Array.isArray(node.children)) {
+                for (const layerId of this.collectLayerIdsForSupport(node)) {
+                    this.queueSupportCheck(layerId);
+                }
+            }
+        }
+
+        this.didQueueRootSupportChecks = true;
+    }
+
+    private handleTreeExpand(e: Event): void {
+        const target = e.target as HTMLElement | null;
+        const nodeKey = target?.getAttribute?.('data-node-key');
+        if (!nodeKey) {
+            return;
+        }
+
+        const node = this.nodeByKey.get(nodeKey);
+        if (!node) {
+            return;
+        }
+
+        for (const layerId of this.collectLayerIdsForSupport(node)) {
+            this.queueSupportCheck(layerId);
+        }
     }
 
     private subscribeToMapReady(): void {
@@ -344,10 +487,26 @@ export class WebmapxLayerTree extends LitElement {
         return this.configTree as LayerNode[];
     }
 
-    private getChildSelectionContext(node: LayerNode, parentContext?: SelectionContext): SelectionContext {
+    private getChildSelectionContext(node: LayerNode, parentContext?: SelectionContext, nodeKey?: string): SelectionContext {
+        const selectionMode = node.selectionMode ?? parentContext?.selectionMode ?? 'multiple';
+        const selectionGroup = node.selectionGroup ?? parentContext?.selectionGroup ?? null;
+
+        let exclusiveGroupKey: string | null = null;
+        if (selectionMode === 'single') {
+            if (selectionGroup) {
+                exclusiveGroupKey = selectionGroup;
+            } else if (node.children?.length) {
+                exclusiveGroupKey = `tree-group:${nodeKey ?? 'root'}`;
+            } else {
+                exclusiveGroupKey = parentContext?.exclusiveGroupKey
+                    ?? (typeof node.layerId === 'string' ? `layer:${node.layerId}` : null);
+            }
+        }
+
         return {
-            selectionMode: node.selectionMode ?? parentContext?.selectionMode ?? 'multiple',
-            selectionGroup: node.selectionGroup ?? parentContext?.selectionGroup ?? null,
+            selectionMode,
+            selectionGroup,
+            exclusiveGroupKey,
             allowNone: node.allowNone ?? parentContext?.allowNone ?? false,
             stackOrder: node.stackOrder ?? parentContext?.stackOrder,
         };
@@ -383,14 +542,13 @@ export class WebmapxLayerTree extends LitElement {
             return null;
         }
 
-        return context.selectionGroup ?? (typeof node.layerId === 'string' ? `layer:${node.layerId}` : null);
+        return context.exclusiveGroupKey ?? context.selectionGroup ?? (typeof node.layerId === 'string' ? `layer:${node.layerId}` : null);
     }
 
     private clearExclusiveSelection(
         nodes: LayerNode[],
         activeLayerId: string,
         groupKey: string,
-        context: SelectionContext,
     ): string[] {
         const removedLayerIds: string[] = [];
 
@@ -414,43 +572,51 @@ export class WebmapxLayerTree extends LitElement {
             }
         };
 
-        walk(nodes, context);
+        walk(nodes, undefined);
         return removedLayerIds;
     }
 
-    renderNode(node: LayerNode, context?: SelectionContext): TemplateResult {
-        const nodeContext = this.getChildSelectionContext(node, context);
+    renderNode(node: LayerNode, context?: SelectionContext, nodeKey = '0'): TemplateResult {
+        const nodeContext = this.getChildSelectionContext(node, context, nodeKey);
+        this.nodeByKey.set(nodeKey, node);
+
         if (node.children && node.children.length > 0) {
             return html`
-                <sl-tree-item ?expanded=${node.expanded}>
+                <sl-tree-item ?expanded=${node.expanded} data-node-key=${nodeKey}>
                     ${node.label}
-                    ${node.children.map(child => this.renderNode(child, nodeContext))}
+                    ${node.children.map((child, index) => this.renderNode(child, nodeContext, `${nodeKey}.${index}`))}
                 </sl-tree-item>
             `;
         } else {
             const isExclusive = nodeContext.selectionMode === 'single';
             const selectionGroup = this.getExclusiveGroupKey(node, nodeContext);
+            const layerSupportStatus = this.getSupportStatus(node.layerId);
+            const disabled = layerSupportStatus === 'unsupported';
+            const label = disabled ? `${node.label} (unsupported for current engine)` : node.label;
 
             return html`
-                <sl-tree-item>
+                <sl-tree-item data-node-key=${nodeKey}>
                     ${isExclusive ? html`
                         <label class="layer-radio">
                             <input
                                 type="radio"
                                 ?checked=${node.checked}
+                                ?disabled=${disabled}
+                                name=${selectionGroup ?? nodeContext.exclusiveGroupKey ?? ''}
                                 data-layer-id=${node.layerId ?? ''}
                                 data-selection-group=${selectionGroup ?? ''}
                                 @change=${(e: Event) => this.handleCheck(e, node, nodeContext)}
                             />
-                            <span>${node.label}</span>
+                            <span>${label}</span>
                         </label>
                     ` : html`
                         <sl-checkbox
                             ?checked=${node.checked}
+                            ?disabled=${disabled}
                             data-layer-id=${node.layerId ?? ''}
                             @sl-change=${(e: Event) => this.handleCheck(e, node, nodeContext)}
                         >
-                            ${node.label}
+                            ${label}
                         </sl-checkbox>
                     `}
                 </sl-tree-item>
@@ -474,7 +640,7 @@ export class WebmapxLayerTree extends LitElement {
 
         const groupKey = this.getExclusiveGroupKey(node, context);
         if (isChecked && groupKey) {
-            const removedLayerIds = this.clearExclusiveSelection(this.effectiveTree, node.layerId, groupKey, context);
+            const removedLayerIds = this.clearExclusiveSelection(this.effectiveTree, node.layerId, groupKey);
             removedLayerIds.forEach((layerId) => {
                 this.setLayerCheckedState(layerId, false);
                 const removedLayerInfo = this.getLayerInformationById(layerId);
@@ -506,9 +672,11 @@ export class WebmapxLayerTree extends LitElement {
     }
 
     render() {
+        this.nodeByKey.clear();
+
         return html`
-            <sl-tree>
-                ${this.effectiveTree.map(node => this.renderNode(node))}
+            <sl-tree @sl-expand=${this.handleTreeExpand}>
+                ${this.effectiveTree.map((node, index) => this.renderNode(node, undefined, `${index}`))}
             </sl-tree>
         `;
     }

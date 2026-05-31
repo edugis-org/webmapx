@@ -333,7 +333,7 @@ export interface ILogicalLayerExecutor {
     setCatalog(catalog: CatalogConfig): void;
 
     /** Adds a logical layer using its resolved layer and source configs. */
-    addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig): Promise<boolean>;
+    addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig, options?: LayerInsertOptions): Promise<boolean>;
 
     /** Removes a logical layer by id. */
     removeLayer(layerId: string): void;
@@ -364,7 +364,7 @@ export interface ILayerService {
      * @param sourceConfig SourceConfig object
      * @returns true if layer was added successfully, false on failure
      */
-    addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig): Promise<boolean>;
+    addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig, options?: LayerInsertOptions): Promise<boolean>;
 
     /**
      * Removes a layer from the map by its ID.

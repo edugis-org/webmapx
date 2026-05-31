@@ -1,6 +1,6 @@
 // src/map/cesium-services/MapLayerService.ts
 
-import type { ILayerService } from '../IMapInterfaces';
+import type { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
 import type { LayerConfig, SourceConfig, WMSSourceConfig } from '../../config/types';
 import type { MapStateStore } from '../../store/map-state-store';
 import { throttle } from '../../utils/throttle';
@@ -95,6 +95,7 @@ export class MapLayerService implements ILayerService {
     private lastZoomLevel: number | null = null;
     private unsubscribeStore: (() => void) | null = null;
     private busyOps = 0;
+    private logicalOrder: string[] = [];
 
     constructor(
         private readonly viewer: any,
@@ -146,11 +147,67 @@ export class MapLayerService implements ILayerService {
         this.store.dispatch({ visibleLayers: Array.from(layerIds) }, 'MAP');
     }
 
+    private resolveInsertIndex(options?: LayerInsertOptions): number | undefined {
+        if (options?.beforeLayerId) {
+            const index = this.logicalOrder.indexOf(options.beforeLayerId);
+            if (index >= 0) return index;
+        }
+
+        if (options?.afterLayerId) {
+            const index = this.logicalOrder.indexOf(options.afterLayerId);
+            if (index >= 0) return index + 1;
+        }
+
+        return undefined;
+    }
+
+    private upsertLogicalOrder(layerId: string, options?: LayerInsertOptions): void {
+        const insertIndex = this.resolveInsertIndex(options);
+        this.logicalOrder = this.logicalOrder.filter((id) => id !== layerId);
+
+        if (typeof insertIndex !== 'number' || !Number.isFinite(insertIndex)) {
+            this.logicalOrder.push(layerId);
+            return;
+        }
+
+        const clamped = Math.max(0, Math.min(insertIndex, this.logicalOrder.length));
+        this.logicalOrder.splice(clamped, 0, layerId);
+    }
+
+    private reapplyImageryOrder(): void {
+        const desiredImageryLayers: any[] = [];
+        for (const logicalLayerId of this.logicalOrder) {
+            for (const [handleKey, handle] of this.handles.entries()) {
+                if (!handleKey.startsWith(`${logicalLayerId}::`)) {
+                    continue;
+                }
+                if (handle.kind === 'imagery') {
+                    desiredImageryLayers.push(handle.imageryLayer);
+                }
+            }
+        }
+
+        for (let targetIndex = 0; targetIndex < desiredImageryLayers.length; targetIndex += 1) {
+            const layer = desiredImageryLayers[targetIndex];
+            const currentIndex = this.viewer.imageryLayers.indexOf(layer);
+            if (currentIndex === targetIndex) {
+                continue;
+            }
+
+            try {
+                this.viewer.imageryLayers.remove(layer, false);
+            } catch {
+                // ignore
+            }
+            this.viewer.imageryLayers.add(layer, targetIndex);
+        }
+    }
+
     setCatalog(_catalog: any): void {
         // Not needed; layer tree passes configs directly.
     }
 
-    async addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig): Promise<boolean> {
+    async addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig, options?: LayerInsertOptions): Promise<boolean> {
         const Cesium = getCesium();
         if (!Cesium) return false;
 
@@ -179,6 +236,8 @@ export class MapLayerService implements ILayerService {
                 const imageryLayer = new Cesium.ImageryLayer(provider);
                 this.viewer.imageryLayers.add(imageryLayer);
                 this.handles.set(handleKey, { kind: 'imagery', imageryLayer, maxLevel });
+                this.upsertLogicalOrder(layerId, options);
+                this.reapplyImageryOrder();
                 this.updateVisibleLayers();
                 this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
                 return true;
@@ -206,6 +265,8 @@ export class MapLayerService implements ILayerService {
                 const imageryLayer = new Cesium.ImageryLayer(provider);
                 this.viewer.imageryLayers.add(imageryLayer);
                 this.handles.set(handleKey, { kind: 'imagery', imageryLayer, maxLevel });
+                this.upsertLogicalOrder(layerId, options);
+                this.reapplyImageryOrder();
                 this.updateVisibleLayers();
                 this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
                 return true;
@@ -226,6 +287,7 @@ export class MapLayerService implements ILayerService {
 
                 this.applyGeoJsonStyles(dataSource, layerConfig);
                 this.handles.set(handleKey, { kind: 'geojson', dataSource, sourceId: sourceConfig.id, layerConfig });
+                this.upsertLogicalOrder(layerId, options);
                 this.updateVisibleLayers();
                 return true;
             } finally {
@@ -258,6 +320,8 @@ export class MapLayerService implements ILayerService {
             }
             this.handles.delete(key);
         }
+        this.logicalOrder = this.logicalOrder.filter((id) => id !== layerId);
+        this.reapplyImageryOrder();
         this.updateVisibleLayers();
     }
 

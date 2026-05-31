@@ -37,6 +37,38 @@ export class MapCoreService implements IMapCore {
     private runtimeLayerOrder: string[] = [];
     private runtimeLayerZoomRange: Map<string, { minzoom?: number; maxzoom?: number }> = new Map();
 
+    private registerRuntimeLayer(layer: any): void {
+        const layerId = typeof layer?.id === 'string' ? layer.id : null;
+        if (!layerId) return;
+
+        const metadata = (layer?.metadata && typeof layer.metadata === 'object')
+            ? { ...(layer.metadata as Record<string, unknown>) }
+            : {};
+
+        if (typeof metadata.label !== 'string' || metadata.label.length === 0) {
+            if (typeof layer?.title === 'string' && layer.title.length > 0) {
+                metadata.label = layer.title;
+            } else {
+                metadata.label = layerId;
+            }
+        }
+
+        const current = this.store.getState().runtimeLayerMetadata ?? {};
+        this.store.dispatch({
+            runtimeLayerMetadata: {
+                ...current,
+                [layerId]: metadata,
+            },
+        }, 'MAP');
+    }
+
+    private unregisterRuntimeLayer(layerId: string): void {
+        const current = this.store.getState().runtimeLayerMetadata ?? {};
+        if (!(layerId in current)) return;
+        const { [layerId]: _removed, ...rest } = current;
+        this.store.dispatch({ runtimeLayerMetadata: rest }, 'MAP');
+    }
+
     private readonly initialConfig = {
         center: [51.17, 10.45] as [number, number],
         zoom: 4,
@@ -357,6 +389,8 @@ export class MapCoreService implements IMapCore {
 
     public addLayer(layerSpec: any, options?: { beforeLayerId?: string; afterLayerId?: string }): void {
         if (!this.mapInstance) return;
+
+        this.registerRuntimeLayer(layerSpec);
     
         const sourceId = layerSpec.source;
         if (!sourceId) {
@@ -416,6 +450,7 @@ export class MapCoreService implements IMapCore {
 
             this.applyRuntimeLayerOrder();
         }
+        this.unregisterRuntimeLayer(id);
     }
 
     public addSource(id: string, config: any): void {

@@ -1,10 +1,15 @@
 import { css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import type { IAppState } from '../store/IState';
+import type { IMapState } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
 import type { LayerAddEvent, LayerRemoveEvent } from '../store/map-events';
-import { buildLayerPanelSections, type LayerPanelItem } from '../utils/layer-panel-model';
+
+export interface LayerPanelItem {
+  layerId: string;
+  label: string;
+  topLevelGroup: string | null;
+}
 
 @customElement('webmapx-layer-overview')
 export class WebmapxLayerOverview extends WebmapxBaseTool {
@@ -96,18 +101,20 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     }
   `;
 
-  protected onStateChanged(state: IAppState): void {
-    this.applyVisibleLayers(state.visibleLayers);
+  protected onStateChanged(state: IMapState): void {
+    this.applyVisibleLayers(state);
   }
 
   protected onMapAttached(adapter: IMap): void {
     this.unsubscribeLayerAdd = adapter.events.on('layer-add', (event: LayerAddEvent) => {
-      this.applyVisibleLayers(event.visibleLayers);
+      void event;
+      this.applyVisibleLayers(adapter.store.getState());
     });
     this.unsubscribeLayerRemove = adapter.events.on('layer-remove', (event: LayerRemoveEvent) => {
-      this.applyVisibleLayers(event.visibleLayers);
+      void event;
+      this.applyVisibleLayers(adapter.store.getState());
     });
-    this.applyVisibleLayers(adapter.store.getState().visibleLayers);
+    this.applyVisibleLayers(adapter.store.getState());
   }
 
   protected onMapDetached(): void {
@@ -148,9 +155,62 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     `;
   }
 
-  private applyVisibleLayers(visibleLayers: string[]): void {
-    const sections = buildLayerPanelSections(this.catalogConfig, visibleLayers, this.backgroundGroupLabel);
-    this.backgroundLayers = sections.background;
-    this.overviewLayers = sections.overview;
+  private applyVisibleLayers(state: IMapState): void {
+    const visibleLayers = Array.isArray(state.visibleLayers) ? state.visibleLayers : [];
+    const runtimeLayerMetadata = state.runtimeLayerMetadata ?? {};
+
+    const mergedLayerIds: string[] = [];
+    for (const layerId of visibleLayers) {
+      if (!mergedLayerIds.includes(layerId)) {
+        mergedLayerIds.push(layerId);
+      }
+    }
+    for (const layerId of Object.keys(runtimeLayerMetadata)) {
+      if (!mergedLayerIds.includes(layerId)) {
+        mergedLayerIds.push(layerId);
+      }
+    }
+
+    const orderedIds = [...mergedLayerIds].reverse();
+    const background: LayerPanelItem[] = [];
+    const overview: LayerPanelItem[] = [];
+    const normalizedBackgroundGroupLabel = this.backgroundGroupLabel.trim().toLowerCase();
+
+    for (const layerId of orderedIds) {
+      const metadata = runtimeLayerMetadata[layerId] as Record<string, unknown> | undefined;
+      if (metadata?.hideFromLegend === true) {
+        continue;
+      }
+
+      const legendRole = metadata?.legendRole === 'background' || metadata?.legendRole === 'overlay'
+        ? metadata.legendRole
+        : null;
+
+      const label = typeof metadata?.label === 'string' && metadata.label.length > 0
+        ? metadata.label
+        : layerId;
+      const topLevelGroup = typeof metadata?.group === 'string' && metadata.group.length > 0
+        ? metadata.group
+        : null;
+
+      const item: LayerPanelItem = {
+        layerId,
+        label,
+        topLevelGroup,
+      };
+
+      if (legendRole === 'background') {
+        background.push(item);
+      } else if (legendRole === 'overlay') {
+        overview.push(item);
+      } else if (topLevelGroup?.trim().toLowerCase() === normalizedBackgroundGroupLabel) {
+        background.push(item);
+      } else {
+        overview.push(item);
+      }
+    }
+
+    this.backgroundLayers = background;
+    this.overviewLayers = overview;
   }
 }

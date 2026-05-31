@@ -32,7 +32,7 @@
 
 import { property } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import { IAppState } from '../store/IState';
+import { IMapState } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
 import type { IModalTool } from '../tools/IModalTool';
 import type { ToolManager } from '../tools/tool-manager';
@@ -130,7 +130,7 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
      * Modal tools don't need to react to external state changes
      * since ToolManager handles coordination.
      */
-    protected onStateChanged(_state: IAppState): void {
+    protected onStateChanged(_state: IMapState): void {
         // No-op by default. Subclasses can override if needed.
     }
 

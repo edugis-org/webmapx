@@ -1,7 +1,7 @@
 import { css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import type { IAppState } from '../store/IState';
+import type { IMapState } from '../store/IMapState';
 import type { ViewChangeEndEvent, ViewChangeEvent } from '../store/map-events';
 import type { IMap, NavigationCapabilities } from '../map/IMapInterfaces';
 
@@ -174,7 +174,7 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
     this.zoomMax = null;
   }
 
-  protected onStateChanged(state: IAppState): void {
+  protected onStateChanged(state: IMapState): void {
     if (state.zoomLevel != null && state.zoomLevel !== this.currentZoom) {
       this.currentZoom = state.zoomLevel;
     }

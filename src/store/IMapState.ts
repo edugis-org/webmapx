@@ -1,9 +1,8 @@
 /**
- * The single source of truth for the entire application state.
+ * The single source of truth for one map instance state.
  * Any property added here must be initialized in the map-state-store.ts file.
  */
-export interface IAppState {
-    // Example state properties
+export interface IMapState {
     mapLoaded: boolean;
     /** True when the map is busy loading tiles/data or rendering */
     mapBusy: boolean;
@@ -19,6 +18,9 @@ export interface IAppState {
     /** IDs of currently visible layers (from catalog config) */
     visibleLayers: string[];
 
+    /** Metadata for runtime layers added through addLayer (tool/user layers). */
+    runtimeLayerMetadata: Record<string, RuntimeLayerMetadataEntry>;
+
     /**
      * Currently active tool in the UI state model.
      * The shape is intentionally generic so any tool can participate without
@@ -29,6 +31,13 @@ export interface IAppState {
 
 export interface ActiveToolState {
     toolId: string;
+}
+
+export interface RuntimeLayerMetadataEntry {
+    label?: string;
+    hideFromLegend?: boolean;
+    legendRole?: 'background' | 'overlay';
+    [key: string]: unknown;
 }
 
 /** Defines who initiated the state change for loop prevention. */

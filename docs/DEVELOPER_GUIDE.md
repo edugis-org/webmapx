@@ -151,7 +151,7 @@ export class WebmapxMyTool extends LitElement {
   private unsubscribe: (() => void) | null = null;
 
   // Tool decides its own throttling
-  private throttledUpdate = throttle((state: IAppState) => {
+  private throttledUpdate = throttle((state: IMapState) => {
     this.handleStateChange(state);
   }, 50);
 

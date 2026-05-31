@@ -1,10 +1,11 @@
 import type { CatalogConfig, LayerConfig, SourceConfig } from '../config/types';
-import type { ILayerService, ILogicalLayerExecutor } from './IMapInterfaces';
+import type { ILayerService, ILogicalLayerExecutor, LayerInsertOptions } from './IMapInterfaces';
 
 type PendingAddRequest = {
     layerId: string;
     layerConfig: LayerConfig;
     sourceConfig: SourceConfig;
+    options?: LayerInsertOptions;
     resolve: (value: boolean) => void;
 };
 
@@ -24,13 +25,13 @@ export class DeferredLogicalLayerExecutor implements ILogicalLayerExecutor {
         this.layerService?.setCatalog(catalog);
     }
 
-    async addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig): Promise<boolean> {
+    async addLayer(layerId: string, layerConfig: LayerConfig, sourceConfig: SourceConfig, options?: LayerInsertOptions): Promise<boolean> {
         if (this.layerService) {
-            return this.layerService.addLayer(layerId, layerConfig, sourceConfig);
+            return this.layerService.addLayer(layerId, layerConfig, sourceConfig, options);
         }
 
         return new Promise<boolean>((resolve) => {
-            this.pendingAddRequests.push({ layerId, layerConfig, sourceConfig, resolve });
+            this.pendingAddRequests.push({ layerId, layerConfig, sourceConfig, options, resolve });
         });
     }
 
@@ -70,7 +71,7 @@ export class DeferredLogicalLayerExecutor implements ILogicalLayerExecutor {
         this.pendingAddRequests = [];
         pendingAdds.forEach(async (request) => {
             try {
-                const success = await this.layerService!.addLayer(request.layerId, request.layerConfig, request.sourceConfig);
+                const success = await this.layerService!.addLayer(request.layerId, request.layerConfig, request.sourceConfig, request.options);
                 request.resolve(success);
             } catch {
                 request.resolve(false);

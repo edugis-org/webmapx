@@ -1,7 +1,7 @@
 import { css, html, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import type { IAppState } from '../store/IState';
+import type { IMapState } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
 import type { LngLat, Pixel, ViewChangeEndEvent, ViewChangeEvent } from '../store/map-events';
 import { haversineDistanceCm } from '../utils/geo-calculations';
@@ -118,12 +118,12 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
     this.attachedAdapter = null;
   }
 
-  protected onStateChanged(state: IAppState): void {
+  protected onStateChanged(state: IMapState): void {
     // Use state as a fallback or initial sync; live events take precedence.
     this.applyStateSnapshot(state, !this.hasLiveView);
   }
 
-  private applyStateSnapshot(state: IAppState, allowUpdate: boolean): void {
+  private applyStateSnapshot(state: IMapState, allowUpdate: boolean): void {
     if (!allowUpdate) return;
 
     let updated = false;

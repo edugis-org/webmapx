@@ -9,6 +9,8 @@ import type {
   MapStyleLayer,
   SourceConfig,
   StyleLayerConfig,
+  TreeSelectionMode,
+  TreeNodeConfig,
   ToolsConfig,
 } from '../config/types';
 import {
@@ -34,6 +36,12 @@ type RuntimeLayerInformation = {
 
 type RuntimeLayerRequest = Record<string, unknown>;
 type ActiveLayerStateObject = Exclude<ActiveLayerStateEntry, string>;
+type LegendRole = 'background' | 'overlay';
+type SelectionTreeContext = {
+  selectionMode: TreeSelectionMode;
+  selectionGroup: string | null;
+  exclusiveGroupKey: string | null;
+};
 
 /**
  * Lightweight map wrapper that keeps the map canvas and overlay tools grouped
@@ -48,6 +56,7 @@ export class WebmapxMapElement extends HTMLElement {
   private activeAdapterName: string | null = null;
   private runtimeStyleLayerCounter = 0;
   private readonly styleLayerCache = new Map<string, RuntimeLayerInformation | null>();
+  private readonly singleGroupInsertSlotByGroup = new Map<string, LayerInsertOptions>();
     // Only one connectedCallback/disconnectedCallback allowed. Add event listener in the main one.
     connectedCallback(): void {
       this.upsertAndStyleSurface();
@@ -155,7 +164,9 @@ export class WebmapxMapElement extends HTMLElement {
       } else {
         // Remove the layer by id
         if (layerInformation) {
+          this.rememberSingleGroupInsertSlot(adapter, layerInformation.layer.id);
           adapter.logicalLayers.removeLayer(layerInformation.layer.id);
+          this.unregisterLayerLegendMetadata(adapter, layerInformation.layer.id);
         }
       }
     }
@@ -447,6 +458,192 @@ export class WebmapxMapElement extends HTMLElement {
     }
 
     return Array.from(new Set(refs));
+  }
+
+  private getBackgroundSeedLayerId(): string | null {
+    const refs = this.collectInitialActiveLayerRefs();
+    return refs.length > 0 ? refs[0] : null;
+  }
+
+  private getChildSelectionTreeContext(node: TreeNodeConfig, parentContext?: SelectionTreeContext, nodeKey?: string): SelectionTreeContext {
+    const selectionMode = node.selectionMode ?? parentContext?.selectionMode ?? 'multiple';
+    const selectionGroup = node.selectionGroup ?? parentContext?.selectionGroup ?? null;
+
+    let exclusiveGroupKey: string | null = null;
+    if (selectionMode === 'single') {
+      if (selectionGroup) {
+        exclusiveGroupKey = selectionGroup;
+      } else if (Array.isArray(node.children) && node.children.length > 0) {
+        exclusiveGroupKey = `tree-group:${nodeKey ?? 'root'}`;
+      } else {
+        exclusiveGroupKey = parentContext?.exclusiveGroupKey
+          ?? (typeof node.layerId === 'string' ? `layer:${node.layerId}` : null);
+      }
+    }
+
+    return {
+      selectionMode,
+      selectionGroup,
+      exclusiveGroupKey,
+    };
+  }
+
+  private collectSingleSelectionGroupByLayerId(): Map<string, string> {
+    const index = new Map<string, string>();
+    const catalogTree = this.catalogConfig?.tree;
+    if (!Array.isArray(catalogTree)) {
+      return index;
+    }
+
+    const visit = (nodes: TreeNodeConfig[], parentContext?: SelectionTreeContext, parentKey = '') => {
+      nodes.forEach((node, idx) => {
+        const nodeKey = parentKey.length > 0 ? `${parentKey}.${idx}` : `${idx}`;
+        const nodeContext = this.getChildSelectionTreeContext(node, parentContext, nodeKey);
+
+        if (typeof node.layerId === 'string' && node.layerId.length > 0 && nodeContext.selectionMode === 'single') {
+          const key = nodeContext.exclusiveGroupKey ?? nodeContext.selectionGroup;
+          if (key) {
+            index.set(node.layerId, key);
+          }
+        }
+
+        if (Array.isArray(node.children) && node.children.length > 0) {
+          visit(node.children, nodeContext, nodeKey);
+        }
+      });
+    };
+
+    visit(catalogTree);
+    return index;
+  }
+
+  private getSingleSelectionGroupKeyForLayer(layerId: string): string | null {
+    return this.collectSingleSelectionGroupByLayerId().get(layerId) ?? null;
+  }
+
+  private rememberSingleGroupInsertSlot(adapter: IMap, layerId: string): void {
+    const groupKey = this.getSingleSelectionGroupKeyForLayer(layerId);
+    if (!groupKey) {
+      return;
+    }
+
+    const visible = adapter.logicalLayers.getVisibleLayers();
+    const index = visible.indexOf(layerId);
+    if (index < 0) {
+      return;
+    }
+
+    const beforeLayerId = visible[index + 1];
+    const afterLayerId = visible[index - 1];
+
+    if (typeof beforeLayerId === 'string' && beforeLayerId.length > 0) {
+      this.singleGroupInsertSlotByGroup.set(groupKey, { beforeLayerId });
+      return;
+    }
+
+    if (typeof afterLayerId === 'string' && afterLayerId.length > 0) {
+      this.singleGroupInsertSlotByGroup.set(groupKey, { afterLayerId });
+      return;
+    }
+
+    this.singleGroupInsertSlotByGroup.delete(groupKey);
+  }
+
+  private resolveSingleGroupInsertionOptions(
+    adapter: IMap,
+    layerId: string,
+    baseOptions?: LayerInsertOptions,
+  ): LayerInsertOptions | undefined {
+    const groupKey = this.getSingleSelectionGroupKeyForLayer(layerId);
+    if (!groupKey) {
+      return baseOptions;
+    }
+
+    const slot = this.singleGroupInsertSlotByGroup.get(groupKey);
+    if (!slot) {
+      return baseOptions;
+    }
+
+    const visible = new Set(adapter.logicalLayers.getVisibleLayers());
+    const slotBefore = typeof slot.beforeLayerId === 'string' && visible.has(slot.beforeLayerId)
+      ? slot.beforeLayerId
+      : undefined;
+    const slotAfter = typeof slot.afterLayerId === 'string' && visible.has(slot.afterLayerId)
+      ? slot.afterLayerId
+      : undefined;
+
+    if (!slotBefore && !slotAfter) {
+      this.singleGroupInsertSlotByGroup.delete(groupKey);
+      return baseOptions;
+    }
+
+    const merged: LayerInsertOptions = {
+      ...(slotBefore ? { beforeLayerId: slotBefore } : {}),
+      ...(slotAfter ? { afterLayerId: slotAfter } : {}),
+      ...(baseOptions?.beforeLayerId ? { beforeLayerId: baseOptions.beforeLayerId } : {}),
+      ...(baseOptions?.afterLayerId ? { afterLayerId: baseOptions.afterLayerId } : {}),
+    };
+
+    return Object.keys(merged).length > 0 ? merged : undefined;
+  }
+
+  private resolveCatalogLegendRole(layerId: string, layer: LayerConfig): LegendRole {
+    const metadata = this.getLayerMetadata(layer);
+    if (metadata?.legendRole === 'background' || metadata?.legendRole === 'overlay') {
+      return metadata.legendRole;
+    }
+
+    const backgroundSeedLayerId = this.getBackgroundSeedLayerId();
+    if (!backgroundSeedLayerId) {
+      return 'overlay';
+    }
+    if (layerId === backgroundSeedLayerId) {
+      return 'background';
+    }
+
+    const groupByLayerId = this.collectSingleSelectionGroupByLayerId();
+    const seedGroup = groupByLayerId.get(backgroundSeedLayerId);
+    const candidateGroup = groupByLayerId.get(layerId);
+    if (seedGroup && candidateGroup && seedGroup === candidateGroup) {
+      return 'background';
+    }
+
+    return 'overlay';
+  }
+
+  private registerCatalogLayerLegendMetadata(adapter: IMap, layerId: string): void {
+    const layerInformation = this.getCatalogLayerInformation(layerId);
+    if (!layerInformation) {
+      return;
+    }
+
+    const current = adapter.store.getState().runtimeLayerMetadata ?? {};
+    const currentEntry = (current[layerId] ?? {}) as Record<string, unknown>;
+    const label = typeof layerInformation.layer.title === 'string' && layerInformation.layer.title.length > 0
+      ? layerInformation.layer.title
+      : layerId;
+    const legendRole = this.resolveCatalogLegendRole(layerId, layerInformation.layer);
+
+    adapter.store.dispatch({
+      runtimeLayerMetadata: {
+        ...current,
+        [layerId]: {
+          ...currentEntry,
+          label,
+          legendRole,
+        },
+      },
+    }, 'MAP');
+  }
+
+  private unregisterLayerLegendMetadata(adapter: IMap, layerId: string): void {
+    const current = adapter.store.getState().runtimeLayerMetadata ?? {};
+    if (!(layerId in current)) {
+      return;
+    }
+
+    const { [layerId]: _removed, ...rest } = current;
+    adapter.store.dispatch({ runtimeLayerMetadata: rest }, 'MAP');
   }
 
   private getCatalogLayerInformation(layerId: string): RuntimeLayerInformation | null {
@@ -795,8 +992,28 @@ export class WebmapxMapElement extends HTMLElement {
         : baseLayerInformation;
 
       if (runtimeLayerInformation && (!styleBacked || !this.hasUnsupportedStyleComponents(runtimeLayerInformation))) {
-        const success = await this.addLogicalLayerInternal(adapter, runtimeLayerInformation);
+        const layerInsertOptions = this.resolveSingleGroupInsertionOptions(adapter, catalogLayerId, options);
+        const legendRole = this.resolveCatalogLegendRole(catalogLayerId, runtimeLayerInformation.layer);
+        const singleSelectionGroupKey = this.collectSingleSelectionGroupByLayerId().get(catalogLayerId);
+        const runtimeLayerInformationWithLegendRole: RuntimeLayerInformation = {
+          ...runtimeLayerInformation,
+          layer: {
+            ...runtimeLayerInformation.layer,
+            metadata: {
+              ...(this.getLayerMetadata(runtimeLayerInformation.layer) ?? {}),
+              legendRole,
+              ...(singleSelectionGroupKey ? { singleSelectionGroupKey } : {}),
+            },
+          },
+        };
+
+        const success = await this.addLogicalLayerInternal(adapter, runtimeLayerInformationWithLegendRole, layerInsertOptions);
         if (success) {
+          const groupKey = this.getSingleSelectionGroupKeyForLayer(catalogLayerId);
+          if (groupKey) {
+            this.singleGroupInsertSlotByGroup.delete(groupKey);
+          }
+          this.registerCatalogLayerLegendMetadata(adapter, catalogLayerId);
           return true;
         }
       }
@@ -903,19 +1120,55 @@ export class WebmapxMapElement extends HTMLElement {
     return false;
   }
 
+  private isSourceSupportedByActiveEngine(source: SourceConfig): boolean {
+    const sourceType = typeof source?.type === 'string' ? source.type : null;
+    if (!sourceType || !this.isSourceTypeSupportedByActiveEngine(sourceType)) {
+      return false;
+    }
+
+    // Allmaps warpedmap:// currently has no Cesium runtime renderer.
+    if (this.activeAdapterName === 'cesium' && sourceType === 'raster' && source.service === 'xyz') {
+      const url = Array.isArray(source.url) ? source.url[0] : source.url;
+      if (typeof url === 'string' && url.startsWith('warpedmap://')) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   private hasUnsupportedStyleComponents(layerInformation: RuntimeLayerInformation): boolean {
     const sources = Array.isArray(layerInformation.sources) ? layerInformation.sources : [];
     if (sources.length === 0) {
       return true;
     }
 
-    return sources.some((source) => {
-      const sourceType = typeof source?.type === 'string' ? source.type : null;
-      return !sourceType || !this.isSourceTypeSupportedByActiveEngine(sourceType);
-    });
+    return sources.some((source) => !this.isSourceSupportedByActiveEngine(source));
   }
 
-  private async addLogicalLayerInternal(adapter: IMap, layerInformation: RuntimeLayerInformation): Promise<boolean> {
+  public async isCatalogLayerSupported(layerId: string): Promise<boolean> {
+    const layerInformation = this.getCatalogLayerInformation(layerId);
+    if (!layerInformation) {
+      return false;
+    }
+
+    if (!this.isStyleBackedLayer(layerInformation.layer)) {
+      return !this.hasUnsupportedStyleComponents(layerInformation);
+    }
+
+    const expanded = await this.expandStyleBackedLayer(layerInformation.layer);
+    if (!expanded) {
+      return false;
+    }
+
+    return !this.hasUnsupportedStyleComponents(expanded);
+  }
+
+  private async addLogicalLayerInternal(
+    adapter: IMap,
+    layerInformation: RuntimeLayerInformation,
+    options?: LayerInsertOptions,
+  ): Promise<boolean> {
     const layer = layerInformation.layer;
     const sources = Array.isArray(layerInformation.sources) ? layerInformation.sources : [];
     const layerset = Array.isArray(layer?.layerset) ? layer.layerset : [];
@@ -944,7 +1197,7 @@ export class WebmapxMapElement extends HTMLElement {
       }
 
       try {
-        const success = await adapter.logicalLayers.addLayer(layer.id, scopedLayer, source);
+        const success = await adapter.logicalLayers.addLayer(layer.id, scopedLayer, source, options);
         return success === true;
       } catch {
         return false;

@@ -3,7 +3,7 @@
 import { html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import { IAppState } from '../store/IState';
+import { IMapState } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
 import { ViewChangeEndEvent } from '../store/map-events';
 
@@ -80,7 +80,7 @@ export class WebmapxZoomLevel extends WebmapxBaseTool {
         this.unsubscribeEvents = null;
     }
 
-    protected onStateChanged(state: IAppState): void {
+    protected onStateChanged(state: IMapState): void {
         // Initial sync from state store (for first load before events fire)
         if (state.zoomLevel != null && this.currentZoom === null) {
             this.currentZoom = state.zoomLevel;

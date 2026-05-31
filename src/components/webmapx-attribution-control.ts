@@ -1,7 +1,7 @@
 import { css, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import type { IAppState } from '../store/IState';
+import type { IMapState } from '../store/IMapState';
 import type { AppConfig, CatalogConfig, LayerConfig, SourceConfig } from '../config/types';
 
 const URL_REGEX = /(https?:\/\/[^\s]+)/g;
@@ -24,7 +24,7 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
         this.recalculate();
     }
 
-    protected onStateChanged(state: IAppState): void {
+    protected onStateChanged(state: IMapState): void {
         if (!Array.isArray(state.visibleLayers)) return;
         const joinedCurrent = this.visibleLayerIds.join(',');
         const joinedNext = state.visibleLayers.join(',');

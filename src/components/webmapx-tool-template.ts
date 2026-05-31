@@ -5,7 +5,7 @@ import { html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js'; 
 
 import { WebmapxBaseTool } from './webmapx-base-tool';
-import { IAppState } from '../store/IState'; 
+import { IMapState } from '../store/IMapState'; 
 import type { IMap, IToolService } from '../map/IMapInterfaces'; 
 
 import '@shoelace-style/shoelace/dist/components/range/range.js';
@@ -52,7 +52,7 @@ export class WebmapxToolTemplate extends WebmapxBaseTool {
         this.toolService = null;
     }
 
-    protected onStateChanged(state: IAppState): void {
+    protected onStateChanged(state: IMapState): void {
         this.bufferRadius = state.bufferRadiusKm;
         this.isToolActive = state.activeTool?.toolId === 'Buffer';
     }
