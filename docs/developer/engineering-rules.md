@@ -41,6 +41,9 @@ Short checklist for changes in WebMapX. Use this as the default bar before addin
 - Did the change keep engine-specific logic inside adapters and app logic outside them?
 - If a fallback exists, is it constrained enough to avoid binding to the wrong map?
 
+9. No new legacy config support.
+   The loader normalizes old formats (`layerset`, inline `style`, `catalog`, `library`, `metadata.styleUrl`) for backward compatibility only. Do not expand this surface. New features must use the current format: `StandardLayerConfig`, `CompositeStyleLayerConfig` (`type: "style"` with `url` or `layers`), `AllmapsLayerConfig` (`type: "allmaps"`). New config files must not use deprecated keys.
+
 ## Current Project Notes
 
 - Adapter selection is map-scoped and should respect saved user choice before static markup defaults.

@@ -1,6 +1,7 @@
 import { css, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
+import type { IMap } from '../map/IMapInterfaces';
 import type { IMapState } from '../store/IMapState';
 import type { AppConfig, AnyLayerConfig, CompositeStyleLayerConfig, LayerDataConfig, SourceConfig } from '../config/types';
 
@@ -16,6 +17,10 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
 
     connectedCallback(): void {
         super.connectedCallback();
+        this.subscribeToConfig();
+    }
+
+    protected onMapAttached(_adapter: IMap): void {
         this.subscribeToConfig();
     }
 
@@ -60,9 +65,24 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
         const unique = new Set<string>();
         const collected: string[] = [];
 
+        const addText = (text: string) => {
+            const trimmed = text.trim();
+            if (!trimmed || unique.has(trimmed)) return;
+            unique.add(trimmed);
+            collected.push(trimmed);
+        };
+
         for (const layerId of this.visibleLayerIds) {
             const layer = layersById.get(layerId);
             if (!layer) continue;
+
+            // Layer-level attribution (e.g. style layers with remote URL)
+            if (typeof layer.attribution === 'string') {
+                addText(layer.attribution);
+                continue;
+            }
+
+            // Source-level attribution from sub-layers
             const subLayers = layer.type === 'style'
                 ? ((layer as CompositeStyleLayerConfig).layers ?? [])
                 : [layer];
@@ -71,10 +91,7 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
                 if (!sourceId) continue;
                 const source = sourcesById.get(sourceId);
                 if (!source || typeof source.attribution !== 'string') continue;
-                const text = source.attribution.trim();
-                if (!text || unique.has(text)) continue;
-                unique.add(text);
-                collected.push(text);
+                addText(source.attribution);
             }
         }
 

@@ -667,8 +667,7 @@ export class WebmapxMapElement extends HTMLElement {
 
   private async expandStyleBackedLayer(layer: AnyLayerConfig): Promise<RuntimeLayerInformation | null> {
     const composite = layer.type === 'style' ? (layer as CompositeStyleLayerConfig) : null;
-    const metadata = this.getLayerMetadata(layer);
-    const styleUrl = composite?.url ?? (typeof metadata?.styleUrl === 'string' ? metadata.styleUrl : null);
+    const styleUrl = composite?.url ?? null;
     const layerId = layer.id;
     const scopedPrefix = `style:${layerId}:`;
     const cacheKey = `${layerId}::${styleUrl ?? ''}`;
@@ -879,19 +878,14 @@ export class WebmapxMapElement extends HTMLElement {
       return true;
     }
 
-    const metadata = this.toRecord(detail.metadata);
-    return typeof metadata?.styleUrl === 'string' && metadata.styleUrl.length > 0;
+    return false;
   }
 
   private resolveStyleUrlFromRequest(detail: Record<string, unknown>): string | null {
     if (typeof detail.styleUrl === 'string' && detail.styleUrl.length > 0) {
       return detail.styleUrl;
     }
-
-    const metadata = this.toRecord(detail.metadata);
-    return typeof metadata?.styleUrl === 'string' && metadata.styleUrl.length > 0
-      ? metadata.styleUrl
-      : null;
+    return null;
   }
 
   private resolveFallbackFromRequest(detail: Record<string, unknown>): Record<string, unknown> | string | undefined {
@@ -1038,14 +1032,9 @@ export class WebmapxMapElement extends HTMLElement {
   }
 
   private isStyleBackedLayer(layer: AnyLayerConfig): boolean {
-    // CompositeStyleLayerConfig with a url needs async expansion
-    if (layer.type === 'style') {
-      const composite = layer as CompositeStyleLayerConfig;
-      if (typeof composite.url === 'string' && composite.url.length > 0 && !composite.layers) return true;
-    }
-    // Legacy: metadata.styleUrl (from old format or dynamic add-layer requests)
-    const metadata = this.getLayerMetadata(layer);
-    return typeof metadata?.styleUrl === 'string' && metadata.styleUrl.length > 0;
+    if (layer.type !== 'style') return false;
+    const composite = layer as CompositeStyleLayerConfig;
+    return typeof composite.url === 'string' && composite.url.length > 0;
   }
 
   private getConfiguredFallbackLayerId(layer: AnyLayerConfig): string | null {

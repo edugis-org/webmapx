@@ -85,12 +85,11 @@
       "openfreemap-liberty": {
         "id": "openfreemap-liberty",
         "type": "style",
+        "url": "https://tiles.openfreemap.org/styles/liberty",
         "singleGroup": "basemap",
         "title": "OpenFreeMap Liberty (style)",
+        "attribution": "© OpenStreetMap contributors | © OpenFreeMap",
         "fallbackLayerId": "osm",
-        "metadata": {
-          "styleUrl": "https://tiles.openfreemap.org/styles/liberty"
-        },
         "layers": []
       },
       "earthquake": {

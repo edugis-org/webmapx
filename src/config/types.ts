@@ -128,6 +128,8 @@ interface WebMapXLayerBase {
   singleGroup?: string;
   /** Fallback layer id when this layer cannot be activated (e.g. unsupported engine). */
   fallbackLayerId?: string;
+  /** Attribution text shown in the map attribution control when this layer is visible. */
+  attribution?: string;
   /** Extended metadata (legendRole, styleUrl, spriteUrl, etc.) */
   metadata?: Record<string, unknown>;
 }
