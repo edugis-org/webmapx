@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 
 import {
   rememberSingleGroupInsertSlotForGroup,
-  resolveLegendRoleForLayer,
   resolveSingleGroupInsertionOptionsForGroup,
-} from '../src/components/internal/background-group-policy';
+} from '../src/components/internal/single-group-policy';
+import { resolveLegendRoleForLayer } from '../src/components/internal/legend-role-policy';
 
 test('single-group slot retention keeps replacement basemap before active overlay', () => {
   const slotMap = new Map<string, { beforeLayerId?: string; afterLayerId?: string }>();

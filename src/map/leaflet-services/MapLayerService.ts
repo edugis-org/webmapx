@@ -19,7 +19,6 @@ export class MapLayerService implements ILayerService {
     private catalog: LayerDataConfig | null = null;
     private sourceIdCounter = 0;
     private busyOps = 0;
-    private logicalOrder: string[] = [];
 
     constructor(map: L.Map, store: MapStateStore) {
         this.map = map;
@@ -64,49 +63,6 @@ export class MapLayerService implements ILayerService {
 
     private updateVisibleLayers(): void {
         this.store.dispatch({ visibleLayers: Array.from(this.logicalToNative.keys()) }, 'MAP');
-    }
-
-    private resolveInsertIndex(options?: LayerInsertOptions): number | undefined {
-        if (options?.beforeLayerId) {
-            const index = this.logicalOrder.indexOf(options.beforeLayerId);
-            if (index >= 0) return index;
-        }
-
-        if (options?.afterLayerId) {
-            const index = this.logicalOrder.indexOf(options.afterLayerId);
-            if (index >= 0) return index + 1;
-        }
-
-        return undefined;
-    }
-
-    private upsertLogicalOrder(layerId: string, insertIndex?: number): void {
-        this.logicalOrder = this.logicalOrder.filter((id) => id !== layerId);
-
-        if (typeof insertIndex !== 'number' || !Number.isFinite(insertIndex)) {
-            this.logicalOrder.push(layerId);
-            return;
-        }
-
-        const clamped = Math.max(0, Math.min(insertIndex, this.logicalOrder.length));
-        this.logicalOrder.splice(clamped, 0, layerId);
-    }
-
-    private reapplyLogicalOrder(): void {
-        for (const logicalLayerId of this.logicalOrder) {
-            // WarpedMapLayer uses a WebGL canvas; remove/add destroys it — skip z-ordering for these.
-            if (this.warpedMapLayers.has(logicalLayerId)) continue;
-            const nativeIds = this.logicalToNative.get(logicalLayerId) ?? [];
-            for (const nativeId of nativeIds) {
-                const layer = this.nativeLayerInstances.get(nativeId);
-                if (!layer || !this.map.hasLayer(layer)) {
-                    continue;
-                }
-
-                this.map.removeLayer(layer);
-                this.map.addLayer(layer);
-            }
-        }
     }
 
     setCatalog(catalog: LayerDataConfig): void {
@@ -196,16 +152,13 @@ export class MapLayerService implements ILayerService {
 
     async addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
         const layerId = layerConfig.id;
-        const insertIndex = this.resolveInsertIndex(options);
 
         if (layerConfig.type === 'allmaps') {
-            const success = await this.addWarpedMapLayer(layerId, layerConfig.annotation);
-            if (success) { this.upsertLogicalOrder(layerId, insertIndex); this.reapplyLogicalOrder(); }
-            return success;
+            return this.addWarpedMapLayer(layerId, layerConfig.annotation);
         }
 
         if (layerConfig.type === 'style') {
-            return this.addCompositeLayer(layerConfig, insertIndex);
+            return this.addCompositeLayer(layerConfig);
         }
 
         // StandardLayerConfig
@@ -218,9 +171,7 @@ export class MapLayerService implements ILayerService {
         if (this.isWarpedMapSource(sourceConfig)) {
             const url = Array.isArray((sourceConfig as any).url) ? (sourceConfig as any).url[0] : (sourceConfig as any).url;
             const annotationUrl = this.parseWarpedMapUrl(url);
-            const success = await this.addWarpedMapLayer(layerId, annotationUrl);
-            if (success) { this.upsertLogicalOrder(layerId, insertIndex); this.reapplyLogicalOrder(); }
-            return success;
+            return this.addWarpedMapLayer(layerId, annotationUrl);
         }
 
         const nativeLayerIds: string[] = [];
@@ -253,9 +204,8 @@ export class MapLayerService implements ILayerService {
         }
 
         this.logicalToNative.set(layerId, nativeLayerIds);
-        this.upsertLogicalOrder(layerId, insertIndex);
-        this.reapplyLogicalOrder();
         this.updateVisibleLayers();
+        this.reapplyZOrder();
         return nativeLayerIds.length > 0;
     }
 
@@ -273,7 +223,7 @@ export class MapLayerService implements ILayerService {
         }
     }
 
-    private async addCompositeLayer(layerConfig: CompositeStyleLayerConfig, insertIndex: number | undefined): Promise<boolean> {
+    private async addCompositeLayer(layerConfig: CompositeStyleLayerConfig): Promise<boolean> {
         const layerId = layerConfig.id;
         const localSources = layerConfig.sources ?? {};
         const subLayers = layerConfig.layers ?? [];
@@ -324,9 +274,8 @@ export class MapLayerService implements ILayerService {
         }
 
         this.logicalToNative.set(layerId, nativeLayerIds);
-        this.upsertLogicalOrder(layerId, insertIndex);
-        this.reapplyLogicalOrder();
         this.updateVisibleLayers();
+        this.reapplyZOrder();
         return nativeLayerIds.length > 0;
     }
 
@@ -351,7 +300,6 @@ export class MapLayerService implements ILayerService {
         }
 
         this.logicalToNative.delete(layerId);
-        this.logicalOrder = this.logicalOrder.filter((id) => id !== layerId);
         this.updateVisibleLayers();
     }
 
@@ -361,5 +309,18 @@ export class MapLayerService implements ILayerService {
 
     isLayerVisible(layerId: string): boolean {
         return this.logicalToNative.has(layerId);
+    }
+
+    private reapplyZOrder(): void {
+        for (const [logicalId, nativeIds] of this.logicalToNative.entries()) {
+            if (this.warpedMapLayers.has(logicalId)) continue;
+            for (const nativeId of nativeIds) {
+                const layer = this.nativeLayerInstances.get(nativeId);
+                if (layer && this.map.hasLayer(layer)) {
+                    this.map.removeLayer(layer);
+                    this.map.addLayer(layer);
+                }
+            }
+        }
     }
 }

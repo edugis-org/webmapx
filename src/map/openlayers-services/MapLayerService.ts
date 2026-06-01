@@ -38,7 +38,6 @@ export class MapLayerService implements ILayerService {
     private warpedMapLayers: Map<string, WarpedMapLayer> = new Map();
     private catalog: LayerDataConfig | null = null;
     private sourceIdCounter = 0;
-    private logicalLayerLegendRole: Map<string, 'background' | 'overlay'> = new Map();
 
     constructor(map: OLMap, store: MapStateStore) {
         this.map = map;
@@ -47,14 +46,6 @@ export class MapLayerService implements ILayerService {
 
     private updateVisibleLayers(): void {
         this.store.dispatch({ visibleLayers: Array.from(this.logicalToNative.keys()) }, 'MAP');
-    }
-
-    private resolveLogicalLayerLegendRole(layerConfig: AnyLayerConfig): 'background' | 'overlay' {
-        const metadata = (layerConfig?.metadata && typeof layerConfig.metadata === 'object')
-            ? (layerConfig.metadata as Record<string, unknown>)
-            : null;
-
-        return metadata?.legendRole === 'background' ? 'background' : 'overlay';
     }
 
     private resolveSource(sourceId: string): SourceConfig | null {
@@ -116,53 +107,8 @@ export class MapLayerService implements ILayerService {
         return undefined;
     }
 
-    private collectBackgroundNativeLayerIds(): Set<string> {
-        const ids = new Set<string>();
-        for (const [logicalLayerId, nativeLayerIds] of this.logicalToNative.entries()) {
-            const role = this.logicalLayerLegendRole.get(logicalLayerId) ?? 'overlay';
-            if (role !== 'background') {
-                continue;
-            }
-            for (const nativeLayerId of nativeLayerIds) {
-                ids.add(nativeLayerId);
-            }
-        }
-        return ids;
-    }
-
-    private findBackgroundInsertIndex(): number | undefined {
-        const backgroundNativeLayerIds = this.collectBackgroundNativeLayerIds();
-        const layers = this.map.getLayers().getArray();
-        for (let index = 0; index < layers.length; index += 1) {
-            const layerInstance = layers[index];
-            let nativeLayerId: string | null = null;
-            for (const [candidateId, candidateLayer] of this.nativeLayerInstances.entries()) {
-                if (candidateLayer === layerInstance) {
-                    nativeLayerId = candidateId;
-                    break;
-                }
-            }
-
-            const isBackgroundLogicalLayer = nativeLayerId ? backgroundNativeLayerIds.has(nativeLayerId) : false;
-            if (!isBackgroundLogicalLayer) {
-                return index;
-            }
-        }
-        return undefined;
-    }
-
-    private resolveInsertIndex(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): number | undefined {
-        const explicit = this.resolveInsertIndexFromOptions(options);
-        if (explicit !== undefined) {
-            return explicit;
-        }
-
-        const legendRole = this.resolveLogicalLayerLegendRole(layerConfig);
-        if (legendRole === 'background') {
-            return this.findBackgroundInsertIndex();
-        }
-
-        return undefined;
+    private resolveInsertIndex(options?: LayerInsertOptions): number | undefined {
+        return this.resolveInsertIndexFromOptions(options);
     }
 
     private addMapLayerAtIndex(layer: BaseLayer, insertIndex?: number): number | undefined {
@@ -250,17 +196,14 @@ export class MapLayerService implements ILayerService {
 
     async addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
         const layerId = layerConfig.id;
-        const legendRole = this.resolveLogicalLayerLegendRole(layerConfig);
-        let insertIndex = this.resolveInsertIndex(layerConfig, options);
+        let insertIndex = this.resolveInsertIndex(options);
 
         if (layerConfig.type === 'allmaps') {
-            const success = await this.addWarpedMapLayer(layerId, layerConfig.annotation, insertIndex);
-            if (success) this.logicalLayerLegendRole.set(layerId, legendRole);
-            return success;
+            return this.addWarpedMapLayer(layerId, layerConfig.annotation, insertIndex);
         }
 
         if (layerConfig.type === 'style') {
-            return this.addCompositeLayer(layerConfig, legendRole, insertIndex);
+            return this.addCompositeLayer(layerConfig, insertIndex);
         }
 
         // StandardLayerConfig
@@ -274,9 +217,7 @@ export class MapLayerService implements ILayerService {
         if (this.isWarpedMapSource(sourceConfig)) {
             const url = Array.isArray((sourceConfig as any).url) ? (sourceConfig as any).url[0] : (sourceConfig as any).url;
             const annotationUrl = this.parseWarpedMapUrl(url);
-            const success = await this.addWarpedMapLayer(layerId, annotationUrl, insertIndex);
-            if (success) this.logicalLayerLegendRole.set(layerId, legendRole);
-            return success;
+            return this.addWarpedMapLayer(layerId, annotationUrl, insertIndex);
         }
 
         const nativeSourceId = this.getOrCreateNativeSourceId(sourceConfig);
@@ -294,14 +235,12 @@ export class MapLayerService implements ILayerService {
         this.nativeLayerToSource.set(nativeLayerId, nativeSourceId);
 
         this.logicalToNative.set(layerId, this.mergeNativeLayerIds(layerId, nativeLayerIds));
-        this.logicalLayerLegendRole.set(layerId, legendRole);
         this.updateVisibleLayers();
         return nativeLayerIds.length > 0;
     }
 
     private async addCompositeLayer(
         layerConfig: CompositeStyleLayerConfig,
-        legendRole: 'background' | 'overlay',
         insertIndex: number | undefined,
     ): Promise<boolean> {
         const layerId = layerConfig.id;
@@ -361,7 +300,6 @@ export class MapLayerService implements ILayerService {
         }
 
         this.logicalToNative.set(layerId, this.mergeNativeLayerIds(layerId, nativeLayerIds));
-        this.logicalLayerLegendRole.set(layerId, legendRole);
         this.updateVisibleLayers();
         return nativeLayerIds.length > 0;
     }
@@ -1075,7 +1013,6 @@ export class MapLayerService implements ILayerService {
             }
             this.warpedMapLayers.delete(layerId);
             this.logicalToNative.delete(layerId);
-            this.logicalLayerLegendRole.delete(layerId);
             this.updateVisibleLayers();
             return;
         }
@@ -1098,7 +1035,6 @@ export class MapLayerService implements ILayerService {
         }
 
         this.logicalToNative.delete(layerId);
-    this.logicalLayerLegendRole.delete(layerId);
 
         for (const sourceId of nativeSourceIds) {
             let stillUsed = false;

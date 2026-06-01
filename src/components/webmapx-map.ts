@@ -20,9 +20,9 @@ import {
 import { ToolManager } from '../tools/tool-manager';
 import {
   rememberSingleGroupInsertSlotForGroup,
-  resolveLegendRoleForLayer,
   resolveSingleGroupInsertionOptionsForGroup,
-} from './internal/background-group-policy';
+} from './internal/single-group-policy';
+import { resolveLegendRoleForLayer } from './internal/legend-role-policy';
 
 const MAP_VIEW_SLOT = 'map-view';
 const MAP_SURFACE_CLASS = 'webmapx-map__surface';
@@ -38,9 +38,10 @@ type RuntimeLayerInformation = {
   layer: AnyLayerConfig;
 };
 
+import type { LegendRole } from './internal/legend-role-policy';
+
 type RuntimeLayerRequest = Record<string, unknown>;
 type ActiveLayerStateObject = Exclude<ActiveLayerStateEntry, string>;
-type LegendRole = 'background' | 'overlay';
 
 /**
  * Lightweight map wrapper that keeps the map canvas and overlay tools grouped
@@ -57,6 +58,8 @@ export class WebmapxMapElement extends HTMLElement {
   private readonly styleLayerCache = new Map<string, RuntimeLayerInformation | null>();
   private readonly singleGroupInsertSlotByGroup = new Map<string, LayerInsertOptions>();
   private readonly singleGroupLegendRoleByGroup = new Map<string, LegendRole>();
+  private logicalLayerOrder: string[] = [];
+  private readonly logicalLayerRole = new Map<string, LegendRole>();
     // Only one connectedCallback/disconnectedCallback allowed. Add event listener in the main one.
     connectedCallback(): void {
       this.upsertAndStyleSurface();
@@ -168,6 +171,8 @@ export class WebmapxMapElement extends HTMLElement {
         // Remove the layer by id
         if (layerInformation) {
           this.rememberSingleGroupInsertSlot(adapter, layerInformation.layer.id, selectionGroup ?? undefined);
+          this.removeFromLogicalOrder(layerInformation.layer.id);
+          this.logicalLayerRole.delete(layerInformation.layer.id);
           adapter.logicalLayers.removeLayer(layerInformation.layer.id);
           this.unregisterLayerLegendMetadata(adapter, layerInformation.layer.id);
         }
@@ -504,6 +509,33 @@ export class WebmapxMapElement extends HTMLElement {
     return this.collectSingleSelectionGroupByLayerId().get(layerId) ?? null;
   }
 
+  private insertIntoLogicalOrder(layerId: string, options?: LayerInsertOptions): void {
+    this.logicalLayerOrder = this.logicalLayerOrder.filter((id) => id !== layerId);
+    if (options?.beforeLayerId) {
+      const index = this.logicalLayerOrder.indexOf(options.beforeLayerId);
+      if (index >= 0) {
+        this.logicalLayerOrder.splice(index, 0, layerId);
+        return;
+      }
+    }
+    this.logicalLayerOrder.push(layerId);
+  }
+
+  private removeFromLogicalOrder(layerId: string): void {
+    this.logicalLayerOrder = this.logicalLayerOrder.filter((id) => id !== layerId);
+  }
+
+  private computeInsertOptionsForLayer(legendRole: LegendRole, explicitOptions?: LayerInsertOptions): LayerInsertOptions | undefined {
+    if (explicitOptions?.beforeLayerId || explicitOptions?.afterLayerId) {
+      return explicitOptions;
+    }
+    if (legendRole === 'background') {
+      const firstOverlayId = this.logicalLayerOrder.find((id) => (this.logicalLayerRole.get(id) ?? 'overlay') !== 'background');
+      return firstOverlayId ? { beforeLayerId: firstOverlayId } : undefined;
+    }
+    return undefined;
+  }
+
   private rememberSingleGroupInsertSlot(adapter: IMap, layerId: string, preferredGroupKey?: string): void {
     const groupKey = this.getSingleSelectionGroupKeyForLayer(layerId, preferredGroupKey);
     if (!groupKey) {
@@ -513,7 +545,7 @@ export class WebmapxMapElement extends HTMLElement {
     rememberSingleGroupInsertSlotForGroup(
       groupKey,
       layerId,
-      adapter.logicalLayers.getVisibleLayers(),
+      this.logicalLayerOrder,
       adapter.store.getState().runtimeLayerMetadata as Record<string, unknown> | undefined,
       this.singleGroupInsertSlotByGroup,
       this.singleGroupLegendRoleByGroup,
@@ -521,7 +553,6 @@ export class WebmapxMapElement extends HTMLElement {
   }
 
   private resolveSingleGroupInsertionOptions(
-    adapter: IMap,
     layerId: string,
     baseOptions?: LayerInsertOptions,
     preferredGroupKey?: string,
@@ -533,7 +564,7 @@ export class WebmapxMapElement extends HTMLElement {
 
     return resolveSingleGroupInsertionOptionsForGroup(
       groupKey,
-      adapter.logicalLayers.getVisibleLayers(),
+      this.logicalLayerOrder,
       baseOptions,
       this.singleGroupInsertSlotByGroup,
     );
@@ -929,9 +960,10 @@ export class WebmapxMapElement extends HTMLElement {
         : baseLayerInformation;
 
       if (runtimeLayerInformation && (!styleBacked || !this.hasUnsupportedStyleComponents(runtimeLayerInformation))) {
-        const layerInsertOptions = this.resolveSingleGroupInsertionOptions(adapter, catalogLayerId, options, preferredGroupKey);
         const singleSelectionGroupKey = this.getSingleSelectionGroupKeyForLayer(catalogLayerId, preferredGroupKey);
         const legendRole = this.resolveCatalogLegendRole(catalogLayerId, runtimeLayerInformation.layer, singleSelectionGroupKey ?? undefined);
+        const singleGroupOptions = this.resolveSingleGroupInsertionOptions(catalogLayerId, options, preferredGroupKey);
+        const layerInsertOptions = this.computeInsertOptionsForLayer(legendRole, singleGroupOptions);
         const runtimeLayerInformationWithLegendRole: RuntimeLayerInformation = {
           ...runtimeLayerInformation,
           layer: {
@@ -946,6 +978,8 @@ export class WebmapxMapElement extends HTMLElement {
 
         const success = await this.addLogicalLayerInternal(adapter, runtimeLayerInformationWithLegendRole, layerInsertOptions);
         if (success) {
+          this.insertIntoLogicalOrder(catalogLayerId, layerInsertOptions);
+          this.logicalLayerRole.set(catalogLayerId, legendRole);
           const groupKey = this.getSingleSelectionGroupKeyForLayer(catalogLayerId, preferredGroupKey);
           if (groupKey) {
             this.singleGroupInsertSlotByGroup.delete(groupKey);
