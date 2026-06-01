@@ -94,6 +94,8 @@ export class MapLayerService implements ILayerService {
 
     private reapplyLogicalOrder(): void {
         for (const logicalLayerId of this.logicalOrder) {
+            // WarpedMapLayer uses a WebGL canvas; remove/add destroys it — skip z-ordering for these.
+            if (this.warpedMapLayers.has(logicalLayerId)) continue;
             const nativeIds = this.logicalToNative.get(logicalLayerId) ?? [];
             for (const nativeId of nativeIds) {
                 const layer = this.nativeLayerInstances.get(nativeId);
