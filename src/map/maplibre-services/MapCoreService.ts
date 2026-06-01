@@ -93,7 +93,6 @@ export class MapCoreService implements IMapCore {
     public setViewport(center: [number, number], zoom: number): void {
         if (this.mapInstance) {
             this.mapInstance.flyTo({ center, zoom });
-            console.log(`[CORE SERVICE] Setting viewport to center: ${center}, zoom: ${zoom}`);
         }
     }
 

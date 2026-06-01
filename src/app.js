@@ -148,7 +148,6 @@ async function initializeMap(mapElement, appConfig) {
             if (savedViewportKey) {
                 localStorage.removeItem(savedViewportKey);
             }
-            console.log(`[app] Restored viewport for "${mapId}" from adapter switch:`, viewport);
         } catch (e) {
             console.warn(`[app] Failed to parse saved viewport for "${mapId}":`, e);
             if (savedViewportKey) {

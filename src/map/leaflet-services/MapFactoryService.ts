@@ -78,7 +78,6 @@ class LeafletMap implements ISubMap {
         const adjustedZoom = zoom;
         // Apply zoom offset to match MapLibre logical zooms (512px tiles).
         const leafletZoom = Math.max(0, Math.round(adjustedZoom) + ZOOM_OFFSET);
-        console.log(`[LeafletMap.setViewport] center=${center}, zoom=${zoom} -> leafletZoom=${leafletZoom}`);
         this.map.setView([center[1], center[0]], leafletZoom, { animate: false });
     }
 
@@ -224,8 +223,8 @@ export class MapFactoryService implements ISubMapFactory {
 
         if (tileTemplate) {
             L.tileLayer(tileTemplate, {
-                attribution: options.tileAttribution ?? DEFAULT_ATTRIBUTION,
-                tileSize: options.tileSize
+                attribution: options?.tileAttribution ?? DEFAULT_ATTRIBUTION,
+                tileSize: options?.tileSize
             }).addTo(map);
         } else if (options?.styleUrl && !isStyleJsonUrl(options.styleUrl)) {
             L.tileLayer(options.styleUrl, {
