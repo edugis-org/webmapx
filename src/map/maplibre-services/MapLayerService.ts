@@ -16,6 +16,7 @@ export class MapLayerService implements ILayerService {
     private warpedMapLayers: Map<string, WarpedMapLayer> = new Map();
     private catalog: LayerDataConfig | null = null;
     private sourceIdCounter = 0;
+    private logicalLayerLegendRole: Map<string, 'background' | 'overlay'> = new Map();
 
     constructor(map: maplibregl.Map, store: MapStateStore) {
         this.map = map;
@@ -24,6 +25,13 @@ export class MapLayerService implements ILayerService {
 
     private updateVisibleLayers(): void {
         this.store.dispatch({ visibleLayers: Array.from(this.logicalToNative.keys()) }, 'MAP');
+    }
+
+    private resolveLegendRole(layerConfig: AnyLayerConfig): 'background' | 'overlay' {
+        const metadata = (layerConfig?.metadata && typeof layerConfig.metadata === 'object')
+            ? (layerConfig.metadata as Record<string, unknown>)
+            : null;
+        return metadata?.legendRole === 'background' ? 'background' : 'overlay';
     }
 
     private findNextStyleLayerId(afterNativeLayerId: string): string | undefined {
@@ -45,6 +53,28 @@ export class MapLayerService implements ILayerService {
             const ids = this.logicalToNative.get(options.afterLayerId) ?? [];
             for (let i = ids.length - 1; i >= 0; i -= 1) {
                 if (this.map.getLayer(ids[i])) return this.findNextStyleLayerId(ids[i]);
+            }
+        }
+        return undefined;
+    }
+
+    private collectBackgroundNativeLayerIds(): Set<string> {
+        const ids = new Set<string>();
+        for (const [logicalLayerId, nativeLayerIds] of this.logicalToNative.entries()) {
+            if ((this.logicalLayerLegendRole.get(logicalLayerId) ?? 'overlay') !== 'background') continue;
+            for (const id of nativeLayerIds) ids.add(id);
+        }
+        return ids;
+    }
+
+    private findBackgroundInsertionBeforeLayerId(): string | undefined {
+        // Use internal logical layer tracking (Map insertion order) so custom layers
+        // like WarpedMapLayer are included even if absent from map.getStyle().layers.
+        const bgIds = this.collectBackgroundNativeLayerIds();
+        for (const [logicalId, nativeIds] of this.logicalToNative.entries()) {
+            if (this.logicalLayerLegendRole.get(logicalId) === 'background') continue;
+            for (const nativeId of nativeIds) {
+                if (!bgIds.has(nativeId)) return nativeId;
             }
         }
         return undefined;
@@ -155,6 +185,7 @@ export class MapLayerService implements ILayerService {
 
     private addCompositeStyleLayer(
         layerConfig: CompositeStyleLayerConfig,
+        legendRole: 'background' | 'overlay',
         insertBeforeLayerId: string | undefined,
     ): boolean {
         const layerId = layerConfig.id;
@@ -208,6 +239,7 @@ export class MapLayerService implements ILayerService {
             this.nativeLayerToSource.set(nativeLayerId, nativeSourceId);
         }
 
+        this.logicalLayerLegendRole.set(layerId, legendRole);
         this.logicalToNative.set(layerId, Array.from(new Set(nativeLayerIds)));
         this.updateVisibleLayers();
         return nativeLayerIds.length > 0;
@@ -215,14 +247,18 @@ export class MapLayerService implements ILayerService {
 
     async addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
         const layerId = layerConfig.id;
-        const insertBeforeLayerId = this.resolveInsertBeforeLayerIdFromOptions(options);
+        const legendRole = this.resolveLegendRole(layerConfig);
+        const insertBeforeLayerId = this.resolveInsertBeforeLayerIdFromOptions(options)
+            ?? (legendRole === 'background' ? this.findBackgroundInsertionBeforeLayerId() : undefined);
 
         if (layerConfig.type === 'allmaps') {
-            return this.addAllmapsLayer(layerId, layerConfig.annotation, insertBeforeLayerId);
+            const success = await this.addAllmapsLayer(layerId, layerConfig.annotation, insertBeforeLayerId);
+            if (success) this.logicalLayerLegendRole.set(layerId, legendRole);
+            return success;
         }
 
         if (layerConfig.type === 'style') {
-            return this.addCompositeStyleLayer(layerConfig, insertBeforeLayerId);
+            return this.addCompositeStyleLayer(layerConfig, legendRole, insertBeforeLayerId);
         }
 
         // Standard layer
@@ -235,6 +271,7 @@ export class MapLayerService implements ILayerService {
                 if (stdLayer.layout) native.layout = stdLayer.layout;
                 this.map.addLayer(native, insertBeforeLayerId);
             }
+            this.logicalLayerLegendRole.set(layerId, legendRole);
             this.logicalToNative.set(layerId, [nativeLayerId]);
             this.updateVisibleLayers();
             return true;
@@ -252,6 +289,7 @@ export class MapLayerService implements ILayerService {
         if (!this.map.getLayer(nativeLayerId)) {
             this.map.addLayer(this.buildNativeLayer(nativeLayerId, stdLayer, nativeSourceId), insertBeforeLayerId);
         }
+        this.logicalLayerLegendRole.set(layerId, legendRole);
         const existing = this.logicalToNative.get(layerId) ?? [];
         this.logicalToNative.set(layerId, Array.from(new Set([...existing, nativeLayerId])));
         this.nativeLayerToSource.set(nativeLayerId, nativeSourceId);
@@ -266,6 +304,7 @@ export class MapLayerService implements ILayerService {
             }
             this.warpedMapLayers.delete(layerId);
             this.logicalToNative.delete(layerId);
+            this.logicalLayerLegendRole.delete(layerId);
             this.updateVisibleLayers();
             return;
         }
@@ -279,6 +318,7 @@ export class MapLayerService implements ILayerService {
             this.nativeLayerToSource.delete(id);
         }
         this.logicalToNative.delete(layerId);
+        this.logicalLayerLegendRole.delete(layerId);
 
         for (const sourceId of nativeSourceIds) {
             let stillUsed = false;

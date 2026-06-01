@@ -108,7 +108,22 @@ export class MapLayerService implements ILayerService {
     }
 
     private resolveInsertIndex(options?: LayerInsertOptions): number | undefined {
-        return this.resolveInsertIndexFromOptions(options);
+        const explicit = this.resolveInsertIndexFromOptions(options);
+        if (explicit !== undefined) return explicit;
+
+        // Fallback: findLayerIndexByInstance may miss OL-version-incompatible layers (e.g. WarpedMapLayer).
+        // Derive index from logicalToNative insertion order (generic layer controls this order).
+        const anchorId = options?.beforeLayerId ?? options?.afterLayerId;
+        if (!anchorId) return undefined;
+        const isBefore = options?.beforeLayerId !== undefined;
+        let count = 0;
+        for (const [logicalId, nativeIds] of this.logicalToNative.entries()) {
+            if (logicalId === anchorId) return isBefore ? count : count + nativeIds.length;
+            for (const id of nativeIds) {
+                if (this.nativeLayerInstances.has(id)) count++;
+            }
+        }
+        return undefined;
     }
 
     private addMapLayerAtIndex(layer: BaseLayer, insertIndex?: number): number | undefined {

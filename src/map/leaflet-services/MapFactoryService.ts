@@ -205,8 +205,6 @@ export class MapFactoryService implements ISubMapFactory {
 
         // Apply zoom offset to match MapLibre logical zooms (512px tiles).
         const leafletZoom = Math.max(0, Math.round(options?.zoom ?? 1) + ZOOM_OFFSET);
-        console.log(`[MapFactoryService.createMap] center=[${center}] (input: ${options?.center}), zoom=${leafletZoom}`);
-
         const mapOptions: any = {
             center: center,
             zoom: leafletZoom,

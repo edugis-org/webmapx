@@ -76,9 +76,9 @@ test('OpenLayers MapLayerService applies beforeLayerId using logical ids', async
   service.setCatalog(makeCatalog(['a', 'b', 'c']));
 
   const internal = service as unknown as {
-    createXYZTileLayer: (nativeLayerId: string, sourceConfig: unknown) => { __layerId: string };
+    createXYZLayer: (nativeLayerId: string, sourceConfig: unknown, style: unknown) => { __layerId: string };
   };
-  internal.createXYZTileLayer = (nativeLayerId: string) => ({ __layerId: nativeLayerId });
+  internal.createXYZLayer = (nativeLayerId: string) => ({ __layerId: nativeLayerId.split('-')[0] });
 
   await service.addLayer(makeLayer('a'));
   await service.addLayer(makeLayer('b'));
@@ -94,9 +94,9 @@ test('OpenLayers MapLayerService applies afterLayerId using logical ids', async 
   service.setCatalog(makeCatalog(['a', 'b', 'c']));
 
   const internal = service as unknown as {
-    createXYZTileLayer: (nativeLayerId: string, sourceConfig: unknown) => { __layerId: string };
+    createXYZLayer: (nativeLayerId: string, sourceConfig: unknown, style: unknown) => { __layerId: string };
   };
-  internal.createXYZTileLayer = (nativeLayerId: string) => ({ __layerId: nativeLayerId });
+  internal.createXYZLayer = (nativeLayerId: string) => ({ __layerId: nativeLayerId.split('-')[0] });
 
   await service.addLayer(makeLayer('a'));
   await service.addLayer(makeLayer('b'));
