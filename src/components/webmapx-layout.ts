@@ -25,6 +25,7 @@ export class WebmapxLayout extends LitElement {
       inset: 0;
       display: block;
       pointer-events: none;
+      --webmapx-layout-inset-vertical: calc(var(--webmapx-layout-inset, 16px) + 2px);
     }
 
     .overlay-surface {
@@ -55,8 +56,8 @@ export class WebmapxLayout extends LitElement {
 
     /* Left column */
     .slot-zone--top-left {
-      top: var(--webmapx-zone-top-left-top, var(--webmapx-layout-inset, 16px));
-      bottom: var(--webmapx-zone-top-left-bottom, var(--webmapx-layout-inset, 16px));
+      top: var(--webmapx-zone-top-left-top, var(--webmapx-layout-inset-vertical, 18px));
+      bottom: var(--webmapx-zone-top-left-bottom, var(--webmapx-layout-inset-vertical, 18px));
       left: var(--webmapx-zone-top-left-left, var(--webmapx-layout-inset, 16px));
       right: var(--webmapx-zone-top-left-right, var(--webmapx-layout-inset, 16px));
       justify-content: flex-start;
@@ -64,8 +65,8 @@ export class WebmapxLayout extends LitElement {
     }
 
     .slot-zone--middle-left {
-      top: var(--webmapx-zone-middle-left-top, var(--webmapx-layout-inset, 16px));
-      bottom: var(--webmapx-zone-middle-left-bottom, var(--webmapx-layout-inset, 16px));
+      top: var(--webmapx-zone-middle-left-top, var(--webmapx-layout-inset-vertical, 18px));
+      bottom: var(--webmapx-zone-middle-left-bottom, var(--webmapx-layout-inset-vertical, 18px));
       left: var(--webmapx-zone-middle-left-left, var(--webmapx-layout-inset, 16px));
       right: var(--webmapx-zone-middle-left-right, var(--webmapx-layout-inset, 16px));
       justify-content: center;
@@ -73,8 +74,8 @@ export class WebmapxLayout extends LitElement {
     }
 
     .slot-zone--bottom-left {
-      top: var(--webmapx-zone-bottom-left-top, var(--webmapx-layout-inset, 16px));
-      bottom: var(--webmapx-zone-bottom-left-bottom, var(--webmapx-layout-inset, 16px));
+      top: var(--webmapx-zone-bottom-left-top, var(--webmapx-layout-inset-vertical, 18px));
+      bottom: var(--webmapx-zone-bottom-left-bottom, var(--webmapx-layout-inset-vertical, 18px));
       left: var(--webmapx-zone-bottom-left-left, var(--webmapx-layout-inset, 16px));
       right: var(--webmapx-zone-bottom-left-right, var(--webmapx-layout-inset, 16px));
       justify-content: flex-end;
@@ -88,8 +89,8 @@ export class WebmapxLayout extends LitElement {
 
     /* Center column */
     .slot-zone--top-center {
-      top: var(--webmapx-zone-top-center-top, var(--webmapx-layout-inset, 16px));
-      bottom: var(--webmapx-zone-top-center-bottom, var(--webmapx-layout-inset, 16px));
+      top: var(--webmapx-zone-top-center-top, var(--webmapx-layout-inset-vertical, 18px));
+      bottom: var(--webmapx-zone-top-center-bottom, var(--webmapx-layout-inset-vertical, 18px));
       left: var(--webmapx-zone-top-center-left, var(--webmapx-layout-inset, 16px));
       right: var(--webmapx-zone-top-center-right, var(--webmapx-layout-inset, 16px));
       justify-content: flex-start;
@@ -97,8 +98,8 @@ export class WebmapxLayout extends LitElement {
     }
 
     .slot-zone--middle-center {
-      top: var(--webmapx-zone-middle-center-top, var(--webmapx-layout-inset, 16px));
-      bottom: var(--webmapx-zone-middle-center-bottom, var(--webmapx-layout-inset, 16px));
+      top: var(--webmapx-zone-middle-center-top, var(--webmapx-layout-inset-vertical, 18px));
+      bottom: var(--webmapx-zone-middle-center-bottom, var(--webmapx-layout-inset-vertical, 18px));
       left: var(--webmapx-zone-middle-center-left, var(--webmapx-layout-inset, 16px));
       right: var(--webmapx-zone-middle-center-right, var(--webmapx-layout-inset, 16px));
       justify-content: center;
@@ -106,8 +107,8 @@ export class WebmapxLayout extends LitElement {
     }
 
     .slot-zone--bottom-center {
-      top: var(--webmapx-zone-bottom-center-top, var(--webmapx-layout-inset, 16px));
-      bottom: var(--webmapx-zone-bottom-center-bottom, var(--webmapx-layout-inset, 16px));
+      top: var(--webmapx-zone-bottom-center-top, var(--webmapx-layout-inset-vertical, 18px));
+      bottom: var(--webmapx-zone-bottom-center-bottom, var(--webmapx-layout-inset-vertical, 18px));
       left: var(--webmapx-zone-bottom-center-left, var(--webmapx-layout-inset, 16px));
       right: var(--webmapx-zone-bottom-center-right, var(--webmapx-layout-inset, 16px));
       justify-content: flex-end;
@@ -116,8 +117,8 @@ export class WebmapxLayout extends LitElement {
 
     /* Right column */
     .slot-zone--top-right {
-      top: var(--webmapx-zone-top-right-top, var(--webmapx-layout-inset, 16px));
-      bottom: var(--webmapx-zone-top-right-bottom, var(--webmapx-layout-inset, 16px));
+      top: var(--webmapx-zone-top-right-top, var(--webmapx-layout-inset-vertical, 18px));
+      bottom: var(--webmapx-zone-top-right-bottom, var(--webmapx-layout-inset-vertical, 18px));
       left: var(--webmapx-zone-top-right-left, var(--webmapx-layout-inset, 16px));
       right: var(--webmapx-zone-top-right-right, var(--webmapx-layout-inset, 16px));
       justify-content: flex-start;
@@ -125,8 +126,8 @@ export class WebmapxLayout extends LitElement {
     }
 
     .slot-zone--middle-right {
-      top: var(--webmapx-zone-middle-right-top, var(--webmapx-layout-inset, 16px));
-      bottom: var(--webmapx-zone-middle-right-bottom, var(--webmapx-layout-inset, 16px));
+      top: var(--webmapx-zone-middle-right-top, var(--webmapx-layout-inset-vertical, 18px));
+      bottom: var(--webmapx-zone-middle-right-bottom, var(--webmapx-layout-inset-vertical, 18px));
       left: var(--webmapx-zone-middle-right-left, var(--webmapx-layout-inset, 16px));
       right: var(--webmapx-zone-middle-right-right, var(--webmapx-layout-inset, 16px));
       justify-content: center;
@@ -134,19 +135,55 @@ export class WebmapxLayout extends LitElement {
     }
 
     .slot-zone--bottom-right {
-      top: var(--webmapx-zone-bottom-right-top, var(--webmapx-layout-inset, 16px));
-      bottom: var(--webmapx-zone-bottom-right-bottom, var(--webmapx-layout-inset, 16px));
+      top: var(--webmapx-zone-bottom-right-top, var(--webmapx-layout-inset-vertical, 18px));
+      bottom: var(--webmapx-zone-bottom-right-bottom, var(--webmapx-layout-inset-vertical, 18px));
       left: var(--webmapx-zone-bottom-right-left, var(--webmapx-layout-inset, 16px));
       right: var(--webmapx-zone-bottom-right-right, var(--webmapx-layout-inset, 16px));
       justify-content: flex-end;
       align-items: flex-end;
+    }
+
+    /* Edge zones: zero inset, for controls that must hug the map border (e.g. attribution) */
+    .slot-zone--edge-bottom-right {
+      bottom: 0;
+      right: 0;
+      left: 0;
+      justify-content: flex-end;
+      align-items: flex-end;
+    }
+
+    .slot-zone--edge-bottom-left {
+      bottom: 0;
+      left: 0;
+      right: 0;
+      justify-content: flex-end;
+      align-items: flex-start;
+    }
+
+    .slot-zone--edge-bottom-center {
+      bottom: 0;
+      left: 0;
+      right: 0;
+      justify-content: flex-end;
+      align-items: center;
     }
   `;
 
   protected render() {
     return html`
       <div class="overlay-surface">
-        <!-- Middle zones first (lower stacking order) -->
+        <!-- Edge zones first (lowest stacking order) -->
+        <div class="slot-zone slot-zone--edge-bottom-right">
+          <slot name="edge-bottom-right"></slot>
+        </div>
+        <div class="slot-zone slot-zone--edge-bottom-left">
+          <slot name="edge-bottom-left"></slot>
+        </div>
+        <div class="slot-zone slot-zone--edge-bottom-center">
+          <slot name="edge-bottom-center"></slot>
+        </div>
+
+        <!-- Middle zones (lower stacking order) -->
         <div class="slot-zone slot-zone--middle-left" data-direction=${this.slotDirections['middle-left']}>
           <slot name="middle-left" @slotchange=${this.handleSlotChange}></slot>
         </div>

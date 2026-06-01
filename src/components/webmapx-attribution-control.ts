@@ -144,7 +144,7 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
             width: 100%;
             --webmapx-pointer-events: none;
             pointer-events: none;
-            font-size: 12px;
+            font-size: 11px;
             color: var(--color-text-secondary, #444);
             box-sizing: border-box;
         }
@@ -158,9 +158,8 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
             width: fit-content;
             flex: 0 1 auto;
             background: rgba(255, 255, 255, 0.85);
-            padding: 6px 8px;
-            border-radius: 4px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+            padding: 2px 6px 1px;
+            border-radius: 4px 4px 0 0;
             white-space: normal;
             word-break: break-word;
             box-sizing: border-box;
