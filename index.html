@@ -33,7 +33,7 @@
                     </webmapx-control-group>
                         
                         <!-- Top Left: Toolbar + Panel -->
-                        <webmapx-control-group slot="top-left" orientation="vertical" panel-position="after" alignment="start">
+                        <webmapx-control-group slot="top-left" orientation="vertical" panel-position="after" alignment="start" style="--webmapx-pointer-events: none">
                         <webmapx-toolbar id="main-toolbar">
                             <sl-button name="layers" size="medium" circle>
                                 <sl-icon name="layers" label="Layers"></sl-icon>
@@ -50,7 +50,7 @@
                             <sl-button name="geolocation" size="medium" circle>
                                 <sl-icon name="crosshair" label="Geolocation"></sl-icon>
                             </sl-button>
-                            <div style="flex:1"></div>
+                            <div style="flex:1; pointer-events:none"></div>
                             <sl-button name="settings" size="medium" circle>
                                 <sl-icon name="gear" label="Settings"></sl-icon>
                             </sl-button>

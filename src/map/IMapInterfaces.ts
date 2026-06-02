@@ -3,6 +3,13 @@
 import type { AnyLayerConfig, LayerDataConfig, MapStyle, WMSSourceConfig } from '../config/types';
 import type { IQueryService } from './IQueryService';
 import type { LngLat, Pixel, MapEventBus } from '../store/map-events';
+
+export interface MarkerOptions {
+    /** Pin fill color (CSS color string). Default: engine default or red. */
+    color?: string;
+    /** Whether the marker can be dragged by the user. Default: false. */
+    draggable?: boolean;
+}
 import type { MapStateStore } from '../store/map-state-store';
 
 /**
@@ -268,6 +275,14 @@ export interface IMap {
 
     /** Re-enables the busy/loading indicator for a source. */
     unsuppressBusySignalForSource(sourceId: string): void;
+
+    // ===== Markers =====
+    /** Adds a pin marker at the given location. Replaces any existing marker with the same id. */
+    addMarker(id: string, lngLat: LngLat, options?: MarkerOptions): void;
+    /** Moves an existing marker to a new location. No-op if marker does not exist. */
+    moveMarker(id: string, lngLat: LngLat): void;
+    /** Removes a marker by id. No-op if marker does not exist. */
+    removeMarker(id: string): void;
 
     // ===== Initialization & Cleanup =====
     /**

@@ -8,11 +8,13 @@ import { MapServiceTemplate } from './leaflet-services/MapServiceTemplate';
 import { MapFactoryService } from './leaflet-services/MapFactoryService';
 import { MapLayerService } from './leaflet-services/MapLayerService';
 import { MapQueryService } from './leaflet-services/MapQueryService';
+import { MapMarkerService } from './leaflet-services/MapMarkerService';
 import { DeferredLogicalLayerExecutor } from './logical-layer-executor';
 import { DeferredQueryService } from './deferred-query-service';
 import { emitVisibleLayerEvents } from './visible-layer-utils';
 import type { MapStyle } from '../config/types';
 import type { IQueryService } from './IQueryService';
+import type { MarkerOptions } from './IMapInterfaces';
 
 /**
  * The concrete Map implementation for Leaflet.
@@ -28,6 +30,7 @@ export class LeafletAdapter implements IMap {
     public readonly mapFactory: ISubMapFactory;
     private readonly logicalLayerExecutor: DeferredLogicalLayerExecutor;
     private readonly queryExecutor: DeferredQueryService;
+    private markerService: MapMarkerService | null = null;
     private lastVisibleLayers: string[] = [];
 
     constructor() {
@@ -48,6 +51,7 @@ export class LeafletAdapter implements IMap {
             const layerService = new MapLayerService(map, this.store);
             this.logicalLayerExecutor.bind(layerService);
             this.queryExecutor.bind(new MapQueryService(map, layerService));
+            this.markerService = new MapMarkerService(map);
         });
     }
 
@@ -139,6 +143,18 @@ export class LeafletAdapter implements IMap {
 
     unsuppressBusySignalForSource(sourceId: string): void {
         this.core.unsuppressBusySignalForSource(sourceId);
+    }
+
+    addMarker(id: string, lngLat: LngLat, options?: MarkerOptions): void {
+        this.markerService?.add(id, lngLat, options);
+    }
+
+    moveMarker(id: string, lngLat: LngLat): void {
+        this.markerService?.move(id, lngLat);
+    }
+
+    removeMarker(id: string): void {
+        this.markerService?.remove(id);
     }
 
 }

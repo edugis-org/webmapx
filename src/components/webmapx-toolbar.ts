@@ -25,8 +25,12 @@ export class WebmapxToolbar extends LitElement {
       width: fit-content;
       padding: 0.5rem;
       gap: 0.5rem;
-      pointer-events: auto;
+      pointer-events: none;
       box-shadow: var(--sl-shadow-small);
+    }
+
+    ::slotted(*) {
+      pointer-events: auto;
     }
 
     :host([orientation="vertical"]) {

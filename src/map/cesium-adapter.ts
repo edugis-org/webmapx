@@ -9,10 +9,12 @@ import { MapServiceTemplate } from './cesium-services/MapServiceTemplate';
 import { MapFactoryService } from './cesium-services/MapFactoryService';
 import { MapLayerService } from './cesium-services/MapLayerService';
 import { MapQueryService } from './cesium-services/MapQueryService';
+import { MapMarkerService } from './cesium-services/MapMarkerService';
 import { DeferredLogicalLayerExecutor } from './logical-layer-executor';
 import { DeferredQueryService } from './deferred-query-service';
 import { emitVisibleLayerEvents } from './visible-layer-utils';
 import type { IQueryService } from './IQueryService';
+import type { MarkerOptions } from './IMapInterfaces';
 
 let cesiumLoadPromise: Promise<void> | null = null;
 
@@ -80,6 +82,7 @@ export class CesiumAdapter implements IMap {
     public readonly mapFactory: ISubMapFactory;
     private readonly logicalLayerExecutor: DeferredLogicalLayerExecutor;
     private readonly queryExecutor: DeferredQueryService;
+    private markerService: MapMarkerService | null = null;
     private lastVisibleLayers: string[] = [];
 
     constructor() {
@@ -99,6 +102,7 @@ export class CesiumAdapter implements IMap {
             const layerService = new MapLayerService(viewer, this.store);
             this.logicalLayerExecutor.bind(layerService);
             this.queryExecutor.bind(new MapQueryService(viewer, layerService));
+            this.markerService = new MapMarkerService(viewer);
         });
     }
 
@@ -190,6 +194,18 @@ export class CesiumAdapter implements IMap {
 
     unsuppressBusySignalForSource(sourceId: string): void {
         this.core.unsuppressBusySignalForSource(sourceId);
+    }
+
+    addMarker(id: string, lngLat: LngLat, options?: MarkerOptions): void {
+        this.markerService?.add(id, lngLat, options);
+    }
+
+    moveMarker(id: string, lngLat: LngLat): void {
+        this.markerService?.move(id, lngLat);
+    }
+
+    removeMarker(id: string): void {
+        this.markerService?.remove(id);
     }
 
 }

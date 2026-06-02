@@ -13,8 +13,7 @@ import { throttle } from '../utils/throttle';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 
-const PIN_SOURCE_ID = 'webmapx-info-pin-source';
-const PIN_LAYER_ID = 'webmapx-info-pin-layer';
+const PIN_MARKER_ID = 'webmapx-info-pin';
 
 /** Pixel distance within which a second click is treated as "same location" to unpin. */
 const UNPIN_THRESHOLD_PX = 8;
@@ -39,7 +38,7 @@ export class WebmapxInfoTool extends WebmapxModalTool {
     @state() private pinnedLocation: LngLat | null = null;
 
     private pinnedPixel: Pixel | null = null;
-    private pinLayerCreated = false;
+    private pinMarkerAdded = false;
 
     private unsubClick: (() => void) | null = null;
     private unsubPointerMove: (() => void) | null = null;
@@ -186,7 +185,7 @@ export class WebmapxInfoTool extends WebmapxModalTool {
     }
 
     disconnectedCallback(): void {
-        this.cleanupPinLayer();
+        this.removePinMarker();
         super.disconnectedCallback();
     }
 
@@ -202,7 +201,7 @@ export class WebmapxInfoTool extends WebmapxModalTool {
         this.mode = 'hover';
         this.pinnedLocation = null;
         this.pinnedPixel = null;
-        this.cleanupPinLayer();
+        this.removePinMarker();
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -234,7 +233,7 @@ export class WebmapxInfoTool extends WebmapxModalTool {
         this.loading = true;
         this.features = [];
 
-        this.showPinMarker(event.coords);
+        this.updatePinMarker(event.coords);
 
         try {
             const results = await this.adapter.queryService.queryFeatures(
@@ -251,50 +250,20 @@ export class WebmapxInfoTool extends WebmapxModalTool {
     // Pin marker
     // ─────────────────────────────────────────────────────────────────────
 
-    private showPinMarker(coords: LngLat): void {
-        const geojson: GeoJSON.FeatureCollection = {
-            type: 'FeatureCollection',
-            features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: coords } }],
-        };
-
-        if (!this.pinLayerCreated) {
-            this.dispatchEvent(new CustomEvent('webmapx-add-source', {
-                detail: { id: PIN_SOURCE_ID, config: { type: 'geojson', data: geojson } },
-                bubbles: true, composed: true,
-            }));
-            this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
-                detail: {
-                    id: PIN_LAYER_ID,
-                    type: 'circle',
-                    source: PIN_SOURCE_ID,
-                    metadata: { hideFromLegend: true, label: 'Info pin' },
-                    paint: {
-                        'circle-radius': 7,
-                        'circle-color': '#fff',
-                        'circle-stroke-color': '#e63946',
-                        'circle-stroke-width': 3,
-                    },
-                },
-                bubbles: true, composed: true,
-            }));
-            this.dispatchEvent(new CustomEvent('webmapx-suppress-busy-for-source', {
-                detail: PIN_SOURCE_ID, bubbles: true, composed: true,
-            }));
-            this.pinLayerCreated = true;
+    private updatePinMarker(coords: LngLat): void {
+        if (!this.adapter) return;
+        if (this.pinMarkerAdded) {
+            this.adapter.moveMarker(PIN_MARKER_ID, coords);
         } else {
-            this.dispatchEvent(new CustomEvent('webmapx-set-source-data', {
-                detail: { id: PIN_SOURCE_ID, data: geojson },
-                bubbles: true, composed: true,
-            }));
+            this.adapter.addMarker(PIN_MARKER_ID, coords, { color: '#0f62fe' });
+            this.pinMarkerAdded = true;
         }
     }
 
-    private cleanupPinLayer(): void {
-        if (!this.pinLayerCreated) return;
-        this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: PIN_LAYER_ID, bubbles: true, composed: true }));
-        this.dispatchEvent(new CustomEvent('webmapx-remove-source', { detail: PIN_SOURCE_ID, bubbles: true, composed: true }));
-        this.dispatchEvent(new CustomEvent('webmapx-unsuppress-busy-for-source', { detail: PIN_SOURCE_ID, bubbles: true, composed: true }));
-        this.pinLayerCreated = false;
+    private removePinMarker(): void {
+        if (!this.pinMarkerAdded) return;
+        this.adapter?.removeMarker(PIN_MARKER_ID);
+        this.pinMarkerAdded = false;
     }
 
     private unpin(): void {
@@ -302,7 +271,7 @@ export class WebmapxInfoTool extends WebmapxModalTool {
         this.pinnedLocation = null;
         this.pinnedPixel = null;
         this.features = [];
-        this.cleanupPinLayer();
+        this.removePinMarker();
     }
 
     // ─────────────────────────────────────────────────────────────────────

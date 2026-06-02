@@ -14,7 +14,7 @@ export class WebmapxControlGroup extends LitElement {
   static styles = css`
     :host {
       display: flex;
-      pointer-events: auto; /* Allow interaction for slotted controls */
+      pointer-events: none;
       gap: 0.5rem;
       flex: 0 1 auto; /* keep intrinsic height but allow shrinking when space is tight */
       min-height: 0; /* let child flex items manage their own minimums */
@@ -43,10 +43,7 @@ export class WebmapxControlGroup extends LitElement {
       flex-direction: column-reverse;
     }
     
-    /* Ensure children capture pointer events; sizing handled by each component */
-    ::slotted(*) {
-      pointer-events: auto;
-    }
+    /* Each slotted child manages its own pointer-events */
 
     /* Keep the panel attached to the slot edge. */
     :host([slot-anchor-y="top"])::slotted(webmapx-tool-panel) {
