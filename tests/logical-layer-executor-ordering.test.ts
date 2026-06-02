@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { DeferredLogicalLayerExecutor } from '../src/map/logical-layer-executor.ts';
-import type { LayerInsertOptions } from '../src/map/IMapInterfaces.ts';
-import type { AnyLayerConfig } from '../src/config/types.ts';
+import { DeferredLogicalLayerExecutor } from '../src/map/logical-layer-executor';
+import type { LayerInsertOptions } from '../src/map/IMapInterfaces';
+import type { AnyLayerConfig } from '../src/config/types';
 
 const sampleLayer: AnyLayerConfig = {
   id: 'sample',

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildLayerPanelSections } from '../src/utils/layer-panel-model.ts';
-import type { CatalogConfig } from '../src/config/types.ts';
+import { buildLayerPanelSections } from '../src/utils/layer-panel-model';
+import type { CatalogConfig } from '../src/config/types';
 
 const catalog: CatalogConfig = {
   label: 'Demo',

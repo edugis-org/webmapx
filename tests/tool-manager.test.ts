@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ToolManager } from '../src/tools/tool-manager.ts';
-import type { IModalTool } from '../src/tools/IModalTool.ts';
-import type { MapStateStore } from '../src/store/map-state-store.ts';
+import { ToolManager } from '../src/tools/tool-manager';
+import type { IModalTool } from '../src/tools/IModalTool';
+import type { MapStateStore } from '../src/store/map-state-store';
 
 class FakeTool implements IModalTool {
   readonly isModal = true;

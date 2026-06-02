@@ -5,13 +5,13 @@ import {
   getMapScopedStorageKey,
   normalizeAdapterName,
   resolveAdapterSelection,
-} from '../src/config/adapter-resolution.ts';
+} from '../src/config/adapter-resolution';
 import {
   clearConfigCache,
   fetchConfig,
   parseAttributeConfig,
   resolveMapConfig,
-} from '../src/config/index.ts';
+} from '../src/config/index';
 
 test('normalizeAdapterName resolves built-in aliases and lowercases custom names', () => {
   assert.equal(normalizeAdapterName('ol'), 'openlayers');

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { MapLibreLayerFactory } from '../src/map/maplibre-services/MapLibreLayerFactory.ts';
-import type { SubLayerSpec } from '../src/config/types.ts';
+import { MapLibreLayerFactory } from '../src/map/maplibre-services/MapLibreLayerFactory';
+import type { SubLayerSpec } from '../src/config/types';
 
 test('MapLibreLayerFactory preserves filter and zoom range for style-backed vector layers', () => {
   const spec: SubLayerSpec = {

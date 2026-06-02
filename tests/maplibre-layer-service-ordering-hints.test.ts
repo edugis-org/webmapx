@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { MapLayerService } from '../src/map/maplibre-services/MapLayerService.ts';
-import { MapStateStore } from '../src/store/map-state-store.ts';
-import type { AnyLayerConfig, LayerDataConfig } from '../src/config/types.ts';
+import { MapLayerService } from '../src/map/maplibre-services/MapLayerService';
+import { MapStateStore } from '../src/store/map-state-store';
+import type { AnyLayerConfig, LayerDataConfig } from '../src/config/types';
 
 class MockMap {
   private sources = new Map<string, unknown>();

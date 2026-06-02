@@ -167,8 +167,8 @@ export class MapFactoryService implements ISubMapFactory {
                         insetBackground: {
                             type: 'raster',
                             tiles: resolvedTiles,
-                            tileSize: options.tileSize ?? 256,
-                            ...(options.tileAttribution ? { attribution: options.tileAttribution } : {}),
+                            tileSize: options?.tileSize ?? 256,
+                            ...(options?.tileAttribution ? { attribution: options.tileAttribution } : {}),
                         },
                     },
                     layers: [
