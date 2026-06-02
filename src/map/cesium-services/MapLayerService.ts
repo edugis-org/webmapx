@@ -382,6 +382,41 @@ export class MapLayerService implements ILayerService {
         return false;
     }
 
+    getVisibleWMSLayers(): Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }> {
+        // Cesium renders WMS as imagery providers — GetFeatureInfo not yet implemented.
+        return [];
+    }
+
+    getNativeToLogicalLayerMap(): Map<string, string> {
+        return new Map();
+    }
+
+    /**
+     * Given a picked Cesium entity, returns the logical layer ID it belongs to
+     * by checking which GeoJsonDataSource contains it.
+     */
+    getLogicalLayerForEntity(entity: any): string | null {
+        for (const [handleKey, handle] of this.handles.entries()) {
+            if (handle.kind !== 'geojson') continue;
+            if (handle.dataSource?.entities?.contains?.(entity)) {
+                return handleKey.split('::')[0];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Extracts all properties from a Cesium entity's PropertyBag as plain values.
+     */
+    getEntityProperties(entity: any): Record<string, unknown> {
+        const props: Record<string, unknown> = {};
+        const propertyNames: string[] = entity?.properties?.propertyNames ?? [];
+        for (const key of propertyNames) {
+            props[key] = this.getEntityProperty(entity, key);
+        }
+        return props;
+    }
+
     private enforceMaxLevel(provider: any, maxLevel?: number): void {
         if (typeof maxLevel !== 'number' || !isFinite(maxLevel)) {
             return;

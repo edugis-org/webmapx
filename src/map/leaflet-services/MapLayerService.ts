@@ -2,7 +2,7 @@
 
 import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
 import { resolveSource, normalizeRawSource } from '../layer-source-utils';
-import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, GeoJSONSourceConfig, LayerDataConfig } from '../../config/types';
+import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, GeoJSONSourceConfig, LayerDataConfig, WMSSourceConfig } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import * as L from 'leaflet';
 import { LeafletLayerFactory } from './LeafletLayerFactory';
@@ -13,6 +13,7 @@ export class MapLayerService implements ILayerService {
     private map: L.Map;
     private store: MapStateStore;
     private logicalToNative: Map<string, string[]> = new Map();
+    private logicalToWMSSource: Map<string, { layerTitle?: string; sourceConfig: WMSSourceConfig }> = new Map();
     // Track native layer instances for removal
     private nativeLayerInstances: Map<string, L.Layer> = new Map();
     // Track WarpedMapLayer instances for cleanup (if @allmaps/leaflet is used)
@@ -219,6 +220,12 @@ export class MapLayerService implements ILayerService {
                 this.nativeLayerInstances.set(spec.id, spec.layer);
                 nativeLayerIds.push(spec.id);
             }
+            if (sourceConfig.service === 'wms') {
+                this.logicalToWMSSource.set(layerId, {
+                    layerTitle: (layerConfig as any).title,
+                    sourceConfig: sourceConfig as WMSSourceConfig,
+                });
+            }
         } else if (sourceConfig.type === 'geojson') {
             const data = await this.fetchGeoJSON(sourceConfig as GeoJSONSourceConfig);
             if (!data) return false;
@@ -334,6 +341,7 @@ export class MapLayerService implements ILayerService {
         }
 
         this.logicalToNative.delete(layerId);
+        this.logicalToWMSSource.delete(layerId);
         this.logicalOrder = this.logicalOrder.filter((id) => id !== layerId);
         this.updateVisibleLayers();
     }
@@ -344,5 +352,89 @@ export class MapLayerService implements ILayerService {
 
     isLayerVisible(layerId: string): boolean {
         return this.logicalToNative.has(layerId);
+    }
+
+    /**
+     * Returns GeoJSON feature properties for features whose visual representation
+     * is within tolerancePx of the given container pixel.
+     */
+    queryVectorFeaturesAtPixel(
+        map: L.Map,
+        pixel: [number, number],
+        tolerancePx: number,
+        layerFilter?: Set<string>
+    ): Array<{ layerId: string; properties: Record<string, unknown> }> {
+        const results: Array<{ layerId: string; properties: Record<string, unknown> }> = [];
+        const clickPoint = L.point(pixel[0], pixel[1]);
+
+        for (const [logicalId, nativeIds] of this.logicalToNative.entries()) {
+            if (layerFilter && !layerFilter.has(logicalId)) continue;
+            for (const nativeId of nativeIds) {
+                const nativeLayer = this.nativeLayerInstances.get(nativeId);
+                if (!nativeLayer || typeof (nativeLayer as any).getLayers !== 'function') continue;
+                const geoJsonLayer = nativeLayer as L.GeoJSON;
+                for (const subLayer of geoJsonLayer.getLayers()) {
+                    if (this.isHitAtPixel(map, subLayer, clickPoint, tolerancePx)) {
+                        const feature = (subLayer as any).feature as GeoJSON.Feature | undefined;
+                        if (feature?.properties) {
+                            results.push({ layerId: logicalId, properties: feature.properties as Record<string, unknown> });
+                        }
+                    }
+                }
+            }
+        }
+        return results;
+    }
+
+    private isHitAtPixel(map: L.Map, layer: L.Layer, clickPoint: L.Point, tolerancePx: number): boolean {
+        // CircleMarker / Circle — point features rendered as circles
+        if (layer instanceof L.CircleMarker) {
+            const center = map.latLngToContainerPoint(layer.getLatLng());
+            const radius = (layer as L.CircleMarker).getRadius() + tolerancePx;
+            return center.distanceTo(clickPoint) <= radius;
+        }
+        // Polygon / Rectangle
+        if (layer instanceof L.Polygon) {
+            const latlng = map.containerPointToLatLng(clickPoint);
+            return layer.getBounds().contains(latlng);
+        }
+        // Polyline
+        if (layer instanceof L.Polyline) {
+            const latlngs = layer.getLatLngs().flat(2) as L.LatLng[];
+            for (let i = 0; i < latlngs.length - 1; i++) {
+                const a = map.latLngToContainerPoint(latlngs[i]);
+                const b = map.latLngToContainerPoint(latlngs[i + 1]);
+                if (this.pointToSegmentDistancePx(clickPoint, a, b) <= tolerancePx) return true;
+            }
+        }
+        return false;
+    }
+
+    private pointToSegmentDistancePx(p: L.Point, a: L.Point, b: L.Point): number {
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const lenSq = dx * dx + dy * dy;
+        if (lenSq === 0) return p.distanceTo(a);
+        const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq));
+        return p.distanceTo(L.point(a.x + t * dx, a.y + t * dy));
+    }
+
+    getVisibleWMSLayers(): Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }> {
+        const result: Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }> = [];
+        for (const [layerId, entry] of this.logicalToWMSSource.entries()) {
+            if (this.logicalToNative.has(layerId)) {
+                result.push({ layerId, ...entry });
+            }
+        }
+        return result;
+    }
+
+    getNativeToLogicalLayerMap(): Map<string, string> {
+        const map = new Map<string, string>();
+        for (const [logicalId, nativeIds] of this.logicalToNative.entries()) {
+            for (const nativeId of nativeIds) {
+                map.set(nativeId, logicalId);
+            }
+        }
+        return map;
     }
 }

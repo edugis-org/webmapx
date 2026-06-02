@@ -318,5 +318,39 @@ export class MapLayerService implements ILayerService {
     isLayerVisible(layerId: string): boolean {
         return this.logicalToNative.has(layerId);
     }
+
+    getVisibleWMSLayers(): Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }> {
+        const result: Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }> = [];
+        if (!this.catalog) return result;
+        for (const logicalId of this.logicalToNative.keys()) {
+            const nativeLayerIds = this.logicalToNative.get(logicalId) ?? [];
+            for (const nativeLayerId of nativeLayerIds) {
+                const nativeSourceId = this.nativeLayerToSource.get(nativeLayerId);
+                if (!nativeSourceId) continue;
+                // Find matching logical source id
+                for (const [logicalSourceId, nativeSrcId] of this.logicalSourceToNative.entries()) {
+                    if (nativeSrcId !== nativeSourceId) continue;
+                    const sourceId = logicalSourceId.includes(':') ? logicalSourceId.split(':')[0] : logicalSourceId;
+                    const sourceConfig = resolveSource(this.catalog, sourceId);
+                    if (sourceConfig?.type === 'raster' && (sourceConfig as any).service === 'wms') {
+                        result.push({ layerId: logicalId, sourceConfig: sourceConfig as WMSSourceConfig });
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+        return result;
+    }
+
+    getNativeToLogicalLayerMap(): Map<string, string> {
+        const map = new Map<string, string>();
+        for (const [logicalId, nativeIds] of this.logicalToNative.entries()) {
+            for (const nativeId of nativeIds) {
+                map.set(nativeId, logicalId);
+            }
+        }
+        return map;
+    }
 }
 
