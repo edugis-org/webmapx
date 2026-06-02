@@ -1,7 +1,8 @@
 // src/map/maplibre-services/MapLayerService.ts
 
 import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
-import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, XYZSourceConfig, GeoJSONSourceConfig, VectorSourceConfig, LayerDataConfig, SubLayerSpec } from '../../config/types';
+import { resolveSource, normalizeRawSource } from '../layer-source-utils';
+import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, GeoJSONSourceConfig, LayerDataConfig, SubLayerSpec } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import * as maplibregl from 'maplibre-gl';
 import { buildWMSGetMapUrl } from '../../utils/wms-url-builder';
@@ -84,11 +85,6 @@ export class MapLayerService implements ILayerService {
         this.catalog = catalog;
     }
 
-    private resolveSource(sourceId: string): SourceConfig | null {
-        if (!this.catalog) return null;
-        return this.catalog.sources.find((s) => s.id === sourceId) ?? null;
-    }
-
     private getOrCreateNativeSourceId(logicalSourceId: string): string {
         if (this.logicalSourceToNative.has(logicalSourceId)) {
             return this.logicalSourceToNative.get(logicalSourceId)!;
@@ -161,28 +157,6 @@ export class MapLayerService implements ILayerService {
         return true;
     }
 
-    private normalizeRawSource(logicalId: string, rawDef: unknown): SourceConfig | null {
-        if (typeof rawDef !== 'object' || rawDef === null) return null;
-        const def = rawDef as Record<string, unknown>;
-        if (def.type === 'raster') {
-            const tiles = Array.isArray(def.tiles)
-                ? def.tiles.filter((t): t is string => typeof t === 'string')
-                : (typeof def.url === 'string' ? [def.url] : []);
-            if (tiles.length === 0) return null;
-            return { id: logicalId, type: 'raster', service: 'xyz', url: tiles, ...(def.attribution ? { attribution: def.attribution as string } : {}) } as XYZSourceConfig;
-        }
-        if (def.type === 'geojson') {
-            const data = def.data;
-            if (typeof data !== 'string' && typeof data !== 'object') return null;
-            return { id: logicalId, type: 'geojson', data: data as string } as GeoJSONSourceConfig;
-        }
-        if (def.type === 'vector') {
-            if (typeof def.url !== 'string') return null;
-            return { id: logicalId, type: 'vector', url: def.url } as VectorSourceConfig;
-        }
-        return null;
-    }
-
     private addCompositeStyleLayer(
         layerConfig: CompositeStyleLayerConfig,
         legendRole: 'background' | 'overlay',
@@ -196,7 +170,7 @@ export class MapLayerService implements ILayerService {
         const localSourceNativeIds = new Map<string, string>();
         for (const [sourceKey, rawDef] of Object.entries(localSources)) {
             const logicalId = `${layerId}:${sourceKey}`;
-            const sourceConfig = this.normalizeRawSource(logicalId, rawDef);
+            const sourceConfig = normalizeRawSource(logicalId, rawDef);
             if (!sourceConfig) continue;
             const nativeSrcId = this.getOrCreateNativeSourceId(logicalId);
             this.ensureNativeSource(nativeSrcId, sourceConfig);
@@ -223,7 +197,7 @@ export class MapLayerService implements ILayerService {
             // Resolve: local first, then global catalog
             let nativeSourceId: string | undefined = localSourceNativeIds.get(sourceKey);
             if (!nativeSourceId) {
-                const globalSource = this.resolveSource(sourceKey);
+                const globalSource = resolveSource(this.catalog,sourceKey);
                 if (globalSource) {
                     nativeSourceId = this.getOrCreateNativeSourceId(globalSource.id);
                     this.ensureNativeSource(nativeSourceId, globalSource);
@@ -278,7 +252,7 @@ export class MapLayerService implements ILayerService {
         }
 
         if (!stdLayer.source) return false;
-        const sourceConfig = this.resolveSource(stdLayer.source);
+        const sourceConfig = resolveSource(this.catalog,stdLayer.source);
         if (!sourceConfig) return false;
 
         const nativeSourceId = this.getOrCreateNativeSourceId(sourceConfig.id);

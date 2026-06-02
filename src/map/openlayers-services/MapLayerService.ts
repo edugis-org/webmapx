@@ -1,7 +1,8 @@
 // src/map/openlayers-services/MapLayerService.ts
 
 import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
-import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, XYZSourceConfig, GeoJSONSourceConfig, VectorSourceConfig, LayerDataConfig, SubLayerSpec } from '../../config/types';
+import { resolveSource, normalizeRawSource } from '../layer-source-utils';
+import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, LayerDataConfig, SubLayerSpec } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import OLMap from 'ol/Map';
 import TileLayer from 'ol/layer/Tile';
@@ -46,32 +47,6 @@ export class MapLayerService implements ILayerService {
 
     private updateVisibleLayers(): void {
         this.store.dispatch({ visibleLayers: Array.from(this.logicalToNative.keys()) }, 'MAP');
-    }
-
-    private resolveSource(sourceId: string): SourceConfig | null {
-        return this.catalog?.sources.find((s) => s.id === sourceId) ?? null;
-    }
-
-    private normalizeRawSource(logicalId: string, rawDef: unknown): SourceConfig | null {
-        if (typeof rawDef !== 'object' || rawDef === null) return null;
-        const def = rawDef as Record<string, unknown>;
-        if (def.type === 'raster') {
-            const tiles = Array.isArray(def.tiles)
-                ? def.tiles.filter((t): t is string => typeof t === 'string')
-                : (typeof def.url === 'string' ? [def.url] : []);
-            if (tiles.length === 0) return null;
-            return { id: logicalId, type: 'raster', service: 'xyz', url: tiles } as XYZSourceConfig;
-        }
-        if (def.type === 'geojson') {
-            const data = def.data;
-            if (typeof data !== 'string' && typeof data !== 'object') return null;
-            return { id: logicalId, type: 'geojson', data: data as string } as GeoJSONSourceConfig;
-        }
-        if (def.type === 'vector') {
-            if (typeof def.url !== 'string') return null;
-            return { id: logicalId, type: 'vector', url: def.url } as VectorSourceConfig;
-        }
-        return null;
     }
 
     private findLayerIndexByInstance(target: BaseLayer): number {
@@ -225,7 +200,7 @@ export class MapLayerService implements ILayerService {
         const stdLayer = layerConfig as StandardLayerConfig;
         if (!stdLayer.source) return false;
 
-        const sourceConfig = this.resolveSource(stdLayer.source);
+        const sourceConfig = resolveSource(this.catalog,stdLayer.source);
         if (!sourceConfig) return false;
 
         // Legacy warpedmap:// support
@@ -266,7 +241,7 @@ export class MapLayerService implements ILayerService {
         const localSourceMap = new Map<string, SourceConfig>();
         for (const [key, rawDef] of Object.entries(localSources)) {
             const logicalId = `${layerId}:${key}`;
-            const src = this.normalizeRawSource(logicalId, rawDef);
+            const src = normalizeRawSource(logicalId, rawDef);
             if (src) localSourceMap.set(key, src);
         }
 
@@ -296,7 +271,7 @@ export class MapLayerService implements ILayerService {
 
                 // Resolve source: local first, then global
                 let sourceConfig: SourceConfig | null = localSourceMap.get(sourceKey) ?? null;
-                if (!sourceConfig) sourceConfig = this.resolveSource(sourceKey);
+                if (!sourceConfig) sourceConfig = resolveSource(this.catalog,sourceKey);
                 if (!sourceConfig) continue;
 
                 const nativeSourceId = this.getOrCreateNativeSourceId(sourceConfig);

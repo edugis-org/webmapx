@@ -1,7 +1,8 @@
 // src/map/cesium-services/MapLayerService.ts
 
 import type { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
-import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, XYZSourceConfig, GeoJSONSourceConfig, LayerDataConfig, SubLayerSpec } from '../../config/types';
+import { resolveSource, normalizeRawSource } from '../layer-source-utils';
+import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, GeoJSONSourceConfig, LayerDataConfig, SubLayerSpec } from '../../config/types';
 import type { MapStateStore } from '../../store/map-state-store';
 import { throttle } from '../../utils/throttle';
 
@@ -209,28 +210,6 @@ export class MapLayerService implements ILayerService {
         this.catalog = catalog;
     }
 
-    private resolveSource(sourceId: string): SourceConfig | null {
-        return this.catalog?.sources.find((s) => s.id === sourceId) ?? null;
-    }
-
-    private normalizeRawSource(logicalId: string, rawDef: unknown): SourceConfig | null {
-        if (typeof rawDef !== 'object' || rawDef === null) return null;
-        const def = rawDef as Record<string, unknown>;
-        if (def.type === 'raster') {
-            const tiles = Array.isArray(def.tiles)
-                ? def.tiles.filter((t): t is string => typeof t === 'string')
-                : (typeof def.url === 'string' ? [def.url] : []);
-            if (tiles.length === 0) return null;
-            return { id: logicalId, type: 'raster', service: 'xyz', url: tiles } as XYZSourceConfig;
-        }
-        if (def.type === 'geojson') {
-            const data = def.data;
-            if (typeof data !== 'string' && typeof data !== 'object') return null;
-            return { id: logicalId, type: 'geojson', data: data as string } as GeoJSONSourceConfig;
-        }
-        return null;
-    }
-
     private async addImagerySource(layerId: string, sourceId: string, sourceConfig: SourceConfig, options?: LayerInsertOptions): Promise<boolean> {
         const Cesium = getCesium();
         if (!Cesium) return false;
@@ -321,7 +300,7 @@ export class MapLayerService implements ILayerService {
         // StandardLayerConfig
         const stdLayer = layerConfig as StandardLayerConfig;
         if (!stdLayer.source) return false;
-        const sourceConfig = this.resolveSource(stdLayer.source);
+        const sourceConfig = resolveSource(this.catalog,stdLayer.source);
         if (!sourceConfig) return false;
 
         if (sourceConfig.type === 'raster') return this.addImagerySource(layerId, sourceConfig.id, sourceConfig, options);
@@ -336,7 +315,7 @@ export class MapLayerService implements ILayerService {
 
         const localSourceMap = new Map<string, SourceConfig>();
         for (const [key, rawDef] of Object.entries(localSources)) {
-            const src = this.normalizeRawSource(`${layerId}:${key}`, rawDef);
+            const src = normalizeRawSource(`${layerId}:${key}`, rawDef);
             if (src) localSourceMap.set(key, src);
         }
 
@@ -346,7 +325,7 @@ export class MapLayerService implements ILayerService {
 
         for (const sourceKey of usedSourceKeys) {
             let sourceConfig: SourceConfig | null = localSourceMap.get(sourceKey) ?? null;
-            if (!sourceConfig) sourceConfig = this.resolveSource(sourceKey);
+            if (!sourceConfig) sourceConfig = resolveSource(this.catalog,sourceKey);
             if (!sourceConfig) continue;
 
             if (sourceConfig.type === 'raster') {

@@ -5,6 +5,7 @@ import View from 'ol/View';
 import { fromLonLat, toLonLat } from 'ol/proj';
 import { apply, stylefunction } from 'ol-mapbox-style';
 import { IMapCore, ISource, NavigationCapabilities } from '../IMapInterfaces';
+import { registerRuntimeLayer, unregisterRuntimeLayer } from '../runtime-layer-utils';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel, PointerResolution } from '../../store/map-events';
 import type { MapStyle } from '../../config/types';
@@ -403,38 +404,6 @@ export class MapCoreService implements IMapCore {
 
     private sources: Map<string, { source: VectorSource, layers: any[], olLayer: VectorLayer<any> }> = new Map();
 
-    private registerRuntimeLayer(layer: any): void {
-        const layerId = typeof layer?.id === 'string' ? layer.id : null;
-        if (!layerId) return;
-
-        const metadata = (layer?.metadata && typeof layer.metadata === 'object')
-            ? { ...(layer.metadata as Record<string, unknown>) }
-            : {};
-
-        if (typeof metadata.label !== 'string' || metadata.label.length === 0) {
-            if (typeof layer?.title === 'string' && layer.title.length > 0) {
-                metadata.label = layer.title;
-            } else {
-                metadata.label = layerId;
-            }
-        }
-
-        const current = this.store.getState().runtimeLayerMetadata ?? {};
-        this.store.dispatch({
-            runtimeLayerMetadata: {
-                ...current,
-                [layerId]: metadata,
-            },
-        }, 'MAP');
-    }
-
-    private unregisterRuntimeLayer(layerId: string): void {
-        const current = this.store.getState().runtimeLayerMetadata ?? {};
-        if (!(layerId in current)) return;
-        const { [layerId]: _removed, ...rest } = current;
-        this.store.dispatch({ runtimeLayerMetadata: rest }, 'MAP');
-    }
-
     public addLayer(layerConfig: any, options?: { beforeLayerId?: string; afterLayerId?: string }): void {
         if (!this.mapInstance) return;
 
@@ -445,7 +414,7 @@ export class MapCoreService implements IMapCore {
             return;
         }
 
-        this.registerRuntimeLayer(layerConfig);
+        registerRuntimeLayer(this.store,layerConfig);
 
         // Insert layer config by explicit before/after hints when provided.
         const beforeLayerId = options?.beforeLayerId;
@@ -475,7 +444,7 @@ export class MapCoreService implements IMapCore {
             const layerIndex = sourceInfo.layers.findIndex(l => l.id === id);
             if (layerIndex > -1) {
                 sourceInfo.layers.splice(layerIndex, 1);
-                this.unregisterRuntimeLayer(id);
+                unregisterRuntimeLayer(this.store,id);
                 if (sourceInfo.layers.length === 0) {
                     // Last layer for this source, remove the whole thing
                     this.mapInstance?.removeLayer(sourceInfo.olLayer);
@@ -514,7 +483,7 @@ export class MapCoreService implements IMapCore {
             for (const layer of sourceInfo.layers) {
                 const layerId = typeof layer?.id === 'string' ? layer.id : null;
                 if (layerId) {
-                    this.unregisterRuntimeLayer(layerId);
+                    unregisterRuntimeLayer(this.store,layerId);
                 }
             }
             this.mapInstance?.removeLayer(sourceInfo.olLayer);

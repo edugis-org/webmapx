@@ -1,7 +1,8 @@
 // src/map/leaflet-services/MapLayerService.ts
 
 import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
-import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, GeoJSONSourceConfig, XYZSourceConfig, VectorSourceConfig, LayerDataConfig } from '../../config/types';
+import { resolveSource, normalizeRawSource } from '../layer-source-utils';
+import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, GeoJSONSourceConfig, LayerDataConfig } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import * as L from 'leaflet';
 import { LeafletLayerFactory } from './LeafletLayerFactory';
@@ -121,32 +122,6 @@ export class MapLayerService implements ILayerService {
         this.catalog = catalog;
     }
 
-    private resolveSource(sourceId: string): SourceConfig | null {
-        return this.catalog?.sources.find((s) => s.id === sourceId) ?? null;
-    }
-
-    private normalizeRawSource(logicalId: string, rawDef: unknown): SourceConfig | null {
-        if (typeof rawDef !== 'object' || rawDef === null) return null;
-        const def = rawDef as Record<string, unknown>;
-        if (def.type === 'raster') {
-            const tiles = Array.isArray(def.tiles)
-                ? def.tiles.filter((t): t is string => typeof t === 'string')
-                : (typeof def.url === 'string' ? [def.url] : []);
-            if (tiles.length === 0) return null;
-            return { id: logicalId, type: 'raster', service: 'xyz', url: tiles } as XYZSourceConfig;
-        }
-        if (def.type === 'geojson') {
-            const data = def.data;
-            if (typeof data !== 'string' && typeof data !== 'object') return null;
-            return { id: logicalId, type: 'geojson', data: data as string } as GeoJSONSourceConfig;
-        }
-        if (def.type === 'vector') {
-            if (typeof def.url !== 'string') return null;
-            return { id: logicalId, type: 'vector', url: def.url } as VectorSourceConfig;
-        }
-        return null;
-    }
-
     /**
      * Check if a source URL uses the warpedmap:// protocol.
      */
@@ -219,7 +194,7 @@ export class MapLayerService implements ILayerService {
         // StandardLayerConfig
         const stdLayer = layerConfig as StandardLayerConfig;
         if (!stdLayer.source) return false;
-        const sourceConfig = this.resolveSource(stdLayer.source);
+        const sourceConfig = resolveSource(this.catalog,stdLayer.source);
         if (!sourceConfig) return false;
 
         // Legacy warpedmap:// support
@@ -288,7 +263,7 @@ export class MapLayerService implements ILayerService {
 
         const localSourceMap = new Map<string, SourceConfig>();
         for (const [key, rawDef] of Object.entries(localSources)) {
-            const src = this.normalizeRawSource(`${layerId}:${key}`, rawDef);
+            const src = normalizeRawSource(`${layerId}:${key}`, rawDef);
             if (src) localSourceMap.set(key, src);
         }
 
@@ -304,7 +279,7 @@ export class MapLayerService implements ILayerService {
 
         for (const [sourceKey, layers] of sourceLayerMap.entries()) {
             let sourceConfig: SourceConfig | null = localSourceMap.get(sourceKey) ?? null;
-            if (!sourceConfig) sourceConfig = this.resolveSource(sourceKey);
+            if (!sourceConfig) sourceConfig = resolveSource(this.catalog,sourceKey);
             if (!sourceConfig) continue;
 
             if (sourceConfig.type === 'raster') {

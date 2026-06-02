@@ -3,6 +3,7 @@
 import type { IMapCore, ISource, NavigationCapabilities } from '../IMapInterfaces';
 import type { MapStyle } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
+import { registerRuntimeLayer, unregisterRuntimeLayer } from '../runtime-layer-utils';
 import { MapEventBus, LngLat, Pixel } from '../../store/map-events';
 import { throttle } from '../../utils/throttle';
 
@@ -109,38 +110,6 @@ export class MapCoreService implements IMapCore {
     private runtimeLayerOrder: string[] = [];
     private readonly layerZStepMeters = 0.5;
     private readonly basePolylinePositions = new WeakMap<any, any[]>();
-
-    private registerRuntimeLayer(layer: any): void {
-        const layerId = typeof layer?.id === 'string' ? layer.id : null;
-        if (!layerId) return;
-
-        const metadata = (layer?.metadata && typeof layer.metadata === 'object')
-            ? { ...(layer.metadata as Record<string, unknown>) }
-            : {};
-
-        if (typeof metadata.label !== 'string' || metadata.label.length === 0) {
-            if (typeof layer?.title === 'string' && layer.title.length > 0) {
-                metadata.label = layer.title;
-            } else {
-                metadata.label = layerId;
-            }
-        }
-
-        const current = this.store.getState().runtimeLayerMetadata ?? {};
-        this.store.dispatch({
-            runtimeLayerMetadata: {
-                ...current,
-                [layerId]: metadata,
-            },
-        }, 'MAP');
-    }
-
-    private unregisterRuntimeLayer(layerId: string): void {
-        const current = this.store.getState().runtimeLayerMetadata ?? {};
-        if (!(layerId in current)) return;
-        const { [layerId]: _removed, ...rest } = current;
-        this.store.dispatch({ runtimeLayerMetadata: rest }, 'MAP');
-    }
 
     public initialize(
         containerId: string,
@@ -301,7 +270,7 @@ export class MapCoreService implements IMapCore {
         const state = this.sourceState.get(sourceId);
         if (!state) return;
 
-        this.registerRuntimeLayer(layer);
+        registerRuntimeLayer(this.store,layer);
 
         const layerId = typeof layer?.id === 'string' ? layer.id : null;
         if (layerId) {
@@ -322,7 +291,7 @@ export class MapCoreService implements IMapCore {
         const id = _id as any;
         if (typeof id === 'string') {
             this.removeRuntimeLayer(id);
-            this.unregisterRuntimeLayer(id);
+            unregisterRuntimeLayer(this.store,id);
         }
 
         for (const [sourceId, state] of this.sourceState.entries()) {
@@ -367,7 +336,7 @@ export class MapCoreService implements IMapCore {
                 const layerId = typeof layer.spec?.id === 'string' ? layer.spec.id : null;
                 if (layerId) {
                     this.removeRuntimeLayer(layerId);
-                    this.unregisterRuntimeLayer(layerId);
+                    unregisterRuntimeLayer(this.store,layerId);
                 }
                 this.removeLayerDataSource(layer);
             }

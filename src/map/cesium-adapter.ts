@@ -9,6 +9,7 @@ import { MapServiceTemplate } from './cesium-services/MapServiceTemplate';
 import { MapFactoryService } from './cesium-services/MapFactoryService';
 import { MapLayerService } from './cesium-services/MapLayerService';
 import { DeferredLogicalLayerExecutor } from './logical-layer-executor';
+import { emitVisibleLayerEvents } from './visible-layer-utils';
 
 let cesiumLoadPromise: Promise<void> | null = null;
 
@@ -85,7 +86,7 @@ export class CesiumAdapter implements IMap {
         this.logicalLayers = this.logicalLayerExecutor;
         this.mapFactory = new MapFactoryService();
         this.store.subscribe((state) => {
-            this.emitVisibleLayerEvents(state.visibleLayers ?? []);
+            this.lastVisibleLayers = emitVisibleLayerEvents(this.events, this.lastVisibleLayers, state.visibleLayers ?? []);
         });
         (this.core as any).onMapReady?.((viewer: any) => {
             this.logicalLayerExecutor.bind(new MapLayerService(viewer, this.store));
@@ -182,24 +183,6 @@ export class CesiumAdapter implements IMap {
         this.core.unsuppressBusySignalForSource(sourceId);
     }
 
-    private emitVisibleLayerEvents(nextVisibleLayers: string[]): void {
-        const previous = new Set(this.lastVisibleLayers);
-        const next = new Set(nextVisibleLayers);
-
-        for (const layerId of nextVisibleLayers) {
-            if (!previous.has(layerId)) {
-                this.events.emit({ type: 'layer-add', layerId, visibleLayers: [...nextVisibleLayers] });
-            }
-        }
-
-        for (const layerId of this.lastVisibleLayers) {
-            if (!next.has(layerId)) {
-                this.events.emit({ type: 'layer-remove', layerId, visibleLayers: [...nextVisibleLayers] });
-            }
-        }
-
-        this.lastVisibleLayers = [...nextVisibleLayers];
-    }
 }
 
 export async function createCesiumAdapter(): Promise<CesiumAdapter> {

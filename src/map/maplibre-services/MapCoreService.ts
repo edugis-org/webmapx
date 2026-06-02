@@ -1,6 +1,7 @@
 // src/map/maplibre-services/MapCoreService.ts
 
 import { IMapCore, NavigationCapabilities } from '../IMapInterfaces';
+import { registerRuntimeLayer, unregisterRuntimeLayer } from '../runtime-layer-utils';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel, PointerResolution } from '../../store/map-events';
 import type { MapStyle } from '../../config/types';
@@ -43,38 +44,6 @@ export class MapCoreService implements IMapCore {
             layers: [] as maplibregl.LayerSpecification[], // AT LEAST AN EMPTY LAYER SET
         }
     };
-
-    private registerRuntimeLayer(layer: any): void {
-        const layerId = typeof layer?.id === 'string' ? layer.id : null;
-        if (!layerId) return;
-
-        const metadata = (layer?.metadata && typeof layer.metadata === 'object')
-            ? { ...(layer.metadata as Record<string, unknown>) }
-            : {};
-
-        if (typeof metadata.label !== 'string' || metadata.label.length === 0) {
-            if (typeof layer?.title === 'string' && layer.title.length > 0) {
-                metadata.label = layer.title;
-            } else {
-                metadata.label = layerId;
-            }
-        }
-
-        const current = this.store.getState().runtimeLayerMetadata ?? {};
-        this.store.dispatch({
-            runtimeLayerMetadata: {
-                ...current,
-                [layerId]: metadata,
-            },
-        }, 'MAP');
-    }
-
-    private unregisterRuntimeLayer(layerId: string): void {
-        const current = this.store.getState().runtimeLayerMetadata ?? {};
-        if (!(layerId in current)) return;
-        const { [layerId]: _removed, ...rest } = current;
-        this.store.dispatch({ runtimeLayerMetadata: rest }, 'MAP');
-    }
 
     // The explicit return type of the tuple [number, number] is retained here
     public getViewportState(): { center: [number, number], zoom: number, bearing: number, pitch: number } { 
@@ -349,7 +318,7 @@ export class MapCoreService implements IMapCore {
     public addLayer(layer: any, options?: { beforeLayerId?: string; afterLayerId?: string }): void {
         if (!this.mapInstance) return;
 
-        this.registerRuntimeLayer(layer);
+        registerRuntimeLayer(this.store,layer);
 
         if (options?.beforeLayerId) {
             this.mapInstance.addLayer(layer, options.beforeLayerId);
@@ -372,7 +341,7 @@ export class MapCoreService implements IMapCore {
 
     public removeLayer(id: string): void {
         this.mapInstance?.removeLayer(id);
-        this.unregisterRuntimeLayer(id);
+        unregisterRuntimeLayer(this.store,id);
     }
 
     public addSource(id: string, config: any): void {

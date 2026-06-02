@@ -8,6 +8,7 @@ import { MapServiceTemplate } from './maplibre-services/MapServiceTemplate';
 import { MapFactoryService } from './maplibre-services/MapFactoryService';
 import { MapLayerService } from './maplibre-services/MapLayerService';
 import { DeferredLogicalLayerExecutor } from './logical-layer-executor';
+import { emitVisibleLayerEvents } from './visible-layer-utils';
 import type { MapStyle } from '../config/types';
 
 /**
@@ -33,7 +34,7 @@ export class MapLibreAdapter implements IMap {
         this.logicalLayers = this.logicalLayerExecutor;
         this.mapFactory = new MapFactoryService();
         this.store.subscribe((state) => {
-            this.emitVisibleLayerEvents(state.visibleLayers ?? []);
+            this.lastVisibleLayers = emitVisibleLayerEvents(this.events, this.lastVisibleLayers, state.visibleLayers ?? []);
         });
         // Wait for mapInstance to be ready, then initialize layerService
         (this.core as any).onMapReady?.((map: any) => {
@@ -141,22 +142,4 @@ export class MapLibreAdapter implements IMap {
         this.core.unsuppressBusySignalForSource(sourceId);
     }
 
-    private emitVisibleLayerEvents(nextVisibleLayers: string[]): void {
-        const previous = new Set(this.lastVisibleLayers);
-        const next = new Set(nextVisibleLayers);
-
-        for (const layerId of nextVisibleLayers) {
-            if (!previous.has(layerId)) {
-                this.events.emit({ type: 'layer-add', layerId, visibleLayers: [...nextVisibleLayers] });
-            }
-        }
-
-        for (const layerId of this.lastVisibleLayers) {
-            if (!next.has(layerId)) {
-                this.events.emit({ type: 'layer-remove', layerId, visibleLayers: [...nextVisibleLayers] });
-            }
-        }
-
-        this.lastVisibleLayers = [...nextVisibleLayers];
-    }
 }
