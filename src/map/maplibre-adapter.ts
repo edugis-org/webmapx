@@ -7,9 +7,12 @@ import { MapCoreService } from './maplibre-services/MapCoreService';
 import { MapServiceTemplate } from './maplibre-services/MapServiceTemplate';
 import { MapFactoryService } from './maplibre-services/MapFactoryService';
 import { MapLayerService } from './maplibre-services/MapLayerService';
+import { MapQueryService } from './maplibre-services/MapQueryService';
 import { DeferredLogicalLayerExecutor } from './logical-layer-executor';
+import { DeferredQueryService } from './deferred-query-service';
 import { emitVisibleLayerEvents } from './visible-layer-utils';
 import type { MapStyle } from '../config/types';
+import type { IQueryService } from './IQueryService';
 
 /**
  * The concrete Map implementation for MapLibre.
@@ -21,8 +24,10 @@ export class MapLibreAdapter implements IMap {
     private readonly core: IMapCore;
     public readonly toolService: IToolService;
     public readonly logicalLayers: ILogicalLayerExecutor;
+    public readonly queryService: IQueryService;
     public readonly mapFactory: ISubMapFactory;
     private readonly logicalLayerExecutor: DeferredLogicalLayerExecutor;
+    private readonly queryExecutor: DeferredQueryService;
     private lastVisibleLayers: string[] = [];
 
     constructor() {
@@ -32,6 +37,8 @@ export class MapLibreAdapter implements IMap {
         this.toolService = new MapServiceTemplate({});
         this.logicalLayerExecutor = new DeferredLogicalLayerExecutor();
         this.logicalLayers = this.logicalLayerExecutor;
+        this.queryExecutor = new DeferredQueryService();
+        this.queryService = this.queryExecutor;
         this.mapFactory = new MapFactoryService();
         this.store.subscribe((state) => {
             this.lastVisibleLayers = emitVisibleLayerEvents(this.events, this.lastVisibleLayers, state.visibleLayers ?? []);
@@ -39,7 +46,9 @@ export class MapLibreAdapter implements IMap {
         // Wait for mapInstance to be ready, then initialize layerService
         (this.core as any).onMapReady?.((map: any) => {
             const bindLogicalLayers = () => {
-                this.logicalLayerExecutor.bind(new MapLayerService(map, this.store));
+                const layerService = new MapLayerService(map, this.store);
+                this.logicalLayerExecutor.bind(layerService);
+                this.queryExecutor.bind(new MapQueryService(map, layerService));
             };
 
             if (typeof map?.once === 'function') {

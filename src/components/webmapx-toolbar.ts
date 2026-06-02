@@ -21,6 +21,7 @@ export class WebmapxToolbar extends LitElement {
       background: var(--webmapx-toolbar-bg, var(--sl-color-neutral-0, #fff));
       border: 1px solid var(--sl-color-neutral-200, #e5e5e5);
       height: fit-content;
+      align-self: stretch;
       width: fit-content;
       padding: 0.5rem;
       gap: 0.5rem;

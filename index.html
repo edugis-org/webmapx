@@ -44,11 +44,15 @@
                             <sl-button name="measure" size="medium" circle>
                                 <sl-icon name="rulers" label="Measure"></sl-icon>
                             </sl-button>
-                            <sl-button name="settings" size="medium" circle>
-                                <sl-icon name="gear" label="Settings"></sl-icon>
+                            <sl-button name="info" size="medium" circle>
+                                <sl-icon name="info-circle" label="Info"></sl-icon>
                             </sl-button>
                             <sl-button name="geolocation" size="medium" circle>
                                 <sl-icon name="crosshair" label="Geolocation"></sl-icon>
+                            </sl-button>
+                            <div style="flex:1"></div>
+                            <sl-button name="settings" size="medium" circle>
+                                <sl-icon name="gear" label="Settings"></sl-icon>
                             </sl-button>
                         </webmapx-toolbar>
 
@@ -56,6 +60,7 @@
                             <webmapx-layer-tree id="layer-tool" tool-id="layers"></webmapx-layer-tree>
                             <webmapx-search-tool id="search-tool" tool-id="search"></webmapx-search-tool>
                             <webmapx-measure-tool id="measure-tool" tool-id="measure"></webmapx-measure-tool>
+                            <webmapx-info-tool id="info-tool" tool-id="info"></webmapx-info-tool>
                             <webmapx-settings id="settings-tool" tool-id="settings"></webmapx-settings>
                             <webmapx-geolocation-tool id="geolocation-tool" tool-id="geolocation"></webmapx-geolocation-tool>
                         </webmapx-tool-panel>

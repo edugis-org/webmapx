@@ -8,8 +8,11 @@ import { MapCoreService } from './cesium-services/MapCoreService';
 import { MapServiceTemplate } from './cesium-services/MapServiceTemplate';
 import { MapFactoryService } from './cesium-services/MapFactoryService';
 import { MapLayerService } from './cesium-services/MapLayerService';
+import { MapQueryService } from './cesium-services/MapQueryService';
 import { DeferredLogicalLayerExecutor } from './logical-layer-executor';
+import { DeferredQueryService } from './deferred-query-service';
 import { emitVisibleLayerEvents } from './visible-layer-utils';
+import type { IQueryService } from './IQueryService';
 
 let cesiumLoadPromise: Promise<void> | null = null;
 
@@ -73,8 +76,10 @@ export class CesiumAdapter implements IMap {
     private readonly core: IMapCore;
     public readonly toolService: IToolService;
     public readonly logicalLayers: ILogicalLayerExecutor;
+    public readonly queryService: IQueryService;
     public readonly mapFactory: ISubMapFactory;
     private readonly logicalLayerExecutor: DeferredLogicalLayerExecutor;
+    private readonly queryExecutor: DeferredQueryService;
     private lastVisibleLayers: string[] = [];
 
     constructor() {
@@ -84,12 +89,16 @@ export class CesiumAdapter implements IMap {
         this.toolService = new MapServiceTemplate();
         this.logicalLayerExecutor = new DeferredLogicalLayerExecutor();
         this.logicalLayers = this.logicalLayerExecutor;
+        this.queryExecutor = new DeferredQueryService();
+        this.queryService = this.queryExecutor;
         this.mapFactory = new MapFactoryService();
         this.store.subscribe((state) => {
             this.lastVisibleLayers = emitVisibleLayerEvents(this.events, this.lastVisibleLayers, state.visibleLayers ?? []);
         });
         (this.core as any).onMapReady?.((viewer: any) => {
-            this.logicalLayerExecutor.bind(new MapLayerService(viewer, this.store));
+            const layerService = new MapLayerService(viewer, this.store);
+            this.logicalLayerExecutor.bind(layerService);
+            this.queryExecutor.bind(new MapQueryService(viewer, layerService));
         });
     }
 

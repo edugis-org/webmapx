@@ -1,6 +1,7 @@
 // src/map/IMapInterfaces.ts
 
-import type { AnyLayerConfig, LayerDataConfig, MapStyle } from '../config/types';
+import type { AnyLayerConfig, LayerDataConfig, MapStyle, WMSSourceConfig } from '../config/types';
+import type { IQueryService } from './IQueryService';
 import type { LngLat, Pixel, MapEventBus } from '../store/map-events';
 import type { MapStateStore } from '../store/map-state-store';
 
@@ -195,6 +196,9 @@ export interface IMap {
     /** Tool-specific service surface for engine-backed tool commands. */
     readonly toolService: IToolService;
 
+    /** Engine-backed feature query service used by the Info tool. */
+    readonly queryService: IQueryService;
+
     /** Engine-neutral executor for config-backed logical layers. */
     readonly logicalLayers: ILogicalLayerExecutor;
 
@@ -377,4 +381,16 @@ export interface ILayerService {
      * Checks if a layer is currently visible.
      */
     isLayerVisible(layerId: string): boolean;
+
+    /**
+     * Returns visible logical layers that are backed by a WMS source.
+     * Used by the query service to issue GetFeatureInfo requests.
+     */
+    getVisibleWMSLayers(): Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }>;
+
+    /**
+     * Returns a map from native layer ID to logical layer ID.
+     * Used by the query service to annotate vector query results with logical IDs.
+     */
+    getNativeToLogicalLayerMap(): Map<string, string>;
 }

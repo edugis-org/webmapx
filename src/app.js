@@ -37,6 +37,7 @@ import './components/webmapx-settings.ts';
 import './components/webmapx-coordinates-tool.ts';
 import './components/webmapx-spinner.ts';
 import './components/webmapx-measure-tool.ts';
+import './components/webmapx-info-tool.ts';
 import './components/webmapx-geolocation-tool.ts';
 import './components/webmapx-scale-control.ts';
 import './components/webmapx-navigation-control.ts';
