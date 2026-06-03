@@ -171,6 +171,18 @@ export class MapCoreService implements IMapCore {
             }, 'MAP');
         });
 
+        map.on('mousedown', (event: maplibregl.MapMouseEvent) => {
+            const coords: LngLat = [event.lngLat.lng, event.lngLat.lat];
+            const pixel: Pixel = [event.point.x, event.point.y];
+            this.eventBus?.emit({ type: 'pointer-down', coords, pixel, button: event.originalEvent.button, originalEvent: event.originalEvent });
+        });
+
+        map.on('mouseup', (event: maplibregl.MapMouseEvent) => {
+            const coords: LngLat = [event.lngLat.lng, event.lngLat.lat];
+            const pixel: Pixel = [event.point.x, event.point.y];
+            this.eventBus?.emit({ type: 'pointer-up', coords, pixel, button: event.originalEvent.button, originalEvent: event.originalEvent });
+        });
+
         map.on('mouseout', (event: maplibregl.MapMouseEvent) => {
             this.eventBus?.emit({
                 type: 'pointer-leave',
@@ -394,6 +406,15 @@ export class MapCoreService implements IMapCore {
     public setCursor(cursor: string): void {
         if (!this.mapInstance) return;
         this.mapInstance.getCanvas().style.cursor = cursor;
+    }
+
+    public setPanEnabled(enabled: boolean): void {
+        if (!this.mapInstance) return;
+        if (enabled) {
+            this.mapInstance.dragPan.enable();
+        } else {
+            this.mapInstance.dragPan.disable();
+        }
     }
 
     public suppressBusySignalForSource(sourceId: string): void {

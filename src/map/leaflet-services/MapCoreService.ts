@@ -177,6 +177,16 @@ export class MapCoreService implements IMapCore {
 
     private attachPointerEvents(map: L.Map): void {
         map.on('mousemove', (e: L.LeafletMouseEvent) => this.emitPointerEvent('pointer-move', e));
+        map.on('mousedown', (e: L.LeafletMouseEvent) => {
+            const coords: LngLat = [e.latlng.lng, e.latlng.lat];
+            const pixel: Pixel = [e.layerPoint.x, e.layerPoint.y];
+            this.eventBus?.emit({ type: 'pointer-down', coords, pixel, button: (e.originalEvent as MouseEvent).button, originalEvent: e.originalEvent });
+        });
+        map.on('mouseup', (e: L.LeafletMouseEvent) => {
+            const coords: LngLat = [e.latlng.lng, e.latlng.lat];
+            const pixel: Pixel = [e.layerPoint.x, e.layerPoint.y];
+            this.eventBus?.emit({ type: 'pointer-up', coords, pixel, button: (e.originalEvent as MouseEvent).button, originalEvent: e.originalEvent });
+        });
         map.on('mouseout', (e: L.LeafletMouseEvent) => {
             this.eventBus?.emit({ type: 'pointer-leave', originalEvent: e.originalEvent });
             this.store.dispatch({ pointerCoordinates: null, pointerResolution: null }, 'MAP');
@@ -235,6 +245,15 @@ export class MapCoreService implements IMapCore {
     public setCursor(cursor: string): void {
         if (!this.mapInstance) return;
         this.mapInstance.getContainer().style.cursor = cursor;
+    }
+
+    public setPanEnabled(enabled: boolean): void {
+        if (!this.mapInstance) return;
+        if (enabled) {
+            this.mapInstance.dragging.enable();
+        } else {
+            this.mapInstance.dragging.disable();
+        }
     }
 
     private computePointerResolution(event: L.LeafletMouseEvent): PointerResolution | null {

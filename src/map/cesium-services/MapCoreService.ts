@@ -398,6 +398,15 @@ export class MapCoreService implements IMapCore {
         canvas.style.cursor = cursor;
     }
 
+    public setPanEnabled(enabled: boolean): void {
+        if (!this.viewer) return;
+        const ctrl = this.viewer.scene.screenSpaceCameraController;
+        ctrl.enableTranslate = enabled;
+        ctrl.enableRotate = enabled;
+        ctrl.enableTilt = enabled;
+        ctrl.enableZoom = enabled;
+    }
+
     public onMapReady(callback: (viewer: any) => void): void {
         if (this.viewer) {
             callback(this.viewer);
@@ -441,6 +450,20 @@ export class MapCoreService implements IMapCore {
             this.eventBus?.emit({ type: 'click', coords, pixel, resolution: null, originalEvent: click });
             this.store.dispatch({ lastClickedCoordinates: coords, pointerCoordinates: coords, lastClickedResolution: null, pointerResolution: null }, 'MAP');
         }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+        handler.setInputAction((event: any) => {
+            const coords = toLngLat(event.position);
+            if (!coords) return;
+            const pixel: Pixel = [event.position.x, event.position.y];
+            this.eventBus?.emit({ type: 'pointer-down', coords, pixel, button: 0, originalEvent: event });
+        }, Cesium.ScreenSpaceEventType.LEFT_DOWN);
+
+        handler.setInputAction((event: any) => {
+            const coords = toLngLat(event.position);
+            if (!coords) return;
+            const pixel: Pixel = [event.position.x, event.position.y];
+            this.eventBus?.emit({ type: 'pointer-up', coords, pixel, button: 0, originalEvent: event });
+        }, Cesium.ScreenSpaceEventType.LEFT_UP);
 
         this.viewer.scene.canvas.addEventListener('contextmenu', (event: MouseEvent) => {
             event.preventDefault();

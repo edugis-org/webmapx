@@ -129,6 +129,9 @@ export interface IMapCore {
 
     /** Sets the map canvas cursor style. Pass '' to restore default. */
     setCursor(cursor: string): void;
+
+    /** Enables or disables map panning. Use to prevent map pan during vertex dragging. */
+    setPanEnabled(enabled: boolean): void;
 }
 
 /**
@@ -248,6 +251,9 @@ export interface IMap {
 
     /** Sets the map canvas cursor style. Pass '' to restore default. */
     setCursor(cursor: string): void;
+
+    /** Enables or disables map panning. Use to prevent map pan during vertex dragging. */
+    setPanEnabled(enabled: boolean): void;
 
     // ===== Coordinate Conversion =====
     /** Projects geographic [lng, lat] to screen pixel [x, y]. */

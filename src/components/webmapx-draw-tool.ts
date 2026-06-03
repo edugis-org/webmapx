@@ -2,7 +2,7 @@ import { html, css } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
-import type { LngLat, ClickEvent, PointerMoveEvent, ContextMenuEvent } from '../store/map-events';
+import type { LngLat, ClickEvent, PointerMoveEvent, ContextMenuEvent, PointerDownEvent, PointerUpEvent } from '../store/map-events';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
@@ -28,7 +28,34 @@ const SEL_POINT_ID  = 'webmapx-draw-sel-point';
 const DRAFT_SOURCE_ID = 'webmapx-draw-draft-source';
 const DRAFT_POINT_ID  = 'webmapx-draw-draft-points';
 
+const EDIT_VERT_SOURCE = 'webmapx-draw-edit-vert-source';
+const EDIT_VERT_LAYER  = 'webmapx-draw-edit-vert';
+const EDIT_MID_SOURCE  = 'webmapx-draw-edit-mid-source';
+const EDIT_MID_LAYER   = 'webmapx-draw-edit-mid';
+
+const HANDLE_THRESHOLD = 12; // px — snap distance for vertex/midpoint handles
+
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+type EditState = 'none' | 'selected' | 'editing';
+
+interface VertexHandle {
+    kind: 'vertex';
+    featureId: string;
+    ringIdx: number;
+    vertIdx: number;
+    coords: LngLat;
+}
+
+interface MidpointHandle {
+    kind: 'midpoint';
+    featureId: string;
+    ringIdx: number;
+    afterVertIdx: number;
+    coords: LngLat;
+}
+
+type EditHandle = VertexHandle | MidpointHandle;
 
 export type DrawMode = 'select' | 'draw-point' | 'draw-line' | 'draw-polygon';
 export type { DrawLayerConfig, GeometryType } from './webmapx-draw-layer-dialog';
@@ -74,11 +101,20 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private sharedLayersCreated = false;
     private createdDrawLayerIds = new Set<string>();
 
+    // ── Vertex editing state ──────────────────────────────────────────────────
+
+    @state() private editState: EditState = 'none';
+    private editHandles: EditHandle[] = [];
+    private hoveredHandle: EditHandle | null = null;
+    private dragging: { handle: EditHandle; lastCoords: LngLat } | null = null;
+
     // ── Event unsubscribers ───────────────────────────────────────────────────
 
     private unsubClick: (() => void) | null = null;
     private unsubMove:  (() => void) | null = null;
     private unsubCtx:   (() => void) | null = null;
+    private unsubDown:  (() => void) | null = null;
+    private unsubUp:    (() => void) | null = null;
 
     @query('webmapx-draw-layer-dialog')
     private layerDialog!: WebmapxDrawLayerDialog;
@@ -182,7 +218,12 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.unbindEvents();
         this.draftPoints = [];
         this.cursorPos = null;
+        this.dragging = null;
         this.selectedFeatureId = null;
+        this.editState = 'none';
+        this.editHandles = [];
+        this.hoveredHandle = null;
+        this.adapter?.setPanEnabled(true);
         this.updateSelectedSource();
         this.removeSharedLayers();   // only tool layers — data layers stay on map
         this.adapter?.setCursor('');
@@ -249,6 +290,22 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             paint: { 'circle-radius': 5, 'circle-color': '#fff', 'circle-stroke-width': 2, 'circle-stroke-color': '#0f62fe' }
         });
 
+        // Vertex editing handles
+        this.dispatch('webmapx-add-source', { id: EDIT_VERT_SOURCE, config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } } });
+        this.dispatch('webmapx-add-layer', {
+            id: EDIT_VERT_LAYER, type: 'circle', source: EDIT_VERT_SOURCE,
+            metadata: { isToolLayer: true, hideFromLegend: true },
+            paint: { 'circle-radius': 6, 'circle-color': '#fff', 'circle-stroke-width': 2, 'circle-stroke-color': '#0f62fe' }
+        });
+
+        // Midpoint handles (insert-vertex affordance)
+        this.dispatch('webmapx-add-source', { id: EDIT_MID_SOURCE, config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } } });
+        this.dispatch('webmapx-add-layer', {
+            id: EDIT_MID_LAYER, type: 'circle', source: EDIT_MID_SOURCE,
+            metadata: { isToolLayer: true, hideFromLegend: true },
+            paint: { 'circle-radius': 4, 'circle-color': '#fff', 'circle-stroke-width': 1.5, 'circle-stroke-color': '#0f62fe', 'circle-opacity': 0.7 }
+        });
+
         this.sharedLayersCreated = true;
 
         // Re-add any draw layers from prior activation
@@ -312,8 +369,12 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private removeSharedLayers(): void {
-        for (const id of [RUBBER_LINE_ID, VERTEX_LAYER_ID, SEL_FILL_ID, SEL_LINE_ID, SEL_POINT_ID, DRAFT_POINT_ID]) this.dispatch('webmapx-remove-layer', id);
-        for (const id of [RUBBER_SOURCE_ID, VERTEX_SOURCE_ID, SEL_SOURCE_ID, DRAFT_SOURCE_ID]) this.dispatch('webmapx-remove-source', id);
+        for (const id of [RUBBER_LINE_ID, VERTEX_LAYER_ID, SEL_FILL_ID, SEL_LINE_ID, SEL_POINT_ID, DRAFT_POINT_ID, EDIT_VERT_LAYER, EDIT_MID_LAYER]) {
+            this.dispatch('webmapx-remove-layer', id);
+        }
+        for (const id of [RUBBER_SOURCE_ID, VERTEX_SOURCE_ID, SEL_SOURCE_ID, DRAFT_SOURCE_ID, EDIT_VERT_SOURCE, EDIT_MID_SOURCE]) {
+            this.dispatch('webmapx-remove-source', id);
+        }
         this.sharedLayersCreated = false;
     }
 
@@ -345,12 +406,16 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.unsubClick = this.adapter.events.on('click',        (e: ClickEvent)       => this.handleClick(e));
         this.unsubMove  = this.adapter.events.on('pointer-move', (e: PointerMoveEvent) => this.handlePointerMove(e));
         this.unsubCtx   = this.adapter.events.on('contextmenu',  (e: ContextMenuEvent) => this.handleContextMenu(e));
+        this.unsubDown  = this.adapter.events.on('pointer-down', (e: PointerDownEvent) => this.handlePointerDown(e));
+        this.unsubUp    = this.adapter.events.on('pointer-up',   (e: PointerUpEvent)   => this.handlePointerUp(e));
     }
 
     private unbindEvents(): void {
         this.unsubClick?.(); this.unsubClick = null;
         this.unsubMove?.();  this.unsubMove  = null;
         this.unsubCtx?.();   this.unsubCtx   = null;
+        this.unsubDown?.();  this.unsubDown  = null;
+        this.unsubUp?.();    this.unsubUp    = null;
     }
 
     // ─── Mode management ─────────────────────────────────────────────────────
@@ -382,6 +447,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         switch (mode) {
             case 'select':
                 this.adapter?.setCursor('');
+                this.editState = 'none';
+                this.editHandles = [];
+                this.updateEditHandles();
                 this.helpText = 'Click a feature to select it.';
                 break;
             case 'draw-point':
@@ -458,18 +526,108 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
         if (this.mode === 'select') {
             const pixel = this.adapter!.project(coords);
-            const hit = this.findFeatureAt([pixel[0], pixel[1]], coords);
-            this.selectedFeatureId = hit?.id ?? null;
-            this.updateSelectedSource();
-            this.requestUpdate();
+            const px: [number, number] = [pixel[0], pixel[1]];
+            const hit = this.findFeatureAt(px, coords);
+
+            if (hit && hit.id === this.selectedFeatureId && this.editState === 'selected' &&
+                (hit.type === 'LineString' || hit.type === 'Polygon')) {
+                // Second click on already-selected line/polygon → enter edit mode
+                this.enterEditMode(hit.id);
+            } else if (hit) {
+                // First click on a feature → select it, show vertices if line/polygon
+                this.selectedFeatureId = hit.id;
+                this.editState = hit.type !== 'Point' ? 'selected' : 'none';
+                if (this.editState === 'selected') {
+                    this.helpText = 'Click again to edit vertices.';
+                }
+                this.updateSelectedSource();
+                this.updateEditHandles();
+                this.requestUpdate();
+            } else if (this.editState === 'editing') {
+                // Click on empty space while editing → back to selected
+                this.editState = 'selected';
+                this.updateEditHandles();
+                this.requestUpdate();
+            } else {
+                // Click on empty → deselect
+                this.selectedFeatureId = null;
+                this.editState = 'none';
+                this.updateSelectedSource();
+                this.updateEditHandles();
+                this.requestUpdate();
+            }
         }
     }
 
     private handlePointerMove(e: PointerMoveEvent): void {
         this.cursorPos = e.coords;
+
+        if (this.dragging) {
+            // Move vertex/midpoint
+            const f = this.features.find(f => f.id === this.dragging!.handle.featureId);
+            if (f) {
+                this.applyDragMove(f, this.dragging.handle, e.coords);
+                this.dragging.lastCoords = e.coords;
+                this.refreshDrawLayerSource(f.layerId);
+                this.updateEditHandles();
+                this.updateSelectedSource();
+            }
+            return;
+        }
+
         if (this.mode === 'draw-line' || this.mode === 'draw-polygon') {
             this.updateRubberband();
+            return;
         }
+
+        // Hover detection over handles for cursor change
+        if (this.editState === 'editing' && this.editHandles.length > 0) {
+            const px = this.adapter!.project(e.coords);
+            const h = this.findHandleAt([px[0], px[1]]);
+            if (h !== this.hoveredHandle) {
+                this.hoveredHandle = h;
+                this.adapter?.setCursor(h ? 'grab' : '');
+            }
+        }
+    }
+
+    private handlePointerDown(e: PointerDownEvent): void {
+        if (e.button !== 0) return;
+        if (this.editState !== 'editing') return;
+        const px: [number, number] = [e.pixel[0], e.pixel[1]];
+        const h = this.findHandleAt(px);
+        if (!h) return;
+
+        this.dragging = { handle: h, lastCoords: e.coords };
+        this.adapter?.setPanEnabled(false);
+        this.adapter?.setCursor('grabbing');
+
+        // If dragging a midpoint, first insert the new vertex
+        if (h.kind === 'midpoint') {
+            const f = this.features.find(f => f.id === h.featureId);
+            if (f) {
+                this.insertVertex(f, h);
+                // After insert, dragging.handle becomes the newly inserted vertex
+                const newVertIdx = h.afterVertIdx + 1;
+                const vertHandle: VertexHandle = { kind: 'vertex', featureId: h.featureId, ringIdx: h.ringIdx, vertIdx: newVertIdx, coords: h.coords };
+                this.dragging = { handle: vertHandle, lastCoords: e.coords };
+                this.refreshDrawLayerSource(f.layerId);
+                this.updateEditHandles();
+            }
+        }
+    }
+
+    private handlePointerUp(e: PointerUpEvent): void {
+        if (!this.dragging) return;
+        this.adapter?.setPanEnabled(true);
+        this.adapter?.setCursor(this.hoveredHandle ? 'grab' : '');
+
+        // Commit to history
+        const f = this.features.find(f => f.id === this.dragging!.handle.featureId);
+        if (f) {
+            this.pushHistory({ type: 'update', features: [{ ...f }] });
+        }
+        this.dragging = null;
     }
 
     private handleContextMenu(_e: ContextMenuEvent): void {
@@ -526,17 +684,119 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.dispatch('webmapx-set-source-data', { id: SEL_SOURCE_ID, data: { type: 'FeatureCollection', features } });
     }
 
+    // ─── Vertex editing ──────────────────────────────────────────────────────
+
+    private enterEditMode(_featureId: string): void {
+        this.editState = 'editing';
+        this.helpText = 'Drag vertices to move. Drag midpoints to add a vertex. Click empty to exit.';
+        this.updateEditHandles();
+        this.adapter?.setCursor('default');
+        this.requestUpdate();
+    }
+
+    private computeHandles(f: DrawFeature): EditHandle[] {
+        const handles: EditHandle[] = [];
+        if (f.type === 'Point') return handles;
+
+        const addRing = (ring: [number, number][], ringIdx: number, closed: boolean) => {
+            const n = closed ? ring.length - 1 : ring.length; // skip closing duplicate
+            for (let i = 0; i < n; i++) {
+                handles.push({ kind: 'vertex', featureId: f.id, ringIdx, vertIdx: i, coords: ring[i] as LngLat });
+                const next = (i + 1) % n;
+                const mid: LngLat = [(ring[i][0] + ring[next][0]) / 2, (ring[i][1] + ring[next][1]) / 2];
+                handles.push({ kind: 'midpoint', featureId: f.id, ringIdx, afterVertIdx: i, coords: mid });
+            }
+        };
+
+        if (f.type === 'LineString') {
+            addRing(f.coordinates as [number, number][], 0, false);
+        } else if (f.type === 'Polygon') {
+            (f.coordinates as [number, number][][]).forEach((ring, ri) => addRing(ring, ri, true));
+        }
+        return handles;
+    }
+
+    private updateEditHandles(): void {
+        if (!this.sharedLayersCreated) return;
+        const f = this.selectedFeatureId ? this.features.find(f => f.id === this.selectedFeatureId) : null;
+
+        if (!f || f.type === 'Point') {
+            this.editHandles = [];
+            this.dispatch('webmapx-set-source-data', { id: EDIT_VERT_SOURCE, data: { type: 'FeatureCollection', features: [] } });
+            this.dispatch('webmapx-set-source-data', { id: EDIT_MID_SOURCE,  data: { type: 'FeatureCollection', features: [] } });
+            return;
+        }
+
+        this.editHandles = this.computeHandles(f);
+        const editing = this.editState === 'editing';
+
+        const vertFeatures = this.editHandles
+            .filter(h => h.kind === 'vertex')
+            .map(h => ({ type: 'Feature', geometry: { type: 'Point', coordinates: h.coords }, properties: {} }));
+
+        const midFeatures = editing
+            ? this.editHandles
+                .filter(h => h.kind === 'midpoint')
+                .map(h => ({ type: 'Feature', geometry: { type: 'Point', coordinates: h.coords }, properties: {} }))
+            : [];
+
+        this.dispatch('webmapx-set-source-data', { id: EDIT_VERT_SOURCE, data: { type: 'FeatureCollection', features: vertFeatures } });
+        this.dispatch('webmapx-set-source-data', { id: EDIT_MID_SOURCE,  data: { type: 'FeatureCollection', features: midFeatures } });
+    }
+
+    private findHandleAt(px: [number, number]): EditHandle | null {
+        let best: EditHandle | null = null;
+        let bestDist = HANDLE_THRESHOLD;
+        for (const h of this.editHandles) {
+            const hp = this.adapter!.project(h.coords);
+            const d = Math.hypot(px[0] - hp[0], px[1] - hp[1]);
+            if (d < bestDist) { bestDist = d; best = h; }
+        }
+        return best;
+    }
+
+    private applyDragMove(f: DrawFeature, handle: EditHandle, newCoords: LngLat): void {
+        const coords = JSON.parse(JSON.stringify(f.coordinates));
+        if (handle.kind !== 'vertex') return;
+        const { ringIdx, vertIdx } = handle;
+        if (f.type === 'LineString') {
+            coords[vertIdx] = [newCoords[0], newCoords[1]];
+        } else if (f.type === 'Polygon') {
+            coords[ringIdx][vertIdx] = [newCoords[0], newCoords[1]];
+            // Keep closing vertex in sync
+            const ring = coords[ringIdx] as number[][];
+            if (vertIdx === 0) ring[ring.length - 1] = ring[0];
+        }
+        // Update in place (mutate the stored feature for live feedback)
+        f.coordinates = coords;
+        // Also update the handle position
+        handle.coords = newCoords;
+    }
+
+    private insertVertex(f: DrawFeature, h: MidpointHandle): void {
+        const coords = JSON.parse(JSON.stringify(f.coordinates));
+        const { ringIdx, afterVertIdx } = h;
+        if (f.type === 'LineString') {
+            (coords as number[][]).splice(afterVertIdx + 1, 0, [h.coords[0], h.coords[1]]);
+        } else if (f.type === 'Polygon') {
+            (coords[ringIdx] as number[][]).splice(afterVertIdx + 1, 0, [h.coords[0], h.coords[1]]);
+        }
+        f.coordinates = coords;
+        this.pushHistory({ type: 'update', features: [{ ...f }] });
+    }
+
     // ─── Feature management ──────────────────────────────────────────────────
 
     private commitFeature(feature: DrawFeature): void {
         this.pushHistory({ type: 'add', features: [feature] });
         this.features = [...this.features, feature];
         this.refreshDrawLayerSource(feature.layerId);
-        // Stay in current draw mode so the user can immediately add another feature,
-        // but select the new feature so the attribute panel is shown.
         this.setModeInternal(this.mode);
         this.selectedFeatureId = feature.id;
+        // Points don't have vertex editing; lines/polygons show vertices immediately
+        this.editState = feature.type !== 'Point' ? 'selected' : 'none';
         this.updateSelectedSource();
+        this.updateEditHandles();
     }
 
     deleteSelected(): void {
@@ -569,9 +829,18 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         } else if (entry.type === 'delete') {
             this.features = [...this.features, ...entry.features];
             entry.features.forEach(f => affected.add(f.layerId));
+        } else if (entry.type === 'update') {
+            // Restore previous geometry — swap with saved snapshot
+            this.features = this.features.map(f => {
+                const snap = entry.features.find(s => s.id === f.id);
+                if (snap) { affected.add(f.layerId); return { ...f, coordinates: snap.coordinates }; }
+                return f;
+            });
         }
         this.selectedFeatureId = null;
+        this.editState = 'none';
         this.updateSelectedSource();
+        this.updateEditHandles();
         affected.forEach(id => this.refreshDrawLayerSource(id));
     }
 
@@ -586,6 +855,12 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             const ids = new Set(entry.features.map(f => f.id));
             this.features = this.features.filter(f => !ids.has(f.id));
             entry.features.forEach(f => affected.add(f.layerId));
+        } else if (entry.type === 'update') {
+            this.features = this.features.map(f => {
+                const snap = entry.features.find(s => s.id === f.id);
+                if (snap) { affected.add(f.layerId); return { ...f, coordinates: snap.coordinates }; }
+                return f;
+            });
         }
         affected.forEach(id => this.refreshDrawLayerSource(id));
     }

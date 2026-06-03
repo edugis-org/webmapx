@@ -21,6 +21,7 @@ import { Circle, Fill, Stroke, Style } from 'ol/style';
  */
 export class MapCoreService implements IMapCore {
     private mapInstance: OLMap | null = null;
+    private panDisabled = false;
     private mapReadyCallbacks: Array<(map: OLMap) => void> = [];
     private silentSourceIds = new Set<string>();
     private minZoom?: number;
@@ -194,7 +195,7 @@ export class MapCoreService implements IMapCore {
 
     private attachPointerEvents(map: OLMap): void {
         map.on('pointermove', (event) => {
-            if (event.dragging) return;
+            if (event.dragging && !this.panDisabled) return;
 
             const coords = toLonLat(event.coordinate) as LngLat;
             const pixel: Pixel = [event.pixel[0], event.pixel[1]];
@@ -253,6 +254,22 @@ export class MapCoreService implements IMapCore {
                 pixel,
                 originalEvent: event.originalEvent
             });
+        });
+
+        map.getViewport().addEventListener('pointerdown', (event: PointerEvent) => {
+            const pixel: [number, number] = [event.offsetX, event.offsetY];
+            const coord = map.getCoordinateFromPixel(pixel);
+            if (!coord) return;
+            const ll = toLonLat(coord) as LngLat;
+            this.eventBus?.emit({ type: 'pointer-down', coords: ll, pixel, button: event.button, originalEvent: event });
+        });
+
+        map.getViewport().addEventListener('pointerup', (event: PointerEvent) => {
+            const pixel: [number, number] = [event.offsetX, event.offsetY];
+            const coord = map.getCoordinateFromPixel(pixel);
+            if (!coord) return;
+            const ll = toLonLat(coord) as LngLat;
+            this.eventBus?.emit({ type: 'pointer-up', coords: ll, pixel, button: event.button, originalEvent: event });
         });
 
         map.getViewport().addEventListener('contextmenu', (event) => {
@@ -538,6 +555,16 @@ export class MapCoreService implements IMapCore {
         if (!this.mapInstance) return;
         const viewport = this.mapInstance.getViewport() as HTMLElement;
         viewport.style.cursor = cursor;
+    }
+
+    public setPanEnabled(enabled: boolean): void {
+        if (!this.mapInstance) return;
+        this.panDisabled = !enabled;
+        this.mapInstance.getInteractions().forEach((interaction: any) => {
+            if (interaction.constructor?.name === 'DragPan') {
+                interaction.setActive(enabled);
+            }
+        });
     }
 
     private updateStyle(sourceId: string) {

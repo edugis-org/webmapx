@@ -119,6 +119,10 @@ export class MapLibreAdapter implements IMap {
         this.core.setCursor(cursor);
     }
 
+    setPanEnabled(enabled: boolean): void {
+        this.core.setPanEnabled(enabled);
+    }
+
     project(coords: LngLat): Pixel {
         return this.core.project(coords);
     }

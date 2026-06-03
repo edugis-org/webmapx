@@ -70,6 +70,23 @@ export interface ContextMenuEvent extends BaseMapEvent {
 }
 
 /**
+ * Pointer button events - for vertex dragging and other press-based interactions.
+ */
+export interface PointerDownEvent extends BaseMapEvent {
+    type: 'pointer-down';
+    coords: LngLat;
+    pixel: Pixel;
+    button: number; // 0 = left, 1 = middle, 2 = right
+}
+
+export interface PointerUpEvent extends BaseMapEvent {
+    type: 'pointer-up';
+    coords: LngLat;
+    pixel: Pixel;
+    button: number;
+}
+
+/**
  * Drag events - for drawing, measuring, and other interactive tools.
  */
 export interface DragStartEvent extends BaseMapEvent {
@@ -157,6 +174,8 @@ export interface LayerRemoveEvent extends BaseMapEvent {
 export type MapEvent =
     | PointerMoveEvent
     | PointerLeaveEvent
+    | PointerDownEvent
+    | PointerUpEvent
     | ClickEvent
     | DoubleClickEvent
     | ContextMenuEvent
@@ -175,6 +194,8 @@ export type MapEvent =
 export interface MapEventMap {
     'pointer-move': PointerMoveEvent;
     'pointer-leave': PointerLeaveEvent;
+    'pointer-down': PointerDownEvent;
+    'pointer-up': PointerUpEvent;
     'click': ClickEvent;
     'dblclick': DoubleClickEvent;
     'contextmenu': ContextMenuEvent;
