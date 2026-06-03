@@ -22,17 +22,14 @@ export interface DrawLayerConfig {
     type: GeometryType;
     color: string;
     properties: PropertyDef[];
-    /** Set when editing an existing map layer in-place. */
-    borrowedLayerIds?: string[];  // all layer IDs backed by same source (fill + outline etc.)
+    /** Set when editing an existing map layer in-place (source ID to blank/restore). */
     borrowedSourceId?: string;
 }
 
 export interface MapLayerOption {
-    layerIds: string[];  // all layer IDs sharing this source
+    layerId: string;  // representative layer ID (for label lookup)
     sourceId: string;
     label: string;
-    /** Convenience: first layerId */
-    layerId: string;
 }
 
 const PROPERTY_TYPES: Record<GeometryType, PropertyDef['type'][]> = {
@@ -219,7 +216,6 @@ export class WebmapxDrawLayerDialog extends LitElement {
                 this.layer = {
                     ...newLayerConfig(this.geometryType),
                     name: mapLayer?.label ?? this.selectedId,
-                    borrowedLayerIds: mapLayer?.layerIds,
                     borrowedSourceId: mapLayer?.sourceId,
                 };
             }
