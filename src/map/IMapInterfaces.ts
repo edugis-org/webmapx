@@ -137,7 +137,7 @@ export interface IMapCore {
     setLayerVisibility(layerId: string, visible: boolean): void;
 
     /** Returns current GeoJSON data of a source, or null if unavailable / not a GeoJSON source. */
-    getSourceData(sourceId: string): GeoJSON.FeatureCollection | null;
+    getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null;
 
     /** Returns the source ID backing a given layer, or null if not found. */
     getLayerSourceId(layerId: string): string | null;
@@ -268,7 +268,7 @@ export interface IMap {
     setLayerVisibility(layerId: string, visible: boolean): void;
 
     /** Returns current GeoJSON data of a source, or null if unavailable / not a GeoJSON source. */
-    getSourceData(sourceId: string): GeoJSON.FeatureCollection | null;
+    getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null;
 
     /** Returns the source ID backing a given layer, or null if not found. */
     getLayerSourceId(layerId: string): string | null;

@@ -268,7 +268,7 @@ export class MapCoreService implements IMapCore {
         });
     }
 
-    public getSourceData(sourceId: string): GeoJSON.FeatureCollection | null {
+    public getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
         const source = this.sources.get(sourceId);
         if (!source) return null;
         const features: GeoJSON.Feature[] = [];

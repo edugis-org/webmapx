@@ -219,7 +219,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.unbindEvents();
         // Restore all borrowed map layers before removing draw layers
         for (const layer of this.drawLayers) {
-            if (layer.borrowedMapLayerId) this.restoreBorrowedLayer(layer);
+            if (layer.borrowedLayerIds?.length) this.restoreBorrowedLayer(layer);
         }
         this.draftPoints = [];
         this.cursorPos = null;
@@ -433,19 +433,36 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.layerDialog.open();
     }
 
-    /** Returns map layers that are backed by readable GeoJSON sources. */
+    /** Returns map layers that are backed by readable GeoJSON sources, deduplicated by source. */
     private getEditableMapLayers(geoType: GeometryType): import('./webmapx-draw-layer-dialog').MapLayerOption[] {
         if (!this.adapter) return [];
         const meta = this.adapter.store.getState().runtimeLayerMetadata ?? {};
-        const result: import('./webmapx-draw-layer-dialog').MapLayerOption[] = [];
+
+        // Group layer IDs by sourceId
+        const bySource = new Map<string, { layerIds: string[]; label: string }>();
         for (const [layerId, entry] of Object.entries(meta)) {
-            if ((entry as any).hideFromLegend || (entry as any).isToolLayer) continue;
+            if ((entry as any).isToolLayer) continue;
             const sourceId = this.adapter.getLayerSourceId(layerId);
             if (!sourceId) continue;
-            const data = this.adapter.getSourceData(sourceId);
-            if (!data) continue;
-            // Determine geometry type from first feature
-            const firstFeature = data.features[0];
+            const existing = bySource.get(sourceId);
+            if (existing) {
+                existing.layerIds.push(layerId);
+            } else {
+                bySource.set(sourceId, { layerIds: [layerId], label: (entry as any).label ?? layerId });
+            }
+        }
+
+        const result: import('./webmapx-draw-layer-dialog').MapLayerOption[] = [];
+        for (const [sourceId, { layerIds, label }] of bySource) {
+            const dataOrUrl = this.adapter.getSourceData(sourceId);
+            if (!dataOrUrl) continue; // not a GeoJSON source
+            // For URL sources we include without geometry-type check (will be verified on load)
+            if (typeof dataOrUrl === 'string') {
+                result.push({ layerId: layerIds[0], layerIds, sourceId, label });
+                continue;
+            }
+            // Inline data — check geometry type
+            const firstFeature = dataOrUrl.features[0];
             if (!firstFeature) continue;
             const geom = firstFeature.geometry?.type;
             const featureGeoType: GeometryType | null =
@@ -453,7 +470,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 geom === 'LineString' || geom === 'MultiLineString' ? 'LineString' :
                 geom === 'Polygon' || geom === 'MultiPolygon' ? 'Polygon' : null;
             if (featureGeoType !== geoType) continue;
-            result.push({ layerId, sourceId, label: (entry as any).label ?? layerId });
+            result.push({ layerId: layerIds[0], layerIds, sourceId, label });
         }
         return result;
     }
@@ -489,14 +506,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     // ─── Dialog handlers ─────────────────────────────────────────────────────
 
-    private handleLayerConfirm(e: CustomEvent): void {
-        const cfg = e.detail as DrawLayerConfig;
+    private async handleLayerConfirm(e: CustomEvent): Promise<void> {
+        let cfg = e.detail as DrawLayerConfig;
 
         // If switching away from a previously borrowed layer, restore it first
         const prevActive = this.activeLayerIds[cfg.type];
         if (prevActive && prevActive !== cfg.id) {
             const prev = this.drawLayers.find(l => l.id === prevActive);
-            if (prev?.borrowedMapLayerId) this.restoreBorrowedLayer(prev);
+            if (prev?.borrowedLayerIds) this.restoreBorrowedLayer(prev);
         }
 
         // Upsert layer config
@@ -507,24 +524,59 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             this.drawLayers = [...this.drawLayers, cfg];
             this.addMapLayersForDrawLayer(cfg);
 
-            // If borrowing a map layer: load its features, hide the original
-            if (cfg.borrowedMapLayerId && cfg.borrowedSourceId && this.adapter) {
-                const data = this.adapter.getSourceData(cfg.borrowedSourceId);
+            // If borrowing a map layer: load its features, hide the originals
+            if (cfg.borrowedLayerIds?.length && cfg.borrowedSourceId && this.adapter) {
+                let data: GeoJSON.FeatureCollection | null = null;
+                const dataOrUrl = this.adapter.getSourceData(cfg.borrowedSourceId);
+                if (typeof dataOrUrl === 'string') {
+                    try {
+                        const res = await fetch(dataOrUrl);
+                        if (res.ok) data = await res.json() as GeoJSON.FeatureCollection;
+                    } catch (_) {}
+                } else {
+                    data = dataOrUrl;
+                }
+
                 if (data) {
-                    this.features = [
-                        ...this.features,
-                        ...data.features.map(f => ({
+                    const importedFeatures = data.features
+                        .filter(f => f.geometry)
+                        .map(f => ({
                             id: this.newId(),
                             layerId: cfg.id,
-                            type: (f.geometry?.type === 'MultiPolygon' || f.geometry?.type === 'Polygon' ? 'Polygon'
-                                 : f.geometry?.type === 'MultiLineString' || f.geometry?.type === 'LineString' ? 'LineString'
-                                 : 'Point') as GeometryType,
-                            coordinates: (f.geometry as any)?.coordinates ?? [],
+                            type: (
+                                f.geometry!.type === 'Polygon' || f.geometry!.type === 'MultiPolygon' ? 'Polygon' :
+                                f.geometry!.type === 'LineString' || f.geometry!.type === 'MultiLineString' ? 'LineString' :
+                                'Point'
+                            ) as GeometryType,
+                            coordinates: (f.geometry as any).coordinates ?? [],
                             properties: { ...f.properties }
-                        }))
-                    ];
+                        }));
+
+                    this.features = [...this.features, ...importedFeatures];
+
+                    // Infer attribute schema from first feature if schema is still default
+                    if (data.features[0]?.properties && cfg.properties.length <= 2) {
+                        const inferred: import('./webmapx-draw-layer-dialog').PropertyDef[] = [
+                            { name: 'id', type: 'number' },
+                            ...Object.keys(data.features[0].properties)
+                                .filter(k => k !== 'id')
+                                .map(k => ({ name: k, type: 'string' as const }))
+                        ];
+                        cfg = { ...cfg, properties: inferred };
+                        this.drawLayers = this.drawLayers.map(l => l.id === cfg.id ? cfg : l);
+                    }
                 }
-                this.adapter.setLayerVisibility(cfg.borrowedMapLayerId, false);
+
+                // Hide all original layers and mark them in legend
+                for (const lId of cfg.borrowedLayerIds ?? []) {
+                    this.adapter.setLayerVisibility(lId, false);
+                    const meta = this.adapter.store.getState().runtimeLayerMetadata ?? {};
+                    if (meta[lId]) {
+                        this.adapter.store.dispatch({
+                            runtimeLayerMetadata: { ...meta, [lId]: { ...meta[lId], hideFromLegend: true } }
+                        }, 'MAP');
+                    }
+                }
             }
         }
 
@@ -538,7 +590,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private restoreBorrowedLayer(cfg: DrawLayerConfig): void {
-        if (!cfg.borrowedMapLayerId || !cfg.borrowedSourceId || !this.adapter) return;
+        if (!cfg.borrowedLayerIds?.length || !cfg.borrowedSourceId || !this.adapter) return;
         // Write edited features back to the original source
         const features = this.features
             .filter(f => f.layerId === cfg.id)
@@ -549,8 +601,17 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             }));
         const source = this.adapter.getSource(cfg.borrowedSourceId);
         source?.setData({ type: 'FeatureCollection', features });
-        // Restore visibility
-        this.adapter.setLayerVisibility(cfg.borrowedMapLayerId, true);
+        // Restore visibility of all borrowed layers + un-hide from legend
+        for (const lId of cfg.borrowedLayerIds) {
+            this.adapter.setLayerVisibility(lId, true);
+            const meta = this.adapter.store.getState().runtimeLayerMetadata ?? {};
+            if (meta[lId]) {
+                const { hideFromLegend: _, ...rest } = meta[lId] as any;
+                this.adapter.store.dispatch({
+                    runtimeLayerMetadata: { ...meta, [lId]: rest }
+                }, 'MAP');
+            }
+        }
     }
 
     private handleLayerCancel(): void {

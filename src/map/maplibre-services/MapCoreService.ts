@@ -422,14 +422,17 @@ export class MapCoreService implements IMapCore {
         try { this.mapInstance.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none'); } catch (_) {}
     }
 
-    public getSourceData(sourceId: string): GeoJSON.FeatureCollection | null {
+    public getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
         if (!this.mapInstance) return null;
         const source = this.mapInstance.getSource(sourceId) as any;
         if (!source || source.type !== 'geojson') return null;
         try {
             const s = source.serialize();
-            return (s && typeof s.data === 'object') ? s.data as GeoJSON.FeatureCollection : null;
-        } catch (_) { return null; }
+            if (!s) return null;
+            if (typeof s.data === 'string') return s.data; // URL — caller must fetch
+            if (typeof s.data === 'object') return s.data as GeoJSON.FeatureCollection;
+        } catch (_) {}
+        return null;
     }
 
     public getLayerSourceId(layerId: string): string | null {

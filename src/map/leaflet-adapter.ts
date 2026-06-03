@@ -117,7 +117,7 @@ export class LeafletAdapter implements IMap {
         this.core.setLayerVisibility(layerId, visible);
     }
 
-    getSourceData(sourceId: string): GeoJSON.FeatureCollection | null {
+    getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
         return this.core.getSourceData(sourceId);
     }
 

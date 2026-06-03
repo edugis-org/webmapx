@@ -417,7 +417,7 @@ export class MapCoreService implements IMapCore {
         }
     }
 
-    public getSourceData(sourceId: string): GeoJSON.FeatureCollection | null {
+    public getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
         const state = this.sourceState.get(sourceId);
         return state?.data ?? null;
     }

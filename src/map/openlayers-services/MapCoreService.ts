@@ -572,7 +572,7 @@ export class MapCoreService implements IMapCore {
         if (sourceInfo?.olLayer) sourceInfo.olLayer.setVisible(visible);
     }
 
-    public getSourceData(sourceId: string): GeoJSON.FeatureCollection | null {
+    public getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
         const sourceInfo = this.sources.get(sourceId);
         if (!sourceInfo) return null;
         const format = new GeoJSON();
