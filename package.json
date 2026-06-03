@@ -15,6 +15,13 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node ./scripts/run-tests.mjs",
+    "ui-test": "node ./scripts/run-ui-tests.mjs --all",
+    "ui-test:tools": "node ./scripts/run-ui-tests.mjs --all",
+    "ui-test:tool-draw": "node ./scripts/run-ui-tests.mjs --suite tool-draw",
+    "ui-test:tool-draw:maplibre": "node ./scripts/run-ui-tests.mjs --suite tool-draw --engines maplibre",
+    "ui-test:tool-draw:openlayers": "node ./scripts/run-ui-tests.mjs --suite tool-draw --engines openlayers",
+    "ui-test:tool-draw:leaflet": "node ./scripts/run-ui-tests.mjs --suite tool-draw --engines leaflet",
+    "ui-test:tool-draw:cesium": "node ./scripts/run-ui-tests.mjs --suite tool-draw --engines cesium",
     "check:architecture": "node ./scripts/check-architecture.mjs"
   },
   "dependencies": {
