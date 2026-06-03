@@ -524,9 +524,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             } else if (hit) {
                 // First click on a feature → select it, show vertices if line/polygon
                 this.selectedFeatureId = hit.id;
-                this.editState = hit.type !== 'Point' ? 'selected' : 'none';
+                this.editState = hit.type === 'Point' ? 'editing' : 'selected';
                 if (this.editState === 'selected') {
                     this.helpText = 'Click again to edit vertices.';
+                } else if (hit.type === 'Point') {
+                    this.helpText = 'Drag to move point.';
                 }
                 this.updateSelectedSource();
                 this.updateEditHandles();
@@ -685,7 +687,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     private computeHandles(f: DrawFeature): EditHandle[] {
         const handles: EditHandle[] = [];
-        if (f.type === 'Point') return handles;
+        if (f.type === 'Point') {
+            handles.push({ kind: 'vertex', featureId: f.id, ringIdx: 0, vertIdx: 0, coords: f.coordinates as LngLat });
+            return handles;
+        }
 
         const addRing = (ring: [number, number][], ringIdx: number, closed: boolean) => {
             const n = closed ? ring.length - 1 : ring.length; // skip closing duplicate
@@ -709,7 +714,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (!this.sharedLayersCreated) return;
         const f = this.selectedFeatureId ? this.features.find(f => f.id === this.selectedFeatureId) : null;
 
-        if (!f || f.type === 'Point') {
+        if (!f) {
             this.editHandles = [];
             this.dispatch('webmapx-set-source-data', { id: EDIT_VERT_SOURCE, data: { type: 'FeatureCollection', features: [] } });
             this.dispatch('webmapx-set-source-data', { id: EDIT_MID_SOURCE,  data: { type: 'FeatureCollection', features: [] } });
@@ -748,7 +753,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         const coords = JSON.parse(JSON.stringify(f.coordinates));
         if (handle.kind !== 'vertex') return;
         const { ringIdx, vertIdx } = handle;
-        if (f.type === 'LineString') {
+        if (f.type === 'Point') {
+            f.coordinates = [newCoords[0], newCoords[1]];
+            handle.coords = newCoords;
+            return;
+        } else if (f.type === 'LineString') {
             coords[vertIdx] = [newCoords[0], newCoords[1]];
         } else if (f.type === 'Polygon') {
             coords[ringIdx][vertIdx] = [newCoords[0], newCoords[1]];
@@ -790,8 +799,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.refreshDrawLayerSource(feature.layerId);
         this.setModeInternal(this.mode);
         this.selectedFeatureId = feature.id;
-        // Points don't have vertex editing; lines/polygons show vertices immediately
-        this.editState = feature.type !== 'Point' ? 'selected' : 'none';
+        // Points go straight to editing (one handle, immediately draggable)
+        this.editState = feature.type === 'Point' ? 'editing' : 'selected';
         this.updateSelectedSource();
         this.updateEditHandles();
     }
