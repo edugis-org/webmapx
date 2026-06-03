@@ -1,5 +1,7 @@
 # Dev Journal
 
+> **Archived.** Last entry: 2025-12-14. Current session context is in git log and CHANGELOG.md.
+
 Use this journal to hand off context between sessions.
 
 Template
