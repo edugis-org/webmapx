@@ -583,7 +583,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (cfg.borrowedSourceId) this.refreshDrawLayerSource(cfg.id);
 
         if (this.pendingMode) {
-            this.setModeInternal(this.pendingMode);
+            // After importing an existing layer, go to select so user can pick a feature
+            this.setModeInternal(cfg.borrowedSourceId ? 'select' : this.pendingMode);
             this.pendingMode = null;
         }
     }
