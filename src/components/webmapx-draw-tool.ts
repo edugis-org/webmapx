@@ -532,9 +532,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.pushHistory({ type: 'add', features: [feature] });
         this.features = [...this.features, feature];
         this.refreshDrawLayerSource(feature.layerId);
-        // Stay in current draw mode so the user can immediately add another feature
+        // Stay in current draw mode so the user can immediately add another feature,
+        // but select the new feature so the attribute panel is shown.
         this.setModeInternal(this.mode);
-        this.selectedFeatureId = null;
+        this.selectedFeatureId = feature.id;
         this.updateSelectedSource();
     }
 
