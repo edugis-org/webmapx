@@ -3,6 +3,9 @@ import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
 import type { LngLat, ClickEvent, PointerMoveEvent, ContextMenuEvent } from '../store/map-events';
+import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
+import '@shoelace-style/shoelace/dist/components/icon/icon.js';
+import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 
 // ─── Layer / source IDs ───────────────────────────────────────────────────────
 
