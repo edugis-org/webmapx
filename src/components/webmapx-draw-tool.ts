@@ -21,6 +21,13 @@ function drawFillId(layerId: string)     { return `webmapx-draw-fill-${layerId}`
 function drawLineId(layerId: string)     { return `webmapx-draw-line-${layerId}`; }
 function drawPointId(layerId: string)    { return `webmapx-draw-pts-${layerId}`; }
 
+const SEL_SOURCE_ID = 'webmapx-draw-sel-source';
+const SEL_FILL_ID   = 'webmapx-draw-sel-fill';
+const SEL_LINE_ID   = 'webmapx-draw-sel-line';
+const SEL_POINT_ID  = 'webmapx-draw-sel-point';
+const DRAFT_SOURCE_ID = 'webmapx-draw-draft-source';
+const DRAFT_POINT_ID  = 'webmapx-draw-draft-points';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type DrawMode = 'select' | 'draw-point' | 'draw-line' | 'draw-polygon';
@@ -160,6 +167,13 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     protected onActivate(): void {
         this.createSharedLayers();
+        // Re-add any data layers that existed before this activation
+        for (const layer of this.drawLayers) {
+            if (!this.createdDrawLayerIds.has(layer.id)) {
+                this.addMapLayersForDrawLayer(layer);
+                this.refreshDrawLayerSource(layer.id);
+            }
+        }
         this.bindEvents();
         this.setModeInternal('select');
     }
@@ -168,12 +182,24 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.unbindEvents();
         this.draftPoints = [];
         this.cursorPos = null;
-        this.removeAllMapLayers();
+        this.selectedFeatureId = null;
+        this.updateSelectedSource();
+        this.removeSharedLayers();   // only tool layers — data layers stay on map
         this.adapter?.setCursor('');
+    }
+
+    disconnectedCallback(): void {
+        this.removeAllMapLayers();   // full cleanup when component is removed
+        super.disconnectedCallback();
     }
 
     protected onMapAttached(adapter: IMap): void {
         super.onMapAttached(adapter);
+    }
+
+    protected onMapDetached(): void {
+        this.removeAllMapLayers();
+        super.onMapDetached();
     }
 
     // ─── Shared map layers (rubberband, vertex) ───────────────────────────────
@@ -195,6 +221,34 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             paint: { 'circle-radius': 8, 'circle-color': 'transparent', 'circle-stroke-width': 2, 'circle-stroke-color': '#ff6600' }
         });
 
+        // Selected feature highlight
+        this.dispatch('webmapx-add-source', { id: SEL_SOURCE_ID, config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } } });
+        this.dispatch('webmapx-add-layer', {
+            id: SEL_FILL_ID, type: 'fill', source: SEL_SOURCE_ID,
+            metadata: { isToolLayer: true, hideFromLegend: true },
+            filter: ['==', ['geometry-type'], 'Polygon'],
+            paint: { 'fill-color': '#ff9900', 'fill-opacity': 0.25 }
+        });
+        this.dispatch('webmapx-add-layer', {
+            id: SEL_LINE_ID, type: 'line', source: SEL_SOURCE_ID,
+            metadata: { isToolLayer: true, hideFromLegend: true },
+            paint: { 'line-color': '#ff9900', 'line-width': 4 }
+        });
+        this.dispatch('webmapx-add-layer', {
+            id: SEL_POINT_ID, type: 'circle', source: SEL_SOURCE_ID,
+            metadata: { isToolLayer: true, hideFromLegend: true },
+            filter: ['==', ['geometry-type'], 'Point'],
+            paint: { 'circle-radius': 8, 'circle-color': '#ff9900', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }
+        });
+
+        // Draft vertices (points placed so far while drawing)
+        this.dispatch('webmapx-add-source', { id: DRAFT_SOURCE_ID, config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } } });
+        this.dispatch('webmapx-add-layer', {
+            id: DRAFT_POINT_ID, type: 'circle', source: DRAFT_SOURCE_ID,
+            metadata: { isToolLayer: true, hideFromLegend: true },
+            paint: { 'circle-radius': 5, 'circle-color': '#fff', 'circle-stroke-width': 2, 'circle-stroke-color': '#0f62fe' }
+        });
+
         this.sharedLayersCreated = true;
 
         // Re-add any draw layers from prior activation
@@ -214,26 +268,28 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         });
 
         if (cfg.type === 'Polygon') {
+            // Primary layer (shown in legend)
             this.dispatch('webmapx-add-layer', {
                 id: drawFillId(cfg.id), type: 'fill', source: src,
-                metadata: { isToolLayer: true, hideFromLegend: true },
+                metadata: { label: cfg.name, legendRole: 'overlay' },
                 paint: { 'fill-color': cfg.color, 'fill-opacity': 0.2 }
             });
+            // Secondary outline layer (hidden from legend)
             this.dispatch('webmapx-add-layer', {
                 id: drawLineId(cfg.id), type: 'line', source: src,
-                metadata: { isToolLayer: true, hideFromLegend: true },
+                metadata: { hideFromLegend: true },
                 paint: { 'line-color': cfg.color, 'line-width': 2 }
             });
         } else if (cfg.type === 'LineString') {
             this.dispatch('webmapx-add-layer', {
                 id: drawLineId(cfg.id), type: 'line', source: src,
-                metadata: { isToolLayer: true, hideFromLegend: true },
+                metadata: { label: cfg.name, legendRole: 'overlay' },
                 paint: { 'line-color': cfg.color, 'line-width': 2 }
             });
         } else {
             this.dispatch('webmapx-add-layer', {
                 id: drawPointId(cfg.id), type: 'circle', source: src,
-                metadata: { isToolLayer: true, hideFromLegend: true },
+                metadata: { label: cfg.name, legendRole: 'overlay' },
                 paint: { 'circle-radius': 6, 'circle-color': cfg.color, 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }
             });
         }
@@ -242,18 +298,28 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private removeMapLayersForDrawLayer(cfg: DrawLayerConfig): void {
-        for (const id of [drawFillId(cfg.id), drawLineId(cfg.id), drawPointId(cfg.id)]) {
-            this.dispatch('webmapx-remove-layer', id);
+        // Only remove the layers that were created for this geometry type
+        if (cfg.type === 'Polygon') {
+            this.dispatch('webmapx-remove-layer', drawFillId(cfg.id));
+            this.dispatch('webmapx-remove-layer', drawLineId(cfg.id));
+        } else if (cfg.type === 'LineString') {
+            this.dispatch('webmapx-remove-layer', drawLineId(cfg.id));
+        } else {
+            this.dispatch('webmapx-remove-layer', drawPointId(cfg.id));
         }
         this.dispatch('webmapx-remove-source', drawSourceId(cfg.id));
         this.createdDrawLayerIds.delete(cfg.id);
     }
 
-    private removeAllMapLayers(): void {
-        for (const id of [RUBBER_LINE_ID, VERTEX_LAYER_ID]) this.dispatch('webmapx-remove-layer', id);
-        for (const id of [RUBBER_SOURCE_ID, VERTEX_SOURCE_ID]) this.dispatch('webmapx-remove-source', id);
-        for (const layer of this.drawLayers) this.removeMapLayersForDrawLayer(layer);
+    private removeSharedLayers(): void {
+        for (const id of [RUBBER_LINE_ID, VERTEX_LAYER_ID, SEL_FILL_ID, SEL_LINE_ID, SEL_POINT_ID, DRAFT_POINT_ID]) this.dispatch('webmapx-remove-layer', id);
+        for (const id of [RUBBER_SOURCE_ID, VERTEX_SOURCE_ID, SEL_SOURCE_ID, DRAFT_SOURCE_ID]) this.dispatch('webmapx-remove-source', id);
         this.sharedLayersCreated = false;
+    }
+
+    private removeAllMapLayers(): void {
+        this.removeSharedLayers();
+        for (const layer of this.drawLayers) this.removeMapLayersForDrawLayer(layer);
         this.createdDrawLayerIds.clear();
     }
 
@@ -391,7 +457,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }
 
         if (this.mode === 'select') {
-            this.selectedFeatureId = null;
+            const pixel = this.adapter!.project(coords);
+            const hit = this.findFeatureAt([pixel[0], pixel[1]], coords);
+            this.selectedFeatureId = hit?.id ?? null;
+            this.updateSelectedSource();
             this.requestUpdate();
         }
     }
@@ -437,12 +506,24 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     private updateRubberband(): void {
         if (!this.sharedLayersCreated) return;
-        const features: any[] = [];
+        const rbFeatures: any[] = [];
+        const draftFeatures: any[] = [];
         if ((this.mode === 'draw-line' || this.mode === 'draw-polygon') && this.draftPoints.length > 0 && this.cursorPos) {
             const coords = [...this.draftPoints.map(p => [p[0], p[1]]), [this.cursorPos[0], this.cursorPos[1]]];
-            features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: {} });
+            rbFeatures.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: {} });
+            for (const p of this.draftPoints) {
+                draftFeatures.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [p[0], p[1]] }, properties: {} });
+            }
         }
-        this.dispatch('webmapx-set-source-data', { id: RUBBER_SOURCE_ID, data: { type: 'FeatureCollection', features } });
+        this.dispatch('webmapx-set-source-data', { id: RUBBER_SOURCE_ID, data: { type: 'FeatureCollection', features: rbFeatures } });
+        this.dispatch('webmapx-set-source-data', { id: DRAFT_SOURCE_ID, data: { type: 'FeatureCollection', features: draftFeatures } });
+    }
+
+    private updateSelectedSource(): void {
+        if (!this.sharedLayersCreated) return;
+        const f = this.features.find(f => f.id === this.selectedFeatureId);
+        const features = f ? [{ type: 'Feature', id: f.id, geometry: { type: f.type, coordinates: f.coordinates }, properties: {} }] : [];
+        this.dispatch('webmapx-set-source-data', { id: SEL_SOURCE_ID, data: { type: 'FeatureCollection', features } });
     }
 
     // ─── Feature management ──────────────────────────────────────────────────
@@ -453,6 +534,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.refreshDrawLayerSource(feature.layerId);
         this.setModeInternal('select');
         this.selectedFeatureId = feature.id;
+        this.updateSelectedSource();
     }
 
     deleteSelected(): void {
@@ -463,6 +545,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         const affectedLayers = new Set(deleted.map(f => f.layerId));
         affectedLayers.forEach(id => this.refreshDrawLayerSource(id));
         this.selectedFeatureId = null;
+        this.updateSelectedSource();
     }
 
     // ─── History ─────────────────────────────────────────────────────────────
@@ -486,6 +569,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             entry.features.forEach(f => affected.add(f.layerId));
         }
         this.selectedFeatureId = null;
+        this.updateSelectedSource();
         affected.forEach(id => this.refreshDrawLayerSource(id));
     }
 
@@ -532,6 +616,50 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         const pa = this.adapter.project(a);
         const pb = this.adapter.project(b);
         return Math.hypot(pa[0] - pb[0], pa[1] - pb[1]) < thresholdPx;
+    }
+
+    private findFeatureAt(clickPixel: [number, number], clickCoords: LngLat): DrawFeature | null {
+        const TOL = 10;
+        for (const f of [...this.features].reverse()) {
+            if (f.type === 'Point') {
+                const fp = this.adapter!.project(f.coordinates as LngLat);
+                if (Math.hypot(fp[0] - clickPixel[0], fp[1] - clickPixel[1]) < TOL) return f;
+            } else if (f.type === 'LineString') {
+                if (this.pixelNearPolyline(clickPixel, f.coordinates, TOL)) return f;
+            } else if (f.type === 'Polygon') {
+                if (this.pointInRing(clickCoords, f.coordinates[0]) ||
+                    this.pixelNearPolyline(clickPixel, f.coordinates[0], TOL)) return f;
+            }
+        }
+        return null;
+    }
+
+    private pixelNearPolyline(px: [number, number], coords: [number, number][], tol: number): boolean {
+        for (let i = 0; i < coords.length - 1; i++) {
+            const a = this.adapter!.project(coords[i] as LngLat);
+            const b = this.adapter!.project(coords[i + 1] as LngLat);
+            if (this.distToSegment(px, a, b) < tol) return true;
+        }
+        return false;
+    }
+
+    private distToSegment(p: [number, number], a: [number, number], b: [number, number]): number {
+        const dx = b[0] - a[0], dy = b[1] - a[1];
+        if (dx === 0 && dy === 0) return Math.hypot(p[0] - a[0], p[1] - a[1]);
+        const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy)));
+        return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+    }
+
+    private pointInRing(pt: LngLat, ring: [number, number][]): boolean {
+        let inside = false;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const xi = ring[i][0], yi = ring[i][1];
+            const xj = ring[j][0], yj = ring[j][1];
+            if (((yi > pt[1]) !== (yj > pt[1])) && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) {
+                inside = !inside;
+            }
+        }
+        return inside;
     }
 
     private dispatch(event: string, detail: unknown): void {
@@ -623,15 +751,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                             <span class="color-dot" style="background:${l.color}"></span>
                             <span class="layer-name">${l.name}</span>
                             <span class="layer-type">${l.type === 'LineString' ? 'Line' : l.type}</span>
-                        </div>
-                        <div class="features-section">
-                            ${this.features.filter(f => f.layerId === l.id).map(f => html`
-                                <div class="feature-row ${f.id === this.selectedFeatureId ? 'selected' : ''}"
-                                     @click=${() => { this.selectedFeatureId = f.id; this.setModeInternal('select'); }}>
-                                    <span class="color-dot" style="background:${l.color}"></span>
-                                    <span>${f.properties['name'] ?? f.id.slice(-6)}</span>
-                                </div>
-                            `)}
+                            <small style="color:var(--sl-color-neutral-400);font-size:.7rem">${this.features.filter(f => f.layerId === l.id).length}</small>
                         </div>
                     `)}
                 </div>
