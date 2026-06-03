@@ -407,6 +407,28 @@ export class MapCoreService implements IMapCore {
         ctrl.enableZoom = enabled;
     }
 
+    public setLayerVisibility(layerId: string, visible: boolean): void {
+        for (const state of this.sourceState.values()) {
+            for (const entry of state.layers) {
+                if (entry.spec?.id === layerId && entry.dataSource) {
+                    entry.dataSource.show = visible;
+                }
+            }
+        }
+    }
+
+    public getSourceData(sourceId: string): GeoJSON.FeatureCollection | null {
+        const state = this.sourceState.get(sourceId);
+        return state?.data ?? null;
+    }
+
+    public getLayerSourceId(layerId: string): string | null {
+        for (const [sourceId, state] of this.sourceState.entries()) {
+            if (state.layers.some(e => e.spec?.id === layerId)) return sourceId;
+        }
+        return null;
+    }
+
     public onMapReady(callback: (viewer: any) => void): void {
         if (this.viewer) {
             callback(this.viewer);

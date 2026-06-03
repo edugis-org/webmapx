@@ -132,6 +132,15 @@ export interface IMapCore {
 
     /** Enables or disables map panning. Use to prevent map pan during vertex dragging. */
     setPanEnabled(enabled: boolean): void;
+
+    /** Shows or hides a map layer. */
+    setLayerVisibility(layerId: string, visible: boolean): void;
+
+    /** Returns current GeoJSON data of a source, or null if unavailable / not a GeoJSON source. */
+    getSourceData(sourceId: string): GeoJSON.FeatureCollection | null;
+
+    /** Returns the source ID backing a given layer, or null if not found. */
+    getLayerSourceId(layerId: string): string | null;
 }
 
 /**
@@ -254,6 +263,15 @@ export interface IMap {
 
     /** Enables or disables map panning. Use to prevent map pan during vertex dragging. */
     setPanEnabled(enabled: boolean): void;
+
+    /** Shows or hides a map layer. */
+    setLayerVisibility(layerId: string, visible: boolean): void;
+
+    /** Returns current GeoJSON data of a source, or null if unavailable / not a GeoJSON source. */
+    getSourceData(sourceId: string): GeoJSON.FeatureCollection | null;
+
+    /** Returns the source ID backing a given layer, or null if not found. */
+    getLayerSourceId(layerId: string): string | null;
 
     // ===== Coordinate Conversion =====
     /** Projects geographic [lng, lat] to screen pixel [x, y]. */

@@ -417,6 +417,27 @@ export class MapCoreService implements IMapCore {
         }
     }
 
+    public setLayerVisibility(layerId: string, visible: boolean): void {
+        if (!this.mapInstance) return;
+        try { this.mapInstance.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none'); } catch (_) {}
+    }
+
+    public getSourceData(sourceId: string): GeoJSON.FeatureCollection | null {
+        if (!this.mapInstance) return null;
+        const source = this.mapInstance.getSource(sourceId) as any;
+        if (!source || source.type !== 'geojson') return null;
+        try {
+            const s = source.serialize();
+            return (s && typeof s.data === 'object') ? s.data as GeoJSON.FeatureCollection : null;
+        } catch (_) { return null; }
+    }
+
+    public getLayerSourceId(layerId: string): string | null {
+        if (!this.mapInstance) return null;
+        const layer = this.mapInstance.getLayer(layerId) as any;
+        return layer?.source ?? null;
+    }
+
     public suppressBusySignalForSource(sourceId: string): void {
         this.silentSourceIds.add(sourceId);
     }

@@ -256,6 +256,33 @@ export class MapCoreService implements IMapCore {
         }
     }
 
+    public setLayerVisibility(layerId: string, visible: boolean): void {
+        if (!this.mapInstance) return;
+        const nativeLayers = this.logicalToNative.get(layerId) ?? [];
+        nativeLayers.forEach(layer => {
+            if (visible) {
+                if (!this.mapInstance!.hasLayer(layer)) this.mapInstance!.addLayer(layer);
+            } else {
+                if (this.mapInstance!.hasLayer(layer)) this.mapInstance!.removeLayer(layer);
+            }
+        });
+    }
+
+    public getSourceData(sourceId: string): GeoJSON.FeatureCollection | null {
+        const source = this.sources.get(sourceId);
+        if (!source) return null;
+        const features: GeoJSON.Feature[] = [];
+        if ((source as any).eachLayer) {
+            (source as any).eachLayer((l: any) => { if (l.toGeoJSON) features.push(l.toGeoJSON()); });
+        }
+        return { type: 'FeatureCollection', features };
+    }
+
+    public getLayerSourceId(layerId: string): string | null {
+        // In Leaflet, layerId === sourceId when added via addSource/addLayer
+        return this.sources.has(layerId) ? layerId : null;
+    }
+
     private computePointerResolution(event: L.LeafletMouseEvent): PointerResolution | null {
         if (!this.mapInstance || !event.layerPoint) return null;
         const { x, y } = event.layerPoint; // Use layerPoint for consistency

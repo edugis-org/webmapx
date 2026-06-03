@@ -84,4 +84,8 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 - [ ] Projection tool (CRS switching)
 - [ ] 3D tool (tilt, terrain, camera controls — Cesium + MapLibre GL)
 
+### Internationalization (i18n)
+- [ ] i18n support — translatable UI strings in all built-in components
+- [ ] Language switcher tool — change UI locale and map label language (vector tile name fields) at runtime
+
 ### And more…

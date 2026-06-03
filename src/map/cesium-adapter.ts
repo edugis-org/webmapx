@@ -164,6 +164,18 @@ export class CesiumAdapter implements IMap {
         this.core.setPanEnabled(enabled);
     }
 
+    setLayerVisibility(layerId: string, visible: boolean): void {
+        this.core.setLayerVisibility(layerId, visible);
+    }
+
+    getSourceData(sourceId: string): GeoJSON.FeatureCollection | null {
+        return this.core.getSourceData(sourceId);
+    }
+
+    getLayerSourceId(layerId: string): string | null {
+        return this.core.getLayerSourceId(layerId);
+    }
+
     project(coords: LngLat): Pixel {
         return this.core.project(coords);
     }

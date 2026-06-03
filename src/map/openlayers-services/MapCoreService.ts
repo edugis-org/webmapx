@@ -567,6 +567,26 @@ export class MapCoreService implements IMapCore {
         });
     }
 
+    public setLayerVisibility(layerId: string, visible: boolean): void {
+        const sourceInfo = this.sources.get(layerId);
+        if (sourceInfo?.olLayer) sourceInfo.olLayer.setVisible(visible);
+    }
+
+    public getSourceData(sourceId: string): GeoJSON.FeatureCollection | null {
+        const sourceInfo = this.sources.get(sourceId);
+        if (!sourceInfo) return null;
+        const format = new GeoJSON();
+        const features = sourceInfo.source.getFeatures().map((f: any) =>
+            JSON.parse(format.writeFeature(f, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' }))
+        );
+        return { type: 'FeatureCollection', features };
+    }
+
+    public getLayerSourceId(layerId: string): string | null {
+        // In OL, the draw tool uses layerId === sourceId convention
+        return this.sources.has(layerId) ? layerId : null;
+    }
+
     private updateStyle(sourceId: string) {
         const sourceInfo = this.sources.get(sourceId);
         if (!sourceInfo) return;

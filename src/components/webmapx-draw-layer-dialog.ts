@@ -22,6 +22,15 @@ export interface DrawLayerConfig {
     type: GeometryType;
     color: string;
     properties: PropertyDef[];
+    /** Set when editing an existing map layer in-place. */
+    borrowedMapLayerId?: string;
+    borrowedSourceId?: string;
+}
+
+export interface MapLayerOption {
+    layerId: string;
+    sourceId: string;
+    label: string;
 }
 
 const PROPERTY_TYPES: Record<GeometryType, PropertyDef['type'][]> = {
@@ -69,6 +78,8 @@ export class WebmapxDrawLayerDialog extends LitElement {
 
     /** Existing layers of the current geometry type to offer for re-use. */
     @property({ attribute: false }) existingLayers: DrawLayerConfig[] = [];
+    /** Existing map layers that can be borrowed for in-place editing. */
+    @property({ attribute: false }) mapLayers: MapLayerOption[] = [];
 
     @state() private step: Step = 'select';
     @state() private selectedId: string = 'new';
@@ -198,10 +209,20 @@ export class WebmapxDrawLayerDialog extends LitElement {
             this.layer = newLayerConfig(this.geometryType);
         } else {
             const existing = this.existingLayers.find(l => l.id === this.selectedId);
-            this.layer = existing ? { ...existing, properties: existing.properties.map(p => ({ ...p })) } : newLayerConfig(this.geometryType);
+            if (existing) {
+                this.layer = { ...existing, properties: existing.properties.map(p => ({ ...p })) };
+            } else {
+                // Map layer selected — pre-fill name, mark as borrowed
+                const mapLayer = this.mapLayers.find(l => l.layerId === this.selectedId);
+                this.layer = {
+                    ...newLayerConfig(this.geometryType),
+                    name: mapLayer?.label ?? this.selectedId,
+                    borrowedMapLayerId: mapLayer?.layerId,
+                    borrowedSourceId: mapLayer?.sourceId,
+                };
+            }
         }
         this.step = 'detail';
-        // focus name input after render
         setTimeout(() => (this.renderRoot.querySelector('sl-input[name="layername"]') as any)?.focus(), 100);
     }
 
@@ -268,6 +289,18 @@ export class WebmapxDrawLayerDialog extends LitElement {
                         <span>${l.name}</span>
                     </div>
                 `)}
+                ${this.mapLayers.length > 0 ? html`
+                    <div style="font-size:0.72rem;color:var(--sl-color-neutral-500);padding:0.4rem 0.2rem 0.1rem;text-transform:uppercase;letter-spacing:0.05em">Map layers</div>
+                    ${this.mapLayers.map(l => html`
+                        <div class="layer-option ${this.selectedId === l.layerId ? 'selected' : ''}"
+                             @click=${() => this.selectOption(l.layerId)}
+                             @dblclick=${() => { this.selectOption(l.layerId); this.goToDetail(); }}>
+                            <span class="new-icon" style="color:var(--sl-color-warning-600)">✎</span>
+                            <span>${l.label}</span>
+                            <span style="font-size:0.7rem;color:var(--sl-color-neutral-400);margin-left:auto">map layer</span>
+                        </div>
+                    `)}
+                ` : ''}
             </div>
             <div class="footer">
                 <sl-button @click=${this.cancel}>Cancel</sl-button>
