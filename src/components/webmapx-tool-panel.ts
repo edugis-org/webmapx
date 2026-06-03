@@ -251,9 +251,11 @@ export class WebmapxToolPanel extends LitElement {
 
   `;
   private handleClose() {
+    const closingToolId = this.activeToolId;
     this.activeToolId = null;
     this.applyVisibility();
     this.dispatchEvent(new CustomEvent('webmapx-panel-close', {
+      detail: { toolId: closingToolId },
       bubbles: true,
       composed: true
     }));

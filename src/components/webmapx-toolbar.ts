@@ -119,13 +119,8 @@ export class WebmapxToolbar extends LitElement {
     // Fallback for non-modal tools: manual button state management and event dispatch
     const isActive = clickedBtn.hasAttribute('active') || clickedBtn.getAttribute('variant') === 'primary';
 
-    // Deactivate all buttons
+    // Deactivate all buttons (visual only — non-modal tools don't affect ToolManager state)
     this.clearActiveButtons();
-
-    // Also deactivate any modal tool that might be active
-    if (this.toolManager?.activeToolId) {
-      this.toolManager.deactivate();
-    }
 
     if (!isActive) {
       // Activate the clicked button
@@ -184,9 +179,10 @@ export class WebmapxToolbar extends LitElement {
     }
   }
 
-  private handlePanelClose(_e: CustomEvent): void {
-    if (this.toolManager?.activeToolId) {
-      this.toolManager.deactivate();
+  private handlePanelClose(e: CustomEvent): void {
+    const closingToolId = e.detail?.toolId as string | null | undefined;
+    if (closingToolId && this.toolManager?.getTool(closingToolId)) {
+      this.toolManager.deactivate(closingToolId);
     }
     this.clearActiveButtons();
   }
