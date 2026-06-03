@@ -16,6 +16,10 @@ export { WebmapxPluginTool } from './components/webmapx-plugin-tool.js';
 export { WebmapxDrawTool } from './components/webmapx-draw-tool.js';
 export type { DrawMode, DrawFeature } from './components/webmapx-draw-tool.js';
 
+// Draw layer dialog
+export { WebmapxDrawLayerDialog } from './components/webmapx-draw-layer-dialog.js';
+export type { DrawLayerConfig, GeometryType, PropertyDef } from './components/webmapx-draw-layer-dialog.js';
+
 // Map interfaces
 export type {
   IMap,
