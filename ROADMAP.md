@@ -54,8 +54,7 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 - [x] Named slots — `before`/`after` on toolbar; `header`/`footer` on tool-panel
 - [x] Config-driven tool injection — `element` field in `ToolConfig`; `<webmapx-plugin-tool tool-id="...">` instantiates plugin element from config
 
-### Planned
-- [ ] Plugin authoring guide in `docs/developer/`
+- [x] Plugin authoring guide — [`docs/developer/plugin-authoring.md`](./docs/developer/plugin-authoring.md)
 
 ## Planned Features
 

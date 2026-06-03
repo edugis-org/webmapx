@@ -4,6 +4,7 @@ This guide outlines the standard procedure for adding new tools to WebMapX while
 
 Before making changes, also read the short engineering checklist in [`docs/developer/engineering-rules.md`](./developer/engineering-rules.md).
 For architecture boundary compliance, also read [`docs/developer/architecture-contract.md`](./developer/architecture-contract.md).
+For building external plugins and custom tools, see [`docs/developer/plugin-authoring.md`](./developer/plugin-authoring.md).
 
 ---
 
