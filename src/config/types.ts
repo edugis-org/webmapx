@@ -251,6 +251,8 @@ export interface AppStateConfig {
 
 export interface ToolConfig {
   enabled: boolean;
+  /** Custom element tag name to instantiate for this tool (plugin support). */
+  element?: string;
   [key: string]: unknown;
 }
 

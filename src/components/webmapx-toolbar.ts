@@ -33,6 +33,11 @@ export class WebmapxToolbar extends LitElement {
       pointer-events: auto;
     }
 
+    slot[name="before"]::slotted(*),
+    slot[name="after"]::slotted(*) {
+      pointer-events: auto;
+    }
+
     :host([orientation="vertical"]) {
       flex-direction: column;
       max-height: 100%;
@@ -237,6 +242,10 @@ export class WebmapxToolbar extends LitElement {
   }
 
   render() {
-    return html`<slot @slotchange=${this.handleSlotChange}></slot>`;
+    return html`
+      <slot name="before"></slot>
+      <slot @slotchange=${this.handleSlotChange}></slot>
+      <slot name="after"></slot>
+    `;
   }
 }

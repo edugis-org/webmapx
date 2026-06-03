@@ -90,7 +90,7 @@ export class WebmapxSearchTool extends WebmapxModalTool {
   static styles = css`
     :host { display: block; width: 100%; pointer-events: auto; }
     :host([hidden]) { display: none !important; }
-    .container { width: 100%; max-width: 100%; background: var(--color-background-secondary); color: var(--color-text-primary); border: 1px solid var(--color-border); padding: 8px; box-sizing: border-box; }
+    .container { width: 100%; max-width: 100%; background: var(--webmapx-search-bg, var(--color-background-secondary)); color: var(--webmapx-search-color, var(--color-text-primary)); border: var(--webmapx-search-border, 1px solid var(--color-border)); padding: 8px; box-sizing: border-box; }
     .searchbox { display:flex; gap:6px; align-items:center; }
     input { flex:1; padding:6px; min-width:0; }
     button { flex:0 0 auto; }

@@ -9,6 +9,9 @@
 // Base class for all tools
 export { WebmapxBaseTool } from './components/webmapx-base-tool.js';
 
+// Config-driven plugin tool host
+export { WebmapxPluginTool } from './components/webmapx-plugin-tool.js';
+
 // Map interfaces
 export type {
   IMap,

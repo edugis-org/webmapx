@@ -31,8 +31,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     :host {
       display: block;
       box-sizing: border-box;
-      background: var(--color-background, #ffffff);
-      color: var(--color-text-primary, #1f2937);
+      background: var(--webmapx-legend-bg, var(--color-background, #ffffff));
+      color: var(--webmapx-legend-color, var(--color-text-primary, #1f2937));
     }
 
     .panel {
@@ -55,7 +55,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       margin: 0;
       font-size: 0.95rem;
       font-weight: 700;
-      color: var(--color-primary, #0f62fe);
+      color: var(--webmapx-legend-title-color, var(--color-primary, #0f62fe));
     }
 
     .layer-list {

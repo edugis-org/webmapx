@@ -38,15 +38,15 @@ export class WebmapxZoomLevel extends WebmapxBaseTool {
         }
 
         .tool-container {
-            border: 1px solid var(--color-border);
+            border: var(--webmapx-zoom-border, 1px solid var(--color-border));
             padding: var(--compact-padding-vertical) var(--compact-padding-horizontal);
-            background: var(--color-background-secondary);
+            background: var(--webmapx-zoom-bg, var(--color-background-secondary));
             opacity: var(--tool-background-opacity);
-            color: var(--color-text-primary);
+            color: var(--webmapx-zoom-color, var(--color-text-primary));
             display: inline-flex;
             align-items: center;
             gap: var(--compact-gap);
-            font-size: var(--font-size-small);
+            font-size: var(--webmapx-zoom-font-size, var(--font-size-small));
         }
 
         sl-input {

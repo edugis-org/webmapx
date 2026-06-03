@@ -41,7 +41,7 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
       display: inline-flex;
       pointer-events: auto;
       font-size: var(--font-size-small, 12px);
-      color: var(--color-text-primary, #1a1a1a);
+      color: var(--webmapx-scale-color, var(--color-text-primary, #1a1a1a));
     }
 
     .scale-shell {
@@ -51,10 +51,10 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
       height: 22px;
       padding: 0;
       margin: 0;
-      background: var(--color-background, #ffffff);
-      border-left: 2px solid #000;
-      border-right: 2px solid #000;
-      border-bottom: 2px solid #000;
+      background: var(--webmapx-scale-bg, var(--color-background, #ffffff));
+      border-left: var(--webmapx-scale-border-thickness, 2px) solid var(--webmapx-scale-border-color, #000);
+      border-right: var(--webmapx-scale-border-thickness, 2px) solid var(--webmapx-scale-border-color, #000);
+      border-bottom: var(--webmapx-scale-border-thickness, 2px) solid var(--webmapx-scale-border-color, #000);
       box-sizing: border-box;
       user-select: none;
     }

@@ -51,15 +51,15 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
     :host {
       display: inline-flex;
       pointer-events: auto;
-      font-size: var(--font-size-small, 12px);
-      color: var(--color-text-primary, #1a1a1a);
+      font-size: var(--webmapx-navigation-font-size, var(--font-size-small, 12px));
+      color: var(--webmapx-navigation-color, var(--color-text-primary, #1a1a1a));
     }
 
     .nav-shell {
       display: inline-flex;
-      background: var(--color-surface, #ffffff);
-      border: 1px solid var(--color-border, #cccccc);
-      box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05));
+      background: var(--webmapx-navigation-bg, var(--color-surface, #ffffff));
+      border: var(--webmapx-navigation-border, 1px solid var(--color-border, #cccccc));
+      box-shadow: var(--webmapx-navigation-shadow, var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05)));
       overflow: hidden;
       border-radius: 8px;
       touch-action: none;

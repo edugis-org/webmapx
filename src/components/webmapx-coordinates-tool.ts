@@ -62,16 +62,16 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
     :host {
       display: inline-flex;
       pointer-events: auto;
-      font-size: var(--font-size-small);
+      font-size: var(--webmapx-coordinates-font-size, var(--font-size-small));
       position: relative;
     }
 
     .coordinates-shell {
       display: inline-flex;
       flex-direction: column;
-      border: 1px solid var(--color-border);
-      background: var(--color-background-secondary);
-      color: var(--color-text-primary);
+      border: var(--webmapx-coordinates-border, 1px solid var(--color-border));
+      background: var(--webmapx-coordinates-bg, var(--color-background-secondary));
+      color: var(--webmapx-coordinates-color, var(--color-text-primary));
       padding: var(--compact-padding-vertical) var(--compact-padding-horizontal);
       font-variant-numeric: tabular-nums;
       line-height: 1.3;

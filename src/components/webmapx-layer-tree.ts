@@ -80,7 +80,7 @@ export class WebmapxLayerTree extends LitElement {
             overflow: visible; /* do not create a nested scroll container */
             padding: 0.25rem;
             box-sizing: border-box;
-            background: var(--sl-color-neutral-0);
+            background: var(--webmapx-layer-tree-bg, var(--sl-color-neutral-0));
             border-left: 1px solid var(--sl-color-neutral-200);
             width: 100%; /* inherit panel width; avoid forcing overflow */
             margin: 0;

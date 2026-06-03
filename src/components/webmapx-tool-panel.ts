@@ -262,7 +262,7 @@ export class WebmapxToolPanel extends LitElement {
   render() {
     return html`
       <div class="panel-header">
-        <h3>${this.label}</h3>
+        <slot name="header"><h3>${this.label}</h3></slot>
         <sl-button size="small" circle variant="text" @click=${this.handleClose}>
           <sl-icon name="x-lg" label="Close"></sl-icon>
         </sl-button>
@@ -270,6 +270,7 @@ export class WebmapxToolPanel extends LitElement {
       <div class="panel-content">
         <slot @slotchange=${this.handleSlotChange}></slot>
       </div>
+      <slot name="footer"></slot>
     `;
   }
 }
