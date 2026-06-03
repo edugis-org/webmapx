@@ -1,6 +1,6 @@
 // src/map/maplibre-services/MapCoreService.ts
 
-import { IMapCore, NavigationCapabilities } from '../IMapInterfaces';
+import { IMapCore, ISource, NavigationCapabilities } from '../IMapInterfaces';
 import { registerRuntimeLayer, unregisterRuntimeLayer } from '../runtime-layer-utils';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel, PointerResolution } from '../../store/map-events';
@@ -31,6 +31,7 @@ export class MapCoreService implements IMapCore {
     private mapInstance: maplibregl.Map | null = null;
     private mapReadyCallbacks: Array<(map: maplibregl.Map) => void> = [];
     private silentSourceIds = new Set<string>();
+    private geoJSONData = new Map<string, GeoJSON.FeatureCollection>();
 
     // Basic configuration needed for a standard map
     private readonly initialConfig = {
@@ -358,16 +359,29 @@ export class MapCoreService implements IMapCore {
 
     public addSource(id: string, config: any): void {
         this.mapInstance?.addSource(id, config);
+        if (config?.type === 'geojson' && config.data && typeof config.data === 'object') {
+            this.geoJSONData.set(id, config.data as GeoJSON.FeatureCollection);
+        }
     }
 
     public removeSource(id: string): void {
         if (this.mapInstance?.getSource(id)) {
             this.mapInstance.removeSource(id);
         }
+        this.geoJSONData.delete(id);
     }
 
-    public getSource(id: string) {
-        return this.mapInstance?.getSource(id) as any;
+    public getSource(id: string): ISource | undefined {
+        const nativeSource = this.mapInstance?.getSource(id) as any;
+        if (!nativeSource) return undefined;
+        const self = this;
+        return {
+            id,
+            setData: (data: GeoJSON.FeatureCollection) => {
+                nativeSource.setData(data);
+                self.geoJSONData.set(id, data);
+            }
+        };
     }
 
     public project(coords: LngLat): Pixel {
@@ -423,14 +437,21 @@ export class MapCoreService implements IMapCore {
     }
 
     public getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
+        // Registry first — always reflects the latest setData call
+        const cached = this.geoJSONData.get(sourceId);
+        if (cached) return cached;
         if (!this.mapInstance) return null;
         const source = this.mapInstance.getSource(sourceId) as any;
         if (!source || source.type !== 'geojson') return null;
+        // Fallback: try serialize for URL-backed sources
         try {
             const s = source.serialize();
             if (!s) return null;
             if (typeof s.data === 'string') return s.data; // URL — caller must fetch
-            if (typeof s.data === 'object') return s.data as GeoJSON.FeatureCollection;
+            if (typeof s.data === 'object') {
+                this.geoJSONData.set(sourceId, s.data as GeoJSON.FeatureCollection);
+                return s.data as GeoJSON.FeatureCollection;
+            }
         } catch (_) {}
         return null;
     }

@@ -33,6 +33,7 @@ export class MapCoreService implements IMapCore {
 
     // State for dynamic sources and layers
     private sources: Map<string, any> = new Map();
+    private geoJSONData = new Map<string, GeoJSON.FeatureCollection>();
     private logicalToNative: Map<string, L.Layer[]> = new Map();
     private sourceToLayers: Map<string, string[]> = new Map();
     private runtimeLayerOrder: string[] = [];
@@ -269,13 +270,15 @@ export class MapCoreService implements IMapCore {
     }
 
     public getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
-        const source = this.sources.get(sourceId);
-        if (!source) return null;
-        const features: GeoJSON.Feature[] = [];
-        if ((source as any).eachLayer) {
-            (source as any).eachLayer((l: any) => { if (l.toGeoJSON) features.push(l.toGeoJSON()); });
-        }
-        return { type: 'FeatureCollection', features };
+        // Registry first — updated on addSource (inline data) and setData
+        const cached = this.geoJSONData.get(sourceId);
+        if (cached) return cached;
+        // Fallback: check raw config for URL-backed sources
+        const config = this.sources.get(sourceId);
+        if (!config) return null;
+        if (config.type !== 'geojson') return null;
+        if (typeof config.data === 'string') return config.data;
+        return null;
     }
 
     public getLayerSourceId(layerId: string): string | null {
@@ -476,6 +479,9 @@ export class MapCoreService implements IMapCore {
 
     public addSource(id: string, config: any): void {
         this.sources.set(id, config);
+        if (config?.type === 'geojson' && config.data && typeof config.data === 'object') {
+            this.geoJSONData.set(id, config.data as GeoJSON.FeatureCollection);
+        }
     }
 
     public removeSource(id: string): void {
@@ -484,6 +490,7 @@ export class MapCoreService implements IMapCore {
             layerIds.forEach(layerId => this.removeLayer(layerId));
         }
         this.sources.delete(id);
+        this.geoJSONData.delete(id);
     }
 
     private removeRuntimeLayer(layerId: string): void {
@@ -579,18 +586,17 @@ export class MapCoreService implements IMapCore {
 
     public getSource(id: string): ISource | undefined {
         if (!this.sources.has(id)) return undefined;
-
+        const self = this;
         return {
-            id: id,
+            id,
             setData: (data: GeoJSON.FeatureCollection) => {
-                const layerIds = this.sourceToLayers.get(id);
+                self.geoJSONData.set(id, data);
+                const layerIds = self.sourceToLayers.get(id);
                 if (!layerIds) return;
-
                 for (const layerId of layerIds) {
-                    const nativeLayers = this.logicalToNative.get(layerId);
+                    const nativeLayers = self.logicalToNative.get(layerId);
                     if (nativeLayers) {
                         nativeLayers.forEach(layer => {
-                            // Assumes it's a GeoJSON layer
                             if ('clearLayers' in layer && 'addData' in layer) {
                                 (layer as L.GeoJSON).clearLayers();
                                 (layer as L.GeoJSON).addData(data);
