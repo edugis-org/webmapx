@@ -18,6 +18,9 @@ const VERTEX_SOURCE_ID = 'webmapx-draw-vertex-source';
 const VERTEX_LAYER_ID  = 'webmapx-draw-vertex-layer';
 
 function drawSourceId(layerId: string)   { return `webmapx-draw-src-${layerId}`; }
+function drawMapLayerId(layerId: string) { return `${layerId}-map`; }
+
+const MAP_LAYER_COLOR = '#888888';
 
 const SEL_SOURCE_ID = 'webmapx-draw-sel-source';
 const SEL_FILL_ID   = 'webmapx-draw-sel-fill';
@@ -101,8 +104,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     private sharedLayersCreated = false;
     private createdDrawLayerIds = new Set<string>();
-    /** sourceId of borrowed layer per geoType, saved across deactivations. */
-    private savedBorrowedSourceIds: Partial<Record<GeometryType, string>> = {};
 
     // ── Vertex editing state ──────────────────────────────────────────────────
 
@@ -161,7 +162,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             padding: 0.2rem 0.4rem;
             border-radius: 4px;
             font-size: 0.85rem;
-            cursor: default;
+            cursor: pointer;
+        }
+
+        .layer-row:hover {
+            background: var(--sl-color-neutral-100);
         }
 
         .color-dot {
@@ -207,29 +212,27 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     protected onActivate(): void {
         this.createSharedLayers();
-        // Re-add any data layers that existed before this activation
+        // Re-add draw layers suspended on last deactivate, re-blank borrowed sources
         for (const layer of this.drawLayers) {
             if (!this.createdDrawLayerIds.has(layer.id)) {
                 this.addMapLayersForDrawLayer(layer);
                 this.refreshDrawLayerSource(layer.id);
             }
+            if (layer.borrowedSourceId) {
+                this.adapter?.getSource(layer.borrowedSourceId)?.setData({ type: 'FeatureCollection', features: [] });
+            }
         }
         this.bindEvents();
         this.setModeInternal('select');
-        // Re-borrow any layers that were borrowed in the previous activation
-        void this.reborrowSavedLayers();
     }
 
     protected onDeactivate(): void {
         this.unbindEvents();
-        // Save borrowed sourceIds before releasing so we can re-borrow on next activation
-        for (const [type, layerId] of Object.entries(this.activeLayerIds) as [GeometryType, string][]) {
-            const layer = this.drawLayers.find(l => l.id === layerId);
-            if (layer?.borrowedSourceId) {
-                this.savedBorrowedSourceIds[type] = layer.borrowedSourceId;
-            }
+        // Restore borrowed sources and suspend draw layers from the map (keep features in memory)
+        for (const layer of this.drawLayers) {
+            if (layer.borrowedSourceId) this.restoreBorrowedLayer(layer);
+            this.suspendDrawLayerFromMap(layer);
         }
-        this.releaseAllBorrowedLayers();
         this.draftPoints = [];
         this.cursorPos = null;
         this.dragging = null;
@@ -331,21 +334,21 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             this.dispatch('webmapx-add-layer', {
                 id: cfg.id, type: 'fill', source: src,
                 title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay', ...(cfg.borrowedSourceId ? { hideFromLegend: true } : {}) },
+                metadata: { label: cfg.name, legendRole: 'overlay', hideFromLegend: true },
                 paint: { 'fill-color': cfg.color, 'fill-opacity': 0.2, 'fill-outline-color': cfg.color }
             });
         } else if (cfg.type === 'LineString') {
             this.dispatch('webmapx-add-layer', {
                 id: cfg.id, type: 'line', source: src,
                 title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay', ...(cfg.borrowedSourceId ? { hideFromLegend: true } : {}) },
+                metadata: { label: cfg.name, legendRole: 'overlay', hideFromLegend: true },
                 paint: { 'line-color': cfg.color, 'line-width': 2 }
             });
         } else {
             this.dispatch('webmapx-add-layer', {
                 id: cfg.id, type: 'circle', source: src,
                 title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay', ...(cfg.borrowedSourceId ? { hideFromLegend: true } : {}) },
+                metadata: { label: cfg.name, legendRole: 'overlay', hideFromLegend: true },
                 paint: { 'circle-radius': 6, 'circle-color': cfg.color, 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }
             });
         }
@@ -422,13 +425,32 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             return;
         }
 
-        // Otherwise open dialog to create/select a layer first
+        // Open dialog to create/select a layer
+        await this.openLayerDialog(mode);
+    }
+
+    private async openLayerDialog(mode: DrawMode): Promise<void> {
+        const geoType = modeToGeometryType(mode);
+        if (!geoType) return;
         this.pendingMode = mode;
-        const existing = this.drawLayers.filter(l => l.type === geoType);
+        const existing = this.drawLayers.filter(l => l.type === geoType && !l.borrowedSourceId);
+        const mapLayers = this.adapter ? await this.getEditableMapLayers(geoType) : [];
+        // Pre-select the active borrowed layer and restore its known property schema
+        const activeId = this.activeLayerIds[geoType];
+        const activeBorrowedLayer = this.drawLayers.find(l => l.id === activeId && l.borrowedSourceId);
+        const activeBorrowedSourceId = activeBorrowedLayer?.borrowedSourceId;
+        const preselect = activeBorrowedSourceId
+            ? mapLayers.find(l => l.sourceId === activeBorrowedSourceId)?.layerId
+            : undefined;
+        if (activeBorrowedLayer && preselect) {
+            const opt = mapLayers.find(l => l.layerId === preselect);
+            if (opt) opt.properties = activeBorrowedLayer.properties.map(p => ({ ...p }));
+        }
         this.layerDialog.geometryType = geoType;
         this.layerDialog.existingLayers = existing;
-        this.layerDialog.mapLayers = this.adapter ? await this.getEditableMapLayers(geoType) : [];
+        this.layerDialog.mapLayers = mapLayers;
         this.layerDialog.open();
+        if (preselect) this.layerDialog.selectedId = preselect;
     }
 
     /** Returns GeoJSON-backed map layers matching the given geometry type, deduplicated by source. */
@@ -442,6 +464,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
         for (const [layerId, entry] of Object.entries(meta)) {
             if ((entry as any).isToolLayer) continue;
+            if (this.createdDrawLayerIds.has(layerId)) continue;
             const sourceId = typeof entry.sourceId === 'string' ? entry.sourceId : null;
             if (!sourceId || seen.has(sourceId)) continue;
 
@@ -534,16 +557,18 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 this.helpText = 'Click a feature to select it.';
                 break;
             case 'draw-point':
-                this.adapter?.setCursor('crosshair');
-                this.helpText = 'Click to place a point.';
-                break;
             case 'draw-line':
-                this.adapter?.setCursor('crosshair');
-                this.helpText = 'Click to add vertices. Right-click or double-click to finish.';
-                break;
             case 'draw-polygon':
+                this.editState = 'none';
+                this.editHandles = [];
+                this.hoveredHandle = null;
+                this.selectedFeatureId = null;
+                this.updateEditHandles();
+                this.updateSelectedSource();
                 this.adapter?.setCursor('crosshair');
-                this.helpText = 'Click to add vertices. Click first point or double-click to close.';
+                this.helpText = this.mode === 'draw-point' ? 'Click to place a point.'
+                    : this.mode === 'draw-line' ? 'Click to add vertices. Right-click or double-click to finish.'
+                    : 'Click to add vertices. Click first point or double-click to close.';
                 break;
         }
     }
@@ -553,11 +578,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private async handleLayerConfirm(e: CustomEvent): Promise<void> {
         let cfg = e.detail as DrawLayerConfig;
 
-        // If switching away from a previously borrowed layer, restore it first
+        // Release the previous active layer for this type (at most one active per type)
         const prevActive = this.activeLayerIds[cfg.type];
         if (prevActive && prevActive !== cfg.id) {
             const prev = this.drawLayers.find(l => l.id === prevActive);
-            if (prev?.borrowedSourceId) this.releaseBorrowedLayer(prev);
+            if (prev) this.releaseLayer(prev);
         }
 
         // Upsert layer config
@@ -565,10 +590,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (existing >= 0) {
             this.drawLayers = this.drawLayers.map((l, i) => i === existing ? cfg : l);
         } else {
+            // For new layers: create a permanent grayish map layer first, then borrow it
+            if (!cfg.borrowedSourceId) {
+                cfg = { ...cfg, borrowedSourceId: this.createPermLayer(cfg) };
+            }
             this.drawLayers = [...this.drawLayers, cfg];
             this.addMapLayersForDrawLayer(cfg);
 
-            // If borrowing a map layer: load its features, hide the originals
+            // Borrow: load features from the source, then blank it
             if (cfg.borrowedSourceId && this.adapter) {
                 const dataOrUrl = this.adapter.getSourceData(cfg.borrowedSourceId);
                 const data = dataOrUrl ? await this.resolveFeatureCollection(dataOrUrl) : null;
@@ -605,11 +634,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }
 
         this.activeLayerIds[cfg.type] = cfg.id;
-        if (cfg.borrowedSourceId) this.refreshDrawLayerSource(cfg.id);
+        this.refreshDrawLayerSource(cfg.id);
 
         if (this.pendingMode) {
-            // After importing an existing layer, go to select so user can pick a feature
-            this.setModeInternal(cfg.borrowedSourceId ? 'select' : this.pendingMode);
+            this.setModeInternal(this.pendingMode);
             this.pendingMode = null;
         }
     }
@@ -628,6 +656,35 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             ?.setData({ type: 'FeatureCollection', features });
     }
 
+    private createPermLayer(cfg: DrawLayerConfig): string {
+        const srcId = `webmapx-perm-src-${cfg.id}`;
+        this.dispatch('webmapx-add-source', {
+            id: srcId,
+            config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } }
+        });
+        const mapLayerId = drawMapLayerId(cfg.id);
+        if (cfg.type === 'Polygon') {
+            this.dispatch('webmapx-add-layer', {
+                id: mapLayerId, type: 'fill', source: srcId, title: cfg.name,
+                metadata: { label: cfg.name, legendRole: 'overlay' },
+                paint: { 'fill-color': MAP_LAYER_COLOR, 'fill-opacity': 0.25, 'fill-outline-color': MAP_LAYER_COLOR }
+            });
+        } else if (cfg.type === 'LineString') {
+            this.dispatch('webmapx-add-layer', {
+                id: mapLayerId, type: 'line', source: srcId, title: cfg.name,
+                metadata: { label: cfg.name, legendRole: 'overlay' },
+                paint: { 'line-color': MAP_LAYER_COLOR, 'line-width': 2 }
+            });
+        } else {
+            this.dispatch('webmapx-add-layer', {
+                id: mapLayerId, type: 'circle', source: srcId, title: cfg.name,
+                metadata: { label: cfg.name, legendRole: 'overlay' },
+                paint: { 'circle-radius': 5, 'circle-color': MAP_LAYER_COLOR, 'circle-stroke-width': 1, 'circle-stroke-color': '#555' }
+            });
+        }
+        return srcId;
+    }
+
     private releaseBorrowedLayer(cfg: DrawLayerConfig): void {
         if (!cfg.borrowedSourceId) return;
         this.restoreBorrowedLayer(cfg);
@@ -639,35 +696,15 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }
     }
 
-    private releaseAllBorrowedLayers(): void {
-        for (const layer of [...this.drawLayers]) {
-            if (layer.borrowedSourceId) this.releaseBorrowedLayer(layer);
-        }
+    private suspendDrawLayerFromMap(cfg: DrawLayerConfig): void {
+        this.dispatch('webmapx-remove-layer', cfg.id);
+        this.dispatch('webmapx-remove-source', drawSourceId(cfg.id));
+        if (this.adapter?.store) unregisterMapLayer(this.adapter.store, cfg.id);
+        this.createdDrawLayerIds.delete(cfg.id);
     }
 
-    private async reborrowSavedLayers(): Promise<void> {
-        if (!this.adapter || Object.keys(this.savedBorrowedSourceIds).length === 0) return;
-        const meta = this.adapter.store.getState().mapLayers ?? {};
-        for (const [geoType, sourceId] of Object.entries(this.savedBorrowedSourceIds) as [GeometryType, string][]) {
-            // Find the mapLayer entry that backs this source
-            const found = Object.entries(meta).find(([, e]) => (e as any).sourceId === sourceId && !(e as any).isToolLayer);
-            if (!found) continue;
-            const [layerId, layerEntry] = found;
-            const geoTypeToMode: Record<GeometryType, DrawMode> = {
-                Point: 'draw-point', LineString: 'draw-line', Polygon: 'draw-polygon'
-            };
-            const cfg: DrawLayerConfig = {
-                id: `layer-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                name: (layerEntry as any).label ?? layerId,
-                type: geoType,
-                color: '#0f62fe',
-                properties: [{ name: 'id', type: 'number' }, { name: 'name', type: 'string' }],
-                borrowedSourceId: sourceId,
-            };
-            this.pendingMode = geoTypeToMode[geoType];
-            await this.handleLayerConfirm({ detail: cfg } as CustomEvent);
-        }
-        this.savedBorrowedSourceIds = {};
+    private releaseLayer(cfg: DrawLayerConfig): void {
+        this.releaseBorrowedLayer(cfg);
     }
 
     private handleLayerCancel(): void {
@@ -685,7 +722,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (this.mode === 'draw-point') {
             this.commitFeature({
                 id: this.newId(), layerId: layerId!, type: 'Point',
-                coordinates: coords, properties: {}
+                coordinates: coords, properties: this.defaultProperties(layerId!)
             });
             return;
         }
@@ -778,15 +815,19 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             return;
         }
 
-        // Cursor: show 'grab' when hovering selected feature (whole-feature drag)
-        if (this.editState === 'selected' && this.selectedFeatureId && this.mode === 'select') {
+        // Cursor: pointer/grab feedback in select mode
+        if (this.mode === 'select') {
             const px = this.adapter!.project(e.coords);
             const hit = this.findFeatureAt([px[0], px[1]], e.coords);
-            this.adapter?.setCursor(hit?.id === this.selectedFeatureId ? 'grab' : '');
+            if (this.editState === 'selected' && this.selectedFeatureId) {
+                this.adapter?.setCursor(hit?.id === this.selectedFeatureId ? 'grab' : '');
+            } else if (this.editState === 'none') {
+                this.adapter?.setCursor(hit ? 'pointer' : '');
+            }
         }
 
-        // Hover detection over handles for cursor change
-        if (this.editState === 'editing' && this.editHandles.length > 0) {
+        // Hover detection over handles for cursor change (only in select mode)
+        if (this.mode === 'select' && this.editState === 'editing' && this.editHandles.length > 0) {
             const px = this.adapter!.project(e.coords);
             const h = this.findHandleAt([px[0], px[1]]);
             if (h !== this.hoveredHandle) {
@@ -874,18 +915,24 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     // ─── Draft management ────────────────────────────────────────────────────
 
+    private defaultProperties(layerId: string): Record<string, null> {
+        const layer = this.drawLayers.find(l => l.id === layerId);
+        if (!layer) return {};
+        return Object.fromEntries(layer.properties.map(p => [p.name, null]));
+    }
+
     private finishDraft(layerId: string): void {
         const pts = this.draftPoints;
         if (this.mode === 'draw-line' && pts.length >= 2) {
             this.commitFeature({
                 id: this.newId(), layerId, type: 'LineString',
-                coordinates: pts.map(p => [p[0], p[1]]), properties: {}
+                coordinates: pts.map(p => [p[0], p[1]]), properties: this.defaultProperties(layerId)
             });
         } else if (this.mode === 'draw-polygon' && pts.length >= 3) {
             const ring = [...pts.map(p => [p[0], p[1]]), [pts[0][0], pts[0][1]]];
             this.commitFeature({
                 id: this.newId(), layerId, type: 'Polygon',
-                coordinates: [ring], properties: {}
+                coordinates: [ring], properties: this.defaultProperties(layerId)
             });
         }
         this.draftPoints = [];
@@ -1093,7 +1140,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         const affectedLayers = new Set(deleted.map(f => f.layerId));
         affectedLayers.forEach(id => this.refreshDrawLayerSource(id));
         this.selectedFeatureId = null;
+        this.editState = 'none';
+        this.editHandles = [];
+        this.adapter?.setCursor('');
         this.updateSelectedSource();
+        this.updateEditHandles();
     }
 
     // ─── History ─────────────────────────────────────────────────────────────
@@ -1323,7 +1374,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 <div class="layers-section">
                     <div class="section-label">Layers</div>
                     ${this.drawLayers.map(l => html`
-                        <div class="layer-row">
+                        <div class="layer-row" title="Click to change layer"
+                             @click=${() => this.openLayerDialog(l.type === 'Point' ? 'draw-point' : l.type === 'LineString' ? 'draw-line' : 'draw-polygon')}>
                             <span class="color-dot" style="background:${l.color}"></span>
                             <span class="layer-name">${l.name}</span>
                             <span class="layer-type">${l.type === 'LineString' ? 'Line' : l.type}</span>

@@ -95,6 +95,7 @@ async function waitForServer(url, timeoutMs, proc) {
 function startDevServer() {
   const child = spawn('npm', ['run', 'dev', '--', '--host', DEV_HOST, '--port', String(DEV_PORT), '--strictPort'], {
     cwd: repoRoot,
+    detached: true,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
@@ -112,10 +113,27 @@ function startDevServer() {
 async function stopProcess(proc) {
   if (!proc || proc.exitCode !== null) return;
 
-  proc.kill('SIGTERM');
+  const killGroup = (signal) => {
+    try {
+      if (proc.pid) {
+        process.kill(-proc.pid, signal);
+        return;
+      }
+    } catch (_) {
+      // Fall back to killing only the direct child.
+    }
+
+    try {
+      proc.kill(signal);
+    } catch (_) {
+      // ignore
+    }
+  };
+
+  killGroup('SIGTERM');
   await new Promise((resolve) => {
     const timeout = setTimeout(() => {
-      proc.kill('SIGKILL');
+      killGroup('SIGKILL');
       resolve();
     }, 3000);
 
@@ -124,6 +142,11 @@ async function stopProcess(proc) {
       resolve();
     });
   });
+
+  proc.stdout?.removeAllListeners();
+  proc.stderr?.removeAllListeners();
+  proc.stdout?.destroy();
+  proc.stderr?.destroy();
 }
 
 async function run() {
@@ -198,9 +221,7 @@ async function run() {
     await stopProcess(server);
   }
 
-  if (failures > 0) {
-    process.exit(1);
-  }
+  process.exit(failures > 0 ? 1 : 0);
 }
 
 await run();

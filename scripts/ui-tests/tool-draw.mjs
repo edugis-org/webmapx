@@ -134,15 +134,34 @@ async function setDrawModeAndCreateLayerByEvent(page, buttonName, layerName, geo
 }
 
 async function setSelectedFeatureName(page, featureName) {
+  await page.waitForFunction(() => {
+    const tool = document.querySelector('webmapx-draw-tool');
+    const root = tool?.shadowRoot;
+    if (!root) return false;
+
+    // Wait until a feature is selected and the detail panel is rendered.
+    if (!tool?.selectedFeatureId) return false;
+
+    const rows = Array.from(root.querySelectorAll('div'));
+    const rowWithNameInput = rows.find((row) => {
+      const label = row.querySelector('span');
+      const input = row.querySelector('sl-input');
+      return Boolean(input) && label?.textContent?.trim() === 'name';
+    });
+
+    return Boolean(rowWithNameInput);
+  }, undefined, { timeout: 10_000 });
+
   await page.evaluate(({ name }) => {
     const tool = document.querySelector('webmapx-draw-tool');
     const root = tool?.shadowRoot;
     if (!root) throw new Error('Draw tool shadow root missing');
 
-    const rows = Array.from(root.querySelectorAll('div[style*="display:flex"][style*="align-items:center"]'));
+    const rows = Array.from(root.querySelectorAll('div'));
     const nameRow = rows.find((row) => {
       const label = row.querySelector('span');
-      return label?.textContent?.trim() === 'name';
+      const input = row.querySelector('sl-input');
+      return Boolean(input) && label?.textContent?.trim() === 'name';
     });
     if (!nameRow) throw new Error('Selected-feature name row not found');
 
@@ -152,6 +171,44 @@ async function setSelectedFeatureName(page, featureName) {
     input.dispatchEvent(new Event('sl-input', { bubbles: true, composed: true }));
     input.dispatchEvent(new Event('sl-change', { bubbles: true, composed: true }));
   }, { name: featureName });
+}
+
+async function selectLatestFeatureInLayer(page, layerName) {
+  await page.evaluate(({ targetLayerName }) => {
+    const tool = document.querySelector('webmapx-draw-tool');
+    if (!tool) throw new Error('Draw tool not found');
+
+    const layers = Array.isArray(tool.drawLayers) ? tool.drawLayers : [];
+    const targetLayer = layers.find((layer) => layer.name === targetLayerName);
+    if (!targetLayer) throw new Error(`Layer not found: ${targetLayerName}`);
+
+    const candidates = (Array.isArray(tool.features) ? tool.features : [])
+      .filter((feature) => feature.layerId === targetLayer.id);
+    if (candidates.length === 0) {
+      throw new Error(`No features found in layer: ${targetLayerName}`);
+    }
+
+    const feature = candidates[candidates.length - 1];
+    tool.selectedFeatureId = feature.id;
+    const isPoint = feature.type === 'Point' || feature.type === 'MultiPoint';
+    tool.editState = isPoint ? 'editing' : 'selected';
+    tool.updateSelectedSource?.();
+    tool.updateEditHandles?.();
+    tool.requestUpdate?.();
+  }, { targetLayerName: layerName });
+
+  await page.waitForFunction(({ targetLayerName }) => {
+    const tool = document.querySelector('webmapx-draw-tool');
+    if (!tool?.selectedFeatureId) return false;
+
+    const layers = Array.isArray(tool.drawLayers) ? tool.drawLayers : [];
+    const targetLayer = layers.find((layer) => layer.name === targetLayerName);
+    if (!targetLayer) return false;
+
+    const selected = (Array.isArray(tool.features) ? tool.features : [])
+      .find((feature) => feature.id === tool.selectedFeatureId);
+    return Boolean(selected && selected.layerId === targetLayer.id);
+  }, { targetLayerName: layerName }, { timeout: 10_000 });
 }
 
 async function waitForLayerFeatureName(page, layerName, expectedName) {
@@ -421,6 +478,7 @@ export async function run({ page, engine }) {
   }
 
   await step('set point name', async () => {
+    await selectLatestFeatureInLayer(page, pointLayerName);
     await setSelectedFeatureName(page, pointName);
     await waitForLayerFeatureName(page, pointLayerName, pointName);
   });
@@ -432,6 +490,7 @@ export async function run({ page, engine }) {
   });
 
   await step('set line name', async () => {
+    await selectLatestFeatureInLayer(page, lineLayerName);
     await setSelectedFeatureName(page, lineName);
     await waitForLayerFeatureName(page, lineLayerName, lineName);
   });
@@ -443,6 +502,7 @@ export async function run({ page, engine }) {
   });
 
   await step('set polygon name', async () => {
+    await selectLatestFeatureInLayer(page, polygonLayerName);
     await setSelectedFeatureName(page, polygonName);
     await waitForLayerFeatureName(page, polygonLayerName, polygonName);
   });
@@ -469,6 +529,7 @@ export async function run({ page, engine }) {
     await setDrawModeWithoutCreatingLayer(page, 'geo-fill', 'Point');
     await emitMapClickAtCenter(page);
     await waitForFeatureCount(page, 4);
+    await selectLatestFeatureInLayer(page, pointLayerName);
     await setSelectedFeatureName(page, pointName2);
     await waitForLayerFeatureName(page, pointLayerName, pointName2);
   });
@@ -477,6 +538,7 @@ export async function run({ page, engine }) {
     await setDrawModeWithoutCreatingLayer(page, 'slash-lg', 'LineString');
     await emitMapDrawSequence(page, 'line');
     await waitForFeatureCount(page, 5);
+    await selectLatestFeatureInLayer(page, lineLayerName);
     await setSelectedFeatureName(page, lineName2);
     await waitForLayerFeatureName(page, lineLayerName, lineName2);
   });
@@ -485,6 +547,7 @@ export async function run({ page, engine }) {
     await setDrawModeWithoutCreatingLayer(page, 'pentagon', 'Polygon');
     await emitMapDrawSequence(page, 'polygon');
     await waitForFeatureCount(page, 6);
+    await selectLatestFeatureInLayer(page, polygonLayerName);
     await setSelectedFeatureName(page, polygonName2);
     await waitForLayerFeatureName(page, polygonLayerName, polygonName2);
   });

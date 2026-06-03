@@ -82,7 +82,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
     @property({ attribute: false }) mapLayers: MapLayerOption[] = [];
 
     @state() private step: Step = 'select';
-    @state() private selectedId: string = 'new';
+    @state() selectedId: string = 'new';
     @state() private layer: DrawLayerConfig = newLayerConfig('Point');
     @state() private nameError = false;
     @state() private newPropName = '';
