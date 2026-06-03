@@ -1,6 +1,82 @@
 # Changelog
 All notable changes to this project will be documented here.
 
+## [Unreleased]
+
+---
+
+## [2026 Q1–Q2] - Marker API, Info Tool, Layer Order Fixes
+
+### Added
+- **Cross-engine marker API** — create/remove markers via unified interface across all engines
+- **Info tool** — click-to-inspect feature info, works on all engines
+- **Geolocation tool** — position circle on all engines (MapLibre, OpenLayers, Leaflet, Cesium)
+- **Search tool**
+- **Attribution tool**
+
+### Fixed
+- Layer ordering for custom layers after background switches (OpenLayers, Leaflet)
+- Allmaps layer-order persistence in Leaflet
+- TSC warnings
+
+### Changed
+- Moved duplicate engine helper code to `src/utils/` shared modules
+- Layer tree refactored: removed tree-library dependency, added tests
+- Background group policy split into `single` / `exclusive` modes
+
+---
+
+## [2025-12-28] - Search & Geolocation Tools
+
+### Added
+- `webmapx-search` tool
+- `webmapx-geolocation` tool
+
+---
+
+## [2025-12-24] - Cesium Adapter & Allmaps
+
+### Added
+- **Cesium adapter** — 3D globe engine support (`adapter="cesium"`)
+- Allmaps WarpedMapLayer: lazy-loaded, integrated with MapLibre, OpenLayers, and Leaflet
+- Measure tool support for Leaflet
+- Config and favicon bundled into build output
+
+---
+
+## [2025-12-23] - Leaflet Adapter
+
+### Added
+- **Leaflet adapter** — full Leaflet support (`adapter="leaflet"`, `adapter="l"`)
+  - `src/map/leaflet-adapter.ts`
+  - `src/map/leaflet-services/MapCoreService.ts`
+  - `src/map/leaflet-services/MapFactoryService.ts`
+- Allmaps Amsterdam demo layer
+
+---
+
+## [2025-12-22] - Measure Tool
+
+### Added
+- Measure tool (distance/area) with cross-engine abstract calls
+- Auto-scroll measurements into view
+- Documentation for measure tool
+
+---
+
+## [2025-12-19] - WMS & Layer Config
+
+### Added
+- WMS layer implementation for OpenLayers
+- WMS URL builder utility
+- `style` property support in layer config
+
+### Changed
+- Layers config brought closer to Mapbox/MapLibre spec
+- Config refactor: tools, layers, roles restructured
+
+---
+
 ## [2025-12-14] - OpenLayers Support & Adapter Switcher
 
 ### Added
@@ -61,19 +137,6 @@ All notable changes to this project will be documented here.
 - Throttling from `MapCoreService` (moved to consumers)
 
 ## [Unreleased]
-- Added `IMapAdapter` contract plus `adapter-registry` so `<webmapx-map>` can instantiate adapters by name (default `maplibre`) and remain map-library agnostic.
-- Introduced per-component map context helpers so every tool resolves its host map instead of depending on global singletons.
-- Renamed `central-state` to `map-state-store`; each adapter now owns an isolated `MapStateStore` instance with updated documentation across README, roadmap, and developer/user guides.
-- Renamed project to WebMapX; all `gis-*` components renamed to `webmapx-*`:
-  - `gis-map` → `webmapx-map`
-  - `gis-map-layout` → `webmapx-layout`
-  - `gis-zoom-display` → `webmapx-zoom-level`
-  - `gis-inset-map` → `webmapx-inset-map`
-  - `gis-new-tool` → `webmapx-tool-template`
-  - `gis-style-core.css` → `webmapx-style-core.css`
-- Refactor `webmapx-zoom-level` to adapter-based zoom controller.
-- Implement real MapLibre calls in services.
-- Added `mapCenter` state, MapLibre move tracking, inset controller, and `<webmapx-inset-map>` component for overview maps.
 
 ## [2025-12-06]
 ### Added

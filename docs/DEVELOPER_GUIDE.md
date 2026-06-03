@@ -173,7 +173,7 @@ export class WebmapxMyTool extends LitElement {
     });
 
     // Subscribe with throttling
-    this.unsubscribe = this.adapter.store.subscribe((state) => {
+    this.unsubscribe = this.map.store.subscribe((state) => {
       this.throttledUpdate(state);
     });
   }
@@ -188,9 +188,9 @@ export class WebmapxMyTool extends LitElement {
 
 ### Step 3: Key Patterns
 
-**Creating Maps:**
+**Creating Sub-Maps (e.g. insets):**
 ```typescript
-const map = adapter.mapFactory.createMap(container, {
+const subMap = this.map.mapFactory.createMap(container, {
   center: [0, 0],
   zoom: 2,
   styleUrl: 'https://...',
@@ -336,7 +336,7 @@ flowchart TB
 
 ### Adding New Map Library Support
 
-To add support for a new map library (e.g., Leaflet, Cesium), follow this pattern (using OpenLayers as reference):
+To add support for a new map library, follow this pattern (using OpenLayers as reference). Leaflet and Cesium are already implemented; use them as additional examples alongside the steps below.
 
 #### Step 1: Create the Services Directory
 
