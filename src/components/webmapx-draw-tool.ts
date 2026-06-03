@@ -262,23 +262,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             paint: { 'circle-radius': 8, 'circle-color': 'transparent', 'circle-stroke-width': 2, 'circle-stroke-color': '#ff6600' }
         });
 
-        // Selected feature highlight
+        // Selected point highlight (lines/polygons use vertex handles instead)
         this.dispatch('webmapx-add-source', { id: SEL_SOURCE_ID, config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } } });
-        this.dispatch('webmapx-add-layer', {
-            id: SEL_FILL_ID, type: 'fill', source: SEL_SOURCE_ID,
-            metadata: { isToolLayer: true, hideFromLegend: true },
-            filter: ['==', ['geometry-type'], 'Polygon'],
-            paint: { 'fill-color': '#ff9900', 'fill-opacity': 0.25 }
-        });
-        this.dispatch('webmapx-add-layer', {
-            id: SEL_LINE_ID, type: 'line', source: SEL_SOURCE_ID,
-            metadata: { isToolLayer: true, hideFromLegend: true },
-            paint: { 'line-color': '#ff9900', 'line-width': 4 }
-        });
         this.dispatch('webmapx-add-layer', {
             id: SEL_POINT_ID, type: 'circle', source: SEL_SOURCE_ID,
             metadata: { isToolLayer: true, hideFromLegend: true },
-            filter: ['==', ['geometry-type'], 'Point'],
             paint: { 'circle-radius': 8, 'circle-color': '#ff9900', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }
         });
 
@@ -369,7 +357,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private removeSharedLayers(): void {
-        for (const id of [RUBBER_LINE_ID, VERTEX_LAYER_ID, SEL_FILL_ID, SEL_LINE_ID, SEL_POINT_ID, DRAFT_POINT_ID, EDIT_VERT_LAYER, EDIT_MID_LAYER]) {
+        for (const id of [RUBBER_LINE_ID, VERTEX_LAYER_ID, SEL_POINT_ID, DRAFT_POINT_ID, EDIT_VERT_LAYER, EDIT_MID_LAYER]) {
             this.dispatch('webmapx-remove-layer', id);
         }
         for (const id of [RUBBER_SOURCE_ID, VERTEX_SOURCE_ID, SEL_SOURCE_ID, DRAFT_SOURCE_ID, EDIT_VERT_SOURCE, EDIT_MID_SOURCE]) {
@@ -680,7 +668,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private updateSelectedSource(): void {
         if (!this.sharedLayersCreated) return;
         const f = this.features.find(f => f.id === this.selectedFeatureId);
-        const features = f ? [{ type: 'Feature', id: f.id, geometry: { type: f.type, coordinates: f.coordinates }, properties: {} }] : [];
+        // Only highlight selected Points — lines/polygons use vertex handles instead
+        const features = (f && f.type === 'Point') ? [{ type: 'Feature', id: f.id, geometry: { type: f.type, coordinates: f.coordinates }, properties: {} }] : [];
         this.dispatch('webmapx-set-source-data', { id: SEL_SOURCE_ID, data: { type: 'FeatureCollection', features } });
     }
 
