@@ -169,11 +169,7 @@ export class CesiumAdapter implements IMap {
     }
 
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
-        return this.core.getSourceData(sourceId);
-    }
-
-    getLayerSourceId(layerId: string): string | null {
-        return this.core.getLayerSourceId(layerId);
+        return this.core.getSourceData(sourceId) ?? this.logicalLayerExecutor.getSourceData(sourceId);
     }
 
     project(coords: LngLat): Pixel {
@@ -205,7 +201,11 @@ export class CesiumAdapter implements IMap {
     }
 
     getSource(id: string) {
-        return this.core.getSource(id);
+        return this.core.getSource(id) ?? (
+            this.logicalLayerExecutor.getSourceData(id) !== null
+                ? { id, setData: (data: GeoJSON.FeatureCollection) => { this.logicalLayerExecutor.setSourceData(id, data); } }
+                : undefined
+        );
     }
 
     suppressBusySignalForSource(sourceId: string): void {

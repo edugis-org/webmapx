@@ -50,6 +50,14 @@ export class DeferredLogicalLayerExecutor implements ILogicalLayerExecutor {
         return this.layerService?.isLayerVisible(layerId) ?? false;
     }
 
+    getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
+        return this.layerService?.getSourceData(sourceId) ?? null;
+    }
+
+    setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean {
+        return this.layerService?.setSourceData(sourceId, data) ?? false;
+    }
+
     private flushPendingOperations(): void {
         if (!this.layerService) {
             return;

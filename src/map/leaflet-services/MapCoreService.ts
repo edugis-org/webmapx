@@ -1,7 +1,7 @@
 // src/map/leaflet-services/MapCoreService.ts
 
 import { IMapCore, ISource, NavigationCapabilities } from '../IMapInterfaces';
-import { registerRuntimeLayer, unregisterRuntimeLayer } from '../runtime-layer-utils';
+import { registerMapLayer, unregisterMapLayer } from '../map-layer-registry';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel, PointerResolution } from '../../store/map-events';
 import type { MapStyle } from '../../config/types';
@@ -281,11 +281,6 @@ export class MapCoreService implements IMapCore {
         return null;
     }
 
-    public getLayerSourceId(layerId: string): string | null {
-        // In Leaflet, layerId === sourceId when added via addSource/addLayer
-        return this.sources.has(layerId) ? layerId : null;
-    }
-
     private computePointerResolution(event: L.LeafletMouseEvent): PointerResolution | null {
         if (!this.mapInstance || !event.layerPoint) return null;
         const { x, y } = event.layerPoint; // Use layerPoint for consistency
@@ -413,7 +408,7 @@ export class MapCoreService implements IMapCore {
     public addLayer(layerSpec: any, options?: { beforeLayerId?: string; afterLayerId?: string }): void {
         if (!this.mapInstance) return;
 
-        registerRuntimeLayer(this.store,layerSpec);
+        registerMapLayer(this.store,layerSpec);
     
         const sourceId = layerSpec.source;
         if (!sourceId) {
@@ -474,7 +469,7 @@ export class MapCoreService implements IMapCore {
 
             this.applyRuntimeLayerOrder();
         }
-        unregisterRuntimeLayer(this.store,id);
+        unregisterMapLayer(this.store,id);
     }
 
     public addSource(id: string, config: any): void {

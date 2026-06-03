@@ -5,11 +5,11 @@ export function rememberSingleGroupInsertSlotForGroup(
   groupKey: string,
   layerId: string,
   visibleLayers: string[],
-  runtimeLayerMetadata: Record<string, unknown> | undefined,
+  mapLayers: Record<string, unknown> | undefined,
   slotMap: Map<string, LayerInsertOptions>,
   roleMap: Map<string, LegendRole>,
 ): void {
-  const metadata = runtimeLayerMetadata?.[layerId] as Record<string, unknown> | undefined;
+  const metadata = mapLayers?.[layerId] as Record<string, unknown> | undefined;
   if (metadata?.legendRole === 'background' || metadata?.legendRole === 'overlay') {
     roleMap.set(groupKey, metadata.legendRole);
   }
@@ -68,4 +68,3 @@ export function resolveSingleGroupInsertionOptionsForGroup(
 
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
-

@@ -3,7 +3,7 @@
 import type { IMapCore, ISource, NavigationCapabilities } from '../IMapInterfaces';
 import type { MapStyle } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
-import { registerRuntimeLayer, unregisterRuntimeLayer } from '../runtime-layer-utils';
+import { registerMapLayer, unregisterMapLayer } from '../map-layer-registry';
 import { MapEventBus, LngLat, Pixel } from '../../store/map-events';
 import { throttle } from '../../utils/throttle';
 
@@ -270,7 +270,7 @@ export class MapCoreService implements IMapCore {
         const state = this.sourceState.get(sourceId);
         if (!state) return;
 
-        registerRuntimeLayer(this.store,layer);
+        registerMapLayer(this.store,layer);
 
         const layerId = typeof layer?.id === 'string' ? layer.id : null;
         if (layerId) {
@@ -291,7 +291,7 @@ export class MapCoreService implements IMapCore {
         const id = _id as any;
         if (typeof id === 'string') {
             this.removeRuntimeLayer(id);
-            unregisterRuntimeLayer(this.store,id);
+            unregisterMapLayer(this.store,id);
         }
 
         for (const [sourceId, state] of this.sourceState.entries()) {
@@ -336,7 +336,7 @@ export class MapCoreService implements IMapCore {
                 const layerId = typeof layer.spec?.id === 'string' ? layer.spec.id : null;
                 if (layerId) {
                     this.removeRuntimeLayer(layerId);
-                    unregisterRuntimeLayer(this.store,layerId);
+                    unregisterMapLayer(this.store,layerId);
                 }
                 this.removeLayerDataSource(layer);
             }
@@ -420,13 +420,6 @@ export class MapCoreService implements IMapCore {
     public getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
         const state = this.sourceState.get(sourceId);
         return state?.data ?? null;
-    }
-
-    public getLayerSourceId(layerId: string): string | null {
-        for (const [sourceId, state] of this.sourceState.entries()) {
-            if (state.layers.some(e => e.spec?.id === layerId)) return sourceId;
-        }
-        return null;
     }
 
     public onMapReady(callback: (viewer: any) => void): void {

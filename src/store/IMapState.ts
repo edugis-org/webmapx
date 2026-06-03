@@ -15,11 +15,11 @@ export interface IMapState {
     pointerResolution: { lng: number; lat: number } | null;
     lastClickedResolution: { lng: number; lat: number } | null;
 
-    /** IDs of currently visible layers (from catalog config) */
+    /** IDs of currently visible logical layers, in map order. */
     visibleLayers: string[];
 
-    /** Metadata for runtime layers added through addLayer (tool/user layers). */
-    runtimeLayerMetadata: Record<string, RuntimeLayerMetadataEntry>;
+    /** Engine-neutral registry for all layers currently known to the map. */
+    mapLayers: Record<string, MapLayerStateEntry>;
 
     /**
      * Currently active tool in the UI state model.
@@ -33,8 +33,12 @@ export interface ActiveToolState {
     toolId: string;
 }
 
-export interface RuntimeLayerMetadataEntry {
+export interface MapLayerStateEntry {
     label?: string;
+    /** Generic source id from the layer spec. */
+    sourceId?: string;
+    /** Generic layer rendering type from the layer spec, e.g. fill, line, circle. */
+    layerType?: string;
     hideFromLegend?: boolean;
     legendRole?: 'background' | 'overlay';
     [key: string]: unknown;

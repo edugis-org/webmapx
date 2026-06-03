@@ -8,6 +8,7 @@ import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import './webmapx-draw-layer-dialog';
 import type { WebmapxDrawLayerDialog, DrawLayerConfig, GeometryType } from './webmapx-draw-layer-dialog';
+import { unregisterMapLayer } from '../map/map-layer-registry';
 
 // ─── Shared source / layer IDs ────────────────────────────────────────────────
 
@@ -17,9 +18,6 @@ const VERTEX_SOURCE_ID = 'webmapx-draw-vertex-source';
 const VERTEX_LAYER_ID  = 'webmapx-draw-vertex-layer';
 
 function drawSourceId(layerId: string)   { return `webmapx-draw-src-${layerId}`; }
-function drawFillId(layerId: string)     { return `webmapx-draw-fill-${layerId}`; }
-function drawLineId(layerId: string)     { return `webmapx-draw-line-${layerId}`; }
-function drawPointId(layerId: string)    { return `webmapx-draw-pts-${layerId}`; }
 
 const SEL_SOURCE_ID = 'webmapx-draw-sel-source';
 const SEL_FILL_ID   = 'webmapx-draw-sel-fill';
@@ -42,6 +40,7 @@ type EditState = 'none' | 'selected' | 'editing';
 interface VertexHandle {
     kind: 'vertex';
     featureId: string;
+    partIdx: number;
     ringIdx: number;
     vertIdx: number;
     coords: LngLat;
@@ -50,6 +49,7 @@ interface VertexHandle {
 interface MidpointHandle {
     kind: 'midpoint';
     featureId: string;
+    partIdx: number;
     ringIdx: number;
     afterVertIdx: number;
     coords: LngLat;
@@ -59,11 +59,12 @@ type EditHandle = VertexHandle | MidpointHandle;
 
 export type DrawMode = 'select' | 'draw-point' | 'draw-line' | 'draw-polygon';
 export type { DrawLayerConfig, GeometryType } from './webmapx-draw-layer-dialog';
+type DrawGeometryType = 'Point' | 'MultiPoint' | 'LineString' | 'MultiLineString' | 'Polygon' | 'MultiPolygon';
 
 export interface DrawFeature {
     id: string;
     layerId: string;
-    type: GeometryType;
+    type: DrawGeometryType;
     coordinates: any;
     properties: Record<string, unknown>;
 }
@@ -217,10 +218,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     protected onDeactivate(): void {
         this.unbindEvents();
-        // Restore all borrowed map layers before removing draw layers
-        for (const layer of this.drawLayers) {
-            if (layer.borrowedSourceId) this.restoreBorrowedLayer(layer);
-        }
+        this.releaseAllBorrowedLayers();
         this.draftPoints = [];
         this.cursorPos = null;
         this.dragging = null;
@@ -319,27 +317,23 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         });
 
         if (cfg.type === 'Polygon') {
-            // Primary layer (shown in legend)
             this.dispatch('webmapx-add-layer', {
-                id: drawFillId(cfg.id), type: 'fill', source: src,
+                id: cfg.id, type: 'fill', source: src,
+                title: cfg.name,
                 metadata: { label: cfg.name, legendRole: 'overlay' },
-                paint: { 'fill-color': cfg.color, 'fill-opacity': 0.2 }
-            });
-            // Secondary outline layer (hidden from legend)
-            this.dispatch('webmapx-add-layer', {
-                id: drawLineId(cfg.id), type: 'line', source: src,
-                metadata: { hideFromLegend: true },
-                paint: { 'line-color': cfg.color, 'line-width': 2 }
+                paint: { 'fill-color': cfg.color, 'fill-opacity': 0.2, 'fill-outline-color': cfg.color }
             });
         } else if (cfg.type === 'LineString') {
             this.dispatch('webmapx-add-layer', {
-                id: drawLineId(cfg.id), type: 'line', source: src,
+                id: cfg.id, type: 'line', source: src,
+                title: cfg.name,
                 metadata: { label: cfg.name, legendRole: 'overlay' },
                 paint: { 'line-color': cfg.color, 'line-width': 2 }
             });
         } else {
             this.dispatch('webmapx-add-layer', {
-                id: drawPointId(cfg.id), type: 'circle', source: src,
+                id: cfg.id, type: 'circle', source: src,
+                title: cfg.name,
                 metadata: { label: cfg.name, legendRole: 'overlay' },
                 paint: { 'circle-radius': 6, 'circle-color': cfg.color, 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }
             });
@@ -349,16 +343,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private removeMapLayersForDrawLayer(cfg: DrawLayerConfig): void {
-        // Only remove the layers that were created for this geometry type
-        if (cfg.type === 'Polygon') {
-            this.dispatch('webmapx-remove-layer', drawFillId(cfg.id));
-            this.dispatch('webmapx-remove-layer', drawLineId(cfg.id));
-        } else if (cfg.type === 'LineString') {
-            this.dispatch('webmapx-remove-layer', drawLineId(cfg.id));
-        } else {
-            this.dispatch('webmapx-remove-layer', drawPointId(cfg.id));
-        }
+        this.dispatch('webmapx-remove-layer', cfg.id);
         this.dispatch('webmapx-remove-source', drawSourceId(cfg.id));
+        if (this.adapter?.store) unregisterMapLayer(this.adapter.store, cfg.id);
         this.createdDrawLayerIds.delete(cfg.id);
     }
 
@@ -414,7 +401,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     // ─── Mode management ─────────────────────────────────────────────────────
 
-    private requestDrawMode(mode: DrawMode): void {
+    private async requestDrawMode(mode: DrawMode): Promise<void> {
         const geoType = modeToGeometryType(mode);
         if (!geoType) { this.setModeInternal(mode); return; }
 
@@ -429,14 +416,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         const existing = this.drawLayers.filter(l => l.type === geoType);
         this.layerDialog.geometryType = geoType;
         this.layerDialog.existingLayers = existing;
-        this.layerDialog.mapLayers = this.adapter ? this.getEditableMapLayers(geoType) : [];
+        this.layerDialog.mapLayers = this.adapter ? await this.getEditableMapLayers(geoType) : [];
         this.layerDialog.open();
     }
 
     /** Returns GeoJSON-backed map layers matching the given geometry type, deduplicated by source. */
-    private getEditableMapLayers(geoType: GeometryType): import('./webmapx-draw-layer-dialog').MapLayerOption[] {
+    private async getEditableMapLayers(geoType: GeometryType): Promise<import('./webmapx-draw-layer-dialog').MapLayerOption[]> {
         if (!this.adapter) return [];
-        const meta = this.adapter.store.getState().runtimeLayerMetadata ?? {};
+        const meta = this.adapter.store.getState().mapLayers ?? {};
 
         // One entry per source — use first layer found for label
         const seen = new Set<string>();
@@ -444,30 +431,81 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
         for (const [layerId, entry] of Object.entries(meta)) {
             if ((entry as any).isToolLayer) continue;
-            const sourceId = this.adapter.getLayerSourceId(layerId);
+            const sourceId = typeof entry.sourceId === 'string' ? entry.sourceId : null;
             if (!sourceId || seen.has(sourceId)) continue;
 
             const dataOrUrl = this.adapter.getSourceData(sourceId);
             if (!dataOrUrl) continue;
+            const data = await this.resolveFeatureCollection(dataOrUrl);
 
             if (typeof dataOrUrl === 'string') {
-                // URL-backed — include without geometry check (checked on load)
+                const geom = data?.features[0]?.geometry?.type;
+                const featureGeoType = geom ? this.geometryFamilyForGeoJSONType(geom) : null;
+                const layerGeoType = this.geometryFamilyForLayerType(entry.layerType);
+                if ((featureGeoType ?? layerGeoType) !== geoType) continue;
+
                 seen.add(sourceId);
-                result.push({ layerId, sourceId, label: (entry as any).label ?? layerId });
+                result.push({
+                    layerId,
+                    sourceId,
+                    label: (entry as any).label ?? layerId,
+                    properties: data ? this.inferPropertyDefs(data) : undefined
+                });
                 continue;
             }
 
             const geom = dataOrUrl.features[0]?.geometry?.type;
-            const featureGeoType: GeometryType | null =
-                geom === 'Point' || geom === 'MultiPoint' ? 'Point' :
-                geom === 'LineString' || geom === 'MultiLineString' ? 'LineString' :
-                geom === 'Polygon' || geom === 'MultiPolygon' ? 'Polygon' : null;
-            if (featureGeoType !== geoType) continue;
+            const featureGeoType = geom ? this.geometryFamilyForGeoJSONType(geom) : null;
+            const layerGeoType = this.geometryFamilyForLayerType(entry.layerType);
+            if ((featureGeoType ?? layerGeoType) !== geoType) continue;
 
             seen.add(sourceId);
-            result.push({ layerId, sourceId, label: (entry as any).label ?? layerId });
+            result.push({
+                layerId,
+                sourceId,
+                label: (entry as any).label ?? layerId,
+                properties: this.inferPropertyDefs(dataOrUrl)
+            });
         }
         return result;
+    }
+
+    private async resolveFeatureCollection(dataOrUrl: GeoJSON.FeatureCollection | string): Promise<GeoJSON.FeatureCollection | null> {
+        if (typeof dataOrUrl !== 'string') return dataOrUrl;
+        try {
+            const res = await fetch(dataOrUrl);
+            if (!res.ok) return null;
+            return await res.json() as GeoJSON.FeatureCollection;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    private geometryFamilyForGeoJSONType(type: GeoJSON.Geometry['type']): GeometryType | null {
+        return type === 'Point' || type === 'MultiPoint' ? 'Point' :
+            type === 'LineString' || type === 'MultiLineString' ? 'LineString' :
+            type === 'Polygon' || type === 'MultiPolygon' ? 'Polygon' : null;
+    }
+
+    private geometryFamilyForLayerType(type: unknown): GeometryType | null {
+        return type === 'circle' ? 'Point' :
+            type === 'line' ? 'LineString' :
+            type === 'fill' ? 'Polygon' : null;
+    }
+
+    private inferPropertyDefs(data: GeoJSON.FeatureCollection): import('./webmapx-draw-layer-dialog').PropertyDef[] {
+        const props = data.features.find(f => f.properties && Object.keys(f.properties).length > 0)?.properties;
+        if (!props) {
+            return [
+                { name: 'id', type: 'number' },
+                { name: 'name', type: 'string' },
+            ];
+        }
+
+        return Object.entries(props).map(([name, value]) => ({
+            name,
+            type: typeof value === 'number' ? 'number' as const : 'string' as const
+        }));
     }
 
     private setModeInternal(mode: DrawMode): void {
@@ -508,7 +546,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         const prevActive = this.activeLayerIds[cfg.type];
         if (prevActive && prevActive !== cfg.id) {
             const prev = this.drawLayers.find(l => l.id === prevActive);
-            if (prev?.borrowedSourceId) this.restoreBorrowedLayer(prev);
+            if (prev?.borrowedSourceId) this.releaseBorrowedLayer(prev);
         }
 
         // Upsert layer config
@@ -521,53 +559,29 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
             // If borrowing a map layer: load its features, hide the originals
             if (cfg.borrowedSourceId && this.adapter) {
-                let data: GeoJSON.FeatureCollection | null = null;
                 const dataOrUrl = this.adapter.getSourceData(cfg.borrowedSourceId);
-                if (typeof dataOrUrl === 'string') {
-                    try {
-                        const res = await fetch(dataOrUrl);
-                        if (res.ok) data = await res.json() as GeoJSON.FeatureCollection;
-                    } catch (_) {}
-                } else {
-                    data = dataOrUrl;
-                }
+                const data = dataOrUrl ? await this.resolveFeatureCollection(dataOrUrl) : null;
 
                 if (data) {
-                    // Explode Multi* geometries into individual simple features
                     const importedFeatures: DrawFeature[] = [];
                     for (const f of data.features) {
                         if (!f.geometry) continue;
-                        const geomType = f.geometry.type;
-                        const coords = (f.geometry as any).coordinates;
+                        if (!isSupportedDrawGeometryType(f.geometry.type)) continue;
                         const props = { ...f.properties };
-
-                        if (geomType === 'MultiPolygon') {
-                            for (const ring of coords as number[][][][]) {
-                                importedFeatures.push({ id: this.newId(), layerId: cfg.id, type: 'Polygon', coordinates: ring, properties: { ...props } });
-                            }
-                        } else if (geomType === 'MultiLineString') {
-                            for (const line of coords as number[][][]) {
-                                importedFeatures.push({ id: this.newId(), layerId: cfg.id, type: 'LineString', coordinates: line, properties: { ...props } });
-                            }
-                        } else if (geomType === 'MultiPoint') {
-                            for (const pt of coords as number[][]) {
-                                importedFeatures.push({ id: this.newId(), layerId: cfg.id, type: 'Point', coordinates: pt, properties: { ...props } });
-                            }
-                        } else if (geomType === 'Polygon' || geomType === 'LineString' || geomType === 'Point') {
-                            importedFeatures.push({ id: this.newId(), layerId: cfg.id, type: geomType as GeometryType, coordinates: coords, properties: props });
-                        }
+                        importedFeatures.push({
+                            id: this.newId(),
+                            layerId: cfg.id,
+                            type: f.geometry.type,
+                            coordinates: (f.geometry as any).coordinates,
+                            properties: props
+                        });
                     }
 
                     this.features = [...this.features, ...importedFeatures];
 
-                    // Infer attribute schema from first feature if schema is still default
-                    if (data.features[0]?.properties && cfg.properties.length <= 2) {
-                        const inferred: import('./webmapx-draw-layer-dialog').PropertyDef[] = [
-                            { name: 'id', type: 'number' },
-                            ...Object.keys(data.features[0].properties)
-                                .filter(k => k !== 'id')
-                                .map(k => ({ name: k, type: 'string' as const }))
-                        ];
+                    // Infer attribute schema from source data if schema is still default
+                    if (cfg.properties.length <= 2) {
+                        const inferred = this.inferPropertyDefs(data);
                         cfg = { ...cfg, properties: inferred };
                         this.drawLayers = this.drawLayers.map(l => l.id === cfg.id ? cfg : l);
                     }
@@ -601,6 +615,23 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             }));
         this.adapter.getSource(cfg.borrowedSourceId)
             ?.setData({ type: 'FeatureCollection', features });
+    }
+
+    private releaseBorrowedLayer(cfg: DrawLayerConfig): void {
+        if (!cfg.borrowedSourceId) return;
+        this.restoreBorrowedLayer(cfg);
+        this.removeMapLayersForDrawLayer(cfg);
+        this.features = this.features.filter(f => f.layerId !== cfg.id);
+        this.drawLayers = this.drawLayers.filter(l => l.id !== cfg.id);
+        for (const [type, layerId] of Object.entries(this.activeLayerIds) as [GeometryType, string][]) {
+            if (layerId === cfg.id) delete this.activeLayerIds[type];
+        }
+    }
+
+    private releaseAllBorrowedLayers(): void {
+        for (const layer of [...this.drawLayers]) {
+            if (layer.borrowedSourceId) this.releaseBorrowedLayer(layer);
+        }
     }
 
     private handleLayerCancel(): void {
@@ -644,16 +675,16 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             const hit = this.findFeatureAt(px, coords);
 
             if (hit && hit.id === this.selectedFeatureId && this.editState === 'selected' &&
-                (hit.type === 'LineString' || hit.type === 'Polygon')) {
+                (isLineType(hit.type) || isPolygonType(hit.type))) {
                 // Second click on already-selected line/polygon → enter edit mode
                 this.enterEditMode(hit.id);
             } else if (hit) {
                 // First click on a feature → select it, show vertices if line/polygon
                 this.selectedFeatureId = hit.id;
-                this.editState = hit.type === 'Point' ? 'editing' : 'selected';
+                this.editState = isPointType(hit.type) ? 'editing' : 'selected';
                 if (this.editState === 'selected') {
                     this.helpText = 'Click again to edit vertices.';
-                } else if (hit.type === 'Point') {
+                } else if (isPointType(hit.type)) {
                     this.helpText = 'Drag to move point.';
                 }
                 this.updateSelectedSource();
@@ -764,7 +795,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 this.insertVertex(f, h);
                 // After insert, dragging.handle becomes the newly inserted vertex
                 const newVertIdx = h.afterVertIdx + 1;
-                const vertHandle: VertexHandle = { kind: 'vertex', featureId: h.featureId, ringIdx: h.ringIdx, vertIdx: newVertIdx, coords: h.coords };
+                const vertHandle: VertexHandle = {
+                    kind: 'vertex',
+                    featureId: h.featureId,
+                    partIdx: h.partIdx,
+                    ringIdx: h.ringIdx,
+                    vertIdx: newVertIdx,
+                    coords: h.coords
+                };
                 this.dragging = { handle: vertHandle, lastCoords: e.coords };
                 this.refreshDrawLayerSource(f.layerId);
                 this.updateEditHandles();
@@ -841,7 +879,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (!this.sharedLayersCreated) return;
         const f = this.features.find(f => f.id === this.selectedFeatureId);
         // Only highlight selected Points — lines/polygons use vertex handles instead
-        const features = (f && f.type === 'Point') ? [{ type: 'Feature', id: f.id, geometry: { type: f.type, coordinates: f.coordinates }, properties: {} }] : [];
+        const features = (f && isPointType(f.type)) ? [{ type: 'Feature', id: f.id, geometry: { type: f.type, coordinates: f.coordinates }, properties: {} }] : [];
         this.dispatch('webmapx-set-source-data', { id: SEL_SOURCE_ID, data: { type: 'FeatureCollection', features } });
     }
 
@@ -858,24 +896,37 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private computeHandles(f: DrawFeature): EditHandle[] {
         const handles: EditHandle[] = [];
         if (f.type === 'Point') {
-            handles.push({ kind: 'vertex', featureId: f.id, ringIdx: 0, vertIdx: 0, coords: f.coordinates as LngLat });
+            handles.push({ kind: 'vertex', featureId: f.id, partIdx: 0, ringIdx: 0, vertIdx: 0, coords: f.coordinates as LngLat });
+            return handles;
+        }
+        if (f.type === 'MultiPoint') {
+            (f.coordinates as [number, number][]).forEach((pt, partIdx) => {
+                handles.push({ kind: 'vertex', featureId: f.id, partIdx, ringIdx: 0, vertIdx: 0, coords: pt as LngLat });
+            });
             return handles;
         }
 
-        const addRing = (ring: [number, number][], ringIdx: number, closed: boolean) => {
+        const addRing = (ring: [number, number][], partIdx: number, ringIdx: number, closed: boolean) => {
             const n = closed ? ring.length - 1 : ring.length; // skip closing duplicate
             for (let i = 0; i < n; i++) {
-                handles.push({ kind: 'vertex', featureId: f.id, ringIdx, vertIdx: i, coords: ring[i] as LngLat });
+                handles.push({ kind: 'vertex', featureId: f.id, partIdx, ringIdx, vertIdx: i, coords: ring[i] as LngLat });
+                if (!closed && i === n - 1) continue;
                 const next = (i + 1) % n;
                 const mid: LngLat = [(ring[i][0] + ring[next][0]) / 2, (ring[i][1] + ring[next][1]) / 2];
-                handles.push({ kind: 'midpoint', featureId: f.id, ringIdx, afterVertIdx: i, coords: mid });
+                handles.push({ kind: 'midpoint', featureId: f.id, partIdx, ringIdx, afterVertIdx: i, coords: mid });
             }
         };
 
         if (f.type === 'LineString') {
-            addRing(f.coordinates as [number, number][], 0, false);
+            addRing(f.coordinates as [number, number][], 0, 0, false);
+        } else if (f.type === 'MultiLineString') {
+            (f.coordinates as [number, number][][]).forEach((line, partIdx) => addRing(line, partIdx, 0, false));
         } else if (f.type === 'Polygon') {
-            (f.coordinates as [number, number][][]).forEach((ring, ri) => addRing(ring, ri, true));
+            (f.coordinates as [number, number][][]).forEach((ring, ringIdx) => addRing(ring, 0, ringIdx, true));
+        } else if (f.type === 'MultiPolygon') {
+            (f.coordinates as [number, number][][][]).forEach((polygon, partIdx) => {
+                polygon.forEach((ring, ringIdx) => addRing(ring, partIdx, ringIdx, true));
+            });
         }
         return handles;
     }
@@ -922,17 +973,25 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private applyDragMove(f: DrawFeature, handle: EditHandle, newCoords: LngLat): void {
         const coords = JSON.parse(JSON.stringify(f.coordinates));
         if (handle.kind !== 'vertex') return;
-        const { ringIdx, vertIdx } = handle;
+        const { partIdx, ringIdx, vertIdx } = handle;
         if (f.type === 'Point') {
             f.coordinates = [newCoords[0], newCoords[1]];
             handle.coords = newCoords;
             return;
+        } else if (f.type === 'MultiPoint') {
+            coords[partIdx] = [newCoords[0], newCoords[1]];
         } else if (f.type === 'LineString') {
             coords[vertIdx] = [newCoords[0], newCoords[1]];
+        } else if (f.type === 'MultiLineString') {
+            coords[partIdx][vertIdx] = [newCoords[0], newCoords[1]];
         } else if (f.type === 'Polygon') {
             coords[ringIdx][vertIdx] = [newCoords[0], newCoords[1]];
             // Keep closing vertex in sync
             const ring = coords[ringIdx] as number[][];
+            if (vertIdx === 0) ring[ring.length - 1] = ring[0];
+        } else if (f.type === 'MultiPolygon') {
+            coords[partIdx][ringIdx][vertIdx] = [newCoords[0], newCoords[1]];
+            const ring = coords[partIdx][ringIdx] as number[][];
             if (vertIdx === 0) ring[ring.length - 1] = ring[0];
         }
         // Update in place (mutate the stored feature for live feedback)
@@ -941,21 +1000,28 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         handle.coords = newCoords;
     }
 
-    private translateCoords(coords: any, type: GeometryType, dLng: number, dLat: number): any {
+    private translateCoords(coords: any, type: DrawGeometryType, dLng: number, dLat: number): any {
         const t = (c: [number, number]): [number, number] => [c[0] + dLng, c[1] + dLat];
         if (type === 'Point') return t(coords as [number, number]);
+        if (type === 'MultiPoint') return (coords as [number, number][]).map(t);
         if (type === 'LineString') return (coords as [number, number][]).map(t);
+        if (type === 'MultiLineString') return (coords as [number, number][][]).map(line => line.map(t));
         if (type === 'Polygon') return (coords as [number, number][][]).map(ring => ring.map(t));
+        if (type === 'MultiPolygon') return (coords as [number, number][][][]).map(polygon => polygon.map(ring => ring.map(t)));
         return coords;
     }
 
     private insertVertex(f: DrawFeature, h: MidpointHandle): void {
         const coords = JSON.parse(JSON.stringify(f.coordinates));
-        const { ringIdx, afterVertIdx } = h;
+        const { partIdx, ringIdx, afterVertIdx } = h;
         if (f.type === 'LineString') {
             (coords as number[][]).splice(afterVertIdx + 1, 0, [h.coords[0], h.coords[1]]);
+        } else if (f.type === 'MultiLineString') {
+            (coords[partIdx] as number[][]).splice(afterVertIdx + 1, 0, [h.coords[0], h.coords[1]]);
         } else if (f.type === 'Polygon') {
             (coords[ringIdx] as number[][]).splice(afterVertIdx + 1, 0, [h.coords[0], h.coords[1]]);
+        } else if (f.type === 'MultiPolygon') {
+            (coords[partIdx][ringIdx] as number[][]).splice(afterVertIdx + 1, 0, [h.coords[0], h.coords[1]]);
         }
         f.coordinates = coords;
         this.pushHistory({ type: 'update', features: [{ ...f }] });
@@ -978,7 +1044,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.setModeInternal(this.mode);
         this.selectedFeatureId = feature.id;
         // Points go straight to editing (one handle, immediately draggable)
-        this.editState = feature.type === 'Point' ? 'editing' : 'selected';
+        this.editState = isPointType(feature.type) ? 'editing' : 'selected';
         this.updateSelectedSource();
         this.updateEditHandles();
     }
@@ -1085,11 +1151,24 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             if (f.type === 'Point') {
                 const fp = this.adapter!.project(f.coordinates as LngLat);
                 if (Math.hypot(fp[0] - clickPixel[0], fp[1] - clickPixel[1]) < TOL) return f;
+            } else if (f.type === 'MultiPoint') {
+                for (const pt of f.coordinates as LngLat[]) {
+                    const fp = this.adapter!.project(pt);
+                    if (Math.hypot(fp[0] - clickPixel[0], fp[1] - clickPixel[1]) < TOL) return f;
+                }
             } else if (f.type === 'LineString') {
                 if (this.pixelNearPolyline(clickPixel, f.coordinates, TOL)) return f;
+            } else if (f.type === 'MultiLineString') {
+                if ((f.coordinates as [number, number][][]).some(line => this.pixelNearPolyline(clickPixel, line, TOL))) return f;
             } else if (f.type === 'Polygon') {
                 if (this.pointInRing(clickCoords, f.coordinates[0]) ||
                     this.pixelNearPolyline(clickPixel, f.coordinates[0], TOL)) return f;
+            } else if (f.type === 'MultiPolygon') {
+                for (const polygon of f.coordinates as [number, number][][][]) {
+                    const outerRing = polygon[0];
+                    if (outerRing && (this.pointInRing(clickCoords, outerRing) ||
+                        this.pixelNearPolyline(clickPixel, outerRing, TOL))) return f;
+                }
             }
         }
         return null;
@@ -1250,6 +1329,24 @@ function modeToGeometryType(mode: DrawMode): GeometryType | null {
     if (mode === 'draw-line')    return 'LineString';
     if (mode === 'draw-polygon') return 'Polygon';
     return null;
+}
+
+function isSupportedDrawGeometryType(type: GeoJSON.Geometry['type']): type is DrawGeometryType {
+    return type === 'Point' || type === 'MultiPoint' ||
+        type === 'LineString' || type === 'MultiLineString' ||
+        type === 'Polygon' || type === 'MultiPolygon';
+}
+
+function isPointType(type: DrawGeometryType): boolean {
+    return type === 'Point' || type === 'MultiPoint';
+}
+
+function isLineType(type: DrawGeometryType): boolean {
+    return type === 'LineString' || type === 'MultiLineString';
+}
+
+function isPolygonType(type: DrawGeometryType): boolean {
+    return type === 'Polygon' || type === 'MultiPolygon';
 }
 
 declare global {

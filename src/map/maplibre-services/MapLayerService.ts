@@ -134,8 +134,8 @@ export class MapLayerService implements ILayerService {
         this.map.addSource(nativeSourceId, nativeSource);
     }
 
-    private buildNativeLayer(nativeLayerId: string, spec: SubLayerSpec | StandardLayerConfig, nativeSourceId: string): any {
-        const layer: any = { id: nativeLayerId, type: spec.type, source: nativeSourceId };
+    private buildNativeLayer(nativeLayerId: string, spec: SubLayerSpec | StandardLayerConfig, nativeSourceId: string, mapLayerId: string): any {
+        const layer: any = { id: nativeLayerId, type: spec.type, source: nativeSourceId, metadata: { mapLayerId } };
         if (spec['source-layer']) layer['source-layer'] = spec['source-layer'];
         if (spec.minzoom !== undefined) layer.minzoom = spec.minzoom;
         if (spec.maxzoom !== undefined) layer.maxzoom = spec.maxzoom;
@@ -207,7 +207,7 @@ export class MapLayerService implements ILayerService {
 
             const nativeLayerId = subLayer.id ? `${layerId}-${subLayer.id}` : `${layerId}-${sourceKey}-${subLayer.type}`;
             if (!this.map.getLayer(nativeLayerId)) {
-                this.map.addLayer(this.buildNativeLayer(nativeLayerId, subLayer, nativeSourceId), insertBeforeLayerId);
+                this.map.addLayer(this.buildNativeLayer(nativeLayerId, subLayer, nativeSourceId, layerId), insertBeforeLayerId);
             }
             nativeLayerIds.push(nativeLayerId);
             this.nativeLayerToSource.set(nativeLayerId, nativeSourceId);
@@ -261,7 +261,7 @@ export class MapLayerService implements ILayerService {
 
         const nativeLayerId = `${layerId}-${sourceConfig.id}-${stdLayer.type}`;
         if (!this.map.getLayer(nativeLayerId)) {
-            this.map.addLayer(this.buildNativeLayer(nativeLayerId, stdLayer, nativeSourceId), insertBeforeLayerId);
+            this.map.addLayer(this.buildNativeLayer(nativeLayerId, stdLayer, nativeSourceId, layerId), insertBeforeLayerId);
         }
         this.logicalLayerLegendRole.set(layerId, legendRole);
         const existing = this.logicalToNative.get(layerId) ?? [];
@@ -319,6 +319,28 @@ export class MapLayerService implements ILayerService {
         return this.logicalToNative.has(layerId);
     }
 
+    getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
+        const nativeSourceId = this.logicalSourceToNative.get(sourceId);
+        if (!nativeSourceId) return null;
+        const source = this.map.getSource(nativeSourceId) as any;
+        if (!source || source.type !== 'geojson') return null;
+        try {
+            const data = source.serialize?.()?.data;
+            if (typeof data === 'string') return data;
+            if (data && typeof data === 'object') return data as GeoJSON.FeatureCollection;
+        } catch (_) {}
+        return null;
+    }
+
+    setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean {
+        const nativeSourceId = this.logicalSourceToNative.get(sourceId);
+        if (!nativeSourceId) return false;
+        const source = this.map.getSource(nativeSourceId) as any;
+        if (!source || source.type !== 'geojson' || typeof source.setData !== 'function') return false;
+        source.setData(data);
+        return true;
+    }
+
     getVisibleWMSLayers(): Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }> {
         const result: Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }> = [];
         if (!this.catalog) return result;
@@ -343,14 +365,4 @@ export class MapLayerService implements ILayerService {
         return result;
     }
 
-    getNativeToLogicalLayerMap(): Map<string, string> {
-        const map = new Map<string, string>();
-        for (const [logicalId, nativeIds] of this.logicalToNative.entries()) {
-            for (const nativeId of nativeIds) {
-                map.set(nativeId, logicalId);
-            }
-        }
-        return map;
-    }
 }
-

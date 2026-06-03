@@ -217,6 +217,7 @@ export class MapLayerService implements ILayerService {
         if (!this.nativeLayerInstances.has(nativeLayerId)) {
             const layer = await this.createLayer(nativeLayerId, stdLayer, sourceConfig);
             if (layer) {
+                (layer as any).__mapLayerId = layerId;
                 insertIndex = this.addMapLayerAtIndex(layer, insertIndex);
                 this.nativeLayerInstances.set(nativeLayerId, layer);
             }
@@ -257,6 +258,7 @@ export class MapLayerService implements ILayerService {
                 if (!this.nativeLayerInstances.has(nativeLayerId)) {
                     const layer = await this.createStyleBackedVectorTileLayer(nativeLayerId, layerConfig, vectorSource as SourceConfig & { type: 'vector' });
                     if (!layer) return false;
+                    (layer as any).__mapLayerId = layerId;
                     insertIndex = this.addMapLayerAtIndex(layer, insertIndex);
                     this.nativeLayerInstances.set(nativeLayerId, layer);
                 }
@@ -280,6 +282,7 @@ export class MapLayerService implements ILayerService {
                 if (!this.nativeLayerInstances.has(nativeLayerId)) {
                     const layer = await this.createLayer(nativeLayerId, subLayer, sourceConfig);
                     if (layer) {
+                        (layer as any).__mapLayerId = layerId;
                         insertIndex = this.addMapLayerAtIndex(layer, insertIndex);
                         this.nativeLayerInstances.set(nativeLayerId, layer);
                     }
@@ -1055,6 +1058,46 @@ export class MapLayerService implements ILayerService {
         return this.logicalToNative.has(layerId);
     }
 
+    getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
+        const nativeSourceId = this.logicalSourceToNative.get(sourceId);
+        if (!nativeSourceId) return null;
+        const format = new GeoJSON();
+        for (const [nativeLayerId, usedSourceId] of this.nativeLayerToSource.entries()) {
+            if (usedSourceId !== nativeSourceId) continue;
+            const layer = this.nativeLayerInstances.get(nativeLayerId) as VectorLayer<VectorSource> | undefined;
+            const source = layer?.getSource?.();
+            if (!source) continue;
+            const features = source.getFeatures().map((feature: any) =>
+                JSON.parse(format.writeFeature(feature, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' }))
+            );
+            if (features.length === 0 && typeof (source as any).getUrl === 'function') {
+                const url = (source as any).getUrl();
+                if (typeof url === 'string') return url;
+            }
+            return { type: 'FeatureCollection', features };
+        }
+        return null;
+    }
+
+    setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean {
+        const nativeSourceId = this.logicalSourceToNative.get(sourceId);
+        if (!nativeSourceId) return false;
+        let updated = false;
+        for (const [nativeLayerId, usedSourceId] of this.nativeLayerToSource.entries()) {
+            if (usedSourceId !== nativeSourceId) continue;
+            const layer = this.nativeLayerInstances.get(nativeLayerId) as VectorLayer<VectorSource> | undefined;
+            const source = layer?.getSource?.();
+            if (!source) continue;
+            source.clear();
+            source.addFeatures(new GeoJSON().readFeatures(data, {
+                dataProjection: 'EPSG:4326',
+                featureProjection: 'EPSG:3857'
+            }));
+            updated = true;
+        }
+        return updated;
+    }
+
     getVisibleWMSLayers(): Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }> {
         const result: Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }> = [];
         if (!this.catalog) return result;
@@ -1078,13 +1121,4 @@ export class MapLayerService implements ILayerService {
         return result;
     }
 
-    getNativeToLogicalLayerMap(): Map<string, string> {
-        const map = new Map<string, string>();
-        for (const [logicalId, nativeIds] of this.logicalToNative.entries()) {
-            for (const nativeId of nativeIds) {
-                map.set(nativeId, logicalId);
-            }
-        }
-        return map;
-    }
 }

@@ -138,9 +138,6 @@ export interface IMapCore {
 
     /** Returns current GeoJSON data of a source, or null if unavailable / not a GeoJSON source. */
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null;
-
-    /** Returns the source ID backing a given layer, or null if not found. */
-    getLayerSourceId(layerId: string): string | null;
 }
 
 /**
@@ -270,9 +267,6 @@ export interface IMap {
     /** Returns current GeoJSON data of a source, or null if unavailable / not a GeoJSON source. */
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null;
 
-    /** Returns the source ID backing a given layer, or null if not found. */
-    getLayerSourceId(layerId: string): string | null;
-
     // ===== Coordinate Conversion =====
     /** Projects geographic [lng, lat] to screen pixel [x, y]. */
     project(coords: LngLat): Pixel;
@@ -392,6 +386,12 @@ export interface ILogicalLayerExecutor {
 
     /** Returns whether a logical layer is currently visible. */
     isLayerVisible(layerId: string): boolean;
+
+    /** Returns current GeoJSON data for a catalog/logical source, or null if unavailable. */
+    getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null;
+
+    /** Updates a catalog/logical GeoJSON source. Returns true when the source exists and was updated. */
+    setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean;
 }
 
 /**
@@ -427,15 +427,16 @@ export interface ILayerService {
      */
     isLayerVisible(layerId: string): boolean;
 
+    /** Returns current GeoJSON data for a catalog/logical source, or null if unavailable. */
+    getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null;
+
+    /** Updates a catalog/logical GeoJSON source. Returns true when the source exists and was updated. */
+    setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean;
+
     /**
      * Returns visible logical layers that are backed by a WMS source.
      * Used by the query service to issue GetFeatureInfo requests.
      */
     getVisibleWMSLayers(): Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }>;
 
-    /**
-     * Returns a map from native layer ID to logical layer ID.
-     * Used by the query service to annotate vector query results with logical IDs.
-     */
-    getNativeToLogicalLayerMap(): Map<string, string>;
 }

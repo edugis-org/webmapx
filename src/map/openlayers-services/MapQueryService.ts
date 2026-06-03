@@ -4,12 +4,14 @@ import OLMap from 'ol/Map';
 import { toLonLat } from 'ol/proj';
 import type { IQueryService, QueryLocation, QueryOptions, FeatureInfo } from '../IQueryService';
 import type { ILayerService } from '../IMapInterfaces';
+import type { MapStateStore } from '../../store/map-state-store';
 import { fetchWMSFeatureInfo } from '../wms-feature-info';
 
 export class MapQueryService implements IQueryService {
     constructor(
         private readonly map: OLMap,
         private readonly layerService: ILayerService,
+        private readonly store: MapStateStore,
     ) {}
 
     async queryFeatures(location: QueryLocation, options: QueryOptions = {}): Promise<FeatureInfo[]> {
@@ -17,22 +19,24 @@ export class MapQueryService implements IQueryService {
         const tolerancePx = options.tolerancePx ?? 5;
         const results: FeatureInfo[] = [];
 
-        const nativeToLogical = this.layerService.getNativeToLogicalLayerMap();
         const logicalFilter = options.layerIds?.length ? new Set(options.layerIds) : null;
+        const mapLayers = this.store.getState().mapLayers ?? {};
 
         // --- Vector query via getFeaturesAtPixel ---
         this.map.forEachFeatureAtPixel(
             pixel,
             (feature, layer) => {
                 const nativeLayerId = (layer as any)?.__layerId as string | undefined;
-                const logicalId = nativeLayerId ? nativeToLogical.get(nativeLayerId) : undefined;
+                const logicalId = this.resolveRegisteredLayerId(layer as unknown as Record<string, unknown>, nativeLayerId, mapLayers);
                 if (!logicalId) return;
                 if (logicalFilter && !logicalFilter.has(logicalId)) return;
+                const layerTitle = this.resolveLayerTitle(logicalId, mapLayers);
 
                 const props = feature.getProperties() as Record<string, unknown>;
                 delete props['geometry'];
                 results.push({
                     layerId: logicalId,
+                    ...(layerTitle ? { layerTitle } : {}),
                     properties: props,
                     source: 'vector',
                 });
@@ -73,5 +77,17 @@ export class MapQueryService implements IQueryService {
         }
 
         return results;
+    }
+
+    private resolveRegisteredLayerId(nativeLayer: Record<string, unknown>, nativeLayerId: string | undefined, mapLayers: Record<string, unknown>): string | null {
+        const mapLayerId = typeof nativeLayer.__mapLayerId === 'string'
+            ? nativeLayer.__mapLayerId
+            : nativeLayerId ?? null;
+        return mapLayerId && mapLayers[mapLayerId] ? mapLayerId : null;
+    }
+
+    private resolveLayerTitle(layerId: string, mapLayers: Record<string, unknown>): string | null {
+        const metadata = mapLayers[layerId] as Record<string, unknown> | undefined;
+        return typeof metadata?.label === 'string' && metadata.label.length > 0 ? metadata.label : null;
     }
 }

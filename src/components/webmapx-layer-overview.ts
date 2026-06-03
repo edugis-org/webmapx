@@ -157,7 +157,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
 
   private applyVisibleLayers(state: IMapState): void {
     const visibleLayers = Array.isArray(state.visibleLayers) ? state.visibleLayers : [];
-    const runtimeLayerMetadata = state.runtimeLayerMetadata ?? {};
+    const mapLayers = state.mapLayers ?? {};
 
     const mergedLayerIds: string[] = [];
     for (const layerId of visibleLayers) {
@@ -165,7 +165,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         mergedLayerIds.push(layerId);
       }
     }
-    for (const layerId of Object.keys(runtimeLayerMetadata)) {
+    for (const layerId of Object.keys(mapLayers)) {
       if (!mergedLayerIds.includes(layerId)) {
         mergedLayerIds.push(layerId);
       }
@@ -177,7 +177,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     const normalizedBackgroundGroupLabel = this.backgroundGroupLabel.trim().toLowerCase();
 
     for (const layerId of orderedIds) {
-      const metadata = runtimeLayerMetadata[layerId] as Record<string, unknown> | undefined;
+      const metadata = mapLayers[layerId] as Record<string, unknown> | undefined;
       if (metadata?.hideFromLegend === true) {
         continue;
       }

@@ -30,6 +30,7 @@ export interface MapLayerOption {
     layerId: string;  // representative layer ID (for label lookup)
     sourceId: string;
     label: string;
+    properties?: PropertyDef[];
 }
 
 const PROPERTY_TYPES: Record<GeometryType, PropertyDef['type'][]> = {
@@ -216,6 +217,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
                 this.layer = {
                     ...newLayerConfig(this.geometryType),
                     name: mapLayer?.label ?? this.selectedId,
+                    properties: mapLayer?.properties?.map(p => ({ ...p })) ?? DEFAULT_PROPERTIES.map(p => ({ ...p })),
                     borrowedSourceId: mapLayer?.sourceId,
                 };
             }

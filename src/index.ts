@@ -42,7 +42,7 @@ export type {
 } from './map/IMapInterfaces.js';
 
 // State
-export type { IMapState, ActiveToolState, RuntimeLayerMetadataEntry, StateSource } from './store/IMapState.js';
+export type { IMapState, ActiveToolState, MapLayerStateEntry, StateSource } from './store/IMapState.js';
 export { MapStateStore } from './store/map-state-store.js';
 
 // Events

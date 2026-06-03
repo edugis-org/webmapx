@@ -5,7 +5,7 @@ import View from 'ol/View';
 import { fromLonLat, toLonLat } from 'ol/proj';
 import { apply, stylefunction } from 'ol-mapbox-style';
 import { IMapCore, ISource, NavigationCapabilities } from '../IMapInterfaces';
-import { registerRuntimeLayer, unregisterRuntimeLayer } from '../runtime-layer-utils';
+import { registerMapLayer, unregisterMapLayer } from '../map-layer-registry';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel, PointerResolution } from '../../store/map-events';
 import type { MapStyle } from '../../config/types';
@@ -430,8 +430,12 @@ export class MapCoreService implements IMapCore {
             console.error(`[OL CORE] Source "${sourceId}" not found for layer "${layerConfig.id}".`);
             return;
         }
+        const metadata = layerConfig?.metadata && typeof layerConfig.metadata === 'object'
+            ? layerConfig.metadata as Record<string, unknown>
+            : {};
+        (sourceInfo.olLayer as any).__mapLayerId = typeof metadata.mapLayerId === 'string' ? metadata.mapLayerId : layerConfig.id;
 
-        registerRuntimeLayer(this.store,layerConfig);
+        registerMapLayer(this.store,layerConfig);
 
         // Insert layer config by explicit before/after hints when provided.
         const beforeLayerId = options?.beforeLayerId;
@@ -461,7 +465,7 @@ export class MapCoreService implements IMapCore {
             const layerIndex = sourceInfo.layers.findIndex(l => l.id === id);
             if (layerIndex > -1) {
                 sourceInfo.layers.splice(layerIndex, 1);
-                unregisterRuntimeLayer(this.store,id);
+                unregisterMapLayer(this.store,id);
                 if (sourceInfo.layers.length === 0) {
                     // Last layer for this source, remove the whole thing
                     this.mapInstance?.removeLayer(sourceInfo.olLayer);
@@ -500,7 +504,7 @@ export class MapCoreService implements IMapCore {
             for (const layer of sourceInfo.layers) {
                 const layerId = typeof layer?.id === 'string' ? layer.id : null;
                 if (layerId) {
-                    unregisterRuntimeLayer(this.store,layerId);
+                    unregisterMapLayer(this.store,layerId);
                 }
             }
             this.mapInstance?.removeLayer(sourceInfo.olLayer);
@@ -580,11 +584,6 @@ export class MapCoreService implements IMapCore {
             JSON.parse(format.writeFeature(f, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' }))
         );
         return { type: 'FeatureCollection', features };
-    }
-
-    public getLayerSourceId(layerId: string): string | null {
-        // In OL, the draw tool uses layerId === sourceId convention
-        return this.sources.has(layerId) ? layerId : null;
     }
 
     private updateStyle(sourceId: string) {

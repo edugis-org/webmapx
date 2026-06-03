@@ -3,12 +3,14 @@
 import * as maplibregl from 'maplibre-gl';
 import type { IQueryService, QueryLocation, QueryOptions, FeatureInfo } from '../IQueryService';
 import type { ILayerService } from '../IMapInterfaces';
+import type { MapStateStore } from '../../store/map-state-store';
 import { fetchWMSFeatureInfo } from '../wms-feature-info';
 
 export class MapQueryService implements IQueryService {
     constructor(
         private readonly map: maplibregl.Map,
         private readonly layerService: ILayerService,
+        private readonly store: MapStateStore,
     ) {}
 
     async queryFeatures(location: QueryLocation, options: QueryOptions = {}): Promise<FeatureInfo[]> {
@@ -22,16 +24,18 @@ export class MapQueryService implements IQueryService {
             [pixel[0] + tolerancePx, pixel[1] + tolerancePx],
         ];
 
-        const nativeToLogical = this.layerService.getNativeToLogicalLayerMap();
         const logicalFilter = options.layerIds?.length ? new Set(options.layerIds) : null;
+        const mapLayers = this.store.getState().mapLayers ?? {};
 
         const nativeFeatures = this.map.queryRenderedFeatures(bbox);
         for (const f of nativeFeatures) {
-            const logicalId = nativeToLogical.get(f.layer.id);
+            const logicalId = this.resolveRegisteredLayerId(f.layer as Record<string, unknown>, mapLayers);
             if (!logicalId) continue;
             if (logicalFilter && !logicalFilter.has(logicalId)) continue;
+            const layerTitle = this.resolveLayerTitle(logicalId, mapLayers);
             results.push({
                 layerId: logicalId,
+                ...(layerTitle ? { layerTitle } : {}),
                 properties: f.properties as Record<string, unknown>,
                 geometry: f.geometry as GeoJSON.Geometry,
                 source: 'vector',
@@ -75,5 +79,22 @@ export class MapQueryService implements IQueryService {
         void lngLat;
 
         return results;
+    }
+
+    private resolveRegisteredLayerId(nativeLayer: Record<string, unknown>, mapLayers: Record<string, unknown>): string | null {
+        const metadata = nativeLayer.metadata && typeof nativeLayer.metadata === 'object'
+            ? nativeLayer.metadata as Record<string, unknown>
+            : {};
+        const mapLayerId = typeof metadata.mapLayerId === 'string'
+            ? metadata.mapLayerId
+            : typeof nativeLayer.id === 'string'
+                ? nativeLayer.id
+                : null;
+        return mapLayerId && mapLayers[mapLayerId] ? mapLayerId : null;
+    }
+
+    private resolveLayerTitle(layerId: string, mapLayers: Record<string, unknown>): string | null {
+        const metadata = mapLayers[layerId] as Record<string, unknown> | undefined;
+        return typeof metadata?.label === 'string' && metadata.label.length > 0 ? metadata.label : null;
     }
 }

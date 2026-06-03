@@ -34,13 +34,13 @@ export interface ConfigReadyEventDetail {
   map: WebmapxMapElement;
 }
 
-type RuntimeLayerInformation = {
+type LayerInformation = {
   layer: AnyLayerConfig;
 };
 
 import type { LegendRole } from './internal/legend-role-policy';
 
-type RuntimeLayerRequest = Record<string, unknown>;
+type LayerRequest = Record<string, unknown>;
 type ActiveLayerStateObject = Exclude<ActiveLayerStateEntry, string>;
 
 /**
@@ -55,7 +55,7 @@ export class WebmapxMapElement extends HTMLElement {
   private initialStateLayersApplied = false;
   private activeAdapterName: string | null = null;
   private runtimeStyleLayerCounter = 0;
-  private readonly styleLayerCache = new Map<string, RuntimeLayerInformation | null>();
+  private readonly styleLayerCache = new Map<string, LayerInformation | null>();
   private readonly singleGroupInsertSlotByGroup = new Map<string, LayerInsertOptions>();
   private readonly singleGroupLegendRoleByGroup = new Map<string, LegendRole>();
   private logicalLayerOrder: string[] = [];
@@ -148,7 +148,7 @@ export class WebmapxMapElement extends HTMLElement {
     /** Handles add-layer events from the layer tree */
     private async handleLayerAddRequest(e: CustomEvent) {
       const detail = this.toRecord(e.detail);
-      const layerInformation = this.toRuntimeLayerInformation(detail?.layerInformation);
+      const layerInformation = this.toLayerInformation(detail?.layerInformation);
       const checked = detail?.checked === true;
       const selectionGroup = typeof detail?.selectionGroup === 'string' && detail.selectionGroup.length > 0
         ? detail.selectionGroup
@@ -174,7 +174,7 @@ export class WebmapxMapElement extends HTMLElement {
           this.removeFromLogicalOrder(layerInformation.layer.id);
           this.logicalLayerRole.delete(layerInformation.layer.id);
           adapter.logicalLayers.removeLayer(layerInformation.layer.id);
-          this.unregisterLayerLegendMetadata(adapter, layerInformation.layer.id);
+          this.unregisterMapLayer(adapter, layerInformation.layer.id);
         }
       }
     }
@@ -297,8 +297,8 @@ export class WebmapxMapElement extends HTMLElement {
   }
 
   public async addLayerRequest(
-    layerRequest: RuntimeLayerRequest,
-    fallbackLayer?: RuntimeLayerRequest | string,
+    layerRequest: LayerRequest,
+    fallbackLayer?: LayerRequest | string,
     options?: LayerInsertOptions,
   ): Promise<boolean> {
     const adapter = this.adapter;
@@ -546,7 +546,7 @@ export class WebmapxMapElement extends HTMLElement {
       groupKey,
       layerId,
       this.logicalLayerOrder,
-      adapter.store.getState().runtimeLayerMetadata as Record<string, unknown> | undefined,
+      adapter.store.getState().mapLayers as Record<string, unknown> | undefined,
       this.singleGroupInsertSlotByGroup,
       this.singleGroupLegendRoleByGroup,
     );
@@ -584,42 +584,76 @@ export class WebmapxMapElement extends HTMLElement {
     );
   }
 
-  private registerCatalogLayerLegendMetadata(adapter: IMap, layerId: string, preferredGroupKey?: string): void {
-    const layerInformation = this.getCatalogLayerInformation(layerId);
+  private registerMapLayer(adapter: IMap, layerId: string, preferredGroupKey?: string): void {
+    const layerInformation = this.getConfiguredLayerInformation(layerId);
     if (!layerInformation) {
       return;
     }
 
-    const current = adapter.store.getState().runtimeLayerMetadata ?? {};
+    const current = adapter.store.getState().mapLayers ?? {};
     const currentEntry = (current[layerId] ?? {}) as Record<string, unknown>;
     const label = typeof layerInformation.layer.title === 'string' && layerInformation.layer.title.length > 0
       ? layerInformation.layer.title
       : layerId;
     const legendRole = this.resolveCatalogLegendRole(layerId, layerInformation.layer, preferredGroupKey);
+    const editableMetadata = this.getEditableCatalogLayerMetadata(layerInformation.layer);
 
     adapter.store.dispatch({
-      runtimeLayerMetadata: {
+      mapLayers: {
         ...current,
         [layerId]: {
           ...currentEntry,
           label,
           legendRole,
+          ...editableMetadata,
         },
       },
     }, 'MAP');
   }
 
-  private unregisterLayerLegendMetadata(adapter: IMap, layerId: string): void {
-    const current = adapter.store.getState().runtimeLayerMetadata ?? {};
+  private getEditableCatalogLayerMetadata(layer: AnyLayerConfig): { sourceId?: string; layerType?: string } {
+    const editableTypes = new Set(['fill', 'line', 'circle']);
+    if (layer.type !== 'style') {
+      const sourceId = typeof (layer as any).source === 'string' ? (layer as any).source : null;
+      return sourceId && editableTypes.has(layer.type) && this.isGeoJSONCatalogSource(sourceId)
+        ? { sourceId, layerType: layer.type }
+        : {};
+    }
+
+    const composite = layer as CompositeStyleLayerConfig;
+    for (const subLayer of composite.layers ?? []) {
+      if (!editableTypes.has(subLayer.type)) continue;
+      const sourceRef = subLayer.source;
+      if (!sourceRef) continue;
+      const sourceId = this.resolveCompositeGeoJSONSourceId(layer.id, sourceRef, composite);
+      if (sourceId) return { sourceId, layerType: subLayer.type };
+    }
+    return {};
+  }
+
+  private resolveCompositeGeoJSONSourceId(layerId: string, sourceRef: string, composite: CompositeStyleLayerConfig): string | null {
+    const localSource = composite.sources?.[sourceRef];
+    if (localSource && typeof localSource === 'object' && (localSource as Record<string, unknown>).type === 'geojson') {
+      return `${layerId}:${sourceRef}`;
+    }
+    return this.isGeoJSONCatalogSource(sourceRef) ? sourceRef : null;
+  }
+
+  private isGeoJSONCatalogSource(sourceId: string): boolean {
+    return this.layerDataConfig?.sources.some((source) => source.id === sourceId && source.type === 'geojson') ?? false;
+  }
+
+  private unregisterMapLayer(adapter: IMap, layerId: string): void {
+    const current = adapter.store.getState().mapLayers ?? {};
     if (!(layerId in current)) {
       return;
     }
 
     const { [layerId]: _removed, ...rest } = current;
-    adapter.store.dispatch({ runtimeLayerMetadata: rest }, 'MAP');
+    adapter.store.dispatch({ mapLayers: rest }, 'MAP');
   }
 
-  private getCatalogLayerInformation(layerId: string): RuntimeLayerInformation | null {
+  private getConfiguredLayerInformation(layerId: string): LayerInformation | null {
     const layerData = this.layerDataConfig;
     if (!layerData) return null;
 
@@ -696,7 +730,7 @@ export class WebmapxMapElement extends HTMLElement {
     };
   }
 
-  private async expandStyleBackedLayer(layer: AnyLayerConfig): Promise<RuntimeLayerInformation | null> {
+  private async expandStyleBackedLayer(layer: AnyLayerConfig): Promise<LayerInformation | null> {
     const composite = layer.type === 'style' ? (layer as CompositeStyleLayerConfig) : null;
     const styleUrl = composite?.url ?? null;
     const layerId = layer.id;
@@ -733,7 +767,7 @@ export class WebmapxMapElement extends HTMLElement {
     styleDoc: Record<string, unknown> | null,
     styleUrl: string | null,
     scopedPrefix?: string,
-  ): RuntimeLayerInformation | null {
+  ): LayerInformation | null {
     const styleSources = this.toRecord(styleDoc?.sources);
     const styleLayers = Array.isArray(styleDoc?.layers)
       ? styleDoc.layers.map((entry) => this.toRecord(entry)).filter((entry): entry is Record<string, unknown> => !!entry)
@@ -876,8 +910,8 @@ export class WebmapxMapElement extends HTMLElement {
     };
   }
 
-  private async getRuntimeLayerInformation(layerId: string): Promise<RuntimeLayerInformation | null> {
-    const baseLayerInformation = this.getCatalogLayerInformation(layerId);
+  private async getLayerInformation(layerId: string): Promise<LayerInformation | null> {
+    const baseLayerInformation = this.getConfiguredLayerInformation(layerId);
     if (!baseLayerInformation) {
       return null;
     }
@@ -892,7 +926,7 @@ export class WebmapxMapElement extends HTMLElement {
   private resolveCatalogLayerIdFromAddLayerDetail(detail: Record<string, unknown>): string | null {
     const candidates = [detail.catalogLayerId, detail.layerId, detail.ref];
     for (const candidate of candidates) {
-      if (typeof candidate === 'string' && this.getCatalogLayerInformation(candidate)) {
+      if (typeof candidate === 'string' && this.getConfiguredLayerInformation(candidate)) {
         return candidate;
       }
     }
@@ -937,7 +971,7 @@ export class WebmapxMapElement extends HTMLElement {
 
   private async tryAddLayerRequest(
     adapter: IMap,
-    layerRequest: RuntimeLayerRequest,
+    layerRequest: LayerRequest,
     options?: LayerInsertOptions,
     visitedLayerIds = new Set<string>(),
     preferredGroupKey?: string,
@@ -949,34 +983,34 @@ export class WebmapxMapElement extends HTMLElement {
       }
       visitedLayerIds.add(catalogLayerId);
 
-      const baseLayerInformation = this.getCatalogLayerInformation(catalogLayerId);
+      const baseLayerInformation = this.getConfiguredLayerInformation(catalogLayerId);
       if (!baseLayerInformation) {
         return false;
       }
 
       const styleBacked = this.isStyleBackedLayer(baseLayerInformation.layer);
-      const runtimeLayerInformation = styleBacked
+      const layerInformation = styleBacked
         ? await this.expandStyleBackedLayer(baseLayerInformation.layer)
         : baseLayerInformation;
 
-      if (runtimeLayerInformation && (!styleBacked || !this.hasUnsupportedStyleComponents(runtimeLayerInformation))) {
+      if (layerInformation && (!styleBacked || !this.hasUnsupportedStyleComponents(layerInformation))) {
         const singleSelectionGroupKey = this.getSingleSelectionGroupKeyForLayer(catalogLayerId, preferredGroupKey);
-        const legendRole = this.resolveCatalogLegendRole(catalogLayerId, runtimeLayerInformation.layer, singleSelectionGroupKey ?? undefined);
+        const legendRole = this.resolveCatalogLegendRole(catalogLayerId, layerInformation.layer, singleSelectionGroupKey ?? undefined);
         const singleGroupOptions = this.resolveSingleGroupInsertionOptions(catalogLayerId, options, preferredGroupKey);
         const layerInsertOptions = this.computeInsertOptionsForLayer(legendRole, singleGroupOptions);
-        const runtimeLayerInformationWithLegendRole: RuntimeLayerInformation = {
-          ...runtimeLayerInformation,
+        const layerInformationWithLegendRole: LayerInformation = {
+          ...layerInformation,
           layer: {
-            ...runtimeLayerInformation.layer,
+            ...layerInformation.layer,
             metadata: {
-              ...(this.getLayerMetadata(runtimeLayerInformation.layer) ?? {}),
+              ...(this.getLayerMetadata(layerInformation.layer) ?? {}),
               legendRole,
               ...(singleSelectionGroupKey ? { singleSelectionGroupKey } : {}),
             },
           },
         };
 
-        const success = await this.addLogicalLayerInternal(adapter, runtimeLayerInformationWithLegendRole, layerInsertOptions);
+        const success = await this.addLogicalLayerInternal(adapter, layerInformationWithLegendRole, layerInsertOptions);
         if (success) {
           this.insertIntoLogicalOrder(catalogLayerId, layerInsertOptions);
           this.logicalLayerRole.set(catalogLayerId, legendRole);
@@ -984,7 +1018,7 @@ export class WebmapxMapElement extends HTMLElement {
           if (groupKey) {
             this.singleGroupInsertSlotByGroup.delete(groupKey);
           }
-          this.registerCatalogLayerLegendMetadata(adapter, catalogLayerId, groupKey ?? undefined);
+          this.registerMapLayer(adapter, catalogLayerId, groupKey ?? undefined);
           return true;
         }
       }
@@ -998,7 +1032,7 @@ export class WebmapxMapElement extends HTMLElement {
     }
 
     if (this.isStyleRequest(layerRequest)) {
-      const styleLayerInformation = await this.getRuntimeLayerInformationFromStyleRequest(layerRequest);
+      const styleLayerInformation = await this.getLayerInformationFromStyleRequest(layerRequest);
       if (!styleLayerInformation || this.hasUnsupportedStyleComponents(styleLayerInformation)) {
         return false;
       }
@@ -1018,7 +1052,7 @@ export class WebmapxMapElement extends HTMLElement {
     return true;
   }
 
-  private async getRuntimeLayerInformationFromStyleRequest(layerRequest: RuntimeLayerRequest): Promise<RuntimeLayerInformation | null> {
+  private async getLayerInformationFromStyleRequest(layerRequest: LayerRequest): Promise<LayerInformation | null> {
     const inlineStyle = this.toRecord(layerRequest.style);
     const styleUrl = this.resolveStyleUrlFromRequest(layerRequest);
     if (!inlineStyle && !styleUrl) {
@@ -1112,7 +1146,7 @@ export class WebmapxMapElement extends HTMLElement {
     return true;
   }
 
-  private hasUnsupportedStyleComponents(layerInformation: RuntimeLayerInformation): boolean {
+  private hasUnsupportedStyleComponents(layerInformation: LayerInformation): boolean {
     const layer = layerInformation.layer;
     if (layer.type === 'allmaps') {
       return this.activeAdapterName === 'cesium';
@@ -1139,7 +1173,7 @@ export class WebmapxMapElement extends HTMLElement {
   }
 
   public async isCatalogLayerSupported(layerId: string): Promise<boolean> {
-    const layerInformation = this.getCatalogLayerInformation(layerId);
+    const layerInformation = this.getConfiguredLayerInformation(layerId);
     if (!layerInformation) {
       return false;
     }
@@ -1158,7 +1192,7 @@ export class WebmapxMapElement extends HTMLElement {
 
   private async addLogicalLayerInternal(
     adapter: IMap,
-    layerInformation: RuntimeLayerInformation,
+    layerInformation: LayerInformation,
     options?: LayerInsertOptions,
   ): Promise<boolean> {
     const layer = layerInformation.layer;
@@ -1183,7 +1217,7 @@ export class WebmapxMapElement extends HTMLElement {
     }
   }
 
-  private toRuntimeLayerInformation(value: unknown): RuntimeLayerInformation | null {
+  private toLayerInformation(value: unknown): LayerInformation | null {
     const record = this.toRecord(value);
     const layerRecord = this.toRecord(record?.layer);
     if (!layerRecord) return null;

@@ -25,7 +25,7 @@ export class MapStateStore {
         pointerResolution: null,
         lastClickedResolution: null,
         visibleLayers: [],
-        runtimeLayerMetadata: {},
+        mapLayers: {},
         activeTool: null
     };
     private listeners: Listener[] = [];

@@ -1,7 +1,7 @@
 // src/map/maplibre-services/MapCoreService.ts
 
 import { IMapCore, ISource, NavigationCapabilities } from '../IMapInterfaces';
-import { registerRuntimeLayer, unregisterRuntimeLayer } from '../runtime-layer-utils';
+import { registerMapLayer, unregisterMapLayer } from '../map-layer-registry';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel, PointerResolution } from '../../store/map-events';
 import type { MapStyle } from '../../config/types';
@@ -331,7 +331,7 @@ export class MapCoreService implements IMapCore {
     public addLayer(layer: any, options?: { beforeLayerId?: string; afterLayerId?: string }): void {
         if (!this.mapInstance) return;
 
-        registerRuntimeLayer(this.store,layer);
+        registerMapLayer(this.store,layer);
 
         if (options?.beforeLayerId) {
             this.mapInstance.addLayer(layer, options.beforeLayerId);
@@ -354,7 +354,7 @@ export class MapCoreService implements IMapCore {
 
     public removeLayer(id: string): void {
         this.mapInstance?.removeLayer(id);
-        unregisterRuntimeLayer(this.store,id);
+        unregisterMapLayer(this.store,id);
     }
 
     public addSource(id: string, config: any): void {
@@ -454,12 +454,6 @@ export class MapCoreService implements IMapCore {
             }
         } catch (_) {}
         return null;
-    }
-
-    public getLayerSourceId(layerId: string): string | null {
-        if (!this.mapInstance) return null;
-        const layer = this.mapInstance.getLayer(layerId) as any;
-        return layer?.source ?? null;
     }
 
     public suppressBusySignalForSource(sourceId: string): void {

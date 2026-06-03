@@ -16,6 +16,7 @@ export class MapLayerService implements ILayerService {
     private logicalToWMSSource: Map<string, { layerTitle?: string; sourceConfig: WMSSourceConfig }> = new Map();
     // Track native layer instances for removal
     private nativeLayerInstances: Map<string, L.Layer> = new Map();
+    private nativeLayerToSource: Map<string, string> = new Map();
     // Track WarpedMapLayer instances for cleanup (if @allmaps/leaflet is used)
     private warpedMapLayers: Map<string, any> = new Map();
     private catalog: LayerDataConfig | null = null;
@@ -234,6 +235,7 @@ export class MapLayerService implements ILayerService {
                 if (!this.nativeLayerInstances.has(spec.id)) {
                     spec.layer.addTo(this.map);
                     this.nativeLayerInstances.set(spec.id, spec.layer);
+                    this.nativeLayerToSource.set(spec.id, sourceConfig.id);
                     nativeLayerIds.push(spec.id);
                 }
             }
@@ -307,6 +309,7 @@ export class MapLayerService implements ILayerService {
                     if (!this.nativeLayerInstances.has(spec.id)) {
                         spec.layer.addTo(this.map);
                         this.nativeLayerInstances.set(spec.id, spec.layer);
+                        this.nativeLayerToSource.set(spec.id, sourceConfig.id);
                         nativeLayerIds.push(spec.id);
                     }
                 }
@@ -337,6 +340,7 @@ export class MapLayerService implements ILayerService {
             if (layer) {
                 this.map.removeLayer(layer);
                 this.nativeLayerInstances.delete(id);
+                this.nativeLayerToSource.delete(id);
             }
         }
 
@@ -352,6 +356,33 @@ export class MapLayerService implements ILayerService {
 
     isLayerVisible(layerId: string): boolean {
         return this.logicalToNative.has(layerId);
+    }
+
+    getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
+        for (const [nativeLayerId, usedSourceId] of this.nativeLayerToSource.entries()) {
+            if (usedSourceId !== sourceId) continue;
+            const layer = this.nativeLayerInstances.get(nativeLayerId) as L.GeoJSON | undefined;
+            const data = layer && typeof (layer as any).toGeoJSON === 'function'
+                ? (layer as any).toGeoJSON()
+                : null;
+            if (!data) continue;
+            if (data.type === 'FeatureCollection') return data as GeoJSON.FeatureCollection;
+            if (data.type === 'Feature') return { type: 'FeatureCollection', features: [data as GeoJSON.Feature] };
+        }
+        return null;
+    }
+
+    setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean {
+        let updated = false;
+        for (const [nativeLayerId, usedSourceId] of this.nativeLayerToSource.entries()) {
+            if (usedSourceId !== sourceId) continue;
+            const layer = this.nativeLayerInstances.get(nativeLayerId) as L.GeoJSON | undefined;
+            if (!layer || typeof (layer as any).clearLayers !== 'function' || typeof (layer as any).addData !== 'function') continue;
+            (layer as any).clearLayers();
+            (layer as any).addData(data);
+            updated = true;
+        }
+        return updated;
     }
 
     /**
@@ -428,13 +459,4 @@ export class MapLayerService implements ILayerService {
         return result;
     }
 
-    getNativeToLogicalLayerMap(): Map<string, string> {
-        const map = new Map<string, string>();
-        for (const [logicalId, nativeIds] of this.logicalToNative.entries()) {
-            for (const nativeId of nativeIds) {
-                map.set(nativeId, logicalId);
-            }
-        }
-        return map;
-    }
 }

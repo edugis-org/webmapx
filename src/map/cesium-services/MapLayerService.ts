@@ -88,7 +88,7 @@ function parseWmsUrl(url: string): { baseUrl: string; layers: string } {
 
 type CesiumLayerHandle =
     | { kind: 'imagery'; imageryLayer: any; maxLevel?: number }
-    | { kind: 'geojson'; dataSource: any; sourceId: string; layerConfig: AnyLayerConfig };
+    | { kind: 'geojson'; dataSource: any; sourceId: string; layerConfig: AnyLayerConfig; data: GeoJSON.FeatureCollection; updateToken: number };
 
 export class MapLayerService implements ILayerService {
     private readonly handles = new Map<string, CesiumLayerHandle>();
@@ -274,7 +274,7 @@ export class MapLayerService implements ILayerService {
             const dataSource = await Cesium.GeoJsonDataSource.load(geojson, { clampToGround: false });
             await this.viewer.dataSources.add(dataSource);
             this.applyGeoJsonStyles(dataSource, layerConfig);
-            this.handles.set(handleKey, { kind: 'geojson', dataSource, sourceId, layerConfig });
+            this.handles.set(handleKey, { kind: 'geojson', dataSource, sourceId, layerConfig, data: geojson, updateToken: 0 });
             this.upsertLogicalOrder(layerId, options);
             this.updateVisibleLayers();
             return true;
@@ -382,13 +382,52 @@ export class MapLayerService implements ILayerService {
         return false;
     }
 
+    getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
+        for (const handle of this.handles.values()) {
+            if (handle.kind !== 'geojson' || handle.sourceId !== sourceId) continue;
+            return handle.data;
+        }
+        return null;
+    }
+
+    setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean {
+        let updated = false;
+        for (const [handleKey, handle] of this.handles.entries()) {
+            if (handle.kind !== 'geojson' || handle.sourceId !== sourceId) continue;
+            handle.data = data;
+            handle.updateToken += 1;
+            void this.replaceGeoJsonDataSource(handleKey, handle, handle.updateToken);
+            updated = true;
+        }
+        return updated;
+    }
+
+    private async replaceGeoJsonDataSource(handleKey: string, handle: Extract<CesiumLayerHandle, { kind: 'geojson' }>, token: number): Promise<void> {
+        const Cesium = getCesium();
+        if (!Cesium) return;
+        this.beginBusyOperation();
+        try {
+            const nextDataSource = await Cesium.GeoJsonDataSource.load(handle.data, { clampToGround: false });
+            const current = this.handles.get(handleKey);
+            if (current?.kind !== 'geojson' || current.updateToken !== token) return;
+
+            const previousDataSource = current.dataSource;
+            current.dataSource = nextDataSource;
+            await this.viewer.dataSources.add(nextDataSource);
+            this.applyGeoJsonStyles(nextDataSource, current.layerConfig);
+            try {
+                this.viewer.dataSources.remove(previousDataSource, true);
+            } catch {
+                // ignore
+            }
+        } finally {
+            this.endBusyOperation();
+        }
+    }
+
     getVisibleWMSLayers(): Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }> {
         // Cesium renders WMS as imagery providers — GetFeatureInfo not yet implemented.
         return [];
-    }
-
-    getNativeToLogicalLayerMap(): Map<string, string> {
-        return new Map();
     }
 
     /**
