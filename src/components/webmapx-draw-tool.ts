@@ -777,6 +777,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     // ─── Feature management ──────────────────────────────────────────────────
 
     private commitFeature(feature: DrawFeature): void {
+        // Auto-assign sequential numeric id within the layer
+        const layerFeatures = this.features.filter(f => f.layerId === feature.layerId);
+        const maxId = layerFeatures.reduce((m, f) => {
+            const n = parseInt(String(f.properties['id'] ?? 0), 10);
+            return isNaN(n) ? m : Math.max(m, n);
+        }, 0);
+        feature.properties['id'] = maxId + 1;
+
         this.pushHistory({ type: 'add', features: [feature] });
         this.features = [...this.features, feature];
         this.refreshDrawLayerSource(feature.layerId);
@@ -1028,13 +1036,16 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 ${selLayer.properties.map(p => html`
                     <div style="display:flex;gap:.4rem;align-items:center;font-size:.82rem;margin-bottom:.2rem">
                         <span style="width:80px;color:var(--sl-color-neutral-500)">${p.name}</span>
-                        <sl-input size="small" style="flex:1"
-                            .value=${String(selFeature.properties[p.name] ?? '')}
-                            @sl-change=${(e: Event) => {
-                                selFeature.properties[p.name] = (e.target as any).value;
-                                this.features = [...this.features];
-                            }}>
-                        </sl-input>
+                        ${p.name === 'id'
+                            ? html`<span style="flex:1;color:var(--sl-color-neutral-400);font-style:italic;padding:0 0.3rem">${selFeature.properties['id'] ?? '—'}</span>`
+                            : html`<sl-input size="small" style="flex:1"
+                                .value=${String(selFeature.properties[p.name] ?? '')}
+                                @sl-change=${(e: Event) => {
+                                    selFeature.properties[p.name] = (e.target as any).value;
+                                    this.features = [...this.features];
+                                }}>
+                            </sl-input>`
+                        }
                     </div>
                 `)}
             ` : ''}
