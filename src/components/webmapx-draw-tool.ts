@@ -101,6 +101,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     private sharedLayersCreated = false;
     private createdDrawLayerIds = new Set<string>();
+    /** sourceId of borrowed layer per geoType, saved across deactivations. */
+    private savedBorrowedSourceIds: Partial<Record<GeometryType, string>> = {};
 
     // ── Vertex editing state ──────────────────────────────────────────────────
 
@@ -214,10 +216,19 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }
         this.bindEvents();
         this.setModeInternal('select');
+        // Re-borrow any layers that were borrowed in the previous activation
+        void this.reborrowSavedLayers();
     }
 
     protected onDeactivate(): void {
         this.unbindEvents();
+        // Save borrowed sourceIds before releasing so we can re-borrow on next activation
+        for (const [type, layerId] of Object.entries(this.activeLayerIds) as [GeometryType, string][]) {
+            const layer = this.drawLayers.find(l => l.id === layerId);
+            if (layer?.borrowedSourceId) {
+                this.savedBorrowedSourceIds[type] = layer.borrowedSourceId;
+            }
+        }
         this.releaseAllBorrowedLayers();
         this.draftPoints = [];
         this.cursorPos = null;
@@ -320,21 +331,21 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             this.dispatch('webmapx-add-layer', {
                 id: cfg.id, type: 'fill', source: src,
                 title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay' },
+                metadata: { label: cfg.name, legendRole: 'overlay', ...(cfg.borrowedSourceId ? { hideFromLegend: true } : {}) },
                 paint: { 'fill-color': cfg.color, 'fill-opacity': 0.2, 'fill-outline-color': cfg.color }
             });
         } else if (cfg.type === 'LineString') {
             this.dispatch('webmapx-add-layer', {
                 id: cfg.id, type: 'line', source: src,
                 title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay' },
+                metadata: { label: cfg.name, legendRole: 'overlay', ...(cfg.borrowedSourceId ? { hideFromLegend: true } : {}) },
                 paint: { 'line-color': cfg.color, 'line-width': 2 }
             });
         } else {
             this.dispatch('webmapx-add-layer', {
                 id: cfg.id, type: 'circle', source: src,
                 title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay' },
+                metadata: { label: cfg.name, legendRole: 'overlay', ...(cfg.borrowedSourceId ? { hideFromLegend: true } : {}) },
                 paint: { 'circle-radius': 6, 'circle-color': cfg.color, 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }
             });
         }
@@ -632,6 +643,31 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         for (const layer of [...this.drawLayers]) {
             if (layer.borrowedSourceId) this.releaseBorrowedLayer(layer);
         }
+    }
+
+    private async reborrowSavedLayers(): Promise<void> {
+        if (!this.adapter || Object.keys(this.savedBorrowedSourceIds).length === 0) return;
+        const meta = this.adapter.store.getState().mapLayers ?? {};
+        for (const [geoType, sourceId] of Object.entries(this.savedBorrowedSourceIds) as [GeometryType, string][]) {
+            // Find the mapLayer entry that backs this source
+            const found = Object.entries(meta).find(([, e]) => (e as any).sourceId === sourceId && !(e as any).isToolLayer);
+            if (!found) continue;
+            const [layerId, layerEntry] = found;
+            const geoTypeToMode: Record<GeometryType, DrawMode> = {
+                Point: 'draw-point', LineString: 'draw-line', Polygon: 'draw-polygon'
+            };
+            const cfg: DrawLayerConfig = {
+                id: `layer-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                name: (layerEntry as any).label ?? layerId,
+                type: geoType,
+                color: '#0f62fe',
+                properties: [{ name: 'id', type: 'number' }, { name: 'name', type: 'string' }],
+                borrowedSourceId: sourceId,
+            };
+            this.pendingMode = geoTypeToMode[geoType];
+            await this.handleLayerConfirm({ detail: cfg } as CustomEvent);
+        }
+        this.savedBorrowedSourceIds = {};
     }
 
     private handleLayerCancel(): void {
@@ -1309,6 +1345,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                                 @sl-change=${(e: Event) => {
                                     selFeature.properties[p.name] = (e.target as any).value;
                                     this.features = [...this.features];
+                                    this.refreshDrawLayerSource(selFeature.layerId);
                                 }}>
                             </sl-input>`
                         }
