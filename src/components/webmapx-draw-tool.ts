@@ -107,6 +107,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private editHandles: EditHandle[] = [];
     private hoveredHandle: EditHandle | null = null;
     private dragging: { handle: EditHandle; lastCoords: LngLat } | null = null;
+    private featureDrag: { featureId: string; lastCoords: LngLat; origCoords: any } | null = null;
 
     // ── Event unsubscribers ───────────────────────────────────────────────────
 
@@ -219,6 +220,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.draftPoints = [];
         this.cursorPos = null;
         this.dragging = null;
+        this.featureDrag = null;
         this.selectedFeatureId = null;
         this.editState = 'none';
         this.editHandles = [];
@@ -552,6 +554,21 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private handlePointerMove(e: PointerMoveEvent): void {
         this.cursorPos = e.coords;
 
+        if (this.featureDrag) {
+            // Move entire feature
+            const f = this.features.find(f => f.id === this.featureDrag!.featureId);
+            if (f) {
+                const dLng = e.coords[0] - this.featureDrag.lastCoords[0];
+                const dLat = e.coords[1] - this.featureDrag.lastCoords[1];
+                f.coordinates = this.translateCoords(f.coordinates, f.type, dLng, dLat);
+                this.featureDrag.lastCoords = e.coords;
+                this.refreshDrawLayerSource(f.layerId);
+                this.updateEditHandles();
+                this.updateSelectedSource();
+            }
+            return;
+        }
+
         if (this.dragging) {
             // Move vertex/midpoint
             const f = this.features.find(f => f.id === this.dragging!.handle.featureId);
@@ -570,6 +587,13 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             return;
         }
 
+        // Cursor: show 'grab' when hovering selected feature (whole-feature drag)
+        if (this.editState === 'selected' && this.selectedFeatureId && this.mode === 'select') {
+            const px = this.adapter!.project(e.coords);
+            const hit = this.findFeatureAt([px[0], px[1]], e.coords);
+            this.adapter?.setCursor(hit?.id === this.selectedFeatureId ? 'grab' : '');
+        }
+
         // Hover detection over handles for cursor change
         if (this.editState === 'editing' && this.editHandles.length > 0) {
             const px = this.adapter!.project(e.coords);
@@ -583,6 +607,23 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     private handlePointerDown(e: PointerDownEvent): void {
         if (e.button !== 0) return;
+
+        // In selected state: drag the entire feature to move it
+        if (this.editState === 'selected' && this.selectedFeatureId) {
+            const px: [number, number] = [e.pixel[0], e.pixel[1]];
+            const hit = this.findFeatureAt(px, e.coords);
+            if (hit && hit.id === this.selectedFeatureId) {
+                this.featureDrag = {
+                    featureId: hit.id,
+                    lastCoords: e.coords,
+                    origCoords: JSON.parse(JSON.stringify(hit.coordinates))
+                };
+                this.adapter?.setPanEnabled(false);
+                this.adapter?.setCursor('grabbing');
+            }
+            return;
+        }
+
         if (this.editState !== 'editing') return;
         const px: [number, number] = [e.pixel[0], e.pixel[1]];
         const h = this.findHandleAt(px);
@@ -607,16 +648,21 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }
     }
 
-    private handlePointerUp(e: PointerUpEvent): void {
+    private handlePointerUp(_e: PointerUpEvent): void {
+        if (this.featureDrag) {
+            const f = this.features.find(f => f.id === this.featureDrag!.featureId);
+            if (f) this.pushHistory({ type: 'update', features: [{ ...f }] });
+            this.featureDrag = null;
+            this.adapter?.setPanEnabled(true);
+            this.adapter?.setCursor('');
+            return;
+        }
         if (!this.dragging) return;
         this.adapter?.setPanEnabled(true);
         this.adapter?.setCursor(this.hoveredHandle ? 'grab' : '');
 
-        // Commit to history
         const f = this.features.find(f => f.id === this.dragging!.handle.featureId);
-        if (f) {
-            this.pushHistory({ type: 'update', features: [{ ...f }] });
-        }
+        if (f) this.pushHistory({ type: 'update', features: [{ ...f }] });
         this.dragging = null;
     }
 
@@ -769,6 +815,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         f.coordinates = coords;
         // Also update the handle position
         handle.coords = newCoords;
+    }
+
+    private translateCoords(coords: any, type: GeometryType, dLng: number, dLat: number): any {
+        const t = (c: [number, number]): [number, number] => [c[0] + dLng, c[1] + dLat];
+        if (type === 'Point') return t(coords as [number, number]);
+        if (type === 'LineString') return (coords as [number, number][]).map(t);
+        if (type === 'Polygon') return (coords as [number, number][][]).map(ring => ring.map(t));
+        return coords;
     }
 
     private insertVertex(f: DrawFeature, h: MidpointHandle): void {
