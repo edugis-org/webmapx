@@ -105,6 +105,10 @@ export class LeafletAdapter implements IMap {
         this.core.fitBounds(bbox);
     }
 
+    setCursor(cursor: string): void {
+        this.core.setCursor(cursor);
+    }
+
     project(coords: LngLat): Pixel {
         return this.core.project(coords);
     }

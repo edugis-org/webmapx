@@ -126,6 +126,9 @@ export interface IMapCore {
     unproject(pixel: Pixel): LngLat | null;
     /** Fit the map view to the given bbox [west, south, east, north]. Implementations should choose the best native method. */
     fitBounds(bbox: [number, number, number, number]): void;
+
+    /** Sets the map canvas cursor style. Pass '' to restore default. */
+    setCursor(cursor: string): void;
 }
 
 /**
@@ -242,6 +245,9 @@ export interface IMap {
 
     /** Fits the view to a bounding box [west, south, east, north]. */
     fitBounds(bbox: [number, number, number, number]): void;
+
+    /** Sets the map canvas cursor style. Pass '' to restore default. */
+    setCursor(cursor: string): void;
 
     // ===== Coordinate Conversion =====
     /** Projects geographic [lng, lat] to screen pixel [x, y]. */

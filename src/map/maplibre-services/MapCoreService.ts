@@ -391,6 +391,11 @@ export class MapCoreService implements IMapCore {
         }
     }
 
+    public setCursor(cursor: string): void {
+        if (!this.mapInstance) return;
+        this.mapInstance.getCanvas().style.cursor = cursor;
+    }
+
     public suppressBusySignalForSource(sourceId: string): void {
         this.silentSourceIds.add(sourceId);
     }

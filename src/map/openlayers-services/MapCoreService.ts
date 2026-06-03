@@ -534,6 +534,12 @@ export class MapCoreService implements IMapCore {
         this.mapInstance.getView().fit(extent, { size: this.mapInstance.getSize(), padding: [40, 40, 40, 40], duration: 300 });
     }
 
+    public setCursor(cursor: string): void {
+        if (!this.mapInstance) return;
+        const viewport = this.mapInstance.getViewport() as HTMLElement;
+        viewport.style.cursor = cursor;
+    }
+
     private updateStyle(sourceId: string) {
         const sourceInfo = this.sources.get(sourceId);
         if (!sourceInfo) return;

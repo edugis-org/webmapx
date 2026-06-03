@@ -232,6 +232,11 @@ export class MapCoreService implements IMapCore {
         this.mapInstance.fitBounds(bounds, { padding: [40, 40], animate: true });
     }
 
+    public setCursor(cursor: string): void {
+        if (!this.mapInstance) return;
+        this.mapInstance.getContainer().style.cursor = cursor;
+    }
+
     private computePointerResolution(event: L.LeafletMouseEvent): PointerResolution | null {
         if (!this.mapInstance || !event.layerPoint) return null;
         const { x, y } = event.layerPoint; // Use layerPoint for consistency

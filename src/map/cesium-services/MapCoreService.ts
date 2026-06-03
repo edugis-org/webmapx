@@ -392,6 +392,12 @@ export class MapCoreService implements IMapCore {
         }
     }
 
+    public setCursor(cursor: string): void {
+        if (!this.viewer) return;
+        const canvas = this.viewer.canvas as HTMLCanvasElement;
+        canvas.style.cursor = cursor;
+    }
+
     public onMapReady(callback: (viewer: any) => void): void {
         if (this.viewer) {
             callback(this.viewer);
