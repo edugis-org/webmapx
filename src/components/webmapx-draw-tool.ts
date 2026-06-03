@@ -141,11 +141,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (this.layersCreated) return;
 
         // Committed features source
-        this.dispatch('webmapx-add-source', { id: DRAW_SOURCE_ID, type: 'geojson', data: this.buildFeatureCollection() });
+        this.dispatch('webmapx-add-source', { id: DRAW_SOURCE_ID, config: { type: 'geojson', data: this.buildFeatureCollection() } });
         // Rubberband source
-        this.dispatch('webmapx-add-source', { id: RUBBER_SOURCE_ID, type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        this.dispatch('webmapx-add-source', { id: RUBBER_SOURCE_ID, config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } } });
         // Vertex snap indicator source
-        this.dispatch('webmapx-add-source', { id: VERTEX_SOURCE_ID, type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        this.dispatch('webmapx-add-source', { id: VERTEX_SOURCE_ID, config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } } });
 
         // Fill layer (polygons)
         this.dispatch('webmapx-add-layer', {
