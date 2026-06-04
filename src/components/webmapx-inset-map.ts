@@ -96,12 +96,17 @@ export class WebmapxInsetMap extends LitElement {
     }
 
     :host(:hover) .toggle-btn,
+    :host(:focus-within) .toggle-btn,
     :host([collapsed]) .toggle-btn {
       opacity: 1;
     }
 
     .inset-map-frame.hidden {
       display: none;
+    }
+
+    .inset-map-frame:focus {
+      outline: none;
     }
 
     .inset-map-frame {
@@ -1077,7 +1082,7 @@ export class WebmapxInsetMap extends LitElement {
 
   protected render() {
     return html`
-      <div class="inset-map-frame ${this._collapsed ? 'hidden' : ''}">
+      <div class="inset-map-frame ${this._collapsed ? 'hidden' : ''}" tabindex=${this.minimizable ? '0' : '-1'}>
         <div class="inset-map"></div>
       </div>
       ${this.minimizable ? html`
