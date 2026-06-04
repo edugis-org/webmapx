@@ -89,6 +89,7 @@ Suggested paths:
 - `docs/images/webmapx-overview.png`
 - `docs/images/webmapx-layer-panel.png`
 - `docs/images/webmapx-tool-example.png`
+- `docs/images/webmapxlegend.png`
 
 When images are available, include them like this:
 
@@ -96,7 +97,10 @@ When images are available, include them like this:
 ![WebMapX overview](docs/images/webmapx-overview.png)
 ![Layer panel](docs/images/webmapx-layer-panel.png)
 ![Tool example](docs/images/webmapx-tool-example.png)
+![Legend](docs/images/webmapxlegend.png)
 ```
+
+![Legend](docs/images/webmapxlegend.png)
 
 ## Configuration
 

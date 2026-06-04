@@ -18,10 +18,10 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   backgroundGroupLabel = 'Base Maps';
 
   @property({ type: String, attribute: 'background-title' })
-  backgroundTitle = 'Achtergrondlagen';
+  backgroundTitle = 'Base maps';
 
   @property({ type: String, attribute: 'overview-title' })
-  overviewTitle = 'Gekozen kaartlagen';
+  overviewTitle = 'Active layers';
 
   @state() private backgroundLayers: LayerPanelItem[] = [];
   @state() private overviewLayers: LayerPanelItem[] = [];
@@ -132,8 +132,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   render() {
     return html`
       <div class="panel">
-        ${this.renderSection(this.overviewTitle, this.overviewLayers, 'Geen overzichtslagen zichtbaar.')}
-        ${this.renderSection(this.backgroundTitle, this.backgroundLayers, 'Geen achtergrondlagen zichtbaar.')}
+        ${this.renderSection(this.overviewTitle, this.overviewLayers, 'No active layers.')}
+        ${this.renderSection(this.backgroundTitle, this.backgroundLayers, 'No base map selected.')}
       </div>
     `;
   }
