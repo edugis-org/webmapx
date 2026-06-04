@@ -1,6 +1,7 @@
 // src/map/leaflet-services/MapLayerService.ts
 
 import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
+import { registerMapLayer, unregisterMapLayer } from '../map-layer-registry';
 import { resolveSource, normalizeRawSource } from '../layer-source-utils';
 import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, GeoJSONSourceConfig, LayerDataConfig, WMSSourceConfig } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
@@ -248,6 +249,7 @@ export class MapLayerService implements ILayerService {
         this.upsertLogicalOrder(layerId, insertIndex);
         this.reapplyLogicalOrder();
         this.updateVisibleLayers();
+        if (nativeLayerIds.length > 0) registerMapLayer(this.store, layerConfig);
         return nativeLayerIds.length > 0;
     }
 
@@ -320,6 +322,7 @@ export class MapLayerService implements ILayerService {
         this.upsertLogicalOrder(layerId, insertIndex);
         this.reapplyLogicalOrder();
         this.updateVisibleLayers();
+        if (nativeLayerIds.length > 0) registerMapLayer(this.store, layerConfig);
         return nativeLayerIds.length > 0;
     }
 
@@ -348,6 +351,7 @@ export class MapLayerService implements ILayerService {
         this.logicalToWMSSource.delete(layerId);
         this.logicalOrder = this.logicalOrder.filter((id) => id !== layerId);
         this.updateVisibleLayers();
+        unregisterMapLayer(this.store, layerId);
     }
 
     getVisibleLayers(): string[] {

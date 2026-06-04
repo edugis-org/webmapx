@@ -218,8 +218,11 @@ export interface IMap {
     /** Engine-backed feature query service used by the Info tool. */
     readonly queryService: IQueryService;
 
-    /** Engine-neutral executor for config-backed logical layers. */
-    readonly logicalLayers: ILogicalLayerExecutor;
+    /** Sets the runtime layer-data config used for source/layer resolution. */
+    setCatalog(catalog: LayerDataConfig): void;
+
+    /** Removes a logical (config-backed) layer by id. */
+    removeLogicalLayer(layerId: string): void;
 
     // ===== Viewport / Camera =====
     /** Gets the current viewport state (center, zoom, bearing, pitch). */
@@ -279,8 +282,8 @@ export interface IMap {
     getNavigationCapabilities(): NavigationCapabilities;
 
     // ===== Native Layer/Source Management =====
-    /** Adds a layer object to the map. */
-    addLayer(layer: any, options?: LayerInsertOptions): void;
+    /** Adds a layer to the map. Handles both pre-registered sources and catalog-resolved sources. */
+    addLayer(layer: any, options?: LayerInsertOptions): Promise<boolean>;
 
     /** Adds a native source to the map. */
     addSource(id: string, config: any): void;

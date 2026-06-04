@@ -4,6 +4,7 @@ import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
 import type { LayerAddEvent, LayerRemoveEvent } from '../store/map-events';
+import './webmapx-layer-legend';
 
 export interface LayerPanelItem {
   layerId: string;
@@ -66,15 +67,19 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
 
     .layer-card {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      min-height: 2.75rem;
-      padding: 0.75rem 0.875rem;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.35rem;
+      padding: 0.5rem 0.875rem;
       border: 1px solid var(--color-border, #d7dce3);
       border-radius: 0.75rem;
       background: var(--color-background, #ffffff);
       box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
       box-sizing: border-box;
+    }
+
+    .layer-legend-wrap {
+      width: 100%;
     }
 
     .layer-label {
@@ -143,6 +148,9 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                 ${items.map((item) => html`
                   <div class="layer-card" data-layer-id=${item.layerId}>
                     <div class="layer-label">${item.label}</div>
+                    <div class="layer-legend-wrap">
+                      <webmapx-layer-legend layer-id=${item.layerId}></webmapx-layer-legend>
+                    </div>
                     ${item.topLevelGroup
                       ? html`<div class="layer-meta">${item.topLevelGroup}</div>`
                       : null}

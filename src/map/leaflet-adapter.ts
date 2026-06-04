@@ -1,6 +1,7 @@
 // src/map/leaflet-adapter.ts
 
-import { IMap, IMapCore, IToolService, ISubMapFactory, ILogicalLayerExecutor } from './IMapInterfaces';
+import { IMap, IMapCore, IToolService, ISubMapFactory, LayerInsertOptions } from './IMapInterfaces';
+import type { LayerDataConfig } from '../config/types';
 import { MapStateStore } from '../store/map-state-store';
 import { MapEventBus, LngLat, Pixel } from '../store/map-events';
 import { MapCoreService } from './leaflet-services/MapCoreService';
@@ -25,7 +26,6 @@ export class LeafletAdapter implements IMap {
     public readonly events: MapEventBus;
     private readonly core: IMapCore;
     public readonly toolService: IToolService;
-    public readonly logicalLayers: ILogicalLayerExecutor;
     public readonly queryService: IQueryService;
     public readonly mapFactory: ISubMapFactory;
     private readonly logicalLayerExecutor: DeferredLogicalLayerExecutor;
@@ -39,7 +39,6 @@ export class LeafletAdapter implements IMap {
         this.core = new MapCoreService(this.store, this.events);
         this.toolService = new MapServiceTemplate({});
         this.logicalLayerExecutor = new DeferredLogicalLayerExecutor();
-        this.logicalLayers = this.logicalLayerExecutor;
         this.queryExecutor = new DeferredQueryService();
         this.queryService = this.queryExecutor;
         this.mapFactory = new MapFactoryService();
@@ -134,8 +133,18 @@ export class LeafletAdapter implements IMap {
         return this.core.getNavigationCapabilities();
     }
 
-    addLayer(layer: any, options?: { beforeLayerId?: string; afterLayerId?: string }): void {
-        this.core.addLayer(layer, options);
+    async addLayer(layer: any, options?: LayerInsertOptions): Promise<boolean> {
+        const success = await this.logicalLayerExecutor.addLayer(layer, options);
+        if (!success) this.core.addLayer(layer, options);
+        return true;
+    }
+
+    setCatalog(catalog: LayerDataConfig): void {
+        this.logicalLayerExecutor.setCatalog(catalog);
+    }
+
+    removeLogicalLayer(layerId: string): void {
+        this.logicalLayerExecutor.removeLayer(layerId);
     }
 
     addSource(id: string, config: any): void {

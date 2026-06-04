@@ -1,6 +1,7 @@
 // src/map/cesium-services/MapLayerService.ts
 
 import type { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
+import { registerMapLayer, unregisterMapLayer } from '../map-layer-registry';
 import { resolveSource, normalizeRawSource } from '../layer-source-utils';
 import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, GeoJSONSourceConfig, LayerDataConfig, SubLayerSpec } from '../../config/types';
 import type { MapStateStore } from '../../store/map-state-store';
@@ -303,9 +304,11 @@ export class MapLayerService implements ILayerService {
         const sourceConfig = resolveSource(this.catalog,stdLayer.source);
         if (!sourceConfig) return false;
 
-        if (sourceConfig.type === 'raster') return this.addImagerySource(layerId, sourceConfig.id, sourceConfig, options);
-        if (sourceConfig.type === 'geojson') return this.addGeoJSONSource(layerId, sourceConfig.id, sourceConfig as GeoJSONSourceConfig, layerConfig, options);
-        return false;
+        let success = false;
+        if (sourceConfig.type === 'raster') success = await this.addImagerySource(layerId, sourceConfig.id, sourceConfig, options);
+        else if (sourceConfig.type === 'geojson') success = await this.addGeoJSONSource(layerId, sourceConfig.id, sourceConfig as GeoJSONSourceConfig, layerConfig, options);
+        if (success) registerMapLayer(this.store, layerConfig);
+        return success;
     }
 
     private async addCompositeLayer(layerConfig: CompositeStyleLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
@@ -365,6 +368,7 @@ export class MapLayerService implements ILayerService {
         this.logicalOrder = this.logicalOrder.filter((id) => id !== layerId);
         this.reapplyImageryOrder();
         this.updateVisibleLayers();
+        unregisterMapLayer(this.store, layerId);
     }
 
     getVisibleLayers(): string[] {

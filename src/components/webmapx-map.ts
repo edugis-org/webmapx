@@ -175,8 +175,7 @@ export class WebmapxMapElement extends HTMLElement {
           this.rememberSingleGroupInsertSlot(adapter, layerInformation.layer.id, selectionGroup ?? undefined);
           this.removeFromLogicalOrder(layerInformation.layer.id);
           this.logicalLayerRole.delete(layerInformation.layer.id);
-          adapter.logicalLayers.removeLayer(layerInformation.layer.id);
-          this.unregisterMapLayer(adapter, layerInformation.layer.id);
+          adapter.removeLogicalLayer(layerInformation.layer.id);
         }
       }
     }
@@ -440,7 +439,7 @@ export class WebmapxMapElement extends HTMLElement {
       return;
     }
 
-    adapter.logicalLayers.setCatalog(layerData);
+    adapter.setCatalog(layerData);
 
     if (!this.initialStateLayersApplied) {
       this.initialStateLayersApplied = true;
@@ -586,74 +585,6 @@ export class WebmapxMapElement extends HTMLElement {
     );
   }
 
-  private registerMapLayer(adapter: IMap, layerId: string, preferredGroupKey?: string): void {
-    const layerInformation = this.getConfiguredLayerInformation(layerId);
-    if (!layerInformation) {
-      return;
-    }
-
-    const current = adapter.store.getState().mapLayers ?? {};
-    const currentEntry = (current[layerId] ?? {}) as Record<string, unknown>;
-    const label = typeof layerInformation.layer.title === 'string' && layerInformation.layer.title.length > 0
-      ? layerInformation.layer.title
-      : layerId;
-    const legendRole = this.resolveCatalogLegendRole(layerId, layerInformation.layer, preferredGroupKey);
-    const editableMetadata = this.getEditableCatalogLayerMetadata(layerInformation.layer);
-
-    adapter.store.dispatch({
-      mapLayers: {
-        ...current,
-        [layerId]: {
-          ...currentEntry,
-          label,
-          legendRole,
-          ...editableMetadata,
-        },
-      },
-    }, 'MAP');
-  }
-
-  private getEditableCatalogLayerMetadata(layer: AnyLayerConfig): { sourceId?: string; layerType?: string } {
-    const editableTypes = new Set(['fill', 'line', 'circle']);
-    if (layer.type !== 'style') {
-      const sourceId = typeof (layer as any).source === 'string' ? (layer as any).source : null;
-      return sourceId && editableTypes.has(layer.type) && this.isGeoJSONCatalogSource(sourceId)
-        ? { sourceId, layerType: layer.type }
-        : {};
-    }
-
-    const composite = layer as CompositeStyleLayerConfig;
-    for (const subLayer of composite.layers ?? []) {
-      if (!editableTypes.has(subLayer.type)) continue;
-      const sourceRef = subLayer.source;
-      if (!sourceRef) continue;
-      const sourceId = this.resolveCompositeGeoJSONSourceId(layer.id, sourceRef, composite);
-      if (sourceId) return { sourceId, layerType: subLayer.type };
-    }
-    return {};
-  }
-
-  private resolveCompositeGeoJSONSourceId(layerId: string, sourceRef: string, composite: CompositeStyleLayerConfig): string | null {
-    const localSource = composite.sources?.[sourceRef];
-    if (localSource && typeof localSource === 'object' && (localSource as Record<string, unknown>).type === 'geojson') {
-      return `${layerId}:${sourceRef}`;
-    }
-    return this.isGeoJSONCatalogSource(sourceRef) ? sourceRef : null;
-  }
-
-  private isGeoJSONCatalogSource(sourceId: string): boolean {
-    return this.layerDataConfig?.sources.some((source) => source.id === sourceId && source.type === 'geojson') ?? false;
-  }
-
-  private unregisterMapLayer(adapter: IMap, layerId: string): void {
-    const current = adapter.store.getState().mapLayers ?? {};
-    if (!(layerId in current)) {
-      return;
-    }
-
-    const { [layerId]: _removed, ...rest } = current;
-    adapter.store.dispatch({ mapLayers: rest }, 'MAP');
-  }
 
   private getConfiguredLayerInformation(layerId: string): LayerInformation | null {
     const layerData = this.layerDataConfig;
@@ -1018,7 +949,6 @@ export class WebmapxMapElement extends HTMLElement {
           if (groupKey) {
             this.singleGroupInsertSlotByGroup.delete(groupKey);
           }
-          this.registerMapLayer(adapter, catalogLayerId, groupKey ?? undefined);
           return true;
         }
       }
@@ -1197,7 +1127,7 @@ export class WebmapxMapElement extends HTMLElement {
     const layer = layerInformation.layer;
     let success: boolean;
     try {
-      success = await adapter.logicalLayers.addLayer(layer, options);
+      success = await adapter.addLayer(layer, options);
     } catch {
       return false;
     }
@@ -1210,11 +1140,11 @@ export class WebmapxMapElement extends HTMLElement {
     return success;
   }
 
-  private addInlineLayerWithTracking(adapter: IMap, nativeLayer: Record<string, unknown>, options?: LayerInsertOptions): boolean {
+  private async addInlineLayerWithTracking(adapter: IMap, nativeLayer: Record<string, unknown>, options?: LayerInsertOptions): Promise<boolean> {
     const metadata = (nativeLayer.metadata && typeof nativeLayer.metadata === 'object') ? nativeLayer.metadata as Record<string, unknown> : {};
     const role: LegendRole = metadata.legendRole === 'background' ? 'background' : 'overlay';
     const insertOptions = this.computeInsertOptionsForLayer(role, options);
-    adapter.addLayer(nativeLayer, insertOptions && Object.keys(insertOptions).length > 0 ? insertOptions : undefined);
+    await adapter.addLayer(nativeLayer, insertOptions && Object.keys(insertOptions).length > 0 ? insertOptions : undefined);
     const layerId = typeof nativeLayer.id === 'string' ? nativeLayer.id : null;
     if (layerId) {
       this.logicalLayerRole.set(layerId, role);
