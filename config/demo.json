@@ -160,156 +160,317 @@
             {
               "type": "Feature",
               "properties": {
-                "shape": "Line",
-                "name": "Unnamed Layer",
-                "category": "default"
+                "lat": -60
               },
               "geometry": {
                 "type": "LineString",
                 "coordinates": [
+                  [
+                    -180,
+                    -60
+                  ],
+                  [
+                    -150,
+                    -60
+                  ],
+                  [
+                    -120,
+                    -60
+                  ],
+                  [
+                    -90,
+                    -60
+                  ],
+                  [
+                    -60,
+                    -60
+                  ],
+                  [
+                    -30,
+                    -60
+                  ],
+                  [
+                    0,
+                    -60
+                  ],
+                  [
+                    30,
+                    -60
+                  ],
+                  [
+                    60,
+                    -60
+                  ],
+                  [
+                    90,
+                    -60
+                  ],
+                  [
+                    120,
+                    -60
+                  ],
+                  [
+                    150,
+                    -60
+                  ],
+                  [
+                    180,
+                    -60
+                  ]
+                ]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "lat": -30
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    -180,
+                    -30
+                  ],
+                  [
+                    -150,
+                    -30
+                  ],
+                  [
+                    -120,
+                    -30
+                  ],
+                  [
+                    -90,
+                    -30
+                  ],
+                  [
+                    -60,
+                    -30
+                  ],
+                  [
+                    -30,
+                    -30
+                  ],
+                  [
+                    0,
+                    -30
+                  ],
+                  [
+                    30,
+                    -30
+                  ],
+                  [
+                    60,
+                    -30
+                  ],
+                  [
+                    90,
+                    -30
+                  ],
+                  [
+                    120,
+                    -30
+                  ],
+                  [
+                    150,
+                    -30
+                  ],
+                  [
+                    180,
+                    -30
+                  ]
+                ]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "lat": 0
+              },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [
+                    -180,
+                    0
+                  ],
+                  [
+                    -150,
+                    0
+                  ],
+                  [
+                    -120,
+                    0
+                  ],
+                  [
+                    -90,
+                    0
+                  ],
+                  [
+                    -60,
+                    0
+                  ],
+                  [
+                    -30,
+                    0
+                  ],
                   [
                     0,
                     0
                   ],
                   [
-                    360,
+                    30,
                     0
-                  ]
-                ]
-              },
-              "id": "36f4c98b-9db5-46a3-9619-f316a56dddff"
-            },
-            {
-              "type": "Feature",
-              "properties": {
-                "shape": "Line",
-                "name": "Unnamed Layer",
-                "category": "default"
-              },
-              "geometry": {
-                "type": "LineString",
-                "coordinates": [
-                  [
-                    0,
-                    30
                   ],
                   [
-                    360,
-                    30
-                  ]
-                ]
-              },
-              "id": "4bc63145-239e-4113-a164-ce461432dac8"
-            },
-            {
-              "type": "Feature",
-              "properties": {
-                "shape": "Line",
-                "name": "Unnamed Layer",
-                "category": "default"
-              },
-              "geometry": {
-                "type": "LineString",
-                "coordinates": [
-                  [
-                    0,
-                    60
+                    60,
+                    0
                   ],
                   [
-                    360,
-                    60
-                  ]
-                ]
-              },
-              "id": "88bd09bc-f9aa-45c6-895e-e36ac28ca9e9"
-            },
-            {
-              "type": "Feature",
-              "properties": {
-                "shape": "Line",
-                "name": "Unnamed Layer",
-                "category": "default"
-              },
-              "geometry": {
-                "type": "LineString",
-                "coordinates": [
+                    90,
+                    0
+                  ],
+                  [
+                    120,
+                    0
+                  ],
+                  [
+                    150,
+                    0
+                  ],
                   [
                     180,
                     0
-                  ],
-                  [
-                    360,
-                    0
                   ]
                 ]
-              },
-              "id": "3147baad-9ef9-4886-b72d-bf112a15a37d"
+              }
             },
             {
               "type": "Feature",
               "properties": {
-                "shape": "Line",
-                "name": "Unnamed Layer",
-                "category": "default"
+                "lat": 30
               },
               "geometry": {
                 "type": "LineString",
                 "coordinates": [
                   [
-                    0,
-                    -30
+                    -180,
+                    30
                   ],
                   [
-                    360,
-                    -30
+                    -150,
+                    30
+                  ],
+                  [
+                    -120,
+                    30
+                  ],
+                  [
+                    -90,
+                    30
+                  ],
+                  [
+                    -60,
+                    30
+                  ],
+                  [
+                    -30,
+                    30
+                  ],
+                  [
+                    0,
+                    30
+                  ],
+                  [
+                    30,
+                    30
+                  ],
+                  [
+                    60,
+                    30
+                  ],
+                  [
+                    90,
+                    30
+                  ],
+                  [
+                    120,
+                    30
+                  ],
+                  [
+                    150,
+                    30
+                  ],
+                  [
+                    180,
+                    30
                   ]
                 ]
-              },
-              "id": "9affe941-2b8f-45ae-a3c0-cf8515bccc81"
+              }
             },
             {
               "type": "Feature",
               "properties": {
-                "shape": "Line",
-                "name": "Unnamed Layer",
-                "category": "default"
+                "lat": 60
               },
               "geometry": {
                 "type": "LineString",
                 "coordinates": [
                   [
-                    0,
-                    -60
+                    -180,
+                    60
                   ],
                   [
-                    360,
-                    -60
-                  ]
-                ]
-              },
-              "id": "0ff2c426-2e33-4d4d-8970-66fa21d3849c"
-            },
-            {
-              "type": "Feature",
-              "properties": {
-                "shape": "Line",
-                "name": "Unnamed Layer",
-                "category": "default"
-              },
-              "geometry": {
-                "type": "LineString",
-                "coordinates": [
-                  [
-                    0,
-                    -30
+                    -150,
+                    60
                   ],
                   [
-                    360,
-                    -30
+                    -120,
+                    60
+                  ],
+                  [
+                    -90,
+                    60
+                  ],
+                  [
+                    -60,
+                    60
+                  ],
+                  [
+                    -30,
+                    60
+                  ],
+                  [
+                    0,
+                    60
+                  ],
+                  [
+                    30,
+                    60
+                  ],
+                  [
+                    60,
+                    60
+                  ],
+                  [
+                    90,
+                    60
+                  ],
+                  [
+                    120,
+                    60
+                  ],
+                  [
+                    150,
+                    60
+                  ],
+                  [
+                    180,
+                    60
                   ]
                 ]
-              },
-              "id": "f3d29133-f7cc-4b8e-9d12-f1c777463d3e"
+              }
             }
           ]
         }
@@ -484,11 +645,11 @@
                 "type": "LineString",
                 "coordinates": [
                   [
-                    210,
+                    -150,
                     -90
                   ],
                   [
-                    210,
+                    -150,
                     90
                   ]
                 ]
@@ -506,11 +667,11 @@
                 "type": "LineString",
                 "coordinates": [
                   [
-                    240,
+                    -120,
                     -90
                   ],
                   [
-                    240,
+                    -120,
                     90
                   ]
                 ]
@@ -528,11 +689,11 @@
                 "type": "LineString",
                 "coordinates": [
                   [
-                    270,
+                    -90,
                     -90
                   ],
                   [
-                    270,
+                    -90,
                     90
                   ]
                 ]
@@ -550,11 +711,11 @@
                 "type": "LineString",
                 "coordinates": [
                   [
-                    300,
+                    -60,
                     -90
                   ],
                   [
-                    300,
+                    -60,
                     90
                   ]
                 ]
@@ -572,11 +733,11 @@
                 "type": "LineString",
                 "coordinates": [
                   [
-                    330,
+                    -30,
                     -90
                   ],
                   [
-                    330,
+                    -30,
                     90
                   ]
                 ]

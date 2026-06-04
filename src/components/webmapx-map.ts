@@ -1084,10 +1084,21 @@ export class WebmapxMapElement extends HTMLElement {
       const composite = layer as CompositeStyleLayerConfig;
       const localSources = composite.sources ?? {};
       const sourceTypes = new Set<string>();
+      // Check inline sources
       for (const rawSrc of Object.values(localSources)) {
         if (typeof rawSrc === 'object' && rawSrc !== null) {
           const t = (rawSrc as Record<string, unknown>).type;
           if (typeof t === 'string') sourceTypes.add(t);
+        }
+      }
+      // Also check catalog sources referenced by sub-layers
+      const subLayers = (composite as any).layers ?? [];
+      for (const sub of subLayers) {
+        const srcId = typeof sub?.source === 'string' ? sub.source : null;
+        if (!srcId || srcId in localSources) continue;
+        const catalogSrc = this.layerDataConfig?.sources.find((s) => s.id === srcId);
+        if (catalogSrc && typeof (catalogSrc as any).type === 'string') {
+          sourceTypes.add((catalogSrc as any).type);
         }
       }
       if (sourceTypes.size === 0) return false;

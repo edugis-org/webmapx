@@ -186,8 +186,12 @@ export class CesiumAdapter implements IMap {
 
     async addLayer(layer: any, options?: LayerInsertOptions): Promise<boolean> {
         const success = await this.logicalLayerExecutor.addLayer(layer, options);
-        if (!success) this.core.addLayer(layer, options);
-        return true;
+        if (success) return true;
+        // Fallback: inline layers pre-registered via addSource (e.g. draw tool)
+        this.core.addLayer(layer, options);
+        // Return true only if the layer was actually registered (core.addLayer registers via registerMapLayer)
+        const layerId = typeof layer?.id === 'string' ? layer.id : null;
+        return layerId ? (this.store.getState().mapLayers?.[layerId] !== undefined) : false;
     }
 
     setCatalog(catalog: LayerDataConfig): void {

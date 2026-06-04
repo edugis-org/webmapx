@@ -272,6 +272,13 @@ export class MapLayerService implements ILayerService {
         try {
             const data = sourceConfig.data;
             const geojson: GeoJSON.FeatureCollection = typeof data === 'string' ? await (await fetch(data)).json() : data;
+
+            // Reject globe-spanning fill polygons — they cause Cesium's rhumb-line subdivision to crash
+            if (this.isGlobeSpanningFillData(geojson, layerConfig)) {
+                console.warn(`[CESIUM] Skipping layer "${layerId}": fill polygon too large for Cesium renderer`);
+                return false;
+            }
+
             const dataSource = await Cesium.GeoJsonDataSource.load(geojson, { clampToGround: false });
             await this.viewer.dataSources.add(dataSource);
             this.applyGeoJsonStyles(dataSource, layerConfig);
@@ -279,9 +286,33 @@ export class MapLayerService implements ILayerService {
             this.upsertLogicalOrder(layerId, options);
             this.updateVisibleLayers();
             return true;
+        } catch (e) {
+            console.warn(`[CESIUM] Failed to load GeoJSON layer "${layerId}":`, e);
+            return false;
         } finally {
             this.endBusyOperation();
         }
+    }
+
+    /** Detect fill-type GeoJSON that covers large portions of the globe (would crash Cesium's rhumb subdivision). */
+    private isGlobeSpanningFillData(geojson: GeoJSON.FeatureCollection, layerConfig: AnyLayerConfig): boolean {
+        const paint = (layerConfig as any)?.paint ?? {};
+        const hasFill = 'fill-color' in paint || 'fill-opacity' in paint;
+        if (!hasFill) return false;
+        // Check if any polygon bbox exceeds ~90 degrees in either dimension
+        for (const feature of geojson.features ?? []) {
+            const geom = feature.geometry;
+            if (!geom || (geom.type !== 'Polygon' && geom.type !== 'MultiPolygon')) continue;
+            const rings = geom.type === 'Polygon' ? [geom.coordinates[0]] : geom.coordinates.map((p: any) => p[0]);
+            for (const ring of rings) {
+                const lons = ring.map((c: number[]) => c[0]);
+                const lats = ring.map((c: number[]) => c[1]);
+                const lonSpan = Math.max(...lons) - Math.min(...lons);
+                const latSpan = Math.max(...lats) - Math.min(...lats);
+                if (lonSpan > 90 || latSpan > 60) return true;
+            }
+        }
+        return false;
     }
 
     async addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
@@ -713,8 +744,8 @@ export class MapLayerService implements ILayerService {
                     entity.ellipse.semiMajorAxis = radiusMeters;
                     entity.ellipse.semiMinorAxis = radiusMeters;
                     entity.ellipse.material = Cesium.Color.fromCssColorString(circleColor).withAlpha(circleOpacity);
-                    entity.ellipse.outline = true;
-                    entity.ellipse.outlineColor = Cesium.Color.fromCssColorString(circleStrokeColor).withAlpha(1);
+                    entity.ellipse.outline = false; // outlines on terrain require explicit height; use polyline ring instead
+                    entity.ellipse.height = 0; // prevent heightReference warning
 
                     // Cesium can skip ellipse outlines when clamped to terrain; draw a clamped ring polyline.
                     const lon = Cesium.Math.toDegrees(carto.longitude);
