@@ -715,8 +715,8 @@ export class MapCoreService implements IMapCore {
             if (entity.polygon) {
                 entity.polygon.show = matches && layer?.type === 'fill';
             }
-            if (entity.polyline) {
-                entity.polyline.show = matches && layer?.type === 'line';
+            if (entity.polyline && layer?.type !== 'line') {
+                entity.polyline.show = false;
             }
             if (entity.billboard) {
                 entity.billboard.show = false;
@@ -740,25 +740,38 @@ export class MapCoreService implements IMapCore {
                 entity.polygon.height = layerZ;
             }
 
-            if (layer?.type === 'line' && entity.polyline) {
-                const lineColor = paint['line-color'] ?? '#3388ff';
-                const lineWidth = paint['line-width'] ?? 2;
-                entity.polyline.material = Cesium.Color.fromCssColorString(lineColor).withAlpha(1);
-                entity.polyline.width = lineWidth;
-                const dash = paint['line-dasharray'];
-                if (Array.isArray(dash) && dash.length >= 2 && Cesium.PolylineDashMaterialProperty) {
-                    entity.polyline.material = new Cesium.PolylineDashMaterialProperty({
-                        color: Cesium.Color.fromCssColorString(lineColor).withAlpha(1),
-                        dashLength: dash[0] + dash[1],
-                    });
+            if (layer?.type === 'line') {
+                // Polygon entities don't have a polyline — synthesize one from the exterior ring
+                if (!entity.polyline && entity.polygon) {
+                    const hierarchy = entity.polygon.hierarchy?.getValue?.(Cesium.JulianDate.now())
+                        ?? entity.polygon.hierarchy;
+                    const positions = hierarchy?.positions ?? hierarchy;
+                    if (Array.isArray(positions) && positions.length > 0) {
+                        entity.polyline = new Cesium.PolylineGraphics();
+                        entity.polyline.positions = [...positions, positions[0]]; // close the ring
+                    }
                 }
-                this.applyPolylineHeightOffset(entity, layerZ);
+                if (entity.polyline) {
+                    entity.polyline.show = true;
+                    const lineColor = paint['line-color'] ?? '#3388ff';
+                    const lineWidth = paint['line-width'] ?? 2;
+                    entity.polyline.material = Cesium.Color.fromCssColorString(lineColor).withAlpha(1);
+                    entity.polyline.width = lineWidth;
+                    const dash = paint['line-dasharray'];
+                    if (Array.isArray(dash) && dash.length >= 2 && Cesium.PolylineDashMaterialProperty) {
+                        entity.polyline.material = new Cesium.PolylineDashMaterialProperty({
+                            color: Cesium.Color.fromCssColorString(lineColor).withAlpha(1),
+                            dashLength: dash[0] + dash[1],
+                        });
+                    }
+                    this.applyPolylineHeightOffset(entity, layerZ);
+                }
             }
 
             if (layer?.type === 'circle' && (entity.position || entity.point || entity.billboard || entity.ellipse)) {
                 const circleMetadata = layer?.metadata ?? {};
                 const circleColor = paint['circle-color'] ?? '#3388ff';
-                const circleOpacity = paint['circle-opacity'] ?? 0.8;
+                const circleOpacity = paint['circle-opacity'] ?? 1.0;
                 const circleRadius = paint['circle-radius'] ?? 6;
                 const circleStrokeColor = paint['circle-stroke-color'] ?? '#3388ff';
                 const circleStrokeWidth = paint['circle-stroke-width'] ?? 1;
@@ -772,12 +785,11 @@ export class MapCoreService implements IMapCore {
                 const carto = Cesium.Ellipsoid.WGS84.cartesianToCartographic(position);
                 const lat = (carto.latitude * 180) / Math.PI;
                 const zoom = currentZoom;
-                const shouldClamp = !circleMetadata.isToolLayer;
                 const metersPerPixel = webMercatorMetersPerPixelAtLat(zoom, lat);
                 const radiusMeters = Math.max(1, Number(circleRadius) * metersPerPixel);
-                const curvatureLiftMeters = shouldClamp ? 0 : globeCurvatureLiftMeters(radiusMeters);
-                const layerLiftMeters = shouldClamp ? 0 : toolCircleLiftMeters(radiusMeters) * zoomScale;
-                const circleZ = shouldClamp ? layerZ : layerZ + layerLiftMeters + curvatureLiftMeters;
+                const layerLiftMeters = toolCircleLiftMeters(radiusMeters) * zoomScale;
+                const circleZ = layerZ + layerLiftMeters;
+                const shouldClamp = false;
 
                 if (!entity.ellipse) {
                     entity.ellipse = new Cesium.EllipseGraphics();
@@ -792,8 +804,9 @@ export class MapCoreService implements IMapCore {
 
                 const lon = Cesium.Math.toDegrees(carto.longitude);
                 const ringLonLat = buildCircleOutlineLonLat(lon, lat, radiusMeters, 64);
+                const strokeZ = circleZ + Math.max(1, radiusMeters * 0.01);
                 const ringPositions = ringLonLat.map(([ringLon, ringLat]) =>
-                    Cesium.Cartesian3.fromDegrees(ringLon, ringLat, circleZ)
+                    Cesium.Cartesian3.fromDegrees(ringLon, ringLat, strokeZ)
                 );
                 if (!entity.polyline) {
                     entity.polyline = new Cesium.PolylineGraphics();
@@ -972,15 +985,31 @@ export class MapCoreService implements IMapCore {
         this.viewer.dataSources.add(nextDataSource);
         this.applyLayerStyle(layerState);
         this.removeLayerDataSource({ dataSource: previousDataSource });
+        setTimeout(() => this.reapplyDataSourceOrder(), 0);
+    }
+
+    private reapplyDataSourceOrder(): void {
+        if (!this.viewer) return;
+        // Raise each DataSource in runtimeLayerOrder from first→last so the last ends up on top.
+        for (const layerId of this.runtimeLayerOrder) {
+            for (const state of this.sourceState.values()) {
+                for (const ls of state.layers) {
+                    if (ls.spec?.id === layerId && ls.dataSource) {
+                        try { this.viewer.dataSources.raiseToTop(ls.dataSource); } catch { /* ignore */ }
+                    }
+                }
+            }
+        }
     }
 
     private removeLayerDataSource(layerState: { dataSource: any | null }): void {
         if (!layerState.dataSource || !this.viewer) return;
-        try {
-            this.viewer.dataSources.remove(layerState.dataSource, true);
-        } catch {
-            // ignore
-        }
+        const ds = layerState.dataSource;
+        const viewer = this.viewer;
+        // Defer destruction past the current render frame to avoid mid-render GL crash
+        setTimeout(() => {
+            try { viewer.dataSources.remove(ds, true); } catch { /* ignore */ }
+        }, 0);
     }
 
     private getEntityGeometryType(entity: any): 'Point' | 'LineString' | 'Polygon' | null {
@@ -999,9 +1028,10 @@ export class MapCoreService implements IMapCore {
                     ? 'Point'
                     : null;
 
-        if (expectedGeometryType && geometryType !== expectedGeometryType) {
-            return false;
-        }
+        // line layers can render polygon outlines (boundary treated as linestring)
+        const geometryMatches = !expectedGeometryType || geometryType === expectedGeometryType
+            || (layer?.type === 'line' && geometryType === 'Polygon');
+        if (!geometryMatches) return false;
 
         return this.matchesFilter(entity, layer?.filter);
     }
