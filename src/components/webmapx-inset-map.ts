@@ -1,5 +1,6 @@
 import { css, html, LitElement, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import { resolveMapElement } from './internal/map-context';
 import type { IMap, ISource, ISubMap, MapCreateOptions } from '../map/IMapInterfaces';
 import { IMapState } from '../store/IMapState';
@@ -28,6 +29,12 @@ export class WebmapxInsetMap extends LitElement {
   @property({ type: Number, attribute: 'base-scale' })
   public baseScale = 0.5;
 
+  @property({ type: Boolean, attribute: 'minimizable' })
+  public minimizable = false;
+
+  @property({ type: Boolean, reflect: true, attribute: 'collapsed' })
+  private _collapsed = false;
+
   private adapter: IMap | null = null;
   private insetMap: ISubMap | null = null;
   private viewportSource: ISource | null = null;
@@ -55,6 +62,7 @@ export class WebmapxInsetMap extends LitElement {
   static styles = css`
     :host {
       display: inline-block;
+      position: relative;
       width: var(--webmapx-inset-width, 256px);
       height: var(--webmapx-inset-height, 256px);
       border: 1px solid var(--color-border, #ccc);
@@ -63,6 +71,37 @@ export class WebmapxInsetMap extends LitElement {
       background: var(--color-background-secondary, #f4f4f4);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
       pointer-events: auto;
+    }
+
+    :host([minimizable]) {
+      transition: width 0.2s, height 0.2s;
+    }
+
+    :host([collapsed]) {
+      width: 32px;
+      height: 32px;
+      overflow: visible;
+    }
+
+    .toggle-btn {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      z-index: 10;
+      background: rgba(255, 255, 255, 0.85);
+      border-radius: 4px;
+      line-height: 0;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    :host(:hover) .toggle-btn,
+    :host([collapsed]) .toggle-btn {
+      opacity: 1;
+    }
+
+    .inset-map-frame.hidden {
+      display: none;
     }
 
     .inset-map-frame {
@@ -1038,9 +1077,18 @@ export class WebmapxInsetMap extends LitElement {
 
   protected render() {
     return html`
-      <div class="inset-map-frame">
+      <div class="inset-map-frame ${this._collapsed ? 'hidden' : ''}">
         <div class="inset-map"></div>
       </div>
+      ${this.minimizable ? html`
+        <div class="toggle-btn">
+          <sl-icon-button
+            name=${this._collapsed ? 'arrows-angle-expand' : 'arrows-angle-contract'}
+            label=${this._collapsed ? 'Expand' : 'Collapse'}
+            @click=${() => { this._collapsed = !this._collapsed; }}>
+          </sl-icon-button>
+        </div>
+      ` : ''}
     `;
   }
 }
