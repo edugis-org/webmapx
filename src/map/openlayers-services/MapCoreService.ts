@@ -419,6 +419,12 @@ export class MapCoreService implements IMapCore {
         return next;
     }
 
+    private layerOrderRegistry: { registerInlineLayer: (id: string, instance: any, options?: any) => void; unregisterInlineLayer: (id: string) => void } | null = null;
+
+    setLayerOrderRegistry(registry: { registerInlineLayer: (id: string, instance: any, options?: any) => void; unregisterInlineLayer: (id: string) => void }): void {
+        this.layerOrderRegistry = registry;
+    }
+
     private sources: Map<string, { source: VectorSource, layers: any[], olLayer: VectorLayer<any> }> = new Map();
 
     public addLayer(layerConfig: any, options?: { beforeLayerId?: string; afterLayerId?: string }): void {
@@ -436,6 +442,11 @@ export class MapCoreService implements IMapCore {
         (sourceInfo.olLayer as any).__mapLayerId = typeof metadata.mapLayerId === 'string' ? metadata.mapLayerId : layerConfig.id;
 
         registerMapLayer(this.store,layerConfig);
+        this.layerOrderRegistry?.registerInlineLayer(
+            (sourceInfo.olLayer as any).__mapLayerId ?? layerConfig.id,
+            sourceInfo.olLayer,
+            options
+        );
 
         // Insert layer config by explicit before/after hints when provided.
         const beforeLayerId = options?.beforeLayerId;
@@ -470,6 +481,7 @@ export class MapCoreService implements IMapCore {
                     // Last layer for this source, remove the whole thing
                     this.mapInstance?.removeLayer(sourceInfo.olLayer);
                     this.sources.delete(sourceId);
+                    this.layerOrderRegistry?.unregisterInlineLayer(id);
                 } else {
                     // Other layers remain, just update the style
                     this.updateStyle(sourceId);

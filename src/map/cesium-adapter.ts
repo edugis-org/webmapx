@@ -101,6 +101,7 @@ export class CesiumAdapter implements IMap {
         (this.core as any).onMapReady?.((viewer: any) => {
             const layerService = new MapLayerService(viewer, this.store);
             this.logicalLayerExecutor.bind(layerService);
+            (this.core as MapCoreService).setLayerOrderRegistry(layerService);
             this.queryExecutor.bind(new MapQueryService(viewer, layerService));
             this.markerService = new MapMarkerService(viewer);
         });

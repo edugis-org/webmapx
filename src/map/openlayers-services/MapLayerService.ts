@@ -61,10 +61,12 @@ export class MapLayerService implements ILayerService {
                 const instance = this.nativeLayerInstances.get(nativeLayerId);
                 if (!instance) continue;
                 const index = this.findLayerIndexByInstance(instance);
-                if (index >= 0) {
-                    return index;
-                }
+                if (index >= 0) return index;
             }
+            // Fallback: inline layer — OL layer has __mapLayerId set by CoreService
+            const mapLayers = this.map.getLayers().getArray();
+            const idx = mapLayers.findIndex((l: any) => l.__mapLayerId === options.beforeLayerId);
+            if (idx >= 0) return idx;
         }
 
         if (options?.afterLayerId) {
@@ -73,10 +75,12 @@ export class MapLayerService implements ILayerService {
                 const instance = this.nativeLayerInstances.get(afterNativeLayerIds[idx]);
                 if (!instance) continue;
                 const index = this.findLayerIndexByInstance(instance);
-                if (index >= 0) {
-                    return index + 1;
-                }
+                if (index >= 0) return index + 1;
             }
+            // Fallback: inline layer
+            const mapLayers = this.map.getLayers().getArray();
+            const idx = mapLayers.findIndex((l: any) => l.__mapLayerId === options.afterLayerId);
+            if (idx >= 0) return idx + 1;
         }
 
         return undefined;
@@ -1096,6 +1100,18 @@ export class MapLayerService implements ILayerService {
             updated = true;
         }
         return updated;
+    }
+
+    registerInlineLayer(logicalId: string, nativeInstance: BaseLayer, insertOptions?: LayerInsertOptions): void {
+        const nativeId = `${logicalId}-inline`;
+        this.nativeLayerInstances.set(nativeId, nativeInstance);
+        this.logicalToNative.set(logicalId, [nativeId]);
+    }
+
+    unregisterInlineLayer(logicalId: string): void {
+        const nativeIds = this.logicalToNative.get(logicalId) ?? [];
+        for (const id of nativeIds) this.nativeLayerInstances.delete(id);
+        this.logicalToNative.delete(logicalId);
     }
 
     getVisibleWMSLayers(): Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }> {

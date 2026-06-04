@@ -49,12 +49,16 @@ export class MapLayerService implements ILayerService {
             for (const nativeLayerId of this.logicalToNative.get(options.beforeLayerId) ?? []) {
                 if (this.map.getLayer(nativeLayerId)) return nativeLayerId;
             }
+            // Fallback: inline layers (added via adapter.addLayer) use their logical ID as native ID
+            if (this.map.getLayer(options.beforeLayerId)) return options.beforeLayerId;
         }
         if (options?.afterLayerId) {
             const ids = this.logicalToNative.get(options.afterLayerId) ?? [];
             for (let i = ids.length - 1; i >= 0; i -= 1) {
                 if (this.map.getLayer(ids[i])) return this.findNextStyleLayerId(ids[i]);
             }
+            // Fallback: inline layers
+            if (this.map.getLayer(options.afterLayerId)) return this.findNextStyleLayerId(options.afterLayerId);
         }
         return undefined;
     }

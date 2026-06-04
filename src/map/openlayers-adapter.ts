@@ -49,6 +49,7 @@ export class OpenLayersAdapter implements IMap {
         // Wait for mapInstance to be ready, then initialize layerService
         (this.core as any).onMapReady?.((map: any) => {
             const layerService = new MapLayerService(map, this.store);
+            (this.core as MapCoreService).setLayerOrderRegistry(layerService);
             this.logicalLayerExecutor.bind(layerService);
             this.queryExecutor.bind(new MapQueryService(map, layerService, this.store));
             this.markerService = new MapMarkerService(map);

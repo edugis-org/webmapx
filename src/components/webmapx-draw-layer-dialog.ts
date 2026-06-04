@@ -13,7 +13,7 @@ export type GeometryType = 'Point' | 'LineString' | 'Polygon';
 
 export interface PropertyDef {
     name: string;
-    type: 'string' | 'number' | 'longitude' | 'latitude' | 'area' | 'perimeter' | 'length' | 'url';
+    type: 'string' | 'number' | 'longitude' | 'latitude' | 'area' | 'perimeter' | 'length' | 'url' | 'create-time' | 'update-time';
 }
 
 export interface DrawLayerConfig {
@@ -34,9 +34,9 @@ export interface MapLayerOption {
 }
 
 const PROPERTY_TYPES: Record<GeometryType, PropertyDef['type'][]> = {
-    Point:      ['string', 'number', 'longitude', 'latitude', 'url'],
-    LineString: ['string', 'number', 'length', 'url'],
-    Polygon:    ['string', 'number', 'area', 'perimeter', 'longitude', 'latitude', 'url'],
+    Point:      ['string', 'number', 'longitude', 'latitude', 'url', 'create-time', 'update-time'],
+    LineString: ['string', 'number', 'length', 'url', 'create-time', 'update-time'],
+    Polygon:    ['string', 'number', 'area', 'perimeter', 'longitude', 'latitude', 'url', 'create-time', 'update-time'],
 };
 
 const DEFAULT_PROPERTIES: PropertyDef[] = [
@@ -154,6 +154,10 @@ export class WebmapxDrawLayerDialog extends LitElement {
 
         .prop-table tr:last-child td { border-bottom: none; }
 
+        .prop-row-auto td { color: var(--sl-color-neutral-400); font-style: italic; }
+
+        .type-computed { color: var(--sl-color-primary-600); font-size: 0.75rem; }
+
         .add-row td { background: var(--sl-color-neutral-50); }
 
         .add-row sl-input,
@@ -192,6 +196,8 @@ export class WebmapxDrawLayerDialog extends LitElement {
         this.step = 'select';
         this.selectedId = this.existingLayers.length === 0 ? 'new' : this.existingLayers[0].id;
         this.layer = newLayerConfig(this.geometryType);
+        this.newPropName = '';
+        this.newPropType = 'string';
         this.nameError = false;
         this.dialog?.show();
     }
@@ -255,11 +261,10 @@ export class WebmapxDrawLayerDialog extends LitElement {
         }
         this.nameError = false;
         // flush any unsaved new-prop row
-        const propName = (this.renderRoot.querySelector('#new-prop-name') as any)?.value?.trim();
-        const propType = (this.renderRoot.querySelector('#new-prop-type') as any)?.value as PropertyDef['type'] | undefined;
+        const propName = this.newPropName.trim();
         const finalProps = propName
-            ? [...this.layer.properties, { name: propName, type: propType ?? 'string' }]
-            : this.layer.properties;
+            ? [...this.layer.properties, { name: propName, type: this.newPropType }]
+            : [...this.layer.properties];
 
         const result: DrawLayerConfig = { ...this.layer, name, properties: finalProps };
         this.dispatchEvent(new CustomEvent('webmapx-draw-layer-confirm', { detail: result, bubbles: true, composed: true }));
@@ -311,6 +316,16 @@ export class WebmapxDrawLayerDialog extends LitElement {
 
     private renderDetailStep() {
         const availableTypes = PROPERTY_TYPES[this.geometryType];
+        const TYPE_LABELS: Partial<Record<PropertyDef['type'], string>> = {
+            longitude: 'longitude (auto)',
+            latitude: 'latitude (auto)',
+            area: 'area (auto)',
+            perimeter: 'perimeter (auto)',
+            length: 'length (auto)',
+            url: 'url',
+            'create-time': 'create-time (auto)',
+            'update-time': 'update-time (auto)',
+        };
         return html`
             <div class="name-input-row">
                 <sl-input name="layername"
@@ -335,9 +350,9 @@ export class WebmapxDrawLayerDialog extends LitElement {
                 </thead>
                 <tbody>
                     ${this.layer.properties.map((p, i) => html`
-                        <tr>
+                        <tr class="${p.name === 'id' ? 'prop-row-auto' : ''}">
                             <td>${p.name}</td>
-                            <td>${p.type}</td>
+                            <td class="${p.type !== 'string' && p.type !== 'number' ? 'type-computed' : ''}">${p.type}${p.name === 'id' ? ' (auto)' : ''}</td>
                             <td>
                                 ${i === 0 ? '' : html`
                                     <sl-icon-button name="x" @click=${() => this.removeProperty(i)}></sl-icon-button>
@@ -356,7 +371,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
                         <td>
                             <sl-select id="new-prop-type" size="small" .value=${this.newPropType}
                                 @sl-change=${(e: Event) => this.newPropType = (e.target as any).value}>
-                                ${availableTypes.map(t => html`<sl-option value=${t}>${t}</sl-option>`)}
+                                ${availableTypes.map(t => html`<sl-option value=${t}>${TYPE_LABELS[t as PropertyDef['type']] ?? t}</sl-option>`)}
                             </sl-select>
                         </td>
                         <td>

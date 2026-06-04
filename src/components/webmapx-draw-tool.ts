@@ -136,6 +136,12 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             margin-bottom: 0.5rem;
         }
 
+        sl-icon-button[active]::part(base) {
+            color: var(--sl-color-primary-600);
+            background: var(--sl-color-primary-100);
+            border-radius: 4px;
+        }
+
         .help {
             font-size: 0.8rem;
             color: var(--sl-color-neutral-600);
@@ -167,6 +173,16 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
         .layer-row:hover {
             background: var(--sl-color-neutral-100);
+        }
+
+        .remove-layer-btn {
+            font-size: 0.75rem;
+            opacity: 0;
+            transition: opacity 0.1s;
+        }
+
+        .layer-row:hover .remove-layer-btn {
+            opacity: 1;
         }
 
         .color-dot {
@@ -335,7 +351,13 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 id: cfg.id, type: 'fill', source: src,
                 title: cfg.name,
                 metadata: { label: cfg.name, legendRole: 'overlay', hideFromLegend: true },
-                paint: { 'fill-color': cfg.color, 'fill-opacity': 0.2, 'fill-outline-color': cfg.color }
+                paint: { 'fill-color': cfg.color, 'fill-opacity': 0.35 }
+            });
+            this.dispatch('webmapx-add-layer', {
+                id: `${cfg.id}-outline`, type: 'line', source: src,
+                title: cfg.name,
+                metadata: { label: cfg.name, legendRole: 'overlay', hideFromLegend: true },
+                paint: { 'line-color': cfg.color, 'line-width': 2 }
             });
         } else if (cfg.type === 'LineString') {
             this.dispatch('webmapx-add-layer', {
@@ -354,13 +376,16 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }
 
         this.createdDrawLayerIds.add(cfg.id);
+        if (cfg.type === 'Polygon') this.createdDrawLayerIds.add(`${cfg.id}-outline`);
     }
 
     private removeMapLayersForDrawLayer(cfg: DrawLayerConfig): void {
+        if (cfg.type === 'Polygon') this.dispatch('webmapx-remove-layer', `${cfg.id}-outline`);
         this.dispatch('webmapx-remove-layer', cfg.id);
         this.dispatch('webmapx-remove-source', drawSourceId(cfg.id));
         if (this.adapter?.store) unregisterMapLayer(this.adapter.store, cfg.id);
         this.createdDrawLayerIds.delete(cfg.id);
+        if (cfg.type === 'Polygon') this.createdDrawLayerIds.delete(`${cfg.id}-outline`);
     }
 
     private removeSharedLayers(): void {
@@ -461,12 +486,19 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         // One entry per source — use first layer found for label
         const seen = new Set<string>();
         const result: import('./webmapx-draw-layer-dialog').MapLayerOption[] = [];
+        const activeLayerId = this.activeLayerIds[geoType];
+        const borrowedSourceIds = new Set(
+            this.drawLayers
+                .filter(l => l.borrowedSourceId && l.id !== activeLayerId)
+                .map(l => l.borrowedSourceId)
+        );
 
         for (const [layerId, entry] of Object.entries(meta)) {
             if ((entry as any).isToolLayer) continue;
             if (this.createdDrawLayerIds.has(layerId)) continue;
             const sourceId = typeof entry.sourceId === 'string' ? entry.sourceId : null;
             if (!sourceId || seen.has(sourceId)) continue;
+            if (borrowedSourceIds.has(sourceId)) continue;
 
             const dataOrUrl = this.adapter.getSourceData(sourceId);
             if (!dataOrUrl) continue;
@@ -483,7 +515,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                     layerId,
                     sourceId,
                     label: (entry as any).label ?? layerId,
-                    properties: data ? this.inferPropertyDefs(data) : undefined
+                    properties: (entry as any).properties ?? (data ? this.inferPropertyDefs(data) : undefined)
                 });
                 continue;
             }
@@ -498,7 +530,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 layerId,
                 sourceId,
                 label: (entry as any).label ?? layerId,
-                properties: this.inferPropertyDefs(dataOrUrl)
+                properties: (entry as any).properties ?? this.inferPropertyDefs(dataOrUrl)
             });
         }
         return result;
@@ -636,6 +668,18 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.activeLayerIds[cfg.type] = cfg.id;
         this.refreshDrawLayerSource(cfg.id);
 
+        // Keep perm layer metadata in sync with current property schema
+        const mapLayerId = drawMapLayerId(cfg.id);
+        if (this.adapter?.store) {
+            const current = this.adapter.store.getState().mapLayers ?? {};
+            const entry = current[mapLayerId];
+            if (entry) {
+                this.adapter.store.dispatch({
+                    mapLayers: { ...current, [mapLayerId]: { ...entry, properties: cfg.properties } }
+                }, 'MAP');
+            }
+        }
+
         if (this.pendingMode) {
             this.setModeInternal(this.pendingMode);
             this.pendingMode = null;
@@ -666,19 +710,24 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (cfg.type === 'Polygon') {
             this.dispatch('webmapx-add-layer', {
                 id: mapLayerId, type: 'fill', source: srcId, title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay' },
-                paint: { 'fill-color': MAP_LAYER_COLOR, 'fill-opacity': 0.25, 'fill-outline-color': MAP_LAYER_COLOR }
+                metadata: { label: cfg.name, legendRole: 'overlay', properties: cfg.properties },
+                paint: { 'fill-color': MAP_LAYER_COLOR, 'fill-opacity': 0.35 }
+            });
+            this.dispatch('webmapx-add-layer', {
+                id: `${mapLayerId}-outline`, type: 'line', source: srcId, title: cfg.name,
+                metadata: { label: cfg.name, legendRole: 'overlay', hideFromLegend: true, properties: cfg.properties },
+                paint: { 'line-color': MAP_LAYER_COLOR, 'line-width': 2 }
             });
         } else if (cfg.type === 'LineString') {
             this.dispatch('webmapx-add-layer', {
                 id: mapLayerId, type: 'line', source: srcId, title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay' },
+                metadata: { label: cfg.name, legendRole: 'overlay', properties: cfg.properties },
                 paint: { 'line-color': MAP_LAYER_COLOR, 'line-width': 2 }
             });
         } else {
             this.dispatch('webmapx-add-layer', {
                 id: mapLayerId, type: 'circle', source: srcId, title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay' },
+                metadata: { label: cfg.name, legendRole: 'overlay', properties: cfg.properties },
                 paint: { 'circle-radius': 5, 'circle-color': MAP_LAYER_COLOR, 'circle-stroke-width': 1, 'circle-stroke-color': '#555' }
             });
         }
@@ -697,14 +746,22 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private suspendDrawLayerFromMap(cfg: DrawLayerConfig): void {
+        if (cfg.type === 'Polygon') this.dispatch('webmapx-remove-layer', `${cfg.id}-outline`);
         this.dispatch('webmapx-remove-layer', cfg.id);
         this.dispatch('webmapx-remove-source', drawSourceId(cfg.id));
         if (this.adapter?.store) unregisterMapLayer(this.adapter.store, cfg.id);
         this.createdDrawLayerIds.delete(cfg.id);
+        if (cfg.type === 'Polygon') this.createdDrawLayerIds.delete(`${cfg.id}-outline`);
     }
 
     private releaseLayer(cfg: DrawLayerConfig): void {
         this.releaseBorrowedLayer(cfg);
+    }
+
+    private removeFromEditing(cfg: DrawLayerConfig): void {
+        const wasActive = this.activeLayerIds[cfg.type] === cfg.id;
+        this.releaseLayer(cfg);
+        if (wasActive) this.setModeInternal('select');
     }
 
     private handleLayerCancel(): void {
@@ -890,7 +947,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private handlePointerUp(_e: PointerUpEvent): void {
         if (this.featureDrag) {
             const f = this.features.find(f => f.id === this.featureDrag!.featureId);
-            if (f) this.pushHistory({ type: 'update', features: [{ ...f }] });
+            if (f) {
+                const layer = this.drawLayers.find(l => l.id === f.layerId);
+                if (layer) this.computeSpecialProperties(f, layer);
+                this.pushHistory({ type: 'update', features: [{ ...f }] });
+            }
             this.featureDrag = null;
             this.adapter?.setPanEnabled(true);
             this.adapter?.setCursor('');
@@ -901,7 +962,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.adapter?.setCursor(this.hoveredHandle ? 'grab' : '');
 
         const f = this.features.find(f => f.id === this.dragging!.handle.featureId);
-        if (f) this.pushHistory({ type: 'update', features: [{ ...f }] });
+        if (f) {
+            const layer = this.drawLayers.find(l => l.id === f.layerId);
+            if (layer) this.computeSpecialProperties(f, layer);
+            this.pushHistory({ type: 'update', features: [{ ...f }] });
+        }
         this.dragging = null;
     }
 
@@ -938,7 +1003,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.draftPoints = [];
         this.cursorPos = null;
         this.updateRubberband();
-        this.setModeInternal(this.mode);
     }
 
     // ─── Source updates ───────────────────────────────────────────────────────
@@ -1121,6 +1185,18 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }, 0);
         feature.properties['id'] = maxId + 1;
 
+        const layer = this.drawLayers.find(l => l.id === feature.layerId);
+        if (layer) this.computeSpecialProperties(feature, layer);
+
+        // Set create-time once at creation
+        if (layer) {
+            for (const p of layer.properties) {
+                if (p.type === 'create-time') {
+                    feature.properties[p.name] = Date.now();
+                }
+            }
+        }
+
         this.pushHistory({ type: 'add', features: [feature] });
         this.features = [...this.features, feature];
         this.refreshDrawLayerSource(feature.layerId);
@@ -1223,6 +1299,74 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     private newId(): string {
         return `draw-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    }
+
+    private computeSpecialProperties(feature: DrawFeature, layer: DrawLayerConfig): void {
+        for (const p of layer.properties) {
+            switch (p.type) {
+                case 'longitude':
+                case 'latitude': {
+                    const coords = feature.type === 'Point'
+                        ? feature.coordinates as [number, number]
+                        : this.centroid(feature);
+                    feature.properties[p.name] = p.type === 'longitude' ? coords[0] : coords[1];
+                    break;
+                }
+                case 'area':
+                    feature.properties[p.name] = feature.type === 'Polygon'
+                        ? this.polygonArea(feature.coordinates as number[][][])
+                        : null;
+                    break;
+                case 'perimeter':
+                case 'length':
+                    feature.properties[p.name] = feature.type === 'Polygon'
+                        ? this.ringLength((feature.coordinates as number[][][])[0])
+                        : feature.type === 'LineString'
+                            ? this.ringLength(feature.coordinates as number[][], false)
+                            : null;
+                    break;
+                case 'update-time':
+                    feature.properties[p.name] = Date.now();
+                    break;
+            }
+        }
+    }
+
+    private centroid(feature: DrawFeature): [number, number] {
+        const flat: number[][] =
+            feature.type === 'LineString' ? feature.coordinates as number[][]
+            : feature.type === 'Polygon' ? (feature.coordinates as number[][][])[0]
+            : [[...(feature.coordinates as number[])]];
+        const sum = flat.reduce((acc, c) => [acc[0] + c[0], acc[1] + c[1]], [0, 0]);
+        return [sum[0] / flat.length, sum[1] / flat.length];
+    }
+
+    private haversineKm(a: number[], b: number[]): number {
+        const R = 6371;
+        const dLat = (b[1] - a[1]) * Math.PI / 180;
+        const dLon = (b[0] - a[0]) * Math.PI / 180;
+        const s = Math.sin(dLat / 2) ** 2 +
+            Math.cos(a[1] * Math.PI / 180) * Math.cos(b[1] * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+    }
+
+    private ringLength(coords: number[][], closed = true): number {
+        let total = 0;
+        const n = closed ? coords.length - 1 : coords.length - 1;
+        for (let i = 0; i < n; i++) total += this.haversineKm(coords[i], coords[i + 1]);
+        return Math.round(total * 1000); // metres
+    }
+
+    private polygonArea(rings: number[][][]): number {
+        // Shoelace in degrees × correction ≈ m²
+        const ring = rings[0];
+        let area = 0;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            area += (ring[j][0] + ring[i][0]) * (ring[j][1] - ring[i][1]);
+        }
+        const degArea = Math.abs(area / 2);
+        const latRad = ring[0][1] * Math.PI / 180;
+        return Math.round(degArea * (111320 * Math.cos(latRad)) * 111320);
     }
 
     private withinPixelThreshold(a: LngLat, b: LngLat, thresholdPx: number): boolean {
@@ -1372,7 +1516,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
             ${this.drawLayers.length > 0 ? html`
                 <div class="layers-section">
-                    <div class="section-label">Layers</div>
+                    <div class="section-label">Editing</div>
                     ${this.drawLayers.map(l => html`
                         <div class="layer-row" title="Click to change layer"
                              @click=${() => this.openLayerDialog(l.type === 'Point' ? 'draw-point' : l.type === 'LineString' ? 'draw-line' : 'draw-polygon')}>
@@ -1380,6 +1524,13 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                             <span class="layer-name">${l.name}</span>
                             <span class="layer-type">${l.type === 'LineString' ? 'Line' : l.type}</span>
                             <small style="color:var(--sl-color-neutral-400);font-size:.7rem">${this.features.filter(f => f.layerId === l.id).length}</small>
+                            ${this.drawLayers.length > 1 ? html`
+                                <sl-tooltip content="Stop editing">
+                                    <sl-icon-button name="x" class="remove-layer-btn"
+                                        @click=${(e: Event) => { e.stopPropagation(); this.removeFromEditing(l); }}>
+                                    </sl-icon-button>
+                                </sl-tooltip>
+                            ` : ''}
                         </div>
                     `)}
                 </div>
@@ -1390,12 +1541,15 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 ${selLayer.properties.map(p => html`
                     <div style="display:flex;gap:.4rem;align-items:center;font-size:.82rem;margin-bottom:.2rem">
                         <span style="width:80px;color:var(--sl-color-neutral-500)">${p.name}</span>
-                        ${p.name === 'id'
-                            ? html`<span style="flex:1;color:var(--sl-color-neutral-400);font-style:italic;padding:0 0.3rem">${selFeature.properties['id'] ?? '—'}</span>`
+                        ${p.name === 'id' || ['longitude','latitude','area','perimeter','length','create-time','update-time'].includes(p.type)
+                            ? html`<span style="flex:1;color:var(--sl-color-neutral-400);font-style:italic;padding:0 0.3rem">${['create-time','update-time'].includes(p.type)
+                                ? (selFeature.properties[p.name] ? new Date(selFeature.properties[p.name] as number).toLocaleString() : '—')
+                                : (selFeature.properties[p.name] ?? '—')}</span>`
                             : html`<sl-input size="small" style="flex:1"
                                 .value=${String(selFeature.properties[p.name] ?? '')}
                                 @sl-change=${(e: Event) => {
                                     selFeature.properties[p.name] = (e.target as any).value;
+                                    if (selLayer) this.computeSpecialProperties(selFeature, selLayer);
                                     this.features = [...this.features];
                                     this.refreshDrawLayerSource(selFeature.layerId);
                                 }}>

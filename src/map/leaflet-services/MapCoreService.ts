@@ -25,6 +25,12 @@ export class MapCoreService implements IMapCore {
         private readonly eventBus?: MapEventBus
     ) {}
 
+    private layerOrderRegistry: { registerInlineLayer: (id: string, layers: L.Layer[], options?: any) => void; unregisterInlineLayer: (id: string) => void } | null = null;
+
+    setLayerOrderRegistry(registry: { registerInlineLayer: (id: string, layers: L.Layer[], options?: any) => void; unregisterInlineLayer: (id: string) => void }): void {
+        this.layerOrderRegistry = registry;
+    }
+
     private mapInstance: L.Map | null = null;
     private mapReadyCallbacks: Array<(map: L.Map) => void> = [];
     private silentSourceIds = new Set<string>();
@@ -438,6 +444,7 @@ export class MapCoreService implements IMapCore {
             this.runtimeLayerOrder.push(layerSpec.id);
         }
         this.logicalToNative.set(layerSpec.id, nativeLayers);
+        this.layerOrderRegistry?.registerInlineLayer(layerSpec.id, nativeLayers, options);
         this.applyRuntimeLayerVisibility();
     
         // Link source ID to this layer ID for future updates
@@ -467,6 +474,7 @@ export class MapCoreService implements IMapCore {
                 }
             }
 
+            this.layerOrderRegistry?.unregisterInlineLayer(id);
             this.applyRuntimeLayerOrder();
         }
         unregisterMapLayer(this.store,id);

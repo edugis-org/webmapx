@@ -111,6 +111,8 @@ export class WebmapxMapElement extends HTMLElement {
     private handleRemoveLayerEvent(e: CustomEvent) {
         if (this.adapter) {
             this.adapter.removeLayer(e.detail);
+            this.removeFromLogicalOrder(e.detail);
+            this.logicalLayerRole.delete(e.detail);
         }
     }
 
@@ -1012,8 +1014,6 @@ export class WebmapxMapElement extends HTMLElement {
 
         const success = await this.addLogicalLayerInternal(adapter, layerInformationWithLegendRole, layerInsertOptions);
         if (success) {
-          this.insertIntoLogicalOrder(catalogLayerId, layerInsertOptions);
-          this.logicalLayerRole.set(catalogLayerId, legendRole);
           const groupKey = this.getSingleSelectionGroupKeyForLayer(catalogLayerId, preferredGroupKey);
           if (groupKey) {
             this.singleGroupInsertSlotByGroup.delete(groupKey);
@@ -1048,8 +1048,7 @@ export class WebmapxMapElement extends HTMLElement {
       fallback: _fallback,
       ...nativeLayer
     } = layerRequest;
-    adapter.addLayer(nativeLayer, options && Object.keys(options).length > 0 ? options : undefined);
-    return true;
+    return this.addInlineLayerWithTracking(adapter, nativeLayer, options);
   }
 
   private async getLayerInformationFromStyleRequest(layerRequest: LayerRequest): Promise<LayerInformation | null> {
@@ -1196,11 +1195,32 @@ export class WebmapxMapElement extends HTMLElement {
     options?: LayerInsertOptions,
   ): Promise<boolean> {
     const layer = layerInformation.layer;
+    let success: boolean;
     try {
-      return await adapter.logicalLayers.addLayer(layer, options);
+      success = await adapter.logicalLayers.addLayer(layer, options);
     } catch {
       return false;
     }
+    if (success) {
+      const metadata = (layer.metadata && typeof layer.metadata === 'object') ? layer.metadata as Record<string, unknown> : {};
+      const role: LegendRole = metadata.legendRole === 'background' ? 'background' : 'overlay';
+      this.logicalLayerRole.set(layer.id, role);
+      this.insertIntoLogicalOrder(layer.id, options);
+    }
+    return success;
+  }
+
+  private addInlineLayerWithTracking(adapter: IMap, nativeLayer: Record<string, unknown>, options?: LayerInsertOptions): boolean {
+    const metadata = (nativeLayer.metadata && typeof nativeLayer.metadata === 'object') ? nativeLayer.metadata as Record<string, unknown> : {};
+    const role: LegendRole = metadata.legendRole === 'background' ? 'background' : 'overlay';
+    const insertOptions = this.computeInsertOptionsForLayer(role, options);
+    adapter.addLayer(nativeLayer, insertOptions && Object.keys(insertOptions).length > 0 ? insertOptions : undefined);
+    const layerId = typeof nativeLayer.id === 'string' ? nativeLayer.id : null;
+    if (layerId) {
+      this.logicalLayerRole.set(layerId, role);
+      this.insertIntoLogicalOrder(layerId, insertOptions);
+    }
+    return true;
   }
 
   private async applyInitialStateLayers(adapter: IMap, _layerData: LayerDataConfig): Promise<void> {

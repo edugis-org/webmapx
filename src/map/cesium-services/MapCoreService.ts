@@ -108,6 +108,7 @@ export class MapCoreService implements IMapCore {
     private lastStyledZoom: number | null = null;
     private readonly dispatchViewportStateThrottled = throttle(() => this.dispatchViewportState(), 100);
     private runtimeLayerOrder: string[] = [];
+    private layerOrderRegistry: { registerInlineLayer: (id: string, options?: any) => void; unregisterInlineLayer: (id: string) => void } | null = null;
     private readonly layerZStepMeters = 0.5;
     private readonly basePolylinePositions = new WeakMap<any, any[]>();
 
@@ -275,6 +276,7 @@ export class MapCoreService implements IMapCore {
         const layerId = typeof layer?.id === 'string' ? layer.id : null;
         if (layerId) {
             this.insertRuntimeLayer(layerId, options);
+            this.layerOrderRegistry?.registerInlineLayer(layerId, options);
             state.layers = state.layers.filter((entry) => entry?.spec?.id !== layerId);
         }
 
@@ -291,6 +293,7 @@ export class MapCoreService implements IMapCore {
         const id = _id as any;
         if (typeof id === 'string') {
             this.removeRuntimeLayer(id);
+            this.layerOrderRegistry?.unregisterInlineLayer(id);
             unregisterMapLayer(this.store,id);
         }
 
@@ -1041,6 +1044,10 @@ export class MapCoreService implements IMapCore {
         }
 
         return operand;
+    }
+
+    public setLayerOrderRegistry(registry: { registerInlineLayer: (id: string, options?: any) => void; unregisterInlineLayer: (id: string) => void }): void {
+        this.layerOrderRegistry = registry;
     }
 
     private clampImageryProviderMaxLevel(provider: any, maxLevel: number): void {

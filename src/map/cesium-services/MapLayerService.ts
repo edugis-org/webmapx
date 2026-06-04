@@ -434,6 +434,14 @@ export class MapLayerService implements ILayerService {
      * Given a picked Cesium entity, returns the logical layer ID it belongs to
      * by checking which GeoJsonDataSource contains it.
      */
+    registerInlineLayer(logicalId: string, insertOptions?: LayerInsertOptions): void {
+        this.upsertLogicalOrder(logicalId, insertOptions);
+    }
+
+    unregisterInlineLayer(logicalId: string): void {
+        this.logicalOrder = this.logicalOrder.filter(id => id !== logicalId);
+    }
+
     getLogicalLayerForEntity(entity: any): string | null {
         for (const [handleKey, handle] of this.handles.entries()) {
             if (handle.kind !== 'geojson') continue;

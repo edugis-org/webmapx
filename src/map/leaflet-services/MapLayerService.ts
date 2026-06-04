@@ -449,6 +449,25 @@ export class MapLayerService implements ILayerService {
         return p.distanceTo(L.point(a.x + t * dx, a.y + t * dy));
     }
 
+    registerInlineLayer(logicalId: string, nativeLayers: L.Layer[], insertOptions?: LayerInsertOptions): void {
+        const insertIndex = this.resolveInsertIndex(insertOptions);
+        const nativeIds: string[] = [];
+        for (let i = 0; i < nativeLayers.length; i++) {
+            const nativeId = `${logicalId}-inline-${i}`;
+            this.nativeLayerInstances.set(nativeId, nativeLayers[i]);
+            nativeIds.push(nativeId);
+        }
+        this.logicalToNative.set(logicalId, nativeIds);
+        this.upsertLogicalOrder(logicalId, insertIndex);
+    }
+
+    unregisterInlineLayer(logicalId: string): void {
+        const nativeIds = this.logicalToNative.get(logicalId) ?? [];
+        for (const id of nativeIds) this.nativeLayerInstances.delete(id);
+        this.logicalToNative.delete(logicalId);
+        this.logicalOrder = this.logicalOrder.filter(id => id !== logicalId);
+    }
+
     getVisibleWMSLayers(): Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }> {
         const result: Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }> = [];
         for (const [layerId, entry] of this.logicalToWMSSource.entries()) {
