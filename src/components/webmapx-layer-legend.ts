@@ -360,12 +360,11 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         strokeWidth: number
     ): TemplateResult {
         const sw = Math.min(strokeWidth, 1.5);
-        const MAX_R = 20;
         const maxR = Math.max(...stops.map(s => s.radius));
-        const scale = maxR > 0 ? MAX_R / maxR : 1;
-        const cx = MAX_R + sw + 2;
+        const scale = 1; // stops already carry correct pixel radii
+        const cx = maxR + sw + 2;
         const bubbleW = cx * 2;
-        const svgH = MAX_R * 2 + sw * 2 + 4;
+        const svgH = maxR * 2 + sw * 2 + 4;
         const baseline = svgH - 2;
         const labelX = bubbleW + 8;
         const svgW = bubbleW + 60;
@@ -449,16 +448,17 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             </div>`;
     }
 
-    /** Get attribute translations from layer metadata: name → {label, unit} */
-    private getAttrTranslations(): Map<string, {label: string; unit: string}> {
+    /** Get attribute translations from layer metadata: name → {label, unit, maxvalue} */
+    private getAttrTranslations(): Map<string, {label: string; unit: string; maxvalue?: number}> {
         const attrs = (this.meta as any)?.attributes;
-        const map = new Map<string, {label: string; unit: string}>();
+        const map = new Map<string, {label: string; unit: string; maxvalue?: number}>();
         if (!Array.isArray(attrs?.translations)) return map;
         for (const t of attrs.translations) {
             if (typeof t?.name === 'string') {
                 map.set(t.name, {
                     label: typeof t.translation === 'string' ? t.translation : t.name,
-                    unit: typeof t.unit === 'string' ? t.unit.trim() : '',
+                    unit: typeof t.unit === 'string' ? t.unit : '',
+                    ...(typeof t.maxvalue === 'number' ? { maxvalue: t.maxvalue } : {}),
                 });
             }
         }
@@ -477,17 +477,16 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         const lhsProp = this.getPropName(cond[1]);
         const rhs = cond[2];
         const unit = lhsProp && attrTr?.get(lhsProp)?.unit ? attrTr.get(lhsProp)!.unit : '';
-        const u = unit ? ` ${unit}` : '';
-        if (op === '==') return typeof rhs === 'number' || typeof rhs === 'string' ? `${rhs}${u}` : '';
+        if (op === '==') return typeof rhs === 'number' || typeof rhs === 'string' ? `${rhs}${unit}` : '';
         if (['<','<=','>','>='].includes(op) && (typeof rhs === 'number' || typeof rhs === 'string')) {
-            return `${op} ${rhs}${u}`;
+            return `${op} ${rhs}${unit}`;
         }
         return '';
     }
 
     /** Format a large number for legend labels: 1500000 → "1.5M" */
     private formatNumber(v: number, unit?: string): string {
-        const suffix = unit ? ` ${unit}` : '';
+        const suffix = unit ?? '';
         if (v >= 1e9) return `${(v / 1e9).toFixed(1).replace(/\.0$/, '')}B${suffix}`;
         if (v >= 1e6) return `${(v / 1e6).toFixed(1).replace(/\.0$/, '')}M${suffix}`;
         if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K${suffix}`;
@@ -517,7 +516,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const items: Array<{label: string, color: string}> = [];
             for (let i = 2; i + 1 < expr.length - 1; i += 2) {
                 const raw = Array.isArray(expr[i]) ? expr[i].join(', ') : String(expr[i]);
-                const label = unit ? `${raw} ${unit.trim()}` : raw;
+                const label = unit ? `${raw}${unit}` : raw;
                 const color = typeof expr[i + 1] === 'string' ? expr[i + 1] : '';
                 if (color) items.push({ label, color });
             }
@@ -631,27 +630,33 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             // Check for proportional bubble (zoom-interp radius with data expr stops)
             const propRadius = this.extractProportionalRadius(radiusExpr, this.zoom);
             if (propRadius) {
-                const LEGEND_MAX_R = 20;
+                const LEGEND_MAX_R = 38; // match map pixel size: rMapMax ≈ 38px → legend max ≈ 38px
                 const { coeff, base, isSqrt } = propRadius;
                 const toMapR = (v: number) => base + coeff * (isSqrt ? Math.sqrt(v) : v);
                 const toData = (r: number) => { const net = Math.max(0, r - base); return isSqrt ? (net / coeff) ** 2 : net / coeff; };
-                // Min: 1px net radius; large: LEGEND_MAX_R*2 net (represents visible map max)
-                const vMin = toData(base + 1);
-                const vLarge = toData(base + LEGEND_MAX_R * 2);
-                // 4 values, geometrically spaced
-                const logMin = Math.log10(Math.max(vMin, 1));
-                const logMax = Math.log10(Math.max(vLarge, 10));
-                const dataVals = [0.1, 0.35, 0.65, 1.0].map(f =>
-                    Math.round(Math.pow(10, logMin + f * (logMax - logMin))));
-                const mapRadii = dataVals.map(v => toMapR(v));
-                const scale = mapRadii[mapRadii.length - 1] > 0 ? LEGEND_MAX_R / mapRadii[mapRadii.length - 1] : 1;
+                // Use per-attribute maxvalue if provided, otherwise assume max visible circle ~38px
+                const propAttr = propRadius.prop ? attrTr.get(propRadius.prop) : undefined;
+                const metaMaxValue = typeof propAttr?.maxvalue === 'number' ? propAttr.maxvalue : null;
+                const rMapMin = Math.max(base + 1, 3);
+                const rMapMax = metaMaxValue !== null ? toMapR(metaMaxValue) : base + 38;
+                const mapRadii = [0, 1/3, 2/3, 1].map(f =>
+                    rMapMin * Math.pow(rMapMax / rMapMin, f));
+                const dataVals = mapRadii.map(r => toData(r));
                 const propUnit = propRadius.prop ? attrTr.get(propRadius.prop)?.unit : undefined;
+                // scale = 1: legend circles match map pixel sizes 1:1
+                const rawRadii = mapRadii.map(r => Math.max(1, r));
+                const maxRaw = rawRadii[rawRadii.length - 1];
+                const minDistinct = 4; // minimum pixel spread across 4 stops
+                const spreadScale = maxRaw < minDistinct ? minDistinct / maxRaw : 1;
                 const stops: Array<{value: string, color: string, radius: number}> = dataVals.map((v, i) => ({
                     value: this.formatNumber(v, propUnit),
                     color,
-                    radius: Math.max(1, Math.round(mapRadii[i] * scale)),
+                    radius: Math.max(1, Math.round(rawRadii[i] * spreadScale)),
                 }));
-                return [this.renderBubbleLegend(stops, strokeColor, strokeWidth)];
+                // Deduplicate stops with same radius (collapsed range)
+                const seen = new Set<number>();
+                const deduped = stops.filter(s => !seen.has(s.radius) && seen.add(s.radius));
+                return [this.renderBubbleLegend(deduped, strokeColor, strokeWidth)];
             }
 
             // Data-driven color with fixed/zoom radius → color class rows
@@ -766,7 +771,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         }
 
         const supportedTypes = ['fill', 'fill-extrusion', 'line', 'circle', 'symbol', 'raster', 'background'];
-        const hasSwatch = layerType && supportedTypes.includes(layerType);
+        const hasSwatch = layerType && supportedTypes.includes(layerType) && !legendUrl;
 
         return html`
             <div class="legend-wrap">

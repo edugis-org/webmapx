@@ -281,7 +281,8 @@
               {
                 "name": "pop_est",
                 "translation": "population",
-                "unit": " inh"
+                "unit": " inh",
+                "maxvalue": 1440000000
               }
             ]
           },
@@ -718,7 +719,17 @@
         "source": "populationsum-source",
         "metadata": {
           "abstract": "Bevolking 2020 per Natural Earth admin level 1 (landsdeel). Bevolking berekend uit 1km WorldPop mosaic grid 2020",
-          "title": "Population density | Dot map"
+          "title": "Population density | Dot map",
+          "attributes": {
+            "translations": [
+              {
+                "name": "pop_sum",
+                "translation": "population",
+                "unit": " inh",
+                "maxvalue": 230000000
+              }
+            ]
+          }
         },
         "source-layer": "public.ne_10m_admin_1_states_provinces_lakes_pop",
         "paint": {
@@ -809,7 +820,8 @@
               {
                 "name": "pop_max",
                 "translation": "urban population (max)",
-                "unit": " inh"
+                "unit": " inh",
+                "maxvalue": 35600000
               }
             ]
           },

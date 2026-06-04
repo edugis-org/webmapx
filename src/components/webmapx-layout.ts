@@ -50,9 +50,6 @@ export class WebmapxLayout extends LitElement {
       flex-direction: row;
     }
 
-    .slot-zone ::slotted(*) {
-      pointer-events: var(--webmapx-pointer-events, auto);
-    }
 
     /* Left column */
     .slot-zone--top-left {
