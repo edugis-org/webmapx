@@ -332,6 +332,117 @@ async function setDrawModeWithoutCreatingLayer(page, buttonName, activeLayerType
   }, { expectedType: activeLayerType }, { timeout: 10_000 });
 }
 
+async function setBackgroundToGoogleSatelliteViaCatalogTool(page) {
+  await page.evaluate(async () => {
+    const waitFor = async (fn, timeoutMs, label) => {
+      const started = Date.now();
+      while (Date.now() - started < timeoutMs) {
+        const value = fn();
+        if (value) return value;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      throw new Error(`Timed out waiting for ${label}`);
+    };
+
+    const layerTreeRoot = await waitFor(() => {
+      const layerTree = document.querySelector('webmapx-layer-tree');
+      return layerTree?.shadowRoot ?? null;
+    }, 10_000, 'layer tree shadow root');
+
+    const googleSatelliteRadio = await waitFor(
+      () => layerTreeRoot.querySelector('input[type="radio"][data-layer-id="google-satellite"]'),
+      10_000,
+      'Google Satellite radio input'
+    );
+
+    googleSatelliteRadio.click();
+  });
+
+  await page.waitForFunction(() => {
+    const map = document.querySelector('webmapx-map');
+    const adapter = map?.adapter;
+    if (!adapter?.store) return false;
+    const visibleLayers = adapter.store.getState().visibleLayers ?? [];
+    return visibleLayers.includes('google-satellite') && !visibleLayers.includes('osm');
+  }, undefined, { timeout: 10_000 });
+}
+
+async function assertActiveDrawLayerRenderedAtMapCenter(page, activeLayerType, engine) {
+  const result = await page.evaluate(async ({ expectedType, expectedEngine }) => {
+    const map = document.querySelector('webmapx-map');
+    const tool = map?.querySelector('webmapx-draw-tool');
+    const adapter = await map?.getAdapterAsync?.();
+    if (!adapter) {
+      return {
+        ok: false,
+        reason: 'Map adapter unavailable',
+      };
+    }
+
+    const layerId = tool?.activeLayerIds?.[expectedType] ?? null;
+    if (typeof layerId !== 'string' || layerId.length === 0) {
+      return {
+        ok: false,
+        reason: `Active draw layer id for geometry type "${expectedType}" not found`,
+      };
+    }
+
+    const state = adapter.store.getState();
+    const mapLayerEntry = state.mapLayers?.[layerId] ?? null;
+    if (!mapLayerEntry) {
+      return {
+        ok: false,
+        reason: `Active draw layer "${layerId}" is not registered in mapLayers`,
+      };
+    }
+
+    const sourceId = typeof mapLayerEntry?.sourceId === 'string' ? mapLayerEntry.sourceId : null;
+    const sourceData = sourceId ? adapter.getSourceData(sourceId) : null;
+    const sourceFeatureCount = sourceData && typeof sourceData !== 'string' && Array.isArray(sourceData.features)
+      ? sourceData.features.length
+      : 0;
+
+    if (sourceFeatureCount < 1) {
+      return {
+        ok: false,
+        reason: `Active draw layer "${layerId}" source has no features after basemap switch`,
+      };
+    }
+
+    const center = adapter.getViewportState().center;
+    const pixel = adapter.project(center);
+
+    // Cesium's pick/drillPick can miss tiny point sprites in headless CI; rely on
+    // source/layer-state checks there. Keep rendered hit testing for 2D engines.
+    if (expectedEngine === 'cesium') {
+      return {
+        ok: true,
+        layerId,
+        hitCount: null,
+        reason: null,
+      };
+    }
+
+    const features = await adapter.queryService.queryFeatures(
+      { pixel, lngLat: center },
+      { layerIds: [layerId], tolerancePx: 10, includeWMS: false }
+    );
+
+    return {
+      ok: features.length > 0,
+      layerId,
+      hitCount: features.length,
+      reason: features.length > 0
+        ? null
+        : `No rendered features found for layerId "${layerId}" at map center`,
+    };
+  }, { expectedType: activeLayerType, expectedEngine: engine });
+
+  if (!result.ok) {
+    fail(`Expected active draw layer "${activeLayerType}" to remain visible after basemap switch. ${result.reason}`);
+  }
+}
+
 function assertNamesPresent(summary, layerName, expectedNames) {
   if (!Array.isArray(summary.featureNames)) {
     fail(`Expected featureNames array for layer "${layerName}".`);
@@ -477,6 +588,14 @@ export async function run({ page, engine }) {
     fail(`Expected one feature after drawing, got featureCount=${afterDraw.featureCount}, layerFeatureCount=${afterDraw.layerFeatureCount}.`);
   }
 
+  await step('switch background to Google Satellite via catalog tool', async () => {
+    await setBackgroundToGoogleSatelliteViaCatalogTool(page);
+  });
+
+  await step('verify drawn point remains visible on top after basemap switch', async () => {
+    await assertActiveDrawLayerRenderedAtMapCenter(page, 'Point', engine);
+  });
+
   await step('set point name', async () => {
     await selectLatestFeatureInLayer(page, pointLayerName);
     await setSelectedFeatureName(page, pointName);
@@ -534,6 +653,27 @@ export async function run({ page, engine }) {
     await waitForLayerFeatureName(page, pointLayerName, pointName2);
   });
 
+  await step('point feature auto-selected after draw', async () => {
+    const selected = await page.evaluate(() => {
+      const tool = document.querySelector('webmapx-draw-tool');
+      return tool?.selectedFeatureId ?? null;
+    });
+    if (!selected) fail('Expected drawn point to be auto-selected');
+  });
+
+  await step('point feature has auto-computed special attributes', async () => {
+    const result = await page.evaluate(() => {
+      const tool = document.querySelector('webmapx-draw-tool');
+      if (!Array.isArray(tool?.features) || tool.features.length === 0) return { ok: false, reason: 'no features' };
+      const feature = tool.features[0];
+      if (!feature?.properties) return { ok: false, reason: 'no properties' };
+      const props = feature.properties;
+      if (typeof props.id !== 'number' || props.id < 1) return { ok: false, reason: `bad id: ${props.id}` };
+      return { ok: true };
+    });
+    if (!result.ok) fail(`Special attributes check failed: ${result.reason}`);
+  });
+
   await step('add second line without dialog', async () => {
     await setDrawModeWithoutCreatingLayer(page, 'slash-lg', 'LineString');
     await emitMapDrawSequence(page, 'line');
@@ -550,6 +690,29 @@ export async function run({ page, engine }) {
     await selectLatestFeatureInLayer(page, polygonLayerName);
     await setSelectedFeatureName(page, polygonName2);
     await waitForLayerFeatureName(page, polygonLayerName, polygonName2);
+  });
+
+  await step('polygon layer has outline layer in map state', async () => {
+    const result = await page.evaluate(async ({ polyName }) => {
+      const map = document.querySelector('webmapx-map');
+      const tool = map?.querySelector('webmapx-draw-tool');
+      const adapter = await map?.getAdapterAsync?.();
+      if (!adapter) return { ok: false, reason: 'no adapter' };
+
+      const layers = Array.isArray(tool?.drawLayers) ? tool.drawLayers : [];
+      const polyLayer = layers.find(l => l.name === polyName);
+      if (!polyLayer) return { ok: false, reason: `draw layer "${polyName}" not found` };
+
+      const state = adapter.store.getState();
+      const mapLayers = state.mapLayers ?? {};
+
+      const outlineId = `${polyLayer.id}-outline`;
+      const outlineEntry = mapLayers[outlineId];
+      if (!outlineEntry) return { ok: false, reason: `outline layer "${outlineId}" not in mapLayers` };
+
+      return { ok: true };
+    }, { polyName: polygonLayerName });
+    if (!result.ok) fail(`Polygon outline check: ${result.reason}`);
   });
 
   await step('close draw tool after second session', async () => {

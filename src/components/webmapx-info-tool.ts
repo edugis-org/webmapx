@@ -110,33 +110,70 @@ export class WebmapxInfoTool extends WebmapxModalTool {
             border-bottom: 1px solid var(--color-border-light, #eee);
         }
 
-        .props-table {
-            width: 100%;
-            border-collapse: collapse;
+        .props-list {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
             font-size: 0.8rem;
         }
 
-        .props-table tr:nth-child(even) td {
+        .props-row {
+            display: contents;
+        }
+
+        .props-row:nth-child(even) > .props-key,
+        .props-row:nth-child(even) > .props-val {
             background: var(--color-surface-alt, #fafafa);
         }
 
-        .props-table td {
+        .props-key {
             padding: 0.2rem 0.5rem;
-            vertical-align: top;
-            border-bottom: 1px solid var(--color-border-light, #f0f0f0);
-        }
-
-        .props-table td:first-child {
             font-weight: 500;
             color: var(--color-text-secondary, #555);
             white-space: nowrap;
-            max-width: 120px;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            border-bottom: 1px solid var(--color-border-light, #f0f0f0);
         }
 
-        .props-table td:last-child {
-            word-break: break-word;
+        .props-val {
+            min-width: 0;
+            overflow: hidden;
+            padding: 0.2rem 0.5rem;
+            border-bottom: 1px solid var(--color-border-light, #f0f0f0);
+        }
+
+        .img-error {
+            font-size: 0.75rem;
+            color: var(--sl-color-danger-600, #c0392b);
+            font-style: italic;
+        }
+
+        .props-val a[href] {
+            display: block;
+            width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .props-val img {
+            max-width: 100%;
+            max-height: 120px;
+            border-radius: 3px;
+            object-fit: cover;
+        }
+
+        .raw-value {
+            padding: 0.4rem 0.5rem;
+            font-size: 0.75rem;
+            white-space: pre-wrap;
+            overflow: auto;
+            max-height: 200px;
+        }
+
+        .props-table img {
+            max-width: 100%;
+            max-height: 120px;
+            border-radius: 3px;
+            object-fit: cover;
         }
 
         .source-badge {
@@ -156,6 +193,7 @@ export class WebmapxInfoTool extends WebmapxModalTool {
         }
 
         .empty-hint {
+            padding: 0.3rem 0.5rem;
             color: var(--color-text-secondary, #999);
             font-size: 0.8rem;
             font-style: italic;
@@ -302,34 +340,64 @@ export class WebmapxInfoTool extends WebmapxModalTool {
         `;
     }
 
+    private getPropertySchema(layerId: string): Array<{name: string; type: string}> | null {
+        const meta = this.adapter?.store.getState().mapLayers?.[layerId];
+        return Array.isArray((meta as any)?.properties) ? (meta as any).properties : null;
+    }
+
     private renderPropsTable(feature: FeatureInfo): TemplateResult {
+        const schema = this.getPropertySchema(feature.layerId);
         const entries = Object.entries(feature.properties).filter(
             ([k, v]) => v !== null && v !== undefined && k !== '_raw'
         );
 
         if (feature.properties['_raw']) {
             return html`
-                <div style="padding: 0.4rem 0.5rem; font-size: 0.75rem; white-space: pre-wrap; overflow: auto; max-height: 200px;">
+                <div class="raw-value">
                     ${feature.properties['_raw'] as string}
                 </div>
             `;
         }
 
         if (entries.length === 0) {
-            return html`<div class="empty-hint" style="padding: 0.3rem 0.5rem;">No properties</div>`;
+            return html`<div class="empty-hint">No properties</div>`;
         }
 
         return html`
-            <table class="props-table">
-                <tbody>
-                    ${entries.map(([k, v]) => html`
-                        <tr>
-                            <td title=${k}>${k}</td>
-                            <td>${typeof v === 'object' ? JSON.stringify(v) : String(v)}</td>
-                        </tr>
-                    `)}
-                </tbody>
-            </table>
+            <div class="props-list">
+                ${entries.map(([k, v]) => {
+                    const propDef = schema?.find(p => p.name === k);
+                    const schemaType = propDef?.type ?? 'string';
+                    const strVal = typeof v === 'object' ? JSON.stringify(v) : String(v ?? '');
+                    const isUrl = /^https?:\/\/\S+$/.test(strVal.trim());
+                    const isDataImage = /^data:image\//i.test(strVal);
+                    const type = schemaType !== 'string' ? schemaType
+                        : isDataImage ? 'imageURL'
+                        : isUrl ? 'linkURL'
+                        : 'string';
+                    const isTimeType = type === 'create-time' || type === 'update-time';
+                    return html`
+                        <div class="props-row">
+                            <span class="props-key" title=${k}>${k}</span>
+                            <span class="props-val">${
+                                isTimeType && v
+                                    ? new Date(v as number).toLocaleString()
+                                : type === 'imageURL' && strVal
+                                    ? html`<img src=${strVal} @error=${(e: Event) => {
+    const img = e.target as HTMLImageElement;
+    const span = document.createElement('span');
+    span.className = 'img-error';
+    span.textContent = '⚠ invalid image';
+    img.replaceWith(span);
+}}>`
+                                : type === 'linkURL' && strVal
+                                    ? html`<a href=${strVal} target="_blank" rel="noopener noreferrer">${strVal}</a>`
+                                : strVal
+                            }</span>
+                        </div>
+                    `;
+                })}
+            </div>
         `;
     }
 

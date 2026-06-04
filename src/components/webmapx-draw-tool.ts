@@ -222,6 +222,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             background: var(--sl-color-neutral-200);
             margin: 0 0.1rem;
         }
+
+        .prop-row { display: flex; gap: 0.4rem; align-items: center; font-size: 0.82rem; margin-bottom: 0.2rem; }
+        .prop-label { width: 80px; color: var(--sl-color-neutral-500); flex-shrink: 0; }
+        .prop-value { flex: 1; min-width: 0; }
+        .prop-link { display: block; width: 100%; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .prop-img { max-width: 100%; max-height: 80px; border-radius: 3px; object-fit: cover; }
+        .prop-img-error { font-size: 0.75rem; color: var(--sl-color-danger-600, #c0392b); font-style: italic; }
+        .prop-url-wrap { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 0.2rem; }
     `;
 
     // ─── Lifecycle ────────────────────────────────────────────────────────────
@@ -1539,21 +1547,54 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             ${selFeature && selLayer ? html`
                 <div class="section-label" style="margin-top:.5rem">Selected: ${selLayer.name}</div>
                 ${selLayer.properties.map(p => html`
-                    <div style="display:flex;gap:.4rem;align-items:center;font-size:.82rem;margin-bottom:.2rem">
-                        <span style="width:80px;color:var(--sl-color-neutral-500)">${p.name}</span>
+                    <div class="prop-row">
+                        <span class="prop-label">${p.name}</span>
                         ${p.name === 'id' || ['longitude','latitude','area','perimeter','length','create-time','update-time'].includes(p.type)
-                            ? html`<span style="flex:1;color:var(--sl-color-neutral-400);font-style:italic;padding:0 0.3rem">${['create-time','update-time'].includes(p.type)
-                                ? (selFeature.properties[p.name] ? new Date(selFeature.properties[p.name] as number).toLocaleString() : '—')
-                                : (selFeature.properties[p.name] ?? '—')}</span>`
-                            : html`<sl-input size="small" style="flex:1"
-                                .value=${String(selFeature.properties[p.name] ?? '')}
-                                @sl-change=${(e: Event) => {
-                                    selFeature.properties[p.name] = (e.target as any).value;
-                                    if (selLayer) this.computeSpecialProperties(selFeature, selLayer);
-                                    this.features = [...this.features];
-                                    this.refreshDrawLayerSource(selFeature.layerId);
-                                }}>
-                            </sl-input>`
+                            ? html`<span class="prop-value" style="color:var(--sl-color-neutral-400);font-style:italic;padding:0 0.3rem">${
+                                ['create-time','update-time'].includes(p.type)
+                                    ? (selFeature.properties[p.name] ? new Date(selFeature.properties[p.name] as number).toLocaleString() : '—')
+                                    : (selFeature.properties[p.name] ?? '—')
+                            }</span>`
+                            : p.type === 'imageURL'
+                                ? html`<div class="prop-url-wrap">
+                                        <sl-input size="small"
+                                            .value=${String(selFeature.properties[p.name] ?? '')}
+                                            placeholder="image URL"
+                                            @sl-change=${(e: Event) => {
+                                                selFeature.properties[p.name] = (e.target as any).value;
+                                                if (selLayer) this.computeSpecialProperties(selFeature, selLayer);
+                                                this.features = [...this.features];
+                                                this.refreshDrawLayerSource(selFeature.layerId);
+                                            }}></sl-input>
+                                        ${selFeature.properties[p.name] ? html`<img class="prop-img" src=${String(selFeature.properties[p.name])} @error=${(e: Event) => {
+    const img = e.target as HTMLImageElement;
+    const span = document.createElement('span');
+    span.className = 'prop-img-error';
+    span.textContent = '⚠ invalid image';
+    img.replaceWith(span);
+}}>` : ''}
+                                       </div>`
+                                : p.type === 'linkURL'
+                                    ? html`<div class="prop-url-wrap">
+                                            <sl-input size="small"
+                                                .value=${String(selFeature.properties[p.name] ?? '')}
+                                                placeholder="link URL"
+                                                @sl-change=${(e: Event) => {
+                                                    selFeature.properties[p.name] = (e.target as any).value;
+                                                    if (selLayer) this.computeSpecialProperties(selFeature, selLayer);
+                                                    this.features = [...this.features];
+                                                    this.refreshDrawLayerSource(selFeature.layerId);
+                                                }}></sl-input>
+                                            ${selFeature.properties[p.name] ? html`<a class="prop-link" href=${String(selFeature.properties[p.name])} target="_blank" rel="noopener noreferrer">${selFeature.properties[p.name]}</a>` : ''}
+                                           </div>`
+                                    : html`<sl-input size="small" class="prop-value"
+                                            .value=${String(selFeature.properties[p.name] ?? '')}
+                                            @sl-change=${(e: Event) => {
+                                                selFeature.properties[p.name] = (e.target as any).value;
+                                                if (selLayer) this.computeSpecialProperties(selFeature, selLayer);
+                                                this.features = [...this.features];
+                                                this.refreshDrawLayerSource(selFeature.layerId);
+                                            }}></sl-input>`
                         }
                     </div>
                 `)}

@@ -13,7 +13,7 @@ export type GeometryType = 'Point' | 'LineString' | 'Polygon';
 
 export interface PropertyDef {
     name: string;
-    type: 'string' | 'number' | 'longitude' | 'latitude' | 'area' | 'perimeter' | 'length' | 'url' | 'create-time' | 'update-time';
+    type: 'string' | 'number' | 'longitude' | 'latitude' | 'area' | 'perimeter' | 'length' | 'linkURL' | 'imageURL' | 'create-time' | 'update-time';
 }
 
 export interface DrawLayerConfig {
@@ -34,9 +34,9 @@ export interface MapLayerOption {
 }
 
 const PROPERTY_TYPES: Record<GeometryType, PropertyDef['type'][]> = {
-    Point:      ['string', 'number', 'longitude', 'latitude', 'url', 'create-time', 'update-time'],
-    LineString: ['string', 'number', 'length', 'url', 'create-time', 'update-time'],
-    Polygon:    ['string', 'number', 'area', 'perimeter', 'longitude', 'latitude', 'url', 'create-time', 'update-time'],
+    Point:      ['string', 'number', 'longitude', 'latitude', 'linkURL', 'imageURL', 'create-time', 'update-time'],
+    LineString: ['string', 'number', 'length', 'linkURL', 'imageURL', 'create-time', 'update-time'],
+    Polygon:    ['string', 'number', 'area', 'perimeter', 'longitude', 'latitude', 'linkURL', 'imageURL', 'create-time', 'update-time'],
 };
 
 const DEFAULT_PROPERTIES: PropertyDef[] = [
@@ -322,7 +322,8 @@ export class WebmapxDrawLayerDialog extends LitElement {
             area: 'area (auto)',
             perimeter: 'perimeter (auto)',
             length: 'length (auto)',
-            url: 'url',
+            'linkURL': 'link URL',
+            'imageURL': 'image URL',
             'create-time': 'create-time (auto)',
             'update-time': 'update-time (auto)',
         };
@@ -352,7 +353,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
                     ${this.layer.properties.map((p, i) => html`
                         <tr class="${p.name === 'id' ? 'prop-row-auto' : ''}">
                             <td>${p.name}</td>
-                            <td class="${p.type !== 'string' && p.type !== 'number' ? 'type-computed' : ''}">${p.type}${p.name === 'id' ? ' (auto)' : ''}</td>
+                            <td class="${!['string', 'number', 'linkURL', 'imageURL'].includes(p.type) ? 'type-computed' : ''}">${p.type}${p.name === 'id' ? ' (auto)' : ''}</td>
                             <td>
                                 ${i === 0 ? '' : html`
                                     <sl-icon-button name="x" @click=${() => this.removeProperty(i)}></sl-icon-button>
