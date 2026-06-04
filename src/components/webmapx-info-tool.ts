@@ -389,58 +389,105 @@ export class WebmapxInfoTool extends WebmapxModalTool {
         return Array.isArray((meta as any)?.properties) ? (meta as any).properties : null;
     }
 
+    private getAttributeMeta(layerId: string): {
+        translations: Array<{name: string; translation: string; unit?: string; decimals?: number; multiplier?: number; date?: boolean; valuemap?: Array<{value: unknown; label: string}>}>;
+        allowed: Set<string> | null;
+        denied: Set<string>;
+    } {
+        const meta = this.adapter?.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined;
+        const attrs = (meta?.attributes && typeof meta.attributes === 'object') ? meta.attributes as Record<string, unknown> : {};
+        const translations = Array.isArray(attrs.translations) ? attrs.translations as any[] : [];
+        const allowed = Array.isArray(attrs.allowedattributes) ? new Set<string>(attrs.allowedattributes as string[]) : null;
+        const denied = Array.isArray(attrs.deniedattributes) ? new Set<string>(attrs.deniedattributes as string[]) : new Set<string>();
+        return { translations, allowed, denied };
+    }
+
     private renderPropsTable(feature: FeatureInfo): TemplateResult {
         const schema = this.getPropertySchema(feature.layerId);
-        const entries = Object.entries(feature.properties).filter(
-            ([k, v]) => v !== null && v !== undefined && k !== '_raw'
-        );
+        const { translations, allowed, denied } = this.getAttributeMeta(feature.layerId);
+        const props = feature.properties;
 
-        if (feature.properties['_raw']) {
-            return html`
-                <div class="raw-value">
-                    ${feature.properties['_raw'] as string}
-                </div>
-            `;
+        if (props['_raw']) {
+            return html`<div class="raw-value">${props['_raw'] as string}</div>`;
         }
 
-        if (entries.length === 0) {
-            return html`<div class="empty-hint">No properties</div>`;
+        const rows: TemplateResult[] = [];
+        const rendered = new Set<string>();
+
+        // Translated attributes first (in translation order)
+        for (const t of translations) {
+            const k: string = t.name;
+            if (denied.has(k)) continue;
+            if (allowed && !allowed.has(k)) continue;
+            if (!(k in props) || props[k] === null || props[k] === undefined) continue;
+            rendered.add(k);
+            let v: unknown = props[k];
+            if (t.multiplier && !isNaN(parseFloat(String(t.multiplier)))) {
+                v = parseFloat(String(v)) * parseFloat(String(t.multiplier));
+            }
+            if (t.decimals !== undefined && !isNaN(parseInt(String(t.decimals)))) {
+                const factor = Math.pow(10, parseInt(String(t.decimals)));
+                v = Math.round(parseFloat(String(v)) * factor) / factor;
+            }
+            if (t.valuemap && Array.isArray(t.valuemap)) {
+                const match = t.valuemap.find((m: any) => m.value === v);
+                if (match) v = match.label;
+            }
+            if (t.date) {
+                v = v ? new Date(v as number).toLocaleString() : v;
+            }
+            const unit = t.unit && !isNaN(Number(v)) ? t.unit : '';
+            const displayKey = t.translation || k;
+            const strVal = unit ? `${v}${unit}` : (typeof v === 'object' ? JSON.stringify(v) : String(v ?? ''));
+            rows.push(this.renderPropRow(k, displayKey, strVal, schema));
         }
 
+        // Remaining untranslated attributes
+        for (const [k, v] of Object.entries(props)) {
+            if (k === '_raw' || rendered.has(k)) continue;
+            if (denied.has(k)) continue;
+            if (allowed && !allowed.has(k)) continue;
+            if (v === null || v === undefined) continue;
+            // If translations defined and this key not in them, skip (show only translated)
+            if (translations.length > 0 && !translations.find((t: any) => t.name === k)) {
+                if (allowed === null) continue; // hide un-translated when translations exist
+            }
+            const strVal = typeof v === 'object' ? JSON.stringify(v) : String(v ?? '');
+            rows.push(this.renderPropRow(k, k, strVal, schema));
+        }
+
+        if (rows.length === 0) return html`<div class="empty-hint">No properties</div>`;
+        return html`<div class="props-list">${rows}</div>`;
+    }
+
+    private renderPropRow(rawKey: string, displayKey: string, strVal: string, schema: Array<{name: string; type: string}> | null): TemplateResult {
+        const propDef = schema?.find(p => p.name === rawKey);
+        const schemaType = propDef?.type ?? 'string';
+        const isUrl = /^https?:\/\/\S+$/.test(strVal.trim());
+        const isDataImage = /^data:image\//i.test(strVal);
+        const type = schemaType !== 'string' ? schemaType
+            : isDataImage ? 'imageURL'
+            : isUrl ? 'linkURL'
+            : 'string';
+        const isTimeType = type === 'create-time' || type === 'update-time';
         return html`
-            <div class="props-list">
-                ${entries.map(([k, v]) => {
-                    const propDef = schema?.find(p => p.name === k);
-                    const schemaType = propDef?.type ?? 'string';
-                    const strVal = typeof v === 'object' ? JSON.stringify(v) : String(v ?? '');
-                    const isUrl = /^https?:\/\/\S+$/.test(strVal.trim());
-                    const isDataImage = /^data:image\//i.test(strVal);
-                    const type = schemaType !== 'string' ? schemaType
-                        : isDataImage ? 'imageURL'
-                        : isUrl ? 'linkURL'
-                        : 'string';
-                    const isTimeType = type === 'create-time' || type === 'update-time';
-                    return html`
-                        <div class="props-row">
-                            <span class="props-key" title=${k}>${k}</span>
-                            <span class="props-val">${
-                                isTimeType && v
-                                    ? new Date(v as number).toLocaleString()
-                                : type === 'imageURL' && strVal
-                                    ? html`<img src=${strVal} @error=${(e: Event) => {
+            <div class="props-row">
+                <span class="props-key" title=${rawKey}>${displayKey}</span>
+                <span class="props-val">${
+                    isTimeType && strVal
+                        ? new Date(Number(strVal)).toLocaleString()
+                    : type === 'imageURL' && strVal
+                        ? html`<img src=${strVal} @error=${(e: Event) => {
     const img = e.target as HTMLImageElement;
     const span = document.createElement('span');
     span.className = 'img-error';
     span.textContent = '⚠ invalid image';
     img.replaceWith(span);
 }}>`
-                                : type === 'linkURL' && strVal
-                                    ? html`<a href=${strVal} target="_blank" rel="noopener noreferrer">${strVal}</a>`
-                                : strVal
-                            }</span>
-                        </div>
-                    `;
-                })}
+                    : type === 'linkURL' && strVal
+                        ? html`<a href=${strVal} target="_blank" rel="noopener noreferrer">${strVal}</a>`
+                    : strVal
+                }</span>
             </div>
         `;
     }

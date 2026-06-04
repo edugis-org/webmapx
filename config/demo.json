@@ -8,7 +8,10 @@
   },
   "map": {
     "label": "Demo Map",
-    "center": [0, 0],
+    "center": [
+      0,
+      0
+    ],
     "zoom": 2,
     "type": "maplibre",
     "style": {
@@ -36,7 +39,7 @@
           "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png"
         ],
         "tileSize": 256,
-        "attribution": "© OpenStreetMap contributors",
+        "attribution": "\u00a9 OpenStreetMap contributors",
         "maxzoom": 19
       },
       "google-satellite-source": {
@@ -44,27 +47,95 @@
         "service": "xyz",
         "url": "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
         "tileSize": 256,
-        "attribution": "© Google Satellite"
-      },
-      "transport-source": {
-        "type": "geojson",
-        "data": "https://data.example.com/transport_network.geojson",
-        "attribution": "Example Transport Data"
-      },
-      "air-source": {
-        "type": "geojson",
-        "data": "https://data.example.com/air_quality.geojson",
-        "attribution": "Example Air Quality Data"
-      },
-      "water-source": {
-        "type": "geojson",
-        "data": "https://data.example.com/water_quality.geojson",
-        "attribution": "Example Water Quality Data"
+        "attribution": "\u00a9 Google Satellite"
       },
       "earthquake-source": {
         "type": "geojson",
         "data": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson",
         "attribution": "USGS Earthquake Data"
+      },
+      "countrypopest-source": {
+        "type": "vector",
+        "bounds": [
+          -180,
+          -89,
+          180,
+          83.6341006530001
+        ],
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_admin_0_countries/mvt/{z}/{x}/{y}?geom_column=geompoint&columns=name,pop_est&include_nulls=0"
+        ],
+        "attribution": "Natural Earth"
+      },
+      "countrypopdensity-source": {
+        "type": "vector",
+        "bounds": [
+          -180,
+          -89,
+          180,
+          83.6341006530001
+        ],
+        "attribution": "World Bank",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.world_population_moredetailed/mvt/{z}/{x}/{y}?geom_column=geom&columns=country,population,population_density,area&include_nulls=0"
+        ]
+      },
+      "bevolking2015-source": {
+        "type": "raster",
+        "tileSize": 256,
+        "service": "xyz",
+        "url": [
+          "https://t1.edugis.nl/tiles/tilecache.py?map=maps/edugis/cache/population.map&LAYERS=Bevolkingsdichtheid_2015&TRANSPARENT=true&FORMAT=image%2Fpng&SERVICE=WMS&VERSION=1.1.1&STYLES=&SRS=EPSG%3A900913&WIDTH=256&HEIGHT=256&request=GetMap&service=WMS&bbox={bbox-epsg-3857}",
+          "https://t2.edugis.nl/tiles/tilecache.py?map=maps/edugis/cache/population.map&LAYERS=Bevolkingsdichtheid_2015&TRANSPARENT=true&FORMAT=image%2Fpng&SERVICE=WMS&VERSION=1.1.1&STYLES=&SRS=EPSG%3A900913&WIDTH=256&HEIGHT=256&request=GetMap&service=WMS&bbox={bbox-epsg-3857}",
+          "https://t3.edugis.nl/tiles/tilecache.py?map=maps/edugis/cache/population.map&LAYERS=Bevolkingsdichtheid_2015&TRANSPARENT=true&FORMAT=image%2Fpng&SERVICE=WMS&VERSION=1.1.1&STYLES=&SRS=EPSG%3A900913&WIDTH=256&HEIGHT=256&request=GetMap&service=WMS&bbox={bbox-epsg-3857}",
+          "https://t4.edugis.nl/tiles/tilecache.py?map=maps/edugis/cache/population.map&LAYERS=Bevolkingsdichtheid_2015&TRANSPARENT=true&FORMAT=image%2Fpng&SERVICE=WMS&VERSION=1.1.1&STYLES=&SRS=EPSG%3A900913&WIDTH=256&HEIGHT=256&request=GetMap&service=WMS&bbox={bbox-epsg-3857}"
+        ]
+      },
+      "populationdensity-source": {
+        "type": "vector",
+        "bounds": [
+          -180,
+          -89,
+          180,
+          83.6341006530001
+        ],
+        "attribution": "<a href=\"https://www.worldpop.org/\">WorldPop</a>",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_admin_1_states_provinces_lakes_pop/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,pop_sum,pop_dens,admin,type,type_en&include_nulls=0"
+        ]
+      },
+      "population3d-source": {
+        "type": "vector",
+        "bounds": [
+          -180,
+          -89,
+          180,
+          83.6341006530001
+        ],
+        "attribution": "<a href=\"https://www.worldpop.org/\">WorldPop</a>",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_admin_1_states_provinces_lakes_pop/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,pop_sum,pop_dens,admin,type,type_en&include_nulls=0"
+        ]
+      },
+      "populationsum-source": {
+        "type": "vector",
+        "bounds": [
+          -180,
+          -89,
+          180,
+          83.6341006530001
+        ],
+        "attribution": "<a href=\"https://www.worldpop.org/\">WorldPop</a>",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_admin_1_states_provinces_lakes_pop/mvt/{z}/{x}/{y}?geom_column=geompoint&columns=name,pop_sum,pop_dens,admin,type,type_en&include_nulls=0"
+        ]
+      },
+      "citiesandtowns2-source": {
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_populated_places/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,name_nl,timezone,pop_min,pop_max&include_nulls=0"
+        ],
+        "attribution": "Natural Earth"
       }
     },
     "layers": {
@@ -88,7 +159,7 @@
         "url": "https://tiles.openfreemap.org/styles/liberty",
         "singleGroup": "basemap",
         "title": "OpenFreeMap Liberty (style)",
-        "attribution": "© OpenStreetMap contributors | © OpenFreeMap",
+        "attribution": "\u00a9 OpenStreetMap contributors | \u00a9 OpenFreeMap",
         "fallbackLayerId": "osm",
         "layers": []
       },
@@ -103,44 +174,84 @@
             "source": "earthquake-source",
             "filter": [
               "all",
-              ["==", ["get", "type"], "earthquake"],
-              ["!=", ["get", "mag"], null]
+              [
+                "==",
+                [
+                  "get",
+                  "type"
+                ],
+                "earthquake"
+              ],
+              [
+                "!=",
+                [
+                  "get",
+                  "mag"
+                ],
+                null
+              ]
             ],
             "paint": {
               "circle-color": [
                 "interpolate",
-                ["linear"],
-                ["coalesce", ["to-number", ["get", "mag"]], 0],
-                0, "#faf207",
-                2, "#faf207",
-                4, "#faa907",
-                6, "#fa6c07",
-                8, "#fa0707"
+                [
+                  "linear"
+                ],
+                [
+                  "coalesce",
+                  [
+                    "to-number",
+                    [
+                      "get",
+                      "mag"
+                    ]
+                  ],
+                  0
+                ],
+                0,
+                "#faf207",
+                2,
+                "#faf207",
+                4,
+                "#faa907",
+                6,
+                "#fa6c07",
+                8,
+                "#fa0707"
               ],
-              "circle-radius": ["interpolate", ["exponential", 2], ["coalesce", ["to-number", ["get", "mag"]], 0], 0, 4, 2, 5, 4, 10, 6, 20, 8, 50],
+              "circle-radius": [
+                "interpolate",
+                [
+                  "exponential",
+                  2
+                ],
+                [
+                  "coalesce",
+                  [
+                    "to-number",
+                    [
+                      "get",
+                      "mag"
+                    ]
+                  ],
+                  0
+                ],
+                0,
+                4,
+                2,
+                5,
+                4,
+                10,
+                6,
+                20,
+                8,
+                50
+              ],
               "circle-stroke-color": "#818181",
               "circle-stroke-width": 1
             }
           }
         ]
-      },
-      "transport": {
-        "id": "transport",
-        "type": "line",
-        "source": "transport-source",
-        "title": "Transport Network"
-      },
-      "air": {
-        "id": "air",
-        "type": "circle",
-        "source": "air-source",
-        "title": "Air Quality"
-      },
-      "water": {
-        "id": "water",
-        "type": "circle",
-        "source": "water-source",
-        "title": "Water Quality"
       },
       "nyc-historical": {
         "id": "nyc-historical",
@@ -153,6 +264,614 @@
         "type": "allmaps",
         "annotation": "https://annotations.allmaps.org/maps/f60ecda322d09956",
         "title": "Amsterdam 1625 (Allmaps)"
+      },
+      "countrypopest": {
+        "id": "countrypopest",
+        "type": "circle",
+        "title": "Population by country",
+        "source": "countrypopest-source",
+        "metadata": {
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "name",
+                "unit": ""
+              },
+              {
+                "name": "pop_est",
+                "translation": "population",
+                "unit": " inh"
+              }
+            ]
+          },
+          "title": "Population by country"
+        },
+        "source-layer": "public.ne_10m_admin_0_countries",
+        "paint": {
+          "circle-radius": [
+            "interpolate",
+            [
+              "exponential",
+              2
+            ],
+            [
+              "zoom"
+            ],
+            0,
+            [
+              "+",
+              1,
+              [
+                "*",
+                0.00025,
+                [
+                  "sqrt",
+                  [
+                    "get",
+                    "pop_est"
+                  ]
+                ]
+              ]
+            ],
+            6,
+            [
+              "*",
+              0.016,
+              [
+                "sqrt",
+                [
+                  "get",
+                  "pop_est"
+                ]
+              ]
+            ],
+            14,
+            [
+              "*",
+              0.016,
+              [
+                "sqrt",
+                [
+                  "get",
+                  "pop_est"
+                ]
+              ]
+            ]
+          ],
+          "circle-color": "#a63603",
+          "circle-stroke-color": "white",
+          "circle-stroke-width": 1,
+          "circle-pitch-alignment": "map"
+        }
+      },
+      "countrypopdensity": {
+        "id": "countrypopdensity",
+        "type": "fill",
+        "title": "Population density | Countries",
+        "source": "countrypopdensity-source",
+        "metadata": {
+          "abstract": "World population per country 2018. Density is calculated by deviding population by country surface area.",
+          "attributes": {
+            "translations": [
+              {
+                "name": "country",
+                "translation": "country",
+                "unit": ""
+              },
+              {
+                "name": "population",
+                "translation": "population",
+                "unit": " inhabitants"
+              },
+              {
+                "name": "population_density",
+                "translation": "population density",
+                "unit": " inh/km\u00b2"
+              },
+              {
+                "name": "area",
+                "translation": "surface area",
+                "unit": " km2"
+              }
+            ]
+          }
+        },
+        "source-layer": "public.world_population_moredetailed",
+        "paint": {
+          "fill-color": [
+            "case",
+            [
+              "<",
+              [
+                "get",
+                "population_density"
+              ],
+              20
+            ],
+            "#feedde",
+            [
+              "<",
+              [
+                "get",
+                "population_density"
+              ],
+              40
+            ],
+            "#fdd0a2",
+            [
+              "<",
+              [
+                "get",
+                "population_density"
+              ],
+              70
+            ],
+            "#fdae6b",
+            [
+              "<",
+              [
+                "get",
+                "population_density"
+              ],
+              100
+            ],
+            "#fd8d3c",
+            [
+              "<",
+              [
+                "get",
+                "population_density"
+              ],
+              150
+            ],
+            "#f16913",
+            [
+              "<",
+              [
+                "get",
+                "population_density"
+              ],
+              300
+            ],
+            "#d94801",
+            [
+              "<=",
+              [
+                "get",
+                "population_density"
+              ],
+              20000
+            ],
+            "#8c2d04",
+            "#8c2d04"
+          ],
+          "fill-outline-color": "white",
+          "fill-opacity": 0.8
+        },
+        "filter": [
+          "has",
+          "population_density"
+        ]
+      },
+      "bevolking2015": {
+        "id": "bevolking2015",
+        "type": "raster",
+        "title": "Population density | Raster",
+        "source": "bevolking2015-source",
+        "metadata": {
+          "abstract": "gegevens: 2015",
+          "getFeatureInfoUrl": "https://map.edugis.nl/cgi-bin/mapserv?map=maps/edugis/cache/population.map&version=1.1.1&request=GetFeatureInfo&styles=&layers=Bevolkingsdichtheid_2015&query_layers=Bevolkingsdichtheid_2015&srs=EPSG:900913",
+          "getFeatureInfoFormat": "application/vnd.ogc.gml",
+          "legendurl": "https://mapserver.edugis.nl/cgi-bin/mapserv?map=maps/edugis/cache/population.map&version=1.1.1&service=WMS&request=GetLegendGraphic&layer=Bevolkingsdichtheid_2015&format=image/png&STYLE=default",
+          "title": "Population density | Raster"
+        },
+        "minzoom": 0,
+        "maxzoom": 22.5
+      },
+      "populationdensity": {
+        "id": "populationdensity",
+        "type": "fill",
+        "title": "Population density | Regions",
+        "source": "populationdensity-source",
+        "metadata": {
+          "abstract": "Bevolking 2020 per Natural Earth admin level 1 (landsdeel). Bevolking berekend uit 1km WorldPop mosaic grid 2020",
+          "attributes": {
+            "translations": [
+              {
+                "name": "pop_dens",
+                "translation": "population density",
+                "unit": " inh/km\u00b2"
+              }
+            ]
+          },
+          "title": "Population density | Regions"
+        },
+        "source-layer": "public.ne_10m_admin_1_states_provinces_lakes_pop",
+        "paint": {
+          "fill-color": [
+            "case",
+            [
+              "==",
+              [
+                "get",
+                "pop_dens"
+              ],
+              0
+            ],
+            "#ffffff",
+            [
+              "<",
+              [
+                "get",
+                "pop_dens"
+              ],
+              10
+            ],
+            "#fff7ec",
+            [
+              "<",
+              [
+                "get",
+                "pop_dens"
+              ],
+              26
+            ],
+            "#fee8c8",
+            [
+              "<",
+              [
+                "get",
+                "pop_dens"
+              ],
+              48
+            ],
+            "#fdd49e",
+            [
+              "<",
+              [
+                "get",
+                "pop_dens"
+              ],
+              72
+            ],
+            "#fdbb84",
+            [
+              "<=",
+              [
+                "get",
+                "pop_dens"
+              ],
+              107
+            ],
+            "#fc8d59",
+            [
+              "<",
+              [
+                "get",
+                "pop_dens"
+              ],
+              174
+            ],
+            "#ef6548",
+            [
+              "<",
+              [
+                "get",
+                "pop_dens"
+              ],
+              309
+            ],
+            "#d7301f",
+            [
+              "<=",
+              [
+                "get",
+                "pop_dens"
+              ],
+              759
+            ],
+            "#b30000",
+            [
+              "<=",
+              [
+                "get",
+                "pop_dens"
+              ],
+              600104
+            ],
+            "#7f0000",
+            "#7f0000"
+          ],
+          "fill-opacity": 0.8
+        }
+      },
+      "population3d": {
+        "id": "population3d",
+        "type": "fill-extrusion",
+        "title": "Population density | Regions 3D",
+        "source": "population3d-source",
+        "metadata": {
+          "abstract": "Bevolking 2020 per Natural Earth admin level 1 (landsdeel). Bevolking berekend uit 1km WorldPop mosaic grid 2020",
+          "attributes": {
+            "translations": [
+              {
+                "name": "pop_dens",
+                "translation": "population density",
+                "unit": " inh/km\u00b2"
+              }
+            ]
+          },
+          "title": "Population density | Regions 3D"
+        },
+        "source-layer": "public.ne_10m_admin_1_states_provinces_lakes_pop",
+        "paint": {
+          "fill-extrusion-color": [
+            "case",
+            [
+              "==",
+              [
+                "get",
+                "pop_dens"
+              ],
+              0
+            ],
+            "#ffffff",
+            [
+              "<",
+              [
+                "get",
+                "pop_dens"
+              ],
+              10
+            ],
+            "#fff7ec",
+            [
+              "<",
+              [
+                "get",
+                "pop_dens"
+              ],
+              26
+            ],
+            "#fee8c8",
+            [
+              "<",
+              [
+                "get",
+                "pop_dens"
+              ],
+              48
+            ],
+            "#fdd49e",
+            [
+              "<",
+              [
+                "get",
+                "pop_dens"
+              ],
+              72
+            ],
+            "#fdbb84",
+            [
+              "<=",
+              [
+                "get",
+                "pop_dens"
+              ],
+              107
+            ],
+            "#fc8d59",
+            [
+              "<",
+              [
+                "get",
+                "pop_dens"
+              ],
+              174
+            ],
+            "#ef6548",
+            [
+              "<",
+              [
+                "get",
+                "pop_dens"
+              ],
+              309
+            ],
+            "#d7301f",
+            [
+              "<=",
+              [
+                "get",
+                "pop_dens"
+              ],
+              759
+            ],
+            "#b30000",
+            [
+              "<=",
+              [
+                "get",
+                "pop_dens"
+              ],
+              600104
+            ],
+            "#7f0000",
+            "#7f0000"
+          ],
+          "fill-extrusion-height": [
+            "*",
+            5,
+            [
+              "get",
+              "pop_dens"
+            ]
+          ],
+          "fill-extrusion-opacity": 0.8
+        }
+      },
+      "populationsum": {
+        "id": "populationsum",
+        "type": "circle",
+        "title": "Population density | Dot map",
+        "source": "populationsum-source",
+        "metadata": {
+          "abstract": "Bevolking 2020 per Natural Earth admin level 1 (landsdeel). Bevolking berekend uit 1km WorldPop mosaic grid 2020",
+          "title": "Population density | Dot map"
+        },
+        "source-layer": "public.ne_10m_admin_1_states_provinces_lakes_pop",
+        "paint": {
+          "circle-color": "#d7301f",
+          "circle-stroke-color": "rgba(255,255,255,0.6)",
+          "circle-stroke-width": 0.5,
+          "circle-radius": [
+            "interpolate",
+            [
+              "exponential",
+              2
+            ],
+            [
+              "zoom"
+            ],
+            0,
+            [
+              "+",
+              1,
+              [
+                "*",
+                0.00025,
+                [
+                  "sqrt",
+                  [
+                    "get",
+                    "pop_sum"
+                  ]
+                ]
+              ]
+            ],
+            6,
+            [
+              "*",
+              0.016,
+              [
+                "sqrt",
+                [
+                  "get",
+                  "pop_sum"
+                ]
+              ]
+            ],
+            14,
+            [
+              "*",
+              0.016,
+              [
+                "sqrt",
+                [
+                  "get",
+                  "pop_sum"
+                ]
+              ]
+            ]
+          ],
+          "circle-pitch-alignment": "map"
+        }
+      },
+      "citiesandtowns2": {
+        "id": "citiesandtowns2",
+        "type": "circle",
+        "title": "Urban population",
+        "source": "citiesandtowns2-source",
+        "metadata": {
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "name",
+                "unit": ""
+              },
+              {
+                "name": "name_nl",
+                "translation": "Dutch name",
+                "unit": ""
+              },
+              {
+                "name": "timezone",
+                "translation": "timezone",
+                "unit": ""
+              },
+              {
+                "name": "pop_min",
+                "translation": "urban population (min)",
+                "unit": " inh"
+              },
+              {
+                "name": "pop_max",
+                "translation": "urban population (max)",
+                "unit": " inh"
+              }
+            ]
+          },
+          "title": "Urban population"
+        },
+        "source-layer": "public.ne_10m_populated_places",
+        "paint": {
+          "circle-radius": [
+            "interpolate",
+            [
+              "exponential",
+              2
+            ],
+            [
+              "zoom"
+            ],
+            0,
+            [
+              "+",
+              1,
+              [
+                "*",
+                0.00025,
+                [
+                  "sqrt",
+                  [
+                    "get",
+                    "pop_max"
+                  ]
+                ]
+              ]
+            ],
+            6,
+            [
+              "*",
+              0.016,
+              [
+                "sqrt",
+                [
+                  "get",
+                  "pop_max"
+                ]
+              ]
+            ],
+            14,
+            [
+              "*",
+              0.016,
+              [
+                "sqrt",
+                [
+                  "get",
+                  "pop_max"
+                ]
+              ]
+            ]
+          ],
+          "circle-color": "red",
+          "circle-stroke-color": "white",
+          "circle-stroke-width": 1,
+          "circle-pitch-alignment": "map"
+        }
       }
     }
   },
@@ -161,7 +880,10 @@
       "basemap": "osm"
     },
     "activeLayers": [
-      { "ref": "osm", "visible": true }
+      {
+        "ref": "osm",
+        "visible": true
+      }
     ]
   },
   "tools": {
@@ -191,30 +913,60 @@
               "allowNone": false,
               "expanded": true,
               "children": [
-                { "layerId": "openfreemap-liberty" },
-                { "layerId": "osm" },
-                { "layerId": "google-satellite" }
+                {
+                  "layerId": "openfreemap-liberty"
+                },
+                {
+                  "layerId": "osm"
+                },
+                {
+                  "layerId": "google-satellite"
+                }
               ]
             },
             {
               "label": "Historical Maps",
               "expanded": true,
               "children": [
-                { "layerId": "nyc-historical" },
-                { "layerId": "amsterdam-historical" }
+                {
+                  "layerId": "nyc-historical"
+                },
+                {
+                  "layerId": "amsterdam-historical"
+                }
               ]
             },
             {
               "label": "Data Layers",
               "expanded": true,
               "children": [
-                { "layerId": "earthquake" },
-                { "layerId": "transport" },
                 {
-                  "label": "Environmental",
+                  "layerId": "earthquake"
+                },
+                {
+                  "label": "Population",
                   "children": [
-                    { "layerId": "air" },
-                    { "layerId": "water" }
+                    {
+                      "layerId": "countrypopest"
+                    },
+                    {
+                      "layerId": "countrypopdensity"
+                    },
+                    {
+                      "layerId": "bevolking2015"
+                    },
+                    {
+                      "layerId": "populationdensity"
+                    },
+                    {
+                      "layerId": "population3d"
+                    },
+                    {
+                      "layerId": "populationsum"
+                    },
+                    {
+                      "layerId": "citiesandtowns2"
+                    }
                   ]
                 }
               ]

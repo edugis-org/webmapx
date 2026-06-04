@@ -132,7 +132,10 @@ export class MapLayerService implements ILayerService {
             nativeSource = { type: 'geojson', data: (sourceConfig as any).data };
             if (typeof (sourceConfig as any).attribution === 'string') nativeSource.attribution = (sourceConfig as any).attribution;
         } else if (sourceConfig.type === 'vector') {
-            nativeSource = { type: 'vector', url: (sourceConfig as any).url };
+            const vc = sourceConfig as any;
+            nativeSource = vc.tiles
+                ? { type: 'vector', tiles: vc.tiles }
+                : { type: 'vector', url: vc.url };
             if (typeof (sourceConfig as any).attribution === 'string') nativeSource.attribution = (sourceConfig as any).attribution;
         }
 

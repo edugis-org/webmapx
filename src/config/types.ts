@@ -106,7 +106,7 @@ export interface GeoJSONSourceConfig extends SourceConfigBase {
 
 export interface VectorSourceConfig extends SourceConfigBase {
   type: 'vector';
-  url: string;
+  url?: string;
 }
 
 export type SourceConfig = RasterSourceConfig | GeoJSONSourceConfig | VectorSourceConfig;

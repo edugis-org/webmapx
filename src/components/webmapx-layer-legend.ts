@@ -16,7 +16,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         .legend-wrap { display: flex; flex-direction: column; gap: 2px; }
         .legend-row { display: flex; align-items: center; gap: 6px; min-height: 18px; }
         .legend-label { font-size: 0.75rem; color: var(--color-text-primary, #1f2937); line-height: 1.2; }
-        .legend-img { max-width: 100%; max-height: 80px; display: block; border-radius: 3px; }
+        .legend-img { max-width: 100%; height: auto; display: block; border-radius: 3px; }
         .img-error { font-size: 0.75rem; color: var(--sl-color-danger-600, #c0392b); font-style: italic; }
         .sub-group-title { font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary, #555); margin-top: 4px; }
         .sub-row { padding-left: 8px; }
@@ -396,13 +396,15 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                     text-anchor="middle" fill="#555">${s.value}</text>`
         );
 
+        const allSameColor = stops.every(s => s.color === stops[0].color);
+
         return html`
             <div class="legend-row" style="flex-direction:column;align-items:flex-start;gap:6px">
                 ${svg`<svg width="${svgW}" height="${svgH}" style="overflow:visible">
                     <line x1="${cx}" y1="${baseline}" x2="${cx}" y2="2" stroke="#bbb" stroke-width="1"/>
                     ${circles}
                 </svg>`}
-                ${svg`<svg width="${totalSwatchW}" height="${swatchH + 12}" style="overflow:visible">
+                ${allSameColor ? '' : svg`<svg width="${totalSwatchW}" height="${swatchH + 12}" style="overflow:visible">
                     ${swatches}
                 </svg>`}
             </div>`;
@@ -447,43 +449,265 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             </div>`;
     }
 
+    /** Get attribute translations from layer metadata: name → {label, unit} */
+    private getAttrTranslations(): Map<string, {label: string; unit: string}> {
+        const attrs = (this.meta as any)?.attributes;
+        const map = new Map<string, {label: string; unit: string}>();
+        if (!Array.isArray(attrs?.translations)) return map;
+        for (const t of attrs.translations) {
+            if (typeof t?.name === 'string') {
+                map.set(t.name, {
+                    label: typeof t.translation === 'string' ? t.translation : t.name,
+                    unit: typeof t.unit === 'string' ? t.unit.trim() : '',
+                });
+            }
+        }
+        return map;
+    }
+
+    /** Extract property name from a ["get", "prop"] expression. */
+    private getPropName(expr: unknown): string | null {
+        return Array.isArray(expr) && expr[0] === 'get' && typeof expr[1] === 'string' ? expr[1] : null;
+    }
+
+    /** Extract readable label from a case/comparison condition expression, with unit from attr metadata. */
+    private conditionLabel(cond: unknown, attrTr?: Map<string, {label: string; unit: string}>): string | null {
+        if (!Array.isArray(cond) || cond.length < 3) return '';
+        const op = cond[0];
+        const lhsProp = this.getPropName(cond[1]);
+        const rhs = cond[2];
+        const unit = lhsProp && attrTr?.get(lhsProp)?.unit ? attrTr.get(lhsProp)!.unit : '';
+        const u = unit ? ` ${unit}` : '';
+        if (op === '==') return typeof rhs === 'number' || typeof rhs === 'string' ? `${rhs}${u}` : '';
+        if (['<','<=','>','>='].includes(op) && (typeof rhs === 'number' || typeof rhs === 'string')) {
+            return `${op} ${rhs}${u}`;
+        }
+        return '';
+    }
+
+    /** Format a large number for legend labels: 1500000 → "1.5M" */
+    private formatNumber(v: number, unit?: string): string {
+        const suffix = unit ? ` ${unit}` : '';
+        if (v >= 1e9) return `${(v / 1e9).toFixed(1).replace(/\.0$/, '')}B${suffix}`;
+        if (v >= 1e6) return `${(v / 1e6).toFixed(1).replace(/\.0$/, '')}M${suffix}`;
+        if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K${suffix}`;
+        return `${Math.round(v)}${suffix}`;
+    }
+
+    /** Extract class legend from case/match/step expressions — returns [{label, color}] or null. */
+    private extractColorClasses(expr: unknown, attrTr?: Map<string, {label: string; unit: string}>): Array<{label: string, color: string}> | null {
+        if (!Array.isArray(expr)) return null;
+        const op = expr[0];
+        if (op === 'case') {
+            const items: Array<{label: string, color: string}> = [];
+            for (let i = 1; i + 1 < expr.length; i += 2) {
+                const label = this.conditionLabel(expr[i], attrTr);
+                if (label === null) continue;
+                const color = typeof expr[i + 1] === 'string' ? expr[i + 1] : '';
+                if (color) items.push({ label: label || '', color });
+            }
+            const def = expr[expr.length - 1];
+            if (typeof def === 'string') items.push({ label: 'other', color: def });
+            return items.length > 1 ? items : null;
+        }
+        if (op === 'match') {
+            // Detect property name for unit
+            const matchProp = this.getPropName(expr[1]);
+            const unit = matchProp && attrTr?.get(matchProp)?.unit ? attrTr.get(matchProp)!.unit : '';
+            const items: Array<{label: string, color: string}> = [];
+            for (let i = 2; i + 1 < expr.length - 1; i += 2) {
+                const raw = Array.isArray(expr[i]) ? expr[i].join(', ') : String(expr[i]);
+                const label = unit ? `${raw} ${unit.trim()}` : raw;
+                const color = typeof expr[i + 1] === 'string' ? expr[i + 1] : '';
+                if (color) items.push({ label, color });
+            }
+            const def = expr[expr.length - 1];
+            if (typeof def === 'string') items.push({ label: 'other', color: def });
+            return items.length > 1 ? items : null;
+        }
+        return null;
+    }
+
+    /** Is this expression zoom-interpolated (not data-driven)? */
+    private isZoomExpression(expr: unknown): boolean {
+        if (!Array.isArray(expr)) return false;
+        const op = expr[0];
+        if ((op === 'interpolate' || op === 'step') && Array.isArray(expr[1])) {
+            return expr[1][0] === 'zoom' || expr[2]?.[0] === 'zoom';
+        }
+        if (op === 'interpolate' && expr.length >= 3) {
+            return Array.isArray(expr[2]) && expr[2][0] === 'zoom';
+        }
+        return false;
+    }
+
+    /**
+     * Detect proportional bubble pattern: zoom-interpolated radius where each stop value
+     * is `["*", c, ["sqrt", ["get", prop]]]` or `["*", c, ["get", prop]]`.
+     * Returns {coeff, prop, isSqrt} or null.
+     */
+    /** Extract {coeff, base} from a single radius stop expression. */
+    private parseRadiusFormula(expr: unknown): {coeff: number, base: number, prop: string, isSqrt: boolean} | null {
+        if (!Array.isArray(expr)) return null;
+        if (expr[0] === '*' && typeof expr[1] === 'number') {
+            const inner = expr[2];
+            if (Array.isArray(inner) && inner[0] === 'sqrt' && Array.isArray(inner[1]) && inner[1][0] === 'get')
+                return { coeff: expr[1], base: 0, prop: inner[1][1] as string, isSqrt: true };
+            if (Array.isArray(inner) && inner[0] === 'get')
+                return { coeff: expr[1], base: 0, prop: inner[1] as string, isSqrt: false };
+        }
+        if (expr[0] === '+') {
+            const base = typeof expr[1] === 'number' ? expr[1] : (typeof expr[2] === 'number' ? expr[2] : 0);
+            const mulPart = [expr[1], expr[2]].find((p: unknown) => Array.isArray(p) && (p as any)[0] === '*');
+            if (mulPart && Array.isArray(mulPart)) {
+                const inner = (mulPart as any[])[2];
+                if (Array.isArray(inner) && inner[0] === 'sqrt' && Array.isArray(inner[1]) && inner[1][0] === 'get')
+                    return { coeff: (mulPart as any[])[1], base, prop: inner[1][1] as string, isSqrt: true };
+            }
+        }
+        return null;
+    }
+
+    private extractProportionalRadius(radiusExpr: unknown, zoom: number): {coeff: number, base: number, prop: string, isSqrt: boolean} | null {
+        if (!Array.isArray(radiusExpr) || radiusExpr[0] !== 'interpolate') return null;
+        // Collect all zoom stops: [zoomVal, stopExpr] pairs
+        const interpType = radiusExpr[1]; // ["linear"] or ["exponential", base]
+        const expBase = Array.isArray(interpType) && interpType[0] === 'exponential' && typeof interpType[1] === 'number'
+            ? interpType[1] : 1;
+
+        const zoomStops: Array<{z: number, expr: unknown}> = [];
+        for (let i = 3; i + 1 < radiusExpr.length; i += 2) {
+            zoomStops.push({ z: Number(radiusExpr[i]), expr: radiusExpr[i + 1] });
+        }
+        if (zoomStops.length === 0) return null;
+
+        // Find surrounding stops
+        let lo = zoomStops[0], hi = zoomStops[zoomStops.length - 1];
+        for (let i = 0; i < zoomStops.length - 1; i++) {
+            if (zoom >= zoomStops[i].z && zoom <= zoomStops[i + 1].z) {
+                lo = zoomStops[i]; hi = zoomStops[i + 1]; break;
+            }
+        }
+
+        const pLo = this.parseRadiusFormula(lo.expr);
+        const pHi = this.parseRadiusFormula(hi.expr);
+        if (!pLo && !pHi) return null;
+
+        // If same stop or both same, no interpolation needed
+        if (lo.z === hi.z || zoom <= lo.z) return pLo ?? pHi;
+        if (zoom >= hi.z) return pHi ?? pLo;
+
+        // Compute interpolation factor t ∈ [0,1]
+        let t: number;
+        if (expBase !== 1 && expBase > 0) {
+            t = (Math.pow(expBase, zoom - lo.z) - 1) / (Math.pow(expBase, hi.z - lo.z) - 1);
+        } else {
+            t = (zoom - lo.z) / (hi.z - lo.z);
+        }
+        t = Math.max(0, Math.min(1, t));
+
+        // Interpolate effective coeff and base from both formulas
+        const cLo = pLo ?? { coeff: 0, base: 0, prop: pHi!.prop, isSqrt: pHi!.isSqrt };
+        const cHi = pHi ?? { coeff: 0, base: 0, prop: pLo!.prop, isSqrt: pLo!.isSqrt };
+        return {
+            coeff: cLo.coeff + t * (cHi.coeff - cLo.coeff),
+            base: cLo.base + t * (cHi.base - cLo.base),
+            prop: cHi.prop || cLo.prop,
+            isSqrt: cHi.isSqrt || cLo.isSqrt,
+        };
+    }
+
     private renderLegendItems(layerType: string, paint: Record<string, unknown>): TemplateResult[] {
+        const attrTr = this.getAttrTranslations();
+
         if (layerType === 'circle') {
-            const colorStops = this.extractLegendStops(paint['circle-color']);
-            const radiusStops = this.extractLegendStops(paint['circle-radius']);
             const strokeColor = String(paint['circle-stroke-color'] ?? '#aaa');
             const strokeWidth = Number(paint['circle-stroke-width'] ?? 1);
+            const colorExpr = paint['circle-color'];
+            const radiusExpr = paint['circle-radius'];
+            const color = String(Array.isArray(colorExpr) ? (this.evalAtZoom(colorExpr, this.zoom) ?? colorExpr[colorExpr.length-1] ?? '#3388ff') : (colorExpr ?? '#3388ff'));
+            const colorClasses = this.extractColorClasses(colorExpr, attrTr);
 
-            // Deduplicate and get unique stops with non-null values
-            const stops: Array<{value: string, color: string, radius: number}> = [];
-            const count = Math.max(colorStops.length, radiusStops.length);
-            let prevKey = '';
-            for (let i = 0; i < count; i++) {
-                const color = String(colorStops[i]?.paint ?? colorStops[0]?.paint ?? '#3388ff');
-                const radiusRaw = Math.min(Number(radiusStops[i]?.paint ?? radiusStops[0]?.paint ?? 6), 50);
-                const key = `${color}|${radiusRaw}`;
-                if (key === prevKey) continue;
-                prevKey = key;
-                const labelVal = colorStops[i]?.value ?? radiusStops[i]?.value ?? null;
-                stops.push({ value: labelVal !== null ? String(labelVal) : '', color, radius: radiusRaw });
-            }
-
-            // If both color and radius vary with >1 unique stops — use bubble legend
-            if (stops.length > 1 && radiusStops.length > 1) {
+            // Check for proportional bubble (zoom-interp radius with data expr stops)
+            const propRadius = this.extractProportionalRadius(radiusExpr, this.zoom);
+            if (propRadius) {
+                const LEGEND_MAX_R = 20;
+                const { coeff, base, isSqrt } = propRadius;
+                const toMapR = (v: number) => base + coeff * (isSqrt ? Math.sqrt(v) : v);
+                const toData = (r: number) => { const net = Math.max(0, r - base); return isSqrt ? (net / coeff) ** 2 : net / coeff; };
+                // Min: 1px net radius; large: LEGEND_MAX_R*2 net (represents visible map max)
+                const vMin = toData(base + 1);
+                const vLarge = toData(base + LEGEND_MAX_R * 2);
+                // 4 values, geometrically spaced
+                const logMin = Math.log10(Math.max(vMin, 1));
+                const logMax = Math.log10(Math.max(vLarge, 10));
+                const dataVals = [0.1, 0.35, 0.65, 1.0].map(f =>
+                    Math.round(Math.pow(10, logMin + f * (logMax - logMin))));
+                const mapRadii = dataVals.map(v => toMapR(v));
+                const scale = mapRadii[mapRadii.length - 1] > 0 ? LEGEND_MAX_R / mapRadii[mapRadii.length - 1] : 1;
+                const propUnit = propRadius.prop ? attrTr.get(propRadius.prop)?.unit : undefined;
+                const stops: Array<{value: string, color: string, radius: number}> = dataVals.map((v, i) => ({
+                    value: this.formatNumber(v, propUnit),
+                    color,
+                    radius: Math.max(1, Math.round(mapRadii[i] * scale)),
+                }));
                 return [this.renderBubbleLegend(stops, strokeColor, strokeWidth)];
             }
 
-            // Simple rows for single-stop or radius-only variation
-            return stops.map(s => this.renderCircleRow(s.color, strokeColor, strokeWidth, s.radius, s.value));
+            // Data-driven color with fixed/zoom radius → color class rows
+            if (colorClasses) {
+                const rawR = this.evalAtZoom(radiusExpr, this.zoom);
+                const r = Math.min(Number(isFinite(Number(rawR)) ? rawR : 6), 20);
+                return colorClasses.map(c => this.renderCircleRow(c.color, strokeColor, strokeWidth, r, c.label));
+            }
+
+            const colorStops = this.extractLegendStops(colorExpr);
+            const radiusIsZoom = this.isZoomExpression(radiusExpr);
+            const radiusStops = radiusIsZoom ? [] : this.extractLegendStops(radiusExpr);
+
+            const stops2: Array<{value: string, color: string, radius: number}> = [];
+            const count = Math.max(colorStops.length, radiusStops.length || 1);
+            let prevKey = '';
+            for (let i = 0; i < count; i++) {
+                const c = String(colorStops[i]?.paint ?? colorStops[0]?.paint ?? '#3388ff');
+                const rawR = radiusStops.length > 0
+                    ? (radiusStops[i]?.paint ?? radiusStops[0]?.paint ?? 6)
+                    : (this.evalAtZoom(radiusExpr, this.zoom) ?? 6);
+                const resolvedR = Array.isArray(rawR) ? this.evalAtZoom(rawR, this.zoom) : rawR;
+                const radiusRaw = Math.min(Number(isFinite(Number(resolvedR)) ? resolvedR : 6), 50);
+                const key = `${c}|${radiusRaw}`;
+                if (key === prevKey) continue;
+                prevKey = key;
+                const labelVal = (!radiusIsZoom && (colorStops[i]?.value ?? radiusStops[i]?.value)) ?? null;
+                stops2.push({ value: labelVal !== null ? String(labelVal) : '', color: c, radius: radiusRaw });
+            }
+
+            if (stops2.length > 1 && radiusStops.length > 1) {
+                return [this.renderBubbleLegend(stops2, strokeColor, strokeWidth)];
+            }
+            return stops2.map(s => this.renderCircleRow(s.color, strokeColor, strokeWidth, s.radius, s.value));
         }
 
-        if (layerType === 'fill') {
-            const colorStops = this.extractLegendStops(paint['fill-color']);
-            const opacity = Number(paint['fill-opacity'] ?? 0.7);
-            const outlineColor = String(paint['fill-outline-color'] ?? paint['fill-color'] ?? '#aaa');
+        if (layerType === 'fill' || layerType === 'fill-extrusion') {
+            const colorKey = layerType === 'fill' ? 'fill-color' : 'fill-extrusion-color';
+            const opacityKey = layerType === 'fill' ? 'fill-opacity' : 'fill-extrusion-opacity';
+            const opacity = Number(paint[opacityKey] ?? (layerType === 'fill' ? 0.7 : 0.8));
+            const outlineColor = layerType === 'fill'
+                ? String(paint['fill-outline-color'] ?? paint['fill-color'] ?? '#aaa')
+                : String(paint['fill-extrusion-color'] ?? '#aaa');
+            const colorExpr = paint[colorKey];
+
+            // Try case/match expressions for multi-class legend
+            const classes = this.extractColorClasses(colorExpr, attrTr);
+            if (classes) {
+                return classes.map(c => this.renderFillRow(c.color, outlineColor, opacity, c.label));
+            }
+            // Interpolate/step stops
+            const colorStops = this.extractLegendStops(colorExpr);
             return colorStops
                 .filter((s, _, arr) => arr.length === 1 || s.value !== null)
-                .map(s => this.renderFillRow(String(s.paint ?? '#3388ff'), outlineColor, opacity, s.value !== null ? String(s.value) : ''));
+                .map(s => this.renderFillRow(String(s.paint ?? '#3388ff'), outlineColor, opacity,
+                    s.value !== null ? String(s.value) : ''));
         }
 
         if (layerType === 'line') {
@@ -495,15 +719,6 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 const label = s.value !== null ? String(s.value) : '';
                 return this.renderLineRow(String(s.paint ?? '#3388ff'), lineWidth, dasharray, label);
             });
-        }
-
-        if (layerType === 'fill-extrusion') {
-            const colorStops = this.extractLegendStops(paint['fill-extrusion-color']);
-            const opacity = Number(paint['fill-extrusion-opacity'] ?? 0.8);
-            return colorStops
-                .filter((s, _, arr) => arr.length === 1 || s.value !== null)
-                .map(s => this.renderFillRow(String(s.paint ?? '#aaa'), String(s.paint ?? '#aaa'), opacity,
-                    s.value !== null ? String(s.value) : ''));
         }
 
         // symbol, raster, background — single swatch

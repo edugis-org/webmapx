@@ -532,8 +532,10 @@ function validateSources(
       }
     } else if (s.type === 'vector') {
       knownKeys.push(...KNOWN_KEYS.sourceVector);
-      if (typeof s.url !== 'string' || s.url.length === 0) {
-        errors.push({ severity: 'error', path: `${path}.url`, message: 'Vector source requires a "url"' });
+      const hasUrl = typeof s.url === 'string' && s.url.length > 0;
+      const hasTiles = Array.isArray(s.tiles) && s.tiles.length > 0;
+      if (!hasUrl && !hasTiles) {
+        errors.push({ severity: 'error', path: `${path}.url`, message: 'Vector source requires a "url" or "tiles"' });
       }
     }
 
