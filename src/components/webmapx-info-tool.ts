@@ -10,6 +10,7 @@ import type { ClickEvent, PointerMoveEvent } from '../store/map-events';
 import type { LngLat, Pixel } from '../store/map-events';
 import type { FeatureInfo } from '../map/IQueryService';
 import { throttle } from '../utils/throttle';
+import { fetchWMSFeatureInfo } from '../map/wms-feature-info';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 
@@ -304,10 +305,52 @@ export class WebmapxInfoTool extends WebmapxModalTool {
                 { pixel: event.pixel, lngLat: event.coords },
                 { tolerancePx: CLICK_TOLERANCE_PX, includeWMS: true }
             );
-            this.features = results;
+            // Also query any visible raster layers with getFeatureInfoUrl in metadata
+            const gfiResults = await this.queryGFILayers(event.pixel, event.coords);
+            this.features = [...results, ...gfiResults];
         } finally {
             this.loading = false;
         }
+    }
+
+    /** Query raster layers that expose getFeatureInfoUrl in their mapLayers metadata. */
+    private async queryGFILayers(pixel: Pixel, lngLat: LngLat): Promise<FeatureInfo[]> {
+        if (!this.adapter) return [];
+        const state = this.adapter.store.getState();
+        const mapLayers = state.mapLayers ?? {};
+
+        // Use a 256×256 virtual viewport centered on the clicked location.
+        // Some WMS servers (e.g. QGIS Server) reject very small viewports.
+        const size = 256, half = size / 2;
+        const delta = 0.001;
+        const bounds = {
+            west: lngLat[0] - delta, south: lngLat[1] - delta,
+            east: lngLat[0] + delta, north: lngLat[1] + delta,
+        };
+        const containerWidth = size, containerHeight = size, pixelX = half, pixelY = half;
+
+        const results: FeatureInfo[] = [];
+        await Promise.all(Object.entries(mapLayers).map(async ([layerId, meta]) => {
+            const m = meta as Record<string, unknown>;
+            const gfiUrl = typeof m?.getFeatureInfoUrl === 'string' ? m.getFeatureInfoUrl : null;
+            if (!gfiUrl) return;
+            try {
+                const u = new URL(gfiUrl);
+                const version = u.searchParams.get('version') ?? '1.1.1';
+                const layers = u.searchParams.get('layers') ?? u.searchParams.get('query_layers') ?? '';
+                const format = typeof m.getFeatureInfoFormat === 'string' ? m.getFeatureInfoFormat : 'application/json';
+                u.search = '';
+                const sourceConfig = { id: layerId, type: 'raster' as const, service: 'wms' as const, url: u.toString(), version, layers, format };
+                const layerTitle = typeof m.label === 'string' ? m.label : layerId;
+                const feats = await fetchWMSFeatureInfo({
+                    sourceConfig, layerId, layerTitle,
+                    bounds, containerWidth, containerHeight,
+                    pixelX, pixelY,
+                });
+                results.push(...feats);
+            } catch { /* skip failing GFI */ }
+        }));
+        return results;
     }
 
     // ─────────────────────────────────────────────────────────────────────

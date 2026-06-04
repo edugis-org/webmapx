@@ -63,6 +63,7 @@ export function registerMapLayer(store: MapStateStore, layer: any): void {
     }, 'MAP');
 }
 
+
 export function unregisterMapLayer(store: MapStateStore, layerId: string): void {
     const current = store.getState().mapLayers ?? {};
     if (!(layerId in current)) return;

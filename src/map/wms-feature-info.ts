@@ -100,6 +100,76 @@ function parseGeoJSONResponse(
 }
 
 /**
+ * Parse GML/XML GetFeatureInfo response into key-value properties.
+ * Handles WMS_MS_FeatureInfoResponse, FeatureInfoResponse, and plain GML feature elements.
+ */
+function parseGMLResponse(xml: string, layerId: string, layerTitle?: string): FeatureInfo[] {
+    let doc: Document;
+    try {
+        doc = new DOMParser().parseFromString(xml, 'text/xml');
+    } catch {
+        return [{ layerId, layerTitle, properties: { _raw: xml }, source: 'wms' }];
+    }
+
+    // Collect all leaf-text elements that look like feature attributes.
+    // Strategy: find elements whose text content has no element children (= leaf nodes with values).
+    const results: FeatureInfo[] = [];
+    const featureNodes = findFeatureNodes(doc.documentElement);
+
+    for (const featureEl of featureNodes) {
+        const props: Record<string, unknown> = {};
+        for (let i = 0; i < featureEl.children.length; i++) {
+            const child = featureEl.children[i];
+            // Skip elements that are themselves containers
+            if (child.children.length > 0) continue;
+            const localName = child.localName ?? child.nodeName.replace(/^[^:]+:/, '');
+            const val = child.textContent?.trim() ?? '';
+            if (localName && val) props[localName] = isNaN(Number(val)) || val === '' ? val : Number(val);
+        }
+        if (Object.keys(props).length > 0) {
+            results.push({ layerId, layerTitle, properties: props, source: 'wms' });
+        }
+    }
+
+    if (results.length === 0 && xml.trim()) {
+        // Last resort: naive regex extraction of <tag>value</tag> pairs
+        const props: Record<string, unknown> = {};
+        const re = /<([A-Za-z_][A-Za-z0-9_:]*)(?:\s[^>]*)?>([^<]+)<\/\1>/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(xml)) !== null) {
+            const key = m[1].replace(/^[^:]+:/, '');
+            const val = m[2].trim();
+            if (val) props[key] = isNaN(Number(val)) || val === '' ? val : Number(val);
+        }
+        if (Object.keys(props).length > 0) results.push({ layerId, layerTitle, properties: props, source: 'wms' });
+    }
+
+    return results;
+}
+
+/** Find elements that represent individual features in a GML response. */
+function findFeatureNodes(root: Element): Element[] {
+    // Common GML patterns: gml:featureMember > *, FIELDS element, or direct child elements with leaf children
+    const featureMembers = root.getElementsByTagNameNS('http://www.opengis.net/gml', 'featureMember');
+    if (featureMembers.length > 0) {
+        const nodes: Element[] = [];
+        for (let i = 0; i < featureMembers.length; i++) {
+            const child = featureMembers[i].children[0];
+            if (child) nodes.push(child);
+        }
+        return nodes;
+    }
+    // ESRI / MapServer style: <FIELDS ...> or <Layer> with <Field> children
+    const fields = root.querySelectorAll('FIELDS, Layer');
+    if (fields.length > 0) return Array.from(fields);
+    // MapServer / QGIS: direct Layer element with attribute children
+    if (root.children.length > 0 && root.children[0].children.length > 0) {
+        return [root.children[0]];
+    }
+    return [root];
+}
+
+/**
  * Fetches WMS GetFeatureInfo for a single WMS layer.
  * Returns an empty array on network error or unparseable response.
  */
@@ -121,18 +191,12 @@ export async function fetchWMSFeatureInfo(params: WMSQueryParams): Promise<Featu
             return parseGeoJSONResponse(json, params.layerId, params.layerTitle);
         }
 
-        // GML / XML fallback: extract text properties naively
+        // GML / XML fallback: parse attributes from XML
         const text = await response.text();
         if (!text.trim() || text.includes('no features') || text.includes('ServiceException')) {
             return [];
         }
-        // Return raw text as a single property for display
-        return [{
-            layerId: params.layerId,
-            layerTitle: params.layerTitle,
-            properties: { _raw: text },
-            source: 'wms',
-        }];
+        return parseGMLResponse(text, params.layerId, params.layerTitle);
     } catch {
         return [];
     }

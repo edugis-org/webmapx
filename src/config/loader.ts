@@ -359,9 +359,38 @@ function normalizeLayerDataSection(layerData: unknown): { sources: unknown[]; la
   const extraSources: Record<string, unknown>[] = [];
   const layers = normalizeLayerMap(record.layers, extraSources);
 
+  const allSources = [...sources, ...extraSources];
+  // Synthesize getFeatureInfoUrl for WMS sources whose layers don't already have one
+  const sourceById = new Map<string, Record<string, unknown>>();
+  for (const s of allSources) {
+    if (isObject(s) && typeof (s as any).id === 'string') sourceById.set((s as any).id, s as Record<string, unknown>);
+  }
+  const augmentedLayers = layers.map(layer => {
+    if (!isObject(layer)) return layer;
+    const l = layer as Record<string, unknown>;
+    const srcId = typeof l.source === 'string' ? l.source : null;
+    const src = srcId ? sourceById.get(srcId) : null;
+    if (!src || src.type !== 'raster' || src.service !== 'wms') return layer;
+    const meta = isObject(l.metadata) ? { ...(l.metadata as Record<string, unknown>) } : {};
+    if (typeof meta.getFeatureInfoUrl === 'string') return layer; // already set
+    const baseUrl = Array.isArray(src.url) ? src.url[0] : src.url;
+    if (typeof baseUrl !== 'string') return layer;
+    const layers_ = src.layers ?? '';
+    const version = src.version ?? '1.1.1';
+    const u = new URL(baseUrl);
+    u.searchParams.set('SERVICE', 'WMS');
+    u.searchParams.set('REQUEST', 'GetFeatureInfo');
+    u.searchParams.set('VERSION', String(version));
+    u.searchParams.set('LAYERS', String(layers_));
+    u.searchParams.set('QUERY_LAYERS', String(layers_));
+    meta.getFeatureInfoUrl = u.toString();
+    meta.getFeatureInfoFormat = src.format ?? 'application/json';
+    return { ...l, metadata: meta };
+  });
+
   return {
-    sources: [...sources, ...extraSources],
-    layers,
+    sources: allSources,
+    layers: augmentedLayers,
   };
 }
 
