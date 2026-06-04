@@ -30,14 +30,17 @@ export function registerMapLayer(store: MapStateStore, layer: any): void {
     if (layer?.paint && typeof layer.paint === 'object' && !metadata.paint) {
         metadata.paint = layer.paint;
     }
-    // For composite style layers, extract primary sub-layer type and paint for legend rendering
+    // For composite style layers, store all sub-layers for legend rendering
     if (layer?.type === 'style' && Array.isArray(layer.layers) && layer.layers.length > 0) {
         const primarySub = layer.layers.find((s: any) => s?.type && s.type !== 'background') ?? layer.layers[0];
         if (primarySub?.type) {
-            metadata.layerType = primarySub.type; // always override 'style' with concrete sub-layer type
+            metadata.layerType = primarySub.type;
         }
         if (primarySub?.paint && typeof primarySub.paint === 'object' && !metadata.paint) {
             metadata.paint = primarySub.paint;
+        }
+        if (!metadata.sublayers) {
+            metadata.sublayers = layer.layers;
         }
     }
     const current = store.getState().mapLayers ?? {};
@@ -54,6 +57,7 @@ export function registerMapLayer(store: MapStateStore, layer: any): void {
                 legendRole: currentEntry.legendRole ?? metadata.legendRole,
                 sourceId: currentEntry.sourceId ?? metadata.sourceId,
                 layerType: metadata.layerType ?? currentEntry.layerType,
+                sublayers: metadata.sublayers ?? currentEntry.sublayers,
             },
         },
     }, 'MAP');

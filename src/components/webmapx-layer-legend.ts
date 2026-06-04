@@ -9,6 +9,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     layerId = '';
 
     @state() private meta: Record<string, unknown> | null = null;
+    @state() private zoom: number = 2;
 
     static styles = css`
         :host { display: block; }
@@ -17,11 +18,308 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         .legend-label { font-size: 0.75rem; color: var(--color-text-primary, #1f2937); line-height: 1.2; }
         .legend-img { max-width: 100%; max-height: 80px; display: block; border-radius: 3px; }
         .img-error { font-size: 0.75rem; color: var(--sl-color-danger-600, #c0392b); font-style: italic; }
+        .sub-group-title { font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary, #555); margin-top: 4px; }
+        .sub-row { padding-left: 8px; }
     `;
 
     protected onStateChanged(state: IMapState): void {
         const entry = (state.mapLayers ?? {})[this.layerId] as Record<string, unknown> | undefined;
         this.meta = entry ?? null;
+        if (typeof state.zoomLevel === 'number') this.zoom = state.zoomLevel;
+    }
+
+    // ─── Expression evaluator ─────────────────────────────────────────────────
+
+    /** Resolve a MapLibre paint expression to a concrete value at the given zoom. */
+    private evalAtZoom(expr: unknown, zoom: number): unknown {
+        if (!Array.isArray(expr)) return expr;
+        const op = expr[0];
+        if (op === 'interpolate' && expr.length >= 4) {
+            const stops: Array<[number, unknown]> = [];
+            for (let i = 3; i + 1 < expr.length; i += 2)
+                stops.push([Number(expr[i]), expr[i + 1]]);
+            if (stops.length === 0) return null;
+            if (zoom <= stops[0][0]) return stops[0][1];
+            if (zoom >= stops[stops.length - 1][0]) return stops[stops.length - 1][1];
+            for (let i = 0; i < stops.length - 1; i++) {
+                const [z0, v0] = stops[i], [z1, v1] = stops[i + 1];
+                if (zoom >= z0 && zoom <= z1) {
+                    if (typeof v0 === 'number' && typeof v1 === 'number') {
+                        const t = (zoom - z0) / (z1 - z0);
+                        return v0 + (v1 - v0) * t;
+                    }
+                    return zoom - z0 < z1 - zoom ? v0 : v1;
+                }
+            }
+        }
+        if (op === 'step' && expr.length >= 3) {
+            let result = expr[2]; // default
+            for (let i = 3; i + 1 < expr.length; i += 2)
+                if (zoom >= Number(expr[i])) result = expr[i + 1];
+            return result;
+        }
+        if (op === 'literal') return expr[1];
+        return expr; // non-zoom expression, return as-is
+    }
+
+    /** Evaluate a layer filter expression at the given zoom. Returns true if the layer should be shown. */
+    private evalFilter(filter: unknown, zoom: number): boolean {
+        if (!Array.isArray(filter) || filter.length === 0) return true;
+        const op = filter[0];
+
+        if (op === 'all') return (filter.slice(1) as unknown[]).every(f => this.evalFilter(f, zoom));
+        if (op === 'any') return (filter.slice(1) as unknown[]).some(f => this.evalFilter(f, zoom));
+        if (op === 'none') return !(filter.slice(1) as unknown[]).some(f => this.evalFilter(f, zoom));
+
+        // Zoom-based comparisons: ["<=", ["zoom"], value] etc.
+        const lhs = filter[1], rhs = filter[2];
+        const lhsIsZoom = Array.isArray(lhs) && lhs[0] === 'zoom';
+        const rhsIsZoom = Array.isArray(rhs) && rhs[0] === 'zoom';
+
+        if (lhsIsZoom || rhsIsZoom) {
+            const zoomVal = zoom;
+            const other = Number(lhsIsZoom ? rhs : lhs);
+            const left = lhsIsZoom ? zoomVal : other;
+            const right = lhsIsZoom ? other : zoomVal;
+            if (op === '==' || op === '===') return left === right;
+            if (op === '!=' || op === '!==') return left !== right;
+            if (op === '<')  return left < right;
+            if (op === '<=') return left <= right;
+            if (op === '>')  return left > right;
+            if (op === '>=') return left >= right;
+        }
+
+        // Non-zoom conditions (feature property filters) — assume true for legend purposes
+        return true;
+    }
+
+    /** Returns match cases if expr is data-driven match/step, otherwise null. */
+    private extractDataCases(expr: unknown): Array<{label: string, paint: unknown}> | null {
+        if (!Array.isArray(expr)) return null;
+        const op = expr[0];
+        if (op === 'match' && expr.length >= 5) {
+            const cases: Array<{label: string, paint: unknown}> = [];
+            for (let i = 2; i + 1 < expr.length - 1; i += 2) {
+                const matchVal = Array.isArray(expr[i]) ? expr[i].join(', ') : String(expr[i]);
+                cases.push({ label: matchVal, paint: expr[i + 1] });
+            }
+            // default (last element)
+            cases.push({ label: 'other', paint: expr[expr.length - 1] });
+            return cases.length > 1 ? cases : null;
+        }
+        if (op === 'step' && expr.length >= 5) {
+            // Check if input is a property (not zoom)
+            const input = expr[1];
+            if (!Array.isArray(input) || input[0] === 'zoom') return null;
+            const cases: Array<{label: string, paint: unknown}> = [{ label: `< ${expr[3]}`, paint: expr[2] }];
+            for (let i = 3; i + 1 < expr.length; i += 2)
+                cases.push({ label: `≥ ${expr[i]}`, paint: expr[i + 1] });
+            return cases;
+        }
+        if (op === 'case' && expr.length >= 3) {
+            const cases: Array<{label: string, paint: unknown}> = [];
+            for (let i = 1; i + 1 < expr.length; i += 2)
+                cases.push({ label: `class ${Math.floor(i / 2) + 1}`, paint: expr[i + 1] });
+            cases.push({ label: 'other', paint: expr[expr.length - 1] });
+            return cases.length > 1 ? cases : null;
+        }
+        return null;
+    }
+
+    private isDataDriven(expr: unknown): boolean {
+        if (!Array.isArray(expr)) return false;
+        const op = expr[0];
+        if (op === 'match' || op === 'case') return true;
+        if (op === 'step') return !(Array.isArray(expr[1]) && expr[1][0] === 'zoom');
+        return false;
+    }
+
+    // ─── Composite style legend ───────────────────────────────────────────────
+
+    private renderCompositeLegend(sublayers: unknown[], zoom: number): TemplateResult {
+        const rows: TemplateResult[] = [];
+        const seen = new Set<string>(); // deduplicate by visual key
+
+        for (const raw of sublayers) {
+            const sub = raw as Record<string, unknown>;
+            if (!sub || typeof sub.type !== 'string') continue;
+
+            // Zoom visibility
+            const minz = typeof sub.minzoom === 'number' ? sub.minzoom : 0;
+            const maxz = typeof sub.maxzoom === 'number' ? sub.maxzoom : 24;
+            // MapLibre uses 512px tiles; styles authored for 256px tiles have a +1 zoom offset
+            if (zoom < minz || zoom >= maxz + 1) continue;
+            // Evaluate zoom-based filter expressions (e.g. ["<=", ["zoom"], 8.66])
+            if (sub.filter && !this.evalFilter(sub.filter, zoom)) continue;
+
+            // Layout visibility
+            const layout = sub.layout as Record<string, unknown> | undefined;
+            if (layout?.['visibility'] === 'none') continue;
+
+            const type = sub.type as string;
+            const paint = (sub.paint && typeof sub.paint === 'object') ? sub.paint as Record<string, unknown> : {};
+            const layoutRaw = (sub.layout && typeof sub.layout === 'object') ? sub.layout as Record<string, unknown> : {};
+            const rawId = String(sub.id ?? '');
+            const label = rawId.replace(/^style:/, '').replace(/-/g, ' ');
+
+            // Evaluate zoom-dependent paint and layout values
+            const evalPaint: Record<string, unknown> = {};
+            for (const [k, v] of Object.entries(paint)) {
+                evalPaint[k] = this.isDataDriven(v) ? v : this.evalAtZoom(v, zoom);
+            }
+            const evalLayout: Record<string, unknown> = {};
+            for (const [k, v] of Object.entries(layoutRaw)) {
+                evalLayout[k] = this.evalAtZoom(v, zoom);
+            }
+
+            // Find primary color key for this layer type
+            const colorKey = type === 'fill' ? 'fill-color'
+                : type === 'fill-extrusion' ? 'fill-extrusion-color'
+                : type === 'line' ? 'line-color'
+                : type === 'circle' ? 'circle-color'
+                : type === 'symbol' ? 'text-color'
+                : null;
+
+            const rawColorExpr = colorKey ? paint[colorKey] : null;
+            const dataCases = rawColorExpr ? this.extractDataCases(rawColorExpr) : null;
+
+            if (dataCases && dataCases.length > 1) {
+                // Multi-class legend: title row + case rows
+                const dedupKey = `${type}|${rawId}`;
+                if (seen.has(dedupKey)) continue;
+                seen.add(dedupKey);
+
+                rows.push(html`<div class="sub-group-title">${label}</div>`);
+                for (const { label: caseLabel, paint: casePaint } of dataCases) {
+                    const casePaintObj = { ...evalPaint, [colorKey!]: casePaint };
+                    const swatch = this.renderSwatch(type, casePaintObj, zoom, evalLayout);
+                    if (!swatch) continue;
+                    const caseKey = `${type}|${String(casePaint)}`;
+                    if (seen.has(caseKey)) continue;
+                    seen.add(caseKey);
+                    rows.push(html`
+                        <div class="legend-row sub-row">
+                            ${swatch}
+                            <span class="legend-label">${caseLabel}</span>
+                        </div>`);
+                }
+            } else {
+                // Single style: swatch + label inline
+                const resolvedColor = colorKey ? String(evalPaint[colorKey] ?? '#aaa') : '#aaa';
+                // For symbols also include size + weight in dedup key — country/state/town labels
+                // differ visually even when same color
+                let dedupKey = `${type}|${resolvedColor}`;
+                if (type === 'symbol') {
+                    const rawSize = evalLayout['text-size'] ?? evalPaint['text-size'];
+                    const sz = Math.round(Number(typeof rawSize === 'number' ? rawSize : 12));
+                    const fonts = Array.isArray(evalLayout['text-font']) ? (evalLayout['text-font'] as string[]) : [];
+                    const fontStr = fonts.join(' ').toLowerCase();
+                    const weight = fontStr.includes('bold') || fontStr.includes('black') ? '700'
+                        : fontStr.includes('semibold') || fontStr.includes('demibold') || fontStr.includes('medium') ? '600'
+                        : '400';
+                    const haloW = Math.round(Number(evalPaint['text-halo-width'] ?? 0) * 2) / 2;
+                    const haloC = haloW > 0 ? String(evalPaint['text-halo-color'] ?? '') : '';
+                    dedupKey = `symbol|${resolvedColor}|${sz}|${weight}|${haloW}|${haloC}`;
+                }
+                if (seen.has(dedupKey)) continue;
+                seen.add(dedupKey);
+                const swatch = this.renderSwatch(type, evalPaint, zoom, evalLayout);
+                if (!swatch) continue;
+                rows.push(html`
+                    <div class="legend-row">
+                        ${swatch}
+                        <span class="legend-label">${label}</span>
+                    </div>`);
+            }
+        }
+
+        return html`<div class="legend-wrap">${rows}</div>`;
+    }
+
+    /** Render a small SVG swatch for any layer type. */
+    private renderSwatch(type: string, paint: Record<string, unknown>, _zoom: number, layout?: Record<string, unknown>): TemplateResult | null {
+        if (type === 'fill') {
+            const c = String(paint['fill-color'] ?? '#aaa');
+            const op = Number(paint['fill-opacity'] ?? 0.7);
+            const outline = String(paint['fill-outline-color'] ?? c);
+            return svg`<svg width="20" height="12" style="flex-shrink:0">
+                <rect x="1" y="1" width="18" height="10" fill="${c}" fill-opacity="${op}"
+                    stroke="${outline}" stroke-width="1" rx="1"/>
+            </svg>`;
+        }
+        if (type === 'fill-extrusion') {
+            const c = String(paint['fill-extrusion-color'] ?? '#aaa');
+            const op = Number(paint['fill-extrusion-opacity'] ?? 0.8);
+            // Show as a simple fill rect with a slightly darker outline to hint at 3D
+            return svg`<svg width="20" height="12" style="flex-shrink:0">
+                <rect x="1" y="1" width="18" height="10" fill="${c}" fill-opacity="${op}" stroke="none"/>
+                <line x1="19" y1="1" x2="19" y2="11" stroke="rgba(0,0,0,0.3)" stroke-width="2"/>
+                <line x1="1" y1="11" x2="19" y2="11" stroke="rgba(0,0,0,0.3)" stroke-width="2"/>
+            </svg>`;
+        }
+        if (type === 'line') {
+            const c = String(paint['line-color'] ?? '#aaa');
+            const w = Math.min(Number(paint['line-width'] ?? 2), 4);
+            const dash = Array.isArray(paint['line-dasharray'])
+                ? (paint['line-dasharray'] as number[]).join(' ') : '';
+            return svg`<svg width="20" height="12" style="flex-shrink:0">
+                <line x1="1" y1="6" x2="19" y2="6" stroke="${c}" stroke-width="${w}"
+                    stroke-dasharray="${dash}" stroke-linecap="round"/>
+            </svg>`;
+        }
+        if (type === 'circle') {
+            const c = String(paint['circle-color'] ?? '#aaa');
+            const r = Math.min(Number(paint['circle-radius'] ?? 4), 5);
+            const sc = String(paint['circle-stroke-color'] ?? c);
+            const sw = Number(paint['circle-stroke-width'] ?? 0);
+            return svg`<svg width="20" height="12" style="flex-shrink:0">
+                <circle cx="10" cy="6" r="${r}" fill="${c}" stroke="${sc}" stroke-width="${sw}"/>
+            </svg>`;
+        }
+        if (type === 'symbol') {
+            const c = String(paint['text-color'] ?? '#555');
+            const haloC = paint['text-halo-width'] && Number(paint['text-halo-width']) > 0
+                ? String(paint['text-halo-color'] ?? 'rgba(255,255,255,0.8)') : null;
+            // text-size can be in paint (zoom-dependent already evaluated) or layout
+            // text-size lives in layout (evaluated) or occasionally paint
+            const rawSize = layout?.['text-size'] ?? paint['text-size'];
+            const textSize = typeof rawSize === 'number' ? rawSize : 12;
+            const fontSize = Math.min(Math.max(Math.round(textSize * 0.9), 7), 24);
+            // Derive weight/style from font name keywords
+            const fonts = Array.isArray(layout?.['text-font']) ? layout!['text-font'] as string[] : [];
+            const fontStr = fonts.join(' ').toLowerCase();
+            const fontWeight = fontStr.includes('bold') || fontStr.includes('black') ? '700'
+                : fontStr.includes('semibold') || fontStr.includes('demibold') || fontStr.includes('medium') ? '600'
+                : '400';
+            const italic = fontStr.includes('italic') || fontStr.includes('oblique') ? 'italic' : 'normal';
+            const svgW = Math.max(20, fontSize + 4);
+            const svgH = fontSize + 4;
+            return svg`<svg width="${svgW}" height="${svgH}" style="flex-shrink:0">
+                ${haloC ? svg`<text x="${svgW/2}" y="${fontSize}" text-anchor="middle"
+                    font-size="${fontSize}" font-weight="${fontWeight}" font-style="${italic}"
+                    stroke="${haloC}" stroke-width="3" stroke-linejoin="round"
+                    fill="none" font-family="sans-serif">A</text>` : ''}
+                <text x="${svgW/2}" y="${fontSize}" text-anchor="middle"
+                    font-size="${fontSize}" font-weight="${fontWeight}" font-style="${italic}"
+                    fill="${c}" font-family="sans-serif">A</text>
+            </svg>`;
+        }
+        if (type === 'background') {
+            const c = String(paint['background-color'] ?? '#eee');
+            return svg`<svg width="20" height="12" style="flex-shrink:0">
+                <rect x="1" y="1" width="18" height="10" fill="${c}" rx="1"/>
+            </svg>`;
+        }
+        if (type === 'raster') {
+            return svg`<svg width="20" height="12" style="flex-shrink:0">
+                <defs><pattern id="rp" width="4" height="4" patternUnits="userSpaceOnUse">
+                    <rect width="2" height="2" fill="#ccc"/>
+                    <rect x="2" y="2" width="2" height="2" fill="#eee"/>
+                </pattern></defs>
+                <rect x="1" y="1" width="18" height="10" fill="url(#rp)" rx="1"/>
+            </svg>`;
+        }
+        return null;
     }
 
     private extractLegendStops(expression: unknown): Array<{ value: unknown; paint: unknown }> {
@@ -199,6 +497,15 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             });
         }
 
+        if (layerType === 'fill-extrusion') {
+            const colorStops = this.extractLegendStops(paint['fill-extrusion-color']);
+            const opacity = Number(paint['fill-extrusion-opacity'] ?? 0.8);
+            return colorStops
+                .filter((s, _, arr) => arr.length === 1 || s.value !== null)
+                .map(s => this.renderFillRow(String(s.paint ?? '#aaa'), String(s.paint ?? '#aaa'), opacity,
+                    s.value !== null ? String(s.value) : ''));
+        }
+
         // symbol, raster, background — single swatch
         if (layerType === 'symbol') {
             const textColor = String((paint as Record<string, unknown>)['text-color'] ?? '#1f2937');
@@ -236,7 +543,14 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         const paint = (meta?.paint && typeof meta.paint === 'object') ? meta.paint as Record<string, unknown> : {};
         const legendUrl = typeof meta?.legendurl === 'string' && meta.legendurl.length > 0 ? meta.legendurl : null;
         const label = typeof meta?.label === 'string' ? meta.label : this.layerId;
-        const supportedTypes = ['fill', 'line', 'circle', 'symbol', 'raster', 'background'];
+        const sublayers = Array.isArray(meta?.sublayers) ? meta!.sublayers as unknown[] : null;
+
+        // Composite style layer with many sub-layers (e.g. OpenFreeMap)
+        if (sublayers && sublayers.length > 1) {
+            return this.renderCompositeLegend(sublayers, this.zoom);
+        }
+
+        const supportedTypes = ['fill', 'fill-extrusion', 'line', 'circle', 'symbol', 'raster', 'background'];
         const hasSwatch = layerType && supportedTypes.includes(layerType);
 
         return html`

@@ -176,6 +176,32 @@ export class WebmapxInfoTool extends WebmapxModalTool {
             object-fit: cover;
         }
 
+        .sub-layer-title {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.15rem 0.5rem;
+            background: var(--color-surface-alt, #f5f5f5);
+            border-bottom: 1px solid var(--color-border-light, #eee);
+        }
+
+        .sub-layer-name {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--color-text-secondary, #555);
+        }
+
+        .sub-layer-type {
+            font-size: 0.65rem;
+            color: var(--color-text-secondary, #888);
+            font-style: italic;
+        }
+
+        .source-badge.composite {
+            background: var(--sl-color-violet-100, #ede9fe);
+            color: var(--sl-color-violet-700, #6d28d9);
+        }
+
         .source-badge {
             display: inline-block;
             font-size: 0.65rem;
@@ -328,15 +354,33 @@ export class WebmapxInfoTool extends WebmapxModalTool {
         }
 
         return html`
-            ${[...byLayer.entries()].map(([layerId, feats]) => html`
+            ${[...byLayer.entries()].map(([layerId, feats]) => {
+                const meta = this.adapter?.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined;
+                const isComposite = Array.isArray(meta?.sublayers) && (meta!.sublayers as unknown[]).length > 1;
+                const badge = isComposite ? 'composite' : feats[0].source;
+                // Group composite features by sub-layer
+                const bySubLayer = new Map<string, FeatureInfo[]>();
+                for (const f of feats) {
+                    const key = f.subLayerId ?? '';
+                    const existing = bySubLayer.get(key);
+                    if (existing) existing.push(f);
+                    else bySubLayer.set(key, [f]);
+                }
+                return html`
                 <div class="layer-group">
                     <div class="layer-title">
                         ${feats[0].layerTitle ?? layerId}
-                        <span class="source-badge ${feats[0].source}">${feats[0].source}</span>
+                        <span class="source-badge ${isComposite ? 'composite' : feats[0].source}">${badge}</span>
                     </div>
-                    ${feats.map((f) => this.renderPropsTable(f))}
-                </div>
-            `)}
+                    ${[...bySubLayer.entries()].map(([subId, subFeats]) => html`
+                        ${subId ? html`<div class="sub-layer-title">
+                            <span class="sub-layer-name">${subId}</span>
+                            ${subFeats[0].subLayerType ? html`<span class="sub-layer-type">${subFeats[0].subLayerType}</span>` : ''}
+                        </div>` : ''}
+                        ${subFeats.map((f) => this.renderPropsTable(f))}
+                    `)}
+                </div>`;
+            })}
         `;
     }
 

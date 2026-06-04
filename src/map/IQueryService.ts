@@ -27,6 +27,10 @@ export interface FeatureInfo {
     geometry?: GeoJSON.Geometry;
     /** Whether feature came from a vector engine query or WMS GetFeatureInfo. */
     source: 'vector' | 'wms';
+    /** For composite style layers: the sub-layer id (e.g. "label_country_3"). */
+    subLayerId?: string;
+    /** For composite style layers: the sub-layer type (fill, line, symbol, etc.). */
+    subLayerType?: string;
 }
 
 /**

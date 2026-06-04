@@ -33,12 +33,22 @@ export class MapQueryService implements IQueryService {
             if (!logicalId) continue;
             if (logicalFilter && !logicalFilter.has(logicalId)) continue;
             const layerTitle = this.resolveLayerTitle(logicalId, mapLayers);
+            // Extract sub-layer id/type for composite style layers
+            // Native ID format: "${logicalId}-style:${subLayerId}" e.g. "openfreemap-liberty-style:label_country_3"
+            const nativeLayerId = typeof (f.layer as any)?.id === 'string' ? (f.layer as any).id as string : '';
+            const subLayerPrefix = `${logicalId}-style:`;
+            const subLayerId = nativeLayerId.startsWith(subLayerPrefix)
+                ? nativeLayerId.slice(subLayerPrefix.length)
+                : undefined;
+            const subLayerType = typeof (f.layer as any)?.type === 'string' ? (f.layer as any).type as string : undefined;
             results.push({
                 layerId: logicalId,
                 ...(layerTitle ? { layerTitle } : {}),
                 properties: f.properties as Record<string, unknown>,
                 geometry: f.geometry as GeoJSON.Geometry,
                 source: 'vector',
+                ...(subLayerId ? { subLayerId } : {}),
+                ...(subLayerType ? { subLayerType } : {}),
             });
         }
 
