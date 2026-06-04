@@ -23,24 +23,32 @@ export class WebmapxToolTemplate extends WebmapxBaseTool {
 
     private toolService: IToolService | null = null;
 
-    // Define component styles
     static styles = css`
         :host {
-            position: relative;
             display: inline-flex;
             pointer-events: auto;
         }
-
         .tool-container {
             border: 1px solid var(--color-border);
-            padding: 15px;
+            padding: 6px 8px;
             background: var(--color-background-secondary);
             color: var(--color-text-primary);
-            
-            /* **BEST PRACTICE:** Use Flexbox for predictable, column-based stacking */
             display: flex;
             flex-direction: column;
-            gap: 12px; /* Standard vertical separation */
+            gap: 6px;
+            font-size: 0.8rem;
+        }
+        .tool-title {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--color-text-secondary, #666);
+        }
+        .radius-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
     `;
 
@@ -92,23 +100,23 @@ export class WebmapxToolTemplate extends WebmapxBaseTool {
     protected render() {
         return html`
             <div class="tool-container">
-                <h3>Buffer Tool</h3>
-                <label>Radius: ${this.bufferRadius} km</label>
-                
-                <sl-range
-                    min="1" 
-                    max="50" 
-                    .value="${this.bufferRadius}" 
-                    @sl-change="${this.handleSliderInput}"
-                    tooltip="top"  ></sl-range>
-
-                <sl-button 
+                <div class="tool-title">Template Tool — Buffer</div>
+                <div class="radius-row">
+                    <span>Radius: ${this.bufferRadius} km</span>
+                    <sl-range
+                        min="1"
+                        max="50"
+                        .value="${this.bufferRadius}"
+                        @sl-change="${this.handleSliderInput}"
+                        tooltip="top"
+                        style="flex:1;min-width:80px"></sl-range>
+                </div>
+                <sl-button
+                    size="small"
                     @click="${this.handleToolToggle}"
                     variant="${this.isToolActive ? 'primary' : 'default'}"
                     outline
-                >
-                    Toggle Buffer Activation
-                </sl-button>
+                >Toggle Buffer</sl-button>
             </div>
         `;
     }
