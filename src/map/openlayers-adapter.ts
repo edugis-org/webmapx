@@ -121,6 +121,10 @@ export class OpenLayersAdapter implements IMap {
         this.core.setPanEnabled(enabled);
     }
 
+    setDoubleClickZoomEnabled(enabled: boolean): void {
+        this.core.setDoubleClickZoomEnabled(enabled);
+    }
+
     setLayerVisibility(layerId: string, visible: boolean): void {
         this.core.setLayerVisibility(layerId, visible);
     }

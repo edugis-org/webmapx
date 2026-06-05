@@ -591,6 +591,10 @@ export class MapCoreService implements IMapCore {
         });
     }
 
+    public setDoubleClickZoomEnabled(_enabled: boolean): void {
+        // OpenLayers does not have built-in double-click zoom
+    }
+
     public setLayerVisibility(layerId: string, visible: boolean): void {
         const sourceInfo = this.sources.get(layerId);
         if (sourceInfo?.olLayer) sourceInfo.olLayer.setVisible(visible);

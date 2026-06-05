@@ -418,6 +418,10 @@ export class MapCoreService implements IMapCore {
         ctrl.enableZoom = enabled;
     }
 
+    public setDoubleClickZoomEnabled(_enabled: boolean): void {
+        // Cesium has no separate double-click zoom
+    }
+
     public setLayerVisibility(layerId: string, visible: boolean): void {
         for (const state of this.sourceState.values()) {
             for (const entry of state.layers) {

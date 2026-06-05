@@ -172,6 +172,10 @@ export class CesiumAdapter implements IMap {
         this.core.setPanEnabled(enabled);
     }
 
+    setDoubleClickZoomEnabled(_enabled: boolean): void {
+        // Cesium has no separate double-click zoom
+    }
+
     setLayerVisibility(layerId: string, visible: boolean): void {
         this.core.setLayerVisibility(layerId, visible);
     }

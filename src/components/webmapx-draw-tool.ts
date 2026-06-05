@@ -3,9 +3,15 @@ import { customElement, state, query } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
 import type { LngLat, ClickEvent, PointerMoveEvent, ContextMenuEvent, PointerDownEvent, PointerUpEvent } from '../store/map-events';
+import { BlobWriter, TextReader, ZipWriter } from '@zip.js/zip.js';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
+import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
+import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
+import '@shoelace-style/shoelace/dist/components/radio/radio.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
+import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import './webmapx-draw-layer-dialog';
 import type { WebmapxDrawLayerDialog, DrawLayerConfig, GeometryType } from './webmapx-draw-layer-dialog';
 import { unregisterMapLayer } from '../map/map-layer-registry';
@@ -35,6 +41,10 @@ const EDIT_MID_SOURCE  = 'webmapx-draw-edit-mid-source';
 const EDIT_MID_LAYER   = 'webmapx-draw-edit-mid';
 
 const HANDLE_THRESHOLD = 12; // px — snap distance for vertex/midpoint handles
+
+const SNAP_SOURCE_ID = 'webmapx-draw-snap-source';
+const SNAP_LAYER_ID  = 'webmapx-draw-snap-layer';
+const SNAP_THRESHOLD = 16; // px
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -105,6 +115,23 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private sharedLayersCreated = false;
     private createdDrawLayerIds = new Set<string>();
 
+    // ── Touch detection ───────────────────────────────────────────────────────
+
+    private touchMQ = window.matchMedia('(pointer: coarse)');
+    @state() private isTouchDevice = this.touchMQ.matches;
+    private onTouchMQChange = (e: MediaQueryListEvent) => { this.isTouchDevice = e.matches; };
+
+    connectedCallback(): void {
+        super.connectedCallback();
+        this.touchMQ.addEventListener('change', this.onTouchMQChange);
+    }
+
+    // ── Snap state ────────────────────────────────────────────────────────────
+
+    @state() private snapEnabled = true;
+    private snapPos: LngLat | null = null;
+    private lastCursorPx: [number, number] | null = null;
+
     // ── Vertex editing state ──────────────────────────────────────────────────
 
     @state() private editState: EditState = 'none';
@@ -123,6 +150,12 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     @query('webmapx-draw-layer-dialog')
     private layerDialog!: WebmapxDrawLayerDialog;
+
+    @query('#export-dialog')
+    private exportDialog!: SlDialog;
+
+    @state() private exportFilename = 'draw-export';
+    @state() private exportMode: 'combined' | 'separate' = 'combined';
 
     // ─── Styles ───────────────────────────────────────────────────────────────
 
@@ -259,6 +292,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }
         this.draftPoints = [];
         this.cursorPos = null;
+        this.snapPos = null;
+        this.lastCursorPx = null;
         this.dragging = null;
         this.featureDrag = null;
         this.selectedFeatureId = null;
@@ -266,12 +301,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.editHandles = [];
         this.hoveredHandle = null;
         this.adapter?.setPanEnabled(true);
+        this.adapter?.setDoubleClickZoomEnabled(true);
         this.updateSelectedSource();
         this.removeSharedLayers();   // only tool layers — data layers stay on map
         this.adapter?.setCursor('');
     }
 
     disconnectedCallback(): void {
+        this.touchMQ.removeEventListener('change', this.onTouchMQChange);
         this.removeAllMapLayers();   // full cleanup when component is removed
         super.disconnectedCallback();
     }
@@ -336,6 +373,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             paint: { 'circle-radius': 4, 'circle-color': '#fff', 'circle-stroke-width': 1.5, 'circle-stroke-color': '#0f62fe', 'circle-opacity': 0.7 }
         });
 
+        // Snap indicator
+        this.dispatch('webmapx-add-source', { id: SNAP_SOURCE_ID, config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } } });
+        this.dispatch('webmapx-add-layer', {
+            id: SNAP_LAYER_ID, type: 'circle', source: SNAP_SOURCE_ID,
+            metadata: { isToolLayer: true, hideFromLegend: true },
+            paint: { 'circle-radius': 7, 'circle-color': '#ffdd00', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff', 'circle-opacity': 0.9 }
+        });
+
         this.sharedLayersCreated = true;
 
         // Re-add any draw layers from prior activation
@@ -397,10 +442,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private removeSharedLayers(): void {
-        for (const id of [RUBBER_LINE_ID, VERTEX_LAYER_ID, SEL_POINT_ID, DRAFT_POINT_ID, EDIT_VERT_LAYER, EDIT_MID_LAYER]) {
+        for (const id of [RUBBER_LINE_ID, VERTEX_LAYER_ID, SEL_POINT_ID, DRAFT_POINT_ID, EDIT_VERT_LAYER, EDIT_MID_LAYER, SNAP_LAYER_ID]) {
             this.dispatch('webmapx-remove-layer', id);
         }
-        for (const id of [RUBBER_SOURCE_ID, VERTEX_SOURCE_ID, SEL_SOURCE_ID, DRAFT_SOURCE_ID, EDIT_VERT_SOURCE, EDIT_MID_SOURCE]) {
+        for (const id of [RUBBER_SOURCE_ID, VERTEX_SOURCE_ID, SEL_SOURCE_ID, DRAFT_SOURCE_ID, EDIT_VERT_SOURCE, EDIT_MID_SOURCE, SNAP_SOURCE_ID]) {
             this.dispatch('webmapx-remove-source', id);
         }
         this.sharedLayersCreated = false;
@@ -586,10 +631,13 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.mode = mode;
         this.draftPoints = [];
         this.cursorPos = null;
+        this.snapPos = null;
+        this.lastCursorPx = null;
         this.updateRubberband();
 
         switch (mode) {
             case 'select':
+                this.adapter?.setDoubleClickZoomEnabled(true);
                 this.adapter?.setCursor('');
                 this.editState = 'none';
                 this.editHandles = [];
@@ -599,6 +647,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             case 'draw-point':
             case 'draw-line':
             case 'draw-polygon':
+                this.adapter?.setDoubleClickZoomEnabled(false);
                 this.editState = 'none';
                 this.editHandles = [];
                 this.hoveredHandle = null;
@@ -779,7 +828,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     // ─── Map event handlers ───────────────────────────────────────────────────
 
     private handleClick(e: ClickEvent): void {
-        const coords = e.coords;
+        const coords: LngLat = (this.snapEnabled && this.snapPos) ? this.snapPos : e.coords;
         const geoType = modeToGeometryType(this.mode);
         const layerId = geoType ? this.activeLayerIds[geoType] : null;
         if (!layerId && this.mode !== 'select') return;
@@ -800,6 +849,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                     this.finishDraft(layerId!);
                     return;
                 }
+            }
+            // Deselect previous feature when starting a new shape
+            if (this.draftPoints.length === 0 && this.selectedFeatureId) {
+                this.selectedFeatureId = null;
+                this.editState = 'none';
+                this.editHandles = [];
+                this.updateSelectedSource();
+                this.updateEditHandles();
             }
             this.draftPoints.push(coords);
             this.updateRubberband();
@@ -866,16 +923,41 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             // Move vertex/midpoint
             const f = this.features.find(f => f.id === this.dragging!.handle.featureId);
             if (f) {
-                this.applyDragMove(f, this.dragging.handle, e.coords);
+                let moveTarget = e.coords;
+                if (this.snapEnabled && this.features.length > 0) {
+                    const px = this.adapter!.project(e.coords);
+                    const snapped = this.computeSnapExcluding(
+                        [px[0], px[1]],
+                        this.dragging.handle.featureId,
+                        isPointType(f.type)
+                    );
+                    this.snapPos = snapped;
+                    if (snapped) moveTarget = snapped;
+                } else {
+                    this.snapPos = null;
+                }
+                this.applyDragMove(f, this.dragging.handle, moveTarget);
                 this.dragging.lastCoords = e.coords;
                 this.refreshDrawLayerSource(f.layerId);
                 this.updateEditHandles();
                 this.updateSelectedSource();
+                this.updateSnapIndicator();
             }
             return;
         }
 
-        if (this.mode === 'draw-line' || this.mode === 'draw-polygon') {
+        if (this.mode === 'draw-point' || this.mode === 'draw-line' || this.mode === 'draw-polygon') {
+            if (this.snapEnabled && this.features.length > 0) {
+                const px = this.adapter!.project(e.coords);
+                const cursorPx: [number, number] = [px[0], px[1]];
+                if (!this.lastCursorPx ||
+                    Math.hypot(cursorPx[0] - this.lastCursorPx[0], cursorPx[1] - this.lastCursorPx[1]) > 0.5) {
+                    this.lastCursorPx = cursorPx;
+                    this.snapPos = this.computeSnap(cursorPx);
+                }
+            } else {
+                this.snapPos = null;
+            }
             this.updateRubberband();
             return;
         }
@@ -966,6 +1048,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             return;
         }
         if (!this.dragging) return;
+        this.snapPos = null;
+        this.updateSnapIndicator();
         this.adapter?.setPanEnabled(true);
         this.adapter?.setCursor(this.hoveredHandle ? 'grab' : '');
 
@@ -1013,14 +1097,83 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.updateRubberband();
     }
 
+    // ─── Snap ─────────────────────────────────────────────────────────────────
+
+    private flatVertices(f: DrawFeature): LngLat[] {
+        if (f.type === 'Point') return [f.coordinates as LngLat];
+        if (f.type === 'MultiPoint') return f.coordinates as LngLat[];
+        if (f.type === 'LineString') return f.coordinates as LngLat[];
+        if (f.type === 'MultiLineString') return (f.coordinates as LngLat[][]).flat();
+        if (f.type === 'Polygon') return (f.coordinates as LngLat[][]).flat();
+        if (f.type === 'MultiPolygon') return (f.coordinates as LngLat[][][]).flat(2);
+        return [];
+    }
+
+    private flatEdges(f: DrawFeature): [LngLat, LngLat][] {
+        const edges: [LngLat, LngLat][] = [];
+        const addRing = (ring: LngLat[]) => {
+            for (let i = 0; i < ring.length - 1; i++) edges.push([ring[i], ring[i + 1]]);
+        };
+        if (f.type === 'LineString') addRing(f.coordinates as LngLat[]);
+        else if (f.type === 'MultiLineString') (f.coordinates as LngLat[][]).forEach(l => addRing(l));
+        else if (f.type === 'Polygon') (f.coordinates as LngLat[][]).forEach(r => addRing(r));
+        else if (f.type === 'MultiPolygon') (f.coordinates as LngLat[][][]).forEach(p => p.forEach(r => addRing(r)));
+        return edges;
+    }
+
+    private computeSnap(cursorPx: [number, number]): LngLat | null {
+        return this.computeSnapExcluding(cursorPx, null, this.mode === 'draw-point');
+    }
+
+    private computeSnapExcluding(cursorPx: [number, number], excludeFeatureId: string | null, skipPoints: boolean): LngLat | null {
+        if (!this.adapter) return null;
+        let best: LngLat | null = null;
+        let bestDist = SNAP_THRESHOLD;
+        const EDGE_PENALTY = 8;
+
+        for (const f of this.features) {
+            if (f.id === excludeFeatureId) continue;
+            if (skipPoints && isPointType(f.type)) continue;
+            for (const v of this.flatVertices(f)) {
+                const px = this.adapter.project(v);
+                const d = Math.hypot(px[0] - cursorPx[0], px[1] - cursorPx[1]);
+                if (d < bestDist) { bestDist = d; best = v; }
+            }
+            for (const [a, b] of this.flatEdges(f)) {
+                const pa = this.adapter.project(a);
+                const pb = this.adapter.project(b);
+                const dx = pb[0] - pa[0], dy = pb[1] - pa[1];
+                const len2 = dx * dx + dy * dy;
+                if (len2 === 0) continue;
+                const t = Math.max(0, Math.min(1, ((cursorPx[0] - pa[0]) * dx + (cursorPx[1] - pa[1]) * dy) / len2));
+                const d = Math.hypot(pa[0] + t * dx - cursorPx[0], pa[1] + t * dy - cursorPx[1]);
+                if (d + EDGE_PENALTY < bestDist) {
+                    bestDist = d + EDGE_PENALTY;
+                    best = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
+                }
+            }
+        }
+        return best;
+    }
+
+    private updateSnapIndicator(): void {
+        if (!this.sharedLayersCreated) return;
+        const snapFeatures = (this.snapEnabled && this.snapPos)
+            ? [{ type: 'Feature', geometry: { type: 'Point', coordinates: this.snapPos }, properties: {} }]
+            : [];
+        this.dispatch('webmapx-set-source-data', { id: SNAP_SOURCE_ID, data: { type: 'FeatureCollection', features: snapFeatures } });
+    }
+
     // ─── Source updates ───────────────────────────────────────────────────────
 
     private updateRubberband(): void {
         if (!this.sharedLayersCreated) return;
         const rbFeatures: any[] = [];
         const draftFeatures: any[] = [];
-        if ((this.mode === 'draw-line' || this.mode === 'draw-polygon') && this.draftPoints.length > 0 && this.cursorPos) {
-            const coords = [...this.draftPoints.map(p => [p[0], p[1]]), [this.cursorPos[0], this.cursorPos[1]]];
+        const drawing = this.mode === 'draw-point' || this.mode === 'draw-line' || this.mode === 'draw-polygon';
+        const endPos = (this.snapEnabled && this.snapPos) ? this.snapPos : this.cursorPos;
+        if (drawing && this.draftPoints.length > 0 && endPos) {
+            const coords = [...this.draftPoints.map(p => [p[0], p[1]]), [endPos[0], endPos[1]]];
             rbFeatures.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: {} });
             for (const p of this.draftPoints) {
                 draftFeatures.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [p[0], p[1]] }, properties: {} });
@@ -1028,6 +1181,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }
         this.dispatch('webmapx-set-source-data', { id: RUBBER_SOURCE_ID, data: { type: 'FeatureCollection', features: rbFeatures } });
         this.dispatch('webmapx-set-source-data', { id: DRAFT_SOURCE_ID, data: { type: 'FeatureCollection', features: draftFeatures } });
+        // Snap indicator: show at snapPos when drawing
+        const snapFeatures = (drawing && this.snapEnabled && this.snapPos)
+            ? [{ type: 'Feature', geometry: { type: 'Point', coordinates: this.snapPos }, properties: {} }]
+            : [];
+        this.dispatch('webmapx-set-source-data', { id: SNAP_SOURCE_ID, data: { type: 'FeatureCollection', features: snapFeatures } });
     }
 
     private updateSelectedSource(): void {
@@ -1287,19 +1445,50 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     exportGeoJSON(): void {
-        const fc: GeoJSON.FeatureCollection = {
-            type: 'FeatureCollection',
-            features: this.features.map(f => ({
-                type: 'Feature' as const,
-                id: f.id,
-                geometry: { type: f.type, coordinates: f.coordinates } as GeoJSON.Geometry,
-                properties: { ...f.properties, _layer: this.drawLayers.find(l => l.id === f.layerId)?.name ?? f.layerId }
-            }))
-        };
-        const blob = new Blob([JSON.stringify(fc, null, 2)], { type: 'application/json' });
+        this.exportFilename = 'draw-export';
+        this.exportMode = 'combined';
+        this.exportDialog.show();
+    }
+
+    private async doExport(): Promise<void> {
+        this.exportDialog.hide();
+        const name = this.exportFilename.trim() || 'draw-export';
+        if (this.drawLayers.length <= 1 || this.exportMode === 'combined') {
+            const fc: GeoJSON.FeatureCollection = {
+                type: 'FeatureCollection',
+                features: this.features.map(f => ({
+                    type: 'Feature' as const,
+                    id: f.id,
+                    geometry: { type: f.type, coordinates: f.coordinates } as GeoJSON.Geometry,
+                    properties: { ...f.properties, _layer: this.drawLayers.find(l => l.id === f.layerId)?.name ?? f.layerId }
+                }))
+            };
+            this.downloadBlob(new Blob([JSON.stringify(fc, null, 2)], { type: 'application/json' }), `${name}.geojson`);
+        } else {
+            const zipWriter = new ZipWriter(new BlobWriter('application/zip'));
+            for (const layer of this.drawLayers) {
+                const fc: GeoJSON.FeatureCollection = {
+                    type: 'FeatureCollection',
+                    features: this.features
+                        .filter(f => f.layerId === layer.id)
+                        .map(f => ({
+                            type: 'Feature' as const,
+                            id: f.id,
+                            geometry: { type: f.type, coordinates: f.coordinates } as GeoJSON.Geometry,
+                            properties: { ...f.properties }
+                        }))
+                };
+                const safeName = layer.name.replace(/[/\\?%*:|"<>]/g, '_');
+                await zipWriter.add(`${safeName}.geojson`, new TextReader(JSON.stringify(fc, null, 2)));
+            }
+            this.downloadBlob(await zipWriter.close(), `${name}.zip`);
+        }
+    }
+
+    private downloadBlob(blob: Blob, filename: string): void {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = 'draw-export.geojson'; a.click();
+        a.href = url; a.download = filename; a.click();
         URL.revokeObjectURL(url);
     }
 
@@ -1491,6 +1680,18 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
                 <div class="divider"></div>
 
+                <sl-tooltip content="Snap to vertices and edges (${this.snapEnabled ? 'on' : 'off'})">
+                    <sl-icon-button name="magnet"
+                        ?active=${this.snapEnabled}
+                        @click=${() => {
+                            this.snapEnabled = !this.snapEnabled;
+                            if (!this.snapEnabled) { this.snapPos = null; this.updateRubberband(); }
+                        }}>
+                    </sl-icon-button>
+                </sl-tooltip>
+
+                <div class="divider"></div>
+
                 <sl-tooltip content="Undo">
                     <sl-icon-button name="arrow-counterclockwise"
                         ?disabled=${this.historyIndex < 0}
@@ -1521,6 +1722,18 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             </div>
 
             <div class="help">${this.helpText}</div>
+
+            ${this.isTouchDevice && (this.mode === 'draw-line' || this.mode === 'draw-polygon') &&
+              this.draftPoints.length >= (this.mode === 'draw-line' ? 2 : 3) ? html`
+                <sl-button size="small" variant="primary" style="margin-bottom:.4rem;width:100%"
+                    @click=${() => {
+                        const geoType = modeToGeometryType(this.mode);
+                        const layerId = geoType ? this.activeLayerIds[geoType] : null;
+                        if (layerId) this.finishDraft(layerId);
+                    }}>
+                    Finish
+                </sl-button>
+            ` : ''}
 
             ${this.drawLayers.length > 0 ? html`
                 <div class="layers-section">
@@ -1604,9 +1817,32 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 @webmapx-draw-layer-confirm=${this.handleLayerConfirm}
                 @webmapx-draw-layer-cancel=${this.handleLayerCancel}>
             </webmapx-draw-layer-dialog>
+
+            <sl-dialog id="export-dialog" label="Export GeoJSON">
+                <div class="prop-row">
+                    <span class="prop-label">Filename</span>
+                    <sl-input class="prop-value" size="small"
+                        .value=${this.exportFilename}
+                        @sl-input=${(e: Event) => { this.exportFilename = (e.target as any).value; }}>
+                        <span slot="suffix">${this.exportMode === 'separate' ? '.zip' : '.geojson'}</span>
+                    </sl-input>
+                </div>
+                ${this.drawLayers.length > 1 ? html`
+                    <div style="margin-top:.6rem">
+                        <sl-radio-group label="Export as" .value=${this.exportMode}
+                            @sl-change=${(e: Event) => { this.exportMode = (e.target as any).value; }}>
+                            <sl-radio value="combined">Single GeoJSON file (all layers combined)</sl-radio>
+                            <sl-radio value="separate">Separate files per layer (ZIP archive)</sl-radio>
+                        </sl-radio-group>
+                    </div>
+                ` : ''}
+                <sl-button slot="footer" variant="primary" @click=${() => this.doExport()}>Download</sl-button>
+                <sl-button slot="footer" variant="default" @click=${() => this.exportDialog.hide()}>Cancel</sl-button>
+            </sl-dialog>
         `;
     }
 }
+
 
 function modeToGeometryType(mode: DrawMode): GeometryType | null {
     if (mode === 'draw-point')   return 'Point';

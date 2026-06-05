@@ -432,6 +432,15 @@ export class MapCoreService implements IMapCore {
         }
     }
 
+    public setDoubleClickZoomEnabled(enabled: boolean): void {
+        if (!this.mapInstance) return;
+        if (enabled) {
+            this.mapInstance.doubleClickZoom.enable();
+        } else {
+            this.mapInstance.doubleClickZoom.disable();
+        }
+    }
+
     public setLayerVisibility(layerId: string, visible: boolean): void {
         if (!this.mapInstance) return;
         try { this.mapInstance.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none'); } catch (_) {}

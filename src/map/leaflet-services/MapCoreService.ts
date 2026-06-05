@@ -263,6 +263,15 @@ export class MapCoreService implements IMapCore {
         }
     }
 
+    public setDoubleClickZoomEnabled(enabled: boolean): void {
+        if (!this.mapInstance) return;
+        if (enabled) {
+            this.mapInstance.doubleClickZoom.enable();
+        } else {
+            this.mapInstance.doubleClickZoom.disable();
+        }
+    }
+
     public setLayerVisibility(layerId: string, visible: boolean): void {
         if (!this.mapInstance) return;
         const nativeLayers = this.logicalToNative.get(layerId) ?? [];

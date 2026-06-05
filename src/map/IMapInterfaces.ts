@@ -138,6 +138,8 @@ export interface IMapCore {
 
     /** Enables or disables map panning. Use to prevent map pan during vertex dragging. */
     setPanEnabled(enabled: boolean): void;
+    /** Enables or disables double-click zoom. */
+    setDoubleClickZoomEnabled(enabled: boolean): void;
 
     /** Shows or hides a map layer. */
     setLayerVisibility(layerId: string, visible: boolean): void;
@@ -274,6 +276,8 @@ export interface IMap {
 
     /** Enables or disables map panning. Use to prevent map pan during vertex dragging. */
     setPanEnabled(enabled: boolean): void;
+    /** Enables or disables double-click zoom. */
+    setDoubleClickZoomEnabled(enabled: boolean): void;
 
     /** Shows or hides a map layer. */
     setLayerVisibility(layerId: string, visible: boolean): void;
