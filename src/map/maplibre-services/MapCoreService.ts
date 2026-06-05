@@ -111,6 +111,7 @@ export class MapCoreService implements IMapCore {
         this.mapInstance.on('load', () => {
             const viewportBounds = this.buildViewportFeature();
             this.store.dispatch({ mapLoaded: true, zoomLevel: zoom, mapCenter: center, mapViewportBounds: viewportBounds }, 'MAP');
+            this.applyGlobeFog();
         });
 
         // Loading state detection
@@ -491,6 +492,52 @@ export class MapCoreService implements IMapCore {
     public resetNorthPitch(): void {
         // resetNorthPitch also resets bearing
         this.mapInstance?.resetNorthPitch();
+    }
+
+    private applyGlobeFog(): void {
+        if (!this.mapInstance) return;
+        // Set canvas background to near-black for space appearance
+        const canvas = (this.mapInstance as any).getCanvas?.() as HTMLCanvasElement | undefined;
+        if (canvas) canvas.style.background = '#000008';
+        // MapLibre v5 sky layer: space above, blue atmosphere at horizon, white haze near ground
+        try {
+            // MapLibre v5: sky is a top-level style property set via setSky()
+            // atmosphere-blend controls the separate atmosphere glow renderer (1=full glow)
+            (this.mapInstance as any).setSky({
+                'sky-color': '#000000',
+            });
+        } catch { /* setSky not available */ }
+    }
+
+    public setProjection(projection: string | { name: string; center?: [number, number]; parallels?: [number, number] }): boolean {
+        if (!this.mapInstance) return false;
+        try {
+            // MapLibre v5 uses {type} not {name}
+            const mlProj = typeof projection === 'string'
+                ? { type: projection }
+                : { type: projection.name, center: projection.center, parallels: projection.parallels };
+            (this.mapInstance as any).setProjection(mlProj);
+            this.applyGlobeFog();
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    public getProjection(): { name: string; center?: [number, number]; parallels?: [number, number] } | null {
+        if (!this.mapInstance) return { name: 'mercator' };
+        try {
+            const proj = (this.mapInstance as any).getProjection();
+            // MapLibre v5 returns {type, ...} — normalize to {name, ...}
+            const typeName = proj?.type ?? proj?.name ?? 'mercator';
+            return {
+                name: typeName,
+                ...(proj?.center ? { center: proj.center } : {}),
+                ...(proj?.parallels ? { parallels: proj.parallels } : {}),
+            };
+        } catch {
+            return { name: 'mercator' };
+        }
     }
 
     private dispatchViewportBoundsSnapshot(): void {

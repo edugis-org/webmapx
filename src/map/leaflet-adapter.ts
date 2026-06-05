@@ -105,6 +105,14 @@ export class LeafletAdapter implements IMap {
         this.core.fitBounds(bbox);
     }
 
+    setProjection(_projection: string | { name: string; center?: [number, number]; parallels?: [number, number] }): boolean {
+        return false;
+    }
+
+    getProjection(): { name: string; center?: [number, number]; parallels?: [number, number] } | null {
+        return null;
+    }
+
     setCursor(cursor: string): void {
         this.core.setCursor(cursor);
     }

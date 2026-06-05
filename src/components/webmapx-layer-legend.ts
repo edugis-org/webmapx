@@ -118,8 +118,10 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         }
         if (op === 'case' && expr.length >= 3) {
             const cases: Array<{label: string, paint: unknown}> = [];
-            for (let i = 1; i + 1 < expr.length; i += 2)
-                cases.push({ label: `class ${Math.floor(i / 2) + 1}`, paint: expr[i + 1] });
+            for (let i = 1; i + 1 < expr.length; i += 2) {
+                const label = this.conditionLabel(expr[i]) ?? `class ${Math.floor(i / 2) + 1}`;
+                cases.push({ label, paint: expr[i + 1] });
+            }
             cases.push({ label: 'other', paint: expr[expr.length - 1] });
             return cases.length > 1 ? cases : null;
         }

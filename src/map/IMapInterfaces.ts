@@ -120,6 +120,12 @@ export interface IMapCore {
     /** Resets map bearing to north and pitch to top-down (when supported). */
     resetNorthPitch(): void;
 
+    /** Set map projection. Name is a MapLibre projection id (e.g. 'globe', 'mercator', 'equalEarth').
+     *  Returns false if not supported by the active engine. */
+    setProjection(projection: string | { name: string; center?: [number, number]; parallels?: [number, number] }): boolean;
+    /** Get current projection. Returns null if not supported. */
+    getProjection(): { name: string; center?: [number, number]; parallels?: [number, number] } | null;
+
     /** Given a geographic coordinate (LngLat), returns its pixel coordinate [x, y]. */
     project(coords: LngLat): Pixel;
     /** Given a pixel coordinate [x, y] in the map container, returns geographic [lng, lat]. */
@@ -257,6 +263,11 @@ export interface IMap {
 
     /** Fits the view to a bounding box [west, south, east, north]. */
     fitBounds(bbox: [number, number, number, number]): void;
+
+    /** Set map projection by name or config object. Returns false if unsupported by the engine. */
+    setProjection(projection: string | { name: string; center?: [number, number]; parallels?: [number, number] }): boolean;
+    /** Get current projection, or null if the engine does not support projections. */
+    getProjection(): { name: string; center?: [number, number]; parallels?: [number, number] } | null;
 
     /** Sets the map canvas cursor style. Pass '' to restore default. */
     setCursor(cursor: string): void;

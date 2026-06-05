@@ -250,6 +250,14 @@ export class MapCoreService implements IMapCore {
         this.setPitch(0);
     }
 
+    setProjection(_projection: string | { name: string; center?: [number, number]; parallels?: [number, number] }): boolean {
+        return false;
+    }
+
+    getProjection(): { name: string; center?: [number, number]; parallels?: [number, number] } | null {
+        return null;
+    }
+
     private applyHeadingPitch(center: [number, number], bearingDeg: number, pitchDeg: number): void {
         if (!this.viewer) return;
         const Cesium = getCesium();

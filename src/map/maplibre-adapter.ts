@@ -114,6 +114,14 @@ export class MapLibreAdapter implements IMap {
         this.core.fitBounds(bbox);
     }
 
+    setProjection(projection: string | { name: string; center?: [number, number]; parallels?: [number, number] }): boolean {
+        return this.core.setProjection(projection);
+    }
+
+    getProjection(): { name: string; center?: [number, number]; parallels?: [number, number] } | null {
+        return this.core.getProjection();
+    }
+
     setCursor(cursor: string): void {
         this.core.setCursor(cursor);
     }

@@ -395,6 +395,14 @@ export class MapCoreService implements IMapCore {
         this.resetNorth();
     }
 
+    setProjection(_projection: string | { name: string; center?: [number, number]; parallels?: [number, number] }): boolean {
+        return false;
+    }
+
+    getProjection(): { name: string; center?: [number, number]; parallels?: [number, number] } | null {
+        return null;
+    }
+
     private scheduleViewportSync(): void {
         if (!this.mapInstance) return;
         requestAnimationFrame(() => {

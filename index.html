@@ -53,6 +53,9 @@
                             <sl-button name="geolocation" size="medium" circle>
                                 <sl-icon name="crosshair" label="Geolocation"></sl-icon>
                             </sl-button>
+                            <sl-button name="projection" size="medium" circle>
+                                <sl-icon name="globe" label="Projection"></sl-icon>
+                            </sl-button>
                             <div style="flex:1; pointer-events:none"></div>
                             <sl-button name="settings" size="medium" circle>
                                 <sl-icon name="gear" label="Settings"></sl-icon>
@@ -67,6 +70,7 @@
                             <webmapx-draw-tool id="draw-tool" tool-id="draw"></webmapx-draw-tool>
                             <webmapx-settings id="settings-tool" tool-id="settings"></webmapx-settings>
                             <webmapx-geolocation-tool id="geolocation-tool" tool-id="geolocation"></webmapx-geolocation-tool>
+                            <webmapx-projection-tool id="projection-tool" tool-id="projection"></webmapx-projection-tool>
                         </webmapx-tool-panel>
                     </webmapx-control-group>
                     <webmapx-scale-control slot="bottom-right" max-width="140"></webmapx-scale-control>
