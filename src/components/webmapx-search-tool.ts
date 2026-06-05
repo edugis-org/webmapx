@@ -227,29 +227,9 @@ export class WebmapxSearchTool extends WebmapxModalTool {
   }
 
   private handleSelect(feature: GeoJSON.Feature) {
-    // Toggle persist on click: if persisted, remove (no zoom); otherwise add (zoom to feature)
-    if (this.isPersisted(feature)) {
-      this.removePersistedFeature(feature);
-      this.persistedChanged(feature, false);
-      // do not zoom when unpinning
-    } else {
-      this.addPersistedFeature(feature);
-      this.persistedChanged(feature, true);
-      // zoom to newly pinned feature — wait one frame so adapter projections/layers settle
-      if (typeof requestAnimationFrame !== 'undefined') {
-        requestAnimationFrame(() => this.centerFeature(feature));
-      } else {
-        setTimeout(() => this.centerFeature(feature), 50);
-      }
-    }
-
-    // Emit selected event with details
+    this.centerFeature(feature);
     const bbox = (feature as any).bbox ?? null;
-    const center = null; // consumers can compute or use bbox
-    this.dispatchEvent(new CustomEvent('webmapx-search-selected', { detail: { feature, bbox, center }, bubbles: true, composed: true }));
-
-    // Clear hover preview
-    this.clearPreview();
+    this.dispatchEvent(new CustomEvent('webmapx-search-selected', { detail: { feature, bbox, center: null }, bubbles: true, composed: true }));
   }
 
   private persistedChanged(feature: GeoJSON.Feature, persisted: boolean) {
@@ -356,12 +336,9 @@ export class WebmapxSearchTool extends WebmapxModalTool {
     // Add style layers once per map
     if (!this.previewLayersAdded) {
       try {
-        // Fill for polygons (default preview colors)
-        map.addLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, metadata: { hideFromLegend: true, label: 'Search preview fill' }, paint: { 'fill-color': '#f1c40f', 'fill-opacity': 0.25 } });
-        // Line for lines
-        map.addLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, metadata: { hideFromLegend: true, label: 'Search preview line' }, paint: { 'line-color': '#f39c12', 'line-width': 3 } });
-        // Circle for points
-        map.addLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, metadata: { hideFromLegend: true, label: 'Search preview point' }, paint: { 'circle-color': '#e67e22', 'circle-radius': 6 } });
+        map.addLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, filter: ['in', '$type', 'Polygon'], metadata: { hideFromLegend: true, label: 'Search preview fill' }, paint: { 'fill-color': '#f1c40f', 'fill-opacity': 0.25 } });
+        map.addLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, filter: ['in', '$type', 'LineString', 'Polygon'], metadata: { hideFromLegend: true, label: 'Search preview line' }, paint: { 'line-color': '#f39c12', 'line-width': 3 } });
+        map.addLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, filter: ['==', '$type', 'Point'], metadata: { hideFromLegend: true, label: 'Search preview point' }, paint: { 'circle-color': '#e67e22', 'circle-radius': 6 } });
         this.previewLayersAdded = true;
       } catch (e) {
         console.warn('adding preview layers failed', e);
@@ -380,9 +357,9 @@ export class WebmapxSearchTool extends WebmapxModalTool {
     }
 
     try {
-      map.addLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, metadata: { hideFromLegend: true, label: 'Search preview fill' }, paint: { 'fill-color': colors?.fill ?? '#f1c40f', 'fill-opacity': 0.25 } });
-      map.addLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, metadata: { hideFromLegend: true, label: 'Search preview line' }, paint: { 'line-color': colors?.line ?? '#f39c12', 'line-width': 3 } });
-      map.addLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, metadata: { hideFromLegend: true, label: 'Search preview point' }, paint: { 'circle-color': colors?.point ?? '#e67e22', 'circle-radius': 6 } });
+      map.addLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, filter: ['in', '$type', 'Polygon'], metadata: { hideFromLegend: true, label: 'Search preview fill' }, paint: { 'fill-color': colors?.fill ?? '#f1c40f', 'fill-opacity': 0.25 } });
+      map.addLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, filter: ['in', '$type', 'LineString', 'Polygon'], metadata: { hideFromLegend: true, label: 'Search preview line' }, paint: { 'line-color': colors?.line ?? '#f39c12', 'line-width': 3 } });
+      map.addLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, filter: ['==', '$type', 'Point'], metadata: { hideFromLegend: true, label: 'Search preview point' }, paint: { 'circle-color': colors?.point ?? '#e67e22', 'circle-radius': 6 } });
       this.previewLayersAdded = true;
     } catch (e) {
       console.warn('update preview layers failed', e);
@@ -450,6 +427,7 @@ export class WebmapxSearchTool extends WebmapxModalTool {
 
     if (checked) {
       if (!this.isPersisted(feature)) {
+        this.clearPreview();
         this.addPersistedFeature(feature);
         this.persistedChanged(feature, true);
       }
@@ -480,6 +458,10 @@ export class WebmapxSearchTool extends WebmapxModalTool {
         <div class="results">
           ${this.searching ? html`<div>Searching...</div>` : ''}
           ${!this.results ? html`` : html`
+            <div style="display:flex; align-items:center; gap:8px; padding:2px 6px; font-size:11px; color:var(--color-text-secondary); border-bottom:1px solid var(--color-border);">
+              <span style="flex:0 0 auto; min-width:1.5rem; text-align:center;" title="Check to add result as a permanent layer on the map">📌</span>
+              <span>hover to preview · click to zoom</span>
+            </div>
             <ul>
               ${(this.results.features || []).map((f, i) => html`
                 <li class="result-item" ?selected=${i === this.selectedIndex}
@@ -491,11 +473,10 @@ export class WebmapxSearchTool extends WebmapxModalTool {
                     @click=${(e: Event) => e.stopPropagation()}
                     style="flex:0 0 auto;">
                   </sl-checkbox>
-                  <div style="flex:1; display:flex; justify-content:space-between; align-items:center;">
-                    <div @click=${() => this.handleSelect(f)} style="cursor:pointer;"><strong>${this.getFeatureTitle(f)}</strong></div>
-                    <div style="font-size:12px; color:var(--color-text-secondary);">${''}</div>
+                  <div @click=${() => this.handleSelect(f)} style="flex:1; display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                    <strong>${this.getFeatureTitle(f)}</strong>
+                    <span style="font-size:12px; color:var(--color-text-secondary);">${f.properties ? (f.properties.type || f.properties.category || '') : ''}</span>
                   </div>
-                  <div class="meta">${f.properties ? (f.properties.type || f.properties.category || '') : ''}</div>
                 </li>
               `)}
             </ul>
