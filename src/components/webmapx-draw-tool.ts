@@ -15,6 +15,7 @@ import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialo
 import './webmapx-draw-layer-dialog';
 import type { WebmapxDrawLayerDialog, DrawLayerConfig, GeometryType } from './webmapx-draw-layer-dialog';
 import { unregisterMapLayer } from '../map/map-layer-registry';
+import { flatVertices, flatEdges, findSnap } from '../utils/snap-utils';
 
 // ─── Shared source / layer IDs ────────────────────────────────────────────────
 
@@ -1099,61 +1100,19 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     // ─── Snap ─────────────────────────────────────────────────────────────────
 
-    private flatVertices(f: DrawFeature): LngLat[] {
-        if (f.type === 'Point') return [f.coordinates as LngLat];
-        if (f.type === 'MultiPoint') return f.coordinates as LngLat[];
-        if (f.type === 'LineString') return f.coordinates as LngLat[];
-        if (f.type === 'MultiLineString') return (f.coordinates as LngLat[][]).flat();
-        if (f.type === 'Polygon') return (f.coordinates as LngLat[][]).flat();
-        if (f.type === 'MultiPolygon') return (f.coordinates as LngLat[][][]).flat(2);
-        return [];
-    }
-
-    private flatEdges(f: DrawFeature): [LngLat, LngLat][] {
-        const edges: [LngLat, LngLat][] = [];
-        const addRing = (ring: LngLat[]) => {
-            for (let i = 0; i < ring.length - 1; i++) edges.push([ring[i], ring[i + 1]]);
-        };
-        if (f.type === 'LineString') addRing(f.coordinates as LngLat[]);
-        else if (f.type === 'MultiLineString') (f.coordinates as LngLat[][]).forEach(l => addRing(l));
-        else if (f.type === 'Polygon') (f.coordinates as LngLat[][]).forEach(r => addRing(r));
-        else if (f.type === 'MultiPolygon') (f.coordinates as LngLat[][][]).forEach(p => p.forEach(r => addRing(r)));
-        return edges;
-    }
-
     private computeSnap(cursorPx: [number, number]): LngLat | null {
         return this.computeSnapExcluding(cursorPx, null, this.mode === 'draw-point');
     }
 
     private computeSnapExcluding(cursorPx: [number, number], excludeFeatureId: string | null, skipPoints: boolean): LngLat | null {
         if (!this.adapter) return null;
-        let best: LngLat | null = null;
-        let bestDist = SNAP_THRESHOLD;
-        const EDGE_PENALTY = 8;
-
-        for (const f of this.features) {
-            if (f.id === excludeFeatureId) continue;
-            if (skipPoints && isPointType(f.type)) continue;
-            for (const v of this.flatVertices(f)) {
-                const px = this.adapter.project(v);
-                const d = Math.hypot(px[0] - cursorPx[0], px[1] - cursorPx[1]);
-                if (d < bestDist) { bestDist = d; best = v; }
-            }
-            for (const [a, b] of this.flatEdges(f)) {
-                const pa = this.adapter.project(a);
-                const pb = this.adapter.project(b);
-                const dx = pb[0] - pa[0], dy = pb[1] - pa[1];
-                const len2 = dx * dx + dy * dy;
-                if (len2 === 0) continue;
-                const t = Math.max(0, Math.min(1, ((cursorPx[0] - pa[0]) * dx + (cursorPx[1] - pa[1]) * dy) / len2));
-                const d = Math.hypot(pa[0] + t * dx - cursorPx[0], pa[1] + t * dy - cursorPx[1]);
-                if (d + EDGE_PENALTY < bestDist) {
-                    bestDist = d + EDGE_PENALTY;
-                    best = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
-                }
-            }
-        }
-        return best;
+        const candidates = this.features.filter(f =>
+            f.id !== excludeFeatureId && !(skipPoints && isPointType(f.type))
+        );
+        return findSnap(cursorPx, candidates, v => {
+            const px = this.adapter!.project(v);
+            return [px[0], px[1]];
+        }, { threshold: SNAP_THRESHOLD, edgePenalty: 8 });
     }
 
     private updateSnapIndicator(): void {
