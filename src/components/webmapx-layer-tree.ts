@@ -645,7 +645,10 @@ export class WebmapxLayerTree extends LitElement {
         if (node.children && node.children.length > 0) {
             return html`
                 <sl-tree-item ?expanded=${node.expanded} data-node-key=${nodeKey}>
-                    ${this.resolveNodeLabel(node)}
+                    <span @click=${(e: Event) => {
+                        const item = (e.currentTarget as HTMLElement).closest('sl-tree-item') as (HTMLElement & { expanded?: boolean }) | null;
+                        if (item) { item.expanded = !item.expanded; }
+                    }} style="cursor:pointer">${this.resolveNodeLabel(node)}</span>
                     ${node.children.map((child, index) => this.renderNode(child, nodeContext, `${nodeKey}.${index}`))}
                 </sl-tree-item>
             `;
