@@ -330,6 +330,7 @@ export class MapCoreService implements IMapCore {
 
     public addLayer(layer: any, options?: { beforeLayerId?: string; afterLayerId?: string }): boolean {
         if (!this.mapInstance) return false;
+        if (layer?.id && this.mapInstance.getLayer(layer.id)) return false;
 
         if (options?.beforeLayerId) {
             this.mapInstance.addLayer(layer, options.beforeLayerId);
@@ -352,7 +353,8 @@ export class MapCoreService implements IMapCore {
     }
 
     public removeLayer(id: string): void {
-        this.mapInstance?.removeLayer(id);
+        if (!this.mapInstance?.getLayer(id)) return;
+        this.mapInstance.removeLayer(id);
     }
 
     public addSource(id: string, config: any): void {

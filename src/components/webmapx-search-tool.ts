@@ -315,54 +315,37 @@ export class WebmapxSearchTool extends WebmapxModalTool {
     this.persistedMap.delete(feature);
   }
 
-  private async ensurePreviewSourceAndLayers(featureCollection: GeoJSON.FeatureCollection) {
+  private async showPreviewLayers(
+    featureCollection: GeoJSON.FeatureCollection,
+    colors?: { fill?: string; line?: string; point?: string }
+  ) {
     if (!this.adapter) return;
-
     const map = this.adapter;
 
-    // Add or update source
+    // Update or create source
     try {
       const existing = map.getSource(this.previewSourceId as string);
       if (existing && typeof existing.setData === 'function') {
-        existing.setData(featureCollection as GeoJSON.FeatureCollection);
+        existing.setData(featureCollection);
       } else {
-        // Add source with geojson data
         map.addSource(this.previewSourceId, { type: 'geojson', data: featureCollection });
       }
     } catch (e) {
       console.warn('preview source update failed', e);
     }
 
-    // Add style layers once per map
-    if (!this.previewLayersAdded) {
-      try {
-        map.addLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, filter: ['in', '$type', 'Polygon'], metadata: { hideFromLegend: true, label: 'Search preview fill' }, paint: { 'fill-color': '#f1c40f', 'fill-opacity': 0.25 } });
-        map.addLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, filter: ['in', '$type', 'LineString', 'Polygon'], metadata: { hideFromLegend: true, label: 'Search preview line' }, paint: { 'line-color': '#f39c12', 'line-width': 3 } });
-        map.addLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, filter: ['==', '$type', 'Point'], metadata: { hideFromLegend: true, label: 'Search preview point' }, paint: { 'circle-color': '#e67e22', 'circle-radius': 6 } });
-        this.previewLayersAdded = true;
-      } catch (e) {
-        console.warn('adding preview layers failed', e);
-      }
-    }
-  }
-
-  private updatePreviewLayersPaint(colors?: { fill?: string; line?: string; point?: string }) {
-    if (!this.adapter) return;
-    const map = this.adapter;
-
-    if (this.previewLayersAdded) {
-      for (const lid of this.previewLayerIds) {
-        try { map.removeLayer(lid); } catch (e) { /* ignore */ }
-      }
+    // Remove existing preview layers so colors can be applied fresh
+    for (const lid of this.previewLayerIds) {
+      if (map.hasLayer(lid)) map.removeLayer(lid);
     }
 
     try {
-      map.addLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, filter: ['in', '$type', 'Polygon'], metadata: { hideFromLegend: true, label: 'Search preview fill' }, paint: { 'fill-color': colors?.fill ?? '#f1c40f', 'fill-opacity': 0.25 } });
-      map.addLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, filter: ['in', '$type', 'LineString', 'Polygon'], metadata: { hideFromLegend: true, label: 'Search preview line' }, paint: { 'line-color': colors?.line ?? '#f39c12', 'line-width': 3 } });
-      map.addLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, filter: ['==', '$type', 'Point'], metadata: { hideFromLegend: true, label: 'Search preview point' }, paint: { 'circle-color': colors?.point ?? '#e67e22', 'circle-radius': 6 } });
+      await map.addLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, filter: ['in', '$type', 'Polygon'], metadata: { hideFromLegend: true, label: 'Search preview fill' }, paint: { 'fill-color': colors?.fill ?? '#f1c40f', 'fill-opacity': 0.25 } });
+      await map.addLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, filter: ['in', '$type', 'LineString', 'Polygon'], metadata: { hideFromLegend: true, label: 'Search preview line' }, paint: { 'line-color': colors?.line ?? '#f39c12', 'line-width': 3 } });
+      await map.addLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, filter: ['==', '$type', 'Point'], metadata: { hideFromLegend: true, label: 'Search preview point' }, paint: { 'circle-color': colors?.point ?? '#e67e22', 'circle-radius': 6 } });
       this.previewLayersAdded = true;
     } catch (e) {
-      console.warn('update preview layers failed', e);
+      console.warn('preview layers update failed', e);
     }
   }
 
@@ -384,31 +367,22 @@ export class WebmapxSearchTool extends WebmapxModalTool {
   }
 
   private clearPreview() {
-    if (!this.adapter || !this.previewLayersAdded) return;
+    if (!this.adapter) return;
     const map = this.adapter;
-    try {
-      for (const lid of this.previewLayerIds) {
-        try { map.removeLayer(lid); } catch (e) { /* ignore */ }
-      }
-      try { map.removeSource(this.previewSourceId); } catch (e) { /* ignore */ }
-    } catch (e) {
-      // ignore
+    for (const lid of this.previewLayerIds) {
+      if (map.hasLayer(lid)) map.removeLayer(lid);
     }
+    try { map.removeSource(this.previewSourceId); } catch (e) { /* ignore */ }
     this.previewLayersAdded = false;
   }
 
   private showPreviewForFeature(feature: GeoJSON.Feature) {
     const fc: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [feature] };
-    this.ensurePreviewSourceAndLayers(fc);
-    // If the feature is persisted, use its color darkened for the preview; otherwise use defaults
     const info = this.persistedMap.get(feature as any);
-    if (info && info.color) {
-      const darker = this.darkenHex(info.color, 0.18);
-      this.updatePreviewLayersPaint({ fill: darker, line: darker, point: darker });
-    } else {
-      // ensure default preview colors
-      this.updatePreviewLayersPaint(undefined);
-    }
+    const colors = info?.color
+      ? (() => { const d = this.darkenHex(info.color, 0.18); return { fill: d, line: d, point: d }; })()
+      : undefined;
+    this.showPreviewLayers(fc, colors);
   }
 
   private onResultCheckboxChange(feature: GeoJSON.Feature, e: Event) {

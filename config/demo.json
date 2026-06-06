@@ -89,7 +89,8 @@
           "https://t2.edugis.nl/tiles/tilecache.py?map=maps/edugis/cache/population.map&LAYERS=Bevolkingsdichtheid_2015&TRANSPARENT=true&FORMAT=image%2Fpng&SERVICE=WMS&VERSION=1.1.1&STYLES=&SRS=EPSG%3A900913&WIDTH=256&HEIGHT=256&request=GetMap&service=WMS&bbox={bbox-epsg-3857}",
           "https://t3.edugis.nl/tiles/tilecache.py?map=maps/edugis/cache/population.map&LAYERS=Bevolkingsdichtheid_2015&TRANSPARENT=true&FORMAT=image%2Fpng&SERVICE=WMS&VERSION=1.1.1&STYLES=&SRS=EPSG%3A900913&WIDTH=256&HEIGHT=256&request=GetMap&service=WMS&bbox={bbox-epsg-3857}",
           "https://t4.edugis.nl/tiles/tilecache.py?map=maps/edugis/cache/population.map&LAYERS=Bevolkingsdichtheid_2015&TRANSPARENT=true&FORMAT=image%2Fpng&SERVICE=WMS&VERSION=1.1.1&STYLES=&SRS=EPSG%3A900913&WIDTH=256&HEIGHT=256&request=GetMap&service=WMS&bbox={bbox-epsg-3857}"
-        ]
+        ],
+        "attribution": "&copy; <a href='https://www.cbs.nl' target='copyright'>CBS</a>"
       },
       "populationdensity-source": {
         "type": "vector",
@@ -154,6 +155,7 @@
       },
       "latitudes-source": {
         "type": "geojson",
+        "attribution": "",
         "data": {
           "type": "FeatureCollection",
           "features": [
@@ -477,6 +479,7 @@
       },
       "longitudes-source": {
         "type": "geojson",
+        "attribution": "",
         "data": {
           "type": "FeatureCollection",
           "features": [
