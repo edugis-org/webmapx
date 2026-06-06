@@ -30,6 +30,16 @@ export function registerMapLayer(store: MapStateStore, layer: any): void {
     if (layer?.paint && typeof layer.paint === 'object' && !metadata.paint) {
         metadata.paint = layer.paint;
     }
+    // Store resolved GeoJSON data so consumers (e.g. TrueSize) can read it from generic state
+    if (!metadata.sourceData && layer?.sources && typeof layer.sources === 'object') {
+        for (const src of Object.values(layer.sources)) {
+            const s = src as any;
+            if (s?.type === 'geojson' && s?.data && typeof s.data === 'object') {
+                metadata.sourceData = s.data;
+                break;
+            }
+        }
+    }
     // For composite style layers, store all sub-layers for legend rendering
     if (layer?.type === 'style' && Array.isArray(layer.layers) && layer.layers.length > 0) {
         const primarySub = layer.layers.find((s: any) => s?.type && s.type !== 'background') ?? layer.layers[0];
@@ -58,6 +68,7 @@ export function registerMapLayer(store: MapStateStore, layer: any): void {
                 sourceId: currentEntry.sourceId ?? metadata.sourceId,
                 layerType: metadata.layerType ?? currentEntry.layerType,
                 sublayers: metadata.sublayers ?? currentEntry.sublayers,
+                sourceData: metadata.sourceData ?? currentEntry.sourceData,
             },
         },
     }, 'MAP');

@@ -151,26 +151,13 @@ export class WebmapxTrueSizeTool extends WebmapxBaseTool {
     private refreshLayers(state: IMapState): void {
         const layers = state.mapLayers ?? {};
         const result: { id: string; label: string; sourceId: string }[] = [];
-        const checkedSources = new Set<string>();
         for (const [id, entry] of Object.entries(layers)) {
             if (id.startsWith('truesize-') || id.startsWith(GHOST_SOURCE)) continue;
-            const sublayers = Array.isArray(entry.sublayers) ? entry.sublayers as any[] : null;
-            const localSourceKey = typeof entry.sourceId === 'string'
-                ? entry.sourceId
-                : sublayers?.find((s: any) => typeof s?.source === 'string')?.source ?? null;
-            if (!localSourceKey) continue;
-            // Composite style layers register sources as "{layerId}:{sourceKey}"; try both
-            const resolvedSourceId = this.adapter?.getSourceData(`${id}:${localSourceKey}`) !== null
-                ? `${id}:${localSourceKey}`
-                : localSourceKey;
-            if (checkedSources.has(resolvedSourceId)) continue;
-            checkedSources.add(resolvedSourceId);
-            if (!this.adapter) continue;
-            const data = this.adapter.getSourceData(resolvedSourceId);
-            if (!data || typeof data === 'string') continue;
+            const data = (entry as any).sourceData as GeoJSON.FeatureCollection | undefined;
+            if (!data) continue;
             if (!this.hasPolygonFeatures(data)) continue;
             const label = entry.label ?? id;
-            result.push({ id, label: String(label), sourceId: resolvedSourceId });
+            result.push({ id, label: String(label), sourceId: id });
         }
         this.availableLayers = result;
         if (this.selectedLayerId && !result.find(r => r.id === this.selectedLayerId)) {
@@ -296,8 +283,9 @@ export class WebmapxTrueSizeTool extends WebmapxBaseTool {
         // Otherwise pick from source layer
         const sel = this.getSelectedSource();
         if (!sel) return;
-        const fc = this.adapter.getSourceData(sel.sourceId);
-        if (!fc || typeof fc === 'string') return;
+        const mapLayers = this.adapter.store.getState().mapLayers ?? {};
+        const fc = (mapLayers[sel.sourceId] as any)?.sourceData as GeoJSON.FeatureCollection | undefined;
+        if (!fc) return;
         const hit = fc.features.find(f => f.geometry && hitTestFeature(pt, f.geometry));
         if (!hit) return;
         const centroid = geoCentroid(hit.geometry!);
