@@ -4,7 +4,8 @@
 
 import { html, css, nothing, TemplateResult } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { WebmapxModalTool } from './webmapx-modal-tool';
+import { WebmapxBaseTool } from './webmapx-base-tool';
+import type { IMapState } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
 import type { ClickEvent, PointerMoveEvent } from '../store/map-events';
 import type { LngLat, Pixel } from '../store/map-events';
@@ -27,8 +28,8 @@ const HOVER_TOLERANCE_PX = 4;
 const CLICK_TOLERANCE_PX = 6;
 
 @customElement('webmapx-info-tool')
-export class WebmapxInfoTool extends WebmapxModalTool {
-    readonly toolId = 'info';
+export class WebmapxInfoTool extends WebmapxBaseTool {
+    public active = false;
 
     // ─────────────────────────────────────────────────────────────────────
     // State
@@ -255,14 +256,30 @@ export class WebmapxInfoTool extends WebmapxModalTool {
         super.disconnectedCallback();
     }
 
-    protected onActivate(): void {
+    activate(): void {
+        this.active = true;
+        this.style.display = 'block';
+        this.onActivate();
+    }
+
+    deactivate(): void {
+        this.active = false;
+        this.style.display = 'none';
+        this.onDeactivate();
+    }
+
+    protected onStateChanged(_state: IMapState): void {
+        // No-op
+    }
+
+    private onActivate(): void {
         this.features = [];
         this.mode = 'hover';
         this.pinnedLocation = null;
         this.pinnedPixel = null;
     }
 
-    protected onDeactivate(): void {
+    private onDeactivate(): void {
         this.features = [];
         this.mode = 'hover';
         this.pinnedLocation = null;

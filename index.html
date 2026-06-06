@@ -93,13 +93,13 @@
             <div id="external-tools-scroll">
                 <webmapx-active-adapter map="#map-container"></webmapx-active-adapter>
                 <webmapx-zoom-level map="#map-container"></webmapx-zoom-level>
-                <webmapx-inset-map zoom-offset="-5" minimizable></webmapx-inset-map>
-                <webmapx-tool-template></webmapx-tool-template>
+                <webmapx-inset-map map="#map-container" zoom-offset="-5" minimizable></webmapx-inset-map>
+                <webmapx-tool-template map="#map-container"></webmapx-tool-template>
                 <div id="truearea-host">
                     <button id="truearea-button">True Area tool</button>
                     <div id="truearea-output"></div>
                 </div>
-                <webmapx-spinner></webmapx-spinner>
+                <webmapx-spinner map="#map-container"></webmapx-spinner>
                 <div>
                     <button id="external-geolocation-button">Geolocation tool</button>
                     <div id="external-geolocation-output"></div>
@@ -124,6 +124,13 @@
             setExternalGeoLabel(Boolean(tool?.active));
         };
 
+        const trueAreaButton = document.getElementById('truearea-button');
+        const trueAreaOutput = document.getElementById('truearea-output');
+
+        const setTrueAreaLabel = (active) => {
+            if (trueAreaButton) trueAreaButton.textContent = active ? 'Deactivate True Area tool' : 'True Area tool';
+        };
+
         map?.addEventListener('webmapx-tool-activated', (e) => {
             if (e.detail?.toolId === 'geolocation') {
                 updateExternalLabelFromTool();
@@ -134,20 +141,17 @@
             if (e.detail?.toolId === 'geolocation') {
                 updateExternalLabelFromTool();
             }
+            if (e.detail?.toolId === 'truearea') {
+                setTrueAreaLabel(false);
+            }
         });
-
-        const trueAreaButton = document.getElementById('truearea-button');
-        const trueAreaOutput = document.getElementById('truearea-output');
-
-        const setTrueAreaLabel = (active) => {
-            if (trueAreaButton) trueAreaButton.textContent = active ? 'Deactivate True Area tool' : 'True Area tool';
-        };
 
         trueAreaButton?.addEventListener('click', () => {
             if (!trueAreaOutput) return;
             let tool = trueAreaOutput.querySelector('webmapx-truearea-tool');
             if (!tool) {
                 tool = document.createElement('webmapx-truearea-tool');
+                tool.setAttribute('map', '#map-container');
                 trueAreaOutput.appendChild(tool);
             }
             if (tool.active) {

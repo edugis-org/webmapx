@@ -1,6 +1,6 @@
 import { html, css, TemplateResult } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { WebmapxBaseTool } from './webmapx-base-tool';
+import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMapState } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
 import bearing from '@turf/bearing';
@@ -142,7 +142,8 @@ function placeGeometry(geom: GeoJSON.Geometry, newCentroid: LngLat, bds: Bearing
 }
 
 @customElement('webmapx-truearea-tool')
-export class WebmapxTrueAreaTool extends WebmapxBaseTool {
+export class WebmapxTrueAreaTool extends WebmapxModalTool {
+    readonly toolId = 'truearea';
     @state() private availableLayers: { id: string; label: string; sourceId: string }[] = [];
     @state() private selectedLayerId = '';
     @state() private copies: TrueAreaCopy[] = [];
@@ -159,8 +160,6 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
         geodesic: boolean;
     }> = new Map();
 
-    public active = false;
-
     private features: GeoJSON.Feature[] = [];
     private colorIdx = 0;
 
@@ -176,16 +175,12 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
         bearingDistances: BearingDistance[][];
     } | null = null;
 
-    activate(): void {
-        this.active = true;
-        this.style.display = 'block';
+    protected onActivate(): void {
         if (this.adapter) this.adapter.setTouchCaptureEnabled(false);
         this.bindEvents();
     }
 
-    deactivate(): void {
-        this.active = false;
-        this.style.display = 'none';
+    protected onDeactivate(): void {
         this.cleanupEvents();
         if (this.adapter) {
             this.adapter.setPanEnabled(true);
@@ -199,6 +194,7 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
 
     static styles = css`
         :host { display: none; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; min-width: 200px; }
+        :host([active]) { display: block; }
         label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
         select { width: 100%; margin-bottom: 0.75rem; padding: 0.25rem; box-sizing: border-box; }
         .hint { color: var(--sl-color-neutral-500, #888); font-style: italic; margin-bottom: 0.5rem; font-size: 0.8rem; }
@@ -220,6 +216,7 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
     `;
 
     protected onMapAttached(adapter: IMap): void {
+        super.onMapAttached(adapter);
         this.refreshLayers(adapter.store.getState());
         if (this.active) {
             adapter.setTouchCaptureEnabled(false);
@@ -236,6 +233,7 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
         this.copies = [];
         this.copyMeta.clear();
         this.availableLayers = [];
+        super.onMapDetached();
     }
 
     protected onStateChanged(state: IMapState): void {

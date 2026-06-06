@@ -1,7 +1,7 @@
 import { html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 
-import { WebmapxModalTool } from './webmapx-modal-tool';
+import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMap } from '../map/IMapInterfaces';
 import type { IMapState } from '../store/IMapState';
 
@@ -13,8 +13,8 @@ import type { IMapState } from '../store/IMapState';
  * - Does not persist geometries by default; emits events so consumers may persist
  */
 @customElement('webmapx-search-tool')
-export class WebmapxSearchTool extends WebmapxModalTool {
-  readonly toolId = 'search';
+export class WebmapxSearchTool extends WebmapxBaseTool {
+  public active = false;
 
   constructor() {
     super();
@@ -120,8 +120,8 @@ export class WebmapxSearchTool extends WebmapxModalTool {
     }
   }
 
-  protected onActivate(): void {
-    // show the tool and focus input if present inside portal
+  activate(): void {
+    this.active = true;
     (this as HTMLElement).hidden = false;
     setTimeout(() => {
       const input = this.renderRoot?.querySelector('input');
@@ -130,7 +130,8 @@ export class WebmapxSearchTool extends WebmapxModalTool {
     this.dispatchEvent(new CustomEvent('webmapx-search-opened', { bubbles: true, composed: true }));
   }
 
-  protected onDeactivate(): void {
+  deactivate(): void {
+    this.active = false;
     this.results = null;
     this.query = '';
     this.selectedIndex = -1;
