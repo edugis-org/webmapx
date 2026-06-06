@@ -3,6 +3,9 @@ import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
+import bearing from '@turf/bearing';
+import distance from '@turf/distance';
+import destination from '@turf/destination';
 
 type LngLat = [number, number];
 
@@ -57,39 +60,84 @@ function hitTestFeature(pt: LngLat, geom: GeoJSON.Geometry): boolean {
     return false;
 }
 
+function hitSubPolygonCentroid(pt: LngLat, geom: GeoJSON.Geometry): LngLat {
+    if (geom.type === 'Polygon') return geoCentroid(geom);
+    if (geom.type === 'MultiPolygon') {
+        const hit = geom.coordinates.find(poly =>
+            pointInRing(pt, poly[0]) && !poly.slice(1).some(hole => pointInRing(pt, hole)));
+        if (hit) {
+            const pts = hit[0];
+            const s = pts.reduce((a, c) => [a[0] + c[0], a[1] + c[1]], [0, 0]);
+            return [s[0] / pts.length, s[1] / pts.length];
+        }
+    }
+    return geoCentroid(geom);
+}
+
 function rotateGeometry(geom: GeoJSON.Geometry, angleDeg: number, pivot: LngLat): GeoJSON.Geometry {
-    const rad = angleDeg * Math.PI / 180;
-    const cosA = Math.cos(rad), sinA = Math.sin(rad);
-    const cosLat = Math.cos(pivot[1] * Math.PI / 180);
-    const rotPt = (c: number[]): number[] => {
-        const dx = (c[0] - pivot[0]) * cosLat;
-        const dy = c[1] - pivot[1];
-        return [
-            pivot[0] + (dx * cosA - dy * sinA) / cosLat,
-            pivot[1] + dx * sinA + dy * cosA,
-        ];
+    const center: GeoJSON.Feature<GeoJSON.Point> = { type: 'Feature', geometry: { type: 'Point', coordinates: pivot }, properties: {} };
+    const rotatePt = (c: number[]): number[] => {
+        const pt: GeoJSON.Feature<GeoJSON.Point> = { type: 'Feature', geometry: { type: 'Point', coordinates: c }, properties: {} };
+        const b = bearing(center, pt);
+        const d = distance(center, pt, { units: 'kilometers' });
+        return destination(center, d, b + angleDeg, { units: 'kilometers' }).geometry.coordinates;
     };
-    const mapRing = (ring: number[][]) => ring.map(rotPt);
+    const mapRing = (ring: number[][]) => ring.map(rotatePt);
     const mapPoly = (poly: number[][][]) => poly.map(mapRing);
     if (geom.type === 'Polygon') return { type: 'Polygon', coordinates: geom.coordinates.map(mapRing) };
     if (geom.type === 'MultiPolygon') return { type: 'MultiPolygon', coordinates: geom.coordinates.map(mapPoly) };
     return geom;
 }
 
-function translateGeoPreserving(geom: GeoJSON.Geometry, dLng: number, dLat: number, origCentLng: number, origCentLat: number): GeoJSON.Geometry {
-    const newCentLat = origCentLat + dLat;
-    const cosOrig = Math.cos(origCentLat * Math.PI / 180);
-    const cosNew = Math.cos(newCentLat * Math.PI / 180);
-    const lngScale = cosNew > 1e-6 ? cosOrig / cosNew : 1;
+function translateGeoMercator(geom: GeoJSON.Geometry, dLng: number, dLat: number, origCentLng: number): GeoJSON.Geometry {
     const newCentLng = origCentLng + dLng;
-    const t = (c: number[]): number[] => [
-        newCentLng + (c[0] - origCentLng) * lngScale,
-        c[1] + dLat,
-    ];
+    const DEG = Math.PI / 180;
+    const t = (c: number[]): number[] => {
+        const cosOrig = Math.cos(c[1] * DEG);
+        const newLat = c[1] + dLat;
+        const cosNew = Math.cos(newLat * DEG);
+        const lngScale = cosNew > 1e-6 ? cosOrig / cosNew : 1;
+        return [newCentLng + (c[0] - origCentLng) * lngScale, newLat];
+    };
     const mapRing = (ring: number[][]) => ring.map(t);
     const mapPoly = (poly: number[][][]) => poly.map(mapRing);
     if (geom.type === 'Polygon') return { type: 'Polygon', coordinates: geom.coordinates.map(mapRing) };
     if (geom.type === 'MultiPolygon') return { type: 'MultiPolygon', coordinates: geom.coordinates.map(mapPoly) };
+    return geom;
+}
+
+type BearingDistance = { bearing: number; distance: number };
+
+function computeBearingDistances(geom: GeoJSON.Geometry, centroid: LngLat): BearingDistance[][] {
+    const center: GeoJSON.Feature<GeoJSON.Point> = { type: 'Feature', geometry: { type: 'Point', coordinates: centroid }, properties: {} };
+    const processRing = (ring: number[][]): BearingDistance[] =>
+        ring.map(c => ({
+            bearing: bearing(center, { type: 'Feature', geometry: { type: 'Point', coordinates: c }, properties: {} }),
+            distance: distance(center, { type: 'Feature', geometry: { type: 'Point', coordinates: c }, properties: {} }, { units: 'kilometers' }),
+        }));
+    if (geom.type === 'Polygon') return geom.coordinates.map(processRing);
+    if (geom.type === 'MultiPolygon') return geom.coordinates.flat().map(processRing);
+    return [];
+}
+
+function placeGeometry(geom: GeoJSON.Geometry, newCentroid: LngLat, bds: BearingDistance[][]): GeoJSON.Geometry {
+    const center: GeoJSON.Feature<GeoJSON.Point> = { type: 'Feature', geometry: { type: 'Point', coordinates: newCentroid }, properties: {} };
+    let ringIdx = 0;
+    const placeRing = (): number[][] => {
+        const ring = bds[ringIdx++] ?? [];
+        return ring.map(({ bearing: b, distance: d }) =>
+            destination(center, d, b, { units: 'kilometers' }).geometry.coordinates
+        );
+    };
+    if (geom.type === 'Polygon') {
+        return { type: 'Polygon', coordinates: geom.coordinates.map(() => placeRing()) };
+    }
+    if (geom.type === 'MultiPolygon') {
+        return {
+            type: 'MultiPolygon',
+            coordinates: geom.coordinates.map(poly => poly.map(() => placeRing())),
+        };
+    }
     return geom;
 }
 
@@ -101,6 +149,15 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
     @state() private dragging = false;
     @state() private lastTouchedCopyId: string | null = null;
     @state() private rotationDeg = 0;
+    @state() private geodesic = true;
+
+    private copyMeta: Map<string, {
+        origGeom: GeoJSON.Geometry;
+        origCentroid: LngLat;
+        placedCentroid: LngLat;
+        bearingDistances: BearingDistance[][];
+        geodesic: boolean;
+    }> = new Map();
 
     public active = false;
 
@@ -116,6 +173,7 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
         color: string;
         label: string;
         existingCopyId?: string;
+        bearingDistances: BearingDistance[][];
     } | null = null;
 
     activate(): void {
@@ -147,6 +205,9 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
         .clear-btn { width: 100%; padding: 0.3rem; cursor: pointer; }
         .no-copies { color: var(--sl-color-neutral-500, #888); font-style: italic; font-size: 0.8rem; margin-bottom: 0.5rem; margin-top: 0.25rem; }
         .dragging-hint { color: var(--sl-color-primary-600, #3b82f6); font-size: 0.8rem; margin-bottom: 0.4rem; }
+        .method-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--sl-color-neutral-600, #555); }
+        .method-row input { cursor: pointer; }
+        .method-row label { cursor: pointer; }
         .rotation-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
         .rotation-row input[type=range] { flex: 1; }
         .rotation-reset { border: none; background: none; cursor: pointer; padding: 0 2px; font-size: 1rem; line-height: 1; color: var(--sl-color-neutral-600, #555); }
@@ -166,6 +227,7 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
         this.dragging = false;
         this.features = [];
         this.copies = [];
+        this.copyMeta.clear();
         this.availableLayers = [];
     }
 
@@ -297,12 +359,15 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
             // Remove from persistent layer while dragging
             this.features = this.features.filter(f => f.properties?.copyId !== copyId);
             this.updateTrueAreaSource();
-            const centroid = geoCentroid(hitCopy.geometry!);
-            this.dragState = { feature: hitCopy, centroid, startCoords: pt, color, label, existingCopyId: copyId };
+            const centroid = hitSubPolygonCentroid(pt, hitCopy.geometry!);
+            const bearingDistances = computeBearingDistances(hitCopy.geometry!, centroid);
+            this.dragState = { feature: hitCopy, centroid, startCoords: pt, color, label, existingCopyId: copyId, bearingDistances };
             this.dragging = true;
             if (copyId !== this.lastTouchedCopyId) {
                 this.lastTouchedCopyId = copyId;
                 this.rotationDeg = hitCopy.properties?.rotation ?? 0;
+                const meta = this.copyMeta.get(copyId);
+                if (meta) this.geodesic = meta.geodesic;
             }
             this.adapter.setPanEnabled(false);
             this.updateGhost(pt);
@@ -317,10 +382,11 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
         if (!fc) return;
         const hit = fc.features.find(f => f.geometry && hitTestFeature(pt, f.geometry));
         if (!hit) return;
-        const centroid = geoCentroid(hit.geometry!);
+        const centroid = hitSubPolygonCentroid(pt, hit.geometry!);
+        const bearingDistances = computeBearingDistances(hit.geometry!, centroid);
         const color = COLORS[this.colorIdx % COLORS.length];
         const label = String(hit.properties?.name ?? hit.properties?.label ?? hit.properties?.id ?? `Copy ${this.copies.length + 1}`);
-        this.dragState = { feature: hit, centroid, startCoords: pt, color, label };
+        this.dragState = { feature: hit, centroid, startCoords: pt, color, label, bearingDistances };
         this.dragging = true;
         this.adapter.setPanEnabled(false);
         this.updateGhost(pt);
@@ -333,10 +399,13 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
 
     private updateGhost(coords: LngLat): void {
         if (!this.dragState || !this.adapter) return;
-        const { feature, centroid, startCoords, color } = this.dragState;
+        const { centroid, startCoords, color, bearingDistances, feature } = this.dragState;
         const dLng = coords[0] - startCoords[0];
         const dLat = coords[1] - startCoords[1];
-        const moved = translateGeoPreserving(feature.geometry!, dLng, dLat, centroid[0], centroid[1]);
+        const newCentroid: LngLat = [centroid[0] + dLng, centroid[1] + dLat];
+        const moved = this.geodesic
+            ? placeGeometry(feature.geometry!, newCentroid, bearingDistances)
+            : translateGeoMercator(feature.geometry!, dLng, dLat, centroid[0]);
         const ghostFc: GeoJSON.FeatureCollection = {
             type: 'FeatureCollection',
             features: [{ type: 'Feature', geometry: moved, properties: { color } }],
@@ -353,7 +422,7 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
         }
         this.adapter.setPanEnabled(true);
         if (!this.dragState) return;
-        const { feature, centroid, startCoords, color, label } = this.dragState;
+        const { feature, centroid, startCoords, color, label, bearingDistances } = this.dragState;
         const dLng = e.coords[0] - startCoords[0];
         const dLat = e.coords[1] - startCoords[1];
         const { existingCopyId } = this.dragState;
@@ -368,12 +437,29 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
             this.clearGhost();
             return;
         }
-        const moved = translateGeoPreserving(feature.geometry!, dLng, dLat, centroid[0], centroid[1]);
+        const newCentroid: LngLat = [centroid[0] + dLng, centroid[1] + dLat];
+        const moved = this.geodesic
+            ? placeGeometry(feature.geometry!, newCentroid, bearingDistances)
+            : translateGeoMercator(feature.geometry!, dLng, dLat, centroid[0]);
         const copyId = existingCopyId ?? `copy-${Date.now()}`;
         const rotation = existingCopyId ? (this.lastTouchedCopyId === existingCopyId ? this.rotationDeg : (feature.properties?.rotation ?? 0)) : 0;
+
+        if (existingCopyId) {
+            const prev = this.copyMeta.get(existingCopyId);
+            if (prev) {
+                // Track original centroid's position by applying drag delta to previous placedCentroid,
+                // not to the placed geometry's centroid — keeps recalc consistent across methods.
+                const updatedPlaced: LngLat = [prev.placedCentroid[0] + dLng, prev.placedCentroid[1] + dLat];
+                this.copyMeta.set(existingCopyId, { ...prev, placedCentroid: updatedPlaced, geodesic: this.geodesic });
+            }
+        } else {
+            this.copyMeta.set(copyId, { origGeom: feature.geometry!, origCentroid: centroid, placedCentroid: newCentroid, bearingDistances, geodesic: this.geodesic });
+        }
+
+        const rotatedMoved = rotation !== 0 ? rotateGeometry(moved, rotation, geoCentroid(moved)) : moved;
         this.features = [...this.features, {
             type: 'Feature',
-            geometry: moved,
+            geometry: rotatedMoved,
             properties: { color, copyId, rotation },
         }];
         const fc: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: this.features };
@@ -396,14 +482,41 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
         src?.setData({ type: 'FeatureCollection', features: [] });
     }
 
+    private recomputeLastCopy(): void {
+        if (!this.lastTouchedCopyId) return;
+        const meta = this.copyMeta.get(this.lastTouchedCopyId);
+        if (!meta) return;
+        const { origGeom, origCentroid, placedCentroid, bearingDistances } = meta;
+        this.copyMeta.set(this.lastTouchedCopyId, { ...meta, geodesic: this.geodesic });
+        const dLng = placedCentroid[0] - origCentroid[0];
+        const dLat = placedCentroid[1] - origCentroid[1];
+        const translated = this.geodesic
+            ? placeGeometry(origGeom, placedCentroid, bearingDistances)
+            : translateGeoMercator(origGeom, dLng, dLat, origCentroid[0]);
+        const rotation = this.rotationDeg;
+        const finalGeom = rotation !== 0 ? rotateGeometry(translated, rotation, placedCentroid) : translated;
+        const copyId = this.lastTouchedCopyId;
+        this.features = this.features.map(f =>
+            f.properties?.copyId === copyId
+                ? { ...f, geometry: finalGeom, properties: { ...f.properties, rotation } }
+                : f
+        );
+        this.updateTrueAreaSource();
+    }
+
     private removeCopy(copyId: string): void {
         this.copies = this.copies.filter(c => c.id !== copyId);
         this.features = this.features.filter(f => f.properties?.copyId !== copyId);
+        this.copyMeta.delete(copyId);
         if (this.lastTouchedCopyId === copyId) {
             this.lastTouchedCopyId = this.copies[this.copies.length - 1]?.id ?? null;
-            this.rotationDeg = this.lastTouchedCopyId
-                ? (this.features.find(f => f.properties?.copyId === this.lastTouchedCopyId)?.properties?.rotation ?? 0)
-                : 0;
+            if (this.lastTouchedCopyId) {
+                this.rotationDeg = this.features.find(f => f.properties?.copyId === this.lastTouchedCopyId)?.properties?.rotation ?? 0;
+                const prevMeta = this.copyMeta.get(this.lastTouchedCopyId);
+                if (prevMeta) this.geodesic = prevMeta.geodesic;
+            } else {
+                this.rotationDeg = 0;
+            }
         }
         this.updateTrueAreaSource();
     }
@@ -414,7 +527,8 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
         if (!feature?.geometry) return;
         const prevAngle: number = feature.properties?.rotation ?? 0;
         const delta = angleDeg - prevAngle;
-        const pivot = geoCentroid(feature.geometry);
+        const meta = this.copyMeta.get(this.lastTouchedCopyId!);
+        const pivot: LngLat = meta ? meta.placedCentroid : geoCentroid(feature.geometry);
         const rotated = rotateGeometry(feature.geometry, delta, pivot);
         this.features = this.features.map(f =>
             f.properties?.copyId === this.lastTouchedCopyId
@@ -428,6 +542,7 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
     private clearAll(): void {
         this.copies = [];
         this.features = [];
+        this.copyMeta.clear();
         this.lastTouchedCopyId = null;
         this.rotationDeg = 0;
         this.updateTrueAreaSource();
@@ -476,6 +591,13 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
                     </div>
                 `;
             })()}
+
+            <div class="method-row">
+                <input type="checkbox" id="geodesic-toggle" .checked=${this.geodesic}
+                    @change=${(e: Event) => { this.geodesic = (e.target as HTMLInputElement).checked; this.recomputeLastCopy(); }}
+                />
+                <label for="geodesic-toggle">Geodesic (shape-accurate, may rotate borders)</label>
+            </div>
 
             ${this.copies.length > 0
                 ? html`<button class="clear-btn" @click=${() => this.clearAll()}>Clear all</button>`
