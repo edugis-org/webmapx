@@ -5,6 +5,7 @@ import { normalizeRawSource } from '../layer-source-utils';
 import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, GeoJSONSourceConfig, SubLayerSpec } from '../../config/types';
 import type { MapStateStore } from '../../store/map-state-store';
 import { throttle } from '../../utils/throttle';
+import { evaluateColor, evaluateNumber, matchesFilter } from '../../utils/maplibre-expression-evaluator';
 
 function getCesium(): any {
     return (globalThis as any).Cesium;
@@ -40,23 +41,6 @@ function buildCircleOutlineLonLat(lon: number, lat: number, radiusMeters: number
     return positions;
 }
 
-function toCssColor(value: unknown, fallback: string): string {
-    return typeof value === 'string' ? value : fallback;
-}
-
-function toNumber(value: unknown, fallback: number): number {
-    return typeof value === 'number' && isFinite(value) ? value : fallback;
-}
-
-function parseHexColor(value: string): { r: number; g: number; b: number } | null {
-    const hex = value.trim();
-    if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return null;
-    return {
-        r: parseInt(hex.slice(1, 3), 16),
-        g: parseInt(hex.slice(3, 5), 16),
-        b: parseInt(hex.slice(5, 7), 16),
-    };
-}
 
 function getMinZoom(source: Partial<{ minzoom?: number; minZoom?: number }>): number | undefined {
     const value = source.minzoom ?? source.minZoom;
@@ -526,132 +510,36 @@ export class MapLayerService implements ILayerService {
         return value;
     }
 
-    private resolveExpression(entity: any, expression: unknown): unknown {
-        if (!Array.isArray(expression)) {
-            return expression;
-        }
-
-        const [operator, ...args] = expression;
-        if (operator === 'get' && typeof args[0] === 'string') {
-            return this.getEntityProperty(entity, args[0]);
-        }
-        if (operator === 'to-number') {
-            const value = this.resolveExpression(entity, args[0]);
-            const numberValue = Number(value);
-            return Number.isFinite(numberValue) ? numberValue : null;
-        }
-        if (operator === 'coalesce') {
-            for (const arg of args) {
-                const value = this.resolveExpression(entity, arg);
-                if (value !== null && value !== undefined && !(typeof value === 'number' && !Number.isFinite(value))) {
-                    return value;
-                }
+    private entityToFeature(entity: any): { properties: Record<string, unknown>; geometry: { type: string } } {
+        const Cesium = getCesium();
+        const julian = Cesium?.JulianDate?.now?.();
+        const rawProps: Record<string, unknown> = {};
+        if (entity?.properties) {
+            const names: string[] = entity.properties.propertyNames ?? Object.keys(entity.properties);
+            for (const key of names) {
+                const val = entity.properties[key];
+                rawProps[key] = val?.getValue?.(julian) ?? val;
             }
-            return null;
         }
-        if (operator === 'interpolate') {
-            return this.resolveInterpolateExpression(entity, expression);
-        }
-
-        return null;
-    }
-
-    private resolveInterpolateExpression(entity: any, expression: unknown[]): unknown {
-        if (expression.length < 6) return null;
-
-        const [, interpolation, inputExpression, ...stops] = expression;
-        const input = Number(this.resolveExpression(entity, inputExpression));
-        if (!Number.isFinite(input)) return null;
-
-        let base = 1;
-        if (Array.isArray(interpolation) && interpolation[0] === 'exponential' && typeof interpolation[1] === 'number') {
-            base = interpolation[1];
-        }
-
-        const parsedStops: Array<{ stop: number; value: unknown }> = [];
-        for (let i = 0; i + 1 < stops.length; i += 2) {
-            const stop = Number(stops[i]);
-            if (!Number.isFinite(stop)) continue;
-            parsedStops.push({ stop, value: stops[i + 1] });
-        }
-        if (!parsedStops.length) return null;
-
-        if (input <= parsedStops[0].stop) return parsedStops[0].value;
-        if (input >= parsedStops[parsedStops.length - 1].stop) return parsedStops[parsedStops.length - 1].value;
-
-        for (let i = 1; i < parsedStops.length; i++) {
-            const prev = parsedStops[i - 1];
-            const next = parsedStops[i];
-            if (input > next.stop) continue;
-
-            const tLinear = (input - prev.stop) / (next.stop - prev.stop);
-            const t = base === 1 ? tLinear : (Math.pow(base, tLinear) - 1) / (base - 1);
-
-            if (typeof prev.value === 'number' && typeof next.value === 'number') {
-                return prev.value + (next.value - prev.value) * t;
-            }
-            if (typeof prev.value === 'string' && typeof next.value === 'string') {
-                const c1 = parseHexColor(prev.value);
-                const c2 = parseHexColor(next.value);
-                if (c1 && c2) {
-                    const r = Math.round(c1.r + (c2.r - c1.r) * t);
-                    const g = Math.round(c1.g + (c2.g - c1.g) * t);
-                    const b = Math.round(c1.b + (c2.b - c1.b) * t);
-                    return `rgb(${r}, ${g}, ${b})`;
-                }
-            }
-            return prev.value;
-        }
-
-        return parsedStops[parsedStops.length - 1].value;
-    }
-
-    private resolveFilterOperand(entity: any, operand: unknown): unknown {
-        if (!Array.isArray(operand)) {
-            return operand;
-        }
-
-        const [operator, ...args] = operand;
-        if (operator === 'get' && typeof args[0] === 'string') {
-            return this.getEntityProperty(entity, args[0]);
-        }
-        if (operator === 'geometry-type') {
-            if (entity?.polygon) return 'Polygon';
-            if (entity?.polyline) return 'LineString';
-            if (entity?.position || entity?.point || entity?.billboard || entity?.ellipse) return 'Point';
-            return undefined;
-        }
-
-        return undefined;
+        let geometryType = 'Point';
+        if (entity?.polygon) geometryType = 'Polygon';
+        else if (entity?.polyline) geometryType = 'LineString';
+        return { properties: rawProps, geometry: { type: geometryType } };
     }
 
     private matchesStyleFilter(entity: any, filter: unknown): boolean {
-        if (!Array.isArray(filter) || filter.length < 1) {
-            return true;
-        }
-
-        const [operator, ...rest] = filter;
-        if (operator === 'all') {
-            return rest.every((clause) => this.matchesStyleFilter(entity, clause));
-        }
-        if ((operator === '==' || operator === '!=') && rest.length >= 2) {
-            const lhs = this.resolveFilterOperand(entity, rest[0]);
-            const rhs = rest[1];
-            const matched = lhs === rhs;
-            return operator === '==' ? matched : !matched;
-        }
-
-        return true;
+        if (!filter) return true;
+        return matchesFilter(filter, this.entityToFeature(entity));
     }
 
     private resolveNumber(entity: any, expression: unknown, fallback: number): number {
-        const value = this.resolveExpression(entity, expression);
-        return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+        const zoom = this.store.getState().zoomLevel ?? 0;
+        return evaluateNumber(expression, this.entityToFeature(entity), zoom, fallback);
     }
 
     private resolveColor(entity: any, expression: unknown, fallback: string): string {
-        const value = this.resolveExpression(entity, expression);
-        return typeof value === 'string' && value.length > 0 ? value : fallback;
+        const zoom = this.store.getState().zoomLevel ?? 0;
+        return evaluateColor(expression, this.entityToFeature(entity), zoom, fallback);
     }
 
     private applyGeoJsonStyles(dataSource: any, layerConfig: AnyLayerConfig): void {
@@ -671,10 +559,12 @@ export class MapLayerService implements ILayerService {
         const linePaint = line?.paint ?? {};
         const fillPaint = fill?.paint ?? {};
 
-        const lineColor = toCssColor(linePaint['line-color'], '#3388ff');
-        const lineWidth = toNumber(linePaint['line-width'], 2);
-        const fillColor = toCssColor(fillPaint['fill-color'], '#3388ff');
-        const fillOpacity = toNumber(fillPaint['fill-opacity'], 0.2);
+        const zoom = this.store.getState().zoomLevel ?? 0;
+        const emptyFeature = { properties: {} };
+        const lineColor = evaluateColor(linePaint['line-color'], emptyFeature, zoom, '#3388ff');
+        const lineWidth = evaluateNumber(linePaint['line-width'], emptyFeature, zoom, 2);
+        const fillColor = evaluateColor(fillPaint['fill-color'], emptyFeature, zoom, '#3388ff');
+        const fillOpacity = evaluateNumber(fillPaint['fill-opacity'], emptyFeature, zoom, 0.2);
 
         const entities = dataSource.entities?.values ?? [];
         for (const entity of entities) {
