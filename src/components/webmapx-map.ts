@@ -23,7 +23,7 @@ import {
   resolveSingleGroupInsertionOptionsForGroup,
 } from './internal/single-group-policy';
 import { resolveLegendRoleForLayer } from './internal/legend-role-policy';
-import { resolveTopojsonSources } from '../map/topojson-loader';
+import { resolveGeoJSONSources } from '../map/geojson-loader';
 import { inlineLayerSources } from '../map/layer-source-resolver';
 
 const MAP_VIEW_SLOT = 'map-view';
@@ -440,8 +440,6 @@ export class WebmapxMapElement extends HTMLElement {
     if (!adapter || !layerData) {
       return;
     }
-
-    await resolveTopojsonSources(layerData);
 
     if (!this.initialStateLayersApplied) {
       this.initialStateLayersApplied = true;
@@ -1138,6 +1136,9 @@ export class WebmapxMapElement extends HTMLElement {
     options?: LayerInsertOptions,
   ): Promise<boolean> {
     const enriched = inlineLayerSources(layerInformation.layer, this.layerDataConfig?.sources);
+    if (enriched.sources && typeof enriched.sources === 'object') {
+      await resolveGeoJSONSources(enriched.sources);
+    }
     const layer = enriched;
     let success: boolean;
     try {

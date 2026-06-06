@@ -51,7 +51,7 @@
       },
       "world-countries-source": {
         "type": "geojson",
-        "data": "topojson://./data/world-countries-simplified.topojson#ne_50m_admin_0_map_units",
+        "data": "./data/world-countries-simplified.topojson#ne_50m_admin_0_map_units",
         "attribution": "&copy; Natural Earth"
       },
       "earthquake-source": {
