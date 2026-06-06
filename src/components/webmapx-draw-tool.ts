@@ -1280,6 +1280,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     private translateCoordsGeoPreserving(coords: any, type: DrawGeometryType, dLng: number, dLat: number, origCentroidLng: number, origCentroidLat: number): any {
         // Scale longitude offsets so E-W km distances are preserved at the new latitude
+        if (!isFinite(origCentroidLat) || !isFinite(origCentroidLng)) {
+            return this.translateCoords(coords, type, dLng, dLat);
+        }
         const newCentroidLat = origCentroidLat + dLat;
         const cosOrig = Math.cos(origCentroidLat * Math.PI / 180);
         const cosNew  = Math.cos(newCentroidLat  * Math.PI / 180);
@@ -1515,10 +1518,17 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private centroid(feature: DrawFeature): [number, number] {
-        const flat: number[][] =
-            feature.type === 'LineString' ? feature.coordinates as number[][]
-            : feature.type === 'Polygon' ? (feature.coordinates as number[][][])[0]
-            : [[...(feature.coordinates as number[])]];
+        let flat: number[][];
+        switch (feature.type) {
+            case 'Point':       flat = [feature.coordinates as number[]]; break;
+            case 'MultiPoint':  flat = feature.coordinates as number[][]; break;
+            case 'LineString':  flat = feature.coordinates as number[][]; break;
+            case 'MultiLineString': flat = (feature.coordinates as number[][][]).flat(); break;
+            case 'Polygon':     flat = (feature.coordinates as number[][][])[0]; break;
+            case 'MultiPolygon': flat = (feature.coordinates as number[][][][]).flat(2); break;
+            default:            flat = [];
+        }
+        if (flat.length === 0) return [0, 0];
         const sum = flat.reduce((acc, c) => [acc[0] + c[0], acc[1] + c[1]], [0, 0]);
         return [sum[0] / flat.length, sum[1] / flat.length];
     }
