@@ -16,8 +16,13 @@ function evaluateColor(expression: unknown, feature: FeatureLike, zoom: number, 
     const result = createExpression(expression as any, colorSpec);
     if (result.result !== 'success') return fallback;
     try {
-        const color = result.value.evaluate({ zoom }, makeEvalFeature(feature));
-        return color?.toString?.() ?? fallback;
+        const origWarn = console.warn;
+        console.warn = () => {};
+        let color: any;
+        try { color = result.value.evaluate({ zoom }, makeEvalFeature(feature)); }
+        finally { console.warn = origWarn; }
+        const str = color?.toString?.() ?? fallback;
+        return str && str !== 'null' ? str : fallback;
     } catch {
         return fallback;
     }

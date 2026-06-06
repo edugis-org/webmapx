@@ -138,6 +138,8 @@ export interface IMapCore {
 
     /** Enables or disables map panning. Use to prevent map pan during vertex dragging. */
     setPanEnabled(enabled: boolean): void;
+    /** Enables or disables touch pointer capture so the browser does not intercept touch as scroll. */
+    setTouchCaptureEnabled(enabled: boolean): void;
     /** Enables or disables double-click zoom. */
     setDoubleClickZoomEnabled(enabled: boolean): void;
 
@@ -273,6 +275,8 @@ export interface IMap {
 
     /** Enables or disables map panning. Use to prevent map pan during vertex dragging. */
     setPanEnabled(enabled: boolean): void;
+    /** Enables or disables touch pointer capture so the browser does not intercept touch as scroll. */
+    setTouchCaptureEnabled(enabled: boolean): void;
     /** Enables or disables double-click zoom. */
     setDoubleClickZoomEnabled(enabled: boolean): void;
 

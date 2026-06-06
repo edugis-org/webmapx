@@ -1,0 +1,59 @@
+import { html, css, TemplateResult } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
+import { WebmapxBaseTool } from './webmapx-base-tool';
+import type { IMap } from '../map/IMapInterfaces';
+
+const ADAPTER_LABELS: Record<string, string> = {
+    MapLibreAdapter: 'MapLibre GL',
+    OpenLayersAdapter: 'OpenLayers',
+    LeafletAdapter: 'Leaflet',
+    CesiumAdapter: 'Cesium',
+};
+
+@customElement('webmapx-active-adapter')
+export class WebmapxActiveAdapter extends WebmapxBaseTool {
+    @state() private adapterName = '—';
+
+    static styles = css`
+        :host { display: inline-block; }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.2rem 0.6rem;
+            border: 1px solid var(--color-border, #ccc);
+            background: var(--color-background-secondary, #f5f5f5);
+            color: var(--color-text-primary, #333);
+            font-size: 0.8rem;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--color-primary, #2a9d8f);
+        }
+    `;
+
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    protected onStateChanged(): void {}
+
+    protected onMapAttached(adapter: IMap): void {
+        const ctor = adapter.constructor?.name ?? '';
+        this.adapterName = ADAPTER_LABELS[ctor] ?? ctor;
+    }
+
+    protected onMapDetached(): void {
+        this.adapterName = '—';
+    }
+
+    protected render(): TemplateResult {
+        return html`
+            <span class="badge">
+                <span class="dot"></span>
+                ${this.adapterName}
+            </span>
+        `;
+    }
+}

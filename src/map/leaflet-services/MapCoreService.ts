@@ -193,6 +193,37 @@ export class MapCoreService implements IMapCore {
             const pixel: Pixel = [e.layerPoint.x, e.layerPoint.y];
             this.eventBus?.emit({ type: 'pointer-up', coords, pixel, button: (e.originalEvent as MouseEvent).button, originalEvent: e.originalEvent });
         });
+
+        // Touch support via DOM pointer events (Leaflet's mouse events don't fire for touch)
+        const container = map.getContainer();
+        const toLeafletCoords = (event: PointerEvent): { coords: LngLat; pixel: Pixel } | null => {
+            const rect = container.getBoundingClientRect();
+            const containerPoint = L.point(event.clientX - rect.left, event.clientY - rect.top);
+            const latlng = map.containerPointToLatLng(containerPoint);
+            const pixel: Pixel = [containerPoint.x, containerPoint.y];
+            return { coords: [latlng.lng, latlng.lat], pixel };
+        };
+        container.addEventListener('pointermove', (event: PointerEvent) => {
+            if (event.pointerType === 'mouse') return;
+            const r = toLeafletCoords(event);
+            if (!r) return;
+            this.eventBus?.emit({ type: 'pointer-move', coords: r.coords, pixel: r.pixel, resolution: null, originalEvent: event });
+        });
+        container.addEventListener('pointerdown', (event: PointerEvent) => {
+            if (event.pointerType === 'mouse') return;
+            const r = toLeafletCoords(event);
+            if (!r) return;
+            this.eventBus?.emit({ type: 'pointer-down', coords: r.coords, pixel: r.pixel, button: 0, originalEvent: event });
+        });
+        container.addEventListener('pointerup', (event: PointerEvent) => {
+            if (event.pointerType === 'mouse') return;
+            const r = toLeafletCoords(event);
+            if (!r) return;
+            this.eventBus?.emit({ type: 'pointer-up', coords: r.coords, pixel: r.pixel, button: 0, originalEvent: event });
+        });
+        container.addEventListener('pointercancel', () => {
+            this.eventBus?.emit({ type: 'pointer-cancel' });
+        });
         map.on('mouseout', (e: L.LeafletMouseEvent) => {
             this.eventBus?.emit({ type: 'pointer-leave', originalEvent: e.originalEvent });
             this.store.dispatch({ pointerCoordinates: null, pointerResolution: null }, 'MAP');
@@ -260,6 +291,12 @@ export class MapCoreService implements IMapCore {
         } else {
             this.mapInstance.dragging.disable();
         }
+    }
+
+    public setTouchCaptureEnabled(enabled: boolean): void {
+        if (!this.mapInstance) return;
+        const container = this.mapInstance.getContainer();
+        container.style.touchAction = enabled ? '' : 'none';
     }
 
     public setDoubleClickZoomEnabled(enabled: boolean): void {

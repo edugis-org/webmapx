@@ -164,6 +164,8 @@ export class CesiumAdapter extends BaseAdapter implements IMap {
         this.core.setPanEnabled(enabled);
     }
 
+    setTouchCaptureEnabled(_enabled: boolean): void {}
+
     setDoubleClickZoomEnabled(_enabled: boolean): void {
         // Cesium has no separate double-click zoom
     }

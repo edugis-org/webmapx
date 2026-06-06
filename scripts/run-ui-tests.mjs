@@ -11,7 +11,7 @@ const suitesDir = path.join(__dirname, 'ui-tests');
 
 const DEFAULT_ENGINES = ['maplibre', 'openlayers', 'leaflet', 'cesium'];
 const DEV_HOST = process.env.UI_TEST_HOST ?? '127.0.0.1';
-const DEV_PORT = Number(process.env.UI_TEST_PORT ?? '4173');
+const DEV_PORT = Number(process.env.UI_TEST_PORT ?? '41730');
 const BASE_URL = `http://${DEV_HOST}:${DEV_PORT}`;
 
 function parseArgs(argv) {
@@ -93,7 +93,7 @@ async function waitForServer(url, timeoutMs, proc) {
 }
 
 function startDevServer() {
-  const child = spawn('npm', ['run', 'dev', '--', '--host', DEV_HOST, '--port', String(DEV_PORT), '--strictPort'], {
+  const child = spawn('npm', ['run', 'dev', '--', '--host', DEV_HOST, '--port', String(DEV_PORT), '--strictPort', '--no-open'], {
     cwd: repoRoot,
     detached: true,
     stdio: ['ignore', 'pipe', 'pipe'],

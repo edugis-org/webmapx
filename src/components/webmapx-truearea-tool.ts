@@ -179,6 +179,7 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
     activate(): void {
         this.active = true;
         this.style.display = 'block';
+        if (this.adapter) this.adapter.setTouchCaptureEnabled(false);
         this.bindEvents();
     }
 
@@ -186,7 +187,10 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
         this.active = false;
         this.style.display = 'none';
         this.cleanupEvents();
-        if (this.adapter) this.adapter.setPanEnabled(true);
+        if (this.adapter) {
+            this.adapter.setPanEnabled(true);
+            this.adapter.setTouchCaptureEnabled(true);
+        }
         this.dragState = null;
         this.dragging = false;
         this.clearGhost();
@@ -217,7 +221,10 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
 
     protected onMapAttached(adapter: IMap): void {
         this.refreshLayers(adapter.store.getState());
-        if (this.active) this.bindEvents();
+        if (this.active) {
+            adapter.setTouchCaptureEnabled(false);
+            this.bindEvents();
+        }
     }
 
     protected onMapDetached(): void {
@@ -331,7 +338,8 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
         const u1 = this.adapter.events.on('pointer-down', e => this.onPointerDown(e));
         const u2 = this.adapter.events.on('pointer-move', e => this.onDrag(e));
         const u3 = this.adapter.events.on('pointer-up', e => this.onDragEnd(e));
-        this.unsubEvents = [u1, u2, u3];
+        const u4 = this.adapter.events.on('pointer-cancel', () => this.onDragCancel());
+        this.unsubEvents = [u1, u2, u3, u4];
     }
 
     private cleanupEvents(): void {
@@ -412,6 +420,18 @@ export class WebmapxTrueAreaTool extends WebmapxBaseTool {
         };
         const src = this.adapter.getSource(GHOST_SOURCE);
         src?.setData(ghostFc);
+    }
+
+    private onDragCancel(): void {
+        if (!this.adapter) return;
+        this.adapter.setPanEnabled(true);
+        if (this.dragState?.existingCopyId) {
+            this.features = [...this.features, this.dragState.feature];
+            this.updateTrueAreaSource();
+        }
+        this.dragState = null;
+        this.dragging = false;
+        this.clearGhost();
     }
 
     private onDragEnd(e: { coords: LngLat }): void {

@@ -113,6 +113,10 @@ export class OpenLayersAdapter extends BaseAdapter implements IMap {
         this.core.setPanEnabled(enabled);
     }
 
+    setTouchCaptureEnabled(enabled: boolean): void {
+        this.core.setTouchCaptureEnabled(enabled);
+    }
+
     setDoubleClickZoomEnabled(enabled: boolean): void {
         this.core.setDoubleClickZoomEnabled(enabled);
     }

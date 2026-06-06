@@ -122,6 +122,10 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
         this.core.setPanEnabled(enabled);
     }
 
+    setTouchCaptureEnabled(_enabled: boolean): void {
+        // MapLibre canvas has touch-action:none by default; no action needed
+    }
+
     setDoubleClickZoomEnabled(enabled: boolean): void {
         this.core.setDoubleClickZoomEnabled(enabled);
     }

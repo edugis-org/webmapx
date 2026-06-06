@@ -256,7 +256,7 @@ export class MapCoreService implements IMapCore {
         });
 
         map.getViewport().addEventListener('pointerdown', (event: PointerEvent) => {
-            const pixel: [number, number] = [event.offsetX, event.offsetY];
+            const pixel = map.getEventPixel(event) as [number, number];
             const coord = map.getCoordinateFromPixel(pixel);
             if (!coord) return;
             const ll = toLonLat(coord) as LngLat;
@@ -264,11 +264,15 @@ export class MapCoreService implements IMapCore {
         });
 
         map.getViewport().addEventListener('pointerup', (event: PointerEvent) => {
-            const pixel: [number, number] = [event.offsetX, event.offsetY];
+            const pixel = map.getEventPixel(event) as [number, number];
             const coord = map.getCoordinateFromPixel(pixel);
             if (!coord) return;
             const ll = toLonLat(coord) as LngLat;
             this.eventBus?.emit({ type: 'pointer-up', coords: ll, pixel, button: event.button, originalEvent: event });
+        });
+
+        map.getViewport().addEventListener('pointercancel', () => {
+            this.eventBus?.emit({ type: 'pointer-cancel' });
         });
 
         map.getViewport().addEventListener('contextmenu', (event) => {
@@ -580,6 +584,12 @@ export class MapCoreService implements IMapCore {
                 interaction.setActive(enabled);
             }
         });
+    }
+
+    public setTouchCaptureEnabled(enabled: boolean): void {
+        if (!this.mapInstance) return;
+        const viewport = this.mapInstance.getViewport() as HTMLElement;
+        viewport.style.touchAction = enabled ? '' : 'none';
     }
 
     public setDoubleClickZoomEnabled(_enabled: boolean): void {

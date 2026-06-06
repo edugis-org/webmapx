@@ -86,6 +86,10 @@ export interface PointerUpEvent extends BaseMapEvent {
     button: number;
 }
 
+export interface PointerCancelEvent extends BaseMapEvent {
+    type: 'pointer-cancel';
+}
+
 /**
  * Drag events - for drawing, measuring, and other interactive tools.
  */
@@ -196,6 +200,7 @@ export interface MapEventMap {
     'pointer-leave': PointerLeaveEvent;
     'pointer-down': PointerDownEvent;
     'pointer-up': PointerUpEvent;
+    'pointer-cancel': PointerCancelEvent;
     'click': ClickEvent;
     'dblclick': DoubleClickEvent;
     'contextmenu': ContextMenuEvent;

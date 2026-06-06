@@ -113,6 +113,8 @@ export class LeafletAdapter extends BaseAdapter implements IMap {
         this.core.setPanEnabled(enabled);
     }
 
+    setTouchCaptureEnabled(_enabled: boolean): void {}
+
     setDoubleClickZoomEnabled(enabled: boolean): void {
         this.core.setDoubleClickZoomEnabled(enabled);
     }

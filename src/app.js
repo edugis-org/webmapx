@@ -164,3 +164,4 @@ async function initializeMap(mapElement, appConfig) {
 }
 import './components/webmapx-view-mode-tool.ts';
 import './components/webmapx-truearea-tool.ts';
+import './components/webmapx-active-adapter.ts';

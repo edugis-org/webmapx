@@ -184,6 +184,39 @@ export class MapCoreService implements IMapCore {
             this.eventBus?.emit({ type: 'pointer-up', coords, pixel, button: event.originalEvent.button, originalEvent: event.originalEvent });
         });
 
+        // Touch support: mousedown/mouseup only fire for mouse; use canvas pointer events for touch
+        const canvas = map.getCanvas();
+        canvas.addEventListener('pointerdown', (event: PointerEvent) => {
+            if (event.pointerType === 'mouse') return; // already handled by mousedown
+            const rect = canvas.getBoundingClientRect();
+            const pixel: Pixel = [event.clientX - rect.left, event.clientY - rect.top];
+            const lngLat = map.unproject(pixel as maplibregl.PointLike);
+            const coords: LngLat = [lngLat.lng, lngLat.lat];
+            this.eventBus?.emit({ type: 'pointer-down', coords, pixel, button: 0, originalEvent: event });
+        });
+
+        canvas.addEventListener('pointermove', (event: PointerEvent) => {
+            if (event.pointerType === 'mouse') return;
+            const rect = canvas.getBoundingClientRect();
+            const pixel: Pixel = [event.clientX - rect.left, event.clientY - rect.top];
+            const lngLat = map.unproject(pixel as maplibregl.PointLike);
+            const coords: LngLat = [lngLat.lng, lngLat.lat];
+            this.eventBus?.emit({ type: 'pointer-move', coords, pixel, resolution: null, originalEvent: event });
+        });
+
+        canvas.addEventListener('pointerup', (event: PointerEvent) => {
+            if (event.pointerType === 'mouse') return;
+            const rect = canvas.getBoundingClientRect();
+            const pixel: Pixel = [event.clientX - rect.left, event.clientY - rect.top];
+            const lngLat = map.unproject(pixel as maplibregl.PointLike);
+            const coords: LngLat = [lngLat.lng, lngLat.lat];
+            this.eventBus?.emit({ type: 'pointer-up', coords, pixel, button: 0, originalEvent: event });
+        });
+
+        canvas.addEventListener('pointercancel', () => {
+            this.eventBus?.emit({ type: 'pointer-cancel' });
+        });
+
         map.on('mouseout', (event: maplibregl.MapMouseEvent) => {
             this.eventBus?.emit({
                 type: 'pointer-leave',
@@ -430,6 +463,8 @@ export class MapCoreService implements IMapCore {
             this.mapInstance.dragPan.disable();
         }
     }
+
+    public setTouchCaptureEnabled(_enabled: boolean): void {}
 
     public setDoubleClickZoomEnabled(enabled: boolean): void {
         if (!this.mapInstance) return;

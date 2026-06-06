@@ -5,6 +5,7 @@ import type { MapStyle } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel } from '../../store/map-events';
 import { throttle } from '../../utils/throttle';
+import { evaluateColor, evaluateNumber } from '../../utils/maplibre-expression-evaluator';
 
 function getCesium(): any {
     return (globalThis as any).Cesium;
@@ -414,6 +415,8 @@ export class MapCoreService implements IMapCore {
         ctrl.enableZoom = enabled;
     }
 
+    public setTouchCaptureEnabled(_enabled: boolean): void {}
+
     public setDoubleClickZoomEnabled(_enabled: boolean): void {
         // Cesium has no separate double-click zoom
     }
@@ -741,8 +744,10 @@ export class MapCoreService implements IMapCore {
             }
 
             if (layer?.type === 'fill' && entity.polygon) {
-                const fillColor = paint['fill-color'] ?? '#3388ff';
-                const fillOpacity = paint['fill-opacity'] ?? 0.2;
+                const entityProps = this.getEntityProperties(entity);
+                const featureLike = { properties: entityProps, geometry: { type: 'Polygon' } };
+                const fillColor = evaluateColor(paint['fill-color'] ?? '#3388ff', featureLike, currentZoom, '#3388ff');
+                const fillOpacity = evaluateNumber(paint['fill-opacity'] ?? 0.2, featureLike, currentZoom, 0.2);
                 entity.polygon.material = Cesium.Color.fromCssColorString(fillColor).withAlpha(fillOpacity);
                 entity.polygon.outline = false;
                 entity.polygon.height = layerZ;
@@ -761,8 +766,10 @@ export class MapCoreService implements IMapCore {
                 }
                 if (entity.polyline) {
                     entity.polyline.show = true;
-                    const lineColor = paint['line-color'] ?? '#3388ff';
-                    const lineWidth = paint['line-width'] ?? 2;
+                    const entityProps = this.getEntityProperties(entity);
+                    const featureLike = { properties: entityProps, geometry: { type: 'LineString' } };
+                    const lineColor = evaluateColor(paint['line-color'] ?? '#3388ff', featureLike, currentZoom, '#3388ff');
+                    const lineWidth = evaluateNumber(paint['line-width'] ?? 2, featureLike, currentZoom, 2);
                     entity.polyline.material = Cesium.Color.fromCssColorString(lineColor).withAlpha(1);
                     entity.polyline.width = lineWidth;
                     const dash = paint['line-dasharray'];
@@ -989,10 +996,11 @@ export class MapCoreService implements IMapCore {
         }
 
         const previousDataSource = layerState.dataSource;
+        // Remove previous before adding new to prevent multiple datasources visible simultaneously
+        this.removeLayerDataSource({ dataSource: previousDataSource });
         layerState.dataSource = nextDataSource;
         this.viewer.dataSources.add(nextDataSource);
         this.applyLayerStyle(layerState);
-        this.removeLayerDataSource({ dataSource: previousDataSource });
         setTimeout(() => this.reapplyDataSourceOrder(), 0);
     }
 
@@ -1018,6 +1026,18 @@ export class MapCoreService implements IMapCore {
         setTimeout(() => {
             try { viewer.dataSources.remove(ds, true); } catch { /* ignore */ }
         }, 0);
+    }
+
+    private getEntityProperties(entity: any): Record<string, unknown> {
+        const props = entity?.properties;
+        if (!props) return {};
+        const names: string[] = props.propertyNames ?? Object.keys(props);
+        const result: Record<string, unknown> = {};
+        for (const name of names) {
+            const val = props[name];
+            result[name] = typeof val?.getValue === 'function' ? val.getValue(undefined) : val;
+        }
+        return result;
     }
 
     private getEntityGeometryType(entity: any): 'Point' | 'LineString' | 'Polygon' | null {
