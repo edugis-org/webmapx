@@ -122,6 +122,11 @@ export class WebmapxToolbar extends LitElement {
     // Deactivate all buttons (visual only — non-modal tools don't affect ToolManager state)
     this.clearActiveButtons();
 
+    // Deactivate any active ToolManager tool so all toolbar tools are mutually exclusive
+    if (this.toolManager?.activeToolId) {
+      this.toolManager.deactivate(this.toolManager.activeToolId);
+    }
+
     if (!isActive) {
       // Activate the clicked button
       this.setActiveButton(toolId);

@@ -139,7 +139,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private editHandles: EditHandle[] = [];
     private hoveredHandle: EditHandle | null = null;
     private dragging: { handle: EditHandle; lastCoords: LngLat } | null = null;
-    private featureDrag: { featureId: string; lastCoords: LngLat; origCoords: any } | null = null;
+    private featureDrag: { featureId: string; startCoords: LngLat; origCoords: any; origCentroidLat: number; origCentroidLng: number } | null = null;
 
     // ── Event unsubscribers ───────────────────────────────────────────────────
 
@@ -906,13 +906,16 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.cursorPos = e.coords;
 
         if (this.featureDrag) {
-            // Move entire feature
+            // Move entire feature — compute from original coords to avoid drift
             const f = this.features.find(f => f.id === this.featureDrag!.featureId);
             if (f) {
-                const dLng = e.coords[0] - this.featureDrag.lastCoords[0];
-                const dLat = e.coords[1] - this.featureDrag.lastCoords[1];
-                f.coordinates = this.translateCoords(f.coordinates, f.type, dLng, dLat);
-                this.featureDrag.lastCoords = e.coords;
+                const totalDLng = e.coords[0] - this.featureDrag.startCoords[0];
+                const totalDLat = e.coords[1] - this.featureDrag.startCoords[1];
+                f.coordinates = this.translateCoordsGeoPreserving(
+                    this.featureDrag.origCoords, f.type,
+                    totalDLng, totalDLat,
+                    this.featureDrag.origCentroidLng, this.featureDrag.origCentroidLat
+                );
                 this.refreshDrawLayerSource(f.layerId);
                 this.updateEditHandles();
                 this.updateSelectedSource();
@@ -993,10 +996,13 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             const px: [number, number] = [e.pixel[0], e.pixel[1]];
             const hit = this.findFeatureAt(px, e.coords);
             if (hit && hit.id === this.selectedFeatureId) {
+                const centroid = this.centroid(hit);
                 this.featureDrag = {
                     featureId: hit.id,
-                    lastCoords: e.coords,
-                    origCoords: JSON.parse(JSON.stringify(hit.coordinates))
+                    startCoords: e.coords,
+                    origCoords: JSON.parse(JSON.stringify(hit.coordinates)),
+                    origCentroidLat: centroid[1],
+                    origCentroidLng: centroid[0],
                 };
                 this.adapter?.setPanEnabled(false);
                 this.adapter?.setCursor('grabbing');
@@ -1270,6 +1276,26 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         f.coordinates = coords;
         // Also update the handle position
         handle.coords = newCoords;
+    }
+
+    private translateCoordsGeoPreserving(coords: any, type: DrawGeometryType, dLng: number, dLat: number, origCentroidLng: number, origCentroidLat: number): any {
+        // Scale longitude offsets so E-W km distances are preserved at the new latitude
+        const newCentroidLat = origCentroidLat + dLat;
+        const cosOrig = Math.cos(origCentroidLat * Math.PI / 180);
+        const cosNew  = Math.cos(newCentroidLat  * Math.PI / 180);
+        const lngScale = cosNew > 1e-6 ? cosOrig / cosNew : 1;
+        const newCentroidLng = origCentroidLng + dLng;
+        const t = (c: [number, number]): [number, number] => [
+            newCentroidLng + (c[0] - origCentroidLng) * lngScale,
+            c[1] + dLat
+        ];
+        if (type === 'Point') return t(coords as [number, number]);
+        if (type === 'MultiPoint') return (coords as [number, number][]).map(t);
+        if (type === 'LineString') return (coords as [number, number][]).map(t);
+        if (type === 'MultiLineString') return (coords as [number, number][][]).map(line => line.map(t));
+        if (type === 'Polygon') return (coords as [number, number][][]).map(ring => ring.map(t));
+        if (type === 'MultiPolygon') return (coords as [number, number][][][]).map(polygon => polygon.map(ring => ring.map(t)));
+        return coords;
     }
 
     private translateCoords(coords: any, type: DrawGeometryType, dLng: number, dLat: number): any {
