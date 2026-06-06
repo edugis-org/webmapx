@@ -35,21 +35,26 @@ function accessServiceInternals<T>(service: MapLayerService): T {
   return service as unknown as T;
 }
 
-test('MapLayerService tolerates expression paint values for OpenLayers fallback styling', () => {
+test('MapLayerService creates a GeoJSON layer with stylefunction', () => {
   const service = accessServiceInternals<{
-    createStyle: (style: unknown) => unknown;
+    createGeoJSONLayer: (layerId: string, sourceConfig: unknown, style: unknown) => unknown;
   }>(createService());
 
-  const style = service.createStyle({
+  const layer = service.createGeoJSONLayer('test-layer', {
+    id: 'test-source',
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: [] },
+  }, {
+    id: 'test-style',
     type: 'fill',
+    source: 'test-source',
     paint: {
-      'fill-color': ['interpolate', ['linear'], ['zoom'], 9, '#ffffff', 12, '#000000'],
-      'fill-opacity': ['step', ['zoom'], 0.3, 10, 0.8],
-      'fill-outline-color': ['get', 'outline'],
+      'fill-color': ['case', ['<', ['get', 'value'], 10], '#ff0000', '#0000ff'],
+      'fill-opacity': 0.8,
     },
   });
 
-  assert.ok(style);
+  assert.ok(layer);
 });
 
 test('MapLayerService merges native ids across per-source adds for one logical layer', async () => {

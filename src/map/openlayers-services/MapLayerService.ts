@@ -13,7 +13,6 @@ import VectorSource from 'ol/source/Vector';
 import VectorTileSource from 'ol/source/VectorTile';
 import GeoJSON from 'ol/format/GeoJSON';
 import MVT from 'ol/format/MVT';
-import { Fill, Stroke, Style, Circle as CircleStyle } from 'ol/style';
 import ImageWMS from 'ol/source/ImageWMS';
 import ImageLayer from 'ol/layer/Image';
 import TileWMS from 'ol/source/TileWMS';
@@ -557,152 +556,6 @@ export class MapLayerService implements ILayerService {
         };
     }
 
-    private mapFeatureGeometryType(feature: any): 'Point' | 'LineString' | 'Polygon' | null {
-        const geometryType = feature?.getGeometry?.()?.getType?.();
-        if (geometryType === 'Point' || geometryType === 'MultiPoint') return 'Point';
-        if (geometryType === 'LineString' || geometryType === 'MultiLineString') return 'LineString';
-        if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') return 'Polygon';
-        return null;
-    }
-
-    private resolveFilterOperand(feature: any, operand: unknown): unknown {
-        if (Array.isArray(operand) && operand[0] === 'geometry-type') {
-            return this.mapFeatureGeometryType(feature);
-        }
-
-        if (Array.isArray(operand) && operand[0] === 'get' && typeof operand[1] === 'string') {
-            return feature?.get?.(operand[1]);
-        }
-
-        return operand;
-    }
-
-    private matchesStyleFilter(feature: any, filter: unknown): boolean {
-        if (!Array.isArray(filter) || filter.length < 1) {
-            return true;
-        }
-
-        const [operator, ...rest] = filter;
-
-        if (operator === 'all') {
-            return rest.every((clause) => this.matchesStyleFilter(feature, clause));
-        }
-
-        if ((operator === '==' || operator === '!=') && rest.length >= 2) {
-            const lhs = rest[0];
-            const rhs = rest[1];
-            const matched = this.resolveFilterOperand(feature, lhs) === rhs;
-            return operator === '==' ? matched : !matched;
-        }
-
-        return true;
-    }
-
-    private getFeatureProperty(feature: any, name: string): unknown {
-        return feature?.get?.(name);
-    }
-
-    private evaluateExpression(feature: any, expression: unknown): unknown {
-        if (!Array.isArray(expression)) {
-            return expression;
-        }
-
-        const [operator, ...args] = expression;
-        if (operator === 'get' && typeof args[0] === 'string') {
-            return this.getFeatureProperty(feature, args[0]);
-        }
-        if (operator === 'to-number') {
-            const value = this.evaluateExpression(feature, args[0]);
-            const numberValue = Number(value);
-            return Number.isFinite(numberValue) ? numberValue : null;
-        }
-        if (operator === 'coalesce') {
-            for (const arg of args) {
-                const value = this.evaluateExpression(feature, arg);
-                if (value !== null && value !== undefined && !(typeof value === 'number' && !Number.isFinite(value))) {
-                    return value;
-                }
-            }
-            return null;
-        }
-        if (operator === 'interpolate') {
-            return this.evaluateInterpolateExpression(feature, expression);
-        }
-
-        return null;
-    }
-
-    private evaluateInterpolateExpression(feature: any, expression: unknown[]): unknown {
-        if (expression.length < 6) return null;
-        const [, interpolation, inputExpression, ...stops] = expression;
-        const input = Number(this.evaluateExpression(feature, inputExpression));
-        if (!Number.isFinite(input)) return null;
-
-        let base = 1;
-        if (Array.isArray(interpolation) && interpolation[0] === 'exponential' && typeof interpolation[1] === 'number') {
-            base = interpolation[1];
-        }
-
-        const parsedStops: Array<{ stop: number; value: unknown }> = [];
-        for (let i = 0; i + 1 < stops.length; i += 2) {
-            const stop = Number(stops[i]);
-            if (!Number.isFinite(stop)) continue;
-            parsedStops.push({ stop, value: stops[i + 1] });
-        }
-        if (!parsedStops.length) return null;
-
-        if (input <= parsedStops[0].stop) return parsedStops[0].value;
-        if (input >= parsedStops[parsedStops.length - 1].stop) return parsedStops[parsedStops.length - 1].value;
-
-        for (let i = 1; i < parsedStops.length; i++) {
-            const prev = parsedStops[i - 1];
-            const next = parsedStops[i];
-            if (input > next.stop) continue;
-
-            const tLinear = (input - prev.stop) / (next.stop - prev.stop);
-            const t = base === 1 ? tLinear : (Math.pow(base, tLinear) - 1) / (base - 1);
-
-            if (typeof prev.value === 'number' && typeof next.value === 'number') {
-                return prev.value + (next.value - prev.value) * t;
-            }
-
-            if (typeof prev.value === 'string' && typeof next.value === 'string') {
-                const c1 = this.parseHexColor(prev.value);
-                const c2 = this.parseHexColor(next.value);
-                if (c1 && c2) {
-                    const r = Math.round(c1.r + (c2.r - c1.r) * t);
-                    const g = Math.round(c1.g + (c2.g - c1.g) * t);
-                    const b = Math.round(c1.b + (c2.b - c1.b) * t);
-                    return `rgb(${r}, ${g}, ${b})`;
-                }
-            }
-
-            return prev.value;
-        }
-
-        return parsedStops[parsedStops.length - 1].value;
-    }
-
-    private parseHexColor(value: string): { r: number; g: number; b: number } | null {
-        const hex = value.trim();
-        if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return null;
-        return {
-            r: parseInt(hex.slice(1, 3), 16),
-            g: parseInt(hex.slice(3, 5), 16),
-            b: parseInt(hex.slice(5, 7), 16),
-        };
-    }
-
-    private getPaintColorValue(feature: any, value: unknown, fallback: string): string {
-        const resolved = this.evaluateExpression(feature, value);
-        return typeof resolved === 'string' && resolved.length > 0 ? resolved : fallback;
-    }
-
-    private getPaintNumberValue(feature: any, value: unknown, fallback: number): number {
-        const resolved = this.evaluateExpression(feature, value);
-        return typeof resolved === 'number' && Number.isFinite(resolved) ? resolved : fallback;
-    }
-
     private getLiteralNumberValue(value: unknown, fallback: number): number {
         return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
     }
@@ -718,7 +571,6 @@ export class MapLayerService implements ILayerService {
             }
 
             const { urlTemplate, minZoom: vectorMinZoom, maxZoom: vectorMaxZoom } = resolvedSource;
-            const sourceLayerName = style['source-layer'];
             const source = new VectorTileSource({
                 format: new MVT(),
                 attributions: sourceConfig.attribution,
@@ -733,26 +585,23 @@ export class MapLayerService implements ILayerService {
                 source,
                 minZoom: style.minzoom,
                 maxZoom: style.maxzoom,
-                style: (feature: any) => {
-                    if (sourceLayerName) {
-                        const featureSourceLayer = feature?.get?.('layer') ?? feature?.get?.('source-layer') ?? feature?.get?.('sourceLayer');
-                        if (typeof featureSourceLayer === 'string' && featureSourceLayer !== sourceLayerName) {
-                            return undefined;
-                        }
-                    }
-
-                    const geometryType = this.mapFeatureGeometryType(feature);
-                    if (style.type === 'fill' && geometryType !== 'Polygon') return undefined;
-                    if (style.type === 'line' && geometryType !== 'LineString') return undefined;
-                    if (style.type === 'circle' && geometryType !== 'Point') return undefined;
-
-                    if (!this.matchesStyleFilter(feature, style.filter)) {
-                        return undefined;
-                    }
-
-                    return this.createStyle(style, feature);
-                }
             });
+
+            const glSourceId = layerId;
+            const glLayerId = style.id ?? layerId;
+            const glStyle = {
+                version: 8,
+                sources: {
+                    [glSourceId]: { type: 'vector', tiles: [urlTemplate] }
+                },
+                layers: [{
+                    ...style,
+                    id: glLayerId,
+                    source: glSourceId,
+                }]
+            };
+
+            stylefunction(layer as any, glStyle, [glLayerId]);
 
             (layer as any).__layerId = layerId;
             return layer;
@@ -903,86 +752,31 @@ export class MapLayerService implements ILayerService {
 
         const layer = new VectorLayer({
             source,
-            style: (feature: any) => {
-                if (!this.matchesStyleFilter(feature, style.filter)) {
-                    return undefined;
-                }
-                return this.createStyle(style, feature);
-            },
             minZoom: style.minzoom,
             maxZoom: style.maxzoom
         });
 
+        const glSourceId = layerId;
+        const glLayerId = style.id ?? layerId;
+        const glStyle = {
+            version: 8,
+            sources: {
+                [glSourceId]: {
+                    type: 'geojson',
+                    data: sourceConfig.data ?? { type: 'FeatureCollection', features: [] }
+                }
+            },
+            layers: [{
+                ...style,
+                id: glLayerId,
+                source: glSourceId,
+            }]
+        };
+
+        stylefunction(layer as any, glStyle, [glLayerId]);
+
         (layer as any).__layerId = layerId;
         return layer;
-    }
-
-    private createStyle(style: SubLayerSpec, feature?: any): Style {
-        const paint = style.paint || {};
-
-        switch (style.type) {
-            case 'fill':
-                return new Style({
-                    fill: new Fill({
-                        color: this.toRgba(
-                            this.getPaintColorValue(feature, (paint as any)['fill-color'], '#000000'),
-                            this.getPaintNumberValue(feature, (paint as any)['fill-opacity'], 1)
-                        )
-                    }),
-                    stroke: new Stroke({
-                        color: this.toRgba(
-                            this.getPaintColorValue(feature, (paint as any)['fill-outline-color'], this.getPaintColorValue(feature, (paint as any)['fill-color'], '#000000')),
-                            this.getPaintNumberValue(feature, (paint as any)['fill-opacity'], 1)
-                        ),
-                        width: 1
-                    })
-                });
-
-            case 'line':
-                return new Style({
-                    stroke: new Stroke({
-                        color: this.toRgba(
-                            this.getPaintColorValue(feature, (paint as any)['line-color'], '#000000'),
-                            this.getPaintNumberValue(feature, (paint as any)['line-opacity'], 1)
-                        ),
-                        width: this.getPaintNumberValue(feature, (paint as any)['line-width'], 1)
-                    })
-                });
-
-            case 'circle':
-                return new Style({
-                    image: new CircleStyle({
-                        radius: this.getPaintNumberValue(feature, (paint as any)['circle-radius'], 5),
-                        fill: new Fill({
-                            color: this.toRgba(
-                                this.getPaintColorValue(feature, (paint as any)['circle-color'], '#3399CC'),
-                                this.getPaintNumberValue(feature, (paint as any)['circle-opacity'], 1)
-                            )
-                        }),
-                        stroke: new Stroke({
-                            color: this.toRgba(
-                                this.getPaintColorValue(feature, (paint as any)['circle-stroke-color'], '#ffffff'),
-                                this.getPaintNumberValue(feature, (paint as any)['circle-stroke-opacity'], 1)
-                            ),
-                            width: this.getPaintNumberValue(feature, (paint as any)['circle-stroke-width'], 1)
-                        })
-                    })
-                });
-
-            default:
-                return new Style();
-        }
-    }
-
-    private toRgba(color: string, opacity: number): string {
-        if (color.startsWith('#')) {
-            const hex = color.slice(1);
-            const r = parseInt(hex.slice(0, 2), 16);
-            const g = parseInt(hex.slice(2, 4), 16);
-            const b = parseInt(hex.slice(4, 6), 16);
-            return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-        }
-        return color;
     }
 
     removeLayer(layerId: string): void {
