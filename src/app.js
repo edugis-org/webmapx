@@ -162,4 +162,4 @@ async function initializeMap(mapElement, appConfig) {
     adapter.initialize(mapElement.id, initOptions);
     console.log(`[app] Initialized map "${mapId}" with config:`, mapConfig);
 }
-import './components/webmapx-projection-tool.ts';
+import './components/webmapx-view-mode-tool.ts';

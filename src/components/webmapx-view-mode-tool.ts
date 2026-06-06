@@ -3,23 +3,22 @@ import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
 
-interface ProjectionDef {
+interface ViewModeDef {
     id: string;
     name: string;
-    type: string;
+    description: string;
     image: string;
     conic?: boolean;
 }
 
-// MapLibre GL JS v5 only supports mercator and globe natively
-const PROJECTIONS: ProjectionDef[] = [
-    { id: 'mercator', name: 'Mercator', type: 'Cylindrical',   image: 'cylindrical.png' },
-    { id: 'globe',    name: 'Globe',    type: 'Orthographic',  image: 'azimuthal.png' },
+const VIEW_MODES: ViewModeDef[] = [
+    { id: 'mercator', name: 'Mercator', description: 'Cylindrical Mercator', image: 'mercator-view.png' },
+    { id: 'globe',    name: 'Globe',    description: 'Globe view: orthographic-like or perspective', image: 'globe-view.png' },
 ];
 
-@customElement('webmapx-projection-tool')
-export class WebmapxProjectionTool extends WebmapxBaseTool {
-    @state() private projectionName = 'mercator';
+@customElement('webmapx-view-mode-tool')
+export class WebmapxViewModeTool extends WebmapxBaseTool {
+    @state() private viewModeName = 'mercator';
     @state() private centerLng = 0;
     @state() private centerLat = 30;
     @state() private parallel1 = 29.5;
@@ -31,7 +30,7 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
         .unsupported { color: var(--sl-color-neutral-500, #888); font-style: italic; }
         label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
         select { width: 100%; margin-bottom: 0.75rem; padding: 0.25rem; box-sizing: border-box; }
-        .proj-type { margin-bottom: 0.5rem; color: var(--sl-color-neutral-600, #555); }
+        .mode-description { margin-bottom: 0.5rem; color: var(--sl-color-neutral-600, #555); }
         img { width: 100%; border-radius: 4px; margin-bottom: 0.75rem; }
         .slider-group { margin-bottom: 0.75rem; display: none; }
         .slider-group.visible { display: block; }
@@ -40,13 +39,13 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
     `;
 
     protected onStateChanged(_state: IMapState): void {
-        // Keep re-syncing until we get a valid projection (map may not be ready immediately)
-        if (!this.supported || this.projectionName === '') this.syncFromAdapter();
+        // Keep re-syncing until we get a valid view mode (map may not be ready immediately)
+        if (!this.supported || this.viewModeName === '') this.syncFromAdapter();
     }
 
     protected onMapAttached(): void {
         this.supported = true; // assume supported until proven otherwise
-        this.projectionName = '';
+        this.viewModeName = '';
         this.syncFromAdapter();
     }
 
@@ -54,65 +53,65 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
         if (!this.adapter) return;
         const proj = this.adapter.getProjection();
         if (proj === null) {
-            // null = engine definitively doesn't support projections; undefined timing = try again later
+            // null = engine definitively doesn't support runtime view-mode changes; undefined timing = try again later
             this.supported = false;
             return;
         }
-        // Got a valid projection — engine is supported
+        // Got a valid view mode, so this engine supports the control.
         this.supported = true;
-        this.projectionName = proj.name ?? 'mercator';
+        this.viewModeName = proj.name ?? 'mercator';
         if (proj.center) { this.centerLng = proj.center[0]; this.centerLat = proj.center[1]; }
         if (proj.parallels) { this.parallel1 = proj.parallels[0]; this.parallel2 = proj.parallels[1]; }
     }
 
-    private applyProjection(): void {
+    private applyViewMode(): void {
         if (!this.adapter) return;
-        const def = PROJECTIONS.find(p => p.id === this.projectionName);
+        const def = VIEW_MODES.find(p => p.id === this.viewModeName);
         if (def?.conic) {
             this.adapter.setProjection({
-                name: this.projectionName,
+                name: this.viewModeName,
                 center: [this.centerLng, this.centerLat],
                 parallels: [this.parallel1, this.parallel2],
             });
         } else {
-            this.adapter.setProjection(this.projectionName);
+            this.adapter.setProjection(this.viewModeName);
         }
     }
 
     render(): TemplateResult {
         if (!this.supported) {
-            return html`<div class="unsupported">Map projections are not supported by this engine.</div>`;
+            return html`<div class="unsupported">View modes are not supported by this engine.</div>`;
         }
-        const def = PROJECTIONS.find(p => p.id === this.projectionName) ?? PROJECTIONS[0];
+        const def = VIEW_MODES.find(p => p.id === this.viewModeName) ?? VIEW_MODES[0];
         const isConic = def.conic === true;
 
         return html`
-            <label>Projection</label>
-            <select @change=${(e: Event) => { this.projectionName = (e.target as HTMLSelectElement).value; this.applyProjection(); }}>
-                ${PROJECTIONS.map(p => html`<option value=${p.id} ?selected=${p.id === this.projectionName}>${p.name}</option>`)}
+            <label>View mode</label>
+            <select @change=${(e: Event) => { this.viewModeName = (e.target as HTMLSelectElement).value; this.applyViewMode(); }}>
+                ${VIEW_MODES.map(p => html`<option value=${p.id} ?selected=${p.id === this.viewModeName}>${p.name}</option>`)}
             </select>
-            <div class="proj-type">${def.type}</div>
-            <img src=${def.image} alt=${def.type}>
+            <div class="mode-description">${def.description}</div>
+            <img src=${def.image} alt=${def.description}>
 
             <div class="slider-group ${isConic ? 'visible' : ''}">
                 <div class="slider-row"><span>Center longitude</span><strong>${this.centerLng}°</strong></div>
                 <input type="range" min="-180" max="180" .value=${String(this.centerLng)}
-                    @input=${(e: Event) => { this.centerLng = Number((e.target as HTMLInputElement).value); this.applyProjection(); }}>
+                    @input=${(e: Event) => { this.centerLng = Number((e.target as HTMLInputElement).value); this.applyViewMode(); }}>
             </div>
             <div class="slider-group ${isConic ? 'visible' : ''}">
                 <div class="slider-row"><span>Center latitude</span><strong>${this.centerLat}°</strong></div>
                 <input type="range" min="-90" max="90" .value=${String(this.centerLat)}
-                    @input=${(e: Event) => { this.centerLat = Number((e.target as HTMLInputElement).value); this.applyProjection(); }}>
+                    @input=${(e: Event) => { this.centerLat = Number((e.target as HTMLInputElement).value); this.applyViewMode(); }}>
             </div>
             <div class="slider-group ${isConic ? 'visible' : ''}">
                 <div class="slider-row"><span>South parallel</span><strong>${this.parallel1}°</strong></div>
                 <input type="range" min="-90" max="90" .value=${String(this.parallel1)}
-                    @input=${(e: Event) => { this.parallel1 = Number((e.target as HTMLInputElement).value); this.applyProjection(); }}>
+                    @input=${(e: Event) => { this.parallel1 = Number((e.target as HTMLInputElement).value); this.applyViewMode(); }}>
             </div>
             <div class="slider-group ${isConic ? 'visible' : ''}">
                 <div class="slider-row"><span>North parallel</span><strong>${this.parallel2}°</strong></div>
                 <input type="range" min="-90" max="90" .value=${String(this.parallel2)}
-                    @input=${(e: Event) => { this.parallel2 = Number((e.target as HTMLInputElement).value); this.applyProjection(); }}>
+                    @input=${(e: Event) => { this.parallel2 = Number((e.target as HTMLInputElement).value); this.applyViewMode(); }}>
             </div>
         `;
     }
