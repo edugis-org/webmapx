@@ -441,7 +441,7 @@ export class WebmapxLayerTree extends LitElement {
     }
 
     private syncCheckedLayersFromStore(): void {
-        const activeLayerIds = this.adapter?.store.getState().visibleLayers ?? [];
+        const activeLayerIds = Object.keys(this.adapter?.store.getState().mapLayers ?? {});
         const active = new Set(activeLayerIds);
 
         const syncNode = (node: LayerNode): LayerNode => {
@@ -530,7 +530,7 @@ export class WebmapxLayerTree extends LitElement {
         const layerData = this.mapHost?.layerDataConfig;
         if (!layerData) return null;
 
-        const layer = layerData.layers.find(l => l.id === layerId);
+        const layer = layerData.layers?.find(l => l.id === layerId);
         if (!layer) return null;
 
         return { layer };

@@ -16,7 +16,6 @@ export interface IMapState {
     lastClickedResolution: { lng: number; lat: number } | null;
 
     /** IDs of currently visible logical layers, in map order. */
-    visibleLayers: string[];
 
     /** Engine-neutral registry for all layers currently known to the map. */
     mapLayers: Record<string, MapLayerStateEntry>;

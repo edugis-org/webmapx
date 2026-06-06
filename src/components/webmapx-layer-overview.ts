@@ -164,22 +164,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   }
 
   private applyVisibleLayers(state: IMapState): void {
-    const visibleLayers = Array.isArray(state.visibleLayers) ? state.visibleLayers : [];
     const mapLayers = state.mapLayers ?? {};
-
-    const mergedLayerIds: string[] = [];
-    for (const layerId of visibleLayers) {
-      if (!mergedLayerIds.includes(layerId)) {
-        mergedLayerIds.push(layerId);
-      }
-    }
-    for (const layerId of Object.keys(mapLayers)) {
-      if (!mergedLayerIds.includes(layerId)) {
-        mergedLayerIds.push(layerId);
-      }
-    }
-
-    const orderedIds = [...mergedLayerIds].reverse();
+    const orderedIds = [...Object.keys(mapLayers)].reverse();
     const background: LayerPanelItem[] = [];
     const overview: LayerPanelItem[] = [];
     const normalizedBackgroundGroupLabel = this.backgroundGroupLabel.trim().toLowerCase();

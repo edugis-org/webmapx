@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { MapLayerService } from '../src/map/openlayers-services/MapLayerService';
 import { MapStateStore } from '../src/store/map-state-store';
-import type { AnyLayerConfig, LayerDataConfig } from '../src/config/types';
+import type { AnyLayerConfig } from '../src/config/types';
 
 type LayerArrayWrapper = {
   getArray: () => unknown[];
@@ -55,26 +55,15 @@ function makeLayer(id: string): AnyLayerConfig {
     type: 'raster',
     source: `${id}-source`,
     metadata: { legendRole: 'overlay' },
-  };
-}
-
-function makeCatalog(ids: string[]): LayerDataConfig {
-  return {
-    sources: ids.map((id) => ({
-      id: `${id}-source`,
-      type: 'raster' as const,
-      service: 'xyz' as const,
-      url: 'https://example.com/{z}/{x}/{y}.png',
-    })),
-    layers: ids.map(makeLayer),
-  };
+    sources: {
+      [`${id}-source`]: { id: `${id}-source`, type: 'raster', service: 'xyz', url: 'https://example.com/{z}/{x}/{y}.png' },
+    },
+  } as any;
 }
 
 test('OpenLayers MapLayerService applies beforeLayerId using logical ids', async () => {
   const { map, getOrder } = createMapStub();
   const service = new MapLayerService(map as never, new MapStateStore());
-  service.setCatalog(makeCatalog(['a', 'b', 'c']));
-
   const internal = service as unknown as {
     createXYZLayer: (nativeLayerId: string, sourceConfig: unknown, style: unknown) => { __layerId: string };
   };
@@ -91,8 +80,6 @@ test('OpenLayers MapLayerService applies beforeLayerId using logical ids', async
 test('OpenLayers MapLayerService applies afterLayerId using logical ids', async () => {
   const { map, getOrder } = createMapStub();
   const service = new MapLayerService(map as never, new MapStateStore());
-  service.setCatalog(makeCatalog(['a', 'b', 'c']));
-
   const internal = service as unknown as {
     createXYZLayer: (nativeLayerId: string, sourceConfig: unknown, style: unknown) => { __layerId: string };
   };

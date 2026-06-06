@@ -57,7 +57,7 @@ export function buildLayerPanelSections(
     return { background: [], overview: [] };
   }
 
-  const layersById = new Map<string, AnyLayerConfig>(layerData.layers.map((layer) => [layer.id, layer]));
+  const layersById = new Map<string, AnyLayerConfig>((layerData.layers ?? []).map((layer) => [layer.id, layer]));
   const backgroundGroup = normalizeGroupLabel(backgroundGroupLabel);
   const orderedIds = [...visibleLayerIds].reverse();
   const sections: LayerPanelSections = { background: [], overview: [] };

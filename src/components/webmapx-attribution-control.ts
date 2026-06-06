@@ -30,11 +30,11 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
     }
 
     protected onStateChanged(state: IMapState): void {
-        if (!Array.isArray(state.visibleLayers)) return;
+        const nextLayerIds = Object.keys(state.mapLayers ?? {});
         const joinedCurrent = this.visibleLayerIds.join(',');
-        const joinedNext = state.visibleLayers.join(',');
+        const joinedNext = nextLayerIds.join(',');
         if (joinedCurrent !== joinedNext) {
-            this.visibleLayerIds = [...state.visibleLayers];
+            this.visibleLayerIds = nextLayerIds;
             this.recalculate();
         }
     }

@@ -1,8 +1,8 @@
 // src/map/leaflet-services/MapLayerService.ts
 
 import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
-import { resolveSource, normalizeRawSource } from '../layer-source-utils';
-import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, GeoJSONSourceConfig, LayerDataConfig, WMSSourceConfig } from '../../config/types';
+import { normalizeRawSource } from '../layer-source-utils';
+import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, GeoJSONSourceConfig, WMSSourceConfig } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import * as L from 'leaflet';
 import { LeafletLayerFactory } from './LeafletLayerFactory';
@@ -19,7 +19,6 @@ export class MapLayerService implements ILayerService {
     private nativeLayerToSource: Map<string, string> = new Map();
     // Track WarpedMapLayer instances for cleanup (if @allmaps/leaflet is used)
     private warpedMapLayers: Map<string, any> = new Map();
-    private catalog: LayerDataConfig | null = null;
     private sourceIdCounter = 0;
     private busyOps = 0;
     private logicalOrder: string[] = [];
@@ -63,10 +62,6 @@ export class MapLayerService implements ILayerService {
         tileLayer.on('loading', () => this.beginBusyOperation());
         tileLayer.on('load', () => this.endBusyOperation());
         tileLayer.on('tileerror', () => this.endBusyOperation());
-    }
-
-    private updateVisibleLayers(): void {
-        this.store.dispatch({ visibleLayers: Array.from(this.logicalToNative.keys()) }, 'MAP');
     }
 
     private resolveInsertIndex(options?: LayerInsertOptions): number | undefined {
@@ -120,10 +115,6 @@ export class MapLayerService implements ILayerService {
         }
     }
 
-    setCatalog(catalog: LayerDataConfig): void {
-        this.catalog = catalog;
-    }
-
     /**
      * Check if a source URL uses the warpedmap:// protocol.
      */
@@ -168,8 +159,7 @@ export class MapLayerService implements ILayerService {
             this.warpedMapLayers.set(layerId, warpedMapLayer);
             this.nativeLayerInstances.set(warpedLayerId, warpedMapLayer);
             this.logicalToNative.set(layerId, [warpedLayerId]);
-            this.updateVisibleLayers();
-
+    
             return true;
         } catch (error) {
             console.warn('[LEAFLET LAYER SERVICE] @allmaps/leaflet not available or error loading warped map:', error);
@@ -196,7 +186,8 @@ export class MapLayerService implements ILayerService {
         // StandardLayerConfig
         const stdLayer = layerConfig as StandardLayerConfig;
         if (!stdLayer.source) return false;
-        const sourceConfig = resolveSource(this.catalog,stdLayer.source);
+        const rawSourceDef = (layerConfig as any).sources?.[stdLayer.source as string];
+        const sourceConfig = rawSourceDef ? normalizeRawSource(stdLayer.source as string, rawSourceDef) : null;
         if (!sourceConfig) return false;
 
         // Legacy warpedmap:// support
@@ -247,7 +238,6 @@ export class MapLayerService implements ILayerService {
         this.logicalToNative.set(layerId, nativeLayerIds);
         this.upsertLogicalOrder(layerId, insertIndex);
         this.reapplyLogicalOrder();
-        this.updateVisibleLayers();
         return nativeLayerIds.length > 0;
     }
 
@@ -287,8 +277,7 @@ export class MapLayerService implements ILayerService {
         }
 
         for (const [sourceKey, layers] of sourceLayerMap.entries()) {
-            let sourceConfig: SourceConfig | null = localSourceMap.get(sourceKey) ?? null;
-            if (!sourceConfig) sourceConfig = resolveSource(this.catalog,sourceKey);
+            const sourceConfig: SourceConfig | null = localSourceMap.get(sourceKey) ?? null;
             if (!sourceConfig) continue;
 
             if (sourceConfig.type === 'raster') {
@@ -319,7 +308,6 @@ export class MapLayerService implements ILayerService {
         this.logicalToNative.set(layerId, nativeLayerIds);
         this.upsertLogicalOrder(layerId, insertIndex);
         this.reapplyLogicalOrder();
-        this.updateVisibleLayers();
         return nativeLayerIds.length > 0;
     }
 
@@ -347,7 +335,6 @@ export class MapLayerService implements ILayerService {
         this.logicalToNative.delete(layerId);
         this.logicalToWMSSource.delete(layerId);
         this.logicalOrder = this.logicalOrder.filter((id) => id !== layerId);
-        this.updateVisibleLayers();
     }
 
     getVisibleLayers(): string[] {

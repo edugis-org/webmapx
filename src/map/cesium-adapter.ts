@@ -1,9 +1,9 @@
 // src/map/cesium-adapter.ts
 
 import { IMap, IMapCore, IToolService, ISubMapFactory, LayerInsertOptions } from './IMapInterfaces';
-import type { LayerDataConfig } from '../config/types';
+
 import type { MapStyle } from '../config/types';
-import { MapEventBus, LngLat, Pixel } from '../store/map-events';
+import { LngLat, Pixel } from '../store/map-events';
 import { BaseAdapter } from './base-adapter';
 import { MapCoreService } from './cesium-services/MapCoreService';
 import { MapServiceTemplate } from './cesium-services/MapServiceTemplate';
@@ -13,7 +13,6 @@ import { MapQueryService } from './cesium-services/MapQueryService';
 import { MapMarkerService } from './cesium-services/MapMarkerService';
 import { DeferredLogicalLayerExecutor } from './logical-layer-executor';
 import { DeferredQueryService } from './deferred-query-service';
-import { emitVisibleLayerEvents } from './visible-layer-utils';
 import type { IQueryService } from './IQueryService';
 import type { MarkerOptions } from './IMapInterfaces';
 
@@ -74,7 +73,6 @@ async function ensureCesiumLoaded(): Promise<void> {
  * Note: This adapter expects CesiumJS to be available as `window.Cesium`.
  */
 export class CesiumAdapter extends BaseAdapter implements IMap {
-    public readonly events: MapEventBus;
     private readonly core: IMapCore;
     public readonly toolService: IToolService;
     public readonly queryService: IQueryService;
@@ -82,20 +80,15 @@ export class CesiumAdapter extends BaseAdapter implements IMap {
     private readonly logicalLayerExecutor: DeferredLogicalLayerExecutor;
     private readonly queryExecutor: DeferredQueryService;
     private markerService: MapMarkerService | null = null;
-    private lastVisibleLayers: string[] = [];
 
     constructor() {
         super();
-        this.events = new MapEventBus();
         this.core = new MapCoreService(this.store, this.events);
         this.toolService = new MapServiceTemplate();
         this.logicalLayerExecutor = new DeferredLogicalLayerExecutor();
         this.queryExecutor = new DeferredQueryService();
         this.queryService = this.queryExecutor;
         this.mapFactory = new MapFactoryService();
-        this.store.subscribe((state) => {
-            this.lastVisibleLayers = emitVisibleLayerEvents(this.events, this.lastVisibleLayers, state.visibleLayers ?? []);
-        });
         (this.core as any).onMapReady?.((viewer: any) => {
             const layerService = new MapLayerService(viewer, this.store);
             this.logicalLayerExecutor.bind(layerService);
@@ -201,10 +194,6 @@ export class CesiumAdapter extends BaseAdapter implements IMap {
         return this.core.addLayer(layer, options);
     }
 
-    setCatalog(catalog: LayerDataConfig): void {
-        this.logicalLayerExecutor.setCatalog(catalog);
-    }
-
     removeLogicalLayer(layerId: string): void {
         this.logicalLayerExecutor.removeLayer(layerId);
     }
@@ -214,6 +203,7 @@ export class CesiumAdapter extends BaseAdapter implements IMap {
     }
 
     protected engineRemoveLayer(id: string): void {
+        this.logicalLayerExecutor.removeLayer(id);
         this.core.removeLayer(id);
     }
 

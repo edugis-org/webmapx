@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { MapLayerService } from '../src/map/cesium-services/MapLayerService';
 import { MapStateStore } from '../src/store/map-state-store';
-import type { AnyLayerConfig, SourceConfig, LayerDataConfig } from '../src/config/types';
+import type { AnyLayerConfig, SourceConfig } from '../src/config/types';
 
 type ImageryLayer = { id: string; provider: unknown; show: boolean };
 
@@ -97,19 +97,10 @@ function makeLayer(id: string): AnyLayerConfig {
     type: 'raster',
     source: `${id}-source`,
     metadata: { legendRole: 'overlay' },
-  };
-}
-
-function makeCatalog(ids: string[]): LayerDataConfig {
-  return {
-    sources: ids.map((id) => ({
-      id: `${id}-source`,
-      type: 'raster' as const,
-      service: 'xyz' as const,
-      url: `https://example.com/${id}/{z}/{x}/{y}.png`,
-    })),
-    layers: ids.map(makeLayer),
-  };
+    sources: {
+      [`${id}-source`]: { id: `${id}-source`, type: 'raster', service: 'xyz', url: `https://example.com/${id}/{z}/{x}/{y}.png` },
+    },
+  } as any;
 }
 
 async function addRaster(service: MapLayerService, layerId: string, options?: { beforeLayerId?: string; afterLayerId?: string }) {
@@ -126,8 +117,6 @@ test('Cesium MapLayerService applies beforeLayerId using logical ids', async () 
   try {
     const viewer = createViewer();
     const service = new MapLayerService(viewer as any, new MapStateStore());
-    service.setCatalog(makeCatalog(['a', 'b', 'c']));
-
     await addRaster(service, 'a');
     await addRaster(service, 'b');
     await addRaster(service, 'c', { beforeLayerId: 'a' });
@@ -143,8 +132,6 @@ test('Cesium MapLayerService applies afterLayerId using logical ids', async () =
   try {
     const viewer = createViewer();
     const service = new MapLayerService(viewer as any, new MapStateStore());
-    service.setCatalog(makeCatalog(['a', 'b', 'c']));
-
     await addRaster(service, 'a');
     await addRaster(service, 'b');
     await addRaster(service, 'c', { afterLayerId: 'a' });

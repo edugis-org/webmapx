@@ -1,8 +1,8 @@
 // src/map/cesium-services/MapLayerService.ts
 
 import type { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
-import { resolveSource, normalizeRawSource } from '../layer-source-utils';
-import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, GeoJSONSourceConfig, LayerDataConfig, SubLayerSpec } from '../../config/types';
+import { normalizeRawSource } from '../layer-source-utils';
+import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, GeoJSONSourceConfig, SubLayerSpec } from '../../config/types';
 import type { MapStateStore } from '../../store/map-state-store';
 import { throttle } from '../../utils/throttle';
 
@@ -140,14 +140,6 @@ export class MapLayerService implements ILayerService {
         }
     }
 
-    private updateVisibleLayers(): void {
-        const layerIds = new Set<string>();
-        for (const key of this.handles.keys()) {
-            layerIds.add(key.split('::')[0]);
-        }
-        this.store.dispatch({ visibleLayers: Array.from(layerIds) }, 'MAP');
-    }
-
     private resolveInsertIndex(options?: LayerInsertOptions): number | undefined {
         if (options?.beforeLayerId) {
             const index = this.logicalOrder.indexOf(options.beforeLayerId);
@@ -204,12 +196,6 @@ export class MapLayerService implements ILayerService {
         }
     }
 
-    private catalog: LayerDataConfig | null = null;
-
-    setCatalog(catalog: LayerDataConfig): void {
-        this.catalog = catalog;
-    }
-
     private async addImagerySource(layerId: string, sourceId: string, sourceConfig: SourceConfig, options?: LayerInsertOptions): Promise<boolean> {
         const Cesium = getCesium();
         if (!Cesium) return false;
@@ -233,8 +219,7 @@ export class MapLayerService implements ILayerService {
             this.handles.set(handleKey, { kind: 'imagery', imageryLayer, maxLevel });
             this.upsertLogicalOrder(layerId, options);
             this.reapplyImageryOrder();
-            this.updateVisibleLayers();
-            this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
+                this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
             return true;
         }
 
@@ -254,8 +239,7 @@ export class MapLayerService implements ILayerService {
             this.handles.set(handleKey, { kind: 'imagery', imageryLayer, maxLevel });
             this.upsertLogicalOrder(layerId, options);
             this.reapplyImageryOrder();
-            this.updateVisibleLayers();
-            this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
+                this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
             return true;
         }
 
@@ -283,8 +267,7 @@ export class MapLayerService implements ILayerService {
             this.applyGeoJsonStyles(dataSource, layerConfig);
             this.handles.set(handleKey, { kind: 'geojson', dataSource, sourceId, layerConfig, data: geojson, updateToken: 0 });
             this.upsertLogicalOrder(layerId, options);
-            this.updateVisibleLayers();
-            return true;
+                return true;
         } catch (e) {
             console.warn(`[CESIUM] Failed to load GeoJSON layer "${layerId}":`, e);
             return false;
@@ -331,7 +314,8 @@ export class MapLayerService implements ILayerService {
         // StandardLayerConfig
         const stdLayer = layerConfig as StandardLayerConfig;
         if (!stdLayer.source) return false;
-        const sourceConfig = resolveSource(this.catalog,stdLayer.source);
+        const rawSourceDef = (layerConfig as any).sources?.[stdLayer.source as string];
+        const sourceConfig = rawSourceDef ? normalizeRawSource(stdLayer.source as string, rawSourceDef) : null;
         if (!sourceConfig) return false;
 
         let success = false;
@@ -356,8 +340,7 @@ export class MapLayerService implements ILayerService {
         let anySuccess = false;
 
         for (const sourceKey of usedSourceKeys) {
-            let sourceConfig: SourceConfig | null = localSourceMap.get(sourceKey) ?? null;
-            if (!sourceConfig) sourceConfig = resolveSource(this.catalog,sourceKey);
+            const sourceConfig: SourceConfig | null = localSourceMap.get(sourceKey) ?? null;
             if (!sourceConfig) continue;
 
             if (sourceConfig.type === 'raster') {
@@ -396,7 +379,6 @@ export class MapLayerService implements ILayerService {
         }
         this.logicalOrder = this.logicalOrder.filter((id) => id !== layerId);
         this.reapplyImageryOrder();
-        this.updateVisibleLayers();
     }
 
     getVisibleLayers(): string[] {

@@ -156,7 +156,7 @@ export interface ZoomEndEvent extends BaseMapEvent {
 export interface LayerAddEvent extends BaseMapEvent {
     type: 'layer-add';
     layerId: string;
-    visibleLayers: string[];
+    activeLayers: string[];
 }
 
 /**
@@ -165,7 +165,7 @@ export interface LayerAddEvent extends BaseMapEvent {
 export interface LayerRemoveEvent extends BaseMapEvent {
     type: 'layer-remove';
     layerId: string;
-    visibleLayers: string[];
+    activeLayers: string[];
 }
 
 /**

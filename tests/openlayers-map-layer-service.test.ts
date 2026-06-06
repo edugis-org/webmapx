@@ -54,14 +54,6 @@ test('MapLayerService tolerates expression paint values for OpenLayers fallback 
 
 test('MapLayerService merges native ids across per-source adds for one logical layer', async () => {
   const service = createService();
-  service.setCatalog({
-    sources: [
-      { id: 'style:openfreemap-liberty:ne2_shaded', type: 'raster', service: 'xyz', url: 'https://example.test/{z}/{x}/{y}.png' },
-      { id: 'style:openfreemap-liberty:openmaptiles', type: 'vector', url: 'https://example.test/tiles.json' },
-    ],
-    layers: [],
-  });
-
   const internal = accessServiceInternals<{
     createLayer: (nativeLayerId: string) => Promise<{ __layerId: string }>;
     createStyleBackedVectorTileLayer: (nativeLayerId: string) => Promise<{ __layerId: string }>;
@@ -75,6 +67,10 @@ test('MapLayerService merges native ids across per-source adds for one logical l
     id: 'openfreemap-liberty',
     type: 'style',
     metadata: { styleUrl: 'https://tiles.openfreemap.org/styles/liberty' },
+    sources: {
+      'style:openfreemap-liberty:ne2_shaded': { id: 'style:openfreemap-liberty:ne2_shaded', type: 'raster', service: 'xyz', url: 'https://example.test/{z}/{x}/{y}.png' },
+      'style:openfreemap-liberty:openmaptiles': { id: 'style:openfreemap-liberty:openmaptiles', type: 'vector', url: 'https://example.test/tiles.json' },
+    },
     layers: [
       { id: 'natural-earth', type: 'raster', source: 'style:openfreemap-liberty:ne2_shaded' },
       { id: 'style:road_motorway', type: 'line', source: 'style:openfreemap-liberty:openmaptiles' },

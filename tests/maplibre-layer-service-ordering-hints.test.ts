@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { MapLayerService } from '../src/map/maplibre-services/MapLayerService';
 import { MapStateStore } from '../src/store/map-state-store';
-import type { AnyLayerConfig, LayerDataConfig } from '../src/config/types';
+import type { AnyLayerConfig } from '../src/config/types';
 
 class MockMap {
   private sources = new Map<string, unknown>();
@@ -59,27 +59,17 @@ function makeRasterLayer(id: string): AnyLayerConfig {
     type: 'raster',
     source: `${id}-source`,
     metadata: { legendRole: 'overlay' },
-  };
+    sources: {
+      [`${id}-source`]: { id: `${id}-source`, type: 'raster', service: 'xyz', url: 'https://example.com/{z}/{x}/{y}.png' },
+    },
+  } as any;
 }
 
-function makeCatalog(ids: string[]): LayerDataConfig {
-  return {
-    sources: ids.map((id) => ({
-      id: `${id}-source`,
-      type: 'raster' as const,
-      service: 'xyz' as const,
-      url: 'https://example.com/{z}/{x}/{y}.png',
-    })),
-    layers: ids.map(makeRasterLayer),
-  };
-}
 
 test('MapLibre MapLayerService applies beforeLayerId using logical layer ids', async () => {
   const map = new MockMap();
   const store = new MapStateStore();
   const service = new MapLayerService(map as any, store);
-  service.setCatalog(makeCatalog(['a', 'b', 'c']));
-
   await service.addLayer(makeRasterLayer('a'));
   await service.addLayer(makeRasterLayer('b'));
   await service.addLayer(makeRasterLayer('c'), { beforeLayerId: 'a' });
@@ -91,8 +81,6 @@ test('MapLibre MapLayerService applies afterLayerId using logical layer ids', as
   const map = new MockMap();
   const store = new MapStateStore();
   const service = new MapLayerService(map as any, store);
-  service.setCatalog(makeCatalog(['a', 'b', 'c']));
-
   await service.addLayer(makeRasterLayer('a'));
   await service.addLayer(makeRasterLayer('b'));
   await service.addLayer(makeRasterLayer('c'), { afterLayerId: 'a' });

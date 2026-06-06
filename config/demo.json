@@ -49,6 +49,11 @@
         "tileSize": 256,
         "attribution": "\u00a9 Google Satellite"
       },
+      "world-countries-source": {
+        "type": "geojson",
+        "data": "topojson://./data/world-countries-simplified.topojson#ne_50m_admin_0_map_units",
+        "attribution": "&copy; Natural Earth"
+      },
       "earthquake-source": {
         "type": "geojson",
         "data": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson",
@@ -902,6 +907,31 @@
         "attribution": "\u00a9 OpenStreetMap contributors | \u00a9 OpenFreeMap",
         "fallbackLayerId": "osm",
         "layers": []
+      },
+      "world-countries": {
+        "id": "world-countries",
+        "type": "style",
+        "title": "World countries",
+        "layers": [
+          {
+            "id": "world-countries-fill",
+            "type": "fill",
+            "source": "world-countries-source",
+            "paint": {
+              "fill-color": "#4a90d9",
+              "fill-opacity": 0.2
+            }
+          },
+          {
+            "id": "world-countries-line",
+            "type": "line",
+            "source": "world-countries-source",
+            "paint": {
+              "line-color": "#2c6fad",
+              "line-width": 1
+            }
+          }
+        ]
       },
       "earthquake": {
         "id": "earthquake",
@@ -2157,6 +2187,9 @@
               "label": "Data Layers",
               "expanded": true,
               "children": [
+                {
+                  "layerId": "world-countries"
+                },
                 {
                   "layerId": "earthquake"
                 },

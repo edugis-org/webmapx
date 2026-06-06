@@ -15,12 +15,15 @@
 import { MapStateStore } from '../store/map-state-store';
 import { registerMapLayer, unregisterMapLayer } from './map-layer-registry';
 import type { LayerInsertOptions } from './IMapInterfaces';
+import { MapEventBus } from '../store/map-events';
 
 export abstract class BaseAdapter {
     public readonly store: MapStateStore;
+    public readonly events: MapEventBus;
 
     constructor() {
         this.store = new MapStateStore();
+        this.events = new MapEventBus();
     }
 
     hasLayer(layerId: string): boolean {
@@ -31,13 +34,22 @@ export abstract class BaseAdapter {
 
     async addLayer(layer: any, options?: LayerInsertOptions): Promise<boolean> {
         const added = await this.engineAddLayer(layer, options);
-        if (added) registerMapLayer(this.store, layer);
+        if (added) {
+            registerMapLayer(this.store, layer);
+            const layerId = layer?.id ?? layer?.metadata?.mapLayerId;
+            if (typeof layerId === 'string') {
+                const activeLayers = Object.keys(this.store.getState().mapLayers ?? {});
+                this.events.emit({ type: 'layer-add', layerId, activeLayers });
+            }
+        }
         return added;
     }
 
     removeLayer(id: string): void {
         this.engineRemoveLayer(id);
         unregisterMapLayer(this.store, id);
+        const activeLayers = Object.keys(this.store.getState().mapLayers ?? {});
+        this.events.emit({ type: 'layer-remove', layerId: id, activeLayers });
     }
 
     removeSource(id: string): void {
@@ -48,6 +60,8 @@ export abstract class BaseAdapter {
         for (const [layerId, meta] of Object.entries(layers)) {
             if ((meta as any).sourceId === id) {
                 unregisterMapLayer(this.store, layerId);
+                const activeLayers = Object.keys(this.store.getState().mapLayers ?? {});
+                this.events.emit({ type: 'layer-remove', layerId, activeLayers });
             }
         }
         this.engineRemoveSource(id);

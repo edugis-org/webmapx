@@ -1,6 +1,6 @@
 // src/map/IMapInterfaces.ts
 
-import type { AnyLayerConfig, LayerDataConfig, MapStyle, WMSSourceConfig } from '../config/types';
+import type { AnyLayerConfig, MapStyle, WMSSourceConfig } from '../config/types';
 import type { IQueryService } from './IQueryService';
 import type { LngLat, Pixel, MapEventBus } from '../store/map-events';
 
@@ -226,9 +226,6 @@ export interface IMap {
     /** Engine-backed feature query service used by the Info tool. */
     readonly queryService: IQueryService;
 
-    /** Sets the runtime layer-data config used for source/layer resolution. */
-    setCatalog(catalog: LayerDataConfig): void;
-
     /** Removes a logical (config-backed) layer by id. */
     removeLogicalLayer(layerId: string): void;
 
@@ -393,9 +390,6 @@ export interface IToolService {
  * Used by runtime callers such as webmapx-map regardless of the active engine.
  */
 export interface ILogicalLayerExecutor {
-    /** Sets the runtime layer data used by logical layer resolution. */
-    setCatalog(catalog: LayerDataConfig): void;
-
     /** Adds a logical layer. Source resolution happens inside the service using the catalog. */
     addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean>;
 
@@ -422,13 +416,7 @@ export interface ILogicalLayerExecutor {
  */
 export interface ILayerService {
     /**
-     * Sets the catalog configuration containing sources and layers.
-     * Must be called before adding layers.
-     */
-    setCatalog(catalog: LayerDataConfig): void;
-
-    /**
-     * Adds a layer to the map. Sources are resolved from the catalog (set via setCatalog).
+     * Adds a layer to the map. Sources are resolved from the layer config.
      * @returns true if layer was added successfully, false on failure
      */
     addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean>;

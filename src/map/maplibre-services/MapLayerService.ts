@@ -1,8 +1,8 @@
 // src/map/maplibre-services/MapLayerService.ts
 
 import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
-import { resolveSource, normalizeRawSource } from '../layer-source-utils';
-import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, GeoJSONSourceConfig, LayerDataConfig, SubLayerSpec } from '../../config/types';
+import { normalizeRawSource } from '../layer-source-utils';
+import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, GeoJSONSourceConfig, SubLayerSpec } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import * as maplibregl from 'maplibre-gl';
 import { buildWMSGetMapUrl } from '../../utils/wms-url-builder';
@@ -15,17 +15,13 @@ export class MapLayerService implements ILayerService {
     private logicalSourceToNative: Map<string, string> = new Map();
     private nativeLayerToSource: Map<string, string> = new Map();
     private warpedMapLayers: Map<string, WarpedMapLayer> = new Map();
-    private catalog: LayerDataConfig | null = null;
+    private nativeSourceToConfig = new Map<string, any>();
     private sourceIdCounter = 0;
     private logicalLayerLegendRole: Map<string, 'background' | 'overlay'> = new Map();
 
     constructor(map: maplibregl.Map, store: MapStateStore) {
         this.map = map;
         this.store = store;
-    }
-
-    private updateVisibleLayers(): void {
-        this.store.dispatch({ visibleLayers: Array.from(this.logicalToNative.keys()) }, 'MAP');
     }
 
     private resolveLegendRole(layerConfig: AnyLayerConfig): 'background' | 'overlay' {
@@ -85,10 +81,6 @@ export class MapLayerService implements ILayerService {
         return undefined;
     }
 
-    setCatalog(catalog: LayerDataConfig): void {
-        this.catalog = catalog;
-    }
-
     private getOrCreateNativeSourceId(logicalSourceId: string): string {
         if (this.logicalSourceToNative.has(logicalSourceId)) {
             return this.logicalSourceToNative.get(logicalSourceId)!;
@@ -139,6 +131,7 @@ export class MapLayerService implements ILayerService {
         }
 
         this.map.addSource(nativeSourceId, nativeSource);
+        this.nativeSourceToConfig.set(nativeSourceId, sourceConfig);
     }
 
     private buildNativeLayer(nativeLayerId: string, spec: SubLayerSpec | StandardLayerConfig, nativeSourceId: string, mapLayerId: string): any {
@@ -160,7 +153,6 @@ export class MapLayerService implements ILayerService {
         await warpedMapLayer.addGeoreferenceAnnotationByUrl(annotationUrl);
         this.warpedMapLayers.set(layerId, warpedMapLayer);
         this.logicalToNative.set(layerId, [warpedLayerId]);
-        this.updateVisibleLayers();
         return true;
     }
 
@@ -201,16 +193,10 @@ export class MapLayerService implements ILayerService {
             const sourceKey = subLayer.source;
             if (!sourceKey) continue;
 
-            // Resolve: local first, then global catalog
+            // Resolve: local only (sources are inlined into the layer spec)
             let nativeSourceId: string | undefined = localSourceNativeIds.get(sourceKey);
-            if (!nativeSourceId) {
-                const globalSource = resolveSource(this.catalog,sourceKey);
-                if (globalSource) {
-                    nativeSourceId = this.getOrCreateNativeSourceId(globalSource.id);
-                    this.ensureNativeSource(nativeSourceId, globalSource);
-                }
-            }
-            if (!nativeSourceId || !this.map.getSource(nativeSourceId)) continue;
+            if (!nativeSourceId) continue;
+            if (!this.map.getSource(nativeSourceId)) continue;
 
             const nativeLayerId = subLayer.id ? `${layerId}-${subLayer.id}` : `${layerId}-${sourceKey}-${subLayer.type}`;
             if (!this.map.getLayer(nativeLayerId)) {
@@ -222,7 +208,6 @@ export class MapLayerService implements ILayerService {
 
         this.logicalLayerLegendRole.set(layerId, legendRole);
         this.logicalToNative.set(layerId, Array.from(new Set(nativeLayerIds)));
-        this.updateVisibleLayers();
         return nativeLayerIds.length > 0;
     }
 
@@ -254,12 +239,12 @@ export class MapLayerService implements ILayerService {
             }
             this.logicalLayerLegendRole.set(layerId, legendRole);
             this.logicalToNative.set(layerId, [nativeLayerId]);
-            this.updateVisibleLayers();
-            return true;
+                return true;
         }
 
         if (!stdLayer.source) return false;
-        const sourceConfig = resolveSource(this.catalog,stdLayer.source);
+        const rawSourceDef = (layerConfig as any).sources?.[stdLayer.source as string];
+        const sourceConfig = rawSourceDef ? normalizeRawSource(stdLayer.source as string, rawSourceDef) : null;
         if (!sourceConfig) return false;
 
         const nativeSourceId = this.getOrCreateNativeSourceId(sourceConfig.id);
@@ -274,7 +259,6 @@ export class MapLayerService implements ILayerService {
         const existing = this.logicalToNative.get(layerId) ?? [];
         this.logicalToNative.set(layerId, Array.from(new Set([...existing, nativeLayerId])));
         this.nativeLayerToSource.set(nativeLayerId, nativeSourceId);
-        this.updateVisibleLayers();
         return true;
     }
 
@@ -286,8 +270,7 @@ export class MapLayerService implements ILayerService {
             this.warpedMapLayers.delete(layerId);
             this.logicalToNative.delete(layerId);
             this.logicalLayerLegendRole.delete(layerId);
-            this.updateVisibleLayers();
-            return;
+                return;
         }
 
         const nativeIds = this.logicalToNative.get(layerId) ?? [];
@@ -315,7 +298,6 @@ export class MapLayerService implements ILayerService {
             }
         }
 
-        this.updateVisibleLayers();
     }
 
     getVisibleLayers(): string[] {
@@ -350,21 +332,14 @@ export class MapLayerService implements ILayerService {
 
     getVisibleWMSLayers(): Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }> {
         const result: Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }> = [];
-        if (!this.catalog) return result;
         for (const logicalId of this.logicalToNative.keys()) {
             const nativeLayerIds = this.logicalToNative.get(logicalId) ?? [];
             for (const nativeLayerId of nativeLayerIds) {
                 const nativeSourceId = this.nativeLayerToSource.get(nativeLayerId);
                 if (!nativeSourceId) continue;
-                // Find matching logical source id
-                for (const [logicalSourceId, nativeSrcId] of this.logicalSourceToNative.entries()) {
-                    if (nativeSrcId !== nativeSourceId) continue;
-                    const sourceId = logicalSourceId.includes(':') ? logicalSourceId.split(':')[0] : logicalSourceId;
-                    const sourceConfig = resolveSource(this.catalog, sourceId);
-                    if (sourceConfig?.type === 'raster' && (sourceConfig as any).service === 'wms') {
-                        result.push({ layerId: logicalId, sourceConfig: sourceConfig as WMSSourceConfig });
-                        break;
-                    }
+                const sourceConfig = this.nativeSourceToConfig.get(nativeSourceId);
+                if (sourceConfig?.type === 'raster' && (sourceConfig as any).service === 'wms') {
+                    result.push({ layerId: logicalId, sourceConfig: sourceConfig as WMSSourceConfig });
                 }
                 break;
             }

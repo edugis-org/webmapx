@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { MapStateStore } from '../src/store/map-state-store';
-import type { AnyLayerConfig, LayerDataConfig } from '../src/config/types';
+import type { AnyLayerConfig } from '../src/config/types';
 
 function installLeafletDomShim(): () => void {
   const previousWindow = (globalThis as any).window;
@@ -100,19 +100,10 @@ function makeLayer(id: string): AnyLayerConfig {
     type: 'raster',
     source: `${id}-source`,
     metadata: { legendRole: 'overlay' },
-  };
-}
-
-function makeCatalog(ids: string[]): LayerDataConfig {
-  return {
-    sources: ids.map((id) => ({
-      id: `${id}-source`,
-      type: 'raster' as const,
-      service: 'xyz' as const,
-      url: 'https://example.com/{z}/{x}/{y}.png',
-    })),
-    layers: ids.map(makeLayer),
-  };
+    sources: {
+      [`${id}-source`]: { id: `${id}-source`, type: 'raster', service: 'xyz', url: 'https://example.com/{z}/{x}/{y}.png' },
+    },
+  } as any;
 }
 
 test('Leaflet MapLayerService applies beforeLayerId using logical ids', async () => {
@@ -133,8 +124,6 @@ test('Leaflet MapLayerService applies beforeLayerId using logical ids', async ()
     try {
       const { map, getOrder } = createLeafletMapStub();
       const service = new MapLayerService(map as any, new MapStateStore());
-      service.setCatalog(makeCatalog(['a', 'b', 'c']));
-
       await service.addLayer(makeLayer('a'));
       await service.addLayer(makeLayer('b'));
       await service.addLayer(makeLayer('c'), { beforeLayerId: 'a' });
@@ -166,8 +155,6 @@ test('Leaflet MapLayerService applies afterLayerId using logical ids', async () 
     try {
       const { map, getOrder } = createLeafletMapStub();
       const service = new MapLayerService(map as any, new MapStateStore());
-      service.setCatalog(makeCatalog(['a', 'b', 'c']));
-
       await service.addLayer(makeLayer('a'));
       await service.addLayer(makeLayer('b'));
       await service.addLayer(makeLayer('c'), { afterLayerId: 'a' });

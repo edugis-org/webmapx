@@ -202,7 +202,7 @@ test('fetchConfig normalizes inline layer style objects into scoped sources and 
     const layerData = config.layerData;
     assert.ok(layerData);
 
-    const layer = layerData.layers.find((entry) => entry.id === 'earthquakes');
+    const layer = layerData.layers?.find((entry) => entry.id === 'earthquakes');
     assert.ok(layer);
     assert.equal(layer.type, 'style');
     const composite = layer as import('../src/config/types.ts').CompositeStyleLayerConfig;
@@ -210,7 +210,7 @@ test('fetchConfig normalizes inline layer style objects into scoped sources and 
     assert.equal(composite.layers?.[0].source, 'earthquakes:quakes');
     assert.equal(composite.layers?.[1].source, 'earthquakes:quakes');
 
-    const scopedSource = layerData.sources.find((entry) => entry.id === 'earthquakes:quakes');
+    const scopedSource = layerData.sources?.find((entry) => entry.id === 'earthquakes:quakes');
     assert.ok(scopedSource);
     assert.equal(scopedSource.type, 'geojson');
   } finally {

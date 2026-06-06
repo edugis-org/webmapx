@@ -23,6 +23,8 @@ import {
   resolveSingleGroupInsertionOptionsForGroup,
 } from './internal/single-group-policy';
 import { resolveLegendRoleForLayer } from './internal/legend-role-policy';
+import { resolveTopojsonSources } from '../map/topojson-loader';
+import { inlineLayerSources } from '../map/layer-source-resolver';
 
 const MAP_VIEW_SLOT = 'map-view';
 const MAP_SURFACE_CLASS = 'webmapx-map__surface';
@@ -364,7 +366,7 @@ export class WebmapxMapElement extends HTMLElement {
   public setConfig(config: AppConfig): void {
     this.configInstance = config;
     this.initialStateLayersApplied = false;
-    this.applyCatalogToAdapter();
+    void this.applyCatalogToAdapter();
     this.dispatchEvent(new CustomEvent<ConfigReadyEventDetail>('webmapx-config-ready', {
       detail: { config, map: this },
       bubbles: true,
@@ -420,7 +422,7 @@ export class WebmapxMapElement extends HTMLElement {
         this.toolManagerInstance.setStore(adapter.store);
       }
 
-      this.applyCatalogToAdapter();
+      void this.applyCatalogToAdapter();
 
       this.dispatchEvent(new CustomEvent('webmapx-map-ready', {
         detail: { adapter: this.adapterInstance, map: this },
@@ -432,14 +434,14 @@ export class WebmapxMapElement extends HTMLElement {
     })();
   }
 
-  private applyCatalogToAdapter(): void {
+  private async applyCatalogToAdapter(): Promise<void> {
     const adapter = this.adapterInstance;
     const layerData = this.layerDataConfig;
     if (!adapter || !layerData) {
       return;
     }
 
-    adapter.setCatalog(layerData);
+    await resolveTopojsonSources(layerData);
 
     if (!this.initialStateLayersApplied) {
       this.initialStateLayersApplied = true;
@@ -590,7 +592,7 @@ export class WebmapxMapElement extends HTMLElement {
     const layerData = this.layerDataConfig;
     if (!layerData) return null;
 
-    const layer = layerData.layers.find((entry) => entry.id === layerId);
+    const layer = layerData.layers?.find((entry) => entry.id === layerId);
     if (!layer) return null;
 
     return { layer };
@@ -1096,7 +1098,7 @@ export class WebmapxMapElement extends HTMLElement {
       for (const sub of subLayers) {
         const srcId = typeof sub?.source === 'string' ? sub.source : null;
         if (!srcId || srcId in localSources) continue;
-        const catalogSrc = this.layerDataConfig?.sources.find((s) => s.id === srcId);
+        const catalogSrc = this.layerDataConfig?.sources?.find((s) => s.id === srcId);
         if (catalogSrc && typeof (catalogSrc as any).type === 'string') {
           sourceTypes.add((catalogSrc as any).type);
         }
@@ -1107,7 +1109,7 @@ export class WebmapxMapElement extends HTMLElement {
     // StandardLayerConfig
     const sourceId = (layer as any).source;
     if (!sourceId) return false;
-    const source = this.layerDataConfig?.sources.find((s) => s.id === sourceId) ?? null;
+    const source = this.layerDataConfig?.sources?.find((s) => s.id === sourceId) ?? null;
     if (!source) return false;
     return !this.isSourceSupportedByActiveEngine(source);
   }
@@ -1135,7 +1137,8 @@ export class WebmapxMapElement extends HTMLElement {
     layerInformation: LayerInformation,
     options?: LayerInsertOptions,
   ): Promise<boolean> {
-    const layer = layerInformation.layer;
+    const enriched = inlineLayerSources(layerInformation.layer, this.layerDataConfig?.sources);
+    const layer = enriched;
     let success: boolean;
     try {
       success = await adapter.addLayer(layer, options);

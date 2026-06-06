@@ -1,8 +1,8 @@
 // src/map/openlayers-services/MapLayerService.ts
 
 import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
-import { resolveSource, normalizeRawSource } from '../layer-source-utils';
-import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, LayerDataConfig, SubLayerSpec } from '../../config/types';
+import { normalizeRawSource } from '../layer-source-utils';
+import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, SubLayerSpec } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import OLMap from 'ol/Map';
 import TileLayer from 'ol/layer/Tile';
@@ -37,16 +37,11 @@ export class MapLayerService implements ILayerService {
     private spriteResourceCache: Map<string, Promise<{ spriteData: Record<string, unknown>; spriteImageUrl: string } | null>> = new Map();
     // Track WarpedMapLayer instances for cleanup
     private warpedMapLayers: Map<string, WarpedMapLayer> = new Map();
-    private catalog: LayerDataConfig | null = null;
     private sourceIdCounter = 0;
 
     constructor(map: OLMap, store: MapStateStore) {
         this.map = map;
         this.store = store;
-    }
-
-    private updateVisibleLayers(): void {
-        this.store.dispatch({ visibleLayers: Array.from(this.logicalToNative.keys()) }, 'MAP');
     }
 
     private findLayerIndexByInstance(target: BaseLayer): number {
@@ -117,10 +112,6 @@ export class MapLayerService implements ILayerService {
         return clamped + 1;
     }
 
-    setCatalog(catalog: LayerDataConfig): void {
-        this.catalog = catalog;
-    }
-
     private getOrCreateNativeSourceId(sourceConfig: SourceConfig): string {
         if (this.logicalSourceToNative.has(sourceConfig.id)) {
             return this.logicalSourceToNative.get(sourceConfig.id)!;
@@ -183,7 +174,6 @@ export class MapLayerService implements ILayerService {
         this.warpedMapLayers.set(layerId, warpedMapLayer);
         this.nativeLayerInstances.set(warpedLayerId, warpedMapLayer as unknown as BaseLayer);
         this.logicalToNative.set(layerId, [warpedLayerId]);
-        this.updateVisibleLayers();
 
         return true;
     }
@@ -204,7 +194,8 @@ export class MapLayerService implements ILayerService {
         const stdLayer = layerConfig as StandardLayerConfig;
         if (!stdLayer.source) return false;
 
-        const sourceConfig = resolveSource(this.catalog,stdLayer.source);
+        const rawSourceDef = (layerConfig as any).sources?.[stdLayer.source as string];
+        const sourceConfig = rawSourceDef ? normalizeRawSource(stdLayer.source as string, rawSourceDef) : null;
         if (!sourceConfig) return false;
 
         // Legacy warpedmap:// support
@@ -230,7 +221,6 @@ export class MapLayerService implements ILayerService {
         this.nativeLayerToSource.set(nativeLayerId, nativeSourceId);
 
         this.logicalToNative.set(layerId, this.mergeNativeLayerIds(layerId, nativeLayerIds));
-        this.updateVisibleLayers();
         return nativeLayerIds.length > 0;
     }
 
@@ -275,9 +265,8 @@ export class MapLayerService implements ILayerService {
                 const sourceKey = subLayer.source;
                 if (!sourceKey) continue;
 
-                // Resolve source: local first, then global
-                let sourceConfig: SourceConfig | null = localSourceMap.get(sourceKey) ?? null;
-                if (!sourceConfig) sourceConfig = resolveSource(this.catalog,sourceKey);
+                // Resolve source: local only (sources are inlined into the layer spec)
+                const sourceConfig: SourceConfig | null = localSourceMap.get(sourceKey) ?? null;
                 if (!sourceConfig) continue;
 
                 const nativeSourceId = this.getOrCreateNativeSourceId(sourceConfig);
@@ -297,7 +286,6 @@ export class MapLayerService implements ILayerService {
         }
 
         this.logicalToNative.set(layerId, this.mergeNativeLayerIds(layerId, nativeLayerIds));
-        this.updateVisibleLayers();
         return nativeLayerIds.length > 0;
     }
 
@@ -1010,8 +998,7 @@ export class MapLayerService implements ILayerService {
             }
             this.warpedMapLayers.delete(layerId);
             this.logicalToNative.delete(layerId);
-            this.updateVisibleLayers();
-            return;
+                return;
         }
 
         const nativeIds = this.logicalToNative.get(layerId) || [];
@@ -1051,7 +1038,6 @@ export class MapLayerService implements ILayerService {
             }
         }
 
-        this.updateVisibleLayers();
     }
 
     getVisibleLayers(): string[] {
@@ -1115,26 +1101,8 @@ export class MapLayerService implements ILayerService {
     }
 
     getVisibleWMSLayers(): Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }> {
-        const result: Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }> = [];
-        if (!this.catalog) return result;
-        for (const logicalId of this.logicalToNative.keys()) {
-            const nativeLayerIds = this.logicalToNative.get(logicalId) ?? [];
-            for (const nativeLayerId of nativeLayerIds) {
-                const nativeSourceId = this.nativeLayerToSource.get(nativeLayerId);
-                if (!nativeSourceId) continue;
-                for (const [logicalSourceId, nativeSrcId] of this.logicalSourceToNative.entries()) {
-                    if (nativeSrcId !== nativeSourceId) continue;
-                    const sourceId = logicalSourceId.includes(':') ? logicalSourceId.split(':')[0] : logicalSourceId;
-                    const sourceConfig = resolveSource(this.catalog, sourceId);
-                    if (sourceConfig?.type === 'raster' && (sourceConfig as any).service === 'wms') {
-                        result.push({ layerId: logicalId, sourceConfig: sourceConfig as WMSSourceConfig });
-                        break;
-                    }
-                }
-                break;
-            }
-        }
-        return result;
+        // OL WMS layers are created via createWMSLayer; source config is not separately tracked here.
+        return [];
     }
 
 }

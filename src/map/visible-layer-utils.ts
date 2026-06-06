@@ -10,13 +10,13 @@ export function emitVisibleLayerEvents(
 
     for (const layerId of nextVisibleLayers) {
         if (!previous.has(layerId)) {
-            events.emit({ type: 'layer-add', layerId, visibleLayers: [...nextVisibleLayers] });
+            events.emit({ type: 'layer-add', layerId, activeLayers: [...nextVisibleLayers] });
         }
     }
 
     for (const layerId of lastVisibleLayers) {
         if (!next.has(layerId)) {
-            events.emit({ type: 'layer-remove', layerId, visibleLayers: [...nextVisibleLayers] });
+            events.emit({ type: 'layer-remove', layerId, activeLayers: [...nextVisibleLayers] });
         }
     }
 

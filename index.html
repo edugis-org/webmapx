@@ -96,6 +96,11 @@
             <br/>
             <br/>
             <webmapx-tool-template></webmapx-tool-template>
+            <br/>
+            <div id="truesize-host" style="margin-top:0.75rem">
+                <button id="truesize-button">True Size</button>
+                <div id="truesize-output"></div>
+            </div>
             <webmapx-spinner></webmapx-spinner>
             <br/>
             <div>
@@ -131,6 +136,28 @@
             if (e.detail?.toolId === 'geolocation') {
                 updateExternalLabelFromTool();
             }
+        });
+
+        const trueSizeButton = document.getElementById('truesize-button');
+        const trueSizeOutput = document.getElementById('truesize-output');
+
+        const setTrueSizeLabel = (active) => {
+            if (trueSizeButton) trueSizeButton.textContent = active ? 'Stop True Size' : 'True Size';
+        };
+
+        trueSizeButton?.addEventListener('click', () => {
+            if (!trueSizeOutput) return;
+            let tool = trueSizeOutput.querySelector('webmapx-truesize-tool');
+            if (!tool) {
+                tool = document.createElement('webmapx-truesize-tool');
+                trueSizeOutput.appendChild(tool);
+            }
+            if (tool.active) {
+                tool.deactivate?.();
+            } else {
+                tool.activate?.();
+            }
+            setTrueSizeLabel(tool.active);
         });
 
         externalGeoButton?.addEventListener('click', () => {

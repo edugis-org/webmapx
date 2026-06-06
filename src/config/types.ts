@@ -216,8 +216,8 @@ export interface TreeNodeConfig {
 export interface CatalogConfig {
   label?: string;
   tree: TreeNodeConfig[];
-  sources: SourceConfig[];
-  layers: AnyLayerConfig[];
+  sources?: SourceConfig[];
+  layers?: AnyLayerConfig[];
 }
 
 // ---------------------------------------------------------------------------
@@ -226,9 +226,9 @@ export interface CatalogConfig {
 
 export interface LayerDataConfig {
   /** Global source definitions. Loader injects id from the JSON object key. */
-  sources: SourceConfig[];
+  sources?: SourceConfig[];
   /** Ordered layer definitions. Order matters for initial rendering. */
-  layers: AnyLayerConfig[];
+  layers?: AnyLayerConfig[];
 }
 
 // ---------------------------------------------------------------------------

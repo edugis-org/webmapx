@@ -1,8 +1,8 @@
 // src/map/openlayers-adapter.ts
 
 import { IMap, IMapCore, IToolService, ISubMapFactory, LayerInsertOptions } from './IMapInterfaces';
-import type { LayerDataConfig } from '../config/types';
-import { MapEventBus, LngLat, Pixel } from '../store/map-events';
+
+import { LngLat, Pixel } from '../store/map-events';
 import { BaseAdapter } from './base-adapter';
 import { MapCoreService } from './openlayers-services/MapCoreService';
 import { MapServiceTemplate } from './openlayers-services/MapServiceTemplate';
@@ -12,7 +12,6 @@ import { MapQueryService } from './openlayers-services/MapQueryService';
 import { MapMarkerService } from './openlayers-services/MapMarkerService';
 import { DeferredLogicalLayerExecutor } from './logical-layer-executor';
 import { DeferredQueryService } from './deferred-query-service';
-import { emitVisibleLayerEvents } from './visible-layer-utils';
 import type { MapStyle } from '../config/types';
 import type { IQueryService } from './IQueryService';
 import type { MarkerOptions } from './IMapInterfaces';
@@ -22,7 +21,6 @@ import type { MarkerOptions } from './IMapInterfaces';
  * Implements the unified IMap interface by delegating to specialized services.
  */
 export class OpenLayersAdapter extends BaseAdapter implements IMap {
-    public readonly events: MapEventBus;
     private readonly core: IMapCore;
     public readonly toolService: IToolService;
     public readonly queryService: IQueryService;
@@ -30,20 +28,15 @@ export class OpenLayersAdapter extends BaseAdapter implements IMap {
     private readonly logicalLayerExecutor: DeferredLogicalLayerExecutor;
     private readonly queryExecutor: DeferredQueryService;
     private markerService: MapMarkerService | null = null;
-    private lastVisibleLayers: string[] = [];
 
     constructor() {
         super();
-        this.events = new MapEventBus();
         this.core = new MapCoreService(this.store, this.events);
         this.toolService = new MapServiceTemplate();
         this.logicalLayerExecutor = new DeferredLogicalLayerExecutor();
         this.queryExecutor = new DeferredQueryService();
         this.queryService = this.queryExecutor;
         this.mapFactory = new MapFactoryService();
-        this.store.subscribe((state) => {
-            this.lastVisibleLayers = emitVisibleLayerEvents(this.events, this.lastVisibleLayers, state.visibleLayers ?? []);
-        });
         // Wait for mapInstance to be ready, then initialize layerService
         (this.core as any).onMapReady?.((map: any) => {
             const layerService = new MapLayerService(map, this.store);
@@ -150,10 +143,6 @@ export class OpenLayersAdapter extends BaseAdapter implements IMap {
         return this.core.addLayer(layer, options);
     }
 
-    setCatalog(catalog: LayerDataConfig): void {
-        this.logicalLayerExecutor.setCatalog(catalog);
-    }
-
     removeLogicalLayer(layerId: string): void {
         this.logicalLayerExecutor.removeLayer(layerId);
     }
@@ -163,6 +152,7 @@ export class OpenLayersAdapter extends BaseAdapter implements IMap {
     }
 
     protected engineRemoveLayer(id: string): void {
+        this.logicalLayerExecutor.removeLayer(id);
         this.core.removeLayer(id);
     }
 

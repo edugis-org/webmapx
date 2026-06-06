@@ -163,3 +163,4 @@ async function initializeMap(mapElement, appConfig) {
     console.log(`[app] Initialized map "${mapId}" with config:`, mapConfig);
 }
 import './components/webmapx-view-mode-tool.ts';
+import './components/webmapx-truesize-tool.ts';
