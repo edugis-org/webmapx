@@ -3,7 +3,6 @@
 import type { IMapCore, ISource, NavigationCapabilities } from '../IMapInterfaces';
 import type { MapStyle } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
-import { registerMapLayer, unregisterMapLayer } from '../map-layer-registry';
 import { MapEventBus, LngLat, Pixel } from '../../store/map-events';
 import { throttle } from '../../utils/throttle';
 
@@ -272,14 +271,12 @@ export class MapCoreService implements IMapCore {
         camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
     }
 
-    public addLayer(_layer: any, options?: { beforeLayerId?: string; afterLayerId?: string }): void {
+    public addLayer(_layer: any, options?: { beforeLayerId?: string; afterLayerId?: string }): boolean {
         const layer = _layer as any;
         const sourceId = layer?.source;
-        if (!sourceId) return;
+        if (!sourceId) return false;
         const state = this.sourceState.get(sourceId);
-        if (!state) return;
-
-        registerMapLayer(this.store,layer);
+        if (!state) return false;
 
         const layerId = typeof layer?.id === 'string' ? layer.id : null;
         if (layerId) {
@@ -295,6 +292,7 @@ export class MapCoreService implements IMapCore {
         }
 
         this.refreshSourceLayerData(sourceId);
+        return true;
     }
 
     public removeLayer(_id: string): void {
@@ -302,7 +300,6 @@ export class MapCoreService implements IMapCore {
         if (typeof id === 'string') {
             this.removeRuntimeLayer(id);
             this.layerOrderRegistry?.unregisterInlineLayer(id);
-            unregisterMapLayer(this.store,id);
         }
 
         for (const [sourceId, state] of this.sourceState.entries()) {
@@ -347,7 +344,6 @@ export class MapCoreService implements IMapCore {
                 const layerId = typeof layer.spec?.id === 'string' ? layer.spec.id : null;
                 if (layerId) {
                     this.removeRuntimeLayer(layerId);
-                    unregisterMapLayer(this.store,layerId);
                 }
                 this.removeLayerDataSource(layer);
             }

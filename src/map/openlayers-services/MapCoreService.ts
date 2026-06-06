@@ -5,7 +5,6 @@ import View from 'ol/View';
 import { fromLonLat, toLonLat } from 'ol/proj';
 import { apply, stylefunction } from 'ol-mapbox-style';
 import { IMapCore, ISource, NavigationCapabilities } from '../IMapInterfaces';
-import { registerMapLayer, unregisterMapLayer } from '../map-layer-registry';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel, PointerResolution } from '../../store/map-events';
 import type { MapStyle } from '../../config/types';
@@ -435,21 +434,19 @@ export class MapCoreService implements IMapCore {
 
     private sources: Map<string, { source: VectorSource, layers: any[], olLayer: VectorLayer<any> }> = new Map();
 
-    public addLayer(layerConfig: any, options?: { beforeLayerId?: string; afterLayerId?: string }): void {
-        if (!this.mapInstance) return;
+    public addLayer(layerConfig: any, options?: { beforeLayerId?: string; afterLayerId?: string }): boolean {
+        if (!this.mapInstance) return false;
 
         const sourceId = layerConfig.source;
         const sourceInfo = this.sources.get(sourceId);
         if (!sourceInfo) {
             console.error(`[OL CORE] Source "${sourceId}" not found for layer "${layerConfig.id}".`);
-            return;
+            return false;
         }
         const metadata = layerConfig?.metadata && typeof layerConfig.metadata === 'object'
             ? layerConfig.metadata as Record<string, unknown>
             : {};
         (sourceInfo.olLayer as any).__mapLayerId = typeof metadata.mapLayerId === 'string' ? metadata.mapLayerId : layerConfig.id;
-
-        registerMapLayer(this.store,layerConfig);
         this.layerOrderRegistry?.registerInlineLayer(
             (sourceInfo.olLayer as any).__mapLayerId ?? layerConfig.id,
             sourceInfo.olLayer,
@@ -477,6 +474,7 @@ export class MapCoreService implements IMapCore {
             sourceInfo.layers.push(layerConfig);
         }
         this.updateStyle(sourceId);
+        return true;
     }
 
     public removeLayer(id: string): void {
@@ -484,7 +482,6 @@ export class MapCoreService implements IMapCore {
             const layerIndex = sourceInfo.layers.findIndex(l => l.id === id);
             if (layerIndex > -1) {
                 sourceInfo.layers.splice(layerIndex, 1);
-                unregisterMapLayer(this.store,id);
                 if (sourceInfo.layers.length === 0) {
                     // Last layer for this source, remove the whole thing
                     this.mapInstance?.removeLayer(sourceInfo.olLayer);
@@ -521,12 +518,6 @@ export class MapCoreService implements IMapCore {
     public removeSource(id: string): void {
         const sourceInfo = this.sources.get(id);
         if (sourceInfo) {
-            for (const layer of sourceInfo.layers) {
-                const layerId = typeof layer?.id === 'string' ? layer.id : null;
-                if (layerId) {
-                    unregisterMapLayer(this.store,layerId);
-                }
-            }
             this.mapInstance?.removeLayer(sourceInfo.olLayer);
             this.sources.delete(id);
         }

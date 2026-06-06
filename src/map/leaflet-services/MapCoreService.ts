@@ -1,7 +1,6 @@
 // src/map/leaflet-services/MapCoreService.ts
 
 import { IMapCore, ISource, NavigationCapabilities } from '../IMapInterfaces';
-import { registerMapLayer, unregisterMapLayer } from '../map-layer-registry';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel, PointerResolution } from '../../store/map-events';
 import type { MapStyle } from '../../config/types';
@@ -428,21 +427,19 @@ export class MapCoreService implements IMapCore {
         return next;
     }
 
-    public addLayer(layerSpec: any, options?: { beforeLayerId?: string; afterLayerId?: string }): void {
-        if (!this.mapInstance) return;
-
-        registerMapLayer(this.store,layerSpec);
+    public addLayer(layerSpec: any, options?: { beforeLayerId?: string; afterLayerId?: string }): boolean {
+        if (!this.mapInstance) return false;
     
         const sourceId = layerSpec.source;
         if (!sourceId) {
             if (layerSpec?.addTo === 'function') layerSpec.addTo(this.mapInstance);
-            return;
+            return false;
         }
-    
+
         const sourceConfig = this.sources.get(sourceId);
         if (!sourceConfig) {
             console.warn(`[CORE SERVICE] Source "${sourceId}" not found for layer "${layerSpec.id}".`);
-            return;
+            return false;
         }
     
         const data = sourceConfig.data || { type: 'FeatureCollection', features: [] };
@@ -469,6 +466,7 @@ export class MapCoreService implements IMapCore {
             this.sourceToLayers.set(sourceId, []);
         }
         this.sourceToLayers.get(sourceId)!.push(layerSpec.id);
+        return true;
     }
 
     public removeLayer(id: string): void {
@@ -494,7 +492,6 @@ export class MapCoreService implements IMapCore {
             this.layerOrderRegistry?.unregisterInlineLayer(id);
             this.applyRuntimeLayerOrder();
         }
-        unregisterMapLayer(this.store,id);
     }
 
     public addSource(id: string, config: any): void {

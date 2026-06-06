@@ -98,7 +98,7 @@ export interface IMapCore {
     /** Gets the current zoom level. */
     getZoom(): number;
 
-    addLayer(layer: any, options?: LayerInsertOptions): void;
+    addLayer(layer: any, options?: LayerInsertOptions): boolean;
     removeLayer(id: string): void;
     addSource(id: string, config: any): void;
     removeSource(id: string): void;
@@ -280,6 +280,9 @@ export interface IMap {
     setDoubleClickZoomEnabled(enabled: boolean): void;
 
     /** Shows or hides a map layer. */
+    /** Returns true if a layer with the given id is registered in the store. */
+    hasLayer(layerId: string): boolean;
+
     setLayerVisibility(layerId: string, visible: boolean): void;
 
     /** Returns current GeoJSON data of a source, or null if unavailable / not a GeoJSON source. */

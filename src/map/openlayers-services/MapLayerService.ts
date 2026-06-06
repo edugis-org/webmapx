@@ -1,7 +1,6 @@
 // src/map/openlayers-services/MapLayerService.ts
 
 import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
-import { registerMapLayer, unregisterMapLayer } from '../map-layer-registry';
 import { resolveSource, normalizeRawSource } from '../layer-source-utils';
 import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, LayerDataConfig, SubLayerSpec } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
@@ -299,7 +298,6 @@ export class MapLayerService implements ILayerService {
 
         this.logicalToNative.set(layerId, this.mergeNativeLayerIds(layerId, nativeLayerIds));
         this.updateVisibleLayers();
-        if (nativeLayerIds.length > 0) registerMapLayer(this.store, layerConfig);
         return nativeLayerIds.length > 0;
     }
 
@@ -1034,7 +1032,6 @@ export class MapLayerService implements ILayerService {
         }
 
         this.logicalToNative.delete(layerId);
-        unregisterMapLayer(this.store, layerId);
 
         for (const sourceId of nativeSourceIds) {
             let stillUsed = false;

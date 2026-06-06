@@ -2,8 +2,8 @@
 
 import { IMap, IMapCore, IToolService, ISubMapFactory, LayerInsertOptions } from './IMapInterfaces';
 import type { LayerDataConfig } from '../config/types';
-import { MapStateStore } from '../store/map-state-store';
 import { MapEventBus, LngLat, Pixel } from '../store/map-events';
+import { BaseAdapter } from './base-adapter';
 import { MapCoreService } from './openlayers-services/MapCoreService';
 import { MapServiceTemplate } from './openlayers-services/MapServiceTemplate';
 import { MapFactoryService } from './openlayers-services/MapFactoryService';
@@ -21,8 +21,7 @@ import type { MarkerOptions } from './IMapInterfaces';
  * The concrete Map implementation for OpenLayers.
  * Implements the unified IMap interface by delegating to specialized services.
  */
-export class OpenLayersAdapter implements IMap {
-    public readonly store: MapStateStore;
+export class OpenLayersAdapter extends BaseAdapter implements IMap {
     public readonly events: MapEventBus;
     private readonly core: IMapCore;
     public readonly toolService: IToolService;
@@ -34,7 +33,7 @@ export class OpenLayersAdapter implements IMap {
     private lastVisibleLayers: string[] = [];
 
     constructor() {
-        this.store = new MapStateStore();
+        super();
         this.events = new MapEventBus();
         this.core = new MapCoreService(this.store, this.events);
         this.toolService = new MapServiceTemplate();
@@ -145,10 +144,10 @@ export class OpenLayersAdapter implements IMap {
         return this.core.getNavigationCapabilities();
     }
 
-    async addLayer(layer: any, options?: LayerInsertOptions): Promise<boolean> {
+    protected async engineAddLayer(layer: any, options?: LayerInsertOptions): Promise<boolean> {
         const success = await this.logicalLayerExecutor.addLayer(layer, options);
-        if (!success) this.core.addLayer(layer, options);
-        return true;
+        if (success) return true;
+        return this.core.addLayer(layer, options);
     }
 
     setCatalog(catalog: LayerDataConfig): void {
@@ -163,11 +162,11 @@ export class OpenLayersAdapter implements IMap {
         this.core.addSource(id, config);
     }
 
-    removeLayer(id: string): void {
+    protected engineRemoveLayer(id: string): void {
         this.core.removeLayer(id);
     }
 
-    removeSource(id: string): void {
+    protected engineRemoveSource(id: string): void {
         this.core.removeSource(id);
     }
 

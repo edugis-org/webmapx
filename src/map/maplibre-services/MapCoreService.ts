@@ -1,7 +1,6 @@
 // src/map/maplibre-services/MapCoreService.ts
 
 import { IMapCore, ISource, NavigationCapabilities } from '../IMapInterfaces';
-import { registerMapLayer, unregisterMapLayer } from '../map-layer-registry';
 import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel, PointerResolution } from '../../store/map-events';
 import type { MapStyle } from '../../config/types';
@@ -329,14 +328,12 @@ export class MapCoreService implements IMapCore {
         return this.mapInstance ? this.mapInstance.getZoom() : this.initialConfig.zoom;
     }
 
-    public addLayer(layer: any, options?: { beforeLayerId?: string; afterLayerId?: string }): void {
-        if (!this.mapInstance) return;
-
-        registerMapLayer(this.store,layer);
+    public addLayer(layer: any, options?: { beforeLayerId?: string; afterLayerId?: string }): boolean {
+        if (!this.mapInstance) return false;
 
         if (options?.beforeLayerId) {
             this.mapInstance.addLayer(layer, options.beforeLayerId);
-            return;
+            return true;
         }
 
         if (options?.afterLayerId) {
@@ -347,15 +344,15 @@ export class MapCoreService implements IMapCore {
                 ? layers[afterIndex + 1]?.id
                 : undefined;
             this.mapInstance.addLayer(layer, beforeLayerId);
-            return;
+            return true;
         }
 
         this.mapInstance.addLayer(layer);
+        return true;
     }
 
     public removeLayer(id: string): void {
         this.mapInstance?.removeLayer(id);
-        unregisterMapLayer(this.store,id);
     }
 
     public addSource(id: string, config: any): void {

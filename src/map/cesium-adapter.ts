@@ -3,8 +3,8 @@
 import { IMap, IMapCore, IToolService, ISubMapFactory, LayerInsertOptions } from './IMapInterfaces';
 import type { LayerDataConfig } from '../config/types';
 import type { MapStyle } from '../config/types';
-import { MapStateStore } from '../store/map-state-store';
 import { MapEventBus, LngLat, Pixel } from '../store/map-events';
+import { BaseAdapter } from './base-adapter';
 import { MapCoreService } from './cesium-services/MapCoreService';
 import { MapServiceTemplate } from './cesium-services/MapServiceTemplate';
 import { MapFactoryService } from './cesium-services/MapFactoryService';
@@ -73,8 +73,7 @@ async function ensureCesiumLoaded(): Promise<void> {
  *
  * Note: This adapter expects CesiumJS to be available as `window.Cesium`.
  */
-export class CesiumAdapter implements IMap {
-    public readonly store: MapStateStore;
+export class CesiumAdapter extends BaseAdapter implements IMap {
     public readonly events: MapEventBus;
     private readonly core: IMapCore;
     public readonly toolService: IToolService;
@@ -86,7 +85,7 @@ export class CesiumAdapter implements IMap {
     private lastVisibleLayers: string[] = [];
 
     constructor() {
-        this.store = new MapStateStore();
+        super();
         this.events = new MapEventBus();
         this.core = new MapCoreService(this.store, this.events);
         this.toolService = new MapServiceTemplate();
@@ -196,14 +195,10 @@ export class CesiumAdapter implements IMap {
         return this.core.getNavigationCapabilities();
     }
 
-    async addLayer(layer: any, options?: LayerInsertOptions): Promise<boolean> {
+    protected async engineAddLayer(layer: any, options?: LayerInsertOptions): Promise<boolean> {
         const success = await this.logicalLayerExecutor.addLayer(layer, options);
         if (success) return true;
-        // Fallback: inline layers pre-registered via addSource (e.g. draw tool)
-        this.core.addLayer(layer, options);
-        // Return true only if the layer was actually registered (core.addLayer registers via registerMapLayer)
-        const layerId = typeof layer?.id === 'string' ? layer.id : null;
-        return layerId ? (this.store.getState().mapLayers?.[layerId] !== undefined) : false;
+        return this.core.addLayer(layer, options);
     }
 
     setCatalog(catalog: LayerDataConfig): void {
@@ -218,11 +213,11 @@ export class CesiumAdapter implements IMap {
         this.core.addSource(id, config);
     }
 
-    removeLayer(id: string): void {
+    protected engineRemoveLayer(id: string): void {
         this.core.removeLayer(id);
     }
 
-    removeSource(id: string): void {
+    protected engineRemoveSource(id: string): void {
         this.core.removeSource(id);
     }
 
