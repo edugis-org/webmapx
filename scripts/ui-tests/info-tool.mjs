@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { mkdir } from 'node:fs/promises';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SCREENSHOT_DIR = path.resolve(__dirname, '../../test-screenshots');
+const SCREENSHOT_DIR = path.resolve(__dirname, '../temp/screenshots');
 
 function fail(message) {
     throw new Error(message);

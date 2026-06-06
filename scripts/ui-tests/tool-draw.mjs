@@ -362,8 +362,8 @@ async function setBackgroundToGoogleSatelliteViaCatalogTool(page) {
     const map = document.querySelector('webmapx-map');
     const adapter = map?.adapter;
     if (!adapter?.store) return false;
-    const visibleLayers = adapter.store.getState().visibleLayers ?? [];
-    return visibleLayers.includes('google-satellite') && !visibleLayers.includes('osm');
+    const mapLayers = adapter.store.getState().mapLayers ?? {};
+    return ('google-satellite' in mapLayers) && !('osm' in mapLayers);
   }, undefined, { timeout: 10_000 });
 }
 

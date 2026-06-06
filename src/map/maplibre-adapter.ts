@@ -153,7 +153,7 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
     }
 
     removeLogicalLayer(layerId: string): void {
-        this.logicalLayerExecutor.removeLayer(layerId);
+        this.removeLayer(layerId);
     }
 
     addSource(id: string, config: any): void {
