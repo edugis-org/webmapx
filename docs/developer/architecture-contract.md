@@ -53,6 +53,15 @@ Adapters MUST NOT contain tool policy, tree logic, or business orchestration.
 Engine layer services MUST execute placement and rendering only.
 Placement policy decisions MUST live outside engine services.
 
+Engine services MUST NOT call `registerMapLayer` or `unregisterMapLayer`.
+Generic layer bookkeeping is owned by `BaseAdapter` (`src/map/base-adapter.ts`),
+which wraps every `addLayer` / `removeLayer` / `removeSource` call and updates
+`store.mapLayers` based on the engine's boolean return value.
+
+Engine core services MUST return `boolean` from `addLayer`: `true` = layer was
+accepted and added to the engine, `false` = engine rejected it (missing source,
+map not ready, etc.).
+
 ## Allowed And Forbidden Dependencies
 
 ### Runtime Orchestration (`src/components/webmapx-map.ts`, `src/map/**`)

@@ -48,14 +48,19 @@ These methods are part of `IMap`.
 
 | Method | Signature | Description |
 |---|---|---|
-| `addLayer` | `(layer: any) => void` | Adds a layer object |
-| `removeLayer` | `(id: string) => void` | Removes a layer by ID |
+| `addLayer` | `(layer: any, options?) => Promise<boolean>` | Adds a layer; resolves `true` if the engine accepted it and it was registered in the store |
+| `removeLayer` | `(id: string) => void` | Removes a layer by ID and unregisters it from the store |
+| `removeSource` | `(id: string) => void` | Removes a source and unregisters any layers that referenced it |
+| `hasLayer` | `(id: string) => boolean` | Returns `true` if the layer is registered in the generic store |
 | `addSource` | `(id: string, config: any) => void` | Adds a source |
-| `removeSource` | `(id: string) => void` | Removes a source by ID |
 | `getSource` | `(id: string) => ISource \| undefined` | Retrieves a source by ID |
 | `suppressBusySignalForSource` | `(sourceId: string) => void` | Suppresses loading indicator for a source |
 | `unsuppressBusySignalForSource` | `(sourceId: string) => void` | Re-enables loading indicator for a source |
 | `getNavigationCapabilities` | `() => NavigationCapabilities` | Returns what camera controls this engine supports |
+
+### Layer Bookkeeping
+
+Layer registration (`registerMapLayer` / `unregisterMapLayer`) is handled exclusively by `BaseAdapter` — **not** by engine services. Engine services (`MapCoreService`, `MapLayerService`) must return a `boolean` from `addLayer` (true = accepted) and must not touch `store.mapLayers` directly. `BaseAdapter.addLayer` / `removeLayer` / `removeSource` wrap the engine call and update the store based on the result.
 
 > All events are delivered through `IMap.events` (the `MapEventBus`).
 

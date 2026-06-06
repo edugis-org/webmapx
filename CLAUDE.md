@@ -16,11 +16,12 @@ Modular web map UI with adapters for MapLibre, OpenLayers, Leaflet, and Cesium.
 src/
   map/                    # Engine adapters + services
     IMapInterfaces.ts     # Shared interfaces
-    maplibre-adapter.ts   # MapLibre adapter
+    base-adapter.ts       # Abstract base: store, hasLayer, layer bookkeeping
+    maplibre-adapter.ts   # MapLibre adapter (extends BaseAdapter)
     openlayers-adapter.ts
     leaflet-adapter.ts
     cesium-adapter.ts
-    maplibre-services/    # Engine-specific services
+    maplibre-services/    # Engine-specific services (pure engine, no store bookkeeping)
     openlayers-services/
     leaflet-services/
     cesium-services/
@@ -43,6 +44,7 @@ src/
 - Background switching: `background-group-policy` controls single/exclusive groups
 - Layer config: JSON close to mapbox/maplibre spec (`config/layers.json`, `config/world.json`)
 - Allmaps overlay layers integrate with all three 2D engines
+- Generic/engine boundary: `BaseAdapter` owns all `store.mapLayers` bookkeeping; engine services are pure engine code and MUST NOT call `registerMapLayer`/`unregisterMapLayer`
 
 ## Commands
 
