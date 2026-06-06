@@ -13,24 +13,50 @@ body {
 }
 
 .table {
-    display: table;
+    display: flex;
     width: 100%;
     height: 100%;
 }
 
-.table > div {
-    display: table-cell;
-    vertical-align: top;
-    padding: 20px;
-}
-
 .table > div:first-child {
-    width: 75%;
+    flex: 3 1 0;
+    padding: 20px;
+    min-width: 0;
 }
 
-.table > div:last-child {
-    width: 25%;
+#external-tools-column {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 20px;
     background: var(--color-background-secondary);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+#external-tools-column h3,
+#external-tools-column p {
+    flex-shrink: 0;
+    margin: 0 0 0.25rem;
+}
+
+#external-tools-scroll {
+    flex: 1 1 0;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+#external-tools-scroll > * {
+    display: block;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    margin-bottom: 2px;
+    padding: 0.5rem;
+    box-sizing: border-box;
+    --webmapx-tool-padding: 0.5rem;
 }
 
 webmapx-map {

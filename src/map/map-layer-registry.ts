@@ -30,7 +30,7 @@ export function registerMapLayer(store: MapStateStore, layer: any): void {
     if (layer?.paint && typeof layer.paint === 'object' && !metadata.paint) {
         metadata.paint = layer.paint;
     }
-    // Store resolved GeoJSON data so consumers (e.g. TrueSize) can read it from generic state
+    // Store resolved GeoJSON data so consumers (e.g. TrueArea) can read it from generic state
     if (!metadata.sourceData && layer?.sources && typeof layer.sources === 'object') {
         for (const src of Object.values(layer.sources)) {
             const s = src as any;

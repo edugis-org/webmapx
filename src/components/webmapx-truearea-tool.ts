@@ -6,7 +6,7 @@ import type { IMap } from '../map/IMapInterfaces';
 
 type LngLat = [number, number];
 
-interface TrueSizeCopy {
+interface TrueAreaCopy {
     id: string;
     label: string;
     color: string;
@@ -14,12 +14,12 @@ interface TrueSizeCopy {
 
 const COLORS = ['#e63946', '#2a9d8f', '#e9c46a', '#457b9d', '#f4a261', '#6a4c93', '#06d6a0', '#ff6b6b'];
 
-const TRUESIZE_SOURCE = 'truesize-source';
-const TRUESIZE_FILL = 'truesize-fill';
-const TRUESIZE_LINE = 'truesize-line';
-const GHOST_SOURCE = 'truesize-ghost-source';
-const GHOST_FILL = 'truesize-ghost-fill';
-const GHOST_LINE = 'truesize-ghost-line';
+const TRUEAREA_SOURCE = 'truearea-source';
+const TRUEAREA_FILL = 'truearea-fill';
+const TRUEAREA_LINE = 'truearea-line';
+const GHOST_SOURCE = 'truearea-ghost-source';
+const GHOST_FILL = 'truearea-ghost-fill';
+const GHOST_LINE = 'truearea-ghost-line';
 
 function geoCentroid(geom: GeoJSON.Geometry): LngLat {
     let pts: number[][] = [];
@@ -57,6 +57,25 @@ function hitTestFeature(pt: LngLat, geom: GeoJSON.Geometry): boolean {
     return false;
 }
 
+function rotateGeometry(geom: GeoJSON.Geometry, angleDeg: number, pivot: LngLat): GeoJSON.Geometry {
+    const rad = angleDeg * Math.PI / 180;
+    const cosA = Math.cos(rad), sinA = Math.sin(rad);
+    const cosLat = Math.cos(pivot[1] * Math.PI / 180);
+    const rotPt = (c: number[]): number[] => {
+        const dx = (c[0] - pivot[0]) * cosLat;
+        const dy = c[1] - pivot[1];
+        return [
+            pivot[0] + (dx * cosA - dy * sinA) / cosLat,
+            pivot[1] + dx * sinA + dy * cosA,
+        ];
+    };
+    const mapRing = (ring: number[][]) => ring.map(rotPt);
+    const mapPoly = (poly: number[][][]) => poly.map(mapRing);
+    if (geom.type === 'Polygon') return { type: 'Polygon', coordinates: geom.coordinates.map(mapRing) };
+    if (geom.type === 'MultiPolygon') return { type: 'MultiPolygon', coordinates: geom.coordinates.map(mapPoly) };
+    return geom;
+}
+
 function translateGeoPreserving(geom: GeoJSON.Geometry, dLng: number, dLat: number, origCentLng: number, origCentLat: number): GeoJSON.Geometry {
     const newCentLat = origCentLat + dLat;
     const cosOrig = Math.cos(origCentLat * Math.PI / 180);
@@ -74,12 +93,14 @@ function translateGeoPreserving(geom: GeoJSON.Geometry, dLng: number, dLat: numb
     return geom;
 }
 
-@customElement('webmapx-truesize-tool')
-export class WebmapxTrueSizeTool extends WebmapxBaseTool {
+@customElement('webmapx-truearea-tool')
+export class WebmapxTrueAreaTool extends WebmapxBaseTool {
     @state() private availableLayers: { id: string; label: string; sourceId: string }[] = [];
     @state() private selectedLayerId = '';
-    @state() private copies: TrueSizeCopy[] = [];
+    @state() private copies: TrueAreaCopy[] = [];
     @state() private dragging = false;
+    @state() private lastTouchedCopyId: string | null = null;
+    @state() private rotationDeg = 0;
 
     public active = false;
 
@@ -115,18 +136,22 @@ export class WebmapxTrueSizeTool extends WebmapxBaseTool {
     }
 
     static styles = css`
-        :host { display: none; padding: 0.75rem; font-size: 0.875rem; min-width: 200px; }
+        :host { display: none; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; min-width: 200px; }
         label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
         select { width: 100%; margin-bottom: 0.75rem; padding: 0.25rem; box-sizing: border-box; }
         .hint { color: var(--sl-color-neutral-500, #888); font-style: italic; margin-bottom: 0.5rem; font-size: 0.8rem; }
-        .copy-list { margin-bottom: 0.5rem; max-height: 130px; overflow-y: auto; }
-        .copy-item { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.25rem; }
+        .copy-item { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
         .copy-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
         .copy-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .copy-remove { cursor: pointer; color: var(--sl-color-danger-600, #c00); border: none; background: none; padding: 0 2px; font-size: 0.9rem; }
         .clear-btn { width: 100%; padding: 0.3rem; cursor: pointer; }
-        .no-copies { color: var(--sl-color-neutral-500, #888); font-style: italic; font-size: 0.8rem; margin-bottom: 0.5rem; }
+        .no-copies { color: var(--sl-color-neutral-500, #888); font-style: italic; font-size: 0.8rem; margin-bottom: 0.5rem; margin-top: 0.25rem; }
         .dragging-hint { color: var(--sl-color-primary-600, #3b82f6); font-size: 0.8rem; margin-bottom: 0.4rem; }
+        .rotation-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
+        .rotation-row input[type=range] { flex: 1; }
+        .rotation-reset { border: none; background: none; cursor: pointer; padding: 0 2px; font-size: 1rem; line-height: 1; color: var(--sl-color-neutral-600, #555); }
+        .rotation-reset:hover { color: var(--sl-color-primary-600, #3b82f6); }
+        .rotation-value { font-variant-numeric: tabular-nums; min-width: 3.5em; text-align: right; font-size: 0.8rem; color: var(--sl-color-neutral-600, #555); }
     `;
 
     protected onMapAttached(adapter: IMap): void {
@@ -152,7 +177,7 @@ export class WebmapxTrueSizeTool extends WebmapxBaseTool {
         const layers = state.mapLayers ?? {};
         const result: { id: string; label: string; sourceId: string }[] = [];
         for (const [id, entry] of Object.entries(layers)) {
-            if (id.startsWith('truesize-') || id.startsWith(GHOST_SOURCE)) continue;
+            if (id.startsWith('truearea-') || id.startsWith(GHOST_SOURCE)) continue;
             const data = (entry as any).sourceData as GeoJSON.FeatureCollection | undefined;
             if (!data) continue;
             if (!this.hasPolygonFeatures(data)) continue;
@@ -175,25 +200,25 @@ export class WebmapxTrueSizeTool extends WebmapxBaseTool {
 
     private async setupLayers(): Promise<void> {
         if (!this.adapter) return;
-        if (!this.adapter.hasLayer(TRUESIZE_FILL)) {
-            await this.adapter.addSource(TRUESIZE_SOURCE, {
+        if (!this.adapter.hasLayer(TRUEAREA_FILL)) {
+            await this.adapter.addSource(TRUEAREA_SOURCE, {
                 type: 'geojson',
                 data: { type: 'FeatureCollection', features: [] },
             });
             await this.adapter.addLayer({
-                id: TRUESIZE_FILL,
+                id: TRUEAREA_FILL,
                 type: 'fill',
-                source: TRUESIZE_SOURCE,
+                source: TRUEAREA_SOURCE,
                 paint: {
                     'fill-color': ['get', 'color'],
                     'fill-opacity': 0.35,
                 },
-                metadata: { label: 'TrueSize copies', legendRole: 'overlay' },
+                metadata: { label: 'TrueArea copies', legendRole: 'overlay', attribution: '<a href="https://thetruesize.com">The True Size Of</a>' },
             });
             await this.adapter.addLayer({
-                id: TRUESIZE_LINE,
+                id: TRUEAREA_LINE,
                 type: 'line',
-                source: TRUESIZE_SOURCE,
+                source: TRUEAREA_SOURCE,
                 paint: {
                     'line-color': ['get', 'color'],
                     'line-width': 2,
@@ -232,10 +257,10 @@ export class WebmapxTrueSizeTool extends WebmapxBaseTool {
 
     private cleanupLayers(): void {
         if (!this.adapter) return;
-        [GHOST_FILL, GHOST_LINE, TRUESIZE_FILL, TRUESIZE_LINE].forEach(id => {
+        [GHOST_FILL, GHOST_LINE, TRUEAREA_FILL, TRUEAREA_LINE].forEach(id => {
             if (this.adapter!.hasLayer(id)) this.adapter!.removeLayer(id);
         });
-        [GHOST_SOURCE, TRUESIZE_SOURCE].forEach(id => this.adapter!.removeSource(id));
+        [GHOST_SOURCE, TRUEAREA_SOURCE].forEach(id => this.adapter!.removeSource(id));
     }
 
     private bindEvents(): void {
@@ -271,10 +296,14 @@ export class WebmapxTrueSizeTool extends WebmapxBaseTool {
             const label = copyMeta?.label ?? copyId;
             // Remove from persistent layer while dragging
             this.features = this.features.filter(f => f.properties?.copyId !== copyId);
-            this.updateTrueSizeSource();
+            this.updateTrueAreaSource();
             const centroid = geoCentroid(hitCopy.geometry!);
             this.dragState = { feature: hitCopy, centroid, startCoords: pt, color, label, existingCopyId: copyId };
             this.dragging = true;
+            if (copyId !== this.lastTouchedCopyId) {
+                this.lastTouchedCopyId = copyId;
+                this.rotationDeg = hitCopy.properties?.rotation ?? 0;
+            }
             this.adapter.setPanEnabled(false);
             this.updateGhost(pt);
             return;
@@ -332,7 +361,7 @@ export class WebmapxTrueSizeTool extends WebmapxBaseTool {
             // Restore copy if it was lifted
             if (existingCopyId) {
                 this.features = [...this.features, feature];
-                this.updateTrueSizeSource();
+                this.updateTrueAreaSource();
             }
             this.dragState = null;
             this.dragging = false;
@@ -341,17 +370,20 @@ export class WebmapxTrueSizeTool extends WebmapxBaseTool {
         }
         const moved = translateGeoPreserving(feature.geometry!, dLng, dLat, centroid[0], centroid[1]);
         const copyId = existingCopyId ?? `copy-${Date.now()}`;
+        const rotation = existingCopyId ? (this.lastTouchedCopyId === existingCopyId ? this.rotationDeg : (feature.properties?.rotation ?? 0)) : 0;
         this.features = [...this.features, {
             type: 'Feature',
             geometry: moved,
-            properties: { color, copyId },
+            properties: { color, copyId, rotation },
         }];
         const fc: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: this.features };
-        const src = this.adapter.getSource(TRUESIZE_SOURCE);
+        const src = this.adapter.getSource(TRUEAREA_SOURCE);
         src?.setData(fc);
         if (!existingCopyId) {
             this.copies = [...this.copies, { id: copyId, label, color }];
             this.colorIdx++;
+            this.lastTouchedCopyId = copyId;
+            this.rotationDeg = 0;
         }
         this.dragState = null;
         this.dragging = false;
@@ -367,18 +399,43 @@ export class WebmapxTrueSizeTool extends WebmapxBaseTool {
     private removeCopy(copyId: string): void {
         this.copies = this.copies.filter(c => c.id !== copyId);
         this.features = this.features.filter(f => f.properties?.copyId !== copyId);
-        this.updateTrueSizeSource();
+        if (this.lastTouchedCopyId === copyId) {
+            this.lastTouchedCopyId = this.copies[this.copies.length - 1]?.id ?? null;
+            this.rotationDeg = this.lastTouchedCopyId
+                ? (this.features.find(f => f.properties?.copyId === this.lastTouchedCopyId)?.properties?.rotation ?? 0)
+                : 0;
+        }
+        this.updateTrueAreaSource();
+    }
+
+    private rotateLastCopy(angleDeg: number): void {
+        if (!this.lastTouchedCopyId) return;
+        const feature = this.features.find(f => f.properties?.copyId === this.lastTouchedCopyId);
+        if (!feature?.geometry) return;
+        const prevAngle: number = feature.properties?.rotation ?? 0;
+        const delta = angleDeg - prevAngle;
+        const pivot = geoCentroid(feature.geometry);
+        const rotated = rotateGeometry(feature.geometry, delta, pivot);
+        this.features = this.features.map(f =>
+            f.properties?.copyId === this.lastTouchedCopyId
+                ? { ...f, geometry: rotated, properties: { ...f.properties, rotation: angleDeg } }
+                : f
+        );
+        this.rotationDeg = angleDeg;
+        this.updateTrueAreaSource();
     }
 
     private clearAll(): void {
         this.copies = [];
         this.features = [];
-        this.updateTrueSizeSource();
+        this.lastTouchedCopyId = null;
+        this.rotationDeg = 0;
+        this.updateTrueAreaSource();
     }
 
-    private updateTrueSizeSource(): void {
+    private updateTrueAreaSource(): void {
         if (!this.adapter) return;
-        const src = this.adapter.getSource(TRUESIZE_SOURCE);
+        const src = this.adapter.getSource(TRUEAREA_SOURCE);
         src?.setData({ type: 'FeatureCollection', features: this.features });
     }
 
@@ -400,18 +457,25 @@ export class WebmapxTrueSizeTool extends WebmapxBaseTool {
                 `
             }
 
-            <div class="copy-list">
-                ${this.copies.length === 0
-                    ? html`<div class="no-copies">No copies placed yet.</div>`
-                    : this.copies.map(c => html`
-                        <div class="copy-item">
-                            <div class="copy-swatch" style="background:${c.color}"></div>
-                            <span class="copy-label" title=${c.label}>${c.label}</span>
-                            <button class="copy-remove" @click=${() => this.removeCopy(c.id)} title="Remove">✕</button>
-                        </div>
-                    `)
-                }
-            </div>
+            ${(() => {
+                const active = this.copies.find(c => c.id === this.lastTouchedCopyId);
+                if (!active) return html`<div class="no-copies">No copy selected. Click a polygon on the map.</div>`;
+                return html`
+                    <div class="copy-item">
+                        <div class="copy-swatch" style="background:${active.color}"></div>
+                        <span class="copy-label" title=${active.label}>${active.label}</span>
+                        <button class="copy-remove" @click=${() => this.removeCopy(active.id)} title="Remove">✕</button>
+                    </div>
+                    <div class="rotation-row">
+                        <input type="range" min="-180" max="180" step="1"
+                            .value=${String(this.rotationDeg)}
+                            @input=${(e: Event) => this.rotateLastCopy(Number((e.target as HTMLInputElement).value))}
+                        />
+                        <button class="rotation-reset" title="Reset to 0°" @click=${() => this.rotateLastCopy(0)}>↺</button>
+                        <span class="rotation-value">${this.rotationDeg}°</span>
+                    </div>
+                `;
+            })()}
 
             ${this.copies.length > 0
                 ? html`<button class="clear-btn" @click=${() => this.clearAll()}>Clear all</button>`

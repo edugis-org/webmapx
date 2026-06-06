@@ -70,7 +70,7 @@ export class WebmapxInfoTool extends WebmapxModalTool {
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
-            padding: 0.75rem;
+            padding: var(--webmapx-tool-padding, 0);
             font-size: var(--font-size-small, 0.875rem);
             min-width: 200px;
         }

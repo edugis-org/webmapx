@@ -87,25 +87,22 @@
         </div>
         
         <!-- External Tools Column -->
-        <div>
+        <div id="external-tools-column">
             <h3>External Tools</h3>
             <p>The tools below are outside the map but linked to it.</p>
-            <webmapx-zoom-level map="#map-container"></webmapx-zoom-level>
-            <br/>
-            <webmapx-inset-map zoom-offset="-5"></webmapx-inset-map>
-            <br/>
-            <br/>
-            <webmapx-tool-template></webmapx-tool-template>
-            <br/>
-            <div id="truesize-host" style="margin-top:0.75rem">
-                <button id="truesize-button">True Size</button>
-                <div id="truesize-output"></div>
-            </div>
-            <webmapx-spinner></webmapx-spinner>
-            <br/>
-            <div>
-                <button id="external-geolocation-button">Use Geolocation</button>
-                <div id="external-geolocation-output"></div>
+            <div id="external-tools-scroll">
+                <webmapx-zoom-level map="#map-container"></webmapx-zoom-level>
+                <webmapx-inset-map zoom-offset="-5"></webmapx-inset-map>
+                <webmapx-tool-template></webmapx-tool-template>
+                <div id="truearea-host">
+                    <button id="truearea-button">True Area tool</button>
+                    <div id="truearea-output"></div>
+                </div>
+                <webmapx-spinner></webmapx-spinner>
+                <div>
+                    <button id="external-geolocation-button">Geolocation tool</button>
+                    <div id="external-geolocation-output"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -118,7 +115,7 @@
 
         const setExternalGeoLabel = (active) => {
             if (!externalGeoButton) return;
-            externalGeoButton.textContent = active ? 'Stop Geolocation' : 'Use Geolocation';
+            externalGeoButton.textContent = active ? 'Deactivate Geolocation tool' : 'Geolocation tool';
         };
 
         const updateExternalLabelFromTool = () => {
@@ -138,26 +135,26 @@
             }
         });
 
-        const trueSizeButton = document.getElementById('truesize-button');
-        const trueSizeOutput = document.getElementById('truesize-output');
+        const trueAreaButton = document.getElementById('truearea-button');
+        const trueAreaOutput = document.getElementById('truearea-output');
 
-        const setTrueSizeLabel = (active) => {
-            if (trueSizeButton) trueSizeButton.textContent = active ? 'Stop True Size' : 'True Size';
+        const setTrueAreaLabel = (active) => {
+            if (trueAreaButton) trueAreaButton.textContent = active ? 'Deactivate True Area tool' : 'True Area tool';
         };
 
-        trueSizeButton?.addEventListener('click', () => {
-            if (!trueSizeOutput) return;
-            let tool = trueSizeOutput.querySelector('webmapx-truesize-tool');
+        trueAreaButton?.addEventListener('click', () => {
+            if (!trueAreaOutput) return;
+            let tool = trueAreaOutput.querySelector('webmapx-truearea-tool');
             if (!tool) {
-                tool = document.createElement('webmapx-truesize-tool');
-                trueSizeOutput.appendChild(tool);
+                tool = document.createElement('webmapx-truearea-tool');
+                trueAreaOutput.appendChild(tool);
             }
             if (tool.active) {
                 tool.deactivate?.();
             } else {
                 tool.activate?.();
             }
-            setTrueSizeLabel(tool.active);
+            setTrueAreaLabel(tool.active);
         });
 
         externalGeoButton?.addEventListener('click', () => {

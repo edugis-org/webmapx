@@ -26,7 +26,7 @@ export class WebmapxViewModeTool extends WebmapxBaseTool {
     @state() private supported = true;
 
     static styles = css`
-        :host { display: block; padding: 0.75rem; font-size: 0.875rem; }
+        :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         .unsupported { color: var(--sl-color-neutral-500, #888); font-style: italic; }
         label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
         select { width: 100%; margin-bottom: 0.75rem; padding: 0.25rem; box-sizing: border-box; }

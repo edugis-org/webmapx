@@ -161,7 +161,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     // ─── Styles ───────────────────────────────────────────────────────────────
 
     static styles = css`
-        :host { display: block; padding: 0.5rem; min-width: 200px; }
+        :host { display: block; padding: var(--webmapx-tool-padding, 0); min-width: 200px; }
 
         .toolbar {
             display: flex;

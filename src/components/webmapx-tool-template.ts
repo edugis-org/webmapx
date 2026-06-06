@@ -29,9 +29,7 @@ export class WebmapxToolTemplate extends WebmapxBaseTool {
             pointer-events: auto;
         }
         .tool-container {
-            border: 1px solid var(--color-border);
-            padding: 6px 8px;
-            background: var(--color-background-secondary);
+            padding: var(--webmapx-tool-padding, 0);
             color: var(--color-text-primary);
             display: flex;
             flex-direction: column;

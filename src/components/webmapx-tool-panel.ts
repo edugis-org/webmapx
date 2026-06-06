@@ -243,6 +243,7 @@ export class WebmapxToolPanel extends LitElement {
       max-height: var(--webmapx-panel-content-max-height, 60vh);
       overflow-y: auto;
       overflow-x: hidden;
+      --webmapx-tool-padding: 0.75rem;
     }
 
     ::slotted([hidden]) {

@@ -1,11 +1,12 @@
-import { css, html } from 'lit';
+import { css, html, TemplateResult } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMap } from '../map/IMapInterfaces';
 import type { IMapState } from '../store/IMapState';
 import type { AppConfig, AnyLayerConfig, CompositeStyleLayerConfig, LayerDataConfig, SourceConfig } from '../config/types';
 
-const URL_REGEX = /(https?:\/\/[^\s]+)/g;
+const URL_REGEX = /(https?:\/\/[^\s<"]+)/g;
+const HREF_REGEX = /<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
 
 @customElement('webmapx-attribution-control')
 export class WebmapxAttributionControl extends WebmapxBaseTool {
@@ -14,6 +15,7 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
 
     private layerData: LayerDataConfig | null = null;
     private visibleLayerIds: string[] = [];
+    private mapLayersState: Record<string, any> = {};
 
     connectedCallback(): void {
         super.connectedCallback();
@@ -30,11 +32,13 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
     }
 
     protected onStateChanged(state: IMapState): void {
-        const nextLayerIds = Object.keys(state.mapLayers ?? {});
+        const layers = state.mapLayers ?? {};
+        const nextLayerIds = Object.keys(layers);
         const joinedCurrent = this.visibleLayerIds.join(',');
         const joinedNext = nextLayerIds.join(',');
         if (joinedCurrent !== joinedNext) {
             this.visibleLayerIds = nextLayerIds;
+            this.mapLayersState = layers;
             this.recalculate();
         }
     }
@@ -42,24 +46,22 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
     protected onMapDetached(): void {
         this.attributions = [];
         this.visibleLayerIds = [];
+        this.mapLayersState = {};
         this.layerData = null;
         super.onMapDetached();
     }
 
     private recalculate(): void {
-        if (!this.layerData) {
-            this.attributions = [];
-            return;
-        }
-
         const sourcesById = new Map<string, SourceConfig>();
-        for (const source of this.layerData.sources ?? []) {
-            sourcesById.set(source.id, source);
-        }
-
         const layersById = new Map<string, AnyLayerConfig>();
-        for (const layer of this.layerData.layers ?? []) {
-            layersById.set(layer.id, layer);
+
+        if (this.layerData) {
+            for (const source of this.layerData.sources ?? []) {
+                sourcesById.set(source.id, source);
+            }
+            for (const layer of this.layerData.layers ?? []) {
+                layersById.set(layer.id, layer);
+            }
         }
 
         const unique = new Set<string>();
@@ -73,6 +75,13 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
         };
 
         for (const layerId of this.visibleLayerIds) {
+            // Dynamic layers (e.g. added at runtime via addLayer) — read from mapLayers state
+            const dynamicEntry = this.mapLayersState[layerId];
+            if (dynamicEntry && typeof dynamicEntry.attribution === 'string') {
+                addText(dynamicEntry.attribution);
+                continue;
+            }
+
             const layer = layersById.get(layerId);
             if (!layer) continue;
 
@@ -98,29 +107,73 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
         this.attributions = collected;
     }
 
-    private renderAttribution(text: string) {
-        const segments: Array<string | { href: string }> = [];
+    private stripTags(text: string): string {
+        return text.replace(/<[^>]+>/g, '');
+    }
+
+    private decodeEntities(text: string): string {
+        return text
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&copy;/g, '©')
+            .replace(/&reg;/g, '®')
+            .replace(/&trade;/g, '™')
+            .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+            .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+    }
+
+    private targetForUrl(href: string): string {
+        try {
+            const { hostname } = new URL(href);
+            return `_attr_${hostname.replace(/[^a-z0-9]/gi, '_')}`;
+        } catch {
+            return '_attr_link';
+        }
+    }
+
+    private renderAttribution(text: string): TemplateResult {
+        type Segment = string | { href: string; label: string };
+        const segments: Segment[] = [];
         let lastIndex = 0;
 
-        for (const match of text.matchAll(URL_REGEX)) {
+        // First pass: extract <a href="...">label</a> tags
+        const processed = text;
+        HREF_REGEX.lastIndex = 0;
+        for (const match of processed.matchAll(HREF_REGEX)) {
             const index = match.index ?? 0;
-            const href = match[0];
             if (index > lastIndex) {
-                segments.push(text.slice(lastIndex, index));
+                segments.push(this.stripTags(this.decodeEntities(text.slice(lastIndex, index))));
             }
-            segments.push({ href });
-            lastIndex = index + href.length;
+            segments.push({ href: match[1], label: this.stripTags(this.decodeEntities(match[2])) });
+            lastIndex = index + match[0].length;
         }
+        const remaining = text.slice(lastIndex);
 
-        if (lastIndex < text.length) {
-            segments.push(text.slice(lastIndex));
+        // Second pass: extract bare URLs from remaining plain text
+        URL_REGEX.lastIndex = 0;
+        let urlLastIndex = 0;
+        for (const match of remaining.matchAll(URL_REGEX)) {
+            const index = match.index ?? 0;
+            if (index > urlLastIndex) {
+                segments.push(this.stripTags(this.decodeEntities(remaining.slice(urlLastIndex, index))));
+            }
+            let label = match[0];
+            try { label = new URL(match[0]).hostname.replace(/^www\./, ''); } catch { /* keep full url */ }
+            segments.push({ href: match[0], label });
+            urlLastIndex = index + match[0].length;
+        }
+        if (urlLastIndex < remaining.length) {
+            segments.push(this.stripTags(this.decodeEntities(remaining.slice(urlLastIndex))));
         }
 
         return html`<span class="attribution-item">
             ${segments.map((segment) =>
                 typeof segment === 'string'
                     ? html`${segment}`
-                    : html`<a href=${segment.href} target="_attributioninfo" rel="noopener noreferrer">${segment.href}</a>`
+                    : html`<a href=${segment.href} target=${this.targetForUrl(segment.href)}>${segment.label}</a>`
             )}
         </span>`;
     }
@@ -172,8 +225,12 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
 
         .attribution-item a {
             color: inherit;
-            text-decoration: underline;
+            text-decoration: none;
             pointer-events: auto;
+        }
+
+        .attribution-item a:hover {
+            text-decoration: underline;
         }
 
         .separator {

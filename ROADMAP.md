@@ -19,7 +19,7 @@
 ### 2026 Q2
 - [x] Draw tool (point, line, polygon — all engines)
 - [x] Globe / projection tool (CRS switching, globe sky, MapLibre globe projection)
-- [x] TrueSize tool (drag polygons for size comparison, TopoJSON/GeoJSON auto-detection)
+- [x] TrueArea tool (drag polygons for size comparison, TopoJSON/GeoJSON auto-detection)
 - [x] Catalog decoupling — engines no longer aware of catalog; sources inlined before engine sees spec
 - [x] `mapLayers` as sole authoritative layer state (removed redundant `visibleLayers`)
 
@@ -90,7 +90,7 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 ### Visualization & View
 - [x] Projection tool (CRS switching)
 - [x] Globe view (MapLibre globe projection + sky layer)
-- [x] TrueSize tool (drag-to-compare polygon sizes)
+- [x] TrueArea tool (drag-to-compare polygon sizes)
 - [ ] Zoom to layer extent
 - [ ] Home button (zoom to initial map extent)
 - [ ] 3D tool (tilt, terrain, camera controls — Cesium + MapLibre GL)
