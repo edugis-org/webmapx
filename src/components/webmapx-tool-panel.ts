@@ -108,7 +108,14 @@ export class WebmapxToolPanel extends LitElement {
 
   private applyVisibility(): void {
     this.toolIndex.forEach(({ element }, toolId) => {
-      element.hidden = toolId !== this.activeToolId;
+      const becoming = toolId === this.activeToolId;
+      const was = !element.hidden;
+      element.hidden = !becoming;
+      if (becoming && !was && typeof (element as any).activate === 'function') {
+        (element as any).activate();
+      } else if (!becoming && was && typeof (element as any).deactivate === 'function') {
+        (element as any).deactivate();
+      }
     });
 
     if (this.activeToolId && this.toolIndex.has(this.activeToolId)) {
