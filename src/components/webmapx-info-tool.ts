@@ -9,6 +9,7 @@ import type { IMap } from '../map/IMapInterfaces';
 import type { ClickEvent, PointerMoveEvent } from '../store/map-events';
 import type { LngLat, Pixel } from '../store/map-events';
 import type { FeatureInfo } from '../map/IQueryService';
+import type { LayerAttributeConfig, LayerAttributeTranslation } from '../config/types';
 import { throttle } from '../utils/throttle';
 import { fetchWMSFeatureInfo } from '../map/wms-feature-info';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
@@ -433,15 +434,15 @@ export class WebmapxInfoTool extends WebmapxModalTool {
     }
 
     private getAttributeMeta(layerId: string): {
-        translations: Array<{name: string; translation: string; unit?: string; decimals?: number; multiplier?: number; date?: boolean; valuemap?: Array<{value: unknown; label: string}>}>;
+        translations: LayerAttributeTranslation[];
         allowed: Set<string> | null;
         denied: Set<string>;
     } {
-        const meta = this.adapter?.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined;
-        const attrs = (meta?.attributes && typeof meta.attributes === 'object') ? meta.attributes as Record<string, unknown> : {};
-        const translations = Array.isArray(attrs.translations) ? attrs.translations as any[] : [];
-        const allowed = Array.isArray(attrs.allowedattributes) ? new Set<string>(attrs.allowedattributes as string[]) : null;
-        const denied = Array.isArray(attrs.deniedattributes) ? new Set<string>(attrs.deniedattributes as string[]) : new Set<string>();
+        const meta = this.adapter?.store.getState().mapLayers?.[layerId];
+        const attrs = (meta?.attributes && typeof meta.attributes === 'object') ? meta.attributes as LayerAttributeConfig : {};
+        const translations = Array.isArray(attrs.translations) ? attrs.translations : [];
+        const allowed = Array.isArray(attrs.allowedattributes) ? new Set<string>(attrs.allowedattributes) : null;
+        const denied = Array.isArray(attrs.deniedattributes) ? new Set<string>(attrs.deniedattributes) : new Set<string>();
         return { translations, allowed, denied };
     }
 

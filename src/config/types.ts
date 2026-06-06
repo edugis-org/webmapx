@@ -115,6 +115,81 @@ export type SourceConfig = RasterSourceConfig | GeoJSONSourceConfig | VectorSour
 // Layer configuration — maplibre-spec-aligned with webmapx extensions
 // ---------------------------------------------------------------------------
 
+/** Known metadata fields on WebMapX layer configs. */
+export interface LayerMetadata {
+  /** Override the display label (falls back to title or id). */
+  label?: string;
+  /** Override the logical layer id used in mapLayers bookkeeping. */
+  mapLayerId?: string;
+  /** 'background' | 'overlay' — controls legend placement and z-order slot. */
+  legendRole?: 'background' | 'overlay';
+  /** Hide this layer from the legend. */
+  hideFromLegend?: boolean;
+  /** Logical source id for single-source layers. */
+  sourceId?: string;
+  /** Resolved GeoJSON data (set by generic loader after fetch+convert). */
+  sourceData?: GeoJSON.FeatureCollection;
+  /** Render layer type inferred from sub-layers (fill, line, circle, …). */
+  layerType?: string;
+  /** Paint properties forwarded to legend rendering. */
+  paint?: Record<string, unknown>;
+  /** Sub-layer specs for composite style layers (used by legend). */
+  sublayers?: unknown[];
+  /** Remote style URL used to expand a style-backed composite layer. */
+  styleUrl?: string;
+  /** Sprite URL resolved from the remote style document. */
+  styleSpriteUrl?: string;
+  /** Glyphs URL resolved from the remote style document. */
+  styleGlyphsUrl?: string;
+  /** Single-selection group key (resolved at add-layer time). */
+  singleSelectionGroupKey?: string;
+  /** Catalog selection group. */
+  selectionGroup?: string;
+  /** Layer tree group label. */
+  group?: string;
+  /** URL to a legend image for this layer (shown in the legend panel). */
+  legendurl?: string;
+  /** URL template for querying feature info on click (WMS, WMTS, XYZ, or custom endpoint). */
+  getFeatureInfoUrl?: string;
+  /** MIME type for GetFeatureInfo responses, e.g. 'application/json' or 'text/xml'. */
+  getFeatureInfoFormat?: string;
+  /** Human-readable description of the layer (not rendered by the map, informational). */
+  abstract?: string;
+  /** Geographic extent [west, south, east, north] in WGS84. Fallback when source has no bounds; used for zoom-to-extent. */
+  bounds?: [number, number, number, number];
+  /** Attribute display configuration for the info tool. */
+  attributes?: LayerAttributeConfig;
+  /** Allow additional engine-specific or plugin fields. */
+  [key: string]: unknown;
+}
+
+/** Controls which feature properties the info tool shows and how they are labelled. */
+export interface LayerAttributeTranslation {
+  /** Property name as it appears in the feature. */
+  name: string;
+  /** Human-readable label shown in the info panel. */
+  translation: string;
+  /** Optional unit string (include leading space if desired, e.g. ' m'). */
+  unit?: string;
+  /** Number of decimal places to display for numeric values. */
+  decimals?: number;
+  /** Multiply raw value by this factor before display. */
+  multiplier?: number;
+  /** Treat numeric value as a Unix timestamp and format as date. */
+  date?: boolean;
+  /** Map raw values to display labels. */
+  valuemap?: Array<{ value: unknown; label: string }>;
+}
+
+export interface LayerAttributeConfig {
+  /** Ordered list of attribute display rules. Properties listed here appear first. */
+  translations?: LayerAttributeTranslation[];
+  /** Whitelist — only these property names are shown (after translations). */
+  allowedattributes?: string[];
+  /** Blacklist — these property names are always hidden. */
+  deniedattributes?: string[];
+}
+
 /** WebMapX extensions shared by all layer types. */
 interface WebMapXLayerBase {
   /** Unique identifier */
@@ -131,7 +206,7 @@ interface WebMapXLayerBase {
   /** Attribution text shown in the map attribution control when this layer is visible. */
   attribution?: string;
   /** Extended metadata (legendRole, styleUrl, spriteUrl, etc.) */
-  metadata?: Record<string, unknown>;
+  metadata?: LayerMetadata;
 }
 
 /** Sub-layer spec within a CompositeStyleLayerConfig — maplibre-spec layer, no webmapx extensions. */

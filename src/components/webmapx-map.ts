@@ -1013,7 +1013,7 @@ export class WebmapxMapElement extends HTMLElement {
       type: 'style',
       metadata: {
         ...metadata,
-        styleUrl,
+        styleUrl: styleUrl ?? undefined,
       },
     });
   }

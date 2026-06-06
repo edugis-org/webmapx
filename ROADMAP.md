@@ -16,7 +16,14 @@
 
 ## Completed
 
-### 2026 Q1–Q2
+### 2026 Q2
+- [x] Draw tool (point, line, polygon — all engines)
+- [x] Globe / projection tool (CRS switching, globe sky, MapLibre globe projection)
+- [x] TrueSize tool (drag polygons for size comparison, TopoJSON/GeoJSON auto-detection)
+- [x] Catalog decoupling — engines no longer aware of catalog; sources inlined before engine sees spec
+- [x] `mapLayers` as sole authoritative layer state (removed redundant `visibleLayers`)
+
+### 2026 Q1
 - [x] Cross-engine marker API
 - [x] Info tool (cross-engine)
 - [x] Fix layer ordering for custom layers after background switches (OL, Leaflet)
@@ -59,9 +66,9 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 ## Planned Features
 
 ### Layer Management
-- [ ] Layer legends
+- [ ] Layer legends (in progress)
+- [ ] Layer drag reorder (reorder active layers via drag-and-drop in layer tree)
 - [ ] Layer style update tool (runtime paint/layout changes)
-- [ ] Layer transparency tool
 - [ ] Drop GeoJSON on map (drag-and-drop file import)
 - [ ] Save layer as (export to file)
 - [ ] Layer filter tool
@@ -72,7 +79,7 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 - [ ] 3D Tiles support
 
 ### Drawing & Editing
-- [ ] Draw tool (point, line, polygon)
+- [x] Draw tool (point, line, polygon)
 
 ### Geoprocessing Tools
 - [ ] Buffer tool
@@ -81,8 +88,13 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 - [ ] Routing tool
 
 ### Visualization & View
-- [ ] Projection tool (CRS switching)
+- [x] Projection tool (CRS switching)
+- [x] Globe view (MapLibre globe projection + sky layer)
+- [x] TrueSize tool (drag-to-compare polygon sizes)
+- [ ] Zoom to layer extent
+- [ ] Home button (zoom to initial map extent)
 - [ ] 3D tool (tilt, terrain, camera controls — Cesium + MapLibre GL)
+- [ ] Layer transparency tool
 
 ### Internationalization (i18n)
 - [ ] i18n support — translatable UI strings in all built-in components
