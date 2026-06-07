@@ -485,10 +485,11 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
             this.copyMeta.set(copyId, { origGeom: feature.geometry!, origCentroid: centroid, placedCentroid: newCentroid, bearingDistances, geodesic: this.geodesic });
         }
 
-        const rotatedMoved = rotation !== 0 ? rotateGeometry(moved, rotation, geoCentroid(moved)) : moved;
+        // `moved` already carries any prior rotation baked into the dragged geometry
+        // (existing copies were stored pre-rotated); re-rotating here would double it.
         this.features = [...this.features, {
             type: 'Feature',
-            geometry: rotatedMoved,
+            geometry: moved,
             properties: { ...feature.properties, color, copyId, rotation },
         }];
         const fc: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: this.features };
