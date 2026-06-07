@@ -10,8 +10,8 @@
     "doc": "docs"
   },
   "scripts": {
-    "dev": "vite",
-    "start": "vite",
+    "dev": "vite --open --host 0.0.0.0 --port 5173 --strictPort",
+    "start": "vite --open --host 0.0.0.0 --port 5173 --strictPort",
     "build": "vite build",
     "preview": "vite preview",
     "test": "node ./scripts/run-tests.mjs",

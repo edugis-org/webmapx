@@ -128,8 +128,4 @@ export default defineConfig({
       }
     }
   },
-  server: {
-    // Optional: open the browser automatically
-    open: true,
-  }
 });

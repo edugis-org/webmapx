@@ -3,7 +3,14 @@ html, body {
     padding: 0;
     width: 100%;
     height: 100%;
+    min-height: 100dvh;
     overflow: hidden;
+}
+
+@supports (-webkit-touch-callout: none) {
+    html, body {
+        min-height: -webkit-fill-available;
+    }
 }
 
 body {
@@ -80,7 +87,7 @@ webmapx-toolbar sl-button[data-tooltip]:focus-visible::after {
 .table {
     display: flex;
     width: 100%;
-    height: 100%;
+    height: 100dvh;
 }
 
 .table > div:first-child {
@@ -148,8 +155,53 @@ webmapx-map {
     position: relative;
     display: block;
     width: 100%;
-    height: calc(100vh - 40px);
+    height: calc(100dvh - 40px);
     border: 1px solid var(--color-border);
     overflow: hidden;
     background: var(--color-background-secondary);
+}
+
+/*
+  Final mobile override block (kept at file end so it wins source order).
+  Includes coarse-pointer + small-width fallback because some mobile browsers
+  report media features inconsistently.
+*/
+@media (max-width: 900px), (any-pointer: coarse), (hover: none) and (pointer: coarse) {
+    html, body {
+        height: auto;
+        min-height: 100%;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table {
+        height: auto;
+        min-height: 100vh;
+    }
+
+    @supports (height: 100lvh) {
+        .table {
+            min-height: 100lvh;
+        }
+    }
+}
+
+@media (orientation: landscape) and (max-width: 900px), (orientation: landscape) and (any-pointer: coarse), (orientation: landscape) and (hover: none) and (pointer: coarse) {
+    #external-tools-column {
+        min-height: 0;
+        height: calc(100vh - 40px);
+    }
+
+    #external-tools-scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+    @supports (height: 100dvh) {
+        #external-tools-column {
+            height: calc(100dvh - 40px);
+        }
+    }
 }

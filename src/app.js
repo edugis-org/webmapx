@@ -44,8 +44,44 @@ import './components/webmapx-scale-control.ts';
 import './components/webmapx-navigation-control.ts';
 import './components/webmapx-attribution-control.ts';
 
+function installMobileAddressBarNudge() {
+    const mobileLikeViewport = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    if (!mobileLikeViewport) {
+        return;
+    }
+
+    let nudgeTimer = null;
+    const nudge = () => {
+        // EduGIS uses this classic nudge; keep it mobile-only to avoid desktop side effects.
+        window.scrollTo(0, 1);
+    };
+
+    const scheduleNudge = (delay = 80) => {
+        if (nudgeTimer !== null) {
+            window.clearTimeout(nudgeTimer);
+        }
+        nudgeTimer = window.setTimeout(() => {
+            nudgeTimer = null;
+            requestAnimationFrame(nudge);
+        }, delay);
+    };
+
+    window.addEventListener('load', () => scheduleNudge(0), { once: true });
+    window.addEventListener('orientationchange', () => scheduleNudge(180), { passive: true });
+    window.addEventListener('resize', () => scheduleNudge(120), { passive: true });
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            scheduleNudge(120);
+        }
+    });
+
+    scheduleNudge(0);
+}
+
 // 3. Initialize the app when the DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
+    installMobileAddressBarNudge();
+
     // Load app config from ?config= URL parameter (if present)
     let appConfig = null;
     try {
