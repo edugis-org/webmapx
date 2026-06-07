@@ -199,6 +199,31 @@ export async function run({ page, engine }) {
     }
   });
 
+  await step('verify truearea composite layer registered with sub-layers and source', async () => {
+    const info = await page.evaluate(async () => {
+      const map = document.querySelector('webmapx-map');
+      const adapter = await map?.getAdapterAsync?.();
+      if (!adapter) return null;
+      const mapLayers = adapter.store.getState().mapLayers ?? {};
+      const entry = mapLayers['truearea'];
+      const source = adapter.getSource('truearea:data');
+      return {
+        hasLayer: adapter.hasLayer('truearea'),
+        label: entry?.label,
+        sublayerIds: Array.isArray(entry?.sublayers) ? entry.sublayers.map((s) => s?.id) : null,
+        hasSource: Boolean(source && typeof source.setData === 'function'),
+      };
+    });
+    if (!info) fail('Could not read adapter state for truearea layer');
+    if (!info.hasLayer) fail('Expected adapter.hasLayer("truearea") to be true');
+    if (info.label !== 'TrueArea copies') fail(`Expected label "TrueArea copies", got "${info.label}"`);
+    if (!Array.isArray(info.sublayerIds) || info.sublayerIds.length !== 2
+      || !info.sublayerIds.includes('truearea-fill') || !info.sublayerIds.includes('truearea-line')) {
+      fail(`Expected sub-layers [truearea-fill, truearea-line], got ${JSON.stringify(info.sublayerIds)}`);
+    }
+    if (!info.hasSource) fail('Expected adapter.getSource("truearea:data") to resolve to a settable source');
+  });
+
   // Clear copies for next test
   await page.evaluate(() => {
     const tool = document.querySelector('webmapx-truearea-tool');
