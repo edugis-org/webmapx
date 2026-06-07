@@ -145,6 +145,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         for (const raw of sublayers) {
             const sub = raw as Record<string, unknown>;
             if (!sub || typeof sub.type !== 'string') continue;
+            if (sub.hideFromLegend === true) continue;
 
             // Zoom visibility
             const minz = typeof sub.minzoom === 'number' ? sub.minzoom : 0;

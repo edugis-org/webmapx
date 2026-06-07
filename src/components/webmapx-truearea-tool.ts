@@ -17,12 +17,10 @@ interface TrueAreaCopy {
 
 const COLORS = ['#e63946', '#2a9d8f', '#e9c46a', '#457b9d', '#f4a261', '#6a4c93', '#06d6a0', '#ff6b6b'];
 
-const TRUEAREA_SOURCE = 'truearea-source';
-const TRUEAREA_FILL = 'truearea-fill';
-const TRUEAREA_LINE = 'truearea-line';
-const GHOST_SOURCE = 'truearea-ghost-source';
-const GHOST_FILL = 'truearea-ghost-fill';
-const GHOST_LINE = 'truearea-ghost-line';
+const TRUEAREA_LAYER = 'truearea';
+const TRUEAREA_SOURCE = `${TRUEAREA_LAYER}:data`;
+const GHOST_LAYER = 'truearea-ghost';
+const GHOST_SOURCE = `${GHOST_LAYER}:data`;
 
 function geoCentroid(geom: GeoJSON.Geometry): LngLat {
     let pts: number[][] = [];
@@ -244,7 +242,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         const layers = state.mapLayers ?? {};
         const result: { id: string; label: string; sourceId: string }[] = [];
         for (const [id, entry] of Object.entries(layers)) {
-            if (id.startsWith('truearea-') || id.startsWith(GHOST_SOURCE)) continue;
+            if (id === TRUEAREA_LAYER || id.startsWith('truearea-')) continue;
             const data = (entry as any).sourceData as GeoJSON.FeatureCollection | undefined;
             if (!data) continue;
             if (!this.hasPolygonFeatures(data)) continue;
@@ -267,67 +265,76 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
 
     private async setupLayers(): Promise<void> {
         if (!this.adapter) return;
-        if (!this.adapter.hasLayer(TRUEAREA_FILL)) {
-            await this.adapter.addSource(TRUEAREA_SOURCE, {
-                type: 'geojson',
-                data: { type: 'FeatureCollection', features: [] },
-            });
+        if (!this.adapter.hasLayer(TRUEAREA_LAYER)) {
             await this.adapter.addLayer({
-                id: TRUEAREA_FILL,
-                type: 'fill',
-                source: TRUEAREA_SOURCE,
-                paint: {
-                    'fill-color': ['get', 'color'],
-                    'fill-opacity': 0.35,
-                },
+                id: TRUEAREA_LAYER,
+                type: 'style',
                 metadata: { label: 'TrueArea copies', legendRole: 'overlay', attribution: '<a href="https://thetruesize.com">The True Size Of</a>' },
-            });
-            await this.adapter.addLayer({
-                id: TRUEAREA_LINE,
-                type: 'line',
-                source: TRUEAREA_SOURCE,
-                paint: {
-                    'line-color': ['get', 'color'],
-                    'line-width': 2,
+                sources: {
+                    data: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
                 },
-                metadata: { hideFromLegend: true },
+                layers: [
+                    {
+                        id: 'truearea-fill',
+                        type: 'fill',
+                        source: 'data',
+                        paint: {
+                            'fill-color': ['get', 'color'],
+                            'fill-opacity': 0.35,
+                        },
+                    },
+                    {
+                        id: 'truearea-line',
+                        type: 'line',
+                        source: 'data',
+                        paint: {
+                            'line-color': ['get', 'color'],
+                            'line-width': 2,
+                        },
+                        hideFromLegend: true,
+                    },
+                ],
             });
         }
-        if (!this.adapter.hasLayer(GHOST_FILL)) {
-            await this.adapter.addSource(GHOST_SOURCE, {
-                type: 'geojson',
-                data: { type: 'FeatureCollection', features: [] },
-            });
+        if (!this.adapter.hasLayer(GHOST_LAYER)) {
             await this.adapter.addLayer({
-                id: GHOST_FILL,
-                type: 'fill',
-                source: GHOST_SOURCE,
-                paint: {
-                    'fill-color': ['get', 'color'],
-                    'fill-opacity': 0.2,
-                },
+                id: GHOST_LAYER,
+                type: 'style',
                 metadata: { hideFromLegend: true },
-            });
-            await this.adapter.addLayer({
-                id: GHOST_LINE,
-                type: 'line',
-                source: GHOST_SOURCE,
-                paint: {
-                    'line-color': ['get', 'color'],
-                    'line-width': 2,
-                    'line-dasharray': [4, 3],
+                sources: {
+                    data: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
                 },
-                metadata: { hideFromLegend: true },
+                layers: [
+                    {
+                        id: 'truearea-ghost-fill',
+                        type: 'fill',
+                        source: 'data',
+                        paint: {
+                            'fill-color': ['get', 'color'],
+                            'fill-opacity': 0.2,
+                        },
+                    },
+                    {
+                        id: 'truearea-ghost-line',
+                        type: 'line',
+                        source: 'data',
+                        paint: {
+                            'line-color': ['get', 'color'],
+                            'line-width': 2,
+                            'line-dasharray': [4, 3],
+                        },
+                        hideFromLegend: true,
+                    },
+                ],
             });
         }
     }
 
     private cleanupLayers(): void {
         if (!this.adapter) return;
-        [GHOST_FILL, GHOST_LINE, TRUEAREA_FILL, TRUEAREA_LINE].forEach(id => {
+        [GHOST_LAYER, TRUEAREA_LAYER].forEach(id => {
             if (this.adapter!.hasLayer(id)) this.adapter!.removeLayer(id);
         });
-        [GHOST_SOURCE, TRUEAREA_SOURCE].forEach(id => this.adapter!.removeSource(id));
     }
 
     private bindEvents(): void {

@@ -209,7 +209,7 @@ interface WebMapXLayerBase {
   metadata?: LayerMetadata;
 }
 
-/** Sub-layer spec within a CompositeStyleLayerConfig — maplibre-spec layer, no webmapx extensions. */
+/** Sub-layer spec within a CompositeStyleLayerConfig — maplibre-spec layer, plus minimal webmapx extensions. */
 export interface SubLayerSpec {
   id?: string;
   type: string;
@@ -220,6 +220,8 @@ export interface SubLayerSpec {
   paint?: Record<string, unknown>;
   layout?: Record<string, unknown>;
   filter?: unknown[];
+  /** Webmapx extension: omit this sub-layer's row from the legend (e.g. an outline that shouldn't get its own entry). */
+  hideFromLegend?: boolean;
 }
 
 /**
