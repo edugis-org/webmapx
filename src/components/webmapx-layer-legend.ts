@@ -211,7 +211,12 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 // For symbols also include size + weight in dedup key — country/state/town labels
                 // differ visually even when same color
                 let dedupKey = `${type}|${resolvedColor}`;
-                if (type === 'symbol') {
+                if (type === 'line') {
+                    // Lines with same color but different dasharray (e.g. equator vs.
+                    // tropics vs. polar circles) look visually distinct — keep separate
+                    const dash = evalPaint['line-dasharray'];
+                    dedupKey = `line|${resolvedColor}|${Array.isArray(dash) ? dash.join(',') : String(dash ?? '')}`;
+                } else if (type === 'symbol') {
                     const rawSize = evalLayout['text-size'] ?? evalPaint['text-size'];
                     const sz = Math.round(Number(typeof rawSize === 'number' ? rawSize : 12));
                     const fonts = Array.isArray(evalLayout['text-font']) ? (evalLayout['text-font'] as string[]) : [];
