@@ -478,7 +478,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         this.features = [...this.features, {
             type: 'Feature',
             geometry: rotatedMoved,
-            properties: { color, copyId, rotation },
+            properties: { ...feature.properties, color, copyId, rotation },
         }];
         const fc: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: this.features };
         const src = this.adapter.getSource(TRUEAREA_SOURCE);
