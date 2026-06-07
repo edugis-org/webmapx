@@ -576,7 +576,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         return html`
             <label>Source layer</label>
             ${this.availableLayers.length === 0
-                ? html`<div class="hint">No polygon layers visible on map.</div>`
+                ? html`<div class="hint">No visible polygon layers on map.</div>`
                 : html`
                     <select @change=${(e: Event) => { this.selectedLayerId = (e.target as HTMLSelectElement).value; }}>
                         ${this.availableLayers.map(l => html`
@@ -592,6 +592,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
 
             ${(() => {
                 const active = this.copies.find(c => c.id === this.lastTouchedCopyId);
+                if (!active && this.availableLayers.length === 0) return '';
                 if (!active) return html`<div class="no-copies">No copy selected. Click a polygon on the map.</div>`;
                 return html`
                     <div class="copy-item">
@@ -607,20 +608,19 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
                         <button class="rotation-reset" title="Reset to 0°" @click=${() => this.rotateLastCopy(0)}>↺</button>
                         <span class="rotation-value">${this.rotationDeg}°</span>
                     </div>
+                    <div class="method-row">
+                        <input type="checkbox" id="geodesic-toggle" .checked=${this.geodesic}
+                            @change=${(e: Event) => { this.geodesic = (e.target as HTMLInputElement).checked; this.recomputeLastCopy(); }}
+                        />
+                        <label for="geodesic-toggle">Geodesic (shape-accurate, may rotate borders)</label>
+                    </div>
+
+                    ${this.copies.length > 0
+                        ? html`<button class="clear-btn" @click=${() => this.clearAll()}>Clear all</button>`
+                        : ''
+                    }
                 `;
             })()}
-
-            <div class="method-row">
-                <input type="checkbox" id="geodesic-toggle" .checked=${this.geodesic}
-                    @change=${(e: Event) => { this.geodesic = (e.target as HTMLInputElement).checked; this.recomputeLastCopy(); }}
-                />
-                <label for="geodesic-toggle">Geodesic (shape-accurate, may rotate borders)</label>
-            </div>
-
-            ${this.copies.length > 0
-                ? html`<button class="clear-btn" @click=${() => this.clearAll()}>Clear all</button>`
-                : ''
-            }
         `;
     }
 }
