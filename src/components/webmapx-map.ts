@@ -111,11 +111,18 @@ export class WebmapxMapElement extends HTMLElement {
     }
 
     private handleRemoveLayerEvent(e: CustomEvent) {
-        if (this.adapter) {
-            this.adapter.removeLayer(e.detail);
-            this.removeFromLogicalOrder(e.detail);
-            this.logicalLayerRole.delete(e.detail);
-        }
+        this.removeInlineLayer(e.detail);
+    }
+
+    /**
+     * Removes a layer added via addLayerRequest and clears its tracking
+     * (logical order, legend role) so later background insertions stay correct.
+     */
+    public removeInlineLayer(layerId: string): void {
+        if (!this.adapter) return;
+        this.adapter.removeLayer(layerId);
+        this.removeFromLogicalOrder(layerId);
+        this.logicalLayerRole.delete(layerId);
     }
 
     private handleAddSourceEvent(e: CustomEvent) {

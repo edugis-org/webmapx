@@ -3,6 +3,8 @@ import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMapState } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
+import type { WebmapxMapElement } from './webmapx-map';
+import { resolveMapElement } from './internal/map-context';
 import bearing from '@turf/bearing';
 import distance from '@turf/distance';
 import destination from '@turf/destination';
@@ -142,6 +144,7 @@ function placeGeometry(geom: GeoJSON.Geometry, newCentroid: LngLat, bds: Bearing
 @customElement('webmapx-truearea-tool')
 export class WebmapxTrueAreaTool extends WebmapxModalTool {
     readonly toolId = 'truearea';
+    private mapElement: WebmapxMapElement | null = null;
     @state() private availableLayers: { id: string; label: string; sourceId: string }[] = [];
     @state() private selectedLayerId = '';
     @state() private copies: TrueAreaCopy[] = [];
@@ -215,6 +218,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
 
     protected onMapAttached(adapter: IMap): void {
         super.onMapAttached(adapter);
+        this.mapElement = resolveMapElement(this);
         this.refreshLayers(adapter.store.getState());
         if (this.active) {
             adapter.setTouchCaptureEnabled(false);
@@ -231,6 +235,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         this.copies = [];
         this.copyMeta.clear();
         this.availableLayers = [];
+        this.mapElement = null;
         super.onMapDetached();
     }
 
@@ -264,9 +269,9 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
     }
 
     private async setupLayers(): Promise<void> {
-        if (!this.adapter) return;
+        if (!this.adapter || !this.mapElement) return;
         if (!this.adapter.hasLayer(TRUEAREA_LAYER)) {
-            await this.adapter.addLayer({
+            await this.mapElement.addLayerRequest({
                 id: TRUEAREA_LAYER,
                 type: 'style',
                 metadata: { label: 'TrueArea copies', legendRole: 'overlay', attribution: '<a href="https://thetruesize.com">The True Size Of</a>' },
@@ -296,7 +301,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
             });
         }
         if (!this.adapter.hasLayer(GHOST_LAYER)) {
-            await this.adapter.addLayer({
+            await this.mapElement.addLayerRequest({
                 id: GHOST_LAYER,
                 type: 'style',
                 metadata: { hideFromLegend: true },
@@ -330,9 +335,9 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
     }
 
     private cleanupLayers(): void {
-        if (!this.adapter) return;
+        if (!this.adapter || !this.mapElement) return;
         [GHOST_LAYER, TRUEAREA_LAYER].forEach(id => {
-            if (this.adapter!.hasLayer(id)) this.adapter!.removeLayer(id);
+            if (this.adapter!.hasLayer(id)) this.mapElement!.removeInlineLayer(id);
         });
     }
 

@@ -4,6 +4,8 @@ import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMap } from '../map/IMapInterfaces';
 import type { IMapState } from '../store/IMapState';
+import type { WebmapxMapElement } from './webmapx-map';
+import { resolveMapElement } from './internal/map-context';
 
 /**
  * Simple search modal tool inspired by edugis map-search.
@@ -15,6 +17,7 @@ import type { IMapState } from '../store/IMapState';
 @customElement('webmapx-search-tool')
 export class WebmapxSearchTool extends WebmapxBaseTool {
   public active = false;
+  private mapElement: WebmapxMapElement | null = null;
 
   constructor() {
     super();
@@ -104,11 +107,13 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
   protected onMapAttached(adapter: IMap): void {
     super.onMapAttached(adapter);
     this.adapter = adapter;
+    this.mapElement = resolveMapElement(this);
     this.subscribeToConfig();
   }
 
   protected onMapDetached(): void {
     this.adapter = null;
+    this.mapElement = null;
     this.unsubscribeFromConfig();
     super.onMapDetached();
   }
@@ -245,8 +250,9 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
   }
 
   private addPersistedFeature(feature: GeoJSON.Feature) {
-    if (!this.adapter) return;
+    if (!this.adapter || !this.mapElement) return;
     const map = this.adapter;
+    const mapElement = this.mapElement;
 
     // Determine source id
     let sourceId = null as string | null;
@@ -273,7 +279,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
 
       if (geom === 'Polygon' || geom === 'MultiPolygon') {
         // One style layer for polygons: filled area + outline, with a single legend item.
-        map.addLayer({
+        mapElement.addLayerRequest({
           id: fillId,
           type: 'fill',
           source: sourceId,
@@ -285,9 +291,9 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
           }
         });
       } else if (geom === 'LineString' || geom === 'MultiLineString') {
-        map.addLayer({ id: lineId, type: 'line', source: sourceId, metadata: { label: resultName, hideFromLegend: false }, paint: { 'line-color': color, 'line-width': 3 } });
+        mapElement.addLayerRequest({ id: lineId, type: 'line', source: sourceId, metadata: { label: resultName, hideFromLegend: false }, paint: { 'line-color': color, 'line-width': 3 } });
       } else { // Point / MultiPoint fallback
-        map.addLayer({ id: pointId, type: 'circle', source: sourceId, metadata: { label: resultName, hideFromLegend: false }, paint: { 'circle-color': color, 'circle-radius': 6 } });
+        mapElement.addLayerRequest({ id: pointId, type: 'circle', source: sourceId, metadata: { label: resultName, hideFromLegend: false }, paint: { 'circle-color': color, 'circle-radius': 6 } });
       }
 
       this.persistedMap.set(feature, { sourceId, color });
@@ -297,16 +303,17 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
   }
 
   private removePersistedFeature(feature: GeoJSON.Feature) {
-    if (!this.adapter) return;
+    if (!this.adapter || !this.mapElement) return;
     const map = this.adapter;
+    const mapElement = this.mapElement;
     const info = this.persistedMap.get(feature);
     if (!info) return;
     const sourceId = info.sourceId;
     try {
       // Remove layers if present
-      try { map.removeLayer(`${sourceId}-fill`); } catch (e) {}
-      try { map.removeLayer(`${sourceId}-line`); } catch (e) {}
-      try { map.removeLayer(`${sourceId}-point`); } catch (e) {}
+      try { mapElement.removeInlineLayer(`${sourceId}-fill`); } catch (e) {}
+      try { mapElement.removeInlineLayer(`${sourceId}-line`); } catch (e) {}
+      try { mapElement.removeInlineLayer(`${sourceId}-point`); } catch (e) {}
       // Remove source
       try { map.removeSource(sourceId); } catch (e) {}
     } catch (e) {
@@ -320,8 +327,9 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     featureCollection: GeoJSON.FeatureCollection,
     colors?: { fill?: string; line?: string; point?: string }
   ) {
-    if (!this.adapter) return;
+    if (!this.adapter || !this.mapElement) return;
     const map = this.adapter;
+    const mapElement = this.mapElement;
 
     // Update or create source
     try {
@@ -337,13 +345,13 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
 
     // Remove existing preview layers so colors can be applied fresh
     for (const lid of this.previewLayerIds) {
-      if (map.hasLayer(lid)) map.removeLayer(lid);
+      if (map.hasLayer(lid)) mapElement.removeInlineLayer(lid);
     }
 
     try {
-      await map.addLayer({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, filter: ['in', '$type', 'Polygon'], metadata: { hideFromLegend: true, label: 'Search preview fill' }, paint: { 'fill-color': colors?.fill ?? '#f1c40f', 'fill-opacity': 0.25 } });
-      await map.addLayer({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, filter: ['in', '$type', 'LineString', 'Polygon'], metadata: { hideFromLegend: true, label: 'Search preview line' }, paint: { 'line-color': colors?.line ?? '#f39c12', 'line-width': 3 } });
-      await map.addLayer({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, filter: ['==', '$type', 'Point'], metadata: { hideFromLegend: true, label: 'Search preview point' }, paint: { 'circle-color': colors?.point ?? '#e67e22', 'circle-radius': 6 } });
+      await mapElement.addLayerRequest({ id: this.previewLayerIds[0], type: 'fill', source: this.previewSourceId, filter: ['in', '$type', 'Polygon'], metadata: { hideFromLegend: true, label: 'Search preview fill' }, paint: { 'fill-color': colors?.fill ?? '#f1c40f', 'fill-opacity': 0.25 } });
+      await mapElement.addLayerRequest({ id: this.previewLayerIds[1], type: 'line', source: this.previewSourceId, filter: ['in', '$type', 'LineString', 'Polygon'], metadata: { hideFromLegend: true, label: 'Search preview line' }, paint: { 'line-color': colors?.line ?? '#f39c12', 'line-width': 3 } });
+      await mapElement.addLayerRequest({ id: this.previewLayerIds[2], type: 'circle', source: this.previewSourceId, filter: ['==', '$type', 'Point'], metadata: { hideFromLegend: true, label: 'Search preview point' }, paint: { 'circle-color': colors?.point ?? '#e67e22', 'circle-radius': 6 } });
       this.previewLayersAdded = true;
     } catch (e) {
       console.warn('preview layers update failed', e);
@@ -368,10 +376,11 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
   }
 
   private clearPreview() {
-    if (!this.adapter) return;
+    if (!this.adapter || !this.mapElement) return;
     const map = this.adapter;
+    const mapElement = this.mapElement;
     for (const lid of this.previewLayerIds) {
-      if (map.hasLayer(lid)) map.removeLayer(lid);
+      if (map.hasLayer(lid)) mapElement.removeInlineLayer(lid);
     }
     try { map.removeSource(this.previewSourceId); } catch (e) { /* ignore */ }
     this.previewLayersAdded = false;

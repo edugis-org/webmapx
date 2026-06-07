@@ -286,7 +286,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     );
   }
 
-  private ensureMapLayers(adapter?: IMap, mapElement?: WebmapxMapElement): void {
+  private async ensureMapLayers(adapter?: IMap, mapElement?: WebmapxMapElement): Promise<void> {
     const targetAdapter = adapter ?? this.adapter;
     const targetMap = mapElement ?? this.mapElement;
     if (!targetAdapter || !targetMap) {
@@ -307,7 +307,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     // Track whether any add operations failed so we only mark layers ready when everything succeeded
     let hadLayerErrors = false;
     try {
-      targetAdapter.addLayer({
+      const added = await targetMap.addLayerRequest({
         id: this.radiusLayerId,
         type: 'fill',
         source: this.sourceId,
@@ -319,11 +319,12 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         },
         filter: ['==', '$type', 'Polygon']
       });
+      if (!added) hadLayerErrors = true;
     } catch (error) {
       hadLayerErrors = true;
     }
     try {
-      targetAdapter.addLayer({
+      const added = await targetMap.addLayerRequest({
         id: this.pointLayerId,
         type: 'circle',
         source: this.sourceId,
@@ -336,6 +337,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         },
         filter: ['==', '$type', 'Point']
       });
+      if (!added) hadLayerErrors = true;
     } catch (error) {
       hadLayerErrors = true;
     }
@@ -356,8 +358,8 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     if (state && !state.layersReady) {
       return;
     }
-    try { this.adapter.removeLayer(this.radiusLayerId); } catch (error) {}
-    try { this.adapter.removeLayer(this.pointLayerId); } catch (error) {}
+    try { this.mapElement.removeInlineLayer(this.radiusLayerId); } catch (error) {}
+    try { this.mapElement.removeInlineLayer(this.pointLayerId); } catch (error) {}
     try { this.adapter.removeSource(this.sourceId); } catch (error) {}
     if (state) {
       state.layersReady = false;
