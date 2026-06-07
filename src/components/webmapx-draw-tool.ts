@@ -1048,6 +1048,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 const layer = this.drawLayers.find(l => l.id === f.layerId);
                 if (layer) this.computeSpecialProperties(f, layer);
                 this.pushHistory({ type: 'update', features: [{ ...f }] });
+                // computeSpecialProperties mutates `f.properties` in place —
+                // refresh the array reference and map source so the recomputed
+                // area/perimeter/etc. show up in the properties panel and on the map.
+                this.features = [...this.features];
+                this.refreshDrawLayerSource(f.layerId);
             }
             this.featureDrag = null;
             this.adapter?.setPanEnabled(true);
@@ -1065,6 +1070,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             const layer = this.drawLayers.find(l => l.id === f.layerId);
             if (layer) this.computeSpecialProperties(f, layer);
             this.pushHistory({ type: 'update', features: [{ ...f }] });
+            // Same as feature-drag: force the array/source refresh so the
+            // recomputed special properties (area, perimeter, …) become visible.
+            this.features = [...this.features];
+            this.refreshDrawLayerSource(f.layerId);
         }
         this.dragging = null;
     }
