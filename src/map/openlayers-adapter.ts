@@ -21,6 +21,7 @@ import type { MarkerOptions } from './IMapInterfaces';
  * Implements the unified IMap interface by delegating to specialized services.
  */
 export class OpenLayersAdapter extends BaseAdapter implements IMap {
+    public readonly engineId = 'openlayers';
     private readonly core: IMapCore;
     public readonly toolService: IToolService;
     public readonly queryService: IQueryService;

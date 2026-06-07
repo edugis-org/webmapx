@@ -73,6 +73,7 @@ async function ensureCesiumLoaded(): Promise<void> {
  * Note: This adapter expects CesiumJS to be available as `window.Cesium`.
  */
 export class CesiumAdapter extends BaseAdapter implements IMap {
+    public readonly engineId = 'cesium';
     private readonly core: IMapCore;
     public readonly toolService: IToolService;
     public readonly queryService: IQueryService;

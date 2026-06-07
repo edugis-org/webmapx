@@ -21,6 +21,7 @@ import type { MarkerOptions } from './IMapInterfaces';
  * Implements the unified IMap interface by delegating to specialized services.
  */
 export class MapLibreAdapter extends BaseAdapter implements IMap {
+    public readonly engineId = 'maplibre';
     private readonly core: IMapCore;
     public readonly toolService: IToolService;
     public readonly queryService: IQueryService;

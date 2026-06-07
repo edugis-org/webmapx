@@ -4,10 +4,10 @@ import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMap } from '../map/IMapInterfaces';
 
 const ADAPTER_LABELS: Record<string, string> = {
-    MapLibreAdapter: 'MapLibre GL',
-    OpenLayersAdapter: 'OpenLayers',
-    LeafletAdapter: 'Leaflet',
-    CesiumAdapter: 'Cesium',
+    maplibre: 'MapLibre GL',
+    openlayers: 'OpenLayers',
+    leaflet: 'Leaflet',
+    cesium: 'Cesium',
 };
 
 @customElement('webmapx-active-adapter')
@@ -40,8 +40,7 @@ export class WebmapxActiveAdapter extends WebmapxBaseTool {
     protected onStateChanged(): void {}
 
     protected onMapAttached(adapter: IMap): void {
-        const ctor = adapter.constructor?.name ?? '';
-        this.adapterName = ADAPTER_LABELS[ctor] ?? ctor;
+        this.adapterName = ADAPTER_LABELS[adapter.engineId] ?? adapter.engineId;
     }
 
     protected onMapDetached(): void {

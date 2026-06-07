@@ -21,6 +21,7 @@ import type { MarkerOptions } from './IMapInterfaces';
  * Implements the unified IMap interface by delegating to specialized services.
  */
 export class LeafletAdapter extends BaseAdapter implements IMap {
+    public readonly engineId = 'leaflet';
     private readonly core: IMapCore;
     public readonly toolService: IToolService;
     public readonly queryService: IQueryService;

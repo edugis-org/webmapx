@@ -215,6 +215,9 @@ export interface ISubMapFactory {
  * Implemented by concrete adapters (MapLibre, OpenLayers, Leaflet, Cesium).
  */
 export interface IMap {
+    /** Stable engine identifier, unaffected by minification (e.g. 'maplibre', 'openlayers', 'leaflet', 'cesium'). */
+    readonly engineId: string;
+
     // ===== State and Events =====
     /** Access to the map's reactive state store. */
     readonly store: MapStateStore;
