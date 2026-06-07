@@ -53,8 +53,12 @@ export class WebmapxToolbar extends LitElement {
       max-height: var(--webmapx-toolbar-max-height, 100%);
     }
 
-    :host([orientation="vertical"]) ::slotted(sl-button:not(:last-of-type)) {
-      border-bottom: 1px solid var(--webmapx-toolbar-separator-color, var(--sl-color-neutral-200, #e5e5e5));
+    :host([orientation="vertical"]) ::slotted(sl-button) {
+      box-shadow: inset 0 -1px 0 var(--webmapx-toolbar-separator-color, var(--color-border-light, #eee));
+    }
+
+    :host([orientation="vertical"]) ::slotted(sl-button[data-toolbar-last="true"]) {
+      box-shadow: none;
     }
 
     :host([orientation="horizontal"]) {
@@ -89,6 +93,9 @@ export class WebmapxToolbar extends LitElement {
 
     this.toolPanel = this.resolveToolPanel();
     this.toolPanel?.addEventListener('webmapx-panel-close', this.boundHandlePanelClose);
+
+    // Apply separators after first render/slot distribution.
+    queueMicrotask(() => this.applyToolbarSeparators());
   }
 
   disconnectedCallback(): void {
@@ -104,10 +111,40 @@ export class WebmapxToolbar extends LitElement {
 
   handleSlotChange() {
     // Re-bind click listeners when slot content changes
+    const slottedButtons = this.buttons.filter((btn) => btn.tagName.toLowerCase() === 'sl-button');
+    slottedButtons.forEach((btn) => btn.removeAttribute('data-toolbar-last'));
+    const lastButton = slottedButtons[slottedButtons.length - 1];
+    if (lastButton) {
+      lastButton.setAttribute('data-toolbar-last', 'true');
+    }
+
     this.buttons.forEach(btn => {
       // Remove old listener to avoid duplicates if slot changes multiple times
       btn.removeEventListener('click', this.boundHandleClick);
       btn.addEventListener('click', this.boundHandleClick);
+    });
+
+    this.applyToolbarSeparators();
+  }
+
+  protected updated(changedProps: Map<string, unknown>): void {
+    if (changedProps.has('orientation')) {
+      this.applyToolbarSeparators();
+    }
+  }
+
+  private applyToolbarSeparators(): void {
+    const slottedButtons = this.buttons.filter((btn) => btn.tagName.toLowerCase() === 'sl-button');
+    slottedButtons.forEach((btn, idx) => {
+      const isLast = idx === slottedButtons.length - 1;
+      const base = (btn as HTMLElement).shadowRoot?.querySelector<HTMLElement>('[part="base"]');
+      if (!base) return;
+
+      if (this.orientation === 'vertical' && !isLast) {
+        base.style.borderBottom = '1px solid var(--webmapx-toolbar-separator-color, var(--color-border-light, #eee))';
+      } else {
+        base.style.borderBottom = '';
+      }
     });
   }
 
