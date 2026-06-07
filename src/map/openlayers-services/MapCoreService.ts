@@ -686,13 +686,18 @@ export class MapCoreService implements IMapCore {
                 this.store.dispatch({ mapBusy: true }, 'MAP');
             });
 
-            source.on?.('tileloadend', () => {
+            const handleLoadSettled = () => {
                 this.pendingTileLoads = Math.max(0, this.pendingTileLoads - 1);
-            });
+                // The last settling tile may finish after the final 'rendercomplete'
+                // for this view change (e.g. a programmatic flyTo with no further
+                // redraw pending) — clear busy here too so it isn't stuck.
+                if (this.pendingTileLoads === 0) {
+                    this.store.dispatch({ mapBusy: false }, 'MAP');
+                }
+            };
 
-            source.on?.('tileloaderror', () => {
-                this.pendingTileLoads = Math.max(0, this.pendingTileLoads - 1);
-            });
+            source.on?.('tileloadend', handleLoadSettled);
+            source.on?.('tileloaderror', handleLoadSettled);
         };
 
         // Attach to existing layers
@@ -729,18 +734,33 @@ export class MapCoreService implements IMapCore {
         if (!size) return null;
 
         const corners: [number, number][] = [];
-        const pixels: [number, number][] = [
-            [0, size[1]],            // bottom-left
-            [size[0], size[1]],      // bottom-right
-            [size[0], 0],            // top-right
-            [0, 0],                  // top-left
-        ];
 
-        for (const px of pixels) {
-            const coordinate = this.mapInstance.getCoordinateFromPixel(px);
-            if (!coordinate) continue;
-            const lonlat = toLonLat(coordinate) as [number, number];
-            corners.push([lonlat[0], lonlat[1]]);
+        // Derive the viewport quad from the view's live center/resolution/rotation
+        // rather than getCoordinateFromPixel, which reads the renderer's last
+        // *rendered* frame state and can momentarily return stale (pre-zoom)
+        // coordinates right after a programmatic setZoom/setCenter, before the
+        // next render frame lands.
+        const center = view.getCenter();
+        const resolution = view.getResolution();
+        if (center && typeof resolution === 'number') {
+            const rotation = view.getRotation();
+            const halfWidth = (size[0] * resolution) / 2;
+            const halfHeight = (size[1] * resolution) / 2;
+            const cos = Math.cos(rotation);
+            const sin = Math.sin(rotation);
+            const corner = (dx: number, dy: number): [number, number] => {
+                const mapCoord: [number, number] = [
+                    center[0] + dx * cos - dy * sin,
+                    center[1] + dx * sin + dy * cos,
+                ];
+                return toLonLat(mapCoord) as [number, number];
+            };
+            corners.push(
+                corner(-halfWidth, -halfHeight), // bottom-left
+                corner(halfWidth, -halfHeight),  // bottom-right
+                corner(halfWidth, halfHeight),   // top-right
+                corner(-halfWidth, halfHeight),  // top-left
+            );
         }
 
         if (corners.length === 0) {

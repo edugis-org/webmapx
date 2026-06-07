@@ -50,7 +50,7 @@ export class WebmapxToolbar extends LitElement {
 
     :host([orientation="vertical"]) {
       flex-direction: column;
-      max-height: 100%;
+      max-height: var(--webmapx-toolbar-max-height, 100%);
     }
 
     :host([orientation="vertical"]) ::slotted(sl-button:not(:last-of-type)) {
@@ -59,7 +59,7 @@ export class WebmapxToolbar extends LitElement {
 
     :host([orientation="horizontal"]) {
       flex-direction: row;
-      max-width: 100%;
+      max-width: var(--webmapx-toolbar-max-width, 100%);
     }
   `;
 

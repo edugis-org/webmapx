@@ -41,9 +41,10 @@ export class WebmapxInsetMap extends LitElement {
   private unsubscribe: (() => void) | null = null;
   private lastCenter: [number, number] | null = null;
   private lastZoom: number | null = null;
+  /** Last seen *source* map zoom (pre-offset/clamp), used to detect upstream zoom changes. */
+  private lastSourceZoom: number | null = null;
   private projectionMode: 'mercator' | 'geodetic' = 'mercator';
   private lastBoundsKey: string | null = null;
-  private lastRequestedBoundsKey: string | null = null;
   private initPromise: Promise<void> | null = null;
   private pendingViewportBounds: GeoJSON.Feature<GeoJSON.Polygon> | null | undefined = null;
   private throttledViewportUpdate = throttle(() => {
@@ -170,6 +171,7 @@ export class WebmapxInsetMap extends LitElement {
     this.projectionMode = this.resolveProjectionMode(mapElement);
 
     const state = this.adapter.store.getState();
+    await this.waitForConfig(mapElement);
     const toolConfig = this.resolveInsetToolConfig(mapElement);
     const zoomOffset = this.resolveInsetNumber('zoom-offset', this.zoomOffset, toolConfig.zoomOffset);
     const baseScale = this.resolveInsetNumber('base-scale', this.baseScale, toolConfig.baseScale);
@@ -209,6 +211,20 @@ export class WebmapxInsetMap extends LitElement {
         return;
       }
       this.throttledApplyStateWithZoomOffset(newState, zoomOffset);
+    });
+  }
+
+  // mapElement.config loads asynchronously; without this wait, an inset map
+  // whose adapter is ready before config arrives falls back to DEFAULT_STYLE
+  // instead of the configured background (e.g. OpenStreetMap).
+  private waitForConfig(mapElement: HTMLElement): Promise<void> {
+    if ((mapElement as any)?.config) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      const handler = () => {
+        mapElement.removeEventListener('webmapx-config-ready', handler);
+        resolve();
+      };
+      mapElement.addEventListener('webmapx-config-ready', handler);
     });
   }
 
@@ -264,6 +280,7 @@ export class WebmapxInsetMap extends LitElement {
     this.viewportSource = null;
     this.lastCenter = null;
     this.lastZoom = null;
+    this.lastSourceZoom = null;
     this.projectionMode = 'mercator';
     this.lastBoundsKey = null;
   }
@@ -358,12 +375,10 @@ export class WebmapxInsetMap extends LitElement {
       }
     }
 
-    // Update viewport rectangle
-    const incomingKey = this.computeBoundsKey(state.mapViewportBounds) ?? '__null__';
-    if (incomingKey === this.lastRequestedBoundsKey) {
-      return;
-    }
-    this.lastRequestedBoundsKey = incomingKey;
+    // Update viewport rectangle. Dedup against the actually-rendered shape happens
+    // inside doUpdateViewportRectangle (lastBoundsKey) — gating here too risked
+    // recording a "requested" key that a coalesced throttle call never rendered,
+    // leaving the rectangle stuck on a stale shape.
     this.updateViewportRectangle(state.mapViewportBounds);
   }
 
@@ -484,17 +499,22 @@ export class WebmapxInsetMap extends LitElement {
   private hasRelevantStateChange(state: IMapState): boolean {
     const center = state.mapCenter;
     const zoom = state.zoomLevel;
-    const boundsKey = this.computeBoundsKey(this.densifyViewportBounds(state.mapViewportBounds));
+    // Use the raw bounds key (anchor-independent) rather than the densified one:
+    // densify anchors/unwraps longitudes via this.lastCenter, which only updates
+    // when the view actually changes — comparing against it here would make
+    // change-detection depend on state it's supposed to be driving.
+    const boundsKey = this.computeBoundsKey(state.mapViewportBounds);
 
     const centerChanged = !!center && !this.isSameCenter(center, this.lastCenter);
-    const zoomChanged = zoom !== this.lastZoom;
+    const zoomChanged = zoom !== this.lastSourceZoom;
     const boundsChanged = boundsKey !== this.lastBoundsKey;
 
     // If we haven't applied anything yet, allow initialization updates through.
-    if (!this.lastCenter && center) return true;
-    if (this.lastZoom === null && zoom !== null) return true;
+    const isInitial = (!this.lastCenter && !!center) || (this.lastSourceZoom === null && zoom !== null);
 
-    return centerChanged || zoomChanged || boundsChanged;
+    this.lastSourceZoom = zoom;
+
+    return isInitial || centerChanged || zoomChanged || boundsChanged;
   }
 
   private isSameCenter(a: [number, number], b: [number, number] | null): boolean {

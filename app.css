@@ -113,6 +113,26 @@ webmapx-toolbar sl-button[data-tooltip]:focus-visible::after {
     min-height: 0;
 }
 
+@media (orientation: portrait) {
+    .table {
+        flex-direction: column;
+    }
+
+    .table > div:first-child {
+        flex: 3 1 0;
+        min-height: 0;
+    }
+
+    .table webmapx-map {
+        height: 100%;
+    }
+
+    #external-tools-column {
+        flex: 1 1 0;
+        min-height: 0;
+    }
+}
+
 #external-tools-scroll > * {
     display: block;
     background: var(--color-background);
