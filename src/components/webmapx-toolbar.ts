@@ -23,14 +23,24 @@ export class WebmapxToolbar extends LitElement {
       height: fit-content;
       align-self: stretch;
       width: fit-content;
-      padding: 0.5rem;
-      gap: 0.5rem;
+      padding: 0;
+      gap: 0;
       pointer-events: none;
       box-shadow: var(--sl-shadow-small);
     }
 
     ::slotted(*) {
       pointer-events: auto;
+    }
+
+    ::slotted(sl-button) {
+      margin: 0;
+      width: var(--webmapx-toolbar-button-size, var(--sl-input-height-medium));
+      height: var(--webmapx-toolbar-button-size, var(--sl-input-height-medium));
+      --sl-input-border-color: transparent;
+      --sl-input-border-radius-small: 0;
+      --sl-input-border-radius-medium: 0;
+      --sl-input-border-radius-large: 0;
     }
 
     slot[name="before"]::slotted(*),
@@ -41,6 +51,10 @@ export class WebmapxToolbar extends LitElement {
     :host([orientation="vertical"]) {
       flex-direction: column;
       max-height: 100%;
+    }
+
+    :host([orientation="vertical"]) ::slotted(sl-button:not(:last-of-type)) {
+      border-bottom: 1px solid var(--webmapx-toolbar-separator-color, var(--sl-color-neutral-200, #e5e5e5));
     }
 
     :host([orientation="horizontal"]) {

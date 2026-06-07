@@ -188,8 +188,8 @@ Full list of available properties per component:
 | `webmapx-tool-panel` | `--webmapx-panel-bg`, `--webmapx-panel-max-height`, `--webmapx-panel-header-min-height`, `--webmapx-panel-content-max-height`, `--webmapx-panel-min-content` |
 | `webmapx-coordinates-tool` | `--webmapx-coordinates-bg`, `--webmapx-coordinates-color`, `--webmapx-coordinates-border`, `--webmapx-coordinates-font-size` |
 | `webmapx-zoom-level` | `--webmapx-zoom-bg`, `--webmapx-zoom-color`, `--webmapx-zoom-border`, `--webmapx-zoom-font-size` |
-| `webmapx-navigation-control` | `--webmapx-navigation-bg`, `--webmapx-navigation-color`, `--webmapx-navigation-border`, `--webmapx-navigation-shadow`, `--webmapx-navigation-font-size` |
-| `webmapx-scale-control` | `--webmapx-scale-bg`, `--webmapx-scale-color`, `--webmapx-scale-border-color`, `--webmapx-scale-border-thickness` |
+| `webmapx-navigation-control` | `--webmapx-navigation-bg`, `--webmapx-navigation-color`, `--webmapx-navigation-border`, `--webmapx-navigation-shadow`, `--webmapx-navigation-font-size`, `--webmapx-navigation-button-size`, `--webmapx-navigation-radius`, `--webmapx-navigation-separator-color`, `--webmapx-navigation-hover-bg`, `--webmapx-navigation-hover-color` |
+| `webmapx-scale-control` | `--webmapx-tool-margin`, `--webmapx-scale-bg`, `--webmapx-scale-color`, `--webmapx-scale-border-color`, `--webmapx-scale-border-thickness` |
 | `webmapx-search-tool` | `--webmapx-search-bg`, `--webmapx-search-color`, `--webmapx-search-border` |
 | `webmapx-layer-overview` | `--webmapx-legend-bg`, `--webmapx-legend-color`, `--webmapx-legend-title-color` |
 | `webmapx-layer-tree` | `--webmapx-layer-tree-bg` |

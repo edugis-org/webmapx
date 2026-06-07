@@ -21,8 +21,8 @@
             <webmapx-map id="map-container" adapter="maplibre" src="config/demo.json">                
                     <webmapx-layout>
                         <webmapx-control-group slot="top-right" orientation="vertical" panel-position="after" alignment="start">
-                        <webmapx-toolbar id="legend-toolbar">
-                            <sl-button name="legend" size="medium" circle>
+                        <webmapx-toolbar id="legend-toolbar" tooltip-placement="left">
+                            <sl-button name="legend" size="medium" data-tooltip="Legend" aria-label="Legend">
                                 <sl-icon name="card-list" label="Legend"></sl-icon>
                             </sl-button>
                         </webmapx-toolbar>
@@ -35,29 +35,29 @@
                         <!-- Top Left: Toolbar + Panel -->
                         <webmapx-control-group slot="top-left" orientation="vertical" panel-position="after" alignment="start">
                         <webmapx-toolbar id="main-toolbar">
-                            <sl-button name="layers" size="medium" circle>
-                                <sl-icon name="layers" label="Layers"></sl-icon>
-                            </sl-button>
-                            <sl-button name="search" size="medium" circle>
+                            <sl-button name="search" size="medium" data-tooltip="Search" aria-label="Search">
                                 <sl-icon name="search" label="Search"></sl-icon>
                             </sl-button>
-                            <sl-button name="measure" size="medium" circle>
+                            <sl-button name="layers" size="medium" data-tooltip="Layers" aria-label="Layers">
+                                <sl-icon name="layers" label="Layers"></sl-icon>
+                            </sl-button>
+                            <sl-button name="measure" size="medium" data-tooltip="Measure" aria-label="Measure">
                                 <sl-icon name="rulers" label="Measure"></sl-icon>
                             </sl-button>
-                            <sl-button name="info" size="medium" circle>
+                            <sl-button name="info" size="medium" data-tooltip="Feature info" aria-label="Feature info">
                                 <sl-icon name="info-circle" label="Info"></sl-icon>
                             </sl-button>
-                            <sl-button name="draw" size="medium" circle>
+                            <sl-button name="draw" size="medium" data-tooltip="Draw" aria-label="Draw">
                                 <sl-icon name="pencil" label="Draw"></sl-icon>
                             </sl-button>
-                            <sl-button name="geolocation" size="medium" circle>
+                            <sl-button name="geolocation" size="medium" data-tooltip="Geolocation" aria-label="Geolocation">
                                 <sl-icon name="crosshair" label="Geolocation"></sl-icon>
                             </sl-button>
-                            <sl-button name="view-mode" size="medium" circle>
+                            <sl-button name="view-mode" size="medium" data-tooltip="View mode" aria-label="View mode">
                                 <sl-icon name="globe" label="View mode"></sl-icon>
                             </sl-button>
                             <div style="flex:1; pointer-events:none"></div>
-                            <sl-button name="settings" size="medium" circle>
+                            <sl-button name="settings" size="medium" data-tooltip="Settings" aria-label="Settings">
                                 <sl-icon name="gear" label="Settings"></sl-icon>
                             </sl-button>
                         </webmapx-toolbar>
@@ -73,7 +73,11 @@
                             <webmapx-view-mode-tool id="view-mode-tool" tool-id="view-mode"></webmapx-view-mode-tool>
                         </webmapx-tool-panel>
                     </webmapx-control-group>
-                    <webmapx-scale-control slot="bottom-right" max-width="140"></webmapx-scale-control>
+                    <webmapx-scale-control
+                        slot="bottom-right"
+                        max-width="140"
+                        style="--webmapx-tool-margin: 0 0 5px 0"
+                    ></webmapx-scale-control>
                     <webmapx-attribution-control slot="edge-bottom-right"></webmapx-attribution-control>
 
                     <webmapx-coordinates-tool slot="bottom-center"></webmapx-coordinates-tool>

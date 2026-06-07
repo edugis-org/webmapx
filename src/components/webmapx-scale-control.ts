@@ -39,6 +39,7 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
   static styles = css`
     :host {
       display: inline-flex;
+      margin: var(--webmapx-tool-margin, 0);
       pointer-events: auto;
       font-size: var(--font-size-small, 12px);
       color: var(--webmapx-scale-color, var(--color-text-primary, #1a1a1a));
