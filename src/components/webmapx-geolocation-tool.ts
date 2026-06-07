@@ -1,5 +1,6 @@
 import { html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMap } from '../map/IMapInterfaces';
 import type { WebmapxMapElement } from './webmapx-map';
@@ -66,10 +67,20 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     }
 
     .title {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
       font-weight: 600;
       font-size: 1rem;
       border-bottom: 1px solid var(--color-border-light);
       padding-bottom: 0.5rem;
+    }
+
+    .title sl-spinner {
+      font-size: 1em;
+      --track-width: 2px;
+      --indicator-color: var(--sl-color-neutral-900);
+      --track-color: var(--sl-color-neutral-300);
     }
 
     .status {
@@ -615,7 +626,10 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
   render() {
     return html`
       <div class="tool-content">
-        <div class="title">Location</div>
+        <div class="title">
+          Location
+          ${this.status === 'locating' ? html`<sl-spinner></sl-spinner>` : ''}
+        </div>
         <div class="status" style="white-space: pre-line;">${this.message}</div>
         <div class="follow">
           <input type="checkbox" .checked=${this.follow} @change=${this.handleFollowChange} />

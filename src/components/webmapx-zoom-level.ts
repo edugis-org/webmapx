@@ -50,7 +50,7 @@ export class WebmapxZoomLevel extends WebmapxBaseTool {
         }
 
         sl-input {
-            width: 4.5em;
+            width: 3.4em;
             --sl-input-height-small: 1.8em;
             --sl-input-spacing-small: 0.2em;
             --sl-input-font-size-small: var(--font-size-small);
@@ -64,6 +64,14 @@ export class WebmapxZoomLevel extends WebmapxBaseTool {
 
         sl-input::part(input) {
             padding: 0;
+            -moz-appearance: textfield;
+        }
+
+        /* Hide native number input spin buttons (they reserve extra width). */
+        sl-input::part(input)::-webkit-outer-spin-button,
+        sl-input::part(input)::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
     `;
 
@@ -131,6 +139,7 @@ export class WebmapxZoomLevel extends WebmapxBaseTool {
 
                 <sl-input
                     .value="${this.inputValue}"
+                    size="small"
                     type="number"
                     min="1"
                     max="20"

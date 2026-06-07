@@ -1,5 +1,5 @@
 import { html, css } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 
 import { WebmapxBaseTool } from './webmapx-base-tool';
@@ -23,6 +23,12 @@ import { IMapState } from '../store/IMapState';
 export class WebmapxSpinner extends WebmapxBaseTool {
     @state() private busy = false;
 
+    /** Render at a smaller size, suitable for inline use next to text. */
+    @property({ type: Boolean, reflect: true }) small = false;
+
+    /** Render in black/white instead of the themed primary color. */
+    @property({ type: Boolean, reflect: true }) nocolor = false;
+
     static styles = css`
         :host {
             display: block;
@@ -42,6 +48,14 @@ export class WebmapxSpinner extends WebmapxBaseTool {
             --track-width: 3px;
             --indicator-color: var(--sl-color-primary-600);
             --track-color: var(--sl-color-neutral-200);
+        }
+        :host([small]) sl-spinner {
+            font-size: 1em;
+            --track-width: 2px;
+        }
+        :host([nocolor]) sl-spinner {
+            --indicator-color: var(--sl-color-neutral-900);
+            --track-color: var(--sl-color-neutral-300);
         }
     `;
 
