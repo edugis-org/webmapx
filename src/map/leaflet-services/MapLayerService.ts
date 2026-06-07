@@ -2,7 +2,8 @@
 
 import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
 import { normalizeRawSource } from '../layer-source-utils';
-import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, GeoJSONSourceConfig, WMSSourceConfig } from '../../config/types';
+import type { AnyLayerConfig, StandardLayerConfig, SourceConfig, GeoJSONSourceConfig, WMSSourceConfig, SubLayerSpec } from '../../config/types';
+import { normalizeCompositeLayer, findNormalizedSource, type NormalizedCompositeSpec } from '../composite-layer-utils';
 import { MapStateStore } from '../../store/map-state-store';
 import * as L from 'leaflet';
 import { LeafletLayerFactory } from './LeafletLayerFactory';
@@ -19,6 +20,7 @@ export class MapLayerService implements ILayerService {
     private nativeLayerToSource: Map<string, string> = new Map();
     // Track WarpedMapLayer instances for cleanup (if @allmaps/leaflet is used)
     private warpedMapLayers: Map<string, any> = new Map();
+    private compositeSubLayerCache: Map<string, { spec: SubLayerSpec; sourceConfig: SourceConfig; data: GeoJSON.FeatureCollection | GeoJSON.Feature }> = new Map();
     private sourceIdCounter = 0;
     private busyOps = 0;
     private logicalOrder: string[] = [];
@@ -180,7 +182,9 @@ export class MapLayerService implements ILayerService {
         }
 
         if (layerConfig.type === 'style') {
-            return this.addCompositeLayer(layerConfig, insertIndex);
+            const spec = normalizeCompositeLayer(layerConfig);
+            if (!spec) return false;
+            return this.addCompositeLayer(spec, options);
         }
 
         // StandardLayerConfig
@@ -255,29 +259,22 @@ export class MapLayerService implements ILayerService {
         }
     }
 
-    private async addCompositeLayer(layerConfig: CompositeStyleLayerConfig, insertIndex: number | undefined): Promise<boolean> {
-        const layerId = layerConfig.id;
-        const localSources = layerConfig.sources ?? {};
-        const subLayers = layerConfig.layers ?? [];
-
-        const localSourceMap = new Map<string, SourceConfig>();
-        for (const [key, rawDef] of Object.entries(localSources)) {
-            const src = normalizeRawSource(`${layerId}:${key}`, rawDef);
-            if (src) localSourceMap.set(key, src);
-        }
-
+    async addCompositeLayer(spec: NormalizedCompositeSpec, options?: LayerInsertOptions): Promise<boolean> {
+        const layerId = spec.styleId;
+        const insertIndex = this.resolveInsertIndex(options);
         const nativeLayerIds: string[] = [];
 
-        // Group sub-layers by source
-        const sourceLayerMap = new Map<string, typeof subLayers>();
-        for (const subLayer of subLayers) {
+        // Group already-normalized sub-layers by the (already-derived, stable) source they reference
+        const sourceLayerMap = new Map<string, typeof spec.subLayers>();
+        for (const subLayer of spec.subLayers) {
             const key = subLayer.source ?? '';
             if (!sourceLayerMap.has(key)) sourceLayerMap.set(key, []);
             sourceLayerMap.get(key)!.push(subLayer);
         }
 
         for (const [sourceKey, layers] of sourceLayerMap.entries()) {
-            const sourceConfig: SourceConfig | null = localSourceMap.get(sourceKey) ?? null;
+            const source = findNormalizedSource(spec, sourceKey);
+            const sourceConfig: SourceConfig | null = source?.config ?? null;
             if (!sourceConfig) continue;
 
             if (sourceConfig.type === 'raster') {
@@ -294,12 +291,14 @@ export class MapLayerService implements ILayerService {
                 const data = await this.fetchGeoJSON(sourceConfig as GeoJSONSourceConfig);
                 if (!data) continue;
                 const specs = LeafletLayerFactory.createGeoJSONLayer(layerId, sourceConfig, data, layers);
-                for (const spec of specs) {
-                    if (!this.nativeLayerInstances.has(spec.id)) {
-                        spec.layer.addTo(this.map);
-                        this.nativeLayerInstances.set(spec.id, spec.layer);
-                        this.nativeLayerToSource.set(spec.id, sourceConfig.id);
-                        nativeLayerIds.push(spec.id);
+                for (const layerSpec of specs) {
+                    if (!this.nativeLayerInstances.has(layerSpec.id)) {
+                        layerSpec.layer.addTo(this.map);
+                        this.nativeLayerInstances.set(layerSpec.id, layerSpec.layer);
+                        this.nativeLayerToSource.set(layerSpec.id, sourceConfig.id);
+                        nativeLayerIds.push(layerSpec.id);
+                        const subLayer = layers.find((sl) => layerSpec.id === `${layerId}-${sl.id}`);
+                        if (subLayer) this.compositeSubLayerCache.set(layerSpec.id, { spec: subLayer, sourceConfig, data });
                     }
                 }
             }
@@ -309,6 +308,18 @@ export class MapLayerService implements ILayerService {
         this.upsertLogicalOrder(layerId, insertIndex);
         this.reapplyLogicalOrder();
         return nativeLayerIds.length > 0;
+    }
+
+    updateLayerStyle(styleId: string, subLayerId: string, partialPaint: Record<string, unknown>): boolean {
+        const nativeLayerId = `${styleId}-${subLayerId}`;
+        const cached = this.compositeSubLayerCache.get(nativeLayerId);
+        const layer = this.nativeLayerInstances.get(nativeLayerId) as L.GeoJSON | undefined;
+        if (!cached || !layer || typeof layer.setStyle !== 'function') return false;
+
+        const mergedSpec: SubLayerSpec = { ...cached.spec, paint: { ...(cached.spec.paint ?? {}), ...partialPaint } };
+        layer.setStyle((feature) => LeafletLayerFactory.convertPaintToLeafletStyle(mergedSpec, feature as GeoJSON.Feature));
+        this.compositeSubLayerCache.set(nativeLayerId, { ...cached, spec: mergedSpec });
+        return true;
     }
 
     removeLayer(layerId: string): void {
@@ -329,6 +340,7 @@ export class MapLayerService implements ILayerService {
                 this.map.removeLayer(layer);
                 this.nativeLayerInstances.delete(id);
                 this.nativeLayerToSource.delete(id);
+                this.compositeSubLayerCache.delete(id);
             }
         }
 

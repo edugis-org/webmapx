@@ -2,7 +2,8 @@
 
 import type { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
 import { normalizeRawSource } from '../layer-source-utils';
-import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, GeoJSONSourceConfig, SubLayerSpec } from '../../config/types';
+import { normalizeCompositeLayer, findNormalizedSource, type NormalizedCompositeSpec } from '../composite-layer-utils';
+import type { AnyLayerConfig, StandardLayerConfig, SourceConfig, WMSSourceConfig, GeoJSONSourceConfig, SubLayerSpec } from '../../config/types';
 import type { MapStateStore } from '../../store/map-state-store';
 import { throttle } from '../../utils/throttle';
 import { evaluateColor, evaluateNumber, matchesFilter } from '../../utils/maplibre-expression-evaluator';
@@ -72,7 +73,7 @@ function parseWmsUrl(url: string): { baseUrl: string; layers: string } {
 
 type CesiumLayerHandle =
     | { kind: 'imagery'; imageryLayer: any; maxLevel?: number }
-    | { kind: 'geojson'; dataSource: any; sourceId: string; layerConfig: AnyLayerConfig; data: GeoJSON.FeatureCollection; updateToken: number };
+    | { kind: 'geojson'; dataSource: any; sourceId: string; subLayers: SubLayerSpec[]; data: GeoJSON.FeatureCollection; updateToken: number };
 
 export class MapLayerService implements ILayerService {
     private readonly handles = new Map<string, CesiumLayerHandle>();
@@ -196,7 +197,19 @@ export class MapLayerService implements ILayerService {
             }
             const minLevel = normalizeLevel(getMinZoom(sourceConfig));
             const maxLevel = normalizeLevel(getMaxZoom(sourceConfig));
-            const provider = new Cesium.UrlTemplateImageryProvider({ url, credit: sourceConfig.attribution ?? '', minimumLevel: minLevel, maximumLevel: maxLevel });
+            // `{bbox-epsg-3857}` is a MapLibre/Mapbox raster-source convention; Cesium's
+            // UrlTemplateImageryProvider expands `{west/south/east/northProjected}` instead,
+            // which yield EPSG:3857 meters when paired with a WebMercatorTilingScheme.
+            const usesBboxTemplate = url.includes('{bbox-epsg-3857}');
+            const provider = new Cesium.UrlTemplateImageryProvider({
+                url: usesBboxTemplate
+                    ? url.replace('{bbox-epsg-3857}', '{westProjected},{southProjected},{eastProjected},{northProjected}')
+                    : url,
+                ...(usesBboxTemplate ? { tilingScheme: new Cesium.WebMercatorTilingScheme() } : {}),
+                credit: sourceConfig.attribution ?? '',
+                minimumLevel: minLevel,
+                maximumLevel: maxLevel,
+            });
             this.enforceMaxLevel(provider, maxLevel);
             const imageryLayer = new Cesium.ImageryLayer(provider);
             this.viewer.imageryLayers.add(imageryLayer);
@@ -230,7 +243,7 @@ export class MapLayerService implements ILayerService {
         return false;
     }
 
-    private async addGeoJSONSource(layerId: string, sourceId: string, sourceConfig: GeoJSONSourceConfig, layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
+    private async addGeoJSONSource(layerId: string, sourceId: string, sourceConfig: GeoJSONSourceConfig, subLayers: SubLayerSpec[], options?: LayerInsertOptions): Promise<boolean> {
         const Cesium = getCesium();
         if (!Cesium) return false;
         const handleKey = `${layerId}::${sourceId}`;
@@ -240,16 +253,22 @@ export class MapLayerService implements ILayerService {
             const data = sourceConfig.data;
             const geojson: GeoJSON.FeatureCollection = typeof data === 'string' ? await (await fetch(data)).json() : data;
 
-            // Reject globe-spanning fill polygons — they cause Cesium's rhumb-line subdivision to crash
-            if (this.isGlobeSpanningFillData(geojson, layerConfig)) {
+            // Reject globe-spanning fill polygons — Cesium's polygon subdivision garbles huge
+            // single-region fills into fragmented, mis-colored slivers (e.g. the live "Day/twilight/
+            // night terminator" layer, whose Nighttime polygon spans ~half the globe).
+            // Restricted to layers that are PURELY fill/polygon: composite layers mixing fill+line
+            // (e.g. "World countries") legitimately contain large per-feature spans (Russia,
+            // Antarctica, ...) that render fine — only standalone polygon-fill datasets are at risk.
+            const isPureFillLayer = subLayers.length > 0 && subLayers.every((l) => l.type === 'fill');
+            if (isPureFillLayer && this.isGlobeSpanningFillData(geojson, subLayers)) {
                 console.warn(`[CESIUM] Skipping layer "${layerId}": fill polygon too large for Cesium renderer`);
                 return false;
             }
 
             const dataSource = await Cesium.GeoJsonDataSource.load(geojson, { clampToGround: false });
             await this.viewer.dataSources.add(dataSource);
-            this.applyGeoJsonStyles(dataSource, layerConfig);
-            this.handles.set(handleKey, { kind: 'geojson', dataSource, sourceId, layerConfig, data: geojson, updateToken: 0 });
+            this.applyGeoJsonStyles(dataSource, subLayers);
+            this.handles.set(handleKey, { kind: 'geojson', dataSource, sourceId, subLayers, data: geojson, updateToken: 0 });
             this.upsertLogicalOrder(layerId, options);
                 return true;
         } catch (e) {
@@ -261,8 +280,9 @@ export class MapLayerService implements ILayerService {
     }
 
     /** Detect fill-type GeoJSON that covers large portions of the globe (would crash Cesium's rhumb subdivision). */
-    private isGlobeSpanningFillData(geojson: GeoJSON.FeatureCollection, layerConfig: AnyLayerConfig): boolean {
-        const paint = (layerConfig as any)?.paint ?? {};
+    private isGlobeSpanningFillData(geojson: GeoJSON.FeatureCollection, subLayers: SubLayerSpec[]): boolean {
+        const fillSubLayer = subLayers.find((l) => l.type === 'fill');
+        const paint = (fillSubLayer as any)?.paint ?? {};
         const hasFill = 'fill-color' in paint || 'fill-opacity' in paint;
         if (!hasFill) return false;
         // Check if any polygon bbox exceeds ~90 degrees in either dimension
@@ -292,7 +312,9 @@ export class MapLayerService implements ILayerService {
         }
 
         if (layerConfig.type === 'style') {
-            return this.addCompositeLayer(layerConfig, options);
+            const spec = normalizeCompositeLayer(layerConfig);
+            if (!spec) return false;
+            return this.addCompositeLayer(spec, options);
         }
 
         // StandardLayerConfig
@@ -304,39 +326,48 @@ export class MapLayerService implements ILayerService {
 
         let success = false;
         if (sourceConfig.type === 'raster') success = await this.addImagerySource(layerId, sourceConfig.id, sourceConfig, options);
-        else if (sourceConfig.type === 'geojson') success = await this.addGeoJSONSource(layerId, sourceConfig.id, sourceConfig as GeoJSONSourceConfig, layerConfig, options);
+        else if (sourceConfig.type === 'geojson') success = await this.addGeoJSONSource(layerId, sourceConfig.id, sourceConfig as GeoJSONSourceConfig, [stdLayer as unknown as SubLayerSpec], options);
         return success;
     }
 
-    private async addCompositeLayer(layerConfig: CompositeStyleLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
-        const layerId = layerConfig.id;
-        const localSources = layerConfig.sources ?? {};
-        const subLayers = layerConfig.layers ?? [];
+    async addCompositeLayer(spec: NormalizedCompositeSpec, options?: LayerInsertOptions): Promise<boolean> {
+        const layerId = spec.styleId;
 
-        const localSourceMap = new Map<string, SourceConfig>();
-        for (const [key, rawDef] of Object.entries(localSources)) {
-            const src = normalizeRawSource(`${layerId}:${key}`, rawDef);
-            if (src) localSourceMap.set(key, src);
-        }
-
-        // Collect unique sources used by sub-layers
-        const usedSourceKeys = new Set(subLayers.map(l => l.source).filter(Boolean) as string[]);
+        // Collect unique sources actually referenced by sub-layers
+        const usedSourceKeys = new Set(spec.subLayers.map((l) => l.source).filter(Boolean) as string[]);
         let anySuccess = false;
 
         for (const sourceKey of usedSourceKeys) {
-            const sourceConfig: SourceConfig | null = localSourceMap.get(sourceKey) ?? null;
+            const source = findNormalizedSource(spec, sourceKey);
+            const sourceConfig: SourceConfig | null = source?.config ?? null;
             if (!sourceConfig) continue;
 
             if (sourceConfig.type === 'raster') {
                 const ok = await this.addImagerySource(layerId, sourceConfig.id, sourceConfig, options);
                 if (ok) anySuccess = true;
             } else if (sourceConfig.type === 'geojson') {
-                const ok = await this.addGeoJSONSource(layerId, sourceConfig.id, sourceConfig as GeoJSONSourceConfig, layerConfig, options);
+                // Cesium fuses all sub-layer styling for a source onto one shared entity
+                // collection (see applyGeoJsonStyles) — pass the full normalized sub-layer list.
+                const ok = await this.addGeoJSONSource(layerId, sourceConfig.id, sourceConfig as GeoJSONSourceConfig, spec.subLayers, options);
                 if (ok) anySuccess = true;
             }
         }
 
         return anySuccess;
+    }
+
+    updateLayerStyle(styleId: string, subLayerId: string, partialPaint: Record<string, unknown>): boolean {
+        let updated = false;
+        for (const [handleKey, handle] of this.handles.entries()) {
+            if (handle.kind !== 'geojson' || !handleKey.startsWith(`${styleId}::`)) continue;
+            const subLayerIndex = handle.subLayers.findIndex((sl) => sl.id === subLayerId);
+            if (subLayerIndex < 0) continue;
+            const subLayer = handle.subLayers[subLayerIndex];
+            handle.subLayers[subLayerIndex] = { ...subLayer, paint: { ...(subLayer.paint ?? {}), ...partialPaint } };
+            this.applyGeoJsonStyles(handle.dataSource, handle.subLayers);
+            updated = true;
+        }
+        return updated;
     }
 
     removeLayer(layerId: string): void {
@@ -412,7 +443,7 @@ export class MapLayerService implements ILayerService {
             const previousDataSource = current.dataSource;
             current.dataSource = nextDataSource;
             await this.viewer.dataSources.add(nextDataSource);
-            this.applyGeoJsonStyles(nextDataSource, current.layerConfig);
+            this.applyGeoJsonStyles(nextDataSource, current.subLayers);
             try {
                 this.viewer.dataSources.remove(previousDataSource, true);
             } catch {
@@ -542,14 +573,9 @@ export class MapLayerService implements ILayerService {
         return evaluateColor(expression, this.entityToFeature(entity), zoom, fallback);
     }
 
-    private applyGeoJsonStyles(dataSource: any, layerConfig: AnyLayerConfig): void {
+    private applyGeoJsonStyles(dataSource: any, subLayers: SubLayerSpec[]): void {
         const Cesium = getCesium();
         if (!Cesium) return;
-
-        // Get sub-layers: for composite use layer.layers, for standard treat the layer itself as one sub-layer
-        const subLayers: SubLayerSpec[] = layerConfig.type === 'style'
-            ? ((layerConfig as CompositeStyleLayerConfig).layers ?? [])
-            : [layerConfig as unknown as SubLayerSpec];
 
         const circle = subLayers.find(l => l.type === 'circle') as any;
         const line = subLayers.find(l => l.type === 'line') as any;
@@ -655,7 +681,7 @@ export class MapLayerService implements ILayerService {
     private applyAllGeoJsonStyles(): void {
         for (const handle of this.handles.values()) {
             if (handle.kind !== 'geojson') continue;
-            this.applyGeoJsonStyles(handle.dataSource, handle.layerConfig);
+            this.applyGeoJsonStyles(handle.dataSource, handle.subLayers);
         }
     }
 }

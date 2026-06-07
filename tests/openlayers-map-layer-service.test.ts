@@ -229,3 +229,24 @@ test('MapLayerService caps style-backed vector source tile grid at source maxzoo
     'https://tiles.openfreemap.org/planet/14/8415/5384.pbf'
   );
 });
+
+test('MapLayerService expands {bbox-epsg-3857} XYZ url templates into EPSG:3857 tile extents', () => {
+  const service = accessServiceInternals<{
+    createXYZLayer: (layerId: string, sourceConfig: SourceConfig & { type: 'raster'; service: 'xyz' }, style: { type: string }) => TestVectorTileLayer;
+  }>(createService());
+
+  const layer = service.createXYZLayer('bevolking2015', {
+    id: 'bevolking2015-source',
+    type: 'raster',
+    service: 'xyz',
+    url: [
+      'https://t1.example.com/tilecache.py?...&bbox={bbox-epsg-3857}',
+      'https://t2.example.com/tilecache.py?...&bbox={bbox-epsg-3857}',
+    ],
+  } as SourceConfig & { type: 'raster'; service: 'xyz' }, { type: 'raster' });
+
+  const url = layer.getSource().getTileUrlFunction()([10, 530, 335], 1, null);
+  assert.ok(url, 'expected a url to be produced');
+  assert.match(url!, /^https:\/\/t[12]\.example\.com\/tilecache\.py\?\.\.\.&bbox=-?[\d.]+,-?[\d.]+,-?[\d.]+,-?[\d.]+$/);
+  assert.ok(!url!.includes('{bbox-epsg-3857}'), 'placeholder must be substituted');
+});

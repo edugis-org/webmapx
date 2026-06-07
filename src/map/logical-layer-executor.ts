@@ -52,6 +52,10 @@ export class DeferredLogicalLayerExecutor implements ILogicalLayerExecutor {
         return this.layerService?.setSourceData(sourceId, data) ?? false;
     }
 
+    updateLayerStyle(layerId: string, subLayerId: string, partialPaint: Record<string, unknown>): boolean {
+        return this.layerService?.updateLayerStyle(layerId, subLayerId, partialPaint) ?? false;
+    }
+
     private flushPendingOperations(): void {
         if (!this.layerService) {
             return;

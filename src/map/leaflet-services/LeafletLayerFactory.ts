@@ -4,6 +4,23 @@ import * as L from 'leaflet';
 import type { AnyLayerConfig, StandardLayerConfig, SourceConfig, WMSSourceConfig, SubLayerSpec } from '../../config/types';
 import { evaluateColor, evaluateNumber, matchesFilter } from '../../utils/maplibre-expression-evaluator';
 
+/** Formats a Leaflet LatLngBounds as a `minx,miny,maxx,maxy` EPSG:3857 (meters) bbox string —
+ *  the format WMS-tile-cache servers expect for the `{bbox-epsg-3857}` template var. */
+export function latLngBoundsToEpsg3857Bbox(bounds: L.LatLngBounds): string {
+    const sw = L.CRS.EPSG3857.project(bounds.getSouthWest());
+    const ne = L.CRS.EPSG3857.project(bounds.getNorthEast());
+    return [sw.x, sw.y, ne.x, ne.y].join(',');
+}
+
+/** Tile layer for WMS-tile-cache style templates using `{bbox-epsg-3857}`
+ *  (a MapLibre/Mapbox raster-source convention Leaflet's TileLayer doesn't expand). */
+const BboxTileLayer = L.TileLayer.extend({
+    getTileUrl(this: L.TileLayer & { _url: string }, coords: L.Coords): string {
+        const bounds = (this as any)._tileCoordsToBounds(coords);
+        return this._url.replace('{bbox-epsg-3857}', latLngBoundsToEpsg3857Bbox(bounds));
+    },
+}) as unknown as new (urlTemplate: string, options?: L.TileLayerOptions) => L.TileLayer;
+
 export interface LeafletLayerSpec {
     id: string;
     type: 'raster' | 'geojson';
@@ -14,12 +31,15 @@ export class LeafletLayerFactory {
     static createXYZLayer(layerId: string, sourceConfig: SourceConfig): LeafletLayerSpec | null {
         if (sourceConfig.type !== 'raster' || sourceConfig.service !== 'xyz') return null;
         const url = Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url;
-        const layer = L.tileLayer(url, {
+        const options = {
             attribution: sourceConfig.attribution,
             tileSize: sourceConfig.tileSize || 256,
             minZoom: sourceConfig.minzoom,
             maxNativeZoom: sourceConfig.maxzoom,
-        });
+        };
+        const layer = url.includes('{bbox-epsg-3857}')
+            ? new BboxTileLayer(url, options)
+            : L.tileLayer(url, options);
         return { id: `${layerId}-raster-xyz`, type: 'raster', layer };
     }
 

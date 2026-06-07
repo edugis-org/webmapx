@@ -1,6 +1,7 @@
 // src/map/IMapInterfaces.ts
 
 import type { AnyLayerConfig, MapStyle, WMSSourceConfig } from '../config/types';
+import type { NormalizedCompositeSpec } from './composite-layer-utils';
 import type { IQueryService } from './IQueryService';
 import type { LngLat, Pixel, MapEventBus } from '../store/map-events';
 
@@ -414,6 +415,13 @@ export interface ILogicalLayerExecutor {
 
     /** Updates a catalog/logical GeoJSON source. Returns true when the source exists and was updated. */
     setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean;
+
+    /**
+     * Updates paint properties of a single sub-layer of a composite (`type: 'style'`)
+     * logical layer, addressed as `${styleId}:${subLayerId}`. Returns true if the
+     * sub-layer was found and updated.
+     */
+    updateLayerStyle(layerId: string, subLayerId: string, partialPaint: Record<string, unknown>): boolean;
 }
 
 /**
@@ -455,4 +463,20 @@ export interface ILayerService {
      */
     getVisibleWMSLayers(): Array<{ layerId: string; layerTitle?: string; sourceConfig: WMSSourceConfig }>;
 
+    /**
+     * Renders a fully-normalized composite (`type: 'style'`) layer. The generic side
+     * has already derived stable sub-layer ids and globally-addressable local sources
+     * (see `composite-layer-utils.normalizeCompositeLayer`) — the engine turns the
+     * spec into native objects only and tracks them internally under `spec.styleId`
+     * for later `removeLayer`/`updateLayerStyle` calls.
+     * @returns true if at least one native object was created.
+     */
+    addCompositeLayer(spec: NormalizedCompositeSpec, options?: LayerInsertOptions): Promise<boolean>;
+
+    /**
+     * Updates paint properties of a single sub-layer of a composite layer previously
+     * added via `addCompositeLayer`, addressed by `styleId` + `subLayerId`. Returns
+     * true if the sub-layer was found and updated.
+     */
+    updateLayerStyle(styleId: string, subLayerId: string, partialPaint: Record<string, unknown>): boolean;
 }

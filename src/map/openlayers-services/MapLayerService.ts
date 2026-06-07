@@ -2,6 +2,7 @@
 
 import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
 import { normalizeRawSource } from '../layer-source-utils';
+import { normalizeCompositeLayer, findNormalizedSource, type NormalizedCompositeSpec } from '../composite-layer-utils';
 import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, SubLayerSpec } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import OLMap from 'ol/Map';
@@ -36,6 +37,7 @@ export class MapLayerService implements ILayerService {
     private spriteResourceCache: Map<string, Promise<{ spriteData: Record<string, unknown>; spriteImageUrl: string } | null>> = new Map();
     // Track WarpedMapLayer instances for cleanup
     private warpedMapLayers: Map<string, WarpedMapLayer> = new Map();
+    private compositeSubLayerCache: Map<string, { spec: SubLayerSpec; sourceConfig: SourceConfig }> = new Map();
     private sourceIdCounter = 0;
 
     constructor(map: OLMap, store: MapStateStore) {
@@ -186,7 +188,9 @@ export class MapLayerService implements ILayerService {
         }
 
         if (layerConfig.type === 'style') {
-            return this.addCompositeLayer(layerConfig, insertIndex);
+            const spec = normalizeCompositeLayer(layerConfig);
+            if (!spec) return false;
+            return this.addCompositeLayer(spec, options);
         }
 
         // StandardLayerConfig
@@ -223,33 +227,23 @@ export class MapLayerService implements ILayerService {
         return nativeLayerIds.length > 0;
     }
 
-    private async addCompositeLayer(
-        layerConfig: CompositeStyleLayerConfig,
-        insertIndex: number | undefined,
-    ): Promise<boolean> {
-        const layerId = layerConfig.id;
-        const localSources = layerConfig.sources ?? {};
-        const subLayers = layerConfig.layers ?? [];
-
-        // Build local source map: key → SourceConfig
-        const localSourceMap = new Map<string, SourceConfig>();
-        for (const [key, rawDef] of Object.entries(localSources)) {
-            const logicalId = `${layerId}:${key}`;
-            const src = normalizeRawSource(logicalId, rawDef);
-            if (src) localSourceMap.set(key, src);
-        }
+    async addCompositeLayer(spec: NormalizedCompositeSpec, options?: LayerInsertOptions): Promise<boolean> {
+        const layerId = spec.styleId;
+        let insertIndex = this.resolveInsertIndex(options);
+        const layerConfig = spec.rawConfig;
 
         const nativeLayerIds: string[] = [];
 
-        // Check for style-backed vector tile (needs stylefunction)
-        const vectorSources = Array.from(localSourceMap.values()).filter(s => s.type === 'vector');
-        if (vectorSources.length > 0 && typeof layerConfig.metadata?.styleUrl === 'string') {
+        // Check for style-backed vector tile (needs stylefunction) — requires the
+        // raw config to rebuild a full GL-style document for `stylefunction`.
+        const vectorSources = spec.sources.filter((s) => s.config.type === 'vector');
+        if (vectorSources.length > 0 && typeof spec.metadata?.styleUrl === 'string') {
             for (const vectorSource of vectorSources) {
-                if (!this.isStyleBackedVectorSource(layerConfig, vectorSource)) continue;
-                const nativeSourceId = this.getOrCreateNativeSourceId(vectorSource);
-                const nativeLayerId = `${layerId}-${vectorSource.id}-vector-style`;
+                if (!this.isStyleBackedVectorSource(layerConfig, vectorSource.config)) continue;
+                const nativeSourceId = this.getOrCreateNativeSourceId(vectorSource.config);
+                const nativeLayerId = `${layerId}-${vectorSource.config.id}-vector-style`;
                 if (!this.nativeLayerInstances.has(nativeLayerId)) {
-                    const layer = await this.createStyleBackedVectorTileLayer(nativeLayerId, layerConfig, vectorSource as SourceConfig & { type: 'vector' });
+                    const layer = await this.createStyleBackedVectorTileLayer(nativeLayerId, layerConfig, vectorSource.config as SourceConfig & { type: 'vector' });
                     if (!layer) return false;
                     (layer as any).__mapLayerId = layerId;
                     insertIndex = this.addMapLayerAtIndex(layer, insertIndex);
@@ -259,24 +253,21 @@ export class MapLayerService implements ILayerService {
                 this.nativeLayerToSource.set(nativeLayerId, nativeSourceId);
             }
         } else {
-            // Add sub-layers individually
-            for (const subLayer of subLayers) {
-                const sourceKey = subLayer.source;
-                if (!sourceKey) continue;
+            // Add sub-layers individually using their already-derived stable ids
+            for (const subLayer of spec.subLayers) {
+                const source = findNormalizedSource(spec, subLayer.source);
+                if (!source) continue;
 
-                // Resolve source: local only (sources are inlined into the layer spec)
-                const sourceConfig: SourceConfig | null = localSourceMap.get(sourceKey) ?? null;
-                if (!sourceConfig) continue;
-
-                const nativeSourceId = this.getOrCreateNativeSourceId(sourceConfig);
-                const nativeLayerId = subLayer.id ? `${layerId}-${subLayer.id}` : `${layerId}-${sourceKey}-${subLayer.type}`;
+                const nativeSourceId = this.getOrCreateNativeSourceId(source.config);
+                const nativeLayerId = `${layerId}-${subLayer.id}`;
 
                 if (!this.nativeLayerInstances.has(nativeLayerId)) {
-                    const layer = await this.createLayer(nativeLayerId, subLayer, sourceConfig);
+                    const layer = await this.createLayer(nativeLayerId, subLayer, source.config);
                     if (layer) {
                         (layer as any).__mapLayerId = layerId;
                         insertIndex = this.addMapLayerAtIndex(layer, insertIndex);
                         this.nativeLayerInstances.set(nativeLayerId, layer);
+                        this.compositeSubLayerCache.set(nativeLayerId, { spec: subLayer, sourceConfig: source.config });
                     }
                 }
                 nativeLayerIds.push(nativeLayerId);
@@ -286,6 +277,34 @@ export class MapLayerService implements ILayerService {
 
         this.logicalToNative.set(layerId, this.mergeNativeLayerIds(layerId, nativeLayerIds));
         return nativeLayerIds.length > 0;
+    }
+
+    updateLayerStyle(styleId: string, subLayerId: string, partialPaint: Record<string, unknown>): boolean {
+        const nativeLayerId = `${styleId}-${subLayerId}`;
+        const cached = this.compositeSubLayerCache.get(nativeLayerId);
+        const oldLayer = this.nativeLayerInstances.get(nativeLayerId);
+        if (!cached || !oldLayer) return false;
+
+        const mergedSpec: SubLayerSpec = { ...cached.spec, paint: { ...(cached.spec.paint ?? {}), ...partialPaint } };
+        const index = this.findLayerIndexByInstance(oldLayer);
+
+        this.createLayer(nativeLayerId, mergedSpec, cached.sourceConfig).then((newLayer) => {
+            if (!newLayer) return;
+            (newLayer as any).__mapLayerId = (oldLayer as any).__mapLayerId;
+            const layers = this.map.getLayers();
+            const currentIndex = this.findLayerIndexByInstance(oldLayer);
+            if (currentIndex >= 0) {
+                layers.removeAt(currentIndex);
+                layers.insertAt(currentIndex, newLayer);
+            } else if (index >= 0) {
+                layers.insertAt(Math.min(index, layers.getLength()), newLayer);
+            } else {
+                this.map.addLayer(newLayer);
+            }
+            this.nativeLayerInstances.set(nativeLayerId, newLayer);
+            this.compositeSubLayerCache.set(nativeLayerId, { spec: mergedSpec, sourceConfig: cached.sourceConfig });
+        });
+        return true;
     }
 
     private mergeNativeLayerIds(layerId: string, nativeLayerIds: string[]): string[] {
@@ -556,6 +575,23 @@ export class MapLayerService implements ILayerService {
         };
     }
 
+    /** Builds a tileUrlFunction for WMS-tile-cache style templates using `{bbox-epsg-3857}`
+     *  (a MapLibre/Mapbox raster-source convention OL's XYZ source doesn't natively expand). */
+    private createBboxTileUrlFunction(urlTemplates: string[]) {
+        const tileGrid = createXYZ();
+
+        return (tileCoord: TileCoord) => {
+            if (!tileCoord || tileCoord.length < 3) {
+                return undefined;
+            }
+            const [, x, y] = tileCoord;
+            const extent = tileGrid.getTileCoordExtent(tileCoord);
+            const bbox = extent.join(',');
+            const index = Math.abs(x + y) % urlTemplates.length;
+            return urlTemplates[index].replace('{bbox-epsg-3857}', bbox);
+        };
+    }
+
     private getLiteralNumberValue(value: unknown, fallback: number): number {
         return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
     }
@@ -615,13 +651,21 @@ export class MapLayerService implements ILayerService {
     ): TileLayer<XYZ> {
         const urls = Array.isArray(sourceConfig.url) ? sourceConfig.url : [sourceConfig.url];
 
-        const source = new XYZ({
-            urls,
-            tileSize: sourceConfig.tileSize,
-            attributions: sourceConfig.attribution,
-            minZoom: sourceConfig.minzoom,
-            maxZoom: sourceConfig.maxzoom
-        });
+        const source = urls.some((u) => u.includes('{bbox-epsg-3857}'))
+            ? new XYZ({
+                tileUrlFunction: this.createBboxTileUrlFunction(urls),
+                tileSize: sourceConfig.tileSize,
+                attributions: sourceConfig.attribution,
+                minZoom: sourceConfig.minzoom,
+                maxZoom: sourceConfig.maxzoom
+            })
+            : new XYZ({
+                urls,
+                tileSize: sourceConfig.tileSize,
+                attributions: sourceConfig.attribution,
+                minZoom: sourceConfig.minzoom,
+                maxZoom: sourceConfig.maxzoom
+            });
 
         const layer = new TileLayer({
             source,
@@ -810,6 +854,7 @@ export class MapLayerService implements ILayerService {
                 this.nativeLayerInstances.delete(id);
             }
             this.nativeLayerToSource.delete(id);
+            this.compositeSubLayerCache.delete(id);
         }
 
         this.logicalToNative.delete(layerId);
