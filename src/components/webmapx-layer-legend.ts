@@ -245,9 +245,16 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     }
 
     /** Render a small SVG swatch for any layer type. */
+    /** Resolves a swatch color: falls back when the value is still an unresolved
+     *  expression (e.g. ['get', 'color']) rather than a literal CSS color string —
+     *  passing the raw expression to SVG attrs renders as invisible/black. */
+    private resolveSwatchColor(value: unknown, fallback: string): string {
+        return typeof value === 'string' ? value : fallback;
+    }
+
     private renderSwatch(type: string, paint: Record<string, unknown>, _zoom: number, layout?: Record<string, unknown>): TemplateResult | null {
         if (type === 'fill') {
-            const c = String(paint['fill-color'] ?? '#aaa');
+            const c = this.resolveSwatchColor(paint['fill-color'], '#9e9e9e');
             const op = Number(paint['fill-opacity'] ?? 0.7);
             const outline = String(paint['fill-outline-color'] ?? c);
             return svg`<svg width="20" height="12" style="flex-shrink:0">
@@ -266,7 +273,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             </svg>`;
         }
         if (type === 'line') {
-            const c = String(paint['line-color'] ?? '#aaa');
+            const c = this.resolveSwatchColor(paint['line-color'], '#616161');
             const w = Math.min(Number(paint['line-width'] ?? 2), 4);
             const dash = Array.isArray(paint['line-dasharray'])
                 ? (paint['line-dasharray'] as number[]).join(' ') : '';
