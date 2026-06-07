@@ -300,4 +300,4 @@ export async function run({ page, engine }) {
   });
 }
 
-export const engines = ['maplibre', 'openlayers'];
+export const engines = ['maplibre', 'openlayers', 'leaflet', 'cesium'];
