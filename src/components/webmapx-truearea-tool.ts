@@ -291,7 +291,6 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
                             'line-color': ['get', 'color'],
                             'line-width': 2,
                         },
-                        hideFromLegend: true,
                     },
                 ],
             });
