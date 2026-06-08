@@ -1238,7 +1238,12 @@
           "getFeatureInfoUrl": "https://map.edugis.nl/cgi-bin/mapserv?map=maps/edugis/cache/population.map&version=1.1.1&request=GetFeatureInfo&styles=&layers=Bevolkingsdichtheid_2015&query_layers=Bevolkingsdichtheid_2015&srs=EPSG:900913",
           "getFeatureInfoFormat": "application/vnd.ogc.gml",
           "legendurl": "https://mapserver.edugis.nl/cgi-bin/mapserv?map=maps/edugis/cache/population.map&version=1.1.1&service=WMS&request=GetLegendGraphic&layer=Bevolkingsdichtheid_2015&format=image/png&STYLE=default",
-          "title": "Population density | Raster"
+          "title": "Population density | Raster",
+          "attributes": {
+            "translations": [
+              { "name": "Dichtheid_in_km2_2015", "translation": "pop density 2015", "unit": " inhabitants/km2" }
+            ]
+          }
         },
         "minzoom": 0,
         "maxzoom": 22.5

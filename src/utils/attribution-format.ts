@@ -2,7 +2,7 @@ import { html, TemplateResult } from 'lit';
 import type { AnyLayerConfig, CompositeStyleLayerConfig, SourceConfig } from '../config/types';
 
 const URL_REGEX = /(https?:\/\/[^\s<"]+)/g;
-const HREF_REGEX = /<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+const HREF_REGEX = /<a\s[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
 
 /** Resolves the attribution text for a layer config: layer-level first, then source-level (via sub-layers for style layers). */
 export function resolveLayerAttribution(

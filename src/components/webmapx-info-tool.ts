@@ -337,10 +337,16 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         const state = this.adapter.store.getState();
         const mapLayers = state.mapLayers ?? {};
 
-        // Use a 256×256 virtual viewport centered on the clicked location.
-        // Some WMS servers (e.g. QGIS Server) reject very small viewports.
+        // Use a 256×256 virtual viewport centered on the clicked location, sized to match
+        // the map's current zoom (degrees-per-pixel at this zoom × viewport size in pixels).
+        // Some WMS servers (e.g. QGIS Server) reject very small viewports, and servers with
+        // MINSCALEDENOM/MAXSCALEDENOM (e.g. MapServer) only return features when the request's
+        // computed scale matches what's actually visible — a fixed tiny bbox makes the request
+        // look far more zoomed-in than the map, so such layers report "no features".
         const size = 256, half = size / 2;
-        const delta = 0.001;
+        const zoom = this.adapter.getViewportState()?.zoom ?? 0;
+        const degreesPerPixel = 360 / (256 * Math.pow(2, zoom));
+        const delta = half * degreesPerPixel;
         const bounds = {
             west: lngLat[0] - delta, south: lngLat[1] - delta,
             east: lngLat[0] + delta, north: lngLat[1] + delta,
@@ -357,8 +363,9 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                 const version = u.searchParams.get('version') ?? '1.1.1';
                 const layers = u.searchParams.get('layers') ?? u.searchParams.get('query_layers') ?? '';
                 const format = typeof m.getFeatureInfoFormat === 'string' ? m.getFeatureInfoFormat : 'application/json';
-                u.search = '';
-                const sourceConfig = { id: layerId, type: 'raster' as const, service: 'wms' as const, url: u.toString(), version, layers, format };
+                // Keep the full configured URL (incl. vendor-specific params like `map=`) as base —
+                // buildGetFeatureInfoUrl only sets/overrides standard WMS keys, preserving the rest.
+                const sourceConfig = { id: layerId, type: 'raster' as const, service: 'wms' as const, url: gfiUrl, version, layers, format };
                 const layerTitle = typeof m.label === 'string' ? m.label : layerId;
                 const feats = await fetchWMSFeatureInfo({
                     sourceConfig, layerId, layerTitle,

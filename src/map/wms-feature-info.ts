@@ -33,6 +33,21 @@ function buildGetFeatureInfoUrl(params: WMSQueryParams): string {
     const { bounds, containerWidth, containerHeight, pixelX, pixelY } = params;
 
     const url = new URL(baseUrl);
+
+    // The configured base URL may already carry standard WMS keys in arbitrary case
+    // (e.g. mapserver-style `srs=EPSG:900913&version=1.1.1`). URLSearchParams.set() is
+    // case-sensitive, so setting 'SRS' wouldn't replace an existing 'srs' — it would add
+    // a conflicting duplicate that confuses the server. Strip any case-variant of the
+    // standard keys we're about to set ourselves; vendor-specific params (e.g. `map=`)
+    // are left untouched.
+    const STANDARD_KEYS = [
+        'service', 'request', 'version', 'layers', 'query_layers', 'width', 'height',
+        'feature_count', 'info_format', 'crs', 'srs', 'bbox', 'i', 'j', 'x', 'y', 'styles',
+    ];
+    for (const key of [...url.searchParams.keys()]) {
+        if (STANDARD_KEYS.includes(key.toLowerCase())) url.searchParams.delete(key);
+    }
+
     url.searchParams.set('SERVICE', 'WMS');
     url.searchParams.set('REQUEST', 'GetFeatureInfo');
     url.searchParams.set('VERSION', version);
@@ -120,8 +135,9 @@ function parseGMLResponse(xml: string, layerId: string, layerTitle?: string): Fe
         const props: Record<string, unknown> = {};
         for (let i = 0; i < featureEl.children.length; i++) {
             const child = featureEl.children[i];
-            // Skip elements that are themselves containers
+            // Skip containers and gml namespace elements (boundedBy, name, etc.)
             if (child.children.length > 0) continue;
+            if (child.namespaceURI === 'http://www.opengis.net/gml') continue;
             const localName = child.localName ?? child.nodeName.replace(/^[^:]+:/, '');
             const val = child.textContent?.trim() ?? '';
             if (localName && val) props[localName] = isNaN(Number(val)) || val === '' ? val : Number(val);
@@ -156,6 +172,17 @@ function findFeatureNodes(root: Element): Element[] {
         for (let i = 0; i < featureMembers.length; i++) {
             const child = featureMembers[i].children[0];
             if (child) nodes.push(child);
+        }
+        return nodes;
+    }
+    // MapServer msGMLOutput: each feature element contains a gml:boundedBy child.
+    // The feature element itself (boundedBy's parentElement) holds the attribute children.
+    const boundedBys = root.getElementsByTagNameNS('http://www.opengis.net/gml', 'boundedBy');
+    if (boundedBys.length > 0) {
+        const nodes: Element[] = [];
+        for (let i = 0; i < boundedBys.length; i++) {
+            const parent = boundedBys[i].parentElement;
+            if (parent) nodes.push(parent);
         }
         return nodes;
     }
