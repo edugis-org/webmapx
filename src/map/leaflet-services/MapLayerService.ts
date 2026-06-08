@@ -357,6 +357,32 @@ export class MapLayerService implements ILayerService {
         return this.logicalToNative.has(layerId);
     }
 
+    setLayerOpacity(layerId: string, opacity: number): void {
+        const nativeIds = this.logicalToNative.get(layerId) ?? [];
+        for (const nativeId of nativeIds) {
+            const layer = this.nativeLayerInstances.get(nativeId) as any;
+            if (!layer) continue;
+            if (typeof layer.setOpacity === 'function') {
+                layer.setOpacity(opacity);
+            } else if (typeof layer.setStyle === 'function') {
+                layer.setStyle({ opacity, fillOpacity: opacity });
+            }
+        }
+    }
+
+    setLayerVisibility(layerId: string, visible: boolean): void {
+        const nativeIds = this.logicalToNative.get(layerId) ?? [];
+        for (const nativeId of nativeIds) {
+            const layer = this.nativeLayerInstances.get(nativeId);
+            if (!layer) continue;
+            if (visible) {
+                if (!this.map.hasLayer(layer)) this.map.addLayer(layer);
+            } else {
+                if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
+            }
+        }
+    }
+
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
         for (const [nativeLayerId, usedSourceId] of this.nativeLayerToSource.entries()) {
             if (usedSourceId !== sourceId) continue;

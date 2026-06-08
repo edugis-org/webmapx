@@ -9,6 +9,17 @@ import * as maplibregl from 'maplibre-gl';
 import { buildWMSGetMapUrl } from '../../utils/wms-url-builder';
 import type { WarpedMapLayer } from '@allmaps/maplibre';
 
+const OPACITY_PAINT_PROPERTIES: Record<string, string[]> = {
+    fill: ['fill-opacity'],
+    line: ['line-opacity'],
+    circle: ['circle-opacity'],
+    raster: ['raster-opacity'],
+    'fill-extrusion': ['fill-extrusion-opacity'],
+    heatmap: ['heatmap-opacity'],
+    background: ['background-opacity'],
+    symbol: ['icon-opacity', 'text-opacity'],
+};
+
 export class MapLayerService implements ILayerService {
     private map: maplibregl.Map;
     private store: MapStateStore;
@@ -307,6 +318,29 @@ export class MapLayerService implements ILayerService {
 
     isLayerVisible(layerId: string): boolean {
         return this.logicalToNative.has(layerId);
+    }
+
+    setLayerVisibility(layerId: string, visible: boolean): void {
+        const nativeLayerIds = this.logicalToNative.get(layerId) ?? [];
+        for (const nativeLayerId of nativeLayerIds) {
+            try {
+                this.map.setLayoutProperty(nativeLayerId, 'visibility', visible ? 'visible' : 'none');
+            } catch (_) {}
+        }
+    }
+
+    setLayerOpacity(layerId: string, opacity: number): void {
+        const nativeLayerIds = this.logicalToNative.get(layerId) ?? [];
+        for (const nativeLayerId of nativeLayerIds) {
+            try {
+                const nativeLayer = this.map.getLayer(nativeLayerId);
+                const properties = nativeLayer ? OPACITY_PAINT_PROPERTIES[nativeLayer.type] : undefined;
+                if (!properties) continue;
+                for (const property of properties) {
+                    this.map.setPaintProperty(nativeLayerId, property, opacity);
+                }
+            } catch (_) {}
+        }
     }
 
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {

@@ -172,7 +172,11 @@ export class CesiumAdapter extends BaseAdapter implements IMap {
     }
 
     setLayerVisibility(layerId: string, visible: boolean): void {
-        this.core.setLayerVisibility(layerId, visible);
+        this.logicalLayerExecutor.setLayerVisibility(layerId, visible);
+    }
+
+    setLayerOpacity(layerId: string, opacity: number): void {
+        this.logicalLayerExecutor.setLayerOpacity(layerId, opacity);
     }
 
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {

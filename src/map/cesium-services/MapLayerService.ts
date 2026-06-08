@@ -411,6 +411,26 @@ export class MapLayerService implements ILayerService {
         return false;
     }
 
+    setLayerVisibility(layerId: string, visible: boolean): void {
+        for (const [key, handle] of this.handles.entries()) {
+            if (!key.startsWith(`${layerId}::`)) continue;
+            if (handle.kind === 'imagery') {
+                handle.imageryLayer.show = visible;
+            } else if (handle.kind === 'geojson') {
+                handle.dataSource.show = visible;
+            }
+        }
+    }
+
+    setLayerOpacity(layerId: string, opacity: number): void {
+        for (const [key, handle] of this.handles.entries()) {
+            if (!key.startsWith(`${layerId}::`)) continue;
+            if (handle.kind === 'imagery') {
+                handle.imageryLayer.alpha = opacity;
+            }
+        }
+    }
+
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
         for (const handle of this.handles.values()) {
             if (handle.kind !== 'geojson' || handle.sourceId !== sourceId) continue;

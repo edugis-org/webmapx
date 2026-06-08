@@ -33,6 +33,7 @@
     "@turf/destination": "^7.3.5",
     "@turf/distance": "^7.3.5",
     "cesium": "^1.136.0",
+    "dompurify": "^3.4.8",
     "leaflet": "^1.9.4",
     "lit": "^3.3.1",
     "maplibre-gl": "^5.14.0",

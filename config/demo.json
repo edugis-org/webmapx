@@ -912,6 +912,9 @@
         "id": "world-countries",
         "type": "style",
         "title": "World countries",
+        "metadata": {
+          "abstract": "<p>Countries distinguish between metropolitan (homeland) and independent and semi-independent portions of sovereign states. If you want to see the dependent overseas regions broken out (like in ISO codes, see France for example), use map units instead.</p><p>Each country is coded with a world region that roughly follows the United Nations setup.</p><p>Countries are coded with standard ISO and FIPS codes. French INSEE codes are also included.</p><p>Includes some thematic data from the United Nations (1), U.S. Central Intelligence Agency, and elsewhere.</p><p><img src=\"https://www.naturalearthdata.com/wp-content/uploads/2009/09/banner_countries.png\" alt=\"World countries banner\"></p><p><strong>Disclaimer</strong></p><p>Natural Earth Vector draws boundaries of countries according to defacto status. We show who actually controls the situation on the ground. Please feel free to mashup our disputed area themes to match your particular political outlook.</p><p>Source: <a href=\"https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-countries/\">Natural Earth – Admin 0 Countries</a></p>"
+        },
         "layers": [
           {
             "id": "world-countries-fill",

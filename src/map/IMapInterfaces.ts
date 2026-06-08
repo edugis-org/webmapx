@@ -290,6 +290,9 @@ export interface IMap {
 
     setLayerVisibility(layerId: string, visible: boolean): void;
 
+    /** Sets the opacity (0..1) for a logical/map layer (and all of its native sub-layers). */
+    setLayerOpacity(layerId: string, opacity: number): void;
+
     /** Returns current GeoJSON data of a source, or null if unavailable / not a GeoJSON source. */
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null;
 
@@ -410,6 +413,12 @@ export interface ILogicalLayerExecutor {
     /** Returns whether a logical layer is currently visible. */
     isLayerVisible(layerId: string): boolean;
 
+    /** Shows or hides a logical layer (and all of its native sub-layers). */
+    setLayerVisibility(layerId: string, visible: boolean): void;
+
+    /** Sets the opacity (0..1) for a logical layer (and all of its native sub-layers). */
+    setLayerOpacity(layerId: string, opacity: number): void;
+
     /** Returns current GeoJSON data for a catalog/logical source, or null if unavailable. */
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null;
 
@@ -450,6 +459,12 @@ export interface ILayerService {
      * Checks if a layer is currently visible.
      */
     isLayerVisible(layerId: string): boolean;
+
+    /** Shows or hides a logical layer (and all of its native sub-layers). */
+    setLayerVisibility(layerId: string, visible: boolean): void;
+
+    /** Sets the opacity (0..1) for a logical layer (and all of its native sub-layers). */
+    setLayerOpacity(layerId: string, opacity: number): void;
 
     /** Returns current GeoJSON data for a catalog/logical source, or null if unavailable. */
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null;
