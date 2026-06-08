@@ -23,6 +23,9 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
   private static globalListeners = new Set<WebmapxGeolocationTool>();
   private static globalLastPosition: GeolocationPosition | null = null;
   private static globalLastError: GeolocationPositionError | null = null;
+  private static wakeLock: WakeLockSentinel | null = null;
+  private static wakeLockListenerAdded = false;
+  private static boundReacquireWakeLock = () => WebmapxGeolocationTool.reacquireWakeLockIfNeeded();
 
   @property({ type: Boolean, attribute: 'watch' }) watch = true;
   @property({ type: Boolean, attribute: 'high-accuracy' }) highAccuracy = true;
@@ -425,6 +428,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     state.activeCount += 1;
     state.listeners.add(this);
     WebmapxGeolocationTool.globalListeners.add(this);
+    WebmapxGeolocationTool.updateWakeLock();
   }
 
   private decrementActiveState(): void {
@@ -438,6 +442,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     state.activeCount = Math.max(0, state.activeCount - 1);
     state.listeners.delete(this);
     WebmapxGeolocationTool.globalListeners.delete(this);
+    WebmapxGeolocationTool.updateWakeLock();
     if (state.activeCount === 0) {
       this.clearMapData();
       this.clearMapLayers();
@@ -471,6 +476,65 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
       bubbles: true,
       composed: true
     }));
+  }
+
+  private static shouldHoldWakeLock(): boolean {
+    let needed = false;
+    WebmapxGeolocationTool.globalListeners.forEach((listener) => {
+      if (listener.follow) {
+        needed = true;
+      }
+    });
+    return needed;
+  }
+
+  private static ensureWakeLockListener(): void {
+    if (WebmapxGeolocationTool.wakeLockListenerAdded || typeof document === 'undefined') {
+      return;
+    }
+    document.addEventListener('visibilitychange', WebmapxGeolocationTool.boundReacquireWakeLock);
+    WebmapxGeolocationTool.wakeLockListenerAdded = true;
+  }
+
+  private static reacquireWakeLockIfNeeded(): void {
+    if (document.visibilityState === 'visible' && WebmapxGeolocationTool.shouldHoldWakeLock() && !WebmapxGeolocationTool.wakeLock) {
+      WebmapxGeolocationTool.requestWakeLock();
+    }
+  }
+
+  private static async requestWakeLock(): Promise<void> {
+    if (WebmapxGeolocationTool.wakeLock || !('wakeLock' in navigator)) {
+      return;
+    }
+    WebmapxGeolocationTool.ensureWakeLockListener();
+    try {
+      const sentinel = await navigator.wakeLock.request('screen');
+      sentinel.addEventListener('release', () => {
+        if (WebmapxGeolocationTool.wakeLock === sentinel) {
+          WebmapxGeolocationTool.wakeLock = null;
+        }
+      });
+      WebmapxGeolocationTool.wakeLock = sentinel;
+    } catch (error) {
+      WebmapxGeolocationTool.wakeLock = null;
+    }
+  }
+
+  private static releaseWakeLock(): void {
+    const sentinel = WebmapxGeolocationTool.wakeLock;
+    if (!sentinel) {
+      return;
+    }
+    WebmapxGeolocationTool.wakeLock = null;
+    sentinel.release().catch(() => {});
+  }
+
+  private static updateWakeLock(): void {
+    if (WebmapxGeolocationTool.shouldHoldWakeLock()) {
+      WebmapxGeolocationTool.requestWakeLock();
+    } else {
+      WebmapxGeolocationTool.releaseWakeLock();
+    }
   }
 
   private updateGlobalWatchState(): void {
@@ -570,6 +634,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     const target = e.target as HTMLInputElement | null;
     if (!target) return;
     this.follow = target.checked;
+    WebmapxGeolocationTool.updateWakeLock();
   }
 
   private formatStatus(): string {
