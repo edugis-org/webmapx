@@ -22,6 +22,12 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         .sub-row { padding-left: 8px; }
     `;
 
+    protected updated(changed: Map<string, unknown>): void {
+        if (changed.has('layerId') && this.store) {
+            this.onStateChanged(this.store.getState());
+        }
+    }
+
     protected onStateChanged(state: IMapState): void {
         const entry = (state.mapLayers ?? {})[this.layerId] as Record<string, unknown> | undefined;
         this.meta = entry ?? null;
