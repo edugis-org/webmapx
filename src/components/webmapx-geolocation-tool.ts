@@ -130,7 +130,8 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
 
   protected onMapDetached(): void {
     if (this.active) {
-      this.deactivate();
+      (this as HTMLElement).hidden = true;
+      this.stopTracking();
     }
     this.releaseSharedState();
     if (this.mapElement) {
@@ -144,8 +145,8 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
   protected onStateChanged(): void {}
 
   public activate(): void {
-    if (this.active) return;
     (this as HTMLElement).hidden = false;
+    if (this.active) return;
     this.flownTo = false;
     this.lastUpdate = null;
     this.status = 'locating';
@@ -171,13 +172,22 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
 
   public deactivate(): void {
     if (!this.active) return;
+    (this as HTMLElement).hidden = true;
+    if (this.follow) {
+      // Keep tracking running in background; just close the panel.
+      return;
+    }
+    this.stopTracking();
+  }
+
+  private stopTracking(): void {
+    if (!this.active) return;
     this.decrementActiveState();
     this.status = 'idle';
     this.message = 'Determining position...';
     this.lastUpdate = null;
     this.flownTo = false;
     this.active = false;
-    (this as HTMLElement).hidden = true;
   }
 
   public toggle(): void {
