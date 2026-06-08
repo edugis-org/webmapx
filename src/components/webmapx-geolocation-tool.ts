@@ -304,6 +304,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
       if (!existingSource) {
         targetAdapter.addSource(this.sourceId, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       }
+      targetAdapter.suppressBusySignalForSource(this.sourceId);
     } catch (error) {
       // ignore if source exists
     }
@@ -363,6 +364,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     }
     try { this.mapElement.removeInlineLayer(this.radiusLayerId); } catch (error) {}
     try { this.mapElement.removeInlineLayer(this.pointLayerId); } catch (error) {}
+    try { this.adapter.unsuppressBusySignalForSource(this.sourceId); } catch (error) {}
     try { this.adapter.removeSource(this.sourceId); } catch (error) {}
     if (state) {
       state.layersReady = false;
