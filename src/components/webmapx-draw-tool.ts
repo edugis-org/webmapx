@@ -130,6 +130,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     // ── Snap state ────────────────────────────────────────────────────────────
 
     @state() private snapEnabled = true;
+    @state() private altActive = false;
+    private get effectiveSnap(): boolean { return this.snapEnabled && !this.altActive; }
     private snapPos: LngLat | null = null;
     private lastCursorPx: [number, number] | null = null;
 
@@ -295,11 +297,18 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             }
         }
         this.bindEvents();
+        window.addEventListener('keydown', this.onKeyDown);
+        window.addEventListener('keyup', this.onKeyUp);
+        window.addEventListener('blur', this.onWindowBlur);
         this.setModeInternal('select');
     }
 
     protected onDeactivate(): void {
         this.unbindEvents();
+        window.removeEventListener('keydown', this.onKeyDown);
+        window.removeEventListener('keyup', this.onKeyUp);
+        window.removeEventListener('blur', this.onWindowBlur);
+        this.altActive = false;
         // Restore borrowed sources and suspend draw layers from the map (keep features in memory)
         for (const layer of this.drawLayers) {
             if (layer.borrowedSourceId) this.restoreBorrowedLayer(layer);
@@ -486,6 +495,74 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             data: { type: 'FeatureCollection', features }
         });
     }
+
+    // ─── Keyboard shortcuts ──────────────────────────────────────────────────
+
+    private isTypingTarget(e: KeyboardEvent): boolean {
+        const target = e.composedPath()[0] as HTMLElement | undefined;
+        const tag = target?.tagName?.toLowerCase();
+        return tag === 'input' || tag === 'textarea' || tag === 'sl-input' || tag === 'sl-textarea' || target?.isContentEditable === true;
+    }
+
+    /** Only handle shortcuts when focus/event originates from the map or this draw panel. */
+    private isRelevantTarget(e: KeyboardEvent): boolean {
+        const path = e.composedPath();
+        const mapEl = this.mapHost;
+        return path.includes(this) || (!!mapEl && path.includes(mapEl));
+    }
+
+    private onKeyDown = (e: KeyboardEvent): void => {
+        if (!this.isRelevantTarget(e)) return;
+
+        if (e.key === 'Alt') {
+            e.preventDefault();
+            if (!this.altActive) {
+                this.altActive = true;
+                this.snapPos = null;
+                this.updateRubberband();
+                this.updateSnapIndicator();
+            }
+            return;
+        }
+
+        if (this.isTypingTarget(e)) return;
+
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            this.undo();
+            return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+            e.preventDefault();
+            this.redo();
+            return;
+        }
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            if (this.selectedFeatureId) {
+                e.preventDefault();
+                this.deleteSelected();
+            }
+        }
+    };
+
+    private onWindowBlur = (): void => {
+        if (this.altActive) {
+            this.altActive = false;
+            if (this.mode === 'draw-point' || this.mode === 'draw-line' || this.mode === 'draw-polygon') {
+                this.updateRubberband();
+            }
+        }
+    };
+
+    private onKeyUp = (e: KeyboardEvent): void => {
+        // Always process Alt release (regardless of focus) so a stuck altActive can't linger.
+        if (e.key === 'Alt') {
+            this.altActive = false;
+            if (this.mode === 'draw-point' || this.mode === 'draw-line' || this.mode === 'draw-polygon') {
+                this.updateRubberband();
+            }
+        }
+    };
 
     // ─── Event binding ────────────────────────────────────────────────────────
 
@@ -843,7 +920,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     // ─── Map event handlers ───────────────────────────────────────────────────
 
     private handleClick(e: ClickEvent): void {
-        const coords: LngLat = (this.snapEnabled && this.snapPos) ? this.snapPos : e.coords;
+        const coords: LngLat = (this.effectiveSnap && this.snapPos) ? this.snapPos : e.coords;
         const geoType = modeToGeometryType(this.mode);
         const layerId = geoType ? this.activeLayerIds[geoType] : null;
         if (!layerId && this.mode !== 'select') return;
@@ -942,7 +1019,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             const f = this.features.find(f => f.id === this.dragging!.handle.featureId);
             if (f) {
                 let moveTarget = e.coords;
-                if (this.snapEnabled && this.features.length > 0) {
+                if (this.effectiveSnap && this.features.length > 0) {
                     const px = this.adapter!.project(e.coords);
                     const snapped = this.computeSnapExcluding(
                         [px[0], px[1]],
@@ -965,7 +1042,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }
 
         if (this.mode === 'draw-point' || this.mode === 'draw-line' || this.mode === 'draw-polygon') {
-            if (this.snapEnabled && this.features.length > 0) {
+            if (this.effectiveSnap && this.features.length > 0) {
                 const px = this.adapter!.project(e.coords);
                 const cursorPx: [number, number] = [px[0], px[1]];
                 if (!this.lastCursorPx ||
@@ -1146,7 +1223,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     private updateSnapIndicator(): void {
         if (!this.sharedLayersCreated) return;
-        const snapFeatures = (this.snapEnabled && this.snapPos)
+        const snapFeatures = (this.effectiveSnap && this.snapPos)
             ? [{ type: 'Feature', geometry: { type: 'Point', coordinates: this.snapPos }, properties: {} }]
             : [];
         this.dispatch('webmapx-set-source-data', { id: SNAP_SOURCE_ID, data: { type: 'FeatureCollection', features: snapFeatures } });
@@ -1159,7 +1236,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         const rbFeatures: any[] = [];
         const draftFeatures: any[] = [];
         const drawing = this.mode === 'draw-point' || this.mode === 'draw-line' || this.mode === 'draw-polygon';
-        const endPos = (this.snapEnabled && this.snapPos) ? this.snapPos : this.cursorPos;
+        const endPos = (this.effectiveSnap && this.snapPos) ? this.snapPos : this.cursorPos;
         if (drawing && this.draftPoints.length > 0 && endPos) {
             const coords = [...this.draftPoints.map(p => [p[0], p[1]]), [endPos[0], endPos[1]]];
             rbFeatures.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: {} });
@@ -1170,7 +1247,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.dispatch('webmapx-set-source-data', { id: RUBBER_SOURCE_ID, data: { type: 'FeatureCollection', features: rbFeatures } });
         this.dispatch('webmapx-set-source-data', { id: DRAFT_SOURCE_ID, data: { type: 'FeatureCollection', features: draftFeatures } });
         // Snap indicator: show at snapPos when drawing
-        const snapFeatures = (drawing && this.snapEnabled && this.snapPos)
+        const snapFeatures = (drawing && this.effectiveSnap && this.snapPos)
             ? [{ type: 'Feature', geometry: { type: 'Point', coordinates: this.snapPos }, properties: {} }]
             : [];
         this.dispatch('webmapx-set-source-data', { id: SNAP_SOURCE_ID, data: { type: 'FeatureCollection', features: snapFeatures } });
@@ -1700,7 +1777,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
                 <sl-tooltip content="Snap to vertices and edges (${this.snapEnabled ? 'on' : 'off'})">
                     <sl-icon-button name="magnet"
-                        ?active=${this.snapEnabled}
+                        ?active=${this.effectiveSnap}
                         @click=${() => {
                             this.snapEnabled = !this.snapEnabled;
                             if (!this.snapEnabled) { this.snapPos = null; this.updateRubberband(); }
