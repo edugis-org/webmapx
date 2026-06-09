@@ -1,5 +1,5 @@
 import { css, html } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, state, query } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMap } from '../map/IMapInterfaces';
 import type { IMapState } from '../store/IMapState';
@@ -8,16 +8,29 @@ import { renderAttributionText, resolveLayerAttribution } from '../utils/attribu
 
 @customElement('webmapx-attribution-control')
 export class WebmapxAttributionControl extends WebmapxBaseTool {
-    @state()
-    private attributions: string[] = [];
+    @state() private attributions: string[] = [];
+    @state() private _showLeft = false;
+    @state() private _showRight = false;
+
+    @query('.attribution-scroll') private _scrollEl?: HTMLElement;
 
     private layerData: LayerDataConfig | null = null;
     private visibleLayerIds: string[] = [];
     private mapLayersState: Record<string, any> = {};
 
+    private _dragStartX = 0;
+    private _dragStartScroll = 0;
+    private _dragging = false;
+    private _resizeObserver?: ResizeObserver;
+
     connectedCallback(): void {
         super.connectedCallback();
         this.subscribeToConfig();
+    }
+
+    disconnectedCallback(): void {
+        super.disconnectedCallback();
+        this._resizeObserver?.disconnect();
     }
 
     protected onMapAttached(_adapter: IMap): void {
@@ -66,14 +79,15 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
         const collected: string[] = [];
 
         const addText = (text: string) => {
-            const trimmed = text.trim();
-            if (!trimmed || unique.has(trimmed)) return;
-            unique.add(trimmed);
-            collected.push(trimmed);
+            for (const part of text.split('|')) {
+                const trimmed = part.trim();
+                if (!trimmed || unique.has(trimmed)) continue;
+                unique.add(trimmed);
+                collected.push(trimmed);
+            }
         };
 
         for (const layerId of this.visibleLayerIds) {
-            // Dynamic layers (e.g. added at runtime via addLayer) — read from mapLayers state
             const dynamicEntry = this.mapLayersState[layerId];
             if (dynamicEntry && typeof dynamicEntry.attribution === 'string') {
                 addText(dynamicEntry.attribution);
@@ -90,16 +104,71 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
         }
 
         this.attributions = collected;
+        // Recalculate overflow after next render
+        this.updateComplete.then(() => this._updateOverflow());
+    }
+
+    private _updateOverflow(): void {
+        const el = this._scrollEl;
+        if (!el) return;
+        const maxScroll = el.scrollWidth - el.clientWidth;
+        this._showLeft = el.scrollLeft > 1;
+        this._showRight = el.scrollLeft < maxScroll - 1;
+    }
+
+    protected firstUpdated(): void {
+        const el = this._scrollEl;
+        if (!el) return;
+
+        this._resizeObserver = new ResizeObserver(() => this._updateOverflow());
+        this._resizeObserver.observe(el);
+
+        el.addEventListener('scroll', () => this._updateOverflow(), { passive: true });
+
+        // Pointer drag (mouse)
+        el.addEventListener('pointerdown', (e: PointerEvent) => {
+            if (e.button !== 0) return;
+            this._dragging = true;
+            this._dragStartX = e.clientX;
+            this._dragStartScroll = el.scrollLeft;
+            el.setPointerCapture(e.pointerId);
+            el.style.cursor = 'grabbing';
+        });
+        el.addEventListener('pointermove', (e: PointerEvent) => {
+            if (!this._dragging) return;
+            el.scrollLeft = this._dragStartScroll - (e.clientX - this._dragStartX);
+        });
+        const endDrag = () => {
+            this._dragging = false;
+            el.style.cursor = '';
+        };
+        el.addEventListener('pointerup', endDrag);
+        el.addEventListener('pointercancel', endDrag);
+
+        // Touch drag
+        el.addEventListener('touchstart', (e: TouchEvent) => {
+            this._dragStartX = e.touches[0].clientX;
+            this._dragStartScroll = el.scrollLeft;
+        }, { passive: true });
+        el.addEventListener('touchmove', (e: TouchEvent) => {
+            el.scrollLeft = this._dragStartScroll - (e.touches[0].clientX - this._dragStartX);
+        }, { passive: true });
     }
 
     render() {
         const hasAttributions = this.attributions.length > 0;
         return html`
             <div class="attribution-shell" ?hidden=${!hasAttributions} role="contentinfo" aria-label="Map attributions">
-                ${this.attributions.map((attr, index) => html`
-                    ${renderAttributionText(attr)}
-                    ${index < this.attributions.length - 1 ? html`<span class="separator">•</span>` : null}
-                `)}
+                ${this._showLeft ? html`<span class="overflow-indicator left" aria-hidden="true">‹</span>` : null}
+                <div class="attribution-scroll">
+                    <div class="attribution-inner">
+                        ${this.attributions.map((attr, index) => html`
+                            ${renderAttributionText(attr)}
+                            ${index < this.attributions.length - 1 ? html`<span class="separator">•</span>` : null}
+                        `)}
+                    </div>
+                </div>
+                ${this._showRight ? html`<span class="overflow-indicator right" aria-hidden="true">›</span>` : null}
             </div>
         `;
     }
@@ -118,19 +187,42 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
 
         .attribution-shell {
             display: inline-flex;
-            flex-wrap: wrap;
             align-items: center;
-            gap: 0.35em;
-            max-width: 50%;
-            width: fit-content;
+            max-width: 80%;
             flex: 0 1 auto;
             background: rgba(255, 255, 255, 0.85);
-            padding: 2px 6px 1px;
             border-radius: 4px 4px 0 0;
-            white-space: normal;
-            word-break: break-word;
             box-sizing: border-box;
             pointer-events: none;
+            overflow: hidden;
+        }
+
+        .attribution-scroll {
+            overflow: hidden;
+            flex: 1 1 auto;
+            min-width: 0;
+            padding: 2px 6px 1px;
+            cursor: grab;
+            pointer-events: auto;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .attribution-inner {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35em;
+            white-space: nowrap;
+        }
+
+        .overflow-indicator {
+            flex: 0 0 auto;
+            padding: 2px 4px 1px;
+            font-size: 14px;
+            line-height: 1;
+            opacity: 0.6;
+            pointer-events: none;
+            user-select: none;
         }
 
         .attribution-item {
