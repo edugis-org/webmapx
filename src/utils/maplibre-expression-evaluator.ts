@@ -1,4 +1,4 @@
-import { createExpression } from '@maplibre/maplibre-gl-style-spec';
+import { createExpression, featureFilter } from '@maplibre/maplibre-gl-style-spec';
 
 type FeatureLike = { properties?: Record<string, unknown> | null; geometry?: { type: string } | null };
 
@@ -53,9 +53,36 @@ function evaluateBoolean(expression: unknown, feature: FeatureLike, zoom: number
     }
 }
 
+// Normalize Multi* geometry types to base types (like MapLibre does for $type)
+function normalizeGeometryType(type: string): string {
+    switch (type) {
+        case 'MultiPoint': return 'Point';
+        case 'MultiLineString': return 'LineString';
+        case 'MultiPolygon': return 'Polygon';
+        default: return type;
+    }
+}
+
 function matchesFilter(expression: unknown, feature: FeatureLike, zoom = 0): boolean {
     if (!expression) return true;
-    return evaluateBoolean(expression, feature, zoom, true);
+    if (!Array.isArray(expression)) return true;
+
+    // Use featureFilter for legacy filters (handles $type, $id correctly)
+    try {
+        const compiled = featureFilter(expression as any);
+        // featureFilter expects type to be the geometry type, not "Feature"
+        // Normalize Multi* types to base types (MapLibre does this for $type filters)
+        const geometryType = normalizeGeometryType(feature.geometry?.type ?? 'Point');
+        const filterFeature = {
+            type: geometryType,
+            properties: feature.properties ?? {},
+            geometry: feature.geometry ?? { type: 'Point', coordinates: [0, 0] }
+        };
+        return compiled.filter({ zoom }, filterFeature);
+    } catch {
+        // Fall back to expression evaluation
+        return evaluateBoolean(expression, feature, zoom, true);
+    }
 }
 
 export { evaluateColor, evaluateNumber, evaluateBoolean, matchesFilter };

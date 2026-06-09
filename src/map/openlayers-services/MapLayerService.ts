@@ -911,7 +911,7 @@ export class MapLayerService implements ILayerService {
             if (usedSourceId !== nativeSourceId) continue;
             const layer = this.nativeLayerInstances.get(nativeLayerId) as VectorLayer<VectorSource> | undefined;
             const source = layer?.getSource?.();
-            if (!source) continue;
+            if (!source || typeof source.getFeatures !== 'function') continue;
             const features = source.getFeatures().map((feature: any) =>
                 JSON.parse(format.writeFeature(feature, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' }))
             );
@@ -932,7 +932,7 @@ export class MapLayerService implements ILayerService {
             if (usedSourceId !== nativeSourceId) continue;
             const layer = this.nativeLayerInstances.get(nativeLayerId) as VectorLayer<VectorSource> | undefined;
             const source = layer?.getSource?.();
-            if (!source) continue;
+            if (!source || typeof source.clear !== 'function') continue;
             source.clear();
             source.addFeatures(new GeoJSON().readFeatures(data, {
                 dataProjection: 'EPSG:4326',

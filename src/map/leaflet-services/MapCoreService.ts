@@ -324,11 +324,16 @@ export class MapCoreService implements IMapCore {
         // Registry first — updated on addSource (inline data) and setData
         const cached = this.geoJSONData.get(sourceId);
         if (cached) return cached;
-        // Fallback: check raw config for URL-backed sources
+        // Fallback: check raw config
         const config = this.sources.get(sourceId);
         if (!config) return null;
         if (config.type !== 'geojson') return null;
         if (typeof config.data === 'string') return config.data;
+        if (config.data && typeof config.data === 'object') {
+            // Cache it for future lookups
+            this.geoJSONData.set(sourceId, config.data as GeoJSON.FeatureCollection);
+            return config.data as GeoJSON.FeatureCollection;
+        }
         return null;
     }
 
@@ -478,8 +483,9 @@ export class MapCoreService implements IMapCore {
             console.warn(`[CORE SERVICE] Source "${sourceId}" not found for layer "${layerSpec.id}".`);
             return false;
         }
-    
-        const data = sourceConfig.data || { type: 'FeatureCollection', features: [] };
+
+        // Prefer geoJSONData (updated by setData) over sourceConfig.data (initial value)
+        const data = this.geoJSONData.get(sourceId) || sourceConfig.data || { type: 'FeatureCollection', features: [] };
         const subLayers = Array.isArray(layerSpec.layers) ? layerSpec.layers : [layerSpec];
         const layerFactorySpecs = LeafletLayerFactory.createGeoJSONLayer(layerSpec.id ?? layerSpec.source, sourceConfig, data, subLayers);
         this.runtimeLayerZoomRange.set(layerSpec.id, this.readLayerZoomRange(layerSpec));

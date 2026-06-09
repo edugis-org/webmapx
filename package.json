@@ -22,7 +22,13 @@
     "ui-test:tool-draw:openlayers": "node ./scripts/run-ui-tests.mjs --suite tool-draw --engines openlayers",
     "ui-test:tool-draw:leaflet": "node ./scripts/run-ui-tests.mjs --suite tool-draw --engines leaflet",
     "ui-test:tool-draw:cesium": "node ./scripts/run-ui-tests.mjs --suite tool-draw --engines cesium",
-    "check:architecture": "node ./scripts/check-architecture.mjs"
+    "ui-test:search-persist-draw": "node ./scripts/run-ui-tests.mjs --suite search-persist-draw",
+    "ui-test:search-persist-draw:maplibre": "node ./scripts/run-ui-tests.mjs --suite search-persist-draw --engines maplibre",
+    "ui-test:search-persist-draw:openlayers": "node ./scripts/run-ui-tests.mjs --suite search-persist-draw --engines openlayers",
+    "ui-test:search-persist-draw:leaflet": "node ./scripts/run-ui-tests.mjs --suite search-persist-draw --engines leaflet",
+    "ui-test:search-persist-draw:cesium": "node ./scripts/run-ui-tests.mjs --suite search-persist-draw --engines cesium",
+    "check:architecture": "node ./scripts/check-architecture.mjs",
+    "postinstall": "npx playwright install chromium"
   },
   "dependencies": {
     "@allmaps/leaflet": "^1.0.0-beta.52",
