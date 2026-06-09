@@ -1,9 +1,18 @@
 import { createExpression, featureFilter } from '@maplibre/maplibre-gl-style-spec';
+import type { Feature as MapLibreFeature } from '@maplibre/maplibre-gl-style-spec';
 
-type FeatureLike = { properties?: Record<string, unknown> | null; geometry?: { type: string } | null };
+type FeatureLike = {
+    id?: string | number;
+    properties?: Record<string, unknown> | null;
+    geometry?: { type: string } | null;
+};
 
-function makeEvalFeature(f: FeatureLike): any {
-    return { type: 'Feature', properties: f.properties ?? {}, geometry: f.geometry ?? { type: 'Point', coordinates: [0, 0] } };
+function makeEvalFeature(feature: FeatureLike): MapLibreFeature {
+    return {
+        type: normalizeGeometryType(feature.geometry?.type),
+        id: feature.id,
+        properties: feature.properties ?? {}
+    };
 }
 
 const colorSpec: any = { type: 'color', 'property-type': 'data-driven', transition: false, overridable: false, expression: { interpolated: true, parameters: ['zoom', 'feature'] } };
@@ -54,12 +63,18 @@ function evaluateBoolean(expression: unknown, feature: FeatureLike, zoom: number
 }
 
 // Normalize Multi* geometry types to base types (like MapLibre does for $type)
-function normalizeGeometryType(type: string): string {
+function normalizeGeometryType(type = 'Point'): MapLibreFeature['type'] {
     switch (type) {
         case 'MultiPoint': return 'Point';
         case 'MultiLineString': return 'LineString';
         case 'MultiPolygon': return 'Polygon';
-        default: return type;
+        case 'Point':
+        case 'LineString':
+        case 'Polygon':
+        case 'Unknown':
+            return type;
+        default:
+            return 'Unknown';
     }
 }
 
@@ -72,11 +87,10 @@ function matchesFilter(expression: unknown, feature: FeatureLike, zoom = 0): boo
         const compiled = featureFilter(expression as any);
         // featureFilter expects type to be the geometry type, not "Feature"
         // Normalize Multi* types to base types (MapLibre does this for $type filters)
-        const geometryType = normalizeGeometryType(feature.geometry?.type ?? 'Point');
-        const filterFeature = {
-            type: geometryType,
+        const filterFeature: MapLibreFeature = {
+            type: normalizeGeometryType(feature.geometry?.type),
+            id: feature.id,
             properties: feature.properties ?? {},
-            geometry: feature.geometry ?? { type: 'Point', coordinates: [0, 0] }
         };
         return compiled.filter({ zoom }, filterFeature);
     } catch {
