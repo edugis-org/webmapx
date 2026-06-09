@@ -23,7 +23,7 @@
         <div>
             <webmapx-map id="map-container" adapter="maplibre" src="config/demo.json">                
                     <webmapx-layout>
-                        <webmapx-control-group slot="top-right" orientation="vertical" panel-position="after" alignment="start">
+                        <webmapx-control-group slot="top-right" orientation="vertical" panel-position="after" alignment="start" priority="high">
                         <webmapx-toolbar id="legend-toolbar" tooltip-placement="left">
                             <sl-button name="legend" size="medium" data-tooltip="Legend" aria-label="Legend">
                                 <sl-icon name="card-list" label="Legend"></sl-icon>
@@ -36,7 +36,7 @@
                     </webmapx-control-group>
                         
                         <!-- Top Left: Toolbar + Panel -->
-                        <webmapx-control-group slot="top-left" orientation="vertical" panel-position="after" alignment="start">
+                        <webmapx-control-group slot="top-left" orientation="vertical" panel-position="after" alignment="start" priority="high">
                         <webmapx-toolbar id="main-toolbar">
                             <sl-button name="search" size="medium" data-tooltip="Search" aria-label="Search">
                                 <sl-icon name="search" label="Search"></sl-icon>

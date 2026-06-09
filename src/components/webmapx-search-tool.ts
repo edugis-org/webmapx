@@ -97,7 +97,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     .searchbox { display:flex; gap:6px; align-items:center; }
     input { flex:1; padding:6px; min-width:0; }
     button { flex:0 0 auto; }
-    .results { margin-top:8px; max-height:36vh; overflow:auto; }
+    .results { margin-top:8px; max-height:50%; overflow:auto; }
     .results ul { list-style: none; margin: 0; padding: 0; }
     .result-item { padding:6px; border-bottom:1px solid rgba(0,0,0,0.05); cursor:pointer; display:flex; align-items:center; gap:8px; }
     .result-item:hover, .result-item[selected] { background: rgba(0,0,0,0.03); }

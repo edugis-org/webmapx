@@ -8,6 +8,7 @@ export class WebmapxControlGroup extends LitElement {
   @property({ type: String, reflect: true }) alignment = 'start'; // 'start' | 'end' | 'center'
   @property({ type: String, reflect: true, attribute: 'slot-anchor-y' }) slotAnchorY = 'top';
   @property({ type: Boolean, reflect: true, attribute: 'panel-active' }) panelActive = false;
+  @property({ type: String, reflect: true }) priority = 'normal'; // 'normal' | 'high'
 
   private panelObserver: MutationObserver | null = null;
 
@@ -21,6 +22,12 @@ export class WebmapxControlGroup extends LitElement {
       max-height: 100%;
       max-width: 100%;
       align-items: stretch; /* Stretch children to full available cross-size */
+      position: relative;
+      z-index: var(--webmapx-control-group-z-index, auto);
+    }
+
+    :host([priority="high"]) {
+      z-index: var(--webmapx-control-group-z-index-high, 10);
     }
 
     /* Alignment overrides */

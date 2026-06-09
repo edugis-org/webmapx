@@ -161,13 +161,27 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     // ─── Styles ───────────────────────────────────────────────────────────────
 
     static styles = css`
-        :host { display: block; padding: var(--webmapx-tool-padding, 0); min-width: 200px; }
+        :host {
+            display: flex;
+            flex-direction: column;
+            padding: var(--webmapx-tool-padding, 0);
+            min-width: 200px;
+            max-height: var(--webmapx-draw-tool-max-height, 100%);
+            overflow: hidden;
+        }
+
+        .scroll-content {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
 
         .toolbar {
             display: flex;
             gap: 0.25rem;
             flex-wrap: wrap;
             margin-bottom: 0.5rem;
+            flex-shrink: 0;
         }
 
         sl-icon-button[active]::part(base) {
@@ -1725,6 +1739,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 </sl-tooltip>
             </div>
 
+            <div class="scroll-content">
             <div class="help">${this.helpText}</div>
 
             ${this.isTouchDevice && (this.mode === 'draw-line' || this.mode === 'draw-polygon') &&
@@ -1816,6 +1831,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                     </div>
                 `)}
             ` : ''}
+            </div>
 
             <webmapx-draw-layer-dialog
                 @webmapx-draw-layer-confirm=${this.handleLayerConfirm}
