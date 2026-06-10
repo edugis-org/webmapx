@@ -25,6 +25,30 @@ function isWgs84(prjText: string): boolean {
 }
 
 /** Convert a shapefile (.shp + optional .dbf + optional .prj contents) into a GeoJSON FeatureCollection in WGS84. */
+/**
+ * Parse a shapefile in a dedicated Web Worker, so the (synchronous, CPU-heavy)
+ * parsing/reprojection doesn't block the main thread. The buffers are
+ * transferred (zero-copy) to the worker; the resulting FeatureCollection is
+ * structured-cloned back.
+ */
+export function shapefileToGeoJSONInWorker(shpBuffer: ArrayBuffer, dbfBuffer: ArrayBuffer | null, prjText: string | null): Promise<GeoJSON.FeatureCollection> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('../workers/shapefile.worker.ts', import.meta.url), { type: 'module' });
+    worker.onmessage = (e: MessageEvent<{ success: boolean; data?: GeoJSON.FeatureCollection; error?: string }>) => {
+      worker.terminate();
+      if (e.data.success && e.data.data) resolve(e.data.data);
+      else reject(new Error(e.data.error ?? 'shapefile worker failed'));
+    };
+    worker.onerror = (err) => {
+      worker.terminate();
+      reject(err.error ?? new Error(err.message));
+    };
+    const transfer: Transferable[] = [shpBuffer];
+    if (dbfBuffer) transfer.push(dbfBuffer);
+    worker.postMessage({ shpBuffer, dbfBuffer, prjText }, transfer);
+  });
+}
+
 export function shapefileToGeoJSON(shpBuffer: ArrayBuffer, dbfBuffer: ArrayBuffer | null, prjText: string | null): GeoJSON.FeatureCollection {
   console.log('reading shp data');
   const geometries = parseShp(shpBuffer) as (GeoJSON.Geometry | null)[];

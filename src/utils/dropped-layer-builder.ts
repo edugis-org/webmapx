@@ -153,12 +153,12 @@ export async function buildLayerConfigFromGroup(group: NamedBlob[]): Promise<Com
   }
 
   if (shpFiles.size > 0) {
-    const { shapefileToGeoJSON } = await import('./shapefile');
+    const { shapefileToGeoJSONInWorker } = await import('./shapefile');
     for (const [base, shp] of shpFiles) {
       const dbf = dbfFiles.get(base);
       const prj = prjFiles.get(base);
       try {
-        const data = shapefileToGeoJSON(
+        const data = await shapefileToGeoJSONInWorker(
           await shp.blob.arrayBuffer(),
           dbf ? await dbf.blob.arrayBuffer() : null,
           prj ? await prj.blob.text() : null
