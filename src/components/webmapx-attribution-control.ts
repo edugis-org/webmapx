@@ -89,13 +89,15 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
 
         for (const layerId of this.visibleLayerIds) {
             const dynamicEntry = this.mapLayersState[layerId];
-            if (dynamicEntry && typeof dynamicEntry.attribution === 'string') {
-                addText(dynamicEntry.attribution);
+            const layer = layersById.get(layerId);
+
+            if (!layer) {
+                // Runtime-added layer (e.g. search persist) — attribution lives on its source.
+                const sourceId = typeof dynamicEntry?.sourceId === 'string' ? dynamicEntry.sourceId : null;
+                const attribution = sourceId ? this.adapter?.getSourceAttribution(sourceId) : undefined;
+                if (attribution) addText(attribution);
                 continue;
             }
-
-            const layer = layersById.get(layerId);
-            if (!layer) continue;
 
             const attribution = resolveLayerAttribution(layer, sourcesById);
             if (attribution) {

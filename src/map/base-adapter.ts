@@ -14,16 +14,43 @@
 
 import { MapStateStore } from '../store/map-state-store';
 import { registerMapLayer, unregisterMapLayer } from './map-layer-registry';
-import type { LayerInsertOptions } from './IMapInterfaces';
+import type { IMapCore, ISource, LayerInsertOptions, MarkerOptions } from './IMapInterfaces';
+import type { LngLat } from '../store/map-events';
 import { MapEventBus } from '../store/map-events';
+import type { DeferredLogicalLayerExecutor } from './logical-layer-executor';
+
+interface MarkerService {
+    add(id: string, lngLat: LngLat, options?: MarkerOptions): void;
+    move(id: string, lngLat: LngLat): void;
+    remove(id: string): void;
+}
 
 export abstract class BaseAdapter {
     public readonly store: MapStateStore;
     public readonly events: MapEventBus;
+    private sourceAttributions = new Map<string, string>();
 
     constructor() {
         this.store = new MapStateStore();
         this.events = new MapEventBus();
+    }
+
+    /** Records the `attribution` from a source config (style-spec field) for later lookup. */
+    private trackSourceAttribution(id: string, config: any): void {
+        if (config && typeof config.attribution === 'string' && config.attribution.length > 0) {
+            this.sourceAttributions.set(id, config.attribution);
+        } else {
+            this.sourceAttributions.delete(id);
+        }
+    }
+
+    getSourceAttribution(id: string): string | undefined {
+        return this.sourceAttributions.get(id);
+    }
+
+    addSource(id: string, config: any): void {
+        this.trackSourceAttribution(id, config);
+        this.engineAddSource(id, config);
     }
 
     hasLayer(layerId: string): boolean {
@@ -64,6 +91,7 @@ export abstract class BaseAdapter {
                 this.events.emit({ type: 'layer-remove', layerId, activeLayers });
             }
         }
+        this.sourceAttributions.delete(id);
         this.engineRemoveSource(id);
     }
 
@@ -77,4 +105,48 @@ export abstract class BaseAdapter {
 
     /** Engine-specific source remove. */
     protected abstract engineRemoveSource(id: string): void;
+
+    /** Engine-specific source add. */
+    protected abstract engineAddSource(id: string, config: any): void;
+
+    // ── Shared engine accessors (implement in each concrete adapter) ─────────
+
+    /** Returns the engine's core service (handles addSource/removeSource/getSource/etc). */
+    protected abstract getCore(): IMapCore;
+
+    /** Returns the logical-layer executor used for catalog/source-data fallbacks. */
+    protected abstract getLogicalLayerExecutor(): DeferredLogicalLayerExecutor;
+
+    /** Returns the marker service, or null if not yet bound. */
+    protected abstract getMarkerService(): MarkerService | null;
+
+    // ── Shared pass-through implementations ──────────────────────────────────
+
+    getSource(id: string): ISource | undefined {
+        return this.getCore().getSource(id) ?? (
+            this.getLogicalLayerExecutor().getSourceData(id) !== null
+                ? { id, setData: (data: GeoJSON.FeatureCollection) => { this.getLogicalLayerExecutor().setSourceData(id, data); } }
+                : undefined
+        );
+    }
+
+    suppressBusySignalForSource(sourceId: string): void {
+        this.getCore().suppressBusySignalForSource(sourceId);
+    }
+
+    unsuppressBusySignalForSource(sourceId: string): void {
+        this.getCore().unsuppressBusySignalForSource(sourceId);
+    }
+
+    addMarker(id: string, lngLat: LngLat, options?: MarkerOptions): void {
+        this.getMarkerService()?.add(id, lngLat, options);
+    }
+
+    moveMarker(id: string, lngLat: LngLat): void {
+        this.getMarkerService()?.move(id, lngLat);
+    }
+
+    removeMarker(id: string): void {
+        this.getMarkerService()?.remove(id);
+    }
 }

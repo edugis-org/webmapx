@@ -4,15 +4,20 @@ import type { AnyLayerConfig, CompositeStyleLayerConfig, SourceConfig } from '..
 const URL_REGEX = /(https?:\/\/[^\s<"]+)/g;
 const HREF_REGEX = /<a\s[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
 
-/** Resolves the attribution text for a layer config: layer-level first, then source-level (via sub-layers for style layers). */
+/** Resolves the attribution text for a layer config from its source(s) (via sub-layers for style layers). */
 export function resolveLayerAttribution(
     layer: AnyLayerConfig | undefined,
     sourcesById: Map<string, SourceConfig>
 ): string | undefined {
     if (!layer) return undefined;
 
-    if (typeof layer.attribution === 'string') {
-        return layer.attribution;
+    if (layer.type === 'style') {
+        // Style layers may pull in many remote sources not enumerated locally —
+        // allow a layer-level attribution override.
+        const styleAttribution = (layer as CompositeStyleLayerConfig).attribution;
+        if (typeof styleAttribution === 'string') {
+            return styleAttribution;
+        }
     }
 
     const subLayers = layer.type === 'style'

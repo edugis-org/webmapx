@@ -18,6 +18,8 @@ export interface ValidationResult {
 }
 
 // Known keys for each config section
+const KNOWN_SEARCH_PROVIDERS = new Set(['nominatim']);
+
 const KNOWN_KEYS = {
   root: ['version', 'project', 'map', 'runtimeMap', 'layerData', 'catalog', 'library', 'state', 'ui', 'tools'],
   map: ['label', 'center', 'zoom', 'minZoom', 'maxZoom', 'minPitch', 'maxPitch', 'type', 'style', 'styleUrl'],
@@ -31,11 +33,12 @@ const KNOWN_KEYS = {
   sourceRaster: ['service', 'url', 'tiles', 'tileSize', 'minzoom', 'maxzoom', 'bounds', 'scheme', 'volatile', 'attribution'],
   sourceGeojson: ['data', 'attribution', 'minzoom', 'maxzoom', 'bounds', 'buffer', 'tolerance', 'cluster', 'clusterRadius', 'clusterMaxZoom', 'lineMetrics', 'generateId'],
   sourceVector: ['url', 'tiles', 'bounds', 'scheme', 'minzoom', 'maxzoom', 'attribution', 'volatile'],
-  layer: ['id', 'type', 'source', 'source-layer', 'sources', 'layers', 'url', 'annotation', 'fallbackLayerId', 'singleGroup', 'title', 'attribution', 'metadata', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
+  layer: ['id', 'type', 'source', 'source-layer', 'sources', 'layers', 'url', 'annotation', 'fallbackLayerId', 'singleGroup', 'title', 'metadata', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
   styleLayer: ['id', 'type', 'source', 'sourceLayer', 'source-layer', 'metadata', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
   tool: ['enabled'],
   toolInsetMap: ['enabled', 'type', 'position', 'order', 'zoomOffset', 'baseScale', 'styleUrl', 'background'],
   toolInsetMapBackground: ['service', 'url', 'tiles', 'attribution', 'tileSize'],
+  toolSearch: ['enabled', 'type', 'title', 'icon', 'order', 'endpoint', 'params', 'maxResults', 'defaultZoom', 'marker', 'persistOnSelect', 'provider', 'attribution'],
 };
 
 const VALID_MAP_TYPES = ['maplibre', 'openlayers', 'leaflet', 'cesium'];
@@ -565,7 +568,8 @@ function validateLayers(
     }
 
     const l = layer as Record<string, unknown>;
-    checkUnknownKeys(l, KNOWN_KEYS.layer, path, warnings);
+    const allowedKeys = l.type === 'style' ? [...KNOWN_KEYS.layer, 'attribution'] : KNOWN_KEYS.layer;
+    checkUnknownKeys(l, allowedKeys, path, warnings);
 
     // Required: id
     if (typeof l.id !== 'string' || l.id.length === 0) {
@@ -824,6 +828,22 @@ function validateToolsSection(
 
         validateTree(itemRecord.tree, `${itemPath}.tree`, layerIds, errors, warnings);
       });
+    }
+
+    if (toolName === 'search') {
+      checkUnknownKeys(tc, KNOWN_KEYS.toolSearch, toolPath, warnings);
+
+      if (tc.provider !== undefined) {
+        if (typeof tc.provider !== 'string') {
+          warnings.push({ severity: 'warning', path: `${toolPath}.provider`, message: '"provider" should be a string' });
+        } else if (!KNOWN_SEARCH_PROVIDERS.has(tc.provider.toLowerCase())) {
+          warnings.push({ severity: 'warning', path: `${toolPath}.provider`, message: `Unknown search provider "${tc.provider}"` });
+        }
+      }
+
+      if (tc.attribution !== undefined && typeof tc.attribution !== 'string') {
+        warnings.push({ severity: 'warning', path: `${toolPath}.attribution`, message: '"attribution" should be a string' });
+      }
     }
 
     if (toolName === 'insetMap') {

@@ -210,7 +210,7 @@ export class WebmapxToolPanel extends LitElement {
       align-self: flex-start;
       width: 300px;
       height: auto;
-      max-height: var(--webmapx-panel-max-height, 80%);
+      max-height: 100%;
       min-height: calc(
         var(--webmapx-panel-header-min-height, 3rem) +
         var(--webmapx-panel-min-content, 0px)

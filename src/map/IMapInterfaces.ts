@@ -296,6 +296,9 @@ export interface IMap {
     /** Returns current GeoJSON data of a source, or null if unavailable / not a GeoJSON source. */
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null;
 
+    /** Returns the `attribution` configured on a source via addSource, if any. */
+    getSourceAttribution(sourceId: string): string | undefined;
+
     // ===== Coordinate Conversion =====
     /** Projects geographic [lng, lat] to screen pixel [x, y]. */
     project(coords: LngLat): Pixel;

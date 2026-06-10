@@ -87,8 +87,16 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     maxResults: 15,
     defaultZoom: 14,
     marker: false,
-    persistOnSelect: false
+    persistOnSelect: false,
+    provider: 'nominatim',
+    attribution: ''
   } as any;
+
+  private static readonly KNOWN_PROVIDERS = new Set(['nominatim']);
+
+  private isKnownProvider(provider: string): boolean {
+    return WebmapxSearchTool.KNOWN_PROVIDERS.has(provider.toLowerCase());
+  }
 
   static styles = css`
     :host { display: block; width: 100%; pointer-events: auto; }
@@ -122,6 +130,12 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     const searchCfg = config?.tools?.search;
     if (searchCfg) {
       this.cfg = { ...this.cfg, ...searchCfg };
+    }
+    if (this.cfg.provider && !this.isKnownProvider(this.cfg.provider)) {
+      console.warn(`webmapx-search-tool: unknown provider "${this.cfg.provider}"`);
+    }
+    if (!this.cfg.attribution && this.cfg.provider?.toLowerCase() === 'nominatim') {
+      this.cfg.attribution = '&copy; OpenStreetMap contributors | &copy; Nominatim';
     }
   }
 
@@ -268,7 +282,11 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     try {
       // choose a color per feature
       const color = this.randomColorHex();
-      map.addSource(sourceId, { type: 'geojson', data: fc });
+      const sourceConfig: { type: 'geojson'; data: GeoJSON.FeatureCollection; attribution?: string } = { type: 'geojson', data: fc };
+      if (this.cfg.attribution) {
+        sourceConfig.attribution = this.cfg.attribution;
+      }
+      map.addSource(sourceId, sourceConfig);
 
       // Add appropriate layers depending on geometry type
       const geom = feature.geometry?.type;

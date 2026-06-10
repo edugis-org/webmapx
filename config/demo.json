@@ -39,7 +39,7 @@
           "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png"
         ],
         "tileSize": 256,
-        "attribution": "\u00a9 OpenStreetMap contributors",
+        "attribution": "&copy; OpenStreetMap contributors",
         "maxzoom": 19
       },
       "google-satellite-source": {
@@ -904,7 +904,7 @@
         "url": "https://tiles.openfreemap.org/styles/liberty",
         "singleGroup": "basemap",
         "title": "OpenFreeMap Liberty (style)",
-        "attribution": "\u00a9 OpenStreetMap contributors | \u00a9 OpenFreeMap",
+        "attribution": "&copy; OpenStreetMap contributors | &copy; OpenFreeMap",
         "fallbackLayerId": "osm",
         "layers": []
       },
@@ -2264,6 +2264,8 @@
           "enabled": true,
           "title": "Search",
           "icon": "search",
+          "provider": "nominatim",
+          "attribution": "&copy; OpenStreetMap contributors | &copy; Nominatim",
           "order": 20
         },
         {

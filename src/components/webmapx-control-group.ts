@@ -17,9 +17,12 @@ export class WebmapxControlGroup extends LitElement {
       display: flex;
       pointer-events: none;
       gap: 0.5rem;
-      flex: 0 1 auto; /* keep intrinsic height but allow shrinking when space is tight */
+      /* Fill (and cap at 80% of) the slot-zone's main axis, so this group
+         has a definite height that slotted tool panels can size against
+         via max-height: 100%. */
+      flex: 1 1 auto;
       min-height: 0; /* let child flex items manage their own minimums */
-      max-height: 100%;
+      max-height: var(--webmapx-panel-max-height, 90%);
       max-width: 100%;
       align-items: stretch; /* Stretch children to full available cross-size */
       position: relative;

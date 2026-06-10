@@ -203,8 +203,6 @@ interface WebMapXLayerBase {
   singleGroup?: string;
   /** Fallback layer id when this layer cannot be activated (e.g. unsupported engine). */
   fallbackLayerId?: string;
-  /** Attribution text shown in the map attribution control when this layer is visible. */
-  attribution?: string;
   /** Extended metadata (legendRole, styleUrl, spriteUrl, etc.) */
   metadata?: LayerMetadata;
 }
@@ -261,6 +259,13 @@ export interface CompositeStyleLayerConfig extends WebMapXLayerBase {
   sources?: Record<string, unknown>;
   /** Sub-layer specifications. */
   layers?: SubLayerSpec[];
+  /**
+   * Attribution for the remote style as a whole. Style layers may pull in many
+   * sources (via `url`) whose individual attributions aren't enumerated locally,
+   * so a layer-level override is allowed here (unlike other layer types, where
+   * attribution comes from the source).
+   */
+  attribution?: string;
 }
 
 /** Allmaps warped historical map layer. */
@@ -366,6 +371,10 @@ export interface SearchToolConfig extends ToolConfig {
   defaultZoom?: number;
   marker?: boolean;
   persistOnSelect?: boolean;
+  /** Search provider, used to enable provider-specific behavior. Currently only "nominatim" is recognized (case-insensitive). */
+  provider?: string;
+  /** Attribution added to the source of persisted (pinned) search results, when non-empty. */
+  attribution?: string;
 }
 
 export interface ToolsConfig {

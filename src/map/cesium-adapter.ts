@@ -14,7 +14,6 @@ import { MapMarkerService } from './cesium-services/MapMarkerService';
 import { DeferredLogicalLayerExecutor } from './logical-layer-executor';
 import { DeferredQueryService } from './deferred-query-service';
 import type { IQueryService } from './IQueryService';
-import type { MarkerOptions } from './IMapInterfaces';
 
 let cesiumLoadPromise: Promise<void> | null = null;
 
@@ -205,7 +204,7 @@ export class CesiumAdapter extends BaseAdapter implements IMap {
         this.removeLayer(layerId);
     }
 
-    addSource(id: string, config: any): void {
+    protected engineAddSource(id: string, config: any): void {
         this.core.addSource(id, config);
     }
 
@@ -218,32 +217,16 @@ export class CesiumAdapter extends BaseAdapter implements IMap {
         this.core.removeSource(id);
     }
 
-    getSource(id: string) {
-        return this.core.getSource(id) ?? (
-            this.logicalLayerExecutor.getSourceData(id) !== null
-                ? { id, setData: (data: GeoJSON.FeatureCollection) => { this.logicalLayerExecutor.setSourceData(id, data); } }
-                : undefined
-        );
+    protected getCore(): IMapCore {
+        return this.core;
     }
 
-    suppressBusySignalForSource(sourceId: string): void {
-        this.core.suppressBusySignalForSource(sourceId);
+    protected getLogicalLayerExecutor(): DeferredLogicalLayerExecutor {
+        return this.logicalLayerExecutor;
     }
 
-    unsuppressBusySignalForSource(sourceId: string): void {
-        this.core.unsuppressBusySignalForSource(sourceId);
-    }
-
-    addMarker(id: string, lngLat: LngLat, options?: MarkerOptions): void {
-        this.markerService?.add(id, lngLat, options);
-    }
-
-    moveMarker(id: string, lngLat: LngLat): void {
-        this.markerService?.move(id, lngLat);
-    }
-
-    removeMarker(id: string): void {
-        this.markerService?.remove(id);
+    protected getMarkerService(): MapMarkerService | null {
+        return this.markerService;
     }
 
 }
