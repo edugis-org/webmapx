@@ -45,10 +45,12 @@
     "maplibre-gl": "^5.14.0",
     "ol": "^10.7.0",
     "ol-mapbox-style": "^13.2.0",
-    "proj4": "^2.20.2"
+    "proj4": "^2.20.2",
+    "shpjs": "^6.2.0"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.21",
+    "@types/shpjs": "^3.4.7",
     "@types/topojson-client": "^3.1.5",
     "playwright": "^1.60.0",
     "typescript": "^6.0.3",

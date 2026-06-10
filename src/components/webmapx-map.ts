@@ -74,6 +74,8 @@ export class WebmapxMapElement extends HTMLElement {
       this.addEventListener('webmapx-set-source-data', this.handleSetSourceDataEvent as EventListener);
       this.addEventListener('webmapx-suppress-busy-for-source', this.handleSuppressBusyForSource as EventListener);
       this.addEventListener('webmapx-unsuppress-busy-for-source', this.handleUnsuppressBusyForSource as EventListener);
+      this.addEventListener('dragover', this.handleFileDragOver);
+      this.addEventListener('drop', this.handleFileDrop);
     }
 
     disconnectedCallback(): void {
@@ -86,6 +88,73 @@ export class WebmapxMapElement extends HTMLElement {
       this.removeEventListener('webmapx-set-source-data', this.handleSetSourceDataEvent as EventListener);
       this.removeEventListener('webmapx-suppress-busy-for-source', this.handleSuppressBusyForSource as EventListener);
       this.removeEventListener('webmapx-unsuppress-busy-for-source', this.handleUnsuppressBusyForSource as EventListener);
+      this.removeEventListener('dragover', this.handleFileDragOver);
+      this.removeEventListener('drop', this.handleFileDrop);
+    }
+
+    private handleFileDragOver = (e: DragEvent): void => {
+      if (!e.dataTransfer?.types.includes('Files')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    };
+
+    private handleFileDrop = (e: DragEvent): void => {
+      const files = e.dataTransfer?.files;
+      if (!files || files.length === 0) return;
+      e.preventDefault();
+      void this.handleDroppedFiles(Array.from(files));
+    };
+
+    private async handleDroppedFiles(files: File[]): Promise<void> {
+      const { sniffBlob } = await import('../utils/file-sniff');
+      const { groupDroppedFiles, buildLayerConfigFromGroup } = await import('../utils/dropped-layer-builder');
+      type FileSniffResult = Awaited<ReturnType<typeof sniffBlob>>;
+      const formatResult = (name: string, size: number, result: FileSniffResult, indent: string): string[] => {
+        const sizeKb = (size / 1024).toFixed(1);
+        const lines = [`${indent}${name} (${sizeKb} KB): ${result.description}`];
+        for (const child of result.children ?? []) {
+          lines.push(...formatResult(child.path, child.size, child.result, indent + '  '));
+        }
+        return lines;
+      };
+
+      const groups = await groupDroppedFiles(files);
+      const unhandled: string[] = [];
+      for (const group of groups) {
+        const config = await buildLayerConfigFromGroup(group);
+        if (config) {
+          if (this.adapter?.hasLayer(config.id)) {
+            const baseId = config.id;
+            let n = 1;
+            while (this.adapter.hasLayer(`${baseId}_${n}`)) n++;
+            const newId = `${baseId}_${n}`;
+            const prefix = `${baseId}__`;
+            const newPrefix = `${newId}__`;
+            config.id = newId;
+            config.sources = Object.fromEntries(
+              Object.entries(config.sources ?? {}).map(([key, value]) => [
+                key.startsWith(prefix) ? newPrefix + key.slice(prefix.length) : key,
+                value,
+              ])
+            );
+            config.layers = (config.layers ?? []).map((layer) => ({
+              ...layer,
+              id: layer.id?.startsWith(prefix) ? newPrefix + layer.id.slice(prefix.length) : layer.id,
+              source: layer.source?.startsWith(prefix) ? newPrefix + layer.source.slice(prefix.length) : layer.source,
+            }));
+          }
+          console.log('addLayer()');
+          await this.addLayerRequest(config as unknown as Record<string, unknown>);
+          continue;
+        }
+        for (const item of group) {
+          const result = await sniffBlob(item.blob);
+          unhandled.push(...formatResult(item.name, item.blob.size, result, ''));
+        }
+      }
+      if (unhandled.length > 0) {
+        alert(unhandled.join('\n'));
+      }
     }
 
     private async handleAddLayerEvent(e: CustomEvent) {

@@ -1065,6 +1065,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     return {
       id: this.exportLayerId,
       type: 'style',
+      version: 8,
       metadata: {
         label: 'GPS tracks',
         legendRole: 'overlay',

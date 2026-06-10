@@ -568,7 +568,7 @@ function validateLayers(
     }
 
     const l = layer as Record<string, unknown>;
-    const allowedKeys = l.type === 'style' ? [...KNOWN_KEYS.layer, 'attribution'] : KNOWN_KEYS.layer;
+    const allowedKeys = l.type === 'style' ? [...KNOWN_KEYS.layer, 'attribution', 'version'] : KNOWN_KEYS.layer;
     checkUnknownKeys(l, allowedKeys, path, warnings);
 
     // Required: id

@@ -299,6 +299,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
             await this.mapElement.addLayerRequest({
                 id: TRUEAREA_LAYER,
                 type: 'style',
+                version: 8,
                 metadata: { label: 'TrueArea copies', legendRole: 'overlay', attribution: '<a href="https://thetruesize.com">The True Size Of</a>' },
                 sources: {
                     data: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
@@ -329,6 +330,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
             await this.mapElement.addLayerRequest({
                 id: GHOST_LAYER,
                 type: 'style',
+                version: 8,
                 metadata: { hideFromLegend: true },
                 sources: {
                     data: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },

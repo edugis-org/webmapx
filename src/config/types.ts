@@ -250,6 +250,8 @@ export interface StandardLayerConfig extends WebMapXLayerBase {
  */
 export interface CompositeStyleLayerConfig extends WebMapXLayerBase {
   type: 'style';
+  /** MapLibre style spec version - must be 8 if present (omit for `url`-based remote styles). */
+  version?: 8;
   /** Remote style URL (e.g. https://tiles.openfreemap.org/styles/liberty). */
   url?: string;
   /**
