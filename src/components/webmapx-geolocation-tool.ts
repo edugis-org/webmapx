@@ -4,6 +4,8 @@ import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
+import '@shoelace-style/shoelace/dist/components/input/input.js';
+import { BlobWriter, TextReader, ZipWriter } from '@zip.js/zip.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMap } from '../map/IMapInterfaces';
 import type { WebmapxMapElement } from './webmapx-map';
@@ -27,8 +29,8 @@ type GeolocationMapState = {
   trackOrder: number;
 };
 
-/** Compact on-disk representation of a stored track point: [track, order, timestamp, lng, lat]. */
-type StoredTrackPoint = [number, number, number, number, number];
+/** Compact on-disk representation of a stored track point: [track, order, timestamp, lng, lat, accuracy]. */
+type StoredTrackPoint = [number, number, number, number, number, number];
 
 const TRACK_STORAGE_KEY = 'webmapx-geolocation-tracks';
 const TRACK_LAST_ID_KEY = 'webmapx-geolocation-track-last-id';
@@ -84,11 +86,11 @@ function buildTrackGeoJSON(points: StoredTrackPoint[]): {
     }
   };
 
-  for (const [track, order, timestamp, lng, lat] of sorted) {
+  for (const [track, order, timestamp, lng, lat, accuracy] of sorted) {
     pointFeatures.push({
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [lng, lat] },
-      properties: { track, order, timestamp }
+      properties: { track, order, timestamp, precision: accuracy ?? 0 }
     });
     if (track !== currentTrack) {
       flushLine();
@@ -198,16 +200,20 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
   @state() private message = 'Determining position...';
   @state() private lastUpdate: string | null = null;
   @state() private exportDialogOpen = false;
+  @state() private storedPointCount = 0;
+  @state() private exportFilenameStep = false;
+  @state() private exportFilename = 'gps-tracks';
   @state() private eraseAfterExport = true;
 
   private mapElement: WebmapxMapElement | null = null;
   private flownTo = false;
-  private readonly sourceId = 'webmapx-geolocation';
-  private readonly trailLayerId = 'webmapx-geolocation-trail';
+  private readonly sourceId = '__webmapx-geolocation';
+  private readonly trailLayerId = '__webmapx-geolocation-trail';
   private readonly exportLayerId = 'webmapx-geolocation-tracks-export';
-  private readonly exportSourceId = `${this.exportLayerId}:data`;
-  private readonly radiusLayerId = 'webmapx-geolocation-radius';
-  private readonly pointLayerId = 'webmapx-geolocation-point';
+  private readonly exportLinesSourceId = `${this.exportLayerId}:lines`;
+  private readonly exportPointsSourceId = `${this.exportLayerId}:points`;
+  private readonly radiusLayerId = '__webmapx-geolocation-radius';
+  private readonly pointLayerId = '__webmapx-geolocation-point';
   private panelLinked = false;
   private panelElement: HTMLElement | null = null;
   private boundHandleToolSelect = (e: Event) => this.handleToolSelect(e as CustomEvent);
@@ -798,7 +804,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     if (state.currentTrackId === null) return;
     state.trackOrder += 1;
     const points = loadStoredTrackPoints();
-    points.push([state.currentTrackId, state.trackOrder, fix.timestamp, fix.lng, fix.lat]);
+    points.push([state.currentTrackId, state.trackOrder, fix.timestamp, fix.lng, fix.lat, fix.accuracy]);
     saveStoredTrackPoints(points);
   }
 
@@ -978,7 +984,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
             label="Export tracked points"
             title="Export tracked points"
             style="margin-left: auto;"
-            @click=${() => { this.exportDialogOpen = true; }}
+            @click=${() => { this.storedPointCount = loadStoredTrackPoints().length; this.exportDialogOpen = true; }}
           ></sl-icon-button>
         </div>
         <div class="status" style="white-space: pre-line;">${this.message}</div>
@@ -992,34 +998,113 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
       </div>
 
       <sl-dialog label="Export tracked points" .open=${this.exportDialogOpen}
-        @sl-request-close=${() => { this.exportDialogOpen = false; }}>
-        <p>Save the recorded GPS tracks as GeoJSON, or add them to the map.</p>
-        <p>${loadStoredTrackPoints().length} point(s) stored.</p>
-        <label style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0.5rem;">
-          <input type="checkbox" .checked=${this.eraseAfterExport}
-            @change=${(e: Event) => { this.eraseAfterExport = (e.target as HTMLInputElement).checked; }} />
-          <span>Erase from memory</span>
-        </label>
-        <div slot="footer" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-          <sl-button @click=${() => this.handleExportSaveFiles()}>Save as files</sl-button>
-          <sl-button @click=${() => this.handleExportAddToMap()}>Add to map</sl-button>
-          <sl-button variant="text" @click=${() => { this.exportDialogOpen = false; }}>Cancel</sl-button>
-        </div>
+        @sl-request-close=${() => { this.exportDialogOpen = false; this.exportFilenameStep = false; }}>
+        ${this.exportFilenameStep ? html`
+          <div style="display:flex; align-items:center; gap:0.4rem;">
+            <span>Filename</span>
+            <sl-input style="flex:1;" size="small" .value=${this.exportFilename}
+              @sl-input=${(e: Event) => { this.exportFilename = (e.target as any).value; }}>
+              <span slot="suffix">.zip</span>
+            </sl-input>
+          </div>
+          <div slot="footer" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <sl-button variant="primary" @click=${() => this.handleExportSaveFiles()}>Download</sl-button>
+            <sl-button variant="text" @click=${() => { this.exportFilenameStep = false; }}>Back</sl-button>
+          </div>
+        ` : html`
+          <p>Save the recorded GPS tracks as GeoJSON, or add them to the map.</p>
+          <p>${this.storedPointCount} point(s) stored.</p>
+          <label style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0.5rem;">
+            <input type="checkbox" .checked=${this.eraseAfterExport}
+              @change=${(e: Event) => { this.eraseAfterExport = (e.target as HTMLInputElement).checked; }} />
+            <span>Erase from memory</span>
+          </label>
+          <div slot="footer" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <sl-button .disabled=${this.storedPointCount === 0} @click=${() => this.openExportFilenameStep()}>Save as files</sl-button>
+            <sl-button .disabled=${this.storedPointCount === 0} @click=${() => this.handleExportAddToMap()}>Add to map</sl-button>
+            <sl-button variant="text" @click=${() => { this.exportDialogOpen = false; }}>Cancel</sl-button>
+          </div>
+        `}
       </sl-dialog>
     `;
   }
 
-  private handleExportSaveFiles(): void {
+  private openExportFilenameStep(): void {
+    const now = new Date();
+    // Shift by the local timezone offset so toISOString() reflects local time.
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    const stamp = local.toISOString().slice(0, 16).replace(':', '');
+    this.exportFilename = `gps-tracks-${stamp}`;
+    this.exportFilenameStep = true;
+  }
+
+  private async handleExportSaveFiles(): Promise<void> {
     const { points, lines } = buildTrackGeoJSON(loadStoredTrackPoints());
-    this.downloadBlob(new Blob([JSON.stringify(points, null, 2)], { type: 'application/geo+json' }), 'gps-track-points.geojson');
-    this.downloadBlob(new Blob([JSON.stringify(lines, null, 2)], { type: 'application/geo+json' }), 'gps-track-lines.geojson');
+    const name = this.exportFilename.trim() || 'gps-tracks';
+    const zipWriter = new ZipWriter(new BlobWriter('application/zip'));
+    await zipWriter.add('gps-track-points.geojson', new TextReader(JSON.stringify(points, null, 2)));
+    await zipWriter.add('gps-track-lines.geojson', new TextReader(JSON.stringify(lines, null, 2)));
+    const style = this.buildTracksStyleConfig('gps-track-lines.geojson', 'gps-track-points.geojson');
+    await zipWriter.add('style.json', new TextReader(JSON.stringify(style, null, 2)));
+    this.downloadBlob(await zipWriter.close(), `${name}.zip`);
     if (this.eraseAfterExport) this.eraseStoredTracks();
+    this.exportFilenameStep = false;
     this.exportDialogOpen = false;
+  }
+
+  /**
+   * Builds the `type: 'style'` composite layer config for the GPS tracks layer.
+   *
+   * `linesSource`/`pointsSource` are the per-source `data` values (inline
+   * GeoJSON for the in-map layer, or relative file URLs for the exported
+   * style.json) — kept as separate sources/layers so each can point at its
+   * own file when exported. Constructed fresh each call so callers never
+   * share/mutate the same source-data object.
+   */
+  private buildTracksStyleConfig(linesSource: unknown, pointsSource: unknown): Record<string, unknown> {
+    return {
+      id: this.exportLayerId,
+      type: 'style',
+      metadata: {
+        label: 'GPS tracks',
+        legendRole: 'overlay',
+        abstract: 'Tracked GPS points and the tracks connecting them, recorded via "Track me".',
+        properties: [{ name: 'timestamp', type: 'create-time' }]
+      },
+      sources: {
+        lines: { type: 'geojson', data: linesSource },
+        points: { type: 'geojson', data: pointsSource }
+      },
+      layers: [
+        {
+          id: 'gps-tracks-lines',
+          type: 'line',
+          source: 'lines',
+          paint: {
+            'line-color': 'rgb(66, 133, 244)',
+            'line-width': 3,
+            'line-opacity': 0.8
+          }
+        },
+        {
+          id: 'gps-tracks-points',
+          type: 'circle',
+          source: 'points',
+          paint: {
+            'circle-radius': 3,
+            'circle-color': '#ffffff',
+            'circle-stroke-color': 'rgb(66, 133, 244)',
+            'circle-stroke-width': 1
+          }
+        }
+      ]
+    };
   }
 
   /** Wipe stored track points (the last-track-id counter is kept and keeps incrementing). */
   private eraseStoredTracks(): void {
     saveStoredTrackPoints([]);
+    this.storedPointCount = 0;
     if (this.mapElement) {
       const state = this.getMapStateIfAny(this.mapElement);
       if (state) {
@@ -1034,46 +1119,12 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     if (!this.adapter || !this.mapElement) return;
     const adapter = this.adapter;
     const { points, lines } = buildTrackGeoJSON(loadStoredTrackPoints());
-    const combined: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
-      features: [...lines.features, ...points.features]
-    };
+    if (points.features.length === 0) return;
     if (adapter.hasLayer(this.exportLayerId)) {
-      adapter.getSource(this.exportSourceId)?.setData(combined);
+      adapter.getSource(this.exportLinesSourceId)?.setData(lines);
+      adapter.getSource(this.exportPointsSourceId)?.setData(points);
     } else {
-      await this.mapElement.addLayerRequest({
-        id: this.exportLayerId,
-        type: 'style',
-        metadata: { label: 'GPS tracks', legendRole: 'overlay' },
-        sources: {
-          data: { type: 'geojson', data: combined }
-        },
-        layers: [
-          {
-            id: 'gps-tracks-lines',
-            type: 'line',
-            source: 'data',
-            paint: {
-              'line-color': 'rgb(66, 133, 244)',
-              'line-width': 3,
-              'line-opacity': 0.8
-            },
-            filter: ['==', '$type', 'LineString']
-          },
-          {
-            id: 'gps-tracks-points',
-            type: 'circle',
-            source: 'data',
-            paint: {
-              'circle-radius': 3,
-              'circle-color': '#ffffff',
-              'circle-stroke-color': 'rgb(66, 133, 244)',
-              'circle-stroke-width': 1
-            },
-            filter: ['==', '$type', 'Point']
-          }
-        ]
-      });
+      await this.mapElement.addLayerRequest(this.buildTracksStyleConfig(lines, points));
     }
     if (this.eraseAfterExport) this.eraseStoredTracks();
   }

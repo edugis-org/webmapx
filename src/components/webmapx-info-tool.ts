@@ -48,10 +48,16 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 
     private throttledHoverQuery = throttle(async (pixel: Pixel, lngLat: LngLat) => {
         if (this.mode !== 'hover' || !this.active || !this.adapter) return;
-        const results = await this.adapter.queryService.queryFeatures(
-            { pixel, lngLat },
-            { tolerancePx: HOVER_TOLERANCE_PX, includeWMS: false }
-        );
+        let results: FeatureInfo[];
+        try {
+            results = await this.adapter.queryService.queryFeatures(
+                { pixel, lngLat },
+                { tolerancePx: HOVER_TOLERANCE_PX, includeWMS: false }
+            );
+        } catch (error) {
+            console.warn('[info-tool] queryFeatures failed', error);
+            results = [];
+        }
         if (this.mode === 'hover') {
             this.features = results;
         }
