@@ -1,14 +1,23 @@
 import proj4 from 'proj4';
 import { parseShp, parseDbf } from 'shpjs';
 
-function reprojectGeometry(geometry: GeoJSON.Geometry, project: (xy: [number, number]) => [number, number]): GeoJSON.Geometry {
-  const map = (coords: unknown): unknown => {
-    if (Array.isArray(coords) && typeof coords[0] === 'number') {
-      return project(coords as [number, number]);
+/** Reprojects a geometry's coordinates in place to avoid doubling memory with a copy. */
+function reprojectGeometryInPlace(geometry: GeoJSON.Geometry, project: (xy: [number, number]) => [number, number]): void {
+  const visit = (coords: unknown): void => {
+    const arr = coords as unknown[];
+    if (typeof arr[0] === 'number') {
+      const [x, y] = project(arr as [number, number]);
+      arr[0] = x;
+      arr[1] = y;
+      return;
     }
-    return (coords as unknown[]).map(map);
+    for (const item of arr) visit(item);
   };
-  return { ...geometry, coordinates: map((geometry as { coordinates: unknown }).coordinates) } as GeoJSON.Geometry;
+  if (geometry.type === 'GeometryCollection') {
+    geometry.geometries.forEach((g) => reprojectGeometryInPlace(g, project));
+  } else {
+    visit((geometry as { coordinates: unknown }).coordinates);
+  }
 }
 
 function isWgs84(prjText: string): boolean {
@@ -27,15 +36,20 @@ export function shapefileToGeoJSON(shpBuffer: ArrayBuffer, dbfBuffer: ArrayBuffe
 
   if (project) console.log('projecting...');
   console.log('converting to geojson');
-  const features: GeoJSON.Feature[] = [];
+  const features: GeoJSON.Feature[] = new Array(geometries.length);
+  let count = 0;
   for (let i = 0; i < geometries.length; i++) {
     const geometry = geometries[i];
+    geometries[i] = null; // drop reference so GC can reclaim as we go
     if (!geometry) continue;
-    features.push({
+    if (project) reprojectGeometryInPlace(geometry, project);
+    features[count++] = {
       type: 'Feature',
-      geometry: project ? reprojectGeometry(geometry, project) : geometry,
+      geometry,
       properties: records[i] ?? {},
-    });
+    };
+    records[i] = undefined as unknown as Record<string, unknown>;
   }
+  features.length = count;
   return { type: 'FeatureCollection', features };
 }

@@ -106,6 +106,15 @@ export class WebmapxMapElement extends HTMLElement {
     };
 
     private async handleDroppedFiles(files: File[]): Promise<void> {
+      this.adapter?.store.dispatch({ mapBusy: true }, 'UI');
+      try {
+        await this.processDroppedFiles(files);
+      } finally {
+        this.adapter?.store.dispatch({ mapBusy: false }, 'UI');
+      }
+    }
+
+    private async processDroppedFiles(files: File[]): Promise<void> {
       const { sniffBlob } = await import('../utils/file-sniff');
       const { groupDroppedFiles, buildLayerConfigFromGroup } = await import('../utils/dropped-layer-builder');
       type FileSniffResult = Awaited<ReturnType<typeof sniffBlob>>;
