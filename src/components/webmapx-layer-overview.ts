@@ -155,6 +155,14 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       cursor: grab;
     }
 
+    /* Suppress :hover-revealed handle right after a drop — the dragged card
+       has snapped away from under the cursor, leaving it resting over a
+       different card that is genuinely hovered but wasn't intentionally so. */
+    .drag-handle.suppress-hover {
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
     .layer-card:active .drag-handle {
       cursor: grabbing;
     }
@@ -485,6 +493,18 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     card.classList.remove('dragging');
     this.dragState = null;
     this.stopAutoScroll();
+
+    // Suppress the :hover-revealed handle on whatever card the cursor is now
+    // resting over (it snapped into place under the cursor, not genuinely
+    // hovered) until the user actually moves the mouse again.
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const restingHandle = under?.closest('.layer-card')?.querySelector('.drag-handle') as HTMLElement | null;
+    if (restingHandle) {
+      restingHandle.classList.add('suppress-hover');
+      document.addEventListener('pointermove', () => {
+        restingHandle.classList.remove('suppress-hover');
+      }, { once: true });
+    }
   }
 
   private updateAutoScroll(clientY: number, panel: HTMLElement | null): void {
