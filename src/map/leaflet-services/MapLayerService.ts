@@ -451,8 +451,47 @@ export class MapLayerService implements ILayerService {
         }
         // Polygon / Rectangle
         if (layer instanceof L.Polygon) {
-            const latlng = map.containerPointToLatLng(clickPoint);
-            return layer.getBounds().contains(latlng);
+            const rings = layer.getLatLngs() as (L.LatLng[] | L.LatLng[][] | L.LatLng[][][]);
+            const toPoints = (ring: L.LatLng[]) => ring.map((ll) => map.latLngToContainerPoint(ll));
+            // Leaflet always returns an array of rings (LatLng[][]) for a simple polygon,
+            // or an array of polygons of rings (LatLng[][][]) for a multipolygon.
+            const first = rings[0] as unknown;
+            const firstPoint = (first as any[])[0];
+            const isLatLng = firstPoint != null && typeof (firstPoint as any).lat === 'number';
+            const polygons: L.Point[][][] = [];
+            if (isLatLng) {
+                // Polygon (with possible holes): rings = [ring][point]
+                polygons.push((rings as L.LatLng[][]).map(toPoints));
+            } else {
+                // MultiPolygon: rings = [poly][ring][point]
+                for (const poly of rings as L.LatLng[][][]) {
+                    polygons.push(poly.map(toPoints));
+                }
+            }
+
+            // Outline-only styling (fill: false) represents a border, not an area —
+            // hit-test it like a line ("on"/"very near") rather than "inside".
+            if ((layer as any).options?.fill === false) {
+                for (const poly of polygons) {
+                    for (const ring of poly) {
+                        for (let i = 0; i < ring.length; i++) {
+                            const a = ring[i];
+                            const b = ring[(i + 1) % ring.length];
+                            if (this.pointToSegmentDistancePx(clickPoint, a, b) <= tolerancePx) return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            if (!layer.getBounds().contains(map.containerPointToLatLng(clickPoint))) return false;
+            for (const poly of polygons) {
+                const [outer, ...holes] = poly;
+                if (!outer || !this.pointInRing(clickPoint, outer)) continue;
+                if (holes.some((hole) => this.pointInRing(clickPoint, hole))) continue;
+                return true;
+            }
+            return false;
         }
         // Polyline
         if (layer instanceof L.Polyline) {
@@ -464,6 +503,18 @@ export class MapLayerService implements ILayerService {
             }
         }
         return false;
+    }
+
+    private pointInRing(p: L.Point, ring: L.Point[]): boolean {
+        let inside = false;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const xi = ring[i].x, yi = ring[i].y;
+            const xj = ring[j].x, yj = ring[j].y;
+            const intersect = ((yi > p.y) !== (yj > p.y)) &&
+                (p.x < (xj - xi) * (p.y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
     }
 
     private pointToSegmentDistancePx(p: L.Point, a: L.Point, b: L.Point): number {
