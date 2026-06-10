@@ -12,7 +12,81 @@ type GeolocationMapState = {
   layersReady: boolean;
   listeners: Set<WebmapxGeolocationTool>;
   mapElement: WebmapxMapElement;
+  /** Last fix accepted as the displayed/centered position (not every raw GPS reading). */
+  bestFix: BestFix | null;
+  /** EMA of recent ground speed (m/s), used to scale plausibility/decay rules. */
+  recentSpeed: number;
+  /** Accepted fixes since "track me" was last (re)enabled, for the trail line. */
+  trail: [number, number][];
 };
+
+export type BestFix = {
+  lng: number;
+  lat: number;
+  accuracy: number;
+  /** epoch ms */
+  timestamp: number;
+};
+
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+/**
+ * Decide whether a new GPS fix should replace the current "best" fix.
+ *
+ * Returns the accepted fix, or `null` if the candidate should be ignored
+ * (map center/trail stay unchanged).
+ *
+ * Rules (see project discussion):
+ * - No best yet -> always accept.
+ * - Candidate's accuracy circle fully inside best's circle -> strictly more
+ *   precise, accept.
+ * - Best is "stale": time since best exceeds how long it'd take to cross its
+ *   own accuracy radius at the recent speed (clamped 1-30s) -> accept
+ *   whatever comes next.
+ * - Candidate accuracy much worse than best (>2.5x) while not stale ->
+ *   reject (likely a transient precision glitch).
+ * - Overlapping circles with equal-or-better accuracy -> accept.
+ * - Otherwise accept only if implied speed is plausible (adaptive ceiling so
+ *   aircraft speeds aren't rejected), else reject.
+ */
+export function evaluateGeolocationFix(
+  best: BestFix | null,
+  candidate: BestFix,
+  recentSpeed: number
+): BestFix | null {
+  if (!best) return candidate;
+
+  const dt = (candidate.timestamp - best.timestamp) / 1000;
+  if (dt <= 0) return null;
+
+  const dist = haversineMeters(best.lat, best.lng, candidate.lat, candidate.lng);
+  const speed = dist / dt;
+
+  const contained = dist + candidate.accuracy <= best.accuracy;
+  if (contained) return candidate;
+
+  const maxAgeSec = Math.min(30, Math.max(1, best.accuracy / Math.max(recentSpeed, 1)));
+  if (dt > maxAgeSec) return candidate;
+
+  const accuracyRatio = candidate.accuracy / best.accuracy;
+  if (accuracyRatio > 2.5) return null;
+
+  const overlapping = dist <= best.accuracy + candidate.accuracy;
+  if (overlapping && accuracyRatio <= 1) return candidate;
+
+  const maxPlausibleSpeed = Math.max(300, recentSpeed * 4); // m/s; generous ceiling covers aircraft
+  if (speed > maxPlausibleSpeed) return null;
+
+  return candidate;
+}
 
 @customElement('webmapx-geolocation-tool')
 export class WebmapxGeolocationTool extends WebmapxBaseTool {
@@ -42,6 +116,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
   private mapElement: WebmapxMapElement | null = null;
   private flownTo = false;
   private readonly sourceId = 'webmapx-geolocation';
+  private readonly trailLayerId = 'webmapx-geolocation-trail';
   private readonly radiusLayerId = 'webmapx-geolocation-radius';
   private readonly pointLayerId = 'webmapx-geolocation-point';
   private panelLinked = false;
@@ -157,12 +232,19 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     if (WebmapxGeolocationTool.globalLastPosition && this.mapElement) {
       const position = WebmapxGeolocationTool.globalLastPosition;
       this.handleSharedPosition(position);
-      this.updateMapForPosition(position, this.mapElement);
-      const adapter = this.mapElement.adapter;
-      if (adapter) {
-        const state = this.getMapStateIfAny(this.mapElement);
-        if (state) {
-          this.maybeRecenter(position, state.listeners, adapter);
+      const state = this.getMapStateIfAny(this.mapElement);
+      if (state) {
+        const fix: BestFix = state.bestFix ?? {
+          lng: position.coords.longitude,
+          lat: position.coords.latitude,
+          accuracy: position.coords.accuracy,
+          timestamp: position.timestamp
+        };
+        state.bestFix = fix;
+        this.updateMapForPosition(fix, state);
+        const adapter = this.mapElement.adapter;
+        if (adapter) {
+          this.maybeRecenter(fix, state.listeners, adapter);
         }
       }
     } else if (WebmapxGeolocationTool.globalLastError) {
@@ -321,6 +403,24 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     // Track whether any add operations failed so we only mark layers ready when everything succeeded
     let hadLayerErrors = false;
     try {
+      // Added first so it renders behind the precision circle and position dot.
+      const added = await targetMap.addLayerRequest({
+        id: this.trailLayerId,
+        type: 'line',
+        source: this.sourceId,
+        metadata: { isToolLayer: true, hideFromLegend: true, label: 'Geolocation trail' },
+        paint: {
+          'line-color': 'rgb(66, 133, 244)',
+          'line-width': 3,
+          'line-opacity': 0.8
+        },
+        filter: ['==', '$type', 'LineString']
+      });
+      if (!added) hadLayerErrors = true;
+    } catch (error) {
+      hadLayerErrors = true;
+    }
+    try {
       const added = await targetMap.addLayerRequest({
         id: this.radiusLayerId,
         type: 'fill',
@@ -372,6 +472,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     if (state && !state.layersReady) {
       return;
     }
+    try { this.mapElement.removeInlineLayer(this.trailLayerId); } catch (error) {}
     try { this.mapElement.removeInlineLayer(this.radiusLayerId); } catch (error) {}
     try { this.mapElement.removeInlineLayer(this.pointLayerId); } catch (error) {}
     try { this.adapter.unsuppressBusySignalForSource(this.sourceId); } catch (error) {}
@@ -421,7 +522,10 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         activeCount: 0,
         layersReady: false,
         listeners: new Set(),
-        mapElement
+        mapElement,
+        bestFix: null,
+        recentSpeed: 0,
+        trail: []
       };
       WebmapxGeolocationTool.mapStates.set(mapElement, state);
     }
@@ -458,6 +562,9 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     if (state.activeCount === 0) {
       this.clearMapData();
       this.clearMapLayers();
+      state.bestFix = null;
+      state.recentSpeed = 0;
+      state.trail = [];
     }
     if (WebmapxGeolocationTool.globalListeners.size === 0) {
       this.stopGlobalWatch();
@@ -562,17 +669,45 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
   private handleGlobalUpdate(position: GeolocationPosition): void {
     WebmapxGeolocationTool.globalLastPosition = position;
     WebmapxGeolocationTool.globalLastError = null;
+    const candidate: BestFix = {
+      lng: position.coords.longitude,
+      lat: position.coords.latitude,
+      accuracy: position.coords.accuracy,
+      timestamp: position.timestamp
+    };
     WebmapxGeolocationTool.mapStates.forEach((state) => {
       if (state.activeCount === 0) {
         return;
       }
-      this.updateMapForPosition(position, state.mapElement);
-      state.listeners.forEach((listener) => listener.handleSharedPosition(position));
-      const adapter = state.mapElement.adapter;
-      if (adapter) {
-        this.maybeRecenter(position, state.listeners, adapter);
+      const accepted = evaluateGeolocationFix(state.bestFix, candidate, state.recentSpeed);
+      if (accepted) {
+        if (state.bestFix) {
+          const dt = (accepted.timestamp - state.bestFix.timestamp) / 1000;
+          if (dt > 0) {
+            const dist = haversineMeters(state.bestFix.lat, state.bestFix.lng, accepted.lat, accepted.lng);
+            state.recentSpeed = state.recentSpeed * 0.7 + (dist / dt) * 0.3;
+          }
+        }
+        state.bestFix = accepted;
+        if (WebmapxGeolocationTool.anyFollowing(state)) {
+          state.trail.push([accepted.lng, accepted.lat]);
+        }
+        this.updateMapForPosition(accepted, state);
+        const adapter = state.mapElement.adapter;
+        if (adapter) {
+          this.maybeRecenter(accepted, state.listeners, adapter);
+        }
       }
+      state.listeners.forEach((listener) => listener.handleSharedPosition(position));
     });
+  }
+
+  private static anyFollowing(state: GeolocationMapState): boolean {
+    let following = false;
+    state.listeners.forEach((listener) => {
+      if (listener.follow) following = true;
+    });
+    return following;
   }
 
   private handleGlobalErrorUpdate(error: GeolocationPositionError): void {
@@ -584,7 +719,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
   }
 
   private maybeRecenter(
-    position: GeolocationPosition,
+    fix: BestFix,
     listeners: Set<WebmapxGeolocationTool>,
     adapter: IMap
   ): void {
@@ -594,38 +729,45 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
       const wantsCenter = listener.follow || !listener.flownTo;
       if (wantsCenter) {
         shouldCenter = true;
-        const fallbackZoom = adapter.getViewportState().zoom ?? 0;
-        const desiredZoom = typeof listener.zoom === 'number' ? listener.zoom : Math.max(fallbackZoom, 15);
-        targetZoom = targetZoom === null ? desiredZoom : Math.max(targetZoom, desiredZoom);
+        if (!listener.flownTo) {
+          // Auto-zoom only on the first fix; afterwards leave zoom to the user.
+          const fallbackZoom = adapter.getViewportState().zoom ?? 0;
+          const desiredZoom = typeof listener.zoom === 'number' ? listener.zoom : Math.max(fallbackZoom, 15);
+          targetZoom = targetZoom === null ? desiredZoom : Math.max(targetZoom, desiredZoom);
+        }
         listener.flownTo = true;
       }
     });
-    if (!shouldCenter || targetZoom === null) {
+    if (!shouldCenter) {
       return;
     }
-    const center: [number, number] = [position.coords.longitude, position.coords.latitude];
+    const center: [number, number] = [fix.lng, fix.lat];
+    const zoom = targetZoom ?? adapter.getViewportState().zoom ?? 0;
     try {
-      adapter.setViewport(center, targetZoom);
+      adapter.setViewport(center, zoom);
     } catch (error) {
       console.warn('geolocation setViewport failed', error);
     }
   }
 
-  private updateMapForPosition(position: GeolocationPosition, mapElement: WebmapxMapElement): void {
+  private updateMapForPosition(fix: BestFix, state: GeolocationMapState): void {
+    const mapElement = state.mapElement;
     const adapter = mapElement.adapter;
     if (!adapter) {
       return;
     }
-    const state = this.getMapState(mapElement);
     if (!state.layersReady) {
       this.ensureMapLayers(adapter, mapElement);
     }
+    const features: GeoJSON.Feature[] = [];
+    if (state.trail.length >= 2) {
+      features.push(this.createTrailFeature(state.trail));
+    }
+    features.push(this.createAccuracyCircle(fix.lng, fix.lat, fix.accuracy));
+    features.push(this.createPoint(fix.lng, fix.lat));
     const geojson = {
       type: 'FeatureCollection',
-      features: [
-        this.createAccuracyCircle(position, position.coords.accuracy),
-        this.createPoint(position)
-      ]
+      features
     } as GeoJSON.FeatureCollection;
     const source = adapter.getSource(this.sourceId);
     if (source) {
@@ -646,6 +788,16 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     const target = e.target as HTMLInputElement | null;
     if (!target) return;
     this.follow = target.checked;
+    if (this.follow && this.mapElement) {
+      // Start a fresh trail for this tracking session.
+      const state = this.getMapStateIfAny(this.mapElement);
+      if (state) {
+        state.trail = [];
+        if (state.bestFix) {
+          state.trail.push([state.bestFix.lng, state.bestFix.lat]);
+        }
+      }
+    }
     WebmapxGeolocationTool.updateWakeLock();
   }
 
@@ -664,21 +816,17 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     }
   }
 
-  private createAccuracyCircle(position: GeolocationPosition, radiusMeters: number): GeoJSON.Feature {
-    const coords = {
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude
-    };
+  private createAccuracyCircle(lng: number, lat: number, radiusMeters: number): GeoJSON.Feature {
     const km = radiusMeters / 1000;
     const points = 64;
-    const distanceX = km / (111.320 * Math.cos(coords.latitude * Math.PI / 180));
+    const distanceX = km / (111.320 * Math.cos(lat * Math.PI / 180));
     const distanceY = km / 110.574;
     const ring: number[][] = [];
     for (let i = 0; i < points; i += 1) {
       const theta = (i / points) * (2 * Math.PI);
       const x = distanceX * Math.cos(theta);
       const y = distanceY * Math.sin(theta);
-      ring.push([coords.longitude + x, coords.latitude + y]);
+      ring.push([lng + x, lat + y]);
     }
     ring.push(ring[0]);
     return {
@@ -691,12 +839,23 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     };
   }
 
-  private createPoint(position: GeolocationPosition): GeoJSON.Feature {
+  private createPoint(lng: number, lat: number): GeoJSON.Feature {
     return {
       type: 'Feature',
       geometry: {
         type: 'Point',
-        coordinates: [position.coords.longitude, position.coords.latitude]
+        coordinates: [lng, lat]
+      },
+      properties: {}
+    };
+  }
+
+  private createTrailFeature(coords: [number, number][]): GeoJSON.Feature {
+    return {
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: coords
       },
       properties: {}
     };
