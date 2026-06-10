@@ -133,6 +133,18 @@ export async function buildLayerConfigFromGroup(group: NamedBlob[]): Promise<Com
       } catch {
         // skip unparsable file
       }
+    } else if (sniff.kind === 'topojson') {
+      try {
+        const topology = JSON.parse(await item.blob.text());
+        const { feature } = await import('topojson-client');
+        const objects = topology.objects as Record<string, unknown>;
+        for (const [name, object] of Object.entries(objects)) {
+          const data = feature(topology, object as never) as unknown as GeoJSON.FeatureCollection;
+          geojsonFiles.push({ name: Object.keys(objects).length > 1 ? `${item.name}#${name}` : item.name, data });
+        }
+      } catch {
+        // skip unparsable file
+      }
     } else if (sniff.kind === 'maplibre-style' && !styleFile) {
       try {
         styleFile = { name: item.name, style: JSON.parse(await item.blob.text()) };

@@ -33,9 +33,27 @@ function bytesEqual(buf: Uint8Array, offset: number, expected: number[]): boolea
 
 const DELIMITERS = [',', ';', '\t', '|'];
 
+/** True if text looks like decoded binary data (control chars / replacement chars from invalid UTF-8). */
+function looksBinary(text: string): boolean {
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    // allow tab, LF, CR; reject other control chars and the U+FFFD replacement char
+    if ((code < 0x20 && code !== 0x09 && code !== 0x0a && code !== 0x0d) || code === 0xfffd) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function detectCsv(text: string): FileSniffResult | null {
-  const firstLine = text.split(/\r?\n/, 1)[0] ?? '';
+  if (looksBinary(text)) return null;
+
+  let lines = text.split(/\r?\n/).filter((l) => l.length > 0).slice(0, 5);
+  // the last line may be truncated by the header-byte sample; ignore it if there's more than one
+  if (lines.length > 1) lines = lines.slice(0, -1);
+  const firstLine = lines[0] ?? '';
   if (!firstLine) return null;
+
   let bestDelim: string | null = null;
   let bestCount = 0;
   for (const delim of DELIMITERS) {
@@ -46,6 +64,12 @@ function detectCsv(text: string): FileSniffResult | null {
     }
   }
   if (!bestDelim || bestCount < 1) return null;
+
+  // Require a consistent column count across the first few lines.
+  for (const line of lines) {
+    if (line.split(bestDelim).length - 1 !== bestCount) return null;
+  }
+
   const delimName = { ',': 'comma', ';': 'semicolon', '\t': 'tab', '|': 'pipe' }[bestDelim];
   return {
     kind: 'csv',
