@@ -97,7 +97,7 @@ webmapx-toolbar sl-button[data-tooltip]:focus-visible::after {
 }
 
 #external-tools-column {
-    flex: 1 1 0;
+    flex: 0 0 294px;
     min-width: 0;
     padding: 20px;
     background: var(--color-background-secondary);

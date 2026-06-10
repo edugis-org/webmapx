@@ -210,7 +210,32 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         .method-row input { cursor: pointer; }
         .method-row label { cursor: pointer; }
         .rotation-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
-        .rotation-row input[type=range] { flex: 1; }
+        .rotation-row input[type=range] {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            background: var(--sl-color-neutral-300, #ccc);
+            border-radius: 2px;
+            outline: none;
+        }
+        .rotation-row input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--sl-color-primary-600, #3b82f6);
+            cursor: pointer;
+        }
+        .rotation-row input[type=range]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border: none;
+            border-radius: 50%;
+            background: var(--sl-color-primary-600, #3b82f6);
+            cursor: pointer;
+        }
         .rotation-reset { border: none; background: none; cursor: pointer; padding: 0 2px; font-size: 1rem; line-height: 1; color: var(--sl-color-neutral-600, #555); }
         .rotation-reset:hover { color: var(--sl-color-primary-600, #3b82f6); }
         .rotation-value { font-variant-numeric: tabular-nums; min-width: 3.5em; text-align: right; font-size: 0.8rem; color: var(--sl-color-neutral-600, #555); }
