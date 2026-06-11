@@ -203,6 +203,9 @@ interface WebMapXLayerBase {
   singleGroup?: string;
   /** Fallback layer id when this layer cannot be activated (e.g. unsupported engine). */
   fallbackLayerId?: string;
+  /** Layer-level zoom range (config override, e.g. for legend "zoom to level X" hints). */
+  minzoom?: number;
+  maxzoom?: number;
   /** Extended metadata (legendRole, styleUrl, spriteUrl, etc.) */
   metadata?: LayerMetadata;
 }

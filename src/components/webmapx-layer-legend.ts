@@ -144,9 +144,32 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
 
     // ─── Composite style legend ───────────────────────────────────────────────
 
+    /** Renders a "Zoom to level X for display" hint when the layer has no content at the current zoom. */
+    private renderZoomHint(minz: number, maxz: number, zoom: number): TemplateResult {
+        const target = zoom < minz ? Math.ceil(minz) : Math.floor(maxz);
+        return html`<div class="legend-row"><span class="legend-label">Zoom to level ${target} for display</span></div>`;
+    }
+
     private renderCompositeLegend(sublayers: unknown[], zoom: number): TemplateResult {
         const rows: TemplateResult[] = [];
         const seen = new Set<string>(); // deduplicate by visual key
+
+        // Combined zoom range across all visible-eligible sublayers (256px-tile +1 offset, as below)
+        let overallMin = Infinity;
+        let overallMax = -Infinity;
+        for (const raw of sublayers) {
+            const sub = raw as Record<string, unknown>;
+            if (!sub || typeof sub.type !== 'string' || sub.hideFromLegend === true) continue;
+            const layout = sub.layout as Record<string, unknown> | undefined;
+            if (layout?.['visibility'] === 'none') continue;
+            const minz = typeof sub.minzoom === 'number' ? sub.minzoom : 0;
+            const maxz = (typeof sub.maxzoom === 'number' ? sub.maxzoom : 24) + 1;
+            overallMin = Math.min(overallMin, minz);
+            overallMax = Math.max(overallMax, maxz);
+        }
+        if (overallMin !== Infinity && (zoom < overallMin || zoom >= overallMax)) {
+            return this.renderZoomHint(overallMin, overallMax - 1, zoom);
+        }
 
         for (const raw of sublayers) {
             const sub = raw as Record<string, unknown>;
@@ -789,9 +812,22 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         const label = typeof meta?.label === 'string' ? meta.label : this.layerId;
         const sublayers = Array.isArray(meta?.sublayers) ? meta!.sublayers as unknown[] : null;
 
+        // Top-level layer minzoom/maxzoom (config-level override) applies regardless of composite.
+        const topMinz = typeof meta?.minzoom === 'number' ? meta.minzoom : 0;
+        const topMaxz = typeof meta?.maxzoom === 'number' ? meta.maxzoom : 24;
+        if (this.zoom < topMinz || this.zoom >= topMaxz + 1) {
+            return this.renderZoomHint(topMinz, topMaxz, this.zoom);
+        }
+
         // Composite style layer with many sub-layers (e.g. OpenFreeMap)
         if (sublayers && sublayers.length > 1) {
             return this.renderCompositeLegend(sublayers, this.zoom);
+        }
+
+        const minz = topMinz;
+        const maxz = topMaxz;
+        if (this.zoom < minz || this.zoom >= maxz + 1) {
+            return this.renderZoomHint(minz, maxz, this.zoom);
         }
 
         const supportedTypes = ['fill', 'fill-extrusion', 'line', 'circle', 'symbol', 'raster', 'background'];

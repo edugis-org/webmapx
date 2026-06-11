@@ -86,6 +86,7 @@ export interface LayerPanelItem {
   topLevelGroup: string | null;
   visible: boolean;
   hasExtent: boolean;
+  outOfZoom: boolean;
 }
 
 @customElement('webmapx-layer-overview')
@@ -276,6 +277,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       word-break: break-word;
     }
 
+    .layer-label.out-of-zoom {
+      color: var(--sl-color-neutral-500);
+      opacity: 0.6;
+    }
+
     .layer-details {
       display: grid;
       grid-template-rows: 1fr;
@@ -450,7 +456,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                         label=${item.visible ? 'Hide layer' : 'Show layer'}
                         @click=${() => this.handleVisibilityToggle(item.layerId)}
                       ></sl-icon-button>
-                      <span class="layer-label" title=${item.label}>${item.label}</span>
+                      <span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}" title=${item.label}>${item.label}</span>
                       <sl-icon-button
                         class="collapse-toggle"
                         name=${this.collapsedLayerIds.has(item.layerId) ? 'chevron-right' : 'chevron-down'}
@@ -760,12 +766,17 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         ? metadata.group
         : null;
 
+      const minz = typeof metadata?.minzoom === 'number' ? metadata.minzoom : 0;
+      const maxz = typeof metadata?.maxzoom === 'number' ? metadata.maxzoom : 24;
+      const zoom = typeof state.zoomLevel === 'number' ? state.zoomLevel : 0;
+
       const item: LayerPanelItem = {
         layerId,
         label,
         topLevelGroup,
         visible: !this.hiddenLayerIds.has(layerId),
         hasExtent: this.layerHasExtent(layerId, metadata),
+        outOfZoom: zoom < minz || zoom >= maxz + 1,
       };
 
       if (legendRole === 'background') {

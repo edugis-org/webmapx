@@ -539,16 +539,17 @@ export class MapCoreService implements IMapCore {
 
     private applyGlobeFog(): void {
         if (!this.mapInstance) return;
-        // Set canvas background to near-black for space appearance
+        const projectionType = (this.mapInstance as any).getProjection?.()?.type;
+        const isGlobe = projectionType === 'globe';
         const canvas = (this.mapInstance as any).getCanvas?.() as HTMLCanvasElement | undefined;
-        if (canvas) canvas.style.background = '#000008';
-        // MapLibre v5 sky layer: space above, blue atmosphere at horizon, white haze near ground
+        if (canvas) {
+            // Globe: near-black space behind the globe. Mercator: regular theme background
+            // (visible through transparent basemaps), so it follows light/dark mode.
+            canvas.style.background = isGlobe ? '#000008' : 'var(--color-background-secondary, #f4f4f4)';
+        }
+        // MapLibre v5 sky layer: only meaningful in globe projection
         try {
-            // MapLibre v5: sky is a top-level style property set via setSky()
-            // atmosphere-blend controls the separate atmosphere glow renderer (1=full glow)
-            (this.mapInstance as any).setSky({
-                'sky-color': '#000000',
-            });
+            (this.mapInstance as any).setSky(isGlobe ? { 'sky-color': '#000000' } : undefined);
         } catch { /* setSky not available */ }
     }
 

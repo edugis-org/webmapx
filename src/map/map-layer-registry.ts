@@ -30,6 +30,12 @@ export function registerMapLayer(store: MapStateStore, layer: any): void {
     if (layer?.paint && typeof layer.paint === 'object' && !metadata.paint) {
         metadata.paint = layer.paint;
     }
+    if (typeof layer?.minzoom === 'number' && typeof metadata.minzoom !== 'number') {
+        metadata.minzoom = layer.minzoom;
+    }
+    if (typeof layer?.maxzoom === 'number' && typeof metadata.maxzoom !== 'number') {
+        metadata.maxzoom = layer.maxzoom;
+    }
     // Store resolved GeoJSON data so consumers (e.g. TrueArea) can read it from generic state
     if (!metadata.sourceData && layer?.sources && typeof layer.sources === 'object') {
         for (const src of Object.values(layer.sources)) {
@@ -69,6 +75,8 @@ export function registerMapLayer(store: MapStateStore, layer: any): void {
                 layerType: metadata.layerType ?? currentEntry.layerType,
                 sublayers: metadata.sublayers ?? currentEntry.sublayers,
                 sourceData: metadata.sourceData ?? currentEntry.sourceData,
+                minzoom: metadata.minzoom ?? currentEntry.minzoom,
+                maxzoom: metadata.maxzoom ?? currentEntry.maxzoom,
             },
         },
     }, 'MAP');

@@ -1772,6 +1772,42 @@
           }
         }
       },
+      "pdok-bag": {
+        "id": "pdok-bag",
+        "type": "style",
+        "url": "https://api.pdok.nl/lv/bag/ogc/v1/styles/bag_standaardvisualisatie__webmercatorquad?f=mapbox",
+        "minzoom": 17,
+        "title": "BAG (PDOK)",
+        "attribution": "&copy; Kadaster | PDOK",
+        "layers": []
+      },
+      "pdok-bgt": {
+        "id": "pdok-bgt",
+        "type": "style",
+        "url": "https://api.pdok.nl/lv/bgt/ogc/v1/styles/bgt_standaardvisualisatie__webmercatorquad?f=mapbox",
+        "minzoom": 17,
+        "title": "BGT (PDOK)",
+        "attribution": "&copy; Kadaster | PDOK",
+        "layers": []
+      },
+      "pdok-bgt-achtergrond": {
+        "id": "pdok-bgt-achtergrond",
+        "type": "style",
+        "url": "https://api.pdok.nl/lv/bgt/ogc/v1/styles/bgt_achtergrondvisualisatie__webmercatorquad?f=mapbox",
+        "minzoom": 17,
+        "title": "BGT achtergrond (PDOK)",
+        "attribution": "&copy; Kadaster | PDOK",
+        "layers": []
+      },
+      "pdok-brk-bestuurlijkegebieden": {
+        "id": "pdok-brk-bestuurlijkegebieden",
+        "type": "style",
+        "url": "https://api.pdok.nl/kadaster/brk-bestuurlijke-gebieden/ogc/v1/styles/bestuurlijkegebieden_standaardvisualisatie__webmercatorquad?f=mapbox",
+        "minzoom": 6,
+        "title": "Bestuurlijke gebieden (PDOK)",
+        "attribution": "&copy; Kadaster | PDOK",
+        "layers": []
+      },
       "geographiclines": {
         "id": "geographiclines",
         "type": "style",
@@ -2257,6 +2293,29 @@
                     },
                     {
                       "layerId": "timezones"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "label": "PDOK",
+              "expanded": true,
+              "children": [
+                {
+                  "label": "Vector tiles",
+                  "children": [
+                    {
+                      "layerId": "pdok-bag"
+                    },
+                    {
+                      "layerId": "pdok-bgt"
+                    },
+                    {
+                      "layerId": "pdok-bgt-achtergrond"
+                    },
+                    {
+                      "layerId": "pdok-brk-bestuurlijkegebieden"
                     }
                   ]
                 }

@@ -851,6 +851,8 @@ export class WebmapxMapElement extends HTMLElement {
       title: layer.title,
       singleGroup: layer.singleGroup,
       fallbackLayerId: layer.fallbackLayerId,
+      minzoom: layer.minzoom,
+      maxzoom: layer.maxzoom,
       metadata: {
         ...(this.getLayerMetadata(layer) ?? {}),
         styleUrl: styleUrl ?? undefined,
