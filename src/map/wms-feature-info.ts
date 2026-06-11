@@ -5,6 +5,17 @@
 import type { WMSSourceConfig } from '../config/types';
 import type { FeatureInfo } from './IQueryService';
 
+const EARTH_RADIUS = 6378137;
+
+function lonToMercator(lon: number): number {
+    return lon * Math.PI / 180 * EARTH_RADIUS;
+}
+
+function latToMercator(lat: number): number {
+    const clamped = Math.max(-85.05112878, Math.min(85.05112878, lat));
+    return Math.log(Math.tan(Math.PI / 4 + clamped * Math.PI / 360)) * EARTH_RADIUS;
+}
+
 export interface WMSQueryParams {
     sourceConfig: WMSSourceConfig;
     layerId: string;
@@ -64,25 +75,29 @@ function buildGetFeatureInfoUrl(params: WMSQueryParams): string {
     url.searchParams.set('INFO_FORMAT', infoFormat);
 
     const { west, south, east, north } = bounds;
+    const crs = cfg.crs ?? 'EPSG:4326';
+    const isMercator = crs === 'EPSG:3857' || crs === 'EPSG:900913';
+    const bbox = isMercator
+        ? [lonToMercator(west), latToMercator(south), lonToMercator(east), latToMercator(north)]
+        : [west, south, east, north];
 
     if (version.startsWith('1.3')) {
         // WMS 1.3.0: CRS, I/J params
         // EPSG:4326 has lat/lon axis order — swap to south,west,north,east
-        const crs = cfg.crs ?? 'CRS:84';
         url.searchParams.set('CRS', crs);
         const isEPSG4326 = crs === 'EPSG:4326';
         url.searchParams.set(
             'BBOX',
             isEPSG4326
-                ? `${south},${west},${north},${east}`
-                : `${west},${south},${east},${north}`
+                ? `${bbox[1]},${bbox[0]},${bbox[3]},${bbox[2]}`
+                : `${bbox[0]},${bbox[1]},${bbox[2]},${bbox[3]}`
         );
         url.searchParams.set('I', String(Math.round(pixelX)));
         url.searchParams.set('J', String(Math.round(pixelY)));
     } else {
-        // WMS 1.1.1: SRS, X/Y params — always lon/lat order
-        url.searchParams.set('SRS', cfg.crs ?? 'EPSG:4326');
-        url.searchParams.set('BBOX', `${west},${south},${east},${north}`);
+        // WMS 1.1.1: SRS, X/Y params — always lon/lat (or x/y) order
+        url.searchParams.set('SRS', crs);
+        url.searchParams.set('BBOX', `${bbox[0]},${bbox[1]},${bbox[2]},${bbox[3]}`);
         url.searchParams.set('X', String(Math.round(pixelX)));
         url.searchParams.set('Y', String(Math.round(pixelY)));
     }

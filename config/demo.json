@@ -881,6 +881,16 @@
         "type": "geojson",
         "data": "https://services9.arcgis.com/RHVPKKiFTONKtxq3/ArcGIS/rest/services/Day_Night_Terminator/FeatureServer/0/query?where=1%3D1&outFields=*&returnGeometry=true&f=geojson",
         "attribution": "Esri Day Night Terminator"
+      },
+      "pdok-ahn-source": {
+        "type": "raster",
+        "service": "xyz",
+        "tileSize": 512,
+        "url": "https://tiles.edugis.nl/mapproxy/ahn_pdok/wmts/dsm_05m/spherical_mercator/{z}/{x}/{y}.png",
+        "minzoom": 0,
+        "maxzoom": 19,
+        "bounds": [2.52713, 50.2129, 7.37403, 55.7212],
+        "attribution": "&copy; AHN | PDOK"
       }
     },
     "layers": {
@@ -1779,6 +1789,9 @@
         "minzoom": 17,
         "title": "BAG (PDOK)",
         "attribution": "&copy; Kadaster | PDOK",
+        "metadata": {
+          "bounds": [3.2, 50.75, 7.22, 53.7]
+        },
         "layers": []
       },
       "pdok-bgt": {
@@ -1788,6 +1801,9 @@
         "minzoom": 17,
         "title": "BGT (PDOK)",
         "attribution": "&copy; Kadaster | PDOK",
+        "metadata": {
+          "bounds": [3.2, 50.75, 7.22, 53.7]
+        },
         "layers": []
       },
       "pdok-bgt-achtergrond": {
@@ -1797,6 +1813,9 @@
         "minzoom": 17,
         "title": "BGT achtergrond (PDOK)",
         "attribution": "&copy; Kadaster | PDOK",
+        "metadata": {
+          "bounds": [3.2, 50.75, 7.22, 53.7]
+        },
         "layers": []
       },
       "pdok-brk-bestuurlijkegebieden": {
@@ -1806,7 +1825,34 @@
         "minzoom": 6,
         "title": "Bestuurlijke gebieden (PDOK)",
         "attribution": "&copy; Kadaster | PDOK",
+        "metadata": {
+          "bounds": [3.2, 50.75, 7.22, 53.7]
+        },
         "layers": []
+      },
+      "pdok-ahn": {
+        "id": "pdok-ahn",
+        "type": "raster",
+        "title": "Hoogte (AHN)",
+        "source": "pdok-ahn-source",
+        "metadata": {
+          "title": "Hoogte (AHN)",
+          "bounds": [2.52713, 50.2129, 7.37403, 55.7212],
+          "legendurl": "https://mapserver.edugis.nl/legends/nederland/ahn-nederland1.png",
+          "getFeatureInfoUrl": "https://tiles.edugis.nl/mapproxy/ahn_pdok/service?layers=dsm_05m&query_layers=dsm_05m&service=WMS&request=GetFeatureInfo&version=1.1.1",
+          "getFeatureInfoFormat": "application/json",
+          "abstract": "Actueel Hoogtebestand Nederland (AHN). Digitale hoogtekaart van Nederland (AHN4), resolutie 0,5 m.",
+          "attributes": {
+            "translations": [
+              {
+                "name": "value_list",
+                "translation": "hoogte (NAP)",
+                "unit": " m",
+                "decimals": 2
+              }
+            ]
+          }
+        }
       },
       "geographiclines": {
         "id": "geographiclines",
@@ -2318,6 +2364,9 @@
                       "layerId": "pdok-brk-bestuurlijkegebieden"
                     }
                   ]
+                },
+                {
+                  "layerId": "pdok-ahn"
                 }
               ]
             }

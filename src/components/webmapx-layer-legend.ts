@@ -16,7 +16,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         .legend-wrap { display: flex; flex-direction: column; gap: 2px; }
         .legend-row { display: flex; align-items: center; gap: 6px; min-height: 18px; }
         .legend-label { font-size: 0.75rem; color: var(--color-text-primary, #1f2937); line-height: 1.2; }
-        .legend-img { max-width: 100%; height: auto; display: block; border-radius: 3px; }
+        .legend-img { max-width: 100%; width: auto; height: auto; display: block; border-radius: 3px; align-self: flex-start; }
         .img-error { font-size: 0.75rem; color: var(--sl-color-danger-600, #c0392b); font-style: italic; }
         .sub-group-title { font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary, #555); margin-top: 4px; }
         .sub-row { padding-left: 8px; }

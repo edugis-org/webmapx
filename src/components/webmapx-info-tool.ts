@@ -371,7 +371,8 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                 const format = typeof m.getFeatureInfoFormat === 'string' ? m.getFeatureInfoFormat : 'application/json';
                 // Keep the full configured URL (incl. vendor-specific params like `map=`) as base —
                 // buildGetFeatureInfoUrl only sets/overrides standard WMS keys, preserving the rest.
-                const sourceConfig = { id: layerId, type: 'raster' as const, service: 'wms' as const, url: gfiUrl, version, layers, format };
+                const crs = u.searchParams.get('crs') ?? u.searchParams.get('srs') ?? 'EPSG:3857';
+                const sourceConfig = { id: layerId, type: 'raster' as const, service: 'wms' as const, url: gfiUrl, version, layers, format, crs };
                 const layerTitle = typeof m.label === 'string' ? m.label : layerId;
                 const feats = await fetchWMSFeatureInfo({
                     sourceConfig, layerId, layerTitle,
