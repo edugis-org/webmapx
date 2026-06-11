@@ -121,7 +121,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 
         .props-list {
             display: grid;
-            grid-template-columns: auto minmax(0, 1fr);
+            grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
             font-size: 0.8rem;
         }
 
@@ -135,16 +135,17 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         }
 
         .props-key {
+            min-width: 0;
             padding: 0.2rem 0.5rem;
             font-weight: 500;
             color: var(--color-text-secondary, #555);
-            white-space: nowrap;
+            overflow-wrap: break-word;
             border-bottom: 1px solid var(--color-border-light, #f0f0f0);
         }
 
         .props-val {
             min-width: 0;
-            overflow: hidden;
+            overflow-wrap: break-word;
             padding: 0.2rem 0.5rem;
             border-bottom: 1px solid var(--color-border-light, #f0f0f0);
         }
@@ -528,7 +529,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                 if (allowed === null) continue; // hide un-translated when translations exist
             }
             const strVal = typeof v === 'object' ? JSON.stringify(v) : String(v ?? '');
-            rows.push(this.renderPropRow(k, k, strVal, schema));
+            rows.push(this.renderPropRow(k, k.replace(/_/g, ' '), strVal, schema));
         }
 
         if (rows.length === 0) return html`<div class="empty-hint">No properties</div>`;
