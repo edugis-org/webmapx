@@ -323,7 +323,19 @@ export class MapLayerService implements ILayerService {
     }
 
     moveLayer(layerId: string, beforeLayerId?: string | null): void {
-        const insertIndex = beforeLayerId ? this.resolveInsertIndex({ beforeLayerId }) : undefined;
+        // beforeLayerId may reference a layer not tracked in logicalOrder (e.g. a vector
+        // layer that fell back to core.addLayer). Walk forward through mapLayers order to
+        // find the nearest layer that IS tracked, so relative position is preserved instead
+        // of silently falling back to "push to end".
+        let resolvedBeforeLayerId = beforeLayerId ?? null;
+        if (resolvedBeforeLayerId && !this.logicalOrder.includes(resolvedBeforeLayerId)) {
+            const ids = Object.keys(this.store.getState().mapLayers ?? {});
+            const startIndex = ids.indexOf(resolvedBeforeLayerId);
+            resolvedBeforeLayerId = startIndex === -1
+                ? null
+                : (ids.slice(startIndex + 1).find((id) => this.logicalOrder.includes(id)) ?? null);
+        }
+        const insertIndex = resolvedBeforeLayerId ? this.resolveInsertIndex({ beforeLayerId: resolvedBeforeLayerId }) : undefined;
         this.upsertLogicalOrder(layerId, insertIndex);
         this.reapplyLogicalOrder();
     }
