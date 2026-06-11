@@ -137,8 +137,8 @@ export class WebmapxMapElement extends HTMLElement {
             let n = 1;
             while (this.adapter.hasLayer(`${baseId}_${n}`)) n++;
             const newId = `${baseId}_${n}`;
-            const prefix = `${baseId}__`;
-            const newPrefix = `${newId}__`;
+            const prefix = `${baseId}:`;
+            const newPrefix = `${newId}:`;
             config.id = newId;
             config.sources = Object.fromEntries(
               Object.entries(config.sources ?? {}).map(([key, value]) => [

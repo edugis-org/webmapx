@@ -44,12 +44,42 @@ export async function groupDroppedFiles(files: File[]): Promise<NamedBlob[][]> {
   const loose: NamedBlob[] = [];
   for (const file of files) {
     if (await isZip(file)) {
-      groups.push(await extractZipEntries(file));
+      groups.push(...splitZipEntriesByLayer(await extractZipEntries(file)));
     } else {
       loose.push({ name: file.name, blob: file });
     }
   }
   if (loose.length > 0) groups.push(loose);
+  return groups;
+}
+
+/**
+ * Splits zip entries into one group per `<name>_style.json` (multi-layer save format),
+ * each paired with its matching `<name>.geojson`. Entries that don't belong to any
+ * `<name>_style.json` are returned as a single trailing group (legacy single-style.json
+ * or loose-geojson zips).
+ */
+function splitZipEntriesByLayer(entries: NamedBlob[]): NamedBlob[][] {
+  const styleEntries = entries.filter((e) => /_style\.json$/i.test(e.name));
+  if (styleEntries.length === 0) return [entries];
+
+  const groups: NamedBlob[][] = [];
+  const used = new Set<NamedBlob>();
+  for (const styleEntry of styleEntries) {
+    const base = styleEntry.name.replace(/_style\.json$/i, '').toLowerCase();
+    const group: NamedBlob[] = [styleEntry];
+    used.add(styleEntry);
+    for (const entry of entries) {
+      if (used.has(entry)) continue;
+      if (stripExtension(entry.name).toLowerCase() === base) {
+        group.push(entry);
+        used.add(entry);
+      }
+    }
+    groups.push(group);
+  }
+  const rest = entries.filter((e) => !used.has(e));
+  if (rest.length > 0) groups.push(rest);
   return groups;
 }
 
@@ -187,7 +217,7 @@ export async function buildLayerConfigFromGroup(group: NamedBlob[]): Promise<Com
   const baseId = sanitizeId(
     typeof styleFile?.style.id === 'string' ? styleFile.style.id : geojsonFiles[0].name
   );
-  const prefix = `${baseId}__`;
+  const prefix = `${baseId}:`;
 
   // Map sanitized geojson filename (with and without extension) -> prefixed source key + data.
   const sourcesByFile = new Map<string, { sourceKey: string; data: GeoJSON.FeatureCollection }>();

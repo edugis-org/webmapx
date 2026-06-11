@@ -109,46 +109,44 @@ export class WebmapxSaveLayersDialog extends LitElement {
         this.items = this.items.map((item) => item.layerId === layerId ? { ...item, checked } : item);
     }
 
-    private buildStyleConfig(selected: SaveLayerItem[]): Record<string, unknown> {
+    private buildStyleConfig(item: SaveLayerItem): Record<string, unknown> {
         const sources: Record<string, unknown> = {};
         const layers: unknown[] = [];
 
-        for (const item of selected) {
-            const sourceName = item.layerId;
-            sources[sourceName] = { type: 'geojson', data: `${item.layerId}.geojson` };
+        const sourceName = item.layerId;
+        sources[sourceName] = { type: 'geojson', data: `${item.layerId}.geojson` };
 
-            if (Array.isArray(item.sublayers) && item.sublayers.length > 0) {
-                item.sublayers.forEach((sub, index) => {
-                    const subLayer = sub as Record<string, unknown>;
-                    const existingMetadata = (subLayer.metadata && typeof subLayer.metadata === 'object')
-                        ? subLayer.metadata as Record<string, unknown>
-                        : {};
-                    const rawId = String(subLayer.id ?? '');
-                    // Record a human-readable label so the legend can display it after
-                    // re-import, even once the id picks up load-time prefixes/suffixes
-                    // for uniqueness (e.g. "world-countries_1__world-countries-fill").
-                    const label = typeof existingMetadata.label === 'string' && existingMetadata.label.length > 0
-                        ? existingMetadata.label
-                        : rawId.replace(/^style:/, '').replace(/-/g, ' ');
-                    // Keep the sublayer's own id as-is — dropped-layer-builder prefixes
-                    // it with the imported style's id on load, so prefixing here too
-                    // would double up (e.g. "world-countries__world-countries_world-countries-fill").
-                    layers.push({
-                        ...subLayer,
-                        id: rawId || `${item.layerId}_${index}`,
-                        source: sourceName,
-                        metadata: { ...existingMetadata, label },
-                    });
-                });
-            } else {
+        if (Array.isArray(item.sublayers) && item.sublayers.length > 0) {
+            item.sublayers.forEach((sub, index) => {
+                const subLayer = sub as Record<string, unknown>;
+                const existingMetadata = (subLayer.metadata && typeof subLayer.metadata === 'object')
+                    ? subLayer.metadata as Record<string, unknown>
+                    : {};
+                const rawId = String(subLayer.id ?? '');
+                // Record a human-readable label so the legend can display it after
+                // re-import, even once the id picks up load-time namespace prefixes
+                // for uniqueness (e.g. "world-countries_1:world-countries-fill").
+                const label = typeof existingMetadata.label === 'string' && existingMetadata.label.length > 0
+                    ? existingMetadata.label
+                    : rawId.replace(/^[^:]*:/, '').replace(/-/g, ' ');
+                // Keep the sublayer's own id as-is — dropped-layer-builder prefixes
+                // it with the imported style's id on load, so prefixing here too
+                // would double up (e.g. "world-countries:world-countries_world-countries-fill").
                 layers.push({
-                    id: item.layerId,
-                    type: item.layerType ?? 'fill',
+                    ...subLayer,
+                    id: rawId || `${item.layerId}_${index}`,
                     source: sourceName,
-                    metadata: { label: item.label },
-                    ...(item.paint ? { paint: item.paint } : {}),
+                    metadata: { ...existingMetadata, label },
                 });
-            }
+            });
+        } else {
+            layers.push({
+                id: item.layerId,
+                type: item.layerType ?? 'fill',
+                source: sourceName,
+                metadata: { label: item.label },
+                ...(item.paint ? { paint: item.paint } : {}),
+            });
         }
 
         return { version: 8, sources, layers };
@@ -167,14 +165,21 @@ export class WebmapxSaveLayersDialog extends LitElement {
             return;
         }
 
+        // Items are listed top-to-bottom (legend order), but loading adds each layer
+        // on top of the stack in zip-entry order — write bottom-to-top so reload
+        // reproduces the original stacking order.
+        const orderedForSave = [...selected].reverse();
+
         const zipWriter = new ZipWriter(new BlobWriter('application/zip'));
-        for (const item of selected) {
+        for (const item of orderedForSave) {
             const content = typeof item.data === 'string' ? item.data : JSON.stringify(item.data, null, 2);
             await zipWriter.add(`${item.layerId}.geojson`, new TextReader(content));
         }
         if (this.includeStyle) {
-            const style = this.buildStyleConfig(selected);
-            await zipWriter.add('style.json', new TextReader(JSON.stringify(style, null, 2)));
+            for (const item of orderedForSave) {
+                const style = this.buildStyleConfig(item);
+                await zipWriter.add(`${item.layerId}_style.json`, new TextReader(JSON.stringify(style, null, 2)));
+            }
         }
         this.downloadBlob(await zipWriter.close(), `${filename}.zip`);
         this.close();
