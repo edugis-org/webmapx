@@ -8,7 +8,9 @@ import { resolveLayerAttribution } from '../utils/attribution-format';
 import type { LayerAddEvent, LayerRemoveEvent } from '../store/map-events';
 import './webmapx-layer-legend';
 import './webmapx-layer-info-dialog';
+import './webmapx-save-layers-dialog';
 import type { WebmapxLayerInfoDialog } from './webmapx-layer-info-dialog';
+import type { WebmapxSaveLayersDialog, SaveLayerCandidate } from './webmapx-save-layers-dialog';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
@@ -26,7 +28,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   backgroundGroupLabel = 'Base Maps';
 
   @property({ type: String, attribute: 'background-title' })
-  backgroundTitle = 'Base maps';
+  backgroundTitle = 'Base map';
 
   @property({ type: String, attribute: 'overview-title' })
   overviewTitle = 'Active layers';
@@ -41,6 +43,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   @state() private dropTargetPosition: 'above' | 'below' | null = null;
   private transparencyHideTimers: Map<string, number> = new Map();
   @query('webmapx-layer-info-dialog') private infoDialog!: WebmapxLayerInfoDialog;
+  @query('webmapx-save-layers-dialog') private saveLayersDialog!: WebmapxSaveLayersDialog;
   private unsubscribeLayerAdd: (() => void) | null = null;
   private unsubscribeLayerRemove: (() => void) | null = null;
 
@@ -343,6 +346,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         ${this.renderSection(this.backgroundTitle, this.backgroundLayers, 'No base map selected.')}
       </div>
       <webmapx-layer-info-dialog></webmapx-layer-info-dialog>
+      <webmapx-save-layers-dialog></webmapx-save-layers-dialog>
     `;
   }
 
@@ -435,7 +439,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
               ${isOverviewSection
                 ? html`
                     <div class="save-layers-row">
-                      <sl-button size="small" variant="default">
+                      <sl-button size="small" variant="default" @click=${() => this.handleSaveLayers()}>
                         <sl-icon slot="prefix" name="download"></sl-icon>
                         Save layer(s)…
                       </sl-button>
@@ -632,6 +636,26 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       window.clearTimeout(this.autoScrollState.timer);
       this.autoScrollState = null;
     }
+  }
+
+  private handleSaveLayers(): void {
+    if (!this.adapter) return;
+    const mapLayers = this.adapter.store.getState().mapLayers ?? {};
+    const candidates: SaveLayerCandidate[] = this.overviewLayers.map((item) => {
+      const metadata = mapLayers[item.layerId] as Record<string, unknown> | undefined;
+      return {
+        layerId: item.layerId,
+        label: item.label,
+        sourceId: typeof metadata?.sourceId === 'string' ? metadata.sourceId : undefined,
+        layerType: typeof metadata?.layerType === 'string' ? metadata.layerType : undefined,
+        paint: (metadata?.paint && typeof metadata.paint === 'object') ? metadata.paint as Record<string, unknown> : undefined,
+        sublayers: Array.isArray(metadata?.sublayers) ? metadata.sublayers : undefined,
+        sourceData: (metadata?.sourceData && typeof metadata.sourceData === 'object')
+          ? metadata.sourceData as GeoJSON.FeatureCollection
+          : undefined,
+      };
+    });
+    this.saveLayersDialog?.open(candidates, this.adapter);
   }
 
   private applyVisibleLayers(state: IMapState): void {
