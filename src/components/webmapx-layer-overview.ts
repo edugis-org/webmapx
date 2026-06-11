@@ -36,7 +36,19 @@ function geojsonExtent(geojson: GeoJSON.FeatureCollection): [number, number, num
     if (geometry?.coordinates) visit(geometry.coordinates);
   }
 
-  return Number.isFinite(west) ? [west, south, east, north] : null;
+  if (!Number.isFinite(west)) return null;
+
+  // Clamp to web-mercator-safe latitudes: fitBounds with +/-90 (e.g. polygons touching
+  // the poles, like Antarctica) produces an undefined mercator Y, and maplibre's
+  // fitBounds then silently jumps to a degenerate camera position near (0, 0) instead
+  // of erroring. Clamp longitude to a valid range too.
+  const MAX_LAT = 85.05112878;
+  return [
+    Math.max(-180, west),
+    Math.max(-MAX_LAT, south),
+    Math.min(180, east),
+    Math.min(MAX_LAT, north),
+  ];
 }
 
 /** Returns the union of two extents, or whichever one is non-null. */
