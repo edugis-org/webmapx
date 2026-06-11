@@ -1081,6 +1081,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
           id: 'gps-tracks-lines',
           type: 'line',
           source: 'lines',
+          metadata: { label: 'GPS tracks' },
           paint: {
             'line-color': 'rgb(66, 133, 244)',
             'line-width': 3,
@@ -1091,6 +1092,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
           id: 'gps-tracks-points',
           type: 'circle',
           source: 'points',
+          metadata: { label: 'GPS points' },
           paint: {
             'circle-radius': 3,
             'circle-color': '#ffffff',
