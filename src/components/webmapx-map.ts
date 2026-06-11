@@ -1225,6 +1225,18 @@ export class WebmapxMapElement extends HTMLElement {
       await resolveGeoJSONSources(enriched.sources);
     }
     const layer = enriched;
+
+    // Carry source-level bounds into layer.metadata.bounds so the layer overview's
+    // "zoom to layer" button can use them — registerMapLayer only sees the layer
+    // config, not the resolved catalog source.
+    const layerMetadata = (layer.metadata && typeof layer.metadata === 'object') ? layer.metadata as Record<string, unknown> : undefined;
+    if (!layerMetadata?.bounds && typeof (layer as any).source === 'string') {
+      const sourceConfig = this.layerDataConfig?.sources?.find((s) => s.id === (layer as any).source) as { bounds?: [number, number, number, number] } | undefined;
+      if (sourceConfig?.bounds) {
+        layer.metadata = { ...(layerMetadata ?? {}), bounds: sourceConfig.bounds };
+      }
+    }
+
     let success: boolean;
     try {
       success = await adapter.addLayer(layer, options);

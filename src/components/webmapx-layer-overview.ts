@@ -39,16 +39,28 @@ function geojsonExtent(geojson: GeoJSON.FeatureCollection): [number, number, num
   return Number.isFinite(west) ? [west, south, east, north] : null;
 }
 
-/** Resolves the zoom-to extent for a layer: explicit `metadata.bounds`, or
- *  computed on-the-fly for inline GeoJSON sources. Returns null otherwise. */
-function getLayerExtent(metadata: Record<string, unknown> | undefined): [number, number, number, number] | null {
-  if (Array.isArray(metadata?.bounds) && metadata.bounds.length === 4) {
-    return metadata.bounds as [number, number, number, number];
+/** Returns the union of two extents, or whichever one is non-null. */
+function unionExtent(
+  a: [number, number, number, number] | null,
+  b: [number, number, number, number] | null,
+): [number, number, number, number] | null {
+  if (!a) return b;
+  if (!b) return a;
+  return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
+}
+
+/** Collects the source ids a layer's extent depends on: its own `sourceId`,
+ *  or — for composite layers — the unique `source` of each sublayer. */
+function getLayerSourceIds(metadata: Record<string, unknown> | undefined): string[] {
+  if (Array.isArray(metadata?.sublayers) && metadata.sublayers.length > 0) {
+    const ids = new Set<string>();
+    for (const sub of metadata.sublayers as Record<string, unknown>[]) {
+      if (typeof sub.source === 'string') ids.add(sub.source);
+    }
+    return [...ids];
   }
-  if (metadata?.sourceData && typeof metadata.sourceData === 'object') {
-    return geojsonExtent(metadata.sourceData as GeoJSON.FeatureCollection);
-  }
-  return null;
+  if (typeof metadata?.sourceId === 'string') return [metadata.sourceId];
+  return [];
 }
 
 export interface LayerPanelItem {
@@ -56,7 +68,7 @@ export interface LayerPanelItem {
   label: string;
   topLevelGroup: string | null;
   visible: boolean;
-  extent: [number, number, number, number] | null;
+  hasExtent: boolean;
 }
 
 @customElement('webmapx-layer-overview')
@@ -79,6 +91,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   @state() private dropTargetLayerId: string | null = null;
   @state() private dropTargetPosition: 'above' | 'below' | null = null;
   private transparencyHideTimers: Map<string, number> = new Map();
+  // Lazily-computed and cached extents — geojsonExtent() walks every coordinate, so it's
+  // only run when the user clicks "zoom to layer", and per-source so composite layers
+  // sharing a source don't recompute it for each sublayer.
+  private sourceExtentCache: Map<string, [number, number, number, number] | null> = new Map();
+  private layerExtentCache: Map<string, [number, number, number, number] | null> = new Map();
   @query('webmapx-layer-info-dialog') private infoDialog!: WebmapxLayerInfoDialog;
   @query('webmapx-save-layers-dialog') private saveLayersDialog!: WebmapxSaveLayersDialog;
   private unsubscribeLayerAdd: (() => void) | null = null;
@@ -456,11 +473,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                             label="About this layer"
                             @click=${() => this.handleShowLayerInfo(item.layerId, item.label)}
                           ></sl-icon-button>
-                          ${item.extent
+                          ${item.hasExtent
                             ? html`<sl-icon-button
                                 name="zoom-in"
                                 label="Zoom to layer"
-                                @click=${() => this.handleZoomToLayer(item.extent!)}
+                                @click=${() => this.handleZoomToLayer(item.layerId)}
                               ></sl-icon-button>`
                             : null}
                           ${isOverviewSection
@@ -731,7 +748,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         label,
         topLevelGroup,
         visible: !this.hiddenLayerIds.has(layerId),
-        extent: getLayerExtent(metadata),
+        hasExtent: this.layerHasExtent(metadata),
       };
 
       if (legendRole === 'background') {
@@ -809,8 +826,41 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     this.infoDialog?.open(title, config?.metadata?.abstract, attribution);
   }
 
-  private handleZoomToLayer(extent: [number, number, number, number]): void {
-    this.adapter?.fitBounds(extent);
+  /** Cheap existence check (no coordinate walking) for whether "zoom to layer" should show. */
+  private layerHasExtent(metadata: Record<string, unknown> | undefined): boolean {
+    if (Array.isArray(metadata?.bounds) && metadata.bounds.length === 4) return true;
+    return getLayerSourceIds(metadata).some((sourceId) => this.adapter?.getSourceData(sourceId) !== null);
+  }
+
+  /** Lazily computes (and caches) the extent of a single source's GeoJSON data. */
+  private getSourceExtent(sourceId: string): [number, number, number, number] | null {
+    if (this.sourceExtentCache.has(sourceId)) return this.sourceExtentCache.get(sourceId) ?? null;
+    const data = this.adapter?.getSourceData(sourceId) ?? null;
+    const extent = (data && typeof data === 'object') ? geojsonExtent(data as GeoJSON.FeatureCollection) : null;
+    this.sourceExtentCache.set(sourceId, extent);
+    return extent;
+  }
+
+  /** Lazily computes (and caches) a layer's zoom-to extent: explicit `metadata.bounds`,
+   *  or the union of its source extent(s) — multiple for composite layers. */
+  private resolveLayerExtent(layerId: string): [number, number, number, number] | null {
+    if (this.layerExtentCache.has(layerId)) return this.layerExtentCache.get(layerId) ?? null;
+    const metadata = this.adapter?.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined;
+    let extent: [number, number, number, number] | null = null;
+    if (Array.isArray(metadata?.bounds) && metadata.bounds.length === 4) {
+      extent = metadata.bounds as [number, number, number, number];
+    } else {
+      for (const sourceId of getLayerSourceIds(metadata)) {
+        extent = unionExtent(extent, this.getSourceExtent(sourceId));
+      }
+    }
+    this.layerExtentCache.set(layerId, extent);
+    return extent;
+  }
+
+  private handleZoomToLayer(layerId: string): void {
+    const extent = this.resolveLayerExtent(layerId);
+    if (extent) this.adapter?.fitBounds(extent);
   }
 
   private handleDeleteLayer(layerId: string): void {
