@@ -120,13 +120,24 @@ export class WebmapxSaveLayersDialog extends LitElement {
             if (Array.isArray(item.sublayers) && item.sublayers.length > 0) {
                 item.sublayers.forEach((sub, index) => {
                     const subLayer = sub as Record<string, unknown>;
+                    const existingMetadata = (subLayer.metadata && typeof subLayer.metadata === 'object')
+                        ? subLayer.metadata as Record<string, unknown>
+                        : {};
+                    const rawId = String(subLayer.id ?? '');
+                    // Record a human-readable label so the legend can display it after
+                    // re-import, even once the id picks up load-time prefixes/suffixes
+                    // for uniqueness (e.g. "world-countries_1__world-countries-fill").
+                    const label = typeof existingMetadata.label === 'string' && existingMetadata.label.length > 0
+                        ? existingMetadata.label
+                        : rawId.replace(/^style:/, '').replace(/-/g, ' ');
                     // Keep the sublayer's own id as-is — dropped-layer-builder prefixes
                     // it with the imported style's id on load, so prefixing here too
                     // would double up (e.g. "world-countries__world-countries_world-countries-fill").
                     layers.push({
                         ...subLayer,
-                        id: (subLayer.id as string) ?? `${item.layerId}_${index}`,
+                        id: rawId || `${item.layerId}_${index}`,
                         source: sourceName,
+                        metadata: { ...existingMetadata, label },
                     });
                 });
             } else {
@@ -134,6 +145,7 @@ export class WebmapxSaveLayersDialog extends LitElement {
                     id: item.layerId,
                     type: item.layerType ?? 'fill',
                     source: sourceName,
+                    metadata: { label: item.label },
                     ...(item.paint ? { paint: item.paint } : {}),
                 });
             }
