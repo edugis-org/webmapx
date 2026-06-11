@@ -15,11 +15,48 @@ import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 
+/** Computes [west, south, east, north] from a GeoJSON FeatureCollection's coordinates. */
+function geojsonExtent(geojson: GeoJSON.FeatureCollection): [number, number, number, number] | null {
+  let west = Infinity, south = Infinity, east = -Infinity, north = -Infinity;
+
+  const visit = (coords: any): void => {
+    if (typeof coords[0] === 'number') {
+      const [lng, lat] = coords as [number, number];
+      if (lng < west) west = lng;
+      if (lng > east) east = lng;
+      if (lat < south) south = lat;
+      if (lat > north) north = lat;
+    } else if (Array.isArray(coords)) {
+      for (const c of coords) visit(c);
+    }
+  };
+
+  for (const feature of geojson.features ?? []) {
+    const geometry = feature.geometry as { coordinates?: unknown } | undefined;
+    if (geometry?.coordinates) visit(geometry.coordinates);
+  }
+
+  return Number.isFinite(west) ? [west, south, east, north] : null;
+}
+
+/** Resolves the zoom-to extent for a layer: explicit `metadata.bounds`, or
+ *  computed on-the-fly for inline GeoJSON sources. Returns null otherwise. */
+function getLayerExtent(metadata: Record<string, unknown> | undefined): [number, number, number, number] | null {
+  if (Array.isArray(metadata?.bounds) && metadata.bounds.length === 4) {
+    return metadata.bounds as [number, number, number, number];
+  }
+  if (metadata?.sourceData && typeof metadata.sourceData === 'object') {
+    return geojsonExtent(metadata.sourceData as GeoJSON.FeatureCollection);
+  }
+  return null;
+}
+
 export interface LayerPanelItem {
   layerId: string;
   label: string;
   topLevelGroup: string | null;
   visible: boolean;
+  extent: [number, number, number, number] | null;
 }
 
 @customElement('webmapx-layer-overview')
@@ -419,6 +456,13 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                             label="About this layer"
                             @click=${() => this.handleShowLayerInfo(item.layerId, item.label)}
                           ></sl-icon-button>
+                          ${item.extent
+                            ? html`<sl-icon-button
+                                name="zoom-in"
+                                label="Zoom to layer"
+                                @click=${() => this.handleZoomToLayer(item.extent!)}
+                              ></sl-icon-button>`
+                            : null}
                           ${isOverviewSection
                             ? html`<sl-icon-button
                                 class="delete-layer"
@@ -687,6 +731,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         label,
         topLevelGroup,
         visible: !this.hiddenLayerIds.has(layerId),
+        extent: getLayerExtent(metadata),
       };
 
       if (legendRole === 'background') {
@@ -762,6 +807,10 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     const title = config?.title ?? fallbackLabel;
     const attribution = resolveLayerAttribution(config, this.buildSourcesById());
     this.infoDialog?.open(title, config?.metadata?.abstract, attribution);
+  }
+
+  private handleZoomToLayer(extent: [number, number, number, number]): void {
+    this.adapter?.fitBounds(extent);
   }
 
   private handleDeleteLayer(layerId: string): void {
