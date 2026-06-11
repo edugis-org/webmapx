@@ -13,7 +13,7 @@
 //     mapping at removal time.
 
 import { MapStateStore } from '../store/map-state-store';
-import { registerMapLayer, unregisterMapLayer } from './map-layer-registry';
+import { registerMapLayer, unregisterMapLayer, reorderMapLayers } from './map-layer-registry';
 import type { IMapCore, ISource, LayerInsertOptions, MarkerOptions } from './IMapInterfaces';
 import type { LngLat } from '../store/map-events';
 import { MapEventBus } from '../store/map-events';
@@ -77,6 +77,14 @@ export abstract class BaseAdapter {
         unregisterMapLayer(this.store, id);
         const activeLayers = Object.keys(this.store.getState().mapLayers ?? {});
         this.events.emit({ type: 'layer-remove', layerId: id, activeLayers });
+    }
+
+    /** Repositions `layerId` immediately below `beforeLayerId` (or to the top if null/undefined). */
+    moveLayer(layerId: string, beforeLayerId?: string | null): void {
+        this.getLogicalLayerExecutor().moveLayer(layerId, beforeLayerId);
+        reorderMapLayers(this.store, layerId, beforeLayerId);
+        const activeLayers = Object.keys(this.store.getState().mapLayers ?? {});
+        this.events.emit({ type: 'layer-reorder', layerId, activeLayers });
     }
 
     removeSource(id: string): void {

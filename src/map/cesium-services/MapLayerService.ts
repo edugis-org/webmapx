@@ -370,6 +370,11 @@ export class MapLayerService implements ILayerService {
         return updated;
     }
 
+    moveLayer(layerId: string, beforeLayerId?: string | null): void {
+        this.upsertLogicalOrder(layerId, beforeLayerId ? { beforeLayerId } : undefined);
+        this.reapplyImageryOrder();
+    }
+
     removeLayer(layerId: string): void {
         // Remove all native handles created for this logical layer (may include multiple sources).
         const keysToRemove = Array.from(this.handles.keys()).filter(key => key.startsWith(`${layerId}::`));

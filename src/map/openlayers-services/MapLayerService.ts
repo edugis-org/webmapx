@@ -823,6 +823,27 @@ export class MapLayerService implements ILayerService {
         return layer;
     }
 
+    moveLayer(layerId: string, beforeLayerId?: string | null): void {
+        const nativeIds = this.logicalToNative.get(layerId) ?? [];
+        const instances = nativeIds
+            .map((id) => this.nativeLayerInstances.get(id))
+            .filter((instance): instance is BaseLayer => !!instance);
+        if (instances.length === 0) return;
+
+        const collection = this.map.getLayers();
+        let targetIndex = beforeLayerId ? this.resolveInsertIndex({ beforeLayerId }) : undefined;
+        if (targetIndex === undefined) targetIndex = collection.getLength();
+
+        for (const instance of instances) {
+            const idx = this.findLayerIndexByInstance(instance);
+            if (idx === -1) continue;
+            collection.removeAt(idx);
+            if (idx < targetIndex) targetIndex--;
+        }
+        targetIndex = Math.max(0, Math.min(targetIndex, collection.getLength()));
+        instances.forEach((instance, i) => collection.insertAt(targetIndex + i, instance));
+    }
+
     removeLayer(layerId: string): void {
         // Check if this is a WarpedMapLayer
         if (this.warpedMapLayers.has(layerId)) {

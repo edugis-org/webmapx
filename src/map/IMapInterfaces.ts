@@ -235,6 +235,9 @@ export interface IMap {
     /** Removes a logical (config-backed) layer by id. */
     removeLogicalLayer(layerId: string): void;
 
+    /** Repositions a logical layer immediately below `beforeLayerId` (or to the top if null/undefined). */
+    moveLayer(layerId: string, beforeLayerId?: string | null): void;
+
     // ===== Viewport / Camera =====
     /** Gets the current viewport state (center, zoom, bearing, pitch). */
     getViewportState(): { center: [number, number], zoom: number, bearing: number, pitch: number };
@@ -410,6 +413,9 @@ export interface ILogicalLayerExecutor {
     /** Removes a logical layer by id. */
     removeLayer(layerId: string): void;
 
+    /** Repositions a logical layer immediately below `beforeLayerId` (or to the top if null/undefined). */
+    moveLayer(layerId: string, beforeLayerId?: string | null): void;
+
     /** Returns the currently visible logical layer ids. */
     getVisibleLayers(): string[];
 
@@ -452,6 +458,11 @@ export interface ILayerService {
      * Removes a layer from the map by its ID.
      */
     removeLayer(layerId: string): void;
+
+    /**
+     * Repositions a layer immediately below `beforeLayerId` (or to the top if null/undefined).
+     */
+    moveLayer(layerId: string, beforeLayerId?: string | null): void;
 
     /**
      * Returns the list of currently visible layer IDs.

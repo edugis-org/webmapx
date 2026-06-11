@@ -37,6 +37,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   @state() private collapsedLayerIds: Set<string> = new Set();
   @state() private layerTransparency: Map<string, number> = new Map();
   @state() private transparencyValueVisible: Set<string> = new Set();
+  @state() private dropTargetLayerId: string | null = null;
+  @state() private dropTargetPosition: 'above' | 'below' | null = null;
   private transparencyHideTimers: Map<string, number> = new Map();
   @query('webmapx-layer-info-dialog') private infoDialog!: WebmapxLayerInfoDialog;
   private unsubscribeLayerAdd: (() => void) | null = null;
@@ -47,11 +49,15 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   // No reordering is performed yet; the row snaps back on release.
   private dragState: {
     card: HTMLElement;
+    layerId: string;
     startClientY: number;
     minTranslate: number;
     maxTranslate: number;
     scroller: HTMLElement | null;
     startScrollTop: number;
+    cardTop: number;
+    cardBottom: number;
+    siblings: { layerId: string; top: number; bottom: number }[];
   } | null = null;
 
   // Auto-scroll the .panel while dragging near its top/bottom edge —
@@ -96,6 +102,14 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
+    }
+
+    .drop-indicator {
+      height: 2px;
+      margin: -1px 0;
+      background: var(--color-text-primary, #1f2937);
+      border-radius: 1px;
+      pointer-events: none;
     }
 
     .layer-card.dragging {
@@ -340,6 +354,9 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
           ? html`
               <div class="layer-list">
                 ${items.map((item) => html`
+                  ${this.dropTargetLayerId === item.layerId && this.dropTargetPosition === 'above'
+                    ? html`<div class="drop-indicator"></div>`
+                    : null}
                   <div class="layer-card" data-layer-id=${item.layerId}>
                     ${items.length > 1
                       ? html`<span
@@ -410,6 +427,9 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                       </div>
                     </div>
                   </div>
+                  ${this.dropTargetLayerId === item.layerId && this.dropTargetPosition === 'below'
+                    ? html`<div class="drop-indicator"></div>`
+                    : null}
                 `)}
               </div>
               ${isOverviewSection
@@ -440,13 +460,24 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     const cardRect = card.getBoundingClientRect();
     const listRect = list.getBoundingClientRect();
     const scroller = this.findScrollableAncestor(e);
+    const layerId = card.dataset.layerId ?? '';
+    const siblings = Array.from(list.querySelectorAll<HTMLElement>('.layer-card'))
+      .filter((sibling) => sibling !== card)
+      .map((sibling) => {
+        const rect = sibling.getBoundingClientRect();
+        return { layerId: sibling.dataset.layerId ?? '', top: rect.top, bottom: rect.bottom };
+      });
     this.dragState = {
       card,
+      layerId,
       startClientY: e.clientY,
       minTranslate: listRect.top - cardRect.top,
       maxTranslate: listRect.bottom - cardRect.bottom,
       scroller,
       startScrollTop: scroller?.scrollTop ?? 0,
+      cardTop: cardRect.top,
+      cardBottom: cardRect.bottom,
+      siblings,
     };
     card.classList.add('dragging');
   }
@@ -480,6 +511,54 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     const dy = Math.min(maxTranslate, Math.max(minTranslate, desired));
     card.style.transform = `translateY(${dy}px)`;
     this.updateAutoScroll(e.clientY, scroller);
+    this.updateDropTarget(dy);
+  }
+
+  private updateDropTarget(dy: number): void {
+    if (!this.dragState) return;
+    const { cardTop, cardBottom, siblings } = this.dragState;
+    let target: { layerId: string; position: 'above' | 'below' } | null = null;
+
+    if (dy < 0) {
+      const newTop = cardTop + dy;
+      // First sibling (top to bottom) whose body the dragged top edge has reached.
+      for (const sibling of siblings) {
+        if (newTop < sibling.bottom) {
+          target = { layerId: sibling.layerId, position: 'above' };
+          break;
+        }
+      }
+    } else if (dy > 0) {
+      const newBottom = cardBottom + dy;
+      // Last sibling (top to bottom) whose body the dragged bottom edge has reached.
+      for (const sibling of siblings) {
+        if (newBottom > sibling.top) {
+          target = { layerId: sibling.layerId, position: 'below' };
+        }
+      }
+    }
+
+    this.dropTargetLayerId = target?.layerId ?? null;
+    this.dropTargetPosition = target?.position ?? null;
+  }
+
+  // mapLayers key order is the map's bottom-to-top stacking order; the legend
+  // shows it reversed (top of stack = top of legend).
+  private commitDrop(layerId: string): void {
+    const targetLayerId = this.dropTargetLayerId;
+    const position = this.dropTargetPosition;
+    if (!this.adapter || !targetLayerId || !position || targetLayerId === layerId) return;
+
+    const ids = Object.keys(this.adapter.store.getState().mapLayers ?? {});
+    const targetIndex = ids.indexOf(targetLayerId);
+    if (targetIndex === -1) return;
+
+    // 'below' B in the legend => immediately below B in the stack => before B in the key order.
+    // 'above' B in the legend => immediately above B in the stack => before whatever sits above B.
+    const beforeLayerId = position === 'below' ? targetLayerId : (ids[targetIndex + 1] ?? null);
+    if (beforeLayerId === layerId) return;
+
+    this.adapter.moveLayer(layerId, beforeLayerId);
   }
 
   private onDragHandlePointerUp(e: PointerEvent): void {
@@ -488,10 +567,13 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     if (handle.hasPointerCapture?.(e.pointerId)) {
       handle.releasePointerCapture(e.pointerId);
     }
-    const { card } = this.dragState;
+    const { card, layerId } = this.dragState;
     card.style.transform = '';
     card.classList.remove('dragging');
+    this.commitDrop(layerId);
     this.dragState = null;
+    this.dropTargetLayerId = null;
+    this.dropTargetPosition = null;
     this.stopAutoScroll();
 
     // Suppress the :hover-revealed handle on whatever card the cursor is now

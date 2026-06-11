@@ -274,6 +274,17 @@ export class MapLayerService implements ILayerService {
         return true;
     }
 
+    moveLayer(layerId: string, beforeLayerId?: string | null): void {
+        const nativeIds = this.logicalToNative.get(layerId) ?? [];
+        const beforeNativeId = beforeLayerId
+            ? this.resolveInsertBeforeLayerIdFromOptions({ beforeLayerId })
+            : undefined;
+        for (const nativeId of nativeIds) {
+            if (!this.map.getLayer(nativeId)) continue;
+            try { this.map.moveLayer(nativeId, beforeNativeId); } catch (_) {}
+        }
+    }
+
     removeLayer(layerId: string): void {
         if (this.warpedMapLayers.has(layerId)) {
             for (const id of this.logicalToNative.get(layerId) ?? []) {

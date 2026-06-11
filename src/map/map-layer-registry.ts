@@ -75,6 +75,28 @@ export function registerMapLayer(store: MapStateStore, layer: any): void {
 }
 
 
+/**
+ * Reorders `mapLayers` so `layerId` sits immediately below `beforeLayerId`
+ * (or at the top/end of the record if `beforeLayerId` is null/undefined).
+ * Record key order is the map's bottom-to-top stacking order.
+ */
+export function reorderMapLayers(store: MapStateStore, layerId: string, beforeLayerId?: string | null): void {
+    const current = store.getState().mapLayers ?? {};
+    if (!(layerId in current)) return;
+
+    const ids = Object.keys(current).filter((id) => id !== layerId);
+    let insertAt = ids.length;
+    if (beforeLayerId) {
+        const idx = ids.indexOf(beforeLayerId);
+        if (idx !== -1) insertAt = idx;
+    }
+    ids.splice(insertAt, 0, layerId);
+
+    const reordered: typeof current = {};
+    for (const id of ids) reordered[id] = current[id];
+    store.dispatch({ mapLayers: reordered }, 'MAP');
+}
+
 export function unregisterMapLayer(store: MapStateStore, layerId: string): void {
     const current = store.getState().mapLayers ?? {};
     if (!(layerId in current)) return;

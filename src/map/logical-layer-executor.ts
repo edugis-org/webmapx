@@ -43,6 +43,10 @@ export class DeferredLogicalLayerExecutor implements ILogicalLayerExecutor {
         this.pendingRemoveRequests.push(layerId);
     }
 
+    moveLayer(layerId: string, beforeLayerId?: string | null): void {
+        this.layerService?.moveLayer(layerId, beforeLayerId);
+    }
+
     getVisibleLayers(): string[] {
         return this.layerService?.getVisibleLayers() ?? [];
     }

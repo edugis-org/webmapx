@@ -173,6 +173,15 @@ export interface LayerRemoveEvent extends BaseMapEvent {
 }
 
 /**
+ * Layer reorder event - emitted when a logical layer's stacking position changes.
+ */
+export interface LayerReorderEvent extends BaseMapEvent {
+    type: 'layer-reorder';
+    layerId: string;
+    activeLayers: string[];
+}
+
+/**
  * Union of all map events.
  */
 export type MapEvent =
@@ -190,7 +199,8 @@ export type MapEvent =
     | ViewChangeEndEvent
     | ZoomEndEvent
     | LayerAddEvent
-    | LayerRemoveEvent;
+    | LayerRemoveEvent
+    | LayerReorderEvent;
 
 /**
  * Map of event types to their corresponding event interfaces.
@@ -212,6 +222,7 @@ export interface MapEventMap {
     'zoom-end': ZoomEndEvent;
     'layer-add': LayerAddEvent;
     'layer-remove': LayerRemoveEvent;
+    'layer-reorder': LayerReorderEvent;
 }
 
 export type MapEventType = keyof MapEventMap;

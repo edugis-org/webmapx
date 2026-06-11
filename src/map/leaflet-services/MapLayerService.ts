@@ -322,6 +322,12 @@ export class MapLayerService implements ILayerService {
         return true;
     }
 
+    moveLayer(layerId: string, beforeLayerId?: string | null): void {
+        const insertIndex = beforeLayerId ? this.resolveInsertIndex({ beforeLayerId }) : undefined;
+        this.upsertLogicalOrder(layerId, insertIndex);
+        this.reapplyLogicalOrder();
+    }
+
     removeLayer(layerId: string): void {
         // Check if this is a WarpedMapLayer
         if (this.warpedMapLayers.has(layerId)) {

@@ -40,7 +40,9 @@ src/
 
 ## Key patterns
 
-- Layer ordering: handled in generic layer code, not per-engine
+- Layer ordering: handled in generic layer code, not per-engine. Drag-reorder in the legend (`webmapx-layer-overview.ts`) calls `adapter.moveLayer(layerId, beforeLayerId)`, which reorders `store.mapLayers` (key order = bottom-to-top stack, legend shows it reversed) and delegates to each engine's `MapLayerService.moveLayer`.
+  - **Cesium limitation (inherent, not fixable):** imagery layers are baked into the globe surface texture; vector primitives/entities always render above all imagery. Vector-vs-raster reorder has no effect — only within-type reorder (`reapplyImageryOrder` for imagery) works.
+  - **Leaflet limitation (TODO, fixable):** raster uses `tilePane` (z=200), vector uses `overlayPane` (z=400) — Leaflet's default panes, fixed relative stacking. `moveLayer`/`reapplyLogicalOrder` only reorders DOM order within a pane, so cross-type reorder has no visual effect. Fix: give each logical layer its own `map.createPane()` with z-index reflecting its position in `logicalOrder`, set via `pane` option in `LeafletLayerFactory`.
 - Background switching: `background-group-policy` controls single/exclusive groups
 - Layer config: JSON close to mapbox/maplibre spec (`config/layers.json`, `config/world.json`)
 - Allmaps overlay layers integrate with all three 2D engines
