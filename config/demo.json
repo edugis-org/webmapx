@@ -891,6 +891,81 @@
         "maxzoom": 19,
         "bounds": [2.52713, 50.2129, 7.37403, 55.7212],
         "attribution": "&copy; AHN | PDOK"
+      },
+      "pdok-luchtfoto-source": {
+        "type": "raster",
+        "service": "xyz",
+        "tileSize": 256,
+        "url": "https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg",
+        "minzoom": 0,
+        "maxzoom": 21,
+        "bounds": [3.2, 50.75, 7.22, 53.7],
+        "attribution": "&copy; Beeldmateriaal.nl | PDOK"
+      },
+      "pdok-brt-achtergrond-source": {
+        "type": "raster",
+        "service": "xyz",
+        "tileSize": 256,
+        "url": "https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/standaard/EPSG:3857/{z}/{x}/{y}.png",
+        "minzoom": 0,
+        "maxzoom": 19,
+        "bounds": [3.2, 50.75, 7.22, 53.7],
+        "attribution": "&copy; Kadaster | PDOK"
+      },
+      "pdok-brt-achtergrond-grijs-source": {
+        "type": "raster",
+        "service": "xyz",
+        "tileSize": 256,
+        "url": "https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/grijs/EPSG:3857/{z}/{x}/{y}.png",
+        "minzoom": 0,
+        "maxzoom": 19,
+        "bounds": [3.2, 50.75, 7.22, 53.7],
+        "attribution": "&copy; Kadaster | PDOK"
+      },
+      "pdok-brt-achtergrond-pastel-source": {
+        "type": "raster",
+        "service": "xyz",
+        "tileSize": 256,
+        "url": "https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/pastel/EPSG:3857/{z}/{x}/{y}.png",
+        "minzoom": 0,
+        "maxzoom": 19,
+        "bounds": [3.2, 50.75, 7.22, 53.7],
+        "attribution": "&copy; Kadaster | PDOK"
+      },
+      "pdok-brt-achtergrond-water-source": {
+        "type": "raster",
+        "service": "xyz",
+        "tileSize": 256,
+        "url": "https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/water/EPSG:3857/{z}/{x}/{y}.png",
+        "minzoom": 0,
+        "maxzoom": 19,
+        "bounds": [3.2, 50.75, 7.22, 53.7],
+        "attribution": "&copy; Kadaster | PDOK"
+      },
+      "pdok-bag-source": {
+        "type": "raster",
+        "service": "wms",
+        "tileSize": 256,
+        "url": "https://service.pdok.nl/lv/bag/wms/v2_0",
+        "layers": "pand",
+        "format": "image/png",
+        "transparent": true,
+        "version": "1.1.1",
+        "crs": "EPSG:3857",
+        "minzoom": 15,
+        "maxzoom": 22,
+        "bounds": [3.2, 50.75, 7.22, 53.7],
+        "attribution": "&copy; Kadaster | PDOK"
+      },
+      "pdok-kadastralekaart-source": {
+        "type": "raster",
+        "service": "xyz",
+        "tileSize": 256,
+        "url": "https://service.pdok.nl/kadaster/kadastralekaart/wmts/v5_0/Kadastralekaart/EPSG:3857/{z}/{x}/{y}.png",
+        "minzoom": 15.5,
+        "maxzoom": 19,
+        "bounds": [3.2, 50.75, 7.22, 53.7],
+        "attribution": "&copy; Kadaster | PDOK"
       }
     },
     "layers": {
@@ -1854,6 +1929,87 @@
           }
         }
       },
+      "pdok-bag-raster": {
+        "id": "pdok-bag-raster",
+        "type": "raster",
+        "title": "BAG panden (raster)",
+        "source": "pdok-bag-source",
+        "minzoom": 15,
+        "metadata": {
+          "title": "BAG panden (raster)",
+          "bounds": [3.2, 50.75, 7.22, 53.7],
+          "abstract": "Panden uit de Basisregistratie Adressen en Gebouwen (BAG), als raster (alle zoomniveaus)."
+        }
+      },
+      "pdok-luchtfoto": {
+        "id": "pdok-luchtfoto",
+        "type": "raster",
+        "title": "Luchtfoto (PDOK)",
+        "source": "pdok-luchtfoto-source",
+        "metadata": {
+          "title": "Luchtfoto (PDOK)",
+          "bounds": [3.2, 50.75, 7.22, 53.7],
+          "abstract": "Actuele luchtfoto van Nederland, 25 cm resolutie."
+        }
+      },
+      "pdok-brt-achtergrond": {
+        "id": "pdok-brt-achtergrond",
+        "type": "raster",
+        "title": "Achtergrondkaart (PDOK)",
+        "source": "pdok-brt-achtergrond-source",
+        "metadata": {
+          "title": "Achtergrondkaart (PDOK)",
+          "bounds": [3.2, 50.75, 7.22, 53.7],
+          "abstract": "BRT Achtergrondkaart, standaard stijl."
+        }
+      },
+      "pdok-brt-achtergrond-grijs": {
+        "id": "pdok-brt-achtergrond-grijs",
+        "type": "raster",
+        "title": "Achtergrondkaart grijs (PDOK)",
+        "source": "pdok-brt-achtergrond-grijs-source",
+        "metadata": {
+          "title": "Achtergrondkaart grijs (PDOK)",
+          "bounds": [3.2, 50.75, 7.22, 53.7],
+          "abstract": "BRT Achtergrondkaart, grijze stijl."
+        }
+      },
+      "pdok-brt-achtergrond-pastel": {
+        "id": "pdok-brt-achtergrond-pastel",
+        "type": "raster",
+        "title": "Achtergrondkaart pastel (PDOK)",
+        "source": "pdok-brt-achtergrond-pastel-source",
+        "metadata": {
+          "title": "Achtergrondkaart pastel (PDOK)",
+          "bounds": [3.2, 50.75, 7.22, 53.7],
+          "abstract": "BRT Achtergrondkaart, pastel stijl."
+        }
+      },
+      "pdok-brt-achtergrond-water": {
+        "id": "pdok-brt-achtergrond-water",
+        "type": "raster",
+        "title": "Achtergrondkaart water (PDOK)",
+        "source": "pdok-brt-achtergrond-water-source",
+        "metadata": {
+          "title": "Achtergrondkaart water (PDOK)",
+          "bounds": [3.2, 50.75, 7.22, 53.7],
+          "abstract": "BRT Achtergrondkaart, water stijl."
+        }
+      },
+      "pdok-percelen": {
+        "id": "pdok-percelen",
+        "type": "raster",
+        "title": "Percelen (Kadastrale kaart)",
+        "source": "pdok-kadastralekaart-source",
+        "minzoom": 15.5,
+        "metadata": {
+          "title": "Percelen (Kadastrale kaart)",
+          "bounds": [3.2, 50.75, 7.22, 53.7],
+          "abstract": "Kadastrale percelen, BRK kadastrale kaart.",
+          "getFeatureInfoUrl": "https://service.pdok.nl/kadaster/kadastralekaart/wms/v5_0?LAYERS=Perceelvlak&QUERY_LAYERS=Perceelvlak&SERVICE=WMS&VERSION=1.1.1",
+          "getFeatureInfoFormat": "application/json"
+        }
+      },
       "geographiclines": {
         "id": "geographiclines",
         "type": "style",
@@ -2366,7 +2522,33 @@
                   ]
                 },
                 {
+                  "label": "Achtergrondkaarten",
+                  "children": [
+                    {
+                      "layerId": "pdok-luchtfoto"
+                    },
+                    {
+                      "layerId": "pdok-brt-achtergrond"
+                    },
+                    {
+                      "layerId": "pdok-brt-achtergrond-grijs"
+                    },
+                    {
+                      "layerId": "pdok-brt-achtergrond-pastel"
+                    },
+                    {
+                      "layerId": "pdok-brt-achtergrond-water"
+                    }
+                  ]
+                },
+                {
                   "layerId": "pdok-ahn"
+                },
+                {
+                  "layerId": "pdok-bag-raster"
+                },
+                {
+                  "layerId": "pdok-percelen"
                 }
               ]
             }

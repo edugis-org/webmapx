@@ -367,12 +367,18 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
             if (!gfiUrl) return;
             try {
                 const u = new URL(gfiUrl);
-                const version = u.searchParams.get('version') ?? '1.1.1';
-                const layers = u.searchParams.get('layers') ?? u.searchParams.get('query_layers') ?? '';
+                const getParamCI = (name: string): string | null => {
+                    for (const [key, value] of u.searchParams) {
+                        if (key.toLowerCase() === name) return value;
+                    }
+                    return null;
+                };
+                const version = getParamCI('version') ?? '1.1.1';
+                const layers = getParamCI('layers') ?? getParamCI('query_layers') ?? '';
                 const format = typeof m.getFeatureInfoFormat === 'string' ? m.getFeatureInfoFormat : 'application/json';
                 // Keep the full configured URL (incl. vendor-specific params like `map=`) as base —
                 // buildGetFeatureInfoUrl only sets/overrides standard WMS keys, preserving the rest.
-                const crs = u.searchParams.get('crs') ?? u.searchParams.get('srs') ?? 'EPSG:3857';
+                const crs = getParamCI('crs') ?? getParamCI('srs') ?? 'EPSG:3857';
                 const sourceConfig = { id: layerId, type: 'raster' as const, service: 'wms' as const, url: gfiUrl, version, layers, format, crs };
                 const layerTitle = typeof m.label === 'string' ? m.label : layerId;
                 const feats = await fetchWMSFeatureInfo({
@@ -562,7 +568,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 }}>`
                     : type === 'linkURL' && strVal
                         ? html`<a href=${strVal} target="_blank" rel="noopener noreferrer">${strVal}</a>`
-                    : strVal
+                    : strVal.split(',').map((part, i) => i === 0 ? html`${part}` : html`,<wbr>${part}`)
                 }</span>
             </div>
         `;
