@@ -50,16 +50,21 @@ function unionExtent(
 }
 
 /** Collects the source ids a layer's extent depends on: its own `sourceId`,
- *  or — for composite layers — the unique `source` of each sublayer. */
-function getLayerSourceIds(metadata: Record<string, unknown> | undefined): string[] {
+ *  or — for composite layers — the unique `source` of each sublayer.
+ *
+ *  Each entry is itself a list of candidate ids for that one source: composite
+ *  (`type: 'style'`) sublayer sources are registered in the maplibre adapter under
+ *  `${layerId}:${source}` (a globally-unique key), not the bare source key written
+ *  in the config — so both forms are tried. */
+function getLayerSourceRefs(layerId: string, metadata: Record<string, unknown> | undefined): string[][] {
   if (Array.isArray(metadata?.sublayers) && metadata.sublayers.length > 0) {
-    const ids = new Set<string>();
+    const keys = new Set<string>();
     for (const sub of metadata.sublayers as Record<string, unknown>[]) {
-      if (typeof sub.source === 'string') ids.add(sub.source);
+      if (typeof sub.source === 'string') keys.add(sub.source);
     }
-    return [...ids];
+    return [...keys].map((key) => [`${layerId}:${key}`, key]);
   }
-  if (typeof metadata?.sourceId === 'string') return [metadata.sourceId];
+  if (typeof metadata?.sourceId === 'string') return [[metadata.sourceId]];
   return [];
 }
 
@@ -748,7 +753,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         label,
         topLevelGroup,
         visible: !this.hiddenLayerIds.has(layerId),
-        hasExtent: this.layerHasExtent(metadata),
+        hasExtent: this.layerHasExtent(layerId, metadata),
       };
 
       if (legendRole === 'background') {
@@ -827,17 +832,26 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   }
 
   /** Cheap existence check (no coordinate walking) for whether "zoom to layer" should show. */
-  private layerHasExtent(metadata: Record<string, unknown> | undefined): boolean {
+  private layerHasExtent(layerId: string, metadata: Record<string, unknown> | undefined): boolean {
     if (Array.isArray(metadata?.bounds) && metadata.bounds.length === 4) return true;
-    return getLayerSourceIds(metadata).some((sourceId) => this.adapter?.getSourceData(sourceId) !== null);
+    return getLayerSourceRefs(layerId, metadata).some((candidates) =>
+      candidates.some((sourceId) => this.adapter?.getSourceData(sourceId) !== null));
   }
 
-  /** Lazily computes (and caches) the extent of a single source's GeoJSON data. */
-  private getSourceExtent(sourceId: string): [number, number, number, number] | null {
-    if (this.sourceExtentCache.has(sourceId)) return this.sourceExtentCache.get(sourceId) ?? null;
-    const data = this.adapter?.getSourceData(sourceId) ?? null;
-    const extent = (data && typeof data === 'object') ? geojsonExtent(data as GeoJSON.FeatureCollection) : null;
-    this.sourceExtentCache.set(sourceId, extent);
+  /** Lazily computes (and caches) the extent of a source's GeoJSON data, trying each
+   *  candidate id in turn (cached under the first candidate). */
+  private getSourceExtent(candidates: string[]): [number, number, number, number] | null {
+    const cacheKey = candidates[0];
+    if (this.sourceExtentCache.has(cacheKey)) return this.sourceExtentCache.get(cacheKey) ?? null;
+    let extent: [number, number, number, number] | null = null;
+    for (const sourceId of candidates) {
+      const data = this.adapter?.getSourceData(sourceId) ?? null;
+      if (data && typeof data === 'object') {
+        extent = geojsonExtent(data as GeoJSON.FeatureCollection);
+        break;
+      }
+    }
+    this.sourceExtentCache.set(cacheKey, extent);
     return extent;
   }
 
@@ -850,8 +864,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     if (Array.isArray(metadata?.bounds) && metadata.bounds.length === 4) {
       extent = metadata.bounds as [number, number, number, number];
     } else {
-      for (const sourceId of getLayerSourceIds(metadata)) {
-        extent = unionExtent(extent, this.getSourceExtent(sourceId));
+      for (const candidates of getLayerSourceRefs(layerId, metadata)) {
+        extent = unionExtent(extent, this.getSourceExtent(candidates));
       }
     }
     this.layerExtentCache.set(layerId, extent);

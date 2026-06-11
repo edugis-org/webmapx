@@ -1038,7 +1038,10 @@
         "id": "amsterdam-historical",
         "type": "allmaps",
         "annotation": "https://annotations.allmaps.org/maps/f60ecda322d09956",
-        "title": "Amsterdam 1625 (Allmaps)"
+        "title": "Amsterdam 1625 (Allmaps)",
+        "metadata": {
+          "bounds": [4.87253, 52.35762, 4.9441, 52.39216]
+        }
       },
       "countrypopest": {
         "id": "countrypopest",
