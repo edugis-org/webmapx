@@ -120,9 +120,12 @@ export class WebmapxSaveLayersDialog extends LitElement {
             if (Array.isArray(item.sublayers) && item.sublayers.length > 0) {
                 item.sublayers.forEach((sub, index) => {
                     const subLayer = sub as Record<string, unknown>;
+                    // Keep the sublayer's own id as-is — dropped-layer-builder prefixes
+                    // it with the imported style's id on load, so prefixing here too
+                    // would double up (e.g. "world-countries__world-countries_world-countries-fill").
                     layers.push({
                         ...subLayer,
-                        id: `${item.layerId}_${(subLayer.id as string) ?? index}`,
+                        id: (subLayer.id as string) ?? `${item.layerId}_${index}`,
                         source: sourceName,
                     });
                 });
