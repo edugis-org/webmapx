@@ -61,6 +61,20 @@ Adapter selection is resolved separately. The order is:
 - Keeps the surface synchronized if you later insert your own `[slot="map-view"]` node.
 - Leaves default slot content untouched, so any overlay component can be appended directly.
 
+## Drag-and-drop file import
+
+Dropping files onto the map adds them as new layers. Supported formats:
+
+- **GeoJSON** (`.geojson`/`.json`) and **TopoJSON** — added as a vector layer (one source per object, for TopoJSON with multiple objects).
+- **Shapefiles** — `.shp` + `.dbf` + `.prj` (projection used for reprojection to WGS84), individually or zipped together. Parsing/reprojection runs in a Web Worker.
+- **MapLibre `style.json`** — added as a composite style layer with all its sub-layers/sources.
+- **QGIS `.qml`** style files — when dropped alongside a matching shapefile/GeoJSON, its symbology is applied to the generated layer.
+- A **`.zip`** containing any combination of the above (e.g. `.shp`/`.dbf`/`.prj`/`.qml`) is unzipped and processed as one group.
+
+Dropped vector data gets default fill/line/point styling based on the geometry types present, or the `.qml` style if one was included. If a layer with the same id already exists, the new layer is added with a numeric suffix (`_1`, `_2`, ...).
+
+While processing, the map shows its busy spinner. Unsupported or unrecognized files (e.g. `.csv`, `.gpx`, `.kml`, `.xlsx`) are not added — a summary of detected file types is shown in an alert instead.
+
 ## JavaScript API
 
 Access the map adapter via the `adapter` property:
