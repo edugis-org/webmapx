@@ -991,7 +991,10 @@
         "title": "OpenFreeMap Liberty (style)",
         "attribution": "&copy; OpenStreetMap contributors | &copy; OpenFreeMap",
         "fallbackLayerId": "osm",
-        "layers": []
+        "layers": [],
+        "metadata": {
+          "supportedEngines": ["maplibre", "openlayers"]
+        }
       },
       "world-countries": {
         "id": "world-countries",

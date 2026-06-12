@@ -159,6 +159,8 @@ export interface LayerMetadata {
   bounds?: [number, number, number, number];
   /** Attribute display configuration for the info tool. */
   attributes?: LayerAttributeConfig;
+  /** Engines known to support this layer (skips runtime/style-fetch support checks). Default: auto-detected (may trigger a style fetch for style-backed layers). */
+  supportedEngines?: Array<'maplibre' | 'openlayers' | 'leaflet' | 'cesium'>;
   /** Allow additional engine-specific or plugin fields. */
   [key: string]: unknown;
 }

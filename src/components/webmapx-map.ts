@@ -1205,6 +1205,11 @@ export class WebmapxMapElement extends HTMLElement {
       return false;
     }
 
+    const supportedEngines = layerInformation.layer.metadata?.supportedEngines;
+    if (supportedEngines) {
+      return supportedEngines.includes(this.activeAdapterName as any);
+    }
+
     if (!this.isStyleBackedLayer(layerInformation.layer)) {
       return !this.hasUnsupportedStyleComponents(layerInformation);
     }
