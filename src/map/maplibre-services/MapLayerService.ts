@@ -212,26 +212,45 @@ export class MapLayerService implements ILayerService {
         return nativeLayerIds.length > 0;
     }
 
+    /** Paint keys that are actually layout properties in the maplibre style spec. */
+    private static readonly LAYOUT_KEYS = new Set(['text-size', 'icon-size', 'text-field', 'visibility']);
+
+    /** Maps a paint/layout key's prefix to the maplibre layer type that owns it. */
+    private static layerTypeForKey(key: string): string {
+        if (key.startsWith('fill-extrusion')) return 'fill-extrusion';
+        if (key.startsWith('text-') || key.startsWith('icon-')) return 'symbol';
+        return key.split('-')[0];
+    }
+
+    private applyStyleProperty(nativeLayerId: string, key: string, value: unknown): void {
+        if (MapLayerService.LAYOUT_KEYS.has(key)) {
+            this.map.setLayoutProperty(nativeLayerId, key, value as any);
+        } else {
+            this.map.setPaintProperty(nativeLayerId, key, value as any);
+        }
+    }
+
     updateLayerStyle(styleId: string, subLayerId: string, partialPaint: Record<string, unknown>): boolean {
         const nativeLayerId = `${styleId}-${subLayerId}`;
         if (this.map.getLayer(nativeLayerId)) {
             for (const [key, value] of Object.entries(partialPaint)) {
-                this.map.setPaintProperty(nativeLayerId, key, value as any);
+                this.applyStyleProperty(nativeLayerId, key, value);
             }
             return true;
         }
 
         // Non-composite standard layer: styleId === subLayerId, native id is
-        // `${layerId}-${sourceId}-${type}`. Apply each paint key only to the
-        // native layer whose type matches the key's prefix (e.g. 'fill-color' -> '-fill').
+        // `${layerId}-${sourceId}-${type}`. Apply each key only to the native
+        // layer whose type matches the key's prefix (e.g. 'fill-color' -> '-fill',
+        // 'text-size'/'text-color' -> '-symbol').
         if (styleId !== subLayerId) return false;
         let updated = false;
         for (const nativeId of this.logicalToNative.get(styleId) ?? []) {
             if (!this.map.getLayer(nativeId)) continue;
             for (const [key, value] of Object.entries(partialPaint)) {
-                const prefix = key.startsWith('fill-extrusion') ? 'fill-extrusion' : key.split('-')[0];
-                if (!nativeId.endsWith(`-${prefix}`)) continue;
-                this.map.setPaintProperty(nativeId, key, value as any);
+                const type = MapLayerService.layerTypeForKey(key);
+                if (!nativeId.endsWith(`-${type}`)) continue;
+                this.applyStyleProperty(nativeId, key, value);
                 updated = true;
             }
         }

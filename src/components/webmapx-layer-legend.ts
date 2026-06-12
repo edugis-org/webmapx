@@ -183,6 +183,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     private renderCompositeLegend(sublayers: unknown[], zoom: number): TemplateResult {
         const rows: TemplateResult[] = [];
         const seen = new Set<string>(); // deduplicate by visual key
+        const dedupGroups = new Map<string, string[]>(); // visual key -> all sublayer ids sharing it
 
         // Combined zoom range across all visible-eligible sublayers (256px-tile +1 offset, as below)
         let overallMin = Infinity;
@@ -237,8 +238,17 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 evalLayout[k] = this.evalAtZoom(v, zoom);
             }
 
+            // Snapshot pre-override values for dedup-key computation, so an in-progress
+            // edit (e.g. dragging a size slider) can't change which legend item this
+            // sublayer groups under and re-close/move the open editor mid-drag.
+            const basePaint = { ...evalPaint };
+            const baseLayout = { ...evalLayout };
+
             const overrides = this.editOverrides[rawId];
-            if (overrides) Object.assign(evalPaint, overrides);
+            if (overrides) {
+                Object.assign(evalPaint, overrides);
+                if ('text-size' in overrides) evalLayout['text-size'] = overrides['text-size'];
+            }
 
             // Find primary color key for this layer type
             const colorKey = type === 'fill' ? 'fill-color'
@@ -273,41 +283,47 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 }
             } else {
                 // Single style: swatch + label inline
-                const resolvedColor = colorKey ? String(evalPaint[colorKey] ?? '#aaa') : '#aaa';
+                const resolvedColor = colorKey ? String(basePaint[colorKey] ?? '#aaa') : '#aaa';
                 // For symbols also include size + weight in dedup key — country/state/town labels
                 // differ visually even when same color
                 let dedupKey = `${type}|${resolvedColor}`;
                 if (type === 'line') {
                     // Lines with same color but different dasharray (e.g. equator vs.
                     // tropics vs. polar circles) look visually distinct — keep separate
-                    const dash = evalPaint['line-dasharray'];
+                    const dash = basePaint['line-dasharray'];
                     dedupKey = `line|${resolvedColor}|${Array.isArray(dash) ? dash.join(',') : String(dash ?? '')}`;
                 } else if (type === 'symbol') {
-                    const rawSize = evalLayout['text-size'] ?? evalPaint['text-size'];
+                    const rawSize = baseLayout['text-size'] ?? basePaint['text-size'];
                     const sz = Math.round(Number(typeof rawSize === 'number' ? rawSize : 12));
-                    const fonts = Array.isArray(evalLayout['text-font']) ? (evalLayout['text-font'] as string[]) : [];
+                    const fonts = Array.isArray(baseLayout['text-font']) ? (baseLayout['text-font'] as string[]) : [];
                     const fontStr = fonts.join(' ').toLowerCase();
                     const weight = fontStr.includes('bold') || fontStr.includes('black') ? '700'
                         : fontStr.includes('semibold') || fontStr.includes('demibold') || fontStr.includes('medium') ? '600'
                         : '400';
-                    const haloW = Math.round(Number(evalPaint['text-halo-width'] ?? 0) * 2) / 2;
-                    const haloC = haloW > 0 ? String(evalPaint['text-halo-color'] ?? '') : '';
+                    const haloW = Math.round(Number(basePaint['text-halo-width'] ?? 0) * 2) / 2;
+                    const haloC = haloW > 0 ? String(basePaint['text-halo-color'] ?? '') : '';
                     dedupKey = `symbol|${resolvedColor}|${sz}|${weight}|${haloW}|${haloC}`;
                 }
+                // Collect every sublayer id that shares this dedup key — editing the
+                // legend item for one should update all visually-identical duplicates.
+                if (!dedupGroups.has(dedupKey)) dedupGroups.set(dedupKey, []);
+                dedupGroups.get(dedupKey)!.push(rawId);
+
                 if (seen.has(dedupKey)) continue;
                 seen.add(dedupKey);
                 const swatch = this.renderSwatch(type, evalPaint, zoom, evalLayout);
                 if (!swatch) continue;
                 const editable = this.isEditableType(type, evalPaint);
-                const isOpen = this.editorOpenKey === rawId;
+                const isOpen = this.editorOpenKey === dedupKey;
                 rows.push(html`
                     <div class="legend-row ${editable ? 'editable' : ''}"
-                        @click=${editable ? () => { this.editorOpenKey = isOpen ? null : rawId; } : null}>
+                        @click=${editable ? () => { this.editorOpenKey = isOpen ? null : dedupKey; } : null}>
                         ${swatch}
                         <span class="legend-label">${label}</span>
                     </div>`);
                 if (editable && isOpen) {
-                    rows.push(this.renderStyleEditor(rawId, type, evalPaint));
+                    const editorPaint = type === 'symbol' ? { ...evalPaint, 'text-size': evalLayout['text-size'] ?? evalPaint['text-size'] } : evalPaint;
+                    rows.push(this.renderStyleEditor(dedupGroups.get(dedupKey)!, type, editorPaint));
                 }
             }
         }
@@ -731,6 +747,11 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     disconnectedCallback(): void {
         super.disconnectedCallback();
         this.destroyPickrs();
+        if (this.pendingPaintRaf !== null) {
+            cancelAnimationFrame(this.pendingPaintRaf);
+            this.pendingPaintRaf = null;
+            this.pendingPaintUpdates.clear();
+        }
     }
 
     protected updated(changed: Map<string, unknown>): void {
@@ -743,8 +764,8 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     }
 
     /** Opens (creating if needed) a Pickr popup color picker attached to the swatch button. */
-    private openColorPicker(button: HTMLElement, subLayerId: string, key: string, value: string): void {
-        const id = `${subLayerId}::${key}`;
+    private openColorPicker(button: HTMLElement, subLayerIds: string[], key: string, value: string): void {
+        const id = `${subLayerIds.join(',')}::${key}`;
         let pickr = this.pickrInstances.get(id);
         if (!pickr) {
             pickr = Pickr.create({
@@ -765,7 +786,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             pickr.on('change', (color: Pickr.HSVaColor) => {
                 const rgba = color.toRGBA().toString(0);
                 button.style.background = rgba;
-                this.setPaintOverride(subLayerId, key, rgba);
+                this.setPaintOverride(subLayerIds, key, rgba);
             });
             pickr.on('save', () => {
                 pickr!.hide();
@@ -773,7 +794,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             pickr.on('cancel', () => {
                 const orig = this.pickrOriginal.get(id)!;
                 button.style.background = orig;
-                this.setPaintOverride(subLayerId, key, orig);
+                this.setPaintOverride(subLayerIds, key, orig);
                 pickr!.hide();
             });
             this.pickrInstances.set(id, pickr);
@@ -785,45 +806,65 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         }
     }
 
-    private setPaintOverride(subLayerId: string, key: string, value: unknown): void {
-        this.editOverrides = {
-            ...this.editOverrides,
-            [subLayerId]: { ...(this.editOverrides[subLayerId] ?? {}), [key]: value },
-        };
-        this.adapter?.updateLayerStyle(this.layerId, subLayerId || this.layerId, { [key]: value });
+    /** Pending adapter updates, flushed at most once per animation frame — layout
+     *  property changes (e.g. text-size) can be expensive, so don't apply on every
+     *  slider-drag tick. */
+    private pendingPaintUpdates = new Map<string, Record<string, unknown>>();
+    private pendingPaintRaf: number | null = null;
+
+    private flushPaintOverrides(): void {
+        this.pendingPaintRaf = null;
+        for (const [subLayerId, partialPaint] of this.pendingPaintUpdates) {
+            this.adapter?.updateLayerStyle(this.layerId, subLayerId || this.layerId, partialPaint);
+        }
+        this.pendingPaintUpdates.clear();
     }
 
-    private renderRangeRow(subLayerId: string, label: string, key: string, value: number, min: number, max: number, step: number, unit = ''): TemplateResult {
+    private setPaintOverride(subLayerIds: string[], key: string, value: unknown): void {
+        const overrides = { ...this.editOverrides };
+        for (const subLayerId of subLayerIds) {
+            overrides[subLayerId] = { ...(overrides[subLayerId] ?? {}), [key]: value };
+            const pending = this.pendingPaintUpdates.get(subLayerId) ?? {};
+            pending[key] = value;
+            this.pendingPaintUpdates.set(subLayerId, pending);
+        }
+        this.editOverrides = overrides;
+        if (this.pendingPaintRaf === null) {
+            this.pendingPaintRaf = requestAnimationFrame(() => this.flushPaintOverrides());
+        }
+    }
+
+    private renderRangeRow(subLayerIds: string[], label: string, key: string, value: number, min: number, max: number, step: number, unit = ''): TemplateResult {
         return html`
             <div class="style-editor-row">
                 <label>${label}</label>
                 <input type="range" min=${min} max=${max} step=${step} .value=${String(value)}
-                    @input=${(e: Event) => this.setPaintOverride(subLayerId, key, Number((e.target as HTMLInputElement).value))}>
+                    @input=${(e: Event) => this.setPaintOverride(subLayerIds, key, Number((e.target as HTMLInputElement).value))}>
                 <output>${value}${unit}</output>
             </div>`;
     }
 
-    private renderColorRow(subLayerId: string, label: string, key: string, value: string): TemplateResult {
+    private renderColorRow(subLayerIds: string[], label: string, key: string, value: string): TemplateResult {
         return html`
             <div class="style-editor-row">
                 <label>${label}</label>
                 <button type="button" class="color-swatch" style="background:${value}"
-                    @click=${(e: Event) => this.openColorPicker(e.currentTarget as HTMLElement, subLayerId, key, value)}></button>
+                    @click=${(e: Event) => this.openColorPicker(e.currentTarget as HTMLElement, subLayerIds, key, value)}></button>
             </div>`;
     }
 
-    private renderStyleEditor(subLayerId: string, layerType: string, paint: Record<string, unknown>): TemplateResult {
+    private renderStyleEditor(subLayerIds: string[], layerType: string, paint: Record<string, unknown>): TemplateResult {
         if (layerType === 'fill' || layerType === 'fill-extrusion') {
             const colorKey = layerType === 'fill' ? 'fill-color' : 'fill-extrusion-color';
             const color = this.toCssColor(paint[colorKey], '#3388ff');
             const opacityKey = layerType === 'fill' ? 'fill-opacity' : 'fill-extrusion-opacity';
             const opacity = Number(paint[opacityKey] ?? 1);
-            const rows = [this.renderColorRow(subLayerId, 'fill color', colorKey, color)];
+            const rows = [this.renderColorRow(subLayerIds, 'fill color', colorKey, color)];
             if (layerType === 'fill') {
                 const outline = this.toCssColor(paint['fill-outline-color'], color);
-                rows.push(this.renderColorRow(subLayerId, 'outline color', 'fill-outline-color', outline));
+                rows.push(this.renderColorRow(subLayerIds, 'outline color', 'fill-outline-color', outline));
             }
-            rows.push(this.renderRangeRow(subLayerId, 'opacity', opacityKey, opacity, 0, 1, 0.05));
+            rows.push(this.renderRangeRow(subLayerIds, 'opacity', opacityKey, opacity, 0, 1, 0.05));
             return html`<div class="style-editor">${rows}</div>`;
         }
 
@@ -832,9 +873,9 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const width = Number(paint['line-width'] ?? 2);
             const opacity = Number(paint['line-opacity'] ?? 1);
             return html`<div class="style-editor">
-                ${this.renderColorRow(subLayerId, 'line color', 'line-color', color)}
-                ${this.renderRangeRow(subLayerId, 'width', 'line-width', width, 0.5, 10, 0.5, 'px')}
-                ${this.renderRangeRow(subLayerId, 'opacity', 'line-opacity', opacity, 0, 1, 0.05)}
+                ${this.renderColorRow(subLayerIds, 'line color', 'line-color', color)}
+                ${this.renderRangeRow(subLayerIds, 'width', 'line-width', width, 0.5, 10, 0.5, 'px')}
+                ${this.renderRangeRow(subLayerIds, 'opacity', 'line-opacity', opacity, 0, 1, 0.05)}
             </div>`;
         }
 
@@ -845,11 +886,25 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const strokeWidth = Number(paint['circle-stroke-width'] ?? 0);
             const opacity = Number(paint['circle-opacity'] ?? 1);
             return html`<div class="style-editor">
-                ${this.renderRangeRow(subLayerId, 'radius', 'circle-radius', radius, 1, 30, 1, 'px')}
-                ${this.renderColorRow(subLayerId, 'fill color', 'circle-color', color)}
-                ${this.renderRangeRow(subLayerId, 'opacity', 'circle-opacity', opacity, 0, 1, 0.05)}
-                ${this.renderRangeRow(subLayerId, 'outline width', 'circle-stroke-width', strokeWidth, 0, 10, 0.5, 'px')}
-                ${this.renderColorRow(subLayerId, 'outline color', 'circle-stroke-color', strokeColor)}
+                ${this.renderRangeRow(subLayerIds, 'radius', 'circle-radius', radius, 1, 30, 1, 'px')}
+                ${this.renderColorRow(subLayerIds, 'fill color', 'circle-color', color)}
+                ${this.renderRangeRow(subLayerIds, 'opacity', 'circle-opacity', opacity, 0, 1, 0.05)}
+                ${this.renderRangeRow(subLayerIds, 'outline width', 'circle-stroke-width', strokeWidth, 0, 10, 0.5, 'px')}
+                ${this.renderColorRow(subLayerIds, 'outline color', 'circle-stroke-color', strokeColor)}
+            </div>`;
+        }
+
+        if (layerType === 'symbol') {
+            const color = this.toCssColor(paint['text-color'], '#1f2937');
+            const opacity = Number(paint['text-opacity'] ?? 1);
+            const size = Number(paint['text-size'] ?? 12);
+            const hasHalo = paint['text-halo-color'] !== undefined || Number(paint['text-halo-width'] ?? 0) > 0;
+            const haloColor = this.toCssColor(paint['text-halo-color'], '#ffffff');
+            return html`<div class="style-editor">
+                ${this.renderRangeRow(subLayerIds, 'size', 'text-size', size, 8, 32, 1, 'px')}
+                ${this.renderColorRow(subLayerIds, 'text color', 'text-color', color)}
+                ${this.renderRangeRow(subLayerIds, 'opacity', 'text-opacity', opacity, 0, 1, 0.05)}
+                ${hasHalo ? this.renderColorRow(subLayerIds, 'halo color', 'text-halo-color', haloColor) : ''}
             </div>`;
         }
 
@@ -863,6 +918,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             : layerType === 'fill-extrusion' ? 'fill-extrusion-color'
             : layerType === 'line' ? 'line-color'
             : layerType === 'circle' ? 'circle-color'
+            : layerType === 'symbol' ? 'text-color'
             : null;
         if (!colorKey) return false;
         return !Array.isArray(paint[colorKey]);
@@ -1049,7 +1105,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                     <div class=${editable ? 'editable' : ''} @click=${editable ? () => { this.editorOpenKey = isOpen ? null : ''; } : null}>
                         ${this.renderLegendItems(layerType!, effectivePaint)}
                     </div>
-                    ${editable && isOpen ? this.renderStyleEditor('', layerType!, effectivePaint) : ''}
+                    ${editable && isOpen ? this.renderStyleEditor([''], layerType!, effectivePaint) : ''}
                 ` : ''}
                 ${legendUrl ? html`
                     <img class="legend-img" src=${legendUrl} alt=${label}
