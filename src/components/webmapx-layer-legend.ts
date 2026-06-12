@@ -2,6 +2,8 @@ import { css, html, svg, TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
+import Pickr from '@simonwep/pickr';
+import '@simonwep/pickr/dist/themes/nano.min.css';
 
 @customElement('webmapx-layer-legend')
 export class WebmapxLayerLegend extends WebmapxBaseTool {
@@ -10,6 +12,13 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
 
     @state() private meta: Record<string, unknown> | null = null;
     @state() private zoom: number = 2;
+
+    /** Local paint overrides from the inline style editor, layered over paint for live preview.
+     *  Keyed by sub-layer id (empty string for non-composite layers). */
+    @state() private editOverrides: Record<string, Record<string, unknown>> = {};
+
+    /** Sub-layer id (empty string for non-composite) whose inline style editor is open, or null. */
+    @state() private editorOpenKey: string | null = null;
 
     static styles = css`
         :host { display: block; }
@@ -20,13 +29,34 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         .img-error { font-size: 0.75rem; color: var(--sl-color-danger-600, #c0392b); font-style: italic; }
         .sub-group-title { font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary, #555); margin-top: 4px; }
         .sub-row { padding-left: 8px; }
-    `;
-
-    protected updated(changed: Map<string, unknown>): void {
-        if (changed.has('layerId') && this.store) {
-            this.onStateChanged(this.store.getState());
+        .editable { cursor: pointer; }
+        .editable:hover { background: var(--sl-color-neutral-100, #f4f4f4); }
+        .style-editor {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 6px 4px 8px 8px;
+            font-size: 0.75rem;
+            color: var(--color-text-primary, #1f2937);
         }
-    }
+        .style-editor-row { display: flex; align-items: center; gap: 6px; }
+        .style-editor-row label { flex: 0 0 5.5rem; }
+        .style-editor-row input[type='range'] { flex: 1 1 auto; min-width: 0; }
+        .style-editor-row output { flex: 0 0 2.5rem; text-align: right; color: var(--color-text-secondary, #555); }
+        .color-swatch {
+            width: 20px;
+            height: 12px;
+            padding: 0;
+            border: 1px solid var(--sl-color-neutral-300, #ccc);
+            border-radius: 3px;
+            cursor: pointer;
+            background-image:
+                linear-gradient(45deg, #bbb 25%, transparent 25%, transparent 75%, #bbb 75%),
+                linear-gradient(45deg, #bbb 25%, transparent 25%, transparent 75%, #bbb 75%);
+            background-size: 6px 6px;
+            background-position: 0 0, 3px 3px;
+        }
+    `;
 
     protected onStateChanged(state: IMapState): void {
         const entry = (state.mapLayers ?? {})[this.layerId] as Record<string, unknown> | undefined;
@@ -207,6 +237,9 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 evalLayout[k] = this.evalAtZoom(v, zoom);
             }
 
+            const overrides = this.editOverrides[rawId];
+            if (overrides) Object.assign(evalPaint, overrides);
+
             // Find primary color key for this layer type
             const colorKey = type === 'fill' ? 'fill-color'
                 : type === 'fill-extrusion' ? 'fill-extrusion-color'
@@ -265,11 +298,17 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 seen.add(dedupKey);
                 const swatch = this.renderSwatch(type, evalPaint, zoom, evalLayout);
                 if (!swatch) continue;
+                const editable = this.isEditableType(type, evalPaint);
+                const isOpen = this.editorOpenKey === rawId;
                 rows.push(html`
-                    <div class="legend-row">
+                    <div class="legend-row ${editable ? 'editable' : ''}"
+                        @click=${editable ? () => { this.editorOpenKey = isOpen ? null : rawId; } : null}>
                         ${swatch}
                         <span class="legend-label">${label}</span>
                     </div>`);
+                if (editable && isOpen) {
+                    rows.push(this.renderStyleEditor(rawId, type, evalPaint));
+                }
             }
         }
 
@@ -663,6 +702,172 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         };
     }
 
+    // ─── Inline vector style editor ───────────────────────────────────────────
+
+    /** Normalizes a color value for the picker; falls back if not a plain CSS color string. */
+    private toCssColor(value: unknown, fallback: string): string {
+        return typeof value === 'string' ? value : fallback;
+    }
+
+    /** Active Pickr popup instances, keyed by `${subLayerId}::${paintKey}`. */
+    private pickrInstances = new Map<string, Pickr>();
+
+    /** Value to restore on 'cancel', keyed by `${subLayerId}::${paintKey}`. Updated each time the picker opens. */
+    private pickrOriginal = new Map<string, string>();
+
+    /** Fixed palette of common colors plus transparent, edugis-style. */
+    private static readonly COLOR_PALETTE = [
+        '#000000', '#ffffff', '#7f7f7f', '#ff0000', '#ff8000', '#ffff00',
+        '#00ff00', '#008000', '#00ffff', '#0000ff', '#8000ff', '#ff00ff',
+        'rgba(0,0,0,0)',
+    ];
+
+    private destroyPickrs(): void {
+        for (const p of this.pickrInstances.values()) p.destroyAndRemove();
+        this.pickrInstances.clear();
+        this.pickrOriginal.clear();
+    }
+
+    disconnectedCallback(): void {
+        super.disconnectedCallback();
+        this.destroyPickrs();
+    }
+
+    protected updated(changed: Map<string, unknown>): void {
+        if (changed.has('layerId') && this.store) {
+            this.onStateChanged(this.store.getState());
+        }
+        if (changed.has('editorOpenKey')) {
+            this.destroyPickrs();
+        }
+    }
+
+    /** Opens (creating if needed) a Pickr popup color picker attached to the swatch button. */
+    private openColorPicker(button: HTMLElement, subLayerId: string, key: string, value: string): void {
+        const id = `${subLayerId}::${key}`;
+        let pickr = this.pickrInstances.get(id);
+        if (!pickr) {
+            pickr = Pickr.create({
+                el: button,
+                theme: 'nano',
+                default: value,
+                useAsButton: true,
+                comparison: false,
+                appClass: 'webmapx-pickr',
+                swatches: WebmapxLayerLegend.COLOR_PALETTE,
+                components: {
+                    preview: true,
+                    opacity: true,
+                    hue: true,
+                    interaction: { input: true, cancel: true, save: true, rgba: false, hsla: false, hsva: false, cmyk: false, hex: false },
+                },
+            });
+            pickr.on('change', (color: Pickr.HSVaColor) => {
+                const rgba = color.toRGBA().toString(0);
+                button.style.background = rgba;
+                this.setPaintOverride(subLayerId, key, rgba);
+            });
+            pickr.on('save', () => {
+                pickr!.hide();
+            });
+            pickr.on('cancel', () => {
+                const orig = this.pickrOriginal.get(id)!;
+                button.style.background = orig;
+                this.setPaintOverride(subLayerId, key, orig);
+                pickr!.hide();
+            });
+            this.pickrInstances.set(id, pickr);
+            this.pickrOriginal.set(id, value);
+            pickr.show();
+        } else {
+            pickr.setColor(value);
+            this.pickrOriginal.set(id, value);
+        }
+    }
+
+    private setPaintOverride(subLayerId: string, key: string, value: unknown): void {
+        this.editOverrides = {
+            ...this.editOverrides,
+            [subLayerId]: { ...(this.editOverrides[subLayerId] ?? {}), [key]: value },
+        };
+        this.adapter?.updateLayerStyle(this.layerId, subLayerId || this.layerId, { [key]: value });
+    }
+
+    private renderRangeRow(subLayerId: string, label: string, key: string, value: number, min: number, max: number, step: number, unit = ''): TemplateResult {
+        return html`
+            <div class="style-editor-row">
+                <label>${label}</label>
+                <input type="range" min=${min} max=${max} step=${step} .value=${String(value)}
+                    @input=${(e: Event) => this.setPaintOverride(subLayerId, key, Number((e.target as HTMLInputElement).value))}>
+                <output>${value}${unit}</output>
+            </div>`;
+    }
+
+    private renderColorRow(subLayerId: string, label: string, key: string, value: string): TemplateResult {
+        return html`
+            <div class="style-editor-row">
+                <label>${label}</label>
+                <button type="button" class="color-swatch" style="background:${value}"
+                    @click=${(e: Event) => this.openColorPicker(e.currentTarget as HTMLElement, subLayerId, key, value)}></button>
+            </div>`;
+    }
+
+    private renderStyleEditor(subLayerId: string, layerType: string, paint: Record<string, unknown>): TemplateResult {
+        if (layerType === 'fill' || layerType === 'fill-extrusion') {
+            const colorKey = layerType === 'fill' ? 'fill-color' : 'fill-extrusion-color';
+            const color = this.toCssColor(paint[colorKey], '#3388ff');
+            const opacityKey = layerType === 'fill' ? 'fill-opacity' : 'fill-extrusion-opacity';
+            const opacity = Number(paint[opacityKey] ?? 1);
+            const rows = [this.renderColorRow(subLayerId, 'fill color', colorKey, color)];
+            if (layerType === 'fill') {
+                const outline = this.toCssColor(paint['fill-outline-color'], color);
+                rows.push(this.renderColorRow(subLayerId, 'outline color', 'fill-outline-color', outline));
+            }
+            rows.push(this.renderRangeRow(subLayerId, 'opacity', opacityKey, opacity, 0, 1, 0.05));
+            return html`<div class="style-editor">${rows}</div>`;
+        }
+
+        if (layerType === 'line') {
+            const color = this.toCssColor(paint['line-color'], '#3388ff');
+            const width = Number(paint['line-width'] ?? 2);
+            const opacity = Number(paint['line-opacity'] ?? 1);
+            return html`<div class="style-editor">
+                ${this.renderColorRow(subLayerId, 'line color', 'line-color', color)}
+                ${this.renderRangeRow(subLayerId, 'width', 'line-width', width, 0.5, 10, 0.5, 'px')}
+                ${this.renderRangeRow(subLayerId, 'opacity', 'line-opacity', opacity, 0, 1, 0.05)}
+            </div>`;
+        }
+
+        if (layerType === 'circle') {
+            const color = this.toCssColor(paint['circle-color'], '#3388ff');
+            const radius = Number(paint['circle-radius'] ?? 5);
+            const strokeColor = this.toCssColor(paint['circle-stroke-color'], color);
+            const strokeWidth = Number(paint['circle-stroke-width'] ?? 0);
+            const opacity = Number(paint['circle-opacity'] ?? 1);
+            return html`<div class="style-editor">
+                ${this.renderRangeRow(subLayerId, 'radius', 'circle-radius', radius, 1, 30, 1, 'px')}
+                ${this.renderColorRow(subLayerId, 'fill color', 'circle-color', color)}
+                ${this.renderRangeRow(subLayerId, 'opacity', 'circle-opacity', opacity, 0, 1, 0.05)}
+                ${this.renderRangeRow(subLayerId, 'outline width', 'circle-stroke-width', strokeWidth, 0, 10, 0.5, 'px')}
+                ${this.renderColorRow(subLayerId, 'outline color', 'circle-stroke-color', strokeColor)}
+            </div>`;
+        }
+
+        return html``;
+    }
+
+    /** Whether the given (single, non-composite) layer's paint is simple enough to edit inline (no data/zoom expressions). */
+    private isEditableType(layerType: string | null, paint: Record<string, unknown>): boolean {
+        if (!layerType) return false;
+        const colorKey = layerType === 'fill' ? 'fill-color'
+            : layerType === 'fill-extrusion' ? 'fill-extrusion-color'
+            : layerType === 'line' ? 'line-color'
+            : layerType === 'circle' ? 'circle-color'
+            : null;
+        if (!colorKey) return false;
+        return !Array.isArray(paint[colorKey]);
+    }
+
     private renderLegendItems(layerType: string, paint: Record<string, unknown>): TemplateResult[] {
         const attrTr = this.getAttrTranslations();
 
@@ -833,9 +1038,19 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         const supportedTypes = ['fill', 'fill-extrusion', 'line', 'circle', 'symbol', 'raster', 'background'];
         const hasSwatch = layerType && supportedTypes.includes(layerType) && !legendUrl;
 
+        const overrides = this.editOverrides[''];
+        const effectivePaint = overrides ? { ...paint, ...overrides } : paint;
+        const editable = !sublayers && hasSwatch && this.isEditableType(layerType, effectivePaint);
+        const isOpen = this.editorOpenKey === '';
+
         return html`
             <div class="legend-wrap">
-                ${hasSwatch ? this.renderLegendItems(layerType!, paint) : ''}
+                ${hasSwatch ? html`
+                    <div class=${editable ? 'editable' : ''} @click=${editable ? () => { this.editorOpenKey = isOpen ? null : ''; } : null}>
+                        ${this.renderLegendItems(layerType!, effectivePaint)}
+                    </div>
+                    ${editable && isOpen ? this.renderStyleEditor('', layerType!, effectivePaint) : ''}
+                ` : ''}
                 ${legendUrl ? html`
                     <img class="legend-img" src=${legendUrl} alt=${label}
                         @error=${(e: Event) => {

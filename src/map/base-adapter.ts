@@ -87,6 +87,10 @@ export abstract class BaseAdapter {
         this.events.emit({ type: 'layer-reorder', layerId, activeLayers });
     }
 
+    updateLayerStyle(layerId: string, subLayerId: string, partialPaint: Record<string, unknown>): boolean {
+        return this.getLogicalLayerExecutor().updateLayerStyle(layerId, subLayerId, partialPaint);
+    }
+
     removeSource(id: string): void {
         // Unregister all layers whose sourceId matches this source before delegating
         // to the engine. Only the store knows which layer IDs were registered under

@@ -238,6 +238,13 @@ export interface IMap {
     /** Repositions a logical layer immediately below `beforeLayerId` (or to the top if null/undefined). */
     moveLayer(layerId: string, beforeLayerId?: string | null): void;
 
+    /**
+     * Updates paint properties of a logical layer. For composite (`type: 'style'`)
+     * layers, `subLayerId` addresses one sub-layer; for standard layers, pass
+     * `layerId` as `subLayerId` too. Returns true if a matching native layer was updated.
+     */
+    updateLayerStyle(layerId: string, subLayerId: string, partialPaint: Record<string, unknown>): boolean;
+
     // ===== Viewport / Camera =====
     /** Gets the current viewport state (center, zoom, bearing, pitch). */
     getViewportState(): { center: [number, number], zoom: number, bearing: number, pitch: number };

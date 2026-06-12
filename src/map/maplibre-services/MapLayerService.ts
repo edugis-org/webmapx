@@ -214,11 +214,28 @@ export class MapLayerService implements ILayerService {
 
     updateLayerStyle(styleId: string, subLayerId: string, partialPaint: Record<string, unknown>): boolean {
         const nativeLayerId = `${styleId}-${subLayerId}`;
-        if (!this.map.getLayer(nativeLayerId)) return false;
-        for (const [key, value] of Object.entries(partialPaint)) {
-            this.map.setPaintProperty(nativeLayerId, key, value as any);
+        if (this.map.getLayer(nativeLayerId)) {
+            for (const [key, value] of Object.entries(partialPaint)) {
+                this.map.setPaintProperty(nativeLayerId, key, value as any);
+            }
+            return true;
         }
-        return true;
+
+        // Non-composite standard layer: styleId === subLayerId, native id is
+        // `${layerId}-${sourceId}-${type}`. Apply each paint key only to the
+        // native layer whose type matches the key's prefix (e.g. 'fill-color' -> '-fill').
+        if (styleId !== subLayerId) return false;
+        let updated = false;
+        for (const nativeId of this.logicalToNative.get(styleId) ?? []) {
+            if (!this.map.getLayer(nativeId)) continue;
+            for (const [key, value] of Object.entries(partialPaint)) {
+                const prefix = key.startsWith('fill-extrusion') ? 'fill-extrusion' : key.split('-')[0];
+                if (!nativeId.endsWith(`-${prefix}`)) continue;
+                this.map.setPaintProperty(nativeId, key, value as any);
+                updated = true;
+            }
+        }
+        return updated;
     }
 
     async addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
