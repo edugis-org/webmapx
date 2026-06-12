@@ -4,7 +4,7 @@ import * as L from 'leaflet';
 import type { AnyLayerConfig, StandardLayerConfig, SourceConfig, WMSSourceConfig, SubLayerSpec } from '../../config/types';
 import { evaluateColor, evaluateNumber, evaluateString, matchesFilter } from '../../utils/maplibre-expression-evaluator';
 
-if (typeof document !== 'undefined' && !document.getElementById('webmapx-symbol-label-style')) {
+if (typeof document !== 'undefined' && typeof document.getElementById === 'function' && !document.getElementById('webmapx-symbol-label-style')) {
     const style = document.createElement('style');
     style.id = 'webmapx-symbol-label-style';
     style.textContent = '.webmapx-symbol-label { background: none; border: none; }';
