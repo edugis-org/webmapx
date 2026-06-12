@@ -31,9 +31,12 @@ export class LeafletLayerFactory {
     static createXYZLayer(layerId: string, sourceConfig: SourceConfig): LeafletLayerSpec | null {
         if (sourceConfig.type !== 'raster' || sourceConfig.service !== 'xyz') return null;
         const url = Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url;
+        const tileSize = sourceConfig.tileSize || 256;
         const options = {
             attribution: sourceConfig.attribution,
-            tileSize: sourceConfig.tileSize || 256,
+            tileSize,
+            // 512px tiles in a {z}/{x}/{y} scheme cover the area of one coarser leaflet zoom level (256px)
+            zoomOffset: tileSize === 512 ? -1 : 0,
             minZoom: sourceConfig.minzoom,
             maxNativeZoom: sourceConfig.maxzoom,
         };

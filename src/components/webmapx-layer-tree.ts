@@ -59,6 +59,15 @@ export class WebmapxLayerTree extends LitElement {
     /** Tree data loaded from config */
     @state() private configTree: TreeNodeConfig[] = [];
 
+    /** Current search query (filters tree by label) */
+    @state() private searchQuery = '';
+
+    /** Explicit show/hide override for the search box from tool config */
+    private showSearchConfig: boolean | undefined;
+
+    /** Leaf-count threshold above which the search box is shown when not explicitly configured */
+    private searchThreshold = 8;
+
     private configHandler: ((e: Event) => void) | null = null;
     private addLayerFailedHandler: ((e: Event) => void) | null = null;
     private mapReadyHandler: ((e: Event) => void) | null = null;
@@ -121,6 +130,31 @@ export class WebmapxLayerTree extends LitElement {
             color: inherit;
             cursor: pointer;
         }
+        .search {
+            position: relative;
+            margin-bottom: 0.25rem;
+        }
+        .search input {
+            width: 100%;
+            box-sizing: border-box;
+            font: inherit;
+            padding: 0.25rem 1.5rem 0.25rem 0.375rem;
+            border: 1px solid var(--sl-color-neutral-300);
+            border-radius: var(--sl-border-radius-medium);
+        }
+        .search-clear {
+            position: absolute;
+            right: 0.25rem;
+            top: 50%;
+            transform: translateY(-50%);
+            border: none;
+            background: none;
+            cursor: pointer;
+            line-height: 1;
+            font-size: 1rem;
+            color: var(--sl-color-neutral-500);
+            padding: 0;
+        }
         .layer-radio input[type='radio'] {
             width: 0.875rem;
             height: 0.875rem;
@@ -155,6 +189,7 @@ export class WebmapxLayerTree extends LitElement {
         const existingTree = this.getTreeFromMapConfig(this.mapHost?.config as Record<string, unknown> | null ?? null);
         if (existingTree.length > 0) {
             this.configTree = existingTree;
+            this.readSearchConfig(this.mapHost?.config as Record<string, unknown> | null ?? null);
             this.didQueueRootSupportChecks = false;
             this.queueRootLazySupportChecks();
         }
@@ -165,6 +200,7 @@ export class WebmapxLayerTree extends LitElement {
             const tree = this.getTreeFromMapConfig(detail.config ?? null);
             if (tree.length > 0) {
                 this.configTree = tree;
+                this.readSearchConfig(detail.config ?? null);
                 this.didQueueRootSupportChecks = false;
                 if (this.adapter) {
                     this.syncCheckedLayersFromStore();
@@ -553,13 +589,18 @@ export class WebmapxLayerTree extends LitElement {
     }
 
     private findTreeInTools(tools: unknown): TreeNodeConfig[] {
+        return this.findLayerTreeToolItem(tools)?.tree as TreeNodeConfig[] | undefined ?? [];
+    }
+
+    /** Locates the layerTree tool config entry (either `tools.layerTree` or a `type: 'layerTree'` item) */
+    private findLayerTreeToolItem(tools: unknown): Record<string, unknown> | null {
         if (!tools || typeof tools !== 'object') {
-            return [];
+            return null;
         }
 
-        const directTree = (tools as { layerTree?: { tree?: TreeNodeConfig[] } }).layerTree?.tree;
-        if (Array.isArray(directTree)) {
-            return directTree;
+        const direct = (tools as { layerTree?: Record<string, unknown> }).layerTree;
+        if (direct && Array.isArray(direct.tree)) {
+            return direct;
         }
 
         const toolEntries = Object.values(tools as Record<string, unknown>)
@@ -583,12 +624,134 @@ export class WebmapxLayerTree extends LitElement {
                 }
 
                 if (Array.isArray(toolItem.tree)) {
-                    return toolItem.tree as TreeNodeConfig[];
+                    return toolItem;
                 }
             }
         }
 
-        return [];
+        return null;
+    }
+
+    /** Reads `showSearch` / `searchThreshold` options from the layerTree tool config */
+    private readSearchConfig(config: Record<string, unknown> | null): void {
+        const toolItem = this.findLayerTreeToolItem((config as { tools?: unknown } | null)?.tools);
+        if (!toolItem) {
+            return;
+        }
+
+        if (typeof toolItem.showSearch === 'boolean') {
+            this.showSearchConfig = toolItem.showSearch;
+        }
+        if (typeof toolItem.searchThreshold === 'number') {
+            this.searchThreshold = toolItem.searchThreshold;
+        }
+    }
+
+    /** Counts leaf (selectable) nodes in the tree */
+    private countLeaves(nodes: LayerNode[]): number {
+        let count = 0;
+        for (const node of nodes) {
+            if (node.children?.length) {
+                count += this.countLeaves(node.children);
+            } else if (node.layerId) {
+                count += 1;
+            }
+        }
+        return count;
+    }
+
+    /** Whether the search box should be shown */
+    private get showSearch(): boolean {
+        if (this.showSearchConfig !== undefined) {
+            return this.showSearchConfig;
+        }
+        return this.countLeaves(this.effectiveTree) > this.searchThreshold;
+    }
+
+    /** Returns a copy of the tree containing only nodes whose label/metadata matches the query (or that have a matching descendant) */
+    private filterTree(nodes: LayerNode[], query: string, path: string[] = []): LayerNode[] {
+        const result: LayerNode[] = [];
+
+        for (const node of nodes) {
+            if (node.children?.length) {
+                const filteredChildren = this.filterTree(node.children, query, [...path, this.resolveNodeLabel(node)]);
+                if (filteredChildren.length > 0) {
+                    result.push({ ...node, children: filteredChildren, expanded: true });
+                }
+                continue;
+            }
+
+            if (this.nodeMatchesQuery(node, query, path)) {
+                result.push(node);
+            }
+        }
+
+        return result;
+    }
+
+    /** Whether a leaf node matches the search query, checking label, ancestor path, abstract and attribution */
+    private nodeMatchesQuery(node: LayerNode, query: string, path: string[]): boolean {
+        if (this.resolveNodeLabel(node).toLowerCase().includes(query)) {
+            return true;
+        }
+
+        if (path.join(' ').toLowerCase().includes(query)) {
+            return true;
+        }
+
+        if (!node.layerId) {
+            return false;
+        }
+
+        const layer = this.getLayerInformationById(node.layerId)?.layer as
+            | {
+                metadata?: {
+                    abstract?: string;
+                    attributes?: { translations?: { name?: string; translation?: string; valuemap?: { value?: unknown; label?: string }[] }[] };
+                };
+                attribution?: string;
+                source?: string;
+            }
+            | undefined;
+        if (!layer) {
+            return false;
+        }
+
+        if (layer.metadata?.abstract?.toLowerCase().includes(query)) {
+            return true;
+        }
+
+        if (layer.attribution?.toLowerCase().includes(query)) {
+            return true;
+        }
+
+        for (const translation of layer.metadata?.attributes?.translations ?? []) {
+            if (translation.name?.toLowerCase().includes(query) || translation.translation?.toLowerCase().includes(query)) {
+                return true;
+            }
+            for (const entry of translation.valuemap ?? []) {
+                if (entry.label?.toLowerCase().includes(query) || String(entry.value ?? '').toLowerCase().includes(query)) {
+                    return true;
+                }
+            }
+        }
+
+        if (typeof layer.source === 'string') {
+            const sourceAttribution = this.mapHost?.layerDataConfig?.sources?.find((s) => s.id === layer.source)?.attribution;
+            if (sourceAttribution?.toLowerCase().includes(query)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private handleSearchInput(e: Event): void {
+        this.searchQuery = (e.target as HTMLInputElement).value;
+    }
+
+    private handleSearchClear(): void {
+        this.searchQuery = '';
     }
 
     private dispatchLayerCheck(detail: LayerCheckDetail): void {
@@ -740,9 +903,25 @@ export class WebmapxLayerTree extends LitElement {
     render() {
         this.nodeByKey.clear();
 
+        const query = this.searchQuery.trim().toLowerCase();
+        const nodes = query ? this.filterTree(this.effectiveTree, query) : this.effectiveTree;
+
         return html`
+            ${this.showSearch ? html`
+                <div class="search">
+                    <input
+                        type="text"
+                        spellcheck="false"
+                        autocomplete="off"
+                        placeholder="Search layers..."
+                        .value=${this.searchQuery}
+                        @input=${this.handleSearchInput}
+                    />
+                    ${this.searchQuery ? html`<button class="search-clear" @click=${this.handleSearchClear} aria-label="Clear search">&times;</button>` : html``}
+                </div>
+            ` : html``}
             <sl-tree @sl-expand=${this.handleTreeExpand}>
-                ${this.effectiveTree.map((node, index) => this.renderNode(node, undefined, `${index}`))}
+                ${nodes.map((node, index) => this.renderNode(node, undefined, `${index}`))}
             </sl-tree>
         `;
     }
