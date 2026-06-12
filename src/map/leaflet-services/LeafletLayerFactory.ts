@@ -2,7 +2,18 @@
 
 import * as L from 'leaflet';
 import type { AnyLayerConfig, StandardLayerConfig, SourceConfig, WMSSourceConfig, SubLayerSpec } from '../../config/types';
-import { evaluateColor, evaluateNumber, matchesFilter } from '../../utils/maplibre-expression-evaluator';
+import { evaluateColor, evaluateNumber, evaluateString, matchesFilter } from '../../utils/maplibre-expression-evaluator';
+
+if (typeof document !== 'undefined' && !document.getElementById('webmapx-symbol-label-style')) {
+    const style = document.createElement('style');
+    style.id = 'webmapx-symbol-label-style';
+    style.textContent = '.webmapx-symbol-label { background: none; border: none; }';
+    document.head.appendChild(style);
+}
+
+function escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+}
 
 /** Formats a Leaflet LatLngBounds as a `minx,miny,maxx,maxy` EPSG:3857 (meters) bbox string —
  *  the format WMS-tile-cache servers expect for the `{bbox-epsg-3857}` template var. */
@@ -89,6 +100,9 @@ export class LeafletLayerFactory {
                             interactive: true
                         });
                     }
+                    if (style.type === 'symbol') {
+                        return L.marker(latlng, { icon: LeafletLayerFactory.createTextLabelIcon(style, feature), interactive: false });
+                    }
                     return L.marker(latlng, { opacity: 0, interactive: false });
                 },
                 filter: filterFunction,
@@ -99,6 +113,25 @@ export class LeafletLayerFactory {
         }
 
         return specs;
+    }
+
+    /** Renders a maplibre `symbol` layer's `text-field` as a label-only divIcon marker. */
+    static createTextLabelIcon(style: SubLayerSpec | any, feature?: GeoJSON.Feature): L.DivIcon {
+        const f = feature ?? { properties: {} };
+        const layout = style.layout || {};
+        const paint = style.paint || {};
+        const text = evaluateString(layout['text-field'], f, 0, '');
+        const textColor = evaluateColor(paint['text-color'], f, 0, '#000');
+        const haloColor = evaluateColor(paint['text-halo-color'], f, 0, 'transparent');
+        const haloWidth = evaluateNumber(paint['text-halo-width'], f, 0, 0);
+        const fontSize = evaluateNumber(layout['text-size'], f, 0, 12);
+        const textShadow = haloWidth > 0
+            ? [[-1, -1], [1, -1], [-1, 1], [1, 1]]
+                .map(([x, y]) => `${x * haloWidth}px ${y * haloWidth}px 0 ${haloColor}`)
+                .join(', ')
+            : 'none';
+        const html = `<span style="color:${textColor};font-size:${fontSize}px;text-shadow:${textShadow};white-space:nowrap;">${escapeHtml(text)}</span>`;
+        return L.divIcon({ className: 'webmapx-symbol-label', html, iconSize: [0, 0] });
     }
 
     static createFilterFunction(filter: any[]): ((feature: GeoJSON.Feature) => boolean) | undefined {

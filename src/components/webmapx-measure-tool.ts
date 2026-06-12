@@ -5,7 +5,7 @@ import { html, css, nothing, TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
-import { LngLat, Pixel, ClickEvent, PointerMoveEvent, ContextMenuEvent } from '../store/map-events';
+import { LngLat, Pixel, ClickEvent, DoubleClickEvent, PointerMoveEvent, ContextMenuEvent } from '../store/map-events';
 import {
     haversineDistanceCm,
     geodesicAreaM2,
@@ -22,6 +22,7 @@ const STATIC_SOURCE_ID = 'webmapx-measure-static-source';
 const POINTS_LAYER_ID = 'webmapx-measure-points';
 const LINES_LAYER_ID = 'webmapx-measure-lines';
 const POLYGON_LAYER_ID = 'webmapx-measure-polygon';
+const SEGMENT_LABELS_LAYER_ID = 'webmapx-measure-segment-labels';
 
 const RUBBERBAND_SOURCE_ID = 'webmapx-measure-rubberband-source';
 const RUBBERBAND_LAYER_ID = 'webmapx-measure-rubberband-layer';
@@ -64,6 +65,20 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     @state() private cursorPosition: LngLat | null = null;
     @state() private isClosed = false;
     @state() private areaM2 = 0;
+    /** Measurement has been finished (via ESC/right-click/double-click/double-tap),
+     *  but not necessarily closed into a polygon. No further points can be added
+     *  until cleared or a new measurement is started. */
+    @state() private finished = false;
+
+    private get isFinished(): boolean {
+        return this.finished || this.isClosed;
+    }
+
+    // On touch devices, a tap after finishing must not start a new measurement —
+    // only the Clear button erases a finished measurement there.
+    private touchMQ = window.matchMedia('(pointer: coarse)');
+    @state() private isTouchDevice = this.touchMQ.matches;
+    private onTouchMQChange = (e: MediaQueryListEvent) => { this.isTouchDevice = e.matches; };
 
     private layersCreated = false;
 
@@ -74,6 +89,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
     // Event unsubscribe functions
     private unsubClick: (() => void) | null = null;
+    private unsubDblClick: (() => void) | null = null;
     private unsubPointerMove: (() => void) | null = null;
     private unsubContextMenu: (() => void) | null = null;
     private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
@@ -172,7 +188,13 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         super.onMapDetached();
     }
 
+    connectedCallback(): void {
+        super.connectedCallback();
+        this.touchMQ.addEventListener('change', this.onTouchMQChange);
+    }
+
     disconnectedCallback(): void {
+        this.touchMQ.removeEventListener('change', this.onTouchMQChange);
         this.cleanupEventListeners();
         super.disconnectedCallback();
     }
@@ -209,6 +231,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     private setupMapEventListeners(adapter: IMap): void {
         // Subscribe to map events
         this.unsubClick = adapter.events.on('click', this.handleClick.bind(this));
+        this.unsubDblClick = adapter.events.on('dblclick', this.handleDblClick.bind(this));
         this.unsubPointerMove = adapter.events.on('pointer-move', this.handlePointerMove.bind(this));
         this.unsubContextMenu = adapter.events.on('contextmenu', this.handleContextMenu.bind(this));
 
@@ -219,6 +242,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
     private cleanupEventListeners(): void {
         this.unsubClick?.();
+        this.unsubDblClick?.();
         this.unsubPointerMove?.();
         this.unsubContextMenu?.();
 
@@ -267,11 +291,35 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
         this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
             detail: {
+                id: SEGMENT_LABELS_LAYER_ID,
+                type: 'symbol',
+                source: STATIC_SOURCE_ID,
+                metadata: { isToolLayer: true, hideFromLegend: true, label: 'Measure segment labels' },
+                filter: ['==', ['get', 'type'], 'segment-label'],
+                layout: {
+                    'text-field': ['get', 'label'],
+                    'text-font': ['Noto Sans Regular'],
+                    'text-size': 12,
+                    'text-anchor': 'center',
+                    'text-allow-overlap': true,
+                    'text-ignore-placement': true,
+                },
+                paint: {
+                    'text-color': '#0f62fe',
+                    'text-halo-color': '#fff',
+                    'text-halo-width': 1.5,
+                },
+            },
+            bubbles: true, composed: true
+        }));
+
+        this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
+            detail: {
                 id: POINTS_LAYER_ID,
                 type: 'circle',
                 source: STATIC_SOURCE_ID,
                 metadata: { isToolLayer: true, hideFromLegend: true, label: 'Measure points' },
-                filter: ['==', ['geometry-type'], 'Point'],
+                filter: ['==', ['get', 'type'], 'point'],
                 paint: {
                     'circle-radius': 5,
                     'circle-color': '#fff',
@@ -297,6 +345,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
         // Remove all layers
         this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: POINTS_LAYER_ID, bubbles: true, composed: true }));
+        this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: SEGMENT_LABELS_LAYER_ID, bubbles: true, composed: true }));
         this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: LINES_LAYER_ID, bubbles: true, composed: true }));
         this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: POLYGON_LAYER_ID, bubbles: true, composed: true }));
         this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: RUBBERBAND_LAYER_ID, bubbles: true, composed: true }));
@@ -354,6 +403,18 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             });
         }
 
+        // Segment number labels at each segment's midpoint
+        this.segments.forEach((seg, index) => {
+            features.push({
+                type: 'Feature',
+                properties: { type: 'segment-label', label: String(index + 1) },
+                geometry: {
+                    type: 'Point',
+                    coordinates: [(seg.from[0] + seg.to[0]) / 2, (seg.from[1] + seg.to[1]) / 2],
+                },
+            });
+        });
+
         // Closed polygon
         if (this.isClosed && this.points.length >= 3) {
             const polygonCoords = this.buildLineCoordinates(this.points, true);
@@ -391,10 +452,20 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     // ─────────────────────────────────────────────────────────────────────
 
     private handleClick(event: ClickEvent): void {
-        if (!this.active || this.isClosed) return;
+        if (!this.active) return;
 
         const clickedCoords = event.coords;
         const clickedPixel = event.pixel;
+
+        // A finished (or closed) measurement stays on the map until cleared. On
+        // pointer devices a new click starts a fresh measurement at the new
+        // location, replacing it; on touch, only the Clear button does that.
+        if (this.isFinished) {
+            if (this.isTouchDevice) return;
+            this.clearMeasurement();
+            this.addPoint(clickedCoords);
+            return;
+        }
 
         // Check if clicking on first point (close polygon)
         if (this.points.length >= 3) {
@@ -404,11 +475,11 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             }
         }
 
-        // Check if clicking on last point (finish/clear line)
+        // Check if clicking on last point (finish the measurement)
         if (this.points.length >= 1) {
             const lastPoint = this.points[this.points.length - 1];
             if (this.isWithinThreshold(clickedPixel, lastPoint, this.finishThreshold)) {
-                this.clearMeasurement();
+                this.finishMeasurement();
                 return;
             }
         }
@@ -417,8 +488,13 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         this.addPoint(clickedCoords);
     }
 
+    private handleDblClick(_event: DoubleClickEvent): void {
+        if (!this.active || this.isFinished) return;
+        this.finishMeasurement();
+    }
+
     private handlePointerMove(event: PointerMoveEvent): void {
-        if (!this.active || this.isClosed) return;
+        if (!this.active || this.isFinished) return;
 
         // Only update visualization if we have at least one point (rubber-band needed)
         if (this.points.length === 0) return;
@@ -429,17 +505,17 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     }
 
     private handleContextMenu(_event: ContextMenuEvent): void {
-        if (!this.active) return;
+        if (!this.active || this.isFinished) return;
 
-        // Right-click clears the measurement
-        this.clearMeasurement();
+        // Right-click finishes the measurement
+        this.finishMeasurement();
     }
 
     private handleKeydown(event: KeyboardEvent): void {
-        if (!this.active) return;
+        if (!this.active || this.isFinished) return;
 
         if (event.key === 'Escape') {
-            this.clearMeasurement();
+            this.finishMeasurement();
         }
     }
 
@@ -583,8 +659,18 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         // Calculate area
         this.areaM2 = geodesicAreaM2(this.points);
         this.isClosed = true;
+        this.cursorPosition = null;
 
         this.updateMapVisualization();
+        this.doUpdateRubberbandVisualization();
+    }
+
+    /** Stops further point-adding, keeping the measurement (and its rubber-band-less
+     *  line/polygon) visible on the map until cleared or a new measurement starts. */
+    private finishMeasurement(): void {
+        this.finished = true;
+        this.cursorPosition = null;
+        this.doUpdateRubberbandVisualization();
     }
 
     private clearMeasurement(): void {
@@ -593,6 +679,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         this.totalDistanceCm = 0;
         this.cursorPosition = null;
         this.isClosed = false;
+        this.finished = false;
         this.areaM2 = 0;
 
         this.doUpdateStaticVisualization();
@@ -689,8 +776,10 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     }
 
     private renderInstructions(): TemplateResult {
-        if (this.isClosed) {
-            return html`<p class="instructions">Measurement complete. Click Clear to start a new measurement.</p>`;
+        if (this.isFinished) {
+            return this.isTouchDevice
+                ? html`<p class="instructions">Measurement finished. Tap Clear to start a new measurement.</p>`
+                : html`<p class="instructions">Measurement finished. Click Clear, or click the map to start a new measurement.</p>`;
         }
 
         if (this.points.length === 0) {
@@ -698,10 +787,10 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         }
 
         if (this.points.length < 3) {
-            return html`<p class="instructions">Click to add points. Right-click or press ESC to clear.</p>`;
+            return html`<p class="instructions">Click to add points. Double-click, right-click or ESC to finish.</p>`;
         }
 
-        return html`<p class="instructions">Click near first point to close polygon. Right-click or ESC to clear.</p>`;
+        return html`<p class="instructions">Click near first point to close polygon, or double-click/right-click/ESC to finish.</p>`;
     }
 
     protected render(): TemplateResult {

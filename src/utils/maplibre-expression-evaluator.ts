@@ -18,6 +18,7 @@ function makeEvalFeature(feature: FeatureLike): MapLibreFeature {
 const colorSpec: any = { type: 'color', 'property-type': 'data-driven', transition: false, overridable: false, expression: { interpolated: true, parameters: ['zoom', 'feature'] } };
 const numberSpec: any = { type: 'number', 'property-type': 'data-driven', transition: false, overridable: false, expression: { interpolated: true, parameters: ['zoom', 'feature'] } };
 const booleanSpec: any = { type: 'boolean', 'property-type': 'data-driven', transition: false, overridable: false, expression: { interpolated: false, parameters: ['zoom', 'feature'] } };
+const stringSpec: any = { type: 'string', 'property-type': 'data-driven', transition: false, overridable: false, expression: { interpolated: false, parameters: ['zoom', 'feature'] } };
 
 function evaluateColor(expression: unknown, feature: FeatureLike, zoom: number, fallback: string): string {
     if (typeof expression === 'string') return expression;
@@ -62,6 +63,19 @@ function evaluateBoolean(expression: unknown, feature: FeatureLike, zoom: number
     }
 }
 
+function evaluateString(expression: unknown, feature: FeatureLike, zoom: number, fallback: string): string {
+    if (typeof expression === 'string') return expression;
+    if (!Array.isArray(expression)) return fallback;
+    const result = createExpression(expression as any, stringSpec);
+    if (result.result !== 'success') return fallback;
+    try {
+        const val = result.value.evaluate({ zoom }, makeEvalFeature(feature));
+        return val == null ? fallback : String(val);
+    } catch {
+        return fallback;
+    }
+}
+
 // Normalize Multi* geometry types to base types (like MapLibre does for $type)
 function normalizeGeometryType(type = 'Point'): MapLibreFeature['type'] {
     switch (type) {
@@ -99,4 +113,4 @@ function matchesFilter(expression: unknown, feature: FeatureLike, zoom = 0): boo
     }
 }
 
-export { evaluateColor, evaluateNumber, evaluateBoolean, matchesFilter };
+export { evaluateColor, evaluateNumber, evaluateBoolean, evaluateString, matchesFilter };
