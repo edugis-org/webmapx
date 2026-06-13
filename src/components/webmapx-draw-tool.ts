@@ -28,6 +28,8 @@ function drawSourceId(layerId: string)   { return `webmapx-draw-src-${layerId}`;
 function drawMapLayerId(layerId: string) { return `${layerId}-map`; }
 
 const MAP_LAYER_COLOR = '#888888';
+const SELECTED_VERTEX_COLOR = '#ff3b30';
+const SELECTED_VERTEX_RADIUS = 10;
 
 const SEL_SOURCE_ID = 'webmapx-draw-sel-source';
 const SEL_FILL_ID   = 'webmapx-draw-sel-fill';
@@ -379,7 +381,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.dispatch('webmapx-add-layer', {
             id: SEL_POINT_ID, type: 'circle', source: SEL_SOURCE_ID,
             metadata: { isToolLayer: true, hideFromLegend: true },
-            paint: { 'circle-radius': 8, 'circle-color': '#ff9900', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }
+            paint: {
+                'circle-radius': SELECTED_VERTEX_RADIUS,
+                'circle-color': this.cssVar('--webmapx-draw-selected-color', SELECTED_VERTEX_COLOR)
+            }
         });
 
         // Draft vertices (points placed so far while drawing)
@@ -411,7 +416,12 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.dispatch('webmapx-add-layer', {
             id: SEL_VERT_LAYER, type: 'circle', source: SEL_VERT_SOURCE,
             metadata: { isToolLayer: true, hideFromLegend: true },
-            paint: { 'circle-radius': 8, 'circle-color': '#ff3b30', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }
+            paint: {
+                'circle-radius': SELECTED_VERTEX_RADIUS,
+                'circle-color': this.cssVar('--webmapx-draw-selected-color', SELECTED_VERTEX_COLOR),
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#fff'
+            }
         });
 
         // Snap indicator
@@ -515,6 +525,12 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     // ─── Keyboard shortcuts ──────────────────────────────────────────────────
 
+    /** Resolve a CSS custom property (e.g. `--webmapx-draw-selected-color`), falling back if unset. */
+    private cssVar(name: string, fallback: string): string {
+        const value = getComputedStyle(this).getPropertyValue(name).trim();
+        return value || fallback;
+    }
+
     private get modKey(): string {
         return /Mac|iPhone|iPad/.test(navigator.platform) ? 'Cmd' : 'Ctrl';
     }
@@ -563,7 +579,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             return;
         }
         if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (this.selectedHandle) {
+            if (this.draftPoints.length > 0) {
+                e.preventDefault();
+                this.removeLastDraftPoint();
+            } else if (this.selectedHandle) {
                 e.preventDefault();
                 this.deleteSelectedVertex();
             } else if (this.selectedFeatureId) {
@@ -1070,6 +1089,15 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 this.updateEditHandles();
                 this.updateSelectedSource();
                 this.updateSnapIndicator();
+                const dh = this.dragging.handle;
+                if (this.selectedHandle && dh.kind === 'vertex' &&
+                    this.selectedHandle.featureId === dh.featureId &&
+                    this.selectedHandle.partIdx === dh.partIdx &&
+                    this.selectedHandle.ringIdx === dh.ringIdx &&
+                    this.selectedHandle.vertIdx === dh.vertIdx) {
+                    this.selectedHandle.coords = dh.coords;
+                    this.updateSelectedVertexSource();
+                }
             }
             return;
         }
@@ -1168,6 +1196,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                     coords: h.coords
                 };
                 this.dragging = { handle: vertHandle, lastCoords: e.coords };
+                this.selectedHandle = vertHandle;
+                this.updateSelectedVertexSource();
                 this.refreshDrawLayerSource(f.layerId);
                 this.updateEditHandles();
             }
@@ -1480,6 +1510,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private updateSelectedVertexSource(): void {
+        this.uiVersion++;
         if (!this.sharedLayersCreated) return;
         const features = this.selectedHandle
             ? [{ type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: this.selectedHandle.coords }, properties: {} }]
@@ -1602,12 +1633,16 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.uiVersion++;
     }
 
+    private removeLastDraftPoint(): void {
+        this.draftRedoStack.push(this.draftPoints.pop()!);
+        this.uiVersion++;
+        this.updateRubberband();
+        this.updateHelpTextDuring();
+    }
+
     private undoOrDraftBack(): void {
         if (this.draftPoints.length > 0) {
-            this.draftRedoStack.push(this.draftPoints.pop()!);
-            this.uiVersion++;
-            this.updateRubberband();
-            this.updateHelpTextDuring();
+            this.removeLastDraftPoint();
         } else {
             this.undo();
         }
@@ -1964,10 +1999,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
                 <div class="divider"></div>
 
-                <sl-tooltip content="Delete selected">
+                <sl-tooltip content=${this.draftPoints.length > 0 ? 'Remove last point' : this.selectedHandle ? 'Delete selected point' : 'Delete selected'}>
                     <sl-icon-button name="trash"
-                        ?disabled=${!this.selectedFeatureId}
-                        @click=${() => this.deleteSelected()}>
+                        ?disabled=${this.draftPoints.length === 0 && !this.selectedFeatureId && !this.selectedHandle}
+                        @click=${() => this.draftPoints.length > 0 ? this.removeLastDraftPoint() : this.selectedHandle ? this.deleteSelectedVertex() : this.deleteSelected()}>
                     </sl-icon-button>
                 </sl-tooltip>
                 <sl-tooltip content="Export GeoJSON">
