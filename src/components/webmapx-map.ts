@@ -1288,6 +1288,12 @@ export class WebmapxMapElement extends HTMLElement {
   }
 
   private async addInlineLayerWithTracking(adapter: IMap, nativeLayer: Record<string, unknown>, options?: LayerInsertOptions): Promise<boolean> {
+    // Resolve any URL-backed geojson sources (incl. WFS paging/topojson) to
+    // inline FeatureCollections before handing off to the adapter — mirrors
+    // the catalog-layer path in addLogicalLayerInternal.
+    if (nativeLayer.sources && typeof nativeLayer.sources === 'object') {
+      await resolveGeoJSONSources(nativeLayer.sources as Record<string, any>);
+    }
     const metadata = (nativeLayer.metadata && typeof nativeLayer.metadata === 'object') ? nativeLayer.metadata as Record<string, unknown> : {};
     const role: LegendRole = metadata.legendRole === 'background' ? 'background' : 'overlay';
     const insertOptions = this.computeInsertOptionsForLayer(role, options);

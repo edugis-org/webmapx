@@ -250,17 +250,30 @@ async function discoverWmts(baseUrl: string): Promise<DiscoveredLayer[]> {
   }
 }
 
+// Hard cap on the number of WFS features loaded for any single discovered
+// layer, regardless of how many the service reports. resolveGeoJSONSources
+// pages up to this limit (PAGE_SIZE per request) when the service supports
+// startIndex; otherwise a single request capped at this count is made.
+export const WFS_FEATURE_CAP = 20000;
+
 async function discoverWfs(baseUrl: string): Promise<DiscoveredLayer[]> {
   try {
     const endpoint = await new WfsEndpoint(baseUrl).isReady();
     const featureTypes = endpoint.getFeatureTypes();
+    const version = endpoint.getVersion();
+    const supportsPaging = endpoint.supportsStartIndex();
     const results: DiscoveredLayer[] = [];
 
     for (const ft of featureTypes) {
       if (!ft.name || !endpoint.supportsJson(ft.name)) continue;
 
       const id = uniqueId(`wfs-${slugify(ft.name)}`);
-      const data = endpoint.getFeatureUrl(ft.name, { outputFormat: 'application/json', maxFeatures: 1000 })
+      // resolveGeoJSONSources/fetchWFSFeatures rewrites this with the actual
+      // page size on each request; this is just the first-page request.
+      // Request WGS84 output explicitly — the service's native CRS (e.g. RD
+      // New / EPSG:28992 for Dutch services) would otherwise be returned,
+      // which MapLibre renders as if it were lon/lat (i.e. off-screen).
+      const data = endpoint.getFeatureUrl(ft.name, { outputFormat: 'application/json', maxFeatures: WFS_FEATURE_CAP, outputCrs: 'EPSG:4326' })
         ?? endpoint.getFeatureUrl(ft.name);
       if (!data) continue;
 
@@ -270,7 +283,13 @@ async function discoverWfs(baseUrl: string): Promise<DiscoveredLayer[]> {
         serviceType: 'wfs',
         title: `${ft.title || ft.name} (WFS)`,
         ...(ft.abstract ? { abstract: ft.abstract } : {}),
-        source: { id, type: 'geojson', data, ...(bounds ? { bounds } : {}) } as unknown as SourceConfig,
+        source: {
+          id, type: 'geojson', data, service: 'wfs',
+          wfsVersion: version,
+          wfsSupportsPaging: supportsPaging,
+          wfsMaxFeatures: WFS_FEATURE_CAP,
+          ...(bounds ? { bounds } : {}),
+        } as unknown as SourceConfig,
         layer: {
           id, type: 'fill', source: id, title: ft.title || ft.name,
           ...((ft.abstract || bounds) ? { metadata: {
