@@ -3,8 +3,6 @@ import { customElement, property, state, query } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
-import type { AnyLayerConfig, SourceConfig } from '../config/types';
-import { resolveLayerAttribution } from '../utils/attribution-format';
 import type { LayerAddEvent, LayerRemoveEvent } from '../store/map-events';
 import './webmapx-layer-legend';
 import './webmapx-layer-info-dialog';
@@ -68,6 +66,20 @@ function unionExtent(
  *  (`type: 'style'`) sublayer sources are registered in the maplibre adapter under
  *  `${layerId}:${source}` (a globally-unique key), not the bare source key written
  *  in the config — so both forms are tried. */
+/** Summarizes a GeoJSON FeatureCollection as e.g. "42 features (Polygon: 40, Point: 2)". */
+function summarizeGeoJSON(data: GeoJSON.FeatureCollection): string {
+  const counts = new Map<string, number>();
+  for (const f of data.features ?? []) {
+    const type = f.geometry?.type ?? 'unknown';
+    counts.set(type, (counts.get(type) ?? 0) + 1);
+  }
+  const total = data.features?.length ?? 0;
+  const types = [...counts.entries()].map(([type, n]) => `${type}: ${n}`).join(', ');
+  return types && counts.size > 1
+    ? `${total} features (${types})`
+    : `${total} feature${total === 1 ? '' : 's'}${types ? ` (${[...counts.keys()][0]})` : ''}`;
+}
+
 function getLayerSourceRefs(layerId: string, metadata: Record<string, unknown> | undefined): string[][] {
   if (Array.isArray(metadata?.sublayers) && metadata.sublayers.length > 0) {
     const keys = new Set<string>();
@@ -834,24 +846,41 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     this.transparencyHideTimers.set(layerId, timer);
   }
 
-  private findLayerConfig(layerId: string): AnyLayerConfig | undefined {
-    return this.layerDataConfig?.layers?.find(l => l.id === layerId)
-      ?? this.catalogConfig?.layers?.find(l => l.id === layerId);
-  }
-
-  private buildSourcesById(): Map<string, SourceConfig> {
-    const sourcesById = new Map<string, SourceConfig>();
-    for (const source of this.layerDataConfig?.sources ?? this.catalogConfig?.sources ?? []) {
-      sourcesById.set(source.id, source);
-    }
-    return sourcesById;
-  }
-
   private handleShowLayerInfo(layerId: string, fallbackLabel: string): void {
-    const config = this.findLayerConfig(layerId);
-    const title = config?.title ?? fallbackLabel;
-    const attribution = resolveLayerAttribution(config, this.buildSourcesById());
-    this.infoDialog?.open(title, config?.metadata?.abstract, attribution);
+    // Per webmapx's architecture contract, everything shown here comes from
+    // store.mapLayers[layerId] — populated entirely from the `layer` object
+    // passed to adapter.addLayer() by registerMapLayer(). No static config
+    // lookups: discovered/inline layers (e.g. "Add layer from URL") have no
+    // entry in any such config at all.
+    const runtimeMetadata = this.adapter?.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined;
+    const title = (runtimeMetadata?.label as string | undefined) ?? fallbackLabel;
+    const attribution = runtimeMetadata?.attribution as string | undefined;
+    const abstract = runtimeMetadata?.abstract as string | undefined;
+    const featureSummary = this.getLayerFeatureSummary(layerId, runtimeMetadata);
+    this.infoDialog?.open(title, abstract, attribution, featureSummary);
+  }
+
+  /** For geojson-backed layers, returns one feature-count/geometry-type summary per
+   *  distinct geojson source (composite layers may reference several), if data is loaded. */
+  private getLayerFeatureSummary(layerId: string, runtimeMetadata: Record<string, unknown> | undefined): string | undefined {
+    const refs = getLayerSourceRefs(layerId, runtimeMetadata);
+    const summaries: string[] = [];
+    for (const candidates of refs) {
+      for (const sourceId of candidates) {
+        const data = this.adapter?.getSourceData(sourceId) ?? null;
+        if (data && typeof data === 'object') {
+          summaries.push(summarizeGeoJSON(data as GeoJSON.FeatureCollection));
+          break;
+        }
+      }
+    }
+    // Inline/discovered layers without sublayers/sourceId metadata (e.g. WFS
+    // layers added via "Add layer from URL") stash their resolved geojson
+    // directly in metadata.sourceData.
+    if (summaries.length === 0 && runtimeMetadata?.sourceData && typeof runtimeMetadata.sourceData === 'object') {
+      summaries.push(summarizeGeoJSON(runtimeMetadata.sourceData as GeoJSON.FeatureCollection));
+    }
+    return summaries.length > 0 ? summaries.join('; ') : undefined;
   }
 
   /** Cheap existence check (no coordinate walking) for whether "zoom to layer" should show. */

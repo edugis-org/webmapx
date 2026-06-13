@@ -46,6 +46,18 @@ export function registerMapLayer(store: MapStateStore, layer: any): void {
             }
         }
     }
+    // Layers added inline (e.g. discovered via "Add layer from URL") carry their
+    // source's attribution alongside it — capture it so the legend can show it
+    // without consulting layerDataConfig/catalogConfig.
+    if (typeof metadata.attribution !== 'string' && layer?.sources && typeof layer.sources === 'object') {
+        for (const src of Object.values(layer.sources)) {
+            const s = src as any;
+            if (typeof s?.attribution === 'string' && s.attribution) {
+                metadata.attribution = s.attribution;
+                break;
+            }
+        }
+    }
     // For composite style layers, store all sub-layers for legend rendering
     if (layer?.type === 'style' && Array.isArray(layer.layers) && layer.layers.length > 0) {
         const primarySub = layer.layers.find((s: any) => s?.type && s.type !== 'background') ?? layer.layers[0];
@@ -75,6 +87,7 @@ export function registerMapLayer(store: MapStateStore, layer: any): void {
                 layerType: metadata.layerType ?? currentEntry.layerType,
                 sublayers: metadata.sublayers ?? currentEntry.sublayers,
                 sourceData: metadata.sourceData ?? currentEntry.sourceData,
+                attribution: metadata.attribution ?? currentEntry.attribution,
                 minzoom: metadata.minzoom ?? currentEntry.minzoom,
                 maxzoom: metadata.maxzoom ?? currentEntry.maxzoom,
             },
