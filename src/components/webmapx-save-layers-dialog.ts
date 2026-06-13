@@ -109,12 +109,37 @@ export class WebmapxSaveLayersDialog extends LitElement {
         this.items = this.items.map((item) => item.layerId === layerId ? { ...item, checked } : item);
     }
 
-    private buildStyleConfig(item: SaveLayerItem): Record<string, unknown> {
+    /** Filename-safe version of a layer id (which may contain ':' from a prior
+     *  import's namespace prefix, or other characters unsafe in filenames). */
+    private static sanitizeFileBase(name: string): string {
+        return name.replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'layer';
+    }
+
+    /** Compute a unique, filename-safe base name per item, keyed by layerId. */
+    private buildFileBases(items: SaveLayerItem[]): Map<string, string> {
+        const bases = new Map<string, string>();
+        const used = new Set<string>();
+        for (const item of items) {
+            let base = WebmapxSaveLayersDialog.sanitizeFileBase(item.layerId);
+            let candidate = base;
+            let n = 2;
+            while (used.has(candidate)) {
+                candidate = `${base}_${n++}`;
+            }
+            used.add(candidate);
+            bases.set(item.layerId, candidate);
+        }
+        return bases;
+    }
+
+    private buildStyleConfig(item: SaveLayerItem, fileBase: string): Record<string, unknown> {
         const sources: Record<string, unknown> = {};
         const layers: unknown[] = [];
 
+        // Source is named after the layer (not the underlying map source id) so
+        // the style stays self-contained and matches the exported geojson file.
         const sourceName = item.layerId;
-        sources[sourceName] = { type: 'geojson', data: `${item.layerId}.geojson` };
+        sources[sourceName] = { type: 'geojson', data: `${fileBase}.geojson` };
 
         if (Array.isArray(item.sublayers) && item.sublayers.length > 0) {
             item.sublayers.forEach((sub, index) => {
@@ -169,16 +194,17 @@ export class WebmapxSaveLayersDialog extends LitElement {
         // on top of the stack in zip-entry order — write bottom-to-top so reload
         // reproduces the original stacking order.
         const orderedForSave = [...selected].reverse();
+        const fileBases = this.buildFileBases(orderedForSave);
 
         const zipWriter = new ZipWriter(new BlobWriter('application/zip'));
         for (const item of orderedForSave) {
             const content = typeof item.data === 'string' ? item.data : JSON.stringify(item.data, null, 2);
-            await zipWriter.add(`${item.layerId}.geojson`, new TextReader(content));
+            await zipWriter.add(`${fileBases.get(item.layerId)}.geojson`, new TextReader(content));
         }
         if (this.includeStyle) {
             for (const item of orderedForSave) {
-                const style = this.buildStyleConfig(item);
-                await zipWriter.add(`${item.layerId}_style.json`, new TextReader(JSON.stringify(style, null, 2)));
+                const style = this.buildStyleConfig(item, fileBases.get(item.layerId)!);
+                await zipWriter.add(`${fileBases.get(item.layerId)}_style.json`, new TextReader(JSON.stringify(style, null, 2)));
             }
         }
         this.downloadBlob(await zipWriter.close(), `${filename}.zip`);
