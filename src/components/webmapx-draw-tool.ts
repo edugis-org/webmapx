@@ -995,6 +995,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 (isLineType(hit.type) || isPolygonType(hit.type))) {
                 // Second click on already-selected line/polygon → enter edit mode
                 this.enterEditMode(hit.id);
+            } else if (hit && hit.id === this.selectedFeatureId && this.editState === 'editing') {
+                // Click on a vertex of the feature being edited → stay in edit mode
+                // (the click handler also fires after a vertex pointerdown/up).
             } else if (hit) {
                 // First click on a feature → select it, show vertices if line/polygon
                 this.selectedFeatureId = hit.id;
