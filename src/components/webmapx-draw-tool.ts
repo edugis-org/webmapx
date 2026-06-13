@@ -40,6 +40,8 @@ const EDIT_VERT_SOURCE = 'webmapx-draw-edit-vert-source';
 const EDIT_VERT_LAYER  = 'webmapx-draw-edit-vert';
 const EDIT_MID_SOURCE  = 'webmapx-draw-edit-mid-source';
 const EDIT_MID_LAYER   = 'webmapx-draw-edit-mid';
+const SEL_VERT_SOURCE  = 'webmapx-draw-sel-vert-source';
+const SEL_VERT_LAYER   = 'webmapx-draw-sel-vert';
 
 const HANDLE_THRESHOLD = 12; // px — snap distance for vertex/midpoint handles
 
@@ -146,6 +148,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private editHandles: EditHandle[] = [];
     private hoveredHandle: EditHandle | null = null;
     private dragging: { handle: EditHandle; lastCoords: LngLat } | null = null;
+    /** Vertex highlighted for Delete/Backspace removal (click a vertex handle to select). */
+    private selectedHandle: VertexHandle | null = null;
     private featureDrag: { featureId: string; startCoords: LngLat; origCoords: any; origCentroidLat: number; origCentroidLng: number } | null = null;
 
     // ── Event unsubscribers ───────────────────────────────────────────────────
@@ -402,6 +406,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             paint: { 'circle-radius': 4, 'circle-color': '#fff', 'circle-stroke-width': 1.5, 'circle-stroke-color': '#0f62fe', 'circle-opacity': 0.7 }
         });
 
+        // Selected vertex highlight (delete with Delete/Backspace)
+        this.dispatch('webmapx-add-source', { id: SEL_VERT_SOURCE, config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } } });
+        this.dispatch('webmapx-add-layer', {
+            id: SEL_VERT_LAYER, type: 'circle', source: SEL_VERT_SOURCE,
+            metadata: { isToolLayer: true, hideFromLegend: true },
+            paint: { 'circle-radius': 8, 'circle-color': '#ff3b30', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }
+        });
+
         // Snap indicator
         this.dispatch('webmapx-add-source', { id: SNAP_SOURCE_ID, config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } } });
         this.dispatch('webmapx-add-layer', {
@@ -471,10 +483,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private removeSharedLayers(): void {
-        for (const id of [RUBBER_LINE_ID, VERTEX_LAYER_ID, SEL_POINT_ID, DRAFT_POINT_ID, EDIT_VERT_LAYER, EDIT_MID_LAYER, SNAP_LAYER_ID]) {
+        for (const id of [RUBBER_LINE_ID, VERTEX_LAYER_ID, SEL_POINT_ID, DRAFT_POINT_ID, EDIT_VERT_LAYER, EDIT_MID_LAYER, SEL_VERT_LAYER, SNAP_LAYER_ID]) {
             this.dispatch('webmapx-remove-layer', id);
         }
-        for (const id of [RUBBER_SOURCE_ID, VERTEX_SOURCE_ID, SEL_SOURCE_ID, DRAFT_SOURCE_ID, EDIT_VERT_SOURCE, EDIT_MID_SOURCE, SNAP_SOURCE_ID]) {
+        for (const id of [RUBBER_SOURCE_ID, VERTEX_SOURCE_ID, SEL_SOURCE_ID, DRAFT_SOURCE_ID, EDIT_VERT_SOURCE, EDIT_MID_SOURCE, SEL_VERT_SOURCE, SNAP_SOURCE_ID]) {
             this.dispatch('webmapx-remove-source', id);
         }
         this.sharedLayersCreated = false;
@@ -502,6 +514,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     // ─── Keyboard shortcuts ──────────────────────────────────────────────────
+
+    private get modKey(): string {
+        return /Mac|iPhone|iPad/.test(navigator.platform) ? 'Cmd' : 'Ctrl';
+    }
 
     private isTypingTarget(e: KeyboardEvent): boolean {
         const target = e.composedPath()[0] as HTMLElement | undefined;
@@ -547,7 +563,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             return;
         }
         if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (this.selectedFeatureId) {
+            if (this.selectedHandle) {
+                e.preventDefault();
+                this.deleteSelectedVertex();
+            } else if (this.selectedFeatureId) {
                 e.preventDefault();
                 this.deleteSelected();
             }
@@ -1115,7 +1134,16 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (this.editState !== 'editing') return;
         const px: [number, number] = [e.pixel[0], e.pixel[1]];
         const h = this.findHandleAt(px);
-        if (!h) return;
+        if (!h) {
+            if (this.selectedHandle) {
+                this.selectedHandle = null;
+                this.updateSelectedVertexSource();
+            }
+            return;
+        }
+
+        this.selectedHandle = h.kind === 'vertex' ? h : null;
+        this.updateSelectedVertexSource();
 
         this.dragging = { handle: h, lastCoords: e.coords };
         this.adapter?.setPanEnabled(false);
@@ -1277,7 +1305,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     private enterEditMode(_featureId: string): void {
         this.editState = 'editing';
-        this.helpText = 'Drag vertices to move. Drag midpoints to add a vertex. Click empty to exit.';
+        this.helpText = 'Drag points to move. Drag midpoints to add a point. Click a point and press Delete to remove it. Click empty to exit.';
         this.updateEditHandles();
         this.adapter?.setCursor('default');
         this.requestUpdate();
@@ -1327,9 +1355,17 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
         if (!f) {
             this.editHandles = [];
+            this.selectedHandle = null;
+            this.updateSelectedVertexSource();
             this.dispatch('webmapx-set-source-data', { id: EDIT_VERT_SOURCE, data: { type: 'FeatureCollection', features: [] } });
             this.dispatch('webmapx-set-source-data', { id: EDIT_MID_SOURCE,  data: { type: 'FeatureCollection', features: [] } });
             return;
+        }
+
+        // Drop stale selection if vertex count changed (e.g. after insert/delete) or feature switched
+        if (this.selectedHandle && this.selectedHandle.featureId !== f.id) {
+            this.selectedHandle = null;
+            this.updateSelectedVertexSource();
         }
 
         this.editHandles = this.computeHandles(f);
@@ -1438,6 +1474,69 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }
         f.coordinates = coords;
         this.pushHistory({ type: 'update', features: [{ ...f }] });
+    }
+
+    private updateSelectedVertexSource(): void {
+        if (!this.sharedLayersCreated) return;
+        const features = this.selectedHandle
+            ? [{ type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: this.selectedHandle.coords }, properties: {} }]
+            : [];
+        this.dispatch('webmapx-set-source-data', { id: SEL_VERT_SOURCE, data: { type: 'FeatureCollection', features } });
+    }
+
+    /** Remove the selected vertex from its feature. Returns false if removal would leave too few points. */
+    private deleteSelectedVertex(): void {
+        const h = this.selectedHandle;
+        if (!h) return;
+        const f = this.features.find(f => f.id === h.featureId);
+        if (!f) return;
+
+        const coords = JSON.parse(JSON.stringify(f.coordinates));
+        const { partIdx, ringIdx, vertIdx } = h;
+
+        if (f.type === 'LineString') {
+            if (coords.length <= 2) return;
+            coords.splice(vertIdx, 1);
+        } else if (f.type === 'MultiLineString') {
+            if (coords[partIdx].length <= 2) return;
+            coords[partIdx].splice(vertIdx, 1);
+        } else if (f.type === 'Polygon') {
+            const ring = coords[ringIdx] as number[][];
+            if (ring.length - 1 <= 3) return; // need >= 3 unique points
+            if (vertIdx === 0 || vertIdx === ring.length - 1) {
+                ring.splice(ring.length - 1, 1);
+                ring.splice(0, 1);
+                ring.push([...ring[0]]);
+            } else {
+                ring.splice(vertIdx, 1);
+            }
+        } else if (f.type === 'MultiPolygon') {
+            const ring = coords[partIdx][ringIdx] as number[][];
+            if (ring.length - 1 <= 3) return;
+            if (vertIdx === 0 || vertIdx === ring.length - 1) {
+                ring.splice(ring.length - 1, 1);
+                ring.splice(0, 1);
+                ring.push([...ring[0]]);
+            } else {
+                ring.splice(vertIdx, 1);
+            }
+        } else if (f.type === 'MultiPoint') {
+            if (coords.length <= 1) return;
+            coords.splice(partIdx, 1);
+        } else {
+            return; // single Point: nothing to remove
+        }
+
+        f.coordinates = coords;
+        const layer = this.drawLayers.find(l => l.id === f.layerId);
+        if (layer) this.computeSpecialProperties(f, layer);
+        this.pushHistory({ type: 'update', features: [{ ...f }] });
+        this.features = [...this.features];
+        this.refreshDrawLayerSource(f.layerId);
+
+        this.selectedHandle = null;
+        this.updateSelectedVertexSource();
+        this.updateEditHandles();
     }
 
     // ─── Feature management ──────────────────────────────────────────────────
@@ -1835,7 +1934,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
                 <div class="divider"></div>
 
-                <sl-tooltip content="Snap to vertices and edges (${this.snapEnabled ? 'on' : 'off'})">
+                <sl-tooltip content="Snap to points and edges (${this.snapEnabled ? 'on' : 'off'}) — hold Alt to toggle">
                     <sl-icon-button name="magnet"
                         ?active=${this.effectiveSnap}
                         @click=${() => {
@@ -1847,13 +1946,13 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
                 <div class="divider"></div>
 
-                <sl-tooltip content="Undo">
+                <sl-tooltip content="Undo (${this.modKey}+Z)">
                     <sl-icon-button name="arrow-counterclockwise"
                         ?disabled=${this.historyIndex < 0 && this.draftPoints.length === 0}
                         @click=${() => this.undoOrDraftBack()}>
                     </sl-icon-button>
                 </sl-tooltip>
-                <sl-tooltip content="Redo">
+                <sl-tooltip content="Redo (${this.modKey}+Y)">
                     <sl-icon-button name="arrow-clockwise"
                         ?disabled=${this.historyIndex >= this.history.length - 1 && this.draftRedoStack.length === 0}
                         @click=${() => this.redoOrDraftForward()}>
