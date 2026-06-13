@@ -84,8 +84,10 @@ export interface DrawFeature {
 }
 
 interface HistoryEntry {
-    type: 'add' | 'update' | 'delete';
+    type: 'add' | 'update' | 'delete' | 'finish';
     features: DrawFeature[];
+    /** For 'finish': draft points to restore on undo, re-opening the in-progress line/polygon. */
+    draftPoints?: LngLat[];
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -102,9 +104,12 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     @state() private selectedFeatureId: string | null = null;
     @state() private helpText = '';
     @state() private pendingMode: DrawMode | null = null;
+    /** Bumped on history/draft-stack changes to trigger re-render of undo/redo buttons. */
+    @state() private uiVersion = 0;
 
     /** Points collected for the current in-progress line/polygon. */
     private draftPoints: LngLat[] = [];
+    private draftRedoStack: LngLat[] = [];
     private cursorPos: LngLat | null = null;
 
     /** Active layer id per geometry type. */
@@ -297,7 +302,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             }
         }
         this.bindEvents();
-        window.addEventListener('keydown', this.onKeyDown);
+        window.addEventListener('keydown', this.onKeyDown, true);
         window.addEventListener('keyup', this.onKeyUp);
         window.addEventListener('blur', this.onWindowBlur);
         this.setModeInternal('select');
@@ -305,7 +310,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     protected onDeactivate(): void {
         this.unbindEvents();
-        window.removeEventListener('keydown', this.onKeyDown);
+        window.removeEventListener('keydown', this.onKeyDown, true);
         window.removeEventListener('keyup', this.onKeyUp);
         window.removeEventListener('blur', this.onWindowBlur);
         this.altActive = false;
@@ -508,7 +513,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private isRelevantTarget(e: KeyboardEvent): boolean {
         const path = e.composedPath();
         const mapEl = this.mapHost;
-        return path.includes(this) || (!!mapEl && path.includes(mapEl));
+        if (path.includes(this) || (!!mapEl && path.includes(mapEl))) return true;
+        // No specific element focused (focus sits on body/html) — treat as relevant
+        // so shortcuts work right after a map click moves focus away from any element.
+        const target = path[0];
+        return target === document.body || target === document.documentElement;
     }
 
     private onKeyDown = (e: KeyboardEvent): void => {
@@ -529,12 +538,12 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
             e.preventDefault();
-            this.undo();
+            this.undoOrDraftBack();
             return;
         }
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
             e.preventDefault();
-            this.redo();
+            this.redoOrDraftForward();
             return;
         }
         if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -951,6 +960,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 this.updateEditHandles();
             }
             this.draftPoints.push(coords);
+            this.draftRedoStack = [];
+            this.uiVersion++;
             this.updateRubberband();
             this.updateHelpTextDuring();
             return;
@@ -1191,15 +1202,16 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             this.commitFeature({
                 id: this.newId(), layerId, type: 'LineString',
                 coordinates: pts.map(p => [p[0], p[1]]), properties: this.defaultProperties(layerId)
-            });
+            }, pts);
         } else if (this.mode === 'draw-polygon' && pts.length >= 3) {
             const ring = [...pts.map(p => [p[0], p[1]]), [pts[0][0], pts[0][1]]];
             this.commitFeature({
                 id: this.newId(), layerId, type: 'Polygon',
                 coordinates: [ring], properties: this.defaultProperties(layerId)
-            });
+            }, pts);
         }
         this.draftPoints = [];
+        this.draftRedoStack = [];
         this.cursorPos = null;
         this.updateRubberband();
     }
@@ -1430,7 +1442,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     // ─── Feature management ──────────────────────────────────────────────────
 
-    private commitFeature(feature: DrawFeature): void {
+    private commitFeature(feature: DrawFeature, draftSnapshot?: LngLat[]): void {
         // Auto-assign sequential numeric id within the layer
         const layerFeatures = this.features.filter(f => f.layerId === feature.layerId);
         const maxId = layerFeatures.reduce((m, f) => {
@@ -1451,7 +1463,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             }
         }
 
-        this.pushHistory({ type: 'add', features: [feature] });
+        this.pushHistory(draftSnapshot
+            ? { type: 'finish', features: [feature], draftPoints: draftSnapshot.map(p => [p[0], p[1]] as LngLat) }
+            : { type: 'add', features: [feature] });
         this.features = [...this.features, feature];
         this.refreshDrawLayerSource(feature.layerId);
         this.setModeInternal(this.mode);
@@ -1483,13 +1497,37 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.history = this.history.slice(0, this.historyIndex + 1);
         this.history.push(entry);
         this.historyIndex = this.history.length - 1;
+        this.uiVersion++;
+    }
+
+    private undoOrDraftBack(): void {
+        if (this.draftPoints.length > 0) {
+            this.draftRedoStack.push(this.draftPoints.pop()!);
+            this.uiVersion++;
+            this.updateRubberband();
+            this.updateHelpTextDuring();
+        } else {
+            this.undo();
+        }
+    }
+
+    private redoOrDraftForward(): void {
+        if (this.draftRedoStack.length > 0) {
+            this.draftPoints.push(this.draftRedoStack.pop()!);
+            this.uiVersion++;
+            this.updateRubberband();
+            this.updateHelpTextDuring();
+        } else {
+            this.redo();
+        }
     }
 
     undo(): void {
         if (this.historyIndex < 0) return;
         const entry = this.history[this.historyIndex--];
+        this.uiVersion++;
         const affected = new Set<string>();
-        if (entry.type === 'add') {
+        if (entry.type === 'add' || entry.type === 'finish') {
             const ids = new Set(entry.features.map(f => f.id));
             this.features = this.features.filter(f => !ids.has(f.id));
             entry.features.forEach(f => affected.add(f.layerId));
@@ -1509,13 +1547,24 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.updateSelectedSource();
         this.updateEditHandles();
         affected.forEach(id => this.refreshDrawLayerSource(id));
+        if (entry.type === 'finish' && entry.draftPoints) {
+            // Re-open the in-progress line/polygon, point-by-point undo can continue from here.
+            const feature = entry.features[0];
+            this.mode = feature.type === 'LineString' ? 'draw-line' : 'draw-polygon';
+            this.draftPoints = entry.draftPoints.map(p => [p[0], p[1]] as LngLat);
+            this.draftRedoStack = [];
+            this.cursorPos = this.draftPoints[this.draftPoints.length - 1];
+            this.updateRubberband();
+            this.updateHelpTextDuring();
+        }
     }
 
     redo(): void {
         if (this.historyIndex >= this.history.length - 1) return;
         const entry = this.history[++this.historyIndex];
+        this.uiVersion++;
         const affected = new Set<string>();
-        if (entry.type === 'add') {
+        if (entry.type === 'add' || entry.type === 'finish') {
             this.features = [...this.features, ...entry.features];
             entry.features.forEach(f => affected.add(f.layerId));
         } else if (entry.type === 'delete') {
@@ -1530,6 +1579,17 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             });
         }
         affected.forEach(id => this.refreshDrawLayerSource(id));
+        if (entry.type === 'finish') {
+            const feature = entry.features[0];
+            this.draftPoints = [];
+            this.draftRedoStack = [];
+            this.cursorPos = null;
+            this.selectedFeatureId = feature.id;
+            this.editState = isPointType(feature.type) ? 'editing' : 'selected';
+            this.updateSelectedSource();
+            this.updateEditHandles();
+            this.updateRubberband();
+        }
     }
 
     exportGeoJSON(): void {
@@ -1789,14 +1849,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
                 <sl-tooltip content="Undo">
                     <sl-icon-button name="arrow-counterclockwise"
-                        ?disabled=${this.historyIndex < 0}
-                        @click=${() => this.undo()}>
+                        ?disabled=${this.historyIndex < 0 && this.draftPoints.length === 0}
+                        @click=${() => this.undoOrDraftBack()}>
                     </sl-icon-button>
                 </sl-tooltip>
                 <sl-tooltip content="Redo">
                     <sl-icon-button name="arrow-clockwise"
-                        ?disabled=${this.historyIndex >= this.history.length - 1}
-                        @click=${() => this.redo()}>
+                        ?disabled=${this.historyIndex >= this.history.length - 1 && this.draftRedoStack.length === 0}
+                        @click=${() => this.redoOrDraftForward()}>
                     </sl-icon-button>
                 </sl-tooltip>
 
