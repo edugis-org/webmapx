@@ -36,6 +36,7 @@ export {
   loadAppConfig,
   resolveMapConfig,
   fetchConfig,
+  parseAndValidateConfig,
   mergeMapConfigs,
   parseAttributeConfig,
   getConfigUrlParam,

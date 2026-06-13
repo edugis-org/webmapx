@@ -457,6 +457,27 @@ export function getConfigUrlParam(): string | null {
  * Fetches and parses a JSON config file.
  * Uses cache to avoid duplicate fetches.
  */
+/**
+ * Normalizes and validates a raw config object (already parsed from JSON).
+ * `label` is used only for error/warning messages (e.g. a URL or filename).
+ */
+export function parseAndValidateConfig(rawConfig: unknown, label: string): AppConfig {
+  const config = normalizeAppConfig(rawConfig);
+
+  const result = validateConfig(config);
+  if (!result.valid) {
+    const errorMessages = result.errors.map(e => `  ${e.path}: ${e.message}`).join('\n');
+    throw new Error(`Invalid config from "${label}":\n${errorMessages}`);
+  }
+
+  if (result.warnings.length > 0) {
+    console.warn(`[config] Warnings for "${label}":`);
+    result.warnings.forEach(w => console.warn(`  ${w.path}: ${w.message}`));
+  }
+
+  return config;
+}
+
 export async function fetchConfig(url: string): Promise<AppConfig> {
   if (configCache.has(url)) {
     return configCache.get(url)!;
@@ -468,20 +489,7 @@ export async function fetchConfig(url: string): Promise<AppConfig> {
   }
 
   const rawConfig = await response.json();
-  const config = normalizeAppConfig(rawConfig);
-
-  // Validate the loaded config
-  const result = validateConfig(config);
-  if (!result.valid) {
-    const errorMessages = result.errors.map(e => `  ${e.path}: ${e.message}`).join('\n');
-    throw new Error(`Invalid config from "${url}":\n${errorMessages}`);
-  }
-
-  // Log warnings if any
-  if (result.warnings.length > 0) {
-    console.warn(`[config] Warnings for "${url}":`);
-    result.warnings.forEach(w => console.warn(`  ${w.path}: ${w.message}`));
-  }
+  const config = parseAndValidateConfig(rawConfig, url);
 
   configCache.set(url, config);
   return config;

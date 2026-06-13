@@ -14,7 +14,8 @@ if (import.meta.env.DEV) {
 }
 
 // 1. Import configuration loader
-import { loadAppConfig, resolveMapConfig, fetchConfig } from './config/index.ts';
+import { loadAppConfig, resolveMapConfig, fetchConfig, parseAndValidateConfig } from './config/index.ts';
+import { DROPPED_CONFIG_KEY } from './utils/dropped-config.ts';
 import { DEFAULT_ADAPTER_NAME } from './map/adapter-registry';
 import {
     getMapScopedStorageKey,
@@ -82,16 +83,31 @@ function installMobileAddressBarNudge() {
 document.addEventListener('DOMContentLoaded', async () => {
     installMobileAddressBarNudge();
 
-    // Load app config from ?config= URL parameter (if present)
+    // A config dropped onto the map is staged in sessionStorage and the page
+    // reloaded, so a fresh app/map init picks it up here (one-time use).
     let appConfig = null;
-    try {
-        const loaded = await loadAppConfig();
-        if (loaded) {
-            appConfig = loaded.config;
-            console.log(`[app] Loaded config from: ${loaded.source}`);
+    const droppedConfig = sessionStorage.getItem(DROPPED_CONFIG_KEY);
+    if (droppedConfig) {
+        sessionStorage.removeItem(DROPPED_CONFIG_KEY);
+        try {
+            appConfig = parseAndValidateConfig(JSON.parse(droppedConfig), 'dropped config');
+            console.log('[app] Loaded config from dropped file');
+        } catch (error) {
+            console.error('[app] Failed to load dropped config:', error);
         }
-    } catch (error) {
-        console.error('[app] Failed to load app config:', error);
+    }
+
+    // Load app config from ?config= URL parameter (if present)
+    if (!appConfig) {
+        try {
+            const loaded = await loadAppConfig();
+            if (loaded) {
+                appConfig = loaded.config;
+                console.log(`[app] Loaded config from: ${loaded.source}`);
+            }
+        } catch (error) {
+            console.error('[app] Failed to load app config:', error);
+        }
     }
 
     // Initialize each webmapx-map on the page

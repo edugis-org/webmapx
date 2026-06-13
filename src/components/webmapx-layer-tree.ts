@@ -258,6 +258,9 @@ export class WebmapxLayerTree extends LitElement {
         const children = Array.isArray(node.children) ? node.children : [];
         const layerIds: string[] = [];
         for (const child of children) {
+            if (!child.layerId && child.expanded !== true) {
+                continue;
+            }
             layerIds.push(...this.collectLayerIdsForSupport(child));
         }
         return layerIds;

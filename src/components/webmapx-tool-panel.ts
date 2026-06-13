@@ -189,6 +189,7 @@ export class WebmapxToolPanel extends LitElement {
     }
 
     this.activeToolId = toolId;
+    this.collapsed = false;
     this.applyVisibility();
   }
 

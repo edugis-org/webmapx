@@ -57,7 +57,7 @@ export class WebmapxMapElement extends HTMLElement {
   private initialStateLayersApplied = false;
   private activeAdapterName: string | null = null;
   private runtimeStyleLayerCounter = 0;
-  private readonly styleLayerCache = new Map<string, LayerInformation | null>();
+  private readonly styleLayerCache = new Map<string, Promise<LayerInformation | null>>();
   private readonly singleGroupInsertSlotByGroup = new Map<string, LayerInsertOptions>();
   private readonly singleGroupLegendRoleByGroup = new Map<string, LegendRole>();
   private logicalLayerOrder: string[] = [];
@@ -114,7 +114,28 @@ export class WebmapxMapElement extends HTMLElement {
       }
     }
 
+    /**
+     * If a single dropped file is a webmapx config, stage it in sessionStorage
+     * and reload the page so app init picks it up — same mechanism as the
+     * adapter-switch in webmapx-settings.ts.
+     */
+    private async tryHandleDroppedConfig(files: File[]): Promise<boolean> {
+      if (files.length !== 1) return false;
+      const file = files[0];
+      const { sniffFile } = await import('../utils/file-sniff');
+      const result = await sniffFile(file);
+      if (result.kind !== 'webmapx-config') return false;
+
+      const { DROPPED_CONFIG_KEY } = await import('../utils/dropped-config');
+      sessionStorage.setItem(DROPPED_CONFIG_KEY, await file.text());
+      window.location.reload();
+      return true;
+    }
+
     private async processDroppedFiles(files: File[]): Promise<void> {
+      if (await this.tryHandleDroppedConfig(files)) {
+        return;
+      }
       const { sniffBlob } = await import('../utils/file-sniff');
       const { groupDroppedFiles, buildLayerConfigFromGroup } = await import('../utils/dropped-layer-builder');
       type FileSniffResult = Awaited<ReturnType<typeof sniffBlob>>;
@@ -533,7 +554,13 @@ export class WebmapxMapElement extends HTMLElement {
   }
 
   private collectInitialActiveLayerRefs(): string[] {
-    const activeLayers = this.configInstance?.state?.activeLayers ?? [];
+    const activeLayers = this.configInstance?.state?.activeLayers;
+    if (!activeLayers) {
+      const layers = this.configInstance?.layerData?.layers ?? [];
+      return layers
+        .map((layer) => (typeof layer?.id === 'string' ? layer.id : null))
+        .filter((id): id is string => id !== null);
+    }
     const refs: string[] = [];
 
     for (const entry of activeLayers) {
@@ -758,26 +785,27 @@ export class WebmapxMapElement extends HTMLElement {
       return null;
     }
 
-    if (this.styleLayerCache.has(cacheKey)) {
-      return this.styleLayerCache.get(cacheKey) ?? null;
+    const cached = this.styleLayerCache.get(cacheKey);
+    if (cached) {
+      return cached;
     }
 
-    try {
-      const response = await fetch(styleUrl);
-      if (!response.ok) {
-        this.styleLayerCache.set(cacheKey, null);
+    const promise = (async () => {
+      try {
+        const response = await fetch(styleUrl);
+        if (!response.ok) {
+          return null;
+        }
+
+        const styleDoc = this.toRecord(await response.json());
+        return this.buildExpandedStyleLayer(layer, styleDoc, styleUrl, scopedPrefix);
+      } catch {
         return null;
       }
+    })();
 
-      const styleDoc = this.toRecord(await response.json());
-      const expanded = this.buildExpandedStyleLayer(layer, styleDoc, styleUrl, scopedPrefix);
-
-      this.styleLayerCache.set(cacheKey, expanded);
-      return expanded;
-    } catch {
-      this.styleLayerCache.set(cacheKey, null);
-      return null;
-    }
+    this.styleLayerCache.set(cacheKey, promise);
+    return promise;
   }
 
   private buildExpandedStyleLayer(
