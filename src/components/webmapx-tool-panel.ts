@@ -13,6 +13,7 @@ import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 export class WebmapxToolPanel extends LitElement {
   @property({ type: String }) label = 'Tools';
   @property({ type: Boolean, reflect: true }) active = false;
+  @property({ type: Boolean, reflect: true }) collapsed = false;
 
   private defaultLabel = 'Tools';
   private activeToolId: string | null = null;
@@ -149,6 +150,7 @@ export class WebmapxToolPanel extends LitElement {
       return;
     }
     this.activeToolId = toolId;
+    this.collapsed = false;
     this.applyVisibility();
   }
 
@@ -253,11 +255,24 @@ export class WebmapxToolPanel extends LitElement {
       --webmapx-tool-padding: 0.75rem;
     }
 
+    :host([collapsed]) {
+      min-height: 0;
+    }
+
+    :host([collapsed]) .panel-content,
+    :host([collapsed]) slot[name="footer"] {
+      display: none;
+    }
+
     ::slotted([hidden]) {
       display: none !important;
     }
 
   `;
+  private toggleCollapsed() {
+    this.collapsed = !this.collapsed;
+  }
+
   private handleClose() {
     const closingToolId = this.activeToolId;
     this.activeToolId = null;
@@ -273,6 +288,9 @@ export class WebmapxToolPanel extends LitElement {
     return html`
       <div class="panel-header">
         <slot name="header"><h3>${this.label}</h3></slot>
+        <sl-button size="small" circle variant="text" @click=${this.toggleCollapsed}>
+          <sl-icon name=${this.collapsed ? 'chevron-down' : 'chevron-up'} label=${this.collapsed ? 'Expand' : 'Collapse'}></sl-icon>
+        </sl-button>
         <sl-button size="small" circle variant="text" @click=${this.handleClose}>
           <sl-icon name="x-lg" label="Close"></sl-icon>
         </sl-button>
