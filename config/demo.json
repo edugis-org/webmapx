@@ -2713,6 +2713,13 @@
           "icon": "globe"
         },
         {
+          "id": "add-layer",
+          "type": "addLayer",
+          "enabled": true,
+          "title": "Add layer from URL",
+          "icon": "link-45deg"
+        },
+        {
           "type": "spacer",
           "enabled": true
         },

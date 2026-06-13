@@ -103,7 +103,15 @@ export class MapLayerService implements ILayerService {
     }
 
     private ensureNativeSource(nativeSourceId: string, sourceConfig: SourceConfig): void {
-        if (this.map.getSource(nativeSourceId)) return;
+        if (this.map.getSource(nativeSourceId)) {
+            // Source may have been added ad-hoc (e.g. discovered layers added via
+            // adapter.addSource bypassing this method) — still record its config so
+            // getVisibleWMSLayers etc. can find it.
+            if (!this.nativeSourceToConfig.has(nativeSourceId)) {
+                this.nativeSourceToConfig.set(nativeSourceId, sourceConfig);
+            }
+            return;
+        }
 
         let nativeSource: any = { type: sourceConfig.type };
 
@@ -120,9 +128,18 @@ export class MapLayerService implements ILayerService {
                 if (typeof (sourceConfig as any).volatile === 'boolean') nativeSource.volatile = (sourceConfig as any).volatile;
             } else if (sourceConfig.service === 'wms') {
                 const wmsConfig = sourceConfig as WMSSourceConfig;
-                const baseUrl = Array.isArray(wmsConfig.url) ? wmsConfig.url[0] : wmsConfig.url;
-                const url = buildWMSGetMapUrl({ baseUrl, layers: wmsConfig.layers ?? '', version: wmsConfig.version, styles: wmsConfig.styles, format: wmsConfig.format, transparent: wmsConfig.transparent, crs: wmsConfig.crs, tileSize: wmsConfig.tileSize }, 'maplibre');
-                nativeSource = { type: 'raster', tiles: [url] };
+                // Discovered/ad-hoc sources already carry a ready-made `tiles` array
+                // (WMS GetMap URL built by layer-discovery) and use `gfiUrl` (not `url`)
+                // for GetFeatureInfo, so buildWMSGetMapUrl can't run here — reuse `tiles`.
+                const existingTiles = (sourceConfig as any).tiles as string[] | undefined;
+                let tiles: string[];
+                if (existingTiles?.length) {
+                    tiles = existingTiles;
+                } else {
+                    const baseUrl = Array.isArray(wmsConfig.url) ? wmsConfig.url[0] : wmsConfig.url;
+                    tiles = [buildWMSGetMapUrl({ baseUrl, layers: wmsConfig.layers ?? '', version: wmsConfig.version, styles: wmsConfig.styles, format: wmsConfig.format, transparent: wmsConfig.transparent, crs: wmsConfig.crs, tileSize: wmsConfig.tileSize }, 'maplibre')];
+                }
+                nativeSource = { type: 'raster', tiles };
                 if ('tileSize' in sourceConfig) nativeSource.tileSize = sourceConfig.tileSize;
                 if ('bounds' in sourceConfig) nativeSource.bounds = sourceConfig.bounds;
                 if (typeof sourceConfig.minzoom === 'number') nativeSource.minzoom = sourceConfig.minzoom;
@@ -421,7 +438,14 @@ export class MapLayerService implements ILayerService {
                 if (!nativeSourceId) continue;
                 const sourceConfig = this.nativeSourceToConfig.get(nativeSourceId);
                 if (sourceConfig?.type === 'raster' && (sourceConfig as any).service === 'wms') {
-                    result.push({ layerId: logicalId, sourceConfig: sourceConfig as WMSSourceConfig });
+                    const cfg = sourceConfig as any;
+                    // Ad-hoc discovered sources store GetFeatureInfo params under
+                    // gfiUrl/gfiLayers/gfiVersion (to avoid colliding with MapLibre's
+                    // raster source `url`/`layers` keys); map them back to WMSSourceConfig.
+                    const wmsConfig: WMSSourceConfig = 'gfiUrl' in cfg
+                        ? { ...cfg, url: cfg.gfiUrl, layers: cfg.gfiLayers, version: cfg.gfiVersion }
+                        : cfg;
+                    result.push({ layerId: logicalId, sourceConfig: wmsConfig });
                 }
                 break;
             }

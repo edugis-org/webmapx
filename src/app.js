@@ -41,6 +41,7 @@ import './components/webmapx-measure-tool.ts';
 import './components/webmapx-info-tool.ts';
 import './components/webmapx-draw-tool.ts';
 import './components/webmapx-geolocation-tool.ts';
+import './components/webmapx-add-layer-tool.ts';
 import './components/webmapx-scale-control.ts';
 import './components/webmapx-navigation-control.ts';
 import './components/webmapx-attribution-control.ts';

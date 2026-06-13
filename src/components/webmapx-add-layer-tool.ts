@@ -1,0 +1,227 @@
+import { html, css } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
+
+import { WebmapxBaseTool } from './webmapx-base-tool';
+import type { IMap } from '../map/IMapInterfaces';
+import type { IMapState } from '../store/IMapState';
+import type { WebmapxMapElement } from './webmapx-map';
+import { resolveMapElement } from './internal/map-context';
+import { discoverLayers, type DiscoveredLayer } from '../utils/layer-discovery';
+
+/**
+ * Dialog tool: paste a service/tile URL (e.g. copied from the devtools
+ * network tab) and discover WMS/WMTS/Esri/XYZ layers available at that
+ * endpoint, then add the selected ones to the map.
+ */
+@customElement('webmapx-add-layer-tool')
+export class WebmapxAddLayerTool extends WebmapxBaseTool {
+  public active = false;
+  private mapElement: WebmapxMapElement | null = null;
+
+  @state()
+  private url: string = '';
+
+  @state()
+  private discovering: boolean = false;
+
+  @state()
+  private results: DiscoveredLayer[] = [];
+
+  @state()
+  private selected: Set<DiscoveredLayer> = new Set();
+
+  @state()
+  private error: string | null = null;
+
+  @state()
+  private filterText: string = '';
+
+  static styles = css`
+    :host { display: block; width: 100%; pointer-events: auto; }
+    :host([hidden]) { display: none !important; }
+    .container { width: 100%; color: var(--color-text-primary); box-sizing: border-box; padding: var(--webmapx-tool-padding, 0); }
+    .urlbox { display:flex; gap:6px; align-items:center; }
+    input { flex:1; padding:6px; min-width:0; }
+    .error { color: var(--sl-color-danger-600, #c0392b); font-size: 12px; margin-top: 6px; }
+    .filter { width:100%; box-sizing:border-box; padding:6px; margin-top:8px; }
+    .results { margin-top:8px; max-height:50%; overflow:auto; }
+    .results ul { list-style: none; margin: 0; padding: 0; }
+    .result-item { padding:6px; border-bottom:1px solid rgba(0,0,0,0.05); display:flex; align-items:center; gap:8px; }
+    .meta { font-size: 11px; color: var(--color-text-secondary); }
+    .actions { margin: 8px 0; display:flex; justify-content:flex-end; gap:6px; }
+  `;
+
+  protected onMapAttached(adapter: IMap): void {
+    super.onMapAttached(adapter);
+    this.adapter = adapter;
+    this.mapElement = resolveMapElement(this);
+  }
+
+  protected onMapDetached(): void {
+    this.adapter = null;
+    this.mapElement = null;
+    super.onMapDetached();
+  }
+
+  protected onConfigReady(_config: any): void {
+    // No configuration needed.
+  }
+
+  protected onStateChanged(_state: IMapState): void {
+    // No-op
+  }
+
+  activate(): void {
+    this.active = true;
+    (this as HTMLElement).hidden = false;
+    setTimeout(() => {
+      const input = this.renderRoot?.querySelector('input');
+      (input as HTMLInputElement | null)?.focus();
+    }, 0);
+  }
+
+  deactivate(): void {
+    this.active = false;
+    (this as HTMLElement).hidden = true;
+  }
+
+  private async handleDiscover(): Promise<void> {
+    const url = this.url.trim();
+    if (!url) return;
+
+    this.discovering = true;
+    this.error = null;
+    this.results = [];
+    this.selected = new Set();
+
+    try {
+      const found = await discoverLayers(url);
+      this.results = found;
+      this.selected = new Set();
+      this.filterText = '';
+      if (found.length === 0) {
+        this.error = 'No services discovered at this URL.';
+      }
+    } catch (e) {
+      console.error('layer discovery failed', e);
+      this.error = e instanceof Error ? e.message : 'Discovery failed';
+    } finally {
+      this.discovering = false;
+    }
+  }
+
+  private get filteredResults(): DiscoveredLayer[] {
+    const q = this.filterText.trim().toLowerCase();
+    if (!q) return this.results;
+    return this.results.filter((item) => {
+      const src = item.source as unknown as Record<string, unknown>;
+      const haystack: unknown[] = [
+        item.title,
+        item.abstract,
+        item.layer.id,
+        src.data,
+        src.tiles,
+        src.url,
+      ];
+      return haystack.flat().some((v) => typeof v === 'string' && v.toLowerCase().includes(q));
+    });
+  }
+
+  private toggleSelected(item: DiscoveredLayer, e: Event): void {
+    const evAny = e as any;
+    const checked = typeof evAny?.detail?.checked === 'boolean'
+      ? evAny.detail.checked
+      : Boolean((e.target as HTMLInputElement | null)?.checked);
+
+    const next = new Set(this.selected);
+    if (checked) next.add(item); else next.delete(item);
+    this.selected = next;
+  }
+
+  private handleAdd(): void {
+    if (!this.adapter || !this.mapElement || this.selected.size === 0) return;
+
+    const layers = Array.from(this.selected);
+    for (const { source, layer } of layers) {
+      try {
+        // Pass the source inline via `sources` so MapLayerService.addLayer resolves
+        // and registers it (ensureNativeSource + logicalToNative) — calling
+        // adapter.addSource directly bypasses that bookkeeping (e.g. WMS
+        // GetFeatureInfo lookup never finds the layer).
+        this.mapElement.addLayerRequest({
+          ...(layer as unknown as Record<string, unknown>),
+          sources: { [source.id]: source },
+        });
+      } catch (e) {
+        console.error('Failed to add discovered layer', layer.id, e);
+      }
+    }
+
+    this.dispatchEvent(new CustomEvent('webmapx-layers-found', {
+      detail: { url: this.url.trim(), layers },
+      bubbles: true,
+      composed: true,
+    }));
+
+    this.results = [];
+    this.selected = new Set();
+  }
+
+  render() {
+    return html`
+      <div class="container tool-content">
+        <div class="title">Add layer from URL</div>
+        <div class="urlbox">
+          <input
+            type="text"
+            placeholder="Paste a service or tile URL"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            data-lpignore="true"
+            data-1p-ignore
+            .value="${this.url}"
+            @input="${(e: Event) => { this.url = (e.target as HTMLInputElement).value; }}"
+            @keyup="${(e: KeyboardEvent) => { if (e.key === 'Enter') this.handleDiscover(); }}"
+          />
+          <sl-button size="small" ?loading=${this.discovering} @click="${() => this.handleDiscover()}">Discover</sl-button>
+        </div>
+
+        ${this.error ? html`<div class="error">${this.error}</div>` : ''}
+
+        ${this.results.length === 0 ? '' : html`
+          <input
+            type="text"
+            class="filter"
+            placeholder="Filter layers..."
+            .value="${this.filterText}"
+            @input="${(e: Event) => { this.filterText = (e.target as HTMLInputElement).value; }}"
+          />
+          <div class="actions">
+            <sl-button size="small" variant="primary" ?disabled=${this.selected.size === 0} @click="${() => this.handleAdd()}">
+              Add selected
+            </sl-button>
+          </div>
+          <div class="results">
+            <ul>
+              ${this.filteredResults.map((item) => html`
+                <li class="result-item">
+                  <sl-checkbox
+                    .checked=${this.selected.has(item)}
+                    @sl-change=${(e: Event) => this.toggleSelected(item, e)}
+                  ></sl-checkbox>
+                  <div style="flex:1;">
+                    <div>${item.title}</div>
+                    <div class="meta">${item.serviceType}</div>
+                    ${item.abstract ? html`<div class="meta">${item.abstract}</div>` : ''}
+                  </div>
+                </li>
+              `)}
+            </ul>
+          </div>
+        `}
+      </div>
+    `;
+  }
+}

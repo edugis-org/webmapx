@@ -22,6 +22,7 @@ const TOOL_ELEMENT_TAGS: Record<string, string> = {
   info: 'webmapx-info-tool',
   draw: 'webmapx-draw-tool',
   'view-mode': 'webmapx-view-mode-tool',
+  addLayer: 'webmapx-add-layer-tool',
   layerOverview: 'webmapx-layer-overview',
 };
 
