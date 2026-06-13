@@ -27,6 +27,7 @@ export class WebmapxLayerInfoDialog extends LitElement {
 
     @state() private dialogTitle = '';
     @state() private attribution = '';
+    @state() private featureSummary = '';
     @state() private content: ContentState = { kind: 'none' };
 
     @query('sl-dialog') private dialog!: SlDialog;
@@ -55,10 +56,22 @@ export class WebmapxLayerInfoDialog extends LitElement {
             font-style: italic;
         }
 
-        .attribution {
+        .layer-meta {
             margin-top: 0.75rem;
             padding-top: 0.5rem;
             border-top: 1px solid var(--sl-color-neutral-200);
+        }
+
+        .feature-summary {
+            font-size: 0.85rem;
+            color: var(--sl-color-neutral-600);
+        }
+
+        .feature-summary + .attribution {
+            margin-top: 0.5rem;
+        }
+
+        .attribution {
             font-size: 0.8rem;
             color: var(--sl-color-neutral-500);
         }
@@ -77,10 +90,11 @@ export class WebmapxLayerInfoDialog extends LitElement {
         }
     `;
 
-    open(title: string, abstract: string | undefined, attribution?: string): void {
+    open(title: string, abstract: string | undefined, attribution?: string, featureSummary?: string): void {
         this.fetchToken += 1;
         this.dialogTitle = title;
         this.attribution = attribution?.trim() ?? '';
+        this.featureSummary = featureSummary?.trim() ?? '';
         this.dialog?.show();
 
         const trimmed = abstract?.trim();
@@ -119,7 +133,9 @@ export class WebmapxLayerInfoDialog extends LitElement {
     private renderContent() {
         switch (this.content.kind) {
             case 'none':
-                return html`<p class="placeholder">No detailed layer information available.</p>`;
+                return this.featureSummary
+                    ? null
+                    : html`<p class="placeholder">No detailed layer information available.</p>`;
             case 'loading':
                 return html`<div class="loading"><sl-spinner></sl-spinner> Loading layer information…</div>`;
             case 'error':
@@ -134,8 +150,15 @@ export class WebmapxLayerInfoDialog extends LitElement {
             <sl-dialog label=${this.dialogTitle}
                        @sl-request-close=${(e: Event) => { (e as CustomEvent).detail?.source === 'overlay' && this.close(); }}>
                 ${this.renderContent()}
-                ${this.attribution
-                    ? html`<div class="attribution"><strong>Attribution:</strong> ${renderAttributionText(this.attribution)}</div>`
+                ${this.featureSummary || this.attribution
+                    ? html`<div class="layer-meta">
+                        ${this.featureSummary
+                            ? html`<div class="feature-summary">${this.featureSummary}</div>`
+                            : null}
+                        ${this.attribution
+                            ? html`<div class="attribution"><strong>Attribution:</strong> ${renderAttributionText(this.attribution)}</div>`
+                            : null}
+                    </div>`
                     : null}
                 <div class="footer">
                     <sl-button @click=${this.close}>Close</sl-button>

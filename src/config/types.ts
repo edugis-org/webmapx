@@ -157,6 +157,8 @@ export interface LayerMetadata {
   abstract?: string;
   /** Geographic extent [west, south, east, north] in WGS84. Fallback when source has no bounds; used for zoom-to-extent. */
   bounds?: [number, number, number, number];
+  /** Total feature count reported by the source service (e.g. WFS), ahead of loading any features. May exceed the number actually loaded if capped. */
+  featureCount?: number;
   /** Attribute display configuration for the info tool. */
   attributes?: LayerAttributeConfig;
   /** Engines known to support this layer (skips runtime/style-fetch support checks). Default: auto-detected (may trigger a style fetch for style-backed layers). */
