@@ -14,7 +14,7 @@ if (import.meta.env.DEV) {
 }
 
 // 1. Import configuration loader
-import { loadAppConfig, resolveMapConfig, fetchConfig, parseAndValidateConfig } from './config/index.ts';
+import { loadAppConfig, resolveMapConfig, fetchConfig, parseAndValidateConfig, getConfigUrlParam } from './config/index.ts';
 import { DROPPED_CONFIG_KEY } from './utils/dropped-config.ts';
 import { DEFAULT_ADAPTER_NAME } from './map/adapter-registry';
 import {
@@ -107,6 +107,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } catch (error) {
             console.error('[app] Failed to load app config:', error);
+            alert(`Failed to load config from "${getConfigUrlParam()}":\n${error.message}`);
         }
     }
 
@@ -167,6 +168,12 @@ async function initializeMap(mapElement, appConfig) {
                 type: resolvedAdapter
             }
         });
+
+        const layout = mapElement.querySelector('webmapx-layout');
+        if (layout && layout.childElementCount === 0) {
+            const { buildLayoutFromConfig } = await import('./utils/dynamic-layout.ts');
+            buildLayoutFromConfig(layout, fullConfig.tools);
+        }
     }
 
     const adapter = await mapElement.getAdapterAsync?.();

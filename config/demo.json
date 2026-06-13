@@ -47,7 +47,7 @@
         "service": "xyz",
         "url": "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
         "tileSize": 256,
-        "attribution": "\u00a9 Google Satellite"
+        "attribution": "© Google Satellite"
       },
       "world-countries-source": {
         "type": "geojson",
@@ -889,7 +889,12 @@
         "url": "https://tiles.edugis.nl/mapproxy/ahn_pdok/wmts/dsm_05m/spherical_mercator/{z}/{x}/{y}.png",
         "minzoom": 0,
         "maxzoom": 19,
-        "bounds": [2.52713, 50.2129, 7.37403, 55.7212],
+        "bounds": [
+          2.52713,
+          50.2129,
+          7.37403,
+          55.7212
+        ],
         "attribution": "&copy; AHN | PDOK"
       },
       "pdok-luchtfoto-source": {
@@ -899,7 +904,12 @@
         "url": "https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg",
         "minzoom": 0,
         "maxzoom": 21,
-        "bounds": [3.2, 50.75, 7.22, 53.7],
+        "bounds": [
+          3.2,
+          50.75,
+          7.22,
+          53.7
+        ],
         "attribution": "&copy; Beeldmateriaal.nl | PDOK"
       },
       "pdok-brt-achtergrond-source": {
@@ -909,7 +919,12 @@
         "url": "https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/standaard/EPSG:3857/{z}/{x}/{y}.png",
         "minzoom": 0,
         "maxzoom": 19,
-        "bounds": [3.2, 50.75, 7.22, 53.7],
+        "bounds": [
+          3.2,
+          50.75,
+          7.22,
+          53.7
+        ],
         "attribution": "&copy; Kadaster | PDOK"
       },
       "pdok-brt-achtergrond-grijs-source": {
@@ -919,7 +934,12 @@
         "url": "https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/grijs/EPSG:3857/{z}/{x}/{y}.png",
         "minzoom": 0,
         "maxzoom": 19,
-        "bounds": [3.2, 50.75, 7.22, 53.7],
+        "bounds": [
+          3.2,
+          50.75,
+          7.22,
+          53.7
+        ],
         "attribution": "&copy; Kadaster | PDOK"
       },
       "pdok-brt-achtergrond-pastel-source": {
@@ -929,7 +949,12 @@
         "url": "https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/pastel/EPSG:3857/{z}/{x}/{y}.png",
         "minzoom": 0,
         "maxzoom": 19,
-        "bounds": [3.2, 50.75, 7.22, 53.7],
+        "bounds": [
+          3.2,
+          50.75,
+          7.22,
+          53.7
+        ],
         "attribution": "&copy; Kadaster | PDOK"
       },
       "pdok-brt-achtergrond-water-source": {
@@ -939,7 +964,12 @@
         "url": "https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/water/EPSG:3857/{z}/{x}/{y}.png",
         "minzoom": 0,
         "maxzoom": 19,
-        "bounds": [3.2, 50.75, 7.22, 53.7],
+        "bounds": [
+          3.2,
+          50.75,
+          7.22,
+          53.7
+        ],
         "attribution": "&copy; Kadaster | PDOK"
       },
       "pdok-bag-source": {
@@ -954,7 +984,12 @@
         "crs": "EPSG:3857",
         "minzoom": 15,
         "maxzoom": 22,
-        "bounds": [3.2, 50.75, 7.22, 53.7],
+        "bounds": [
+          3.2,
+          50.75,
+          7.22,
+          53.7
+        ],
         "attribution": "&copy; Kadaster | PDOK"
       },
       "pdok-kadastralekaart-source": {
@@ -964,7 +999,12 @@
         "url": "https://service.pdok.nl/kadaster/kadastralekaart/wmts/v5_0/Kadastralekaart/EPSG:3857/{z}/{x}/{y}.png",
         "minzoom": 15.5,
         "maxzoom": 19,
-        "bounds": [3.2, 50.75, 7.22, 53.7],
+        "bounds": [
+          3.2,
+          50.75,
+          7.22,
+          53.7
+        ],
         "attribution": "&copy; Kadaster | PDOK"
       }
     },
@@ -993,7 +1033,10 @@
         "fallbackLayerId": "osm",
         "layers": [],
         "metadata": {
-          "supportedEngines": ["maplibre", "openlayers"]
+          "supportedEngines": [
+            "maplibre",
+            "openlayers"
+          ]
         }
       },
       "world-countries": {
@@ -1128,7 +1171,12 @@
         "annotation": "https://annotations.allmaps.org/maps/f60ecda322d09956",
         "title": "Amsterdam 1625 (Allmaps)",
         "metadata": {
-          "bounds": [4.87253, 52.35762, 4.9441, 52.39216]
+          "bounds": [
+            4.87253,
+            52.35762,
+            4.9441,
+            52.39216
+          ]
         }
       },
       "countrypopest": {
@@ -1234,7 +1282,7 @@
               {
                 "name": "population_density",
                 "translation": "population density",
-                "unit": " inh/km\u00b2"
+                "unit": " inh/km²"
               },
               {
                 "name": "area",
@@ -1334,7 +1382,11 @@
           "title": "Population density | Raster",
           "attributes": {
             "translations": [
-              { "name": "Dichtheid_in_km2_2015", "translation": "pop density 2015", "unit": " inhabitants/km2" }
+              {
+                "name": "Dichtheid_in_km2_2015",
+                "translation": "pop density 2015",
+                "unit": " inhabitants/km2"
+              }
             ]
           }
         },
@@ -1353,7 +1405,7 @@
               {
                 "name": "pop_dens",
                 "translation": "population density",
-                "unit": " inh/km\u00b2"
+                "unit": " inh/km²"
               }
             ]
           },
@@ -1470,7 +1522,7 @@
               {
                 "name": "pop_dens",
                 "translation": "population density",
-                "unit": " inh/km\u00b2"
+                "unit": " inh/km²"
               }
             ]
           },
@@ -1868,7 +1920,12 @@
         "title": "BAG (PDOK)",
         "attribution": "&copy; Kadaster | PDOK",
         "metadata": {
-          "bounds": [3.2, 50.75, 7.22, 53.7]
+          "bounds": [
+            3.2,
+            50.75,
+            7.22,
+            53.7
+          ]
         },
         "layers": []
       },
@@ -1880,7 +1937,12 @@
         "title": "BGT (PDOK)",
         "attribution": "&copy; Kadaster | PDOK",
         "metadata": {
-          "bounds": [3.2, 50.75, 7.22, 53.7]
+          "bounds": [
+            3.2,
+            50.75,
+            7.22,
+            53.7
+          ]
         },
         "layers": []
       },
@@ -1892,7 +1954,12 @@
         "title": "BGT achtergrond (PDOK)",
         "attribution": "&copy; Kadaster | PDOK",
         "metadata": {
-          "bounds": [3.2, 50.75, 7.22, 53.7]
+          "bounds": [
+            3.2,
+            50.75,
+            7.22,
+            53.7
+          ]
         },
         "layers": []
       },
@@ -1904,7 +1971,12 @@
         "title": "Bestuurlijke gebieden (PDOK)",
         "attribution": "&copy; Kadaster | PDOK",
         "metadata": {
-          "bounds": [3.2, 50.75, 7.22, 53.7]
+          "bounds": [
+            3.2,
+            50.75,
+            7.22,
+            53.7
+          ]
         },
         "layers": []
       },
@@ -1915,7 +1987,12 @@
         "source": "pdok-ahn-source",
         "metadata": {
           "title": "Hoogte (AHN)",
-          "bounds": [2.52713, 50.2129, 7.37403, 55.7212],
+          "bounds": [
+            2.52713,
+            50.2129,
+            7.37403,
+            55.7212
+          ],
           "legendurl": "https://mapserver.edugis.nl/legends/nederland/ahn-nederland1.png",
           "getFeatureInfoUrl": "https://tiles.edugis.nl/mapproxy/ahn_pdok/service?layers=dsm_05m&query_layers=dsm_05m&service=WMS&request=GetFeatureInfo&version=1.1.1",
           "getFeatureInfoFormat": "application/json",
@@ -1940,7 +2017,12 @@
         "minzoom": 15,
         "metadata": {
           "title": "BAG panden (raster)",
-          "bounds": [3.2, 50.75, 7.22, 53.7],
+          "bounds": [
+            3.2,
+            50.75,
+            7.22,
+            53.7
+          ],
           "abstract": "Panden uit de Basisregistratie Adressen en Gebouwen (BAG), als raster (alle zoomniveaus)."
         }
       },
@@ -1951,7 +2033,12 @@
         "source": "pdok-luchtfoto-source",
         "metadata": {
           "title": "Luchtfoto (PDOK)",
-          "bounds": [3.2, 50.75, 7.22, 53.7],
+          "bounds": [
+            3.2,
+            50.75,
+            7.22,
+            53.7
+          ],
           "abstract": "Actuele luchtfoto van Nederland, 25 cm resolutie."
         }
       },
@@ -1962,7 +2049,12 @@
         "source": "pdok-brt-achtergrond-source",
         "metadata": {
           "title": "Achtergrondkaart (PDOK)",
-          "bounds": [3.2, 50.75, 7.22, 53.7],
+          "bounds": [
+            3.2,
+            50.75,
+            7.22,
+            53.7
+          ],
           "abstract": "BRT Achtergrondkaart, standaard stijl."
         }
       },
@@ -1973,7 +2065,12 @@
         "source": "pdok-brt-achtergrond-grijs-source",
         "metadata": {
           "title": "Achtergrondkaart grijs (PDOK)",
-          "bounds": [3.2, 50.75, 7.22, 53.7],
+          "bounds": [
+            3.2,
+            50.75,
+            7.22,
+            53.7
+          ],
           "abstract": "BRT Achtergrondkaart, grijze stijl."
         }
       },
@@ -1984,7 +2081,12 @@
         "source": "pdok-brt-achtergrond-pastel-source",
         "metadata": {
           "title": "Achtergrondkaart pastel (PDOK)",
-          "bounds": [3.2, 50.75, 7.22, 53.7],
+          "bounds": [
+            3.2,
+            50.75,
+            7.22,
+            53.7
+          ],
           "abstract": "BRT Achtergrondkaart, pastel stijl."
         }
       },
@@ -1995,7 +2097,12 @@
         "source": "pdok-brt-achtergrond-water-source",
         "metadata": {
           "title": "Achtergrondkaart water (PDOK)",
-          "bounds": [3.2, 50.75, 7.22, 53.7],
+          "bounds": [
+            3.2,
+            50.75,
+            7.22,
+            53.7
+          ],
           "abstract": "BRT Achtergrondkaart, water stijl."
         }
       },
@@ -2007,7 +2114,12 @@
         "minzoom": 15.5,
         "metadata": {
           "title": "Percelen (Kadastrale kaart)",
-          "bounds": [3.2, 50.75, 7.22, 53.7],
+          "bounds": [
+            3.2,
+            50.75,
+            7.22,
+            53.7
+          ],
           "abstract": "Kadastrale percelen, BRK kadastrale kaart.",
           "getFeatureInfoUrl": "https://service.pdok.nl/kadaster/kadastralekaart/wms/v5_0?LAYERS=Perceelvlak&QUERY_LAYERS=Perceelvlak&SERVICE=WMS&VERSION=1.1.1",
           "getFeatureInfoFormat": "application/json"
@@ -2394,7 +2506,6 @@
       "type": "toolbar",
       "enabled": true,
       "position": "top-left",
-      "order": 10,
       "orientation": "vertical",
       "panel": {
         "enabled": true,
@@ -2402,6 +2513,15 @@
         "position": "after"
       },
       "items": [
+        {
+          "id": "search",
+          "type": "search",
+          "enabled": true,
+          "title": "Search",
+          "icon": "search",
+          "provider": "nominatim",
+          "attribution": "&copy; OpenStreetMap contributors | &copy; Nominatim"
+        },
         {
           "id": "layers",
           "type": "layerTree",
@@ -2555,42 +2675,53 @@
                 }
               ]
             }
-          ],
-          "order": 10
-        },
-        {
-          "id": "search",
-          "type": "search",
-          "enabled": true,
-          "title": "Search",
-          "icon": "search",
-          "provider": "nominatim",
-          "attribution": "&copy; OpenStreetMap contributors | &copy; Nominatim",
-          "order": 20
+          ]
         },
         {
           "id": "measure",
           "type": "measure",
           "enabled": true,
           "title": "Measure",
-          "icon": "rulers",
-          "order": 30
+          "icon": "rulers"
         },
         {
-          "id": "settings",
-          "type": "settings",
+          "id": "info",
+          "type": "info",
           "enabled": true,
-          "title": "Settings",
-          "icon": "gear",
-          "order": 40
+          "title": "Feature info",
+          "icon": "info-circle"
+        },
+        {
+          "id": "draw",
+          "type": "draw",
+          "enabled": true,
+          "title": "Draw",
+          "icon": "pencil"
         },
         {
           "id": "geolocation",
           "type": "geolocation",
           "enabled": true,
           "title": "Geolocation",
-          "icon": "crosshair",
-          "order": 50
+          "icon": "crosshair"
+        },
+        {
+          "id": "view-mode",
+          "type": "view-mode",
+          "enabled": true,
+          "title": "View mode",
+          "icon": "globe"
+        },
+        {
+          "type": "spacer",
+          "enabled": true
+        },
+        {
+          "id": "settings",
+          "type": "settings",
+          "enabled": true,
+          "title": "Settings",
+          "icon": "gear"
         }
       ]
     },
@@ -2598,7 +2729,6 @@
       "type": "toolbar",
       "enabled": true,
       "position": "top-right",
-      "order": 20,
       "orientation": "vertical",
       "panel": {
         "enabled": true,
@@ -2612,66 +2742,44 @@
           "type": "layerOverview",
           "enabled": true,
           "title": "Legend",
-          "icon": "card-list",
-          "order": 10
+          "icon": "card-list"
         }
-      ]
+      ],
+      "tooltipPlacement": "left"
+    },
+    "attribution": {
+      "type": "attributionControl",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    },
+    "coordinates": {
+      "type": "coordinates",
+      "enabled": true,
+      "position": "bottom-center"
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "bottom-right",
+      "direction": "vertical",
+      "orientation": "vertical"
     },
     "scale": {
       "type": "scaleControl",
       "enabled": true,
       "position": "bottom-right",
-      "order": 10,
-      "maxWidth": 140
-    },
-    "attribution": {
-      "type": "attributionControl",
-      "enabled": true,
-      "position": "bottom-right",
-      "order": 20
-    },
-    "coordinates": {
-      "type": "coordinates",
-      "enabled": true,
-      "position": "bottom-center",
-      "order": 10
-    },
-    "navigation": {
-      "type": "navigation",
-      "enabled": true,
-      "position": "bottom-left",
-      "order": 10,
-      "direction": "horizontal",
-      "orientation": "vertical"
+      "maxWidth": 140,
+      "margin": "0 0 5px 0"
     },
     "zoomLevel": {
       "type": "zoomLevel",
       "enabled": true,
-      "position": "bottom-left",
-      "order": 20
-    },
-    "insetMap": {
-      "type": "insetMap",
-      "enabled": true,
-      "position": "bottom-left",
-      "order": 30,
-      "zoomOffset": -4,
-      "background": {
-        "service": "xyz",
-        "tiles": [
-          "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
-          "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
-          "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        ],
-        "attribution": "&copy; OpenStreetMap contributors",
-        "tileSize": 256
-      }
+      "position": "bottom-left"
     },
     "spinner": {
       "type": "spinner",
       "enabled": true,
-      "position": "middle-center",
-      "order": 10
+      "position": "middle-center"
     }
   }
 }

@@ -36,9 +36,9 @@ const KNOWN_KEYS = {
   layer: ['id', 'type', 'source', 'source-layer', 'sources', 'layers', 'url', 'annotation', 'fallbackLayerId', 'singleGroup', 'title', 'metadata', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
   styleLayer: ['id', 'type', 'source', 'sourceLayer', 'source-layer', 'metadata', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
   tool: ['enabled'],
-  toolInsetMap: ['enabled', 'type', 'position', 'order', 'zoomOffset', 'baseScale', 'styleUrl', 'background'],
+  toolInsetMap: ['enabled', 'type', 'position', 'zoomOffset', 'baseScale', 'styleUrl', 'background'],
   toolInsetMapBackground: ['service', 'url', 'tiles', 'attribution', 'tileSize'],
-  toolSearch: ['enabled', 'type', 'title', 'icon', 'order', 'endpoint', 'params', 'maxResults', 'defaultZoom', 'marker', 'persistOnSelect', 'provider', 'attribution'],
+  toolSearch: ['enabled', 'type', 'title', 'icon', 'endpoint', 'params', 'maxResults', 'defaultZoom', 'marker', 'persistOnSelect', 'provider', 'attribution'],
 };
 
 const VALID_MAP_TYPES = ['maplibre', 'openlayers', 'leaflet', 'cesium'];

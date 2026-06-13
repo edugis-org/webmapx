@@ -108,7 +108,7 @@ export class MapLayerService implements ILayerService {
         let nativeSource: any = { type: sourceConfig.type };
 
         if (sourceConfig.type === 'raster') {
-            if (sourceConfig.service === 'xyz') {
+            if (sourceConfig.service === 'xyz' || sourceConfig.service === undefined) {
                 const tiles = Array.isArray(sourceConfig.url) ? sourceConfig.url : [sourceConfig.url];
                 nativeSource = { type: 'raster', tiles };
                 if ('tileSize' in sourceConfig) nativeSource.tileSize = sourceConfig.tileSize;

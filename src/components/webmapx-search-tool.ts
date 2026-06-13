@@ -19,12 +19,6 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
   public active = false;
   private mapElement: WebmapxMapElement | null = null;
 
-  constructor() {
-    super();
-    // Start hidden; ToolManager / panel will activate the tool
-    (this as HTMLElement).hidden = true;
-  }
-
   @state()
   private query: string = '';
 
