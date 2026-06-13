@@ -26,6 +26,9 @@ export class WebmapxInsetMap extends LitElement {
   @property({ type: String, attribute: 'style-url' })
   public styleUrl?: string;
 
+  @property({ type: String, attribute: 'background-layer' })
+  public backgroundLayer?: string;
+
   @property({ type: Number, attribute: 'base-scale' })
   public baseScale = 0.5;
 
@@ -133,7 +136,7 @@ export class WebmapxInsetMap extends LitElement {
   }
 
   protected updated(changed: PropertyValues): void {
-    if (changed.has('zoomOffset') || changed.has('styleUrl') || changed.has('baseScale')) {
+    if (changed.has('zoomOffset') || changed.has('styleUrl') || changed.has('baseScale') || changed.has('backgroundLayer')) {
       this.destroyInset();
       void this.initializeInset();
     }
@@ -175,8 +178,15 @@ export class WebmapxInsetMap extends LitElement {
     const toolConfig = this.resolveInsetToolConfig(mapElement);
     const zoomOffset = this.resolveInsetNumber('zoom-offset', this.zoomOffset, toolConfig.zoomOffset);
     const baseScale = this.resolveInsetNumber('base-scale', this.baseScale, toolConfig.baseScale);
-    const styleUrl = this.hasAttribute('style-url') ? this.styleUrl : toolConfig.styleUrl;
-    const background = this.resolveInsetBackground(toolConfig);
+    const fromLayer = this.backgroundLayer
+      ? this.resolveBackgroundFromLayer(mapElement, this.backgroundLayer)
+      : null;
+    const styleUrl = this.hasAttribute('style-url')
+      ? this.styleUrl
+      : (fromLayer?.styleUrl ?? toolConfig.styleUrl);
+    const background = fromLayer
+      ? fromLayer.background ?? null
+      : this.resolveInsetBackground(toolConfig);
 
     // Create the inset map
     const createOptions: MapCreateOptions = {
@@ -250,6 +260,58 @@ export class WebmapxInsetMap extends LitElement {
       return null;
     }
     return bg;
+  }
+
+  /**
+   * Resolves a `background-layer` attribute (a layer id from the main map's
+   * layerData) to either a remote style URL (for `type: 'style'` layers,
+   * e.g. OpenFreeMap) or an XYZ raster background. Returns null (default
+   * style) if the layer doesn't exist or isn't a recognized type, logging an
+   * error to help diagnose a misconfigured attribute.
+   */
+  private resolveBackgroundFromLayer(mapElement: HTMLElement, layerId: string): { styleUrl?: string; background?: InsetMapToolConfig['background'] } | null {
+    const layerData = (mapElement as any)?.layerDataConfig;
+    const layers: Array<Record<string, unknown>> = layerData?.layers ?? [];
+    const sources: Array<Record<string, unknown>> = layerData?.sources ?? [];
+
+    const layer = layers.find((l) => l?.id === layerId);
+    if (!layer) {
+      console.error(`[webmapx-inset-map] background-layer "${layerId}" not found in layerData.layers; using default background.`);
+      return null;
+    }
+
+    if (layer.type === 'style') {
+      if (typeof layer.url === 'string' && layer.url) {
+        return { styleUrl: layer.url };
+      }
+      console.error(`[webmapx-inset-map] background-layer "${layerId}" is an inline style (no remote "url"); using default background.`);
+      return null;
+    }
+
+    const sourceId = typeof layer.source === 'string' ? layer.source : layerId;
+    const source = sources.find((s) => s?.id === sourceId);
+    if (!source || source.service !== 'xyz') {
+      console.error(`[webmapx-inset-map] background-layer "${layerId}" has no XYZ raster source or remote style; using default background.`);
+      return null;
+    }
+
+    const url = source.url;
+    const tiles = Array.isArray(url) ? url.filter((u): u is string => typeof u === 'string') : undefined;
+    const singleUrl = typeof url === 'string' ? url : undefined;
+    if (!tiles?.length && !singleUrl) {
+      console.error(`[webmapx-inset-map] background-layer "${layerId}" source has no tile URL; using default background.`);
+      return null;
+    }
+
+    return {
+      background: {
+        service: 'xyz',
+        url: singleUrl,
+        tiles,
+        attribution: typeof source.attribution === 'string' ? source.attribution : undefined,
+        tileSize: typeof source.tileSize === 'number' ? source.tileSize : undefined,
+      },
+    };
   }
 
   private resolveInsetNumber(attributeName: string, propertyValue: number, configuredValue: unknown): number {
