@@ -4,8 +4,9 @@
 // webmapx source/layer config pairs.
 
 import { WmsEndpoint, WmtsEndpoint, WfsEndpoint } from '@camptocamp/ogc-client';
-import type { AnyLayerConfig, SourceConfig, StandardLayerConfig } from '../config/types';
+import type { AnyLayerConfig, SourceConfig, StandardLayerConfig, SubLayerSpec } from '../config/types';
 import { buildWMSGetMapUrl } from './wms-url-builder';
+import { convertEsriDrawingInfo, type MaplibreGeometryKind } from './esri-drawing-info';
 
 // @camptocamp/ogc-client's WmtsEndpoint caches its capabilities-fetch promise
 // by URL and resolves it via a Web Worker postMessage; if the service doesn't
@@ -24,7 +25,7 @@ if (typeof window !== 'undefined') {
 
 export interface DiscoveredLayer {
   /** Service kind this layer was discovered from. */
-  serviceType: 'wms' | 'wmts' | 'wfs' | 'xyz' | 'esri-tile' | 'esri-feature';
+  serviceType: 'wms' | 'wmts' | 'wfs' | 'xyz' | 'esri-tile' | 'esri-feature' | 'esri-vector-tile';
   /** Human-readable title for the discovery dialog. */
   title: string;
   /** Optional descriptive text (e.g. WMS layer abstract), used for search/filter. */
@@ -132,6 +133,56 @@ async function fetchJson(url: string): Promise<Record<string, unknown> | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * A browsable entry in an ArcGIS REST catalog: either a sub-folder or a
+ * service (MapServer/FeatureServer/...) that can itself be discovered.
+ */
+export interface CatalogEntry {
+  name: string;
+  url: string;
+  kind: 'folder' | 'service';
+  type?: string;
+}
+
+/**
+ * Probes `baseUrl` for an ArcGIS REST JSON response (`?f=json`) without
+ * relying on "arcgis" appearing in the URL — any service/folder root
+ * responds with JSON containing a numeric `currentVersion`. WMS/WFS/etc.
+ * servers either ignore the extra `f=json` param (returning their normal
+ * non-JSON response) or 404, so this probe is safe to run unconditionally.
+ */
+async function fetchArcgisInfo(baseUrl: string): Promise<Record<string, unknown> | null> {
+  const sep = baseUrl.includes('?') ? '&' : '?';
+  const info = await fetchJson(`${baseUrl}${sep}f=json`);
+  if (!info || typeof info.currentVersion !== 'number') return null;
+  return info;
+}
+
+/**
+ * If `info` describes an ArcGIS REST folder root (has `folders`/`services`
+ * arrays), returns its contents as browsable catalog entries; otherwise null
+ * (i.e. `info` describes a service root, which `discoverEsri` handles).
+ */
+function arcgisCatalogEntries(baseUrl: string, info: Record<string, unknown>): CatalogEntry[] | null {
+  const folders = Array.isArray(info.folders) ? info.folders as string[] : undefined;
+  const services = Array.isArray(info.services) ? info.services as Array<{ name: string; type: string }> : undefined;
+  if (!folders && !services) return null;
+
+  const base = baseUrl.replace(/\/+$/, '');
+  // Inside a folder, ArcGIS returns each service's `name` as the full path
+  // from the services root (e.g. "Leggers/Legger_Oppervlaktewater_Vigerend"),
+  // not relative to the current folder — so service URLs must be built from
+  // the root `.../rest/services`, not `base`. Folder names, by contrast, are
+  // single path segments relative to `base`.
+  const rootMatch = base.match(/^(.*\/rest\/services)/i);
+  const servicesRoot = rootMatch ? rootMatch[1] : base;
+
+  const entries: CatalogEntry[] = [];
+  for (const f of folders ?? []) entries.push({ name: f, url: `${base}/${f}`, kind: 'folder' });
+  for (const s of services ?? []) entries.push({ name: s.name, url: `${servicesRoot}/${s.name}/${s.type}`, kind: 'service', type: s.type });
+  return entries;
 }
 
 async function discoverWms(baseUrl: string): Promise<DiscoveredLayer[]> {
@@ -250,12 +301,6 @@ async function discoverWmts(baseUrl: string): Promise<DiscoveredLayer[]> {
   }
 }
 
-// Hard cap on the number of WFS features loaded for any single discovered
-// layer, regardless of how many the service reports. resolveGeoJSONSources
-// pages up to this limit (PAGE_SIZE per request) when the service supports
-// startIndex; otherwise a single request capped at this count is made.
-export const WFS_FEATURE_CAP = 20000;
-
 async function discoverWfs(baseUrl: string): Promise<DiscoveredLayer[]> {
   try {
     const endpoint = await new WfsEndpoint(baseUrl).isReady();
@@ -273,7 +318,7 @@ async function discoverWfs(baseUrl: string): Promise<DiscoveredLayer[]> {
       // Request WGS84 output explicitly — the service's native CRS (e.g. RD
       // New / EPSG:28992 for Dutch services) would otherwise be returned,
       // which MapLibre renders as if it were lon/lat (i.e. off-screen).
-      const data = endpoint.getFeatureUrl(ft.name, { outputFormat: 'application/json', maxFeatures: WFS_FEATURE_CAP, outputCrs: 'EPSG:4326' })
+      const data = endpoint.getFeatureUrl(ft.name, { outputFormat: 'application/json', outputCrs: 'EPSG:4326' })
         ?? endpoint.getFeatureUrl(ft.name);
       if (!data) continue;
 
@@ -287,11 +332,14 @@ async function discoverWfs(baseUrl: string): Promise<DiscoveredLayer[]> {
           id, type: 'geojson', data, service: 'wfs',
           wfsVersion: version,
           wfsSupportsPaging: supportsPaging,
-          wfsMaxFeatures: WFS_FEATURE_CAP,
           ...(bounds ? { bounds } : {}),
         } as unknown as SourceConfig,
         layer: {
           id, type: 'fill', source: id, title: ft.title || ft.name,
+          // Matches the legend color editor's default ('#3388ff') — without an
+          // explicit paint, MapLibre's fill-color default ('#000000') would
+          // render black while the legend swatch shows the editor's default.
+          paint: { 'fill-color': '#3388ff', 'fill-opacity': 0.5 },
           ...((ft.abstract || bounds) ? { metadata: {
             ...(ft.abstract ? { abstract: ft.abstract } : {}),
             ...(bounds ? { bounds } : {}),
@@ -313,21 +361,155 @@ const ESRI_GEOMETRY_TO_LAYER_TYPE: Record<string, StandardLayerConfig['type']> =
   esriGeometryPolygon: 'fill',
 };
 
+/** Extent is only directly usable as WGS84 bounds when given in EPSG:4326/CRS84. */
+function extentBounds(extent: unknown): [number, number, number, number] | undefined {
+  const e = extent as Record<string, unknown> | undefined;
+  const wkid = (e?.spatialReference as Record<string, unknown> | undefined)?.wkid;
+  if (!e || (wkid !== 4326 && wkid !== 4269)) return undefined;
+  const { xmin, ymin, xmax, ymax } = e as Record<string, number>;
+  if (![xmin, ymin, xmax, ymax].every(Number.isFinite)) return undefined;
+  return [xmin, ymin, xmax, ymax];
+}
+
+/**
+ * Builds a `DiscoveredLayer` for a single Esri feature/map layer, including
+ * fetching its `drawingInfo` (unless `detail` is already the layer's `?f=json`
+ * response) and converting it to MapLibre paint via `convertEsriDrawingInfo`.
+ * `parentBase` is the FeatureServer/MapServer base (without the layer id).
+ */
+async function buildEsriFeatureLayer(
+  parentBase: string,
+  layerInfo: Record<string, unknown>,
+  serviceBounds: [number, number, number, number] | undefined,
+  serviceDescription: string | undefined,
+  detail?: Record<string, unknown> | null
+): Promise<DiscoveredLayer | null> {
+  const layerId = layerInfo.id;
+  const geometryType = typeof layerInfo.geometryType === 'string' ? layerInfo.geometryType : undefined;
+  if (layerId === undefined || !geometryType || !(geometryType in ESRI_GEOMETRY_TO_LAYER_TYPE)) return null;
+
+  const id = slugify(String(layerInfo.name ?? layerId));
+  const data = `${parentBase}/${layerId}/query?where=1%3D1&outFields=*&f=geojson&outSR=4326`;
+  const bounds = extentBounds(layerInfo.extent) ?? serviceBounds;
+  const abstract = typeof layerInfo.description === 'string' && layerInfo.description ? layerInfo.description : serviceDescription;
+  const minzoom = typeof layerInfo.minScale === 'number' && layerInfo.minScale > 0 ? scaleDenominatorToZoom(layerInfo.minScale) : undefined;
+  const maxzoom = typeof layerInfo.maxScale === 'number' && layerInfo.maxScale > 0 ? scaleDenominatorToZoom(layerInfo.maxScale) : undefined;
+  const layerType = ESRI_GEOMETRY_TO_LAYER_TYPE[geometryType];
+
+  // Fetch the layer's drawingInfo (renderer) and convert it to MapLibre
+  // paint/layout so discovered layers reflect the service's own styling
+  // instead of webmapx's flat default fill.
+  const layerDetail = detail !== undefined ? detail : await fetchJson(`${parentBase}/${layerId}?f=json`);
+  const drawingInfo = layerDetail?.drawingInfo as Parameters<typeof convertEsriDrawingInfo>[0] | undefined;
+  let symbology = convertEsriDrawingInfo(drawingInfo, layerType as MaplibreGeometryKind);
+
+  // Esri picture-marker symbols (esriPMS) etc. don't convert to a MapLibre
+  // circle-color. Fall back to the legend's default ('#3388ff') so the
+  // legend swatch matches the layer's actual (otherwise black-default) render.
+  if (layerType === 'circle' && !symbology?.paint?.['circle-color']) {
+    symbology = { ...symbology, paint: { 'circle-color': '#3388ff', 'circle-radius': 5, ...symbology?.paint } };
+  }
+
+  const title = String(layerInfo.name ?? `Layer ${layerId}`);
+  // Esri query endpoints cap results at the service's maxRecordCount (often
+  // 1000); geojson-loader pages via resultOffset/resultRecordCount when it
+  // sees `service: 'esri-feature'`.
+  const source = { id, type: 'geojson', data, service: 'esri-feature', ...(bounds ? { bounds } : {}) } as unknown as SourceConfig;
+  const metadata = (abstract || bounds) ? {
+    ...(abstract ? { abstract } : {}),
+    ...(bounds ? { bounds } : {}),
+  } : undefined;
+
+  // Esri's `fill-outline-color` equivalent can have a width > 1px, which
+  // MapLibre's fixed ~1px `fill-outline-color` can't represent — render it as
+  // a separate `line` sub-layer over the same source instead.
+  if (symbology?.outline) {
+    return {
+      serviceType: 'esri-feature',
+      title: `${title} (Esri features)`,
+      ...(abstract ? { abstract } : {}),
+      source,
+      layer: {
+        id, type: 'style', version: 8,
+        title,
+        ...(minzoom !== undefined ? { minzoom } : {}),
+        ...(maxzoom !== undefined ? { maxzoom } : {}),
+        sources: { [id]: source },
+        layers: [
+          { id: 'fill', type: layerType, source: id, ...(symbology.paint ? { paint: symbology.paint } : {}) },
+          { id: 'outline', type: 'line', source: id, paint: symbology.outline.paint },
+        ],
+        ...(metadata ? { metadata } : {}),
+      },
+    };
+  }
+
+  return {
+    serviceType: 'esri-feature',
+    title: `${title} (Esri features)`,
+    ...(abstract ? { abstract } : {}),
+    source,
+    layer: {
+      id, type: layerType, source: id, title,
+      ...(minzoom !== undefined ? { minzoom } : {}),
+      ...(maxzoom !== undefined ? { maxzoom } : {}),
+      ...(symbology?.paint ? { paint: symbology.paint } : {}),
+      ...(symbology?.layout ? { layout: symbology.layout } : {}),
+      ...(metadata ? { metadata } : {}),
+    },
+  };
+}
+
+/**
+ * Builds a vector source + style sub-layers for an Esri VectorTileServer,
+ * using its default style document (`${base}/${info.defaultStyles}`) for the
+ * sub-layer paint/layout/source-layer definitions.
+ */
+async function buildEsriVectorTileLayer(
+  base: string,
+  info: Record<string, unknown>,
+  serviceDescription: string | undefined
+): Promise<DiscoveredLayer | null> {
+  const styleDoc = await fetchJson(`${base}/${String(info.defaultStyles).replace(/^\/+/, '')}`);
+  const styleLayers = styleDoc?.layers as SubLayerSpec[] | undefined;
+  if (!styleLayers?.length) return null;
+
+  const id = slugify(String(info.name ?? 'vector-tiles'));
+  const tileInfo = info.tileInfo as { maxLOD?: number; lods?: { level: number }[] } | undefined;
+  const lods = tileInfo?.lods;
+  const maxzoom = tileInfo?.maxLOD ?? (lods?.length ? lods[lods.length - 1]?.level : undefined);
+
+  const source = {
+    id, type: 'vector',
+    tiles: [`${base}/tile/{z}/{y}/{x}.pbf`],
+    ...(typeof maxzoom === 'number' ? { maxzoom } : {}),
+  } as unknown as SourceConfig;
+
+  const layers: SubLayerSpec[] = styleLayers
+    .filter((l) => l.type !== 'background')
+    .map((l) => ({ ...l, source: id }));
+
+  const title = String(info.name ?? 'Vector tiles');
+  return {
+    serviceType: 'esri-vector-tile',
+    title: `${title} (Esri vector tiles)`,
+    ...(serviceDescription ? { abstract: serviceDescription } : {}),
+    source,
+    layer: {
+      id, type: 'style', version: 8,
+      title,
+      sources: { [id]: source },
+      layers,
+      ...(serviceDescription ? { metadata: { abstract: serviceDescription } } : {}),
+    },
+  };
+}
+
 async function discoverEsri(base: string): Promise<DiscoveredLayer[]> {
   const info = await fetchJson(`${base}?f=json`);
   if (!info) return [];
 
   const results: DiscoveredLayer[] = [];
-
-  // Extent is only directly usable as WGS84 bounds when given in EPSG:4326/CRS84.
-  const extentBounds = (extent: unknown): [number, number, number, number] | undefined => {
-    const e = extent as Record<string, unknown> | undefined;
-    const wkid = (e?.spatialReference as Record<string, unknown> | undefined)?.wkid;
-    if (!e || (wkid !== 4326 && wkid !== 4269)) return undefined;
-    const { xmin, ymin, xmax, ymax } = e as Record<string, number>;
-    if (![xmin, ymin, xmax, ymax].every(Number.isFinite)) return undefined;
-    return [xmin, ymin, xmax, ymax];
-  };
 
   const serviceBounds = extentBounds(info.fullExtent);
   const serviceDescription = typeof info.description === 'string' && info.description ? info.description : undefined;
@@ -351,48 +533,59 @@ async function discoverEsri(base: string): Promise<DiscoveredLayer[]> {
     });
   }
 
-  // Feature/map layers: offer each as a GeoJSON query layer.
-  const layers = Array.isArray(info.layers) ? info.layers : [];
-  for (const layerInfo of layers as Array<Record<string, unknown>>) {
-    const layerId = layerInfo.id;
-    const geometryType = typeof layerInfo.geometryType === 'string' ? layerInfo.geometryType : undefined;
-    if (layerId === undefined || !geometryType || !(geometryType in ESRI_GEOMETRY_TO_LAYER_TYPE)) continue;
+  // VectorTileServer: build a maplibre vector source + style sub-layers from
+  // the service's default style document (resources/styles/<defaultStyles>.json).
+  if (Array.isArray(info.tiles) && typeof info.defaultStyles === 'string') {
+    const vectorLayer = await buildEsriVectorTileLayer(base, info, serviceDescription);
+    if (vectorLayer) results.push(vectorLayer);
+  }
 
-    const id = uniqueId(`esri-${slugify(String(layerInfo.name ?? layerId))}`);
-    const data = `${base}/${layerId}/query?where=1%3D1&outFields=*&f=geojson&outSR=4326`;
-    const bounds = extentBounds(layerInfo.extent) ?? serviceBounds;
-    const abstract = typeof layerInfo.description === 'string' && layerInfo.description ? layerInfo.description : serviceDescription;
-    const minzoom = typeof layerInfo.minScale === 'number' && layerInfo.minScale > 0 ? scaleDenominatorToZoom(layerInfo.minScale) : undefined;
-    const maxzoom = typeof layerInfo.maxScale === 'number' && layerInfo.maxScale > 0 ? scaleDenominatorToZoom(layerInfo.maxScale) : undefined;
-
-    results.push({
-      serviceType: 'esri-feature',
-      title: `${layerInfo.name ?? `Layer ${layerId}`} (Esri features)`,
-      ...(abstract ? { abstract } : {}),
-      source: { id, type: 'geojson', data, ...(bounds ? { bounds } : {}) } as unknown as SourceConfig,
-      layer: {
-        id, type: ESRI_GEOMETRY_TO_LAYER_TYPE[geometryType], source: id, title: String(layerInfo.name ?? `Layer ${layerId}`),
-        ...(minzoom !== undefined ? { minzoom } : {}),
-        ...(maxzoom !== undefined ? { maxzoom } : {}),
-        ...((abstract || bounds) ? { metadata: {
-          ...(abstract ? { abstract } : {}),
-          ...(bounds ? { bounds } : {}),
-        } } : {}),
-      },
-    });
+  if (Array.isArray(info.layers)) {
+    // Service root (FeatureServer/MapServer): one entry per sub-layer.
+    const featureLayers = await Promise.all((info.layers as Array<Record<string, unknown>>).map(
+      (layerInfo) => buildEsriFeatureLayer(base, layerInfo, serviceBounds, serviceDescription)
+    ));
+    for (const layer of featureLayers) if (layer) results.push(layer);
+  } else if (typeof info.geometryType === 'string') {
+    // `base` points at a single sub-layer (e.g. ".../FeatureServer/157") — `info`
+    // is already that layer's `?f=json` response, so use it directly and derive
+    // the FeatureServer base by stripping the trailing `/<id>`.
+    const parentBase = base.replace(/\/\d+$/, '');
+    const layer = await buildEsriFeatureLayer(parentBase, info, serviceBounds, serviceDescription, info);
+    if (layer) results.push(layer);
   }
 
   return results;
 }
 
+export interface DiscoverResult {
+  layers: DiscoveredLayer[];
+  /** Present when `url` is an ArcGIS REST folder root: its sub-folders/services to browse. */
+  catalog?: CatalogEntry[];
+}
+
 /**
  * Probes a URL (typically copy-pasted from devtools) for available map
- * services, trying WMS, WMTS, Esri REST and plain XYZ tile patterns.
- * Returns all layers discovered across the services that responded.
+ * services, trying ArcGIS REST, WMS, WMTS, WFS and plain XYZ tile patterns.
+ * Returns all layers discovered across the services that responded, or a
+ * `catalog` of sub-folders/services to browse if `url` is an ArcGIS REST
+ * folder root.
  */
-export async function discoverLayers(inputUrl: string): Promise<DiscoveredLayer[]> {
+export async function discoverLayers(inputUrl: string): Promise<DiscoverResult> {
   const url = inputUrl.trim();
-  if (!url) return [];
+  if (!url) return { layers: [] };
+
+  const bare = stripQuery(url);
+
+  // ArcGIS REST roots respond to `?f=json` regardless of URL shape; detect
+  // this first so folder/service roots don't fall through to the WMS/WFS
+  // probes below (which fail on ArcGIS's HTML/JSON error responses).
+  const arcgisInfo = await fetchArcgisInfo(bare);
+  if (arcgisInfo) {
+    const catalog = arcgisCatalogEntries(bare, arcgisInfo);
+    if (catalog) return { layers: [], catalog };
+    return { layers: rankByRequestedLayer(await discoverEsri(bare), url) };
+  }
 
   const results: DiscoveredLayer[] = [];
   const probes: Promise<DiscoveredLayer[]>[] = [];
@@ -403,7 +596,6 @@ export async function discoverLayers(inputUrl: string): Promise<DiscoveredLayer[
   const esriTile = detectEsriTile(url);
   if (esriTile) results.push(esriTile.layer);
 
-  const bare = stripQuery(url);
   probes.push(discoverWms(bare));
   probes.push(discoverWmts(bare));
   probes.push(discoverWfs(bare));
@@ -414,7 +606,7 @@ export async function discoverLayers(inputUrl: string): Promise<DiscoveredLayer[
   const settled = await Promise.all(probes);
   for (const layers of settled) results.push(...layers);
 
-  return rankByRequestedLayer(results, url);
+  return { layers: rankByRequestedLayer(results, url) };
 }
 
 /**

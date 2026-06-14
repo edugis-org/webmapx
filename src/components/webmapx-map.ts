@@ -23,7 +23,7 @@ import {
   resolveSingleGroupInsertionOptionsForGroup,
 } from './internal/single-group-policy';
 import { resolveLegendRoleForLayer } from './internal/legend-role-policy';
-import { resolveGeoJSONSources } from '../map/geojson-loader';
+import { resolveGeoJSONSources, type PagedSourceContinuation } from '../map/geojson-loader';
 import { inlineLayerSources } from '../map/layer-source-resolver';
 
 const MAP_VIEW_SLOT = 'map-view';
@@ -1256,8 +1256,9 @@ export class WebmapxMapElement extends HTMLElement {
     options?: LayerInsertOptions,
   ): Promise<boolean> {
     const enriched = inlineLayerSources(layerInformation.layer, this.layerDataConfig?.sources);
+    let continuations: PagedSourceContinuation[] = [];
     if (enriched.sources && typeof enriched.sources === 'object') {
-      await resolveGeoJSONSources(enriched.sources);
+      continuations = await resolveGeoJSONSources(enriched.sources);
     }
     const layer = enriched;
 
@@ -1283,6 +1284,9 @@ export class WebmapxMapElement extends HTMLElement {
       const role: LegendRole = metadata.legendRole === 'background' ? 'background' : 'overlay';
       this.logicalLayerRole.set(layer.id, role);
       this.insertIntoLogicalOrder(layer.id, options);
+      for (const c of continuations) {
+        c.run((data) => { const src = adapter.getSource(c.id); if (!src) return false; src.setData(data); return true; });
+      }
     }
     return success;
   }
@@ -1291,8 +1295,9 @@ export class WebmapxMapElement extends HTMLElement {
     // Resolve any URL-backed geojson sources (incl. WFS paging/topojson) to
     // inline FeatureCollections before handing off to the adapter — mirrors
     // the catalog-layer path in addLogicalLayerInternal.
+    let continuations: PagedSourceContinuation[] = [];
     if (nativeLayer.sources && typeof nativeLayer.sources === 'object') {
-      await resolveGeoJSONSources(nativeLayer.sources as Record<string, any>);
+      continuations = await resolveGeoJSONSources(nativeLayer.sources as Record<string, any>);
     }
     const metadata = (nativeLayer.metadata && typeof nativeLayer.metadata === 'object') ? nativeLayer.metadata as Record<string, unknown> : {};
     const role: LegendRole = metadata.legendRole === 'background' ? 'background' : 'overlay';
@@ -1302,6 +1307,9 @@ export class WebmapxMapElement extends HTMLElement {
     if (layerId) {
       this.logicalLayerRole.set(layerId, role);
       this.insertIntoLogicalOrder(layerId, insertOptions);
+    }
+    for (const c of continuations) {
+      c.run((data) => { const src = adapter.getSource(c.id); if (!src) return false; src.setData(data); return true; });
     }
     return true;
   }

@@ -6,7 +6,7 @@ import type { IMap } from '../map/IMapInterfaces';
 import type { IMapState } from '../store/IMapState';
 import type { WebmapxMapElement } from './webmapx-map';
 import { resolveMapElement } from './internal/map-context';
-import { discoverLayers, type DiscoveredLayer } from '../utils/layer-discovery';
+import { discoverLayers, type DiscoveredLayer, type CatalogEntry } from '../utils/layer-discovery';
 
 /**
  * Dialog tool: paste a service/tile URL (e.g. copied from the devtools
@@ -35,6 +35,12 @@ export class WebmapxAddLayerTool extends WebmapxBaseTool {
 
   @state()
   private filterText: string = '';
+
+  @state()
+  private catalog: CatalogEntry[] = [];
+
+  /** Bumped on each `handleDiscover` call; a stale (slower) call's result is discarded if a newer one has started. */
+  private discoverySeq = 0;
 
   static styles = css`
     :host { display: block; width: 100%; pointer-events: auto; }
@@ -85,29 +91,49 @@ export class WebmapxAddLayerTool extends WebmapxBaseTool {
     (this as HTMLElement).hidden = true;
   }
 
-  private async handleDiscover(): Promise<void> {
-    const url = this.url.trim();
-    if (!url) return;
+  /** Discovers `url` and populates `results`/`catalog`. Does not touch `this.url` or the URL text box. */
+  private async discoverUrl(url: string): Promise<void> {
+    const seq = ++this.discoverySeq;
 
     this.discovering = true;
     this.error = null;
     this.results = [];
+    this.catalog = [];
     this.selected = new Set();
+    this.filterText = '';
 
     try {
       const found = await discoverLayers(url);
-      this.results = found;
+      if (seq !== this.discoverySeq) return; // a newer discover has started; discard this result
+      this.results = found.layers;
+      this.catalog = found.catalog ?? [];
       this.selected = new Set();
-      this.filterText = '';
-      if (found.length === 0) {
+      if (found.layers.length === 0 && this.catalog.length === 0) {
         this.error = 'No services discovered at this URL.';
       }
     } catch (e) {
+      if (seq !== this.discoverySeq) return;
       console.error('layer discovery failed', e);
       this.error = e instanceof Error ? e.message : 'Discovery failed';
     } finally {
-      this.discovering = false;
+      if (seq === this.discoverySeq) this.discovering = false;
     }
+  }
+
+  /** Discover button: always discovers whatever is currently in the URL text box. */
+  private handleDiscover(): void {
+    // Read the URL straight from the input DOM node — `this.url` can lag
+    // behind a fast-typed/pasted edit if `@input` hasn't propagated yet.
+    const input = this.renderRoot?.querySelector('input');
+    const url = (input?.value ?? this.url).trim();
+    this.url = url;
+    if (!url) return;
+    void this.discoverUrl(url);
+  }
+
+  /** Shows a catalog entry's layers, without changing the URL text box. */
+  private openCatalogEntry(entry: CatalogEntry): void {
+    void this.discoverUrl(entry.url);
   }
 
   private get filteredResults(): DiscoveredLayer[] {
@@ -185,10 +211,25 @@ export class WebmapxAddLayerTool extends WebmapxBaseTool {
             @input="${(e: Event) => { this.url = (e.target as HTMLInputElement).value; }}"
             @keyup="${(e: KeyboardEvent) => { if (e.key === 'Enter') this.handleDiscover(); }}"
           />
-          <sl-button size="small" ?loading=${this.discovering} @click="${() => this.handleDiscover()}">Discover</sl-button>
+          <sl-button size="small" ?loading=${this.discovering} ?disabled=${this.discovering} @click="${() => this.handleDiscover()}">Discover</sl-button>
         </div>
 
         ${this.error ? html`<div class="error">${this.error}</div>` : ''}
+
+        ${this.catalog.length === 0 ? '' : html`
+          <div class="results">
+            <ul>
+              ${this.catalog.map((entry) => html`
+                <li class="result-item" @click="${() => this.openCatalogEntry(entry)}" style="cursor:pointer;">
+                  <div style="flex:1; min-width:0;">
+                    <div style="white-space:normal; word-break:break-word;" title="${entry.name}">${entry.kind === 'folder' ? '\u{1F4C1}' : '\u{1F5FA}'} ${entry.name}</div>
+                    ${entry.type ? html`<div class="meta">${entry.type}</div>` : ''}
+                  </div>
+                </li>
+              `)}
+            </ul>
+          </div>
+        `}
 
         ${this.results.length === 0 ? '' : html`
           <input
@@ -211,8 +252,8 @@ export class WebmapxAddLayerTool extends WebmapxBaseTool {
                     .checked=${this.selected.has(item)}
                     @sl-change=${(e: Event) => this.toggleSelected(item, e)}
                   ></sl-checkbox>
-                  <div style="flex:1;">
-                    <div>${item.title}</div>
+                  <div style="flex:1; min-width:0;">
+                    <div style="white-space:normal; word-break:break-word;" title="${item.title}">${item.title}</div>
                     <div class="meta">${item.serviceType}</div>
                     ${item.abstract ? html`<div class="meta">${item.abstract}</div>` : ''}
                   </div>

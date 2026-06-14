@@ -341,7 +341,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
 
     private renderSwatch(type: string, paint: Record<string, unknown>, _zoom: number, layout?: Record<string, unknown>): TemplateResult | null {
         if (type === 'fill') {
-            const c = this.resolveSwatchColor(paint['fill-color'], '#9e9e9e');
+            const c = this.resolveSwatchColor(paint['fill-color'], '#000000');
             const op = Number(paint['fill-opacity'] ?? 0.7);
             const outline = String(paint['fill-outline-color'] ?? c);
             return svg`<svg width="20" height="12" style="flex-shrink:0">
@@ -856,7 +856,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     private renderStyleEditor(subLayerIds: string[], layerType: string, paint: Record<string, unknown>): TemplateResult {
         if (layerType === 'fill' || layerType === 'fill-extrusion') {
             const colorKey = layerType === 'fill' ? 'fill-color' : 'fill-extrusion-color';
-            const color = this.toCssColor(paint[colorKey], '#3388ff');
+            const color = this.toCssColor(paint[colorKey], '#000000');
             const opacityKey = layerType === 'fill' ? 'fill-opacity' : 'fill-extrusion-opacity';
             const opacity = Number(paint[opacityKey] ?? 1);
             const rows = [this.renderColorRow(subLayerIds, 'fill color', colorKey, color)];
@@ -869,7 +869,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         }
 
         if (layerType === 'line') {
-            const color = this.toCssColor(paint['line-color'], '#3388ff');
+            const color = this.toCssColor(paint['line-color'], '#000000');
             const width = Number(paint['line-width'] ?? 2);
             const opacity = Number(paint['line-opacity'] ?? 1);
             return html`<div class="style-editor">
@@ -880,7 +880,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         }
 
         if (layerType === 'circle') {
-            const color = this.toCssColor(paint['circle-color'], '#3388ff');
+            const color = this.toCssColor(paint['circle-color'], '#000000');
             const radius = Number(paint['circle-radius'] ?? 5);
             const strokeColor = this.toCssColor(paint['circle-stroke-color'], color);
             const strokeWidth = Number(paint['circle-stroke-width'] ?? 0);
@@ -932,7 +932,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const strokeWidth = Number(paint['circle-stroke-width'] ?? 1);
             const colorExpr = paint['circle-color'];
             const radiusExpr = paint['circle-radius'];
-            const color = String(Array.isArray(colorExpr) ? (this.evalAtZoom(colorExpr, this.zoom) ?? colorExpr[colorExpr.length-1] ?? '#3388ff') : (colorExpr ?? '#3388ff'));
+            const color = String(Array.isArray(colorExpr) ? (this.evalAtZoom(colorExpr, this.zoom) ?? colorExpr[colorExpr.length-1] ?? '#000000') : (colorExpr ?? '#000000'));
             const colorClasses = this.extractColorClasses(colorExpr, attrTr);
 
             // Check for proportional bubble (zoom-interp radius with data expr stops)

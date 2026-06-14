@@ -67,17 +67,41 @@ function unionExtent(
  *  `${layerId}:${source}` (a globally-unique key), not the bare source key written
  *  in the config — so both forms are tried. */
 /** Summarizes a GeoJSON FeatureCollection as e.g. "42 features (Polygon: 40, Point: 2)". */
+/** Recursively counts coordinate tuples in a geometry (incl. GeometryCollection). */
+function countVertices(geometry: GeoJSON.Geometry | null | undefined): number {
+  if (!geometry) return 0;
+  switch (geometry.type) {
+    case 'GeometryCollection':
+      return geometry.geometries.reduce((sum, g) => sum + countVertices(g), 0);
+    case 'Point':
+      return 1;
+    case 'MultiPoint':
+    case 'LineString':
+      return geometry.coordinates.length;
+    case 'MultiLineString':
+    case 'Polygon':
+      return geometry.coordinates.reduce((sum, ring) => sum + ring.length, 0);
+    case 'MultiPolygon':
+      return geometry.coordinates.reduce((sum, poly) => sum + poly.reduce((s, ring) => s + ring.length, 0), 0);
+    default:
+      return 0;
+  }
+}
+
 function summarizeGeoJSON(data: GeoJSON.FeatureCollection): string {
   const counts = new Map<string, number>();
+  let vertices = 0;
   for (const f of data.features ?? []) {
     const type = f.geometry?.type ?? 'unknown';
     counts.set(type, (counts.get(type) ?? 0) + 1);
+    vertices += countVertices(f.geometry);
   }
   const total = data.features?.length ?? 0;
   const types = [...counts.entries()].map(([type, n]) => `${type}: ${n}`).join(', ');
-  return types && counts.size > 1
+  const summary = types && counts.size > 1
     ? `${total} features (${types})`
     : `${total} feature${total === 1 ? '' : 's'}${types ? ` (${[...counts.keys()][0]})` : ''}`;
+  return `${summary}, ${vertices} ${vertices === 1 ? 'vertex' : 'vertices'}`;
 }
 
 function getLayerSourceRefs(layerId: string, metadata: Record<string, unknown> | undefined): string[][] {
