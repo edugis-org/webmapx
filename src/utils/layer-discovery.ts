@@ -4,6 +4,8 @@
 // webmapx source/layer config pairs.
 
 import { WmsEndpoint, WmtsEndpoint, WfsEndpoint } from '@camptocamp/ogc-client';
+import proj4 from 'proj4';
+import { EPSG_DEFS } from './epsg-definitions';
 import type { AnyLayerConfig, SourceConfig, StandardLayerConfig, SubLayerSpec } from '../config/types';
 import { buildWMSGetMapUrl } from './wms-url-builder';
 import { convertEsriDrawingInfo, type MaplibreGeometryKind } from './esri-drawing-info';
@@ -42,10 +44,6 @@ function slugify(text: string): string {
     .slice(0, 40) || 'layer';
 }
 
-function uniqueId(prefix: string): string {
-  return `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
 /** Strips the query string from a URL, returning just `${origin}${pathname}`. */
 function stripQuery(url: string): string {
   return url.split('?')[0].split('#')[0];
@@ -59,7 +57,10 @@ function stripQuery(url: string): string {
  * config-driven sources — so the source here must already be engine-native.
  */
 function rasterTilesSource(id: string, tiles: string[], extra: { tileSize?: number; attribution?: string; bounds?: [number, number, number, number]; service?: string; gfiUrl?: string; gfiLayers?: string; gfiVersion?: string } = {}): SourceConfig {
-  return { id, type: 'raster', tiles, ...extra } as unknown as SourceConfig;
+  // MapLayerService's xyz/undefined branch reads `url`, not `tiles`, for plain
+  // raster sources; the WMS branch reads `tiles` directly. Set both so this
+  // works regardless of `service`.
+  return { id, type: 'raster', tiles, url: tiles, service: 'xyz', ...extra } as unknown as SourceConfig;
 }
 
 /** Coerces a bounding box (ogc-client sometimes returns string components) to numbers. */
@@ -86,13 +87,62 @@ function detectXyzTile(url: string): DiscoveredLayer | null {
 
   const [, prefix, , , , ext] = match;
   const template = `${prefix}{z}/{x}/{y}${ext ?? ''}`;
-  const id = uniqueId('xyz');
+  const id = 'xyz';
 
   return {
     serviceType: 'xyz',
     title: `XYZ tiles (${prefix.replace(/^https?:\/\//, '')})`,
     source: rasterTilesSource(id, [template]),
     layer: { id, type: 'raster', source: id, title: 'XYZ tiles' },
+  };
+}
+
+/**
+ * If the URL looks like a generic MVT tile request
+ * (.../<layer-name>/mvt/{z}/{x}/{y}?...params), returns a vector source
+ * (z/x/y templated, query params preserved) plus generic fill/line/circle
+ * sub-layers covering polygon/line/point geometries via `geometry-type`
+ * filters. `<layer-name>` is used as both the title and the vector tile's
+ * source-layer name (matches pg_tileserv/martin-style MVT endpoints).
+ */
+function detectMvtTile(url: string): DiscoveredLayer | null {
+  const match = url.match(/^(.*\/)([\w.\-]+)\/mvt\/\d+\/\d+\/\d+(\?.*)?$/i);
+  if (!match) return null;
+
+  const [, prefix, sourceLayer, query] = match;
+  const template = `${prefix}${sourceLayer}/mvt/{z}/{x}/{y}${query ?? ''}`;
+  const id = sourceLayer;
+
+  const source = { id, type: 'vector', tiles: [template] } as unknown as SourceConfig;
+
+  const layers: SubLayerSpec[] = [
+    {
+      id: 'fill', type: 'fill', source: id, 'source-layer': sourceLayer,
+      filter: ['==', ['geometry-type'], 'Polygon'],
+      paint: { 'fill-color': '#3388ff', 'fill-opacity': 0.4 },
+    },
+    {
+      id: 'line', type: 'line', source: id, 'source-layer': sourceLayer,
+      filter: ['in', ['geometry-type'], ['literal', ['Polygon', 'LineString']]],
+      paint: { 'line-color': '#3388ff', 'line-width': 1 },
+    },
+    {
+      id: 'circle', type: 'circle', source: id, 'source-layer': sourceLayer,
+      filter: ['==', ['geometry-type'], 'Point'],
+      paint: { 'circle-color': '#3388ff', 'circle-radius': 4 },
+    },
+  ] as unknown as SubLayerSpec[];
+
+  return {
+    serviceType: 'xyz',
+    title: `${sourceLayer} (MVT)`,
+    source,
+    layer: {
+      id, type: 'style', version: 8,
+      title: sourceLayer,
+      sources: { [id]: source },
+      layers,
+    },
   };
 }
 
@@ -106,7 +156,7 @@ function detectEsriTile(url: string): { base: string; layer: DiscoveredLayer } |
 
   const base = match[1];
   const template = `${base}/tile/{z}/{y}/{x}`;
-  const id = uniqueId('esri-tile');
+  const id = 'esri-tile';
 
   return {
     base,
@@ -195,7 +245,7 @@ async function discoverWms(baseUrl: string): Promise<DiscoveredLayer[]> {
 
     for (const layer of layers) {
       if (!layer.name) continue;
-      const id = uniqueId(`wms-${slugify(layer.name)}`);
+      const id = layer.name;
 
       // getFlattenedLayers() returns summaries (name/title/abstract only); fetch
       // the full layer for bounds/scale limits where available.
@@ -277,7 +327,7 @@ async function discoverWmts(baseUrl: string): Promise<DiscoveredLayer[]> {
 
       // KVP encoding URL-encodes the {z}/{y}/{x} placeholders; restore them.
       const template = tileUrl.replace(/%7B/gi, '{').replace(/%7D/gi, '}');
-      const id = uniqueId(`wmts-${slugify(layer.name)}`);
+      const id = layer.name;
 
       const bounds = toNumberBounds(layer.latLonBoundingBox);
 
@@ -312,7 +362,7 @@ async function discoverWfs(baseUrl: string): Promise<DiscoveredLayer[]> {
     for (const ft of featureTypes) {
       if (!ft.name || !endpoint.supportsJson(ft.name)) continue;
 
-      const id = uniqueId(`wfs-${slugify(ft.name)}`);
+      const id = ft.name;
       // resolveGeoJSONSources/fetchWFSFeatures rewrites this with the actual
       // page size on each request; this is just the first-page request.
       // Request WGS84 output explicitly — the service's native CRS (e.g. RD
@@ -364,11 +414,25 @@ const ESRI_GEOMETRY_TO_LAYER_TYPE: Record<string, StandardLayerConfig['type']> =
 /** Extent is only directly usable as WGS84 bounds when given in EPSG:4326/CRS84. */
 function extentBounds(extent: unknown): [number, number, number, number] | undefined {
   const e = extent as Record<string, unknown> | undefined;
-  const wkid = (e?.spatialReference as Record<string, unknown> | undefined)?.wkid;
-  if (!e || (wkid !== 4326 && wkid !== 4269)) return undefined;
+  if (!e) return undefined;
+  const sr = e.spatialReference as Record<string, unknown> | undefined;
+  const wkid = (sr?.latestWkid ?? sr?.wkid) as number | undefined;
   const { xmin, ymin, xmax, ymax } = e as Record<string, number>;
   if (![xmin, ymin, xmax, ymax].every(Number.isFinite)) return undefined;
-  return [xmin, ymin, xmax, ymax];
+
+  if (wkid === 4326 || wkid === 4269) return [xmin, ymin, xmax, ymax];
+
+  const proj4def = wkid !== undefined ? EPSG_DEFS[String(wkid)] : undefined;
+  if (!proj4def) return undefined;
+  try {
+    const project = proj4(proj4def, 'EPSG:4326');
+    const [west, south] = project.forward([xmin, ymin]);
+    const [east, north] = project.forward([xmax, ymax]);
+    if (![west, south, east, north].every(Number.isFinite)) return undefined;
+    return [west, south, east, north];
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -516,7 +580,7 @@ async function discoverEsri(base: string): Promise<DiscoveredLayer[]> {
 
   // Tiled MapServer/ImageServer: offer the XYZ tile cache.
   if (info.tileInfo) {
-    const id = uniqueId('esri-tile');
+    const id = 'esri-tile';
     const template = `${base}/tile/{z}/{y}/{x}`;
     results.push({
       serviceType: 'esri-tile',
@@ -538,6 +602,67 @@ async function discoverEsri(base: string): Promise<DiscoveredLayer[]> {
   if (Array.isArray(info.tiles) && typeof info.defaultStyles === 'string') {
     const vectorLayer = await buildEsriVectorTileLayer(base, info, serviceDescription);
     if (vectorLayer) results.push(vectorLayer);
+  }
+
+  // Some ArcGIS Server MapServers also expose a WMS interface; offer those
+  // layers too (rendered server-side with the service's own symbology,
+  // unlike the per-layer esri-feature/style conversions above).
+  const capabilities = typeof info.capabilities === 'string'
+    ? info.capabilities.split(',').map((c: string) => c.trim().toUpperCase())
+    : [];
+  const documentInfo = info.documentInfo as { Title?: string } | undefined;
+  const documentTitle = typeof documentInfo?.Title === 'string' && documentInfo.Title ? documentInfo.Title : undefined;
+
+  if (capabilities.includes('WMS')) {
+    const wmsLayers = await discoverWms(`${base}/WMSServer`);
+    for (const l of wmsLayers) {
+      if (documentTitle) {
+        l.title = documentTitle;
+        l.layer.title = documentTitle;
+      }
+    }
+    results.push(...wmsLayers);
+  } else if (Array.isArray(info.layers) && info.layers.length > 0) {
+    // No WMS: fall back to the export endpoint as a single combined raster
+    // layer, server-rendered with the service's own symbology. MapLibre's
+    // {bbox-epsg-3857} placeholder works the same way it does for WMS GetMap.
+    const id = 'esri-export';
+    const allLayerIds = (info.layers as Array<Record<string, unknown>>)
+      .map((l) => l.id)
+      .filter((v): v is number => typeof v === 'number');
+    const exportUrl = `${base}/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&dpi=96&format=png32&transparent=true&f=image&layers=${encodeURIComponent(`show:${allLayerIds.join(',')}`)}`;
+    const minzoom = typeof info.minScale === 'number' && info.minScale > 0 ? scaleDenominatorToZoom(info.minScale) : undefined;
+    const maxzoom = typeof info.maxScale === 'number' && info.maxScale > 0 ? scaleDenominatorToZoom(info.maxScale) : undefined;
+
+    // Esri has no single combined legend image for a multi-layer export; only
+    // offer one when the service has exactly one sub-layer, using its first
+    // legend symbol.
+    let legendurl: string | undefined;
+    if (info.layers.length === 1) {
+      const legendInfo = await fetchJson(`${base}/legend?f=json`);
+      const layerLegend = (legendInfo?.layers as Array<Record<string, unknown>> | undefined)?.[0];
+      const symbol = (layerLegend?.legend as Array<Record<string, unknown>> | undefined)?.[0];
+      if (typeof symbol?.imageData === 'string' && typeof symbol?.contentType === 'string') {
+        legendurl = `data:${symbol.contentType};base64,${symbol.imageData}`;
+      }
+    }
+
+    results.push({
+      serviceType: 'esri-tile',
+      title: documentTitle ?? `${info.mapName || info.name || 'Esri'} (export)`,
+      ...(serviceDescription ? { abstract: serviceDescription } : {}),
+      source: rasterTilesSource(id, [exportUrl], serviceBounds ? { bounds: serviceBounds } : {}),
+      layer: {
+        id, type: 'raster', source: id, title: documentTitle ?? String(info.mapName || info.name || 'Esri export'),
+        ...(minzoom !== undefined ? { minzoom } : {}),
+        ...(maxzoom !== undefined ? { maxzoom } : {}),
+        ...((serviceDescription || serviceBounds || legendurl) ? { metadata: {
+          ...(serviceDescription ? { abstract: serviceDescription } : {}),
+          ...(serviceBounds ? { bounds: serviceBounds } : {}),
+          ...(legendurl ? { legendurl } : {}),
+        } } : {}),
+      },
+    });
   }
 
   if (Array.isArray(info.layers)) {
@@ -590,7 +715,10 @@ export async function discoverLayers(inputUrl: string): Promise<DiscoverResult> 
   const results: DiscoveredLayer[] = [];
   const probes: Promise<DiscoveredLayer[]>[] = [];
 
-  const xyzTile = detectXyzTile(url);
+  const mvtTile = detectMvtTile(url);
+  if (mvtTile) results.push(mvtTile);
+
+  const xyzTile = mvtTile ? null : detectXyzTile(url);
   if (xyzTile) results.push(xyzTile);
 
   const esriTile = detectEsriTile(url);
@@ -632,14 +760,9 @@ function rankByRequestedLayer(results: DiscoveredLayer[], inputUrl: string): Dis
   }
   if (requested.size === 0) return results;
 
-  // Layer ids are `${prefix}-${slugify(layerName)}-${rand}`; normalize the
-  // requested name the same way and check it appears in the id.
-  const requestedSlugs = new Set(Array.from(requested, slugify));
-
   const matches = (item: DiscoveredLayer): boolean => {
     const id = item.layer.id?.toLowerCase() ?? '';
-    return Array.from(requested).some((r) => id === r) ||
-      Array.from(requestedSlugs).some((slug) => id.includes(`-${slug}-`));
+    return Array.from(requested).some((r) => id === r || id.includes(r));
   };
 
   const front: DiscoveredLayer[] = [];

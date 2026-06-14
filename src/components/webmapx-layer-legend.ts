@@ -537,6 +537,41 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             </div>`;
     }
 
+    /**
+     * For a `match`/`case`/`step` color expression, returns the array index of each
+     * stop's color value, in the same order as `extractLegendStops` returns stops
+     * (excluding the trailing fallback/default). Returns `null` for unsupported ops.
+     */
+    private colorExprStopIndices(expr: unknown[]): number[] | null {
+        const op = expr[0];
+        if (op === 'match') {
+            const idx: number[] = [];
+            for (let i = 3; i < expr.length - 1; i += 2) idx.push(i);
+            return idx;
+        }
+        if (op === 'case') {
+            const idx: number[] = [];
+            for (let i = 1; i + 1 < expr.length; i += 2) idx.push(i + 1);
+            return idx;
+        }
+        if (op === 'step') {
+            const idx: number[] = [2];
+            for (let i = 3; i + 1 < expr.length; i += 2) idx.push(i + 1);
+            return idx;
+        }
+        return null;
+    }
+
+    /** Opens a color picker that patches a single stop (`expr[colorIndex]`) of a match/case/step expression. */
+    private openStopColorPicker(button: HTMLElement, subLayerIds: string[], colorKey: string, expr: unknown[], colorIndex: number, currentColor: string): void {
+        const id = `${subLayerIds.join(',')}::${colorKey}::${colorIndex}`;
+        this.openColorPicker(button, subLayerIds, id, currentColor, (rgba) => {
+            const newExpr = [...expr];
+            newExpr[colorIndex] = rgba;
+            this.setPaintOverride(subLayerIds, colorKey, newExpr);
+        }, false);
+    }
+
     private renderLineRow(lineColor: string, lineWidth: number, dasharray: string, label: string): TemplateResult {
         const w = Math.min(lineWidth, 4);
         return html`
@@ -546,6 +581,23 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                         stroke="${lineColor}" stroke-width="${w}"
                         stroke-dasharray="${dasharray}" stroke-linecap="round"/>
                 </svg>`}
+                ${label !== null ? html`<span class="legend-label">${label}</span>` : ''}
+            </div>`;
+    }
+
+    /** Like `renderLineRow`, but the swatch is a clickable color-picker button patching one stop of `colorExpr`. */
+    private renderEditableLineRow(subLayerIds: string[], lineColor: string, lineWidth: number, dasharray: string, label: string, colorExpr: unknown[], colorIndex: number): TemplateResult {
+        const w = Math.min(lineWidth, 4);
+        return html`
+            <div class="legend-row">
+                <button type="button" class="color-swatch" style="background:transparent; border:none; padding:0; width:24px; height:14px; flex-shrink:0; cursor:pointer;"
+                    @click=${(e: Event) => { e.stopPropagation(); this.openStopColorPicker(e.currentTarget as HTMLElement, subLayerIds, 'line-color', colorExpr, colorIndex, lineColor); }}>
+                    ${svg`<svg width="24" height="14">
+                        <line x1="2" y1="7" x2="22" y2="7"
+                            stroke="${lineColor}" stroke-width="${w}"
+                            stroke-dasharray="${dasharray}" stroke-linecap="round"/>
+                    </svg>`}
+                </button>
                 ${label !== null ? html`<span class="legend-label">${label}</span>` : ''}
             </div>`;
     }
@@ -763,9 +815,19 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         }
     }
 
-    /** Opens (creating if needed) a Pickr popup color picker attached to the swatch button. */
-    private openColorPicker(button: HTMLElement, subLayerIds: string[], key: string, value: string): void {
+    /**
+     * Opens (creating if needed) a Pickr popup color picker attached to the swatch button.
+     * `onChange`/`onCancel` default to overriding `paint[key]` with the picked color directly
+     * (flat color paint); pass custom callbacks to instead patch one stop of a
+     * match/case/step color expression (see `renderEditableLegendRow`).
+     */
+    private openColorPicker(
+        button: HTMLElement, subLayerIds: string[], key: string, value: string,
+        onChange?: (rgba: string) => void,
+        paintButtonBackground = true,
+    ): void {
         const id = `${subLayerIds.join(',')}::${key}`;
+        const apply = onChange ?? ((rgba: string) => this.setPaintOverride(subLayerIds, key, rgba));
         let pickr = this.pickrInstances.get(id);
         if (!pickr) {
             pickr = Pickr.create({
@@ -785,18 +847,21 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             });
             pickr.on('change', (color: Pickr.HSVaColor) => {
                 const rgba = color.toRGBA().toString(0);
-                button.style.background = rgba;
-                this.setPaintOverride(subLayerIds, key, rgba);
+                if (paintButtonBackground) button.style.background = rgba;
+                apply(rgba);
             });
             pickr.on('save', () => {
                 pickr!.hide();
             });
             pickr.on('cancel', () => {
                 const orig = this.pickrOriginal.get(id)!;
-                button.style.background = orig;
-                this.setPaintOverride(subLayerIds, key, orig);
+                if (paintButtonBackground) button.style.background = orig;
+                apply(orig);
                 pickr!.hide();
             });
+            if (!paintButtonBackground) {
+                pickr.on('hide', () => { button.style.background = 'transparent'; });
+            }
             this.pickrInstances.set(id, pickr);
             this.pickrOriginal.set(id, value);
             pickr.show();
@@ -924,7 +989,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         return !Array.isArray(paint[colorKey]);
     }
 
-    private renderLegendItems(layerType: string, paint: Record<string, unknown>): TemplateResult[] {
+    private renderLegendItems(subLayerIds: string[], layerType: string, paint: Record<string, unknown>): TemplateResult[] {
         const attrTr = this.getAttrTranslations();
 
         if (layerType === 'circle') {
@@ -1024,13 +1089,19 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         }
 
         if (layerType === 'line') {
-            const colorStops = this.extractLegendStops(paint['line-color']);
+            const colorExpr = paint['line-color'];
+            const colorStops = this.extractLegendStops(colorExpr);
             const widthStops = this.extractLegendStops(paint['line-width']);
             const dasharray = Array.isArray(paint['line-dasharray']) ? (paint['line-dasharray'] as number[]).join(' ') : '';
+            const stopIndices = Array.isArray(colorExpr) ? this.colorExprStopIndices(colorExpr) : null;
             return colorStops.map((s, i) => {
                 const lineWidth = Number(widthStops[i]?.paint ?? widthStops[0]?.paint ?? 2);
                 const label = s.value !== null ? String(s.value) : '';
-                return this.renderLineRow(String(s.paint ?? '#3388ff'), lineWidth, dasharray, label);
+                const color = String(s.paint ?? '#3388ff');
+                if (stopIndices && stopIndices.length === colorStops.length) {
+                    return this.renderEditableLineRow(subLayerIds, color, lineWidth, dasharray, label, colorExpr as unknown[], stopIndices[i]);
+                }
+                return this.renderLineRow(color, lineWidth, dasharray, label);
             });
         }
 
@@ -1103,7 +1174,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             <div class="legend-wrap">
                 ${hasSwatch ? html`
                     <div class=${editable ? 'editable' : ''} @click=${editable ? () => { this.editorOpenKey = isOpen ? null : ''; } : null}>
-                        ${this.renderLegendItems(layerType!, effectivePaint)}
+                        ${this.renderLegendItems([''], layerType!, effectivePaint)}
                     </div>
                     ${editable && isOpen ? this.renderStyleEditor([''], layerType!, effectivePaint) : ''}
                 ` : ''}

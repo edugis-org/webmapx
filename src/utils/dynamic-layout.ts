@@ -31,6 +31,7 @@ const STANDALONE_TAGS: Record<string, string> = {
   attribution: 'webmapx-attribution-control',
   coordinates: 'webmapx-coordinates-tool',
   navigation: 'webmapx-navigation-control',
+  fullscreen: 'webmapx-fullscreen-control',
   zoomLevel: 'webmapx-zoom-level',
   spinner: 'webmapx-spinner',
   insetMap: 'webmapx-inset-map',

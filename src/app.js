@@ -44,6 +44,7 @@ import './components/webmapx-geolocation-tool.ts';
 import './components/webmapx-add-layer-tool.ts';
 import './components/webmapx-scale-control.ts';
 import './components/webmapx-navigation-control.ts';
+import './components/webmapx-fullscreen-control.ts';
 import './components/webmapx-attribution-control.ts';
 
 function installMobileAddressBarNudge() {

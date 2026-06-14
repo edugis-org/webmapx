@@ -2771,6 +2771,11 @@
       "direction": "vertical",
       "orientation": "vertical"
     },
+    "fullscreen": {
+      "type": "fullscreen",
+      "enabled": true,
+      "position": "bottom-left"
+    },
     "scale": {
       "type": "scaleControl",
       "enabled": true,
