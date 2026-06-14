@@ -18,6 +18,8 @@ import { resolveMapElement } from './internal/map-context';
 export class WebmapxSearchTool extends WebmapxBaseTool {
   public active = false;
   private mapElement: WebmapxMapElement | null = null;
+  // obfuscated name so mobile autofill doesn't recognize this as a "search"/address field
+  private searchInputName = 'wmx-7f3a9c1';
 
   @state()
   private query: string = '';
@@ -443,6 +445,12 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
         <div class="title">Search</div>
         <div class="searchbox">
           <input
+            type="text"
+            name="${this.searchInputName}"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
             placeholder="Search places and addresses"
             .value="${this.query}"
             @input="${(e: Event) => { this.query = (e.target as HTMLInputElement).value; }}"
