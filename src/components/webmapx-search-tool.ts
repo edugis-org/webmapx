@@ -282,7 +282,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
       if (this.cfg.attribution) {
         sourceConfig.attribution = this.cfg.attribution;
       }
-      map.addSource(sourceId, sourceConfig);
+      const sources = { [sourceId]: sourceConfig };
 
       // Add appropriate layers depending on geometry type
       const geom = feature.geometry?.type;
@@ -292,22 +292,22 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
       const resultName = this.getFeatureTitle(feature);
 
       if (geom === 'Polygon' || geom === 'MultiPolygon') {
-        // One style layer for polygons: filled area + outline, with a single legend item.
+        // Composite style layer for polygons: separate fill and outline (line) sub-layers,
+        // with a single legend item.
         mapElement.addLayerRequest({
           id: fillId,
-          type: 'fill',
-          source: sourceId,
+          type: 'style',
+          sources,
+          layers: [
+            { id: 'fill', type: 'fill', source: sourceId, paint: { 'fill-color': color, 'fill-opacity': 0.25 } },
+            { id: 'line', type: 'line', source: sourceId, paint: { 'line-color': color, 'line-width': 2 } },
+          ],
           metadata: { label: resultName, hideFromLegend: false },
-          paint: {
-            'fill-color': color,
-            'fill-opacity': 0.25,
-            'fill-outline-color': color,
-          }
         });
       } else if (geom === 'LineString' || geom === 'MultiLineString') {
-        mapElement.addLayerRequest({ id: lineId, type: 'line', source: sourceId, metadata: { label: resultName, hideFromLegend: false }, paint: { 'line-color': color, 'line-width': 3 } });
+        mapElement.addLayerRequest({ id: lineId, type: 'line', source: sourceId, sources, metadata: { label: resultName, hideFromLegend: false }, paint: { 'line-color': color, 'line-width': 3 } });
       } else { // Point / MultiPoint fallback
-        mapElement.addLayerRequest({ id: pointId, type: 'circle', source: sourceId, metadata: { label: resultName, hideFromLegend: false }, paint: { 'circle-color': color, 'circle-radius': 6 } });
+        mapElement.addLayerRequest({ id: pointId, type: 'circle', source: sourceId, sources, metadata: { label: resultName, hideFromLegend: false }, paint: { 'circle-color': color, 'circle-radius': 6 } });
       }
 
       this.persistedMap.set(feature, { sourceId, color });
