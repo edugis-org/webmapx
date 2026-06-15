@@ -153,8 +153,10 @@ export class MapCoreService implements IMapCore {
             creditContainer,
         });
 
-        // Workaround for black globe on some mobile GPUs (https://github.com/CesiumGS/cesium/issues/10442)
+        // Workaround for black globe on some mobile GPUs: HDR/atmosphere shaders fail
+        // and produce a black globe (https://github.com/CesiumGS/cesium/issues/10442).
         if (navigator.maxTouchPoints > 0) {
+            this.viewer.scene.highDynamicRange = false;
             this.viewer.scene.skyAtmosphere.show = false;
             this.viewer.scene.globe.showGroundAtmosphere = false;
         }
