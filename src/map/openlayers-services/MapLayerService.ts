@@ -38,7 +38,18 @@ export class MapLayerService implements ILayerService {
     // Track WarpedMapLayer instances for cleanup
     private warpedMapLayers: Map<string, WarpedMapLayer> = new Map();
     private compositeSubLayerCache: Map<string, { spec: SubLayerSpec; sourceConfig: SourceConfig }> = new Map();
+    /** Style-backed vector tile layers (whole GL style rendered via `stylefunction`), keyed by nativeLayerId. */
+    private styleBackedLayerCache: Map<string, {
+        layer: VectorTileLayer;
+        layerConfig: CompositeStyleLayerConfig;
+        sourceConfig: SourceConfig & { type: 'vector' };
+        mapboxLayerIds: string | string[];
+        spriteResources: { spriteData: Record<string, unknown>; spriteImageUrl: string } | null;
+    }> = new Map();
     private sourceIdCounter = 0;
+
+    /** Layout (vs. paint) properties for GL style layers — mirrors maplibre's MapLayerService.LAYOUT_KEYS. */
+    private static readonly LAYOUT_KEYS = new Set(['text-size', 'icon-size', 'text-field', 'visibility']);
 
     constructor(map: OLMap, store: MapStateStore) {
         this.map = map;
@@ -243,11 +254,19 @@ export class MapLayerService implements ILayerService {
                 const nativeSourceId = this.getOrCreateNativeSourceId(vectorSource.config);
                 const nativeLayerId = `${layerId}-${vectorSource.config.id}-vector-style`;
                 if (!this.nativeLayerInstances.has(nativeLayerId)) {
-                    const layer = await this.createStyleBackedVectorTileLayer(nativeLayerId, layerConfig, vectorSource.config as SourceConfig & { type: 'vector' });
-                    if (!layer) return false;
+                    const created = await this.createStyleBackedVectorTileLayer(nativeLayerId, layerConfig, vectorSource.config as SourceConfig & { type: 'vector' });
+                    if (!created) return false;
+                    const { layer, mapboxLayerIds, spriteResources } = created;
                     (layer as any).__mapLayerId = layerId;
                     insertIndex = this.addMapLayerAtIndex(layer, insertIndex);
                     this.nativeLayerInstances.set(nativeLayerId, layer);
+                    this.styleBackedLayerCache.set(nativeLayerId, {
+                        layer,
+                        layerConfig: layerConfig as CompositeStyleLayerConfig,
+                        sourceConfig: vectorSource.config as SourceConfig & { type: 'vector' },
+                        mapboxLayerIds,
+                        spriteResources,
+                    });
                 }
                 nativeLayerIds.push(nativeLayerId);
                 this.nativeLayerToSource.set(nativeLayerId, nativeSourceId);
@@ -283,7 +302,9 @@ export class MapLayerService implements ILayerService {
         const nativeLayerId = `${styleId}-${subLayerId}`;
         const cached = this.compositeSubLayerCache.get(nativeLayerId);
         const oldLayer = this.nativeLayerInstances.get(nativeLayerId);
-        if (!cached || !oldLayer) return false;
+        if (!cached || !oldLayer) {
+            return this.updateStyleBackedSubLayer(styleId, subLayerId, partialPaint);
+        }
 
         const mergedSpec: SubLayerSpec = { ...cached.spec, paint: { ...(cached.spec.paint ?? {}), ...partialPaint } };
         const index = this.findLayerIndexByInstance(oldLayer);
@@ -307,6 +328,41 @@ export class MapLayerService implements ILayerService {
         return true;
     }
 
+    /**
+     * Updates a single GL-style sub-layer (by id) within a style-backed vector tile layer
+     * (a whole external style rendered as one `VectorTileLayer` via `stylefunction`).
+     * Mutates the cached layer config in place and re-runs `stylefunction` to refresh rendering.
+     */
+    private updateStyleBackedSubLayer(styleId: string, subLayerId: string, partialPaint: Record<string, unknown>): boolean {
+        for (const [nativeLayerId, entry] of this.styleBackedLayerCache) {
+            if (!nativeLayerId.startsWith(`${styleId}-`)) continue;
+
+            const target = (entry.layerConfig.layers ?? []).find((l) => l.id === subLayerId);
+            if (!target) continue;
+
+            for (const [key, value] of Object.entries(partialPaint)) {
+                if (MapLayerService.LAYOUT_KEYS.has(key)) {
+                    target.layout = { ...(target.layout ?? {}), [key]: value };
+                } else {
+                    target.paint = { ...(target.paint ?? {}), [key]: value };
+                }
+            }
+
+            const glStyle = this.buildStyleBackedGlStyle(entry.layerConfig, entry.sourceConfig);
+            stylefunction(
+                entry.layer,
+                glStyle,
+                entry.mapboxLayerIds,
+                undefined,
+                entry.spriteResources?.spriteData,
+                entry.spriteResources?.spriteImageUrl,
+            );
+            entry.layer.changed();
+            return true;
+        }
+        return false;
+    }
+
     private mergeNativeLayerIds(layerId: string, nativeLayerIds: string[]): string[] {
         const existing = this.logicalToNative.get(layerId) ?? [];
         return Array.from(new Set([...existing, ...nativeLayerIds]));
@@ -325,7 +381,11 @@ export class MapLayerService implements ILayerService {
         layerId: string,
         layerConfig: AnyLayerConfig,
         sourceConfig: SourceConfig & { type: 'vector' }
-    ): Promise<BaseLayer | null> {
+    ): Promise<{
+        layer: VectorTileLayer;
+        mapboxLayerIds: string | string[];
+        spriteResources: { spriteData: Record<string, unknown>; spriteImageUrl: string } | null;
+    } | null> {
         const resolvedSource = await this.resolveVectorTileSourceInfo(sourceConfig);
         if (!resolvedSource) {
             return null;
@@ -355,17 +415,19 @@ export class MapLayerService implements ILayerService {
             .map((entry) => typeof entry.id === 'string' ? entry.id : null)
             .filter((entry): entry is string => typeof entry === 'string' && entry.length > 0);
 
+        const resolvedMapboxLayerIds: string | string[] = mapboxLayerIds.length > 0 ? mapboxLayerIds : sourceConfig.id;
+
         stylefunction(
             layer,
             glStyle,
-            mapboxLayerIds.length > 0 ? mapboxLayerIds : sourceConfig.id,
+            resolvedMapboxLayerIds,
             undefined,
             spriteResources?.spriteData,
             spriteResources?.spriteImageUrl,
         );
 
         (layer as any).__layerId = layerId;
-        return layer;
+        return { layer, mapboxLayerIds: resolvedMapboxLayerIds, spriteResources: spriteResources ?? null };
     }
 
     private buildStyleBackedGlStyle(layerConfig: AnyLayerConfig, sourceConfig: SourceConfig & { type: 'vector' }): Record<string, unknown> {

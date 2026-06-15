@@ -2502,6 +2502,12 @@
     ]
   },
   "tools": {
+    "maplanguage": {
+      "enabled": true,
+      "visible": false,
+      "position": "bottom-left",
+      "language": "browser"
+    },
     "mainToolbar": {
       "type": "toolbar",
       "enabled": true,
@@ -2711,6 +2717,13 @@
           "enabled": true,
           "title": "View mode",
           "icon": "globe"
+        },
+        {
+          "id": "3d",
+          "type": "3d",
+          "enabled": true,
+          "title": "3D",
+          "icon": "box"
         },
         {
           "id": "add-layer",

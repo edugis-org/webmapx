@@ -44,6 +44,10 @@
                     <button id="external-geolocation-button">Geolocation tool</button>
                     <div id="external-geolocation-output"></div>
                 </div>
+                <div>
+                    <button id="external-language-button">Map language tool</button>
+                    <div id="external-language-output"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -53,6 +57,19 @@
         const externalGeoButton = document.getElementById('external-geolocation-button');
         const externalGeoOutput = document.getElementById('external-geolocation-output');
         const externalToolsHost = externalGeoButton?.closest('div');
+
+        const externalLanguageButton = document.getElementById('external-language-button');
+        const externalLanguageOutput = document.getElementById('external-language-output');
+        const externalLanguageHost = externalLanguageButton?.closest('div');
+
+        const setExternalLanguageLabel = (active) => {
+            if (externalLanguageButton) externalLanguageButton.textContent = active ? 'Close Map language tool' : 'Map language tool';
+        };
+
+        const updateExternalLanguageLabelFromTool = () => {
+            const tool = externalLanguageHost?.querySelector('webmapx-language-osmvector');
+            setExternalLanguageLabel(Boolean(tool?.active));
+        };
 
         const setExternalGeoLabel = (active) => {
             if (!externalGeoButton) return;
@@ -75,6 +92,9 @@
             if (e.detail?.toolId === 'geolocation') {
                 updateExternalLabelFromTool();
             }
+            if (e.detail?.toolId === 'maplanguage') {
+                updateExternalLanguageLabelFromTool();
+            }
         });
 
         map?.addEventListener('webmapx-tool-deactivated', (e) => {
@@ -83,6 +103,9 @@
             }
             if (e.detail?.toolId === 'truearea') {
                 setTrueAreaLabel(false);
+            }
+            if (e.detail?.toolId === 'maplanguage') {
+                updateExternalLanguageLabelFromTool();
             }
         });
 
@@ -117,6 +140,24 @@
                 tool.activate?.();
             }
             updateExternalLabelFromTool();
+        });
+
+        externalLanguageButton?.addEventListener('click', () => {
+            if (!externalLanguageOutput || !externalLanguageHost) return;
+            let tool = externalLanguageHost.querySelector('webmapx-language-osmvector');
+            if (!tool) {
+                tool = document.createElement('webmapx-language-osmvector');
+                tool.setAttribute('map', '#map-container');
+                tool.setAttribute('language', 'browser');
+                tool.setAttribute('render-target', '#external-language-output');
+                externalLanguageHost.appendChild(tool);
+            }
+            if (tool.active) {
+                tool.deactivate?.();
+            } else {
+                tool.activate?.();
+            }
+            updateExternalLanguageLabelFromTool();
         });
     </script>
 

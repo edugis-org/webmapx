@@ -46,6 +46,7 @@ import './components/webmapx-scale-control.ts';
 import './components/webmapx-navigation-control.ts';
 import './components/webmapx-fullscreen-control.ts';
 import './components/webmapx-attribution-control.ts';
+import './components/webmapx-language-osmvector.ts';
 
 function installMobileAddressBarNudge() {
     const mobileLikeViewport = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
@@ -224,5 +225,6 @@ async function initializeMap(mapElement, appConfig) {
     console.log(`[app] Initialized map "${mapId}" with config:`, mapConfig);
 }
 import './components/webmapx-view-mode-tool.ts';
+import './components/webmapx-3d-tool.ts';
 import './components/webmapx-truearea-tool.ts';
 import './components/webmapx-active-adapter.ts';

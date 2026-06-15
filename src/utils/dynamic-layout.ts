@@ -22,8 +22,10 @@ const TOOL_ELEMENT_TAGS: Record<string, string> = {
   info: 'webmapx-info-tool',
   draw: 'webmapx-draw-tool',
   'view-mode': 'webmapx-view-mode-tool',
+  '3d': 'webmapx-3d-tool',
   addLayer: 'webmapx-add-layer-tool',
   layerOverview: 'webmapx-layer-overview',
+  maplanguage: 'webmapx-language-osmvector',
 };
 
 const STANDALONE_TAGS: Record<string, string> = {
@@ -35,6 +37,7 @@ const STANDALONE_TAGS: Record<string, string> = {
   zoomLevel: 'webmapx-zoom-level',
   spinner: 'webmapx-spinner',
   insetMap: 'webmapx-inset-map',
+  maplanguage: 'webmapx-language-osmvector',
 };
 
 function setAttrs(el: HTMLElement, attrs: Record<string, unknown>): void {
@@ -123,6 +126,11 @@ function buildStandalone(name: string, config: Record<string, unknown>): HTMLEle
     case 'insetMap':
       if (config.zoomOffset !== undefined) el.setAttribute('zoom-offset', String(config.zoomOffset));
       if (config.minimizable) el.setAttribute('minimizable', '');
+      break;
+    case 'maplanguage':
+      // visible:false → tool still hooks addLayer and applies the language, just without the dropdown UI.
+      if (config.visible === false || config.visible === 0) el.setAttribute('hide-ui', '');
+      if (typeof config.language === 'string') el.setAttribute('language', config.language);
       break;
   }
 
