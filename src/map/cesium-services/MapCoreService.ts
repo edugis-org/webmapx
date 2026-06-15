@@ -153,6 +153,12 @@ export class MapCoreService implements IMapCore {
             creditContainer,
         });
 
+        // Workaround for black globe on some mobile GPUs (https://github.com/CesiumGS/cesium/issues/10442)
+        if (navigator.maxTouchPoints > 0) {
+            this.viewer.scene.skyAtmosphere.show = false;
+            this.viewer.scene.globe.showGroundAtmosphere = false;
+        }
+
         const clampedZoom = this.clampZoom(zoom);
         this.setCameraView(center, clampedZoom, false);
         this.applyZoomDistanceLimits(center[1]);
