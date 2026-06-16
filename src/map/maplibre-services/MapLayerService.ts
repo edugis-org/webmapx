@@ -102,7 +102,8 @@ export class MapLayerService implements ILayerService {
         if (this.logicalSourceToNative.has(logicalSourceId)) {
             return this.logicalSourceToNative.get(logicalSourceId)!;
         }
-        const nativeId = `src-${logicalSourceId}-${this.sourceIdCounter++}`;
+        const sanitized = logicalSourceId.replace(/[^a-zA-Z0-9_-]/g, '-');
+        const nativeId = `src-${sanitized}-${this.sourceIdCounter++}`;
         this.logicalSourceToNative.set(logicalSourceId, nativeId);
         return nativeId;
     }
@@ -154,7 +155,8 @@ export class MapLayerService implements ILayerService {
                 if (typeof (sourceConfig as any).volatile === 'boolean') nativeSource.volatile = (sourceConfig as any).volatile;
             }
         } else if (sourceConfig.type === 'geojson') {
-            nativeSource = { type: 'geojson', data: (sourceConfig as any).data };
+            const rawData = (sourceConfig as any).data;
+            nativeSource = { type: 'geojson', data: rawData };
             if (typeof (sourceConfig as any).attribution === 'string') nativeSource.attribution = (sourceConfig as any).attribution;
         } else if (sourceConfig.type === 'raster-dem') {
             const dc = sourceConfig as any;
@@ -258,7 +260,7 @@ export class MapLayerService implements ILayerService {
             const pending = this._pendingHillshade.get(nativeLayerId);
             if (!pending) return;
             this._pendingHillshade.delete(nativeLayerId);
-            this.map.setPaintProperty(nativeLayerId, pending.key, pending.value as any);
+            this.map.setPaintProperty(nativeLayerId, pending.key as any, pending.value as any);
             this.map.triggerRepaint();
         });
         this._pendingHillshade.set(nativeLayerId, { key, value, rafId });
@@ -272,11 +274,13 @@ export class MapLayerService implements ILayerService {
 
     private applyStyleProperty(nativeLayerId: string, key: string, value: unknown): void {
         if (MapLayerService.LAYOUT_KEYS.has(key)) {
-            this.map.setLayoutProperty(nativeLayerId, key, value as any);
+            this.map.setLayoutProperty(nativeLayerId, key as any, value as any);
+            this.map.triggerRepaint();
         } else if (key === 'hillshade-exaggeration') {
             this.applyHillshadePaintThrottled(nativeLayerId, key, value);
         } else {
-            this.map.setPaintProperty(nativeLayerId, key, value as any);
+            this.map.setPaintProperty(nativeLayerId, key as any, value as any);
+            this.map.triggerRepaint();
         }
     }
 
@@ -456,7 +460,7 @@ export class MapLayerService implements ILayerService {
                     continue;
                 }
                 for (const property of properties) {
-                    this.map.setPaintProperty(nativeLayerId, property, opacity);
+                    this.map.setPaintProperty(nativeLayerId, property as any, opacity);
                 }
             } catch (_) {}
         }

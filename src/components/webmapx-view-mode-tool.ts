@@ -1,6 +1,7 @@
 import { html, css, TemplateResult } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
+import { resolveMapElement } from './internal/map-context';
 import type { IMapState } from '../store/IMapState';
 
 interface ViewModeDef {
@@ -68,13 +69,22 @@ export class WebmapxViewModeTool extends WebmapxBaseTool {
         if (!this.adapter) return;
         const def = VIEW_MODES.find(p => p.id === this.viewModeName);
         if (def?.conic) {
-            this.adapter.setProjection({
+            // Conic projections always use the adapter directly (no reinit needed)
+            const success = this.adapter.setProjection({
                 name: this.viewModeName,
                 center: [this.centerLng, this.centerLat],
                 parallels: [this.parallel1, this.parallel2],
             });
+            if (!success) this.syncFromAdapter();
         } else {
-            this.adapter.setProjection(this.viewModeName);
+            // Route through webmapx-map so it can save state + reload if engine needs reinit
+            const mapElement = resolveMapElement(this);
+            if (mapElement && typeof (mapElement as any).setProjection === 'function') {
+                (mapElement as any).setProjection(this.viewModeName);
+            } else {
+                const success = this.adapter.setProjection(this.viewModeName);
+                if (!success) this.syncFromAdapter();
+            }
         }
     }
 

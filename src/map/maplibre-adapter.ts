@@ -1,6 +1,7 @@
 // src/map/maplibre-adapter.ts
 
 import { IMap, IMapCore, IToolService, ISubMapFactory, LayerInsertOptions } from './IMapInterfaces';
+import * as _ml from 'maplibre-gl';
 
 import { LngLat, Pixel } from '../store/map-events';
 import { BaseAdapter } from './base-adapter';
@@ -21,6 +22,9 @@ import type { IQueryService } from './IQueryService';
  */
 export class MapLibreAdapter extends BaseAdapter implements IMap {
     public readonly engineId = 'maplibre';
+    public readonly engineVersion: string = typeof (_ml as any).getVersion === 'function'
+        ? (_ml as any).getVersion()
+        : ((_ml as any).version ?? '');
     private readonly core: IMapCore;
     public readonly toolService: IToolService;
     public readonly queryService: IQueryService;

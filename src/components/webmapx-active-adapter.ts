@@ -13,6 +13,7 @@ const ADAPTER_LABELS: Record<string, string> = {
 @customElement('webmapx-active-adapter')
 export class WebmapxActiveAdapter extends WebmapxBaseTool {
     @state() private adapterName = '—';
+    @state() private engineVersion = '';
 
     static styles = css`
         :host { display: inline-block; }
@@ -41,17 +42,20 @@ export class WebmapxActiveAdapter extends WebmapxBaseTool {
 
     protected onMapAttached(adapter: IMap): void {
         this.adapterName = ADAPTER_LABELS[adapter.engineId] ?? adapter.engineId;
+        const parts = adapter.engineVersion?.split('.');
+        this.engineVersion = parts ? `${parts[0]}.${parts[1]}` : '';
     }
 
     protected onMapDetached(): void {
         this.adapterName = '—';
+        this.engineVersion = '';
     }
 
     protected render(): TemplateResult {
         return html`
             <span class="badge">
                 <span class="dot"></span>
-                ${this.adapterName}
+                ${this.adapterName}${this.engineVersion ? ` ${this.engineVersion}` : ''}
             </span>
         `;
     }

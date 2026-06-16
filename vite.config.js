@@ -1,8 +1,13 @@
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
+import { readFileSync } from 'fs';
+
+const _mlVersion = JSON.parse(readFileSync('./node_modules/maplibre-gl/package.json', 'utf8')).version;
+const _mlMajor = parseInt(_mlVersion.split('.')[0]);
 
 export default defineConfig({
   base: './', // Set base to relative path for correct asset loading
+  optimizeDeps: _mlMajor >= 6 ? { exclude: ['maplibre-gl'] } : {},
   plugins: [
     // Configure the plugin to copy Shoelace assets
     viteStaticCopy({

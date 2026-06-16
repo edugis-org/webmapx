@@ -88,6 +88,7 @@
       "bevolking2015-source": {
         "type": "raster",
         "tileSize": 256,
+        "bounds": [-180, -85.051129, 180, 85.051129],
         "service": "xyz",
         "url": [
           "https://t1.edugis.nl/tiles/tilecache.py?map=maps/edugis/cache/population.map&LAYERS=Bevolkingsdichtheid_2015&TRANSPARENT=true&FORMAT=image%2Fpng&SERVICE=WMS&VERSION=1.1.1&STYLES=&SRS=EPSG%3A900913&WIDTH=256&HEIGHT=256&request=GetMap&service=WMS&bbox={bbox-epsg-3857}",
@@ -1413,7 +1414,7 @@
           }
         },
         "minzoom": 0,
-        "maxzoom": 22.5
+        "maxzoom": 8.5
       },
       "populationdensity": {
         "id": "populationdensity",

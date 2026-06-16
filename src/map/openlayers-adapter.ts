@@ -1,6 +1,7 @@
 // src/map/openlayers-adapter.ts
 
 import { IMap, IMapCore, IToolService, ISubMapFactory, LayerInsertOptions } from './IMapInterfaces';
+import { VERSION as olVersion } from 'ol/util.js';
 
 import { LngLat, Pixel } from '../store/map-events';
 import { BaseAdapter } from './base-adapter';
@@ -21,6 +22,7 @@ import type { IQueryService } from './IQueryService';
  */
 export class OpenLayersAdapter extends BaseAdapter implements IMap {
     public readonly engineId = 'openlayers';
+    public readonly engineVersion = olVersion;
     private readonly core: IMapCore;
     public readonly toolService: IToolService;
     public readonly queryService: IQueryService;

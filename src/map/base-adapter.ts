@@ -29,6 +29,7 @@ export abstract class BaseAdapter {
     public readonly store: MapStateStore;
     public readonly events: MapEventBus;
     private sourceAttributions = new Map<string, string>();
+    private layerConfigStore = new Map<string, { config: unknown; options?: LayerInsertOptions }>();
 
     constructor() {
         this.store = new MapStateStore();
@@ -65,6 +66,7 @@ export abstract class BaseAdapter {
             registerMapLayer(this.store, layer);
             const layerId = layer?.id ?? layer?.metadata?.mapLayerId;
             if (typeof layerId === 'string') {
+                this.layerConfigStore.set(layerId, { config: layer, options });
                 const activeLayers = Object.keys(this.store.getState().mapLayers ?? {});
                 this.events.emit({ type: 'layer-add', layerId, activeLayers });
             }
@@ -73,10 +75,22 @@ export abstract class BaseAdapter {
     }
 
     removeLayer(id: string): void {
+        this.layerConfigStore.delete(id);
         this.engineRemoveLayer(id);
         unregisterMapLayer(this.store, id);
         const activeLayers = Object.keys(this.store.getState().mapLayers ?? {});
         this.events.emit({ type: 'layer-remove', layerId: id, activeLayers });
+    }
+
+    /** Returns stored layer configs in current stack order (bottom to top), then clears the store. */
+    protected drainLayerConfigs(): Array<{ config: unknown; options?: LayerInsertOptions }> {
+        const order = Object.keys(this.store.getState().mapLayers ?? {});
+        const result = order
+            .map(id => this.layerConfigStore.get(id))
+            .filter((e): e is { config: unknown; options?: LayerInsertOptions } => e !== undefined);
+        this.layerConfigStore.clear();
+        this.store.dispatch({ mapLayers: {} }, 'INIT');
+        return result;
     }
 
     /** Repositions `layerId` immediately below `beforeLayerId` (or to the top if null/undefined). */

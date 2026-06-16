@@ -1,6 +1,7 @@
 // src/map/leaflet-adapter.ts
 
 import { IMap, IMapCore, IToolService, ISubMapFactory, LayerInsertOptions } from './IMapInterfaces';
+import { version as leafletVersion } from 'leaflet';
 
 import { LngLat, Pixel } from '../store/map-events';
 import { BaseAdapter } from './base-adapter';
@@ -21,6 +22,7 @@ import type { IQueryService } from './IQueryService';
  */
 export class LeafletAdapter extends BaseAdapter implements IMap {
     public readonly engineId = 'leaflet';
+    public readonly engineVersion = leafletVersion;
     private readonly core: IMapCore;
     public readonly toolService: IToolService;
     public readonly queryService: IQueryService;

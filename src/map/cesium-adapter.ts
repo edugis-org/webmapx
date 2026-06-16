@@ -73,6 +73,7 @@ async function ensureCesiumLoaded(): Promise<void> {
  */
 export class CesiumAdapter extends BaseAdapter implements IMap {
     public readonly engineId = 'cesium';
+    public get engineVersion(): string { return (globalThis as any).Cesium?.VERSION ?? ''; }
     private readonly core: IMapCore;
     public readonly toolService: IToolService;
     public readonly queryService: IQueryService;

@@ -176,10 +176,12 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
 
     // ─── Composite style legend ───────────────────────────────────────────────
 
-    /** Renders a "Zoom to level X for display" hint when the layer has no content at the current zoom. */
+    /** Renders a zoom direction hint when the layer is out of its zoom range. */
     private renderZoomHint(minz: number, maxz: number, zoom: number): TemplateResult {
-        const target = zoom < minz ? Math.ceil(minz) : Math.floor(maxz);
-        return html`<div class="legend-row"><span class="legend-label">Zoom to level ${target} for display</span></div>`;
+        const tooFarIn = zoom > maxz;
+        const target = tooFarIn ? maxz : minz;
+        const direction = tooFarIn ? 'zoom out' : 'zoom in';
+        return html`<div class="legend-row"><span class="legend-label">${direction} to level ${target} for display</span></div>`;
     }
 
     private renderCompositeLegend(sublayers: unknown[], zoom: number): TemplateResult {
@@ -1173,7 +1175,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         // Top-level layer minzoom/maxzoom (config-level override) applies regardless of composite.
         const topMinz = typeof meta?.minzoom === 'number' ? meta.minzoom : 0;
         const topMaxz = typeof meta?.maxzoom === 'number' ? meta.maxzoom : 24;
-        if (this.zoom < topMinz || this.zoom >= topMaxz + 1) {
+        if (this.zoom < topMinz || this.zoom > topMaxz) {
             return this.renderZoomHint(topMinz, topMaxz, this.zoom);
         }
 
@@ -1184,7 +1186,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
 
         const minz = topMinz;
         const maxz = topMaxz;
-        if (this.zoom < minz || this.zoom >= maxz + 1) {
+        if (this.zoom < minz || this.zoom > maxz) {
             return this.renderZoomHint(minz, maxz, this.zoom);
         }
 

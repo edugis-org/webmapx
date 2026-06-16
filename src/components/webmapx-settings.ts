@@ -162,16 +162,10 @@ export class WebmapxSettings extends LitElement {
             return;
         }
 
-        const adapter = mapElement?.adapter;
         const adapterKey = this.getMapStorageKey(mapElement, 'adapter');
-        const viewportKey = this.getMapStorageKey(mapElement, 'viewport');
 
-        if (adapter) {
-            const viewportState = adapter.getViewportState();
-            if (viewportKey) {
-                localStorage.setItem(viewportKey, JSON.stringify(viewportState));
-            }
-        }
+        // Save full map state (viewport + dynamic layers) so it survives the reload
+        (mapElement as any).saveState?.();
 
         // Save new adapter preference
         if (adapterKey) {

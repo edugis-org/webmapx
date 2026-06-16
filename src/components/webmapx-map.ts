@@ -17,6 +17,7 @@ import {
   getMapScopedStorageKey,
   resolveAdapterSelection
 } from '../config/adapter-resolution';
+import { saveMapState, consumeMapState } from '../map/map-state-persistence';
 import { ToolManager } from '../tools/tool-manager';
 import {
   rememberSingleGroupInsertSlotForGroup,
@@ -62,6 +63,7 @@ export class WebmapxMapElement extends HTMLElement {
   private readonly singleGroupLegendRoleByGroup = new Map<string, LegendRole>();
   private logicalLayerOrder: string[] = [];
   private readonly logicalLayerRole = new Map<string, LegendRole>();
+  private readonly dynamicLayerRequests = new Map<string, { request: LayerRequest; fallback?: LayerRequest | string; options?: LayerInsertOptions }>();
     // Only one connectedCallback/disconnectedCallback allowed. Add event listener in the main one.
     connectedCallback(): void {
       this.upsertAndStyleSurface();
@@ -219,6 +221,7 @@ export class WebmapxMapElement extends HTMLElement {
      */
     public removeInlineLayer(layerId: string): void {
         if (!this.adapter) return;
+        this.dynamicLayerRequests.delete(layerId);
         this.adapter.removeLayer(layerId);
         this.removeFromLogicalOrder(layerId);
         this.logicalLayerRole.delete(layerId);
@@ -270,7 +273,9 @@ export class WebmapxMapElement extends HTMLElement {
         if (!requestedLayerId) return;
 
         const success = await this.tryAddLayerRequest(adapter, { layerId: requestedLayerId }, undefined, new Set<string>(), selectionGroup ?? undefined);
-        if (!success) {
+        if (success) {
+          this.dynamicLayerRequests.set(requestedLayerId, { request: { layerId: requestedLayerId } });
+        } else {
           this.dispatchEvent(new CustomEvent('webmapx-addlayer-failed', {
             detail: { layerId: requestedLayerId },
             bubbles: true,
@@ -280,6 +285,7 @@ export class WebmapxMapElement extends HTMLElement {
       } else {
         // Remove the layer by id
         if (layerInformation) {
+          this.dynamicLayerRequests.delete(layerInformation.layer.id);
           this.rememberSingleGroupInsertSlot(adapter, layerInformation.layer.id, selectionGroup ?? undefined);
           this.removeFromLogicalOrder(layerInformation.layer.id);
           this.logicalLayerRole.delete(layerInformation.layer.id);
@@ -415,9 +421,16 @@ export class WebmapxMapElement extends HTMLElement {
       return false;
     }
 
+    const beforeIds = new Set(Object.keys(adapter.store.getState().mapLayers ?? {}));
     const visitedLayerIds = new Set<string>();
     const primarySuccess = await this.tryAddLayerRequest(adapter, layerRequest, options, visitedLayerIds);
     if (primarySuccess) {
+      const afterIds = Object.keys(adapter.store.getState().mapLayers ?? {});
+      for (const id of afterIds) {
+        if (!beforeIds.has(id)) {
+          this.dynamicLayerRequests.set(id, { request: layerRequest, fallback: fallbackLayer, options });
+        }
+      }
       return true;
     }
 
@@ -483,6 +496,41 @@ export class WebmapxMapElement extends HTMLElement {
 
   private getScopedStorageKey(kind: 'adapter' | 'viewport'): string | null {
     return getMapScopedStorageKey(this.id, kind);
+  }
+
+  /** Save full map state (viewport + dynamic layers + optional projection) to sessionStorage. */
+  public saveState(extra?: { projection?: string }): void {
+    if (!this.id) return;
+    const viewport = this.adapter?.getViewportState();
+    const layers = [...this.dynamicLayerRequests.values()];
+    saveMapState(this.id, {
+      ...(viewport ? { viewport } : {}),
+      ...(layers.length > 0 ? { layers } : {}),
+      ...(extra?.projection ? { projection: extra.projection } : {}),
+    });
+  }
+
+  /** Set projection. If engine doesn't support it at runtime, save state and reload. */
+  public setProjection(projection: string): void {
+    if (!this.adapter) return;
+    const success = this.adapter.setProjection(projection);
+    if (!success) {
+      this.saveState({ projection });
+      window.location.reload();
+    }
+  }
+
+  private async restoreState(): Promise<void> {
+    if (!this.id) return;
+    const state = consumeMapState(this.id);
+    if (!state) return;
+    for (const entry of state.layers ?? []) {
+      await this.addLayerRequest(
+        entry.request as LayerRequest,
+        entry.fallback as LayerRequest | string | undefined,
+        entry.options as LayerInsertOptions | undefined,
+      );
+    }
   }
 
   private getSavedAdapterPreference(): string | null {
@@ -1326,6 +1374,7 @@ export class WebmapxMapElement extends HTMLElement {
         }));
       }
     }
+    await this.restoreState();
   }
 
   private toLayerInformation(value: unknown): LayerInformation | null {

@@ -44,7 +44,7 @@
     "dompurify": "^3.4.8",
     "leaflet": "^1.9.4",
     "lit": "^3.3.1",
-    "maplibre-gl": "^5.14.0",
+    "maplibre-gl": "^5.24.0",
     "ol": "^10.7.0",
     "ol-mapbox-style": "^13.2.0",
     "proj4": "^2.20.2",
@@ -56,7 +56,7 @@
     "@types/topojson-client": "^3.1.5",
     "playwright": "^1.60.0",
     "typescript": "^6.0.3",
-    "vite": "^7.3.0",
+    "vite": "^8.0.16",
     "vite-plugin-static-copy": "^3.1.4"
   }
 }

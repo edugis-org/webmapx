@@ -223,6 +223,7 @@ export interface ISubMapFactory {
 export interface IMap {
     /** Stable engine identifier, unaffected by minification (e.g. 'maplibre', 'openlayers', 'leaflet', 'cesium'). */
     readonly engineId: string;
+    readonly engineVersion: string;
 
     // ===== State and Events =====
     /** Access to the map's reactive state store. */

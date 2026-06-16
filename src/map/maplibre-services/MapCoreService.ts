@@ -29,6 +29,8 @@ export class MapCoreService implements IMapCore {
 
     private mapInstance: maplibregl.Map | null = null;
     private mapReadyCallbacks: Array<(map: maplibregl.Map) => void> = [];
+    private lastContainerId: string | null = null;
+    private lastInitOptions: Parameters<MapCoreService['initialize']>[1] = undefined;
     private silentSourceIds = new Set<string>();
     private geoJSONData = new Map<string, GeoJSON.FeatureCollection>();
 
@@ -65,15 +67,39 @@ export class MapCoreService implements IMapCore {
         }
     }
 
-    public initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; styleUrl?: string; style?: MapStyle }): void {
+    public initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; bearing?: number; pitch?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; styleUrl?: string; style?: MapStyle; projection?: string }): void {
         console.log(`[CORE SERVICE] Initializing MapLibre instance in #${containerId}`);
+        this.lastContainerId = containerId;
+        this.lastInitOptions = options;
 
         const center = options?.center ?? this.initialConfig.center;
         const zoom = options?.zoom ?? this.initialConfig.zoom;
         const containerTarget = this.resolveContainer(containerId);
 
+        // Determine which style to use (inline style takes precedence)
+        const projectionSpec = options?.projection ? { projection: { type: options.projection as 'mercator' | 'globe' } } : {};
+
+        let constructorStyle: maplibregl.StyleSpecification | string | undefined;
+        if (options?.style) {
+            // Build inline style spec — include projection so it applies during initial renderer setup
+            // (v4 only processes projection on the first style load, not via style diff)
+            constructorStyle = {
+                version: 8,
+                sources: (options.style.sources || {}) as { [_: string]: maplibregl.SourceSpecification },
+                layers: (options.style.layers || []) as maplibregl.LayerSpecification[],
+                ...(options.style.glyphs && { glyphs: options.style.glyphs }),
+                ...(options.style.sprite && { sprite: options.style.sprite }),
+                ...(options.style.name && { name: options.style.name }),
+                ...projectionSpec
+            };
+        } else if (options?.styleUrl) {
+            constructorStyle = options.styleUrl;
+        } else {
+            constructorStyle = { ...this.initialConfig.style, ...projectionSpec } as any;
+        }
+
         // MAP INSTANTIATION AND STORAGE
-        this.mapInstance = new maplibregl.Map({ // Instantiate using maplibregl.Map
+        this.mapInstance = new maplibregl.Map({
             container: containerTarget,
             center,
             zoom,
@@ -81,31 +107,13 @@ export class MapCoreService implements IMapCore {
             maxZoom: options?.maxZoom,
             minPitch: options?.minPitch,
             maxPitch: options?.maxPitch,
-            pitch: this.initialConfig.pitch,
-            bearing: this.initialConfig.bearing,
-            attributionControl: false
+            pitch: options?.pitch ?? this.initialConfig.pitch,
+            bearing: options?.bearing ?? this.initialConfig.bearing,
+            attributionControl: false,
+            style: constructorStyle
         });
 
         this.flushMapReadyCallbacks();
-
-        // Determine which style to use (inline style takes precedence)
-        if (options?.style) {
-            // Convert MapStyle to MapLibre style spec (add version if missing)
-            const maplibreStyle: maplibregl.StyleSpecification = {
-                version: 8,
-                sources: (options.style.sources || {}) as { [_: string]: maplibregl.SourceSpecification },
-                layers: (options.style.layers || []) as maplibregl.LayerSpecification[],
-                ...(options.style.glyphs && { glyphs: options.style.glyphs }),
-                ...(options.style.sprite && { sprite: options.style.sprite }),
-                ...(options.style.name && { name: options.style.name })
-            };
-            this.mapInstance.setStyle(maplibreStyle);
-        } else if (options?.styleUrl) {
-            this.mapInstance.setStyle(options.styleUrl);
-        } else {
-            // Empty map - no background layers
-            this.mapInstance.setStyle(this.initialConfig.style);
-        }
 
         this.mapInstance.on('load', () => {
             const viewportBounds = this.buildViewportFeature();
@@ -412,7 +420,7 @@ export class MapCoreService implements IMapCore {
         // requested past their maxzoom) crashes maplibre's render loop with
         // "out of range source coordinates for DEM data". Only allow terrain
         // in mercator projection.
-        if (enabled && this.mapInstance.getProjection?.()?.type === 'globe') {
+        if (enabled && (this.mapInstance as any).getProjection?.()?.type === 'globe') {
             return false;
         }
         try {
@@ -736,13 +744,31 @@ export class MapCoreService implements IMapCore {
             return;
         }
 
-        const pending = this.mapReadyCallbacks.splice(0);
-        pending.forEach(callback => {
+        for (const callback of this.mapReadyCallbacks) {
             try {
                 callback(this.mapInstance!);
             } catch (error) {
                 console.error('[CORE SERVICE] mapReady callback failed.', error);
             }
+        }
+    }
+
+    public supportsRuntimeProjection(): boolean {
+        return typeof (this.mapInstance as any)?.setProjection === 'function';
+    }
+
+    public destroyAndReinitialize(projection: string): void {
+        if (!this.mapInstance || !this.lastContainerId) return;
+        const viewport = this.getViewportState();
+        this.mapInstance.remove();
+        this.mapInstance = null;
+        this.initialize(this.lastContainerId, {
+            ...this.lastInitOptions,
+            center: viewport.center,
+            zoom: viewport.zoom,
+            bearing: viewport.bearing,
+            pitch: viewport.pitch,
+            projection,
         });
     }
 }

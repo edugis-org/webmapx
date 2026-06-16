@@ -21,6 +21,7 @@ import {
     getMapScopedStorageKey,
     resolveAdapterSelection
 } from './config/adapter-resolution.ts';
+import { peekMapState } from './map/map-state-persistence.ts';
 
 // 2. Register your custom Web Components
 import './components/webmapx-map.ts';
@@ -185,7 +186,9 @@ async function initializeMap(mapElement, appConfig) {
         return;
     }
 
-    // Check for saved viewport state (from a map-scoped adapter switch)
+    // Check for saved viewport state — sessionStorage state (from saveState) takes priority,
+    // fall back to legacy localStorage viewport key (from old adapter-switch path).
+    const persistedState = peekMapState(mapElement.id);
     const savedViewportKey = getMapScopedStorageKey(mapElement.id, 'viewport');
     const savedViewport = savedViewportKey ? localStorage.getItem(savedViewportKey) : null;
 
@@ -204,7 +207,10 @@ async function initializeMap(mapElement, appConfig) {
         ...(isStyleUrl ? { styleUrl: styleConfig } : { style: styleConfig })
     };
 
-    if (savedViewport) {
+    if (persistedState?.viewport) {
+        initOptions.center = persistedState.viewport.center;
+        initOptions.zoom = persistedState.viewport.zoom;
+    } else if (savedViewport) {
         try {
             const viewport = JSON.parse(savedViewport);
             initOptions.center = viewport.center;
@@ -216,6 +222,23 @@ async function initializeMap(mapElement, appConfig) {
             console.warn(`[app] Failed to parse saved viewport for "${mapId}":`, e);
             if (savedViewportKey) {
                 localStorage.removeItem(savedViewportKey);
+            }
+        }
+    }
+
+    if (persistedState?.projection) {
+        // Always set projection option — MapCoreService adds it to the style spec via projectionSpec
+        initOptions.projection = persistedState.projection;
+        if (isStyleUrl) {
+            // Switch URL style to inline so MapCoreService can inject projection into setStyle()
+            // v4 only applies projection during initial renderer setup (first setStyle call)
+            try {
+                const resp = await fetch(styleConfig);
+                initOptions.style = await resp.json();
+                delete initOptions.styleUrl;
+            } catch (e) {
+                console.warn('[app] Failed to fetch style for projection injection:', e);
+                // styleUrl fallback — projection will still apply in v5+ via runtime setProjection
             }
         }
     }

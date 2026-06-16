@@ -20,6 +20,13 @@ export class DeferredLogicalLayerExecutor implements ILogicalLayerExecutor {
         this.flushPendingOperations();
     }
 
+    unbind(): void {
+        this.layerService = undefined;
+        this.pendingAddRequests = [];
+        this.pendingRemoveRequests = [];
+        this.baseOpacity.clear();
+    }
+
     async addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
         this.baseOpacity.set(layerConfig.id, extractBaseOpacity(layerConfig));
 
