@@ -447,6 +447,11 @@ export class MapLayerService implements ILayerService {
     }
 
     setLayerOpacity(layerId: string, opacity: number): void {
+        const warpedMapLayer = this.warpedMapLayers.get(layerId);
+        if (warpedMapLayer) {
+            warpedMapLayer.setOpacity(opacity);
+            return;
+        }
         const nativeLayerIds = this.logicalToNative.get(layerId) ?? [];
         for (const nativeLayerId of nativeLayerIds) {
             try {
