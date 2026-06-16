@@ -127,6 +127,11 @@ export interface IMapCore {
     /** Get current projection. Returns null if not supported. */
     getProjection(): { name: string; center?: [number, number]; parallels?: [number, number] } | null;
 
+    /** Enables/disables 3D terrain (elevation exaggeration). Returns false if not supported by the engine. */
+    setTerrainEnabled(enabled: boolean, terrainSource?: unknown): boolean;
+    /** Returns whether 3D terrain is currently enabled, or null if not supported by the engine. */
+    isTerrainEnabled(): boolean | null;
+
     /** Given a geographic coordinate (LngLat), returns its pixel coordinate [x, y]. */
     project(coords: LngLat): Pixel;
     /** Given a pixel coordinate [x, y] in the map container, returns geographic [lng, lat]. */
@@ -283,6 +288,11 @@ export interface IMap {
     setProjection(projection: string | { name: string; center?: [number, number]; parallels?: [number, number] }): boolean;
     /** Get current projection, or null if the engine does not support projections. */
     getProjection(): { name: string; center?: [number, number]; parallels?: [number, number] } | null;
+
+    /** Enables/disables 3D terrain (elevation exaggeration). Returns false if not supported by the engine. */
+    setTerrainEnabled(enabled: boolean, terrainSource?: unknown): boolean;
+    /** Returns whether 3D terrain is currently enabled, or null if not supported by the engine. */
+    isTerrainEnabled(): boolean | null;
 
     /** Sets the map canvas cursor style. Pass '' to restore default. */
     setCursor(cursor: string): void;

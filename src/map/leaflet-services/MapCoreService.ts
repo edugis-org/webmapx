@@ -426,6 +426,14 @@ export class MapCoreService implements IMapCore {
         // Pitch not supported in Leaflet
     }
 
+    public setTerrainEnabled(_enabled: boolean): boolean {
+        return false;
+    }
+
+    public isTerrainEnabled(): boolean | null {
+        return null;
+    }
+
     public resetNorth(): void {
         // No-op (already north-up)
     }

@@ -119,6 +119,7 @@ function getLayerSourceRefs(layerId: string, metadata: Record<string, unknown> |
 export interface LayerPanelItem {
   layerId: string;
   label: string;
+  layerType: string | undefined;
   topLevelGroup: string | null;
   visible: boolean;
   hasExtent: boolean;
@@ -141,10 +142,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   @state() private hiddenLayerIds: Set<string> = new Set();
   @state() private collapsedLayerIds: Set<string> = new Set();
   @state() private layerTransparency: Map<string, number> = new Map();
-  @state() private transparencyValueVisible: Set<string> = new Set();
   @state() private dropTargetLayerId: string | null = null;
   @state() private dropTargetPosition: 'above' | 'below' | null = null;
-  private transparencyHideTimers: Map<string, number> = new Map();
   // Lazily-computed and cached extents — geojsonExtent() walks every coordinate, so it's
   // only run when the user clicks "zoom to layer", and per-source so composite layers
   // sharing a source don't recompute it for each sublayer.
@@ -447,9 +446,6 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     this.unsubscribeLayerRemove?.();
     this.unsubscribeLayerAdd = null;
     this.unsubscribeLayerRemove = null;
-    this.transparencyHideTimers.forEach((timer) => window.clearTimeout(timer));
-    this.transparencyHideTimers.clear();
-    this.transparencyValueVisible = new Set();
   }
 
   render() {
@@ -512,13 +508,10 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                                   max="100"
                                   .value=${String(this.layerTransparency.get(item.layerId) ?? 0)}
                                   @input=${(e: Event) => this.handleTransparencyChange(item.layerId, e)}
-                                  @change=${(e: Event) => this.handleTransparencyChange(item.layerId, e)}
                                 />
-                                ${this.transparencyValueVisible.has(item.layerId)
-                                  ? html`<span class="opacity-value">${this.layerTransparency.get(item.layerId) ?? 0}%</span>`
-                                  : null}
+                                <span class="opacity-value">${this.layerTransparency.get(item.layerId) ?? 0}%</span>
                               </div>
-                              <div class="layer-legend-wrap" style=${`opacity: ${(100 - (this.layerTransparency.get(item.layerId) ?? 0)) / 100}`}>
+                              <div class="layer-legend-wrap" style=${item.layerType === 'hillshade' ? '' : `opacity: ${(100 - (this.layerTransparency.get(item.layerId) ?? 0)) / 100}`}>
                                 <webmapx-layer-legend layer-id=${item.layerId}></webmapx-layer-legend>
                               </div>
                             `
@@ -806,9 +799,18 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       const maxz = typeof metadata?.maxzoom === 'number' ? metadata.maxzoom : 24;
       const zoom = typeof state.zoomLevel === 'number' ? state.zoomLevel : 0;
 
+      const layerType = typeof metadata?.layerType === 'string' ? metadata.layerType : undefined;
+      if (layerType === 'hillshade' && !this.layerTransparency.has(layerId)) {
+        const exaggeration = Number((metadata?.paint as any)?.['hillshade-exaggeration'] ?? 1);
+        const next = new Map(this.layerTransparency);
+        next.set(layerId, Math.round((1 - exaggeration) * 100));
+        this.layerTransparency = next;
+      }
+
       const item: LayerPanelItem = {
         layerId,
         label,
+        layerType,
         topLevelGroup,
         visible: !this.hiddenLayerIds.has(layerId),
         hasExtent: this.layerHasExtent(layerId, metadata),
@@ -850,24 +852,13 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     const next = new Map(this.layerTransparency);
     next.set(layerId, transparency);
     this.layerTransparency = next;
-    this.adapter.setLayerOpacity(layerId, (100 - transparency) / 100);
+    const meta = this.adapter.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined;
+    if ((meta as any)?.layerType === 'hillshade') {
+      this.adapter.updateLayerStyle(layerId, layerId, { 'hillshade-exaggeration': (100 - transparency) / 100 });
+    } else {
+      this.adapter.setLayerOpacity(layerId, (100 - transparency) / 100);
+    }
 
-    if (!this.transparencyValueVisible.has(layerId)) {
-      const nextVisible = new Set(this.transparencyValueVisible);
-      nextVisible.add(layerId);
-      this.transparencyValueVisible = nextVisible;
-    }
-    const existingTimer = this.transparencyHideTimers.get(layerId);
-    if (existingTimer) {
-      window.clearTimeout(existingTimer);
-    }
-    const timer = window.setTimeout(() => {
-      this.transparencyHideTimers.delete(layerId);
-      const nextVisible = new Set(this.transparencyValueVisible);
-      nextVisible.delete(layerId);
-      this.transparencyValueVisible = nextVisible;
-    }, 1500);
-    this.transparencyHideTimers.set(layerId, timer);
   }
 
   private handleShowLayerInfo(layerId: string, fallbackLabel: string): void {

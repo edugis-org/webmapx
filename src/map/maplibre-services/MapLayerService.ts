@@ -18,6 +18,7 @@ const OPACITY_PAINT_PROPERTIES: Record<string, string[]> = {
     heatmap: ['heatmap-opacity'],
     background: ['background-opacity'],
     symbol: ['icon-opacity', 'text-opacity'],
+    hillshade: ['hillshade-shadow-color', 'hillshade-highlight-color', 'hillshade-accent-color'],
 };
 
 export class MapLayerService implements ILayerService {
@@ -93,6 +94,10 @@ export class MapLayerService implements ILayerService {
         return undefined;
     }
 
+    getNativeSourceId(logicalSourceId: string): string | undefined {
+        return this.logicalSourceToNative.get(logicalSourceId);
+    }
+
     private getOrCreateNativeSourceId(logicalSourceId: string): string {
         if (this.logicalSourceToNative.has(logicalSourceId)) {
             return this.logicalSourceToNative.get(logicalSourceId)!;
@@ -151,6 +156,13 @@ export class MapLayerService implements ILayerService {
         } else if (sourceConfig.type === 'geojson') {
             nativeSource = { type: 'geojson', data: (sourceConfig as any).data };
             if (typeof (sourceConfig as any).attribution === 'string') nativeSource.attribution = (sourceConfig as any).attribution;
+        } else if (sourceConfig.type === 'raster-dem') {
+            const dc = sourceConfig as any;
+            nativeSource = { type: 'raster-dem', tiles: dc.tiles };
+            if (typeof dc.tileSize === 'number') nativeSource.tileSize = dc.tileSize;
+            if (typeof dc.encoding === 'string') nativeSource.encoding = dc.encoding;
+            if (typeof dc.maxzoom === 'number') nativeSource.maxzoom = dc.maxzoom;
+            if (typeof dc.attribution === 'string') nativeSource.attribution = dc.attribution;
         } else if (sourceConfig.type === 'vector') {
             const vc = sourceConfig as any;
             nativeSource = vc.tiles
@@ -233,6 +245,25 @@ export class MapLayerService implements ILayerService {
     private static readonly LAYOUT_KEYS = new Set(['text-size', 'icon-size', 'text-field', 'visibility']);
 
     /** Maps a paint/layout key's prefix to the maplibre layer type that owns it. */
+    private _pendingHillshade: Map<string, {key: string; value: unknown; rafId: number}> = new Map();
+
+    private applyHillshadePaintThrottled(nativeLayerId: string, key: string, value: unknown): void {
+        const existing = this._pendingHillshade.get(nativeLayerId);
+        if (existing) {
+            existing.key = key;
+            existing.value = value;
+            return;
+        }
+        const rafId = requestAnimationFrame(() => {
+            const pending = this._pendingHillshade.get(nativeLayerId);
+            if (!pending) return;
+            this._pendingHillshade.delete(nativeLayerId);
+            this.map.setPaintProperty(nativeLayerId, pending.key, pending.value as any);
+            this.map.triggerRepaint();
+        });
+        this._pendingHillshade.set(nativeLayerId, { key, value, rafId });
+    }
+
     private static layerTypeForKey(key: string): string {
         if (key.startsWith('fill-extrusion')) return 'fill-extrusion';
         if (key.startsWith('text-') || key.startsWith('icon-')) return 'symbol';
@@ -242,6 +273,8 @@ export class MapLayerService implements ILayerService {
     private applyStyleProperty(nativeLayerId: string, key: string, value: unknown): void {
         if (MapLayerService.LAYOUT_KEYS.has(key)) {
             this.map.setLayoutProperty(nativeLayerId, key, value as any);
+        } else if (key === 'hillshade-exaggeration') {
+            this.applyHillshadePaintThrottled(nativeLayerId, key, value);
         } else {
             this.map.setPaintProperty(nativeLayerId, key, value as any);
         }
@@ -262,7 +295,8 @@ export class MapLayerService implements ILayerService {
         // 'text-size'/'text-color' -> '-symbol').
         if (styleId !== subLayerId) return false;
         let updated = false;
-        for (const nativeId of this.logicalToNative.get(styleId) ?? []) {
+        const candidates = this.logicalToNative.get(styleId) ?? [];
+        for (const nativeId of candidates) {
             if (!this.map.getLayer(nativeId)) continue;
             for (const [key, value] of Object.entries(partialPaint)) {
                 const type = MapLayerService.layerTypeForKey(key);
@@ -319,6 +353,9 @@ export class MapLayerService implements ILayerService {
         const nativeLayerId = `${layerId}-${sourceConfig.id}-${stdLayer.type}`;
         if (!this.map.getLayer(nativeLayerId)) {
             this.map.addLayer(this.buildNativeLayer(nativeLayerId, stdLayer, nativeSourceId, layerId), insertBeforeLayerId);
+            if (stdLayer.type === 'hillshade') {
+                this.map.setPaintProperty(nativeLayerId, 'hillshade-exaggeration-transition', { duration: 0, delay: 0 } as any);
+            }
         }
         this.logicalLayerLegendRole.set(layerId, legendRole);
         const existing = this.logicalToNative.get(layerId) ?? [];
@@ -360,6 +397,18 @@ export class MapLayerService implements ILayerService {
         this.logicalToNative.delete(layerId);
         this.logicalLayerLegendRole.delete(layerId);
 
+        const terrain = this.map.getTerrain?.();
+        if (terrain) {
+            const terrainMatchesLayer = nativeSourceIds.has(terrain.source);
+            if (terrainMatchesLayer) {
+                this.map.setTerrain(null);
+                const terrainSrc = terrain.source;
+                if (this.map.getSource(terrainSrc) && !nativeSourceIds.has(terrainSrc)) {
+                    this.map.removeSource(terrainSrc);
+                }
+            }
+        }
+
         for (const sourceId of nativeSourceIds) {
             let stillUsed = false;
             for (const usedId of this.nativeLayerToSource.values()) {
@@ -400,6 +449,12 @@ export class MapLayerService implements ILayerService {
                 const nativeLayer = this.map.getLayer(nativeLayerId);
                 const properties = nativeLayer ? OPACITY_PAINT_PROPERTIES[nativeLayer.type] : undefined;
                 if (!properties) continue;
+                if (nativeLayer!.type === 'hillshade') {
+                    this.map.setPaintProperty(nativeLayerId, 'hillshade-shadow-color', `rgba(0,0,0,${opacity})`);
+                    this.map.setPaintProperty(nativeLayerId, 'hillshade-highlight-color', `rgba(255,255,255,${opacity})`);
+                    this.map.setPaintProperty(nativeLayerId, 'hillshade-accent-color', `rgba(0,0,0,${opacity})`);
+                    continue;
+                }
                 for (const property of properties) {
                     this.map.setPaintProperty(nativeLayerId, property, opacity);
                 }

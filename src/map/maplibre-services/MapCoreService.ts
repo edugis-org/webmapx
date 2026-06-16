@@ -390,6 +390,66 @@ export class MapCoreService implements IMapCore {
         this.mapInstance.removeLayer(id);
     }
 
+    private static readonly TERRAIN_SOURCE_ID = 'webmapx-terrain-dem';
+    private static readonly TERRAIN_HILLSHADE_LAYER_ID = 'webmapx-terrain-hillshade';
+    private static readonly TERRAIN_SOURCE_CONFIG = {
+        type: 'raster-dem',
+        tiles: [
+            'https://t1.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png',
+            'https://t2.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png',
+            'https://t3.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png',
+            'https://t4.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png',
+        ],
+        tileSize: 256,
+        encoding: 'terrarium',
+        maxzoom: 15,
+        attribution: 'NextZen',
+    };
+
+    public setTerrainEnabled(enabled: boolean, sourceConfig?: any, nativeSourceId?: string): boolean {
+        if (!this.mapInstance) return false;
+        // Raster-dem terrain combined with the globe projection (or DEM tiles
+        // requested past their maxzoom) crashes maplibre's render loop with
+        // "out of range source coordinates for DEM data". Only allow terrain
+        // in mercator projection.
+        if (enabled && this.mapInstance.getProjection?.()?.type === 'globe') {
+            return false;
+        }
+        try {
+            if (enabled) {
+                const terrainSrcId = nativeSourceId ?? MapCoreService.TERRAIN_SOURCE_ID;
+                if (!this.mapInstance.getSource(terrainSrcId)) {
+                    this.mapInstance.addSource(terrainSrcId, (sourceConfig ?? MapCoreService.TERRAIN_SOURCE_CONFIG) as any);
+                }
+                this.mapInstance.setTerrain({ source: terrainSrcId, exaggeration: 1 });
+                // Only add a raw hillshade layer when no proper addLayer-managed one exists.
+                if (!nativeSourceId && !this.mapInstance.getLayer(MapCoreService.TERRAIN_HILLSHADE_LAYER_ID)) {
+                    this.mapInstance.addLayer({
+                        id: MapCoreService.TERRAIN_HILLSHADE_LAYER_ID,
+                        type: 'hillshade',
+                        source: MapCoreService.TERRAIN_SOURCE_ID,
+                        paint: { 'hillshade-exaggeration': 0.2 },
+                    } as any);
+                }
+            } else {
+                this.mapInstance.setTerrain(null as any);
+                if (this.mapInstance.getLayer(MapCoreService.TERRAIN_HILLSHADE_LAYER_ID)) {
+                    this.mapInstance.removeLayer(MapCoreService.TERRAIN_HILLSHADE_LAYER_ID);
+                }
+            }
+        } catch (e) {
+            console.error('[MapLibre] setTerrain failed', e);
+            this.mapInstance.setTerrain(null as any);
+            return false;
+        }
+        return true;
+    }
+
+    public isTerrainEnabled(): boolean | null {
+        if (!this.mapInstance) return null;
+        return !!this.mapInstance.getTerrain();
+    }
+
     public addSource(id: string, config: any): void {
         this.mapInstance?.addSource(id, config);
         if (config?.type === 'geojson' && config.data && typeof config.data === 'object') {
@@ -422,8 +482,14 @@ export class MapCoreService implements IMapCore {
             console.warn('[CORE SERVICE - MapLibre] project called before map instance is ready.');
             return [0, 0];
         }
-        const point = this.mapInstance.project(coords); // MapLibre's project method takes LngLat directly
-        return [point.x, point.y];
+        // With terrain enabled, project() queries DEM elevation and throws
+        // RangeError if the relevant DEM tile isn't loaded yet for these coords.
+        try {
+            const point = this.mapInstance.project(coords); // MapLibre's project method takes LngLat directly
+            return [point.x, point.y];
+        } catch (e) {
+            return [0, 0];
+        }
     }
 
     public unproject(pixel: Pixel): LngLat | null {

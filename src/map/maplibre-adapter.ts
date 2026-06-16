@@ -28,6 +28,7 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
     private readonly logicalLayerExecutor: DeferredLogicalLayerExecutor;
     private readonly queryExecutor: DeferredQueryService;
     private markerService: MapMarkerService | null = null;
+    private layerService: MapLayerService | null = null;
 
     constructor() {
         super();
@@ -41,6 +42,7 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
         (this.core as any).onMapReady?.((map: any) => {
             const bindLogicalLayers = () => {
                 const layerService = new MapLayerService(map, this.store);
+                this.layerService = layerService;
                 this.logicalLayerExecutor.bind(layerService);
                 this.queryExecutor.bind(new MapQueryService(map, layerService, this.store));
                 this.markerService = new MapMarkerService(map);
@@ -92,6 +94,18 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
 
     setPitch(pitch: number): void {
         this.core.setPitch(pitch);
+    }
+
+    setTerrainEnabled(enabled: boolean, terrainSource?: unknown): boolean {
+        // Resolve logical source id → native source id so core uses the same
+        // source that MapLayerService already registered for the hillshade layer.
+        const logicalId = (terrainSource as any)?.id as string | undefined;
+        const nativeSourceId = logicalId ? this.layerService?.getNativeSourceId(logicalId) : undefined;
+        return (this.core as MapCoreService).setTerrainEnabled(enabled, terrainSource, nativeSourceId);
+    }
+
+    isTerrainEnabled(): boolean | null {
+        return this.core.isTerrainEnabled();
     }
 
     resetNorth(): void {

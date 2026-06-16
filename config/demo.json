@@ -1006,6 +1006,19 @@
           53.7
         ],
         "attribution": "&copy; Kadaster | PDOK"
+      },
+      "mapzenhillshading-source": {
+        "type": "raster-dem",
+        "tiles": [
+          "https://t1.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "encoding": "terrarium",
+        "maxzoom": 15,
+        "attribution": "NextZen"
       }
     },
     "layers": {
@@ -1022,6 +1035,15 @@
         "source": "google-satellite-source",
         "singleGroup": "basemap",
         "title": "Google Satellite"
+      },
+      "relief": {
+        "id": "relief",
+        "type": "hillshade",
+        "source": "mapzenhillshading-source",
+        "title": "Relief (hillshade)",
+        "paint": {
+          "hillshade-exaggeration": 0.2
+        }
       },
       "openfreemap-liberty": {
         "id": "openfreemap-liberty",

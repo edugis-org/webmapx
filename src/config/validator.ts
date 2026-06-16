@@ -33,6 +33,7 @@ const KNOWN_KEYS = {
   sourceRaster: ['service', 'url', 'tiles', 'tileSize', 'minzoom', 'maxzoom', 'bounds', 'scheme', 'volatile', 'attribution', 'layers', 'format', 'transparent', 'version', 'crs'],
   sourceGeojson: ['data', 'attribution', 'minzoom', 'maxzoom', 'bounds', 'buffer', 'tolerance', 'cluster', 'clusterRadius', 'clusterMaxZoom', 'lineMetrics', 'generateId'],
   sourceVector: ['url', 'tiles', 'bounds', 'scheme', 'minzoom', 'maxzoom', 'attribution', 'volatile'],
+  sourceRasterDem: ['tiles', 'tileSize', 'encoding', 'maxzoom', 'attribution'],
   layer: ['id', 'type', 'source', 'source-layer', 'sources', 'layers', 'url', 'annotation', 'fallbackLayerId', 'singleGroup', 'title', 'metadata', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
   styleLayer: ['id', 'type', 'source', 'sourceLayer', 'source-layer', 'metadata', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
   tool: ['enabled'],
@@ -42,9 +43,9 @@ const KNOWN_KEYS = {
 };
 
 const VALID_MAP_TYPES = ['maplibre', 'openlayers', 'leaflet', 'cesium'];
-const VALID_SOURCE_TYPES = ['raster', 'geojson', 'vector'];
+const VALID_SOURCE_TYPES = ['raster', 'geojson', 'vector', 'raster-dem'];
 const VALID_RASTER_SERVICES = ['xyz', 'wms', 'wmts'];
-const VALID_LAYER_TYPES = ['background', 'fill', 'line', 'circle', 'symbol', 'raster', 'fill-extrusion', 'heatmap'];
+const VALID_LAYER_TYPES = ['background', 'fill', 'line', 'circle', 'symbol', 'raster', 'fill-extrusion', 'heatmap', 'hillshade'];
 const VALID_TREE_SELECTION_MODES = ['multiple', 'single'];
 
 /**
@@ -539,6 +540,12 @@ function validateSources(
       const hasTiles = Array.isArray(s.tiles) && s.tiles.length > 0;
       if (!hasUrl && !hasTiles) {
         errors.push({ severity: 'error', path: `${path}.url`, message: 'Vector source requires a "url" or "tiles"' });
+      }
+    } else if (s.type === 'raster-dem') {
+      knownKeys.push(...KNOWN_KEYS.sourceRasterDem);
+      const hasTiles = Array.isArray(s.tiles) && s.tiles.length > 0 && s.tiles.every((entry) => typeof entry === 'string' && entry.length > 0);
+      if (!hasTiles) {
+        errors.push({ severity: 'error', path: `${path}.tiles`, message: 'Raster-dem source requires a non-empty "tiles" string array' });
       }
     }
 

@@ -111,6 +111,8 @@ export class MapCoreService implements IMapCore {
     private layerOrderRegistry: { registerInlineLayer: (id: string, options?: any) => void; unregisterInlineLayer: (id: string) => void } | null = null;
     private readonly layerZStepMeters = 0.5;
     private readonly basePolylinePositions = new WeakMap<any, any[]>();
+    private terrainEnabled = false;
+    private arcgisTerrainProvider: any = null;
 
     public initialize(
         containerId: string,
@@ -170,6 +172,35 @@ export class MapCoreService implements IMapCore {
         // Initial store state (center/zoom will be corrected on first moveEnd tick)
         this.store.dispatch({ mapLoaded: true, mapBusy: false, mapCenter: center, zoomLevel: zoom }, 'MAP');
         this.flushReady();
+    }
+
+    public setTerrainEnabled(enabled: boolean, terrainUrl?: string): boolean {
+        const Cesium = getCesium();
+        if (!Cesium || !this.viewer) return false;
+        this.terrainEnabled = enabled;
+        if (!enabled) {
+            this.viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider();
+            return true;
+        }
+        if (this.arcgisTerrainProvider) {
+            this.viewer.terrainProvider = this.arcgisTerrainProvider;
+            return true;
+        }
+        const url = terrainUrl ?? 'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer';
+        Promise.resolve(Cesium.ArcGISTiledElevationTerrainProvider.fromUrl(url))
+            .then((provider: any) => {
+                this.arcgisTerrainProvider = provider;
+                if (this.terrainEnabled && this.viewer) {
+                    this.viewer.terrainProvider = provider;
+                }
+            })
+            .catch((e: unknown) => console.error('[Cesium] failed to load terrain provider', e));
+        return true;
+    }
+
+    public isTerrainEnabled(): boolean | null {
+        if (!this.viewer) return null;
+        return this.terrainEnabled;
     }
 
     public getViewportState(): { center: [number, number]; zoom: number; bearing: number; pitch: number } {

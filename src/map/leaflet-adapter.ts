@@ -85,6 +85,14 @@ export class LeafletAdapter extends BaseAdapter implements IMap {
         this.core.setPitch(pitch);
     }
 
+    setTerrainEnabled(_enabled: boolean): boolean {
+        return false;
+    }
+
+    isTerrainEnabled(): boolean | null {
+        return null;
+    }
+
     resetNorth(): void {
         this.core.resetNorth();
     }

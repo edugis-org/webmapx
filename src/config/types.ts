@@ -109,7 +109,15 @@ export interface VectorSourceConfig extends SourceConfigBase {
   url?: string;
 }
 
-export type SourceConfig = RasterSourceConfig | GeoJSONSourceConfig | VectorSourceConfig;
+export interface RasterDemSourceConfig extends SourceConfigBase {
+  type: 'raster-dem';
+  tiles: string[];
+  tileSize?: number;
+  encoding?: 'terrarium' | 'mapbox';
+  maxzoom?: number;
+}
+
+export type SourceConfig = RasterSourceConfig | GeoJSONSourceConfig | VectorSourceConfig | RasterDemSourceConfig;
 
 // ---------------------------------------------------------------------------
 // Layer configuration — maplibre-spec-aligned with webmapx extensions
@@ -235,7 +243,7 @@ export interface SubLayerSpec {
  * inside a parent CompositeStyleLayerConfig (local).
  */
 export interface StandardLayerConfig extends WebMapXLayerBase {
-  type: 'raster' | 'fill' | 'line' | 'circle' | 'symbol' | 'background' | 'fill-extrusion' | 'heatmap';
+  type: 'raster' | 'fill' | 'line' | 'circle' | 'symbol' | 'background' | 'fill-extrusion' | 'heatmap' | 'hillshade';
   /** Source id — resolved local-first, then from layerData.sources. */
   source?: string;
   'source-layer'?: string;

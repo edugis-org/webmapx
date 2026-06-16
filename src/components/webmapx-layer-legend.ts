@@ -19,6 +19,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
 
     /** Sub-layer id (empty string for non-composite) whose inline style editor is open, or null. */
     @state() private editorOpenKey: string | null = null;
+    @state() private terrainEnabled = false;
 
     static styles = css`
         :host { display: block; }
@@ -62,6 +63,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         const entry = (state.mapLayers ?? {})[this.layerId] as Record<string, unknown> | undefined;
         this.meta = entry ?? null;
         if (typeof state.zoomLevel === 'number') this.zoom = state.zoomLevel;
+        this.terrainEnabled = this.adapter?.isTerrainEnabled() === true;
     }
 
     // ─── Expression evaluator ─────────────────────────────────────────────────
@@ -412,7 +414,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 <rect x="1" y="1" width="18" height="10" fill="${c}" rx="1"/>
             </svg>`;
         }
-        if (type === 'raster') {
+        if (type === 'raster' || type === 'hillshade') {
             return svg`<svg width="20" height="12" style="flex-shrink:0">
                 <defs><pattern id="rp" width="4" height="4" patternUnits="userSpaceOnUse">
                     <rect width="2" height="2" fill="#ccc"/>
@@ -973,12 +975,36 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             </div>`;
         }
 
+        if (layerType === 'hillshade') {
+            return html``;
+        }
+
         return html``;
+    }
+
+    private renderHillshadeTerrainCheckbox(): TemplateResult {
+        return html`
+            <div class="style-editor-row" style="padding:2px 0">
+                <input type="checkbox" id="hillshade-terrain-${this.layerId}" .checked=${this.terrainEnabled}
+                    @change=${(e: Event) => this.toggleTerrainFromHillshade((e.target as HTMLInputElement).checked)}>
+                <label for="hillshade-terrain-${this.layerId}" style="flex:1">Show terrain in 3D</label>
+            </div>`;
+    }
+
+    /** Enables/disables 3D terrain using this hillshade layer's raster-dem source. */
+    private toggleTerrainFromHillshade(enabled: boolean): void {
+        const sourceId = typeof this.meta?.sourceId === 'string' ? this.meta.sourceId : undefined;
+        const sourceConfig = sourceId
+            ? this.layerDataConfig?.sources?.find((s: any) => s?.id === sourceId)
+            : undefined;
+        this.adapter?.setTerrainEnabled(enabled, sourceConfig);
+        this.terrainEnabled = this.adapter?.isTerrainEnabled() === true;
     }
 
     /** Whether the given (single, non-composite) layer's paint is simple enough to edit inline (no data/zoom expressions). */
     private isEditableType(layerType: string | null, paint: Record<string, unknown>): boolean {
         if (!layerType) return false;
+        if (layerType === 'hillshade') return true;
         const colorKey = layerType === 'fill' ? 'fill-color'
             : layerType === 'fill-extrusion' ? 'fill-extrusion-color'
             : layerType === 'line' ? 'line-color'
@@ -1117,7 +1143,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 </div>`];
         }
 
-        if (layerType === 'raster' || layerType === 'background') {
+        if (layerType === 'raster' || layerType === 'background' || layerType === 'hillshade') {
             return [html`
                 <div class="legend-row">
                     ${svg`<svg width="24" height="14" style="flex-shrink:0">
@@ -1162,7 +1188,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             return this.renderZoomHint(minz, maxz, this.zoom);
         }
 
-        const supportedTypes = ['fill', 'fill-extrusion', 'line', 'circle', 'symbol', 'raster', 'background'];
+        const supportedTypes = ['fill', 'fill-extrusion', 'line', 'circle', 'symbol', 'raster', 'background', 'hillshade'];
         const hasSwatch = layerType && supportedTypes.includes(layerType) && !legendUrl;
 
         const overrides = this.editOverrides[''];
@@ -1176,6 +1202,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                     <div class=${editable ? 'editable' : ''} @click=${editable ? () => { this.editorOpenKey = isOpen ? null : ''; } : null}>
                         ${this.renderLegendItems([''], layerType!, effectivePaint)}
                     </div>
+                    ${layerType === 'hillshade' ? this.renderHillshadeTerrainCheckbox() : ''}
                     ${editable && isOpen ? this.renderStyleEditor([''], layerType!, effectivePaint) : ''}
                 ` : ''}
                 ${legendUrl ? html`

@@ -390,6 +390,14 @@ export class MapCoreService implements IMapCore {
         // Pitch not supported in OpenLayers 2D mode
     }
 
+    public setTerrainEnabled(_enabled: boolean): boolean {
+        return false;
+    }
+
+    public isTerrainEnabled(): boolean | null {
+        return null;
+    }
+
     public resetNorth(): void {
         this.setBearing(0);
     }

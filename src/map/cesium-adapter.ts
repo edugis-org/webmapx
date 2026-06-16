@@ -136,6 +136,14 @@ export class CesiumAdapter extends BaseAdapter implements IMap {
         this.core.setPitch(pitch);
     }
 
+    setTerrainEnabled(enabled: boolean, terrainSource?: unknown): boolean {
+        return this.core.setTerrainEnabled(enabled, terrainSource as string | undefined);
+    }
+
+    isTerrainEnabled(): boolean | null {
+        return this.core.isTerrainEnabled();
+    }
+
     resetNorth(): void {
         this.core.resetNorth();
     }
