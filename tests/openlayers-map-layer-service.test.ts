@@ -61,12 +61,16 @@ test('MapLayerService merges native ids across per-source adds for one logical l
   const service = createService();
   const internal = accessServiceInternals<{
     createLayer: (nativeLayerId: string) => Promise<{ __layerId: string }>;
-    createStyleBackedVectorTileLayer: (nativeLayerId: string) => Promise<{ __layerId: string }>;
+    createStyleBackedVectorTileLayer: (nativeLayerId: string) => Promise<{ layer: any; mapboxLayerIds: any[]; spriteResources: null } | null>;
     logicalToNative: Map<string, string[]>;
   }>(service);
 
   internal.createLayer = async (nativeLayerId: string) => ({ __layerId: nativeLayerId });
-  internal.createStyleBackedVectorTileLayer = async (nativeLayerId: string) => ({ __layerId: nativeLayerId });
+  internal.createStyleBackedVectorTileLayer = async (nativeLayerId: string) => ({
+    layer: { __layerId: nativeLayerId } as any,
+    mapboxLayerIds: [],
+    spriteResources: null,
+  });
 
   const compositeLayer: CompositeStyleLayerConfig = {
     id: 'openfreemap-liberty',
@@ -205,7 +209,7 @@ test('MapLayerService caps style-backed vector source tile grid at source maxzoo
     maxZoom: 14,
   });
 
-  const layer = await service.createStyleBackedVectorTileLayer(
+  const result = await service.createStyleBackedVectorTileLayer(
     'openfreemap-liberty-openmaptiles-vector-style',
     {
       id: 'openfreemap-liberty',
@@ -222,7 +226,8 @@ test('MapLayerService caps style-backed vector source tile grid at source maxzoo
     }
   );
 
-  assert.ok(layer);
+  assert.ok(result);
+  const layer = (result as any).layer ?? result;
   assert.equal(layer.getSource().getTileGrid()?.getMaxZoom(), 14);
   assert.equal(
     layer.getSource().getTileUrlFunction()([15, 16830, 10768], 1, null),
