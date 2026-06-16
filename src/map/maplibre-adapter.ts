@@ -1,6 +1,6 @@
 // src/map/maplibre-adapter.ts
 
-import { IMap, IMapCore, IToolService, ISubMapFactory, LayerInsertOptions } from './IMapInterfaces';
+import { IMap, IMapCore, IToolService, ISubMapFactory, LayerInsertOptions, type SourceFeatureQueryOptions, type SourceFeatureSample } from './IMapInterfaces';
 import * as _ml from 'maplibre-gl';
 
 import { LngLat, Pixel } from '../store/map-events';
@@ -158,6 +158,10 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
 
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
         return this.core.getSourceData(sourceId) ?? this.logicalLayerExecutor.getSourceData(sourceId);
+    }
+
+    querySourceFeatures(sourceId: string, options?: SourceFeatureQueryOptions): SourceFeatureSample | null {
+        return this.logicalLayerExecutor.querySourceFeatures(sourceId, options);
     }
 
     project(coords: LngLat): Pixel {

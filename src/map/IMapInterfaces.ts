@@ -13,6 +13,14 @@ export interface MarkerOptions {
 }
 import type { MapStateStore } from '../store/map-state-store';
 
+export interface SourceFeatureQueryOptions {
+    sourceLayer?: string;
+}
+
+export interface SourceFeatureSample {
+    features: GeoJSON.Feature[];
+}
+
 /**
  * Options for creating a map instance.
  */
@@ -320,6 +328,13 @@ export interface IMap {
     /** Returns the `attribution` configured on a source via addSource, if any. */
     getSourceAttribution(sourceId: string): string | undefined;
 
+    /**
+     * Returns features currently loaded for a source, when the engine can expose
+     * them. For vector tile sources this is a viewport/tile sample, not a full
+     * dataset count.
+     */
+    querySourceFeatures?(sourceId: string, options?: SourceFeatureQueryOptions): SourceFeatureSample | null;
+
     // ===== Coordinate Conversion =====
     /** Projects geographic [lng, lat] to screen pixel [x, y]. */
     project(coords: LngLat): Pixel;
@@ -449,6 +464,9 @@ export interface ILogicalLayerExecutor {
     /** Returns current GeoJSON data for a catalog/logical source, or null if unavailable. */
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null;
 
+    /** Returns currently loaded source features when supported by the engine. */
+    querySourceFeatures?(sourceId: string, options?: SourceFeatureQueryOptions): SourceFeatureSample | null;
+
     /** Updates a catalog/logical GeoJSON source. Returns true when the source exists and was updated. */
     setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean;
 
@@ -500,6 +518,9 @@ export interface ILayerService {
 
     /** Returns current GeoJSON data for a catalog/logical source, or null if unavailable. */
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null;
+
+    /** Returns currently loaded source features when supported by the engine. */
+    querySourceFeatures?(sourceId: string, options?: SourceFeatureQueryOptions): SourceFeatureSample | null;
 
     /** Updates a catalog/logical GeoJSON source. Returns true when the source exists and was updated. */
     setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean;

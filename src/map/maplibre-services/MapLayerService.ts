@@ -1,6 +1,6 @@
 // src/map/maplibre-services/MapLayerService.ts
 
-import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
+import { ILayerService, LayerInsertOptions, type SourceFeatureQueryOptions, type SourceFeatureSample } from '../IMapInterfaces';
 import { normalizeRawSource } from '../layer-source-utils';
 import { normalizeCompositeLayer, type NormalizedCompositeSpec } from '../composite-layer-utils';
 import type { AnyLayerConfig, StandardLayerConfig, SourceConfig, WMSSourceConfig, GeoJSONSourceConfig, SubLayerSpec } from '../../config/types';
@@ -482,6 +482,31 @@ export class MapLayerService implements ILayerService {
             if (data && typeof data === 'object') return data as GeoJSON.FeatureCollection;
         } catch (_) {}
         return null;
+    }
+
+    querySourceFeatures(sourceId: string, options: SourceFeatureQueryOptions = {}): SourceFeatureSample | null {
+        const nativeSourceId = this.logicalSourceToNative.get(sourceId);
+        if (!nativeSourceId || !this.map.getSource(nativeSourceId)) return null;
+        try {
+            const params = options.sourceLayer ? { sourceLayer: options.sourceLayer } : undefined;
+            const rawFeatures = this.map.querySourceFeatures(nativeSourceId, params as any);
+            const features = this.dedupeSourceFeatures(rawFeatures.map((feature) => feature.toJSON() as GeoJSON.Feature));
+            return { features };
+        } catch (_) {
+            return null;
+        }
+    }
+
+    private dedupeSourceFeatures(features: GeoJSON.Feature[]): GeoJSON.Feature[] {
+        const seen = new Set<string>();
+        return features.filter((feature) => {
+            const key = feature.id !== undefined
+                ? `id:${String(feature.id)}`
+                : JSON.stringify([feature.geometry, feature.properties ?? {}]);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
     }
 
     setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean {

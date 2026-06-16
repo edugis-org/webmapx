@@ -1,5 +1,5 @@
 import type { AnyLayerConfig } from '../config/types';
-import type { ILayerService, ILogicalLayerExecutor, LayerInsertOptions } from './IMapInterfaces';
+import type { ILayerService, ILogicalLayerExecutor, LayerInsertOptions, SourceFeatureQueryOptions, SourceFeatureSample } from './IMapInterfaces';
 import { extractBaseOpacity } from './layer-opacity-utils';
 
 type PendingAddRequest = {
@@ -73,6 +73,10 @@ export class DeferredLogicalLayerExecutor implements ILogicalLayerExecutor {
 
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
         return this.layerService?.getSourceData(sourceId) ?? null;
+    }
+
+    querySourceFeatures(sourceId: string, options?: SourceFeatureQueryOptions): SourceFeatureSample | null {
+        return this.layerService?.querySourceFeatures?.(sourceId, options) ?? null;
     }
 
     setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean {

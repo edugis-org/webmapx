@@ -6,8 +6,10 @@ import type { IMap } from '../map/IMapInterfaces';
 import type { LayerAddEvent, LayerRemoveEvent } from '../store/map-events';
 import './webmapx-layer-legend';
 import './webmapx-layer-info-dialog';
+import './webmapx-layer-style-dialog';
 import './webmapx-save-layers-dialog';
 import type { WebmapxLayerInfoDialog } from './webmapx-layer-info-dialog';
+import type { LayerStyleTarget, SourceAttributeInfo, SourceStyleGroup, WebmapxLayerStyleDialog } from './webmapx-layer-style-dialog';
 import type { WebmapxSaveLayersDialog, SaveLayerCandidate } from './webmapx-save-layers-dialog';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
@@ -123,7 +125,15 @@ export interface LayerPanelItem {
   topLevelGroup: string | null;
   visible: boolean;
   hasExtent: boolean;
+  hasStyleDialog: boolean;
   outOfZoom: boolean;
+}
+
+const STYLE_DIALOG_LAYER_TYPES = new Set(['circle', 'symbol', 'label', 'line', 'fill', 'fill-extrusion']);
+
+interface SourceLayerTarget extends LayerStyleTarget {
+  sourceId: string;
+  sourceLayer?: string;
 }
 
 @customElement('webmapx-layer-overview')
@@ -150,6 +160,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   private sourceExtentCache: Map<string, [number, number, number, number] | null> = new Map();
   private layerExtentCache: Map<string, [number, number, number, number] | null> = new Map();
   @query('webmapx-layer-info-dialog') private infoDialog!: WebmapxLayerInfoDialog;
+  @query('webmapx-layer-style-dialog') private styleDialog!: WebmapxLayerStyleDialog;
   @query('webmapx-save-layers-dialog') private saveLayersDialog!: WebmapxSaveLayersDialog;
   private unsubscribeLayerAdd: (() => void) | null = null;
   private unsubscribeLayerRemove: (() => void) | null = null;
@@ -455,6 +466,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         ${this.renderSection(this.backgroundTitle, this.backgroundLayers, 'No base map selected.')}
       </div>
       <webmapx-layer-info-dialog></webmapx-layer-info-dialog>
+      <webmapx-layer-style-dialog></webmapx-layer-style-dialog>
       <webmapx-save-layers-dialog></webmapx-save-layers-dialog>
     `;
   }
@@ -525,6 +537,13 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                             label="About this layer"
                             @click=${() => this.handleShowLayerInfo(item.layerId, item.label)}
                           ></sl-icon-button>
+                          ${item.hasStyleDialog
+                            ? html`<sl-icon-button
+                                name="palette"
+                                label="Layer style"
+                                @click=${() => this.handleShowLayerStyle(item.layerId, item.label)}
+                              ></sl-icon-button>`
+                            : null}
                           ${item.hasExtent
                             ? html`<sl-icon-button
                                 name="zoom-in"
@@ -814,6 +833,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         topLevelGroup,
         visible: !this.hiddenLayerIds.has(layerId),
         hasExtent: this.layerHasExtent(layerId, metadata),
+        hasStyleDialog: this.layerHasStyleDialog(metadata),
         outOfZoom: zoom < minz || zoom >= maxz + 1,
       };
 
@@ -875,6 +895,12 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     this.infoDialog?.open(title, abstract, attribution, featureSummary);
   }
 
+  private handleShowLayerStyle(layerId: string, fallbackLabel: string): void {
+    const runtimeMetadata = this.adapter?.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined;
+    const title = (runtimeMetadata?.label as string | undefined) ?? fallbackLabel;
+    this.styleDialog?.open(title, this.getLayerStyleGroups(layerId, runtimeMetadata));
+  }
+
   /** For geojson-backed layers, returns one feature-count/geometry-type summary per
    *  distinct geojson source (composite layers may reference several), if data is loaded. */
   private getLayerFeatureSummary(layerId: string, runtimeMetadata: Record<string, unknown> | undefined): string | undefined {
@@ -903,6 +929,185 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     if (Array.isArray(metadata?.bounds) && metadata.bounds.length === 4) return true;
     return getLayerSourceRefs(layerId, metadata).some((candidates) =>
       candidates.some((sourceId) => this.adapter?.getSourceData(sourceId) !== null));
+  }
+
+  private layerHasStyleDialog(metadata: Record<string, unknown> | undefined): boolean {
+    return this.getLayerStyleTargets('', metadata).length > 0;
+  }
+
+  private getLayerStyleTargets(layerId: string, metadata: Record<string, unknown> | undefined): SourceLayerTarget[] {
+    const targets: SourceLayerTarget[] = [];
+    if (Array.isArray(metadata?.sublayers) && metadata.sublayers.length > 0) {
+      this.collectStyleTargetsFromSublayers(layerId, metadata.sublayers, targets);
+    } else {
+      const layerType = typeof metadata?.layerType === 'string' ? metadata.layerType : undefined;
+      const sourceId = typeof metadata?.sourceId === 'string' ? metadata.sourceId : '';
+      if (layerType && STYLE_DIALOG_LAYER_TYPES.has(layerType)) {
+        targets.push({ id: layerId, type: layerType, sourceId });
+      }
+    }
+    return targets;
+  }
+
+  private collectStyleTargetsFromSublayers(layerId: string, sublayers: unknown, targets: SourceLayerTarget[]): void {
+    if (!Array.isArray(sublayers)) return;
+    for (const sublayer of sublayers) {
+      if (!sublayer || typeof sublayer !== 'object') continue;
+      const sub = sublayer as Record<string, unknown>;
+      const type = typeof sub.type === 'string' ? sub.type : undefined;
+      const id = typeof sub.id === 'string' && sub.id.length > 0 ? sub.id : type;
+      const sourceKey = typeof sub.source === 'string' ? sub.source : '';
+      const sourceId = sourceKey ? `${layerId}:${sourceKey}` : '';
+      const sourceLayer = typeof sub['source-layer'] === 'string' ? sub['source-layer'] : undefined;
+      if (type && id && STYLE_DIALOG_LAYER_TYPES.has(type)) {
+        targets.push({ id, type, sourceId, ...(sourceLayer ? { sourceLayer } : {}) });
+      }
+      this.collectStyleTargetsFromSublayers(layerId, sub.sublayers, targets);
+    }
+  }
+
+  private getLayerStyleGroups(layerId: string, metadata: Record<string, unknown> | undefined): SourceStyleGroup[] {
+    const targets = this.getLayerStyleTargets(layerId, metadata);
+    const bySource = new Map<string, SourceLayerTarget[]>();
+    for (const target of targets) {
+      const sourceId = target.sourceId || 'unknown source';
+      const group = bySource.get(sourceId) ?? [];
+      group.push(target);
+      bySource.set(sourceId, group);
+    }
+
+    return [...bySource.entries()].map(([sourceId, layers]) => {
+      const features = this.sampleSourceFeatures(sourceId, layers, metadata);
+      const completeSourceData = this.hasCompleteSourceData(sourceId, metadata);
+      return {
+        sourceId,
+        featureCountLabel: this.featureCountLabel(features, completeSourceData),
+        featureCount: features?.length ?? null,
+        geometryTypes: this.geometryTypeLabels(features),
+        attributes: this.attributeInfo(features),
+        featureRows: this.featureRows(features),
+        layers: layers.map(({ sourceId: _sourceId, sourceLayer: _sourceLayer, ...layer }) => layer),
+      };
+    });
+  }
+
+  private sampleSourceFeatures(
+    sourceId: string,
+    layers: SourceLayerTarget[],
+    metadata: Record<string, unknown> | undefined,
+  ): GeoJSON.Feature[] | null {
+    const sourceData = this.adapter?.getSourceData(sourceId);
+    if (sourceData && typeof sourceData === 'object' && Array.isArray((sourceData as GeoJSON.FeatureCollection).features)) {
+      return (sourceData as GeoJSON.FeatureCollection).features ?? [];
+    }
+    if (metadata?.sourceData && typeof metadata.sourceData === 'object' && sourceId !== 'unknown source') {
+      return (metadata.sourceData as GeoJSON.FeatureCollection).features ?? [];
+    }
+
+    const sourceLayers = [...new Set(layers.map((layer) => layer.sourceLayer).filter((value): value is string => !!value))];
+    if (sourceLayers.length > 0) {
+      const features: GeoJSON.Feature[] = [];
+      for (const sourceLayer of sourceLayers) {
+        features.push(...(this.adapter?.querySourceFeatures?.(sourceId, { sourceLayer })?.features ?? []));
+      }
+      return features.length > 0 ? this.dedupeFeatures(features) : null;
+    }
+    return this.adapter?.querySourceFeatures?.(sourceId)?.features ?? null;
+  }
+
+  private hasCompleteSourceData(sourceId: string, metadata: Record<string, unknown> | undefined): boolean {
+    const sourceData = this.adapter?.getSourceData(sourceId);
+    if (sourceData && typeof sourceData === 'object' && Array.isArray((sourceData as GeoJSON.FeatureCollection).features)) {
+      return true;
+    }
+    return !!(metadata?.sourceData && typeof metadata.sourceData === 'object');
+  }
+
+  private dedupeFeatures(features: GeoJSON.Feature[]): GeoJSON.Feature[] {
+    const seen = new Set<string>();
+    return features.filter((feature) => {
+      const key = feature.id !== undefined
+        ? `id:${String(feature.id)}`
+        : JSON.stringify([feature.geometry, feature.properties ?? {}]);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  private featureCountLabel(features: GeoJSON.Feature[] | null, completeSourceData: boolean): string {
+    if (!features) return 'Feature sample unavailable';
+    const suffix = completeSourceData ? 'features' : 'loaded visible features';
+    return `${features.length} ${suffix}`;
+  }
+
+  private geometryTypeLabels(features: GeoJSON.Feature[] | null): string[] {
+    if (!features || features.length === 0) return ['geometry unknown'];
+    const types = new Set<string>();
+    for (const feature of features) {
+      const type = feature.geometry?.type;
+      if (type) types.add(type);
+    }
+    return types.size > 0 ? [...types].sort() : ['geometry unknown'];
+  }
+
+  private attributeInfo(features: GeoJSON.Feature[] | null): SourceAttributeInfo[] {
+    if (!features) return [];
+    const attributes = new Map<string, { values: unknown[]; presentCount: number }>();
+    for (const feature of features.slice(0, 200)) {
+      const properties = feature.properties;
+      if (!properties || typeof properties !== 'object') continue;
+      for (const [key, value] of Object.entries(properties)) {
+        const entry = attributes.get(key) ?? { values: [], presentCount: 0 };
+        if (value !== null && value !== undefined) {
+          entry.values.push(value);
+          entry.presentCount += 1;
+        }
+        attributes.set(key, entry);
+      }
+    }
+
+    const inspectedFeatureCount = Math.min(features.length, 200);
+    return [...attributes.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, entry]) => ({
+        name,
+        type: this.inferAttributeType(entry.values),
+        values: entry.values,
+        presentCount: entry.presentCount,
+        missingCount: inspectedFeatureCount - entry.presentCount,
+      }));
+  }
+
+  private featureRows(features: GeoJSON.Feature[] | null): Record<string, unknown>[] {
+    if (!features) return [];
+    return features.slice(0, 200).map((feature) =>
+      feature.properties && typeof feature.properties === 'object'
+        ? { ...feature.properties }
+        : {});
+  }
+
+  private inferAttributeType(values: unknown[]): string {
+    if (values.length === 0) return 'unknown';
+    const types = new Set(values.map((value) => this.valueType(value)));
+    return types.size === 1 ? [...types][0] : 'mixed';
+  }
+
+  private valueType(value: unknown): string {
+    if (typeof value === 'number') return 'number';
+    if (typeof value === 'boolean') return 'boolean';
+    if (value instanceof Date) return 'date';
+    if (Array.isArray(value)) return 'array';
+    if (value && typeof value === 'object') return 'object';
+    if (typeof value === 'string') {
+      return this.looksLikeDate(value) ? 'date' : 'string';
+    }
+    return 'unknown';
+  }
+
+  private looksLikeDate(value: string): boolean {
+    if (!/^\d{4}-\d{2}-\d{2}(?:[T ][\d:.+-Z]*)?$/.test(value)) return false;
+    return !Number.isNaN(Date.parse(value));
   }
 
   /** Lazily computes (and caches) the extent of a source's GeoJSON data, trying each
