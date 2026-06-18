@@ -338,7 +338,7 @@ export class WebmapxPrintTool extends WebmapxModalTool {
                 lineHeight: '1.4',
                 color: '#444',
                 fontFamily: 'sans-serif',
-                paddingTop: '2px',
+                paddingTop: '3px',
             });
             overlay.appendChild(attrEl);
         }
