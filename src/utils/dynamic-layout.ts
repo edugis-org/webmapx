@@ -26,6 +26,7 @@ const TOOL_ELEMENT_TAGS: Record<string, string> = {
   addLayer: 'webmapx-add-layer-tool',
   layerOverview: 'webmapx-layer-overview',
   maplanguage: 'webmapx-language-osmvector',
+  print: 'webmapx-print-tool',
 };
 
 const STANDALONE_TAGS: Record<string, string> = {

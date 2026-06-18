@@ -44,7 +44,7 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
 
     protected onStateChanged(state: IMapState): void {
         const layers = state.mapLayers ?? {};
-        const nextLayerIds = Object.keys(layers);
+        const nextLayerIds = Object.keys(layers).filter(id => layers[id]?.visible !== false);
         const joinedCurrent = this.visibleLayerIds.join(',');
         const joinedNext = nextLayerIds.join(',');
         if (joinedCurrent !== joinedNext) {

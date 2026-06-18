@@ -40,6 +40,8 @@ export interface MapLayerStateEntry {
     layerType?: string;
     hideFromLegend?: boolean;
     legendRole?: 'background' | 'overlay';
+    /** Whether the legend for this layer is expanded in the legend panel. Defaults to true. */
+    legendExpanded?: boolean;
     [key: string]: unknown;
 }
 

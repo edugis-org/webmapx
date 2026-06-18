@@ -48,6 +48,7 @@ import './components/webmapx-navigation-control.ts';
 import './components/webmapx-fullscreen-control.ts';
 import './components/webmapx-attribution-control.ts';
 import './components/webmapx-language-osmvector.ts';
+import './components/webmapx-print-tool.ts';
 
 function installMobileAddressBarNudge() {
     const mobileLikeViewport = window.matchMedia('(hover: none) and (pointer: coarse)').matches;

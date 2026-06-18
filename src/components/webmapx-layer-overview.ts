@@ -150,7 +150,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   @state() private backgroundLayers: LayerPanelItem[] = [];
   @state() private overviewLayers: LayerPanelItem[] = [];
   @state() private hiddenLayerIds: Set<string> = new Set();
-  @state() private collapsedLayerIds: Set<string> = new Set();
+  // legendExpanded is now stored in store.mapLayers[id].legendExpanded (defaults to true)
   @state() private layerTransparency: Map<string, number> = new Map();
   @state() private dropTargetLayerId: string | null = null;
   @state() private dropTargetPosition: 'above' | 'below' | null = null;
@@ -503,12 +503,12 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                       <span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}" title=${item.label}>${item.label}</span>
                       <sl-icon-button
                         class="collapse-toggle"
-                        name=${this.collapsedLayerIds.has(item.layerId) ? 'chevron-right' : 'chevron-down'}
-                        label=${this.collapsedLayerIds.has(item.layerId) ? 'Show layer details' : 'Hide layer details'}
+                        name=${this.isLegendCollapsed(item.layerId) ? 'chevron-right' : 'chevron-down'}
+                        label=${this.isLegendCollapsed(item.layerId) ? 'Show layer details' : 'Hide layer details'}
                         @click=${() => this.handleCollapseToggle(item.layerId)}
                       ></sl-icon-button>
                     </div>
-                    <div class="layer-details ${this.collapsedLayerIds.has(item.layerId) ? 'collapsed' : ''}">
+                    <div class="layer-details ${this.isLegendCollapsed(item.layerId) ? 'collapsed' : ''}">
                       <div class="layer-details-inner">
                         ${item.visible
                           ? html`
@@ -1159,28 +1159,30 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       next.delete(layerId);
       this.hiddenLayerIds = next;
     }
-    if (this.collapsedLayerIds.has(layerId)) {
-      const next = new Set(this.collapsedLayerIds);
-      next.delete(layerId);
-      this.collapsedLayerIds = next;
-    }
     this.applyVisibleLayers(this.adapter.store.getState());
   }
 
+  private isLegendCollapsed(layerId: string): boolean {
+    const entry = this.store?.getState()?.mapLayers?.[layerId];
+    return entry?.legendExpanded === false;
+  }
+
   private handleCollapseToggle(layerId: string): void {
-    const next = new Set(this.collapsedLayerIds);
-    if (next.has(layerId)) {
-      next.delete(layerId);
-    } else {
-      next.add(layerId);
-    }
-    this.collapsedLayerIds = next;
+    if (!this.store) return;
+    const current = this.store.getState();
+    const entry = current.mapLayers?.[layerId];
+    if (!entry) return;
+    const expanded = entry.legendExpanded !== false; // default true
+    this.store.dispatch({
+      mapLayers: {
+        ...current.mapLayers,
+        [layerId]: { ...entry, legendExpanded: !expanded },
+      },
+    }, 'UI');
   }
 
   private handleVisibilityToggle(layerId: string): void {
-    if (!this.adapter) {
-      return;
-    }
+    if (!this.adapter || !this.store) return;
     const nextVisible = this.hiddenLayerIds.has(layerId);
     this.adapter.setLayerVisibility(layerId, nextVisible);
     const next = new Set(this.hiddenLayerIds);
@@ -1190,6 +1192,13 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       next.add(layerId);
     }
     this.hiddenLayerIds = next;
+    // Persist visibility in store so other tools (e.g. attribution) can read it
+    const current = this.store.getState().mapLayers;
+    if (current[layerId]) {
+      this.store.dispatch({
+        mapLayers: { ...current, [layerId]: { ...current[layerId], visible: nextVisible } },
+      }, 'UI');
+    }
     this.applyVisibleLayers(this.adapter.store.getState());
   }
 }

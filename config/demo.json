@@ -2756,6 +2756,13 @@
           "icon": "link-45deg"
         },
         {
+          "id": "print",
+          "type": "print",
+          "enabled": true,
+          "title": "Print",
+          "icon": "printer"
+        },
+        {
           "type": "spacer",
           "enabled": true
         },
