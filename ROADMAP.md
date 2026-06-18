@@ -20,6 +20,18 @@
 - [x] Draw tool (point, line, polygon — all engines)
 - [x] Globe / projection tool (CRS switching, globe sky, MapLibre globe projection)
 - [x] TrueArea tool (drag polygons for size comparison, TopoJSON/GeoJSON auto-detection)
+- [x] Hillshade layer + 3D terrain toggle (MapLibre)
+- [x] Layer drag reorder (legend drag-to-reorder with drop indicator)
+- [x] Layer style editor (inline vector paint editor with color picker, symbol text/halo)
+- [x] Layer legends (vector legend with style groups, zoom-range hints)
+- [x] Save layer(s) dialog (export to file — GeoJSON/zip with style)
+- [x] Zoom to layer extent
+- [x] Add layer from URL (WMS/WMTS/WFS/Esri/ArcGIS/MVT discovery)
+- [x] Layer search in layer tree
+- [x] Language switcher tool (OSM vector label language at runtime)
+- [x] Fullscreen toggle control
+- [x] Layer style source inspection dialog
+- [x] Map state persistence (MapLibre GL v5 upgrade)
 - [x] Catalog decoupling — engines no longer aware of catalog; sources inlined before engine sees spec
 - [x] `mapLayers` as sole authoritative layer state (removed redundant `visibleLayers`)
 
@@ -49,7 +61,7 @@
 
 ## Near-Term Tasks
 - [ ] Refactor remaining tools to follow new architecture pattern
-- [ ] Accessibility checks
+- [ ] Accessibility — see Accessibility section in Planned Features
 
 ## Plugin Support
 
@@ -66,11 +78,11 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 ## Planned Features
 
 ### Layer Management
-- [ ] Layer legends (in progress)
-- [ ] Layer drag reorder (reorder active layers via drag-and-drop in layer tree)
-- [ ] Layer style update tool (runtime paint/layout changes)
+- [x] Layer legends
+- [x] Layer drag reorder (drag-and-drop in layer tree)
+- [x] Layer style update tool (runtime paint/layout changes)
+- [x] Save layer as (export to file)
 - [ ] Drop GeoJSON on map (drag-and-drop file import)
-- [ ] Save layer as (export to file)
 - [ ] Layer filter tool
 
 ### Data Formats
@@ -91,13 +103,27 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 - [x] Projection tool (CRS switching)
 - [x] Globe view (MapLibre globe projection + sky layer)
 - [x] TrueArea tool (drag-to-compare polygon sizes)
-- [ ] Zoom to layer extent
+- [x] Zoom to layer extent
+- [x] 3D terrain + hillshade (MapLibre GL)
+- [x] Fullscreen toggle
 - [ ] Home button (zoom to initial map extent)
-- [ ] 3D tool (tilt, terrain, camera controls — Cesium + MapLibre GL)
+- [ ] 3D tool (tilt, camera controls — Cesium + MapLibre GL)
 - [ ] Layer transparency tool
+- [ ] Print map (export visible map area to image/PDF)
 
 ### Internationalization (i18n)
+- [x] Language switcher tool — change map label language (OSM vector tile name fields) at runtime
 - [ ] i18n support — translatable UI strings in all built-in components
-- [ ] Language switcher tool — change UI locale and map label language (vector tile name fields) at runtime
+- [ ] Locale switcher — change UI locale at runtime
+
+### Accessibility
+- [ ] ARIA labels on all interactive controls (buttons, sliders, toggles)
+- [ ] Keyboard navigation & logical tab order across toolbar, layer tree, tool panels
+- [ ] Focus management for dialogs (trap focus on open, restore on close)
+- [ ] Screen-reader announcements for dynamic state changes (layer added/removed, tool activated)
+- [ ] Keyboard-operable map controls (pan/zoom via keyboard)
+- [ ] High-contrast mode support (respect `prefers-contrast`)
+- [ ] Reduced-motion support (respect `prefers-reduced-motion` in animations/transitions)
+- [ ] WCAG 2.1 AA audit
 
 ### And more…
