@@ -109,7 +109,7 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 - [ ] Home button (zoom to initial map extent)
 - [ ] 3D tool (tilt, camera controls — Cesium + MapLibre GL)
 - [ ] Layer transparency tool
-- [ ] Print map (export visible map area to image/PDF)
+- [x] Print map (A4 PDF via browser print; MapLibre offscreen render, CSS-transform for OL/Leaflet/Cesium; legend, attribution, title, viewer link)
 
 ### Internationalization (i18n)
 - [x] Language switcher tool — change map label language (OSM vector tile name fields) at runtime
