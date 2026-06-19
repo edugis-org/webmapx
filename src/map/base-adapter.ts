@@ -18,6 +18,7 @@ import type { IMapCore, ISource, LayerInsertOptions, MarkerOptions } from './IMa
 import type { LngLat } from '../store/map-events';
 import { MapEventBus } from '../store/map-events';
 import type { DeferredLogicalLayerExecutor } from './logical-layer-executor';
+import { ensureApiKeysLoaded, substituteApiKeysDeep } from '../config/apikeys';
 
 interface MarkerService {
     add(id: string, lngLat: LngLat, options?: MarkerOptions): void;
@@ -61,6 +62,8 @@ export abstract class BaseAdapter {
     // ── Generic layer lifecycle ───────────────────────────────────────────────
 
     async addLayer(layer: any, options?: LayerInsertOptions): Promise<boolean> {
+        await ensureApiKeysLoaded();
+        layer = substituteApiKeysDeep(layer);
         const added = await this.engineAddLayer(layer, options);
         if (added) {
             registerMapLayer(this.store, layer);

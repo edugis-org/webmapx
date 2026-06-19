@@ -862,16 +862,20 @@ export class WebmapxMapElement extends HTMLElement {
     styleUrl: string | null,
     scopedPrefix?: string,
   ): LayerInformation | null {
-    const styleSources = this.toRecord(styleDoc?.sources);
-    const styleLayers = Array.isArray(styleDoc?.layers)
-      ? styleDoc.layers.map((entry) => this.toRecord(entry)).filter((entry): entry is Record<string, unknown> => !!entry)
+    // Support edugis fragment format: {source: {sources, layers}} instead of top-level sources/layers
+    const styleDocNorm = (styleDoc && !styleDoc.sources && !styleDoc.layers && styleDoc.source && typeof styleDoc.source === 'object')
+      ? (styleDoc.source as Record<string, unknown>)
+      : styleDoc;
+    const styleSources = this.toRecord(styleDocNorm?.sources);
+    const styleLayers = Array.isArray(styleDocNorm?.layers)
+      ? styleDocNorm.layers.map((entry) => this.toRecord(entry)).filter((entry): entry is Record<string, unknown> => !!entry)
       : [];
     if (!styleSources || styleLayers.length === 0) {
       return null;
     }
 
     const effectivePrefix = scopedPrefix ?? `style:${layer.id}:`;
-    const supportedLayerTypes = new Set(['background', 'fill', 'line', 'circle', 'symbol', 'raster', 'fill-extrusion']);
+    const supportedLayerTypes = new Set(['background', 'fill', 'line', 'circle', 'symbol', 'raster', 'fill-extrusion', 'hillshade']);
     const sourceAlias = new Map<string, string>();
     const normalizedLayers: SubLayerSpec[] = styleLayers
       .filter((entry) => typeof entry.type === 'string' && supportedLayerTypes.has(entry.type))
@@ -1214,7 +1218,7 @@ export class WebmapxMapElement extends HTMLElement {
     }
 
     if (adapterName === 'maplibre' || adapterName === 'openlayers') {
-      return sourceType === 'raster' || sourceType === 'geojson' || sourceType === 'vector';
+      return sourceType === 'raster' || sourceType === 'geojson' || sourceType === 'vector' || sourceType === 'raster-dem';
     }
 
     return false;

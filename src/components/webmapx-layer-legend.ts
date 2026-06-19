@@ -188,6 +188,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         const rows: TemplateResult[] = [];
         const seen = new Set<string>(); // deduplicate by visual key
         const dedupGroups = new Map<string, string[]>(); // visual key -> all sublayer ids sharing it
+        const singleSublayer = sublayers.length === 1;
 
         // Combined zoom range across all visible-eligible sublayers (256px-tile +1 offset, as below)
         let overallMin = Infinity;
@@ -228,9 +229,11 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const layoutRaw = (sub.layout && typeof sub.layout === 'object') ? sub.layout as Record<string, unknown> : {};
             const rawId = String(sub.id ?? '');
             const subMetadata = (sub.metadata && typeof sub.metadata === 'object') ? sub.metadata as Record<string, unknown> : undefined;
-            const label = typeof subMetadata?.label === 'string' && subMetadata.label.length > 0
-                ? subMetadata.label
-                : rawId.replace(/^style:/, '').replace(/-/g, ' ');
+            const label = singleSublayer
+                ? (typeof this.meta?.label === 'string' ? this.meta.label : '')
+                : typeof subMetadata?.label === 'string' && subMetadata.label.length > 0
+                    ? subMetadata.label
+                    : rawId.replace(/^style:/, '').replace(/-/g, ' ');
 
             // Evaluate zoom-dependent paint and layout values
             const evalPaint: Record<string, unknown> = {};
@@ -270,18 +273,29 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 const dedupKey = `${type}|${rawId}`;
                 if (seen.has(dedupKey)) continue;
                 seen.add(dedupKey);
+                if (!dedupGroups.has(dedupKey)) dedupGroups.set(dedupKey, [rawId]);
 
-                rows.push(html`<div class="sub-group-title">${label}</div>`);
-                for (const { label: caseLabel, paint: casePaint } of dataCases) {
+                if (!singleSublayer) rows.push(html`<div class="sub-group-title">${label}</div>`);
+                const colorExpr = Array.isArray(rawColorExpr) ? rawColorExpr : null;
+                const stopIndices = colorExpr ? this.colorExprStopIndices(colorExpr) : null;
+                for (let ci = 0; ci < dataCases.length; ci++) {
+                    const { label: caseLabel, paint: casePaint } = dataCases[ci];
                     const casePaintObj = { ...evalPaint, [colorKey!]: casePaint };
                     const swatch = this.renderSwatch(type, casePaintObj, zoom, evalLayout);
                     if (!swatch) continue;
                     const caseKey = `${type}|${String(casePaint)}`;
                     if (seen.has(caseKey)) continue;
                     seen.add(caseKey);
+                    const stopIdx = stopIndices?.[ci] ?? null;
+                    const caseColor = typeof casePaint === 'string' ? casePaint : '#000';
+                    const clickableSwatch = stopIdx !== null && colorExpr
+                        ? html`<button type="button" style="background:none;border:none;padding:0;cursor:pointer;display:flex;align-items:center"
+                            @click=${(e: Event) => { e.stopPropagation(); this.openStopColorPicker(e.currentTarget as HTMLElement, [rawId], colorKey!, colorExpr, stopIdx, caseColor); }}>
+                            ${swatch}</button>`
+                        : swatch;
                     rows.push(html`
                         <div class="legend-row sub-row">
-                            ${swatch}
+                            ${clickableSwatch}
                             <span class="legend-label">${caseLabel}</span>
                         </div>`);
                 }
@@ -529,14 +543,15 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             </div>`;
     }
 
-    private renderFillRow(fillColor: string, outlineColor: string, fillOpacity: number, label: string): TemplateResult {
+    private renderFillRow(fillColor: string, outlineColor: string, fillOpacity: number, label: string, onClick?: (e: Event) => void): TemplateResult {
+        const swatchSvg = svg`<svg width="24" height="14" style="flex-shrink:0">
+            <rect x="1" y="1" width="22" height="12"
+                fill="${fillColor}" fill-opacity="${fillOpacity}"
+                stroke="${outlineColor}" stroke-width="1.5" rx="2"/>
+        </svg>`;
         return html`
             <div class="legend-row">
-                ${svg`<svg width="24" height="14" style="flex-shrink:0">
-                    <rect x="1" y="1" width="22" height="12"
-                        fill="${fillColor}" fill-opacity="${fillOpacity}"
-                        stroke="${outlineColor}" stroke-width="1.5" rx="2"/>
-                </svg>`}
+                ${onClick ? html`<button type="button" style="background:none;border:none;padding:0;cursor:pointer;display:flex;align-items:center" @click=${onClick}>${swatchSvg}</button>` : swatchSvg}
                 ${label !== null ? html`<span class="legend-label">${label}</span>` : ''}
             </div>`;
     }
@@ -778,7 +793,13 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
 
     /** Normalizes a color value for the picker; falls back if not a plain CSS color string. */
     private toCssColor(value: unknown, fallback: string): string {
-        return typeof value === 'string' ? value : fallback;
+        if (typeof value === 'string') return value;
+        // match/case expression: last element is the fallback color
+        if (Array.isArray(value) && (value[0] === 'match' || value[0] === 'case') && value.length >= 2) {
+            const last = value[value.length - 1];
+            if (typeof last === 'string') return last;
+        }
+        return fallback;
     }
 
     /** Active Pickr popup instances, keyed by `${subLayerId}::${paintKey}`. */
@@ -1107,7 +1128,14 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             // Try case/match expressions for multi-class legend
             const classes = this.extractColorClasses(colorExpr, attrTr);
             if (classes) {
-                return classes.map(c => this.renderFillRow(c.color, outlineColor, opacity, c.label));
+                const stopIndices = Array.isArray(colorExpr) ? this.colorExprStopIndices(colorExpr) : null;
+                return classes.map((c, i) => {
+                    const stopIdx = stopIndices?.[i] ?? null;
+                    const onClick = stopIdx !== null && Array.isArray(colorExpr)
+                        ? (e: Event) => { e.stopPropagation(); this.openStopColorPicker(e.currentTarget as HTMLElement, subLayerIds, colorKey, colorExpr, stopIdx, c.color); }
+                        : undefined;
+                    return this.renderFillRow(c.color, outlineColor, opacity, c.label, onClick);
+                });
             }
             // Interpolate/step stops
             const colorStops = this.extractLegendStops(colorExpr);
@@ -1180,8 +1208,8 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             return this.renderZoomHint(topMinz, topMaxz, this.zoom);
         }
 
-        // Composite style layer with many sub-layers (e.g. OpenFreeMap)
-        if (sublayers && sublayers.length > 1) {
+        // Composite style layer — route all sublayer configs through renderCompositeLegend
+        if (sublayers && sublayers.length > 0) {
             return this.renderCompositeLegend(sublayers, this.zoom);
         }
 
@@ -1194,19 +1222,20 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         const supportedTypes = ['fill', 'fill-extrusion', 'line', 'circle', 'symbol', 'raster', 'background', 'hillshade'];
         const hasSwatch = layerType && supportedTypes.includes(layerType) && !legendUrl;
 
-        const overrides = this.editOverrides[''];
+        const stdSubLayerIds = [this.layerId];
+        const overrides = this.editOverrides[this.layerId];
         const effectivePaint = overrides ? { ...paint, ...overrides } : paint;
         const editable = !sublayers && hasSwatch && this.isEditableType(layerType, effectivePaint);
-        const isOpen = this.editorOpenKey === '';
+        const isOpen = this.editorOpenKey === this.layerId;
 
         return html`
             <div class="legend-wrap">
                 ${hasSwatch ? html`
-                    <div class=${editable ? 'editable' : ''} @click=${editable ? () => { this.editorOpenKey = isOpen ? null : ''; } : null}>
-                        ${this.renderLegendItems([''], layerType!, effectivePaint)}
+                    <div class=${editable ? 'editable' : ''} @click=${editable ? () => { this.editorOpenKey = isOpen ? null : this.layerId; } : null}>
+                        ${this.renderLegendItems(stdSubLayerIds, layerType!, effectivePaint)}
                     </div>
                     ${layerType === 'hillshade' ? this.renderHillshadeTerrainCheckbox() : ''}
-                    ${editable && isOpen ? this.renderStyleEditor([''], layerType!, effectivePaint) : ''}
+                    ${editable && isOpen ? this.renderStyleEditor(stdSubLayerIds, layerType!, effectivePaint) : ''}
                 ` : ''}
                 ${legendUrl ? html`
                     <img class="legend-img" src=${legendUrl} alt=${label}

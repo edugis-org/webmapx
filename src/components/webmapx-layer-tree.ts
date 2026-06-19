@@ -94,6 +94,10 @@ export class WebmapxLayerTree extends LitElement {
             border-left: 1px solid var(--sl-color-neutral-200);
             width: 100%; /* inherit panel width; avoid forcing overflow */
             margin: 0;
+            font-size: var(--webmapx-layer-tree-font-size, 0.8rem);
+            --sl-font-size-medium: var(--webmapx-layer-tree-font-size, 0.8rem);
+            --sl-font-size-small: var(--webmapx-layer-tree-font-size, 0.8rem);
+            --sl-tree-item-label-font-size: var(--webmapx-layer-tree-font-size, 0.8rem);
         }
         sl-tree {
             display: block;
@@ -104,9 +108,10 @@ export class WebmapxLayerTree extends LitElement {
         sl-tree-item::part(item) {
             padding-top: 0;
             padding-bottom: 0;
-            min-height: 1.5rem;
+            min-height: 1.25rem;
         }
         sl-tree-item::part(label) {
+            font-size: var(--webmapx-layer-tree-font-size, 0.8rem);
             line-height: 1.2;
         }
         sl-tree-item::part(expand-button) {
@@ -116,12 +121,13 @@ export class WebmapxLayerTree extends LitElement {
             --sl-input-height-medium: 1rem;
         }
         sl-checkbox::part(control) {
-            width: 0.875rem;
-            height: 0.875rem;
+            width: 0.75rem;
+            height: 0.75rem;
         }
         sl-checkbox::part(label) {
+            font-size: var(--webmapx-layer-tree-font-size, 0.8rem);
             line-height: 1.2;
-            padding-left: 0.375rem;
+            padding-left: 0.3rem;
         }
         .tree-separator {
             display: flex;
@@ -130,17 +136,25 @@ export class WebmapxLayerTree extends LitElement {
             width: 100%;
             font-weight: 600;
             color: var(--sl-color-neutral-500);
-            padding: 0.4rem 0 0.1rem;
+            padding: 0.25rem 0 0.1rem;
             pointer-events: none;
             user-select: none;
         }
-        .tree-separator::before,
+        .tree-separator::before {
+            content: '';
+            width: 12px;
+            flex: 0 0 12px;
+            height: 1px;
+            background: currentColor;
+            opacity: 0.35;
+        }
         .tree-separator::after {
             content: '';
             flex: 1;
+            min-width: 8px;
             height: 1px;
             background: currentColor;
-            opacity: 0.3;
+            opacity: 0.35;
         }
         sl-tree-item.separator-item::part(item) {
             cursor: default;
@@ -186,8 +200,8 @@ export class WebmapxLayerTree extends LitElement {
             padding: 0;
         }
         .layer-radio input[type='radio'] {
-            width: 0.875rem;
-            height: 0.875rem;
+            width: 0.75rem;
+            height: 0.75rem;
             margin: 0;
         }
     `;
@@ -878,6 +892,10 @@ export class WebmapxLayerTree extends LitElement {
                     const inner = (e.currentTarget as HTMLElement).querySelector<HTMLElement>('sl-checkbox, input[type="radio"]');
                     inner?.click();
                 }
+                // Prevent browser native radio-group arrow-key cycling
+                if ((e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') && isExclusive) {
+                    e.preventDefault();
+                }
             };
 
             return html`
@@ -891,6 +909,11 @@ export class WebmapxLayerTree extends LitElement {
                                 name=${selectionGroup ?? nodeContext.exclusiveGroupKey ?? ''}
                                 data-layer-id=${node.layerId ?? ''}
                                 data-selection-group=${selectionGroup ?? ''}
+                                @keydown=${(e: KeyboardEvent) => {
+                                    if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                                        e.preventDefault();
+                                    }
+                                }}
                                 @change=${(e: Event) => this.handleCheck(e, node, nodeContext)}
                             />
                             <span>${label}</span>

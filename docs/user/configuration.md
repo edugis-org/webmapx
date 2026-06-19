@@ -508,6 +508,49 @@ Object-map form (id is inferred from the key):
 }
 ```
 
+## API Keys
+
+Some tile services require API keys (Mapbox, OpenWeatherMap, Bing, etc.). WebMapX keeps keys out of config files using a placeholder convention and a separate `config/apikeys.json` file.
+
+### Placeholders
+
+In source URLs, use `{key-<name>}` where `<name>` matches a key in `apikeys.json`:
+
+```json
+{
+  "url": "https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.webp?access_token={key-mapbox}"
+}
+```
+
+At load time, `{key-mapbox}` is replaced with the value of `"mapbox"` from `apikeys.json`.
+
+### apikeys.json
+
+Create `config/apikeys.json` alongside your config files:
+
+```json
+{
+  "mapbox": "pk.your-mapbox-token",
+  "openweathermap": "your-openweathermap-key",
+  "bing": "your-bing-key"
+}
+```
+
+See `config/apikeys.example.json` for all supported keys. The file is optional — missing keys leave placeholders as-is. Add `config/apikeys.json` to `.gitignore` to keep keys out of source control.
+
+### GitHub Actions / CI
+
+To inject keys during a static build without committing them, store the full JSON as a repository secret named `APIKEYS_JSON` and write it in your workflow before building:
+
+```yaml
+- run: echo '${{ secrets.APIKEYS_JSON }}' > config/apikeys.json
+- run: npm run build
+```
+
+### Key security
+
+API keys in tile URLs are visible to anyone using browser devtools — this is inherent to client-side map apps. Restrict key usage by setting allowed referrer domains in each provider's dashboard (Mapbox token settings, Google API console, etc.).
+
 ## Validation
 
 Configuration files are validated at load time. The validator checks:
