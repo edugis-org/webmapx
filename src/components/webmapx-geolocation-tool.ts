@@ -1010,7 +1010,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
             </sl-input>
           </div>
           <div slot="footer" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-            <sl-button variant="primary" @click=${() => this.handleExportSaveFiles()}>Download</sl-button>
+            <sl-button variant="primary" autofocus @click=${() => this.handleExportSaveFiles()}>Download</sl-button>
             <sl-button variant="text" @click=${() => { this.exportFilenameStep = false; }}>Back</sl-button>
           </div>
         ` : html`
@@ -1022,7 +1022,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
             <span>Erase from memory</span>
           </label>
           <div slot="footer" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-            <sl-button .disabled=${this.storedPointCount === 0} @click=${() => this.openExportFilenameStep()}>Save as files</sl-button>
+            <sl-button autofocus .disabled=${this.storedPointCount === 0} @click=${() => this.openExportFilenameStep()}>Save as files</sl-button>
             <sl-button .disabled=${this.storedPointCount === 0} @click=${() => this.handleExportAddToMap()}>Add to map</sl-button>
             <sl-button variant="text" @click=${() => { this.exportDialogOpen = false; }}>Cancel</sl-button>
           </div>

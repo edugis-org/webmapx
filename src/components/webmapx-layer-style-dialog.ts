@@ -589,7 +589,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
                     </div>`
                     : html`<p class="placeholder">No editable style source found.</p>`}
                 <div class="footer">
-                    <sl-button @click=${this.close}>Close</sl-button>
+                    <sl-button autofocus @click=${this.close}>Close</sl-button>
                 </div>
             </sl-dialog>
         `;

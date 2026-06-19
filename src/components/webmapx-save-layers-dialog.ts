@@ -260,7 +260,7 @@ export class WebmapxSaveLayersDialog extends LitElement {
                 </div>
 
                 <div slot="footer" class="footer">
-                    <sl-button @click=${this.close}>Cancel</sl-button>
+                    <sl-button autofocus @click=${this.close}>Cancel</sl-button>
                     <sl-button variant="primary" ?disabled=${selectedCount === 0} @click=${() => this.handleDownload()}>
                         Download
                     </sl-button>

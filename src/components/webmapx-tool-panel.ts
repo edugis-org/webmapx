@@ -308,6 +308,9 @@ export class WebmapxToolPanel extends LitElement {
 
   private handleKeydown(e: KeyboardEvent): void {
     if (e.key === 'Escape' && this.active) {
+      // Let Escape close open dropdowns/popups first; only close the panel when nothing is open.
+      const openPopup = document.querySelector('sl-select[open], sl-dropdown[open], sl-popup[active]');
+      if (openPopup) return;
       e.preventDefault();
       e.stopPropagation();
       this.handleClose();

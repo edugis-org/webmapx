@@ -2130,7 +2130,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                         </sl-radio-group>
                     </div>
                 ` : ''}
-                <sl-button slot="footer" variant="primary" @click=${() => this.doExport()}>Download</sl-button>
+                <sl-button slot="footer" variant="primary" autofocus @click=${() => this.doExport()}>Download</sl-button>
                 <sl-button slot="footer" variant="default" @click=${() => this.exportDialog.hide()}>Cancel</sl-button>
             </sl-dialog>
         `;

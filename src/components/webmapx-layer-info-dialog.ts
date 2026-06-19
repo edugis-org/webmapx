@@ -161,7 +161,7 @@ export class WebmapxLayerInfoDialog extends LitElement {
                     </div>`
                     : null}
                 <div class="footer">
-                    <sl-button @click=${this.close}>Close</sl-button>
+                    <sl-button autofocus @click=${this.close}>Close</sl-button>
                 </div>
             </sl-dialog>
         `;

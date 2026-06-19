@@ -229,7 +229,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
             }
         }
         this.step = 'detail';
-        setTimeout(() => (this.renderRoot.querySelector('sl-input[name="layername"]') as any)?.focus(), 100);
+        void this.updateComplete.then(() => (this.renderRoot.querySelector('sl-input[name="layername"]') as any)?.focus());
     }
 
     private goBack(): void {
@@ -309,7 +309,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
             </div>
             <div class="footer">
                 <sl-button @click=${this.cancel}>Cancel</sl-button>
-                <sl-button variant="primary" @click=${this.goToDetail}>Next →</sl-button>
+                <sl-button autofocus variant="primary" @click=${this.goToDetail}>Next →</sl-button>
             </div>
         `;
     }

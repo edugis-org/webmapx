@@ -826,8 +826,16 @@ export class WebmapxLayerTree extends LitElement {
             const resolvedLabel = this.resolveNodeLabel(node);
             const label = disabled ? `${resolvedLabel} (unsupported for current engine)` : resolvedLabel;
 
+            const handleLeafKey = (e: KeyboardEvent) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    const inner = (e.currentTarget as HTMLElement).querySelector<HTMLElement>('sl-checkbox, input[type="radio"]');
+                    inner?.click();
+                }
+            };
+
             return html`
-                <sl-tree-item data-node-key=${nodeKey}>
+                <sl-tree-item data-node-key=${nodeKey} @keydown=${handleLeafKey}>
                     ${isExclusive ? html`
                         <label class="layer-radio">
                             <input
