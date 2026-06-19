@@ -989,8 +989,10 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         </div>
         <div class="status" style="white-space: pre-line;">${this.message}</div>
         <div class="follow">
-          <input type="checkbox" .checked=${this.follow} @change=${this.handleFollowChange} />
-          <span>Track me</span>
+          <label>
+            <input type="checkbox" .checked=${this.follow} @change=${this.handleFollowChange} />
+            Track me
+          </label>
         </div>
         <div class="meta">
           Status: ${this.formatStatus()}${this.lastUpdate ? ` | Updated: ${this.lastUpdate}` : ''}
@@ -1002,7 +1004,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         ${this.exportFilenameStep ? html`
           <div style="display:flex; align-items:center; gap:0.4rem;">
             <span>Filename</span>
-            <sl-input style="flex:1;" size="small" .value=${this.exportFilename}
+            <sl-input style="flex:1;" size="small" .value=${this.exportFilename} aria-label="Export filename"
               @sl-input=${(e: Event) => { this.exportFilename = (e.target as any).value; }}>
               <span slot="suffix">.zip</span>
             </sl-input>

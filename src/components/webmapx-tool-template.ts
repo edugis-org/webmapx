@@ -104,6 +104,7 @@ export class WebmapxToolTemplate extends WebmapxBaseTool {
                     <sl-range
                         min="1"
                         max="50"
+                        label="Radius"
                         .value="${this.bufferRadius}"
                         @sl-change="${this.handleSliderInput}"
                         tooltip="top"

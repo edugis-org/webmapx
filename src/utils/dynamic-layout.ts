@@ -183,11 +183,15 @@ function buildToolbarGroup(config: Record<string, unknown>): HTMLElement {
       name: item.id,
       size: 'medium',
       'data-tooltip': metadata.label,
-      'aria-label': metadata.label,
     });
     const icon = document.createElement('sl-icon');
     if (applyIconAttributes(icon, metadata.icon)) {
+      icon.setAttribute('aria-hidden', 'true');
       button.appendChild(icon);
+      const srLabel = document.createElement('span');
+      srLabel.style.cssText = 'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0';
+      srLabel.textContent = metadata.label;
+      button.appendChild(srLabel);
     } else {
       button.textContent = metadata.label;
     }

@@ -151,6 +151,7 @@ export class WebmapxLanguageOsmVector extends WebmapxModalTool {
         // External, invisible instances (config `visible:false` or standalone usage) don't need
         // exclusive toolbar/panel slots, and several invisible instances may share a toolId.
         if (this.hideUi) this.registerWithToolManager = false;
+        if (!this.hasAttribute('role')) this.setAttribute('role', 'region');
         super.connectedCallback();
         window.addEventListener(LANGUAGE_CHANGE_EVENT, this.boundLanguageChangeEvent);
     }

@@ -906,9 +906,10 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     private renderRangeRow(subLayerIds: string[], label: string, key: string, value: number, min: number, max: number, step: number, unit = ''): TemplateResult {
         return html`
             <div class="style-editor-row">
-                <label>${label}</label>
-                <input type="range" min=${min} max=${max} step=${step} .value=${String(value)}
-                    @input=${(e: Event) => this.setPaintOverride(subLayerIds, key, Number((e.target as HTMLInputElement).value))}>
+                <label>${label}
+                    <input type="range" min=${min} max=${max} step=${step} .value=${String(value)}
+                        @input=${(e: Event) => this.setPaintOverride(subLayerIds, key, Number((e.target as HTMLInputElement).value))}>
+                </label>
                 <output>${value}${unit}</output>
             </div>`;
     }

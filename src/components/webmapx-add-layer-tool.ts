@@ -201,6 +201,7 @@ export class WebmapxAddLayerTool extends WebmapxBaseTool {
           <input
             type="text"
             placeholder="Paste a service or tile URL"
+            aria-label="Service or tile URL"
             autocomplete="off"
             autocorrect="off"
             autocapitalize="off"
@@ -236,6 +237,7 @@ export class WebmapxAddLayerTool extends WebmapxBaseTool {
             type="text"
             class="filter"
             placeholder="Filter layers..."
+            aria-label="Filter layers"
             .value="${this.filterText}"
             @input="${(e: Event) => { this.filterText = (e.target as HTMLInputElement).value; }}"
           />

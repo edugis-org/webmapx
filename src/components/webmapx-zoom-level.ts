@@ -7,7 +7,6 @@ import { IMapState } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
 import { ViewChangeEndEvent } from '../store/map-events';
 
-import '@shoelace-style/shoelace/dist/components/input/input.js';
 
 /**
  * Zoom level display and input tool.
@@ -49,27 +48,28 @@ export class WebmapxZoomLevel extends WebmapxBaseTool {
             font-size: var(--webmapx-zoom-font-size, var(--font-size-small));
         }
 
-        sl-input {
+        input[type="number"] {
             width: 3.4em;
-            --sl-input-height-small: 1.8em;
-            --sl-input-spacing-small: 0.2em;
-            --sl-input-font-size-small: var(--font-size-small);
+            height: 1.8em;
+            padding: 0 0.2em;
+            font-size: var(--font-size-small);
+            font-family: inherit;
+            color: inherit;
+            background: transparent;
+            border: 1px solid var(--color-border);
+            border-radius: var(--sl-input-border-radius-small, 3px);
+            outline: none;
+            -moz-appearance: textfield;
         }
 
-        sl-input::part(base):hover,
-        sl-input::part(base):focus-within {
+        input[type="number"]:hover,
+        input[type="number"]:focus {
             border-bottom-color: var(--color-primary);
             box-shadow: 0 1px 0 0 var(--color-primary);
         }
 
-        sl-input::part(input) {
-            padding: 0;
-            -moz-appearance: textfield;
-        }
-
-        /* Hide native number input spin buttons (they reserve extra width). */
-        sl-input::part(input)::-webkit-outer-spin-button,
-        sl-input::part(input)::-webkit-inner-spin-button {
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
             -webkit-appearance: none;
             margin: 0;
         }
@@ -135,19 +135,18 @@ export class WebmapxZoomLevel extends WebmapxBaseTool {
     protected render() {
         return html`
             <div class="tool-container">
-                <label>Zoom:</label>
-
-                <sl-input
+                <label for="zoom-input">Zoom:</label>
+                <input
+                    id="zoom-input"
                     .value="${this.inputValue}"
-                    size="small"
                     type="number"
                     min="1"
                     max="20"
                     step="0.01"
-                    @sl-input="${this.handleInputChange}"
+                    @input="${this.handleInputChange}"
                     @keydown="${this.handleInputSubmit}"
-                    @sl-blur="${this.handleInputBlur}"
-                ></sl-input>
+                    @blur="${this.handleInputBlur}"
+                />
             </div>
         `;
     }

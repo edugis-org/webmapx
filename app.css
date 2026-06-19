@@ -90,7 +90,7 @@ webmapx-toolbar sl-button[data-tooltip]:focus-visible::after {
     height: 100dvh;
 }
 
-.table > div:first-child {
+.table > main {
     flex: 3 1 0;
     padding: 20px;
     min-width: 0;
@@ -108,7 +108,7 @@ webmapx-toolbar sl-button[data-tooltip]:focus-visible::after {
     overflow: hidden;
 }
 
-#external-tools-column h3,
+#external-tools-column h2,
 #external-tools-column p {
     flex-shrink: 0;
     margin: 0 0 0.25rem;
@@ -125,7 +125,7 @@ webmapx-toolbar sl-button[data-tooltip]:focus-visible::after {
         flex-direction: column;
     }
 
-    .table > div:first-child {
+    .table > main {
         flex: 3 1 0;
         min-height: 0;
     }

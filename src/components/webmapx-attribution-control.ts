@@ -160,7 +160,7 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
     render() {
         const hasAttributions = this.attributions.length > 0;
         return html`
-            <div class="attribution-shell" ?hidden=${!hasAttributions} role="contentinfo" aria-label="Map attributions">
+            <div class="attribution-shell" ?hidden=${!hasAttributions} role="region" aria-label="Map attributions">
                 ${this._showLeft ? html`<span class="overflow-indicator left" aria-hidden="true">‹</span>` : null}
                 <div class="attribution-scroll">
                     <div class="attribution-inner">

@@ -332,6 +332,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
                 <sl-input name="layername"
                     style="flex:1"
                     placeholder="Layer name"
+                    aria-label="Layer name"
                     value=${this.layer.name}
                     @keydown=${(e: KeyboardEvent) => e.key === 'Enter' && this.renderRoot.querySelector<HTMLElement>('#new-prop-name')?.focus()}
                 ></sl-input>
@@ -363,7 +364,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
                     `)}
                     <tr class="add-row">
                         <td>
-                            <sl-input id="new-prop-name" size="small" placeholder="property name"
+                            <sl-input id="new-prop-name" size="small" placeholder="property name" aria-label="Property name"
                                 .value=${this.newPropName}
                                 @sl-input=${(e: Event) => this.newPropName = (e.target as any).value}
                                 @keydown=${(e: KeyboardEvent) => e.key === 'Enter' && this.addProperty()}>
