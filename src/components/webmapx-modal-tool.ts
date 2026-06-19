@@ -37,6 +37,7 @@ import type { IMap } from '../map/IMapInterfaces';
 import type { IModalTool } from '../tools/IModalTool';
 import type { ToolManager } from '../tools/tool-manager';
 import type { WebmapxMapElement } from './webmapx-map';
+import type { ToolIconConfig } from '../config/types';
 import { resolveMapElement } from './internal/map-context';
 
 export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModalTool {
@@ -49,6 +50,18 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
      * Must be set by subclass. Used for ToolManager registration.
      */
     abstract readonly toolId: string;
+
+    /**
+     * Human-facing tool label used by generated UI and active-tool state.
+     */
+    @property({ type: String })
+    label?: string;
+
+    /**
+     * Shoelace icon metadata used by generated UI.
+     */
+    @property({ attribute: false })
+    icon?: ToolIconConfig;
 
     /**
      * Whether this tool is modal (exclusive).

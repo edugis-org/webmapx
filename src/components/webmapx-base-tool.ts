@@ -29,11 +29,13 @@ export abstract class WebmapxBaseTool extends LitElement {
         super.connectedCallback();
         // Auto-label from toolId / tool-id attribute if not explicitly set
         if (!this.hasAttribute('aria-label') && !this.hasAttribute('aria-labelledby')) {
+            const explicitLabel = this.getAttribute('label') ?? ((this as any).label as string | undefined);
             const toolId = (this as any).toolId as string | undefined
                 ?? this.getAttribute('tool-id')
                 ?? undefined;
-            if (toolId) {
-                const label = toolId.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            const label = explicitLabel
+                ?? (toolId ? toolId.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : undefined);
+            if (label) {
                 this.setAttribute('aria-label', label);
             }
         }

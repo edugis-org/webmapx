@@ -13,12 +13,24 @@
  * }
  * ```
  */
+import type { ToolIconConfig } from '../config/types';
+
 export interface IModalTool {
     /**
      * Unique identifier for this tool.
      * Used by ToolManager for registration and activation.
      */
     readonly toolId: string;
+
+    /**
+     * Optional human-facing name for generated UI and active-tool state.
+     */
+    readonly label?: string;
+
+    /**
+     * Optional Shoelace icon metadata for generated UI.
+     */
+    readonly icon?: ToolIconConfig;
 
     /**
      * Whether this tool is modal (exclusive).

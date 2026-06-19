@@ -36,10 +36,10 @@ const KNOWN_KEYS = {
   sourceRasterDem: ['tiles', 'tileSize', 'encoding', 'maxzoom', 'attribution'],
   layer: ['id', 'type', 'source', 'source-layer', 'sources', 'layers', 'url', 'annotation', 'fallbackLayerId', 'singleGroup', 'title', 'metadata', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
   styleLayer: ['id', 'type', 'source', 'sourceLayer', 'source-layer', 'metadata', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
-  tool: ['enabled'],
-  toolInsetMap: ['enabled', 'type', 'position', 'zoomOffset', 'baseScale', 'styleUrl', 'background'],
+  tool: ['enabled', 'label', 'icon', 'element'],
+  toolInsetMap: ['enabled', 'type', 'position', 'label', 'icon', 'element', 'zoomOffset', 'baseScale', 'styleUrl', 'background'],
   toolInsetMapBackground: ['service', 'url', 'tiles', 'attribution', 'tileSize'],
-  toolSearch: ['enabled', 'type', 'title', 'icon', 'endpoint', 'params', 'maxResults', 'defaultZoom', 'marker', 'persistOnSelect', 'provider', 'attribution'],
+  toolSearch: ['enabled', 'type', 'label', 'title', 'icon', 'element', 'endpoint', 'params', 'maxResults', 'defaultZoom', 'marker', 'persistOnSelect', 'provider', 'attribution'],
 };
 
 const VALID_MAP_TYPES = ['maplibre', 'openlayers', 'leaflet', 'cesium'];
@@ -808,6 +808,8 @@ function validateToolsSection(
       warnings.push({ severity: 'warning', path: `${toolPath}.enabled`, message: '"enabled" should be a boolean' });
     }
 
+    validateToolMetadata(tc, toolPath, warnings);
+
     if (Array.isArray(tc.items)) {
       tc.items.forEach((item, index) => {
         if (!isObject(item)) {
@@ -815,6 +817,8 @@ function validateToolsSection(
         }
         const itemPath = `${toolPath}.items[${index}]`;
         const itemRecord = item as Record<string, unknown>;
+        validateToolMetadata(itemRecord, itemPath, warnings);
+
         if (itemRecord.type !== 'layerTree') {
           return;
         }
@@ -903,6 +907,54 @@ function validateToolsSection(
       }
     }
   });
+}
+
+function validateToolMetadata(
+  config: Record<string, unknown>,
+  path: string,
+  warnings: ValidationMessage[]
+): void {
+  if (config.label !== undefined && typeof config.label !== 'string') {
+    warnings.push({ severity: 'warning', path: `${path}.label`, message: '"label" should be a string' });
+  }
+  if (config.title !== undefined && typeof config.title !== 'string') {
+    warnings.push({ severity: 'warning', path: `${path}.title`, message: '"title" should be a string' });
+  }
+  validateToolIcon(config.icon, `${path}.icon`, warnings);
+}
+
+function validateToolIcon(
+  icon: unknown,
+  path: string,
+  warnings: ValidationMessage[]
+): void {
+  if (icon === undefined) return;
+
+  if (typeof icon === 'string') {
+    if (icon.trim().length === 0) {
+      warnings.push({ severity: 'warning', path, message: '"icon" should not be an empty string' });
+    }
+    return;
+  }
+
+  if (!isObject(icon)) {
+    warnings.push({ severity: 'warning', path, message: '"icon" should be a string or an object with "name", "library", or "src"' });
+    return;
+  }
+
+  const iconRecord = icon as Record<string, unknown>;
+  if (iconRecord.name !== undefined && typeof iconRecord.name !== 'string') {
+    warnings.push({ severity: 'warning', path: `${path}.name`, message: '"name" should be a string' });
+  }
+  if (iconRecord.library !== undefined && typeof iconRecord.library !== 'string') {
+    warnings.push({ severity: 'warning', path: `${path}.library`, message: '"library" should be a string' });
+  }
+  if (iconRecord.src !== undefined && typeof iconRecord.src !== 'string') {
+    warnings.push({ severity: 'warning', path: `${path}.src`, message: '"src" should be a string' });
+  }
+  if (iconRecord.name === undefined && iconRecord.src === undefined) {
+    warnings.push({ severity: 'warning', path, message: '"icon" object should define either "name" or "src"' });
+  }
 }
 
 // Helper functions

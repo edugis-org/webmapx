@@ -348,8 +348,21 @@ export interface AppStateConfig {
   activeExclusiveLayers?: Record<string, string>;
 }
 
+export type ToolIconConfig = string | {
+  /** Icon name inside the selected Shoelace icon library. */
+  name?: string;
+  /** Shoelace icon library name. Defaults to "default". */
+  library?: string;
+  /** Trusted SVG URL for one-off custom icons. */
+  src?: string;
+};
+
 export interface ToolConfig {
   enabled: boolean;
+  /** Human-facing tool label used for buttons, tooltips, and accessibility. */
+  label?: string;
+  /** Shoelace icon metadata used when a clickable control is generated. */
+  icon?: ToolIconConfig;
   /** Custom element tag name to instantiate for this tool (plugin support). */
   element?: string;
   [key: string]: unknown;

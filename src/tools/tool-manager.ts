@@ -94,7 +94,7 @@ export class ToolManager extends EventTarget {
         tool.active = true;
 
         // Update state store
-        this.updateStoreActiveTool(toolId);
+        this.updateStoreActiveTool(toolId, tool);
 
         // Dispatch event
         this.dispatchActivatedEvent(toolId, tool);
@@ -176,9 +176,17 @@ export class ToolManager extends EventTarget {
     // Private helpers
     // ─────────────────────────────────────────────────────────────────────
 
-    private updateStoreActiveTool(toolId: string | null): void {
+    private updateStoreActiveTool(toolId: string | null, tool?: IModalTool | null): void {
         if (this.store) {
-            this.store.dispatch({ activeTool: toolId ? { toolId } : null }, 'UI');
+            this.store.dispatch({
+                activeTool: toolId
+                    ? {
+                        toolId,
+                        ...(tool?.label ? { label: tool.label } : {}),
+                        ...(tool?.icon ? { icon: tool.icon } : {}),
+                    }
+                    : null
+            }, 'UI');
         }
     }
 

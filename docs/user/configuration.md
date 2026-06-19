@@ -354,6 +354,48 @@ The layer tree belongs to the layer-tree tool configuration (not `layerData`).
 }
 ```
 
+#### Toolbar Item `label` and `icon`
+
+Each toolbar item can carry a human-facing `label` and a Shoelace `icon`.  
+Built-in tool types (e.g. `search`, `measure`, `legend`) have sensible defaults; you only need these fields to override them or when using a custom `element`.
+
+```json
+{
+  "id": "my-search",
+  "type": "search",
+  "label": "Zoeken",
+  "icon": "search"
+}
+```
+
+`icon` accepts either a Shoelace icon name string or an object:
+
+| Form | Example | Notes |
+|------|---------|-------|
+| string | `"search"` | Uses the default Shoelace icon library |
+| `{ name, library? }` | `{ "name": "star", "library": "my-lib" }` | Named icon from a registered library |
+| `{ src }` | `{ "src": "/icons/custom.svg" }` | Inline SVG loaded by URL — **see security note below** |
+
+> **Security note — `icon.src` and SVG injection**
+>
+> When `src` is set, Shoelace fetches the SVG file and injects it as `innerHTML`.
+> SVG files can contain `<script>` elements and `on*` event-handler attributes that
+> execute JavaScript in the page's origin.
+>
+> WebMapX blocks cross-origin `src` URLs at config-load time and logs a console
+> warning if one is detected.  Same-origin SVGs are passed through without further
+> sanitization.
+>
+> **Recommended mitigations:**
+> - Prefer `name` + `library` over `src`; named icons go through Shoelace's library
+>   mutator callback where you can sanitize the SVG DOM before injection.
+> - If `src` is required, serve the SVG from the same origin and audit its content.
+> - Add a `Content-Security-Policy` header with `script-src 'self'` to prevent
+>   inline SVG scripts from executing even if a malicious file is injected:
+>   ```
+>   Content-Security-Policy: script-src 'self'; object-src 'none'
+>   ```
+
 #### Layer Tree Node Properties
 
 | Property | Type | Description |

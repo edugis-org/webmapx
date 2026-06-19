@@ -2,6 +2,8 @@
  * The single source of truth for one map instance state.
  * Any property added here must be initialized in the map-state-store.ts file.
  */
+import type { ToolIconConfig } from '../config/types';
+
 export interface IMapState {
     mapLoaded: boolean;
     /** True when the map is busy loading tiles/data or rendering */
@@ -30,6 +32,8 @@ export interface IMapState {
 
 export interface ActiveToolState {
     toolId: string;
+    label?: string;
+    icon?: ToolIconConfig;
 }
 
 export interface MapLayerStateEntry {
