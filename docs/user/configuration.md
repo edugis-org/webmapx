@@ -368,6 +368,20 @@ Built-in tool types (e.g. `search`, `measure`, `legend`) have sensible defaults;
 }
 ```
 
+#### 3D Tool Terrain Fallback
+
+The `3d` tool can define engine-specific terrain fallback URLs. These URLs are only used when the map configuration does not provide a terrain layer/source for the active adapter.
+
+```json
+{
+  "id": "3d",
+  "type": "3d",
+  "enabled": true,
+  "maplibre-terrain-fallback-url": "https://example.com/raster-dem/{z}/{x}/{y}.png",
+  "cesium-terrain-fallback-url": "https://example.com/cesium-terrain"
+}
+```
+
 `icon` accepts either a Shoelace icon name string or an object:
 
 | Form | Example | Notes |

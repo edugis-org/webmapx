@@ -411,6 +411,13 @@ export interface SearchToolConfig extends ToolConfig {
   attribution?: string;
 }
 
+export interface ThreeDToolConfig extends ToolConfig {
+  /** MapLibre terrain URL used by the 3D tool when no terrain layer exists in the configuration. */
+  'maplibre-terrain-fallback-url'?: string;
+  /** Cesium terrain URL used by the 3D tool when no terrain layer exists in the configuration. */
+  'cesium-terrain-fallback-url'?: string;
+}
+
 export interface ToolsConfig {
   coordinates?: ToolConfig;
   layerTree?: ToolConfig;
@@ -418,7 +425,7 @@ export interface ToolsConfig {
   measure?: MeasureToolConfig;
   insetMap?: InsetMapToolConfig;
   search?: SearchToolConfig;
-  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | undefined;
+  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | undefined;
 }
 
 export interface AppConfig {

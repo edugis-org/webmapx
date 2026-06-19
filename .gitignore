@@ -9,4 +9,5 @@ scripts/temp/
 openfreemap-amsterdam-z14-8415-5384-geojson-lonlat-corrected/
 config/layers.json
 config/world.json
+config/world.converted.json
 config/apikeys.json

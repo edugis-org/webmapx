@@ -67,34 +67,61 @@ export class Webmapx3dTool extends WebmapxBaseTool {
     }
 
     private getMaplibreTerrainSource(): unknown {
-        const url = this.getToolAttr('maplibre-terrain-url');
+        // Check top-level sources
+        const source = this.layerDataConfig?.sources?.find((s: any) => s?.type === 'raster-dem');
+        if (source) return source;
+        // Check inline sources within layers (e.g. hillshade layer with embedded raster-dem)
+        for (const layer of (this.layerDataConfig?.layers ?? [])) {
+            const inlineSources = (layer as any)?.sources;
+            if (!inlineSources || typeof inlineSources !== 'object') continue;
+            for (const [key, src] of Object.entries(inlineSources as Record<string, unknown>)) {
+                if ((src as any)?.type === 'raster-dem') {
+                    const layerId = (layer as any)?.id as string | undefined;
+                    // Return with the logical id so adapter can resolve to existing native source
+                    return { ...(src as object), id: layerId ? `${layerId}:${key}` : key };
+                }
+            }
+        }
+        const url = this.getToolAttr('maplibre-terrain-fallback-url');
         if (url) {
             return { type: 'raster-dem', tiles: [url], tileSize: 256, encoding: 'terrarium', maxzoom: 15 };
         }
-        const source = this.layerDataConfig?.sources?.find((s: any) => s?.type === 'raster-dem');
-        return source;
+        return undefined;
     }
 
     private getCesiumTerrainUrl(): string | undefined {
-        const url = this.getToolAttr('cesium-terrain-url');
-        if (url) return url;
         const layer = this.layerDataConfig?.layers?.find((l: any) => l?.type === 'terrain' || l?.type === 'cesium-terrain');
-        return (layer as any)?.url ?? (layer as any)?.source?.url;
+        return (layer as any)?.url ?? (layer as any)?.source?.url ?? this.getToolAttr('cesium-terrain-fallback-url');
     }
 
     private static readonly TERRAIN_LAYER_ID = 'webmapx-terrain-hillshade';
 
     private findActiveHillshadeSource(): unknown | undefined {
         const layers = this.store?.getState().mapLayers ?? {};
-        for (const meta of Object.values(layers)) {
-            if ((meta as any)?.layerType === 'hillshade') {
-                const sourceId = (meta as any)?.sourceId as string | undefined;
-                if (sourceId) {
-                    const src = this.layerDataConfig?.sources?.find((s: any) => s?.id === sourceId);
-                    if (src) return src;
-                    // inline source embedded in the layer (added by 3D tool)
-                    const inlineSrc = this.getMaplibreTerrainSource() as any;
-                    if (inlineSrc) return { ...inlineSrc, id: sourceId };
+        for (const [logicalLayerId, meta] of Object.entries(layers)) {
+            if ((meta as any)?.layerType !== 'hillshade') continue;
+
+            // Standard layer: sourceId stored directly in metadata
+            const sourceId = (meta as any)?.sourceId as string | undefined;
+            if (sourceId) {
+                const src = this.layerDataConfig?.sources?.find((s: any) => s?.id === sourceId);
+                if (src) return src;
+                if (this.adapter?.getSource(sourceId)) {
+                    return { id: sourceId, type: 'raster-dem' };
+                }
+            }
+
+            // Composite style layer: sourceId not in metadata — derive from sublayers.
+            // The native source id is "${logicalLayerId}:${localKey}" (e.g. "relief:source").
+            const sublayers = (meta as any)?.sublayers as any[] | undefined;
+            if (sublayers) {
+                for (const sub of sublayers) {
+                    if (sub?.type !== 'hillshade') continue;
+                    const localKey = typeof sub.source === 'string' ? sub.source : 'source';
+                    const nativeId = `${logicalLayerId}:${localKey}`;
+                    if (this.adapter?.getSource(nativeId)) {
+                        return { id: nativeId, type: 'raster-dem' };
+                    }
                 }
             }
         }
@@ -124,11 +151,17 @@ export class Webmapx3dTool extends WebmapxBaseTool {
             const terrainSource = this.getMaplibreTerrainSource() as Record<string, unknown> | undefined;
             if (!terrainSource) return;
             const sourceId = (terrainSource.id as string | undefined) ?? 'webmapx-terrain-source';
+            // Use catalog layer title if source came from an inline layer
+            const catalogTitle = this.layerDataConfig?.layers?.find((l: any) => {
+                const src = (l as any)?.sources?.[sourceId.split(':').pop() ?? ''];
+                return src?.type === 'raster-dem' || (l as any)?.id && sourceId.startsWith((l as any).id);
+            }) as any;
+            const title = catalogTitle?.title ?? 'Terrain (hillshade)';
             const layerConfig = {
                 id: Webmapx3dTool.TERRAIN_LAYER_ID,
                 type: 'hillshade',
                 source: sourceId,
-                title: 'Terrain (hillshade)',
+                title,
                 paint: { 'hillshade-exaggeration': 0.2 },
                 sources: { [sourceId]: { ...terrainSource, id: sourceId } },
             };

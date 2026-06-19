@@ -1017,10 +1017,29 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
 
     /** Enables/disables 3D terrain using this hillshade layer's raster-dem source. */
     private toggleTerrainFromHillshade(enabled: boolean): void {
+        let sourceConfig: unknown;
+
+        // Standard layer: sourceId in metadata
         const sourceId = typeof this.meta?.sourceId === 'string' ? this.meta.sourceId : undefined;
-        const sourceConfig = sourceId
-            ? this.layerDataConfig?.sources?.find((s: any) => s?.id === sourceId)
-            : undefined;
+        if (sourceId) {
+            sourceConfig = this.layerDataConfig?.sources?.find((s: any) => s?.id === sourceId)
+                ?? (this.adapter?.getSource(sourceId) ? { id: sourceId, type: 'raster-dem' } : undefined);
+        }
+
+        // Composite style layer: derive native source id from sublayers
+        if (!sourceConfig) {
+            const sublayers = Array.isArray(this.meta?.sublayers) ? this.meta.sublayers as any[] : [];
+            for (const sub of sublayers) {
+                if (sub?.type !== 'hillshade') continue;
+                const localKey = typeof sub.source === 'string' ? sub.source : 'source';
+                const nativeId = `${this.layerId}:${localKey}`;
+                if (this.adapter?.getSource(nativeId)) {
+                    sourceConfig = { id: nativeId, type: 'raster-dem' };
+                    break;
+                }
+            }
+        }
+
         this.adapter?.setTerrainEnabled(enabled, sourceConfig);
         this.terrainEnabled = this.adapter?.isTerrainEnabled() === true;
     }
@@ -1210,7 +1229,28 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
 
         // Composite style layer — route all sublayer configs through renderCompositeLegend
         if (sublayers && sublayers.length > 0) {
-            return this.renderCompositeLegend(sublayers, this.zoom);
+            const compositeLegend = this.renderCompositeLegend(sublayers, this.zoom);
+            // For single-sublayer hillshade: append terrain checkbox + exaggeration slider
+            const isSingleHillshade = sublayers.length === 1
+                && typeof (sublayers[0] as any)?.type === 'string'
+                && (sublayers[0] as any).type === 'hillshade';
+            if (!isSingleHillshade) return compositeLegend;
+            const subId = String((sublayers[0] as any)?.id ?? '');
+            const hillPaint = (sublayers[0] as any)?.paint ?? {};
+            const overrides = this.editOverrides[subId] ?? {};
+            const effectiveHillPaint = { ...hillPaint, ...overrides };
+            const isOpen = this.editorOpenKey === subId;
+            return html`
+                <div class="legend-wrap">
+                    ${compositeLegend}
+                    ${this.renderHillshadeTerrainCheckbox()}
+                    <div class="legend-row editable" @click=${() => { this.editorOpenKey = isOpen ? null : subId; }}>
+                        <span class="legend-label" style="font-size:0.75em;color:var(--sl-color-neutral-500)">
+                            ${isOpen ? '▲' : '▼'} hillshade style
+                        </span>
+                    </div>
+                    ${isOpen ? this.renderStyleEditor([subId], 'hillshade', effectiveHillPaint) : ''}
+                </div>`;
         }
 
         const minz = topMinz;
