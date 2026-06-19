@@ -157,7 +157,15 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
     }
 
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
-        return this.core.getSourceData(sourceId) ?? this.logicalLayerExecutor.getSourceData(sourceId);
+        const direct = this.core.getSourceData(sourceId);
+        if (direct !== null) return direct;
+        // Sources added via style layers are registered under a native ID — translate and retry.
+        const nativeId = this.layerService?.getNativeSourceId(sourceId);
+        if (nativeId && nativeId !== sourceId) {
+            const byNative = this.core.getSourceData(nativeId);
+            if (byNative !== null) return byNative;
+        }
+        return this.logicalLayerExecutor.getSourceData(sourceId);
     }
 
     querySourceFeatures(sourceId: string, options?: SourceFeatureQueryOptions): SourceFeatureSample | null {

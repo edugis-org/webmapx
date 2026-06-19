@@ -34,7 +34,7 @@ const KNOWN_KEYS = {
   sourceGeojson: ['data', 'attribution', 'minzoom', 'maxzoom', 'bounds', 'buffer', 'tolerance', 'cluster', 'clusterRadius', 'clusterMaxZoom', 'lineMetrics', 'generateId'],
   sourceVector: ['url', 'tiles', 'bounds', 'scheme', 'minzoom', 'maxzoom', 'attribution', 'volatile'],
   sourceRasterDem: ['tiles', 'tileSize', 'encoding', 'maxzoom', 'attribution'],
-  layer: ['id', 'type', 'source', 'source-layer', 'sources', 'layers', 'url', 'annotation', 'fallbackLayerId', 'singleGroup', 'title', 'metadata', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
+  layer: ['id', 'type', 'source', 'source-layer', 'sources', 'layers', 'url', 'annotation', 'fallbackLayerId', 'singleGroup', 'title', 'metadata', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter', 'featureInfoLimit'],
   styleLayer: ['id', 'type', 'source', 'sourceLayer', 'source-layer', 'metadata', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
   tool: ['enabled', 'label', 'icon', 'element'],
   toolInsetMap: ['enabled', 'type', 'position', 'label', 'icon', 'element', 'zoomOffset', 'baseScale', 'styleUrl', 'background'],

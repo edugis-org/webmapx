@@ -31,6 +31,8 @@ export interface MapLayerOption {
     sourceId: string;
     label: string;
     properties?: PropertyDef[];
+    /** When set, users can only add properties whose names are in this list. */
+    allowedAttributes?: string[];
 }
 
 const PROPERTY_TYPES: Record<GeometryType, PropertyDef['type'][]> = {
@@ -87,6 +89,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
     @state() private nameError = false;
     @state() private newPropName = '';
     @state() private newPropType: PropertyDef['type'] = 'string';
+    @state() private allowedAttributes: string[] | null = null;
 
     @query('sl-dialog') private dialog!: SlDialog;
 
@@ -213,10 +216,12 @@ export class WebmapxDrawLayerDialog extends LitElement {
     private goToDetail(): void {
         if (this.selectedId === 'new') {
             this.layer = newLayerConfig(this.geometryType);
+            this.allowedAttributes = null;
         } else {
             const existing = this.existingLayers.find(l => l.id === this.selectedId);
             if (existing) {
                 this.layer = { ...existing, properties: existing.properties.map(p => ({ ...p })) };
+                this.allowedAttributes = null;
             } else {
                 // Map layer selected — pre-fill name, mark as borrowed
                 const mapLayer = this.mapLayers.find(l => l.layerId === this.selectedId);
@@ -226,6 +231,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
                     properties: mapLayer?.properties?.map(p => ({ ...p })) ?? DEFAULT_PROPERTIES.map(p => ({ ...p })),
                     borrowedSourceId: mapLayer?.sourceId,
                 };
+                this.allowedAttributes = mapLayer?.allowedAttributes ?? null;
             }
         }
         this.step = 'detail';
@@ -364,11 +370,22 @@ export class WebmapxDrawLayerDialog extends LitElement {
                     `)}
                     <tr class="add-row">
                         <td>
-                            <sl-input id="new-prop-name" size="small" placeholder="property name" aria-label="Property name"
-                                .value=${this.newPropName}
-                                @sl-input=${(e: Event) => this.newPropName = (e.target as any).value}
-                                @keydown=${(e: KeyboardEvent) => e.key === 'Enter' && this.addProperty()}>
-                            </sl-input>
+                            ${this.allowedAttributes ? html`
+                                <sl-select id="new-prop-name" size="small" aria-label="Property name"
+                                    .value=${this.newPropName}
+                                    @sl-change=${(e: Event) => this.newPropName = (e.target as any).value}>
+                                    <sl-option value="">— select —</sl-option>
+                                    ${this.allowedAttributes
+                                        .filter(a => !this.layer.properties.find(p => p.name === a))
+                                        .map(a => html`<sl-option value=${a}>${a}</sl-option>`)}
+                                </sl-select>
+                            ` : html`
+                                <sl-input id="new-prop-name" size="small" placeholder="property name" aria-label="Property name"
+                                    .value=${this.newPropName}
+                                    @sl-input=${(e: Event) => this.newPropName = (e.target as any).value}
+                                    @keydown=${(e: KeyboardEvent) => e.key === 'Enter' && this.addProperty()}>
+                                </sl-input>
+                            `}
                         </td>
                         <td>
                             <sl-select id="new-prop-type" size="small" .value=${this.newPropType}

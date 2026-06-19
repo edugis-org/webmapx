@@ -707,7 +707,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                     layerId,
                     sourceId,
                     label: (entry as any).label ?? layerId,
-                    properties: (entry as any).properties ?? (data ? this.inferPropertyDefs(data) : undefined)
+                    properties: (entry as any).properties ?? (data ? this.inferPropertyDefs(data) : undefined),
+                    allowedAttributes: (entry as any).attributes?.allowedAttributes ?? undefined,
                 });
                 continue;
             }
@@ -722,7 +723,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 layerId,
                 sourceId,
                 label: (entry as any).label ?? layerId,
-                properties: (entry as any).properties ?? this.inferPropertyDefs(dataOrUrl)
+                properties: (entry as any).properties ?? this.inferPropertyDefs(dataOrUrl),
+                allowedAttributes: (entry as any).attributes?.allowedAttributes ?? undefined,
             });
         }
         return result;

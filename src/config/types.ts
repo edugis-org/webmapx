@@ -167,6 +167,8 @@ export interface LayerMetadata {
   bounds?: [number, number, number, number];
   /** Total feature count reported by the source service (e.g. WFS), ahead of loading any features. May exceed the number actually loaded if capped. */
   featureCount?: number;
+  /** Maximum number of features to show in the info panel for this layer. Excess features are truncated with a notice. */
+  featureInfoLimit?: number;
   /** Attribute display configuration for the info tool. */
   attributes?: LayerAttributeConfig;
   /** Engines known to support this layer (skips runtime/style-fetch support checks). Default: auto-detected (may trigger a style fetch for style-backed layers). */
@@ -196,10 +198,10 @@ export interface LayerAttributeTranslation {
 export interface LayerAttributeConfig {
   /** Ordered list of attribute display rules. Properties listed here appear first. */
   translations?: LayerAttributeTranslation[];
-  /** Whitelist — only these property names are shown (after translations). */
-  allowedattributes?: string[];
+  /** Whitelist — only these property names are shown. When set, unlisted properties are hidden. */
+  allowedAttributes?: string[];
   /** Blacklist — these property names are always hidden. */
-  deniedattributes?: string[];
+  deniedAttributes?: string[];
 }
 
 /** WebMapX extensions shared by all layer types. */

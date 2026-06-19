@@ -36,12 +36,15 @@ export function registerMapLayer(store: MapStateStore, layer: any): void {
     if (typeof layer?.maxzoom === 'number' && typeof metadata.maxzoom !== 'number') {
         metadata.maxzoom = layer.maxzoom;
     }
-    // Store resolved GeoJSON data so consumers (e.g. TrueArea) can read it from generic state
-    if (!metadata.sourceData && layer?.sources && typeof layer.sources === 'object') {
-        for (const src of Object.values(layer.sources)) {
+    // Store resolved GeoJSON data so consumers (e.g. TrueArea) can read it from generic state.
+    // Also capture sourceId from inline sources (style layers use layer.sources, not layer.source).
+    if (layer?.sources && typeof layer.sources === 'object') {
+        for (const [srcKey, src] of Object.entries(layer.sources)) {
             const s = src as any;
             if (s?.type === 'geojson' && s?.data && typeof s.data === 'object') {
-                metadata.sourceData = s.data;
+                if (!metadata.sourceData) metadata.sourceData = s.data;
+                // composite-layer-utils registers sources under globalId = "${layerId}:${key}"
+                if (typeof metadata.sourceId !== 'string') metadata.sourceId = `${layerId}:${srcKey}`;
                 break;
             }
         }

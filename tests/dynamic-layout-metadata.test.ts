@@ -92,8 +92,9 @@ test('toolbar button gets default label and icon for known tool type', () => {
 
   const buttons = findByTag(layout, 'sl-button');
   assert.equal(buttons.length, 1);
-  assert.equal(buttons[0].attrs['aria-label'], 'Search');
   assert.equal(buttons[0].attrs['data-tooltip'], 'Search');
+  const srSpan = buttons[0].children.find(c => c.tag === 'span');
+  assert.equal(srSpan?.text, 'Search');
 
   const icons = findByTag(layout, 'sl-icon');
   assert.equal(icons.length, 1);
@@ -112,7 +113,8 @@ test('explicit label in config overrides default', () => {
   });
 
   const buttons = findByTag(layout, 'sl-button');
-  assert.equal(buttons[0].attrs['aria-label'], 'Afstand meten');
+  const srSpan = buttons[0].children.find(c => c.tag === 'span');
+  assert.equal(srSpan?.text, 'Afstand meten');
 });
 
 test('explicit icon in config overrides default', () => {

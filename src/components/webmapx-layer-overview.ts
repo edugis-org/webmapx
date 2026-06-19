@@ -976,15 +976,28 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       bySource.set(sourceId, group);
     }
 
+    const attrs = (metadata?.attributes && typeof metadata.attributes === 'object')
+      ? metadata.attributes as { allowedAttributes?: string[]; deniedAttributes?: string[] }
+      : {};
+    const allowed = Array.isArray(attrs.allowedAttributes) ? new Set<string>(attrs.allowedAttributes) : null;
+    const denied = Array.isArray(attrs.deniedAttributes) ? new Set<string>(attrs.deniedAttributes) : null;
+
     return [...bySource.entries()].map(([sourceId, layers]) => {
       const features = this.sampleSourceFeatures(sourceId, layers, metadata);
       const completeSourceData = this.hasCompleteSourceData(sourceId, metadata);
+      let attributes = this.attributeInfo(features);
+      if (allowed || denied) {
+        attributes = attributes.filter(a =>
+          (!denied || !denied.has(a.name)) &&
+          (!allowed || allowed.has(a.name))
+        );
+      }
       return {
         sourceId,
         featureCountLabel: this.featureCountLabel(features, completeSourceData),
         featureCount: features?.length ?? null,
         geometryTypes: this.geometryTypeLabels(features),
-        attributes: this.attributeInfo(features),
+        attributes,
         featureRows: this.featureRows(features),
         layers: layers.map(({ sourceId: _sourceId, sourceLayer: _sourceLayer, ...layer }) => layer),
       };

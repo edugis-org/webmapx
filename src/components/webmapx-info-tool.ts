@@ -109,6 +109,13 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
             border-radius: 4px;
             overflow: hidden;
         }
+        .feature-limit-notice {
+            padding: 0.2rem 0.5rem;
+            font-size: 0.7rem;
+            color: var(--color-text-secondary, #888);
+            font-style: italic;
+            border-top: 1px solid var(--color-border-light, #eee);
+        }
 
         .layer-title {
             background: var(--color-surface-alt, #f5f5f5);
@@ -440,9 +447,12 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                 const meta = this.adapter?.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined;
                 const isComposite = Array.isArray(meta?.sublayers) && (meta!.sublayers as unknown[]).length > 1;
                 const badge = isComposite ? 'composite' : feats[0].source;
+                const limit = typeof meta?.featureInfoLimit === 'number' ? meta.featureInfoLimit : null;
+                const truncated = limit !== null && feats.length > limit;
+                const visibleFeats = truncated ? feats.slice(0, limit) : feats;
                 // Group composite features by sub-layer
                 const bySubLayer = new Map<string, FeatureInfo[]>();
-                for (const f of feats) {
+                for (const f of visibleFeats) {
                     const key = f.subLayerId ?? '';
                     const existing = bySubLayer.get(key);
                     if (existing) existing.push(f);
@@ -461,6 +471,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                         </div>` : ''}
                         ${subFeats.map((f) => this.renderPropsTable(f))}
                     `)}
+                    ${truncated ? html`<div class="feature-limit-notice">Showing ${limit} of ${feats.length} features</div>` : ''}
                 </div>`;
             })}
         `;
@@ -479,8 +490,8 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         const meta = this.adapter?.store.getState().mapLayers?.[layerId];
         const attrs = (meta?.attributes && typeof meta.attributes === 'object') ? meta.attributes as LayerAttributeConfig : {};
         const translations = Array.isArray(attrs.translations) ? attrs.translations : [];
-        const allowed = Array.isArray(attrs.allowedattributes) ? new Set<string>(attrs.allowedattributes) : null;
-        const denied = Array.isArray(attrs.deniedattributes) ? new Set<string>(attrs.deniedattributes) : new Set<string>();
+        const allowed = Array.isArray(attrs.allowedAttributes) ? new Set<string>(attrs.allowedAttributes) : null;
+        const denied = Array.isArray(attrs.deniedAttributes) ? new Set<string>(attrs.deniedAttributes) : new Set<string>();
         return { translations, allowed, denied };
     }
 

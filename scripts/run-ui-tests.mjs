@@ -184,7 +184,9 @@ async function run() {
       }
 
       for (const engine of engines) {
-        const context = await browser.newContext();
+        const context = await browser.newContext({
+          extraHTTPHeaders: { 'Referer': 'https://webmapx.com' },
+        });
         const page = await context.newPage();
 
         await context.addInitScript((selectedEngine) => {
