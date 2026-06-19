@@ -22,15 +22,20 @@ export class WebmapxToolPanel extends LitElement {
   private boundHandleToolActivated = (e: Event) => this.handleToolActivated(e as CustomEvent);
   private boundHandleToolDeactivated = (e: Event) => this.handleToolDeactivated(e as CustomEvent);
   private boundHandleToolSelect = (e: Event) => this.handleToolSelect(e as CustomEvent);
+  private boundHandleKeydown = (e: Event) => this.handleKeydown(e as KeyboardEvent);
+  /** The toolbar button that last activated a tool — focus is restored here on close. */
+  private triggerButton: HTMLElement | null = null;
 
   connectedCallback(): void {
     super.connectedCallback();
+    this.setAttribute('role', 'region');
     this.defaultLabel = this.label || 'Tools';
     this.hideAllTools();
     this.mapHost = this.closest('webmapx-map') as WebmapxMapElement | null;
     this.mapHost?.addEventListener('webmapx-tool-activated', this.boundHandleToolActivated);
     this.mapHost?.addEventListener('webmapx-tool-deactivated', this.boundHandleToolDeactivated);
     this.mapHost?.addEventListener('webmapx-tool-select', this.boundHandleToolSelect);
+    document.addEventListener('keydown', this.boundHandleKeydown, { capture: true });
     this.addEventListener('webmapx-content-updated', this.handleContentUpdated as EventListener);
   }
 
@@ -39,6 +44,7 @@ export class WebmapxToolPanel extends LitElement {
     this.mapHost?.removeEventListener('webmapx-tool-activated', this.boundHandleToolActivated);
     this.mapHost?.removeEventListener('webmapx-tool-deactivated', this.boundHandleToolDeactivated);
     this.mapHost?.removeEventListener('webmapx-tool-select', this.boundHandleToolSelect);
+    document.removeEventListener('keydown', this.boundHandleKeydown, { capture: true });
     this.mapHost = null;
     this.removeEventListener('webmapx-content-updated', this.handleContentUpdated as EventListener);
   }
@@ -103,7 +109,9 @@ export class WebmapxToolPanel extends LitElement {
 
   private hideAllTools(): void {
     Array.from(this.children).forEach((child) => {
-      (child as HTMLElement).hidden = true;
+      const el = child as HTMLElement;
+      el.hidden = true;
+      el.inert = true;
     });
   }
 
@@ -112,6 +120,7 @@ export class WebmapxToolPanel extends LitElement {
       const becoming = toolId === this.activeToolId;
       const was = !element.hidden;
       element.hidden = !becoming;
+      element.inert = !becoming;
       if (becoming && !was && typeof (element as any).activate === 'function') {
         (element as any).activate();
       } else if (!becoming && was && typeof (element as any).deactivate === 'function') {
@@ -125,11 +134,15 @@ export class WebmapxToolPanel extends LitElement {
         this.label = tool.label;
       }
       this.active = true;
+      this.setAttribute('aria-label', this.label);
+      // Move focus to first focusable element in the active tool
+      requestAnimationFrame(() => this.focusFirstInActiveTool());
       return;
     }
 
     this.label = this.defaultLabel;
     this.active = false;
+    this.setAttribute('aria-label', this.label);
   }
 
   private syncActiveTool(): void {
@@ -149,6 +162,8 @@ export class WebmapxToolPanel extends LitElement {
     if (!toolId || !this.toolIndex.has(toolId)) {
       return;
     }
+    // Capture active element before focus moves into the panel
+    this.triggerButton = (document.activeElement as HTMLElement) ?? null;
     this.activeToolId = toolId;
     this.collapsed = false;
     this.applyVisibility();
@@ -188,6 +203,7 @@ export class WebmapxToolPanel extends LitElement {
       return;
     }
 
+    this.triggerButton = (document.activeElement as HTMLElement) ?? null;
     this.activeToolId = toolId;
     this.collapsed = false;
     this.applyVisibility();
@@ -276,6 +292,8 @@ export class WebmapxToolPanel extends LitElement {
 
   private handleClose() {
     const closingToolId = this.activeToolId;
+    const trigger = this.triggerButton;
+    this.triggerButton = null;
     this.activeToolId = null;
     this.applyVisibility();
     this.dispatchEvent(new CustomEvent('webmapx-panel-close', {
@@ -283,6 +301,32 @@ export class WebmapxToolPanel extends LitElement {
       bubbles: true,
       composed: true
     }));
+    // Restore focus to the toolbar button that opened this panel.
+    // Two rAFs let the close event chain and toolbar state updates settle first.
+    requestAnimationFrame(() => requestAnimationFrame(() => trigger?.focus()));
+  }
+
+  private handleKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Escape' && this.active) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.handleClose();
+    }
+  }
+
+  private focusFirstInActiveTool(): void {
+    const toolEntry = this.activeToolId ? this.toolIndex.get(this.activeToolId) : null;
+    if (!toolEntry) return;
+    const el = toolEntry.element;
+    // Try shadow DOM first (Lit components), then light DOM
+    const root = (el.shadowRoot ?? el) as ParentNode;
+    const focusable = root.querySelector<HTMLElement>(
+      'input, textarea, select, button, [tabindex]:not([tabindex="-1"]), sl-input, sl-button, sl-select, sl-checkbox'
+    );
+    if (focusable) {
+      // Shoelace components expose focus() on their host
+      focusable.focus?.();
+    }
   }
 
   render() {

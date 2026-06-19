@@ -392,7 +392,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
 
   protected render(): TemplateResult {
     return html`
-      <div class="coordinates-shell" role="status" aria-live="polite">
+      <div class="coordinates-shell" role="status" aria-live="polite" tabindex="0" aria-label="Cursor coordinates">
         <div class="value-line">
           <span class="value">${this.formatPair(this.cursorCoords, this.resolution)}</span>
         </div>

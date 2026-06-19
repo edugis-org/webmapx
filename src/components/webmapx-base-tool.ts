@@ -27,6 +27,16 @@ export abstract class WebmapxBaseTool extends LitElement {
 
     connectedCallback(): void {
         super.connectedCallback();
+        // Auto-label from toolId / tool-id attribute if not explicitly set
+        if (!this.hasAttribute('aria-label') && !this.hasAttribute('aria-labelledby')) {
+            const toolId = (this as any).toolId as string | undefined
+                ?? this.getAttribute('tool-id')
+                ?? undefined;
+            if (toolId) {
+                const label = toolId.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                this.setAttribute('aria-label', label);
+            }
+        }
         this.bindToMap();
     }
 

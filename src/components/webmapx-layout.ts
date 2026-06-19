@@ -191,21 +191,21 @@ export class WebmapxLayout extends LitElement {
           <slot name="middle-center" @slotchange=${this.handleSlotChange}></slot>
         </div>
 
-        <!-- Corner and Center zones (higher stacking order) -->
+        <!-- Corner and Center zones — ordered left-to-right, top-to-bottom for logical tab flow -->
         <div class="slot-zone slot-zone--top-left" data-direction=${this.slotDirections['top-left']}>
           <slot name="top-left" @slotchange=${this.handleSlotChange}></slot>
-        </div>
-        <div class="slot-zone slot-zone--bottom-left" data-direction=${this.slotDirections['bottom-left']}>
-          <slot name="bottom-left" @slotchange=${this.handleSlotChange}></slot>
         </div>
         <div class="slot-zone slot-zone--top-center" data-direction=${this.slotDirections['top-center']}>
           <slot name="top-center" @slotchange=${this.handleSlotChange}></slot>
         </div>
-        <div class="slot-zone slot-zone--bottom-center" data-direction=${this.slotDirections['bottom-center']}>
-          <slot name="bottom-center" @slotchange=${this.handleSlotChange}></slot>
-        </div>
         <div class="slot-zone slot-zone--top-right" data-direction=${this.slotDirections['top-right']}>
           <slot name="top-right" @slotchange=${this.handleSlotChange}></slot>
+        </div>
+        <div class="slot-zone slot-zone--bottom-left" data-direction=${this.slotDirections['bottom-left']}>
+          <slot name="bottom-left" @slotchange=${this.handleSlotChange}></slot>
+        </div>
+        <div class="slot-zone slot-zone--bottom-center" data-direction=${this.slotDirections['bottom-center']}>
+          <slot name="bottom-center" @slotchange=${this.handleSlotChange}></slot>
         </div>
         <div class="slot-zone slot-zone--bottom-right" data-direction=${this.slotDirections['bottom-right']}>
           <slot name="bottom-right" @slotchange=${this.handleSlotChange}></slot>

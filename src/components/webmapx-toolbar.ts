@@ -80,6 +80,9 @@ export class WebmapxToolbar extends LitElement {
   connectedCallback(): void {
     super.connectedCallback();
 
+    this.setAttribute('role', 'toolbar');
+    this.setAttribute('aria-orientation', this.orientation);
+
     // Try to get ToolManager from parent map element
     const mapHost = this.closest('webmapx-map') as WebmapxMapElement | null;
     if (mapHost?.toolManager) {
@@ -94,6 +97,8 @@ export class WebmapxToolbar extends LitElement {
     this.toolPanel = this.resolveToolPanel();
     this.toolPanel?.addEventListener('webmapx-panel-close', this.boundHandlePanelClose);
 
+    this.addEventListener('keydown', this.handleArrowKeys);
+
     // Apply separators after first render/slot distribution.
     queueMicrotask(() => this.applyToolbarSeparators());
   }
@@ -104,6 +109,7 @@ export class WebmapxToolbar extends LitElement {
     mapHost?.removeEventListener('webmapx-tool-deactivated', this.boundHandleToolDeactivated);
     mapHost?.removeEventListener('webmapx-tool-select', this.boundHandleToolSelect);
     this.toolPanel?.removeEventListener('webmapx-panel-close', this.boundHandlePanelClose);
+    this.removeEventListener('keydown', this.handleArrowKeys);
     this.toolPanel = null;
     this.toolManager = null;
     super.disconnectedCallback();
@@ -124,11 +130,54 @@ export class WebmapxToolbar extends LitElement {
       btn.addEventListener('click', this.boundHandleClick);
     });
 
+    this.applyRovingTabindex();
     this.applyToolbarSeparators();
   }
 
+  /** Roving tabindex: first focusable button gets tabindex=0, rest get -1. */
+  private applyRovingTabindex(activeBtn?: HTMLElement): void {
+    const btns = this.focusableButtons();
+    btns.forEach(btn => btn.setAttribute('tabindex', '-1'));
+    const target = activeBtn ?? btns.find(b => b.getAttribute('variant') === 'primary') ?? btns[0];
+    target?.setAttribute('tabindex', '0');
+  }
+
+  /** Returns all sl-button children that are not spacers. */
+  private focusableButtons(): HTMLElement[] {
+    return this.buttons.filter(b => b.tagName.toLowerCase() === 'sl-button');
+  }
+
+  private handleArrowKeys = (e: KeyboardEvent): void => {
+    const btns = this.focusableButtons();
+    if (btns.length === 0) return;
+
+    const current = btns.findIndex(b => b === document.activeElement || b.shadowRoot?.activeElement != null);
+
+    // Enter/Space: activate the focused button
+    if (e.key === 'Enter' || e.key === ' ') {
+      if (current !== -1) {
+        e.preventDefault();
+        btns[current].click();
+      }
+      return;
+    }
+
+    const vertical = this.orientation !== 'horizontal';
+    const prev = vertical ? 'ArrowUp' : 'ArrowLeft';
+    const next = vertical ? 'ArrowDown' : 'ArrowRight';
+    if (e.key !== prev && e.key !== next) return;
+    if (current === -1) return;
+
+    e.preventDefault();
+    const dir = e.key === next ? 1 : -1;
+    const target = btns[(current + dir + btns.length) % btns.length];
+    this.applyRovingTabindex(target);
+    target.focus();
+  };
+
   protected updated(changedProps: Map<string, unknown>): void {
     if (changedProps.has('orientation')) {
+      this.setAttribute('aria-orientation', this.orientation);
       this.applyToolbarSeparators();
     }
   }
@@ -263,6 +312,7 @@ export class WebmapxToolbar extends LitElement {
       if (btn.tagName.toLowerCase() === 'sl-button') {
         btn.setAttribute('variant', 'primary');
       }
+      this.applyRovingTabindex(btn);
     }
   }
 
@@ -274,6 +324,7 @@ export class WebmapxToolbar extends LitElement {
         btn.setAttribute('variant', 'default');
       }
     });
+    this.applyRovingTabindex();
   }
 
   private hasButtonForTool(toolId: string | null | undefined): boolean {

@@ -113,6 +113,7 @@ export class MapCoreService implements IMapCore {
     private readonly basePolylinePositions = new WeakMap<any, any[]>();
     private terrainEnabled = false;
     private arcgisTerrainProvider: any = null;
+    private boundKeydown: ((e: KeyboardEvent) => void) | null = null;
 
     public initialize(
         containerId: string,
@@ -551,6 +552,45 @@ export class MapCoreService implements IMapCore {
         this.viewer.camera.changed.addEventListener(() => {
             this.dispatchViewportStateThrottled();
         });
+
+        // Remove Cesium canvas from tab order
+        const canvas = this.viewer.scene.canvas as HTMLCanvasElement | null;
+        if (canvas) canvas.tabIndex = -1;
+
+        // Keyboard zoom (+/-) and pan (arrow keys) — Cesium canvas needs focus for built-in handlers
+        // but we removed it from tab order, so handle globally here.
+        this.boundKeydown = (e: KeyboardEvent) => {
+            const el = document.activeElement as HTMLElement | null;
+            const tag = el?.tagName?.toLowerCase() ?? '';
+            if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+            // Only handle keys when focus is outside interactive UI (body, html, or the map canvas itself)
+            if (el && el !== document.body && el !== document.documentElement) {
+                // Allow if focused element is the Cesium canvas; skip otherwise
+                if (el !== this.viewer?.scene?.canvas) return;
+            }
+
+            if (e.key === '+' || e.key === '=' ) { e.preventDefault(); this.setZoom(this.getZoom() + 1); return; }
+            if (e.key === '-')                   { e.preventDefault(); this.setZoom(this.getZoom() - 1); return; }
+
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                if (!this.viewer) return;
+                e.preventDefault();
+                const Cesium = getCesium();
+                const canvas = this.viewer.scene.canvas as HTMLCanvasElement;
+                const zoom = this.getZoom();
+                const center = this.computeViewportCenter() ?? this.lastCenter;
+                const metersPerPixel = webMercatorMetersPerPixelAtLat(zoom, center[1]);
+                const panMeters = metersPerPixel * canvas.clientWidth * 0.15;
+                const camera = this.viewer.camera;
+                if (e.key === 'ArrowLeft')  camera.moveLeft(panMeters);
+                if (e.key === 'ArrowRight') camera.moveRight(panMeters);
+                if (e.key === 'ArrowUp')    camera.moveUp(panMeters);
+                if (e.key === 'ArrowDown')  camera.moveDown(panMeters);
+                // Force immediate store sync (moveEnd fires asynchronously)
+                this.dispatchViewportState();
+            }
+        };
+        document.addEventListener('keydown', this.boundKeydown);
     }
 
     private resolveContainer(containerId: string): HTMLElement {

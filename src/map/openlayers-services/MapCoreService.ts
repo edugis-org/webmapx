@@ -114,8 +114,13 @@ export class MapCoreService implements IMapCore {
             view: new View({
                 ...viewOptions
             }),
-            controls: []
+            controls: [],
+            keyboardEventTarget: document,
         });
+
+        // Remove OL viewport from tab order; keyboard zoom works via keyboardEventTarget:document
+        const viewport = this.mapInstance.getViewport();
+        if (viewport) viewport.tabIndex = -1;
 
         // Apply MapLibre/Mapbox style using ol-mapbox-style
         if (options?.styleUrl) {

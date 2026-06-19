@@ -115,6 +115,10 @@ export class MapCoreService implements IMapCore {
 
         this.flushMapReadyCallbacks();
 
+        // Remove canvas container from tab order; keyboard zoom/pan works via map click-to-focus
+        const canvasContainer = this.mapInstance.getCanvasContainer();
+        if (canvasContainer) canvasContainer.tabIndex = -1;
+
         this.mapInstance.on('load', () => {
             const viewportBounds = this.buildViewportFeature();
             this.store.dispatch({ mapLoaded: true, zoomLevel: zoom, mapCenter: center, mapViewportBounds: viewportBounds }, 'MAP');
