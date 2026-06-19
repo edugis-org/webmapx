@@ -21,6 +21,7 @@ export interface LayerNode {
     stackOrder?: number;
     checked?: boolean;
     expanded?: boolean;
+    separator?: boolean;
 }
 
 type SelectionContext = {
@@ -121,6 +122,35 @@ export class WebmapxLayerTree extends LitElement {
         sl-checkbox::part(label) {
             line-height: 1.2;
             padding-left: 0.375rem;
+        }
+        .tree-separator {
+            display: flex;
+            align-items: center;
+            gap: 0.4em;
+            width: 100%;
+            font-weight: 600;
+            color: var(--sl-color-neutral-500);
+            padding: 0.4rem 0 0.1rem;
+            pointer-events: none;
+            user-select: none;
+        }
+        .tree-separator::before,
+        .tree-separator::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: currentColor;
+            opacity: 0.3;
+        }
+        sl-tree-item.separator-item::part(item) {
+            cursor: default;
+        }
+        sl-tree-item.separator-item::part(expand-button) {
+            display: none;
+        }
+        sl-tree-item.separator-item::part(label) {
+            flex: 1;
+            min-width: 0;
         }
         .layer-radio {
             display: inline-flex;
@@ -654,6 +684,7 @@ export class WebmapxLayerTree extends LitElement {
     private countLeaves(nodes: LayerNode[]): number {
         let count = 0;
         for (const node of nodes) {
+            if (node.separator) continue;
             if (node.children?.length) {
                 count += this.countLeaves(node.children);
             } else if (node.layerId) {
@@ -674,17 +705,25 @@ export class WebmapxLayerTree extends LitElement {
     /** Returns a copy of the tree containing only nodes whose label/metadata matches the query (or that have a matching descendant) */
     private filterTree(nodes: LayerNode[], query: string, path: string[] = []): LayerNode[] {
         const result: LayerNode[] = [];
+        let pendingSeparator: LayerNode | null = null;
 
         for (const node of nodes) {
+            if (node.separator) {
+                pendingSeparator = node;
+                continue;
+            }
+
             if (node.children?.length) {
                 const filteredChildren = this.filterTree(node.children, query, [...path, this.resolveNodeLabel(node)]);
                 if (filteredChildren.length > 0) {
+                    if (pendingSeparator) { result.push(pendingSeparator); pendingSeparator = null; }
                     result.push({ ...node, children: filteredChildren, expanded: true });
                 }
                 continue;
             }
 
             if (this.nodeMatchesQuery(node, query, path)) {
+                if (pendingSeparator) { result.push(pendingSeparator); pendingSeparator = null; }
                 result.push(node);
             }
         }
@@ -805,6 +844,13 @@ export class WebmapxLayerTree extends LitElement {
     }
 
     renderNode(node: LayerNode, context?: SelectionContext, nodeKey = '0'): TemplateResult {
+        if (node.separator) {
+            return html`
+                <sl-tree-item class="separator-item" data-node-key=${nodeKey} tabindex="-1" aria-hidden="true">
+                    <span class="tree-separator">${this.resolveNodeLabel(node)}</span>
+                </sl-tree-item>`;
+        }
+
         const nodeContext = this.getChildSelectionContext(node, context, nodeKey);
         this.nodeByKey.set(nodeKey, node);
 

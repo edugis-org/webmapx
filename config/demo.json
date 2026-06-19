@@ -2566,7 +2566,15 @@
               "expanded": true,
               "children": [
                 {
+                  "label": "Vector",
+                  "separator": true
+                },
+                {
                   "layerId": "openfreemap-liberty"
+                },
+                {
+                  "label": "Raster",
+                  "separator": true
                 },
                 {
                   "layerId": "osm"

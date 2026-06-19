@@ -26,7 +26,7 @@ const KNOWN_KEYS = {
   runtimeMap: ['minZoom', 'maxZoom', 'minPitch', 'maxPitch'],
   layerData: ['sources', 'layers'],
   catalog: ['label', 'tree', 'sources', 'layers'],
-  treeNode: ['label', 'layerId', 'selectionMode', 'selectionGroup', 'allowNone', 'stackOrder', 'checked', 'expanded', 'children'],
+  treeNode: ['label', 'layerId', 'selectionMode', 'selectionGroup', 'allowNone', 'stackOrder', 'checked', 'expanded', 'children', 'separator'],
   state: ['activeBackground', 'activeLayers', 'activeExclusiveLayers'],
   stateLayer: ['id', 'ref', 'layerId', 'visible', 'timeState', 'paint', 'layout', 'metadata', 'source', 'type'],
   sourceBase: ['id', 'type', 'attribution'],
@@ -693,6 +693,14 @@ function validateTreeNode(
 
   const n = node as Record<string, unknown>;
   checkUnknownKeys(n, KNOWN_KEYS.treeNode, path, warnings);
+
+  // Separator nodes only need a label
+  if (n.separator === true) {
+    if (typeof n.label !== 'string' || n.label.length === 0) {
+      errors.push({ severity: 'error', path: `${path}.label`, message: 'Separator node must have a non-empty "label"' });
+    }
+    return;
+  }
 
   // Label required on group nodes (no layerId fallback); optional on leaf nodes
   const isLeaf = typeof n.layerId === 'string' && n.layerId.length > 0;

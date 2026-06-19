@@ -310,6 +310,8 @@ export interface TreeNodeConfig {
   checked?: boolean;
   expanded?: boolean;
   children?: TreeNodeConfig[];
+  /** When true, renders as a non-interactive section divider label inside a group. */
+  separator?: boolean;
 }
 
 export interface CatalogConfig {
