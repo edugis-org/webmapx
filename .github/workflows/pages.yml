@@ -33,8 +33,9 @@ jobs:
       - name: Add demo assets
         run: |
           git clone --depth 1 https://github.com/edugis-org/webmapx-demo.git /tmp/webmapx-demo
-          cp -R /tmp/webmapx-demo/config dist/config
-          cp -R /tmp/webmapx-demo/styles dist/styles
+          mkdir -p dist/config dist/styles
+          cp -R /tmp/webmapx-demo/config/. dist/config/
+          cp -R /tmp/webmapx-demo/styles/. dist/styles/
 
       - uses: actions/upload-pages-artifact@v4
         with:
