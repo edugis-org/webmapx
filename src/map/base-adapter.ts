@@ -35,6 +35,9 @@ export abstract class BaseAdapter {
     constructor() {
         this.store = new MapStateStore();
         this.events = new MapEventBus();
+        this.events.on('view-change-end', (e) => {
+            this.store.dispatch({ mapBearing: e.bearing, mapPitch: e.pitch }, 'MAP');
+        });
     }
 
     /** Records the `attribution` from a source config (style-spec field) for later lookup. */

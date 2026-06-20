@@ -126,4 +126,14 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 - [ ] Reduced-motion support (respect `prefers-reduced-motion` in animations/transitions)
 - [ ] WCAG 2.1 AA audit
 
+### Sharing & Navigation
+- [ ] Permalinks — shareable URL encoding current map state:
+  - Config file URL (which config is loaded)
+  - Active layer IDs
+  - Map center (lng/lat), zoom, bearing, pitch
+  - Per-layer transparency overrides (only where user deviated from config default)
+
+### Configuration
+- [ ] Config edit tool — runtime UI for editing layer/map/tool config (add/remove/reorder layers, change sources, configure tools)
+
 ### And more…

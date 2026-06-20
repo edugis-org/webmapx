@@ -19,6 +19,8 @@ export class MapStateStore {
         bufferRadiusKm: 5,
         zoomLevel: null,
         mapCenter: null,
+        mapBearing: 0,
+        mapPitch: 0,
         mapViewportBounds: null,
         pointerCoordinates: null,
         lastClickedCoordinates: null,

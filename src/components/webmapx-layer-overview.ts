@@ -149,7 +149,6 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
 
   @state() private backgroundLayers: LayerPanelItem[] = [];
   @state() private overviewLayers: LayerPanelItem[] = [];
-  @state() private hiddenLayerIds: Set<string> = new Set();
   // legendExpanded is now stored in store.mapLayers[id].legendExpanded (defaults to true)
   @state() private layerTransparency: Map<string, number> = new Map();
   @state() private dropTargetLayerId: string | null = null;
@@ -819,19 +818,13 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       const zoom = typeof state.zoomLevel === 'number' ? state.zoomLevel : 0;
 
       const layerType = typeof metadata?.layerType === 'string' ? metadata.layerType : undefined;
-      if (layerType === 'hillshade' && !this.layerTransparency.has(layerId)) {
-        const exaggeration = Number((metadata?.paint as any)?.['hillshade-exaggeration'] ?? 1);
-        const next = new Map(this.layerTransparency);
-        next.set(layerId, Math.round((1 - exaggeration) * 100));
-        this.layerTransparency = next;
-      }
 
       const item: LayerPanelItem = {
         layerId,
         label,
         layerType,
         topLevelGroup,
-        visible: !this.hiddenLayerIds.has(layerId),
+        visible: metadata?.visible !== false,
         hasExtent: this.layerHasExtent(layerId, metadata),
         hasStyleDialog: this.layerHasStyleDialog(metadata),
         outOfZoom: zoom < minz || zoom >= maxz + 1,
@@ -851,37 +844,37 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     this.backgroundLayers = background;
     this.overviewLayers = overview;
 
-    const knownIds = new Set(orderedIds);
-    let prunedHidden: Set<string> | null = null;
-    this.hiddenLayerIds.forEach((layerId) => {
-      if (!knownIds.has(layerId)) {
-        prunedHidden = prunedHidden ?? new Set(this.hiddenLayerIds);
-        prunedHidden.delete(layerId);
+    // Rebuild layerTransparency from store (fallback to paint-derived value for hillshade)
+    const newTransparency = new Map<string, number>();
+    for (const layerId of orderedIds) {
+      const metadata = mapLayers[layerId] as Record<string, unknown> | undefined;
+      if (typeof metadata?.transparency === 'number') {
+        newTransparency.set(layerId, metadata.transparency);
+      } else if (metadata?.layerType === 'hillshade') {
+        const exaggeration = Number((metadata?.paint as any)?.['hillshade-exaggeration'] ?? 1);
+        newTransparency.set(layerId, Math.round((1 - exaggeration) * 100));
       }
-    });
-    if (prunedHidden) {
-      this.hiddenLayerIds = prunedHidden;
     }
+    this.layerTransparency = newTransparency;
   }
 
   private handleTransparencyChange(layerId: string, e: Event): void {
-    if (!this.adapter) {
-      return;
-    }
+    if (!this.adapter) return;
     const transparency = Number((e.target as HTMLInputElement).value);
-    const next = new Map(this.layerTransparency);
-    next.set(layerId, transparency);
-    this.layerTransparency = next;
-    const meta = this.adapter.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined;
-    if ((meta as any)?.layerType === 'hillshade') {
-      const sublayers = (meta as any)?.sublayers as any[] | undefined;
+    const current = this.adapter.store.getState().mapLayers;
+    const entry = current[layerId];
+    if (entry) {
+      this.adapter.store.dispatch({ mapLayers: { ...current, [layerId]: { ...entry, transparency } } }, 'UI');
+    }
+    const meta = entry as Record<string, unknown> | undefined;
+    if (meta?.layerType === 'hillshade') {
+      const sublayers = meta?.sublayers as any[] | undefined;
       const primarySub = sublayers?.find((s: any) => s?.type === 'hillshade');
       const subLayerId = primarySub?.id ?? layerId;
       this.adapter.updateLayerStyle(layerId, subLayerId, { 'hillshade-exaggeration': (100 - transparency) / 100 });
     } else {
       this.adapter.setLayerOpacity(layerId, (100 - transparency) / 100);
     }
-
   }
 
   private handleShowLayerInfo(layerId: string, fallbackLabel: string): void {
@@ -1170,11 +1163,6 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       return;
     }
     this.adapter.removeLayer(layerId);
-    if (this.hiddenLayerIds.has(layerId)) {
-      const next = new Set(this.hiddenLayerIds);
-      next.delete(layerId);
-      this.hiddenLayerIds = next;
-    }
     this.applyVisibleLayers(this.adapter.store.getState());
   }
 
@@ -1199,22 +1187,15 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
 
   private handleVisibilityToggle(layerId: string): void {
     if (!this.adapter || !this.store) return;
-    const nextVisible = this.hiddenLayerIds.has(layerId);
+    const currentLayers = this.store.getState().mapLayers;
+    const entry = currentLayers[layerId];
+    const nextVisible = entry?.visible === false; // toggle: false→true, undefined/true→false
     this.adapter.setLayerVisibility(layerId, nextVisible);
-    const next = new Set(this.hiddenLayerIds);
-    if (nextVisible) {
-      next.delete(layerId);
-    } else {
-      next.add(layerId);
-    }
-    this.hiddenLayerIds = next;
-    // Persist visibility in store so other tools (e.g. attribution) can read it
-    const current = this.store.getState().mapLayers;
-    if (current[layerId]) {
+    if (entry) {
       this.store.dispatch({
-        mapLayers: { ...current, [layerId]: { ...current[layerId], visible: nextVisible } },
+        mapLayers: { ...currentLayers, [layerId]: { ...entry, visible: nextVisible } },
       }, 'UI');
     }
-    this.applyVisibleLayers(this.adapter.store.getState());
+    this.applyVisibleLayers(this.store.getState());
   }
 }

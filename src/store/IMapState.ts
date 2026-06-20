@@ -11,6 +11,8 @@ export interface IMapState {
     bufferRadiusKm: number;
     zoomLevel: number | null;
     mapCenter: [number, number] | null;
+    mapBearing: number;
+    mapPitch: number;
     mapViewportBounds: GeoJSON.Feature<GeoJSON.Polygon> | null;
     pointerCoordinates: [number, number] | null;
     lastClickedCoordinates: [number, number] | null;
@@ -46,6 +48,10 @@ export interface MapLayerStateEntry {
     legendRole?: 'background' | 'overlay';
     /** Whether the legend for this layer is expanded in the legend panel. Defaults to true. */
     legendExpanded?: boolean;
+    /** Whether the layer is visible. Undefined means visible (default). */
+    visible?: boolean;
+    /** User-set transparency (0–100 %). Undefined means no override (default 0). */
+    transparency?: number;
     [key: string]: unknown;
 }
 
