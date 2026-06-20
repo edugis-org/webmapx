@@ -296,7 +296,16 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     // ─── Lifecycle ────────────────────────────────────────────────────────────
 
     protected onActivate(): void {
-        this.createSharedLayers();
+        if (this.adapter?.store.getState().mapLoaded) {
+            this.createSharedLayers();
+        } else {
+            const unsub = this.adapter?.store.subscribe((state) => {
+                if (state.mapLoaded) {
+                    unsub?.();
+                    this.createSharedLayers();
+                }
+            });
+        }
         // Re-add draw layers suspended on last deactivate, re-blank borrowed sources
         for (const layer of this.drawLayers) {
             if (!this.createdDrawLayerIds.has(layer.id)) {

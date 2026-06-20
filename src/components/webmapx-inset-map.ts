@@ -641,7 +641,7 @@ export class WebmapxInsetMap extends LitElement {
   }
 
   private densifyRingWithPixels(ring: [number, number][]): [number, number][] {
-    if (!this.adapter) return ring;
+    if (!this.adapter || !this.adapter.store.getState().mapLoaded) return ring;
     const closedRing = this.ensureClosed(ring);
     const anchorLng = this.lastCenter?.[0] ?? closedRing[0]?.[0] ?? 0;
     const unwrapped = this.ensureClosed(this.unwrapLongitudes(ring, anchorLng));
@@ -859,7 +859,7 @@ export class WebmapxInsetMap extends LitElement {
   }
 
   private sampleViewportLongitudeRange(anchorLng: number): { minLon: number; maxLon: number; width: number } | null {
-    if (!this.adapter) {
+    if (!this.adapter || !this.adapter.store.getState().mapLoaded) {
       return null;
     }
 

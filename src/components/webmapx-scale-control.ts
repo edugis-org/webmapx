@@ -148,6 +148,7 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
   }
 
   private recalculateScale(): void {
+    if (!this.attachedAdapter?.store.getState().mapLoaded) return;
     this.lastUnprojectStatus = 'none';
     const requestedWidth = this.maxWidthPx;
     const surface = this.getSurfaceMetrics();
