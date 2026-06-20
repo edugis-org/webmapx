@@ -13,11 +13,10 @@ import type { WebmapxLayerInfoDialog } from './webmapx-layer-info-dialog';
 import type { LayerStyleTarget, SourceAttributeInfo, SourceStyleGroup, WebmapxLayerStyleDialog } from './webmapx-layer-style-dialog';
 import type { WebmapxSaveLayersDialog, SaveLayerCandidate } from './webmapx-save-layers-dialog';
 import type { WebmapxPermalinkDialog } from './webmapx-permalink-dialog';
-import { buildPermalinkUrl } from '../utils/permalink';
-import { getConfigUrlParam } from '../config/loader';
+import { buildPermalinkUrl, getMapDomIndex, getConfigUrlForIndex } from '../utils/permalink';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
-import '@shoelace-style/shoelace/dist/components/button/button.js';
+import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 
 /** Computes [west, south, east, north] from a GeoJSON FeatureCollection's coordinates. */
 function geojsonExtent(geojson: GeoJSON.FeatureCollection): [number, number, number, number] | null {
@@ -574,25 +573,27 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                     : null}
                 `)}
               </div>
-              ${isOverviewSection && items.length > 0
-                ? html`
-                    <div class="save-layers-row">
-                      <sl-button size="small" variant="default" @click=${() => this.handleSaveLayers()}>
-                        <sl-icon slot="prefix" name="download"></sl-icon>
-                        Save layer(s)…
-                      </sl-button>
-                    </div>
-                  `
-                : null}
             `
           : html`<div class="empty">${emptyText}</div>`}
         ${isOverviewSection
           ? html`
               <div class="save-layers-row">
-                <sl-button size="small" variant="default" @click=${() => this.handlePermalink()}>
-                  <sl-icon slot="prefix" name="link-45deg"></sl-icon>
-                  Permalink…
-                </sl-button>
+                <sl-tooltip content="Permalink">
+                  <sl-icon-button
+                    name="link-45deg"
+                    label="Permalink"
+                    @click=${() => this.handlePermalink()}
+                  ></sl-icon-button>
+                </sl-tooltip>
+                ${items.length > 0 ? html`
+                  <sl-tooltip content="Save layer(s)…">
+                    <sl-icon-button
+                      name="download"
+                      label="Save layer(s)…"
+                      @click=${() => this.handleSaveLayers()}
+                    ></sl-icon-button>
+                  </sl-tooltip>
+                ` : null}
               </div>
             `
           : null}
@@ -798,9 +799,12 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         transparencyOverrides.set(id, entry.transparency);
       }
     }
+    const mapElement = this.closest('webmapx-map') ?? this.adapter as unknown as Element;
+    const mapIndex = getMapDomIndex(mapElement as Element);
+    const configUrl = getConfigUrlForIndex(mapIndex);
     const projection = this.adapter.getProjection?.()?.name ?? null;
-    const url = buildPermalinkUrl(allLayerIds, hiddenLayerIds, viewport, transparencyOverrides, projection);
-    this.permalinkDialog?.open(url, !!getConfigUrlParam());
+    const url = buildPermalinkUrl(mapIndex, allLayerIds, hiddenLayerIds, viewport, transparencyOverrides, projection, configUrl);
+    this.permalinkDialog?.open(url, !!configUrl);
   }
 
   private handleSaveLayers(): void {

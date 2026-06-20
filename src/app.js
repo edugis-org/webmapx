@@ -15,6 +15,7 @@ if (import.meta.env.DEV) {
 
 // 1. Import configuration loader
 import { loadAppConfig, resolveMapConfig, fetchConfig, parseAndValidateConfig, getConfigUrlParam } from './config/index.ts';
+import { getConfigUrlForIndex } from './utils/permalink.ts';
 import { DROPPED_CONFIG_KEY } from './utils/dropped-config.ts';
 import { DEFAULT_ADAPTER_NAME } from './map/adapter-registry';
 import {
@@ -102,25 +103,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Load app config from ?config= URL parameter (if present)
-    if (!appConfig) {
-        try {
-            const loaded = await loadAppConfig();
-            if (loaded) {
-                appConfig = loaded.config;
-                console.log(`[app] Loaded config from: ${loaded.source}`);
-            }
-        } catch (error) {
-            console.error('[app] Failed to load app config:', error);
-            alert(`Failed to load config from "${getConfigUrlParam()}":\n${error.message}`);
-        }
-    }
-
     // Initialize each webmapx-map on the page
-    const mapElements = document.querySelectorAll('webmapx-map');
+    const mapElements = Array.from(document.querySelectorAll('webmapx-map'));
 
-    for (const mapElement of mapElements) {
-        await initializeMap(mapElement, appConfig);
+    for (let mapIndex = 0; mapIndex < mapElements.length; mapIndex++) {
+        const mapElement = mapElements[mapIndex];
+
+        // Per-map config: config.i= (or config= for index 0) takes priority over dropped/appConfig
+        let mapConfig = appConfig;
+        const perMapConfigUrl = getConfigUrlForIndex(mapIndex);
+        if (perMapConfigUrl) {
+            try {
+                mapConfig = await fetchConfig(perMapConfigUrl);
+                console.log(`[app] Loaded config for map[${mapIndex}] from: ${perMapConfigUrl}`);
+            } catch (error) {
+                console.error(`[app] Failed to load config for map[${mapIndex}] from "${perMapConfigUrl}":`, error);
+                alert(`Failed to load config from "${perMapConfigUrl}":\n${error.message}`);
+            }
+        } else if (mapIndex === 0 && !mapConfig) {
+            // Index 0, no per-map URL param: fall back to legacy ?config= / dropped config
+            try {
+                const loaded = await loadAppConfig();
+                if (loaded) {
+                    mapConfig = loaded.config;
+                    console.log(`[app] Loaded config from: ${loaded.source}`);
+                }
+            } catch (error) {
+                console.error('[app] Failed to load app config:', error);
+                alert(`Failed to load config from "${getConfigUrlParam()}":\n${error.message}`);
+            }
+        }
+
+        await initializeMap(mapElement, mapConfig, mapIndex);
     }
 
     console.log("Modular GIS UI is running. Map(s) initialized and components registered.");
@@ -141,7 +155,7 @@ function resolveRequestedAdapter(mapElement, mapConfig) {
  * @param {HTMLElement} mapElement - The webmapx-map element
  * @param {object|null} appConfig - App-level config from URL param (overrides all)
  */
-async function initializeMap(mapElement, appConfig) {
+async function initializeMap(mapElement, appConfig, mapIndex = 0) {
     const mapId = mapElement.id || 'unnamed-map';
 
     // Determine the full config for this map
@@ -210,7 +224,9 @@ async function initializeMap(mapElement, appConfig) {
 
     // Permalink viewport takes highest priority — apply before map init so the
     // engine never renders at the config's default center/zoom
-    const permalinkParam = new URLSearchParams(window.location.search).get('s');
+    // s.0= takes precedence over s= for index 0
+    const searchParams = new URLSearchParams(window.location.search);
+    const permalinkParam = searchParams.get(`s.${mapIndex}`) ?? (mapIndex === 0 ? searchParams.get('s') : null);
     if (permalinkParam) {
         try {
             const permalinkState = JSON.parse(atob(permalinkParam));
@@ -248,6 +264,7 @@ async function initializeMap(mapElement, appConfig) {
                 const ps = JSON.parse(atob(permalinkParam));
                 if (typeof ps?.p === 'string') return ps.p;
             } catch { /* ignore */ }
+            return null;
         }
         return persistedState?.projection ?? null;
     })();

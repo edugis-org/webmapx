@@ -18,7 +18,7 @@ import {
   resolveAdapterSelection
 } from '../config/adapter-resolution';
 import { saveMapState, consumeMapState } from '../map/map-state-persistence';
-import { PERMALINK_PARAM, decodePermalink } from '../utils/permalink';
+import { getPermalinkStateForIndex, getMapDomIndex } from '../utils/permalink';
 import { ToolManager } from '../tools/tool-manager';
 import {
   rememberSingleGroupInsertSlotForGroup,
@@ -603,11 +603,8 @@ export class WebmapxMapElement extends HTMLElement {
   }
 
   private collectInitialActiveLayerRefs(): string[] {
-    const permalinkParam = new URLSearchParams(window.location.search).get(PERMALINK_PARAM);
-    if (permalinkParam) {
-      const permalinkState = decodePermalink(permalinkParam);
-      if (permalinkState?.l?.length) return permalinkState.l;
-    }
+    const permalinkState = getPermalinkStateForIndex(getMapDomIndex(this));
+    if (permalinkState?.l?.length) return permalinkState.l;
 
     const activeLayers = this.configInstance?.state?.activeLayers;
     if (!activeLayers) {
@@ -1390,9 +1387,7 @@ export class WebmapxMapElement extends HTMLElement {
   }
 
   private async applyPermalinkState(adapter: IMap): Promise<void> {
-    const param = new URLSearchParams(window.location.search).get(PERMALINK_PARAM);
-    if (!param) return;
-    const state = decodePermalink(param);
+    const state = getPermalinkStateForIndex(getMapDomIndex(this));
     if (!state) return;
 
     // Viewport is already applied at map init time in app.js; only layer state needs restoring here.

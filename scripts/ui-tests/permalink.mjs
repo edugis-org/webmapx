@@ -48,10 +48,10 @@ export async function run({ page, engine, baseUrl }) {
       const map = document.querySelector('webmapx-map');
       const overview = map?.querySelector('webmapx-layer-overview');
       if (!overview?.shadowRoot) return false;
-      const buttons = overview.shadowRoot.querySelectorAll('sl-button');
-      return Array.from(buttons).some(b => b.textContent?.includes('Permalink'));
+      const buttons = overview.shadowRoot.querySelectorAll('sl-icon-button[name="link-45deg"]');
+      return buttons.length > 0;
     });
-    if (!found) fail('Permalink button not found in webmapx-layer-overview');
+    if (!found) fail('Permalink icon button not found in webmapx-layer-overview');
     console.log('    Permalink button found');
   });
 
@@ -60,9 +60,8 @@ export async function run({ page, engine, baseUrl }) {
       const map = document.querySelector('webmapx-map');
       const overview = map?.querySelector('webmapx-layer-overview');
       if (!overview?.shadowRoot) throw new Error('Layer overview shadow root not found');
-      const button = Array.from(overview.shadowRoot.querySelectorAll('sl-button'))
-        .find(b => b.textContent?.includes('Permalink'));
-      if (!button) throw new Error('Permalink button not found');
+      const button = overview.shadowRoot.querySelector('sl-icon-button[name="link-45deg"]');
+      if (!button) throw new Error('Permalink icon button not found');
       button.click();
     });
 
@@ -145,6 +144,34 @@ export async function run({ page, engine, baseUrl }) {
     if (!result.found) fail('"osm" layer not found in store.mapLayers');
     if (!result.visible) fail('"osm" layer is not visible');
     console.log('    Layer "osm" present and visible');
+  });
+
+  // ── Part 3: explicit .0 suffix is equivalent to short form ───────────────
+
+  const permalinkUrl0 = `${baseUrl}?s.0=${encodeURIComponent(encoded)}`;
+
+  await step('navigate to ?s.0= URL (explicit index 0)', async () => {
+    await page.goto(permalinkUrl0, { waitUntil: 'domcontentloaded' });
+    await waitForMapLoaded(page);
+  });
+
+  await step('zoom is restored from ?s.0= permalink', async () => {
+    const zoom = await page.evaluate(async () => {
+      const map = document.querySelector('webmapx-map');
+      const adapter = await map?.getAdapterAsync?.();
+      return adapter?.getViewportState?.()?.zoom ?? null;
+    });
+    if (zoom === null) fail('Could not read zoom from adapter');
+    if (Math.abs(zoom - 5) > 0.5) fail(`Zoom mismatch (s.0=): expected ~5, got ${zoom}`);
+    console.log(`    Zoom restored via s.0=: ${zoom.toFixed(2)}`);
+  });
+
+  await step('osm layer present after ?s.0= restore', async () => {
+    await page.waitForFunction(() => {
+      const map = document.querySelector('webmapx-map');
+      return 'osm' in (map?.adapter?.store?.getState()?.mapLayers ?? {});
+    }, undefined, { timeout: 30_000 });
+    console.log('    Layer "osm" present via s.0=');
   });
 }
 
