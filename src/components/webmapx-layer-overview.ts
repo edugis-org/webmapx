@@ -8,9 +8,13 @@ import './webmapx-layer-legend';
 import './webmapx-layer-info-dialog';
 import './webmapx-layer-style-dialog';
 import './webmapx-save-layers-dialog';
+import './webmapx-permalink-dialog';
 import type { WebmapxLayerInfoDialog } from './webmapx-layer-info-dialog';
 import type { LayerStyleTarget, SourceAttributeInfo, SourceStyleGroup, WebmapxLayerStyleDialog } from './webmapx-layer-style-dialog';
 import type { WebmapxSaveLayersDialog, SaveLayerCandidate } from './webmapx-save-layers-dialog';
+import type { WebmapxPermalinkDialog } from './webmapx-permalink-dialog';
+import { buildPermalinkUrl } from '../utils/permalink';
+import { getConfigUrlParam } from '../config/loader';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
@@ -161,6 +165,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   @query('webmapx-layer-info-dialog') private infoDialog!: WebmapxLayerInfoDialog;
   @query('webmapx-layer-style-dialog') private styleDialog!: WebmapxLayerStyleDialog;
   @query('webmapx-save-layers-dialog') private saveLayersDialog!: WebmapxSaveLayersDialog;
+  @query('webmapx-permalink-dialog') private permalinkDialog!: WebmapxPermalinkDialog;
   private unsubscribeLayerAdd: (() => void) | null = null;
   private unsubscribeLayerRemove: (() => void) | null = null;
 
@@ -416,6 +421,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     .save-layers-row {
       display: flex;
       justify-content: flex-end;
+      gap: 0.4rem;
     }
 
     .layer-meta {
@@ -467,6 +473,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       <webmapx-layer-info-dialog></webmapx-layer-info-dialog>
       <webmapx-layer-style-dialog></webmapx-layer-style-dialog>
       <webmapx-save-layers-dialog></webmapx-save-layers-dialog>
+      <webmapx-permalink-dialog></webmapx-permalink-dialog>
     `;
   }
 
@@ -567,7 +574,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                     : null}
                 `)}
               </div>
-              ${isOverviewSection
+              ${isOverviewSection && items.length > 0
                 ? html`
                     <div class="save-layers-row">
                       <sl-button size="small" variant="default" @click=${() => this.handleSaveLayers()}>
@@ -579,6 +586,16 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                 : null}
             `
           : html`<div class="empty">${emptyText}</div>`}
+        ${isOverviewSection
+          ? html`
+              <div class="save-layers-row">
+                <sl-button size="small" variant="default" @click=${() => this.handlePermalink()}>
+                  <sl-icon slot="prefix" name="link-45deg"></sl-icon>
+                  Permalink…
+                </sl-button>
+              </div>
+            `
+          : null}
       </section>
     `;
   }
@@ -767,6 +784,23 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       window.clearTimeout(this.autoScrollState.timer);
       this.autoScrollState = null;
     }
+  }
+
+  private handlePermalink(): void {
+    if (!this.adapter) return;
+    const viewport = this.adapter.getViewportState();
+    const mapLayers = this.adapter.store.getState().mapLayers;
+    const allLayerIds = Object.keys(mapLayers); // bottom-to-top stack order
+    const hiddenLayerIds = allLayerIds.filter(id => mapLayers[id]?.visible === false);
+    const transparencyOverrides = new Map<string, number>();
+    for (const [id, entry] of Object.entries(mapLayers)) {
+      if (typeof entry.transparency === 'number' && entry.transparency !== 0) {
+        transparencyOverrides.set(id, entry.transparency);
+      }
+    }
+    const projection = this.adapter.getProjection?.()?.name ?? null;
+    const url = buildPermalinkUrl(allLayerIds, hiddenLayerIds, viewport, transparencyOverrides, projection);
+    this.permalinkDialog?.open(url, !!getConfigUrlParam());
   }
 
   private handleSaveLayers(): void {

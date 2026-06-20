@@ -1,0 +1,90 @@
+import { LitElement, html, css } from 'lit';
+import { customElement, state, query } from 'lit/decorators.js';
+import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
+import '@shoelace-style/shoelace/dist/components/icon/icon.js';
+import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
+
+@customElement('webmapx-permalink-dialog')
+export class WebmapxPermalinkDialog extends LitElement {
+    @state() private url = '';
+    @state() private hasConfig = false;
+    @state() private copied = false;
+
+    @query('sl-dialog') private dialog!: SlDialog;
+
+    static styles = css`
+        :host { display: block; }
+
+        sl-dialog::part(panel) {
+            min-width: min(480px, 90vw);
+            max-width: min(620px, 90vw);
+        }
+
+        .url-box {
+            font-family: var(--sl-font-mono);
+            font-size: 0.78rem;
+            background: var(--sl-color-neutral-100);
+            border: 1px solid var(--sl-color-neutral-300);
+            border-radius: var(--sl-border-radius-medium);
+            padding: 0.5rem 0.75rem;
+            word-break: break-all;
+            margin-bottom: 0.75rem;
+            user-select: all;
+            line-height: 1.5;
+        }
+
+        .warning {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.4rem;
+            font-size: 0.85rem;
+            color: var(--sl-color-warning-800);
+            background: var(--sl-color-warning-50);
+            border: 1px solid var(--sl-color-warning-200);
+            border-radius: var(--sl-border-radius-medium);
+            padding: 0.5rem 0.65rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .warning sl-icon {
+            flex-shrink: 0;
+            margin-top: 0.1rem;
+        }
+    `;
+
+    open(url: string, hasConfig: boolean): void {
+        this.url = url;
+        this.hasConfig = hasConfig;
+        this.copied = false;
+        this.dialog.show();
+    }
+
+    private async handleCopy(): Promise<void> {
+        await navigator.clipboard.writeText(this.url);
+        this.copied = true;
+        setTimeout(() => { this.copied = false; }, 2000);
+    }
+
+    render() {
+        return html`
+            <sl-dialog label="Permalink">
+                ${!this.hasConfig ? html`
+                    <div class="warning">
+                        <sl-icon name="exclamation-triangle"></sl-icon>
+                        <span>Config was not loaded from a URL — layer state may not restore for recipients using a different config.</span>
+                    </div>
+                ` : null}
+                <div class="url-box">${this.url}</div>
+                <div slot="footer" style="display:flex;gap:0.5rem;justify-content:flex-end">
+                    <sl-button @click=${() => this.dialog.hide()}>Close</sl-button>
+                    <sl-button variant="primary" @click=${this.handleCopy}>
+                        <sl-icon slot="prefix" name=${this.copied ? 'check2' : 'clipboard'}></sl-icon>
+                        ${this.copied ? 'Copied!' : 'Copy to clipboard'}
+                    </sl-button>
+                </div>
+            </sl-dialog>
+        `;
+    }
+}
+

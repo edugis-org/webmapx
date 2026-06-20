@@ -208,7 +208,21 @@ async function initializeMap(mapElement, appConfig) {
         ...(isStyleUrl ? { styleUrl: styleConfig } : { style: styleConfig })
     };
 
-    if (persistedState?.viewport) {
+    // Permalink viewport takes highest priority — apply before map init so the
+    // engine never renders at the config's default center/zoom
+    const permalinkParam = new URLSearchParams(window.location.search).get('s');
+    if (permalinkParam) {
+        try {
+            const permalinkState = JSON.parse(atob(permalinkParam));
+            if (Array.isArray(permalinkState?.v) && permalinkState.v.length === 5) {
+                const [lng, lat, zoom, bearing, pitch] = permalinkState.v;
+                initOptions.center = [lng, lat];
+                initOptions.zoom = zoom;
+                if (bearing !== 0) initOptions.bearing = bearing;
+                if (pitch !== 0) initOptions.pitch = pitch;
+            }
+        } catch { /* ignore malformed permalink */ }
+    } else if (persistedState?.viewport) {
         initOptions.center = persistedState.viewport.center;
         initOptions.zoom = persistedState.viewport.zoom;
     } else if (savedViewport) {
@@ -227,9 +241,20 @@ async function initializeMap(mapElement, appConfig) {
         }
     }
 
-    if (persistedState?.projection) {
+    // Determine which projection to apply: permalink > persisted state
+    const projectionToApply = (() => {
+        if (permalinkParam) {
+            try {
+                const ps = JSON.parse(atob(permalinkParam));
+                if (typeof ps?.p === 'string') return ps.p;
+            } catch { /* ignore */ }
+        }
+        return persistedState?.projection ?? null;
+    })();
+
+    if (projectionToApply) {
         // Always set projection option — MapCoreService adds it to the style spec via projectionSpec
-        initOptions.projection = persistedState.projection;
+        initOptions.projection = projectionToApply;
         if (isStyleUrl) {
             // Switch URL style to inline so MapCoreService can inject projection into setStyle()
             // v4 only applies projection during initial renderer setup (first setStyle call)
@@ -243,6 +268,7 @@ async function initializeMap(mapElement, appConfig) {
             }
         }
     }
+
 
     // Initialize the map
     adapter.initialize(mapElement.id, initOptions);

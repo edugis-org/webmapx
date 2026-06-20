@@ -18,6 +18,7 @@ import {
   resolveAdapterSelection
 } from '../config/adapter-resolution';
 import { saveMapState, consumeMapState } from '../map/map-state-persistence';
+import { PERMALINK_PARAM, decodePermalink } from '../utils/permalink';
 import { ToolManager } from '../tools/tool-manager';
 import {
   rememberSingleGroupInsertSlotForGroup,
@@ -602,6 +603,12 @@ export class WebmapxMapElement extends HTMLElement {
   }
 
   private collectInitialActiveLayerRefs(): string[] {
+    const permalinkParam = new URLSearchParams(window.location.search).get(PERMALINK_PARAM);
+    if (permalinkParam) {
+      const permalinkState = decodePermalink(permalinkParam);
+      if (permalinkState?.l?.length) return permalinkState.l;
+    }
+
     const activeLayers = this.configInstance?.state?.activeLayers;
     if (!activeLayers) {
       const layers = this.configInstance?.layerData?.layers ?? [];
@@ -1379,6 +1386,39 @@ export class WebmapxMapElement extends HTMLElement {
       }
     }
     await this.restoreState();
+    await this.applyPermalinkState(adapter);
+  }
+
+  private async applyPermalinkState(adapter: IMap): Promise<void> {
+    const param = new URLSearchParams(window.location.search).get(PERMALINK_PARAM);
+    if (!param) return;
+    const state = decodePermalink(param);
+    if (!state) return;
+
+    // Viewport is already applied at map init time in app.js; only layer state needs restoring here.
+    if (state.h && state.h.length > 0) {
+      const hiddenSet = new Set(state.h);
+      const mapLayers = adapter.store.getState().mapLayers ?? {};
+      const storeUpdate: Record<string, unknown> = { ...mapLayers };
+      for (const layerId of state.h) {
+        if (!mapLayers[layerId]) continue;
+        adapter.setLayerVisibility(layerId, false);
+        storeUpdate[layerId] = { ...mapLayers[layerId], visible: false };
+      }
+      adapter.store.dispatch({ mapLayers: storeUpdate as typeof mapLayers }, 'UI');
+    }
+
+    if (state.t) {
+      const current = adapter.store.getState().mapLayers ?? {};
+      const tUpdate: Record<string, unknown> = { ...current };
+      for (const [layerId, transparency] of Object.entries(state.t)) {
+        const entry = current[layerId];
+        if (!entry) continue;
+        adapter.setLayerOpacity(layerId, (100 - transparency) / 100);
+        tUpdate[layerId] = { ...entry, transparency };
+      }
+      adapter.store.dispatch({ mapLayers: tUpdate as typeof current }, 'UI');
+    }
   }
 
   private toLayerInformation(value: unknown): LayerInformation | null {
