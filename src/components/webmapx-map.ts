@@ -109,6 +109,11 @@ export class WebmapxMapElement extends HTMLElement {
     };
 
     private async handleDroppedFiles(files: File[]): Promise<void> {
+      await this.addFilesAsLayers(files);
+    }
+
+    /** Public API for tools to trigger file import (same logic as dropping files on the map). */
+    public async addFilesAsLayers(files: File[]): Promise<void> {
       this.adapter?.store.dispatch({ mapBusy: true }, 'UI');
       try {
         await this.processDroppedFiles(files);

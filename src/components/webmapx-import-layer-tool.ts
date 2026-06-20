@@ -13,8 +13,8 @@ import { discoverLayers, type DiscoveredLayer, type CatalogEntry } from '../util
  * network tab) and discover WMS/WMTS/Esri/XYZ layers available at that
  * endpoint, then add the selected ones to the map.
  */
-@customElement('webmapx-add-layer-tool')
-export class WebmapxAddLayerTool extends WebmapxBaseTool {
+@customElement('webmapx-import-layer-tool')
+export class WebmapxImportLayerTool extends WebmapxBaseTool {
   public active = false;
   private mapElement: WebmapxMapElement | null = null;
 
@@ -39,6 +39,12 @@ export class WebmapxAddLayerTool extends WebmapxBaseTool {
   @state()
   private catalog: CatalogEntry[] = [];
 
+  @state()
+  private fileDropActive = false;
+
+  @state()
+  private fileImporting = false;
+
   /** Bumped on each `handleDiscover` call; a stale (slower) call's result is discarded if a newer one has started. */
   private discoverySeq = 0;
 
@@ -46,8 +52,10 @@ export class WebmapxAddLayerTool extends WebmapxBaseTool {
     :host { display: block; width: 100%; pointer-events: auto; }
     :host([hidden]) { display: none !important; }
     .container { width: 100%; color: var(--color-text-primary); box-sizing: border-box; padding: var(--webmapx-tool-padding, 0); }
+    .section-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-secondary); margin: 10px 0 6px; }
+    .section-title:first-child { margin-top: 0; }
     .urlbox { display:flex; gap:6px; align-items:center; }
-    input { flex:1; padding:6px; min-width:0; }
+    input[type="text"] { flex:1; padding:6px; min-width:0; }
     .error { color: var(--sl-color-danger-600, #c0392b); font-size: 12px; margin-top: 6px; }
     .filter { width:100%; box-sizing:border-box; padding:6px; margin-top:8px; }
     .results { margin-top:8px; max-height:50%; overflow:auto; }
@@ -55,6 +63,24 @@ export class WebmapxAddLayerTool extends WebmapxBaseTool {
     .result-item { padding:6px; border-bottom:1px solid rgba(0,0,0,0.05); display:flex; align-items:center; gap:8px; }
     .meta { font-size: 11px; color: var(--color-text-secondary); }
     .actions { margin: 8px 0; display:flex; justify-content:flex-end; gap:6px; }
+    .file-row { display: flex; gap: 6px; align-items: center; }
+    .drop-zone {
+      border: 2px dashed var(--sl-color-neutral-400);
+      border-radius: var(--sl-border-radius-medium);
+      padding: 16px 8px;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      margin-top: 6px;
+    }
+    .drop-zone:hover, .drop-zone.active {
+      border-color: var(--sl-color-primary-500);
+      background: var(--sl-color-primary-50);
+      color: var(--sl-color-primary-700);
+    }
+    input[type="file"] { display: none; }
   `;
 
   protected onMapAttached(adapter: IMap): void {
@@ -193,10 +219,41 @@ export class WebmapxAddLayerTool extends WebmapxBaseTool {
     this.selected = new Set();
   }
 
+  private async handleFiles(files: File[]): Promise<void> {
+    if (!this.mapElement || files.length === 0) return;
+    this.fileImporting = true;
+    try {
+      await this.mapElement.addFilesAsLayers(files);
+    } finally {
+      this.fileImporting = false;
+    }
+  }
+
+  private handleFileInput(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    input.value = '';
+    void this.handleFiles(files);
+  }
+
+  private handleDropZoneDrop(e: DragEvent): void {
+    e.preventDefault();
+    this.fileDropActive = false;
+    const files = Array.from(e.dataTransfer?.files ?? []);
+    void this.handleFiles(files);
+  }
+
+  private handleDropZoneDragOver(e: DragEvent): void {
+    if (!e.dataTransfer?.types.includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    this.fileDropActive = true;
+  }
+
   render() {
     return html`
       <div class="container tool-content">
-        <div class="title">Add layer from URL</div>
+        <div class="section-title">From URL</div>
         <div class="urlbox">
           <input
             type="text"
@@ -264,7 +321,29 @@ export class WebmapxAddLayerTool extends WebmapxBaseTool {
             </ul>
           </div>
         `}
+
+        <div class="section-title">From file</div>
+        <div class="file-row">
+          <sl-button size="small" ?loading=${this.fileImporting} ?disabled=${this.fileImporting}
+            @click=${() => (this.renderRoot?.querySelector('input[type="file"]') as HTMLInputElement)?.click()}>
+            <sl-icon slot="prefix" name="folder2-open"></sl-icon>
+            Open file…
+          </sl-button>
+        </div>
+        <input type="file" multiple accept=".geojson,.json,.zip,.gpx,.kml,.kmz,.csv,.topojson"
+          @change=${this.handleFileInput} />
+        <div
+          class="drop-zone ${this.fileDropActive ? 'active' : ''}"
+          @dragover=${this.handleDropZoneDragOver}
+          @dragleave=${() => { this.fileDropActive = false; }}
+          @drop=${this.handleDropZoneDrop}
+          @click=${() => (this.renderRoot?.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
+        >
+          <sl-icon name="file-earmark-arrow-up"></sl-icon>
+          Drop files here or click to browse
+        </div>
       </div>
     `;
   }
 }
+
