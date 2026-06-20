@@ -30,6 +30,11 @@ jobs:
       - run: echo '${{ secrets.APIKEYS_JSON }}' > config/apikeys.json
       - run: npm run build
 
+      - name: Add demo styles
+        run: |
+          git clone --depth 1 https://github.com/edugis-org/webmapx-demo.git /tmp/webmapx-demo
+          cp -R /tmp/webmapx-demo/styles dist/styles
+
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist
