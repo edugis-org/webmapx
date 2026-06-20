@@ -43,7 +43,10 @@ When a layer is expanded and visible, its details show:
 - **Info button** — opens a dialog (`webmapx-layer-info-dialog`, internal) with the layer's `metadata.abstract` (HTML, sanitized) and attribution, if configured.
 - **Delete button** (overview section only) — removes the layer from the map.
 
-A **"Save layer(s)…"** button is shown below the overview section (UI placeholder for future export functionality).
+Two icon buttons are always shown at the bottom of the overview section:
+
+- **Permalink** (`🔗`) — opens a dialog with a shareable URL that encodes the full map state: active layers, hidden layers, viewport (center, zoom, bearing, pitch), per-layer transparency overrides, and projection. The URL uses `?s=` (or `?s.i=` for multi-map pages). If the config was loaded from a URL param, `?config=` (or `?config.i=`) is also included so recipients load the same data. See [Permalink](#permalink) below.
+- **Save layer(s)…** (`⬇`) — opens the save-layers dialog (exports selected layers to GeoJSON/zip). Only shown when overlay layers are present.
 
 ## Reordering layers
 
@@ -65,6 +68,26 @@ Drag a layer card by its handle to change its stacking order. While dragging:
 | `background-group-label` | string | `Base Maps` | Fallback group label treated as background when `legendRole` is not set. |
 | `background-title` | string | `Achtergrondlagen` | Heading label for the background section. |
 | `overview-title` | string | `Gekozen kaartlagen` | Heading label for the overview section. |
+
+## Permalink
+
+Clicking the permalink button builds a URL from the current map state and opens a dialog showing it with a copy-to-clipboard button.
+
+**What is encoded in `?s=`:**
+
+| Field | Description |
+|-------|-------------|
+| `l` | All layer IDs in bottom-to-top stack order |
+| `h` | Layer IDs that are currently hidden (omitted if all visible) |
+| `v` | Viewport — `[lng, lat, zoom, bearing, pitch]` |
+| `t` | Per-layer transparency overrides (only non-zero values) |
+| `p` | Projection name, e.g. `globe` (omitted for default mercator) |
+
+The config URL is stored separately as `?config=` (not inside `?s=`), so it remains readable and can be changed independently.
+
+**Warning:** if the config was not loaded from a URL parameter (e.g. it came from a `src` attribute or was dropped onto the map), the dialog shows a warning — recipients opening the link may see different or no layers if they don't already have the same config loaded.
+
+**Multi-map pages:** for pages with multiple maps, the button uses indexed params (`?s.1=`, `?config.1=`) targeting the correct map by DOM position. See [configuration — multi-map pages](../configuration.md#multi-map-pages).
 
 ## Notes
 

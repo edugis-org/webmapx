@@ -13,11 +13,37 @@ https://example.com/?config=./config/demo.json
 https://example.com/?config=/api/configs/production.json
 ```
 
-When present, this overrides per-map configuration sources for maps on the page.
+This applies to the **first** `<webmapx-map>` in DOM order. On pages with multiple maps, use indexed params to target specific maps (see [Multi-map pages](#multi-map-pages) below).
 
 ### Per-Map Configuration
 
 Individual `<webmapx-map>` elements can specify their own config via the `src` attribute. See [webmapx-map](./components/webmapx-map.md) for details.
+
+### Multi-map pages
+
+Pages with multiple `<webmapx-map>` elements can supply a separate config URL for each map via indexed query parameters. Maps are identified by their **DOM order** — no `id` attribute required.
+
+```
+?config=<url>        config for the first map (index 0)
+?config.0=<url>      same as above — explicit index 0 form
+?config.1=<url>      config for the second map
+?config.2=<url>      config for the third map
+```
+
+**Precedence:** the explicit indexed form (`config.0=`) takes precedence over the short alias (`config=`) when both appear in the URL.
+
+**Example — two maps on one page:**
+
+```html
+<webmapx-map src="./config/world.json">…</webmapx-map>
+<webmapx-map src="./config/inset.json">…</webmapx-map>
+```
+
+```
+https://example.com/?config=https://example.com/world.json&config.1=https://example.com/inset.json
+```
+
+Maps that have no matching URL param fall back to their `src` attribute.
 
 ## Configuration File Format
 

@@ -17,6 +17,8 @@
 ## Completed
 
 ### 2026 Q2
+- [x] Permalink — shareable URL encoding map state (layers, viewport, transparency, projection) with multi-map support via DOM index (`?s=`, `?s.1=`, `?config=`, `?config.1=`)
+- [x] Map state moved to `IMapState` — `mapBearing`, `mapPitch`, layer `visible` and `transparency` now in store; base-adapter publishes bearing/pitch from `view-change-end` event
 - [x] Draw tool (point, line, polygon — all engines)
 - [x] Globe / projection tool (CRS switching, globe sky, MapLibre globe projection)
 - [x] TrueArea tool (drag polygons for size comparison, TopoJSON/GeoJSON auto-detection)
@@ -127,11 +129,11 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 - [ ] WCAG 2.1 AA audit
 
 ### Sharing & Navigation
-- [ ] Permalinks — shareable URL encoding current map state:
+- [x] Permalinks — shareable URL encoding current map state:
   - Config file URL (which config is loaded)
-  - Active layer IDs
-  - Map center (lng/lat), zoom, bearing, pitch
-  - Per-layer transparency overrides (only where user deviated from config default)
+  - Active layer IDs + hidden layer IDs
+  - Map center (lng/lat), zoom, bearing, pitch, projection
+  - Per-layer transparency overrides
 
 ### Configuration
 - [ ] Config edit tool — runtime UI for editing layer/map/tool config (add/remove/reorder layers, change sources, configure tools)
