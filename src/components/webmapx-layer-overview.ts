@@ -874,7 +874,10 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     this.layerTransparency = next;
     const meta = this.adapter.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined;
     if ((meta as any)?.layerType === 'hillshade') {
-      this.adapter.updateLayerStyle(layerId, layerId, { 'hillshade-exaggeration': (100 - transparency) / 100 });
+      const sublayers = (meta as any)?.sublayers as any[] | undefined;
+      const primarySub = sublayers?.find((s: any) => s?.type === 'hillshade');
+      const subLayerId = primarySub?.id ?? layerId;
+      this.adapter.updateLayerStyle(layerId, subLayerId, { 'hillshade-exaggeration': (100 - transparency) / 100 });
     } else {
       this.adapter.setLayerOpacity(layerId, (100 - transparency) / 100);
     }

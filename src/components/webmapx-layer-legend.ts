@@ -1235,21 +1235,10 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 && typeof (sublayers[0] as any)?.type === 'string'
                 && (sublayers[0] as any).type === 'hillshade';
             if (!isSingleHillshade) return compositeLegend;
-            const subId = String((sublayers[0] as any)?.id ?? '');
-            const hillPaint = (sublayers[0] as any)?.paint ?? {};
-            const overrides = this.editOverrides[subId] ?? {};
-            const effectiveHillPaint = { ...hillPaint, ...overrides };
-            const isOpen = this.editorOpenKey === subId;
             return html`
                 <div class="legend-wrap">
                     ${compositeLegend}
                     ${this.renderHillshadeTerrainCheckbox()}
-                    <div class="legend-row editable" @click=${() => { this.editorOpenKey = isOpen ? null : subId; }}>
-                        <span class="legend-label" style="font-size:0.75em;color:var(--sl-color-neutral-500)">
-                            ${isOpen ? '▲' : '▼'} hillshade style
-                        </span>
-                    </div>
-                    ${isOpen ? this.renderStyleEditor([subId], 'hillshade', effectiveHillPaint) : ''}
                 </div>`;
         }
 
