@@ -34,6 +34,8 @@ export interface LayerNode {
     allowedLayers?: string | string[];
     /** WMS layer names to exclude (blacklist). Comma-separated string or array. */
     deniedLayers?: string | string[];
+    /** Override tile fetch base URL(s) — WMS query string from capabilities is appended to each. */
+    tilecacheUrl?: string | string[];
     /** Inline layer payload for nodes discovered from WMS capabilities (not catalog-based). */
     layerSpec?: Record<string, unknown>;
 }
@@ -895,6 +897,11 @@ export class WebmapxLayerTree extends LitElement {
             const allowed = this.normalizeLayerList(node.allowedLayers);
             const denied = new Set(this.normalizeLayerList(node.deniedLayers));
 
+            // Normalize tilecacheUrl to array (or undefined)
+            const tilecacheUrls: string[] | undefined = node.tilecacheUrl
+                ? (Array.isArray(node.tilecacheUrl) ? node.tilecacheUrl : [node.tilecacheUrl])
+                : undefined;
+
             const children: LayerNode[] = layers
                 .filter(l => {
                     const id = (l.layer as any).id as string;
@@ -904,8 +911,17 @@ export class WebmapxLayerTree extends LitElement {
                 })
                 .map(l => {
                     const layer = l.layer as any;
-                    const source = l.source as any;
+                    const source = { ...(l.source as any) };
                     const layerId = layer.id as string;
+
+                    // Apply tilecacheUrl: replace base URL, keep WMS query string
+                    if (tilecacheUrls && source.url) {
+                        const originalUrl = Array.isArray(source.url) ? source.url[0] : source.url;
+                        const qIdx = (originalUrl as string).indexOf('?');
+                        const search = qIdx >= 0 ? (originalUrl as string).slice(qIdx) : '';
+                        source.url = tilecacheUrls.map((u: string) => u + search);
+                    }
+
                     return {
                         label: (layer.title ?? layerId) as string,
                         layerId,
@@ -939,7 +955,7 @@ export class WebmapxLayerTree extends LitElement {
 
             return html`
                 <sl-tree-item ?expanded=${node.expanded} data-node-key=${nodeKey}
-                    @sl-show=${() => { void this.fetchCapabilities(node); }}>
+                    @sl-expand=${() => { void this.fetchCapabilities(node); }}>
                     <span style="cursor:pointer">${node.label ?? node.url}</span>
                     ${children}
                 </sl-tree-item>`;
