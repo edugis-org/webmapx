@@ -15,7 +15,6 @@ const SHOELACE_CDN = `https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@${SH
 
 const BLANK_STYLE = { version: 8 as const, sources: {}, layers: [] };
 
-// Convert string array ['draw','measure'] → minimal ToolsConfig object for buildLayoutFromConfig
 function toolArrayToConfig(tools: string[]): ToolsConfig {
   return {
     mainToolbar: { type: 'toolbar', enabled: true, position: 'top-left', items: tools.map(id => ({ type: id })) },
@@ -24,7 +23,6 @@ function toolArrayToConfig(tools: string[]): ToolsConfig {
 
 export class WebMapX {
   static async mount(selector: string, options: WebMapXMountOptions): Promise<void> {
-    // resolve config
     const config: WebMapXConfig = typeof options.config === 'string'
       ? await fetch(options.config).then(r => {
           if (!r.ok) throw new Error(`[webmapx] Failed to load config: ${options.config}`);
@@ -32,13 +30,9 @@ export class WebMapX {
         })
       : options.config;
 
-    // set Shoelace base path so icons load from CDN (bundled shoelace has no local assets)
     setBasePath(SHOELACE_CDN);
-
-    // init i18n (EN built-in, no fetch)
     await initI18n();
 
-    // parallel: engine + tools + plugins
     const engine = config.engine ?? 'maplibre';
     const toolsList = Array.isArray(config.tools) ? config.tools as string[] : [];
     await Promise.all([
@@ -47,29 +41,25 @@ export class WebMapX {
       config.plugins?.length ? loadPlugins(config.plugins) : Promise.resolve(),
     ]);
 
-    // locale after tools
     if (config.locale && config.locale !== 'en') {
       await loadLocale(config.locale);
     }
 
-    // mount DOM structure
     const container = document.querySelector(selector);
     if (!container) throw new Error(`[webmapx] Mount target not found: "${selector}"`);
     const mapId = selector.replace(/^#/, '').replace(/[^a-zA-Z0-9_-]/g, '-') || 'webmapx-map';
-    container.innerHTML = `<webmapx-map id="${mapId}" adapter="${engine}"><div slot="map-view" style="position:absolute;inset:0;"></div><webmapx-layout></webmapx-layout></webmapx-map>`;
 
+    // Inject webmapx-map WITHOUT layout — layout is added AFTER MapLibre initializes
+    // so it is always the last DOM child and therefore renders above the canvas.
+    container.innerHTML = `<webmapx-map id="${mapId}" adapter="${engine}"></webmapx-map>`;
     const mapEl = container.querySelector('webmapx-map') as WebmapxMapElement;
     const mapConfig = config.map as Record<string, unknown> | undefined;
 
-    // strip bootstrap-only fields before normalizing as AppConfig
     const { engine: _e, tools: _t, locale: _l, plugins: _p, ...appRaw } = config as Record<string, unknown>;
-
-    // build toolsConfig: array → object, or pass through if already object
     const toolsConfig: ToolsConfig | undefined = toolsList.length > 0
       ? toolArrayToConfig(toolsList)
       : (typeof _t === 'object' && !Array.isArray(_t) ? _t as ToolsConfig : undefined);
 
-    // normalize + validate (converts object-keyed layers/sources to arrays, etc.)
     const appConfig = parseAndValidateConfig({
       ...appRaw,
       map: { type: engine, center: [0, 0], zoom: 2, ...mapConfig },
@@ -78,14 +68,7 @@ export class WebMapX {
 
     mapEl.setConfig(appConfig as AppConfig);
 
-    // build layout from tools
-    const layout = mapEl.querySelector('webmapx-layout');
-    if (layout && layout.childElementCount === 0) {
-      const { buildLayoutFromConfig } = await import('../utils/dynamic-layout.js');
-      buildLayoutFromConfig(layout as HTMLElement, toolsConfig ?? appConfig.tools);
-    }
-
-    // trigger adapter creation + initialize map engine
+    // Initialize map engine — MapLibre creates canvas inside the map-view div
     const adapter = await mapEl.getAdapterAsync?.();
     if (!adapter) {
       console.error('[webmapx] Adapter not available — check engine config.');
@@ -104,5 +87,12 @@ export class WebMapX {
     };
 
     adapter.initialize(mapId, initOptions);
+
+    // NOW add the layout — it's the last child so it renders above the MapLibre canvas
+    const layoutEl = document.createElement('webmapx-layout');
+    mapEl.appendChild(layoutEl);
+
+    const { buildLayoutFromConfig } = await import('../utils/dynamic-layout.js');
+    buildLayoutFromConfig(layoutEl as HTMLElement, toolsConfig ?? appConfig.tools);
   }
 }
