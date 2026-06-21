@@ -18,7 +18,7 @@ const BLANK_STYLE = { version: 8 as const, sources: {}, layers: [] };
 // Convert string array ['draw','measure'] → minimal ToolsConfig object for buildLayoutFromConfig
 function toolArrayToConfig(tools: string[]): ToolsConfig {
   return {
-    mainToolbar: { type: 'toolbar', enabled: true, position: 'top-left', items: tools.map(id => ({ tool: id })) },
+    mainToolbar: { type: 'toolbar', enabled: true, position: 'top-left', items: tools.map(id => ({ type: id })) },
   } as unknown as ToolsConfig;
 }
 
