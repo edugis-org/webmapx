@@ -48,6 +48,15 @@ export interface MapLayerStateEntry {
     legendRole?: 'background' | 'overlay';
     /** Whether the legend for this layer is expanded in the legend panel. Defaults to true. */
     legendExpanded?: boolean;
+    /**
+     * Legend expand/collapse mode.
+     * - 'auto': system-managed — topmost visible overlay layer is expanded, all others collapsed.
+     *   Reacts to layer order changes automatically.
+     * - 'expanded': user explicitly expanded this layer's legend.
+     * - 'collapsed': user explicitly collapsed this layer's legend.
+     * Undefined is treated as 'auto'.
+     */
+    legendExpandMode?: 'auto' | 'expanded' | 'collapsed';
     /** Whether the layer is visible. Undefined means visible (default). */
     visible?: boolean;
     /** User-set transparency (0–100 %). Undefined means no override (default 0). */

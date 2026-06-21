@@ -296,7 +296,7 @@ export class WebmapxPrintTool extends WebmapxModalTool {
             const mapLayers = this.store?.getState()?.mapLayers ?? {};
             for (const [layerId, entry] of Object.entries(mapLayers).reverse()) {
                 if (entry.hideFromLegend === true) continue;
-                if (entry.legendExpanded === false) continue;
+                if (entry.legendExpandMode === 'collapsed') continue;
                 if (entry.visible === false) continue;
 
                 const label = typeof entry.label === 'string' && entry.label ? entry.label : layerId;

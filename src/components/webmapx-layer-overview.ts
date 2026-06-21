@@ -1210,7 +1210,12 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
 
   private isLegendCollapsed(layerId: string): boolean {
     const entry = this.store?.getState()?.mapLayers?.[layerId];
-    return entry?.legendExpanded === false;
+    const mode = entry?.legendExpandMode;
+    if (mode === 'expanded') return false;
+    if (mode === 'collapsed') return true;
+    // 'auto' or undefined: expand only the topmost visible overlay layer
+    const topmostVisible = this.overviewLayers.find(item => item.visible);
+    return topmostVisible?.layerId !== layerId;
   }
 
   private handleCollapseToggle(layerId: string): void {
@@ -1218,12 +1223,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     const current = this.store.getState();
     const entry = current.mapLayers?.[layerId];
     if (!entry) return;
-    const expanded = entry.legendExpanded !== false; // default true
+    // Store the explicit user choice — not 'auto' anymore
+    const nowCollapsed = this.isLegendCollapsed(layerId);
+    const nextMode: 'expanded' | 'collapsed' = nowCollapsed ? 'expanded' : 'collapsed';
     this.store.dispatch({
-      mapLayers: {
-        ...current.mapLayers,
-        [layerId]: { ...entry, legendExpanded: !expanded },
-      },
+      mapLayers: { ...current.mapLayers, [layerId]: { ...entry, legendExpandMode: nextMode } },
     }, 'UI');
   }
 
