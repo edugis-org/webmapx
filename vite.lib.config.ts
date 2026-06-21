@@ -13,18 +13,17 @@ export default defineConfig({
     },
     outDir: 'dist-lib',
     rollupOptions: {
-      external: [
-        'maplibre-gl',
-        'ol',
-        'ol-mapbox-style',
-        'leaflet',
-        'cesium',
-        'lit',
-        '@lit/reactive-element',
-        'lit-html',
-        'lit-element',
-        '@shoelace-style/shoelace',
-      ],
+      external: (id: string) =>
+        id === 'maplibre-gl' ||
+        id === 'ol' || id.startsWith('ol/') ||
+        id === 'ol-mapbox-style' ||
+        id === 'leaflet' ||
+        id === 'cesium' ||
+        id === 'lit' || id.startsWith('lit/') ||
+        id === '@lit/reactive-element' || id.startsWith('@lit/reactive-element/') ||
+        id === 'lit-html' || id.startsWith('lit-html/') ||
+        id === 'lit-element' || id.startsWith('lit-element/') ||
+        id === '@shoelace-style/shoelace' || id.startsWith('@shoelace-style/shoelace/'),
       output: {},
     },
   },
