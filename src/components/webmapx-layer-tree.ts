@@ -1057,7 +1057,7 @@ export class WebmapxLayerTree extends LitElement {
                 }));
             } else {
                 this.dispatchEvent(new CustomEvent('webmapx-remove-layer', {
-                    detail: { id: node.layerId },
+                    detail: node.layerId,
                     bubbles: true,
                     composed: true,
                 }));
