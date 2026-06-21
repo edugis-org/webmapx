@@ -16,6 +16,7 @@ if (import.meta.env.DEV) {
 // 1. Import configuration loader
 import { loadAppConfig, resolveMapConfig, fetchConfig, parseAndValidateConfig, getConfigUrlParam } from './config/index.ts';
 import { getConfigUrlForIndex } from './utils/permalink.ts';
+import { showToast } from './utils/toast.ts';
 import { DROPPED_CONFIG_KEY } from './utils/dropped-config.ts';
 import { DEFAULT_ADAPTER_NAME } from './map/adapter-registry';
 import {
@@ -118,7 +119,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.log(`[app] Loaded config for map[${mapIndex}] from: ${perMapConfigUrl}`);
             } catch (error) {
                 console.error(`[app] Failed to load config for map[${mapIndex}] from "${perMapConfigUrl}":`, error);
-                alert(`Failed to load config from "${perMapConfigUrl}":\n${error.message}`);
+                showToast(`<strong>Failed to load config</strong><br>${perMapConfigUrl}<br>${error.message}`, { variant: 'danger' });
             }
         } else if (mapIndex === 0 && !mapConfig) {
             // Index 0, no per-map URL param: fall back to legacy ?config= / dropped config
@@ -130,7 +131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             } catch (error) {
                 console.error('[app] Failed to load app config:', error);
-                alert(`Failed to load config from "${getConfigUrlParam()}":\n${error.message}`);
+                showToast(`<strong>Failed to load config</strong><br>${getConfigUrlParam()}<br>${error.message}`, { variant: 'danger' });
             }
         }
 

@@ -27,6 +27,7 @@ import {
 import { resolveLegendRoleForLayer } from './internal/legend-role-policy';
 import { resolveGeoJSONSources, type PagedSourceContinuation } from '../map/geojson-loader';
 import { inlineLayerSources } from '../map/layer-source-resolver';
+import { showToast } from '../utils/toast';
 
 const MAP_VIEW_SLOT = 'map-view';
 const MAP_SURFACE_CLASS = 'webmapx-map__surface';
@@ -191,7 +192,7 @@ export class WebmapxMapElement extends HTMLElement {
         }
       }
       if (unhandled.length > 0) {
-        alert(unhandled.join('\n'));
+        void showToast(unhandled.join('<br>'), { variant: 'warning', duration: 16000 });
       }
     }
 
@@ -1436,23 +1437,14 @@ export class WebmapxMapElement extends HTMLElement {
     }
   }
 
-  private async showPermalinkMissingLayersToast(missingLayers: string[]): Promise<void> {
-    await import('@shoelace-style/shoelace/dist/components/alert/alert.js');
-    await import('@shoelace-style/shoelace/dist/components/icon/icon.js');
+  private showPermalinkMissingLayersToast(missingLayers: string[]): void {
     const count = missingLayers.length;
-    const alert = Object.assign(document.createElement('sl-alert'), {
-      variant: 'warning',
-      closable: true,
-      duration: 16000,
-    });
-    alert.innerHTML = `
-      <sl-icon slot="icon" name="exclamation-triangle"></sl-icon>
-      <strong>${count} layer${count > 1 ? 's' : ''} from the permalink could not be restored</strong><br>
+    void showToast(
+      `<strong>${count} layer${count > 1 ? 's' : ''} from the permalink could not be restored</strong><br>
       Layers may have been imported from files (not stored in permalink) or the map config may have changed:<br>
-      <em>${missingLayers.join(', ')}</em>
-    `;
-    document.body.appendChild(alert);
-    (alert as any).toast();
+      <em>${missingLayers.join(', ')}</em>`,
+      { variant: 'warning', duration: 16000 },
+    );
   }
 
   private toLayerInformation(value: unknown): LayerInformation | null {

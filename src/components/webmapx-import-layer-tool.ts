@@ -238,6 +238,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
 
   private handleDropZoneDrop(e: DragEvent): void {
     e.preventDefault();
+    e.stopPropagation();
     this.fileDropActive = false;
     const files = Array.from(e.dataTransfer?.files ?? []);
     void this.handleFiles(files);
@@ -246,6 +247,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
   private handleDropZoneDragOver(e: DragEvent): void {
     if (!e.dataTransfer?.types.includes('Files')) return;
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = 'copy';
     this.fileDropActive = true;
   }
