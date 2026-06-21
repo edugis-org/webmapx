@@ -6,6 +6,7 @@ import { loadLocale } from './locale-loader.js';
 import type { WebMapXConfig, WebMapXMountOptions } from './types.js';
 import type { WebmapxMapElement } from '../components/webmapx-map.js';
 import type { AppConfig } from '../config/types.js';
+import { parseAndValidateConfig } from '../config/loader.js';
 
 const BLANK_STYLE = { version: 8 as const, sources: {}, layers: [] };
 
@@ -43,11 +44,13 @@ export class WebMapX {
     const mapEl = container.querySelector('webmapx-map') as WebmapxMapElement;
     const mapConfig = config.map as Record<string, unknown> | undefined;
 
-    // set full config on the map element
-    mapEl.setConfig({
+    // normalize + validate config (converts object-keyed layers/sources to arrays, etc.)
+    const appConfig = parseAndValidateConfig({
       ...config,
       map: { type: engine, center: [0, 0], zoom: 2, ...mapConfig },
-    } as unknown as AppConfig);
+    }, 'WebMapX.mount');
+
+    mapEl.setConfig(appConfig);
 
     // build layout from tools config (same as app.js does)
     const layout = mapEl.querySelector('webmapx-layout');
