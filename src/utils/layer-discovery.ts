@@ -235,7 +235,7 @@ function arcgisCatalogEntries(baseUrl: string, info: Record<string, unknown>): C
   return entries;
 }
 
-async function discoverWms(baseUrl: string): Promise<DiscoveredLayer[]> {
+export async function discoverWms(baseUrl: string): Promise<DiscoveredLayer[]> {
   try {
     const endpoint = await new WmsEndpoint(baseUrl).isReady();
     const info = endpoint.getServiceInfo();

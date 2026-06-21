@@ -5,11 +5,15 @@ import { customElement, property, state } from 'lit/decorators.js';
 import '@shoelace-style/shoelace/dist/components/tree/tree.js';
 import '@shoelace-style/shoelace/dist/components/tree-item/tree-item.js';
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
+import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 
 import type { TreeNodeConfig, TreeSelectionMode } from '../config/types';
 import type { WebmapxMapElement } from './webmapx-map';
 import type { IMap } from '../map/IMapInterfaces';
 import type { LayerAddEvent, LayerRemoveEvent } from '../store/map-events';
+import type { DiscoveredLayer } from '../utils/layer-discovery';
+
+type CapsStatus = { status: 'loading' } | { status: 'error'; error: string } | { status: 'loaded'; children: LayerNode[] };
 
 export interface LayerNode {
     label?: string;
@@ -22,6 +26,16 @@ export interface LayerNode {
     checked?: boolean;
     expanded?: boolean;
     separator?: boolean;
+    /** 'getcapabilities' or 'capabilities' — lazy-loads WMS layers from a GetCapabilities URL */
+    type?: string;
+    /** WMS GetCapabilities URL (required when type is 'getcapabilities'/'capabilities') */
+    url?: string;
+    /** WMS layer names to include (whitelist). Comma-separated string or array. */
+    allowedLayers?: string | string[];
+    /** WMS layer names to exclude (blacklist). Comma-separated string or array. */
+    deniedLayers?: string | string[];
+    /** Inline layer payload for nodes discovered from WMS capabilities (not catalog-based). */
+    layerSpec?: Record<string, unknown>;
 }
 
 type SelectionContext = {
@@ -77,6 +91,7 @@ export class WebmapxLayerTree extends LitElement {
     private unsubscribeLayerRemove: (() => void) | null = null;
     private readonly nodeByKey = new Map<string, LayerNode>();
     private readonly supportStatusByLayerId = new Map<string, LayerSupportStatus>();
+    @state() private readonly capsCache = new Map<string, CapsStatus>();
     private readonly pendingSupportChecks = new Set<string>();
     private readonly supportQueue: string[] = [];
     private supportChecksInFlight = 0;
@@ -857,7 +872,79 @@ export class WebmapxLayerTree extends LitElement {
         return removedLayerIds;
     }
 
+    private capsKey(node: LayerNode): string {
+        return `${node.url}||${JSON.stringify(node.allowedLayers ?? [])}||${JSON.stringify(node.deniedLayers ?? [])}`;
+    }
+
+    private normalizeLayerList(value: string | string[] | undefined): string[] {
+        if (!value) return [];
+        if (Array.isArray(value)) return value.map(s => s.trim()).filter(Boolean);
+        return value.split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    private async fetchCapabilities(node: LayerNode): Promise<void> {
+        const key = this.capsKey(node);
+        if (this.capsCache.has(key)) return;
+        this.capsCache.set(key, { status: 'loading' });
+        this.requestUpdate();
+
+        try {
+            const { discoverWms } = await import('../utils/layer-discovery');
+            const layers: DiscoveredLayer[] = await discoverWms(node.url!);
+
+            const allowed = this.normalizeLayerList(node.allowedLayers);
+            const denied = new Set(this.normalizeLayerList(node.deniedLayers));
+
+            const children: LayerNode[] = layers
+                .filter(l => {
+                    const id = (l.layer as any).id as string;
+                    if (denied.has(id)) return false;
+                    if (allowed.length > 0 && !allowed.includes(id)) return false;
+                    return true;
+                })
+                .map(l => {
+                    const layer = l.layer as any;
+                    const source = l.source as any;
+                    const layerId = layer.id as string;
+                    return {
+                        label: (layer.title ?? layerId) as string,
+                        layerId,
+                        layerSpec: { ...layer, sources: { [source.id]: source } } as Record<string, unknown>,
+                    };
+                });
+
+            this.capsCache.set(key, { status: 'loaded', children });
+        } catch (e) {
+            this.capsCache.set(key, { status: 'error', error: e instanceof Error ? e.message : String(e) });
+        }
+        this.requestUpdate();
+    }
+
     renderNode(node: LayerNode, context?: SelectionContext, nodeKey = '0'): TemplateResult {
+        // Getcapabilities node: lazy-load WMS layers on first expand
+        const isCaps = node.type === 'getcapabilities' || node.type === 'capabilities';
+        if (isCaps && node.url) {
+            const key = this.capsKey(node);
+            const cacheEntry = this.capsCache.get(key);
+            const nodeContext = this.getChildSelectionContext(node, context, nodeKey);
+
+            let children: TemplateResult;
+            if (!cacheEntry || cacheEntry.status === 'loading') {
+                children = html`<sl-tree-item disabled><sl-spinner style="font-size:0.85rem"></sl-spinner> Loading…</sl-tree-item>`;
+            } else if (cacheEntry.status === 'error') {
+                children = html`<sl-tree-item disabled style="color:var(--sl-color-danger-600)">⚠ ${cacheEntry.error}</sl-tree-item>`;
+            } else {
+                children = html`${cacheEntry.children.map((child, i) => this.renderNode(child, nodeContext, `${nodeKey}.${i}`))}`;
+            }
+
+            return html`
+                <sl-tree-item ?expanded=${node.expanded} data-node-key=${nodeKey}
+                    @sl-show=${() => { void this.fetchCapabilities(node); }}>
+                    <span style="cursor:pointer">${node.label ?? node.url}</span>
+                    ${children}
+                </sl-tree-item>`;
+        }
+
         if (node.separator) {
             return html`
                 <sl-tree-item class="separator-item" data-node-key=${nodeKey} tabindex="-1" aria-hidden="true">
@@ -943,6 +1030,24 @@ export class WebmapxLayerTree extends LitElement {
         if (!node.layerId) return;
 
         this.setLayerCheckedState(node.layerId, isChecked);
+
+        // Inline layer from capabilities: bypass catalog, dispatch directly
+        if (node.layerSpec) {
+            if (isChecked) {
+                this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
+                    detail: node.layerSpec,
+                    bubbles: true,
+                    composed: true,
+                }));
+            } else {
+                this.dispatchEvent(new CustomEvent('webmapx-remove-layer', {
+                    detail: { id: node.layerId },
+                    bubbles: true,
+                    composed: true,
+                }));
+            }
+            return;
+        }
 
         const layerInformation = this.getLayerInformationById(node.layerId);
         if (!layerInformation) return;

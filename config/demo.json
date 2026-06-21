@@ -2760,7 +2760,6 @@
           "id": "import-layer",
           "type": "importLayer",
           "enabled": true,
-          "title": "Add layer from URL",
           "icon": "file-earmark-arrow-up"
         },
         {
