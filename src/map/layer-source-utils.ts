@@ -1,4 +1,4 @@
-import type { SourceConfig, XYZSourceConfig, GeoJSONSourceConfig, VectorSourceConfig, LayerDataConfig } from '../config/types';
+import type { SourceConfig, XYZSourceConfig, WMSSourceConfig, GeoJSONSourceConfig, VectorSourceConfig, LayerDataConfig } from '../config/types';
 
 export function resolveSource(catalog: LayerDataConfig | null | undefined, sourceId: string): SourceConfig | null {
     return catalog?.sources?.find((s) => s.id === sourceId) ?? null;
@@ -18,6 +18,30 @@ export function normalizeRawSource(logicalId: string, rawDef: unknown): SourceCo
                 ? def.url.filter((t): t is string => typeof t === 'string')
                 : (typeof def.url === 'string' ? [def.url] : []);
         if (tiles.length === 0) return null;
+
+        // Detect WMS: explicit service='wms', OR url has no tile placeholders ({x}/{y}/{z})
+        const hasTilePlaceholders = (url: string) => /\{x\}|\{y\}|\{z\}|\{-y\}|\{s\}/i.test(url);
+        const explicitService = typeof def.service === 'string' ? def.service : undefined;
+        const isWms = explicitService === 'wms' || (!explicitService && tiles.length > 0 && !hasTilePlaceholders(tiles[0]) && tiles[0].includes('?'));
+        if (isWms) {
+            // WMS: the url is a base WMS URL; MapLayerService will call buildWMSGetMapUrl to complete it.
+            const baseUrl = tiles[0];
+            return {
+                id: logicalId,
+                type: 'raster',
+                service: 'wms',
+                url: baseUrl,
+                ...(typeof def.layers === 'string' ? { layers: def.layers } : {}),
+                ...(typeof def.version === 'string' ? { version: def.version } : {}),
+                ...(typeof def.format === 'string' ? { format: def.format } : {}),
+                ...(typeof def.attribution === 'string' ? { attribution: def.attribution } : {}),
+                ...(def.tileSize !== undefined ? { tileSize: def.tileSize as number } : {}),
+                ...(def.minzoom !== undefined ? { minzoom: def.minzoom as number } : {}),
+                ...(def.maxzoom !== undefined ? { maxzoom: def.maxzoom as number } : {}),
+                ...(def.bounds !== undefined ? { bounds: def.bounds as [number, number, number, number] } : {}),
+            } as WMSSourceConfig;
+        }
+
         return { id: logicalId, type: 'raster', service: 'xyz', url: tiles, ...(def.attribution ? { attribution: def.attribution as string } : {}) } as XYZSourceConfig;
     }
     if (def.type === 'geojson') {
