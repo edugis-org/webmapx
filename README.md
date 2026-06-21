@@ -1,149 +1,61 @@
 # WebMapX
 
-WebMapX is a web mapping UI toolkit for building interactive map apps quickly.
-It supports multiple map engines out of the box: MapLibre, OpenLayers, Leaflet, and Cesium.
+Config-driven web map UI with adapters for MapLibre, OpenLayers, Leaflet, and Cesium.
 
-Live site: https://edugis-org.github.io/webmapx/
+**[Live demo](https://edugis-org.github.io/webmapx/)**
 
-## Why WebMapX
+## What it does
 
-- Build a working map UI fast with reusable components.
-- Switch map engines without rewriting all tools.
-- Use a config-driven setup for layers, backgrounds, and UI behavior.
-- Extend with custom tools when needed.
+- Drop a config file, get a full map UI — toolbar, layer tree, legend, tools
+- Switch map engines (MapLibre / OpenLayers / Leaflet / Cesium) without rewriting tools
+- 15+ built-in tools: draw, measure, search, print, import, geolocation, 3D, …
+- Lazy loading — only tools and engines the config requests download
+- Plugin system for custom tools
+- i18n — English built-in, other locales lazy-loaded from CDN
 
-## What You Get
+## Quick start
 
-- Map container and layout system
-- Toolbar and tool panel
-- Layer tree and layer overview/legend
-- Coordinates, zoom level, scale control, geolocation, search, measure tools
-- Inset map and navigation controls
+### CDN (no build tools needed)
 
-## Prerequisites
+```html
+<script type="module">
+  import { WebMapX } from 'https://cdn.jsdelivr.net/npm/@edugis-org/webmapx@0.1.0/dist-lib/webmapx.js'
+  WebMapX.mount('#map', { config: './mymap.json' })
+</script>
+```
 
-Before you start, install:
+→ [CDN quickstart](./docs/developer/cdn-quickstart.md)
 
-- Node.js 20 LTS or newer
-- npm 10 or newer (usually bundled with Node.js)
-- Git
-- A modern browser (Chrome, Edge, Firefox, or Safari)
-
-Optional but recommended:
-
-- VS Code for editing and debugging
-
-Quick version check:
+### npm
 
 ```bash
-node -v
-npm -v
-git --version
+npm install @edugis-org/webmapx maplibre-gl
 ```
 
-## Quick Start
+```js
+import { WebMapX } from '@edugis-org/webmapx'
+WebMapX.mount('#map', { config: './mymap.json' })
+```
 
-### 1) Clone the repository
+→ [npm quickstart](./docs/developer/npm-quickstart.md)
+
+### Clone and run locally
 
 ```bash
-git clone <your-repo-url>
-cd webmapx
+git clone https://github.com/edugis-org/webmapx.git
+cd webmapx && npm install && npm run dev
 ```
 
-### 2) Install dependencies
-
-```bash
-npm install
-```
-
-### 3) Run locally
-
-```bash
-npm run dev
-```
-
-Open the printed local URL in your browser.
-
-### 4) Build for production
-
-```bash
-npm run build
-```
-
-### 5) Preview production build
-
-```bash
-npm run preview
-```
-
-## Screenshots
-
-Add UI images here so new users can understand the project in seconds.
-
-- Full application view
-- Layer panel open
-- Tool interaction (search/measure/settings)
-
-Suggested paths:
-
-- `docs/images/webmapx-overview.png`
-- `docs/images/webmapx-layer-panel.png`
-- `docs/images/webmapx-tool-example.png`
-- `docs/images/webmapxlegend.png`
-
-When images are available, include them like this:
-
-```md
-![WebMapX overview](docs/images/webmapx-overview.png)
-![Layer panel](docs/images/webmapx-layer-panel.png)
-![Tool example](docs/images/webmapx-tool-example.png)
-![Legend](docs/images/webmapxlegend.png)
-```
-
-![Legend](docs/images/webmapxlegend.png)
-
-## Configuration
-
-The default demo configuration lives in `config/demo.json`.
-
-- `layerData` defines runtime sources and layers.
-- `tools.*.items[]` layer-tree entries define the UI tree (`type: "layerTree"`, `tree: [...]`).
-- `state.activeExclusiveLayers` tracks single-selection groups (for example basemaps).
-- `state.activeLayers` controls visible layers.
-
-## Cesium Runtime Assets
-
-Cesium requires static runtime files (`Workers`, `Assets`, `Widgets`, `ThirdParty`, and `Cesium.js`) at runtime.
-
-In this project, those files are copied automatically from `node_modules/cesium/Build/Cesium` into the build output (`dist/cesium`) during `npm run build`.
-
-This keeps local and CI/GitHub Pages deployments reproducible without committing Cesium vendor files. For that reason, `public/cesium` is intentionally gitignored.
+→ [GitHub / contributor quickstart](./docs/developer/github-quickstart.md)
 
 ## Documentation
 
-### For users
+- [CDN quickstart](./docs/developer/cdn-quickstart.md)
+- [npm quickstart](./docs/developer/npm-quickstart.md)
+- [GitHub / contributor quickstart](./docs/developer/github-quickstart.md)
+- [Plugin authoring](./docs/developer/plugin-authoring.md)
+- [Developer guide](./docs/DEVELOPER_GUIDE.md)
 
-- User guide: [docs/user/README.md](./docs/user/README.md)
+## License
 
-### For developers
-
-- Developer guide: [docs/DEVELOPER_GUIDE.md](./docs/DEVELOPER_GUIDE.md)
-- Developer architecture:
-	- Rules: [Architecture Rules](./docs/DEVELOPER_GUIDE.md#i-architecture-rules)
-	- Flow: [Data Flow](./docs/DEVELOPER_GUIDE.md#ii-data-flow)
-	- Diagram: [Architecture Overview](./docs/DEVELOPER_GUIDE.md#v-architecture-overview)
-	- Engine contracts: [docs/developer/engine-interface.md](./docs/developer/engine-interface.md)
-- Engineering rules: [docs/developer/engineering-rules.md](./docs/developer/engineering-rules.md)
-- Changelog: [CHANGELOG.md](./CHANGELOG.md)
-
-## Commands
-
-- `npm run dev`: start development server
-- `npm run start`: alias for dev server
-- `npm run build`: production build
-- `npm run preview`: preview production build
-- `npm run test`: run test suite
-
-## Project Status
-
-WebMapX is under active development. The core multi-engine adapter model and tool system are in place, and the project continues to evolve toward a stable, configurable mapping platform.
+ISC
