@@ -78,8 +78,8 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
       border: none;
       background: transparent;
       box-sizing: border-box;
-      width: var(--webmapx-navigation-button-size, var(--webmapx-toolbar-button-size, var(--sl-input-height-medium, 2.5rem)));
-      height: var(--webmapx-navigation-button-size, var(--webmapx-toolbar-button-size, var(--sl-input-height-medium, 2.5rem)));
+      width: var(--webmapx-navigation-button-size, 28px);
+      height: var(--webmapx-navigation-button-size, 28px);
       padding: 0;
       display: inline-flex;
       align-items: center;
@@ -114,16 +114,16 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
     }
 
     .icon {
-      font-weight: 600;
-      font-size: 14px;
+      font-weight: 900;
+      font-size: 22px;
       line-height: 1;
       user-select: none;
     }
 
     .compass-body {
       position: relative;
-      width: 22px;
-      height: 22px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
       border: 1.5px solid var(--webmapx-navigation-separator-color, var(--sl-color-neutral-200, #e5e5e5));
       display: inline-flex;
@@ -137,9 +137,9 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
     .compass-arrow {
       width: 0;
       height: 0;
-      border-left: 6px solid transparent;
-      border-right: 6px solid transparent;
-      border-bottom: 10px solid var(--color-primary, #007bff);
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-bottom: 7px solid var(--color-primary, #007bff);
       transform-origin: center 70%;
       filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.2));
     }
