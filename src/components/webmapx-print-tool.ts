@@ -317,6 +317,7 @@ export class WebmapxPrintTool extends WebmapxModalTool {
 
                 const legEl = document.createElement('webmapx-layer-legend') as HTMLElement;
                 legEl.setAttribute('layer-id', layerId);
+                (legEl as HTMLElement & { collapsible?: boolean }).collapsible = false;
                 Object.assign(legEl.style, { display: 'block', marginBottom: '6px', flexShrink: '0' });
                 legContainer.appendChild(legEl);
                 legendEls.push(legEl);
@@ -369,6 +370,17 @@ export class WebmapxPrintTool extends WebmapxModalTool {
         if (legendEls.length > 0) {
             await Promise.all(legendEls.map(el => (el as any).updateComplete ?? Promise.resolve()));
             await Promise.all(legendEls.map(el => (el as any).updateComplete ?? Promise.resolve()));
+            // Also wait for any legendGraphic <img> elements to load — updateComplete
+            // resolves after Lit's render cycle but before async image loads complete.
+            await Promise.all(legendEls.map(el => {
+                const root = (el as HTMLElement).shadowRoot ?? el;
+                const imgs = Array.from(root.querySelectorAll('img'));
+                return Promise.all(imgs.map(img =>
+                    img.complete
+                        ? Promise.resolve()
+                        : new Promise<void>(resolve => { img.onload = () => resolve(); img.onerror = () => resolve(); })
+                ));
+            }));
         }
 
         // ── Engine-specific map rendering ────────────────────────────────────

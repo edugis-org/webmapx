@@ -10,8 +10,13 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     @property({ type: String, attribute: 'layer-id' })
     layerId = '';
 
+    @property({ type: Boolean, reflect: true })
+    collapsible = true;
+
     @state() private meta: Record<string, unknown> | null = null;
     @state() private zoom: number = 2;
+    @state() private legendCollapsed = true;
+    @state() private legendOverflowing = false;
 
     /** Local paint overrides from the inline style editor, layered over paint for live preview.
      *  Keyed by sub-layer id (empty string for non-composite layers). */
@@ -20,10 +25,55 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     /** Sub-layer id (empty string for non-composite) whose inline style editor is open, or null. */
     @state() private editorOpenKey: string | null = null;
     @state() private terrainEnabled = false;
+    private legendResizeObserver: ResizeObserver | null = null;
+    private measureLegendQueued = false;
+
+    private static readonly collapsedLegendHeight = 180;
 
     static styles = css`
         :host { display: block; }
         .legend-wrap { display: flex; flex-direction: column; gap: 2px; }
+        .legend-collapse {
+            position: relative;
+        }
+        .legend-collapse-content {
+            overflow: visible;
+        }
+        .legend-collapse.collapsed .legend-collapse-content {
+            max-height: ${WebmapxLayerLegend.collapsedLegendHeight}px;
+            overflow: hidden;
+        }
+        .legend-collapse.collapsed::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 26px;
+            height: 42px;
+            pointer-events: none;
+            background: linear-gradient(
+                to bottom,
+                rgba(255, 255, 255, 0),
+                var(--webmapx-legend-bg, var(--color-background, #ffffff))
+            );
+        }
+        .legend-toggle {
+            display: inline-flex;
+            align-items: center;
+            align-self: flex-start;
+            margin-top: 4px;
+            padding: 0;
+            border: 0;
+            background: none;
+            color: var(--webmapx-legend-title-color, var(--color-primary, #0f62fe));
+            font: inherit;
+            font-size: 0.75rem;
+            line-height: 1.2;
+            cursor: pointer;
+        }
+        .legend-toggle:hover {
+            text-decoration: underline;
+        }
         .legend-row { display: flex; align-items: center; gap: 6px; min-height: 18px; }
         .legend-label { font-size: 0.75rem; color: var(--color-text-primary, #1f2937); line-height: 1.2; }
         .legend-img { max-width: 100%; width: auto; height: auto; display: block; border-radius: 3px; align-self: flex-start; }
@@ -59,11 +109,71 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         }
     `;
 
+    connectedCallback(): void {
+        super.connectedCallback();
+        this.legendResizeObserver = new ResizeObserver(() => this.queueLegendMeasure());
+    }
+
+    protected firstUpdated(): void {
+        this.observeLegendContent();
+        this.queueLegendMeasure();
+    }
+
     protected onStateChanged(state: IMapState): void {
         const entry = (state.mapLayers ?? {})[this.layerId] as Record<string, unknown> | undefined;
         this.meta = entry ?? null;
         if (typeof state.zoomLevel === 'number') this.zoom = state.zoomLevel;
         this.terrainEnabled = this.adapter?.isTerrainEnabled() === true;
+    }
+
+    private observeLegendContent(): void {
+        if (!this.legendResizeObserver) return;
+        this.legendResizeObserver.disconnect();
+        const content = this.renderRoot?.querySelector('.legend-collapse-content');
+        if (content) {
+            this.legendResizeObserver.observe(content);
+        }
+    }
+
+    private queueLegendMeasure(): void {
+        if (this.measureLegendQueued) return;
+        this.measureLegendQueued = true;
+        requestAnimationFrame(() => {
+            this.measureLegendQueued = false;
+            this.measureLegendOverflow();
+        });
+    }
+
+    private measureLegendOverflow(): void {
+        if (!this.collapsible) {
+            if (this.legendOverflowing) this.legendOverflowing = false;
+            return;
+        }
+        const content = this.renderRoot?.querySelector('.legend-collapse-content') as HTMLElement | null;
+        const overflowing = Boolean(content && content.scrollHeight > WebmapxLayerLegend.collapsedLegendHeight + 1);
+        if (this.legendOverflowing !== overflowing) {
+            this.legendOverflowing = overflowing;
+        }
+    }
+
+    private renderCollapsibleLegend(content: TemplateResult): TemplateResult {
+        const collapsed = this.collapsible && this.legendOverflowing && this.legendCollapsed;
+        const showToggle = this.collapsible && this.legendOverflowing;
+        return html`
+            <div class="legend-collapse ${collapsed ? 'collapsed' : ''}">
+                <div class="legend-collapse-content">
+                    ${content}
+                </div>
+                ${showToggle ? html`
+                    <button
+                        type="button"
+                        class="legend-toggle"
+                        @click=${() => { this.legendCollapsed = !this.legendCollapsed; }}>
+                        ${this.legendCollapsed ? 'show more...' : 'show less'}
+                    </button>
+                ` : ''}
+            </div>
+        `;
     }
 
     // ─── Expression evaluator ─────────────────────────────────────────────────
@@ -823,6 +933,8 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
 
     disconnectedCallback(): void {
         super.disconnectedCallback();
+        this.legendResizeObserver?.disconnect();
+        this.legendResizeObserver = null;
         this.destroyPickrs();
         if (this.pendingPaintRaf !== null) {
             cancelAnimationFrame(this.pendingPaintRaf);
@@ -832,12 +944,15 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     }
 
     protected updated(changed: Map<string, unknown>): void {
-        if (changed.has('layerId') && this.store) {
-            this.onStateChanged(this.store.getState());
+        if (changed.has('layerId')) {
+            this.legendCollapsed = true;
+            if (this.store) this.onStateChanged(this.store.getState());
         }
         if (changed.has('editorOpenKey')) {
             this.destroyPickrs();
         }
+        this.observeLegendContent();
+        this.queueLegendMeasure();
     }
 
     /**
@@ -1234,12 +1349,12 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const isSingleHillshade = sublayers.length === 1
                 && typeof (sublayers[0] as any)?.type === 'string'
                 && (sublayers[0] as any).type === 'hillshade';
-            if (!isSingleHillshade) return compositeLegend;
-            return html`
+            if (!isSingleHillshade) return this.renderCollapsibleLegend(compositeLegend);
+            return this.renderCollapsibleLegend(html`
                 <div class="legend-wrap">
                     ${compositeLegend}
                     ${this.renderHillshadeTerrainCheckbox()}
-                </div>`;
+                </div>`);
         }
 
         const minz = topMinz;
@@ -1257,7 +1372,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         const editable = !sublayers && hasSwatch && this.isEditableType(layerType, effectivePaint);
         const isOpen = this.editorOpenKey === this.layerId;
 
-        return html`
+        return this.renderCollapsibleLegend(html`
             <div class="legend-wrap">
                 ${hasSwatch ? html`
                     <div class=${editable ? 'editable' : ''} @click=${editable ? () => { this.editorOpenKey = isOpen ? null : this.layerId; } : null}>
@@ -1274,9 +1389,9 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                             span.className = 'img-error';
                             span.textContent = '⚠ invalid legend image';
                             img.replaceWith(span);
-                        }}>
+                    }}>
                 ` : ''}
             </div>
-        `;
+        `);
     }
 }
