@@ -1,6 +1,7 @@
 import i18next from 'i18next';
+import enCore from '../locales/en/core.json';
 
-// Initialize with EN built-in (no network fetch needed for default locale)
+// Initialize with EN built-in (bundled inline — no network fetch)
 export const i18n = i18next.createInstance();
 
 let initialized = false;
@@ -14,9 +15,7 @@ export async function initI18n(): Promise<void> {
     ns: ['webmapx'],
     defaultNS: 'webmapx',
     resources: {
-      en: {
-        webmapx: (await import('../locales/en/core.json', { with: { type: 'json' } })).default,
-      },
+      en: { webmapx: enCore },
     },
     interpolation: { escapeValue: false },
   });
