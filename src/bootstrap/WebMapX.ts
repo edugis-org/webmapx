@@ -56,7 +56,7 @@ export class WebMapX {
     const container = document.querySelector(selector);
     if (!container) throw new Error(`[webmapx] Mount target not found: "${selector}"`);
     const mapId = selector.replace(/^#/, '').replace(/[^a-zA-Z0-9_-]/g, '-') || 'webmapx-map';
-    container.innerHTML = `<webmapx-map id="${mapId}" adapter="${engine}"><webmapx-layout></webmapx-layout></webmapx-map>`;
+    container.innerHTML = `<webmapx-map id="${mapId}" adapter="${engine}"><div slot="map-view" style="position:absolute;inset:0;"></div><webmapx-layout></webmapx-layout></webmapx-map>`;
 
     const mapEl = container.querySelector('webmapx-map') as WebmapxMapElement;
     const mapConfig = config.map as Record<string, unknown> | undefined;
