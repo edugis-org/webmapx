@@ -16,20 +16,11 @@ Copy this HTML and open it in a browser or serve it with any static server:
   <meta charset="UTF-8">
   <title>My Map</title>
 
-  <!-- Import map: tells the browser where to find webmapx peer dependencies -->
+  <!-- Import map: only the map engine needs resolving; lit/shoelace are bundled in webmapx -->
   <script type="importmap">
   {
     "imports": {
-      "maplibre-gl": "https://esm.sh/maplibre-gl@5",
-      "lit": "https://cdn.jsdelivr.net/npm/lit@3/index.js",
-      "lit/": "https://cdn.jsdelivr.net/npm/lit@3/",
-      "lit-html": "https://cdn.jsdelivr.net/npm/lit-html@3/lit-html.js",
-      "lit-html/": "https://cdn.jsdelivr.net/npm/lit-html@3/",
-      "@lit/reactive-element": "https://cdn.jsdelivr.net/npm/@lit/reactive-element@2/reactive-element.js",
-      "@lit/reactive-element/": "https://cdn.jsdelivr.net/npm/@lit/reactive-element@2/",
-      "lit-element/": "https://cdn.jsdelivr.net/npm/lit-element@4/",
-      "@shoelace-style/shoelace/dist/": "https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2/cdn/",
-      "@shoelace-style/shoelace/": "https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2/cdn/"
+      "maplibre-gl": "https://esm.sh/maplibre-gl@5"
     }
   }
   </script>
@@ -40,8 +31,8 @@ Copy this HTML and open it in a browser or serve it with any static server:
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.css">
 
   <style>
-    html, body { margin: 0; padding: 0; overflow: hidden; }
-    #map { width: 100vw; height: 100vh; }
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+    #map { width: 100%; height: 100%; }
   </style>
 </head>
 <body>

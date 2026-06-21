@@ -13,16 +13,14 @@ export default defineConfig({
     },
     outDir: 'dist-lib',
     rollupOptions: {
+      // Map engines are peer deps — consumers bring their own.
+      // Lit and Shoelace are bundled so CDN users need no importmap for them.
       external: (id: string) =>
         id === 'maplibre-gl' ||
         id === 'ol' || id.startsWith('ol/') ||
         id === 'ol-mapbox-style' ||
         id === 'leaflet' ||
-        id === 'cesium' ||
-        id === 'lit' || id.startsWith('lit/') ||
-        id === '@lit/reactive-element' || id.startsWith('@lit/reactive-element/') ||
-        id === 'lit-html' || id.startsWith('lit-html/') ||
-        id === 'lit-element' || id.startsWith('lit-element/'),
+        id === 'cesium',
       output: {},
     },
   },
