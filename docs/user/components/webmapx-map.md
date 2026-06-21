@@ -71,14 +71,14 @@ Dropping files onto the map (or using the Import layer tool) adds them as new la
 |--------|-----------|-------|
 | GeoJSON | `.geojson`, `.json` | Added as a vector layer |
 | TopoJSON | `.topojson`, `.json` | One source per object; multi-object files create multiple sources |
-| Shapefile | `.shp` + `.dbf` + `.prj` | Drop all three together or zipped; reprojection to WGS84 runs in a Web Worker |
+| Shapefile | `.shp` + `.dbf` + `.prj` | Drop all three files together, or in a ZIP; reprojection to WGS84 runs in a Web Worker. Include a matching `.qml` for styling (see below). |
 | GPX | `.gpx` | Tracks, routes and waypoints converted to GeoJSON |
 | KML | `.kml` | Placemarks and styles converted to GeoJSON |
 | KMZ | `.kmz` | ZIP containing KML; KML is extracted and converted |
 | CSV | `.csv` | Rows with coordinate columns converted to GeoJSON Point features — see [CSV import](#csv-import) below |
 | MapLibre style | `style.json` | Added as a composite style layer with all sub-layers/sources |
-| ZIP archive | `.zip` | Contents unzipped and processed as a group (shapefile parts, GeoJSON + style, etc.) |
-| QGIS style | `.qml` | Dropped alongside matching data file — symbology applied to the generated layer |
+| ZIP archive | `.zip` | Contents unzipped and processed as a group. Common use cases: shapefile bundle (`.shp` + `.dbf` + `.prj` + optional `.qml`), GeoJSON + style.json, multiple GeoJSON files |
+| QGIS style | `.qml` | Dropped alongside (or zipped with) a matching data file — fill, line and circle symbology applied to the generated layer |
 | WebMapX config | `.json` | Detected automatically; reloads the page with the dropped config |
 
 Dropped vector data gets default fill/line/point styling based on geometry types present, or the `.qml` style if one was included. If a layer with the same id already exists, the new layer is added with a numeric suffix (`_1`, `_2`, ...).
