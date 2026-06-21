@@ -57,6 +57,7 @@ function buildSaveConfig(
     runtimeBackground: string | undefined,
     viewport?: { center: [number, number]; zoom: number; bearing: number; pitch: number } | null,
     projection?: string | null,
+    projectTitle?: string,
 ): AppConfig {
     // Track which canonical tool IDs have been handled (to detect missing ones)
     const handled = new Set<string>();
@@ -99,6 +100,16 @@ function buildSaveConfig(
         tools[firstToolbarKey] = { ...tb, items };
     }
 
+    // Update project title and id if title changed
+    const baseProject = (base as unknown as Record<string, unknown>).project as Record<string, unknown> | undefined;
+    const project = projectTitle?.trim()
+        ? {
+            ...baseProject,
+            title: projectTitle.trim(),
+            id: projectTitle.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'config',
+          }
+        : baseProject;
+
     // Update map section with current viewport and projection
     const runtimeMap = viewport ? {
         ...base.map,
@@ -123,7 +134,7 @@ function buildSaveConfig(
     };
 
     if (!onlyActiveLayers) {
-        return { ...base, map: runtimeMap, tools: tools as AppConfig['tools'], state: runtimeState };
+        return { ...base, project: project as AppConfig['project'], map: runtimeMap, tools: tools as AppConfig['tools'], state: runtimeState };
     }
 
     // Use runtime active layers (reflects deletions, reorders)
@@ -170,7 +181,7 @@ function buildSaveConfig(
         }
     }
 
-    return { ...base, map: runtimeMap, tools: filteredTools as AppConfig['tools'], layerData, state: runtimeState };
+    return { ...base, project: project as AppConfig['project'], map: runtimeMap, tools: filteredTools as AppConfig['tools'], layerData, state: runtimeState };
 }
 
 @customElement('webmapx-config-edit-tool')
@@ -178,6 +189,7 @@ export class WebmapxConfigEditTool extends LitElement {
     /** null = not in config (unchecked by default), true/false = explicit state */
     @state() private toolEnabled = new Map<string, boolean | null>();
     @state() private onlyActiveLayers = false;
+    @state() private projectTitle = '';
     @state() private filename = 'config.json';
 
     static styles = css`
@@ -207,8 +219,18 @@ export class WebmapxConfigEditTool extends LitElement {
             map.set(id, isToolEnabled(config ?? ({} as AppConfig), id));
         }
         this.toolEnabled = map;
-        const projectId = (config as unknown as Record<string, unknown>)?.project as Record<string, unknown> | undefined;
-        this.filename = `${typeof projectId?.id === 'string' ? projectId.id : 'config'}.json`;
+        const project = (config as unknown as Record<string, unknown>)?.project as Record<string, unknown> | undefined;
+        this.projectTitle = typeof project?.title === 'string' ? project.title : '';
+        const rawId = typeof project?.id === 'string' ? project.id : 'config';
+        const slug = rawId.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'config';
+        this.filename = `${slug}.json`;
+    }
+
+    private handleTitleInput(e: Event): void {
+        this.projectTitle = (e.target as HTMLInputElement).value;
+        // Sync filename to slugified title
+        const slug = this.projectTitle.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'config';
+        this.filename = `${slug}.json`;
     }
 
     private toggle(id: string, enabled: boolean): void {
@@ -241,7 +263,7 @@ export class WebmapxConfigEditTool extends LitElement {
         for (const [id, val] of this.toolEnabled) {
             if (val !== null) overrides.set(id, val as boolean);
         }
-        const out = buildSaveConfig(config, overrides, this.onlyActiveLayers, runtimeActiveLayers, runtimeBackground, viewport, projectionName);
+        const out = buildSaveConfig(config, overrides, this.onlyActiveLayers, runtimeActiveLayers, runtimeBackground, viewport, projectionName, this.projectTitle);
         const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         Object.assign(document.createElement('a'), { href: url, download: this.filename || 'config.json' }).click();
@@ -252,6 +274,13 @@ export class WebmapxConfigEditTool extends LitElement {
         const visibleTools = KNOWN_TOOLS.filter(t => !AUTHORING_TOOL_IDS.has(t.id));
         return html`
             <h4><sl-icon name="pencil-square"></sl-icon> Edit config</h4>
+
+            <sl-input size="small" label="Project title" required
+                ?invalid=${!this.projectTitle.trim()}
+                help-text=${!this.projectTitle.trim() ? 'Title is required' : ''}
+                .value=${this.projectTitle}
+                @sl-input=${this.handleTitleInput}>
+            </sl-input>
 
             <sl-checkbox
                 ?checked=${this.onlyActiveLayers}
@@ -275,7 +304,7 @@ export class WebmapxConfigEditTool extends LitElement {
                 @sl-input=${(e: Event) => { this.filename = (e.target as HTMLInputElement).value; }}>
             </sl-input>
 
-            <sl-button variant="primary" @click=${this.handleDownload}>
+            <sl-button variant="primary" ?disabled=${!this.projectTitle.trim()} @click=${this.handleDownload}>
                 <sl-icon slot="prefix" name="download"></sl-icon>
                 Download config
             </sl-button>
