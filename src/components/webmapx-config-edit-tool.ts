@@ -58,6 +58,7 @@ function buildSaveConfig(
     viewport?: { center: [number, number]; zoom: number; bearing: number; pitch: number } | null,
     projection?: string | null,
     projectTitle?: string,
+    unsupportedLayerIds?: Set<string>,
 ): AppConfig {
     // Track which canonical tool IDs have been handled (to detect missing ones)
     const handled = new Set<string>();
@@ -100,6 +101,19 @@ function buildSaveConfig(
         tools[firstToolbarKey] = { ...tb, items };
     }
 
+    // Remove engine-unsupported layers from layerData and active lists
+    const unsupported = unsupportedLayerIds ?? new Set<string>();
+    const filteredLayerData = unsupported.size > 0 ? (() => {
+        const layers = (base.layerData?.layers ?? []).filter(
+            (l) => !unsupported.has((l as unknown as Record<string, unknown>).id as string)
+        );
+        const usedSources = new Set(layers.map((l) => (l as unknown as Record<string, unknown>).source as string).filter(Boolean));
+        const sources = (base.layerData?.sources ?? []).filter(
+            (s) => usedSources.has((s as unknown as Record<string, unknown>).id as string)
+        );
+        return { ...base.layerData, layers, sources };
+    })() : base.layerData;
+
     // Update project title and id if title changed
     const baseProject = (base as unknown as Record<string, unknown>).project as Record<string, unknown> | undefined;
     const project = projectTitle?.trim()
@@ -124,8 +138,8 @@ function buildSaveConfig(
     // Background must be included in activeLayers too (so collectInitialActiveLayerRefs loads it)
     // AND in activeBackground (so the background group policy selects the right radio).
     const allActiveIds = [
-        ...(runtimeBackground ? [runtimeBackground] : []),
-        ...runtimeActiveLayers,
+        ...(runtimeBackground && !unsupported.has(runtimeBackground) ? [runtimeBackground] : []),
+        ...runtimeActiveLayers.filter((id) => !unsupported.has(id)),
     ];
     const runtimeState = {
         ...base.state,
@@ -134,7 +148,7 @@ function buildSaveConfig(
     };
 
     if (!onlyActiveLayers) {
-        return { ...base, project: project as AppConfig['project'], map: runtimeMap, tools: tools as AppConfig['tools'], state: runtimeState };
+        return { ...base, project: project as AppConfig['project'], map: runtimeMap, layerData: filteredLayerData, tools: tools as AppConfig['tools'], state: runtimeState };
     }
 
     // Use runtime active layers (reflects deletions, reorders)
@@ -154,7 +168,7 @@ function buildSaveConfig(
         for (const node of nodes) {
             const n = node as Record<string, unknown>;
             if (n.layerId) {
-                if (activeIds.has(n.layerId as string)) result.push(node);
+                if (activeIds.has(n.layerId as string) && !unsupported.has(n.layerId as string)) result.push(node);
             } else if (Array.isArray(n.children)) {
                 const children = filterTree(n.children);
                 if (children.length > 0) result.push({ ...n, children });
@@ -189,6 +203,7 @@ export class WebmapxConfigEditTool extends LitElement {
     /** null = not in config (unchecked by default), true/false = explicit state */
     @state() private toolEnabled = new Map<string, boolean | null>();
     @state() private onlyActiveLayers = false;
+    @state() private removeUnsupported = false;
     @state() private projectTitle = '';
     @state() private filename = 'config.json';
 
@@ -237,7 +252,7 @@ export class WebmapxConfigEditTool extends LitElement {
         this.toolEnabled = new Map(this.toolEnabled).set(id, enabled);
     }
 
-    private handleDownload(): void {
+    private async handleDownload(): Promise<void> {
         const mapEl = this.mapElement;
         const config = mapEl?.config;
         if (!config) return;
@@ -259,11 +274,59 @@ export class WebmapxConfigEditTool extends LitElement {
             else runtimeActiveLayers.push(id);
         }
 
+        // Collect unsupported layer IDs if requested
+        type MapElWithSupport = { isCatalogLayerSupported?: (id: string) => Promise<boolean> };
+        let unsupportedLayerIds = new Set<string>();
+        let fallbackBackground: string | undefined;
+
+        if (this.removeUnsupported) {
+            const checkSupport = (id: string) =>
+                (mapEl as unknown as MapElWithSupport)?.isCatalogLayerSupported?.(id) ?? Promise.resolve(true);
+
+            const results = await Promise.all(
+                (config.layerData?.layers ?? []).map(async (l) => {
+                    const id = (l as unknown as Record<string, unknown>).id as string;
+                    return (await checkSupport(id)) ? null : id;
+                })
+            );
+            unsupportedLayerIds = new Set(results.filter((id): id is string => id !== null));
+
+            // If the active background is unsupported, find the first supported alternative
+            if (runtimeBackground && unsupportedLayerIds.has(runtimeBackground)) {
+                // Find the singleGroup of the current background layer
+                const bgLayer = (config.layerData?.layers ?? []).find(
+                    (l) => (l as unknown as Record<string, unknown>).id === runtimeBackground
+                ) as Record<string, unknown> | undefined;
+                const bgGroup = bgLayer?.singleGroup as string | undefined;
+
+                if (bgGroup) {
+                    // Find first supported layer with same singleGroup
+                    for (const l of config.layerData?.layers ?? []) {
+                        const ll = l as unknown as Record<string, unknown>;
+                        if (ll.singleGroup === bgGroup && !unsupportedLayerIds.has(ll.id as string)) {
+                            fallbackBackground = ll.id as string;
+                            break;
+                        }
+                    }
+                }
+
+                if (!fallbackBackground) {
+                    // No supported background available — block download
+                    const { showToast } = await import('../utils/toast');
+                    showToast('<strong>No supported background layer available</strong><br>All background layers are unsupported by the current engine. Uncheck "Remove engine-unsupported layers" or switch engine.', { variant: 'danger' });
+                    return;
+                }
+            }
+        }
+
         const overrides = new Map<string, boolean>();
         for (const [id, val] of this.toolEnabled) {
             if (val !== null) overrides.set(id, val as boolean);
         }
-        const out = buildSaveConfig(config, overrides, this.onlyActiveLayers, runtimeActiveLayers, runtimeBackground, viewport, projectionName, this.projectTitle);
+        const effectiveBackground = (runtimeBackground && unsupportedLayerIds.has(runtimeBackground))
+            ? fallbackBackground
+            : runtimeBackground;
+        const out = buildSaveConfig(config, overrides, this.onlyActiveLayers, runtimeActiveLayers, effectiveBackground, viewport, projectionName, this.projectTitle, unsupportedLayerIds);
         const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         Object.assign(document.createElement('a'), { href: url, download: this.filename || 'config.json' }).click();
@@ -286,6 +349,11 @@ export class WebmapxConfigEditTool extends LitElement {
                 ?checked=${this.onlyActiveLayers}
                 @sl-change=${(e: Event) => { this.onlyActiveLayers = (e.target as HTMLInputElement).checked; }}>
                 Only active layers
+            </sl-checkbox>
+            <sl-checkbox
+                ?checked=${this.removeUnsupported}
+                @sl-change=${(e: Event) => { this.removeUnsupported = (e.target as HTMLInputElement).checked; }}>
+                Remove engine-unsupported layers
             </sl-checkbox>
 
             <div class="section-label">Visible tools:</div>

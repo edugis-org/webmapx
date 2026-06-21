@@ -36,6 +36,7 @@ const TOOL_ELEMENT_TAGS: Record<string, string> = {
   layerOverview: 'webmapx-layer-overview',
   maplanguage: 'webmapx-language-osmvector',
   print: 'webmapx-print-tool',
+  truearea: 'webmapx-truearea-tool',
 };
 
 const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = {
