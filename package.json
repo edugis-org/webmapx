@@ -1,6 +1,6 @@
 {
   "name": "@edugis-org/webmapx",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "A modular web map UI with built-in adapters for MapLibre, OpenLayers, Leaflet, and Cesium.",
   "license": "ISC",
   "author": "Anne Blankert",
@@ -53,11 +53,21 @@
     "ol-mapbox-style": "^13.2.0"
   },
   "peerDependenciesMeta": {
-    "cesium": { "optional": true },
-    "leaflet": { "optional": true },
-    "maplibre-gl": { "optional": true },
-    "ol": { "optional": true },
-    "ol-mapbox-style": { "optional": true }
+    "cesium": {
+      "optional": true
+    },
+    "leaflet": {
+      "optional": true
+    },
+    "maplibre-gl": {
+      "optional": true
+    },
+    "ol": {
+      "optional": true
+    },
+    "ol-mapbox-style": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@allmaps/leaflet": "^1.0.0-beta.52",
