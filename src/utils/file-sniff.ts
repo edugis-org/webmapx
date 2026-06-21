@@ -126,7 +126,7 @@ async function classifyZip(blob: Blob): Promise<FileSniffResult> {
     return { kind: 'xlsx', description: 'Excel workbook (.xlsx)' };
   }
   if (names.includes('doc.kml') || names.some((n) => n.endsWith('.kml'))) {
-    return { kind: 'kmz', description: 'KMZ (zipped KML) - not yet supported', rejected: true };
+    return { kind: 'kmz', description: 'KMZ (zipped KML)' };
   }
 
   // Generic zip: recursively sniff each contained file.

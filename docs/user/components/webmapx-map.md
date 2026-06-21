@@ -63,17 +63,38 @@ Adapter selection is resolved separately. The order is:
 
 ## Drag-and-drop file import
 
-Dropping files onto the map adds them as new layers. Supported formats:
+Dropping files onto the map (or using the Import layer tool) adds them as new layers. The same formats are supported in both cases.
 
-- **GeoJSON** (`.geojson`/`.json`) and **TopoJSON** — added as a vector layer (one source per object, for TopoJSON with multiple objects).
-- **Shapefiles** — `.shp` + `.dbf` + `.prj` (projection used for reprojection to WGS84), individually or zipped together. Parsing/reprojection runs in a Web Worker.
-- **MapLibre `style.json`** — added as a composite style layer with all its sub-layers/sources.
-- **QGIS `.qml`** style files — when dropped alongside a matching shapefile/GeoJSON, its symbology is applied to the generated layer.
-- A **`.zip`** containing any combination of the above (e.g. `.shp`/`.dbf`/`.prj`/`.qml`) is unzipped and processed as one group.
+### Supported formats
 
-Dropped vector data gets default fill/line/point styling based on the geometry types present, or the `.qml` style if one was included. If a layer with the same id already exists, the new layer is added with a numeric suffix (`_1`, `_2`, ...).
+| Format | Extensions | Notes |
+|--------|-----------|-------|
+| GeoJSON | `.geojson`, `.json` | Added as a vector layer |
+| TopoJSON | `.topojson`, `.json` | One source per object; multi-object files create multiple sources |
+| Shapefile | `.shp` + `.dbf` + `.prj` | Drop all three together or zipped; reprojection to WGS84 runs in a Web Worker |
+| GPX | `.gpx` | Tracks, routes and waypoints converted to GeoJSON |
+| KML | `.kml` | Placemarks and styles converted to GeoJSON |
+| KMZ | `.kmz` | ZIP containing KML; KML is extracted and converted |
+| CSV | `.csv` | Rows with coordinate columns converted to GeoJSON Point features — see [CSV import](#csv-import) below |
+| MapLibre style | `style.json` | Added as a composite style layer with all sub-layers/sources |
+| ZIP archive | `.zip` | Contents unzipped and processed as a group (shapefile parts, GeoJSON + style, etc.) |
+| QGIS style | `.qml` | Dropped alongside matching data file — symbology applied to the generated layer |
+| WebMapX config | `.json` | Detected automatically; reloads the page with the dropped config |
 
-While processing, the map shows its busy spinner. Unsupported or unrecognized files (e.g. `.csv`, `.gpx`, `.kml`, `.xlsx`) are not added — a summary of detected file types is shown in an alert instead.
+Dropped vector data gets default fill/line/point styling based on geometry types present, or the `.qml` style if one was included. If a layer with the same id already exists, the new layer is added with a numeric suffix (`_1`, `_2`, ...).
+
+While processing, the map shows its busy spinner. Unrecognized files are listed in an alert.
+
+### CSV import
+
+CSV files are converted to GeoJSON Point features. A longitude and latitude column must be present. Column names are matched case-insensitively; the following names are recognized:
+
+| Coordinate | Recognized column names |
+|-----------|------------------------|
+| Longitude | `lon`, `lng`, `longitude`, `long`, `x`, `longitud` (ES), `lengtegraad` / `lengte` (NL), `längengrad` / `laengengrad` / `länge` / `laenge` (DE) |
+| Latitude | `lat`, `latitude`, `y`, `latitud` (ES), `breedtegraad` / `breedte` (NL), `breitengrad` / `breite` (DE) |
+
+All other columns become feature properties. Rows with missing or non-numeric coordinates are skipped. If no coordinate columns are found, a warning is logged to the console and the file is skipped.
 
 ## JavaScript API
 

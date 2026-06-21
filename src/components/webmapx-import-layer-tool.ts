@@ -330,7 +330,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
             Open file…
           </sl-button>
         </div>
-        <input type="file" multiple accept=".geojson,.json,.zip,.gpx,.kml,.kmz,.csv,.topojson"
+        <input type="file" multiple accept=".geojson,.json,.zip,.topojson,.gpx,.kml,.kmz,.csv"
           @change=${this.handleFileInput} />
         <div
           class="drop-zone ${this.fileDropActive ? 'active' : ''}"

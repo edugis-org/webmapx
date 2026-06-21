@@ -138,6 +138,56 @@ function defaultLayersForSource(prefix: string, fileBase: string, sourceKey: str
   return layers;
 }
 
+const LON_KEYS = [
+  'lon', 'lng', 'longitude', 'long', 'x',
+  // Dutch
+  'lengtegraad', 'lengte',
+  // German
+  'längengrad', 'laengengrad', 'länge', 'laenge',
+  // French (same as English)
+  // Spanish
+  'longitud',
+];
+const LAT_KEYS = [
+  'lat', 'latitude', 'y',
+  // Dutch
+  'breedtegraad', 'breedte',
+  // German
+  'breitengrad', 'breite',
+  // French (same as English)
+  // Spanish
+  'latitud',
+];
+
+function findColumn(keys: string[], candidates: string[]): string | undefined {
+  return keys.find((k) => candidates.some((c) => c.toLowerCase() === k));
+}
+
+/** Convert PapaParse rows to a GeoJSON FeatureCollection of Points using coordinate columns. */
+function csvToGeoJSON(rows: Record<string, unknown>[], filename: string): GeoJSON.FeatureCollection | null {
+  if (rows.length === 0) return null;
+  const columns = Object.keys(rows[0]);
+  const lonKey = findColumn(LON_KEYS, columns);
+  const latKey = findColumn(LAT_KEYS, columns);
+  if (!lonKey || !latKey) {
+    console.warn(`[csv-import] "${filename}": no coordinate columns found. Tried lon=${LON_KEYS.join('/')}, lat=${LAT_KEYS.join('/')}`);
+    return null;
+  }
+  const features: GeoJSON.Feature[] = [];
+  for (const row of rows) {
+    const lon = Number(row[lonKey]);
+    const lat = Number(row[latKey]);
+    if (!isFinite(lon) || !isFinite(lat)) continue;
+    const properties: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(row)) {
+      if (k !== lonKey && k !== latKey) properties[k] = v;
+    }
+    features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties });
+  }
+  if (features.length === 0) return null;
+  return { type: 'FeatureCollection', features };
+}
+
 /**
  * Builds a composite `type: 'style'` layer config from a group of dropped files.
  * Currently supports: one or more GeoJSON files, optionally styled by an
@@ -181,6 +231,35 @@ export async function buildLayerConfigFromGroup(group: NamedBlob[]): Promise<Com
       } catch {
         // skip unparsable style
       }
+    } else if (sniff.kind === 'gpx') {
+      try {
+        const { gpx } = await import('@tmcw/togeojson');
+        const xml = new DOMParser().parseFromString(await item.blob.text(), 'text/xml');
+        geojsonFiles.push({ name: item.name, data: gpx(xml) as GeoJSON.FeatureCollection });
+      } catch { /* skip */ }
+    } else if (sniff.kind === 'kml') {
+      try {
+        const { kml } = await import('@tmcw/togeojson');
+        const xml = new DOMParser().parseFromString(await item.blob.text(), 'text/xml');
+        geojsonFiles.push({ name: item.name, data: kml(xml) as GeoJSON.FeatureCollection });
+      } catch { /* skip */ }
+    } else if (sniff.kind === 'kmz') {
+      try {
+        const { kml } = await import('@tmcw/togeojson');
+        const entries = await extractZipEntries(item.blob);
+        const kmlEntry = entries.find((e) => e.name.toLowerCase().endsWith('.kml'));
+        if (kmlEntry) {
+          const xml = new DOMParser().parseFromString(await kmlEntry.blob.text(), 'text/xml');
+          geojsonFiles.push({ name: item.name, data: kml(xml) as GeoJSON.FeatureCollection });
+        }
+      } catch { /* skip */ }
+    } else if (sniff.kind === 'csv') {
+      try {
+        const Papa = (await import('papaparse')).default;
+        const parsed = Papa.parse(await item.blob.text(), { header: true, skipEmptyLines: true, dynamicTyping: true });
+        const data = csvToGeoJSON(parsed.data as Record<string, unknown>[], item.name);
+        if (data) geojsonFiles.push({ name: item.name, data });
+      } catch { /* skip */ }
     } else if (sniff.kind === 'shp' && lowerName.endsWith('.shp')) {
       shpFiles.set(stripExtension(lowerName), item);
     } else if (lowerName.endsWith('.dbf')) {
