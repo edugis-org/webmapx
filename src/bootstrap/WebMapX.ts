@@ -47,7 +47,8 @@ export class WebMapX {
     // mount DOM structure
     const container = document.querySelector(selector);
     if (!container) throw new Error(`[webmapx] Mount target not found: "${selector}"`);
-    container.innerHTML = `<webmapx-map adapter="${engine}"><webmapx-layout></webmapx-layout></webmapx-map>`;
+    const mapId = selector.replace(/^#/, '').replace(/[^a-zA-Z0-9_-]/g, '-') || 'webmapx-map';
+    container.innerHTML = `<webmapx-map id="${mapId}" adapter="${engine}"><webmapx-layout></webmapx-layout></webmapx-map>`;
 
     const mapEl = container.querySelector('webmapx-map') as WebmapxMapElement;
     const mapConfig = config.map as Record<string, unknown> | undefined;
@@ -94,6 +95,6 @@ export class WebMapX {
       ...(typeof styleConfig === 'string' ? { styleUrl: styleConfig } : { style: styleConfig }),
     };
 
-    adapter.initialize(selector.replace(/^#/, ''), initOptions);
+    adapter.initialize(mapId, initOptions);
   }
 }
