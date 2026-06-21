@@ -36,6 +36,8 @@
 - [x] Map state persistence (MapLibre GL v5 upgrade)
 - [x] Catalog decoupling — engines no longer aware of catalog; sources inlined before engine sees spec
 - [x] `mapLayers` as sole authoritative layer state (removed redundant `visibleLayers`)
+- [x] Refactor remaining tools to follow new architecture pattern
+- [x] Accessibility — see Accessibility section in Planned Features
 
 ### 2026 Q1
 - [x] Cross-engine marker API
@@ -62,8 +64,6 @@
 - [x] Remove adapter controllers (InsetController, PointerController)
 
 ## Near-Term Tasks
-- [ ] Refactor remaining tools to follow new architecture pattern
-- [ ] Accessibility — see Accessibility section in Planned Features
 
 ## Plugin Support
 
@@ -84,7 +84,7 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 - [x] Layer drag reorder (drag-and-drop in layer tree)
 - [x] Layer style update tool (runtime paint/layout changes)
 - [x] Save layer as (export to file)
-- [ ] Drop GeoJSON on map (drag-and-drop file import)
+- [x] File import (drag-and-drop or file picker — GeoJSON, GPX, KML, KMZ, CSV, shapefile ZIP with QML style)
 - [ ] Layer filter tool
 
 ### Data Formats
@@ -109,8 +109,8 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 - [x] 3D terrain + hillshade (MapLibre GL)
 - [x] Fullscreen toggle
 - [ ] Home button (zoom to initial map extent)
-- [ ] 3D tool (tilt, camera controls — Cesium + MapLibre GL)
-- [ ] Layer transparency tool
+- [x] 3D tool (tilt, camera controls — Cesium + MapLibre GL)
+- [x] Layer transparency tool
 - [x] Print map (A4 PDF via browser print; MapLibre offscreen render, CSS-transform for OL/Leaflet/Cesium; legend, attribution, title, viewer link)
 
 ### Internationalization (i18n)
@@ -136,6 +136,6 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
   - Per-layer transparency overrides
 
 ### Configuration
-- [ ] Config edit tool — runtime UI for editing layer/map/tool config (add/remove/reorder layers, change sources, configure tools)
+- [x] Config edit tool — runtime UI for editing layer/map/tool config (add/remove/reorder layers, change sources, configure tools)
 
 ### And more…

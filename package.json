@@ -5,7 +5,17 @@
   "license": "ISC",
   "author": "",
   "type": "module",
-  "main": "index.js",
+  "main": "dist-lib/webmapx.js",
+  "module": "dist-lib/webmapx.js",
+  "exports": {
+    ".": {
+      "import": "./dist-lib/webmapx.js"
+    }
+  },
+  "files": [
+    "dist-lib",
+    "src/locales"
+  ],
   "directories": {
     "doc": "docs"
   },
@@ -13,6 +23,7 @@
     "dev": "vite --open --host 0.0.0.0 --port 5173 --strictPort",
     "start": "vite --open --host 0.0.0.0 --port 5173 --strictPort",
     "build": "vite build",
+    "build:lib": "vite build --config vite.lib.config.ts",
     "preview": "vite preview",
     "test": "npx tsc --noEmit && node ./scripts/run-tests.mjs",
     "ui-test": "node ./scripts/run-ui-tests.mjs --all",
@@ -44,6 +55,7 @@
     "@types/papaparse": "^5.5.2",
     "cesium": "^1.136.0",
     "dompurify": "^3.4.8",
+    "i18next": "^26.3.1",
     "jspdf": "^4.2.1",
     "leaflet": "^1.9.4",
     "lit": "^3.3.1",

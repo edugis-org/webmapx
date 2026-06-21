@@ -1,0 +1,20 @@
+{
+  "tools": {
+    "draw": "Draw",
+    "measure": "Measure",
+    "print": "Print",
+    "search": "Search",
+    "import": "Import layer",
+    "geolocation": "My location",
+    "info": "Info",
+    "3d": "3D view",
+    "truearea": "True area",
+    "settings": "Settings"
+  },
+  "common": {
+    "close": "Close",
+    "cancel": "Cancel",
+    "ok": "OK",
+    "loading": "Loading..."
+  }
+}

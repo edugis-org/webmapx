@@ -9,6 +9,107 @@ Both patterns work as plain npm packages that import from `webmapx`.
 
 ---
 
+## Distribution & Loading
+
+### Package structure
+
+A plugin is a standard npm package. The entry point must export a default object with a `register` function:
+
+```ts
+// my-plugin/src/index.ts
+import './my-buffer-tool';  // side-effect: customElements.define(...)
+
+export default {
+  register() {
+    // Called once by webmapx after the module loads.
+    // Register locale strings, hook into registries, etc.
+  }
+};
+```
+
+webmapx calls `plugin.register()` immediately after dynamic import resolves. The `register` function is synchronous; use it to set up anything that must happen before the first render.
+
+### Config entry
+
+Add the plugin's full CDN URL to the `plugins` array in your map config:
+
+```json
+{
+  "engine": "maplibre",
+  "tools": ["draw"],
+  "plugins": [
+    "https://cdn.jsdelivr.net/npm/@my-org/wmx-routing-plugin@2.1/dist/plugin.js"
+  ]
+}
+```
+
+webmapx fetches and registers each plugin in order before completing mount.
+
+### Trusted CDN list
+
+For security, webmapx only loads plugin URLs whose origin is in the trusted list:
+
+| CDN | Origin |
+| :-- | :----- |
+| jsDelivr | `https://cdn.jsdelivr.net` |
+| unpkg | `https://unpkg.com` |
+| esm.sh | `https://esm.sh` |
+
+A URL from any other origin is skipped with a console warning. Self-hosted plugins must be served from the same origin as the page (no restriction applies to same-origin URLs).
+
+### CSP requirement
+
+If your page sets a `Content-Security-Policy`, add the CDNs you use to `script-src`:
+
+```
+Content-Security-Policy: script-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://esm.sh;
+```
+
+Without this header, browsers will block the dynamic import and the plugin silently fails to load.
+
+### Registering locale strings
+
+Inside `register()`, add your plugin's translation strings using i18next's `addResourceBundle`:
+
+```ts
+import i18n from 'webmapx/i18n';
+
+export default {
+  register() {
+    i18n.addResourceBundle('en', 'my-routing-plugin', {
+      startPoint: 'Start point',
+      endPoint: 'End point',
+      calculate: 'Calculate route'
+    });
+    i18n.addResourceBundle('nl', 'my-routing-plugin', {
+      startPoint: 'Startpunt',
+      endPoint: 'Eindpunt',
+      calculate: 'Bereken route'
+    });
+  }
+};
+```
+
+In your tool component, use the namespace directly:
+
+```ts
+this.t('my-routing-plugin:startPoint')
+```
+
+### Version pinning
+
+Always pin an exact version in the CDN URL for production configs. Floating `@latest` will pick up breaking changes on the next user visit:
+
+```json
+// good
+"https://cdn.jsdelivr.net/npm/@my-org/wmx-routing-plugin@2.1.3/dist/plugin.js"
+
+// avoid in production
+"https://cdn.jsdelivr.net/npm/@my-org/wmx-routing-plugin@latest/dist/plugin.js"
+```
+
+---
+
 ## Setup
 
 Install WebMapX as a peer dependency:
