@@ -7,6 +7,8 @@ import type { WebMapXConfig, WebMapXMountOptions } from './types.js';
 import type { WebmapxMapElement } from '../components/webmapx-map.js';
 import type { AppConfig } from '../config/types.js';
 
+const BLANK_STYLE = { version: 8 as const, sources: {}, layers: [] };
+
 export class WebMapX {
   static async mount(selector: string, options: WebMapXMountOptions): Promise<void> {
     // resolve config
@@ -33,16 +35,45 @@ export class WebMapX {
       await loadLocale(config.locale);
     }
 
-    // mount — structure mirrors the HTML used in index.html:
-    //   <webmapx-map adapter="..."><webmapx-layout></webmapx-layout></webmapx-map>
+    // mount DOM structure
     const container = document.querySelector(selector);
     if (!container) throw new Error(`[webmapx] Mount target not found: "${selector}"`);
     container.innerHTML = `<webmapx-map adapter="${engine}"><webmapx-layout></webmapx-layout></webmapx-map>`;
 
     const mapEl = container.querySelector('webmapx-map') as WebmapxMapElement;
+    const mapConfig = config.map as Record<string, unknown> | undefined;
 
-    // setConfig hands the full config to the map element and its child tools.
-    // Cast is safe: WebMapXConfig is a superset of AppConfig's shape at runtime.
-    mapEl.setConfig(config as unknown as AppConfig);
+    // set full config on the map element
+    mapEl.setConfig({
+      ...config,
+      map: { type: engine, center: [0, 0], zoom: 2, ...mapConfig },
+    } as unknown as AppConfig);
+
+    // build layout from tools config (same as app.js does)
+    const layout = mapEl.querySelector('webmapx-layout');
+    if (layout && layout.childElementCount === 0 && config.tools) {
+      const { buildLayoutFromConfig } = await import('../utils/dynamic-layout.js');
+      buildLayoutFromConfig(layout as HTMLElement, config.tools as never);
+    }
+
+    // trigger adapter creation + initialize the map engine
+    const adapter = await mapEl.getAdapterAsync?.();
+    if (!adapter) {
+      console.error('[webmapx] Adapter not available — check engine config.');
+      return;
+    }
+
+    const styleConfig = (mapConfig?.style ?? BLANK_STYLE) as Record<string, unknown> | string;
+    const initOptions: Record<string, unknown> = {
+      center: mapConfig?.center ?? [0, 0],
+      zoom: mapConfig?.zoom ?? 2,
+      ...(mapConfig?.bearing != null ? { bearing: mapConfig.bearing } : {}),
+      ...(mapConfig?.pitch != null ? { pitch: mapConfig.pitch } : {}),
+      ...(mapConfig?.minZoom != null ? { minZoom: mapConfig.minZoom } : {}),
+      ...(mapConfig?.maxZoom != null ? { maxZoom: mapConfig.maxZoom } : {}),
+      ...(typeof styleConfig === 'string' ? { styleUrl: styleConfig } : { style: styleConfig }),
+    };
+
+    adapter.initialize(selector.replace(/^#/, ''), initOptions);
   }
 }
