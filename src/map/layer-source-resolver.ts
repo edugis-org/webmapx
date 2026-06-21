@@ -24,7 +24,8 @@ export function inlineLayerSources(layer: any, catalogSources: SourceConfig[] | 
     for (const id of needed) {
         if (existing[id]) continue;
         const found = byId.get(id);
-        if (found) added[id] = found;
+        // Shallow-copy so resolveGeoJSONSources mutations don't propagate back to configInstance
+        if (found) added[id] = { ...found };
     }
     if (Object.keys(added).length === 0) return layer;
     return { ...layer, sources: { ...existing, ...added } };

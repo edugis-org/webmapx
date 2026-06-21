@@ -359,12 +359,15 @@ function normalizeLayerDataSection(layerData: unknown): { sources: unknown[]; la
   const extraSources: Record<string, unknown>[] = [];
   const layers = normalizeLayerMap(record.layers, extraSources);
 
-  const allSources = [...sources, ...extraSources];
-  // Synthesize getFeatureInfoUrl for WMS sources whose layers don't already have one
+  // extraSources may duplicate IDs already in sources (e.g. inline layer sources that
+  // were also listed in layerData.sources). Keep only the first occurrence per id.
   const sourceById = new Map<string, Record<string, unknown>>();
-  for (const s of allSources) {
-    if (isObject(s) && typeof (s as any).id === 'string') sourceById.set((s as any).id, s as Record<string, unknown>);
+  for (const s of [...sources, ...extraSources]) {
+    if (isObject(s) && typeof (s as any).id === 'string' && !sourceById.has((s as any).id)) {
+      sourceById.set((s as any).id, s as Record<string, unknown>);
+    }
   }
+  const allSources = Array.from(sourceById.values());
   const augmentedLayers = layers.map(layer => {
     if (!isObject(layer)) return layer;
     const l = layer as Record<string, unknown>;

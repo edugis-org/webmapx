@@ -73,6 +73,34 @@ const STANDALONE_TAGS: Record<string, string> = {
   maplanguage: 'webmapx-language-osmvector',
 };
 
+/**
+ * Canonical tool list for the config editor — one entry per unique tool,
+ * aliases excluded. Automatically stays in sync when tools are added/renamed here.
+ */
+export const KNOWN_TOOLS: Array<{ id: string; label: string; icon?: string }> = [
+  { id: 'search',       label: 'Search',        icon: 'search' },
+  { id: 'layerTree',    label: 'Catalog',        icon: 'layers' },
+  { id: 'measure',      label: 'Measure',        icon: 'rulers' },
+  { id: 'info',         label: 'Feature info',   icon: 'info-circle' },
+  { id: 'draw',         label: 'Draw',           icon: 'pencil' },
+  { id: 'geolocation',  label: 'Geolocation',    icon: 'crosshair' },
+  { id: 'view-mode',    label: 'View mode',      icon: 'globe' },
+  { id: '3d',           label: '3D',             icon: 'box' },
+  { id: 'importLayer',  label: 'Import layer',   icon: 'file-earmark-arrow-up' },
+  { id: 'layerOverview',label: 'Legend',         icon: 'card-list' },
+  { id: 'maplanguage',  label: 'Map language',   icon: 'translate' },
+  { id: 'print',        label: 'Print',          icon: 'printer' },
+  { id: 'truearea',     label: 'True Area',      icon: 'bounding-box-circles' },
+  { id: 'settings',     label: 'Settings',       icon: 'gear' },
+  { id: 'navigation',   label: 'Navigation',     icon: 'compass' },
+  { id: 'scale',        label: 'Scale bar',      icon: 'rulers' },
+  { id: 'coordinates',  label: 'Coordinates',    icon: 'crosshair2' },
+  { id: 'fullscreen',   label: 'Fullscreen',     icon: 'fullscreen' },
+  { id: 'zoomLevel',    label: 'Zoom level',     icon: 'zoom-in' },
+  { id: 'attribution',  label: 'Attribution',    icon: 'info-circle' },
+  { id: 'insetMap',     label: 'Inset map',      icon: 'map' },
+];
+
 function humanizeToolId(value: string | undefined): string {
   if (!value) return 'Tool';
   if (value === '3d') return '3D';

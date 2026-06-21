@@ -38,6 +38,9 @@ export interface MapStyleLayer {
 }
 
 export interface MapConfig {
+  bearing?: number;
+  pitch?: number;
+  projection?: string;
   label?: string;
   center: [number, number];
   zoom: number;

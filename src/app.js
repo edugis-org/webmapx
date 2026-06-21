@@ -16,8 +16,9 @@ if (import.meta.env.DEV) {
 // 1. Import configuration loader
 import { loadAppConfig, resolveMapConfig, fetchConfig, parseAndValidateConfig, getConfigUrlParam } from './config/index.ts';
 import { getConfigUrlForIndex } from './utils/permalink.ts';
+import { consumeDroppedConfig } from './utils/dropped-config.ts';
+import { isConfigEditEnabled } from './utils/config-edit-mode.ts';
 import { showToast } from './utils/toast.ts';
-import { DROPPED_CONFIG_KEY } from './utils/dropped-config.ts';
 import { DEFAULT_ADAPTER_NAME } from './map/adapter-registry';
 import {
     getMapScopedStorageKey,
@@ -90,18 +91,22 @@ function installMobileAddressBarNudge() {
 document.addEventListener('DOMContentLoaded', async () => {
     installMobileAddressBarNudge();
 
-    // A config dropped onto the map is staged in sessionStorage and the page
+    // A config dropped onto the map is staged in IndexedDB and the page
     // reloaded, so a fresh app/map init picks it up here (one-time use).
     let appConfig = null;
-    const droppedConfig = sessionStorage.getItem(DROPPED_CONFIG_KEY);
-    if (droppedConfig) {
-        sessionStorage.removeItem(DROPPED_CONFIG_KEY);
-        try {
-            appConfig = parseAndValidateConfig(JSON.parse(droppedConfig), 'dropped config');
-            console.log('[app] Loaded config from dropped file');
-        } catch (error) {
-            console.error('[app] Failed to load dropped config:', error);
+    try {
+        const droppedConfig = await consumeDroppedConfig();
+        if (droppedConfig) {
+            try {
+                appConfig = parseAndValidateConfig(JSON.parse(droppedConfig), 'dropped config');
+                console.log('[app] Loaded config from dropped file');
+            } catch (error) {
+                console.error('[app] Failed to load dropped config:', error);
+                showToast(`<strong>Failed to load dropped config</strong><br>${error.message}`, { variant: 'danger' });
+            }
         }
+    } catch (error) {
+        console.error('[app] Failed to read dropped config from IndexedDB:', error);
     }
 
     // Initialize each webmapx-map on the page
@@ -215,6 +220,8 @@ async function initializeMap(mapElement, appConfig, mapIndex = 0) {
     let initOptions = {
         center: mapConfig.center,
         zoom: mapConfig.zoom,
+        ...(mapConfig.bearing != null ? { bearing: mapConfig.bearing } : {}),
+        ...(mapConfig.pitch != null ? { pitch: mapConfig.pitch } : {}),
         minZoom: mapConfig.minZoom,
         maxZoom: mapConfig.maxZoom,
         minPitch: mapConfig.minPitch,
@@ -267,7 +274,7 @@ async function initializeMap(mapElement, appConfig, mapIndex = 0) {
             } catch { /* ignore */ }
             return null;
         }
-        return persistedState?.projection ?? null;
+        return persistedState?.projection ?? mapConfig.projection ?? null;
     })();
 
     if (projectionToApply) {
@@ -291,6 +298,82 @@ async function initializeMap(mapElement, appConfig, mapIndex = 0) {
     // Initialize the map
     adapter.initialize(mapElement.id, initOptions);
     console.log(`[app] Initialized map "${mapId}" with config:`, mapConfig);
+
+    // Inject config-edit tool if ?configedit= is set for this map index
+    if (isConfigEditEnabled(mapIndex)) {
+        await injectConfigEditTool(mapElement);
+    }
+}
+
+/**
+ * Injects the config-edit toolbar button into the map.
+ * Finds an existing toolbar or creates a new one at top-left.
+ * Also injects the settings tool if not already present.
+ */
+async function injectConfigEditTool(mapElement) {
+    await import('./components/webmapx-config-edit-tool.ts');
+
+    // Find existing layout, or create one
+    let layout = mapElement.querySelector('webmapx-layout');
+    if (!layout) {
+        layout = document.createElement('webmapx-layout');
+        mapElement.appendChild(layout);
+    }
+
+    // Find existing top-left toolbar control group, or create one
+    let group = layout.querySelector('webmapx-control-group[slot="top-left"]');
+    let toolbar = group?.querySelector('webmapx-toolbar');
+    let panel = group?.querySelector('webmapx-tool-panel');
+
+    if (!group) {
+        group = document.createElement('webmapx-control-group');
+        group.setAttribute('slot', 'top-left');
+        group.setAttribute('orientation', 'vertical');
+        group.setAttribute('panel-position', 'after');
+        toolbar = document.createElement('webmapx-toolbar');
+        panel = document.createElement('webmapx-tool-panel');
+        group.appendChild(toolbar);
+        group.appendChild(panel);
+        layout.appendChild(group);
+    }
+
+    if (!toolbar) {
+        toolbar = document.createElement('webmapx-toolbar');
+        group.prepend(toolbar);
+    }
+    if (!panel) {
+        panel = document.createElement('webmapx-tool-panel');
+        group.appendChild(panel);
+    }
+
+    // Add settings button if not already present
+    if (!toolbar.querySelector('[name="settings"]')) {
+        await import('./components/webmapx-settings.ts');
+        const btn = document.createElement('sl-button');
+        btn.setAttribute('name', 'settings');
+        btn.setAttribute('circle', '');
+        btn.title = 'Settings';
+        btn.innerHTML = '<sl-icon name="gear"></sl-icon>';
+        toolbar.appendChild(btn);
+
+        const tool = document.createElement('webmapx-settings');
+        tool.setAttribute('tool-id', 'settings');
+        panel.appendChild(tool);
+    }
+
+    // Add config-edit button if not already present
+    if (!toolbar.querySelector('[name="configedit"]')) {
+        const btn = document.createElement('sl-button');
+        btn.setAttribute('name', 'configedit');
+        btn.setAttribute('circle', '');
+        btn.title = 'Edit config';
+        btn.innerHTML = '<sl-icon name="pencil-square"></sl-icon>';
+        toolbar.appendChild(btn);
+
+        const tool = document.createElement('webmapx-config-edit-tool');
+        tool.setAttribute('tool-id', 'configedit');
+        panel.appendChild(tool);
+    }
 }
 import './components/webmapx-view-mode-tool.ts';
 import './components/webmapx-3d-tool.ts';

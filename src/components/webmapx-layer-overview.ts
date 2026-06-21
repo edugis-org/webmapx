@@ -263,6 +263,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       align-items: center;
       gap: 0.25rem;
       width: 100%;
+      touch-action: none;
     }
 
     /* Visual cue only — sits centered over the title, revealed on hover/focus */
@@ -270,39 +271,44 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
        implement via pointer-based drag that translateY's the row, clamped to
        the list's bounding box and ignoring horizontal pointer movement —
        not native HTML5 DnD, whose drag image floats freely with the cursor. */
-    .drag-handle {
-      /* Prevent the browser's default touch-scroll/pan from hijacking the
-         gesture and cancelling pointer capture mid-drag on touch devices. */
-      touch-action: none;
-      position: absolute;
-      top: 0.1rem;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 0.8rem;
-      color: var(--color-text-secondary, #9aa3af);
-      line-height: 1;
-      opacity: 0;
-      transition: opacity 0.1s ease-in-out;
-      pointer-events: none;
-    }
-
-    .layer-card:hover .drag-handle,
-    .layer-card:focus-within .drag-handle {
-      opacity: 1;
-      pointer-events: auto;
+    .layer-label-drag {
+      flex: 1;
+      min-width: 0;
       cursor: grab;
+      touch-action: none;
+      position: relative;
     }
 
-    /* Suppress :hover-revealed handle right after a drop — the dragged card
-       has snapped away from under the cursor, leaving it resting over a
-       different card that is genuinely hovered but wasn't intentionally so. */
-    .drag-handle.suppress-hover {
-      opacity: 0 !important;
-      pointer-events: none !important;
-    }
-
-    .layer-card:active .drag-handle {
+    .layer-label-drag:active {
       cursor: grabbing;
+    }
+
+    .layer-label-drag::after {
+      content: 'Drag to change layer order';
+      position: absolute;
+      bottom: calc(100% + 5px);
+      left: 0;
+      background: var(--sl-tooltip-background-color, #1e293b);
+      color: var(--sl-tooltip-color, #fff);
+      font-size: 0.72rem;
+      line-height: 1.4;
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      z-index: 100;
+    }
+
+    .layer-label-drag:hover::after {
+      animation: drag-tip 1.4s ease forwards;
+    }
+
+    @keyframes drag-tip {
+      0%   { opacity: 0; }
+      15%  { opacity: 1; }
+      70%  { opacity: 1; }
+      100% { opacity: 0; }
     }
 
     .visibility-toggle::part(base),
@@ -317,13 +323,15 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     }
 
     .layer-label {
-      flex: 1 1 auto;
-      min-width: 0;
       font-size: 0.95rem;
       line-height: 1.3;
-      cursor: default;
       white-space: normal;
       word-break: break-word;
+    }
+    /* When not draggable (single layer), label still fills row */
+    .layer-row > .layer-label {
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
     .layer-label.out-of-zoom {
@@ -488,16 +496,6 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                     ? html`<div class="drop-indicator"></div>`
                     : null}
                   <div class="layer-card" data-layer-id=${item.layerId}>
-                    ${items.length > 1
-                      ? html`<span
-                          class="drag-handle"
-                          title="Drag to reorder"
-                          @pointerdown=${(e: PointerEvent) => this.onDragHandlePointerDown(e)}
-                          @pointermove=${(e: PointerEvent) => this.onDragHandlePointerMove(e)}
-                          @pointerup=${(e: PointerEvent) => this.onDragHandlePointerUp(e)}
-                          @pointercancel=${(e: PointerEvent) => this.onDragHandlePointerUp(e)}
-                        ><sl-icon name="grip-horizontal"></sl-icon></span>`
-                      : null}
                     <div class="layer-row">
                       <sl-icon-button
                         class="visibility-toggle"
@@ -505,7 +503,15 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                         label=${item.visible ? 'Hide layer' : 'Show layer'}
                         @click=${() => this.handleVisibilityToggle(item.layerId)}
                       ></sl-icon-button>
-                      <span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}" title=${item.label}>${item.label}</span>
+                      ${items.length > 1 ? html`
+                        <span
+                          class="layer-label-drag"
+                          @pointerdown=${(e: PointerEvent) => this.onDragHandlePointerDown(e)}
+                          @pointermove=${(e: PointerEvent) => this.onDragHandlePointerMove(e)}
+                          @pointerup=${(e: PointerEvent) => this.onDragHandlePointerUp(e)}
+                          @pointercancel=${(e: PointerEvent) => this.onDragHandlePointerUp(e)}
+                        ><span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}">${item.label}</span></span>
+                      ` : html`<span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}">${item.label}</span>`}
                       <sl-icon-button
                         class="collapse-toggle"
                         name=${this.isLegendCollapsed(item.layerId) ? 'chevron-right' : 'chevron-down'}

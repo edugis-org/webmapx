@@ -124,9 +124,8 @@ export class WebmapxMapElement extends HTMLElement {
     }
 
     /**
-     * If a single dropped file is a webmapx config, stage it in sessionStorage
-     * and reload the page so app init picks it up — same mechanism as the
-     * adapter-switch in webmapx-settings.ts.
+     * If a single dropped file is a webmapx config, stage it in IndexedDB
+     * and reload the page so app init picks it up.
      */
     private async tryHandleDroppedConfig(files: File[]): Promise<boolean> {
       if (files.length !== 1) return false;
@@ -135,8 +134,8 @@ export class WebmapxMapElement extends HTMLElement {
       const result = await sniffFile(file);
       if (result.kind !== 'webmapx-config') return false;
 
-      const { DROPPED_CONFIG_KEY } = await import('../utils/dropped-config');
-      sessionStorage.setItem(DROPPED_CONFIG_KEY, await file.text());
+      const { storeDroppedConfig } = await import('../utils/dropped-config');
+      await storeDroppedConfig(await file.text());
       window.location.reload();
       return true;
     }
