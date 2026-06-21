@@ -2,6 +2,9 @@
 
 Use webmapx directly from a `<script>` tag — no build tools, no npm required.
 
+> **Version**: examples use `@latest` for convenience. For production, pin to a specific version:
+> `@edugis-org/webmapx@0.1.1/` to avoid unexpected breaking changes.
+
 ## Minimal working example
 
 ```html
@@ -15,7 +18,7 @@ Use webmapx directly from a `<script>` tag — no build tools, no npm required.
   <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.js"></script>
   <!-- webmapx -->
   <script type="module">
-    import WebMapX from 'https://cdn.jsdelivr.net/npm/@edugis-org/webmapx@1.0/dist-lib/webmapx.js';
+    import WebMapX from 'https://cdn.jsdelivr.net/npm/@edugis-org/webmapx@latest/dist-lib/webmapx.js';
 
     WebMapX.mount('#map', {
       config: {
@@ -131,7 +134,7 @@ Instantiate `WebMapX.mount` once per container, each with its own config:
 <div id="map-b"></div>
 
 <script type="module">
-  import WebMapX from 'https://cdn.jsdelivr.net/npm/@edugis-org/webmapx@1.0/dist-lib/webmapx.js';
+  import WebMapX from 'https://cdn.jsdelivr.net/npm/@edugis-org/webmapx@latest/dist-lib/webmapx.js';
 
   // MapLibre instance
   WebMapX.mount('#map-a', {

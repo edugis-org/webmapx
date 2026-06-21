@@ -19,7 +19,7 @@ Config-driven web map UI with adapters for MapLibre, OpenLayers, Leaflet, and Ce
 
 ```html
 <script type="module">
-  import { WebMapX } from 'https://cdn.jsdelivr.net/npm/@edugis-org/webmapx@0.1.0/dist-lib/webmapx.js'
+  import { WebMapX } from 'https://cdn.jsdelivr.net/npm/@edugis-org/webmapx@latest/dist-lib/webmapx.js'
   WebMapX.mount('#map', { config: './mymap.json' })
 </script>
 ```
