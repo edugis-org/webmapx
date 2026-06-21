@@ -47,7 +47,8 @@ export class WebMapX {
 
     const container = document.querySelector(selector);
     if (!container) throw new Error(`[webmapx] Mount target not found: "${selector}"`);
-    const mapId = selector.replace(/^#/, '').replace(/[^a-zA-Z0-9_-]/g, '-') || 'webmapx-map';
+    const baseId = selector.replace(/^#/, '').replace(/[^a-zA-Z0-9_-]/g, '-') || 'map';
+    const mapId = `${baseId}-webmapx`;
 
     // Inject webmapx-map WITHOUT layout — layout is added AFTER MapLibre initializes
     // so it is always the last DOM child and therefore renders above the canvas.
