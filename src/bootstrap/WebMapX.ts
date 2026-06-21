@@ -7,6 +7,11 @@ import type { WebMapXConfig, WebMapXMountOptions } from './types.js';
 import type { WebmapxMapElement } from '../components/webmapx-map.js';
 import type { AppConfig, ToolsConfig } from '../config/types.js';
 import { parseAndValidateConfig } from '../config/loader.js';
+import { setBasePath } from '@shoelace-style/shoelace/dist/utilities/base-path.js';
+
+declare const __WEBMAPX_VERSION__: string;
+const SHOELACE_VERSION = '2';
+const SHOELACE_CDN = `https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@${SHOELACE_VERSION}/cdn/`;
 
 const BLANK_STYLE = { version: 8 as const, sources: {}, layers: [] };
 
@@ -26,6 +31,9 @@ export class WebMapX {
           return r.json();
         })
       : options.config;
+
+    // set Shoelace base path so icons load from CDN (bundled shoelace has no local assets)
+    setBasePath(SHOELACE_CDN);
 
     // init i18n (EN built-in, no fetch)
     await initI18n();

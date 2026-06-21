@@ -22,8 +22,7 @@ export default defineConfig({
         id === 'lit' || id.startsWith('lit/') ||
         id === '@lit/reactive-element' || id.startsWith('@lit/reactive-element/') ||
         id === 'lit-html' || id.startsWith('lit-html/') ||
-        id === 'lit-element' || id.startsWith('lit-element/') ||
-        id === '@shoelace-style/shoelace' || id.startsWith('@shoelace-style/shoelace/'),
+        id === 'lit-element' || id.startsWith('lit-element/'),
       output: {},
     },
   },
