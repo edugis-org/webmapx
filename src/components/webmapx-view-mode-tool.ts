@@ -39,19 +39,22 @@ export class WebmapxViewModeTool extends WebmapxBaseTool {
         input[type=range] { width: 100%; }
     `;
 
-    protected onStateChanged(_state: IMapState): void {
+    protected onStateChanged(state: IMapState): void {
         // Keep re-syncing until we get a valid view mode (map may not be ready immediately)
-        if (!this.supported || this.viewModeName === '') this.syncFromAdapter();
+        if (!this.supported || this.viewModeName === '') this.syncFromAdapter(state.mapLoaded);
     }
 
     protected onMapAttached(): void {
         this.supported = true; // assume supported until proven otherwise
         this.viewModeName = '';
-        this.syncFromAdapter();
+        this.syncFromAdapter(this.adapter?.store.getState().mapLoaded ?? false);
     }
 
-    private syncFromAdapter(): void {
+    private syncFromAdapter(mapLoaded = false): void {
         if (!this.adapter) return;
+        // Defer until map is loaded — projection is applied during adapter.initialize()
+        // which runs after onMapAttached, so reading too early gives a stale default.
+        if (!mapLoaded) return;
         const proj = this.adapter.getProjection();
         if (proj === null) {
             // null = engine definitively doesn't support runtime view-mode changes; undefined timing = try again later

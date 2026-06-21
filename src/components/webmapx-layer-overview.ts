@@ -803,8 +803,12 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     const mapIndex = getMapDomIndex(mapElement as Element);
     const configUrl = getConfigUrlForIndex(mapIndex);
     const projection = this.adapter.getProjection?.()?.name ?? null;
+
+    // Detect layers added from file drops (marked dynamic:true in metadata) — can't restore from permalink
+    const dynamicLayerIds = allLayerIds.filter(id => mapLayers[id]?.dynamic === true);
+
     const url = buildPermalinkUrl(mapIndex, allLayerIds, hiddenLayerIds, viewport, transparencyOverrides, projection, configUrl);
-    this.permalinkDialog?.open(url, !!configUrl);
+    this.permalinkDialog?.open(url, !!configUrl, dynamicLayerIds);
   }
 
   private handleSaveLayers(): void {

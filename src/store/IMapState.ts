@@ -52,6 +52,8 @@ export interface MapLayerStateEntry {
     visible?: boolean;
     /** User-set transparency (0–100 %). Undefined means no override (default 0). */
     transparency?: number;
+    /** True when the layer was added from a local file drop — cannot be restored from a permalink. */
+    dynamic?: boolean;
     [key: string]: unknown;
 }
 

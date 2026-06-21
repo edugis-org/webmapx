@@ -207,7 +207,13 @@ export async function buildLayerConfigFromGroup(group: NamedBlob[]): Promise<Com
   for (const item of group) {
     const sniff = await sniffBlob(item.blob);
     const lowerName = item.name.toLowerCase();
-    if (sniff.kind === 'geojson') {
+    // Extension-based checks for well-known companion files must come before
+    // content-sniff checks — .prj WKT strings are comma-rich and get mis-detected as CSV.
+    if (lowerName.endsWith('.dbf')) {
+      dbfFiles.set(stripExtension(lowerName), item);
+    } else if (lowerName.endsWith('.prj')) {
+      prjFiles.set(stripExtension(lowerName), item);
+    } else if (sniff.kind === 'geojson') {
       try {
         geojsonFiles.push({ name: item.name, data: JSON.parse(await item.blob.text()) });
       } catch {
@@ -262,10 +268,6 @@ export async function buildLayerConfigFromGroup(group: NamedBlob[]): Promise<Com
       } catch { /* skip */ }
     } else if (sniff.kind === 'shp' && lowerName.endsWith('.shp')) {
       shpFiles.set(stripExtension(lowerName), item);
-    } else if (lowerName.endsWith('.dbf')) {
-      dbfFiles.set(stripExtension(lowerName), item);
-    } else if (lowerName.endsWith('.prj')) {
-      prjFiles.set(stripExtension(lowerName), item);
     } else if (sniff.kind === 'qml') {
       console.log('parsing qml style');
       qmlStyle = parseQmlStyle(await item.blob.text());
@@ -354,7 +356,7 @@ export async function buildLayerConfigFromGroup(group: NamedBlob[]): Promise<Com
     type: 'style',
     version: 8,
     title: typeof styleFile?.style.title === 'string' ? styleFile.style.title as string : geojsonFiles[0].name,
-    metadata: styleMetadata,
+    metadata: { ...styleMetadata, dynamic: true },
     sources,
     layers,
   };

@@ -9,6 +9,7 @@ import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialo
 export class WebmapxPermalinkDialog extends LitElement {
     @state() private url = '';
     @state() private hasConfig = false;
+    @state() private dynamicLayerIds: string[] = [];
     @state() private copied = false;
 
     @query('sl-dialog') private dialog!: SlDialog;
@@ -53,9 +54,10 @@ export class WebmapxPermalinkDialog extends LitElement {
         }
     `;
 
-    open(url: string, hasConfig: boolean): void {
+    open(url: string, hasConfig: boolean, dynamicLayerIds: string[] = []): void {
         this.url = url;
         this.hasConfig = hasConfig;
+        this.dynamicLayerIds = dynamicLayerIds;
         this.copied = false;
         this.dialog.show();
     }
@@ -69,6 +71,16 @@ export class WebmapxPermalinkDialog extends LitElement {
     render() {
         return html`
             <sl-dialog label="Permalink">
+                ${this.dynamicLayerIds.length > 0 ? html`
+                    <div class="warning">
+                        <sl-icon name="exclamation-triangle"></sl-icon>
+                        <span>
+                            <strong>${this.dynamicLayerIds.length} imported layer${this.dynamicLayerIds.length > 1 ? 's' : ''} will not restore</strong>
+                            — layers added from files (${this.dynamicLayerIds.join(', ')}) are not stored in the permalink.
+                            Recipients will see those layers missing.
+                        </span>
+                    </div>
+                ` : null}
                 ${!this.hasConfig ? html`
                     <div class="warning">
                         <sl-icon name="exclamation-triangle"></sl-icon>

@@ -1137,6 +1137,14 @@ export class WebmapxMapElement extends HTMLElement {
       return this.tryAddLayerRequest(adapter, { layerId: fallbackLayerId }, options, visitedLayerIds, preferredGroupKey);
     }
 
+    // If the request looks like a catalog reference (has layerId/ref/catalogLayerId) but
+    // was not resolved above, stop here — don't fall through to addInlineLayerWithTracking
+    // with an incomplete spec (e.g. {layerId:'foo'} has no type/source and crashes MapLibre).
+    const hasCatalogRef = typeof layerRequest.layerId === 'string'
+      || typeof layerRequest.catalogLayerId === 'string'
+      || typeof layerRequest.ref === 'string';
+    if (hasCatalogRef) return false;
+
     if (this.isStyleRequest(layerRequest)) {
       const styleLayerInformation = await this.getLayerInformationFromStyleRequest(layerRequest);
       if (!styleLayerInformation || this.hasUnsupportedStyleComponents(styleLayerInformation)) {
@@ -1419,6 +1427,32 @@ export class WebmapxMapElement extends HTMLElement {
       }
       adapter.store.dispatch({ mapLayers: tUpdate as typeof current }, 'UI');
     }
+
+    // Notify user about layers from the permalink that could not be loaded
+    const loadedLayers = adapter.store.getState().mapLayers ?? {};
+    const missingLayers = state.l.filter(id => !loadedLayers[id]);
+    if (missingLayers.length > 0) {
+      void this.showPermalinkMissingLayersToast(missingLayers);
+    }
+  }
+
+  private async showPermalinkMissingLayersToast(missingLayers: string[]): Promise<void> {
+    await import('@shoelace-style/shoelace/dist/components/alert/alert.js');
+    await import('@shoelace-style/shoelace/dist/components/icon/icon.js');
+    const count = missingLayers.length;
+    const alert = Object.assign(document.createElement('sl-alert'), {
+      variant: 'warning',
+      closable: true,
+      duration: 16000,
+    });
+    alert.innerHTML = `
+      <sl-icon slot="icon" name="exclamation-triangle"></sl-icon>
+      <strong>${count} layer${count > 1 ? 's' : ''} from the permalink could not be restored</strong><br>
+      Layers may have been imported from files (not stored in permalink) or the map config may have changed:<br>
+      <em>${missingLayers.join(', ')}</em>
+    `;
+    document.body.appendChild(alert);
+    (alert as any).toast();
   }
 
   private toLayerInformation(value: unknown): LayerInformation | null {
