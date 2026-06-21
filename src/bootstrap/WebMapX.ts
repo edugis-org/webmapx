@@ -17,7 +17,7 @@ const BLANK_STYLE = { version: 8 as const, sources: {}, layers: [] };
 
 function toolArrayToConfig(tools: string[]): ToolsConfig {
   return {
-    mainToolbar: { type: 'toolbar', enabled: true, position: 'top-left', items: tools.map(id => ({ type: id })) },
+    mainToolbar: { type: 'toolbar', enabled: true, position: 'top-left', items: tools.map(id => ({ type: id, id })) },
   } as unknown as ToolsConfig;
 }
 
