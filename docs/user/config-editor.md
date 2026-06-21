@@ -1,0 +1,70 @@
+# Config Editor
+
+The config editor is an authoring tool that lets you configure and save a WebMapX config file. It is not intended for end users — it is injected only when the `?configedit=` URL parameter is present.
+
+## Activating the config editor
+
+Add `?configedit=true` (or any truthy value) to the URL:
+
+```
+https://hostname/path/?configedit=true
+https://hostname/path/?config=https://example.com/myconfig.json&configedit=true
+```
+
+Two extra buttons appear in the toolbar (top-left if no toolbar exists yet):
+
+- **Settings** (⚙) — switch map engine (MapLibre, OpenLayers, Leaflet, Cesium)
+- **Edit config** (✏) — the config editor panel
+
+## Workflow tip
+
+You do not need to start from scratch. The recommended workflow is:
+
+1. Start with any working config (e.g. `?config=https://example.com/myconfig.json`)
+2. Add `&configedit=true` to the URL
+3. Configure the map: switch layers on/off, change the view, switch engine, reorder layers
+4. Open the **Edit config** panel and download the config
+5. Reset to the base URL (no `?config=`, no `?configedit=`), then **drop the saved config file onto the map**
+6. The map reloads with your saved config
+7. To continue editing: drop the config again on `?configedit=true` — or append `?configedit=true` and drop the saved file
+
+## Config editor panel
+
+| Option | Description |
+|--------|-------------|
+| **Only active layers** | When checked: strip all non-active layers from `layerData` and filter the layer tree to active layers only. Useful for publishing a minimal config. When unchecked (default): save all layers, only the active set changes. |
+| **Visible tools** | Toggle each tool on or off. Tools not in the current config are unchecked by default — checking them adds a minimal entry to the first toolbar. |
+| **Filename** | Suggested filename for the download (defaults to the config's `project.id`). |
+| **Download config** | Builds and downloads the config JSON. |
+
+## What is saved
+
+The downloaded config reflects the map state **at the moment of clicking Download**:
+
+- **Viewport** — current center, zoom, bearing, pitch
+- **Projection** — current view mode (globe, equalEarth, etc.; omitted for default mercator)
+- **Engine** — current map engine (`map.type`)
+- **Active layers** — layers currently on the map (deletions reflected, dynamically-added layers included)
+- **Background** — currently active background layer
+- **Tool visibility** — as configured in the checklist
+
+## What is NOT saved
+
+- **Imported file layers** (dropped GeoJSON, shapefiles, etc.) — these are not in the config; the dialog warns about them when creating a permalink
+- **Layer style overrides** edited via the inline style editor — these ARE saved (they're part of the layer's paint properties in `layerData`)
+- The **Settings** and **config-edit** tool entries are set to `enabled: false` in the saved config so they don't appear in normal use
+
+## Multi-map pages
+
+Use indexed params to target specific maps (by DOM order):
+
+```
+?configedit=true          config editor for the first <webmapx-map>
+?configedit.1=true        config editor for the second <webmapx-map>
+```
+
+See [Multi-map pages](./configuration.md#multi-map-pages) for the full indexing scheme.
+
+## Re-editing a saved config
+
+Drop the saved `.json` file onto any WebMapX map. The page reloads with your config. To continue editing, add `?configedit=true` to the URL before or after dropping the file.
