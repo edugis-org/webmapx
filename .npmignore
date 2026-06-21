@@ -1,0 +1,2 @@
+# Cesium runtime assets — consumers install cesium as peer dep and serve their own
+dist-lib/cesium

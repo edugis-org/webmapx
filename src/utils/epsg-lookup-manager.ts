@@ -7,6 +7,11 @@
  * - Promise-based API for easy integration
  */
 
+declare const __WEBMAPX_VERSION__: string;
+const DATA_BASE_URL = typeof __WEBMAPX_VERSION__ !== 'undefined'
+  ? `https://cdn.jsdelivr.net/npm/@edugis-org/webmapx@${__WEBMAPX_VERSION__}/public`
+  : '';
+
 export interface EpsgLookupResult {
   success: boolean;
   countryCode?: string;
@@ -74,7 +79,7 @@ class EpsgLookupWorkerManager {
             // Worker is ready, now load the data using relative path
             this.worker?.postMessage({
               type: 'loadData',
-              baseUrl: ''
+              baseUrl: DATA_BASE_URL
             });
           } else if (message.type === 'ready') {
             if (message.success) {
