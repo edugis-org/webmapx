@@ -2,10 +2,12 @@
 
 Use webmapx directly from a `<script>` tag — no build tools, no npm required.
 
-> **Version**: examples use `@latest` for convenience. For production, pin to a specific version:
-> `@edugis-org/webmapx@0.1.1/` to avoid unexpected breaking changes.
+> **Version**: examples use `@latest` for convenience. For production, pin to a specific version
+> (e.g. `@edugis-org/webmapx@0.1.16`) to avoid unexpected breaking changes.
 
 ## Minimal working example
+
+Copy this HTML and open it in a browser or serve it with any static server:
 
 ```html
 <!DOCTYPE html>
@@ -14,10 +16,11 @@ Use webmapx directly from a `<script>` tag — no build tools, no npm required.
   <meta charset="UTF-8">
   <title>My Map</title>
 
-  <!-- Import map: resolve bare specifiers (lit, shoelace) used by webmapx -->
+  <!-- Import map: tells the browser where to find webmapx peer dependencies -->
   <script type="importmap">
   {
     "imports": {
+      "maplibre-gl": "https://esm.sh/maplibre-gl@5",
       "lit": "https://cdn.jsdelivr.net/npm/lit@3/index.js",
       "lit/": "https://cdn.jsdelivr.net/npm/lit@3/",
       "lit-html": "https://cdn.jsdelivr.net/npm/lit-html@3/lit-html.js",
@@ -25,16 +28,25 @@ Use webmapx directly from a `<script>` tag — no build tools, no npm required.
       "@lit/reactive-element": "https://cdn.jsdelivr.net/npm/@lit/reactive-element@2/reactive-element.js",
       "@lit/reactive-element/": "https://cdn.jsdelivr.net/npm/@lit/reactive-element@2/",
       "lit-element/": "https://cdn.jsdelivr.net/npm/lit-element@4/",
-      "@shoelace-style/shoelace/": "https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2/"
+      "@shoelace-style/shoelace/dist/": "https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2/cdn/",
+      "@shoelace-style/shoelace/": "https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2/cdn/"
     }
   }
   </script>
 
-  <!-- MapLibre peer dep -->
+  <!-- Styles -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2/cdn/themes/light.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@edugis-org/webmapx@latest/dist-lib/webmapx.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.css">
-  <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.js"></script>
 
-  <!-- webmapx -->
+  <style>
+    html, body { margin: 0; padding: 0; overflow: hidden; }
+    #map { width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
   <script type="module">
     import { WebMapX } from 'https://cdn.jsdelivr.net/npm/@edugis-org/webmapx@latest/dist-lib/webmapx.js';
 
@@ -42,128 +54,71 @@ Use webmapx directly from a `<script>` tag — no build tools, no npm required.
       config: {
         engine: 'maplibre',
         tools: ['draw', 'measure'],
-        layers: [
-          {
-            type: 'background',
-            source: { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256 }
+        map: { center: [5, 52], zoom: 4, type: 'maplibre' },
+        layerData: {
+          sources: {
+            'osm-source': {
+              type: 'raster',
+              service: 'xyz',
+              url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              tileSize: 256,
+              attribution: '&copy; OpenStreetMap contributors'
+            }
+          },
+          layers: {
+            'osm': { id: 'osm', type: 'raster', source: 'osm-source', title: 'OpenStreetMap' }
           }
-        ]
+        },
+        state: {
+          activeLayers: [{ ref: 'osm', visible: true }]
+        }
       }
     });
   </script>
-  <style>
-    #map { width: 100vw; height: 100vh; margin: 0; }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
 </body>
 </html>
 ```
 
-## Loading peer map engine deps
-
-webmapx treats the map engine as a peer dependency. Load it from its own CDN before webmapx.
-
-| Engine | CDN script |
-| :----- | :--------- |
-| MapLibre GL | `https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.js` |
-| OpenLayers | `https://cdn.jsdelivr.net/npm/ol@9/dist/ol.js` |
-| Leaflet | `https://cdn.jsdelivr.net/npm/leaflet@1/dist/leaflet.js` |
-
-The engine exposes itself on `window` (`maplibregl`, `ol`, `L`). webmapx detects whichever is present when the config requests it.
-
-## Config JSON structure
-
-The `config` option accepts an inline object or a URL to a JSON file:
+## Load config from a file
 
 ```js
 WebMapX.mount('#map', { config: './mymap.json' });
 ```
 
-```json
-{
-  "engine": "maplibre",
-  "locale": "en",
-  "tools": ["draw", "measure", "search"],
-  "plugins": [],
-  "viewport": { "center": [5.3, 52.1], "zoom": 8 },
-  "layers": [
-    {
-      "id": "osm",
-      "type": "background",
-      "label": "OpenStreetMap",
-      "source": {
-        "type": "raster",
-        "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-        "tileSize": 256
-      }
-    }
-  ]
-}
-```
+The JSON file follows the same structure as the inline config above.
 
-## Switching locale
+## Available tools
 
-Pass `locale` in the config. webmapx lazy-loads the matching strings:
+Pass tool names in the `tools` array:
 
 ```js
-WebMapX.mount('#map', {
-  config: {
-    engine: 'maplibre',
-    locale: 'nl',
-    tools: ['draw', 'measure']
-  }
-});
+tools: ['draw', 'measure', 'search', 'print', 'import', 'geolocation', 'info', '3d', 'truearea', 'settings']
 ```
 
-The `nl` bundle ships with webmapx. For a custom locale, set `localeLoader` to a URL prefix pointing to your own JSON files (see the npm quickstart for details).
+## Switch locale
 
-## Using a plugin from CDN
+```js
+config: { engine: 'maplibre', locale: 'nl', tools: ['draw'] }
+```
 
-Add a full CDN URL to the `plugins` array. webmapx fetches and registers it after mount:
+English is built-in. Other locales lazy-load from CDN on first use.
 
-```json
-{
-  "engine": "maplibre",
-  "tools": ["draw"],
-  "plugins": [
-    "https://cdn.jsdelivr.net/npm/@my-org/wmx-routing-plugin@2.1/dist/plugin.js"
-  ]
+## Add a plugin
+
+```js
+config: {
+  engine: 'maplibre',
+  plugins: ['https://cdn.jsdelivr.net/npm/@my-org/wmx-plugin@1.0/dist/plugin.js']
 }
 ```
 
-### CSP headers
+Plugins from trusted CDNs (jsdelivr, unpkg, esm.sh) load automatically. Others are skipped with a console warning.
 
-If your page enforces a Content Security Policy, allow the CDNs you use:
-
+If your page enforces CSP, add:
 ```
-Content-Security-Policy: script-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://esm.sh;
-```
-
-Plugins loaded from origins not in webmapx's trusted list (jsdelivr, unpkg, esm.sh) are skipped with a console warning.
-
-## Multiple engines on the same page
-
-Instantiate `WebMapX.mount` once per container, each with its own config:
-
-```html
-<div id="map-a"></div>
-<div id="map-b"></div>
-
-<script type="module">
-  import WebMapX from 'https://cdn.jsdelivr.net/npm/@edugis-org/webmapx@latest/dist-lib/webmapx.js';
-
-  // MapLibre instance
-  WebMapX.mount('#map-a', {
-    config: { engine: 'maplibre', tools: ['measure'] }
-  });
-
-  // OpenLayers instance — load OL peer dep first (see above)
-  WebMapX.mount('#map-b', {
-    config: { engine: 'openlayers', tools: ['draw'] }
-  });
-</script>
+Content-Security-Policy: script-src 'self' https://cdn.jsdelivr.net https://esm.sh;
 ```
 
-Each call is independent; engines lazy-load only what the config requests.
+## Use a different engine
+
+Replace `maplibre` with `openlayers`, `leaflet`, or `cesium` in both `engine` and `map.type`, and update the importmap entry accordingly (e.g. `"ol": "https://cdn.jsdelivr.net/npm/ol@10/+esm"`).
