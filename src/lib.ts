@@ -1,3 +1,5 @@
+import './theme/lib-defaults.css';
+
 /**
  * WebMapX library entry point.
  * Used for npm package and CDN distribution.

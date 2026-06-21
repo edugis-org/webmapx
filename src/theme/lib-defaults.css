@@ -1,0 +1,8 @@
+/* Default element styles for webmapx-map when used as a library.
+   In the app build, app.css provides these. For CDN/npm consumers
+   who don't load app.css, the lib must provide them. */
+webmapx-map {
+  position: relative;
+  display: block;
+  overflow: hidden;
+}
