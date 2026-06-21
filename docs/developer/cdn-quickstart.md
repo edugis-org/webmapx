@@ -13,12 +13,30 @@ Use webmapx directly from a `<script>` tag — no build tools, no npm required.
 <head>
   <meta charset="UTF-8">
   <title>My Map</title>
-  <!-- MapLibre peer dep — bring your own -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.css">
-  <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.js"></script>
+
+  <!-- Import map: resolve bare specifiers (lit, shoelace) used by webmapx -->
+  <script type="importmap">
+  {
+    "imports": {
+      "lit": "https://cdn.jsdelivr.net/npm/lit@3/index.js",
+      "lit/": "https://cdn.jsdelivr.net/npm/lit@3/",
+      "lit-html": "https://cdn.jsdelivr.net/npm/lit-html@3/lit-html.js",
+      "lit-html/": "https://cdn.jsdelivr.net/npm/lit-html@3/",
+      "@lit/reactive-element": "https://cdn.jsdelivr.net/npm/@lit/reactive-element@2/reactive-element.js",
+      "@lit/reactive-element/": "https://cdn.jsdelivr.net/npm/@lit/reactive-element@2/",
+      "lit-element/": "https://cdn.jsdelivr.net/npm/lit-element@4/",
+      "@shoelace-style/shoelace/": "https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2/"
+    }
+  }
+  </script>
+
+  <!-- MapLibre peer dep -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.css">
+  <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.js"></script>
+
   <!-- webmapx -->
   <script type="module">
-    import WebMapX from 'https://cdn.jsdelivr.net/npm/@edugis-org/webmapx@latest/dist-lib/webmapx.js';
+    import { WebMapX } from 'https://cdn.jsdelivr.net/npm/@edugis-org/webmapx@latest/dist-lib/webmapx.js';
 
     WebMapX.mount('#map', {
       config: {
@@ -34,7 +52,7 @@ Use webmapx directly from a `<script>` tag — no build tools, no npm required.
     });
   </script>
   <style>
-    #map { width: 100vw; height: 100vh; }
+    #map { width: 100vw; height: 100vh; margin: 0; }
   </style>
 </head>
 <body>
