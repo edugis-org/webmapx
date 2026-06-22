@@ -130,6 +130,7 @@ export interface LayerPanelItem {
   hasExtent: boolean;
   hasStyleDialog: boolean;
   outOfZoom: boolean;
+  beingEdited: boolean;
 }
 
 const STYLE_DIALOG_LAYER_TYPES = new Set(['circle', 'symbol', 'label', 'line', 'fill', 'fill-extrusion']);
@@ -510,8 +511,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                           @pointermove=${(e: PointerEvent) => this.onDragHandlePointerMove(e)}
                           @pointerup=${(e: PointerEvent) => this.onDragHandlePointerUp(e)}
                           @pointercancel=${(e: PointerEvent) => this.onDragHandlePointerUp(e)}
-                        ><span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}">${item.label}</span></span>
-                      ` : html`<span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}">${item.label}</span>`}
+                        ><span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}">${item.label}${item.beingEdited ? html`&nbsp;<sl-icon name="pencil" title="Layer is currently being edited"></sl-icon>` : null}</span></span>
+                      ` : html`<span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}">${item.label}${item.beingEdited ? html`&nbsp;<sl-icon name="pencil" title="Layer is currently being edited"></sl-icon>` : null}</span>`}
                       <sl-icon-button
                         class="collapse-toggle"
                         name=${this.isLegendCollapsed(item.layerId) ? 'chevron-right' : 'chevron-down'}
@@ -876,6 +877,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         hasExtent: this.layerHasExtent(layerId, metadata),
         hasStyleDialog: this.layerHasStyleDialog(metadata),
         outOfZoom: zoom < minz || zoom >= maxz + 1,
+        beingEdited: metadata?.borrowedByDrawTool === true,
       };
 
       if (legendRole === 'background') {

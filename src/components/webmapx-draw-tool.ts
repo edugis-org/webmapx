@@ -530,6 +530,26 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             id: drawSourceId(layerId),
             data: { type: 'FeatureCollection', features }
         });
+        // Keep sourceData in the borrowed layer's store metadata up-to-date so
+        // "save layers" picks up edits even while the draw tool is active.
+        const cfg = this.drawLayers.find(l => l.id === layerId);
+        if (cfg?.borrowedSourceId && this.adapter?.store) {
+            const fc: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features };
+            this.setBorrowedLayerMetadata(cfg.borrowedSourceId, { sourceData: fc });
+        }
+    }
+
+    private setBorrowedLayerMetadata(borrowedSourceId: string, patch: Record<string, unknown>): void {
+        if (!this.adapter?.store) return;
+        const mapLayers = this.adapter.store.getState().mapLayers ?? {};
+        const [mlId, entry] = Object.entries(mapLayers)
+            .find(([, e]) => (e as Record<string, unknown>).sourceId === borrowedSourceId) ?? [];
+        if (mlId && entry) {
+            this.adapter.store.dispatch(
+                { mapLayers: { ...mapLayers, [mlId]: { ...entry, ...patch } } },
+                'MAP'
+            );
+        }
     }
 
     // ─── Keyboard shortcuts ──────────────────────────────────────────────────
@@ -869,6 +889,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 // Blank the source — all engine layers using it go empty automatically
                 const src = this.adapter.getSource(cfg.borrowedSourceId!);
                 src?.setData({ type: 'FeatureCollection', features: [] });
+                this.setBorrowedLayerMetadata(cfg.borrowedSourceId!, { borrowedByDrawTool: true });
             }
         }
 
@@ -903,8 +924,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 geometry: { type: f.type, coordinates: f.coordinates } as GeoJSON.Geometry,
                 properties: { ...f.properties }
             }));
-        this.adapter.getSource(cfg.borrowedSourceId)
-            ?.setData({ type: 'FeatureCollection', features });
+        const fc: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features };
+        this.adapter.getSource(cfg.borrowedSourceId)?.setData(fc);
+        this.setBorrowedLayerMetadata(cfg.borrowedSourceId, { borrowedByDrawTool: false, sourceData: fc });
     }
 
     private createPermLayer(cfg: DrawLayerConfig): string {
@@ -917,7 +939,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (cfg.type === 'Polygon') {
             this.dispatch('webmapx-add-layer', {
                 id: mapLayerId, type: 'fill', source: srcId, title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay', properties: cfg.properties },
+                metadata: { label: cfg.name, legendRole: 'overlay', properties: cfg.properties, borrowedByDrawTool: true },
                 paint: { 'fill-color': MAP_LAYER_COLOR, 'fill-opacity': 0.35 }
             });
             this.dispatch('webmapx-add-layer', {
@@ -928,13 +950,13 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         } else if (cfg.type === 'LineString') {
             this.dispatch('webmapx-add-layer', {
                 id: mapLayerId, type: 'line', source: srcId, title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay', properties: cfg.properties },
+                metadata: { label: cfg.name, legendRole: 'overlay', properties: cfg.properties, borrowedByDrawTool: true },
                 paint: { 'line-color': MAP_LAYER_COLOR, 'line-width': 2 }
             });
         } else {
             this.dispatch('webmapx-add-layer', {
                 id: mapLayerId, type: 'circle', source: srcId, title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay', properties: cfg.properties },
+                metadata: { label: cfg.name, legendRole: 'overlay', properties: cfg.properties, borrowedByDrawTool: true },
                 paint: { 'circle-radius': 5, 'circle-color': MAP_LAYER_COLOR, 'circle-stroke-width': 1, 'circle-stroke-color': '#555' }
             });
         }
