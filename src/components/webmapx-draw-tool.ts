@@ -158,6 +158,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     private unsubClick: (() => void) | null = null;
     private unsubMove:  (() => void) | null = null;
+    private moveRafId:  number | null = null;
+    private pendingMoveEvent: PointerMoveEvent | null = null;
     private unsubCtx:   (() => void) | null = null;
     private unsubDown:  (() => void) | null = null;
     private unsubUp:    (() => void) | null = null;
@@ -317,6 +319,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 this.setBorrowedLayerMetadata(layer.borrowedSourceId, { borrowedByDrawTool: true });
             }
         }
+        for (const id of [RUBBER_SOURCE_ID, VERTEX_SOURCE_ID, SEL_SOURCE_ID, DRAFT_SOURCE_ID, EDIT_VERT_SOURCE, EDIT_MID_SOURCE, SEL_VERT_SOURCE, SNAP_SOURCE_ID]) {
+            this.dispatchEvent(new CustomEvent('webmapx-suppress-busy-for-source', { detail: id, bubbles: true, composed: true }));
+        }
         this.bindEvents();
         window.addEventListener('keydown', this.onKeyDown, true);
         window.addEventListener('keyup', this.onKeyUp);
@@ -325,6 +330,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     protected onDeactivate(): void {
+        for (const id of [RUBBER_SOURCE_ID, VERTEX_SOURCE_ID, SEL_SOURCE_ID, DRAFT_SOURCE_ID, EDIT_VERT_SOURCE, EDIT_MID_SOURCE, SEL_VERT_SOURCE, SNAP_SOURCE_ID]) {
+            this.dispatchEvent(new CustomEvent('webmapx-unsuppress-busy-for-source', { detail: id, bubbles: true, composed: true }));
+        }
+        if (this.moveRafId !== null) { cancelAnimationFrame(this.moveRafId); this.moveRafId = null; }
+        this.pendingMoveEvent = null;
         this.unbindEvents();
         window.removeEventListener('keydown', this.onKeyDown, true);
         window.removeEventListener('keyup', this.onKeyUp);
@@ -646,7 +656,16 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private bindEvents(): void {
         if (!this.adapter) return;
         this.unsubClick = this.adapter.events.on('click',        (e: ClickEvent)       => this.handleClick(e));
-        this.unsubMove  = this.adapter.events.on('pointer-move', (e: PointerMoveEvent) => this.handlePointerMove(e));
+        this.unsubMove  = this.adapter.events.on('pointer-move', (e: PointerMoveEvent) => {
+            this.pendingMoveEvent = e;
+            if (this.moveRafId === null) {
+                this.moveRafId = requestAnimationFrame(() => {
+                    this.moveRafId = null;
+                    if (this.pendingMoveEvent) this.handlePointerMove(this.pendingMoveEvent);
+                    this.pendingMoveEvent = null;
+                });
+            }
+        });
         this.unsubCtx   = this.adapter.events.on('contextmenu',  (e: ContextMenuEvent) => this.handleContextMenu(e));
         this.unsubDown  = this.adapter.events.on('pointer-down', (e: PointerDownEvent) => this.handlePointerDown(e));
         this.unsubUp    = this.adapter.events.on('pointer-up',   (e: PointerUpEvent)   => this.handlePointerUp(e));
