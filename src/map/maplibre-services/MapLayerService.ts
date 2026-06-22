@@ -360,7 +360,10 @@ export class MapLayerService implements ILayerService {
         }
         if (!this.map.getSource(nativeSourceId)) return false;
 
-        const nativeLayerId = `${layerId}-${nativeSourceId}-${stdLayer.type}`;
+        // Use the logical source id (not the mapped native id) for the layer name to preserve
+        // the stable `${layerId}-${sourceId}-${type}` convention the rest of the codebase relies on.
+        const sourceIdForLayerName = sourceConfig ? sourceConfig.id : nativeSourceId;
+        const nativeLayerId = `${layerId}-${sourceIdForLayerName}-${stdLayer.type}`;
         if (!this.map.getLayer(nativeLayerId)) {
             this.map.addLayer(this.buildNativeLayer(nativeLayerId, stdLayer, nativeSourceId, layerId), insertBeforeLayerId);
             if (stdLayer.type === 'hillshade') {
