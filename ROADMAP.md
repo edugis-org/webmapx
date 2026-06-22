@@ -65,6 +65,10 @@
 
 ## Near-Term Tasks
 
+### Tool UX Modes
+
+Proposal: unified `uiMode` for all tools — `"control"` (always on map), `"panel"` (button + panel), `"headless"` (behavior only) — plus a `default` block for settings applied before user interaction. See [`docs/developer/tool-ux-modes-proposal.md`](./docs/developer/tool-ux-modes-proposal.md).
+
 ## Plugin Support
 
 Goal: allow external packages to extend WebMapX without forking — custom tools and engine overrides as npm packages.
