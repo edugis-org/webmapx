@@ -439,6 +439,13 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       margin-left: 0.75rem;
     }
 
+    .layer-editing-notice {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary, #6b7280);
+      font-style: italic;
+      padding: 0.25rem 0.75rem 0.5rem;
+    }
+
     .empty {
       padding: 0.875rem;
       border: 1px dashed var(--color-border, #d7dce3);
@@ -522,56 +529,60 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                     </div>
                     <div class="layer-details ${this.isLegendCollapsed(item.layerId) ? 'collapsed' : ''}">
                       <div class="layer-details-inner">
-                        ${item.visible
-                          ? html`
-                              <div class="opacity-row">
-                                <sl-icon name="circle-half"></sl-icon>
-                                <input
-                                  type="range"
-                                  min="0"
-                                  max="100"
-                                  .value=${String(this.layerTransparency.get(item.layerId) ?? 0)}
-                                  @input=${(e: Event) => this.handleTransparencyChange(item.layerId, e)}
-                                />
-                                <span class="opacity-value">${this.layerTransparency.get(item.layerId) ?? 0}%</span>
-                              </div>
-                              <div class="layer-legend-wrap" style=${item.layerType === 'hillshade' ? '' : `opacity: ${(100 - (this.layerTransparency.get(item.layerId) ?? 0)) / 100}`}>
-                                <webmapx-layer-legend layer-id=${item.layerId}></webmapx-layer-legend>
-                              </div>
-                            `
-                          : null}
-                        ${item.topLevelGroup
-                          ? html`<div class="layer-meta">${item.topLevelGroup}</div>`
-                          : null}
-                        <div class="layer-details-actions">
-                          <sl-icon-button
-                            name="info-circle"
-                            label="About this layer"
-                            @click=${() => this.handleShowLayerInfo(item.layerId, item.label)}
-                          ></sl-icon-button>
-                          ${item.hasStyleDialog
-                            ? html`<sl-icon-button
-                                name="palette"
-                                label="Layer style"
-                                @click=${() => this.handleShowLayerStyle(item.layerId, item.label)}
-                              ></sl-icon-button>`
-                            : null}
-                          ${item.hasExtent
-                            ? html`<sl-icon-button
-                                name="zoom-in"
-                                label="Zoom to layer"
-                                @click=${() => this.handleZoomToLayer(item.layerId)}
-                              ></sl-icon-button>`
-                            : null}
-                          ${isOverviewSection
-                            ? html`<sl-icon-button
-                                class="delete-layer"
-                                name="trash"
-                                label="Delete layer"
-                                @click=${() => this.handleDeleteLayer(item.layerId)}
-                              ></sl-icon-button>`
-                            : null}
-                        </div>
+                        ${item.beingEdited
+                          ? html`<div class="layer-editing-notice">editing</div>`
+                          : html`
+                            ${item.visible
+                              ? html`
+                                  <div class="opacity-row">
+                                    <sl-icon name="circle-half"></sl-icon>
+                                    <input
+                                      type="range"
+                                      min="0"
+                                      max="100"
+                                      .value=${String(this.layerTransparency.get(item.layerId) ?? 0)}
+                                      @input=${(e: Event) => this.handleTransparencyChange(item.layerId, e)}
+                                    />
+                                    <span class="opacity-value">${this.layerTransparency.get(item.layerId) ?? 0}%</span>
+                                  </div>
+                                  <div class="layer-legend-wrap" style=${item.layerType === 'hillshade' ? '' : `opacity: ${(100 - (this.layerTransparency.get(item.layerId) ?? 0)) / 100}`}>
+                                    <webmapx-layer-legend layer-id=${item.layerId}></webmapx-layer-legend>
+                                  </div>
+                                `
+                              : null}
+                            ${item.topLevelGroup
+                              ? html`<div class="layer-meta">${item.topLevelGroup}</div>`
+                              : null}
+                            <div class="layer-details-actions">
+                              <sl-icon-button
+                                name="info-circle"
+                                label="About this layer"
+                                @click=${() => this.handleShowLayerInfo(item.layerId, item.label)}
+                              ></sl-icon-button>
+                              ${item.hasStyleDialog
+                                ? html`<sl-icon-button
+                                    name="palette"
+                                    label="Layer style"
+                                    @click=${() => this.handleShowLayerStyle(item.layerId, item.label)}
+                                  ></sl-icon-button>`
+                                : null}
+                              ${item.hasExtent
+                                ? html`<sl-icon-button
+                                    name="zoom-in"
+                                    label="Zoom to layer"
+                                    @click=${() => this.handleZoomToLayer(item.layerId)}
+                                  ></sl-icon-button>`
+                                : null}
+                              ${isOverviewSection
+                                ? html`<sl-icon-button
+                                    class="delete-layer"
+                                    name="trash"
+                                    label="Delete layer"
+                                    @click=${() => this.handleDeleteLayer(item.layerId)}
+                                  ></sl-icon-button>`
+                                : null}
+                            </div>
+                          `}
                       </div>
                     </div>
                   </div>

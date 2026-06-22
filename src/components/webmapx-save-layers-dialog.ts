@@ -120,7 +120,7 @@ export class WebmapxSaveLayersDialog extends LitElement {
         const bases = new Map<string, string>();
         const used = new Set<string>();
         for (const item of items) {
-            let base = WebmapxSaveLayersDialog.sanitizeFileBase(item.layerId);
+            let base = WebmapxSaveLayersDialog.sanitizeFileBase(item.label ?? item.layerId);
             let candidate = base;
             let n = 2;
             while (used.has(candidate)) {
