@@ -348,13 +348,19 @@ export class MapLayerService implements ILayerService {
         if (!stdLayer.source) return false;
         const rawSourceDef = (layerConfig as any).sources?.[stdLayer.source as string];
         const sourceConfig = rawSourceDef ? normalizeRawSource(stdLayer.source as string, rawSourceDef) : null;
-        if (!sourceConfig) return false;
 
-        const nativeSourceId = this.getOrCreateNativeSourceId(sourceConfig.id);
-        this.ensureNativeSource(nativeSourceId, sourceConfig);
+        let nativeSourceId: string;
+        if (sourceConfig) {
+            nativeSourceId = this.getOrCreateNativeSourceId(sourceConfig.id);
+            this.ensureNativeSource(nativeSourceId, sourceConfig);
+        } else {
+            // Source pre-registered via addSource; resolve logical→native or use string as-is.
+            const sourceStr = stdLayer.source as string;
+            nativeSourceId = this.logicalSourceToNative.get(sourceStr) ?? sourceStr;
+        }
         if (!this.map.getSource(nativeSourceId)) return false;
 
-        const nativeLayerId = `${layerId}-${sourceConfig.id}-${stdLayer.type}`;
+        const nativeLayerId = `${layerId}-${nativeSourceId}-${stdLayer.type}`;
         if (!this.map.getLayer(nativeLayerId)) {
             this.map.addLayer(this.buildNativeLayer(nativeLayerId, stdLayer, nativeSourceId, layerId), insertBeforeLayerId);
             if (stdLayer.type === 'hillshade') {
