@@ -34,6 +34,18 @@ interface MeasureSegment {
     distanceCm: number;
 }
 
+/**
+ * Interactive distance and area measurement tool.
+ *
+ * Click to add vertices; double-click, right-click, or ESC to finish a line.
+ * Click near the first point (or double-click) to close a polygon and show area.
+ *
+ * When a terrain layer is active the tool also displays an elevation profile
+ * (SVG graph, 100 samples) along the full measured line or polygon perimeter.
+ * The profile appears automatically below the distance/area readout and updates
+ * with each point added, closed, or finished. It is hidden when no terrain
+ * source is active.
+ */
 @customElement('webmapx-measure-tool')
 export class WebmapxMeasureTool extends WebmapxModalTool {
     // ─────────────────────────────────────────────────────────────────────

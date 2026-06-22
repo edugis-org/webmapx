@@ -24,6 +24,7 @@ The `<webmapx-measure-tool>` component provides interactive functionality for me
 
 *   **Distance Measurement:** Displays the distance of each segment and a total distance for paths.
 *   **Area Measurement:** Calculates and displays the area of closed polygons.
+*   **Elevation Profile:** When a terrain layer (raster-dem) is active, an elevation graph is shown below the distance/area readout. It samples 100 points along the full line or polygon perimeter and plots them as an SVG profile with the min/max elevation labelled. The profile updates with each point added, closed, or finished, and disappears when no terrain source is active.
 *   **Automatic Panel Scrolling:** The measurement panel automatically scrolls to keep the most recently added segments and totals in view, ensuring a smooth user experience even with many measurements.
 *   **Responsive Interaction:** Provides fluid and responsive feedback as you interact with the map, with optimizations to prevent UI lag during rapid mouse movements.
 *   **Flexible Output Location:** Render measurement results to any DOM element using `render-target`.
