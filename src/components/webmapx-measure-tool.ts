@@ -491,7 +491,9 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         if (this.isFinished) {
             if (this.isTouchDevice) return;
             this.clearMeasurement();
-            this.addPoint(clickedCoords);
+            // Don't add a point on this same click — it may be the second click of
+            // a double-click that just finished the measurement. Let the user place
+            // the first point of the new measurement with a deliberate separate click.
             return;
         }
 
@@ -518,6 +520,10 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
     private handleDblClick(_event: DoubleClickEvent): void {
         if (!this.active || this.isFinished) return;
+        // The second click of a double-click may have just called clearMeasurement()
+        // + addPoint(), leaving a 1-point in-progress measurement. Don't finish it —
+        // a 1-point measurement has no line and finishing it leaves a confusing state.
+        if (this.points.length < 2) return;
         this.finishMeasurement();
     }
 
@@ -755,6 +761,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     /** Called when tool becomes active */
     protected onActivate(): void {
         this.clearMeasurement();
+        this.adapter?.setDoubleClickZoomEnabled(false);
 
         // Create layers when activating (ensures they're on top)
         if (!this.layersCreated) {
@@ -775,6 +782,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     /** Called when tool becomes inactive */
     protected onDeactivate(): void {
         this.clearMeasurement();
+        this.adapter?.setDoubleClickZoomEnabled(true);
 
         // Remove layers when deactivating to reduce map overhead
         this.removeMeasureLayers();
