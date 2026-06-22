@@ -88,6 +88,15 @@ export abstract class BaseAdapter {
         this.events.emit({ type: 'layer-remove', layerId: id, activeLayers });
     }
 
+    /** Returns the layer config for every currently active layer, keyed by logical layer id. */
+    getLayerConfigs(): Map<string, unknown> {
+        const result = new Map<string, unknown>();
+        for (const [id, entry] of this.layerConfigStore) {
+            result.set(id, entry.config);
+        }
+        return result;
+    }
+
     /** Returns stored layer configs in current stack order (bottom to top), then clears the store. */
     protected drainLayerConfigs(): Array<{ config: unknown; options?: LayerInsertOptions }> {
         const order = Object.keys(this.store.getState().mapLayers ?? {});

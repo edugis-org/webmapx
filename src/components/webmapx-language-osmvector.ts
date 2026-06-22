@@ -103,8 +103,17 @@ const LANGUAGES: Array<{ code: string; label: string; en: string }> = [
     { code: 'tok', label: 'Toki Pona', en: 'Toki Pona' },
 ];
 
-/** Matches OSM/openmaptiles label fields: "name", "name:en", "name_int", etc. */
+/** Matches expression-based OSM/openmaptiles label fields: "name", "name:en", "name_int", etc. */
 const OSM_NAME_FIELD_RE = /"name(?:[:_][\w-]+)?"/;
+
+/** Matches legacy template-string OSM label fields: {name:latin}, {name:nonlatin}, {name}, etc. */
+const OSM_TEMPLATE_NAME_RE = /\{name(?:[:_][\w-]+)?\}/;
+
+function isOsmNameField(textField: unknown): boolean {
+    if (textField === undefined) return false;
+    if (typeof textField === 'string') return OSM_TEMPLATE_NAME_RE.test(textField);
+    return OSM_NAME_FIELD_RE.test(JSON.stringify(textField));
+}
 
 interface TrackedSubLayer {
     layerId: string;
@@ -164,6 +173,10 @@ export class WebmapxLanguageOsmVector extends WebmapxModalTool {
     protected onMapAttached(adapter: IMap): void {
         super.onMapAttached(adapter);
         this.hookAddLayer(adapter);
+        // Apply language to any layers already tracked (scanned from existing layers above).
+        if (this.language !== 'local') {
+            this.applyLanguage();
+        }
     }
 
     /** Wraps `adapter.addLayer` (once per adapter, shared across instances) to rewrite OSM label fields
@@ -178,13 +191,28 @@ export class WebmapxLanguageOsmVector extends WebmapxModalTool {
         };
         adapterState.set(adapter, state);
 
+        // Scan layers already on the map (tool may be created after layers were added).
+        for (const [layerId, config] of adapter.getLayerConfigs()) {
+            const c = config as any;
+            if (c?.type !== 'style' || !Array.isArray(c?.layers)) continue;
+            for (const subLayer of c.layers as SubLayerSpec[]) {
+                if (subLayer.type !== 'symbol') continue;
+                const textField = subLayer.layout?.['text-field'];
+                if (!isOsmNameField(textField)) continue;
+                const subLayerId = subLayer.id ?? `${subLayer.source}-${subLayer.type}`;
+                if (!state.tracked.some(t => t.layerId === layerId && t.subLayerId === subLayerId)) {
+                    state.tracked.push({ layerId, subLayerId, originalTextField: textField });
+                }
+            }
+        }
+
         adapter.addLayer = async (layer: any, options?: any): Promise<boolean> => {
             const layerId: string | undefined = layer?.id;
             if (layer?.type === 'style' && Array.isArray(layer.layers) && typeof layerId === 'string') {
                 for (const subLayer of layer.layers as SubLayerSpec[]) {
                     if (subLayer.type !== 'symbol') continue;
                     const textField = subLayer.layout?.['text-field'];
-                    if (textField === undefined || !OSM_NAME_FIELD_RE.test(JSON.stringify(textField))) continue;
+                    if (!isOsmNameField(textField)) continue;
 
                     const subLayerId = subLayer.id ?? `${subLayer.source}-${subLayer.type}`;
                     state.tracked.push({ layerId, subLayerId, originalTextField: textField });
@@ -206,6 +234,12 @@ export class WebmapxLanguageOsmVector extends WebmapxModalTool {
         const resolved = lang === 'browser'
             ? (navigator.language ?? 'en').split('-')[0]
             : lang;
+        // Legacy template strings (e.g. "{name:latin} {name:nonlatin}") cannot be
+        // used inside a coalesce expression — convert entirely to an expression with
+        // a latin-script fallback chain so the label is never blank.
+        if (typeof originalTextField === 'string') {
+            return ['coalesce', ['get', `name:${resolved}`], ['get', 'name:latin'], ['get', 'name']];
+        }
         return ['coalesce', ['get', `name:${resolved}`], originalTextField];
     }
 

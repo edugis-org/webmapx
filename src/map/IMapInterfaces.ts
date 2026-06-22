@@ -258,6 +258,8 @@ export interface IMap {
      * `layerId` as `subLayerId` too. Returns true if a matching native layer was updated.
      */
     updateLayerStyle(layerId: string, subLayerId: string, partialPaint: Record<string, unknown>): boolean;
+    /** Returns the original layer config for every currently active layer, keyed by logical layer id. */
+    getLayerConfigs(): Map<string, unknown>;
 
     // ===== Viewport / Camera =====
     /** Gets the current viewport state (center, zoom, bearing, pitch). */
