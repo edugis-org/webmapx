@@ -334,6 +334,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             this.dispatchEvent(new CustomEvent('webmapx-unsuppress-busy-for-source', { detail: id, bubbles: true, composed: true }));
         }
         if (this.moveRafId !== null) { cancelAnimationFrame(this.moveRafId); this.moveRafId = null; }
+        for (const [, rafId] of this.pendingSourceRefresh) cancelAnimationFrame(rafId);
+        this.pendingSourceRefresh.clear();
         this.pendingMoveEvent = null;
         this.unbindEvents();
         window.removeEventListener('keydown', this.onKeyDown, true);
@@ -528,7 +530,20 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.createdDrawLayerIds.clear();
     }
 
+    // Layers with pending deferred source refresh (layerId → RAF handle).
+    private pendingSourceRefresh = new Map<string, number>();
+
     private refreshDrawLayerSource(layerId: string): void {
+        // Coalesce multiple synchronous calls into one RAF-deferred setData so
+        // terrain tessellation never blocks the current user-input frame.
+        if (this.pendingSourceRefresh.has(layerId)) return;
+        this.pendingSourceRefresh.set(layerId, requestAnimationFrame(() => {
+            this.pendingSourceRefresh.delete(layerId);
+            this.flushDrawLayerSource(layerId);
+        }));
+    }
+
+    private flushDrawLayerSource(layerId: string): void {
         const features = this.features
             .filter(f => f.layerId === layerId)
             .map(f => ({
@@ -1344,7 +1359,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         return findSnap(cursorPx, candidates, v => {
             const px = this.adapter!.project(v);
             return [px[0], px[1]];
-        }, { threshold: SNAP_THRESHOLD, edgePenalty: 8 });
+        }, {
+            threshold: SNAP_THRESHOLD,
+            edgePenalty: 8,
+            unproject: px => this.adapter!.unproject(px),
+        });
     }
 
     private updateSnapIndicator(): void {

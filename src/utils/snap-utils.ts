@@ -4,6 +4,13 @@ import type { DrawFeature } from '../components/webmapx-draw-tool';
 export interface SnapOptions {
     threshold?: number;   // px, default 16
     edgePenalty?: number; // px, default 8 — edges must be this much closer than a vertex to win
+    /**
+     * If provided, used to build a geographic pre-filter box around the cursor.
+     * Vertices outside that box are skipped without calling project(), which is
+     * critical when project() is expensive (e.g. terrain mode) and features have
+     * many vertices (e.g. world countries).
+     */
+    unproject?: (pixel: [number, number]) => LngLat | null;
 }
 
 export type ProjectFn = (coords: LngLat) => [number, number];
@@ -34,10 +41,38 @@ export function flatEdges(f: DrawFeature): [LngLat, LngLat][] {
     return edges;
 }
 
+/** Build a geographic bounding box from the 4 corners of a pixel-space snap box. */
+function buildGeoSnapBox(
+    cursorPx: [number, number],
+    threshold: number,
+    unproject: (pixel: [number, number]) => LngLat | null
+): { minLng: number; maxLng: number; minLat: number; maxLat: number } | null {
+    const [cx, cy] = cursorPx;
+    const corners: Array<[number, number]> = [
+        [cx - threshold, cy - threshold],
+        [cx + threshold, cy - threshold],
+        [cx + threshold, cy + threshold],
+        [cx - threshold, cy + threshold],
+    ];
+    const lngLats = corners.map(unproject).filter((ll): ll is LngLat => ll !== null);
+    if (lngLats.length < 1) return null;
+    const lngs = lngLats.map(ll => ll[0]);
+    const lats = lngLats.map(ll => ll[1]);
+    return {
+        minLng: Math.min(...lngs),
+        maxLng: Math.max(...lngs),
+        minLat: Math.min(...lats),
+        maxLat: Math.max(...lats),
+    };
+}
+
 /**
  * Find the best snap candidate for the given cursor pixel position.
  * Vertices beat edges when within `edgePenalty` px.
  * Returns null when nothing is within `threshold` px.
+ *
+ * When `options.unproject` is provided, vertices are pre-filtered by a
+ * geographic bounding box so project() is only called for nearby candidates.
  */
 export function findSnap(
     cursorPx: [number, number],
@@ -50,13 +85,28 @@ export function findSnap(
     let best: LngLat | null = null;
     let bestDist = threshold;
 
+    const geoBox = options.unproject
+        ? buildGeoSnapBox(cursorPx, threshold, options.unproject)
+        : null;
+
+    // If unproject was provided but all corners failed (e.g. above horizon at high pitch),
+    // skip snap entirely rather than falling back to projecting every vertex.
+    if (options.unproject && !geoBox) return null;
+
+    const inBox = geoBox
+        ? (v: LngLat) => v[0] >= geoBox.minLng && v[0] <= geoBox.maxLng &&
+                         v[1] >= geoBox.minLat && v[1] <= geoBox.maxLat
+        : (_v: LngLat) => true;
+
     for (const f of features) {
         for (const v of flatVertices(f)) {
+            if (!inBox(v)) continue;
             const px = project(v);
             const d = Math.hypot(px[0] - cursorPx[0], px[1] - cursorPx[1]);
             if (d < bestDist) { bestDist = d; best = v; }
         }
         for (const [a, b] of flatEdges(f)) {
+            if (!inBox(a) && !inBox(b)) continue;
             const pa = project(a);
             const pb = project(b);
             const dx = pb[0] - pa[0], dy = pb[1] - pa[1];
