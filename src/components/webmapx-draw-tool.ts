@@ -314,6 +314,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             }
             if (layer.borrowedSourceId) {
                 this.adapter?.getSource(layer.borrowedSourceId)?.setData({ type: 'FeatureCollection', features: [] });
+                this.setBorrowedLayerMetadata(layer.borrowedSourceId, { borrowedByDrawTool: true });
             }
         }
         this.bindEvents();
