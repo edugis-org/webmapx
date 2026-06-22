@@ -33,6 +33,8 @@ export class MapCoreService implements IMapCore {
     private lastInitOptions: Parameters<MapCoreService['initialize']>[1] = undefined;
     private silentSourceIds = new Set<string>();
     private geoJSONData = new Map<string, GeoJSON.FeatureCollection>();
+    private moveRafPending = false;
+    private isMoving = false;
 
     // Basic configuration needed for a standard map
     private readonly initialConfig = {
@@ -145,7 +147,12 @@ export class MapCoreService implements IMapCore {
              this.eventBus?.emit({ type: 'zoom-end', zoom: currentZoom });
         });
 
+        this.mapInstance.on('movestart', () => {
+            this.isMoving = true;
+        });
+
         this.mapInstance.on('moveend', () => {
+            this.isMoving = false;
             const currentCenter = this.mapInstance!.getCenter().toArray() as [number, number];
             const currentZoom = this.mapInstance!.getZoom();
             const viewportBounds = this.buildViewportFeature();
@@ -156,8 +163,12 @@ export class MapCoreService implements IMapCore {
         });
 
         this.mapInstance.on('move', () => {
-            this.dispatchViewportBoundsSnapshot();
-            this.emitViewChange();
+            if (this.moveRafPending) return;
+            this.moveRafPending = true;
+            requestAnimationFrame(() => {
+                this.moveRafPending = false;
+                this.emitViewChange();
+            });
         });
 
         // Pointer event handlers
@@ -166,6 +177,7 @@ export class MapCoreService implements IMapCore {
 
     private attachPointerEvents(map: maplibregl.Map): void {
         map.on('mousemove', (event: maplibregl.MapMouseEvent) => {
+            if (this.isMoving) return;
             const coords: LngLat = [event.lngLat.lng, event.lngLat.lat];
             const pixel: Pixel = [event.point.x, event.point.y];
             const resolution = this.computePointerResolution(event);
@@ -284,7 +296,7 @@ export class MapCoreService implements IMapCore {
     }
 
     private computePointerResolution(event: maplibregl.MapMouseEvent): PointerResolution | null {
-        if (!this.mapInstance || !event.point) {
+        if (!this.mapInstance || !event.point || this.isMoving) {
             return null;
         }
 

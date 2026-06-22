@@ -45,6 +45,9 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 
     private unsubClick: (() => void) | null = null;
     private unsubPointerMove: (() => void) | null = null;
+    private unsubViewChange: (() => void) | null = null;
+    private unsubViewChangeEnd: (() => void) | null = null;
+    private mapIsMoving = false;
 
     private throttledHoverQuery = throttle(async (pixel: Pixel, lngLat: LngLat) => {
         if (this.mode !== 'hover' || !this.active || !this.adapter) return;
@@ -255,13 +258,20 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         super.onMapAttached(adapter);
         this.unsubClick = adapter.events.on('click', this.handleClick.bind(this));
         this.unsubPointerMove = adapter.events.on('pointer-move', this.handlePointerMove.bind(this));
+        this.unsubViewChange = adapter.events.on('view-change', () => { this.mapIsMoving = true; });
+        this.unsubViewChangeEnd = adapter.events.on('view-change-end', () => { this.mapIsMoving = false; });
     }
 
     protected onMapDetached(): void {
         this.unsubClick?.();
         this.unsubPointerMove?.();
+        this.unsubViewChange?.();
+        this.unsubViewChangeEnd?.();
         this.unsubClick = null;
         this.unsubPointerMove = null;
+        this.unsubViewChange = null;
+        this.unsubViewChangeEnd = null;
+        this.mapIsMoving = false;
         super.onMapDetached();
     }
 
@@ -306,7 +316,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
     // ─────────────────────────────────────────────────────────────────────
 
     private handlePointerMove(event: PointerMoveEvent): void {
-        if (!this.active || this.mode === 'pinned') return;
+        if (!this.active || this.mode === 'pinned' || this.mapIsMoving) return;
         this.throttledHoverQuery(event.pixel, event.coords);
     }
 

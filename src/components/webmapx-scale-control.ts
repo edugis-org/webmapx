@@ -90,7 +90,15 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
     this.attachedAdapter = adapter;
     this.observeContainer();
 
-    const viewHandler = (evt: ViewChangeEvent | ViewChangeEndEvent) => {
+    const moveHandler = (evt: ViewChangeEvent) => {
+      this.hasLiveView = true;
+      this.lastBounds = evt.bounds;
+      this.lastCenter = evt.center;
+      this.lastZoom = evt.zoom;
+      // Skip unproject-based recalculation during active pan/zoom; update on end.
+    };
+
+    const endHandler = (evt: ViewChangeEndEvent) => {
       this.hasLiveView = true;
       this.lastBounds = evt.bounds;
       this.lastCenter = evt.center;
@@ -98,8 +106,8 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
       this.recalculateScale();
     };
 
-    this.unsubscribeEvents.push(adapter.events.on('view-change', viewHandler));
-    this.unsubscribeEvents.push(adapter.events.on('view-change-end', viewHandler));
+    this.unsubscribeEvents.push(adapter.events.on('view-change', moveHandler));
+    this.unsubscribeEvents.push(adapter.events.on('view-change-end', endHandler));
 
     // Seed from current store/state for initial render
     this.applyStateSnapshot(adapter.store.getState(), true);
