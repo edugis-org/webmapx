@@ -474,6 +474,12 @@ export class MapCoreService implements IMapCore {
         return !!this.mapInstance.getTerrain();
     }
 
+    public getElevation(lngLat: [number, number]): number | null {
+        if (!this.mapInstance || !this.mapInstance.getTerrain()) return null;
+        const elevation = this.mapInstance.queryTerrainElevation(lngLat);
+        return elevation ?? null;
+    }
+
     public addSource(id: string, config: any): void {
         this.mapInstance?.addSource(id, config);
         if (config?.type === 'geojson' && config.data && typeof config.data === 'object') {
@@ -690,7 +696,11 @@ export class MapCoreService implements IMapCore {
         const width = (canvas?.width ?? 0) / pixelRatio || canvas?.clientWidth || 0;
         const height = (canvas?.height ?? 0) / pixelRatio || canvas?.clientHeight || 0;
 
-        if (width > 0 && height > 0) {
+        // At high pitch the top screen corners unproject to horizon distances,
+        // producing a huge polygon that makes inset-map densification very expensive.
+        // Fall through to the getBounds() axis-aligned fallback in those cases.
+        const pitch = this.mapInstance.getPitch();
+        if (width > 0 && height > 0 && pitch < 60) {
             // Screen corners: bottom-left, bottom-right, top-right, top-left
             const screenPoints: [number, number][] = [
                 [0, height],

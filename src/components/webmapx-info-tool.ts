@@ -39,6 +39,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
     @state() private loading = false;
     @state() private mode: 'hover' | 'pinned' = 'hover';
     @state() private pinnedLocation: LngLat | null = null;
+    @state() private elevation: number | null = null;
 
     private pinnedPixel: Pixel | null = null;
     private pinMarkerAdded = false;
@@ -245,6 +246,12 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
             font-style: italic;
         }
 
+        .elevation-row {
+            padding: 0.3rem 0.5rem;
+            font-size: 0.8rem;
+            color: var(--color-text-secondary, #555);
+        }
+
         sl-spinner {
             font-size: 0.9rem;
         }
@@ -298,6 +305,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 
     private onActivate(): void {
         this.features = [];
+        this.elevation = null;
         this.mode = 'hover';
         this.pinnedLocation = null;
         this.pinnedPixel = null;
@@ -305,6 +313,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 
     private onDeactivate(): void {
         this.features = [];
+        this.elevation = null;
         this.mode = 'hover';
         this.pinnedLocation = null;
         this.pinnedPixel = null;
@@ -339,6 +348,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         this.pinnedPixel = event.pixel;
         this.loading = true;
         this.features = [];
+        this.elevation = this.adapter.getElevation?.(event.coords) ?? null;
 
         this.updatePinMarker(event.coords);
 
@@ -434,6 +444,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         this.pinnedLocation = null;
         this.pinnedPixel = null;
         this.features = [];
+        this.elevation = null;
         this.removePinMarker();
     }
 
@@ -612,6 +623,10 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 
                 ${isPinned && !this.loading && this.features.length === 0
                     ? html`<p class="empty-hint">No features at this location.</p>`
+                    : nothing}
+
+                ${isPinned && this.elevation !== null
+                    ? html`<div class="elevation-row">Elevation: <strong>${Math.round(this.elevation)} m</strong></div>`
                     : nothing}
 
                 ${this.renderFeatures()}

@@ -661,6 +661,7 @@ export class WebmapxInsetMap extends LitElement {
     }
 
     const stepPx = 50;
+    const maxStepsPerEdge = 25;
     const sampled: [number, number][] = [];
     for (let i = 1; i < pixelRing.length; i++) {
       const a = pixelRing[i - 1];
@@ -668,7 +669,7 @@ export class WebmapxInsetMap extends LitElement {
       const dx = b[0] - a[0];
       const dy = b[1] - a[1];
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const steps = Math.max(1, Math.ceil(dist / stepPx));
+      const steps = Math.min(maxStepsPerEdge, Math.max(1, Math.ceil(dist / stepPx)));
       for (let s = 0; s <= steps; s++) {
         const t = s / steps;
         sampled.push([a[0] + dx * t, a[1] + dy * t]);

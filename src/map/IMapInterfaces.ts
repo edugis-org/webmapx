@@ -302,6 +302,8 @@ export interface IMap {
     setTerrainEnabled(enabled: boolean, terrainSource?: unknown): boolean;
     /** Returns whether 3D terrain is currently enabled, or null if not supported by the engine. */
     isTerrainEnabled(): boolean | null;
+    /** Returns elevation in metres at the given coordinate if a terrain/DEM layer is active, otherwise null. */
+    getElevation?(lngLat: LngLat): number | null;
 
     /** Sets the map canvas cursor style. Pass '' to restore default. */
     setCursor(cursor: string): void;

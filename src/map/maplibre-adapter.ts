@@ -112,6 +112,10 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
         return this.core.isTerrainEnabled();
     }
 
+    getElevation(lngLat: LngLat): number | null {
+        return (this.core as MapCoreService).getElevation(lngLat);
+    }
+
     resetNorth(): void {
         this.core.resetNorth();
     }

@@ -65,6 +65,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     @state() private cursorPosition: LngLat | null = null;
     @state() private isClosed = false;
     @state() private areaM2 = 0;
+    @state() private elevationProfile: number[] | null = null;
     /** Measurement has been finished (via ESC/right-click/double-click/double-tap),
      *  but not necessarily closed into a polygon. No further points can be added
      *  until cleared or a new measurement is started. */
@@ -167,6 +168,21 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             display: flex;
             gap: 0.5rem;
             margin-top: 0.5rem;
+        }
+
+        .elevation-profile {
+            margin-top: 0.25rem;
+        }
+
+        .elevation-profile svg {
+            display: block;
+            width: 100%;
+        }
+
+        .elevation-profile-label {
+            font-size: 0.7rem;
+            color: var(--color-text-secondary, #666);
+            margin-bottom: 2px;
         }
     `;
 
@@ -642,6 +658,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
         this.points = newPoints;
         this.updateMapVisualization();
+        this.updateElevationProfile();
     }
 
     private closePolygon(): void {
@@ -663,6 +680,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
         this.updateMapVisualization();
         this.doUpdateRubberbandVisualization();
+        this.updateElevationProfile();
     }
 
     /** Stops further point-adding, keeping the measurement (and its rubber-band-less
@@ -671,6 +689,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         this.finished = true;
         this.cursorPosition = null;
         this.doUpdateRubberbandVisualization();
+        this.updateElevationProfile();
     }
 
     private clearMeasurement(): void {
@@ -681,9 +700,40 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         this.isClosed = false;
         this.finished = false;
         this.areaM2 = 0;
+        this.elevationProfile = null;
 
         this.doUpdateStaticVisualization();
         this.doUpdateRubberbandVisualization();
+    }
+
+    private static readonly ELEVATION_SAMPLES = 100;
+
+    private updateElevationProfile(): void {
+        const getElevation = this.adapter?.getElevation?.bind(this.adapter);
+        if (!getElevation || this.points.length < 2) {
+            this.elevationProfile = null;
+            return;
+        }
+        const closed = this.isClosed;
+        const line = this.buildLineCoordinates(this.points, closed);
+        if (line.length < 2) { this.elevationProfile = null; return; }
+
+        const n = WebmapxMeasureTool.ELEVATION_SAMPLES;
+        const samples: number[] = [];
+        const last = line.length - 1;
+        for (let i = 0; i < n; i++) {
+            const t = i / (n - 1);
+            const idx = t * last;
+            const lo = Math.floor(idx);
+            const hi = Math.min(lo + 1, last);
+            const f = idx - lo;
+            const lng = line[lo][0] + (line[hi][0] - line[lo][0]) * f;
+            const lat = line[lo][1] + (line[hi][1] - line[lo][1]) * f;
+            const elev = getElevation([lng, lat] as LngLat);
+            if (elev === null) { this.elevationProfile = null; return; }
+            samples.push(elev);
+        }
+        this.elevationProfile = samples;
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -793,6 +843,41 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         return html`<p class="instructions">Click near first point to close polygon, or double-click/right-click/ESC to finish.</p>`;
     }
 
+    private renderElevationProfile(): TemplateResult | typeof nothing {
+        const profile = this.elevationProfile;
+        if (!profile || profile.length < 2) return nothing;
+
+        const W = 220;
+        const H = 60;
+        const min = Math.min(...profile);
+        const max = Math.max(...profile);
+        const range = max - min || 1;
+
+        const pts = profile.map((elev, i) => {
+            const x = (i / (profile.length - 1)) * W;
+            const y = H - ((elev - min) / range) * H;
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+
+        const minLabel = `${Math.round(min)} m`;
+        const maxLabel = `${Math.round(max)} m`;
+
+        return html`
+            <div class="elevation-profile">
+                <div class="elevation-profile-label">Elevation profile (${minLabel} – ${maxLabel})</div>
+                <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+                    <polyline
+                        points="${pts}"
+                        fill="none"
+                        stroke="var(--color-primary, #0f62fe)"
+                        stroke-width="1.5"
+                        stroke-linejoin="round"
+                    />
+                </svg>
+            </div>
+        `;
+    }
+
     protected render(): TemplateResult {
         return html`
             <div class="tool-content measure-container">
@@ -801,6 +886,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
                     ${this.renderSegments()}
                     ${this.renderTotal()}
                     ${this.renderArea()}
+                    ${this.renderElevationProfile()}
 
                     <div class="actions">
                         <sl-button size="small" @click=${this.clearMeasurement}>
