@@ -12,6 +12,9 @@ export { WebmapxBaseTool } from './components/webmapx-base-tool.js';
 // Config-driven plugin tool host
 export { WebmapxPluginTool } from './components/webmapx-plugin-tool.js';
 
+// Toolbox tool
+export { WebmapxToolboxTool } from './components/webmapx-toolbox-tool.js';
+
 // Draw tool
 export { WebmapxDrawTool } from './components/webmapx-draw-tool.js';
 export type { DrawMode, DrawFeature } from './components/webmapx-draw-tool.js';

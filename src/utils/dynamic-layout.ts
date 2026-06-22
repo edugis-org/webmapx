@@ -11,6 +11,8 @@ interface ToolbarItemConfig {
   label?: string;
   title?: string;
   icon?: ToolIconConfig;
+  keywords?: string | string[];
+  items?: ToolbarItemConfig[];
   [key: string]: unknown;
 }
 
@@ -37,6 +39,7 @@ const TOOL_ELEMENT_TAGS: Record<string, string> = {
   maplanguage: 'webmapx-language-osmvector',
   print: 'webmapx-print-tool',
   truearea: 'webmapx-truearea-tool',
+  toolbox: 'webmapx-toolbox-tool',
 };
 
 const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = {
@@ -60,6 +63,7 @@ const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = {
   maplanguage: { label: 'Map language', icon: 'translate' },
   print: { label: 'Print', icon: 'printer' },
   truearea: { label: 'True Area', icon: 'bounding-box-circles' },
+  toolbox: { label: 'Toolbox', icon: 'grid' },
 };
 
 const STANDALONE_TAGS: Record<string, string> = {
@@ -100,6 +104,7 @@ export const KNOWN_TOOLS: Array<{ id: string; label: string; icon?: string }> = 
   { id: 'zoomLevel',    label: 'Zoom level',     icon: 'zoom-in' },
   { id: 'attribution',  label: 'Attribution',    icon: 'info-circle' },
   { id: 'insetMap',     label: 'Inset map',      icon: 'map' },
+  { id: 'toolbox',      label: 'Toolbox',        icon: 'grid' },
 ];
 
 function humanizeToolId(value: string | undefined): string {
@@ -236,6 +241,29 @@ function buildToolbarGroup(config: Record<string, unknown>): HTMLElement {
         // Set as a pre-upgrade property; Lit replays it on upgrade for @property({ attribute: false })
         (toolEl as unknown as Record<string, unknown>)['icon'] = metadata.icon;
       }
+
+      if (item.type === 'toolbox') {
+        const subItems = Array.isArray(item.items) ? (item.items as ToolbarItemConfig[]) : [];
+        for (const subItem of subItems) {
+          if (subItem.enabled === false) continue;
+          const subTagName = subItem.type ? TOOL_ELEMENT_TAGS[subItem.type] : undefined;
+          if (!subTagName) continue;
+          const subMeta = resolveToolbarItemMetadata(subItem);
+          const subEl = document.createElement(subTagName);
+          subEl.setAttribute('tool-id', String(subItem.id));
+          subEl.setAttribute('label', subMeta.label);
+          if (subMeta.icon) {
+            const iconCfg = typeof subMeta.icon === 'string' ? subMeta.icon : (subMeta.icon as { name?: string }).name;
+            if (iconCfg) subEl.setAttribute('toolbox-icon', iconCfg);
+            (subEl as unknown as Record<string, unknown>)['icon'] = subMeta.icon;
+          }
+          if (subItem.keywords) {
+            subEl.setAttribute('toolbox-keywords', String(subItem.keywords));
+          }
+          toolEl.appendChild(subEl);
+        }
+      }
+
       panel.appendChild(toolEl);
     }
   }

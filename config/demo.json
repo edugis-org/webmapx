@@ -47,7 +47,7 @@
         "service": "xyz",
         "url": "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
         "tileSize": 256,
-        "attribution": "© Google Satellite"
+        "attribution": "\u00a9 Google Satellite"
       },
       "world-countries-source": {
         "type": "geojson",
@@ -88,7 +88,12 @@
       "bevolking2015-source": {
         "type": "raster",
         "tileSize": 256,
-        "bounds": [-180, -85.051129, 180, 85.051129],
+        "bounds": [
+          -180,
+          -85.051129,
+          180,
+          85.051129
+        ],
         "service": "xyz",
         "url": [
           "https://t1.edugis.nl/tiles/tilecache.py?map=maps/edugis/cache/population.map&LAYERS=Bevolkingsdichtheid_2015&TRANSPARENT=true&FORMAT=image%2Fpng&SERVICE=WMS&VERSION=1.1.1&STYLES=&SRS=EPSG%3A900913&WIDTH=256&HEIGHT=256&request=GetMap&service=WMS&bbox={bbox-epsg-3857}",
@@ -1068,7 +1073,7 @@
         "version": 8,
         "title": "World countries",
         "metadata": {
-          "abstract": "<p>Countries distinguish between metropolitan (homeland) and independent and semi-independent portions of sovereign states. If you want to see the dependent overseas regions broken out (like in ISO codes, see France for example), use map units instead.</p><p>Each country is coded with a world region that roughly follows the United Nations setup.</p><p>Countries are coded with standard ISO and FIPS codes. French INSEE codes are also included.</p><p>Includes some thematic data from the United Nations (1), U.S. Central Intelligence Agency, and elsewhere.</p><p><img src=\"https://www.naturalearthdata.com/wp-content/uploads/2009/09/banner_countries.png\" alt=\"World countries banner\"></p><p><strong>Disclaimer</strong></p><p>Natural Earth Vector draws boundaries of countries according to defacto status. We show who actually controls the situation on the ground. Please feel free to mashup our disputed area themes to match your particular political outlook.</p><p>Source: <a href=\"https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-countries/\">Natural Earth – Admin 0 Countries</a></p>"
+          "abstract": "<p>Countries distinguish between metropolitan (homeland) and independent and semi-independent portions of sovereign states. If you want to see the dependent overseas regions broken out (like in ISO codes, see France for example), use map units instead.</p><p>Each country is coded with a world region that roughly follows the United Nations setup.</p><p>Countries are coded with standard ISO and FIPS codes. French INSEE codes are also included.</p><p>Includes some thematic data from the United Nations (1), U.S. Central Intelligence Agency, and elsewhere.</p><p><img src=\"https://www.naturalearthdata.com/wp-content/uploads/2009/09/banner_countries.png\" alt=\"World countries banner\"></p><p><strong>Disclaimer</strong></p><p>Natural Earth Vector draws boundaries of countries according to defacto status. We show who actually controls the situation on the ground. Please feel free to mashup our disputed area themes to match your particular political outlook.</p><p>Source: <a href=\"https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-countries/\">Natural Earth \u2013 Admin 0 Countries</a></p>"
         },
         "layers": [
           {
@@ -1305,7 +1310,7 @@
               {
                 "name": "population_density",
                 "translation": "population density",
-                "unit": " inh/km²"
+                "unit": " inh/km\u00b2"
               },
               {
                 "name": "area",
@@ -1428,7 +1433,7 @@
               {
                 "name": "pop_dens",
                 "translation": "population density",
-                "unit": " inh/km²"
+                "unit": " inh/km\u00b2"
               }
             ]
           },
@@ -1545,7 +1550,7 @@
               {
                 "name": "pop_dens",
                 "translation": "population density",
-                "unit": " inh/km²"
+                "unit": " inh/km\u00b2"
               }
             ]
           },
@@ -2768,6 +2773,43 @@
           "enabled": true,
           "title": "Print",
           "icon": "printer"
+        },
+        {
+          "id": "toolbox",
+          "type": "toolbox",
+          "enabled": true,
+          "title": "Toolbox",
+          "icon": "grid",
+          "items": [
+            {
+              "id": "measure2",
+              "type": "measure",
+              "enabled": true,
+              "title": "Measure",
+              "icon": "rulers",
+              "keywords": [
+                "distance",
+                "length",
+                "area",
+                "measurement",
+                "ruler"
+              ]
+            },
+            {
+              "id": "info2",
+              "type": "info",
+              "enabled": true,
+              "title": "Feature info",
+              "icon": "info-circle",
+              "keywords": [
+                "feature",
+                "attributes",
+                "identify",
+                "click",
+                "query"
+              ]
+            }
+          ]
         },
         {
           "type": "spacer",
