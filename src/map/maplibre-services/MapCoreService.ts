@@ -700,7 +700,7 @@ export class MapCoreService implements IMapCore {
         // producing a huge polygon that makes inset-map densification very expensive.
         // Fall through to the getBounds() axis-aligned fallback in those cases.
         const pitch = this.mapInstance.getPitch();
-        if (width > 0 && height > 0 && pitch < 60) {
+        if (width > 0 && height > 0 && pitch < 75) {
             // Screen corners: bottom-left, bottom-right, top-right, top-left
             const screenPoints: [number, number][] = [
                 [0, height],
@@ -717,21 +717,34 @@ export class MapCoreService implements IMapCore {
             corners.push(corners[0]);
         }
 
-        // Fallback to axis-aligned bounds if unproject failed
+        // Fallback to axis-aligned bounds if unproject failed.
+        // Rotate with bearing so the rectangle stays oriented to the map view.
         if (corners.length === 0) {
             const bounds = this.mapInstance.getBounds();
             if (!bounds) {
                 return null;
             }
+            const center = this.mapInstance.getCenter();
+            const bearing = this.mapInstance.getBearing();
+            const θ = -(bearing * Math.PI) / 180; // clockwise bearing → CCW rotation
+            const cosLat = Math.cos((center.lat * Math.PI) / 180) || 1;
             const sw = bounds.getSouthWest();
             const ne = bounds.getNorthEast();
-            corners.push(
+            const axisCorners: [number, number][] = [
                 [sw.lng, sw.lat],
                 [sw.lng, ne.lat],
                 [ne.lng, ne.lat],
                 [ne.lng, sw.lat],
-                [sw.lng, sw.lat],
-            );
+            ];
+            for (const [lng, lat] of axisCorners) {
+                // normalize to roughly equal-scale dx/dy
+                const dx = (lng - center.lng) * cosLat;
+                const dy = lat - center.lat;
+                const rx = dx * Math.cos(θ) - dy * Math.sin(θ);
+                const ry = dx * Math.sin(θ) + dy * Math.cos(θ);
+                corners.push([center.lng + rx / cosLat, center.lat + ry]);
+            }
+            corners.push(corners[0]);
         }
 
         return {

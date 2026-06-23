@@ -50,10 +50,23 @@ export class WebmapxInsetMap extends LitElement {
   private lastBoundsKey: string | null = null;
   private initPromise: Promise<void> | null = null;
   private pendingViewportBounds: GeoJSON.Feature<GeoJSON.Polygon> | null | undefined = null;
+  private idleCallbackId: number | null = null;
   private throttledViewportUpdate = throttle(() => {
-    this.doUpdateViewportRectangle(this.pendingViewportBounds);
+    const bounds = this.pendingViewportBounds;
     this.pendingViewportBounds = undefined;
-  }, 50);
+    if (this.idleCallbackId !== null) {
+      (window.cancelIdleCallback ?? clearTimeout)(this.idleCallbackId);
+    }
+    const run = () => {
+      this.idleCallbackId = null;
+      this.doUpdateViewportRectangle(bounds);
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      this.idleCallbackId = window.requestIdleCallback(run, { timeout: 200 });
+    } else {
+      this.idleCallbackId = window.setTimeout(run, 0) as unknown as number;
+    }
+  }, 150);
 
   private throttledRenderLog = throttle((label: string) => {
     //console.log('[inset-debug]', label);
@@ -328,12 +341,16 @@ export class WebmapxInsetMap extends LitElement {
 
   private throttledApplyStateWithZoomOffset = throttle((state: IMapState, zoomOffset: number) => {
     this.applyState(state, zoomOffset);
-  }, 50);
+  }, 150);
 
   private destroyInset(): void {
     if (this.unsubscribe) {
       this.unsubscribe();
       this.unsubscribe = null;
+    }
+    if (this.idleCallbackId !== null) {
+      (window.cancelIdleCallback ?? clearTimeout)(this.idleCallbackId);
+      this.idleCallbackId = null;
     }
     if (this.insetMap) {
       this.insetMap.destroy();
