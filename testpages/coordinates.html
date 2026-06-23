@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Test: Coordinates tool</title>
+  <link rel="stylesheet" href="../node_modules/@shoelace-style/shoelace/dist/themes/light.css">
+  <link rel="stylesheet" href="../node_modules/maplibre-gl/dist/maplibre-gl.css">
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+    #map { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script type="module">
+    import { WebMapX } from '../src/lib.ts';
+    import { BASE_MAP, BASE_RUNTIME_MAP, BASE_LAYER_DATA_WITH_TERRAIN, BASE_STATE } from './shared-config.js';
+
+    WebMapX.mount('#map', {
+      config: {
+        engine: 'maplibre',
+        tools: {
+          mainToolbar: { type: 'toolbar', enabled: true, position: 'top-left', items: [
+            { type: 'measure', id: 'measure' },
+            { type: '3d', id: '3d' }
+          ]},
+          coordinates: { type: 'coordinates', enabled: true, position: 'bottom-center' }
+        },
+        map: BASE_MAP,
+        runtimeMap: BASE_RUNTIME_MAP,
+        layerData: BASE_LAYER_DATA_WITH_TERRAIN,
+        state: BASE_STATE
+      }
+    });
+  </script>
+</body>
+</html>

@@ -15,6 +15,27 @@ const SHOELACE_CDN = `https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@${SH
 
 const BLANK_STYLE = { version: 8 as const, sources: {}, layers: [] };
 
+function extractToolIds(tools: Record<string, unknown> | undefined): string[] {
+  if (!tools) return [];
+  const ids: string[] = [];
+  for (const [key, value] of Object.entries(tools)) {
+    if (!value || typeof value !== 'object') continue;
+    const cfg = value as Record<string, unknown>;
+    if (cfg.type === 'toolbar' && Array.isArray(cfg.items)) {
+      for (const item of cfg.items) {
+        if (item && typeof item === 'object' && typeof (item as Record<string, unknown>).type === 'string') {
+          ids.push((item as Record<string, unknown>).type as string);
+        }
+      }
+    } else if (typeof cfg.type === 'string') {
+      ids.push(cfg.type as string);
+    } else {
+      ids.push(key);
+    }
+  }
+  return ids;
+}
+
 function toolArrayToConfig(tools: string[]): ToolsConfig {
   return {
     mainToolbar: { type: 'toolbar', enabled: true, position: 'top-left', items: tools.map(id => ({ type: id, id })) },
@@ -35,9 +56,12 @@ export class WebMapX {
 
     const engine = config.engine ?? 'maplibre';
     const toolsList = Array.isArray(config.tools) ? config.tools as string[] : [];
+    const toolsToLoad = toolsList.length > 0
+      ? toolsList
+      : extractToolIds(config.tools as Record<string, unknown> | undefined);
     await Promise.all([
       loadEngine(engine),
-      loadTools(toolsList),
+      loadTools(toolsToLoad),
       config.plugins?.length ? loadPlugins(config.plugins) : Promise.resolve(),
     ]);
 
@@ -77,13 +101,17 @@ export class WebMapX {
     }
 
     const styleConfig = (mapConfig?.style ?? BLANK_STYLE) as Record<string, unknown> | string;
+    const runtimeMap = appConfig.runtimeMap;
     const initOptions: Record<string, unknown> = {
       center: mapConfig?.center ?? [0, 0],
       zoom: mapConfig?.zoom ?? 2,
       ...(mapConfig?.bearing != null ? { bearing: mapConfig.bearing } : {}),
       ...(mapConfig?.pitch != null ? { pitch: mapConfig.pitch } : {}),
-      ...(mapConfig?.minZoom != null ? { minZoom: mapConfig.minZoom } : {}),
-      ...(mapConfig?.maxZoom != null ? { maxZoom: mapConfig.maxZoom } : {}),
+      // runtimeMap takes priority over deprecated map.min/maxZoom/Pitch
+      ...(runtimeMap?.minZoom ?? mapConfig?.minZoom) != null ? { minZoom: runtimeMap?.minZoom ?? mapConfig?.minZoom } : {},
+      ...(runtimeMap?.maxZoom ?? mapConfig?.maxZoom) != null ? { maxZoom: runtimeMap?.maxZoom ?? mapConfig?.maxZoom } : {},
+      ...(runtimeMap?.minPitch ?? mapConfig?.minPitch) != null ? { minPitch: runtimeMap?.minPitch ?? mapConfig?.minPitch } : {},
+      ...(runtimeMap?.maxPitch ?? mapConfig?.maxPitch) != null ? { maxPitch: runtimeMap?.maxPitch ?? mapConfig?.maxPitch } : {},
       ...(typeof styleConfig === 'string' ? { styleUrl: styleConfig } : { style: styleConfig }),
     };
 

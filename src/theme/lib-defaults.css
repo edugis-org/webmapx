@@ -1,6 +1,7 @@
-/* Default element styles for webmapx-map when used as a library.
-   In the app build, app.css provides these. For CDN/npm consumers
-   who don't load app.css, the lib must provide them. */
+/* Design tokens and default element styles for webmapx when used as a library.
+   In the app build, app.css and webmapx-style-core.css provide these.
+   For CDN/npm consumers who don't load those files, the lib must provide them. */
+@import './webmapx-style-core.css';
 webmapx-map {
   position: relative;
   display: block;
