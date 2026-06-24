@@ -518,8 +518,8 @@ function validateSources(
       }
       const minZoom = s.minzoom;
       const maxZoom = s.maxzoom;
-      if (minZoom !== undefined && (typeof minZoom !== 'number' || minZoom < 0 || minZoom > 24)) {
-        errors.push({ severity: 'error', path: `${path}.minzoom`, message: '"minzoom" must be a number between 0 and 24' });
+      if (minZoom !== undefined && (typeof minZoom !== 'number' || minZoom > 24)) {
+        errors.push({ severity: 'error', path: `${path}.minzoom`, message: '"minzoom" must be a number not greater than 24' });
       }
       if (maxZoom !== undefined && (typeof maxZoom !== 'number' || maxZoom < 0 || maxZoom > 24)) {
         errors.push({ severity: 'error', path: `${path}.maxzoom`, message: '"maxzoom" must be a number between 0 and 24' });
@@ -658,8 +658,8 @@ function validateLayerset(
     }
 
     // Optional zoom validation
-    if (sl.minzoom !== undefined && (typeof sl.minzoom !== 'number' || sl.minzoom < 0 || sl.minzoom > 24)) {
-      errors.push({ severity: 'error', path: `${path}.minzoom`, message: '"minzoom" must be a number between 0 and 24' });
+    if (sl.minzoom !== undefined && (typeof sl.minzoom !== 'number' || sl.minzoom > 24)) {
+      errors.push({ severity: 'error', path: `${path}.minzoom`, message: '"minzoom" must be a number not greater than 24' });
     }
     if (sl.maxzoom !== undefined && (typeof sl.maxzoom !== 'number' || sl.maxzoom < 0 || sl.maxzoom > 24)) {
       errors.push({ severity: 'error', path: `${path}.maxzoom`, message: '"maxzoom" must be a number between 0 and 24' });
