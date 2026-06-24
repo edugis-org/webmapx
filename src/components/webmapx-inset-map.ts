@@ -484,11 +484,9 @@ export class WebmapxInsetMap extends LitElement {
       return;
     }
 
-    if (!bounds) {
-      return;
-    }
-
-    if (!bounds.geometry?.coordinates?.[0]?.length) {
+    if (!bounds || !bounds.geometry?.coordinates?.[0]?.length) {
+      this.lastBoundsKey = '__null__';
+      this.viewportSource.setData({ type: 'FeatureCollection', features: [] });
       return;
     }
 
@@ -943,7 +941,7 @@ export class WebmapxInsetMap extends LitElement {
         const x = width * col;
         const y = height * row;
         const lngLat = this.adapter.unproject([x, y]);
-        if (!lngLat || !Number.isFinite(lngLat[0])) {
+        if (!lngLat || !Number.isFinite(lngLat[0]) || Math.abs(lngLat[1]) > 85.05) {
           continue;
         }
         lons.push(lngLat[0]);
@@ -1001,24 +999,10 @@ export class WebmapxInsetMap extends LitElement {
   }
 
   private estimateViewportWidthDeg(rawRing: [number, number][], anchorLng: number): number {
-    if (rawRing.length < 4) {
-      return 0;
-    }
-
-    // Ring order from map cores is expected: bottom-left, bottom-right, top-right, top-left.
-    const bl = rawRing[0][0];
-    const br = rawRing[1][0];
-    const tr = rawRing[2][0];
-    const tl = rawRing[3][0];
-
-    const blA = this.normalizeLngAround(bl, anchorLng);
-    const brA = this.normalizeLngAround(br, anchorLng);
-    const trA = this.normalizeLngAround(tr, anchorLng);
-    const tlA = this.normalizeLngAround(tl, anchorLng);
-
-    const bottomWidth = Math.abs(brA - blA);
-    const topWidth = Math.abs(trA - tlA);
-    return Math.max(bottomWidth, topWidth);
+    if (rawRing.length < 3) return 0;
+    // Use bounding box of all ring points (works with any ring order/size).
+    const normalized = rawRing.map(([lng]) => this.normalizeLngAround(lng, anchorLng));
+    return Math.max(...normalized) - Math.min(...normalized);
   }
 
   private hasSelfIntersection(ring: [number, number][]): boolean {

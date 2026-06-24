@@ -177,6 +177,7 @@ async function initializeMap(mapElement, appConfig, mapIndex = 0) {
                 console.log(`[app] Loaded config for "${mapId}" from src="${srcAttr}"`);
             } catch (error) {
                 console.error(`[app] Failed to load config from src="${srcAttr}":`, error);
+                showToast(`<strong>Failed to load config</strong><br>${srcAttr}<br>${error.message}`, { variant: 'danger' });
             }
         }
     }

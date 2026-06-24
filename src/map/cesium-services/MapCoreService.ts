@@ -514,7 +514,10 @@ export class MapCoreService implements IMapCore {
 
         handler.setInputAction((movement: any) => {
             const coords = toLngLat(movement.endPosition);
-            if (!coords) return;
+            if (!coords) {
+                this.store.dispatch({ pointerCoordinates: null, pointerResolution: null }, 'MAP');
+                return;
+            }
             const pixel: Pixel = [movement.endPosition.x, movement.endPosition.y];
             this.eventBus?.emit({ type: 'pointer-move', coords, pixel, resolution: null, originalEvent: movement });
             this.store.dispatch({ pointerCoordinates: coords, pointerResolution: null }, 'MAP');

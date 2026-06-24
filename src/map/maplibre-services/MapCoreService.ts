@@ -182,6 +182,12 @@ export class MapCoreService implements IMapCore {
             const pixel: Pixel = [event.point.x, event.point.y];
             const resolution = this.computePointerResolution(event);
 
+            // Detect cursor beyond horizon (globe: in space; mercator: above sky boundary).
+            if (this.isCursorBeyondHorizon(map, event.point.x, event.point.y)) {
+                this.store.dispatch({ pointerCoordinates: null, pointerResolution: null }, 'MAP');
+                return;
+            }
+
             this.eventBus?.emit({
                 type: 'pointer-move',
                 coords,
@@ -293,6 +299,39 @@ export class MapCoreService implements IMapCore {
                 originalEvent: event.originalEvent
             });
         });
+    }
+
+    private isCursorBeyondHorizon(map: maplibregl.Map, px: number, py: number): boolean {
+        const isGlobe = (map as any).getProjection?.()?.type === 'globe';
+        if (isGlobe) {
+            // Globe: MapLibre clamps space pixels to the globe surface, so project-back
+            // gives a point on the horizon far from the cursor.
+            const lngLat = map.unproject([px, py] as maplibregl.PointLike);
+            const back = map.project(lngLat);
+            const dx = back.x - px, dy = back.y - py;
+            return dx * dx + dy * dy > 100;
+        }
+        // Mercator: replicate MapLibre's sky-shader horizon formula (bearing-aware).
+        // The visual "sky" boundary is a tilted line in screen space defined by roll.
+        // At bearing≠0, pixels in sky can have lat < 85°, so lat-check alone is insufficient.
+        // Formula (CSS pixels): above horizon when
+        //   (H/2 - py)*cos(roll) + (W/2 - px)*sin(roll) > r - margin
+        // where r = cameraToCenterDistance * min(0.85*tan(90-pitch), tan(89.25-pitch))
+        const pitch = map.getPitch();
+        if (pitch === 0) return false;
+        const transform = (map as any).transform;
+        if (!transform) return false;
+        const camDist: number = transform.cameraToCenterDistance ?? 0;
+        if (camDist === 0) return false;
+        const deg2rad = Math.PI / 180;
+        const r = camDist * Math.min(
+            0.85 * Math.tan((90 - pitch) * deg2rad),
+            Math.tan((89.25 - pitch) * deg2rad)
+        );
+        const roll: number = transform.rollInRadians ?? 0;
+        const canvas = map.getCanvas();
+        const H = canvas.clientHeight, W = canvas.clientWidth;
+        return (H / 2 - py) * Math.cos(roll) + (W / 2 - px) * Math.sin(roll) > r - 4;
     }
 
     private computePointerResolution(event: maplibregl.MapMouseEvent): PointerResolution | null {
@@ -760,30 +799,111 @@ export class MapCoreService implements IMapCore {
     }
 
     private buildViewportFeature(): GeoJSON.Feature<GeoJSON.Polygon> | null {
-        if (!this.mapInstance) {
-            return null;
+        if (!this.mapInstance) return null;
+
+        const map = this.mapInstance;
+        const isGlobe = (map as any).getProjection?.()?.type === 'globe';
+
+        if (isGlobe) {
+            return this.buildGlobeViewportFeature();
         }
 
-        const canvas = this.mapInstance.getCanvas();
-        const pixelRatio = (this.mapInstance as any).pixelRatio ?? window.devicePixelRatio ?? 1;
-        const width  = (canvas?.width  ?? 0) / pixelRatio || canvas?.clientWidth  || 0;
-        const height = (canvas?.height ?? 0) / pixelRatio || canvas?.clientHeight || 0;
+        const canvas = map.getCanvas();
+        const W = canvas?.clientWidth  || 0;
+        const H = canvas?.clientHeight || 0;
+        if (W === 0 || H === 0) return null;
 
-        const frustumCorners = width > 0 && height > 0
-            ? this.computeFrustumCorners(width, height)
-            : null;
+        // Compute horizon y (pixels from top). Negative = horizon above screen (full view valid).
+        // If horizon is visible AND zoom is low, skip — polygon goes haywire at large extents.
+        // At zoom > 10 the viewport is tiny enough that the polygon is reliable even with sky.
+        const corners: [number, number][] = [[0, 0], [W, 0], [W, H], [0, H]];
+        const horizonVisible = corners.some(([cx, cy]) => this.isCursorBeyondHorizon(map, cx, cy));
+        if (horizonVisible && map.getZoom() <= 10) return null;
 
-        if (!frustumCorners) return null;
+        // All 4 corners below horizon — sample perimeter and build polygon.
+        const N = 16;
+        const raw: [number, number][] = [];
+        for (let i = 0; i < N; i++) {
+            const t = i / N;
+            let px: number, py: number;
+            if (t < 0.25)      { px = t * 4 * W;               py = 0; }
+            else if (t < 0.5)  { px = W;                        py = (t - 0.25) * 4 * H; }
+            else if (t < 0.75) { px = (1 - (t - 0.5) * 4) * W; py = H; }
+            else               { px = 0;                        py = (1 - (t - 0.75) * 4) * H; }
+            const ll = map.unproject([px, py] as maplibregl.PointLike);
+            const lng = ((ll.lng % 360) + 540) % 360 - 180;
+            raw.push([lng, ll.lat]);
+        }
 
-        const corners: [number, number][] = [...frustumCorners, frustumCorners[0]];
+        if (raw.length < 3) return null;
+
+        // Consecutive wrap to prevent antimeridian jumps within polygon segments.
+        const ring: [number, number][] = [raw[0]];
+        for (let i = 1; i < raw.length; i++) {
+            let lng = raw[i][0];
+            const prevLng = ring[i - 1][0];
+            while (lng - prevLng > 180) lng -= 360;
+            while (lng - prevLng < -180) lng += 360;
+            ring.push([lng, raw[i][1]]);
+        }
+
+        const lngs = ring.map(([lng]) => lng);
+        if (Math.max(...lngs) - Math.min(...lngs) > 355) return null;
+
+        ring.push(ring[0]);
+        return { type: 'Feature', properties: { role: 'mapViewport' }, geometry: { type: 'Polygon', coordinates: [ring] } };
+    }
+
+    private buildGlobeViewportFeature(): GeoJSON.Feature<GeoJSON.Polygon> | null {
+        const map = this.mapInstance;
+        if (!map) return null;
+
+        const canvas = map.getCanvas();
+        const W = canvas?.clientWidth  || 0;
+        const H = canvas?.clientHeight || 0;
+        if (W === 0 || H === 0) return null;
+
+        // Sample N points around the screen perimeter clockwise: top, right, bottom, left.
+        const N = 32;
+        const perimeter: [number, number][] = [];
+        for (let i = 0; i < N; i++) {
+            const t = i / N;
+            let px: number, py: number;
+            if (t < 0.25)      { px = t * 4 * W;       py = 0; }
+            else if (t < 0.5)  { px = W;                py = (t - 0.25) * 4 * H; }
+            else if (t < 0.75) { px = (1 - (t - 0.5) * 4) * W; py = H; }
+            else               { px = 0;                py = (1 - (t - 0.75) * 4) * H; }
+            perimeter.push([px, py]);
+        }
+
+        const onGlobe: [number, number][] = [];
+        for (const [px, py] of perimeter) {
+            const lngLat = map.unproject([px, py] as maplibregl.PointLike);
+            // Project back to detect if point is in space (clamped horizon).
+            const reprojected = map.project(lngLat);
+            const dx = reprojected.x - px;
+            const dy = reprojected.y - py;
+            if (dx * dx + dy * dy > 100) continue; // in space
+            onGlobe.push([lngLat.lng, lngLat.lat]);
+        }
+
+        if (onGlobe.length < 3) return null;
+
+        // Consecutive wrapping: each point within 180° of the previous.
+        const ring: [number, number][] = [onGlobe[0]];
+        for (let i = 1; i < onGlobe.length; i++) {
+            let lng = onGlobe[i][0];
+            const prevLng = ring[i - 1][0];
+            while (lng - prevLng > 180) lng -= 360;
+            while (lng - prevLng < -180) lng += 360;
+            ring.push([lng, onGlobe[i][1]]);
+        }
+        ring.push(ring[0]);
 
         return {
             type: 'Feature',
             properties: { role: 'mapViewport' },
-            geometry: {
-                type: 'Polygon',
-                coordinates: [corners],
-            },
+            geometry: { type: 'Polygon', coordinates: [ring] },
         };
     }
 
