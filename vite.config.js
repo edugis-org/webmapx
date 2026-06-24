@@ -39,6 +39,11 @@ export default defineConfig({
     // Output directory for the production build
     outDir: 'dist',
     rollupOptions: {
+      input: {
+        main: 'index.html',
+        setup: 'testpages/setup.html',
+        preview: 'testpages/preview.html',
+      },
       output: {
         manualChunks(id) {
           if (
