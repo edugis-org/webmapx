@@ -375,7 +375,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 : type === 'symbol' ? 'text-color'
                 : null;
 
-            const rawColorExpr = colorKey ? paint[colorKey] : null;
+            const rawColorExpr = colorKey ? (evalPaint[colorKey] ?? paint[colorKey]) : null;
             const dataCases = rawColorExpr ? this.extractDataCases(rawColorExpr) : null;
 
             if (dataCases && dataCases.length > 1) {
@@ -936,11 +936,6 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         this.legendResizeObserver?.disconnect();
         this.legendResizeObserver = null;
         this.destroyPickrs();
-        if (this.pendingPaintRaf !== null) {
-            cancelAnimationFrame(this.pendingPaintRaf);
-            this.pendingPaintRaf = null;
-            this.pendingPaintUpdates.clear();
-        }
     }
 
     protected updated(changed: Map<string, unknown>): void {
@@ -1011,31 +1006,39 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         }
     }
 
-    /** Pending adapter updates, flushed at most once per animation frame — layout
-     *  property changes (e.g. text-size) can be expensive, so don't apply on every
-     *  slider-drag tick. */
-    private pendingPaintUpdates = new Map<string, Record<string, unknown>>();
-    private pendingPaintRaf: number | null = null;
-
-    private flushPaintOverrides(): void {
-        this.pendingPaintRaf = null;
-        for (const [subLayerId, partialPaint] of this.pendingPaintUpdates) {
-            this.adapter?.updateLayerStyle(this.layerId, subLayerId || this.layerId, partialPaint);
-        }
-        this.pendingPaintUpdates.clear();
-    }
-
     private setPaintOverride(subLayerIds: string[], key: string, value: unknown): void {
         const overrides = { ...this.editOverrides };
         for (const subLayerId of subLayerIds) {
             overrides[subLayerId] = { ...(overrides[subLayerId] ?? {}), [key]: value };
-            const pending = this.pendingPaintUpdates.get(subLayerId) ?? {};
-            pending[key] = value;
-            this.pendingPaintUpdates.set(subLayerId, pending);
+            this.adapter?.updateLayerStyle(this.layerId, subLayerId || this.layerId, { [key]: value });
         }
         this.editOverrides = overrides;
-        if (this.pendingPaintRaf === null) {
-            this.pendingPaintRaf = requestAnimationFrame(() => this.flushPaintOverrides());
+
+        // Persist paint changes to the store so saved layers include the updated style.
+        if (!this.adapter) return;
+        const state = this.adapter.store.getState();
+        const current = state.mapLayers;
+        const entry = current?.[this.layerId] as Record<string, unknown> | undefined;
+        if (!entry) return;
+
+        // For standard layers (subLayerId === layerId), update top-level paint.
+        // For composite/style layers, update the matching sublayer's paint.
+        const sublayers = Array.isArray(entry.sublayers) ? entry.sublayers as Record<string, unknown>[] : null;
+        if (sublayers) {
+            const updatedSublayers = sublayers.map(sub => {
+                const subId = String(sub.id ?? '');
+                if (!subLayerIds.includes(subId)) return sub;
+                const existingPaint = (sub.paint && typeof sub.paint === 'object') ? sub.paint as Record<string, unknown> : {};
+                return { ...sub, paint: { ...existingPaint, [key]: value } };
+            });
+            this.adapter.store.dispatch({
+                mapLayers: { ...current, [this.layerId]: { ...entry, sublayers: updatedSublayers } }
+            }, 'UI');
+        } else {
+            const existingPaint = (entry.paint && typeof entry.paint === 'object') ? entry.paint as Record<string, unknown> : {};
+            this.adapter.store.dispatch({
+                mapLayers: { ...current, [this.layerId]: { ...entry, paint: { ...existingPaint, [key]: value } } }
+            }, 'UI');
         }
     }
 
