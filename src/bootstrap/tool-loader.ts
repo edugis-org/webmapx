@@ -13,6 +13,8 @@ const TOOL_MAP: Record<string, () => Promise<unknown>> = {
   coordinates:        () => import('../components/webmapx-coordinates-tool.js'),
   settings:           () => import('../components/webmapx-settings.js'),
   'config-edit':      () => import('../components/webmapx-config-edit-tool.js'),
+  'active-adapter':   () => import('../components/webmapx-active-adapter.js'),
+  activeAdapter:      () => import('../components/webmapx-active-adapter.js'),
 };
 
 export async function loadTools(tools: string[]): Promise<void> {

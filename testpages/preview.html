@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WebMapX Preview</title>
+  <link rel="stylesheet" href="../node_modules/@shoelace-style/shoelace/dist/themes/light.css">
+  <link rel="stylesheet" href="../node_modules/maplibre-gl/dist/maplibre-gl.css">
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+    #map { width: 100%; height: 100%; }
+    #error { font-family: sans-serif; padding: 2rem; color: #c00; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="error" hidden></div>
+  <script type="module">
+    import { WebMapX } from '../src/lib.ts';
+
+    const STORAGE_KEY = 'webmapx-setup-config';
+
+    function showError(msg) {
+      document.getElementById('map').hidden = true;
+      const el = document.getElementById('error');
+      el.hidden = false;
+      el.textContent = msg;
+    }
+
+    async function loadAndMount() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        showError('No config found. Open setup.html and click "Update preview".');
+        return;
+      }
+      let config;
+      try { config = JSON.parse(raw); }
+      catch { showError('Config in localStorage is invalid JSON.'); return; }
+      try {
+        await WebMapX.mount('#map', { config });
+      } catch (e) {
+        showError('Mount failed: ' + e.message);
+      }
+    }
+
+    // Reload when setup.html pushes a new config.
+    window.addEventListener('storage', (e) => {
+      if (e.key === STORAGE_KEY) location.reload();
+    });
+
+    loadAndMount();
+  </script>
+</body>
+</html>

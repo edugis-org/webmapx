@@ -145,6 +145,10 @@ export class CesiumAdapter extends BaseAdapter implements IMap {
         return this.core.isTerrainEnabled();
     }
 
+    getElevation(lngLat: [number, number]): number | null {
+        return this.core.getElevation?.(lngLat) ?? null;
+    }
+
     resetNorth(): void {
         this.core.resetNorth();
     }

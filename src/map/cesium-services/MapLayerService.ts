@@ -265,7 +265,7 @@ export class MapLayerService implements ILayerService {
                 return false;
             }
 
-            const dataSource = await Cesium.GeoJsonDataSource.load(geojson, { clampToGround: false });
+            const dataSource = await Cesium.GeoJsonDataSource.load(geojson, { clampToGround: true });
             await this.viewer.dataSources.add(dataSource);
             this.applyGeoJsonStyles(dataSource, subLayers);
             this.handles.set(handleKey, { kind: 'geojson', dataSource, sourceId, subLayers, data: geojson, updateToken: 0 });
@@ -706,6 +706,7 @@ export class MapLayerService implements ILayerService {
             if (entity.polyline && line && lineMatches) {
                 entity.polyline.material = Cesium.Color.fromCssColorString(lineColor).withAlpha(1);
                 entity.polyline.width = lineWidth;
+                entity.polyline.clampToGround = true;
             }
             if (entity.polygon && fill && fillMatches) {
                 entity.polygon.material = Cesium.Color.fromCssColorString(fillColor).withAlpha(fillOpacity);

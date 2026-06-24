@@ -204,6 +204,14 @@ export class MapCoreService implements IMapCore {
         return this.terrainEnabled;
     }
 
+    public getElevation(lngLat: [number, number]): number | null {
+        const Cesium = getCesium();
+        if (!Cesium || !this.viewer || !this.terrainEnabled) return null;
+        const carto = Cesium.Cartographic.fromDegrees(lngLat[0], lngLat[1]);
+        const height = this.viewer.scene.globe.getHeight(carto);
+        return height ?? null;
+    }
+
     public getViewportState(): { center: [number, number]; zoom: number; bearing: number; pitch: number } {
         if (!this.viewer) return { center: this.lastCenter, zoom: 1, bearing: 0, pitch: 0 };
         const Cesium = getCesium();

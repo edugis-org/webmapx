@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WebMapX Setup</title>
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.4rem; margin-bottom: 1.5rem; }
+    h2 { font-size: 1rem; margin: 1.5rem 0 0.5rem; color: #555; text-transform: uppercase; letter-spacing: .05em; }
+    .tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.4rem; }
+    label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+    label input { cursor: pointer; }
+    label.not-in-config { color: #888; font-style: italic; }
+    .actions { margin-top: 2rem; display: flex; gap: 1rem; }
+    button { padding: 0.6rem 1.4rem; font-size: 1rem; cursor: pointer; border: none; border-radius: 4px; }
+    #btn-launch { background: #0f62fe; color: #fff; }
+    #btn-launch:hover { background: #0353e9; }
+    #btn-reset { background: #e0e0e0; }
+    #btn-reset:hover { background: #c6c6c6; }
+    #status { margin-top: 1rem; font-size: 0.875rem; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>WebMapX Tool Setup</h1>
+  <p>Open <a href="./preview.html" target="_blank">preview.html</a> in a split tab, then use the button below to push config to it.</p>
+  <div style="margin-bottom:0.5rem">
+    <label><input type="checkbox" id="select-all" checked> Select / deselect all</label>
+  </div>
+  <div id="ui"></div>
+  <div class="actions">
+    <button id="btn-launch">Update preview</button>
+    <button id="btn-reset">Reset to defaults</button>
+  </div>
+  <div id="status"></div>
+
+  <script type="module">
+    import { KNOWN_TOOLS } from '../src/utils/dynamic-layout.ts';
+
+    const STORAGE_KEY = 'webmapx-setup-config';
+    const TOOLBAR_KEYS = ['mainToolbar', 'legendToolbar'];
+
+    let baseConfig = null;
+
+    // Overrides are in-memory only — cleared on reload so config defaults are always fresh.
+    let sessionOverrides = {};
+    function getSaved() { return sessionOverrides; }
+    function saveOverrides(overrides) { sessionOverrides = overrides; }
+
+    async function loadConfig() {
+      const params = new URLSearchParams(window.location.search);
+      const configUrl = params.get('config') ?? '../config/demo.json';
+      const res = await fetch(configUrl);
+      if (!res.ok) throw new Error(`Failed to load config: ${configUrl} (${res.status})`);
+      baseConfig = await res.json();
+      return baseConfig;
+    }
+
+    const TOOLBAR_TOOLS = KNOWN_TOOLS.filter(t => !t.standalone);
+    const STANDALONE_TOOLS = KNOWN_TOOLS.filter(t => t.standalone);
+
+    function buildUI(config, overrides) {
+      const ui = document.getElementById('ui');
+      ui.innerHTML = '';
+      const tools = config.tools ?? {};
+
+      // --- Toolbar tools ---
+      for (const toolbarKey of TOOLBAR_KEYS) {
+        const toolbar = tools[toolbarKey];
+        // Collect ids already in this toolbar
+        const inConfig = new Map(); // id → item config
+        for (const item of toolbar?.items ?? []) {
+          const id = item.id ?? item.type;
+          if (id && id !== 'spacer') inConfig.set(id, item);
+        }
+
+        const h2 = document.createElement('h2');
+        h2.textContent = toolbarKey === 'mainToolbar' ? 'Toolbar tools' : `${toolbarKey} tools`;
+        ui.appendChild(h2);
+        const grid = document.createElement('div');
+        grid.className = 'tool-grid';
+
+        // Show all known toolbar tools; grey+unchecked if not in config
+        for (const tool of TOOLBAR_TOOLS) {
+          const key = `toolbar:${toolbarKey}:${tool.id}`;
+          const item = inConfig.get(tool.id);
+          const inCfg = item !== undefined;
+          const defaultEnabled = inCfg ? item.enabled !== false : false;
+          const enabled = overrides[key] !== undefined ? overrides[key] : defaultEnabled;
+          const label = document.createElement('label');
+          if (!inCfg) label.className = 'not-in-config';
+          label.innerHTML = `<input type="checkbox" data-key="${key}" data-toolbar="${toolbarKey}" data-tool="${tool.id}" ${enabled ? 'checked' : ''}> ${tool.label}`;
+          grid.appendChild(label);
+        }
+        ui.appendChild(grid);
+      }
+
+      // --- Standalone / map controls ---
+      const h2s = document.createElement('h2');
+      h2s.textContent = 'Map controls';
+      ui.appendChild(h2s);
+      const gridS = document.createElement('div');
+      gridS.className = 'tool-grid';
+
+      for (const tool of STANDALONE_TOOLS) {
+        const key = `standalone:${tool.id}`;
+        const val = tools[tool.id];
+        const inCfg = val !== undefined && typeof val === 'object';
+        const defaultEnabled = inCfg ? val.enabled !== false : false;
+        const enabled = overrides[key] !== undefined ? overrides[key] : defaultEnabled;
+        const label = document.createElement('label');
+        if (!inCfg) label.className = 'not-in-config';
+        label.innerHTML = `<input type="checkbox" data-key="${key}" data-standalone="${tool.id}" ${enabled ? 'checked' : ''}> ${tool.label}`;
+        gridS.appendChild(label);
+      }
+      ui.appendChild(gridS);
+
+      // --- Dev tools ---
+      const h2dev = document.createElement('h2');
+      h2dev.textContent = 'Dev tools';
+      ui.appendChild(h2dev);
+      const gridDev = document.createElement('div');
+      gridDev.className = 'tool-grid';
+      const configEditEnabled = overrides['dev:configedit'] === true;
+      const labelDev = document.createElement('label');
+      labelDev.className = 'not-in-config';
+      labelDev.innerHTML = `<input type="checkbox" data-key="dev:configedit" ${configEditEnabled ? 'checked' : ''}> Config editor`;
+      gridDev.appendChild(labelDev);
+      ui.appendChild(gridDev);
+
+      // Listen for changes
+      ui.querySelectorAll('input[type=checkbox]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const ov = getSaved();
+          ov[cb.dataset.key] = cb.checked;
+          saveOverrides(ov);
+          updateSelectAll();
+        });
+      });
+    }
+
+    function applyOverrides(config, overrides) {
+      const result = JSON.parse(JSON.stringify(config));
+      if (!result.tools) result.tools = {};
+      const tools = result.tools;
+
+      // Toolbar items: filter disabled, add newly enabled
+      for (const toolbarKey of TOOLBAR_KEYS) {
+        if (!tools[toolbarKey]) continue;
+        const toolbar = tools[toolbarKey];
+        if (!toolbar.items) toolbar.items = [];
+
+        // Filter out disabled items
+        toolbar.items = toolbar.items.filter(item => {
+          const id = item.id ?? item.type;
+          if (!id || id === 'spacer') return true;
+          return overrides[`toolbar:${toolbarKey}:${id}`] !== false;
+        });
+
+        // Add newly enabled items not yet in config
+        const existingIds = new Set(toolbar.items.map(i => i.id ?? i.type));
+        for (const tool of TOOLBAR_TOOLS) {
+          const key = `toolbar:${toolbarKey}:${tool.id}`;
+          if (overrides[key] === true && !existingIds.has(tool.id)) {
+            toolbar.items.push({ type: tool.id, id: tool.id, enabled: true });
+          }
+        }
+      }
+
+      // Standalone tools: update enabled or add if missing
+      for (const tool of STANDALONE_TOOLS) {
+        const key = `standalone:${tool.id}`;
+        if (overrides[key] === undefined) continue;
+        const enabled = overrides[key];
+        if (tools[tool.id] && typeof tools[tool.id] === 'object') {
+          tools[tool.id] = { ...tools[tool.id], enabled };
+        } else if (enabled) {
+          tools[tool.id] = { enabled: true };
+        }
+      }
+
+      // Dev tools
+      result._devTools = { configedit: overrides['dev:configedit'] === true };
+
+      return result;
+    }
+
+    function allCheckboxes() {
+      return [...document.querySelectorAll('#ui input[type=checkbox]')];
+    }
+
+    function updateSelectAll() {
+      const boxes = allCheckboxes();
+      const allChecked = boxes.every(b => b.checked);
+      const noneChecked = boxes.every(b => !b.checked);
+      const sa = document.getElementById('select-all');
+      sa.checked = allChecked;
+      sa.indeterminate = !allChecked && !noneChecked;
+    }
+
+    document.getElementById('select-all').addEventListener('change', (e) => {
+      const checked = e.target.checked;
+      const ov = getSaved();
+      allCheckboxes().forEach(cb => {
+        cb.checked = checked;
+        ov[cb.dataset.key] = checked;
+      });
+      saveOverrides(ov);
+    });
+
+    document.getElementById('btn-launch').addEventListener('click', () => {
+      if (!baseConfig) return;
+      const overrides = getSaved();
+      const finalConfig = applyOverrides(baseConfig, overrides);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(finalConfig));
+      // Reset engine to config value so any user override in preview is cleared.
+      const engine = finalConfig.engine ?? finalConfig.map?.type ?? 'maplibre';
+      localStorage.setItem('webmapx-adapter:map-webmapx', engine);
+      window.open('./preview.html', 'webmapx-preview');
+      document.getElementById('status').textContent = 'Config saved — preview updated.';
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      saveOverrides({});
+      buildUI(baseConfig, {});
+      updateSelectAll();
+      document.getElementById('status').textContent = 'Reset to defaults.';
+    });
+
+    // Init
+    const config = await loadConfig();
+    buildUI(config, getSaved());
+    updateSelectAll();
+  </script>
+</body>
+</html>

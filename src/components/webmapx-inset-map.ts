@@ -62,9 +62,9 @@ export class WebmapxInsetMap extends LitElement {
       this.doUpdateViewportRectangle(bounds);
     };
     if (typeof window.requestIdleCallback === 'function') {
-      this.idleCallbackId = window.requestIdleCallback(run, { timeout: 200 });
+      this.idleCallbackId = window.requestIdleCallback(run);
     } else {
-      this.idleCallbackId = window.setTimeout(run, 0) as unknown as number;
+      this.idleCallbackId = window.setTimeout(run, 300) as unknown as number;
     }
   }, 150);
 
@@ -490,6 +490,44 @@ export class WebmapxInsetMap extends LitElement {
 
     if (!bounds.geometry?.coordinates?.[0]?.length) {
       return;
+    }
+
+    // Clip raw viewport ring to inset map extent before any densification.
+    // This prevents expensive project/unproject work on horizon-distance points
+    // that fall outside the inset view anyway.
+    // Clip raw viewport ring to inset map extent before densification.
+    // If clipping changed the ring, render the clipped polygon directly —
+    // densification uses the main map's project/unproject which is unstable
+    // near the horizon and the clipped polygon is already inset-scale.
+    const insetBounds = this.getInsetBounds();
+    if (insetBounds) {
+      const rawRing = this.coerceRing(bounds.geometry.coordinates[0] as GeoJSON.Position[]);
+      if (rawRing.length >= 3) {
+        const clipped = this.clipRingToAabb(rawRing, insetBounds.minLng, insetBounds.minLat, insetBounds.maxLng, insetBounds.maxLat);
+        if (clipped.length < 3) {
+          // Viewport entirely outside inset view
+          if (this.lastBoundsKey !== '__outside__') {
+            this.lastBoundsKey = '__outside__';
+            this.viewportSource.setData({ type: 'FeatureCollection', features: [] });
+          }
+          return;
+        }
+        const wasClipped = clipped.length !== rawRing.length ||
+          clipped.some((pt, i) => pt[0] !== rawRing[i][0] || pt[1] !== rawRing[i][1]);
+        if (wasClipped) {
+          const clippedFeature: GeoJSON.Feature<GeoJSON.Polygon> = {
+            ...bounds,
+            geometry: { type: 'Polygon', coordinates: [this.ensureClosed(clipped)] },
+          };
+          const clippedKey = this.computeBoundsKey(clippedFeature);
+          if (clippedKey !== this.lastBoundsKey) {
+            this.lastBoundsKey = clippedKey;
+            this.viewportSource.setData({ type: 'FeatureCollection', features: [clippedFeature] });
+          }
+          return;
+        }
+        // Not clipped: proceed with normal path (densification etc.)
+      }
     }
 
     const fullWidthFeature = this.buildFullWidthViewportFeature(bounds);
@@ -1160,6 +1198,73 @@ export class WebmapxInsetMap extends LitElement {
 
   private clampZoom(value: number): number {
     return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+  }
+
+  private getInsetBounds(): { minLng: number; minLat: number; maxLng: number; maxLat: number } | null {
+    if (this.lastCenter === null || this.lastZoom === null) return null;
+    const container = this.insetContainer;
+    if (!container) return null;
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    if (w <= 0 || h <= 0) return null;
+    const [cLng, cLat] = this.lastCenter;
+    // Mercator: degrees per pixel at this zoom
+    const degPerPxLat = 360 / (256 * Math.pow(2, this.lastZoom));
+    const cosLat = Math.cos((cLat * Math.PI) / 180) || 1e-6;
+    const degPerPxLng = degPerPxLat / cosLat;
+    const halfW = (w / 2) * degPerPxLng;
+    const halfH = (h / 2) * degPerPxLat;
+    return {
+      minLng: cLng - halfW,
+      maxLng: cLng + halfW,
+      minLat: Math.max(-MAX_MERCATOR_LAT, cLat - halfH),
+      maxLat: Math.min(MAX_MERCATOR_LAT, cLat + halfH),
+    };
+  }
+
+  // Sutherland-Hodgman clip against one axis-aligned half-plane.
+  // inside(pt) returns true if pt is on the kept side.
+  // intersect(a, b) returns the crossing point with the clip edge.
+  private clipAgainstPlane(
+    ring: [number, number][],
+    inside: (p: [number, number]) => boolean,
+    intersect: (a: [number, number], b: [number, number]) => [number, number],
+  ): [number, number][] {
+    if (ring.length === 0) return [];
+    const out: [number, number][] = [];
+    for (let i = 0; i < ring.length; i++) {
+      const cur = ring[i];
+      const prev = ring[(i + ring.length - 1) % ring.length];
+      const curIn = inside(cur);
+      const prevIn = inside(prev);
+      if (curIn) {
+        if (!prevIn) out.push(intersect(prev, cur));
+        out.push(cur);
+      } else if (prevIn) {
+        out.push(intersect(prev, cur));
+      }
+    }
+    return out;
+  }
+
+  private clipRingToAabb(
+    ring: [number, number][],
+    minLng: number, minLat: number, maxLng: number, maxLat: number,
+  ): [number, number][] {
+    const lerp = (a: [number, number], b: [number, number], t: number): [number, number] =>
+      [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+
+    const tAtLng = (a: [number, number], b: [number, number], lng: number) =>
+      (lng - a[0]) / (b[0] - a[0]);
+    const tAtLat = (a: [number, number], b: [number, number], lat: number) =>
+      (lat - a[1]) / (b[1] - a[1]);
+
+    let r = ring;
+    r = this.clipAgainstPlane(r, p => p[0] >= minLng, (a, b) => lerp(a, b, tAtLng(a, b, minLng)));
+    r = this.clipAgainstPlane(r, p => p[0] <= maxLng, (a, b) => lerp(a, b, tAtLng(a, b, maxLng)));
+    r = this.clipAgainstPlane(r, p => p[1] >= minLat, (a, b) => lerp(a, b, tAtLat(a, b, minLat)));
+    r = this.clipAgainstPlane(r, p => p[1] <= maxLat, (a, b) => lerp(a, b, tAtLat(a, b, maxLat)));
+    return r;
   }
 
   private resolveViewState(requestedZoom: number): { mapZoom: number; scale: number } {

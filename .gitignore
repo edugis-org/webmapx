@@ -11,3 +11,4 @@ config/layers.json
 config/world.json
 config/world.converted.json
 config/apikeys.json
+dist-lib/

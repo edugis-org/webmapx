@@ -139,6 +139,8 @@ export interface IMapCore {
     setTerrainEnabled(enabled: boolean, terrainSource?: unknown): boolean;
     /** Returns whether 3D terrain is currently enabled, or null if not supported by the engine. */
     isTerrainEnabled(): boolean | null;
+    /** Returns terrain elevation in metres at the given coordinate, or null if terrain is inactive or unavailable. */
+    getElevation?(lngLat: LngLat): number | null;
 
     /** Given a geographic coordinate (LngLat), returns its pixel coordinate [x, y]. */
     project(coords: LngLat): Pixel;

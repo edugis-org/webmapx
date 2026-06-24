@@ -685,67 +685,97 @@ export class MapCoreService implements IMapCore {
         this.store.dispatch({ mapViewportBounds: viewportBounds }, 'MAP');
     }
 
+    /**
+     * Compute viewport ground corners analytically via frustum projection onto the flat
+     * Mercator ground plane. Stable at any pitch — no unproject() calls needed.
+     * Returns [BL, BR, TR, TL] in lng/lat, or null if the map is not initialised.
+     */
+    private computeFrustumCorners(
+        width: number, height: number,
+    ): [number, number][] | null {
+        if (!this.mapInstance) return null;
+        const center   = this.mapInstance.getCenter();
+        const zoom     = this.mapInstance.getZoom();
+        const pitch    = this.mapInstance.getPitch();   // degrees from nadir
+        const bearing  = this.mapInstance.getBearing(); // degrees CW from north
+        // MapLibre default FOV 36.87°; prefer reading from transform if available.
+        const fovDeg   = (this.mapInstance as any).transform?.fov ?? 36.87;
+
+        const pitchR   = pitch   * Math.PI / 180;
+        const bearingR = bearing * Math.PI / 180;
+        const fovVR    = fovDeg  * Math.PI / 180;
+        const fovHR    = 2 * Math.atan(Math.tan(fovVR / 2) * width / height);
+
+        // Camera basis in (x=east, y=north, z=up) metric space.
+        const sinB = Math.sin(bearingR), cosB = Math.cos(bearingR);
+        const sinP = Math.sin(pitchR),   cosP = Math.cos(pitchR);
+        const fwd: [number,number,number] = [sinB*sinP,  cosB*sinP, -cosP];
+        const rgt: [number,number,number] = [cosB,      -sinB,       0   ];
+        const up_:  [number,number,number] = [sinB*cosP,  cosB*cosP,  sinP];
+
+        // Camera height above ground in metres.
+        const metersPerDegLat = 111320;
+        const degPerPxLat     = 360 / (512 * Math.pow(2, zoom));
+        const metersPerPx     = metersPerDegLat * degPerPxLat;
+        const camDistPx       = 0.5 * height / Math.tan(fovVR / 2);
+        const H               = camDistPx * metersPerPx;
+
+        const halfH = Math.tan(fovVR / 2);
+        const halfW = Math.tan(fovHR / 2);
+        const MAX_LAT = 85.05112878;
+        const metersPerDegLng = metersPerDegLat * Math.cos(center.lat * Math.PI / 180) || 1e-6;
+
+        // Camera is not directly above center at pitch > 0.
+        // It is offset backward (opposite to looking direction) by camDistMeters.
+        const camDistMeters = camDistPx * metersPerPx;
+        const camX =  -camDistMeters * sinP * sinB; // east offset
+        const camY =  -camDistMeters * sinP * cosB; // north offset
+        const camZ =   camDistMeters * cosP;         // height above ground
+
+        // sx ∈ {-1,+1} = left/right; sy ∈ {-1,+1} = top/bottom screen (y↑ in world space).
+        // Screen corners order: BL, BR, TR, TL.
+        const screenCorners: [number, number][] = [[-1,-1],[1,-1],[1,1],[-1,1]];
+        const result: [number,number][] = [];
+
+        for (const [sx, sy] of screenCorners) {
+            const rx = fwd[0] + sx*halfW*rgt[0] + sy*halfH*up_[0];
+            const ry = fwd[1] + sx*halfW*rgt[1] + sy*halfH*up_[1];
+            const rz = fwd[2] + sx*halfW*rgt[2] + sy*halfH*up_[2];
+
+            if (rz >= 0) {
+                // Ray goes toward sky — clip to the pole in the horizontal direction of the ray.
+                const horizonLat = ry >= 0 ? MAX_LAT : -MAX_LAT;
+                result.push([center.lng + camX / metersPerDegLng, horizonLat]);
+            } else {
+                const t = -camZ / rz;
+                const east  = camX + t * rx;
+                const north = camY + t * ry;
+                result.push([
+                    center.lng + east  / metersPerDegLng,
+                    Math.max(-MAX_LAT, Math.min(MAX_LAT, center.lat + north / metersPerDegLat)),
+                ]);
+            }
+        }
+        return result;
+    }
+
     private buildViewportFeature(): GeoJSON.Feature<GeoJSON.Polygon> | null {
         if (!this.mapInstance) {
             return null;
         }
 
-        const corners: [number, number][] = [];
         const canvas = this.mapInstance.getCanvas();
         const pixelRatio = (this.mapInstance as any).pixelRatio ?? window.devicePixelRatio ?? 1;
-        const width = (canvas?.width ?? 0) / pixelRatio || canvas?.clientWidth || 0;
+        const width  = (canvas?.width  ?? 0) / pixelRatio || canvas?.clientWidth  || 0;
         const height = (canvas?.height ?? 0) / pixelRatio || canvas?.clientHeight || 0;
 
-        // At high pitch the top screen corners unproject to horizon distances,
-        // producing a huge polygon that makes inset-map densification very expensive.
-        // Fall through to the getBounds() axis-aligned fallback in those cases.
-        const pitch = this.mapInstance.getPitch();
-        if (width > 0 && height > 0 && pitch < 75) {
-            // Screen corners: bottom-left, bottom-right, top-right, top-left
-            const screenPoints: [number, number][] = [
-                [0, height],
-                [width, height],
-                [width, 0],
-                [0, 0],
-            ];
+        const frustumCorners = width > 0 && height > 0
+            ? this.computeFrustumCorners(width, height)
+            : null;
 
-            for (const pt of screenPoints) {
-                const lngLat = this.mapInstance.unproject(pt as maplibregl.PointLike);
-                corners.push([lngLat.lng, lngLat.lat]);
-            }
-            // Close the ring
-            corners.push(corners[0]);
-        }
+        if (!frustumCorners) return null;
 
-        // Fallback to axis-aligned bounds if unproject failed.
-        // Rotate with bearing so the rectangle stays oriented to the map view.
-        if (corners.length === 0) {
-            const bounds = this.mapInstance.getBounds();
-            if (!bounds) {
-                return null;
-            }
-            const center = this.mapInstance.getCenter();
-            const bearing = this.mapInstance.getBearing();
-            const θ = -(bearing * Math.PI) / 180; // clockwise bearing → CCW rotation
-            const cosLat = Math.cos((center.lat * Math.PI) / 180) || 1;
-            const sw = bounds.getSouthWest();
-            const ne = bounds.getNorthEast();
-            const axisCorners: [number, number][] = [
-                [sw.lng, sw.lat],
-                [sw.lng, ne.lat],
-                [ne.lng, ne.lat],
-                [ne.lng, sw.lat],
-            ];
-            for (const [lng, lat] of axisCorners) {
-                // normalize to roughly equal-scale dx/dy
-                const dx = (lng - center.lng) * cosLat;
-                const dy = lat - center.lat;
-                const rx = dx * Math.cos(θ) - dy * Math.sin(θ);
-                const ry = dx * Math.sin(θ) + dy * Math.cos(θ);
-                corners.push([center.lng + rx / cosLat, center.lat + ry]);
-            }
-            corners.push(corners[0]);
-        }
+        const corners: [number, number][] = [...frustumCorners, frustumCorners[0]];
 
         return {
             type: 'Feature',
