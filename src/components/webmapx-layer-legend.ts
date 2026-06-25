@@ -281,6 +281,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         const op = expr[0];
         if (op === 'match' || op === 'case') return true;
         if (op === 'step') return !(Array.isArray(expr[1]) && expr[1][0] === 'zoom');
+        if (op === 'interpolate') return Array.isArray(expr[2]) && expr[2][0] !== 'zoom';
         return false;
     }
 
@@ -408,6 +409,16 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                             ${clickableSwatch}
                             <span class="legend-label">${caseLabel}</span>
                         </div>`);
+                }
+            } else if (type === 'circle') {
+                // Circle layers may have proportional/data-driven radius — delegate to
+                // renderLegendItems which handles bubble legends.
+                const dedupKey = `${type}|${rawId}`;
+                if (!seen.has(dedupKey)) {
+                    seen.add(dedupKey);
+                    if (!dedupGroups.has(dedupKey)) dedupGroups.set(dedupKey, [rawId]);
+                    if (!singleSublayer) rows.push(html`<div class="sub-group-title">${label}</div>`);
+                    rows.push(...this.renderLegendItems([rawId], type, evalPaint));
                 }
             } else {
                 // Single style: swatch + label inline

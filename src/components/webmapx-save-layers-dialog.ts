@@ -188,7 +188,7 @@ export class WebmapxSaveLayersDialog extends LitElement {
             });
         }
 
-        return { version: 8, sources, layers };
+        return { version: 8, id: item.layerId, title: item.label, sources, layers };
     }
 
     private async handleDownload(): Promise<void> {

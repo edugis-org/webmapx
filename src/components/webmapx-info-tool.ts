@@ -121,6 +121,24 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
             border-top: 1px solid var(--color-border-light, #eee);
         }
 
+        .feature-index {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.15rem 0.5rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--color-text-secondary, #888);
+            background: var(--color-surface-alt, #f5f5f5);
+            border-top: 1px solid var(--color-border-light, #eee);
+        }
+        .feature-index::before,
+        .feature-index::after {
+            content: '';
+            flex: 1;
+            border-top: 1px solid var(--color-text-secondary, #888);
+        }
+
         .layer-title {
             background: var(--color-surface-alt, #f5f5f5);
             padding: 0.25rem 0.5rem;
@@ -490,7 +508,11 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                             <span class="sub-layer-name">${subId}</span>
                             ${subFeats[0].subLayerType ? html`<span class="sub-layer-type">${subFeats[0].subLayerType}</span>` : ''}
                         </div>` : ''}
-                        ${subFeats.map((f) => this.renderPropsTable(f))}
+                        ${subFeats.length > 1
+                            ? subFeats.map((f, i) => html`
+                                <div class="feature-index">${i + 1} / ${subFeats.length}</div>
+                                ${this.renderPropsTable(f)}`)
+                            : subFeats.map((f) => this.renderPropsTable(f))}
                     `)}
                     ${truncated ? html`<div class="feature-limit-notice">Showing ${limit} of ${feats.length} features</div>` : ''}
                 </div>`;
