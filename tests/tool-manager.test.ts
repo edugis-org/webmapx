@@ -12,6 +12,7 @@ class FakeTool implements IModalTool {
   transitions: string[] = [];
 
   constructor(readonly toolId: string) {}
+  get instanceId(): string { return this.toolId; }
 
   get active(): boolean {
     return this._active;

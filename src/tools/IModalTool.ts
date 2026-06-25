@@ -17,10 +17,16 @@ import type { ToolIconConfig } from '../config/types';
 
 export interface IModalTool {
     /**
-     * Unique identifier for this tool.
-     * Used by ToolManager for registration and activation.
+     * Tool type name (e.g. 'measure'). Hardcoded per component class.
      */
     readonly toolId: string;
+
+    /**
+     * Instance ID used by ToolManager for registration and activation.
+     * Reads from the `tool-id` attribute; falls back to toolId.
+     * Allows multiple instances of the same tool type in one map.
+     */
+    readonly instanceId: string;
 
     /**
      * Optional human-facing name for generated UI and active-tool state.

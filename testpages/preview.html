@@ -4,6 +4,13 @@
   <meta charset="UTF-8">
   <title>WebMapX Preview</title>
   <link rel="stylesheet" href="../node_modules/@shoelace-style/shoelace/dist/themes/light.css">
+  <link rel="stylesheet" href="../node_modules/@shoelace-style/shoelace/dist/themes/dark.css">
+  <script>
+    // Apply saved theme before first paint to avoid flash
+    const t = localStorage.getItem('webmapx-theme');
+    const dark = t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (dark) { document.documentElement.setAttribute('data-theme', 'dark'); document.documentElement.classList.add('sl-theme-dark'); }
+  </script>
   <link rel="stylesheet" href="../node_modules/maplibre-gl/dist/maplibre-gl.css">
   <style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
@@ -28,13 +35,21 @@
 
     async function loadAndMount() {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
-        showError('No config found. Open setup.html and click "Update preview".');
-        return;
-      }
       let config;
-      try { config = JSON.parse(raw); }
-      catch { showError('Config in localStorage is invalid JSON.'); return; }
+      if (!raw) {
+        // No localStorage (e.g. incognito) — fall back to demo config
+        try {
+          const res = await fetch('../config/demo.json');
+          if (!res.ok) throw new Error(res.statusText);
+          config = await res.json();
+        } catch (e) {
+          showError('No config in localStorage and failed to load demo.json: ' + e.message);
+          return;
+        }
+      } else {
+        try { config = JSON.parse(raw); }
+        catch { showError('Config in localStorage is invalid JSON.'); return; }
+      }
       try {
         await WebMapX.mount('#map', { config });
       } catch (e) {

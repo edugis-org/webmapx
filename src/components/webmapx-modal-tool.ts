@@ -46,10 +46,19 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
     // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Unique identifier for this tool.
-     * Must be set by subclass. Used for ToolManager registration.
+     * Tool type name. Must be set by subclass (e.g. 'measure').
      */
     abstract readonly toolId: string;
+
+    /**
+     * Instance ID for ToolManager registration.
+     * Reads from tool-id attribute so multiple instances of the same type
+     * can coexist in one map (e.g. measure in toolbar + toolbox).
+     * Falls back to toolId when no attribute is set.
+     */
+    get instanceId(): string {
+        return this.getAttribute('tool-id') ?? this.toolId;
+    }
 
     /**
      * Human-facing tool label used by generated UI and active-tool state.
@@ -120,9 +129,10 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
     protected onMapAttached(adapter: IMap): void {
         super.onMapAttached(adapter);
 
-        // Register with ToolManager
+        // Register with ToolManager — skip when nested inside a toolbox
+        // (toolbox manages its sub-tools internally; global ToolManager must not see them)
         const mapHost = resolveMapElement(this) as WebmapxMapElement & { toolManager?: ToolManager } | null;
-        if (this.registerWithToolManager && mapHost?.toolManager) {
+        if (this.registerWithToolManager && mapHost?.toolManager && !this.closest('webmapx-toolbox-tool')) {
             this.toolManager = mapHost.toolManager;
             this.toolManager.register(this);
         }
@@ -131,7 +141,7 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
     protected onMapDetached(): void {
         // Unregister from ToolManager
         if (this.toolManager) {
-            this.toolManager.unregister(this.toolId);
+            this.toolManager.unregister(this.instanceId);
             this.toolManager = null;
         }
 
@@ -168,8 +178,8 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
     activate(): void {
         if (this._active) return;
 
-        if (this.registerWithToolManager && this.toolManager && this.toolManager.activeToolId !== this.toolId) {
-            this.toolManager.activate(this.toolId);
+        if (this.registerWithToolManager && this.toolManager && this.toolManager.activeToolId !== this.instanceId) {
+            this.toolManager.activate(this.instanceId);
             return;
         }
 
@@ -182,8 +192,8 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
     deactivate(): void {
         if (!this._active) return;
 
-        if (this.registerWithToolManager && this.toolManager && this.toolManager.activeToolId === this.toolId) {
-            this.toolManager.deactivate(this.toolId);
+        if (this.registerWithToolManager && this.toolManager && this.toolManager.activeToolId === this.instanceId) {
+            this.toolManager.deactivate(this.instanceId);
             return;
         }
 
@@ -195,7 +205,7 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
      */
     toggle(): void {
         if (this.registerWithToolManager && this.toolManager) {
-            this.toolManager.toggle(this.toolId);
+            this.toolManager.toggle(this.instanceId);
         } else if (this._active) {
             this.deactivate();
         } else {

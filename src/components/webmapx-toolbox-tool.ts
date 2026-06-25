@@ -1,6 +1,7 @@
 import { html, css, TemplateResult } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
-import { WebmapxModalTool } from './webmapx-modal-tool';
+import { WebmapxBaseTool } from './webmapx-base-tool';
+import type { IMapState } from '../store/IMapState';
 import type { ToolIconConfig } from '../config/types';
 
 import '@shoelace-style/shoelace/dist/components/button/button.js';
@@ -17,16 +18,15 @@ interface ToolboxEntry {
 }
 
 @customElement('webmapx-toolbox-tool')
-export class WebmapxToolboxTool extends WebmapxModalTool {
+export class WebmapxToolboxTool extends WebmapxBaseTool {
   readonly toolId = 'toolbox';
 
   @state() private activeSubToolId: string | null = null;
   @state() private searchQuery = '';
   @state() private showSearch = false;
+  @state() private entries: ToolboxEntry[] = [];
 
   @query('.toolbox-scroll') private scrollEl?: HTMLElement;
-
-  private entries: ToolboxEntry[] = [];
   private resizeObserver?: ResizeObserver;
 
   static styles = css`
@@ -85,8 +85,7 @@ export class WebmapxToolboxTool extends WebmapxModalTool {
 
   connectedCallback(): void {
     super.connectedCallback();
-    // Defer indexing until children are upgraded
-    queueMicrotask(() => this.indexEntries());
+    this.indexEntries();
   }
 
   disconnectedCallback(): void {
@@ -118,7 +117,6 @@ export class WebmapxToolboxTool extends WebmapxModalTool {
       el.hidden = true;
       el.inert = true;
     }
-    this.requestUpdate();
   }
 
   private checkOverflow(): void {
@@ -181,9 +179,17 @@ export class WebmapxToolboxTool extends WebmapxModalTool {
     this.activeSubToolId = null;
   }
 
-  protected onDeactivate(): void {
+  // Called by webmapx-tool-panel when this tool becomes visible
+  activate(): void {
+    this.indexEntries();
+  }
+
+  // Called by webmapx-tool-panel when this tool is hidden
+  deactivate(): void {
     this.deactivateSubTool();
   }
+
+  protected onStateChanged(_state: IMapState): void {}
 
   private handleSearchInput(e: Event): void {
     this.searchQuery = (e.target as HTMLInputElement).value;

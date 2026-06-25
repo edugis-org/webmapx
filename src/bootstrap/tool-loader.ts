@@ -1,3 +1,12 @@
+// Types already included in webmapx-core-bundle — no separate import needed.
+const BUNDLED_TOOL_TYPES = new Set([
+  'layerTree', 'layerOverview', 'toolbox', 'spacer',
+  'importLayer', 'import-layer',
+  'maplanguage', 'language-osmvector',
+  'navigation', 'fullscreen', 'scaleControl', 'zoomLevel',
+  'attributionControl', 'spinner', 'insetMap', 'active-adapter', 'activeAdapter',
+]);
+
 const TOOL_MAP: Record<string, () => Promise<unknown>> = {
   draw:               () => import('../components/webmapx-draw-tool.js'),
   measure:            () => import('../components/webmapx-measure-tool.js'),
@@ -22,7 +31,9 @@ export async function loadTools(tools: string[]): Promise<void> {
   await Promise.all(tools.map(name => {
     const loader = TOOL_MAP[name];
     if (!loader) {
-      console.warn(`[webmapx] Unknown tool: "${name}" — skipped`);
+      if (!BUNDLED_TOOL_TYPES.has(name)) {
+        console.warn(`[webmapx] Unknown tool: "${name}" — skipped`);
+      }
       return Promise.resolve();
     }
     return loader();

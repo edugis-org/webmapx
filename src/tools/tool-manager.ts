@@ -41,23 +41,18 @@ export class ToolManager extends EventTarget {
      * Tools auto-register when they connect to the map.
      */
     register(tool: IModalTool): void {
-        if (this.tools.has(tool.toolId)) {
-            console.warn(`Tool "${tool.toolId}" is already registered`);
-            return;
-        }
-        this.tools.set(tool.toolId, tool);
+        this.tools.set(tool.instanceId, tool);
     }
 
     /**
      * Unregister a tool from the manager.
      * Tools auto-unregister when they disconnect from the map.
      */
-    unregister(toolId: string): void {
-        // Deactivate if this was the active tool
-        if (this._activeToolId === toolId) {
+    unregister(instanceId: string): void {
+        if (this._activeToolId === instanceId) {
             this.deactivate();
         }
-        this.tools.delete(toolId);
+        this.tools.delete(instanceId);
     }
 
     /**

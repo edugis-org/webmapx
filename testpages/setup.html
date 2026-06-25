@@ -8,9 +8,44 @@
     h1 { font-size: 1.4rem; margin-bottom: 1.5rem; }
     h2 { font-size: 1rem; margin: 1.5rem 0 0.5rem; color: #555; text-transform: uppercase; letter-spacing: .05em; }
     .tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.4rem; }
-    label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; }
-    label input { cursor: pointer; }
+    label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; position: relative; }
+    label input[type=checkbox] { cursor: pointer; flex-shrink: 0; }
     label.not-in-config { color: #888; font-style: italic; }
+    .tool-name { flex: 1; }
+    .info-btn {
+      width: 16px; height: 16px; border-radius: 50%; background: #ccc; color: #555;
+      font-size: 10px; line-height: 16px; text-align: center; flex-shrink: 0;
+      cursor: pointer; border: none; padding: 0; display: none; user-select: none;
+    }
+    label:hover .info-btn, label:focus-within .info-btn { display: block; }
+    .info-btn.active, .info-btn:hover { background: #0f62fe; color: #fff; }
+
+    /* Props popup */
+    .prop-popup {
+      display: none; position: fixed; z-index: 1000;
+      background: #fff; border: 1px solid #bbb; border-radius: 6px;
+      padding: 0.75rem; font-size: 0.8rem;
+      width: 320px; max-height: 380px; overflow-y: auto;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    }
+    .prop-popup.visible { display: block; }
+    .toolbox-section { margin: 0.3rem 0 0.3rem 1.4rem; padding: 0.3rem 0.5rem; border-left: 2px solid #ddd; }
+    .toolbox-section h4 { font-size: 0.75rem; color: #777; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 0.3rem; }
+    .prop-popup h3 { margin: 0 0 0.5rem; font-size: 0.85rem; color: #333; border-bottom: 1px solid #eee; padding-bottom: 0.35rem; }
+    .prop-row { display: flex; flex-direction: column; margin-bottom: 0.5rem; }
+    .prop-row label { font-size: 0.75rem; color: #666; margin-bottom: 2px; font-weight: 500; cursor: default; display: block; flex: none; }
+    .prop-row select { background: #fff; }
+    .prop-row input[type=text], .prop-row input[type=number], .prop-row textarea, .prop-row select {
+      width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 3px;
+      padding: 0.25rem 0.4rem; font-size: 0.8rem; font-family: inherit;
+    }
+    .prop-row input[type=checkbox] { width: auto; cursor: pointer; margin-top: 2px; }
+    .prop-row textarea { font-family: monospace; resize: vertical; min-height: 60px; }
+    .prop-row textarea.json-invalid { border-color: #c00; }
+    .prop-popup-footer { margin-top: 0.5rem; display: flex; justify-content: flex-end; gap: 0.4rem; }
+    .prop-popup-footer button { padding: 0.3rem 0.7rem; font-size: 0.8rem; border-radius: 3px; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; }
+    .prop-popup-footer .btn-apply { background: #0f62fe; color: #fff; border-color: #0f62fe; }
+
     .actions { margin-top: 2rem; display: flex; gap: 1rem; }
     button { padding: 0.6rem 1.4rem; font-size: 1rem; cursor: pointer; border: none; border-radius: 4px; }
     #btn-launch { background: #0f62fe; color: #fff; }
@@ -30,6 +65,7 @@
   <div class="actions">
     <button id="btn-launch">Update preview</button>
     <button id="btn-reset">Reset to defaults</button>
+    <button id="btn-download">Download config</button>
   </div>
   <div id="status"></div>
 
@@ -37,7 +73,13 @@
     import { KNOWN_TOOLS } from '../src/utils/dynamic-layout.ts';
 
     const STORAGE_KEY = 'webmapx-setup-config';
-    const TOOLBAR_KEYS = ['mainToolbar', 'legendToolbar'];
+
+    // Derive toolbar keys dynamically from config instead of hardcoding names.
+    function getToolbarKeys(config) {
+      return Object.entries(config.tools ?? {})
+        .filter(([, v]) => v && typeof v === 'object' && v.type === 'toolbar')
+        .map(([k]) => k);
+    }
 
     let baseConfig = null;
 
@@ -58,40 +100,323 @@
     const TOOLBAR_TOOLS = KNOWN_TOOLS.filter(t => !t.standalone);
     const STANDALONE_TOOLS = KNOWN_TOOLS.filter(t => t.standalone);
 
+    // Keys not shown as editable props (structural or handled elsewhere)
+    const SKIP_PROPS = new Set(['id', 'type', 'enabled', 'items']);
+
+    const LAYOUT_POSITIONS = [
+      'top-left','middle-left','bottom-left',
+      'top-center','middle-center','bottom-center',
+      'top-right','middle-right','bottom-right',
+    ];
+
+    // Metadata for well-known string properties → render as <select> instead of free text.
+    // Key is the property name; value is array of allowed options.
+    const PROP_OPTIONS = {
+      position:        LAYOUT_POSITIONS,
+      orientation:     ['vertical', 'horizontal'],
+      'panel-position': ['after', 'before'],
+      provider:        ['nominatim'],
+      direction:       ['up', 'down', 'left', 'right'],
+      tooltipPlacement:['right','left','top','bottom'],
+      alignment:       ['start','center','end'],
+      priority:        ['normal','high','low'],
+      service:         ['xyz','wms','wmts'],
+    };
+
+    // Toolbar-level props exposed in the ⚙ popup (in addition to item-level props).
+    // These live directly on the toolbar config object (tools.mainToolbar, etc.).
+    const TOOLBAR_OWN_PROPS = ['position','orientation','tooltipPlacement','alignment','priority'];
+    // Panel sub-object props (tools.mainToolbar.panel.*).
+    const TOOLBAR_PANEL_PROPS = ['label','position'];
+
+    // Build a synthetic props object for a toolbar to show in the popup.
+    function toolbarPropsObject(toolbarCfg) {
+      const obj = {};
+      for (const k of TOOLBAR_OWN_PROPS) if (toolbarCfg[k] !== undefined) obj[k] = toolbarCfg[k];
+      const panel = toolbarCfg.panel ?? {};
+      for (const k of TOOLBAR_PANEL_PROPS) {
+        const pk = 'panel.' + k;
+        if (panel[k] !== undefined) obj[pk] = panel[k];
+      }
+      return obj;
+    }
+
+    // --- Props popup ---
+    const popup = document.createElement('div');
+    popup.className = 'prop-popup';
+    document.body.appendChild(popup);
+
+    let activeInfoBtn = null;
+    let activePropsKey = null; // overrides key for current popup's props
+
+    function closePopup() {
+      popup.classList.remove('visible');
+      if (activeInfoBtn) { activeInfoBtn.classList.remove('active'); activeInfoBtn = null; }
+      activePropsKey = null;
+    }
+
+    document.addEventListener('mousedown', (e) => {
+      if (!popup.contains(e.target) && !e.target.classList.contains('info-btn')) closePopup();
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePopup(); });
+
+    function positionPopup(anchorEl) {
+      const rect = anchorEl.getBoundingClientRect();
+      let top = rect.bottom + 4;
+      let left = rect.left;
+      if (top + 380 > window.innerHeight) top = Math.max(4, rect.top - 384);
+      if (left + 324 > window.innerWidth) left = Math.max(4, window.innerWidth - 328);
+      popup.style.top = top + 'px';
+      popup.style.left = left + 'px';
+    }
+
+    function buildPropsForm(toolLabel, baseProps, propsKey) {
+      popup.innerHTML = '';
+      const h3 = document.createElement('h3');
+      h3.textContent = toolLabel + ' options';
+      popup.appendChild(h3);
+
+      const savedProps = getSaved()[propsKey] ?? {};
+
+      const fields = []; // { key, getVal, isValid }
+
+      for (const [k, baseVal] of Object.entries(baseProps)) {
+        if (SKIP_PROPS.has(k)) continue;
+
+        const currentVal = savedProps[k] !== undefined ? savedProps[k] : baseVal;
+        const row = document.createElement('div');
+        row.className = 'prop-row';
+
+        const lbl = document.createElement('label');
+        lbl.textContent = k;
+        row.appendChild(lbl);
+
+        let getVal, isValid = () => true;
+        const options = PROP_OPTIONS[k];
+
+        if (typeof baseVal === 'boolean') {
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = Boolean(currentVal);
+          row.appendChild(cb);
+          getVal = () => cb.checked;
+        } else if (typeof baseVal === 'number') {
+          const inp = document.createElement('input');
+          inp.type = 'number';
+          inp.value = String(currentVal);
+          row.appendChild(inp);
+          getVal = () => { const n = parseFloat(inp.value); return isNaN(n) ? baseVal : n; };
+        } else if (options) {
+          const sel = document.createElement('select');
+          // Add a blank option if current value is not in the list
+          if (!options.includes(String(currentVal))) {
+            const opt = document.createElement('option');
+            opt.value = String(currentVal); opt.textContent = String(currentVal);
+            sel.appendChild(opt);
+          }
+          for (const o of options) {
+            const opt = document.createElement('option');
+            opt.value = o; opt.textContent = o;
+            if (String(currentVal) === o) opt.selected = true;
+            sel.appendChild(opt);
+          }
+          row.appendChild(sel);
+          getVal = () => sel.value;
+        } else if (typeof baseVal === 'string') {
+          const inp = document.createElement('input');
+          inp.type = 'text';
+          inp.value = String(currentVal);
+          row.appendChild(inp);
+          getVal = () => inp.value;
+        } else {
+          // object / array → JSON textarea
+          const ta = document.createElement('textarea');
+          ta.value = JSON.stringify(currentVal, null, 2);
+          ta.rows = Math.min(8, (ta.value.match(/\n/g) ?? []).length + 2);
+          ta.addEventListener('input', () => {
+            try { JSON.parse(ta.value); ta.classList.remove('json-invalid'); }
+            catch { ta.classList.add('json-invalid'); }
+          });
+          row.appendChild(ta);
+          getVal = () => { try { return JSON.parse(ta.value); } catch { return currentVal; } };
+          isValid = () => { try { JSON.parse(ta.value); return true; } catch { return false; } };
+        }
+
+        fields.push({ key: k, getVal, isValid });
+        popup.appendChild(row);
+      }
+
+      const footer = document.createElement('div');
+      footer.className = 'prop-popup-footer';
+
+      const btnReset = document.createElement('button');
+      btnReset.textContent = 'Reset';
+      btnReset.addEventListener('click', () => {
+        const ov = getSaved();
+        delete ov[propsKey];
+        saveOverrides(ov);
+        buildPropsForm(toolLabel, baseProps, propsKey);
+      });
+
+      const btnApply = document.createElement('button');
+      btnApply.className = 'btn-apply';
+      btnApply.textContent = 'Apply';
+      btnApply.addEventListener('click', () => {
+        if (fields.some(f => !f.isValid())) return;
+        const ov = getSaved();
+        const props = {};
+        for (const f of fields) props[f.key] = f.getVal();
+        ov[propsKey] = props;
+        saveOverrides(ov);
+        document.getElementById('status').textContent = 'Options saved — click "Update preview" to apply.';
+      });
+
+      footer.appendChild(btnReset);
+      footer.appendChild(btnApply);
+      popup.appendChild(footer);
+    }
+
+    function openPopup(btn, toolLabel, baseProps, propsKey) {
+      if (activeInfoBtn === btn) { closePopup(); return; }
+      closePopup();
+      activeInfoBtn = btn;
+      activePropsKey = propsKey;
+      btn.classList.add('active');
+      buildPropsForm(toolLabel, baseProps, propsKey);
+      popup.classList.add('visible');
+      positionPopup(btn);
+    }
+
+    function makeToolLabel(cb, labelText, baseProps, propsKey) {
+      const label = document.createElement('label');
+      label.appendChild(cb);
+      const span = document.createElement('span');
+      span.className = 'tool-name';
+      span.textContent = ' ' + labelText;
+      label.appendChild(span);
+      if (baseProps) {
+        const editableProps = Object.keys(baseProps).filter(k => !SKIP_PROPS.has(k));
+        if (editableProps.length > 0) {
+          const btn = document.createElement('button');
+          btn.className = 'info-btn';
+          btn.textContent = '⚙';
+          btn.title = 'Edit options';
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openPopup(btn, labelText, baseProps, propsKey);
+          });
+          label.appendChild(btn);
+        }
+      }
+      return label;
+    }
+
     function buildUI(config, overrides) {
       const ui = document.getElementById('ui');
       ui.innerHTML = '';
+      closePopup();
       const tools = config.tools ?? {};
 
-      // --- Toolbar tools ---
-      for (const toolbarKey of TOOLBAR_KEYS) {
+      // --- Toolbar tools (all toolbars found in config) ---
+      for (const toolbarKey of getToolbarKeys(config)) {
         const toolbar = tools[toolbarKey];
-        // Collect ids already in this toolbar
-        const inConfig = new Map(); // id → item config
+        // Collect items keyed by both id and type for alias lookup
+        const inConfig = new Map(); // id or type → item config
         for (const item of toolbar?.items ?? []) {
           const id = item.id ?? item.type;
           if (id && id !== 'spacer') inConfig.set(id, item);
+          if (item.type && item.type !== id && item.type !== 'spacer') {
+            if (!inConfig.has(item.type)) inConfig.set(item.type, item);
+          }
         }
 
         const h2 = document.createElement('h2');
-        h2.textContent = toolbarKey === 'mainToolbar' ? 'Toolbar tools' : `${toolbarKey} tools`;
+        const h2Label = document.createElement('span');
+        h2Label.textContent = toolbarKey === 'mainToolbar' ? 'Toolbar tools' : `${toolbarKey} tools`;
+        h2.appendChild(h2Label);
+        if (toolbar) {
+          const tbPropsKey = `toolbar-settings:${toolbarKey}`;
+          const tbProps = toolbarPropsObject(toolbar);
+          if (Object.keys(tbProps).length > 0) {
+            const tbBtn = document.createElement('button');
+            tbBtn.className = 'info-btn';
+            tbBtn.style.display = 'inline-block';
+            tbBtn.style.marginLeft = '0.4rem';
+            tbBtn.style.verticalAlign = 'middle';
+            tbBtn.textContent = '⚙';
+            tbBtn.title = 'Edit toolbar settings';
+            tbBtn.addEventListener('click', (e) => {
+              e.preventDefault();
+              openPopup(tbBtn, toolbarKey === 'mainToolbar' ? 'Toolbar' : toolbarKey, tbProps, tbPropsKey);
+            });
+            h2.appendChild(tbBtn);
+          }
+        }
         ui.appendChild(h2);
         const grid = document.createElement('div');
         grid.className = 'tool-grid';
 
-        // Show all known toolbar tools; grey+unchecked if not in config
         for (const tool of TOOLBAR_TOOLS) {
           const key = `toolbar:${toolbarKey}:${tool.id}`;
+          const propsKey = `${key}:props`;
           const item = inConfig.get(tool.id);
           const inCfg = item !== undefined;
           const defaultEnabled = inCfg ? item.enabled !== false : false;
           const enabled = overrides[key] !== undefined ? overrides[key] : defaultEnabled;
-          const label = document.createElement('label');
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.dataset.key = key;
+          cb.dataset.toolbar = toolbarKey;
+          cb.dataset.tool = tool.id;
+          if (enabled) cb.checked = true;
+          const label = makeToolLabel(cb, tool.label, inCfg ? item : null, propsKey);
           if (!inCfg) label.className = 'not-in-config';
-          label.innerHTML = `<input type="checkbox" data-key="${key}" data-toolbar="${toolbarKey}" data-tool="${tool.id}" ${enabled ? 'checked' : ''}> ${tool.label}`;
           grid.appendChild(label);
+
+          // If this is a toolbox, show its sub-items as a nested section
+          if (tool.id === 'toolbox' && enabled) {
+            const toolboxItem = inCfg ? item : null;
+            const subSection = document.createElement('div');
+            subSection.className = 'toolbox-section';
+            const subH4 = document.createElement('h4');
+            subH4.textContent = (toolboxItem?.title ?? toolboxItem?.label ?? 'Toolbox') + ' contents';
+            subSection.appendChild(subH4);
+            const subGrid = document.createElement('div');
+            subGrid.className = 'tool-grid';
+
+            // Build lookup for toolbox sub-items
+            const subInConfig = new Map();
+            for (const sub of toolboxItem?.items ?? []) {
+              const sid = sub.id ?? sub.type;
+              if (sid) subInConfig.set(sid, sub);
+              if (sub.type && sub.type !== sid) {
+                if (!subInConfig.has(sub.type)) subInConfig.set(sub.type, sub);
+              }
+            }
+            const toolboxId = toolboxItem?.id ?? 'toolbox';
+
+            for (const subTool of TOOLBAR_TOOLS.filter(t => t.id !== 'toolbox')) {
+              const subKey = `toolbox:${toolbarKey}:${toolboxId}:${subTool.id}`;
+              const subPropsKey = `${subKey}:props`;
+              const subItem = subInConfig.get(subTool.id);
+              const subInCfg = subItem !== undefined;
+              const subDefaultEnabled = subInCfg ? subItem.enabled !== false : false;
+              const subEnabled = overrides[subKey] !== undefined ? overrides[subKey] : subDefaultEnabled;
+              const subCb = document.createElement('input');
+              subCb.type = 'checkbox';
+              subCb.dataset.key = subKey;
+              if (subEnabled) subCb.checked = true;
+              const subLabel = makeToolLabel(subCb, subTool.label, subInCfg ? subItem : null, subPropsKey);
+              if (!subInCfg) subLabel.className = 'not-in-config';
+              subGrid.appendChild(subLabel);
+            }
+            subSection.appendChild(subGrid);
+            grid._toolboxSection = subSection; // attach for post-append insertion
+          }
         }
         ui.appendChild(grid);
+        if (grid._toolboxSection) ui.appendChild(grid._toolboxSection);
       }
 
       // --- Standalone / map controls ---
@@ -103,13 +428,20 @@
 
       for (const tool of STANDALONE_TOOLS) {
         const key = `standalone:${tool.id}`;
+        const propsKey = `${key}:props`;
         const val = tools[tool.id];
-        const inCfg = val !== undefined && typeof val === 'object';
-        const defaultEnabled = inCfg ? val.enabled !== false : false;
+        const inCfg = val !== undefined && val !== null && typeof val === 'object';
+        // not in config or null → give a default so the ⚙ editor still appears
+        const valOrDefault = inCfg ? val : { position: 'top-left' };
+        const defaultEnabled = val !== undefined ? (inCfg ? val.enabled !== false : true) : false;
         const enabled = overrides[key] !== undefined ? overrides[key] : defaultEnabled;
-        const label = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.dataset.key = key;
+        cb.dataset.standalone = tool.id;
+        if (enabled) cb.checked = true;
+        const label = makeToolLabel(cb, tool.label, valOrDefault, propsKey);
         if (!inCfg) label.className = 'not-in-config';
-        label.innerHTML = `<input type="checkbox" data-key="${key}" data-standalone="${tool.id}" ${enabled ? 'checked' : ''}> ${tool.label}`;
         gridS.appendChild(label);
       }
       ui.appendChild(gridS);
@@ -121,9 +453,12 @@
       const gridDev = document.createElement('div');
       gridDev.className = 'tool-grid';
       const configEditEnabled = overrides['dev:configedit'] === true;
-      const labelDev = document.createElement('label');
+      const cbDev = document.createElement('input');
+      cbDev.type = 'checkbox';
+      cbDev.dataset.key = 'dev:configedit';
+      if (configEditEnabled) cbDev.checked = true;
+      const labelDev = makeToolLabel(cbDev, 'Config editor', null, null);
       labelDev.className = 'not-in-config';
-      labelDev.innerHTML = `<input type="checkbox" data-key="dev:configedit" ${configEditEnabled ? 'checked' : ''}> Config editor`;
       gridDev.appendChild(labelDev);
       ui.appendChild(gridDev);
 
@@ -133,6 +468,10 @@
           const ov = getSaved();
           ov[cb.dataset.key] = cb.checked;
           saveOverrides(ov);
+          // Rebuild UI if a toolbox was toggled (sub-section appears/disappears)
+          if (cb.dataset.tool === 'toolbox') {
+            buildUI(baseConfig, getSaved());
+          }
           updateSelectAll();
         });
       });
@@ -143,38 +482,91 @@
       if (!result.tools) result.tools = {};
       const tools = result.tools;
 
-      // Toolbar items: filter disabled, add newly enabled
-      for (const toolbarKey of TOOLBAR_KEYS) {
+      // Toolbar items: filter disabled, add newly enabled, apply prop overrides
+      for (const toolbarKey of getToolbarKeys(result)) {
         if (!tools[toolbarKey]) continue;
         const toolbar = tools[toolbarKey];
+
+        // Apply toolbar-level setting overrides (position, orientation, panel.*, etc.)
+        const tbSettingsKey = `toolbar-settings:${toolbarKey}`;
+        const tbSettings = overrides[tbSettingsKey];
+        if (tbSettings) {
+          for (const [k, v] of Object.entries(tbSettings)) {
+            if (k.startsWith('panel.')) {
+              if (!toolbar.panel) toolbar.panel = {};
+              toolbar.panel[k.slice(6)] = v;
+            } else {
+              toolbar[k] = v;
+            }
+          }
+        }
         if (!toolbar.items) toolbar.items = [];
 
         // Filter out disabled items
         toolbar.items = toolbar.items.filter(item => {
           const id = item.id ?? item.type;
           if (!id || id === 'spacer') return true;
-          return overrides[`toolbar:${toolbarKey}:${id}`] !== false;
+          return overrides[`toolbar:${toolbarKey}:${id}`] !== false
+            && overrides[`toolbar:${toolbarKey}:${item.type}`] !== false;
         });
 
+        // Apply prop overrides to existing items + handle toolbox sub-items
+        for (const item of toolbar.items) {
+          const id = item.id ?? item.type;
+          const knownTool = TOOLBAR_TOOLS.find(t => t.id === id || t.id === item.type);
+          if (!knownTool) continue;
+          const propsKey = `toolbar:${toolbarKey}:${knownTool.id}:props`;
+          const propOverrides = overrides[propsKey];
+          if (propOverrides) Object.assign(item, propOverrides);
+
+          // Toolbox: apply sub-item overrides
+          if (knownTool.id === 'toolbox') {
+            const toolboxId = item.id ?? 'toolbox';
+            if (!item.items) item.items = [];
+            // Filter disabled sub-items
+            item.items = item.items.filter(sub => {
+              const sid = sub.id ?? sub.type;
+              return overrides[`toolbox:${toolbarKey}:${toolboxId}:${sid}`] !== false
+                && overrides[`toolbox:${toolbarKey}:${toolboxId}:${sub.type}`] !== false;
+            });
+            // Add newly enabled sub-items
+            const existingSubIds = new Set(item.items.flatMap(s => [s.id, s.type].filter(Boolean)));
+            for (const subTool of TOOLBAR_TOOLS.filter(t => t.id !== 'toolbox')) {
+              const subKey = `toolbox:${toolbarKey}:${toolboxId}:${subTool.id}`;
+              if (overrides[subKey] === true && !existingSubIds.has(subTool.id)) {
+                const subProps = overrides[`${subKey}:props`] ?? {};
+                item.items.push({ type: subTool.id, id: subTool.id, enabled: true, ...subProps });
+              }
+            }
+          }
+        }
+
         // Add newly enabled items not yet in config
-        const existingIds = new Set(toolbar.items.map(i => i.id ?? i.type));
+        const existingIds = new Set(toolbar.items.flatMap(i => [i.id, i.type].filter(Boolean)));
         for (const tool of TOOLBAR_TOOLS) {
           const key = `toolbar:${toolbarKey}:${tool.id}`;
           if (overrides[key] === true && !existingIds.has(tool.id)) {
-            toolbar.items.push({ type: tool.id, id: tool.id, enabled: true });
+            const propsKey = `${key}:props`;
+            const propOverrides = overrides[propsKey] ?? {};
+            toolbar.items.push({ type: tool.id, id: tool.id, enabled: true, ...propOverrides });
           }
         }
       }
 
-      // Standalone tools: update enabled or add if missing
+      // Standalone tools: update enabled or add if missing, apply prop overrides
       for (const tool of STANDALONE_TOOLS) {
         const key = `standalone:${tool.id}`;
-        if (overrides[key] === undefined) continue;
-        const enabled = overrides[key];
-        if (tools[tool.id] && typeof tools[tool.id] === 'object') {
-          tools[tool.id] = { ...tools[tool.id], enabled };
-        } else if (enabled) {
-          tools[tool.id] = { enabled: true };
+        const propsKey = `${key}:props`;
+        const propOverrides = overrides[propsKey];
+        const enabledOverride = overrides[key];
+
+        const existing = tools[tool.id];
+        if (existing !== null && existing && typeof existing === 'object') {
+          if (enabledOverride !== undefined) tools[tool.id] = { ...existing, enabled: enabledOverride };
+          if (propOverrides) tools[tool.id] = { ...(tools[tool.id] ?? existing), ...propOverrides };
+        } else if (existing === null || enabledOverride === true) {
+          // null in config = present but unconfigured; build a real object
+          tools[tool.id] = { enabled: enabledOverride ?? true, ...(propOverrides ?? {}) };
         }
       }
 
@@ -224,6 +616,18 @@
       buildUI(baseConfig, {});
       updateSelectAll();
       document.getElementById('status').textContent = 'Reset to defaults.';
+    });
+
+    document.getElementById('btn-download').addEventListener('click', () => {
+      if (!baseConfig) return;
+      const finalConfig = applyOverrides(baseConfig, getSaved());
+      const blob = new Blob([JSON.stringify(finalConfig, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'webmapx-config.json';
+      a.click();
+      URL.revokeObjectURL(url);
     });
 
     // Init
