@@ -1,8 +1,6 @@
 // Types already included in webmapx-core-bundle — no separate import needed.
 const BUNDLED_TOOL_TYPES = new Set([
   'layerTree', 'layerOverview', 'toolbox', 'spacer',
-  'importLayer', 'import-layer',
-  'maplanguage', 'language-osmvector',
   'navigation', 'fullscreen', 'scaleControl', 'zoomLevel',
   'attributionControl', 'spinner', 'insetMap', 'active-adapter', 'activeAdapter',
 ]);
@@ -11,10 +9,11 @@ const TOOL_MAP: Record<string, () => Promise<unknown>> = {
   draw:               () => import('../components/webmapx-draw-tool.js'),
   measure:            () => import('../components/webmapx-measure-tool.js'),
   print:              () => import('../components/webmapx-print-tool.js'),
-  import:             () => import('../components/webmapx-import-layer-tool.js'),
+  importLayer:        () => import('../components/webmapx-import-layer-tool.js'),
   search:             () => import('../components/webmapx-search-tool.js'),
   geolocation:        () => import('../components/webmapx-geolocation-tool.js'),
   info:               () => import('../components/webmapx-info-tool.js'),
+  maplanguage:          () => import('../components/webmapx-language-osmvector.js'),
   'language-osmvector': () => import('../components/webmapx-language-osmvector.js'),
   '3d':               () => import('../components/webmapx-3d-tool.js'),
   truearea:           () => import('../components/webmapx-truearea-tool.js'),

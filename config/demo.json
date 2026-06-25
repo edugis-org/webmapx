@@ -2557,7 +2557,7 @@
           "attribution": "&copy; OpenStreetMap contributors | &copy; Nominatim"
         },
         {
-          "id": "layers",
+          "id": "layerTree",
           "type": "layerTree",
           "enabled": true,
           "title": "Catalog",
@@ -2762,7 +2762,7 @@
           "icon": "box"
         },
         {
-          "id": "import-layer",
+          "id": "importLayer",
           "type": "importLayer",
           "enabled": true,
           "icon": "file-earmark-arrow-up"
@@ -2837,7 +2837,7 @@
       },
       "items": [
         {
-          "id": "legend",
+          "id": "layerOverview",
           "type": "layerOverview",
           "enabled": true,
           "title": "Legend",

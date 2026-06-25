@@ -95,7 +95,7 @@ export const KNOWN_TOOLS: Array<{ id: string; label: string; icon?: string; stan
   { id: 'geolocation',   label: 'Geolocation',    icon: 'crosshair' },
   { id: 'view-mode',     label: 'View mode',      icon: 'globe' },
   { id: '3d',            label: '3D',             icon: 'box' },
-  { id: 'import',        label: 'Import layer',   icon: 'file-earmark-arrow-up' },
+  { id: 'importLayer',   label: 'Import layer',   icon: 'file-earmark-arrow-up' },
   { id: 'layerOverview', label: 'Legend',         icon: 'card-list' },
   { id: 'maplanguage',   label: 'Map language',   icon: 'translate' },
   { id: 'print',         label: 'Print',          icon: 'printer' },

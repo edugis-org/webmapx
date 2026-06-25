@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <base href="../">
   <title>WebMapX Setup</title>
   <style>
     body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
@@ -57,7 +58,7 @@
 </head>
 <body>
   <h1>WebMapX Tool Setup</h1>
-  <p>Open <a href="./preview.html" target="_blank">preview.html</a> in a split tab, then use the button below to push config to it.</p>
+  <p>Open <a href="testpages/preview.html" target="_blank">preview.html</a> in a split tab, then use the button below to push config to it.</p>
   <div style="margin-bottom:0.5rem">
     <label><input type="checkbox" id="select-all" checked> Select / deselect all</label>
   </div>
@@ -70,7 +71,7 @@
   <div id="status"></div>
 
   <script type="module">
-    import { KNOWN_TOOLS } from '../src/utils/dynamic-layout.ts';
+    import { KNOWN_TOOLS } from '/src/utils/dynamic-layout.ts';
 
     const STORAGE_KEY = 'webmapx-setup-config';
 
@@ -90,7 +91,7 @@
 
     async function loadConfig() {
       const params = new URLSearchParams(window.location.search);
-      const configUrl = params.get('config') ?? '../config/demo.json';
+      const configUrl = params.get('config') ?? 'config/demo.json';
       const res = await fetch(configUrl);
       if (!res.ok) throw new Error(`Failed to load config: ${configUrl} (${res.status})`);
       baseConfig = await res.json();
@@ -362,6 +363,8 @@
           const propsKey = `${key}:props`;
           const item = inConfig.get(tool.id);
           const inCfg = item !== undefined;
+          // Fall back to top-level standalone config for dual-mode tools (e.g. maplanguage)
+          const standaloneVal = !inCfg && tools[tool.id] && typeof tools[tool.id] === 'object' ? tools[tool.id] : null;
           const defaultEnabled = inCfg ? item.enabled !== false : false;
           const enabled = overrides[key] !== undefined ? overrides[key] : defaultEnabled;
           const cb = document.createElement('input');
@@ -370,7 +373,7 @@
           cb.dataset.toolbar = toolbarKey;
           cb.dataset.tool = tool.id;
           if (enabled) cb.checked = true;
-          const label = makeToolLabel(cb, tool.label, inCfg ? item : null, propsKey);
+          const label = makeToolLabel(cb, tool.label, inCfg ? item : standaloneVal, propsKey);
           if (!inCfg) label.className = 'not-in-config';
           grid.appendChild(label);
 
@@ -607,7 +610,7 @@
       // Reset engine to config value so any user override in preview is cleared.
       const engine = finalConfig.engine ?? finalConfig.map?.type ?? 'maplibre';
       localStorage.setItem('webmapx-adapter:map-webmapx', engine);
-      window.open('./preview.html', 'webmapx-preview');
+      window.open('testpages/preview.html', 'webmapx-preview');
       document.getElementById('status').textContent = 'Config saved — preview updated.';
     });
 
