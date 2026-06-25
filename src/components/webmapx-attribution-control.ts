@@ -25,6 +25,7 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
 
     connectedCallback(): void {
         super.connectedCallback();
+        this._applyPositionAlignment();
         this.subscribeToConfig();
     }
 
@@ -39,7 +40,19 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
 
     protected onConfigReady(config: AppConfig): void {
         this.layerData = config.layerData ?? config.catalog ?? null;
+        this._applyPositionAlignment();
         this.recalculate();
+    }
+
+    private _applyPositionAlignment(): void {
+        const slot = this.getAttribute('slot') ?? '';
+        if (slot.includes('-left')) {
+            this.style.justifyContent = 'flex-start';
+        } else if (slot.includes('-center')) {
+            this.style.justifyContent = 'center';
+        } else {
+            this.style.justifyContent = 'flex-end';
+        }
     }
 
     protected onStateChanged(state: IMapState): void {

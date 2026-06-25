@@ -108,6 +108,7 @@
       'top-left','middle-left','bottom-left',
       'top-center','middle-center','bottom-center',
       'top-right','middle-right','bottom-right',
+      'edge-bottom-left','edge-bottom-center','edge-bottom-right',
     ];
 
     // Metadata for well-known string properties → render as <select> instead of free text.
@@ -261,7 +262,7 @@
 
       const btnApply = document.createElement('button');
       btnApply.className = 'btn-apply';
-      btnApply.textContent = 'Apply';
+      btnApply.textContent = 'OK';
       btnApply.addEventListener('click', () => {
         if (fields.some(f => !f.isValid())) return;
         const ov = getSaved();
@@ -270,6 +271,7 @@
         ov[propsKey] = props;
         saveOverrides(ov);
         document.getElementById('status').textContent = 'Options saved — click "Update preview" to apply.';
+        closePopup();
       });
 
       footer.appendChild(btnReset);
