@@ -114,8 +114,8 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
     }
 
     .icon {
-      font-weight: 900;
-      font-size: 22px;
+      font-weight: 400;
+      font-size: 20px;
       line-height: 1;
       user-select: none;
     }
