@@ -9,10 +9,18 @@
     h1 { font-size: 1.4rem; margin-bottom: 1.5rem; }
     h2 { font-size: 1rem; margin: 1.5rem 0 0.5rem; color: #555; text-transform: uppercase; letter-spacing: .05em; }
     .tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.4rem; }
+    .tool-list { display: flex; flex-direction: column; gap: 0.25rem; }
     label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; position: relative; }
     label input[type=checkbox] { cursor: pointer; flex-shrink: 0; }
     label.not-in-config { color: #888; font-style: italic; }
     .tool-name { flex: 1; }
+    .drag-handle {
+      cursor: grab; color: #bbb; font-size: 13px; flex-shrink: 0;
+      user-select: none; padding: 0 2px; line-height: 1;
+    }
+    .drag-handle:active { cursor: grabbing; }
+    label.drag-over { outline: 2px solid #0f62fe; border-radius: 3px; }
+    label.dragging { opacity: 0.4; }
     .info-btn {
       width: 16px; height: 16px; border-radius: 50%; background: #ccc; color: #555;
       font-size: 10px; line-height: 16px; text-align: center; flex-shrink: 0;
@@ -141,6 +149,68 @@
         if (panel[k] !== undefined) obj[pk] = panel[k];
       }
       return obj;
+    }
+
+    // --- Drag-to-reorder ---
+    function makeDraggable(label, orderKey) {
+      const handle = document.createElement('span');
+      handle.className = 'drag-handle';
+      handle.textContent = '⠿';
+      handle.title = 'Drag to reorder';
+      label.insertBefore(handle, label.firstChild);
+
+      label.draggable = true;
+      label.addEventListener('dragstart', (e) => {
+        label.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', label.dataset.toolId);
+        e.dataTransfer.setDragImage(label, 10, 10);
+      });
+      label.addEventListener('dragend', () => {
+        label.classList.remove('dragging');
+        label.parentElement?.querySelectorAll('label').forEach(l => l.classList.remove('drag-over'));
+      });
+      label.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        label.parentElement?.querySelectorAll('label').forEach(l => l.classList.remove('drag-over'));
+        label.classList.add('drag-over');
+      });
+      label.addEventListener('dragleave', () => label.classList.remove('drag-over'));
+      label.addEventListener('drop', (e) => {
+        e.preventDefault();
+        label.classList.remove('drag-over');
+        const fromId = e.dataTransfer.getData('text/plain');
+        const toId = label.dataset.toolId;
+        if (!fromId || fromId === toId) return;
+        const container = label.parentElement;
+        const labels = [...container.querySelectorAll(':scope > label')];
+        const ids = labels.map(l => l.dataset.toolId);
+        const fromIdx = ids.indexOf(fromId);
+        const toIdx = ids.indexOf(toId);
+        if (fromIdx === -1 || toIdx === -1) return;
+        ids.splice(fromIdx, 1);
+        ids.splice(toIdx, 0, fromId);
+        // Reorder DOM
+        ids.forEach(id => {
+          const el = labels.find(l => l.dataset.toolId === id);
+          if (el) container.appendChild(el);
+        });
+        // Persist order
+        const ov = getSaved();
+        ov[orderKey] = ids;
+        saveOverrides(ov);
+      });
+    }
+
+    function applyStoredOrder(labels, orderKey) {
+      const stored = getSaved()[orderKey];
+      if (!stored || !Array.isArray(stored)) return labels;
+      const map = new Map(labels.map(l => [l.dataset.toolId, l]));
+      const ordered = stored.map(id => map.get(id)).filter(Boolean);
+      // Append any new tools not yet in stored order
+      for (const l of labels) if (!stored.includes(l.dataset.toolId)) ordered.push(l);
+      return ordered;
     }
 
     // --- Props popup ---
@@ -292,6 +362,7 @@
 
     function makeToolLabel(cb, labelText, baseProps, propsKey) {
       const label = document.createElement('label');
+      label.dataset.toolId = cb.dataset.tool ?? cb.dataset.standalone ?? cb.dataset.key ?? '';
       label.appendChild(cb);
       const span = document.createElement('span');
       span.className = 'tool-name';
@@ -321,7 +392,11 @@
       closePopup();
       const tools = config.tools ?? {};
 
-      // --- Toolbar tools (all toolbars found in config) ---
+      // --- Toolbar tools (all toolbars side by side) ---
+      const toolbarRow = document.createElement('div');
+      toolbarRow.style.cssText = 'display:flex; gap:1.5rem; align-items:flex-start; flex-wrap:wrap;';
+      ui.appendChild(toolbarRow);
+
       for (const toolbarKey of getToolbarKeys(config)) {
         const toolbar = tools[toolbarKey];
         // Collect items keyed by both id and type for alias lookup
@@ -356,9 +431,16 @@
             h2.appendChild(tbBtn);
           }
         }
-        ui.appendChild(h2);
+        const col = document.createElement('div');
+        col.style.cssText = 'flex:1; min-width:180px;';
+        toolbarRow.appendChild(col);
+        col.appendChild(h2);
         const grid = document.createElement('div');
-        grid.className = 'tool-grid';
+        grid.className = 'tool-list';
+        const toolOrderKey = `order:toolbar:${toolbarKey}`;
+
+        const toolLabels = [];
+        let toolboxSection = null;
 
         for (const tool of TOOLBAR_TOOLS) {
           const key = `toolbar:${toolbarKey}:${tool.id}`;
@@ -377,7 +459,8 @@
           if (enabled) cb.checked = true;
           const label = makeToolLabel(cb, tool.label, inCfg ? item : standaloneVal, propsKey);
           if (!inCfg) label.className = 'not-in-config';
-          grid.appendChild(label);
+          makeDraggable(label, toolOrderKey);
+          toolLabels.push(label);
 
           // If this is a toolbox, show its sub-items as a nested section
           if (tool.id === 'toolbox' && enabled) {
@@ -387,8 +470,8 @@
             const subH4 = document.createElement('h4');
             subH4.textContent = (toolboxItem?.title ?? toolboxItem?.label ?? 'Toolbox') + ' contents';
             subSection.appendChild(subH4);
-            const subGrid = document.createElement('div');
-            subGrid.className = 'tool-grid';
+            const subList = document.createElement('div');
+            subList.className = 'tool-list';
 
             // Build lookup for toolbox sub-items
             const subInConfig = new Map();
@@ -400,28 +483,36 @@
               }
             }
             const toolboxId = toolboxItem?.id ?? 'toolbox';
+            const subOrderKey = `order:toolbox:${toolbarKey}:${toolboxId}`;
+            const subLabels = [];
 
             for (const subTool of TOOLBAR_TOOLS.filter(t => t.id !== 'toolbox')) {
               const subKey = `toolbox:${toolbarKey}:${toolboxId}:${subTool.id}`;
               const subPropsKey = `${subKey}:props`;
               const subItem = subInConfig.get(subTool.id);
               const subInCfg = subItem !== undefined;
+              const subStandaloneVal = !subInCfg && tools[subTool.id] && typeof tools[subTool.id] === 'object' ? tools[subTool.id] : null;
+              const subDefaultProps = !subInCfg && !subStandaloneVal ? { title: subTool.label, ...(subTool.icon ? { icon: subTool.icon } : {}) } : null;
               const subDefaultEnabled = subInCfg ? subItem.enabled !== false : false;
               const subEnabled = overrides[subKey] !== undefined ? overrides[subKey] : subDefaultEnabled;
               const subCb = document.createElement('input');
               subCb.type = 'checkbox';
               subCb.dataset.key = subKey;
+              subCb.dataset.tool = subTool.id;
               if (subEnabled) subCb.checked = true;
-              const subLabel = makeToolLabel(subCb, subTool.label, subInCfg ? subItem : null, subPropsKey);
+              const subLabel = makeToolLabel(subCb, subTool.label, subInCfg ? subItem : (subStandaloneVal ?? subDefaultProps), subPropsKey);
               if (!subInCfg) subLabel.className = 'not-in-config';
-              subGrid.appendChild(subLabel);
+              makeDraggable(subLabel, subOrderKey);
+              subLabels.push(subLabel);
             }
-            subSection.appendChild(subGrid);
-            grid._toolboxSection = subSection; // attach for post-append insertion
+            applyStoredOrder(subLabels, subOrderKey).forEach(l => subList.appendChild(l));
+            subSection.appendChild(subList);
+            toolboxSection = subSection;
           }
         }
-        ui.appendChild(grid);
-        if (grid._toolboxSection) ui.appendChild(grid._toolboxSection);
+        applyStoredOrder(toolLabels, toolOrderKey).forEach(l => grid.appendChild(l));
+        col.appendChild(grid);
+        if (toolboxSection) col.appendChild(toolboxSection);
       }
 
       // --- Standalone / map controls ---
@@ -553,7 +644,42 @@
           if (overrides[key] === true && !existingIds.has(tool.id)) {
             const propsKey = `${key}:props`;
             const propOverrides = overrides[propsKey] ?? {};
-            toolbar.items.push({ type: tool.id, id: tool.id, enabled: true, ...propOverrides });
+            const newItem = { type: tool.id, id: tool.id, enabled: true, ...propOverrides };
+            // Populate sub-items for newly added toolboxes
+            if (tool.id === 'toolbox') {
+              const toolboxId = newItem.id ?? 'toolbox';
+              newItem.items = [];
+              for (const subTool of TOOLBAR_TOOLS.filter(t => t.id !== 'toolbox')) {
+                const subKey = `toolbox:${toolbarKey}:${toolboxId}:${subTool.id}`;
+                if (overrides[subKey] === true) {
+                  const subProps = overrides[`${subKey}:props`] ?? {};
+                  newItem.items.push({ type: subTool.id, id: subTool.id, enabled: true, ...subProps });
+                }
+              }
+            }
+            toolbar.items.push(newItem);
+          }
+        }
+
+        // Apply stored drag order to toolbar items
+        const toolOrder = overrides[`order:toolbar:${toolbarKey}`];
+        if (Array.isArray(toolOrder) && toolOrder.length > 0) {
+          const itemById = new Map(toolbar.items.map(i => [i.id ?? i.type, i]));
+          const ordered = toolOrder.map(id => itemById.get(id)).filter(Boolean);
+          const unordered = toolbar.items.filter(i => !toolOrder.includes(i.id ?? i.type));
+          toolbar.items = [...ordered, ...unordered];
+        }
+
+        // Apply stored drag order to toolbox sub-items
+        for (const item of toolbar.items) {
+          if ((item.id ?? item.type) !== 'toolbox' || !Array.isArray(item.items)) continue;
+          const toolboxId = item.id ?? 'toolbox';
+          const subOrder = overrides[`order:toolbox:${toolbarKey}:${toolboxId}`];
+          if (Array.isArray(subOrder) && subOrder.length > 0) {
+            const subById = new Map(item.items.map(s => [s.id ?? s.type, s]));
+            const ordered = subOrder.map(id => subById.get(id)).filter(Boolean);
+            const unordered = item.items.filter(s => !subOrder.includes(s.id ?? s.type));
+            item.items = [...ordered, ...unordered];
           }
         }
       }

@@ -17,6 +17,8 @@ export interface SaveLayerCandidate {
     paint?: Record<string, unknown>;
     sublayers?: unknown[];
     sourceData?: GeoJSON.FeatureCollection | string;
+    /** Serialized engine source config for external sources (raster/vector tile). Present when data is unavailable. */
+    sourceConfig?: Record<string, unknown>;
 }
 
 interface SaveLayerItem extends SaveLayerCandidate {
@@ -63,6 +65,11 @@ export class WebmapxSaveLayersDialog extends LitElement {
             font-size: 0.8rem;
         }
 
+        .external-hint {
+            color: var(--sl-color-neutral-500);
+            font-size: 0.8rem;
+        }
+
         .options {
             display: flex;
             flex-direction: column;
@@ -82,7 +89,8 @@ export class WebmapxSaveLayersDialog extends LitElement {
         this.items = candidates.map((candidate) => {
             const data = candidate.sourceData
                 ?? (candidate.sourceId ? adapter?.getSourceData(candidate.sourceId) ?? null : null);
-            return { ...candidate, data, checked: data !== null };
+            const saveable = data !== null || candidate.sourceConfig != null;
+            return { ...candidate, data, checked: saveable };
         });
         this.filename = 'map-layers';
         this.includeStyle = true;
@@ -95,7 +103,7 @@ export class WebmapxSaveLayersDialog extends LitElement {
     }
 
     private get selectedItems(): SaveLayerItem[] {
-        return this.items.filter((item) => item.checked && item.data !== null);
+        return this.items.filter((item) => item.checked && (item.data !== null || item.sourceConfig != null));
     }
 
     /** True when a single-file (unzipped) GeoJSON download is offered: exactly one
@@ -136,10 +144,16 @@ export class WebmapxSaveLayersDialog extends LitElement {
         const sources: Record<string, unknown> = {};
         const layers: unknown[] = [];
 
-        // Source is named after the layer (not the underlying map source id) so
-        // the style stays self-contained and matches the exported geojson file.
         const sourceName = item.layerId;
-        sources[sourceName] = { type: 'geojson', data: `${fileBase}.geojson` };
+        const isExternal = item.data === null && item.sourceConfig != null;
+
+        if (isExternal) {
+            // External source (raster/vector tile): use the stored source config as-is.
+            sources[sourceName] = item.sourceConfig;
+        } else {
+            // GeoJSON source: reference the exported file.
+            sources[sourceName] = { type: 'geojson', data: `${fileBase}.geojson` };
+        }
 
         if (Array.isArray(item.sublayers) && item.sublayers.length > 0) {
             item.sublayers.forEach((sub, index) => {
@@ -198,11 +212,12 @@ export class WebmapxSaveLayersDialog extends LitElement {
 
         const zipWriter = new ZipWriter(new BlobWriter('application/zip'));
         for (const item of orderedForSave) {
-            const content = typeof item.data === 'string' ? item.data : JSON.stringify(item.data, null, 2);
-            await zipWriter.add(`${fileBases.get(item.layerId)}.geojson`, new TextReader(content));
-        }
-        if (this.includeStyle) {
-            for (const item of orderedForSave) {
+            const isExternal = item.data === null && item.sourceConfig != null;
+            if (!isExternal) {
+                const content = typeof item.data === 'string' ? item.data : JSON.stringify(item.data, null, 2);
+                await zipWriter.add(`${fileBases.get(item.layerId)}.geojson`, new TextReader(content));
+            }
+            if (this.includeStyle || isExternal) {
                 const style = this.buildStyleConfig(item, fileBases.get(item.layerId)!);
                 await zipWriter.add(`${fileBases.get(item.layerId)}_style.json`, new TextReader(JSON.stringify(style, null, 2)));
             }
@@ -232,11 +247,12 @@ export class WebmapxSaveLayersDialog extends LitElement {
                         <div class="layer-row">
                             <sl-checkbox
                                 ?checked=${item.checked}
-                                ?disabled=${item.data === null}
+                                ?disabled=${item.data === null && item.sourceConfig == null}
                                 @sl-change=${(e: Event) => this.toggleItem(item.layerId, (e.target as HTMLInputElement).checked)}
                             >
                                 ${item.label}
-                                ${item.data === null ? html`<span class="unsupported">(no exportable data)</span>` : null}
+                                ${item.data === null && item.sourceConfig == null ? html`<span class="unsupported">(no exportable data)</span>` : null}
+                                ${item.data === null && item.sourceConfig != null ? html`<span class="external-hint">(style only)</span>` : null}
                             </sl-checkbox>
                         </div>
                     `)}

@@ -49,11 +49,7 @@ export class WebmapxToolboxTool extends WebmapxBaseTool {
       gap: 2px;
       scroll-behavior: smooth;
       -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-
-    .toolbox-scroll::-webkit-scrollbar {
-      display: none;
+      scrollbar-width: thin;
     }
 
     .tool-btn {

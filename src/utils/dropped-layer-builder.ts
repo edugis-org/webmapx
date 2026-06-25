@@ -293,10 +293,11 @@ export async function buildLayerConfigFromGroup(group: NamedBlob[]): Promise<Com
     }
   }
 
-  if (geojsonFiles.length === 0) return null;
+  if (geojsonFiles.length === 0 && !styleFile) return null;
 
   const baseId = sanitizeId(
-    typeof styleFile?.style.id === 'string' ? styleFile.style.id : geojsonFiles[0].name
+    typeof styleFile?.style.id === 'string' ? styleFile.style.id :
+    geojsonFiles.length > 0 ? geojsonFiles[0].name : 'layer'
   );
   const prefix = `${baseId}:`;
 
@@ -318,8 +319,6 @@ export async function buildLayerConfigFromGroup(group: NamedBlob[]): Promise<Com
     const styleSources = (styleFile.style.sources as Record<string, { type?: string; data?: unknown } & Record<string, unknown>>) ?? {};
     const sourceKeyMap = new Map<string, string>();
     for (const [key, source] of Object.entries(styleSources)) {
-      // Deny raster sources - dropped raster layers are not supported.
-      if (source.type === 'raster' || source.type === 'raster-dem') continue;
       const dataRef = typeof source.data === 'string' ? sourcesByFile.get(source.data.toLowerCase()) : undefined;
       if (dataRef) {
         sources[dataRef.sourceKey] = { ...source, data: dataRef.data };
@@ -332,8 +331,7 @@ export async function buildLayerConfigFromGroup(group: NamedBlob[]): Promise<Com
     }
     const styleLayers = (styleFile.style.layers as SubLayerSpec[]) ?? [];
     layers = styleLayers
-      // Deny raster/hillshade layers and any layer whose source was dropped above.
-      .filter((layer) => layer.type !== 'raster' && layer.type !== 'hillshade' && (!layer.source || sourceKeyMap.has(layer.source)))
+      .filter((layer) => !layer.source || sourceKeyMap.has(layer.source))
       .map((layer) => ({
         ...layer,
         id: `${prefix}${sanitizeId(layer.id ?? layer.type)}`,
@@ -355,7 +353,7 @@ export async function buildLayerConfigFromGroup(group: NamedBlob[]): Promise<Com
     id: baseId,
     type: 'style',
     version: 8,
-    title: typeof styleFile?.style.title === 'string' ? styleFile.style.title as string : geojsonFiles[0].name,
+    title: typeof styleFile?.style.title === 'string' ? styleFile.style.title as string : (geojsonFiles[0]?.name ?? baseId),
     metadata: { ...styleMetadata, dynamic: true },
     sources,
     layers,

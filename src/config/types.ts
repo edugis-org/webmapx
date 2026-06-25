@@ -110,6 +110,7 @@ export interface GeoJSONSourceConfig extends SourceConfigBase {
 export interface VectorSourceConfig extends SourceConfigBase {
   type: 'vector';
   url?: string;
+  tiles?: string[];
 }
 
 export interface RasterDemSourceConfig extends SourceConfigBase {

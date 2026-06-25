@@ -844,6 +844,9 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         sourceData: (metadata?.sourceData && typeof metadata.sourceData === 'object')
           ? metadata.sourceData as GeoJSON.FeatureCollection
           : undefined,
+        sourceConfig: typeof metadata?.sourceId === 'string'
+          ? this.adapter?.getSourceConfig(metadata.sourceId) ?? undefined
+          : undefined,
       };
     });
     this.saveLayersDialog?.open(candidates, this.adapter);

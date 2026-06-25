@@ -172,6 +172,10 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
         return this.logicalLayerExecutor.getSourceData(sourceId);
     }
 
+    getSourceConfig(sourceId: string): Record<string, unknown> | null {
+        return this.layerService?.getSourceConfig(sourceId) ?? super.getSourceConfig(sourceId);
+    }
+
     querySourceFeatures(sourceId: string, options?: SourceFeatureQueryOptions): SourceFeatureSample | null {
         return this.logicalLayerExecutor.querySourceFeatures(sourceId, options);
     }

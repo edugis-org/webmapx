@@ -480,6 +480,12 @@ export class MapLayerService implements ILayerService {
         }
     }
 
+    getSourceConfig(sourceId: string): Record<string, unknown> | null {
+        const nativeSourceId = this.logicalSourceToNative.get(sourceId);
+        if (!nativeSourceId) return null;
+        return this.nativeSourceToConfig.get(nativeSourceId) ?? null;
+    }
+
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
         const nativeSourceId = this.logicalSourceToNative.get(sourceId);
         if (!nativeSourceId) return null;

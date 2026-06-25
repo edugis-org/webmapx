@@ -50,8 +50,9 @@ export function normalizeRawSource(logicalId: string, rawDef: unknown): SourceCo
         return { id: logicalId, type: 'geojson', data: data as string } as GeoJSONSourceConfig;
     }
     if (def.type === 'vector') {
-        if (typeof def.url !== 'string') return null;
-        return { id: logicalId, type: 'vector', url: def.url } as VectorSourceConfig;
+        const tiles = Array.isArray(def.tiles) ? def.tiles.filter((t): t is string => typeof t === 'string') : undefined;
+        if (typeof def.url !== 'string' && !tiles?.length) return null;
+        return { id: logicalId, type: 'vector', ...(typeof def.url === 'string' ? { url: def.url } : {}), ...(tiles?.length ? { tiles } : {}) } as VectorSourceConfig;
     }
     return null;
 }

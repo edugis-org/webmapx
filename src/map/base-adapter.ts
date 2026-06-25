@@ -30,6 +30,7 @@ export abstract class BaseAdapter {
     public readonly store: MapStateStore;
     public readonly events: MapEventBus;
     private sourceAttributions = new Map<string, string>();
+    private sourceConfigs = new Map<string, Record<string, unknown>>();
     private layerConfigStore = new Map<string, { config: unknown; options?: LayerInsertOptions }>();
 
     constructor() {
@@ -53,8 +54,15 @@ export abstract class BaseAdapter {
         return this.sourceAttributions.get(id);
     }
 
+    getSourceConfig(sourceId: string): Record<string, unknown> | null {
+        return this.sourceConfigs.get(sourceId) ?? null;
+    }
+
     addSource(id: string, config: any): void {
         this.trackSourceAttribution(id, config);
+        if (config && typeof config === 'object') {
+            this.sourceConfigs.set(id, config as Record<string, unknown>);
+        }
         this.engineAddSource(id, config);
     }
 

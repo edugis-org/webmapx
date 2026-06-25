@@ -334,6 +334,9 @@ export interface IMap {
     /** Returns the `attribution` configured on a source via addSource, if any. */
     getSourceAttribution(sourceId: string): string | undefined;
 
+    /** Returns the serialized source config (type, tiles, url, etc.) for any source, or null if unavailable. */
+    getSourceConfig(sourceId: string): Record<string, unknown> | null;
+
     /**
      * Returns features currently loaded for a source, when the engine can expose
      * them. For vector tile sources this is a viewport/tile sample, not a full
