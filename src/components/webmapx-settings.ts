@@ -74,7 +74,7 @@ export class WebmapxSettings extends LitElement {
         if (savedTheme) {
             this.darkMode = savedTheme === 'dark';
         } else {
-            this.darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            this.darkMode = false;
         }
         this.applyTheme();
 

@@ -2530,6 +2530,10 @@
     ]
   },
   "tools": {
+    "info": {
+      "enabled": true,
+      "googleApiKey": "{key-google}"
+    },
     "maplanguage": {
       "enabled": true,
       "visible": false,

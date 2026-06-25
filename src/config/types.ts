@@ -415,6 +415,11 @@ export interface SearchToolConfig extends ToolConfig {
   attribution?: string;
 }
 
+export interface InfoToolConfig extends ToolConfig {
+  /** Google Maps API key — enables StreetView thumbnail preview in the info panel. */
+  googleApiKey?: string;
+}
+
 export interface ThreeDToolConfig extends ToolConfig {
   /** MapLibre terrain URL used by the 3D tool when no terrain layer exists in the configuration. */
   'maplibre-terrain-fallback-url'?: string;
@@ -429,7 +434,8 @@ export interface ToolsConfig {
   measure?: MeasureToolConfig;
   insetMap?: InsetMapToolConfig;
   search?: SearchToolConfig;
-  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | undefined;
+  info?: InfoToolConfig;
+  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | InfoToolConfig | undefined;
 }
 
 export interface AppConfig {
