@@ -14,6 +14,7 @@ import type { LayerStyleTarget, SourceAttributeInfo, SourceStyleGroup, WebmapxLa
 import type { WebmapxSaveLayersDialog, SaveLayerCandidate } from './webmapx-save-layers-dialog';
 import type { WebmapxPermalinkDialog } from './webmapx-permalink-dialog';
 import { buildPermalinkUrl, getMapDomIndex, getConfigUrlForIndex } from '../utils/permalink';
+import { Webmapx3dTool } from './webmapx-3d-tool';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
@@ -821,11 +822,19 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     const mapIndex = getMapDomIndex(mapElement as Element);
     const configUrl = getConfigUrlForIndex(mapIndex);
     const projection = this.adapter.getProjection?.()?.name ?? null;
+    const terrainEnabled = this.adapter.isTerrainEnabled?.() === true;
+
+    // The auto-managed terrain hillshade layer is implied by terrain:true — exclude it from
+    // state.l so it isn't treated as a missing layer on restore.
+    const permalinkLayerIds = terrainEnabled
+      ? allLayerIds.filter(id => id !== Webmapx3dTool.TERRAIN_LAYER_ID)
+      : allLayerIds;
+    const permalinkHiddenIds = hiddenLayerIds.filter(id => id !== Webmapx3dTool.TERRAIN_LAYER_ID);
 
     // Detect layers added from file drops (marked dynamic:true in metadata) — can't restore from permalink
     const dynamicLayerIds = allLayerIds.filter(id => mapLayers[id]?.dynamic === true);
 
-    const url = buildPermalinkUrl(mapIndex, allLayerIds, hiddenLayerIds, viewport, transparencyOverrides, projection, configUrl);
+    const url = buildPermalinkUrl(mapIndex, permalinkLayerIds, permalinkHiddenIds, viewport, transparencyOverrides, projection, configUrl, terrainEnabled);
     this.permalinkDialog?.open(url, !!configUrl, dynamicLayerIds);
   }
 

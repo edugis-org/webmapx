@@ -32,8 +32,11 @@ export class Webmapx3dTool extends WebmapxBaseTool {
         this.syncFromAdapter();
     }
 
-    protected onStateChanged(_state: IMapState): void {
+    protected onStateChanged(state: IMapState): void {
         this.syncFromAdapter();
+        if (state.terrainEnabled && !this.terrainEnabled && this.terrainSupported) {
+            void this.toggleTerrain();
+        }
     }
 
     private syncFromAdapter(): void {
@@ -94,7 +97,7 @@ export class Webmapx3dTool extends WebmapxBaseTool {
         return (layer as any)?.url ?? (layer as any)?.source?.url ?? this.getToolAttr('cesium-terrain-fallback-url');
     }
 
-    private static readonly TERRAIN_LAYER_ID = 'webmapx-terrain-hillshade';
+    static readonly TERRAIN_LAYER_ID = 'webmapx-terrain-hillshade';
 
     private findActiveHillshadeSource(): unknown | undefined {
         const layers = this.store?.getState().mapLayers ?? {};

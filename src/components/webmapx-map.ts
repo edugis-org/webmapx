@@ -28,6 +28,7 @@ import { resolveLegendRoleForLayer } from './internal/legend-role-policy';
 import { resolveGeoJSONSources, type PagedSourceContinuation } from '../map/geojson-loader';
 import { inlineLayerSources } from '../map/layer-source-resolver';
 import { showToast } from '../utils/toast';
+import { Webmapx3dTool } from './webmapx-3d-tool';
 
 const MAP_VIEW_SLOT = 'map-view';
 const MAP_SURFACE_CLASS = 'webmapx-map__surface';
@@ -1428,9 +1429,17 @@ export class WebmapxMapElement extends HTMLElement {
       adapter.store.dispatch({ mapLayers: tUpdate as typeof current }, 'UI');
     }
 
-    // Notify user about layers from the permalink that could not be loaded
+    if (state.terrain) {
+      adapter.store.dispatch({ terrainEnabled: true }, 'UI');
+    }
+
+    // Notify user about layers from the permalink that could not be loaded.
+    // Exclude the auto-managed terrain hillshade layer — the 3D tool re-adds it
+    // asynchronously when state.terrain is true, so it won't be in loadedLayers yet.
     const loadedLayers = adapter.store.getState().mapLayers ?? {};
-    const missingLayers = state.l.filter(id => !loadedLayers[id]);
+    const missingLayers = state.l.filter(id =>
+      !loadedLayers[id] && !(state.terrain && id === Webmapx3dTool.TERRAIN_LAYER_ID)
+    );
     if (missingLayers.length > 0) {
       void this.showPermalinkMissingLayersToast(missingLayers);
     }

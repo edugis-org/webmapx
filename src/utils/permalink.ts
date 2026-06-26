@@ -46,6 +46,8 @@ export interface PermalinkState {
     t?: Record<string, number>;
     /** Projection name (e.g. 'globe', 'equalEarth'). Omitted when mercator (default). */
     p?: string;
+    /** True when 3D terrain was enabled. Omitted when terrain is off. */
+    terrain?: boolean;
 }
 
 export function encodePermalink(state: PermalinkState): string {
@@ -80,6 +82,7 @@ export function buildPermalinkUrl(
     transparencyOverrides: Map<string, number>,
     projection?: string | null,
     configUrl?: string | null,
+    terrainEnabled?: boolean,
 ): string {
     const t: Record<string, number> = {};
     for (const [id, val] of transparencyOverrides) {
@@ -99,6 +102,7 @@ export function buildPermalinkUrl(
     if (hiddenLayerIds.length > 0) state.h = hiddenLayerIds;
     if (Object.keys(t).length > 0) state.t = t;
     if (projection && projection !== 'mercator') state.p = projection;
+    if (terrainEnabled) state.terrain = true;
 
     const url = new URL(window.location.href);
 

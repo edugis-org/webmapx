@@ -30,6 +30,8 @@ export interface IMapState {
      * extending a hardcoded union.
      */
     activeTool: ActiveToolState | null;
+    /** True when 3D terrain is enabled (set by permalink restore to signal the 3D tool). */
+    terrainEnabled?: boolean;
 }
 
 export interface ActiveToolState {
