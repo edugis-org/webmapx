@@ -429,8 +429,17 @@ export interface ThreeDToolConfig extends ToolConfig {
   'cesium-terrain-fallback-url'?: string;
 }
 
+export interface CoordinatesToolConfig extends ToolConfig {
+  /**
+   * Default display format for the cursor coordinate.
+   * Values: 'geographic-en' | 'geographic-local' | 'lonlat' | 'latlon' | 'crs:<EPSG code>'
+   * Example: "crs:28992" for Dutch RD New.
+   */
+  defaultFormat?: string;
+}
+
 export interface ToolsConfig {
-  coordinates?: ToolConfig;
+  coordinates?: CoordinatesToolConfig;
   layerTree?: ToolConfig;
   legend?: ToolConfig;
   measure?: MeasureToolConfig;

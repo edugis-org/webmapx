@@ -112,6 +112,12 @@
     // Keys not shown as editable props (structural or handled elsewhere)
     const SKIP_PROPS = new Set(['id', 'type', 'enabled', 'items']);
 
+    // Extra prop defaults injected into the ⚙ popup for specific tools,
+    // so config-defined options surface even when absent from the config JSON.
+    const TOOL_EXTRA_PROPS = {
+      coordinates: { defaultFormat: 'geographic-en' },
+    };
+
     const LAYOUT_POSITIONS = [
       'top-left','middle-left','bottom-left',
       'top-center','middle-center','bottom-center',
@@ -122,6 +128,7 @@
     // Metadata for well-known string properties → render as <select> instead of free text.
     // Key is the property name; value is array of allowed options.
     const PROP_OPTIONS = {
+      defaultFormat:   ['geographic-en', 'geographic-local', 'lonlat', 'latlon'],
       position:        LAYOUT_POSITIONS,
       orientation:     ['vertical', 'horizontal'],
       'panel-position': ['after', 'before'],
@@ -528,7 +535,7 @@
         const val = tools[tool.id];
         const inCfg = val !== undefined && val !== null && typeof val === 'object';
         // not in config or null → give a default so the ⚙ editor still appears
-        const valOrDefault = inCfg ? val : { position: 'top-left' };
+        const valOrDefault = { position: 'top-left', ...(TOOL_EXTRA_PROPS[tool.id] ?? {}), ...(inCfg ? val : {}) };
         const defaultEnabled = val !== undefined ? (inCfg ? val.enabled !== false : true) : false;
         const enabled = overrides[key] !== undefined ? overrides[key] : defaultEnabled;
         const cb = document.createElement('input');
@@ -746,7 +753,8 @@
       saveOverrides({});
       buildUI(baseConfig, {});
       updateSelectAll();
-      document.getElementById('status').textContent = 'Reset to defaults.';
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(baseConfig));
+      document.getElementById('status').textContent = 'Reset to defaults — preview updated.';
     });
 
     document.getElementById('btn-download').addEventListener('click', () => {
