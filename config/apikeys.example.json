@@ -8,5 +8,7 @@
   "metoffice": "your-personal-metoffice-key",
   "openweathermap": "your-personal-openweathermap-key",
   "maptiler": "your-personal-maptiler-key",
-  "tomtom": "your-personal-tomtom-key"
+  "tomtom": "your-personal-tomtom-key",
+  "openrouteservice": "your-personal-openrouteservice-key",
+  "graphhopper": "your-personal-graphhopper-key"
 }

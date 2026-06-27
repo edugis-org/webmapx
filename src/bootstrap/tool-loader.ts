@@ -20,6 +20,8 @@ const TOOL_MAP: Record<string, () => Promise<unknown>> = {
   'view-mode':        () => import('../components/webmapx-view-mode-tool.js'),
   coordinates:        () => import('../components/webmapx-coordinates-tool.js'),
   settings:           () => import('../components/webmapx-settings.js'),
+  routing:            () => import('../components/webmapx-routing-tool.js'),
+  isochrone:          () => import('../components/webmapx-isochrone-tool.js'),
   'config-edit':      () => import('../components/webmapx-config-edit-tool.js'),
   'active-adapter':   () => import('../components/webmapx-active-adapter.js'),
   activeAdapter:      () => import('../components/webmapx-active-adapter.js'),

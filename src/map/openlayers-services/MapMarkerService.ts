@@ -3,7 +3,7 @@
 
 import OLMap from 'ol/Map';
 import Overlay from 'ol/Overlay';
-import { fromLonLat } from 'ol/proj';
+import { fromLonLat, toLonLat } from 'ol/proj';
 import type { LngLat } from '../../store/map-events';
 import type { MarkerOptions } from '../IMapInterfaces';
 import { pinSvg } from '../marker-utils';
@@ -41,7 +41,7 @@ export class MapMarkerService {
         const entry: MarkerEntry = { overlay, element, draggable };
 
         if (draggable) {
-            entry.dragCleanup = this.attachDrag(id, element, overlay);
+            entry.dragCleanup = this.attachDrag(element, overlay, options);
         }
 
         this.markers.set(id, entry);
@@ -63,7 +63,7 @@ export class MapMarkerService {
         }
     }
 
-    private attachDrag(id: string, element: HTMLElement, overlay: Overlay): () => void {
+    private attachDrag(element: HTMLElement, overlay: Overlay, options: MarkerOptions): () => void {
         let dragging = false;
 
         const onPointerDown = (e: PointerEvent) => {
@@ -78,10 +78,26 @@ export class MapMarkerService {
             const rect = mapEl.getBoundingClientRect();
             const pixel: [number, number] = [e.clientX - rect.left, e.clientY - rect.top];
             const coord = this.map.getCoordinateFromPixel(pixel);
-            if (coord) overlay.setPosition(coord);
+            if (coord) {
+                overlay.setPosition(coord);
+                if (options.onDrag) {
+                    const ll = toLonLat(coord);
+                    options.onDrag([ll[0], ll[1]]);
+                }
+            }
         };
 
-        const onPointerUp = () => { dragging = false; };
+        const onPointerUp = () => {
+            if (!dragging) return;
+            dragging = false;
+            if (options.onDragEnd) {
+                const pos = overlay.getPosition();
+                if (pos) {
+                    const ll = toLonLat(pos);
+                    options.onDragEnd([ll[0], ll[1]]);
+                }
+            }
+        };
 
         element.addEventListener('pointerdown', onPointerDown);
         element.addEventListener('pointermove', onPointerMove);

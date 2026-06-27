@@ -26,6 +26,20 @@ export class MapMarkerService {
             icon: makeDivIcon(color),
             draggable: options.draggable ?? false,
         }).addTo(this.map);
+
+        if (options.onDrag) {
+            marker.on('drag', () => {
+                const pos = marker.getLatLng();
+                options.onDrag!([pos.lng, pos.lat]);
+            });
+        }
+        if (options.onDragEnd) {
+            marker.on('dragend', () => {
+                const pos = marker.getLatLng();
+                options.onDragEnd!([pos.lng, pos.lat]);
+            });
+        }
+
         this.markers.set(id, marker);
     }
 

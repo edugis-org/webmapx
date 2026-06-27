@@ -251,8 +251,9 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 const matchVal = Array.isArray(expr[i]) ? expr[i].join(', ') : String(expr[i]);
                 cases.push({ label: matchVal, paint: expr[i + 1] });
             }
-            // default (last element)
-            cases.push({ label: 'other', paint: expr[expr.length - 1] });
+            // default (last element) — skip if it's an expression array (signals "hide other")
+            const fallback = expr[expr.length - 1];
+            if (!Array.isArray(fallback)) cases.push({ label: 'other', paint: fallback });
             return cases.length > 1 ? cases : null;
         }
         if (op === 'step' && expr.length >= 5) {

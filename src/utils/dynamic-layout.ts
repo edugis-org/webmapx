@@ -40,6 +40,8 @@ const TOOL_ELEMENT_TAGS: Record<string, string> = {
   maplanguage: 'webmapx-language-osmvector',
   print: 'webmapx-print-tool',
   truearea: 'webmapx-truearea-tool',
+  routing: 'webmapx-routing-tool',
+  isochrone: 'webmapx-isochrone-tool',
   toolbox: 'webmapx-toolbox-tool',
 };
 
@@ -65,6 +67,8 @@ const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = {
   maplanguage: { label: 'Map language', icon: 'translate' },
   print: { label: 'Print', icon: 'printer' },
   truearea: { label: 'True Area', icon: 'bounding-box-circles' },
+  routing: { label: 'Routing', icon: 'signpost-split' },
+  isochrone: { label: 'Isochrone', icon: 'broadcast' },
   toolbox: { label: 'Toolbox', icon: 'grid' },
 };
 
@@ -100,6 +104,8 @@ export const KNOWN_TOOLS: Array<{ id: string; label: string; icon?: string; stan
   { id: 'maplanguage',   label: 'Map language',   icon: 'translate' },
   { id: 'print',         label: 'Print',          icon: 'printer' },
   { id: 'truearea',      label: 'True Area',      icon: 'bounding-box-circles' },
+  { id: 'routing',       label: 'Routing',        icon: 'signpost-split' },
+  { id: 'isochrone',    label: 'Isochrone',      icon: 'broadcast' },
   { id: 'settings',      label: 'Settings',       icon: 'gear' },
   { id: 'toolbox',       label: 'Toolbox',        icon: 'grid' },
   { id: 'navigation',    label: 'Navigation',     icon: 'compass',     standalone: true },

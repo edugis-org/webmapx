@@ -28,7 +28,6 @@ import { resolveLegendRoleForLayer } from './internal/legend-role-policy';
 import { resolveGeoJSONSources, type PagedSourceContinuation } from '../map/geojson-loader';
 import { inlineLayerSources } from '../map/layer-source-resolver';
 import { showToast } from '../utils/toast';
-import { Webmapx3dTool } from './webmapx-3d-tool';
 
 const MAP_VIEW_SLOT = 'map-view';
 const MAP_SURFACE_CLASS = 'webmapx-map__surface';
@@ -1438,7 +1437,7 @@ export class WebmapxMapElement extends HTMLElement {
     // asynchronously when state.terrain is true, so it won't be in loadedLayers yet.
     const loadedLayers = adapter.store.getState().mapLayers ?? {};
     const missingLayers = state.l.filter(id =>
-      !loadedLayers[id] && !(state.terrain && id === Webmapx3dTool.TERRAIN_LAYER_ID)
+      !loadedLayers[id] && !(state.terrain && id === 'webmapx-terrain-hillshade')
     );
     if (missingLayers.length > 0) {
       void this.showPermalinkMissingLayersToast(missingLayers);

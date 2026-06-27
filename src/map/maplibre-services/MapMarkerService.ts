@@ -17,6 +17,20 @@ export class MapMarkerService {
         })
             .setLngLat([lngLat[0], lngLat[1]])
             .addTo(this.map);
+
+        if (options.onDrag) {
+            marker.on('drag', () => {
+                const pos = marker.getLngLat();
+                options.onDrag!([pos.lng, pos.lat]);
+            });
+        }
+        if (options.onDragEnd) {
+            marker.on('dragend', () => {
+                const pos = marker.getLngLat();
+                options.onDragEnd!([pos.lng, pos.lat]);
+            });
+        }
+
         this.markers.set(id, marker);
     }
 

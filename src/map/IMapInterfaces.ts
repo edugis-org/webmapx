@@ -10,6 +10,10 @@ export interface MarkerOptions {
     color?: string;
     /** Whether the marker can be dragged by the user. Default: false. */
     draggable?: boolean;
+    /** Called continuously while the marker is being dragged. */
+    onDrag?: (lngLat: [number, number]) => void;
+    /** Called once when the drag ends. */
+    onDragEnd?: (lngLat: [number, number]) => void;
 }
 import type { MapStateStore } from '../store/map-state-store';
 

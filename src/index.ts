@@ -19,6 +19,10 @@ export { WebmapxToolboxTool } from './components/webmapx-toolbox-tool.js';
 export { WebmapxDrawTool } from './components/webmapx-draw-tool.js';
 export type { DrawMode, DrawFeature } from './components/webmapx-draw-tool.js';
 
+// Routing tool
+export { WebmapxRoutingTool } from './components/webmapx-routing-tool.js';
+export { WebmapxIsochroneTool } from './components/webmapx-isochrone-tool.js';
+
 // Draw layer dialog
 export { WebmapxDrawLayerDialog } from './components/webmapx-draw-layer-dialog.js';
 export type { DrawLayerConfig, GeometryType, PropertyDef } from './components/webmapx-draw-layer-dialog.js';
