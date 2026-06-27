@@ -601,6 +601,10 @@ export class WebmapxMapElement extends HTMLElement {
       return;
     }
 
+    if (layerData.attributeMetadata && Object.keys(layerData.attributeMetadata).length > 0) {
+      adapter.store.dispatch({ attributeMetadata: layerData.attributeMetadata }, 'INIT');
+    }
+
     if (!this.initialStateLayersApplied) {
       this.initialStateLayersApplied = true;
       void this.applyInitialStateLayers(adapter, layerData);

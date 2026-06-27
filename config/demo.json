@@ -1027,6 +1027,29 @@
         "attribution": "NextZen"
       }
     },
+    "attributeMetadata": {
+      "pop_dens": {
+        "translations": [
+          {
+            "name": "pop_dens",
+            "translation": "population density",
+            "unit": " inh/km²",
+            "valuemap": [
+              { "value": 0,      "operator": "==", "label": "no data" },
+              { "value": 10,     "operator": "<",  "label": "0 - 10 inh/km²" },
+              { "value": 26,     "operator": "<",  "label": "10 - 26 inh/km²" },
+              { "value": 48,     "operator": "<",  "label": "26 - 48 inh/km²" },
+              { "value": 72,     "operator": "<",  "label": "48 - 72 inh/km²" },
+              { "value": 107,    "operator": "<=", "label": "72 - 107 inh/km²" },
+              { "value": 174,    "operator": "<",  "label": "107 - 174 inh/km²" },
+              { "value": 309,    "operator": "<",  "label": "174 - 309 inh/km²" },
+              { "value": 759,    "operator": "<=", "label": "309 - 759 inh/km²" },
+              { "value": 600104, "operator": "<=", "label": "> 759 inh/km²" }
+            ]
+          }
+        ]
+      }
+    },
     "layers": {
       "osm": {
         "id": "osm",
@@ -1437,16 +1460,7 @@
         "source": "populationdensity-source",
         "metadata": {
           "abstract": "Bevolking 2020 per Natural Earth admin level 1 (landsdeel). Bevolking berekend uit 1km WorldPop mosaic grid 2020",
-          "attributes": {
-            "translations": [
-              {
-                "name": "pop_dens",
-                "translation": "population density",
-                "unit": " inh/km\u00b2"
-              }
-            ]
-          },
-          "title": "Population density | Regions"
+          "attributes": "pop_dens"
         },
         "source-layer": "public.ne_10m_admin_1_states_provinces_lakes_pop",
         "paint": {
@@ -1554,16 +1568,7 @@
         "source": "population3d-source",
         "metadata": {
           "abstract": "Bevolking 2020 per Natural Earth admin level 1 (landsdeel). Bevolking berekend uit 1km WorldPop mosaic grid 2020",
-          "attributes": {
-            "translations": [
-              {
-                "name": "pop_dens",
-                "translation": "population density",
-                "unit": " inh/km\u00b2"
-              }
-            ]
-          },
-          "title": "Population density | Regions 3D"
+          "attributes": "pop_dens"
         },
         "source-layer": "public.ne_10m_admin_1_states_provinces_lakes_pop",
         "paint": {

@@ -23,6 +23,8 @@ export interface IMapState {
 
     /** Engine-neutral registry for all layers currently known to the map. */
     mapLayers: Record<string, MapLayerStateEntry>;
+    /** Shared attribute metadata catalog, keyed by name. Populated from layerData.attributeMetadata. */
+    attributeMetadata: Record<string, unknown>;
 
     /**
      * Currently active tool in the UI state model.

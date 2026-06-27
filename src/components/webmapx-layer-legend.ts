@@ -752,7 +752,10 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
 
     /** Get attribute translations from layer metadata: name → {label, unit, maxvalue, valuemap} */
     private getAttrTranslations(): Map<string, {label: string; unit: string; maxvalue?: number; valuemap?: Array<{value: unknown; label: string; operator?: string}>}> {
-        const attrs = (this.meta as any)?.attributes;
+        const rawAttrs = (this.meta as any)?.attributes;
+        const attrs = typeof rawAttrs === 'string'
+            ? (this.adapter?.store.getState().attributeMetadata?.[rawAttrs] as any)
+            : rawAttrs;
         const map = new Map<string, {label: string; unit: string; maxvalue?: number; valuemap?: Array<{value: unknown; label: string; operator?: string}>}>();
         if (!Array.isArray(attrs?.translations)) return map;
         for (const t of attrs.translations) {

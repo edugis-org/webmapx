@@ -27,6 +27,7 @@ export class MapStateStore {
         pointerResolution: null,
         lastClickedResolution: null,
         mapLayers: {},
+        attributeMetadata: {},
         activeTool: null,
         terrainEnabled: false,
     };

@@ -336,6 +336,8 @@ export interface LayerDataConfig {
   sources?: SourceConfig[];
   /** Ordered layer definitions. Order matters for initial rendering. */
   layers?: AnyLayerConfig[];
+  /** Shared attribute metadata catalog. Layer metadata.attributes can reference a key here as a string. */
+  attributeMetadata?: Record<string, LayerAttributeConfig>;
 }
 
 // ---------------------------------------------------------------------------
