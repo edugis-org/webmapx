@@ -21,6 +21,11 @@ export interface SourceFeatureQueryOptions {
     sourceLayer?: string;
 }
 
+export interface QueryLayerFeaturesOptions {
+    /** For vector tile sources: restrict to a specific source layer (MVT layer name). */
+    sourceLayer?: string;
+}
+
 export interface SourceFeatureSample {
     features: GeoJSON.Feature[];
 }
@@ -348,6 +353,12 @@ export interface IMap {
      */
     querySourceFeatures?(sourceId: string, options?: SourceFeatureQueryOptions): SourceFeatureSample | null;
 
+    queryLayerFeatures(layerId: string, options?: QueryLayerFeaturesOptions): Promise<GeoJSON.FeatureCollection>;
+
+    /** Returns distinct MVT source-layer names used by the native sub-layers of a logical layer.
+     *  Empty array for GeoJSON/raster layers. */
+    getLayerSourceLayers(layerId: string): string[];
+
     // ===== Coordinate Conversion =====
     /** Projects geographic [lng, lat] to screen pixel [x, y]. */
     project(coords: LngLat): Pixel;
@@ -480,6 +491,12 @@ export interface ILogicalLayerExecutor {
     /** Returns currently loaded source features when supported by the engine. */
     querySourceFeatures?(sourceId: string, options?: SourceFeatureQueryOptions): SourceFeatureSample | null;
 
+    /** Returns all features for a logical layer (GeoJSON sources) or rendered viewport features (vector tile sources). */
+    queryLayerFeatures(layerId: string, options?: QueryLayerFeaturesOptions): Promise<GeoJSON.FeatureCollection>;
+
+    /** Returns distinct MVT source-layer names used by this logical layer. Empty array for GeoJSON/raster. */
+    getLayerSourceLayers(layerId: string): string[];
+
     /** Updates a catalog/logical GeoJSON source. Returns true when the source exists and was updated. */
     setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean;
 
@@ -534,6 +551,12 @@ export interface ILayerService {
 
     /** Returns currently loaded source features when supported by the engine. */
     querySourceFeatures?(sourceId: string, options?: SourceFeatureQueryOptions): SourceFeatureSample | null;
+
+    /** Returns all features for a logical layer (GeoJSON sources) or rendered viewport features (vector tile sources). */
+    queryLayerFeatures(layerId: string, options?: QueryLayerFeaturesOptions): Promise<GeoJSON.FeatureCollection>;
+
+    /** Returns distinct MVT source-layer names used by this logical layer. Empty array for GeoJSON/raster. */
+    getLayerSourceLayers(layerId: string): string[];
 
     /** Updates a catalog/logical GeoJSON source. Returns true when the source exists and was updated. */
     setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean;

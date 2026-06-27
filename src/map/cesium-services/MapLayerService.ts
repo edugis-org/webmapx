@@ -1,6 +1,6 @@
 // src/map/cesium-services/MapLayerService.ts
 
-import type { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
+import type { ILayerService, LayerInsertOptions, QueryLayerFeaturesOptions } from '../IMapInterfaces';
 import { normalizeRawSource } from '../layer-source-utils';
 import { normalizeCompositeLayer, findNormalizedSource, type NormalizedCompositeSpec } from '../composite-layer-utils';
 import type { AnyLayerConfig, StandardLayerConfig, SourceConfig, WMSSourceConfig, GeoJSONSourceConfig, SubLayerSpec } from '../../config/types';
@@ -454,6 +454,16 @@ export class MapLayerService implements ILayerService {
             return handle.data;
         }
         return null;
+    }
+
+    getLayerSourceLayers(_layerId: string): string[] { return []; }
+
+    async queryLayerFeatures(layerId: string, _options?: QueryLayerFeaturesOptions): Promise<GeoJSON.FeatureCollection> {
+        for (const [handleKey, handle] of this.handles.entries()) {
+            if (!handleKey.startsWith(`${layerId}::`) || handle.kind !== 'geojson') continue;
+            return handle.data;
+        }
+        return { type: 'FeatureCollection', features: [] };
     }
 
     setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean {

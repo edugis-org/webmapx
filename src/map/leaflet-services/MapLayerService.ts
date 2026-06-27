@@ -1,6 +1,6 @@
 // src/map/leaflet-services/MapLayerService.ts
 
-import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
+import { ILayerService, LayerInsertOptions, type QueryLayerFeaturesOptions } from '../IMapInterfaces';
 import { normalizeRawSource } from '../layer-source-utils';
 import type { AnyLayerConfig, StandardLayerConfig, SourceConfig, GeoJSONSourceConfig, WMSSourceConfig, SubLayerSpec } from '../../config/types';
 import { normalizeCompositeLayer, findNormalizedSource, type NormalizedCompositeSpec } from '../composite-layer-utils';
@@ -413,6 +413,19 @@ export class MapLayerService implements ILayerService {
             if (data.type === 'Feature') return { type: 'FeatureCollection', features: [data as GeoJSON.Feature] };
         }
         return null;
+    }
+
+    getLayerSourceLayers(_layerId: string): string[] { return []; }
+
+    async queryLayerFeatures(layerId: string, _options?: QueryLayerFeaturesOptions): Promise<GeoJSON.FeatureCollection> {
+        const nativeLayerIds = this.logicalToNative.get(layerId) ?? [];
+        for (const nativeLayerId of nativeLayerIds) {
+            const sourceId = this.nativeLayerToSource.get(nativeLayerId);
+            if (!sourceId) continue;
+            const data = this.getSourceData(sourceId);
+            if (data && typeof data === 'object') return data as GeoJSON.FeatureCollection;
+        }
+        return { type: 'FeatureCollection', features: [] };
     }
 
     setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean {

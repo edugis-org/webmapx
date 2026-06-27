@@ -31,6 +31,20 @@ export default defineConfig({
           // (e.g. GitHub Pages) do not depend on local public/cesium setup.
           src: 'node_modules/cesium/Build/Cesium/**',
           dest: 'cesium'
+        },
+        {
+          // gdal3.js WASM runtime — lazy-loaded by the spatial worker on first use.
+          // The ?url imports in spatial.worker.ts resolve these at build time.
+          src: 'node_modules/gdal3.js/dist/package/gdal3WebAssembly.wasm',
+          dest: 'gdal3'
+        },
+        {
+          src: 'node_modules/gdal3.js/dist/package/gdal3WebAssembly.data',
+          dest: 'gdal3'
+        },
+        {
+          src: 'node_modules/gdal3.js/dist/package/gdal3.js',
+          dest: 'gdal3'
         }
       ]
     })

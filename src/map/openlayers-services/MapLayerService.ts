@@ -1,6 +1,6 @@
 // src/map/openlayers-services/MapLayerService.ts
 
-import { ILayerService, LayerInsertOptions } from '../IMapInterfaces';
+import { ILayerService, LayerInsertOptions, type QueryLayerFeaturesOptions } from '../IMapInterfaces';
 import { normalizeRawSource } from '../layer-source-utils';
 import { normalizeCompositeLayer, findNormalizedSource, type NormalizedCompositeSpec } from '../composite-layer-utils';
 import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, SubLayerSpec } from '../../config/types';
@@ -1005,6 +1005,86 @@ export class MapLayerService implements ILayerService {
             return { type: 'FeatureCollection', features };
         }
         return null;
+    }
+
+    getLayerSourceLayers(layerId: string): string[] {
+        const nativeLayerIds = this.logicalToNative.get(layerId) ?? [];
+        const seen = new Set<string>();
+        for (const id of nativeLayerIds) {
+            const cached = this.compositeSubLayerCache.get(id);
+            const sl = cached?.spec?.['source-layer'];
+            if (typeof sl === 'string' && sl) seen.add(sl);
+        }
+        return [...seen];
+    }
+
+    async queryLayerFeatures(layerId: string, options?: QueryLayerFeaturesOptions): Promise<GeoJSON.FeatureCollection> {
+        const nativeLayerIds = this.logicalToNative.get(layerId) ?? [];
+        if (nativeLayerIds.length === 0) return { type: 'FeatureCollection', features: [] };
+
+        const format = new GeoJSON();
+        const allFeatures: GeoJSON.Feature[] = [];
+        const seenIds = new Set<string>();
+
+        for (const nativeLayerId of nativeLayerIds) {
+            const layer = this.nativeLayerInstances.get(nativeLayerId) as any;
+            if (!layer) continue;
+            const source = layer.getSource?.();
+            if (!source) continue;
+
+            if (typeof source.getFeatures === 'function' && !(source instanceof VectorTileSource)) {
+                const olFeatures: any[] = source.getFeatures();
+                for (const f of olFeatures) {
+                    try {
+                        const geojson = JSON.parse(format.writeFeature(f, {
+                            dataProjection: 'EPSG:4326',
+                            featureProjection: 'EPSG:3857'
+                        }));
+                        allFeatures.push(geojson);
+                    } catch (_) {}
+                }
+                continue;
+            }
+
+            if (!(source instanceof VectorTileSource)) continue;
+            const tileGrid = source.getTileGrid?.();
+            if (!tileGrid || typeof (tileGrid as any).forEachTileCoord !== 'function') continue;
+
+            const view = this.map.getView();
+            const mapSize = this.map.getSize() ?? [0, 0];
+            const extent = view.calculateExtent(mapSize as [number, number]);
+            const resolution = view.getResolution() ?? 1;
+            const zoom = tileGrid.getZForResolution(resolution, 0.5);
+            const projObj = source.getProjection?.() ?? 'EPSG:3857';
+            const projCode = typeof projObj === 'string' ? projObj : ((projObj as any)?.getCode?.() ?? 'EPSG:3857');
+            const pixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio : 1;
+
+            (tileGrid as any).forEachTileCoord(extent, zoom, ([z, x, y]: number[]) => {
+                try {
+                    const tile = (source as any).getTile(z, x, y, pixelRatio, projObj);
+                    const tileFeatures: any[] = tile?.getFeatures?.() ?? [];
+                    for (const f of tileFeatures) {
+                        if (options?.sourceLayer) {
+                            const sl = f.get?.('layer') ?? (f as any)['sourceLayer'];
+                            if (sl && sl !== options.sourceLayer) continue;
+                        }
+                        const fid = f.getId?.();
+                        const idKey = fid !== undefined ? `id:${fid}` : null;
+                        if (idKey && seenIds.has(idKey)) continue;
+                        if (idKey) seenIds.add(idKey);
+                        try {
+                            const geojson = JSON.parse(format.writeFeature(f, {
+                                dataProjection: 'EPSG:4326',
+                                featureProjection: projCode
+                            }));
+                            allFeatures.push(geojson);
+                        } catch (_) {}
+                    }
+                } catch (_) {}
+            });
+        }
+
+        return { type: 'FeatureCollection', features: allFeatures };
     }
 
     setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean {

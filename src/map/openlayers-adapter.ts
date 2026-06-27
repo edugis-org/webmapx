@@ -1,6 +1,6 @@
 // src/map/openlayers-adapter.ts
 
-import { IMap, IMapCore, IToolService, ISubMapFactory, LayerInsertOptions } from './IMapInterfaces';
+import { IMap, IMapCore, IToolService, ISubMapFactory, LayerInsertOptions, type QueryLayerFeaturesOptions } from './IMapInterfaces';
 import { VERSION as olVersion } from 'ol/util.js';
 
 import { LngLat, Pixel } from '../store/map-events';
@@ -141,6 +141,14 @@ export class OpenLayersAdapter extends BaseAdapter implements IMap {
 
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
         return this.core.getSourceData(sourceId) ?? this.logicalLayerExecutor.getSourceData(sourceId);
+    }
+
+    queryLayerFeatures(layerId: string, options?: QueryLayerFeaturesOptions): Promise<GeoJSON.FeatureCollection> {
+        return this.logicalLayerExecutor.queryLayerFeatures(layerId, options);
+    }
+
+    getLayerSourceLayers(layerId: string): string[] {
+        return this.logicalLayerExecutor.getLayerSourceLayers(layerId);
     }
 
     project(coords: LngLat): Pixel {

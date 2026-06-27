@@ -43,6 +43,7 @@ const TOOL_ELEMENT_TAGS: Record<string, string> = {
   routing: 'webmapx-routing-tool',
   isochrone: 'webmapx-isochrone-tool',
   toolbox: 'webmapx-toolbox-tool',
+  buffer: 'webmapx-buffer-tool',
 };
 
 const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = {
@@ -70,6 +71,7 @@ const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = {
   routing: { label: 'Routing', icon: 'signpost-split' },
   isochrone: { label: 'Isochrone', icon: 'broadcast' },
   toolbox: { label: 'Toolbox', icon: 'grid' },
+  buffer: { label: 'Buffer', icon: 'bounding-box' },
 };
 
 const STANDALONE_TAGS: Record<string, string> = {
@@ -108,6 +110,7 @@ export const KNOWN_TOOLS: Array<{ id: string; label: string; icon?: string; stan
   { id: 'isochrone',    label: 'Isochrone',      icon: 'broadcast' },
   { id: 'settings',      label: 'Settings',       icon: 'gear' },
   { id: 'toolbox',       label: 'Toolbox',        icon: 'grid' },
+  { id: 'buffer',        label: 'Buffer',         icon: 'bounding-box' },
   { id: 'navigation',    label: 'Navigation',     icon: 'compass',     standalone: true },
   { id: 'scale',         label: 'Scale bar',      icon: 'rulers',      standalone: true },
   { id: 'coordinates',   label: 'Coordinates',    icon: 'crosshair2',  standalone: true },

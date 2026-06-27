@@ -1,6 +1,6 @@
 // src/map/maplibre-services/MapLayerService.ts
 
-import { ILayerService, LayerInsertOptions, type SourceFeatureQueryOptions, type SourceFeatureSample } from '../IMapInterfaces';
+import { ILayerService, LayerInsertOptions, type SourceFeatureQueryOptions, type SourceFeatureSample, type QueryLayerFeaturesOptions } from '../IMapInterfaces';
 import { normalizeRawSource } from '../layer-source-utils';
 import { normalizeCompositeLayer, type NormalizedCompositeSpec } from '../composite-layer-utils';
 import type { AnyLayerConfig, StandardLayerConfig, SourceConfig, WMSSourceConfig, GeoJSONSourceConfig, SubLayerSpec } from '../../config/types';
@@ -509,6 +509,51 @@ export class MapLayerService implements ILayerService {
             return { features };
         } catch (_) {
             return null;
+        }
+    }
+
+    getLayerSourceLayers(layerId: string): string[] {
+        const nativeLayerIds = this.logicalToNative.get(layerId) ?? [];
+        const seen = new Set<string>();
+        for (const id of nativeLayerIds) {
+            const spec = this.map.getLayer(id) as Record<string, unknown> | undefined;
+            const sl = spec?.['source-layer'];
+            if (typeof sl === 'string' && sl) seen.add(sl);
+        }
+        return [...seen];
+    }
+
+    async queryLayerFeatures(layerId: string, options?: QueryLayerFeaturesOptions): Promise<GeoJSON.FeatureCollection> {
+        const nativeLayerIds = this.logicalToNative.get(layerId) ?? [];
+        if (nativeLayerIds.length === 0) return { type: 'FeatureCollection', features: [] };
+
+        const firstNativeLayerId = nativeLayerIds[0];
+        const nativeSourceId = this.nativeLayerToSource.get(firstNativeLayerId);
+        const source = nativeSourceId ? this.map.getSource(nativeSourceId) as any : null;
+        const sourceType: string = source?.type ?? '';
+
+        if (sourceType === 'geojson') {
+            try {
+                const data = source.serialize?.()?.data;
+                if (data && typeof data === 'object' && data.type === 'FeatureCollection') {
+                    return data as GeoJSON.FeatureCollection;
+                }
+            } catch (_) {}
+            return { type: 'FeatureCollection', features: [] };
+        }
+
+        const queryOpts: maplibregl.QueryRenderedFeaturesOptions = { layers: nativeLayerIds };
+        try {
+            let rawFeatures = this.map.queryRenderedFeatures(undefined, queryOpts);
+            if (options?.sourceLayer) {
+                // Filter before toJSON — sourceLayer is a MapLibre property on the raw feature object,
+                // not part of the GeoJSON output.
+                rawFeatures = rawFeatures.filter(f => f.sourceLayer === options.sourceLayer);
+            }
+            const features = rawFeatures.map(f => f.toJSON() as GeoJSON.Feature);
+            return { type: 'FeatureCollection', features: this.dedupeSourceFeatures(features) };
+        } catch (_) {
+            return { type: 'FeatureCollection', features: [] };
         }
     }
 

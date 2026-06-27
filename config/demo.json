@@ -2544,6 +2544,11 @@
     ]
   },
   "tools": {
+    "buffer": {
+      "enabled": true,
+      "label": "Buffer",
+      "icon": { "name": "bounding-box" }
+    },
     "info": {
       "enabled": true,
       "googleApiKey": "{key-google}"
