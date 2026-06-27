@@ -7,8 +7,8 @@
  *
  * Registration:
  *   dynamic-layout.ts → TOOL_ELEMENT_TAGS['buffer'] = 'webmapx-buffer-tool'
- *   dynamic-layout.ts → DEFAULT_TOOL_METADATA['buffer'] = { label: 'Buffer', icon: 'bounding-box' }
- *   dynamic-layout.ts → KNOWN_TOOLS: { id: 'buffer', label: 'Buffer', icon: 'bounding-box' }
+ *   dynamic-layout.ts → DEFAULT_TOOL_METADATA['buffer'] = { label: 'Buffer', icon: { src: './icons/buffer.svg' } }
+ *   dynamic-layout.ts → KNOWN_TOOLS: { id: 'buffer', label: 'Buffer', icon: { src: './icons/buffer.svg' } }
  */
 
 import { html, css, nothing } from 'lit';
@@ -75,28 +75,6 @@ export class WebmapxBufferTool extends WebmapxModalTool {
             min-width: 240px;
         }
 
-        .field-label {
-            display: block;
-            font-size: var(--sl-font-size-x-small);
-            color: var(--sl-color-neutral-600);
-            margin-bottom: 2px;
-        }
-
-        .row {
-            display: flex;
-            gap: var(--sl-spacing-x-small);
-            align-items: flex-end;
-        }
-
-        .row sl-input { flex: 1; }
-
-        .unit {
-            font-size: var(--sl-font-size-x-small);
-            color: var(--sl-color-neutral-500);
-            padding-bottom: 4px;
-            white-space: nowrap;
-        }
-
         .actions {
             display: flex;
             gap: var(--sl-spacing-x-small);
@@ -125,6 +103,17 @@ export class WebmapxBufferTool extends WebmapxModalTool {
     // ─── Lifecycle ───────────────────────────────────────────────────────
 
     private lastMapLayers: IMapState['mapLayers'] | null = null;
+    private _escHandler: ((e: KeyboardEvent) => void) | null = null;
+
+    protected onActivate(): void {
+        this._escHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') this.deactivate(); };
+        document.addEventListener('keydown', this._escHandler);
+    }
+
+    protected onDeactivate(): void {
+        document.removeEventListener('keydown', this._escHandler!);
+        this._escHandler = null;
+    }
 
     protected onStateChanged(state: IMapState): void {
         const mapLayers = state.mapLayers ?? {};
@@ -247,11 +236,13 @@ export class WebmapxBufferTool extends WebmapxModalTool {
             }
 
             // 2. Run buffer in GDAL worker
+            const centerLat = this.adapter?.getViewportState().center[1] ?? 0;
             const result = await runSpatialOp({
                 op: 'buffer',
                 input,
                 distanceMeters: this.distanceMeters,
                 segments: this.segments,
+                centerLat,
             });
 
             if (!result.features.length) {
@@ -317,78 +308,69 @@ export class WebmapxBufferTool extends WebmapxModalTool {
         return html`
             <div class="tool-content">
 
-                <div>
-                    <span class="field-label">Input layer</span>
-                    <sl-select
-                        size="small"
-                        value=${this.selectedLayerId}
-                        ?disabled=${!hasLayers || this.busy}
-                        @sl-change=${this.handleLayerChange}
-                    >
-                        ${hasLayers
-                            ? this.availableLayers.map(l => html`
-                                <sl-option value=${l.id}>${l.label}</sl-option>
-                            `)
-                            : html`<sl-option value="">No vector layers</sl-option>`
-                        }
-                    </sl-select>
-                </div>
+                <sl-select
+                    label="Input layer"
+                    size="small"
+                    value=${this.selectedLayerId}
+                    ?disabled=${!hasLayers || this.busy}
+                    @sl-change=${this.handleLayerChange}
+                >
+                    ${hasLayers
+                        ? this.availableLayers.map(l => html`
+                            <sl-option value=${l.id}>${l.label}</sl-option>
+                        `)
+                        : html`<sl-option value="">No vector layers</sl-option>`
+                    }
+                </sl-select>
 
                 ${this.availableSourceLayers.length > 1 ? html`
-                    <div>
-                        <span class="field-label">Sub-layer (source layer)</span>
-                        <sl-select
-                            size="small"
-                            value=${this.selectedSourceLayer}
-                            ?disabled=${this.busy}
-                            @sl-change=${this.handleSourceLayerChange}
-                        >
-                            ${this.availableSourceLayers.map(sl => html`
-                                <sl-option value=${sl}>${sl}</sl-option>
-                            `)}
-                        </sl-select>
-                    </div>
+                    <sl-select
+                        label="Sub-layer"
+                        size="small"
+                        value=${this.selectedSourceLayer}
+                        ?disabled=${this.busy}
+                        @sl-change=${this.handleSourceLayerChange}
+                    >
+                        ${this.availableSourceLayers.map(sl => html`
+                            <sl-option value=${sl}>${sl}</sl-option>
+                        `)}
+                    </sl-select>
                 ` : nothing}
 
                 <div>
-                    <span class="field-label">Buffer distance</span>
-                    <div class="row">
-                        <sl-input
-                            size="small"
-                            type="number"
-                            min="0"
-                            step="100"
-                            value=${this.distanceMeters}
-                            ?disabled=${this.busy}
-                            @sl-change=${this.handleDistanceChange}
-                        ></sl-input>
-                        <span class="unit">meters</span>
-                    </div>
-                </div>
-
-                <div>
-                    <span class="field-label">Segments per quarter circle</span>
                     <sl-input
+                        label="Buffer distance"
                         size="small"
                         type="number"
-                        min="4"
-                        max="64"
-                        step="4"
-                        value=${this.segments}
+                        min="0"
+                        step="100"
+                        value=${this.distanceMeters}
                         ?disabled=${this.busy}
-                        @sl-change=${this.handleSegmentsChange}
-                    ></sl-input>
+                        @sl-change=${this.handleDistanceChange}
+                    >
+                        <span slot="suffix">m</span>
+                    </sl-input>
                 </div>
 
-                <div>
-                    <span class="field-label">Output layer name</span>
-                    <sl-input
-                        size="small"
-                        value=${this.outputName}
-                        ?disabled=${this.busy}
-                        @sl-change=${this.handleOutputNameChange}
-                    ></sl-input>
-                </div>
+                <sl-input
+                    label="Segments per quarter circle"
+                    size="small"
+                    type="number"
+                    min="4"
+                    max="64"
+                    step="4"
+                    value=${this.segments}
+                    ?disabled=${this.busy}
+                    @sl-change=${this.handleSegmentsChange}
+                ></sl-input>
+
+                <sl-input
+                    label="Output layer name"
+                    size="small"
+                    value=${this.outputName}
+                    ?disabled=${this.busy}
+                    @sl-change=${this.handleOutputNameChange}
+                ></sl-input>
 
                 ${this.lastOutputLayerId ? html`
                     <sl-checkbox
@@ -424,7 +406,7 @@ export class WebmapxBufferTool extends WebmapxModalTool {
                         ?disabled=${!hasLayers || this.busy}
                         @click=${this.handleRun}
                     >
-                        <sl-icon slot="prefix" name="bounding-box"></sl-icon>
+                        <sl-icon slot="prefix" src="./icons/buffer.svg"></sl-icon>
                         Buffer
                     </sl-button>
                 </div>
