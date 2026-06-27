@@ -195,8 +195,8 @@ export interface LayerAttributeTranslation {
   multiplier?: number;
   /** Treat numeric value as a Unix timestamp and format as date. */
   date?: boolean;
-  /** Map raw values to display labels. */
-  valuemap?: Array<{ value: unknown; label: string }>;
+  /** Map raw values to display labels. Optional operator ('==','<','<=','>','>=') matches range conditions in case expressions. */
+  valuemap?: Array<{ value: unknown; label: string; operator?: string }>;
 }
 
 export interface LayerAttributeConfig {

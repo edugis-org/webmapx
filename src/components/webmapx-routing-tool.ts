@@ -500,7 +500,7 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
                 { type: 'Feature', geometry: { type: 'Point', coordinates: this.end },   properties: { name: 'end' } },
             ],
         };
-        const waypointColor = ['match', ['get', 'name'], 'start', '#22c55e', 'end', '#e63946', ['literal', 'rgba(0,0,0,0)']];
+        const waypointColor = ['match', ['get', 'name'], 'start', '#22c55e', 'end', '#e63946', 'rgba(0,0,0,0)'];
 
         this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
             detail: {

@@ -1310,7 +1310,16 @@
               {
                 "name": "population_density",
                 "translation": "population density",
-                "unit": " inh/km\u00b2"
+                "unit": " inh/km\u00b2",
+                "valuemap": [
+                  { "value": 20,    "operator": "<",  "label": "0 - 20 inh/km\u00b2" },
+                  { "value": 40,    "operator": "<",  "label": "20 - 40 inh/km\u00b2" },
+                  { "value": 70,    "operator": "<",  "label": "40 - 70 inh/km\u00b2" },
+                  { "value": 100,   "operator": "<",  "label": "70 - 100 inh/km\u00b2" },
+                  { "value": 150,   "operator": "<",  "label": "100 - 150 inh/km\u00b2" },
+                  { "value": 300,   "operator": "<",  "label": "150 - 300 inh/km\u00b2" },
+                  { "value": 20000, "operator": "<=", "label": "300 - 20000 inh/km\u00b2" }
+                ]
               },
               {
                 "name": "area",

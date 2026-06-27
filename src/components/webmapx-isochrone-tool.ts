@@ -48,7 +48,7 @@ function buildColorMatch(sortedRangesAsc: number[]): unknown[] {
     sortedRangesAsc.forEach((r, i) => {
         expr.push(r, contourRgba(i));
     });
-    expr.push(['literal', 'rgba(0,0,0,0)']); // array fallback → legend skips "other"
+    expr.push('rgba(0,0,0,0)'); // transparent fallback, empty label → legend skips row
     return expr;
 }
 

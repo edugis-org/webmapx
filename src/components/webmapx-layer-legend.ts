@@ -242,18 +242,23 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     }
 
     /** Returns match cases if expr is data-driven match/step, otherwise null. */
-    private extractDataCases(expr: unknown): Array<{label: string, paint: unknown}> | null {
+    private extractDataCases(expr: unknown, attrTr?: Map<string, {label: string; unit: string; valuemap?: Array<{value: unknown; label: string; operator?: string}>}>): Array<{label: string, paint: unknown}> | null {
         if (!Array.isArray(expr)) return null;
         const op = expr[0];
         if (op === 'match' && expr.length >= 5) {
+            const matchProp = this.getPropName(expr[1]);
+            const attrEntry = matchProp ? attrTr?.get(matchProp) : undefined;
+            const unit = attrEntry?.unit ?? '';
+            const valuemap = attrEntry?.valuemap;
             const cases: Array<{label: string, paint: unknown}> = [];
             for (let i = 2; i + 1 < expr.length - 1; i += 2) {
-                const matchVal = Array.isArray(expr[i]) ? expr[i].join(', ') : String(expr[i]);
-                cases.push({ label: matchVal, paint: expr[i + 1] });
+                const rawKey = expr[i];
+                const rawStr = Array.isArray(rawKey) ? rawKey.join(', ') : String(rawKey);
+                const mapped = valuemap?.find(m => String(m.value) === String(rawKey));
+                const label = mapped ? mapped.label : (unit ? `${rawStr}${unit}` : rawStr);
+                cases.push({ label, paint: expr[i + 1] });
             }
-            // default (last element) — skip if it's an expression array (signals "hide other")
-            const fallback = expr[expr.length - 1];
-            if (!Array.isArray(fallback)) cases.push({ label: 'other', paint: fallback });
+            cases.push({ label: '', paint: expr[expr.length - 1] });
             return cases.length > 1 ? cases : null;
         }
         if (op === 'step' && expr.length >= 5) {
@@ -271,7 +276,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 const label = this.conditionLabel(expr[i]) ?? `class ${Math.floor(i / 2) + 1}`;
                 cases.push({ label, paint: expr[i + 1] });
             }
-            cases.push({ label: 'other', paint: expr[expr.length - 1] });
+            cases.push({ label: '', paint: expr[expr.length - 1] });
             return cases.length > 1 ? cases : null;
         }
         return null;
@@ -301,6 +306,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         const seen = new Set<string>(); // deduplicate by visual key
         const dedupGroups = new Map<string, string[]>(); // visual key -> all sublayer ids sharing it
         const singleSublayer = sublayers.length === 1;
+        const attrTr = this.getAttrTranslations();
 
         // Combined zoom range across all visible-eligible sublayers (256px-tile +1 offset, as below)
         let overallMin = Infinity;
@@ -378,7 +384,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 : null;
 
             const rawColorExpr = colorKey ? (evalPaint[colorKey] ?? paint[colorKey]) : null;
-            const dataCases = rawColorExpr ? this.extractDataCases(rawColorExpr) : null;
+            const dataCases = rawColorExpr ? this.extractDataCases(rawColorExpr, attrTr) : null;
 
             if (dataCases && dataCases.length > 1) {
                 // Multi-class legend: title row + case rows
@@ -392,6 +398,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 const stopIndices = colorExpr ? this.colorExprStopIndices(colorExpr) : null;
                 for (let ci = 0; ci < dataCases.length; ci++) {
                     const { label: caseLabel, paint: casePaint } = dataCases[ci];
+                    if (caseLabel === '') continue;
                     const casePaintObj = { ...evalPaint, [colorKey!]: casePaint };
                     const swatch = this.renderSwatch(type, casePaintObj, zoom, evalLayout);
                     if (!swatch) continue;
@@ -743,10 +750,10 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             </div>`;
     }
 
-    /** Get attribute translations from layer metadata: name → {label, unit, maxvalue} */
-    private getAttrTranslations(): Map<string, {label: string; unit: string; maxvalue?: number}> {
+    /** Get attribute translations from layer metadata: name → {label, unit, maxvalue, valuemap} */
+    private getAttrTranslations(): Map<string, {label: string; unit: string; maxvalue?: number; valuemap?: Array<{value: unknown; label: string; operator?: string}>}> {
         const attrs = (this.meta as any)?.attributes;
-        const map = new Map<string, {label: string; unit: string; maxvalue?: number}>();
+        const map = new Map<string, {label: string; unit: string; maxvalue?: number; valuemap?: Array<{value: unknown; label: string; operator?: string}>}>();
         if (!Array.isArray(attrs?.translations)) return map;
         for (const t of attrs.translations) {
             if (typeof t?.name === 'string') {
@@ -754,6 +761,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                     label: typeof t.translation === 'string' ? t.translation : t.name,
                     unit: typeof t.unit === 'string' ? t.unit : '',
                     ...(typeof t.maxvalue === 'number' ? { maxvalue: t.maxvalue } : {}),
+                    ...(Array.isArray(t.valuemap) ? { valuemap: t.valuemap } : {}),
                 });
             }
         }
@@ -765,13 +773,21 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         return Array.isArray(expr) && expr[0] === 'get' && typeof expr[1] === 'string' ? expr[1] : null;
     }
 
-    /** Extract readable label from a case/comparison condition expression, with unit from attr metadata. */
-    private conditionLabel(cond: unknown, attrTr?: Map<string, {label: string; unit: string}>): string | null {
+    /** Extract readable label from a case/comparison condition expression, with unit and valuemap from attr metadata. */
+    private conditionLabel(cond: unknown, attrTr?: Map<string, {label: string; unit: string; valuemap?: Array<{value: unknown; label: string; operator?: string}>}>): string | null {
         if (!Array.isArray(cond) || cond.length < 3) return '';
         const op = cond[0];
         const lhsProp = this.getPropName(cond[1]);
         const rhs = cond[2];
-        const unit = lhsProp && attrTr?.get(lhsProp)?.unit ? attrTr.get(lhsProp)!.unit : '';
+        const attrEntry = lhsProp ? attrTr?.get(lhsProp) : undefined;
+        const unit = attrEntry?.unit ?? '';
+        // Check valuemap for an entry matching value + operator
+        if (attrEntry?.valuemap) {
+            const mapped = attrEntry.valuemap.find(m =>
+                String(m.value) === String(rhs) && (m.operator === undefined || m.operator === op)
+            );
+            if (mapped) return mapped.label;
+        }
         if (op === '==') return typeof rhs === 'number' || typeof rhs === 'string' ? `${rhs}${unit}` : '';
         if (['<','<=','>','>='].includes(op) && (typeof rhs === 'number' || typeof rhs === 'string')) {
             return `${op} ${rhs}${unit}`;
@@ -789,7 +805,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     }
 
     /** Extract class legend from case/match/step expressions — returns [{label, color}] or null. */
-    private extractColorClasses(expr: unknown, attrTr?: Map<string, {label: string; unit: string}>): Array<{label: string, color: string}> | null {
+    private extractColorClasses(expr: unknown, attrTr?: Map<string, {label: string; unit: string; valuemap?: Array<{value: unknown; label: string; operator?: string}>}>): Array<{label: string, color: string}> | null {
         if (!Array.isArray(expr)) return null;
         const op = expr[0];
         if (op === 'case') {
@@ -801,22 +817,25 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 if (color) items.push({ label: label || '', color });
             }
             const def = expr[expr.length - 1];
-            if (typeof def === 'string') items.push({ label: 'other', color: def });
+            if (typeof def === 'string') items.push({ label: '', color: def });
             return items.length > 1 ? items : null;
         }
         if (op === 'match') {
-            // Detect property name for unit
             const matchProp = this.getPropName(expr[1]);
-            const unit = matchProp && attrTr?.get(matchProp)?.unit ? attrTr.get(matchProp)!.unit : '';
+            const attrEntry = matchProp ? attrTr?.get(matchProp) : undefined;
+            const unit = attrEntry?.unit ?? '';
+            const valuemap = attrEntry?.valuemap;
             const items: Array<{label: string, color: string}> = [];
             for (let i = 2; i + 1 < expr.length - 1; i += 2) {
-                const raw = Array.isArray(expr[i]) ? expr[i].join(', ') : String(expr[i]);
-                const label = unit ? `${raw}${unit}` : raw;
+                const rawKey = Array.isArray(expr[i]) ? expr[i] : expr[i];
+                const rawStr = Array.isArray(rawKey) ? rawKey.join(', ') : String(rawKey);
+                const mapped = valuemap?.find(m => String(m.value) === String(rawKey));
+                const label = mapped ? mapped.label : (unit ? `${rawStr}${unit}` : rawStr);
                 const color = typeof expr[i + 1] === 'string' ? expr[i + 1] : '';
                 if (color) items.push({ label, color });
             }
             const def = expr[expr.length - 1];
-            if (typeof def === 'string') items.push({ label: 'other', color: def });
+            if (typeof def === 'string') items.push({ label: '', color: def });
             return items.length > 1 ? items : null;
         }
         return null;
@@ -1235,7 +1254,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             if (colorClasses) {
                 const rawR = this.evalAtZoom(radiusExpr, this.zoom);
                 const r = Math.min(Number(isFinite(Number(rawR)) ? rawR : 6), 20);
-                return colorClasses.map(c => this.renderCircleRow(c.color, strokeColor, strokeWidth, r, c.label));
+                return colorClasses.filter(c => c.label !== '').map(c => this.renderCircleRow(c.color, strokeColor, strokeWidth, r, c.label));
             }
 
             const colorStops = this.extractLegendStops(colorExpr);
@@ -1278,7 +1297,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const classes = this.extractColorClasses(colorExpr, attrTr);
             if (classes) {
                 const stopIndices = Array.isArray(colorExpr) ? this.colorExprStopIndices(colorExpr) : null;
-                return classes.map((c, i) => {
+                return classes.filter(c => c.label !== '').map((c, i) => {
                     const stopIdx = stopIndices?.[i] ?? null;
                     const onClick = stopIdx !== null && Array.isArray(colorExpr)
                         ? (e: Event) => { e.stopPropagation(); this.openStopColorPicker(e.currentTarget as HTMLElement, subLayerIds, colorKey, colorExpr, stopIdx, c.color); }
