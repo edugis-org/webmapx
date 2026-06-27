@@ -33,6 +33,7 @@ export class MapCoreService implements IMapCore {
     private lastInitOptions: Parameters<MapCoreService['initialize']>[1] = undefined;
     private silentSourceIds = new Set<string>();
     private geoJSONData = new Map<string, GeoJSON.FeatureCollection>();
+    private moveRafHandle: number | null = null;
     private moveRafPending = false;
     private isMoving = false;
 
@@ -153,6 +154,12 @@ export class MapCoreService implements IMapCore {
 
         this.mapInstance.on('moveend', () => {
             this.isMoving = false;
+            // Cancel any pending rAF view-change emit — moveend wins, view-change-end must come last.
+            if (this.moveRafHandle !== null) {
+                cancelAnimationFrame(this.moveRafHandle);
+                this.moveRafHandle = null;
+                this.moveRafPending = false;
+            }
             const currentCenter = this.mapInstance!.getCenter().toArray() as [number, number];
             const currentZoom = this.mapInstance!.getZoom();
             const viewportBounds = this.buildViewportFeature();
@@ -165,7 +172,8 @@ export class MapCoreService implements IMapCore {
         this.mapInstance.on('move', () => {
             if (this.moveRafPending) return;
             this.moveRafPending = true;
-            requestAnimationFrame(() => {
+            this.moveRafHandle = requestAnimationFrame(() => {
+                this.moveRafHandle = null;
                 this.moveRafPending = false;
                 this.emitViewChange();
             });
