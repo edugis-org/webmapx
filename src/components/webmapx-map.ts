@@ -145,7 +145,11 @@ export class WebmapxMapElement extends HTMLElement {
         return;
       }
       const { sniffBlob } = await import('../utils/file-sniff');
-      const { groupDroppedFiles, buildLayerConfigFromGroup } = await import('../utils/dropped-layer-builder');
+      const { groupDroppedFiles, buildLayerConfigsFromGroup } = await import('../utils/dropped-layer-builder');
+      const layerPicker = async (filename: string, layers: import('../workers/spatial.worker').GpkgLayerInfo[]) => {
+        const { showLayerPickerDialog } = await import('../utils/layer-picker-dialog');
+        return showLayerPickerDialog(filename, layers);
+      };
       type FileSniffResult = Awaited<ReturnType<typeof sniffBlob>>;
       const formatResult = (name: string, size: number, result: FileSniffResult, indent: string): string[] => {
         const sizeKb = (size / 1024).toFixed(1);
@@ -159,30 +163,33 @@ export class WebmapxMapElement extends HTMLElement {
       const groups = await groupDroppedFiles(files);
       const unhandled: string[] = [];
       for (const group of groups) {
-        const config = await buildLayerConfigFromGroup(group);
-        if (config) {
-          if (this.adapter?.hasLayer(config.id)) {
-            const baseId = config.id;
-            let n = 1;
-            while (this.adapter.hasLayer(`${baseId}_${n}`)) n++;
-            const newId = `${baseId}_${n}`;
-            const prefix = `${baseId}:`;
-            const newPrefix = `${newId}:`;
-            config.id = newId;
-            config.sources = Object.fromEntries(
-              Object.entries(config.sources ?? {}).map(([key, value]) => [
-                key.startsWith(prefix) ? newPrefix + key.slice(prefix.length) : key,
-                value,
-              ])
-            );
-            config.layers = (config.layers ?? []).map((layer) => ({
-              ...layer,
-              id: layer.id?.startsWith(prefix) ? newPrefix + layer.id.slice(prefix.length) : layer.id,
-              source: layer.source?.startsWith(prefix) ? newPrefix + layer.source.slice(prefix.length) : layer.source,
-            }));
+        const configs = await buildLayerConfigsFromGroup(group, layerPicker);
+        if (configs.length > 0) {
+          for (const config of configs) {
+            if (this.adapter?.hasLayer(config.id)) {
+              const baseId = config.id;
+              let n = 1;
+              while (this.adapter.hasLayer(`${baseId}_${n}`)) n++;
+              const newId = `${baseId}_${n}`;
+              const prefix = `${baseId}:`;
+              const newPrefix = `${newId}:`;
+              config.id = newId;
+              config.sources = Object.fromEntries(
+                Object.entries(config.sources ?? {}).map(([key, value]) => [
+                  key.startsWith(prefix) ? newPrefix + key.slice(prefix.length) : key,
+                  value,
+                ])
+              );
+              config.layers = (config.layers ?? []).map((layer) => ({
+                ...layer,
+                id: layer.id?.startsWith(prefix) ? newPrefix + layer.id.slice(prefix.length) : layer.id,
+                source: layer.source?.startsWith(prefix) ? newPrefix + layer.source.slice(prefix.length) : layer.source,
+              }));
+            }
+            if (Object.keys(config.sources ?? {}).length > 0) {
+              await this.addLayerRequest(config as unknown as Record<string, unknown>);
+            }
           }
-          console.log('addLayer()');
-          await this.addLayerRequest(config as unknown as Record<string, unknown>);
           continue;
         }
         for (const item of group) {

@@ -2,6 +2,10 @@ import { ZipReader, BlobReader, BlobWriter } from '@zip.js/zip.js';
 import { isZip, sniffBlob } from './file-sniff';
 import { parseQmlStyle, type QmlStyle } from './qml-style';
 import type { CompositeStyleLayerConfig, SubLayerSpec } from '../config/types';
+import type { GpkgLayerInfo } from '../workers/spatial.worker';
+
+/** Called when importing a multi-layer file; returns the layer names the user selected, or null to cancel. */
+export type LayerPickerFn = (filename: string, layers: GpkgLayerInfo[]) => Promise<string[] | null>;
 
 export interface NamedBlob {
   name: string;
@@ -28,7 +32,9 @@ async function extractZipEntries(blob: Blob): Promise<NamedBlob[]> {
   const result: NamedBlob[] = [];
   for (const entry of entries) {
     if (entry.directory || !entry.getData) continue;
-    result.push({ name: basename(entry.filename), blob: await entry.getData(new BlobWriter()) });
+    // Preserve full path as name so sibling-file matching (shp+dbf+prj) works
+    // across nested directories without collision.
+    result.push({ name: entry.filename, blob: await entry.getData(new BlobWriter()) });
   }
   await reader.close();
   return result;
@@ -59,12 +65,16 @@ export async function groupDroppedFiles(files: File[]): Promise<NamedBlob[][]> {
  * `<name>_style.json` are returned as a single trailing group (legacy single-style.json
  * or loose-geojson zips).
  */
-function splitZipEntriesByLayer(entries: NamedBlob[]): NamedBlob[][] {
-  const styleEntries = entries.filter((e) => /_style\.json$/i.test(e.name));
-  if (styleEntries.length === 0) return [entries];
+// Standalone GIS formats that should each become their own layer group.
+// Shapefile components (.shp + .dbf + .prj) are NOT listed here — they bundle together.
+const STANDALONE_GIS = /\.(gml|fgb|gpkg)$/i;
 
+function splitZipEntriesByLayer(entries: NamedBlob[]): NamedBlob[][] {
   const groups: NamedBlob[][] = [];
   const used = new Set<NamedBlob>();
+
+  // Style-json groups: each _style.json pairs with its matching data file(s)
+  const styleEntries = entries.filter((e) => /_style\.json$/i.test(e.name));
   for (const styleEntry of styleEntries) {
     const base = styleEntry.name.replace(/_style\.json$/i, '').toLowerCase();
     const group: NamedBlob[] = [styleEntry];
@@ -78,9 +88,19 @@ function splitZipEntriesByLayer(entries: NamedBlob[]): NamedBlob[][] {
     }
     groups.push(group);
   }
+
+  // Each standalone GIS file is its own layer
   const rest = entries.filter((e) => !used.has(e));
-  if (rest.length > 0) groups.push(rest);
-  return groups;
+  const standalone = rest.filter((e) => STANDALONE_GIS.test(e.name));
+  const other = rest.filter((e) => !STANDALONE_GIS.test(e.name));
+  for (const entry of standalone) {
+    groups.push([entry]);
+    used.add(entry);
+  }
+
+  // Remaining files (shapefiles + companions, geojson, csv, etc.) stay as one group
+  if (other.length > 0) groups.push(other);
+  return groups.length > 0 ? groups : [entries];
 }
 
 const DEFAULT_COLOR = '#444444';
@@ -196,9 +216,15 @@ function csvToGeoJSON(rows: Record<string, unknown>[], filename: string): GeoJSO
  *
  * Returns null if the group doesn't contain any recognizable GeoJSON.
  */
-export async function buildLayerConfigFromGroup(group: NamedBlob[]): Promise<CompositeStyleLayerConfig | null> {
-  const geojsonFiles: { name: string; data: GeoJSON.FeatureCollection }[] = [];
+/** Like buildLayerConfigFromGroup but returns one config per layer (GPKG multi-layer splits, others return one). */
+export async function buildLayerConfigsFromGroup(group: NamedBlob[], layerPicker?: LayerPickerFn): Promise<CompositeStyleLayerConfig[]> {
+  const geojsonFiles: { name: string; title?: string; data: GeoJSON.FeatureCollection }[] = [];
   let styleFile: { name: string; style: Record<string, unknown> } | null = null;
+  // True when a GDAL-handled format was attempted (even if it yielded 0 features).
+  // Prevents falling through to the generic "unhandled file" toast.
+  let gdalAttempted = false;
+  // Each geojsonFile becomes its own legend entry when true (e.g. GPKG multi-layer).
+  let splitIntoLayers = false;
   const shpFiles = new Map<string, NamedBlob>();
   const dbfFiles = new Map<string, NamedBlob>();
   const prjFiles = new Map<string, NamedBlob>();
@@ -268,6 +294,135 @@ export async function buildLayerConfigFromGroup(group: NamedBlob[]): Promise<Com
       } catch { /* skip */ }
     } else if (sniff.kind === 'shp' && lowerName.endsWith('.shp')) {
       shpFiles.set(stripExtension(lowerName), item);
+    } else if (sniff.kind === 'gpkg') {
+      gdalAttempted = true;
+      try {
+        const { confirmLargeFile, showGdalProgress } = await import('./gdal-progress-dialog');
+        if (!await confirmLargeFile(item.name, item.blob.size)) continue;
+
+        const cancelRef = { fn: () => {} };
+        const progress = showGdalProgress(item.name, () => cancelRef.fn());
+        try {
+          const { runInspectFile, runConvertFileLayer, runCloseFile, terminateSpatialWorker } = await import('./spatial-worker-manager');
+          cancelRef.fn = terminateSpatialWorker;
+
+          progress.setStep('Loading into memory…');
+          const data = await item.blob.arrayBuffer();
+          if (progress.cancelled) continue;
+
+          progress.setStep('Opening file…');
+          const { sessionKey, layers } = await runInspectFile(data, item.name);
+          try {
+            if (progress.cancelled) continue;
+
+            let selectedLayerNames: string[];
+            if (layers.length <= 1) {
+              selectedLayerNames = layers.map((l) => l.name);
+            } else {
+              progress.setStep('Waiting for layer selection…');
+              const picked = layerPicker ? await layerPicker(item.name, layers) : layers.map((l) => l.name);
+              if (!picked || picked.length === 0 || progress.cancelled) continue;
+              selectedLayerNames = picked;
+            }
+
+            if (selectedLayerNames.length > 1) splitIntoLayers = true;
+            for (const layerName of selectedLayerNames) {
+              if (progress.cancelled) break;
+              progress.setStep(`Converting "${layerName}"…`);
+              const fc = await runConvertFileLayer(sessionKey, layerName);
+              if (!progress.cancelled) {
+                geojsonFiles.push({ name: `${stripExtension(item.name)}_${layerName}`, title: layerName, data: fc });
+              }
+            }
+          } finally {
+            runCloseFile(sessionKey);
+          }
+        } finally {
+          if (!progress.cancelled) {
+            progress.setStep('Layer(s) import: done');
+            await new Promise((r) => setTimeout(r, 2000));
+          }
+          progress.close();
+        }
+      } catch (error) {
+        console.error(`[dropped-layer-builder] failed to convert "${item.name}" via GDAL`, error);
+      }
+    } else if (sniff.kind === 'fgb') {
+      gdalAttempted = true;
+      try {
+        const { confirmLargeFile, showGdalProgress } = await import('./gdal-progress-dialog');
+        if (!await confirmLargeFile(item.name, item.blob.size)) continue;
+        const cancelRef = { fn: () => {} };
+        const progress = showGdalProgress(item.name, () => cancelRef.fn());
+        try {
+          const { runConvertToGeoJSON, terminateSpatialWorker } = await import('./spatial-worker-manager');
+          cancelRef.fn = terminateSpatialWorker;
+          progress.setStep('Converting…');
+          const data = await item.blob.arrayBuffer();
+          const fc = await runConvertToGeoJSON(data, item.name);
+          if (!progress.cancelled) geojsonFiles.push({ name: item.name, data: fc });
+        } finally {
+          if (!progress.cancelled) {
+            progress.setStep('Layer(s) import: done');
+            await new Promise((r) => setTimeout(r, 2000));
+          }
+          progress.close();
+        }
+      } catch (error) {
+        console.error(`[dropped-layer-builder] failed to convert "${item.name}" via GDAL`, error);
+      }
+    } else if (sniff.kind === 'gml') {
+      gdalAttempted = true;
+      try {
+        const { confirmLargeFile, showGdalProgress } = await import('./gdal-progress-dialog');
+        if (!await confirmLargeFile(item.name, item.blob.size)) continue;
+
+        const cancelRef = { fn: () => {} };
+        const progress = showGdalProgress(item.name, () => cancelRef.fn());
+        try {
+          const { runInspectFile, runConvertFileLayer, runCloseFile, terminateSpatialWorker } = await import('./spatial-worker-manager');
+          cancelRef.fn = terminateSpatialWorker;
+
+          progress.setStep('Loading into memory…');
+          const data = await item.blob.arrayBuffer();
+          if (progress.cancelled) continue;
+
+          progress.setStep('Opening file…');
+          const { sessionKey, layers } = await runInspectFile(data, item.name);
+          try {
+            if (progress.cancelled) continue;
+
+            let selectedLayerNames: string[];
+            if (layers.length <= 1) {
+              selectedLayerNames = layers.map((l) => l.name);
+            } else {
+              progress.setStep('Waiting for layer selection…');
+              const picked = layerPicker ? await layerPicker(item.name, layers) : layers.map((l) => l.name);
+              if (!picked || picked.length === 0 || progress.cancelled) continue;
+              selectedLayerNames = picked;
+            }
+
+            for (const layerName of selectedLayerNames) {
+              if (progress.cancelled) break;
+              progress.setStep(`Converting "${layerName}"…`);
+              const fc = await runConvertFileLayer(sessionKey, layerName);
+              if (!progress.cancelled) {
+                geojsonFiles.push({ name: `${stripExtension(item.name)}_${layerName}`, data: fc });
+              }
+            }
+          } finally {
+            runCloseFile(sessionKey);
+          }
+        } finally {
+          if (!progress.cancelled) {
+            progress.setStep('Layer(s) import: done');
+            await new Promise((r) => setTimeout(r, 2000));
+          }
+          progress.close();
+        }
+      } catch (error) {
+        console.error(`[dropped-layer-builder] failed to convert "${item.name}" via GDAL`, error);
+      }
     } else if (sniff.kind === 'qml') {
       console.log('parsing qml style');
       qmlStyle = parseQmlStyle(await item.blob.text());
@@ -286,76 +441,91 @@ export async function buildLayerConfigFromGroup(group: NamedBlob[]): Promise<Com
           dbf ? await dbf.blob.arrayBuffer() : null,
           prj ? await prj.blob.text() : null
         );
-        geojsonFiles.push({ name: shp.name, data });
+        geojsonFiles.push({ name: basename(shp.name), data });
       } catch (error) {
         console.error(`[dropped-layer-builder] failed to parse shapefile "${shp.name}"`, error);
       }
     }
   }
 
-  if (geojsonFiles.length === 0 && !styleFile) return null;
-
-  const baseId = sanitizeId(
-    typeof styleFile?.style.id === 'string' ? styleFile.style.id :
-    geojsonFiles.length > 0 ? geojsonFiles[0].name : 'layer'
-  );
-  const prefix = `${baseId}:`;
-
-  // Map sanitized geojson filename (with and without extension) -> prefixed source key + data.
-  const sourcesByFile = new Map<string, { sourceKey: string; data: GeoJSON.FeatureCollection }>();
-  for (const file of geojsonFiles) {
-    const fileBase = sanitizeId(file.name);
-    const sourceKey = `${prefix}${fileBase}`;
-    const entry = { sourceKey, data: file.data };
-    sourcesByFile.set(file.name.toLowerCase(), entry);
-    sourcesByFile.set(stripExtension(file.name).toLowerCase(), entry);
-    sourcesByFile.set(fileBase.toLowerCase(), entry);
+  if (geojsonFiles.length === 0 && !styleFile) {
+    if (gdalAttempted) {
+      const { showToast } = await import('./toast');
+      const names = group.map((f) => f.name).join(', ');
+      void showToast(`Import failed: ${names}`, { variant: 'warning', duration: 8000 });
+      return [];
+    }
+    return [];
   }
 
-  const sources: Record<string, unknown> = {};
-  let layers: SubLayerSpec[];
+  // Helper: build one CompositeStyleLayerConfig from a subset of geojsonFiles.
+  const buildOneConfig = (files: typeof geojsonFiles): CompositeStyleLayerConfig => {
+    const id = sanitizeId(
+      typeof styleFile?.style.id === 'string' ? styleFile.style.id :
+      files.length > 0 ? files[0].name : 'layer'
+    );
+    const prefix = `${id}:`;
 
-  if (styleFile) {
-    const styleSources = (styleFile.style.sources as Record<string, { type?: string; data?: unknown } & Record<string, unknown>>) ?? {};
-    const sourceKeyMap = new Map<string, string>();
-    for (const [key, source] of Object.entries(styleSources)) {
-      const dataRef = typeof source.data === 'string' ? sourcesByFile.get(source.data.toLowerCase()) : undefined;
-      if (dataRef) {
-        sources[dataRef.sourceKey] = { ...source, data: dataRef.data };
-        sourceKeyMap.set(key, dataRef.sourceKey);
-      } else {
-        const newKey = `${prefix}${sanitizeId(key)}`;
-        sources[newKey] = source;
-        sourceKeyMap.set(key, newKey);
-      }
-    }
-    const styleLayers = (styleFile.style.layers as SubLayerSpec[]) ?? [];
-    layers = styleLayers
-      .filter((layer) => !layer.source || sourceKeyMap.has(layer.source))
-      .map((layer) => ({
-        ...layer,
-        id: `${prefix}${sanitizeId(layer.id ?? layer.type)}`,
-        source: layer.source ? sourceKeyMap.get(layer.source) ?? layer.source : layer.source,
-      }));
-  } else {
-    layers = [];
-    for (const file of geojsonFiles) {
+    const sourcesByFile = new Map<string, { sourceKey: string; data: GeoJSON.FeatureCollection }>();
+    for (const file of files) {
       const fileBase = sanitizeId(file.name);
       const sourceKey = `${prefix}${fileBase}`;
-      sources[sourceKey] = { type: 'geojson', data: file.data };
-      layers.push(...defaultLayersForSource(prefix, fileBase, sourceKey, file.data, qmlStyle));
+      const entry = { sourceKey, data: file.data };
+      sourcesByFile.set(file.name.toLowerCase(), entry);
+      sourcesByFile.set(stripExtension(file.name).toLowerCase(), entry);
+      sourcesByFile.set(fileBase.toLowerCase(), entry);
     }
-  }
 
-  const styleMetadata = (styleFile?.style.metadata as Record<string, unknown> | undefined) ?? {};
+    const sources: Record<string, unknown> = {};
+    let layers: SubLayerSpec[];
 
-  return {
-    id: baseId,
-    type: 'style',
-    version: 8,
-    title: typeof styleFile?.style.title === 'string' ? styleFile.style.title as string : (geojsonFiles[0]?.name ?? baseId),
-    metadata: { ...styleMetadata, dynamic: true },
-    sources,
-    layers,
+    if (styleFile) {
+      const styleSources = (styleFile.style.sources as Record<string, { type?: string; data?: unknown } & Record<string, unknown>>) ?? {};
+      const sourceKeyMap = new Map<string, string>();
+      for (const [key, source] of Object.entries(styleSources)) {
+        const dataRef = typeof source.data === 'string' ? sourcesByFile.get(source.data.toLowerCase()) : undefined;
+        if (dataRef) {
+          sources[dataRef.sourceKey] = { ...source, data: dataRef.data };
+          sourceKeyMap.set(key, dataRef.sourceKey);
+        } else {
+          const newKey = `${prefix}${sanitizeId(key)}`;
+          sources[newKey] = source;
+          sourceKeyMap.set(key, newKey);
+        }
+      }
+      const styleLayers = (styleFile.style.layers as SubLayerSpec[]) ?? [];
+      layers = styleLayers
+        .filter((layer) => !layer.source || sourceKeyMap.has(layer.source))
+        .map((layer) => ({
+          ...layer,
+          id: `${prefix}${sanitizeId(layer.id ?? layer.type)}`,
+          source: layer.source ? sourceKeyMap.get(layer.source) ?? layer.source : layer.source,
+        }));
+    } else {
+      layers = [];
+      for (const file of files) {
+        const fileBase = sanitizeId(file.name);
+        const sourceKey = `${prefix}${fileBase}`;
+        sources[sourceKey] = { type: 'geojson', data: file.data };
+        layers.push(...defaultLayersForSource(prefix, fileBase, sourceKey, file.data, qmlStyle));
+      }
+    }
+
+    const styleMetadata = (styleFile?.style.metadata as Record<string, unknown> | undefined) ?? {};
+
+    return {
+      id,
+      type: 'style',
+      version: 8,
+      title: typeof styleFile?.style.title === 'string' ? styleFile.style.title as string : (files[0]?.title ?? files[0]?.name ?? id),
+      metadata: { ...styleMetadata, dynamic: true },
+      sources,
+      layers,
+    };
   };
+
+  if (splitIntoLayers) {
+    return geojsonFiles.map((f) => buildOneConfig([f]));
+  }
+  return [buildOneConfig(geojsonFiles)];
 }

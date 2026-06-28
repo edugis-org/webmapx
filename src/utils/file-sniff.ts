@@ -164,10 +164,18 @@ async function classifyZip(blob: Blob): Promise<FileSniffResult> {
 }
 
 function detectXml(text: string): FileSniffResult | null {
-  const sample = text.slice(0, 1024);
+  const sample = text.slice(0, 2048);
   if (/<gpx[\s>]/i.test(sample)) return { kind: 'gpx', description: 'GPX track/route' };
   if (/<kml[\s>]/i.test(sample)) return { kind: 'kml', description: 'KML' };
   if (/<qgis[\s>]/i.test(sample)) return { kind: 'qml', description: 'QGIS layer style (.qml)' };
+  // GML: WFS FeatureCollection, or any element in the gml: namespace, or gml namespace declaration
+  if (
+    /<wfs:FeatureCollection/i.test(sample) ||
+    /<gml:/i.test(sample) ||
+    /xmlns(?::\w+)?=["']http:\/\/www\.opengis\.net\/gml/i.test(sample)
+  ) {
+    return { kind: 'gml', description: 'GML' };
+  }
   if (/^\s*<\?xml/i.test(sample) || /^\s*</.test(sample)) {
     return { kind: 'xml', description: 'XML (unrecognized format)', rejected: true };
   }
@@ -188,7 +196,7 @@ export async function sniffBlob(blob: Blob): Promise<FileSniffResult> {
     return classifyZip(blob);
   }
   if (bytesEqual(headerBuf, 0, [0x53, 0x51, 0x4c, 0x69, 0x74, 0x65])) {
-    return { kind: 'gpkg', description: 'GeoPackage (SQLite) - not yet supported', rejected: true };
+    return { kind: 'gpkg', description: 'GeoPackage' };
   }
   if (bytesEqual(headerBuf, 0, [0x49, 0x49, 0x2a, 0x00]) || bytesEqual(headerBuf, 0, [0x4d, 0x4d, 0x00, 0x2a])) {
     return { kind: 'geotiff', description: 'GeoTIFF - not yet supported', rejected: true };
@@ -198,6 +206,10 @@ export async function sniffBlob(blob: Blob): Promise<FileSniffResult> {
   }
   if (bytesEqual(headerBuf, 0, [0x00, 0x00, 0x27, 0x0a])) {
     return { kind: 'shp', description: 'Shapefile geometry (.shp)' };
+  }
+  // FlatGeobuf magic: "fgb" at bytes 0-2 and 4-6 (byte 3 is version, varies across spec versions)
+  if (bytesEqual(headerBuf, 0, [0x66, 0x67, 0x62]) && bytesEqual(headerBuf, 4, [0x66, 0x67, 0x62])) {
+    return { kind: 'fgb', description: 'FlatGeobuf' };
   }
 
   const text = new TextDecoder('utf-8', { fatal: false }).decode(headerBuf).trim();

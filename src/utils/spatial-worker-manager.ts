@@ -14,10 +14,11 @@
  *   });
  */
 
-import type { SpatialOp, SpatialRequest, SpatialResponse } from '../workers/spatial.worker';
+import type { GpkgLayerInfo, SpatialOp, SpatialRequest, SpatialResponse } from '../workers/spatial.worker';
 
 type PendingOp = {
-    resolve: (fc: GeoJSON.FeatureCollection) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolve: (value: any) => void;
     reject: (err: Error) => void;
 };
 
@@ -37,10 +38,15 @@ function createWorker(): Worker {
 
         const op = pending.get(msg.opId);
         if (!op) return;
+
         pending.delete(msg.opId);
 
         if (msg.status === 'ok') {
             op.resolve(msg.result);
+        } else if (msg.status === 'inspected') {
+            op.resolve({ sessionKey: msg.sessionKey, layers: msg.layers });
+        } else if (msg.status === 'closed') {
+            op.resolve(undefined);
         } else {
             op.reject(new Error(msg.message ?? 'Spatial operation failed'));
         }
@@ -74,6 +80,80 @@ export function runSpatialOp(operation: SpatialOp): Promise<GeoJSON.FeatureColle
         pending.set(opId, { resolve, reject });
         try {
             getWorker().postMessage({ opId, operation } satisfies SpatialRequest);
+        } catch (err) {
+            pending.delete(opId);
+            reject(err instanceof Error ? err : new Error(String(err)));
+        }
+    });
+}
+
+/**
+ * Inspect a binary GIS file in the worker. Returns available layer names and
+ * a sessionKey to use for subsequent convertFileLayer / closeFile calls.
+ * The file is kept open in the worker until closeFile is called.
+ */
+export function runInspectFile(data: ArrayBuffer, filename: string): Promise<{ sessionKey: string; layers: GpkgLayerInfo[] }> {
+    const opId = `sop-${++opCounter}`;
+
+    return new Promise((resolve, reject) => {
+        pending.set(opId, { resolve, reject });
+        try {
+            getWorker().postMessage(
+                { opId, operation: { op: 'inspectFile', data, filename } } satisfies SpatialRequest,
+                [data],
+            );
+        } catch (err) {
+            pending.delete(opId);
+            reject(err instanceof Error ? err : new Error(String(err)));
+        }
+    });
+}
+
+/** Convert one layer from an open file session (obtained via runInspectFile) to GeoJSON. */
+export function runConvertFileLayer(
+    sessionKey: string,
+    layerName: string,
+): Promise<GeoJSON.FeatureCollection> {
+    const opId = `sop-${++opCounter}`;
+
+    return new Promise<GeoJSON.FeatureCollection>((resolve, reject) => {
+        pending.set(opId, { resolve, reject });
+        try {
+            getWorker().postMessage(
+                { opId, operation: { op: 'convertFileLayer', sessionKey, layerName } } satisfies SpatialRequest,
+            );
+        } catch (err) {
+            pending.delete(opId);
+            reject(err instanceof Error ? err : new Error(String(err)));
+        }
+    });
+}
+
+/** Close a file session opened by runInspectFile, freeing worker memory. */
+export function runCloseFile(sessionKey: string): void {
+    const opId = `sop-${++opCounter}`;
+    pending.set(opId, { resolve: () => {}, reject: () => {} });
+    try {
+        getWorker().postMessage(
+            { opId, operation: { op: 'closeFile', sessionKey } } satisfies SpatialRequest,
+        );
+    } catch { /* best-effort cleanup */ }
+}
+
+/**
+ * Convert a binary GIS file (e.g. GeoPackage) to a GeoJSON FeatureCollection
+ * via GDAL in the shared worker. Reprojects to EPSG:4326.
+ */
+export function runConvertToGeoJSON(data: ArrayBuffer, filename: string): Promise<GeoJSON.FeatureCollection> {
+    const opId = `sop-${++opCounter}`;
+
+    return new Promise<GeoJSON.FeatureCollection>((resolve, reject) => {
+        pending.set(opId, { resolve, reject });
+        try {
+            getWorker().postMessage(
+                { opId, operation: { op: 'convertToGeoJSON', data, filename } } satisfies SpatialRequest,
+                [data],
+            );
         } catch (err) {
             pending.delete(opId);
             reject(err instanceof Error ? err : new Error(String(err)));
