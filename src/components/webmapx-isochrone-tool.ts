@@ -250,12 +250,18 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
         super.onMapDetached();
     }
 
+    private _escHandler: ((e: KeyboardEvent) => void) | null = null;
+
     protected onActivate(): void {
         this.createLayers();
         this.adapter?.setCursor('crosshair');
+        this._escHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') this.deactivate(); };
+        document.addEventListener('keydown', this._escHandler);
     }
 
     protected onDeactivate(): void {
+        document.removeEventListener('keydown', this._escHandler!);
+        this._escHandler = null;
         this.adapter?.setCursor('');
         this.clearIsochrone();
         this.removeLayers();
@@ -459,7 +465,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
                 <div class="center-row">
                     <span class="dot"></span>
                     ${this.center[1].toFixed(5)}, ${this.center[0].toFixed(5)}
-                    <button @click=${() => this.clearIsochrone()} style="margin-left:auto;padding:0.1rem 0.4rem;font-size:0.75rem;">✕</button>
+                    <button @click=${() => this.clearIsochrone()} style="margin-left:auto;padding:0.1rem 0.4rem;font-size:0.75rem;" aria-label="Clear isochrone">✕</button>
                 </div>` : nothing}
 
             ${this.showServiceDropdown ? html`

@@ -36,10 +36,26 @@
     }
 
     async function loadAndMount() {
+      const params = new URLSearchParams(window.location.search);
+      const configUrl = params.get('config');
       const raw = localStorage.getItem(STORAGE_KEY);
       let config;
-      if (!raw) {
-        // No localStorage (e.g. incognito) — fall back to demo config
+      if (raw) {
+        // localStorage always wins — setup.html writes the fully-merged config here.
+        try { config = JSON.parse(raw); }
+        catch { showError('Config in localStorage is invalid JSON.'); return; }
+      } else if (configUrl) {
+        // No localStorage override — load the base config from URL param.
+        try {
+          const res = await fetch(configUrl);
+          if (!res.ok) throw new Error(res.statusText);
+          config = await res.json();
+        } catch (e) {
+          showError('Failed to load config from URL: ' + e.message);
+          return;
+        }
+      } else {
+        // No localStorage and no config URL — fall back to demo config
         try {
           const res = await fetch('config/demo.json');
           if (!res.ok) throw new Error(res.statusText);
@@ -48,9 +64,6 @@
           showError('No config in localStorage and failed to load demo.json: ' + e.message);
           return;
         }
-      } else {
-        try { config = JSON.parse(raw); }
-        catch { showError('Config in localStorage is invalid JSON.'); return; }
       }
       try {
         await WebMapX.mount('#map', { config });

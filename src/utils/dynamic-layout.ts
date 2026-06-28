@@ -71,7 +71,7 @@ const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = {
   routing: { label: 'Routing', icon: 'signpost-split' },
   isochrone: { label: 'Isochrone', icon: 'broadcast' },
   toolbox: { label: 'Toolbox', icon: 'grid' },
-  buffer: { label: 'Buffer', icon: 'bounding-box' },
+  buffer: { label: 'Buffer', icon: { src: './icons/buffer.svg' } },
 };
 
 const STANDALONE_TAGS: Record<string, string> = {
@@ -92,7 +92,7 @@ const STANDALONE_TAGS: Record<string, string> = {
  * Canonical tool list for the config editor — one entry per unique tool,
  * aliases excluded. Automatically stays in sync when tools are added/renamed here.
  */
-export const KNOWN_TOOLS: Array<{ id: string; label: string; icon?: string; standalone?: boolean }> = [
+export const KNOWN_TOOLS: Array<{ id: string; label: string; icon?: string | ToolIconConfig; standalone?: boolean }> = [
   { id: 'search',        label: 'Search',        icon: 'search' },
   { id: 'layerTree',     label: 'Catalog',        icon: 'layers' },
   { id: 'measure',       label: 'Measure',        icon: 'rulers' },
@@ -110,7 +110,7 @@ export const KNOWN_TOOLS: Array<{ id: string; label: string; icon?: string; stan
   { id: 'isochrone',    label: 'Isochrone',      icon: 'broadcast' },
   { id: 'settings',      label: 'Settings',       icon: 'gear' },
   { id: 'toolbox',       label: 'Toolbox',        icon: 'grid' },
-  { id: 'buffer',        label: 'Buffer',         icon: 'bounding-box' },
+  { id: 'buffer',        label: 'Buffer',         icon: { src: './icons/buffer.svg' } },
   { id: 'navigation',    label: 'Navigation',     icon: 'compass',     standalone: true },
   { id: 'scale',         label: 'Scale bar',      icon: 'rulers',      standalone: true },
   { id: 'coordinates',   label: 'Coordinates',    icon: 'crosshair2',  standalone: true },

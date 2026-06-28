@@ -204,7 +204,7 @@ export class WebmapxBufferTool extends WebmapxModalTool {
 
     private handleDistanceChange(e: Event): void {
         const v = parseFloat((e.target as HTMLInputElement).value);
-        if (!isNaN(v) && v > 0) this.distanceMeters = v;
+        if (!isNaN(v)) this.distanceMeters = v;
     }
 
     private handleSegmentsChange(e: Event): void {
@@ -257,16 +257,20 @@ export class WebmapxBufferTool extends WebmapxModalTool {
             const outputLayerId = `${baseLayerId}${suffix}`;
             const outputSourceId = `${baseSourceId}${suffix}`;
 
-            // 4. Remove previous output if overwrite mode
+            const label = this.outputName.trim() || `${this.availableLayers.find(l => l.id === this.selectedLayerId)?.label ?? 'layer'} buffer`;
+
+            // 4. Remove previous output if overwrite mode.
+            // removeInlineLayer leaves the source intact — clear its data first so the
+            // old result disappears immediately, then re-add layer+source with new data.
             if (this.overwrite && this.lastOutputLayerId && this.mapElement) {
+                const emptyFc: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+                this.adapter?.getSource(outputSourceId)?.setData(emptyFc);
                 try {
                     this.mapElement.removeInlineLayer(this.lastOutputLayerId);
                 } catch (_) { /* layer may already be gone */ }
             }
 
             // 5. Add result as new GeoJSON fill layer
-            const label = this.outputName.trim() || `${this.availableLayers.find(l => l.id === this.selectedLayerId)?.label ?? 'layer'} buffer`;
-
             const layerConfig: Record<string, unknown> = {
                 id: outputLayerId,
                 type: 'fill',
@@ -342,7 +346,6 @@ export class WebmapxBufferTool extends WebmapxModalTool {
                         label="Buffer distance"
                         size="small"
                         type="number"
-                        min="0"
                         step="100"
                         value=${this.distanceMeters}
                         ?disabled=${this.busy}

@@ -239,3 +239,97 @@ test('icon property set on tool element for pre-upgrade consumption', () => {
   // Raw ToolIconConfig value — string shorthand preserved as-is
   assert.equal(toolEls[0].props['icon'], 'search');
 });
+
+// ── Buffer / Routing / Isochrone layout registration ──────────────────────────
+
+test('buffer tool resolves to webmapx-buffer-tool element', () => {
+  const layout = makeLayout();
+  buildLayoutFromConfig(layout as unknown as HTMLElement, {
+    mainToolbar: {
+      enabled: true,
+      type: 'toolbar',
+      position: 'top-left',
+      items: [{ id: 'buffer-tool', type: 'buffer', enabled: true }],
+    },
+  });
+
+  const toolEls = findByTag(layout, 'webmapx-buffer-tool');
+  assert.equal(toolEls.length, 1);
+  assert.equal(toolEls[0].attrs['label'], 'Buffer');
+});
+
+test('buffer tool uses src icon (not named icon)', () => {
+  const layout = makeLayout();
+  buildLayoutFromConfig(layout as unknown as HTMLElement, {
+    mainToolbar: {
+      enabled: true,
+      type: 'toolbar',
+      position: 'top-left',
+      items: [{ id: 'buffer-tool', type: 'buffer', enabled: true }],
+    },
+  });
+
+  const icons = findByTag(layout, 'sl-icon');
+  // toolbar button icon: must use src, not name
+  const buttonIcon = icons.find(i => i.attrs['src']?.includes('buffer.svg'));
+  assert.ok(buttonIcon, 'sl-icon with buffer.svg src present');
+  assert.equal(buttonIcon!.attrs['name'], undefined, 'no name attribute on src icon');
+});
+
+test('routing tool resolves to webmapx-routing-tool element with default label', () => {
+  const layout = makeLayout();
+  buildLayoutFromConfig(layout as unknown as HTMLElement, {
+    mainToolbar: {
+      enabled: true,
+      type: 'toolbar',
+      position: 'top-left',
+      items: [{ id: 'routing-tool', type: 'routing', enabled: true }],
+    },
+  });
+
+  const toolEls = findByTag(layout, 'webmapx-routing-tool');
+  assert.equal(toolEls.length, 1);
+  assert.equal(toolEls[0].attrs['label'], 'Routing');
+
+  const icons = findByTag(layout, 'sl-icon');
+  assert.equal(icons[0].attrs['name'], 'signpost-split');
+});
+
+test('isochrone tool resolves to webmapx-isochrone-tool element with default label', () => {
+  const layout = makeLayout();
+  buildLayoutFromConfig(layout as unknown as HTMLElement, {
+    mainToolbar: {
+      enabled: true,
+      type: 'toolbar',
+      position: 'top-left',
+      items: [{ id: 'isochrone-tool', type: 'isochrone', enabled: true }],
+    },
+  });
+
+  const toolEls = findByTag(layout, 'webmapx-isochrone-tool');
+  assert.equal(toolEls.length, 1);
+  assert.equal(toolEls[0].attrs['label'], 'Isochrone');
+
+  const icons = findByTag(layout, 'sl-icon');
+  assert.equal(icons[0].attrs['name'], 'broadcast');
+});
+
+test('all three new tools respect enabled:false', () => {
+  const layout = makeLayout();
+  buildLayoutFromConfig(layout as unknown as HTMLElement, {
+    mainToolbar: {
+      enabled: true,
+      type: 'toolbar',
+      position: 'top-left',
+      items: [
+        { id: 'routing-tool',   type: 'routing',   enabled: false },
+        { id: 'isochrone-tool', type: 'isochrone', enabled: false },
+        { id: 'buffer-tool',    type: 'buffer',    enabled: false },
+      ],
+    },
+  });
+
+  assert.equal(findByTag(layout, 'webmapx-routing-tool').length,   0);
+  assert.equal(findByTag(layout, 'webmapx-isochrone-tool').length, 0);
+  assert.equal(findByTag(layout, 'webmapx-buffer-tool').length,    0);
+});

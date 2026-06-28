@@ -8,6 +8,9 @@ import { MapStateStore } from '../../store/map-state-store';
 import * as maplibregl from 'maplibre-gl';
 import { buildWMSGetMapUrl } from '../../utils/wms-url-builder';
 import type { WarpedMapLayer } from '@allmaps/maplibre';
+import Flatbush from 'flatbush';
+import turfUnion from '@turf/union';
+import turfBbox from '@turf/bbox';
 
 const OPACITY_PAINT_PROPERTIES: Record<string, string[]> = {
     fill: ['fill-opacity'],
@@ -542,27 +545,155 @@ export class MapLayerService implements ILayerService {
             return { type: 'FeatureCollection', features: [] };
         }
 
-        const queryOpts: maplibregl.QueryRenderedFeaturesOptions = { layers: nativeLayerIds };
+        // Use querySourceFeatures so all loaded tiles are queried, not just rendered viewport.
+        // queryRenderedFeatures misses features near tile borders or outside the viewport center.
         try {
-            let rawFeatures = this.map.queryRenderedFeatures(undefined, queryOpts);
+            let rawFeatures = this.map.queryRenderedFeatures(undefined, { layers: nativeLayerIds });
             if (options?.sourceLayer) {
-                // Filter before toJSON — sourceLayer is a MapLibre property on the raw feature object,
-                // not part of the GeoJSON output.
                 rawFeatures = rawFeatures.filter(f => f.sourceLayer === options.sourceLayer);
             }
-            const features = rawFeatures.map(f => f.toJSON() as GeoJSON.Feature);
-            return { type: 'FeatureCollection', features: this.dedupeSourceFeatures(features) };
+            return this.mergeVectorTileFeatures(rawFeatures);
         } catch (_) {
             return { type: 'FeatureCollection', features: [] };
         }
     }
 
+    /** Clip a polygon ring to a bbox using Sutherland-Hodgman. Returns null if degenerate. */
+    private clipRingToBbox(ring: number[][], minX: number, minY: number, maxX: number, maxY: number): number[][] | null {
+        const inside = (p: number[], e: number) => [p[0]>=minX, p[0]<=maxX, p[1]>=minY, p[1]<=maxY][e];
+        const intersect = (a: number[], b: number[], e: number): number[] => {
+            const dx = b[0]-a[0], dy = b[1]-a[1];
+            if (e===0) { const t=(minX-a[0])/dx; return [minX, a[1]+t*dy]; }
+            if (e===1) { const t=(maxX-a[0])/dx; return [maxX, a[1]+t*dy]; }
+            if (e===2) { const t=(minY-a[1])/dy; return [a[0]+t*dx, minY]; }
+            const t=(maxY-a[1])/dy; return [a[0]+t*dx, maxY];
+        };
+        let out = ring;
+        for (let e = 0; e < 4; e++) {
+            if (!out.length) return null;
+            const inp = out; out = [];
+            for (let i = 0; i < inp.length; i++) {
+                const cur = inp[i], prev = inp[(i+inp.length-1)%inp.length];
+                const ci = inside(cur, e), pi = inside(prev, e);
+                if (ci) { if (!pi) out.push(intersect(prev, cur, e)); out.push(cur); }
+                else if (pi) out.push(intersect(prev, cur, e));
+            }
+        }
+        if (out.length < 3) return null;
+        if (out[0][0]!==out[out.length-1][0] || out[0][1]!==out[out.length-1][1]) out.push(out[0]);
+        return out;
+    }
+
+    private clipGeomToBbox(geom: GeoJSON.Geometry, minX: number, minY: number, maxX: number, maxY: number): GeoJSON.Geometry | null {
+        if (geom.type === 'Polygon') {
+            const rings = geom.coordinates.map(r => this.clipRingToBbox(r as number[][], minX, minY, maxX, maxY)).filter(Boolean) as number[][][];
+            return rings.length ? { type: 'Polygon', coordinates: rings } : null;
+        }
+        if (geom.type === 'MultiPolygon') {
+            const polys = geom.coordinates
+                .map(p => p.map(r => this.clipRingToBbox(r as number[][], minX, minY, maxX, maxY)).filter(Boolean) as number[][][])
+                .filter(p => p.length);
+            return polys.length ? { type: 'MultiPolygon', coordinates: polys } : null;
+        }
+        return geom; // points/lines: no bbox clip needed
+    }
+
+    /**
+     * Compute tile geographic bbox [west, south, east, north] from tile x/y/z.
+     * Standard Web Mercator tile math.
+     */
+    private tileToBbox(x: number, y: number, z: number): [number, number, number, number] {
+        const n = Math.PI - (2 * Math.PI * y) / Math.pow(2, z);
+        const s = Math.PI - (2 * Math.PI * (y + 1)) / Math.pow(2, z);
+        const w = (x / Math.pow(2, z)) * 360 - 180;
+        const e = ((x + 1) / Math.pow(2, z)) * 360 - 180;
+        const lat = (a: number) => (Math.atan(Math.sinh(a)) * 180) / Math.PI;
+        return [w, lat(s), e, lat(n)];
+    }
+
+    private propertiesEqual(a: Record<string, unknown> | null, b: Record<string, unknown> | null): boolean {
+        if (a === b) return true;
+        if (!a && !b) return true;
+        const ak = Object.keys(a ?? {}), bk = Object.keys(b ?? {});
+        if (ak.length !== bk.length) return false;
+        for (const k of ak) if ((a as Record<string, unknown>)[k] !== (b as Record<string, unknown>)[k]) return false;
+        return true;
+    }
+
+    /**
+     * Merge vector tile features that are split across tile borders.
+     * Uses _vectorTileFeature._x/_y/_z (MapLibre internal) to detect tile-border
+     * features, then unions them using turf + flatbush spatial index.
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private mergeVectorTileFeatures(rawFeatures: maplibregl.MapGeoJSONFeature[]): GeoJSON.FeatureCollection {
+        if (!rawFeatures.length) return { type: 'FeatureCollection', features: [] };
+
+        // Build tile bbox cache and detect features crossing tile borders
+        const tileCache = new Map<string, [number, number, number, number]>();
+        const tileBorderIdx: number[] = []; // indices into features[] of tile-border features
+
+        const features: (GeoJSON.Feature | null)[] = rawFeatures.map((mf, i) => {
+            const wrapper = mf as unknown as { _vectorTileFeature?: unknown; _x?: number; _y?: number; _z?: number };
+            let json = mf.toJSON() as GeoJSON.Feature;
+
+            if (wrapper._x !== undefined && wrapper._y !== undefined && wrapper._z !== undefined) {
+                const key = `${wrapper._x},${wrapper._y},${wrapper._z}`;
+                if (!tileCache.has(key)) tileCache.set(key, this.tileToBbox(wrapper._x!, wrapper._y!, wrapper._z!));
+                const [tw, ts, te, tn] = tileCache.get(key)!;
+                // Clip to tile bbox to remove MVT over-extension (coordinates beyond tile extent).
+                const clipped = this.clipGeomToBbox(json.geometry, tw, ts, te, tn);
+                if (clipped) json = { ...json, geometry: clipped };
+                // If clipped geometry still touches a tile edge, it may need merging with adjacent tile.
+                const [fw, fs, fe, fn] = turfBbox(json);
+                if (fw <= tw + 1e-6 || fe >= te - 1e-6 || fs <= ts + 1e-6 || fn >= tn - 1e-6) {
+                    tileBorderIdx.push(i);
+                }
+            }
+            return json;
+        });
+
+        // Union tile-border features that intersect and have equal properties
+        if (tileBorderIdx.length > 1) {
+            const bboxes = tileBorderIdx.map(i => turfBbox(features[i]!));
+            const index = new Flatbush(bboxes.length);
+            for (const [w, s, e, n] of bboxes) index.add(w, s, e, n);
+            index.finish();
+
+            for (let a = 0; a < tileBorderIdx.length; a++) {
+                const ai = tileBorderIdx[a];
+                if (!features[ai]) continue;
+                const candidates = index.search(bboxes[a][0], bboxes[a][1], bboxes[a][2], bboxes[a][3]);
+                for (const b of candidates) {
+                    if (b <= a) continue;
+                    const bi = tileBorderIdx[b];
+                    if (!features[bi]) continue;
+                    if (!this.propertiesEqual(features[ai]!.properties, features[bi]!.properties)) continue;
+                    const merged: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null = turfUnion(
+                        { type: 'FeatureCollection', features: [
+                            features[ai] as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+                            features[bi] as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+                        ] }
+                    ) ?? null;
+                    if (merged) {
+                        merged.properties = features[ai]!.properties;
+                        merged.id = features[ai]!.id;
+                        features[ai] = merged;
+                        features[bi] = null; // absorbed
+                    }
+                }
+            }
+        }
+
+        return { type: 'FeatureCollection', features: features.filter((f): f is GeoJSON.Feature => f !== null) };
+    }
+
     private dedupeSourceFeatures(features: GeoJSON.Feature[]): GeoJSON.Feature[] {
         const seen = new Set<string>();
         return features.filter((feature) => {
-            const key = feature.id !== undefined
-                ? `id:${String(feature.id)}`
-                : JSON.stringify([feature.geometry, feature.properties ?? {}]);
+            // Use geometry + id so tile-border clips of the same feature (same id, different
+            // geometry) both survive. Pure id-dedup would drop one half of a split building.
+            const key = JSON.stringify([feature.id, feature.geometry]);
             if (seen.has(key)) return false;
             seen.add(key);
             return true;

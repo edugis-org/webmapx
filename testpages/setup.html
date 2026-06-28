@@ -97,11 +97,13 @@
     function getSaved() { return sessionOverrides; }
     function saveOverrides(overrides) { sessionOverrides = overrides; }
 
+    let activeConfigUrl = 'config/demo.json';
+
     async function loadConfig() {
       const params = new URLSearchParams(window.location.search);
-      const configUrl = params.get('config') ?? 'config/demo.json';
-      const res = await fetch(configUrl);
-      if (!res.ok) throw new Error(`Failed to load config: ${configUrl} (${res.status})`);
+      activeConfigUrl = params.get('config') ?? 'config/demo.json';
+      const res = await fetch(activeConfigUrl);
+      if (!res.ok) throw new Error(`Failed to load config: ${activeConfigUrl} (${res.status})`);
       baseConfig = await res.json();
       return baseConfig;
     }
@@ -745,7 +747,8 @@
       // Reset engine to config value so any user override in preview is cleared.
       const engine = finalConfig.engine ?? finalConfig.map?.type ?? 'maplibre';
       localStorage.setItem('webmapx-adapter:map-webmapx', engine);
-      window.open('testpages/preview.html', 'webmapx-preview');
+      const previewUrl = `testpages/preview.html?config=${encodeURIComponent(activeConfigUrl)}`;
+      window.open(previewUrl, 'webmapx-preview');
       document.getElementById('status').textContent = 'Config saved — preview updated.';
     });
 

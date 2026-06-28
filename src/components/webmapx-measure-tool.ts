@@ -762,6 +762,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     protected onActivate(): void {
         this.clearMeasurement();
         this.adapter?.setDoubleClickZoomEnabled(false);
+        this.adapter?.setCursor('crosshair');
 
         // Create layers when activating (ensures they're on top)
         if (!this.layersCreated) {
@@ -783,6 +784,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     protected onDeactivate(): void {
         this.clearMeasurement();
         this.adapter?.setDoubleClickZoomEnabled(true);
+        this.adapter?.setCursor('');
 
         // Remove layers when deactivating to reduce map overhead
         this.removeMeasureLayers();

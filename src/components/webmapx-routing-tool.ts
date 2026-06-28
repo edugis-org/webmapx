@@ -414,12 +414,18 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
         super.onMapDetached();
     }
 
+    private _escHandler: ((e: KeyboardEvent) => void) | null = null;
+
     protected onActivate(): void {
         this.createLayers();
         this.adapter?.setCursor('crosshair');
+        this._escHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') this.deactivate(); };
+        document.addEventListener('keydown', this._escHandler);
     }
 
     protected onDeactivate(): void {
+        document.removeEventListener('keydown', this._escHandler!);
+        this._escHandler = null;
         this.adapter?.setCursor('');
         this.clearRoute();
         this.removeLayers();
@@ -677,7 +683,7 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
                 <div class="waypoint">
                     <span class="dot start"></span>
                     ${this.start[1].toFixed(5)}, ${this.start[0].toFixed(5)}
-                    <button @click=${() => this.resetToSetStart()} style="margin-left:auto;padding:0.1rem 0.4rem;font-size:0.75rem;">✕</button>
+                    <button @click=${() => this.resetToSetStart()} style="margin-left:auto;padding:0.1rem 0.4rem;font-size:0.75rem;" aria-label="Clear route">✕</button>
                 </div>` : nothing}
             ${this.end ? html`
                 <div class="waypoint">

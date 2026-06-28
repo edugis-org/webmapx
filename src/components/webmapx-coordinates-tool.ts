@@ -308,7 +308,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
     const [lng, lat] = coords;
     const latText = this.formatCoordinate(lat, 'lat', resolution, 'en');
     const lngText = this.formatCoordinate(lng, 'lng', resolution, 'en');
-    return `${latText}  ${lngText}`;
+    return `${latText}, ${lngText}`;
   }
 
   private renderCursorRow(): TemplateResult {
