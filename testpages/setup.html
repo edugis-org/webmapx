@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <link rel="icon" href="../favicon.ico">
   <title>WebMapX Setup</title>
   <style>
     body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
@@ -450,7 +451,16 @@
         const toolLabels = [];
         let toolboxSection = null;
 
-        for (const tool of TOOLBAR_TOOLS) {
+        // Build display order: config order first, then remaining TOOLBAR_TOOLS
+        const configOrderedIds = (toolbar?.items ?? [])
+          .map(item => TOOLBAR_TOOLS.find(t => t.id === (item.id ?? item.type) || t.id === item.type)?.id)
+          .filter(Boolean);
+        const orderedTools = [
+          ...configOrderedIds.map(id => TOOLBAR_TOOLS.find(t => t.id === id)),
+          ...TOOLBAR_TOOLS.filter(t => !configOrderedIds.includes(t.id)),
+        ];
+
+        for (const tool of orderedTools) {
           const key = `toolbar:${toolbarKey}:${tool.id}`;
           const propsKey = `${key}:props`;
           const item = inConfig.get(tool.id);

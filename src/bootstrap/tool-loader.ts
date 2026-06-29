@@ -9,7 +9,7 @@ const TOOL_MAP: Record<string, () => Promise<unknown>> = {
   draw:               () => import('../components/webmapx-draw-tool.js'),
   measure:            () => import('../components/webmapx-measure-tool.js'),
   print:              () => import('../components/webmapx-print-tool.js'),
-  importLayer:        () => import('../components/webmapx-import-layer-tool.js'),
+  'import-layer':     () => import('../components/webmapx-import-layer-tool.js'),
   search:             () => import('../components/webmapx-search-tool.js'),
   geolocation:        () => import('../components/webmapx-geolocation-tool.js'),
   info:               () => import('../components/webmapx-info-tool.js'),

@@ -18,7 +18,6 @@ const AUTHORING_TOOL_IDS = new Set(['configedit', 'config-edit', 'settings']);
 /** Canonical IDs for deduplication (aliases map to the same entry). */
 const ALIAS_TO_CANONICAL: Record<string, string> = {
     layers: 'layerTree', catalog: 'layerTree', datacatalog: 'layerTree',
-    'import-layer': 'importLayer',
     legend: 'layerOverview',
     geolocate: 'geolocation',
 };
