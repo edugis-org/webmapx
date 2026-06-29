@@ -3,6 +3,8 @@ import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import { resolveMapElement } from './internal/map-context';
 import type { IMapState } from '../store/IMapState';
+import mercatorViewUrl from '../icons/mercator-view.png?url';
+import globeViewUrl from '../icons/globe-view.png?url';
 
 interface ViewModeDef {
     id: string;
@@ -13,8 +15,8 @@ interface ViewModeDef {
 }
 
 const VIEW_MODES: ViewModeDef[] = [
-    { id: 'mercator', name: 'Mercator', description: 'Cylindrical Mercator', image: 'mercator-view.png' },
-    { id: 'globe',    name: 'Globe',    description: 'Globe view: orthographic-like or perspective', image: 'globe-view.png' },
+    { id: 'mercator', name: 'Mercator', description: 'Cylindrical Mercator', image: mercatorViewUrl },
+    { id: 'globe',    name: 'Globe',    description: 'Globe view: orthographic-like or perspective', image: globeViewUrl },
 ];
 
 @customElement('webmapx-view-mode-tool')

@@ -3,6 +3,7 @@
 // panels and standalone tools) from a config's `tools` section.
 
 import type { ToolConfig, ToolIconConfig, ToolsConfig } from '../config/types.js';
+import bufferIconUrl from '../icons/buffer.svg?url';
 
 interface ToolbarItemConfig {
   id?: string;
@@ -71,7 +72,7 @@ const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = {
   routing: { label: 'Routing', icon: 'signpost-split' },
   isochrone: { label: 'Isochrone', icon: 'broadcast' },
   toolbox: { label: 'Toolbox', icon: 'grid' },
-  buffer: { label: 'Buffer', icon: { src: './icons/buffer.svg' } },
+  buffer: { label: 'Buffer', icon: { src: bufferIconUrl } },
 };
 
 const STANDALONE_TAGS: Record<string, string> = {
@@ -110,7 +111,7 @@ export const KNOWN_TOOLS: Array<{ id: string; label: string; icon?: string | Too
   { id: 'isochrone',    label: 'Isochrone',      icon: 'broadcast' },
   { id: 'settings',      label: 'Settings',       icon: 'gear' },
   { id: 'toolbox',       label: 'Toolbox',        icon: 'grid' },
-  { id: 'buffer',        label: 'Buffer',         icon: { src: './icons/buffer.svg' } },
+  { id: 'buffer',        label: 'Buffer',         icon: { src: bufferIconUrl } },
   { id: 'navigation',    label: 'Navigation',     icon: 'compass',     standalone: true },
   { id: 'scale',         label: 'Scale bar',      icon: 'rulers',      standalone: true },
   { id: 'coordinates',   label: 'Coordinates',    icon: 'crosshair2',  standalone: true },

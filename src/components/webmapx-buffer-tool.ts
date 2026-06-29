@@ -7,8 +7,8 @@
  *
  * Registration:
  *   dynamic-layout.ts → TOOL_ELEMENT_TAGS['buffer'] = 'webmapx-buffer-tool'
- *   dynamic-layout.ts → DEFAULT_TOOL_METADATA['buffer'] = { label: 'Buffer', icon: { src: './icons/buffer.svg' } }
- *   dynamic-layout.ts → KNOWN_TOOLS: { id: 'buffer', label: 'Buffer', icon: { src: './icons/buffer.svg' } }
+ *   dynamic-layout.ts → DEFAULT_TOOL_METADATA['buffer'] = { label: 'Buffer', icon: { src: bufferIconUrl } }
+ *   dynamic-layout.ts → KNOWN_TOOLS: { id: 'buffer', label: 'Buffer', icon: { src: bufferIconUrl } }
  */
 
 import { html, css, nothing } from 'lit';
@@ -20,6 +20,7 @@ import type { WebmapxMapElement } from './webmapx-map';
 
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
+import bufferIconUrl from '../icons/buffer.svg?url';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
@@ -409,7 +410,7 @@ export class WebmapxBufferTool extends WebmapxModalTool {
                         ?disabled=${!hasLayers || this.busy}
                         @click=${this.handleRun}
                     >
-                        <sl-icon slot="prefix" src="./icons/buffer.svg"></sl-icon>
+                        <sl-icon slot="prefix" src="${bufferIconUrl}"></sl-icon>
                         Buffer
                     </sl-button>
                 </div>
