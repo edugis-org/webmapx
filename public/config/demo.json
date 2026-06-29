@@ -2785,8 +2785,8 @@
           "icon": "box"
         },
         {
-          "id": "importLayer",
-          "type": "importLayer",
+          "id": "import-layer",
+          "type": "import-layer",
           "enabled": true,
           "icon": "file-earmark-arrow-up"
         },
