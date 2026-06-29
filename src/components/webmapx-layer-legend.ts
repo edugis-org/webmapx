@@ -461,16 +461,19 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 const swatch = this.renderSwatch(type, evalPaint, zoom, evalLayout);
                 if (!swatch) continue;
                 const editable = this.isEditableType(type, evalPaint);
-                const isOpen = this.editorOpenKey === dedupKey;
+                // Track open editor by sublayer ID (not dedupKey) so changing a paint
+                // value (e.g. text-size) doesn't mutate the dedupKey and close the editor.
+                const groupIds = dedupGroups.get(dedupKey)!;
+                const isOpen = groupIds.includes(this.editorOpenKey ?? '');
                 rows.push(html`
                     <div class="legend-row ${editable ? 'editable' : ''}"
-                        @click=${editable ? () => { this.editorOpenKey = isOpen ? null : dedupKey; } : null}>
+                        @click=${editable ? () => { this.editorOpenKey = isOpen ? null : groupIds[0]; } : null}>
                         ${swatch}
                         <span class="legend-label">${label}</span>
                     </div>`);
                 if (editable && isOpen) {
                     const editorPaint = type === 'symbol' ? { ...evalPaint, 'text-size': evalLayout['text-size'] ?? evalPaint['text-size'] } : evalPaint;
-                    rows.push(this.renderStyleEditor(dedupGroups.get(dedupKey)!, type, editorPaint));
+                    rows.push(this.renderStyleEditor(groupIds, type, editorPaint));
                 }
             }
         }
@@ -1081,7 +1084,15 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             <div class="style-editor-row">
                 <label>${label}
                     <input type="range" min=${min} max=${max} step=${step} .value=${String(value)}
-                        @input=${(e: Event) => this.setPaintOverride(subLayerIds, key, Number((e.target as HTMLInputElement).value))}>
+                        @input=${(e: Event) => {
+                            // Live visual update only — no state change so Lit doesn't re-render and break drag
+                            const v = Number((e.target as HTMLInputElement).value);
+                            for (const sid of subLayerIds) this.adapter?.updateLayerStyle(this.layerId, sid || this.layerId, { [key]: v });
+                            const row = (e.target as HTMLElement).closest('.style-editor-row');
+                            const out = row?.querySelector('output');
+                            if (out) out.textContent = `${v}${unit}`;
+                        }}
+                        @change=${(e: Event) => this.setPaintOverride(subLayerIds, key, Number((e.target as HTMLInputElement).value))}>
                 </label>
                 <output>${value}${unit}</output>
             </div>`;
