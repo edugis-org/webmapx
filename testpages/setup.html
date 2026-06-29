@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <base href="../">
   <title>WebMapX Setup</title>
   <style>
     body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
@@ -66,7 +65,7 @@
 </head>
 <body>
   <h1>WebMapX Tool Setup</h1>
-  <p>Open <a href="testpages/preview.html" target="_blank">preview.html</a> in a split tab, then use the button below to push config to it.</p>
+  <p>Open <a href="preview.html" target="_blank">preview.html</a> in a split tab, then use the button below to push config to it.</p>
   <div style="margin-bottom:0.5rem">
     <label><input type="checkbox" id="select-all" checked> Select / deselect all</label>
   </div>
@@ -97,11 +96,11 @@
     function getSaved() { return sessionOverrides; }
     function saveOverrides(overrides) { sessionOverrides = overrides; }
 
-    let activeConfigUrl = 'config/demo.json';
+    let activeConfigUrl = '../config/demo.json';
 
     async function loadConfig() {
       const params = new URLSearchParams(window.location.search);
-      activeConfigUrl = params.get('config') ?? 'config/demo.json';
+      activeConfigUrl = params.get('config') ?? '../config/demo.json';
       const res = await fetch(activeConfigUrl);
       if (!res.ok) throw new Error(`Failed to load config: ${activeConfigUrl} (${res.status})`);
       baseConfig = await res.json();
@@ -747,7 +746,7 @@
       // Reset engine to config value so any user override in preview is cleared.
       const engine = finalConfig.engine ?? finalConfig.map?.type ?? 'maplibre';
       localStorage.setItem('webmapx-adapter:map-webmapx', engine);
-      const previewUrl = `testpages/preview.html?config=${encodeURIComponent(activeConfigUrl)}`;
+      const previewUrl = `preview.html?config=${encodeURIComponent(activeConfigUrl)}`;
       window.open(previewUrl, 'webmapx-preview');
       document.getElementById('status').textContent = 'Config saved — preview updated.';
     });
