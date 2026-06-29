@@ -1,4 +1,5 @@
 import './theme/lib-defaults.css';
+import './theme/webmapx-style-core.css';
 
 /**
  * WebMapX library entry point.
