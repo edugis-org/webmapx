@@ -325,7 +325,9 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             return this.renderZoomHint(overallMin, overallMax - 1, zoom);
         }
 
-        for (const raw of sublayers) {
+        // Reverse so top-rendered layers (labels/symbols) appear first in the legend,
+        // matching user expectation: what's visually on top is at the top of the list.
+        for (const raw of [...sublayers].reverse()) {
             const sub = raw as Record<string, unknown>;
             if (!sub || typeof sub.type !== 'string') continue;
             if (sub.hideFromLegend === true) continue;

@@ -173,7 +173,9 @@ export class MapLayerService implements ILayerService {
             nativeSource = vc.tiles
                 ? { type: 'vector', tiles: vc.tiles }
                 : { type: 'vector', url: vc.url };
-            if (typeof (sourceConfig as any).attribution === 'string') nativeSource.attribution = (sourceConfig as any).attribution;
+            if (typeof vc.minzoom === 'number') nativeSource.minzoom = vc.minzoom;
+            if (typeof vc.maxzoom === 'number') nativeSource.maxzoom = vc.maxzoom;
+            if (typeof vc.attribution === 'string') nativeSource.attribution = vc.attribution;
         }
 
         this.map.addSource(nativeSourceId, nativeSource);
