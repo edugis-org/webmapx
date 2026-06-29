@@ -2,12 +2,14 @@
 
 Use webmapx directly from a `<script>` tag — no build tools, no npm required.
 
-> **Version**: examples use `@latest` for convenience. For production, pin to a specific version
-> (e.g. `@edugis-org/webmapx@0.1.16`) to avoid unexpected breaking changes.
+> **Version**: examples use `@latest` for convenience. Pin to a specific version
+> (e.g. `@edugis-org/webmapx@0.2.0`) in production to avoid unexpected breaking changes.
 
-## Minimal working example
+---
 
-Copy this HTML and open it in a browser or serve it with any static server:
+## 1 — Just a map
+
+The minimum: a MapLibre map with an OpenStreetMap background. No tools yet.
 
 ```html
 <!DOCTYPE html>
@@ -16,19 +18,12 @@ Copy this HTML and open it in a browser or serve it with any static server:
   <meta charset="UTF-8">
   <title>My Map</title>
 
-  <!-- Import map: only the map engine needs resolving; lit/shoelace are bundled in webmapx -->
   <script type="importmap">
-  {
-    "imports": {
-      "maplibre-gl": "https://esm.sh/maplibre-gl@5"
-    }
-  }
+  { "imports": { "maplibre-gl": "https://esm.sh/maplibre-gl@5" } }
   </script>
 
-  <!-- Styles -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2/cdn/themes/light.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@edugis-org/webmapx@latest/dist-lib/webmapx.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@edugis-org/webmapx@latest/dist-lib/webmapx.css">
 
   <style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
@@ -44,25 +39,19 @@ Copy this HTML and open it in a browser or serve it with any static server:
     WebMapX.mount('#map', {
       config: {
         engine: 'maplibre',
-        tools: ['draw', 'measure'],
-        map: { center: [5, 52], zoom: 4, type: 'maplibre' },
+        map: { center: [5, 52], zoom: 7 },
         layerData: {
           sources: {
-            'osm-source': {
-              type: 'raster',
-              service: 'xyz',
+            osm: {
+              type: 'raster', service: 'xyz',
               url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               tileSize: 256,
-              attribution: '&copy; OpenStreetMap contributors'
+              attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }
           },
-          layers: {
-            'osm': { id: 'osm', type: 'raster', source: 'osm-source', title: 'OpenStreetMap' }
-          }
+          layers: { osm: { id: 'osm', type: 'raster', source: 'osm', title: 'OpenStreetMap' } }
         },
-        state: {
-          activeLayers: [{ ref: 'osm', visible: true }]
-        }
+        state: { activeLayers: [{ ref: 'osm', visible: true }] }
       }
     });
   </script>
@@ -70,31 +59,70 @@ Copy this HTML and open it in a browser or serve it with any static server:
 </html>
 ```
 
-## Load config from a file
+A map alone has limited value. Real users need to navigate, measure, inspect features, print, and switch backgrounds. That's what tools are for.
+
+---
+
+## 2 — Map with tools
+
+Add a toolbar with the most common tools:
+
+```js
+WebMapX.mount('#map', {
+  config: {
+    engine: 'maplibre',
+    tools: ['coordinates', 'scale', 'fullscreen', 'info', 'measure', 'draw', 'search', 'print', 'layer-overview'],
+    map: { center: [5, 52], zoom: 7 },
+    layerData: { /* same as above */ },
+    state: { activeLayers: [{ ref: 'osm', visible: true }] }
+  }
+});
+```
+
+Each string in `tools` is a tool id. Tools load on demand — only what you list is fetched.
+
+→ [All available tools and what they do](./cdn-tools/overview.md)
+
+---
+
+## 3 — Load config from a file
+
+Keep config in a separate JSON file instead of inlining it:
 
 ```js
 WebMapX.mount('#map', { config: './mymap.json' });
 ```
 
-The JSON file follows the same structure as the inline config above.
+The JSON file uses the same structure as the inline config above.
 
-## Available tools
+**Build your config visually:** open [setup.html](https://edugis-org.github.io/webmapx/testpages/setup.html), configure tools and layers interactively, then download the resulting JSON and point `config` at it.
 
-Pass tool names in the `tools` array:
+---
+
+## 4 — Switch engine
+
+Replace `maplibre` with `openlayers`, `leaflet`, or `cesium` and update the importmap:
+
+| Engine | importmap key | CDN URL |
+|---|---|---|
+| MapLibre (default) | `maplibre-gl` | `https://esm.sh/maplibre-gl@5` |
+| OpenLayers | `ol` | `https://cdn.jsdelivr.net/npm/ol@10/+esm` |
+| Leaflet | `leaflet` | `https://esm.sh/leaflet@1` |
+| Cesium | `cesium` | `https://esm.sh/cesium@1` |
+
+---
+
+## 5 — Switch locale
 
 ```js
-tools: ['draw', 'measure', 'search', 'print', 'import', 'geolocation', 'info', '3d', 'truearea', 'settings']
+config: { engine: 'maplibre', locale: 'nl', tools: ['measure'] }
 ```
 
-## Switch locale
+English is built-in. Other locales load from CDN on first use.
 
-```js
-config: { engine: 'maplibre', locale: 'nl', tools: ['draw'] }
-```
+---
 
-English is built-in. Other locales lazy-load from CDN on first use.
-
-## Add a plugin
+## 6 — Add a plugin
 
 ```js
 config: {
@@ -105,11 +133,10 @@ config: {
 
 Plugins from trusted CDNs (jsdelivr, unpkg, esm.sh) load automatically. Others are skipped with a console warning.
 
-If your page enforces CSP, add:
-```
-Content-Security-Policy: script-src 'self' https://cdn.jsdelivr.net https://esm.sh;
-```
+---
 
-## Use a different engine
+## Next steps
 
-Replace `maplibre` with `openlayers`, `leaflet`, or `cesium` in both `engine` and `map.type`, and update the importmap entry accordingly (e.g. `"ol": "https://cdn.jsdelivr.net/npm/ol@10/+esm"`).
+- [Tool reference](./cdn-tools/overview.md) — all tools, one page each with copy-paste examples
+- [npm quickstart](./npm-quickstart.md) — use webmapx in a Vite/webpack project
+- [GitHub quickstart](./github-quickstart.md) — clone and run locally

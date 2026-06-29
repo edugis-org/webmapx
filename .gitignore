@@ -5,10 +5,11 @@ dist/
 .vscode/
 public/cesium/
 public/styles/
+public/data/world-countries-simplified.geojson
 scripts/temp/
 openfreemap-amsterdam-z14-8415-5384-geojson-lonlat-corrected/
-config/layers.json
-config/world.json
-config/world.converted.json
-config/apikeys.json
+public/config/layers.json
+public/config/world.json
+public/config/world.converted.json
+public/config/apikeys.json
 dist-lib/

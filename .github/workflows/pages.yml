@@ -27,15 +27,8 @@ jobs:
           cache: npm
 
       - run: npm ci
-      - run: echo '${{ secrets.APIKEYS_JSON }}' > config/apikeys.json
+      - run: echo '${{ secrets.APIKEYS_JSON }}' > public/config/apikeys.json
       - run: npm run build
-
-      - name: Add demo assets
-        run: |
-          git clone --depth 1 https://github.com/edugis-org/webmapx-demo.git /tmp/webmapx-demo
-          mkdir -p dist/config dist/styles
-          cp -R /tmp/webmapx-demo/config/. dist/config/
-          cp -R /tmp/webmapx-demo/styles/. dist/styles/
 
       - uses: actions/upload-pages-artifact@v4
         with:
