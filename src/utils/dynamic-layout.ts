@@ -151,6 +151,8 @@ function resolveToolbarItemMetadata(item: ToolbarItemConfig): ToolMetadata {
  */
 function isSameOriginSrc(src: string): boolean {
   try {
+    // data: URIs are inline — no cross-origin risk
+    if (src.startsWith('data:')) return true;
     // Relative URLs (no scheme) are always same-origin
     if (!src.includes('://')) return true;
     const url = new URL(src, typeof window !== 'undefined' ? window.location.href : 'http://localhost');
