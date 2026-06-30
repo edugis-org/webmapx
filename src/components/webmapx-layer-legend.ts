@@ -1051,7 +1051,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             overrides[subLayerId] = { ...(overrides[subLayerId] ?? {}), [key]: value };
             this.adapter?.updateLayerStyle(this.layerId, subLayerId || this.layerId, { [key]: value });
         }
-        this.editOverrides = overrides;
+        if (this.isConnected) this.editOverrides = overrides;
 
         // Persist paint changes to the store so saved layers include the updated style.
         if (!this.adapter) return;

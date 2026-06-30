@@ -196,7 +196,7 @@ export class MapLayerService implements ILayerService {
                 return false;
             }
             const minLevel = normalizeLevel(getMinZoom(sourceConfig));
-            const maxLevel = normalizeLevel(getMaxZoom(sourceConfig));
+            const maxLevel = normalizeLevel(getMaxZoom(sourceConfig)) ?? 22;
             // `{bbox-epsg-3857}` is a MapLibre/Mapbox raster-source convention; Cesium's
             // UrlTemplateImageryProvider expands `{west/south/east/northProjected}` instead,
             // which yield EPSG:3857 meters when paired with a WebMercatorTilingScheme.
@@ -224,7 +224,7 @@ export class MapLayerService implements ILayerService {
             const wms = sourceConfig as WMSSourceConfig;
             const { baseUrl, layers } = parseWmsUrl(url);
             const minLevel = normalizeLevel(getMinZoom(wms));
-            const maxLevel = normalizeLevel(getMaxZoom(wms));
+            const maxLevel = normalizeLevel(getMaxZoom(wms)) ?? 22;
             const provider = new Cesium.WebMapServiceImageryProvider({
                 url: baseUrl, layers: wms.layers ?? layers,
                 parameters: { transparent: wms.transparent ?? true, format: wms.format ?? 'image/png', styles: wms.styles ?? '', version: wms.version ?? '1.1.1' },

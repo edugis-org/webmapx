@@ -457,7 +457,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     }
   `;
 
+  private _lastMapLayers: IMapState['mapLayers'] | undefined = undefined;
+
   protected onStateChanged(state: IMapState): void {
+    if (state.mapLayers === this._lastMapLayers) return;
+    this._lastMapLayers = state.mapLayers;
     this.applyVisibleLayers(state);
   }
 
