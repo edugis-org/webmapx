@@ -575,7 +575,7 @@ export interface ILayerService {
      * for later `removeLayer`/`updateLayerStyle` calls.
      * @returns true if at least one native object was created.
      */
-    addCompositeLayer(spec: NormalizedCompositeSpec, options?: LayerInsertOptions): Promise<boolean>;
+    addCompositeLayer?(spec: NormalizedCompositeSpec, options?: LayerInsertOptions): Promise<boolean>;
 
     /**
      * Updates paint properties of a single sub-layer of a composite layer previously

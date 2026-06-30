@@ -1115,6 +1115,22 @@ export class WebmapxMapElement extends HTMLElement {
 
       if (layerInformation && (!styleBacked || !this.hasUnsupportedStyleComponents(layerInformation))) {
         const singleSelectionGroupKey = this.getSingleSelectionGroupKeyForLayer(catalogLayerId, preferredGroupKey);
+
+        // Enforce single-group exclusivity: remove any active layers in the same group before adding.
+        if (singleSelectionGroupKey) {
+          const groupIndex = this.collectSingleSelectionGroupByLayerId();
+          const activeLayers = Object.keys(adapter.store.getState().mapLayers ?? {});
+          for (const activeId of activeLayers) {
+            if (activeId !== catalogLayerId && groupIndex.get(activeId) === singleSelectionGroupKey) {
+              this.rememberSingleGroupInsertSlot(adapter, activeId, preferredGroupKey);
+              this.removeFromLogicalOrder(activeId);
+              this.logicalLayerRole.delete(activeId);
+              this.dynamicLayerRequests.delete(activeId);
+              adapter.removeLogicalLayer(activeId);
+            }
+          }
+        }
+
         const legendRole = this.resolveCatalogLegendRole(catalogLayerId, layerInformation.layer, singleSelectionGroupKey ?? undefined);
         const singleGroupOptions = this.resolveSingleGroupInsertionOptions(catalogLayerId, options, preferredGroupKey);
         const layerInsertOptions = this.computeInsertOptionsForLayer(legendRole, singleGroupOptions);

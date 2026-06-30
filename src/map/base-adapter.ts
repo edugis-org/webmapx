@@ -15,6 +15,7 @@
 import { MapStateStore } from '../store/map-state-store';
 import { registerMapLayer, unregisterMapLayer, reorderMapLayers } from './map-layer-registry';
 import type { IMapCore, ISource, LayerInsertOptions, MarkerOptions } from './IMapInterfaces';
+import type { CompositeStyleLayerConfig } from '../config/types';
 import type { LngLat } from '../store/map-events';
 import { MapEventBus } from '../store/map-events';
 import type { DeferredLogicalLayerExecutor } from './logical-layer-executor';
@@ -29,6 +30,15 @@ interface MarkerService {
 export abstract class BaseAdapter {
     public readonly store: MapStateStore;
     public readonly events: MapEventBus;
+
+    /**
+     * When true, composite (`type: 'style'`) layers are decomposed here in generic
+     * code: sources registered individually, each sublayer passed to engineAddLayer
+     * tagged with `metadata.logicalLayerId`. The engine sees only simple single layers.
+     * Override in engine adapters that support this model (MapLibre first).
+     */
+    // Overridden in MapLibreAdapter (and future engines) to enable generic composite decomposition.
+    protected readonly _decomposeComposite: boolean = false;
     private sourceAttributions = new Map<string, string>();
     private sourceConfigs = new Map<string, Record<string, unknown>>();
     private layerConfigStore = new Map<string, { config: unknown; options?: LayerInsertOptions }>();
@@ -75,6 +85,18 @@ export abstract class BaseAdapter {
     async addLayer(layer: any, options?: LayerInsertOptions): Promise<boolean> {
         await ensureApiKeysLoaded();
         layer = substituteApiKeysDeep(layer);
+
+        // Composite (type: 'style') with populated sources/layers — decompose generically
+        // when the engine supports it (decomposeComposite = true).
+        if (
+            this._decomposeComposite &&
+            layer?.type === 'style' &&
+            Array.isArray(layer.layers) && layer.layers.length > 0 &&
+            layer.sources && typeof layer.sources === 'object'
+        ) {
+            return this.addDecomposedComposite(layer as CompositeStyleLayerConfig, options);
+        }
+
         const added = await this.engineAddLayer(layer, options);
         if (added) {
             registerMapLayer(this.store, layer);
@@ -86,6 +108,40 @@ export abstract class BaseAdapter {
             }
         }
         return added;
+    }
+
+    private async addDecomposedComposite(layer: CompositeStyleLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
+        const logicalId = layer.id;
+        const legendRole = (layer.metadata as Record<string, unknown> | undefined)?.legendRole ?? 'overlay';
+
+        // Register all sources before adding any sublayer.
+        const sources = (layer.sources ?? {}) as Record<string, unknown>;
+        for (const [sourceId, sourceConfig] of Object.entries(sources)) {
+            this.engineRegisterCompositeSource(sourceId, sourceConfig);
+        }
+
+        // Add each sublayer individually; engine groups them under logicalLayerId
+        let anySuccess = false;
+        for (const sublayer of (layer.layers ?? [])) {
+            const sublayerWithMeta: any = {
+                ...sublayer,
+                metadata: {
+                    ...((sublayer as any).metadata ?? {}),
+                    logicalLayerId: logicalId,
+                    legendRole,
+                },
+            };
+            const ok = await this.engineAddLayer(sublayerWithMeta, options);
+            if (ok) anySuccess = true;
+        }
+
+        if (anySuccess) {
+            registerMapLayer(this.store, layer);
+            this.layerConfigStore.set(logicalId, { config: layer, options });
+            const activeLayers = Object.keys(this.store.getState().mapLayers ?? {});
+            this.events.emit({ type: 'layer-add', layerId: logicalId, activeLayers });
+        }
+        return anySuccess;
     }
 
     removeLayer(id: string): void {
@@ -157,6 +213,15 @@ export abstract class BaseAdapter {
 
     /** Engine-specific source add. */
     protected abstract engineAddSource(id: string, config: any): void;
+
+    /**
+     * Registers a composite layer source. Override in engines that need format conversion
+     * (e.g. MapLibre: webmapx SourceConfig → native MapLibre source object).
+     * Default falls back to engineAddSource.
+     */
+    protected engineRegisterCompositeSource(id: string, config: unknown): void {
+        this.engineAddSource(id, config);
+    }
 
     // ── Shared engine accessors (implement in each concrete adapter) ─────────
 

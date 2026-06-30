@@ -200,9 +200,14 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
         return this.core.getNavigationCapabilities();
     }
 
+    protected override readonly _decomposeComposite = true;
+
     protected async engineAddLayer(layer: any, options?: LayerInsertOptions): Promise<boolean> {
         const success = await this.logicalLayerExecutor.addLayer(layer, options);
         if (success) return true;
+        // Composite sublayers (tagged with logicalLayerId) must not fall through to
+        // core.addLayer — they have no inline source def and would fail there.
+        if ((layer as any)?.metadata?.logicalLayerId) return false;
         return this.core.addLayer(layer, options);
     }
 
@@ -212,6 +217,16 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
 
     protected engineAddSource(id: string, config: any): void {
         this.core.addSource(id, config);
+    }
+
+    protected engineRegisterCompositeSource(id: string, config: unknown): void {
+        if (this.layerService) {
+            // Route through MapLayerService so SourceConfig is converted to native MapLibre format
+            // and the logical→native id mapping is recorded for sublayer lookup.
+            this.layerService.registerCompositeSource(id, config as any);
+        } else {
+            this.core.addSource(id, config);
+        }
     }
 
     protected engineRemoveLayer(id: string): void {

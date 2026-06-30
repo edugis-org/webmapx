@@ -249,6 +249,24 @@ export class MapLayerService implements ILayerService {
         // raw config to rebuild a full GL-style document for `stylefunction`.
         const vectorSources = spec.sources.filter((s) => s.config.type === 'vector');
         if (vectorSources.length > 0 && typeof spec.metadata?.styleUrl === 'string') {
+            // Add raster sublayers first so they appear below the vector tile layer.
+            const rasterSubLayers = spec.subLayers.filter((sl) => sl.type === 'raster');
+            for (const subLayer of rasterSubLayers) {
+                const source = findNormalizedSource(spec, subLayer.source);
+                if (!source || source.config.type !== 'raster') continue;
+                const nativeLayerId = `${layerId}-${subLayer.id}`;
+                if (!this.nativeLayerInstances.has(nativeLayerId)) {
+                    const layer = await this.createLayer(nativeLayerId, subLayer, source.config);
+                    if (layer) {
+                        (layer as any).__mapLayerId = layerId;
+                        insertIndex = this.addMapLayerAtIndex(layer, insertIndex);
+                        this.nativeLayerInstances.set(nativeLayerId, layer);
+                        this.compositeSubLayerCache.set(nativeLayerId, { spec: subLayer, sourceConfig: source.config });
+                        this.nativeLayerToSource.set(nativeLayerId, this.getOrCreateNativeSourceId(source.config));
+                    }
+                }
+                nativeLayerIds.push(nativeLayerId);
+            }
             for (const vectorSource of vectorSources) {
                 if (!this.isStyleBackedVectorSource(layerConfig, vectorSource.config)) continue;
                 const nativeSourceId = this.getOrCreateNativeSourceId(vectorSource.config);

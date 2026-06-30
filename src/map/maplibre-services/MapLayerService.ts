@@ -2,7 +2,6 @@
 
 import { ILayerService, LayerInsertOptions, type SourceFeatureQueryOptions, type SourceFeatureSample, type QueryLayerFeaturesOptions } from '../IMapInterfaces';
 import { normalizeRawSource } from '../layer-source-utils';
-import { normalizeCompositeLayer, type NormalizedCompositeSpec } from '../composite-layer-utils';
 import type { AnyLayerConfig, StandardLayerConfig, SourceConfig, WMSSourceConfig, GeoJSONSourceConfig, SubLayerSpec } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import * as maplibregl from 'maplibre-gl';
@@ -204,48 +203,15 @@ export class MapLayerService implements ILayerService {
         return true;
     }
 
-    async addCompositeLayer(spec: NormalizedCompositeSpec, options?: LayerInsertOptions): Promise<boolean> {
-        const styleId = spec.styleId;
-        const legendRole: 'background' | 'overlay' = spec.metadata?.legendRole === 'background' ? 'background' : 'overlay';
-        const insertBeforeLayerId = this.resolveInsertBeforeLayerIdFromOptions(options)
-            ?? (legendRole === 'background' ? this.findBackgroundInsertionBeforeLayerId() : undefined);
-
-        // Globally-addressable local sources are already normalized — just create them.
-        const nativeSourceByKey = new Map<string, string>();
-        for (const source of spec.sources) {
-            const nativeSrcId = this.getOrCreateNativeSourceId(source.globalId);
-            this.ensureNativeSource(nativeSrcId, source.config);
-            nativeSourceByKey.set(source.key, nativeSrcId);
-        }
-
-        const nativeLayerIds: string[] = [...(this.logicalToNative.get(styleId) ?? [])];
-        for (const subLayer of spec.subLayers) {
-            const nativeLayerId = `${styleId}-${subLayer.id}`;
-
-            if (subLayer.type === 'background') {
-                if (!this.map.getLayer(nativeLayerId)) {
-                    const native: any = { id: nativeLayerId, type: 'background' };
-                    if (subLayer.paint) native.paint = subLayer.paint;
-                    if (subLayer.layout) native.layout = subLayer.layout;
-                    this.map.addLayer(native, insertBeforeLayerId);
-                }
-                nativeLayerIds.push(nativeLayerId);
-                continue;
-            }
-
-            const nativeSourceId = nativeSourceByKey.get(subLayer.source ?? '');
-            if (!nativeSourceId || !this.map.getSource(nativeSourceId)) continue;
-
-            if (!this.map.getLayer(nativeLayerId)) {
-                this.map.addLayer(this.buildNativeLayer(nativeLayerId, subLayer, nativeSourceId, styleId), insertBeforeLayerId);
-            }
-            nativeLayerIds.push(nativeLayerId);
-            this.nativeLayerToSource.set(nativeLayerId, nativeSourceId);
-        }
-
-        this.logicalLayerLegendRole.set(styleId, legendRole);
-        this.logicalToNative.set(styleId, Array.from(new Set(nativeLayerIds)));
-        return nativeLayerIds.length > 0;
+    /**
+     * Registers a composite source using native format conversion (ensureNativeSource).
+     * Called from the generic composite decomposition path — webmapx SourceConfig → native MapLibre format.
+     * Returns the native source id for lookup by sublayer addLayer calls.
+     */
+    public registerCompositeSource(logicalId: string, config: SourceConfig): string {
+        const nativeId = this.getOrCreateNativeSourceId(logicalId);
+        this.ensureNativeSource(nativeId, config);
+        return nativeId;
     }
 
     /** Paint keys that are actually layout properties in the maplibre style spec. */
@@ -319,6 +285,9 @@ export class MapLayerService implements ILayerService {
 
     async addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
         const layerId = layerConfig.id;
+        // Composite sublayers carry the parent logical id so we can group them correctly.
+        const logicalLayerId = (layerConfig as any).metadata?.logicalLayerId as string | undefined;
+        const groupId = logicalLayerId ?? layerId;
         const legendRole = this.resolveLegendRole(layerConfig);
         const insertBeforeLayerId = this.resolveInsertBeforeLayerIdFromOptions(options)
             ?? (legendRole === 'background' ? this.findBackgroundInsertionBeforeLayerId() : undefined);
@@ -329,13 +298,7 @@ export class MapLayerService implements ILayerService {
             return success;
         }
 
-        if (layerConfig.type === 'style') {
-            const spec = normalizeCompositeLayer(layerConfig);
-            if (!spec) return false;
-            return this.addCompositeLayer(spec, options);
-        }
-
-        // Standard layer
+        // Standard layer (type: 'style' no longer reaches here — base-adapter decomposes it)
         const stdLayer = layerConfig as StandardLayerConfig;
         if (stdLayer.type === 'background') {
             const nativeLayerId = `${layerId}-background`;
@@ -345,9 +308,9 @@ export class MapLayerService implements ILayerService {
                 if (stdLayer.layout) native.layout = stdLayer.layout;
                 this.map.addLayer(native, insertBeforeLayerId);
             }
-            this.logicalLayerLegendRole.set(layerId, legendRole);
-            this.logicalToNative.set(layerId, [nativeLayerId]);
-                return true;
+            this.logicalLayerLegendRole.set(groupId, legendRole);
+            this.logicalToNative.set(groupId, [nativeLayerId]);
+            return true;
         }
 
         if (!stdLayer.source) return false;
@@ -365,19 +328,22 @@ export class MapLayerService implements ILayerService {
         }
         if (!this.map.getSource(nativeSourceId)) return false;
 
-        // Use the logical source id (not the mapped native id) for the layer name to preserve
-        // the stable `${layerId}-${sourceId}-${type}` convention the rest of the codebase relies on.
+        // Composite sublayers: native id is `${logicalId}-${sublayerId}` (matches updateLayerStyle lookup).
+        // Standard layers: `${layerId}-${sourceId}-${type}`.
         const sourceIdForLayerName = sourceConfig ? sourceConfig.id : nativeSourceId;
-        const nativeLayerId = `${layerId}-${sourceIdForLayerName}-${stdLayer.type}`;
+        const nativeLayerId = logicalLayerId
+            ? `${logicalLayerId}-${layerId}`
+            : `${layerId}-${sourceIdForLayerName}-${stdLayer.type}`;
+
         if (!this.map.getLayer(nativeLayerId)) {
-            this.map.addLayer(this.buildNativeLayer(nativeLayerId, stdLayer, nativeSourceId, layerId), insertBeforeLayerId);
+            this.map.addLayer(this.buildNativeLayer(nativeLayerId, stdLayer, nativeSourceId, groupId), insertBeforeLayerId);
             if (stdLayer.type === 'hillshade') {
                 this.map.setPaintProperty(nativeLayerId, 'hillshade-exaggeration-transition', { duration: 0, delay: 0 } as any);
             }
         }
-        this.logicalLayerLegendRole.set(layerId, legendRole);
-        const existing = this.logicalToNative.get(layerId) ?? [];
-        this.logicalToNative.set(layerId, Array.from(new Set([...existing, nativeLayerId])));
+        this.logicalLayerLegendRole.set(groupId, legendRole);
+        const existing = this.logicalToNative.get(groupId) ?? [];
+        this.logicalToNative.set(groupId, Array.from(new Set([...existing, nativeLayerId])));
         this.nativeLayerToSource.set(nativeLayerId, nativeSourceId);
         return true;
     }
