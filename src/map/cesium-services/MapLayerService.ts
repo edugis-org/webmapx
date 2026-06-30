@@ -195,19 +195,21 @@ export class MapLayerService implements ILayerService {
                 console.warn('[CESIUM LAYER SERVICE] warpedmap:// (Allmaps) is not supported in Cesium.');
                 return false;
             }
-            const minLevel = normalizeLevel(getMinZoom(sourceConfig));
             const maxLevel = normalizeLevel(getMaxZoom(sourceConfig)) ?? 22;
             // `{bbox-epsg-3857}` is a MapLibre/Mapbox raster-source convention; Cesium's
             // UrlTemplateImageryProvider expands `{west/south/east/northProjected}` instead,
             // which yield EPSG:3857 meters when paired with a WebMercatorTilingScheme.
             const usesBboxTemplate = url.includes('{bbox-epsg-3857}');
+            // Do NOT pass minimumLevel to Cesium providers: when minimumLevel > 0 Cesium
+            // pre-creates imagery skeletons for every tile globally at that level
+            // (2^minLevel × 2^minLevel entries), causing OOM. Visibility at low zoom
+            // is handled by applyImageryVisibility instead.
             const provider = new Cesium.UrlTemplateImageryProvider({
                 url: usesBboxTemplate
                     ? url.replace('{bbox-epsg-3857}', '{westProjected},{southProjected},{eastProjected},{northProjected}')
                     : url,
                 ...(usesBboxTemplate ? { tilingScheme: new Cesium.WebMercatorTilingScheme() } : {}),
                 credit: sourceConfig.attribution ?? '',
-                minimumLevel: minLevel,
                 maximumLevel: maxLevel,
             });
             this.enforceMaxLevel(provider, maxLevel);
@@ -223,12 +225,12 @@ export class MapLayerService implements ILayerService {
         if (sourceConfig.service === 'wms') {
             const wms = sourceConfig as WMSSourceConfig;
             const { baseUrl, layers } = parseWmsUrl(url);
-            const minLevel = normalizeLevel(getMinZoom(wms));
             const maxLevel = normalizeLevel(getMaxZoom(wms)) ?? 22;
+            // Do NOT pass minimumLevel — see XYZ branch above for explanation.
             const provider = new Cesium.WebMapServiceImageryProvider({
                 url: baseUrl, layers: wms.layers ?? layers,
                 parameters: { transparent: wms.transparent ?? true, format: wms.format ?? 'image/png', styles: wms.styles ?? '', version: wms.version ?? '1.1.1' },
-                minimumLevel: minLevel, maximumLevel: maxLevel, credit: wms.attribution ?? '',
+                maximumLevel: maxLevel, credit: wms.attribution ?? '',
             });
             this.enforceMaxLevel(provider, maxLevel);
             const imageryLayer = new Cesium.ImageryLayer(provider);
