@@ -2743,13 +2743,6 @@
           ]
         },
         {
-          "id": "measure",
-          "type": "measure",
-          "enabled": true,
-          "title": "Measure",
-          "icon": "rulers"
-        },
-        {
           "id": "info",
           "type": "info",
           "enabled": true,
@@ -2757,11 +2750,11 @@
           "icon": "info-circle"
         },
         {
-          "id": "draw",
-          "type": "draw",
+          "id": "measure",
+          "type": "measure",
           "enabled": true,
-          "title": "Draw",
-          "icon": "pencil"
+          "title": "Measure",
+          "icon": "rulers"
         },
         {
           "id": "geolocation",
@@ -2771,13 +2764,6 @@
           "icon": "crosshair"
         },
         {
-          "id": "view-mode",
-          "type": "view-mode",
-          "enabled": true,
-          "title": "View mode",
-          "icon": "globe"
-        },
-        {
           "id": "3d",
           "type": "3d",
           "enabled": true,
@@ -2785,17 +2771,11 @@
           "icon": "box"
         },
         {
-          "id": "import-layer",
-          "type": "import-layer",
+          "id": "draw",
+          "type": "draw",
           "enabled": true,
-          "icon": "file-earmark-arrow-up"
-        },
-        {
-          "id": "print",
-          "type": "print",
-          "enabled": true,
-          "title": "Print",
-          "icon": "printer"
+          "title": "Draw",
+          "icon": "pencil"
         },
         {
           "id": "toolbox",
