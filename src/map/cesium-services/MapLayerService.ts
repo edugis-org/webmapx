@@ -72,7 +72,7 @@ function parseWmsUrl(url: string): { baseUrl: string; layers: string } {
 }
 
 type CesiumLayerHandle =
-    | { kind: 'imagery'; imageryLayer: any; maxLevel?: number }
+    | { kind: 'imagery'; imageryLayer: any; minLevel?: number; maxLevel?: number }
     | { kind: 'geojson'; dataSource: any; sourceId: string; subLayers: SubLayerSpec[]; data: GeoJSON.FeatureCollection; updateToken: number };
 
 export class MapLayerService implements ILayerService {
@@ -195,6 +195,7 @@ export class MapLayerService implements ILayerService {
                 console.warn('[CESIUM LAYER SERVICE] warpedmap:// (Allmaps) is not supported in Cesium.');
                 return false;
             }
+            const minLevel = normalizeLevel(getMinZoom(sourceConfig));
             const maxLevel = normalizeLevel(getMaxZoom(sourceConfig)) ?? 22;
             // `{bbox-epsg-3857}` is a MapLibre/Mapbox raster-source convention; Cesium's
             // UrlTemplateImageryProvider expands `{west/south/east/northProjected}` instead,
@@ -215,7 +216,7 @@ export class MapLayerService implements ILayerService {
             this.enforceMaxLevel(provider, maxLevel);
             const imageryLayer = new Cesium.ImageryLayer(provider);
             this.viewer.imageryLayers.add(imageryLayer);
-            this.handles.set(handleKey, { kind: 'imagery', imageryLayer, maxLevel });
+            this.handles.set(handleKey, { kind: 'imagery', imageryLayer, minLevel, maxLevel });
             this.upsertLogicalOrder(layerId, options);
             this.reapplyImageryOrder();
                 this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
@@ -225,6 +226,7 @@ export class MapLayerService implements ILayerService {
         if (sourceConfig.service === 'wms') {
             const wms = sourceConfig as WMSSourceConfig;
             const { baseUrl, layers } = parseWmsUrl(url);
+            const minLevel = normalizeLevel(getMinZoom(wms));
             const maxLevel = normalizeLevel(getMaxZoom(wms)) ?? 22;
             // Do NOT pass minimumLevel — see XYZ branch above for explanation.
             const provider = new Cesium.WebMapServiceImageryProvider({
@@ -235,7 +237,7 @@ export class MapLayerService implements ILayerService {
             this.enforceMaxLevel(provider, maxLevel);
             const imageryLayer = new Cesium.ImageryLayer(provider);
             this.viewer.imageryLayers.add(imageryLayer);
-            this.handles.set(handleKey, { kind: 'imagery', imageryLayer, maxLevel });
+            this.handles.set(handleKey, { kind: 'imagery', imageryLayer, minLevel, maxLevel });
             this.upsertLogicalOrder(layerId, options);
             this.reapplyImageryOrder();
                 this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
@@ -563,13 +565,11 @@ export class MapLayerService implements ILayerService {
         }
     }
 
-    private applyImageryVisibility(_currentZoom: number): void {
+    private applyImageryVisibility(currentZoom: number): void {
         for (const handle of this.handles.values()) {
             if (handle.kind !== 'imagery') continue;
-            // Keep imagery visible beyond source max level; tile requests are clamped in enforceMaxLevel.
-            if (handle.imageryLayer?.show === false) {
-                handle.imageryLayer.show = true;
-            }
+            const belowMin = handle.minLevel !== undefined && currentZoom < handle.minLevel;
+            handle.imageryLayer.show = !belowMin;
         }
     }
 
