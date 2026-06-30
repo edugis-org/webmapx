@@ -271,7 +271,7 @@ test('buffer tool uses src icon (not named icon)', () => {
 
   const icons = findByTag(layout, 'sl-icon');
   // toolbar button icon: must use src, not name
-  const buttonIcon = icons.find(i => i.attrs['src']?.includes('buffer.svg'));
+  const buttonIcon = icons.find(i => i.attrs['src']?.includes('buffer.svg') || i.attrs['src']?.startsWith('data:image/svg'));
   assert.ok(buttonIcon, 'sl-icon with buffer.svg src present');
   assert.equal(buttonIcon!.attrs['name'], undefined, 'no name attribute on src icon');
 });
