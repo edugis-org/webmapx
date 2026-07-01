@@ -72,7 +72,7 @@ function parseWmsUrl(url: string): { baseUrl: string; layers: string } {
 }
 
 type CesiumLayerHandle =
-    | { kind: 'imagery'; imageryLayer: any; minLevel?: number; maxLevel?: number }
+    | { kind: 'imagery'; imageryLayer: any; minLevel?: number; maxLevel?: number; userVisible: boolean }
     | { kind: 'geojson'; dataSource: any; sourceId: string; subLayers: SubLayerSpec[]; data: GeoJSON.FeatureCollection; updateToken: number };
 
 export class MapLayerService implements ILayerService {
@@ -216,10 +216,10 @@ export class MapLayerService implements ILayerService {
             this.enforceMaxLevel(provider, maxLevel);
             const imageryLayer = new Cesium.ImageryLayer(provider);
             this.viewer.imageryLayers.add(imageryLayer);
-            this.handles.set(handleKey, { kind: 'imagery', imageryLayer, minLevel, maxLevel });
+            this.handles.set(handleKey, { kind: 'imagery', imageryLayer, minLevel, maxLevel, userVisible: true });
             this.upsertLogicalOrder(layerId, options);
             this.reapplyImageryOrder();
-                this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
+            this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
             return true;
         }
 
@@ -237,10 +237,10 @@ export class MapLayerService implements ILayerService {
             this.enforceMaxLevel(provider, maxLevel);
             const imageryLayer = new Cesium.ImageryLayer(provider);
             this.viewer.imageryLayers.add(imageryLayer);
-            this.handles.set(handleKey, { kind: 'imagery', imageryLayer, minLevel, maxLevel });
+            this.handles.set(handleKey, { kind: 'imagery', imageryLayer, minLevel, maxLevel, userVisible: true });
             this.upsertLogicalOrder(layerId, options);
             this.reapplyImageryOrder();
-                this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
+            this.applyImageryVisibility(this.store.getState().zoomLevel ?? 0);
             return true;
         }
 
@@ -436,7 +436,10 @@ export class MapLayerService implements ILayerService {
         for (const [key, handle] of this.handles.entries()) {
             if (!key.startsWith(`${layerId}::`)) continue;
             if (handle.kind === 'imagery') {
-                handle.imageryLayer.show = visible;
+                handle.userVisible = visible;
+                const zoom = this.store.getState().zoomLevel ?? 0;
+                const belowMin = handle.minLevel !== undefined && zoom < handle.minLevel;
+                handle.imageryLayer.show = visible && !belowMin;
             } else if (handle.kind === 'geojson') {
                 handle.dataSource.show = visible;
             }
@@ -569,7 +572,7 @@ export class MapLayerService implements ILayerService {
         for (const handle of this.handles.values()) {
             if (handle.kind !== 'imagery') continue;
             const belowMin = handle.minLevel !== undefined && currentZoom < handle.minLevel;
-            handle.imageryLayer.show = !belowMin;
+            handle.imageryLayer.show = handle.userVisible && !belowMin;
         }
     }
 
