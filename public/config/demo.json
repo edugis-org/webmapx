@@ -2153,7 +2153,7 @@
         "type": "raster",
         "title": "Percelen (Kadastrale kaart)",
         "source": "pdok-kadastralekaart-source",
-        "minzoom": 15.5,
+        "minzoom": 16,
         "metadata": {
           "title": "Percelen (Kadastrale kaart)",
           "bounds": [
