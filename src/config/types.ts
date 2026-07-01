@@ -48,6 +48,8 @@ export interface MapConfig {
   minZoom?: number;
   maxPitch?: number;
   minPitch?: number;
+  /** Internal merge target for runtimeMap.maxBounds — configure it there. */
+  maxBounds?: [number, number, number, number];
   type: MapAdapterType;
   style?: MapStyle | string;
 }
@@ -57,6 +59,9 @@ export interface RuntimeMapConfig {
   minZoom?: number;
   maxPitch?: number;
   minPitch?: number;
+  /** Restricts panning/zoom-out to this bbox: [west, south, east, north] in lon/lat
+   *  (MapLibre LngLatBoundsLike flat form). Antimeridian-crossing boxes unsupported. */
+  maxBounds?: [number, number, number, number];
 }
 
 export type RasterServiceType = 'xyz' | 'wms' | 'wmts';

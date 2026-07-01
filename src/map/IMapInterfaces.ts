@@ -103,6 +103,8 @@ export interface IMapCore {
             maxZoom?: number;
             minPitch?: number;
             maxPitch?: number;
+            /** Restricts panning/zoom-out to [west, south, east, north] (lon/lat). */
+            maxBounds?: [number, number, number, number];
             /** URL to a MapLibre/Mapbox style JSON */
             styleUrl?: string;
             /** Inline style object (takes precedence over styleUrl) */
@@ -414,6 +416,8 @@ export interface IMap {
             maxZoom?: number;
             minPitch?: number;
             maxPitch?: number;
+            /** Restricts panning/zoom-out to [west, south, east, north] (lon/lat). */
+            maxBounds?: [number, number, number, number];
             styleUrl?: string;
             style?: MapStyle;
         }

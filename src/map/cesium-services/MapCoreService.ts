@@ -103,6 +103,8 @@ export class MapCoreService implements IMapCore {
     private maxZoom?: number;
     private minPitch = 0;
     private maxPitch = 85;
+    private maxBounds?: [number, number, number, number];
+    private enforcingMaxBounds = false;
     private isClamping = false;
     private lastCenter: [number, number] = [0, 0];
     private lastStyledZoom: number | null = null;
@@ -117,7 +119,7 @@ export class MapCoreService implements IMapCore {
 
     public initialize(
         containerId: string,
-        options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; styleUrl?: string; style?: MapStyle }
+        options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; maxBounds?: [number, number, number, number]; styleUrl?: string; style?: MapStyle }
     ): void {
         const Cesium = getCesium();
         if (!Cesium) {
@@ -129,6 +131,7 @@ export class MapCoreService implements IMapCore {
         const target = this.resolveContainer(containerId);
         this.minZoom = options?.minZoom;
         this.maxZoom = options?.maxZoom;
+        this.maxBounds = options?.maxBounds;
         this.minPitch = typeof options?.minPitch === 'number' ? Math.max(0, Math.min(85, options.minPitch)) : 0;
         this.maxPitch = typeof options?.maxPitch === 'number' ? Math.max(0, Math.min(85, options.maxPitch)) : 85;
         if (this.minPitch > this.maxPitch) {
@@ -167,6 +170,14 @@ export class MapCoreService implements IMapCore {
         const clampedZoom = this.clampZoom(zoom);
         this.setCameraView(center, clampedZoom, false);
         this.applyZoomDistanceLimits(center[1]);
+
+        if (this.maxBounds) {
+            // camera.changed fires only after 50% camera movement by default — far too
+            // coarse for bounds enforcement. Lower it and clamp every frame so pan
+            // inertia hits the bbox edge instead of gliding past and snapping back.
+            this.viewer.camera.percentageChanged = 0.01;
+            this.viewer.scene.preUpdate.addEventListener(() => this.enforceMaxBounds());
+        }
 
         this.attachEvents();
 
@@ -556,11 +567,13 @@ export class MapCoreService implements IMapCore {
         });
 
         this.viewer.camera.moveEnd.addEventListener(() => {
+            this.enforceMaxBounds();
             this.dispatchViewportState();
         });
 
         // Capture rotation/pitch/zoom changes continuously (throttled)
         this.viewer.camera.changed.addEventListener(() => {
+            this.enforceMaxBounds();
             this.dispatchViewportStateThrottled();
         });
 
@@ -697,6 +710,10 @@ export class MapCoreService implements IMapCore {
 
     private clampZoom(zoom: number): number {
         let next = zoom;
+        const boundsFloor = this.maxBoundsZoomFloor();
+        if (boundsFloor !== undefined) {
+            next = Math.max(next, boundsFloor);
+        }
         if (this.minZoom !== undefined) {
             next = Math.max(next, this.minZoom);
         }
@@ -714,8 +731,82 @@ export class MapCoreService implements IMapCore {
         if (this.maxZoom !== undefined) {
             controller.minimumZoomDistance = this.zoomToCameraHeightMeters(this.maxZoom, lat);
         }
-        if (this.minZoom !== undefined) {
-            controller.maximumZoomDistance = this.zoomToCameraHeightMeters(this.minZoom, lat);
+        const boundsFloor = this.maxBoundsZoomFloor();
+        const effectiveMinZoom = boundsFloor !== undefined
+            ? Math.max(boundsFloor, this.minZoom ?? -Infinity)
+            : this.minZoom;
+        if (effectiveMinZoom !== undefined) {
+            controller.maximumZoomDistance = this.zoomToCameraHeightMeters(effectiveMinZoom, lat);
+        }
+    }
+
+    private static mercatorYFraction(lat: number): number {
+        const phi = (clampLatitude(lat) * Math.PI) / 180;
+        return 0.5 - Math.log(Math.tan(Math.PI / 4 + phi / 2)) / (2 * Math.PI);
+    }
+
+    private static mercatorYFractionToLat(y: number): number {
+        return ((2 * Math.atan(Math.exp((0.5 - y) * 2 * Math.PI)) - Math.PI / 2) * 180) / Math.PI;
+    }
+
+    /** Zoom level below which the viewport no longer fits inside maxBounds (web
+     *  mercator approximation — Cesium has no native camera bbox constraint). */
+    private maxBoundsZoomFloor(): number | undefined {
+        if (!this.maxBounds || !this.viewer) return undefined;
+        const canvas = this.viewer.scene?.canvas as HTMLCanvasElement | undefined;
+        const width = canvas?.clientWidth ?? 0;
+        const height = canvas?.clientHeight ?? 0;
+        if (!width || !height) return undefined;
+        const [west, south, east, north] = this.maxBounds;
+        const widthFraction = (east - west) / 360;
+        const heightFraction = MapCoreService.mercatorYFraction(south) - MapCoreService.mercatorYFraction(north);
+        if (widthFraction <= 0 || heightFraction <= 0) return undefined;
+        const zoomForWidth = Math.log2(width / (LOGICAL_TILE_SIZE * widthFraction));
+        const zoomForHeight = Math.log2(height / (LOGICAL_TILE_SIZE * heightFraction));
+        return Math.max(zoomForWidth, zoomForHeight);
+    }
+
+    /** Soft maxBounds enforcement: on camera change, clamp the viewport center so the
+     *  visible area stays inside the bbox (inset by half the viewport span) and the
+     *  zoom stays at or above the bounds floor. */
+    private enforceMaxBounds(): void {
+        if (!this.maxBounds || !this.viewer || this.enforcingMaxBounds) return;
+        const canvas = this.viewer.scene?.canvas as HTMLCanvasElement | undefined;
+        const width = canvas?.clientWidth ?? 0;
+        const height = canvas?.clientHeight ?? 0;
+        if (!width || !height) return;
+        const center = this.computeViewportCenter();
+        if (!center) return;
+
+        const [west, south, east, north] = this.maxBounds;
+        const floor = this.maxBoundsZoomFloor() ?? -Infinity;
+        const zoom = Math.max(this.getZoom(), floor);
+
+        // Half viewport span as world fractions at (floored) zoom.
+        const worldPx = LOGICAL_TILE_SIZE * Math.pow(2, zoom);
+        const halfWidthFraction = width / 2 / worldPx;
+        const halfHeightFraction = height / 2 / worldPx;
+
+        const clampMid = (value: number, min: number, max: number) =>
+            min > max ? (min + max) / 2 : Math.min(Math.max(value, min), max);
+
+        const x = clampMid((center[0] + 180) / 360, (west + 180) / 360 + halfWidthFraction, (east + 180) / 360 - halfWidthFraction);
+        const y = clampMid(
+            MapCoreService.mercatorYFraction(center[1]),
+            MapCoreService.mercatorYFraction(north) + halfHeightFraction,
+            MapCoreService.mercatorYFraction(south) - halfHeightFraction,
+        );
+        const clampedCenter: [number, number] = [x * 360 - 180, MapCoreService.mercatorYFractionToLat(y)];
+
+        const centerMoved = Math.abs(clampedCenter[0] - center[0]) > 1e-7 || Math.abs(clampedCenter[1] - center[1]) > 1e-7;
+        const zoomRaised = zoom - this.getZoom() > 0.01;
+        if (!centerMoved && !zoomRaised) return;
+
+        this.enforcingMaxBounds = true;
+        try {
+            this.setCameraView(clampedCenter, this.clampZoom(zoom), false);
+        } finally {
+            this.enforcingMaxBounds = false;
         }
     }
 

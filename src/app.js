@@ -228,6 +228,7 @@ async function initializeMap(mapElement, appConfig, mapIndex = 0) {
         maxZoom: mapConfig.maxZoom,
         minPitch: mapConfig.minPitch,
         maxPitch: mapConfig.maxPitch,
+        ...(mapConfig.maxBounds ? { maxBounds: mapConfig.maxBounds } : {}),
         // Use styleUrl if string, otherwise inline style object
         ...(isStyleUrl ? { styleUrl: styleConfig } : { style: styleConfig })
     };

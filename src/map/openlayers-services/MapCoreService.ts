@@ -2,7 +2,7 @@
 
 import OLMap from 'ol/Map';
 import View from 'ol/View';
-import { fromLonLat, toLonLat } from 'ol/proj';
+import { fromLonLat, toLonLat, transformExtent } from 'ol/proj';
 import { apply, stylefunction } from 'ol-mapbox-style';
 import { IMapCore, ISource, NavigationCapabilities } from '../IMapInterfaces';
 import { MapStateStore } from '../../store/map-state-store';
@@ -85,7 +85,7 @@ export class MapCoreService implements IMapCore {
 
     public initialize(
         containerId: string,
-        options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; styleUrl?: string; style?: MapStyle }
+        options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; maxBounds?: [number, number, number, number]; styleUrl?: string; style?: MapStyle }
     ): void {
         const center = options?.center ?? this.initialConfig.center;
         const logicalZoom = options?.zoom ?? this.initialConfig.zoom;
@@ -97,7 +97,7 @@ export class MapCoreService implements IMapCore {
         const container = this.resolveContainer(containerId);
 
         // Start with empty layers, add style layers after
-        const viewOptions: { center: number[]; zoom: number; minZoom?: number; maxZoom?: number } = {
+        const viewOptions: { center: number[]; zoom: number; minZoom?: number; maxZoom?: number; extent?: [number, number, number, number] } = {
             center: fromLonLat(center),
             zoom: olZoom
         };
@@ -106,6 +106,11 @@ export class MapCoreService implements IMapCore {
         }
         if (maxZoom !== undefined) {
             viewOptions.maxZoom = this.toOLZoom(maxZoom);
+        }
+        if (options?.maxBounds) {
+            // View.extent constrains the whole viewport (OL ≥6) and derives the matching
+            // min resolution from the container size, recomputed on resize.
+            viewOptions.extent = transformExtent(options.maxBounds, 'EPSG:4326', 'EPSG:3857') as [number, number, number, number];
         }
 
         this.mapInstance = new OLMap({

@@ -42,6 +42,7 @@ function toRuntimeMapOverrides(runtimeMap: RuntimeMapConfig | undefined): Partia
     ...(runtimeMap.maxZoom !== undefined ? { maxZoom: runtimeMap.maxZoom } : {}),
     ...(runtimeMap.minPitch !== undefined ? { minPitch: runtimeMap.minPitch } : {}),
     ...(runtimeMap.maxPitch !== undefined ? { maxPitch: runtimeMap.maxPitch } : {}),
+    ...(runtimeMap.maxBounds !== undefined ? { maxBounds: runtimeMap.maxBounds } : {}),
   };
 }
 

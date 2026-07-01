@@ -94,7 +94,7 @@ export class MapCoreService implements IMapCore {
         }
     }
 
-    public initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; styleUrl?: string; style?: MapStyle }): void {
+    public initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; maxBounds?: [number, number, number, number]; styleUrl?: string; style?: MapStyle }): void {
         const center = options?.center ? [options.center[1], options.center[0]] as [number, number] : this.initialConfig.center;
         const logicalZoom = options?.zoom ?? this.initialConfig.zoom;
         const leafletZoom = Math.round(logicalZoom) + ZOOM_OFFSET;
@@ -109,6 +109,10 @@ export class MapCoreService implements IMapCore {
         }
         this.injectLeafletCSSFixes();
 
+        const maxBounds = options?.maxBounds
+            ? L.latLngBounds([options.maxBounds[1], options.maxBounds[0]], [options.maxBounds[3], options.maxBounds[2]])
+            : undefined;
+
         this.mapInstance = L.map(containerTarget, {
             center: center,
             zoom: leafletZoom,
@@ -116,11 +120,31 @@ export class MapCoreService implements IMapCore {
             maxZoom,
             attributionControl: false,
             zoomControl: false,
+            // Viscosity 1.0 = hard edge; default 0 lets drags rubber-band past the bounds.
+            ...(maxBounds ? { maxBounds, maxBoundsViscosity: 1.0 } : {}),
         });
+
+        if (maxBounds) {
+            this.applyMaxBoundsZoomFloor(this.mapInstance, maxBounds, minZoom);
+        }
 
         this.flushMapReadyCallbacks();
         this.setupBaseLayers(options);
         this.setupMapEvents(this.mapInstance, logicalZoom, center);
+    }
+
+    /** Leaflet's maxBounds constrains panning but not zoom-out: zoomed out past the
+     *  bbox it centers the bounds and reveals the area around them. Derive the zoom
+     *  floor at which the viewport still fits inside the bounds, and re-derive it on
+     *  container resize (the floor depends on viewport size vs bbox aspect ratio). */
+    private applyMaxBoundsZoomFloor(map: L.Map, maxBounds: L.LatLngBounds, configuredMinZoom?: number): void {
+        const applyFloor = () => {
+            // inside=true: minimum zoom at which the view fits entirely inside the bounds
+            const floor = map.getBoundsZoom(maxBounds, true);
+            map.setMinZoom(Math.max(floor, configuredMinZoom ?? -Infinity));
+        };
+        map.whenReady(applyFloor);
+        map.on('resize', applyFloor);
     }
 
     private setupBaseLayers(options?: { styleUrl?: string; style?: MapStyle }): void {

@@ -51,7 +51,7 @@ export class OpenLayersAdapter extends BaseAdapter implements IMap {
 
     // ===== Delegation Methods =====
 
-    initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; styleUrl?: string; style?: MapStyle }): void {
+    initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; maxBounds?: [number, number, number, number]; styleUrl?: string; style?: MapStyle }): void {
         this.core.initialize(containerId, options);
     }
 

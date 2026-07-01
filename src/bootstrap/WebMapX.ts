@@ -113,6 +113,7 @@ export class WebMapX {
       ...(runtimeMap?.maxZoom ?? mapConfig?.maxZoom) != null ? { maxZoom: runtimeMap?.maxZoom ?? mapConfig?.maxZoom } : {},
       ...(runtimeMap?.minPitch ?? mapConfig?.minPitch) != null ? { minPitch: runtimeMap?.minPitch ?? mapConfig?.minPitch } : {},
       ...(runtimeMap?.maxPitch ?? mapConfig?.maxPitch) != null ? { maxPitch: runtimeMap?.maxPitch ?? mapConfig?.maxPitch } : {},
+      ...(runtimeMap?.maxBounds != null ? { maxBounds: runtimeMap.maxBounds } : {}),
       ...(typeof styleConfig === 'string' ? { styleUrl: styleConfig } : { style: styleConfig }),
     };
 

@@ -23,7 +23,7 @@ const KNOWN_SEARCH_PROVIDERS = new Set(['nominatim']);
 const KNOWN_KEYS = {
   root: ['version', 'project', 'map', 'runtimeMap', 'layerData', 'catalog', 'library', 'state', 'ui', 'tools', '_devTools'],
   map: ['label', 'center', 'zoom', 'minZoom', 'maxZoom', 'minPitch', 'maxPitch', 'type', 'style', 'styleUrl'],
-  runtimeMap: ['minZoom', 'maxZoom', 'minPitch', 'maxPitch'],
+  runtimeMap: ['minZoom', 'maxZoom', 'minPitch', 'maxPitch', 'maxBounds'],
   layerData: ['sources', 'layers'],
   catalog: ['label', 'tree', 'sources', 'layers'],
   treeNode: ['label', 'layerId', 'selectionMode', 'selectionGroup', 'allowNone', 'stackOrder', 'checked', 'expanded', 'children', 'separator'],
@@ -70,6 +70,20 @@ export function validateConfig(config: unknown): ValidationResult {
 
   // Validate optional runtime map section
   validateRuntimeMapSection(cfg.runtimeMap, errors, warnings);
+
+  // Cross-check: initial center should lie within maxBounds (engines clamp, but warn the author)
+  const maxBounds = isObject(cfg.runtimeMap) ? (cfg.runtimeMap as Record<string, unknown>).maxBounds : undefined;
+  const mapCenter = isObject(cfg.map) ? (cfg.map as Record<string, unknown>).center : undefined;
+  if (
+    Array.isArray(maxBounds) && maxBounds.length === 4 && maxBounds.every((v) => typeof v === 'number') &&
+    Array.isArray(mapCenter) && mapCenter.length === 2 && mapCenter.every((v) => typeof v === 'number')
+  ) {
+    const [west, south, east, north] = maxBounds as number[];
+    const [lng, lat] = mapCenter as number[];
+    if (lng < west || lng > east || lat < south || lat > north) {
+      warnings.push({ severity: 'warning', path: 'map.center', message: '"center" lies outside "runtimeMap.maxBounds" — the map will clamp to the bounds on load' });
+    }
+  }
 
   let sourceIds = new Set<string>();
   let layerIds = new Set<string>();
@@ -299,6 +313,27 @@ function validateRuntimeMapSection(
     r.minPitch > r.maxPitch
   ) {
     errors.push({ severity: 'error', path: `${path}.minPitch`, message: '"minPitch" cannot be greater than "maxPitch"' });
+  }
+
+  if (r.maxBounds !== undefined) {
+    const b = r.maxBounds;
+    if (!Array.isArray(b) || b.length !== 4 || b.some((v) => typeof v !== 'number' || !Number.isFinite(v))) {
+      errors.push({ severity: 'error', path: `${path}.maxBounds`, message: '"maxBounds" must be [west, south, east, north] — an array of 4 numbers (lon/lat degrees)' });
+    } else {
+      const [west, south, east, north] = b as [number, number, number, number];
+      if (west >= east) {
+        errors.push({ severity: 'error', path: `${path}.maxBounds`, message: '"maxBounds" west must be less than east (antimeridian-crossing boxes are not supported)' });
+      }
+      if (south >= north) {
+        errors.push({ severity: 'error', path: `${path}.maxBounds`, message: '"maxBounds" south must be less than north' });
+      }
+      if (south < -90 || north > 90) {
+        errors.push({ severity: 'error', path: `${path}.maxBounds`, message: '"maxBounds" latitudes must be within [-90, 90]' });
+      }
+      if (west < -180 || east > 180) {
+        warnings.push({ severity: 'warning', path: `${path}.maxBounds`, message: '"maxBounds" longitudes outside [-180, 180]' });
+      }
+    }
   }
 }
 
