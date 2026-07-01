@@ -706,12 +706,25 @@ export class WebmapxMapElement extends HTMLElement {
     this.logicalLayerOrder = this.logicalLayerOrder.filter((id) => id !== layerId);
   }
 
+  /** Bottom-to-top layer order from the store — the source of truth for positioning.
+   *  `logicalLayerOrder` only tracks add/remove and goes stale after legend
+   *  drag-reorders (adapter.moveLayer syncs the store, not this component). */
+  private currentLayerOrder(): string[] {
+    const mapLayers = this.adapterInstance?.store.getState().mapLayers;
+    return mapLayers ? Object.keys(mapLayers) : this.logicalLayerOrder;
+  }
+
   private computeInsertOptionsForLayer(legendRole: LegendRole, explicitOptions?: LayerInsertOptions): LayerInsertOptions | undefined {
     if (explicitOptions?.beforeLayerId || explicitOptions?.afterLayerId) {
       return explicitOptions;
     }
     if (legendRole === 'background') {
-      const firstOverlayId = this.logicalLayerOrder.find((id) => (this.logicalLayerRole.get(id) ?? 'overlay') !== 'background');
+      const mapLayers = this.adapterInstance?.store.getState().mapLayers ?? {};
+      const firstOverlayId = this.currentLayerOrder().find((id) => {
+        const role = (mapLayers[id] as { legendRole?: string } | undefined)?.legendRole
+          ?? this.logicalLayerRole.get(id) ?? 'overlay';
+        return role !== 'background';
+      });
       return firstOverlayId ? { beforeLayerId: firstOverlayId } : undefined;
     }
     return undefined;
@@ -723,11 +736,12 @@ export class WebmapxMapElement extends HTMLElement {
       return;
     }
 
+    const mapLayers = adapter.store.getState().mapLayers as Record<string, unknown> | undefined;
     rememberSingleGroupInsertSlotForGroup(
       groupKey,
       layerId,
-      this.logicalLayerOrder,
-      adapter.store.getState().mapLayers as Record<string, unknown> | undefined,
+      mapLayers ? Object.keys(mapLayers) : this.logicalLayerOrder,
+      mapLayers,
       this.singleGroupInsertSlotByGroup,
       this.singleGroupLegendRoleByGroup,
     );
@@ -745,7 +759,7 @@ export class WebmapxMapElement extends HTMLElement {
 
     return resolveSingleGroupInsertionOptionsForGroup(
       groupKey,
-      this.logicalLayerOrder,
+      this.currentLayerOrder(),
       baseOptions,
       this.singleGroupInsertSlotByGroup,
     );
