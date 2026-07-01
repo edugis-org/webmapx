@@ -72,6 +72,7 @@ class FakeLeafletLayer {
 
 function createLeafletMapStub() {
   const layers: FakeLeafletLayer[] = [];
+  const panes = new Map<string, { style: { zIndex?: string }; remove: () => void }>();
 
   return {
     map: {
@@ -89,8 +90,22 @@ function createLeafletMapStub() {
       hasLayer(layer: FakeLeafletLayer) {
         return layers.includes(layer);
       },
+      createPane(name: string) {
+        const pane = { style: {} as { zIndex?: string }, remove: () => panes.delete(name) };
+        panes.set(name, pane);
+        return pane;
+      },
+      getPane(name: string) {
+        return panes.get(name);
+      },
     },
     getOrder: () => layers.map((entry) => entry.id),
+    // Visual stacking order: layer ids sorted by their pane's z-index (bottom first).
+    getZOrder: () =>
+      [...panes.entries()]
+        .filter(([, pane]) => pane.style.zIndex !== undefined)
+        .sort((a, b) => Number(a[1].style.zIndex) - Number(b[1].style.zIndex))
+        .map(([name]) => name.replace(/^webmapx-/, '')),
   };
 }
 
@@ -122,13 +137,13 @@ test('Leaflet MapLayerService applies beforeLayerId using logical ids', async ()
     }) as any;
 
     try {
-      const { map, getOrder } = createLeafletMapStub();
+      const { map, getZOrder } = createLeafletMapStub();
       const service = new MapLayerService(map as any, new MapStateStore());
       await service.addLayer(makeLayer('a'));
       await service.addLayer(makeLayer('b'));
       await service.addLayer(makeLayer('c'), { beforeLayerId: 'a' });
 
-      assert.deepEqual(getOrder(), ['c', 'a', 'b']);
+      assert.deepEqual(getZOrder(), ['c', 'a', 'b']);
     } finally {
       LeafletLayerFactory.createXYZLayer = originalCreateXYZ;
     }
@@ -153,13 +168,48 @@ test('Leaflet MapLayerService applies afterLayerId using logical ids', async () 
     }) as any;
 
     try {
-      const { map, getOrder } = createLeafletMapStub();
+      const { map, getZOrder } = createLeafletMapStub();
       const service = new MapLayerService(map as any, new MapStateStore());
       await service.addLayer(makeLayer('a'));
       await service.addLayer(makeLayer('b'));
       await service.addLayer(makeLayer('c'), { afterLayerId: 'a' });
 
-      assert.deepEqual(getOrder(), ['a', 'c', 'b']);
+      assert.deepEqual(getZOrder(), ['a', 'c', 'b']);
+    } finally {
+      LeafletLayerFactory.createXYZLayer = originalCreateXYZ;
+    }
+  } finally {
+    restore();
+  }
+});
+
+test('Leaflet MapLayerService moveLayer restacks pane z-indexes without re-adding layers', async () => {
+  const restore = installLeafletDomShim();
+  try {
+    const [{ MapLayerService }, { LeafletLayerFactory }] = await Promise.all([
+      import('../src/map/leaflet-services/MapLayerService'),
+      import('../src/map/leaflet-services/LeafletLayerFactory'),
+    ]);
+
+    const originalCreateXYZ = LeafletLayerFactory.createXYZLayer;
+    LeafletLayerFactory.createXYZLayer = (layerId: string) => ({
+      id: `${layerId}-raster-xyz`,
+      type: 'raster',
+      layer: new FakeLeafletLayer(layerId),
+    }) as any;
+
+    try {
+      const { map, getOrder, getZOrder } = createLeafletMapStub();
+      const service = new MapLayerService(map as any, new MapStateStore());
+      await service.addLayer(makeLayer('a'));
+      await service.addLayer(makeLayer('b'));
+      await service.addLayer(makeLayer('c'));
+
+      service.moveLayer('c', 'a');
+
+      assert.deepEqual(getZOrder(), ['c', 'a', 'b']);
+      // Layers stay in their panes — reorder must not remove/re-add them.
+      assert.deepEqual(getOrder(), ['a', 'b', 'c']);
     } finally {
       LeafletLayerFactory.createXYZLayer = originalCreateXYZ;
     }

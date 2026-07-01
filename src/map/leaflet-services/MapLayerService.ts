@@ -10,6 +10,11 @@ import { LeafletLayerFactory } from './LeafletLayerFactory';
 
 const WARPEDMAP_PROTOCOL = 'warpedmap://';
 
+// Base z-index for per-layer panes. Sits above Leaflet's tilePane (200) and below
+// overlayPane (400), so runtime/tool layers (draw, measure, highlights — which stay
+// in the default panes) always render on top of catalog layers.
+const LAYER_PANE_Z_BASE = 300;
+
 export class MapLayerService implements ILayerService {
     private map: L.Map;
     private store: MapStateStore;
@@ -24,6 +29,9 @@ export class MapLayerService implements ILayerService {
     private sourceIdCounter = 0;
     private busyOps = 0;
     private logicalOrder: string[] = [];
+    // One Leaflet pane per logical layer; z-index derived from logicalOrder position,
+    // so raster and vector layers stack in true logical order (cross-type reorder works).
+    private layerPanes: Map<string, string> = new Map();
 
     constructor(map: L.Map, store: MapStateStore) {
         this.map = map;
@@ -92,18 +100,51 @@ export class MapLayerService implements ILayerService {
         this.logicalOrder.splice(clamped, 0, layerId);
     }
 
+    private ensurePane(layerId: string): string {
+        const existing = this.layerPanes.get(layerId);
+        if (existing) return existing;
+
+        // Pane name feeds into a CSS class (`leaflet-<name>-pane`) — sanitize the id
+        // and deduplicate in case two distinct ids sanitize to the same name.
+        const base = `webmapx-${layerId.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+        let paneName = base;
+        let suffix = 1;
+        while (this.map.getPane(paneName)) {
+            paneName = `${base}-${suffix++}`;
+        }
+        this.map.createPane(paneName);
+        this.layerPanes.set(layerId, paneName);
+        return paneName;
+    }
+
+    private removePane(layerId: string): void {
+        const paneName = this.layerPanes.get(layerId);
+        if (!paneName) return;
+        const pane = this.map.getPane(paneName);
+        pane?.remove();
+        // Leaflet has no removePane API; drop the registry entry so the name can be reused.
+        const panes = (this.map as any)._panes;
+        if (panes) delete panes[paneName];
+        this.layerPanes.delete(layerId);
+    }
+
+    /** Cleanup for failed addLayer paths — never removes the pane of a layer that is
+     *  already on the map (a duplicate addLayer call shares the same pane). */
+    private removePaneIfUntracked(layerId: string): void {
+        if (this.logicalToNative.has(layerId) || this.warpedMapLayers.has(layerId)) return;
+        this.removePane(layerId);
+    }
+
     private reapplyLogicalOrder(): void {
-        for (const logicalLayerId of this.logicalOrder) {
-            const warpedLayer = this.warpedMapLayers.get(logicalLayerId);
-            if (warpedLayer) {
-                // WarpedMapLayer uses WebGL — remove/add destroys the canvas.
-                // Instead, move its container element to the end of the pane to preserve z-order.
-                const container: HTMLElement | undefined = (warpedLayer as any).container;
-                if (container?.parentElement) {
-                    container.parentElement.appendChild(container);
-                }
-                continue;
+        this.logicalOrder.forEach((logicalLayerId, index) => {
+            const paneName = this.layerPanes.get(logicalLayerId);
+            if (paneName) {
+                const pane = this.map.getPane(paneName);
+                if (pane) pane.style.zIndex = String(LAYER_PANE_Z_BASE + index);
+                return;
             }
+            // Inline (runtime) layers have no dedicated pane — reorder by DOM position
+            // within their default pane via remove/re-add, as before.
             const nativeIds = this.logicalToNative.get(logicalLayerId) ?? [];
             for (const nativeId of nativeIds) {
                 const layer = this.nativeLayerInstances.get(nativeId);
@@ -114,7 +155,7 @@ export class MapLayerService implements ILayerService {
                 this.map.removeLayer(layer);
                 this.map.addLayer(layer);
             }
-        }
+        });
     }
 
     /**
@@ -151,8 +192,9 @@ export class MapLayerService implements ILayerService {
             // Create a unique layer ID for the WarpedMapLayer
             const warpedLayerId = `warpedmap-${layerId}`;
 
-            // Use overlayPane (z-index 400 vs tilePane 200) so it always renders above background tiles.
-            const warpedMapLayer = new WarpedMapLayer(annotationUrl, { pane: 'overlayPane' });
+            // Dedicated pane so the WebGL canvas participates in logical layer ordering
+            // via pane z-index — its container is never reparented or re-added.
+            const warpedMapLayer = new WarpedMapLayer(annotationUrl, { pane: this.ensurePane(layerId) });
 
             // Add the layer to the map
             (warpedMapLayer as unknown as L.Layer).addTo(this.map);
@@ -165,6 +207,7 @@ export class MapLayerService implements ILayerService {
             return true;
         } catch (error) {
             console.warn('[LEAFLET LAYER SERVICE] @allmaps/leaflet not available or error loading warped map:', error);
+            this.removePaneIfUntracked(layerId);
             return false;
         } finally {
             this.endBusyOperation();
@@ -205,11 +248,12 @@ export class MapLayerService implements ILayerService {
 
         const nativeLayerIds: string[] = [];
         const subLayers = [stdLayer];
+        const pane = this.ensurePane(layerId);
 
         if (sourceConfig.type === 'raster') {
             const spec = sourceConfig.service === 'xyz'
-                ? LeafletLayerFactory.createXYZLayer(layerId, sourceConfig)
-                : LeafletLayerFactory.createWMSLayer(layerId, sourceConfig);
+                ? LeafletLayerFactory.createXYZLayer(layerId, sourceConfig, pane)
+                : LeafletLayerFactory.createWMSLayer(layerId, sourceConfig, pane);
             if (spec && !this.nativeLayerInstances.has(spec.id)) {
                 this.attachTileBusyEvents(spec.layer);
                 spec.layer.addTo(this.map);
@@ -224,8 +268,11 @@ export class MapLayerService implements ILayerService {
             }
         } else if (sourceConfig.type === 'geojson') {
             const data = await this.fetchGeoJSON(sourceConfig as GeoJSONSourceConfig);
-            if (!data) return false;
-            const specs = LeafletLayerFactory.createGeoJSONLayer(layerId, sourceConfig, data, subLayers);
+            if (!data) {
+                this.removePaneIfUntracked(layerId);
+                return false;
+            }
+            const specs = LeafletLayerFactory.createGeoJSONLayer(layerId, sourceConfig, data, subLayers, pane);
             for (const spec of specs) {
                 if (!this.nativeLayerInstances.has(spec.id)) {
                     spec.layer.addTo(this.map);
@@ -236,13 +283,19 @@ export class MapLayerService implements ILayerService {
             }
         } else if (sourceConfig.type === 'vector') {
             console.warn('[LEAFLET LAYER SERVICE] Vector tile sources require leaflet.vectorgrid plugin');
+            this.removePaneIfUntracked(layerId);
+            return false;
+        }
+
+        if (nativeLayerIds.length === 0) {
+            this.removePaneIfUntracked(layerId);
             return false;
         }
 
         this.logicalToNative.set(layerId, nativeLayerIds);
         this.upsertLogicalOrder(layerId, insertIndex);
         this.reapplyLogicalOrder();
-        return nativeLayerIds.length > 0;
+        return true;
     }
 
     private async fetchGeoJSON(sourceConfig: GeoJSONSourceConfig): Promise<GeoJSON.FeatureCollection | GeoJSON.Feature | null> {
@@ -263,6 +316,7 @@ export class MapLayerService implements ILayerService {
         const layerId = spec.styleId;
         const insertIndex = this.resolveInsertIndex(options);
         const nativeLayerIds: string[] = [];
+        const pane = this.ensurePane(layerId);
 
         // Group already-normalized sub-layers by the (already-derived, stable) source they reference
         const sourceLayerMap = new Map<string, typeof spec.subLayers>();
@@ -279,8 +333,8 @@ export class MapLayerService implements ILayerService {
 
             if (sourceConfig.type === 'raster') {
                 const spec = sourceConfig.service === 'xyz'
-                    ? LeafletLayerFactory.createXYZLayer(layerId, sourceConfig)
-                    : LeafletLayerFactory.createWMSLayer(layerId, sourceConfig);
+                    ? LeafletLayerFactory.createXYZLayer(layerId, sourceConfig, pane)
+                    : LeafletLayerFactory.createWMSLayer(layerId, sourceConfig, pane);
                 if (spec && !this.nativeLayerInstances.has(spec.id)) {
                     this.attachTileBusyEvents(spec.layer);
                     spec.layer.addTo(this.map);
@@ -290,7 +344,7 @@ export class MapLayerService implements ILayerService {
             } else if (sourceConfig.type === 'geojson') {
                 const data = await this.fetchGeoJSON(sourceConfig as GeoJSONSourceConfig);
                 if (!data) continue;
-                const specs = LeafletLayerFactory.createGeoJSONLayer(layerId, sourceConfig, data, layers);
+                const specs = LeafletLayerFactory.createGeoJSONLayer(layerId, sourceConfig, data, layers, pane);
                 for (const layerSpec of specs) {
                     if (!this.nativeLayerInstances.has(layerSpec.id)) {
                         layerSpec.layer.addTo(this.map);
@@ -304,10 +358,15 @@ export class MapLayerService implements ILayerService {
             }
         }
 
+        if (nativeLayerIds.length === 0) {
+            this.removePaneIfUntracked(layerId);
+            return false;
+        }
+
         this.logicalToNative.set(layerId, nativeLayerIds);
         this.upsertLogicalOrder(layerId, insertIndex);
         this.reapplyLogicalOrder();
-        return nativeLayerIds.length > 0;
+        return true;
     }
 
     updateLayerStyle(styleId: string, subLayerId: string, partialPaint: Record<string, unknown>): boolean {
@@ -365,6 +424,7 @@ export class MapLayerService implements ILayerService {
         this.logicalToNative.delete(layerId);
         this.logicalToWMSSource.delete(layerId);
         this.logicalOrder = this.logicalOrder.filter((id) => id !== layerId);
+        this.removePane(layerId);
     }
 
     getVisibleLayers(): string[] {

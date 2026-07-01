@@ -39,7 +39,7 @@ export interface LeafletLayerSpec {
 }
 
 export class LeafletLayerFactory {
-    static createXYZLayer(layerId: string, sourceConfig: SourceConfig): LeafletLayerSpec | null {
+    static createXYZLayer(layerId: string, sourceConfig: SourceConfig, pane?: string): LeafletLayerSpec | null {
         if (sourceConfig.type !== 'raster' || sourceConfig.service !== 'xyz') return null;
         const url = Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url;
         const tileSize = sourceConfig.tileSize || 256;
@@ -50,6 +50,7 @@ export class LeafletLayerFactory {
             zoomOffset: tileSize === 512 ? -1 : 0,
             minZoom: sourceConfig.minzoom,
             maxNativeZoom: sourceConfig.maxzoom,
+            ...(pane ? { pane } : {}),
         };
         const layer = url.includes('{bbox-epsg-3857}')
             ? new BboxTileLayer(url, options)
@@ -57,7 +58,7 @@ export class LeafletLayerFactory {
         return { id: `${layerId}-raster-xyz`, type: 'raster', layer };
     }
 
-    static createWMSLayer(layerId: string, sourceConfig: SourceConfig): LeafletLayerSpec | null {
+    static createWMSLayer(layerId: string, sourceConfig: SourceConfig, pane?: string): LeafletLayerSpec | null {
         if (sourceConfig.type !== 'raster' || sourceConfig.service !== 'wms') return null;
         const wmsConfig = sourceConfig as WMSSourceConfig;
         const baseUrl = Array.isArray(wmsConfig.url) ? wmsConfig.url[0] : wmsConfig.url;
@@ -71,6 +72,7 @@ export class LeafletLayerFactory {
             attribution: wmsConfig.attribution,
             minZoom: wmsConfig.minzoom,
             maxNativeZoom: wmsConfig.maxzoom,
+            ...(pane ? { pane } : {}),
         });
         return { id: `${layerId}-raster-wms`, type: 'raster', layer };
     }
@@ -80,8 +82,10 @@ export class LeafletLayerFactory {
         sourceConfig: SourceConfig,
         data: GeoJSON.FeatureCollection | GeoJSON.Feature,
         subLayers: SubLayerSpec[],
+        pane?: string,
     ): LeafletLayerSpec[] {
         const specs: LeafletLayerSpec[] = [];
+        const paneOption = pane ? { pane } : {};
 
         for (const style of subLayers) {
             if (!['fill', 'line', 'circle', 'symbol'].includes(style.type)) continue;
@@ -97,16 +101,18 @@ export class LeafletLayerFactory {
                         return L.circleMarker(latlng, {
                             radius,
                             ...LeafletLayerFactory.convertPaintToLeafletStyle(style, feature),
-                            interactive: true
+                            interactive: true,
+                            ...paneOption
                         });
                     }
                     if (style.type === 'symbol') {
-                        return L.marker(latlng, { icon: LeafletLayerFactory.createTextLabelIcon(style, feature), interactive: false });
+                        return L.marker(latlng, { icon: LeafletLayerFactory.createTextLabelIcon(style, feature), interactive: false, ...paneOption });
                     }
-                    return L.marker(latlng, { opacity: 0, interactive: false });
+                    return L.marker(latlng, { opacity: 0, interactive: false, ...paneOption });
                 },
                 filter: filterFunction,
-                interactive: true
+                interactive: true,
+                ...paneOption
             });
             const specId = style.id ? `${logicalLayerId}-${style.id}` : `${logicalLayerId}-${style.type}-${specs.length}`;
             specs.push({ id: specId, type: 'geojson', layer });
