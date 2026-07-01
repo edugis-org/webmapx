@@ -92,8 +92,8 @@ Defines the base map settings.
 | `label` | string | No | Display name for the map |
 | `center` | [number, number] | Yes | Initial center as [longitude, latitude] |
 | `zoom` | number | Yes | Initial zoom level (0-24) |
-| `minZoom` | number | No | Minimum zoom level |
-| `maxZoom` | number | No | Maximum zoom level |
+| `minZoom` | number | No | Minimum zoom level (deprecated — use `runtimeMap.minZoom`) |
+| `maxZoom` | number | No | Maximum zoom level (deprecated — use `runtimeMap.maxZoom`) |
 | `type` | string | Yes | Declared adapter type in the schema: `maplibre`, `openlayers`, `leaflet`, or `cesium` |
 | `style` | object or string | No | Initial background style (see below) |
 
@@ -167,6 +167,38 @@ If `style` is omitted or empty, the map starts with no background layers.
 | `layout` | object | Layout properties |
 
 > **Note:** The style format is compatible with MapLibre GL style specification. The `version` property is optional and defaults to 8.
+
+### RuntimeMap Section
+
+Optional runtime constraints on the map viewport. Prefer these over the deprecated `map.minZoom`/`map.maxZoom`/`map.minPitch`/`map.maxPitch` fields.
+
+```json
+{
+  "runtimeMap": {
+    "minZoom": 6,
+    "maxZoom": 19,
+    "minPitch": 0,
+    "maxPitch": 60,
+    "maxBounds": [3.2, 50.7, 7.3, 53.6]
+  }
+}
+```
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `minZoom` | number | No | Minimum zoom level (0-24) |
+| `maxZoom` | number | No | Maximum zoom level (0-24) |
+| `minPitch` | number | No | Minimum pitch in degrees (0-85) |
+| `maxPitch` | number | No | Maximum pitch in degrees (0-85) |
+| `maxBounds` | [number, number, number, number] | No | Restricts panning and zoom-out to a bounding box: `[west, south, east, north]` in longitude/latitude degrees (MapLibre `LngLatBoundsLike` flat form) |
+
+**`maxBounds` behavior:**
+
+- Works across all four engines (MapLibre, OpenLayers, Leaflet, Cesium; Cesium enforcement is a soft per-frame clamp).
+- "Cover" semantics: the visible map always stays inside the box. When the viewport aspect ratio differs from the box's, the whole box is never visible at once — zoom-out stops when the tighter screen dimension reaches the box edge, and the user pans along the longer axis.
+- The zoom-out limit is derived from the box and viewport size automatically and re-derived when the map container resizes; an explicit `minZoom` is combined with it (the stricter one wins).
+- Boxes crossing the antimeridian (`west > east`) are not supported and rejected by validation.
+- If `map.center` lies outside the box, the map clamps to the box on load (validation warns about this).
 
 ### LayerData Section
 
