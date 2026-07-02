@@ -140,6 +140,8 @@ export class WebmapxBufferTool extends WebmapxModalTool {
         if (this.selectedLayerId && !this.availableLayers.find(l => l.id === this.selectedLayerId)) {
             this.selectedLayerId = this.availableLayers[0]?.id ?? '';
             this.syncLayerState();
+            this.lastOutputLayerId = null;
+            this.overwrite = true;
         }
 
         // Keep source layers in sync (sublayers stored in mapLayers metadata at registration)
@@ -196,6 +198,10 @@ export class WebmapxBufferTool extends WebmapxModalTool {
         this.selectedLayerId = (e.target as HTMLSelectElement).value;
         this.syncLayerState();
         this.error = null;
+        // Previous run's output belonged to a different input layer — its
+        // "replace previous output" option no longer applies here.
+        this.lastOutputLayerId = null;
+        this.overwrite = true;
     }
 
     private handleSourceLayerChange(e: Event): void {
@@ -371,7 +377,7 @@ export class WebmapxBufferTool extends WebmapxModalTool {
                 <sl-input
                     label="Output layer name"
                     size="small"
-                    value=${this.outputName}
+                    .value=${this.outputName}
                     ?disabled=${this.busy}
                     @sl-change=${this.handleOutputNameChange}
                 ></sl-input>
