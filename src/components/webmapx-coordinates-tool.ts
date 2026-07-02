@@ -154,7 +154,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
       right: 0;
       background: var(--color-background-primary, #ffffff);
       border: 1px solid var(--color-border);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      box-shadow: var(--webmapx-shadow-md, 0 4px 12px rgba(0, 0, 0, 0.15));
       padding: 8px;
       min-width: 250px;
       max-width: 400px;
@@ -218,7 +218,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
       padding: 4px 8px;
       background: transparent;
       border: 1px solid var(--color-border, #ccc);
-      border-radius: 3px;
+      border-radius: var(--webmapx-radius-xs, 3px);
       cursor: pointer;
       color: var(--color-text-primary, #000);
       font-size: 0.85em;

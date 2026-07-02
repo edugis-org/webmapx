@@ -195,7 +195,7 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
             width: 100%;
             --webmapx-pointer-events: none;
             pointer-events: none;
-            font-size: 11px;
+            font-size: var(--webmapx-font-size-sm, 11px);
             color: var(--color-text-secondary, #444);
             box-sizing: border-box;
         }
@@ -206,7 +206,7 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
             max-width: 80%;
             flex: 0 1 auto;
             background: rgba(255, 255, 255, 0.85);
-            border-radius: 4px 4px 0 0;
+            border-radius: var(--webmapx-radius-sm, 4px) var(--webmapx-radius-sm, 4px) 0 0;
             box-sizing: border-box;
             pointer-events: none;
             overflow: hidden;
@@ -233,7 +233,7 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
         .overflow-indicator {
             flex: 0 0 auto;
             padding: 2px 4px 1px;
-            font-size: 14px;
+            font-size: var(--webmapx-font-size-md, 14px);
             line-height: 1;
             opacity: 0.6;
             pointer-events: none;

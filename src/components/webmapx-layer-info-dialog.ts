@@ -7,6 +7,7 @@ import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import { sanitizeAbstractHtml } from '../utils/sanitize-html';
 import { renderAttributionText } from '../utils/attribution-format';
+import { controlSurfaceStyles } from './internal/control-surface-styles';
 
 const HTTPS_URL_ONLY = /^https:\/\/\S+$/i;
 
@@ -34,7 +35,7 @@ export class WebmapxLayerInfoDialog extends LitElement {
 
     private fetchToken = 0;
 
-    static styles = css`
+    static styles = [controlSurfaceStyles, css`
         :host { display: block; }
 
         sl-dialog::part(panel) {
@@ -43,7 +44,7 @@ export class WebmapxLayerInfoDialog extends LitElement {
         }
 
         .abstract {
-            font-size: 0.9rem;
+            font-size: var(--webmapx-font-size-md, 0.9rem);
             line-height: 1.4;
             max-height: 60vh;
             overflow-y: auto;
@@ -63,7 +64,7 @@ export class WebmapxLayerInfoDialog extends LitElement {
         }
 
         .feature-summary {
-            font-size: 0.85rem;
+            font-size: var(--webmapx-font-size-md, 0.85rem);
             color: var(--sl-color-neutral-600);
         }
 
@@ -72,14 +73,14 @@ export class WebmapxLayerInfoDialog extends LitElement {
         }
 
         .attribution {
-            font-size: 0.8rem;
+            font-size: var(--webmapx-font-size-sm, 0.8rem);
             color: var(--sl-color-neutral-500);
         }
 
         .loading {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: var(--webmapx-space-sm, 0.5rem);
             color: var(--sl-color-neutral-500);
         }
 
@@ -88,7 +89,7 @@ export class WebmapxLayerInfoDialog extends LitElement {
             justify-content: flex-end;
             margin-top: 1rem;
         }
-    `;
+    `];
 
     open(title: string, abstract: string | undefined, attribution?: string, featureSummary?: string): void {
         this.fetchToken += 1;

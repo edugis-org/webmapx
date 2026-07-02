@@ -1,7 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 
-import '@shoelace-style/shoelace/dist/components/switch/switch.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
 import '@shoelace-style/shoelace/dist/components/divider/divider.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
@@ -14,15 +13,25 @@ import {
     resolveAdapterSelection
 } from '../config/adapter-resolution';
 import { resolveMapElement } from './internal/map-context';
+import { controlSurfaceStyles } from './internal/control-surface-styles';
+
+export type WebmapxUiStyle = 'light' | 'dark' | 'compact' | 'glossy';
+
+const UI_STYLES: { value: WebmapxUiStyle; label: string; theme: 'light' | 'dark' }[] = [
+    { value: 'light', label: 'Light', theme: 'light' },
+    { value: 'dark', label: 'Dark', theme: 'dark' },
+    { value: 'compact', label: 'Compact', theme: 'light' },
+    { value: 'glossy', label: 'Glossy', theme: 'light' }
+];
 
 @customElement('webmapx-settings')
 export class WebmapxSettings extends LitElement {
-    @state() private darkMode = false;
+    @state() private uiStyle: WebmapxUiStyle = 'light';
     @state() private apiKey = '';
     @state() private currentAdapter = DEFAULT_ADAPTER_NAME;
     @state() private availableAdapters: string[] = [];
 
-    static styles = css`
+    static styles = [controlSurfaceStyles, css`
         :host {
             display: block;
             padding: 1rem;
@@ -46,10 +55,6 @@ export class WebmapxSettings extends LitElement {
             letter-spacing: 0.05em;
         }
 
-        sl-switch {
-            --sl-toggle-size-medium: 1.25rem;
-        }
-
         sl-input {
             margin-top: 0.5rem;
         }
@@ -61,7 +66,7 @@ export class WebmapxSettings extends LitElement {
         sl-select::part(combobox) {
             min-height: 2.5rem;
         }
-    `;
+    `];
 
     connectedCallback() {
         super.connectedCallback();
@@ -69,14 +74,10 @@ export class WebmapxSettings extends LitElement {
     }
 
     private loadSettings() {
-        // Load theme
-        const savedTheme = localStorage.getItem('webmapx-theme');
-        if (savedTheme) {
-            this.darkMode = savedTheme === 'dark';
-        } else {
-            this.darkMode = false;
-        }
-        this.applyTheme();
+        // Load style
+        const savedStyle = localStorage.getItem('webmapx-style') as WebmapxUiStyle | null;
+        this.uiStyle = UI_STYLES.some(s => s.value === savedStyle) ? savedStyle! : 'light';
+        this.applyStyle();
 
         // Load API key
         this.apiKey = localStorage.getItem('webmapx-api-key') || '';
@@ -108,25 +109,34 @@ export class WebmapxSettings extends LitElement {
         return this.availableAdapters.includes(resolved) ? resolved : DEFAULT_ADAPTER_NAME;
     }
 
-    private applyTheme() {
+    private applyStyle() {
+        const preset = UI_STYLES.find(s => s.value === this.uiStyle) ?? UI_STYLES[0];
         const html = document.documentElement;
-        if (this.darkMode) {
+
+        if (preset.theme === 'dark') {
             html.setAttribute('data-theme', 'dark');
             html.classList.add('sl-theme-dark');
         } else {
             html.removeAttribute('data-theme');
             html.classList.remove('sl-theme-dark');
         }
-        localStorage.setItem('webmapx-theme', this.darkMode ? 'dark' : 'light');
+
+        if (preset.value === 'compact' || preset.value === 'glossy') {
+            html.setAttribute('data-style', preset.value);
+        } else {
+            html.removeAttribute('data-style');
+        }
+
+        localStorage.setItem('webmapx-style', preset.value);
     }
 
-    private handleThemeChange(e: Event) {
-        const target = e.target as HTMLInputElement;
-        this.darkMode = target.checked;
-        this.applyTheme();
+    private handleStyleChange(e: Event) {
+        const target = e.target as HTMLSelectElement;
+        this.uiStyle = target.value as WebmapxUiStyle;
+        this.applyStyle();
 
         this.dispatchEvent(new CustomEvent('theme-change', {
-            detail: { theme: this.darkMode ? 'dark' : 'light' },
+            detail: { style: this.uiStyle },
             bubbles: true,
             composed: true
         }));
@@ -207,12 +217,15 @@ export class WebmapxSettings extends LitElement {
 
             <div class="setting-group">
                 <h4>Appearance</h4>
-                <sl-switch
-                    ?checked=${this.darkMode}
-                    @sl-change=${this.handleThemeChange}
+                <sl-select
+                    label="Style"
+                    value=${this.uiStyle}
+                    @sl-change=${this.handleStyleChange}
                 >
-                    Dark Mode
-                </sl-switch>
+                    ${UI_STYLES.map(s => html`
+                        <sl-option value=${s.value}>${s.label}</sl-option>
+                    `)}
+                </sl-select>
             </div>
 
             <sl-divider></sl-divider>

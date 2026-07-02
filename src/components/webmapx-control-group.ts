@@ -16,7 +16,7 @@ export class WebmapxControlGroup extends LitElement {
     :host {
       display: flex;
       pointer-events: none;
-      gap: 0.5rem;
+      gap: var(--webmapx-space-sm, 0.5rem);
       /* Fill (and cap at 80% of) the slot-zone's main axis, so this group
          has a definite height that slotted tool panels can size against
          via max-height: 100%. */

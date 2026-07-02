@@ -8,6 +8,7 @@ import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/color-picker/color-picker.js';
 import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
+import { controlSurfaceStyles } from './internal/control-surface-styles';
 
 export type GeometryType = 'Point' | 'LineString' | 'Polygon';
 
@@ -93,7 +94,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
 
     @query('sl-dialog') private dialog!: SlDialog;
 
-    static styles = css`
+    static styles = [controlSurfaceStyles, css`
         :host { display: block; }
 
         sl-dialog::part(panel) {
@@ -103,21 +104,21 @@ export class WebmapxDrawLayerDialog extends LitElement {
         .layer-list {
             display: flex;
             flex-direction: column;
-            gap: 0.25rem;
+            gap: var(--webmapx-space-xs, 0.25rem);
             max-height: 220px;
             overflow-y: auto;
-            margin-bottom: 1rem;
+            margin-bottom: var(--webmapx-space-lg, 1rem);
         }
 
         .layer-option {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.4rem 0.6rem;
-            border-radius: 4px;
+            gap: var(--webmapx-space-sm, 0.5rem);
+            padding: var(--webmapx-space-xs, 0.4rem) var(--webmapx-space-sm, 0.6rem);
+            border-radius: var(--webmapx-radius-sm, 4px);
             cursor: pointer;
             border: 1px solid transparent;
-            font-size: 0.9rem;
+            font-size: var(--webmapx-font-size-md, 0.9rem);
         }
 
         .layer-option:hover { background: var(--sl-color-neutral-100); }
@@ -133,24 +134,24 @@ export class WebmapxDrawLayerDialog extends LitElement {
             flex-shrink: 0;
         }
 
-        .new-icon { color: var(--sl-color-neutral-500); font-size: 1rem; }
+        .new-icon { color: var(--sl-color-neutral-500); font-size: var(--webmapx-font-size-lg, 1rem); }
 
         .prop-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.85rem;
-            margin-top: 0.5rem;
+            font-size: var(--webmapx-font-size-md, 0.85rem);
+            margin-top: var(--webmapx-space-sm, 0.5rem);
         }
 
         .prop-table th {
             text-align: left;
             background: var(--sl-color-neutral-100);
-            padding: 0.25rem 0.4rem;
+            padding: var(--webmapx-space-xs, 0.25rem) var(--webmapx-space-xs, 0.4rem);
             border-bottom: 1px solid var(--sl-color-neutral-200);
         }
 
         .prop-table td {
-            padding: 0.2rem 0.4rem;
+            padding: var(--webmapx-space-xs, 0.2rem) var(--webmapx-space-xs, 0.4rem);
             border-bottom: 1px solid var(--sl-color-neutral-100);
             vertical-align: middle;
         }
@@ -159,23 +160,23 @@ export class WebmapxDrawLayerDialog extends LitElement {
 
         .prop-row-auto td { color: var(--sl-color-neutral-400); font-style: italic; }
 
-        .type-computed { color: var(--sl-color-primary-600); font-size: 0.75rem; }
+        .type-computed { color: var(--sl-color-primary-600); font-size: var(--webmapx-font-size-sm, 0.75rem); }
 
         .add-row td { background: var(--sl-color-neutral-50); }
 
         .add-row sl-input,
-        .add-row sl-select { font-size: 0.85rem; }
+        .add-row sl-select { font-size: var(--webmapx-font-size-md, 0.85rem); }
 
         .name-input-row {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 0.75rem;
+            gap: var(--webmapx-space-sm, 0.5rem);
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
         }
 
         .color-swatch {
             width: 32px; height: 32px;
-            border-radius: 4px;
+            border-radius: var(--webmapx-radius-sm, 4px);
             border: 1px solid var(--sl-color-neutral-300);
             cursor: pointer;
             flex-shrink: 0;
@@ -184,16 +185,16 @@ export class WebmapxDrawLayerDialog extends LitElement {
         .footer {
             display: flex;
             justify-content: flex-end;
-            gap: 0.5rem;
-            margin-top: 1rem;
+            gap: var(--webmapx-space-sm, 0.5rem);
+            margin-top: var(--webmapx-space-lg, 1rem);
         }
 
         .error-msg {
             color: var(--sl-color-danger-600);
-            font-size: 0.8rem;
-            margin-top: 0.25rem;
+            font-size: var(--webmapx-font-size-sm, 0.8rem);
+            margin-top: var(--webmapx-space-xs, 0.25rem);
         }
-    `;
+    `];
 
     open(): void {
         this.step = 'select';

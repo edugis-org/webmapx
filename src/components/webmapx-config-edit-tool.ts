@@ -258,18 +258,18 @@ export class WebmapxConfigEditTool extends LitElement {
 
     static styles = css`
         :host { display: block; padding: 0.75rem; box-sizing: border-box; min-width: 260px; }
-        h4 { margin: 0 0 0.6rem; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem; }
-        .section-label { font-size: 0.78rem; font-weight: 600; color: var(--sl-color-neutral-600); margin: 0.75rem 0 0.3rem; text-transform: uppercase; letter-spacing: .04em; }
-        .toolbar-label { font-size: 0.8rem; font-weight: 600; color: var(--sl-color-neutral-700); margin: 0.5rem 0 0.25rem; }
+        h4 { margin: 0 0 0.6rem; font-size: var(--webmapx-font-size-md, 0.85rem); font-weight: 600; display: flex; align-items: center; gap: 0.4rem; }
+        .section-label { font-size: var(--webmapx-font-size-sm, 0.78rem); font-weight: 600; color: var(--sl-color-neutral-600); margin: 0.75rem 0 0.3rem; text-transform: uppercase; letter-spacing: .04em; }
+        .toolbar-label { font-size: var(--webmapx-font-size-sm, 0.8rem); font-weight: 600; color: var(--sl-color-neutral-700); margin: 0.5rem 0 0.25rem; }
 
         /* Tool rows */
         .tool-list { display: flex; flex-direction: column; gap: 2px; }
         .tool-row {
             display: flex; align-items: center; gap: 0.25rem;
-            padding: 0.2rem 0.3rem; border-radius: 4px;
+            padding: 0.2rem 0.3rem; border-radius: var(--webmapx-radius-sm, 4px);
             border: 1px solid var(--sl-color-neutral-200);
             background: var(--sl-color-neutral-0);
-            font-size: 0.82rem;
+            font-size: var(--webmapx-font-size-sm, 0.82rem);
         }
         .tool-row.drag-over { outline: 2px solid var(--sl-color-primary-500); background: var(--sl-color-primary-50); }
         .tool-row.dragging  { opacity: 0.4; }
@@ -282,8 +282,8 @@ export class WebmapxConfigEditTool extends LitElement {
         .toolbox-sub-label { font-size: 0.73rem; color: var(--sl-color-neutral-500); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 0.2rem; }
 
         /* Map controls (no drag) */
-        .control-row { display: flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.3rem; font-size: 0.82rem; }
-        sl-checkbox::part(label) { font-size: 0.82rem; }
+        .control-row { display: flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.3rem; font-size: var(--webmapx-font-size-sm, 0.82rem); }
+        sl-checkbox::part(label) { font-size: var(--webmapx-font-size-sm, 0.82rem); }
 
         /* Add-tool dropdown */
         .add-row { margin-top: 0.4rem; }
@@ -297,8 +297,8 @@ export class WebmapxConfigEditTool extends LitElement {
             position: fixed;
             background: #fff;
             border: 1px solid #ccc;
-            border-radius: 6px;
-            box-shadow: 0 4px 16px rgba(0,0,0,.18);
+            border-radius: var(--webmapx-radius-md, 6px);
+            box-shadow: var(--webmapx-shadow-lg, 0 4px 16px rgba(0,0,0,.18));
             padding: 0.7rem;
             z-index: 9999;
             min-width: 240px;
@@ -306,17 +306,17 @@ export class WebmapxConfigEditTool extends LitElement {
             max-height: 480px;
             overflow-y: auto;
         }
-        .prop-popup h3 { margin: 0 0 0.5rem; font-size: 0.85rem; border-bottom: 1px solid #eee; padding-bottom: 0.35rem; }
-        .prop-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; font-size: 0.8rem; }
+        .prop-popup h3 { margin: 0 0 0.5rem; font-size: var(--webmapx-font-size-md, 0.85rem); border-bottom: 1px solid #eee; padding-bottom: 0.35rem; }
+        .prop-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; font-size: var(--webmapx-font-size-sm, 0.8rem); }
         .prop-row label { flex: 0 0 120px; color: #555; }
         .prop-row input[type="text"],
         .prop-row input[type="number"],
-        .prop-row select { flex: 1; padding: 0.15rem 0.3rem; font-size: 0.8rem; border: 1px solid #ccc; border-radius: 3px; }
+        .prop-row select { flex: 1; padding: 0.15rem 0.3rem; font-size: var(--webmapx-font-size-sm, 0.8rem); border: 1px solid #ccc; border-radius: var(--webmapx-radius-xs, 3px); }
         .prop-row input[type="checkbox"] { width: 1rem; height: 1rem; }
-        .prop-row textarea { flex: 1; font-size: 0.78rem; font-family: monospace; border: 1px solid #ccc; border-radius: 3px; padding: 0.2rem; resize: vertical; }
+        .prop-row textarea { flex: 1; font-size: var(--webmapx-font-size-sm, 0.78rem); font-family: monospace; border: 1px solid #ccc; border-radius: var(--webmapx-radius-xs, 3px); padding: 0.2rem; resize: vertical; }
         .prop-row textarea.json-invalid { border-color: red; }
         .prop-footer { display: flex; justify-content: flex-end; gap: 0.4rem; margin-top: 0.5rem; }
-        .prop-footer button { padding: 0.25rem 0.6rem; font-size: 0.8rem; border-radius: 3px; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; }
+        .prop-footer button { padding: 0.25rem 0.6rem; font-size: var(--webmapx-font-size-sm, 0.8rem); border-radius: var(--webmapx-radius-xs, 3px); cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; }
         .prop-footer .btn-apply { background: #0f62fe; color: #fff; border-color: #0f62fe; }
     `;
 

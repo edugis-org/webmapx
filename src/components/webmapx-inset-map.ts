@@ -83,10 +83,10 @@ export class WebmapxInsetMap extends LitElement {
       width: var(--webmapx-inset-width, 256px);
       height: var(--webmapx-inset-height, 256px);
       border: 1px solid var(--color-border, #ccc);
-      border-radius: 6px;
+      border-radius: var(--webmapx-radius-md, 6px);
       overflow: hidden;
       background: var(--color-background-secondary, #f4f4f4);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+      box-shadow: var(--webmapx-shadow-md, 0 4px 12px rgba(0, 0, 0, 0.12));
       pointer-events: auto;
     }
 

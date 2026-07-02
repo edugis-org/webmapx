@@ -204,22 +204,22 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     .panel {
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: var(--webmapx-space-lg, 1rem);
       max-height: min(32rem, 100%);
       overflow-y: auto;
-      padding: 0.5rem;
+      padding: var(--webmapx-space-sm, 0.5rem);
       box-sizing: border-box;
     }
 
     .section {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: var(--webmapx-space-sm, 0.5rem);
     }
 
     .section-title {
       margin: 0;
-      font-size: 0.95rem;
+      font-size: var(--webmapx-font-size-md, 0.95rem);
       font-weight: 700;
       color: var(--webmapx-legend-title-color, var(--color-primary, #0f62fe));
     }
@@ -227,7 +227,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     .layer-list {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: var(--webmapx-space-sm, 0.5rem);
     }
 
     .drop-indicator {
@@ -242,7 +242,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       position: relative;
       z-index: 2;
       opacity: 0.75;
-      box-shadow: 0 6px 16px rgba(15, 23, 42, 0.2);
+      box-shadow: var(--webmapx-shadow-lg, 0 6px 16px rgba(15, 23, 42, 0.2));
       cursor: grabbing;
     }
 
@@ -251,19 +251,19 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: 0.35rem;
-      padding: 0.35rem 0.625rem;
+      gap: var(--webmapx-space-xs, 0.35rem);
+      padding: var(--webmapx-space-xs, 0.35rem) var(--webmapx-space-sm, 0.625rem);
       border: 1px solid var(--color-border, #d7dce3);
-      border-radius: 0.75rem;
+      border-radius: var(--webmapx-radius-lg, 0.75rem);
       background: var(--color-background, #ffffff);
-      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+      box-shadow: var(--webmapx-shadow-sm, 0 1px 3px rgba(15, 23, 42, 0.08));
       box-sizing: border-box;
     }
 
     .layer-row {
       display: flex;
       align-items: center;
-      gap: 0.25rem;
+      gap: var(--webmapx-space-xs, 0.25rem);
       width: 100%;
       touch-action: none;
     }
@@ -292,10 +292,10 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       left: 0;
       background: var(--sl-tooltip-background-color, #1e293b);
       color: var(--sl-tooltip-color, #fff);
-      font-size: 0.72rem;
+      font-size: var(--webmapx-font-size-sm, 0.72rem);
       line-height: 1.4;
       padding: 3px 8px;
-      border-radius: 4px;
+      border-radius: var(--webmapx-radius-sm, 4px);
       white-space: nowrap;
       pointer-events: none;
       opacity: 0;
@@ -316,7 +316,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     .visibility-toggle::part(base),
     .collapse-toggle::part(base),
     .layer-details-actions sl-icon-button::part(base) {
-      font-size: 0.95rem;
+      font-size: var(--webmapx-font-size-md, 0.95rem);
       padding: 0;
     }
 
@@ -325,7 +325,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     }
 
     .layer-label {
-      font-size: 0.95rem;
+      font-size: var(--webmapx-font-size-md, 0.95rem);
       line-height: 1.3;
       white-space: normal;
       word-break: break-word;
@@ -357,7 +357,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     .layer-details-inner {
       display: flex;
       flex-direction: column;
-      gap: 0.35rem;
+      gap: var(--webmapx-space-xs, 0.35rem);
       overflow: hidden;
       min-height: 0;
     }
@@ -376,8 +376,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     .opacity-row {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      font-size: 0.8rem;
+      gap: var(--webmapx-space-sm, 0.5rem);
+      font-size: var(--webmapx-font-size-sm, 0.8rem);
       color: var(--color-text-secondary, #6b7280);
     }
 
@@ -391,7 +391,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       appearance: none;
       height: 3px;
       background: var(--sl-color-neutral-300);
-      border-radius: 2px;
+      border-radius: var(--webmapx-radius-xs, 2px);
       outline: none;
     }
 
@@ -417,7 +417,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     .opacity-row input[type="range"]::-moz-range-track {
       height: 3px;
       background: var(--sl-color-neutral-300);
-      border-radius: 2px;
+      border-radius: var(--webmapx-radius-xs, 2px);
     }
 
     .opacity-value {
@@ -430,29 +430,29 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     .save-layers-row {
       display: flex;
       justify-content: flex-end;
-      gap: 0.4rem;
+      gap: var(--webmapx-space-xs, 0.4rem);
     }
 
     .layer-meta {
-      font-size: 0.75rem;
+      font-size: var(--webmapx-font-size-sm, 0.75rem);
       color: var(--color-text-secondary, #6b7280);
       white-space: nowrap;
       margin-left: 0.75rem;
     }
 
     .layer-editing-notice {
-      font-size: 0.75rem;
+      font-size: var(--webmapx-font-size-sm, 0.75rem);
       color: var(--color-text-secondary, #6b7280);
       font-style: italic;
-      padding: 0.25rem 0.75rem 0.5rem;
+      padding: var(--webmapx-space-xs, 0.25rem) var(--webmapx-space-md, 0.75rem) var(--webmapx-space-sm, 0.5rem);
     }
 
     .empty {
       padding: 0.875rem;
       border: 1px dashed var(--color-border, #d7dce3);
-      border-radius: 0.75rem;
+      border-radius: var(--webmapx-radius-lg, 0.75rem);
       color: var(--color-text-secondary, #6b7280);
-      font-size: 0.875rem;
+      font-size: var(--webmapx-font-size-md, 0.875rem);
       background: var(--color-background-secondary, #f8fafc);
     }
   `;

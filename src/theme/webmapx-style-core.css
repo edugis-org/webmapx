@@ -32,6 +32,37 @@
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
     --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
 
+    /* ── Design-token primitives ─────────────────────────
+       Generic scales consumed by all webmapx UI chrome
+       (panels, dialogs, toolbars, map controls).
+       Style presets ([data-style="..."]) override these to
+       retheme every component at once. Components reference
+       them with a literal fallback so they render correctly
+       even when this file isn't loaded. */
+
+    /* Radius scale */
+    --webmapx-radius-xs: 3px;
+    --webmapx-radius-sm: 4px;
+    --webmapx-radius-md: 6px;
+    --webmapx-radius-lg: 12px;
+
+    /* Spacing scale (padding, margin, gap) */
+    --webmapx-space-xs: 0.25rem;
+    --webmapx-space-sm: 0.5rem;
+    --webmapx-space-md: 0.75rem;
+    --webmapx-space-lg: 1rem;
+
+    /* Font-size scale */
+    --webmapx-font-size-sm: 0.75rem;
+    --webmapx-font-size-md: 0.875rem;
+    --webmapx-font-size-lg: 1rem;
+
+    /* Shadow scale (aliases the themed --shadow-* values so
+       dark mode adjustments carry through automatically) */
+    --webmapx-shadow-sm: var(--shadow-sm);
+    --webmapx-shadow-md: var(--shadow-md);
+    --webmapx-shadow-lg: var(--shadow-lg);
+
     /* Layout */
     --overlay-inset: 16px;
 
@@ -138,6 +169,76 @@ webmapx-toolbar sl-button[data-tooltip]:focus-visible::after {
         visibility: visible;
         transition-delay: var(--webmapx-tooltip-delay, 350ms);
     }
+}
+
+/* ========================================
+   COMPACT STYLE — tighter spacing, smaller text
+   ======================================== */
+[data-style="compact"] {
+    --overlay-inset: 8px;
+    --font-size-small: 11px;
+    --compact-gap: 4px;
+
+    /* Tighten the generic scales — all chrome follows */
+    --webmapx-space-xs: 0.15rem;
+    --webmapx-space-sm: 0.3rem;
+    --webmapx-space-md: 0.45rem;
+    --webmapx-space-lg: 0.6rem;
+    --webmapx-font-size-sm: 0.7rem;
+    --webmapx-font-size-md: 0.8rem;
+    --webmapx-font-size-lg: 0.9rem;
+
+    --shadow-sm: 0 1px 1px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.12);
+
+    /* Bridge to Shoelace so sl-* components shrink too */
+    --sl-spacing-x-small: var(--webmapx-space-xs);
+    --sl-spacing-small: var(--webmapx-space-sm);
+    --sl-spacing-medium: var(--webmapx-space-sm);
+    --sl-font-size-small: 11px;
+    --sl-input-height-small: 1.6rem;
+    --sl-input-height-medium: 1.9rem;
+}
+
+/* ========================================
+   GLOSSY STYLE — rounded, gradient surfaces, deeper shadows
+   ======================================== */
+[data-style="glossy"] {
+    /* Rounder radius scale — all chrome follows */
+    --webmapx-radius-xs: 0.4rem;
+    --webmapx-radius-sm: 0.5rem;
+    --webmapx-radius-md: 0.75rem;
+    --webmapx-radius-lg: 1rem;
+
+    --shadow-sm: 0 2px 4px rgba(0, 60, 150, 0.1);
+    --shadow-md: 0 6px 16px rgba(0, 60, 150, 0.18);
+    --shadow-lg: 0 12px 32px rgba(0, 60, 150, 0.22);
+
+    /* Bridge to Shoelace */
+    --sl-border-radius-small: var(--webmapx-radius-sm);
+    --sl-border-radius-medium: var(--webmapx-radius-md);
+    --sl-border-radius-large: var(--webmapx-radius-lg);
+    --sl-panel-background-color: rgba(255, 255, 255, 0.85);
+
+    --webmapx-panel-radius: var(--webmapx-radius-md);
+    --webmapx-toolbar-radius: var(--webmapx-radius-md);
+
+    /* Control gloss — custom props inherit into shadow roots, so
+       components rendering their own sl-buttons consume these with
+       a `none` fallback (see e.g. webmapx-toolbox-tool). */
+    --webmapx-control-bg-image: linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0));
+    --webmapx-control-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* Light-DOM shoelace controls (e.g. toolbar slotted buttons).
+   Shadow-DOM ones must apply the same vars in their own styles —
+   document selectors cannot reach them. */
+[data-style="glossy"] sl-button::part(base),
+[data-style="glossy"] sl-select::part(combobox),
+[data-style="glossy"] sl-input::part(base) {
+    background-image: var(--webmapx-control-bg-image, none);
+    box-shadow: var(--webmapx-control-shadow, none);
 }
 
 [data-theme="dark"] webmapx-toolbar {

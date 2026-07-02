@@ -4,6 +4,7 @@ import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
+import { controlSurfaceStyles } from './internal/control-surface-styles';
 
 export interface LayerStyleTarget {
     id: string;
@@ -47,7 +48,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
 
     @query('sl-dialog') private dialog!: SlDialog;
 
-    static styles = css`
+    static styles = [controlSurfaceStyles, css`
         :host { display: block; }
 
         sl-dialog::part(panel) {
@@ -59,13 +60,13 @@ export class WebmapxLayerStyleDialog extends LitElement {
         .source-list {
             display: flex;
             flex-direction: column;
-            gap: 1rem;
+            gap: var(--webmapx-space-lg, 1rem);
         }
 
         .source-group {
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
+            gap: var(--webmapx-space-sm, 0.5rem);
             padding-bottom: 0.75rem;
             border-bottom: 1px solid var(--sl-color-neutral-200);
         }
@@ -85,8 +86,8 @@ export class WebmapxLayerStyleDialog extends LitElement {
         .source-meta {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.35rem;
-            font-size: 0.8rem;
+            gap: var(--webmapx-space-xs, 0.35rem);
+            font-size: var(--webmapx-font-size-sm, 0.8rem);
             color: var(--sl-color-neutral-600);
         }
 
@@ -96,7 +97,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
             min-height: 1.35rem;
             padding: 0 0.4rem;
             border: 1px solid var(--sl-color-neutral-200);
-            border-radius: 0.35rem;
+            border-radius: var(--webmapx-radius-sm, 0.35rem);
             background: var(--sl-color-neutral-50);
         }
 
@@ -110,33 +111,33 @@ export class WebmapxLayerStyleDialog extends LitElement {
         .table-controls {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: var(--webmapx-space-sm, 0.5rem);
         }
 
         .table-hint {
             flex: 1 1 auto;
             min-width: 0;
             color: var(--sl-color-neutral-500);
-            font-size: 0.8rem;
+            font-size: var(--webmapx-font-size-sm, 0.8rem);
             line-height: 1.3;
         }
 
         .attribute-analysis {
             display: flex;
             flex-direction: column;
-            gap: 0.25rem;
-            padding: 0.5rem;
+            gap: var(--webmapx-space-xs, 0.25rem);
+            padding: var(--webmapx-space-sm, 0.5rem);
             border: 1px solid var(--sl-color-neutral-200);
-            border-radius: 0.35rem;
+            border-radius: var(--webmapx-radius-sm, 0.35rem);
             background: var(--sl-color-neutral-50);
-            font-size: 0.85rem;
+            font-size: var(--webmapx-font-size-md, 0.85rem);
         }
 
         .attribute-table-wrap {
             max-height: 16rem;
             overflow: auto;
             border: 1px solid var(--sl-color-neutral-200);
-            border-radius: 0.35rem;
+            border-radius: var(--webmapx-radius-sm, 0.35rem);
         }
 
         .attribute-table {
@@ -144,7 +145,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
             min-width: 100%;
             border-collapse: collapse;
             table-layout: auto;
-            font-size: 0.8rem;
+            font-size: var(--webmapx-font-size-sm, 0.8rem);
         }
 
         .attribute-table th,
@@ -230,7 +231,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         .analysis-row {
             display: flex;
             justify-content: space-between;
-            gap: 0.75rem;
+            gap: var(--webmapx-space-md, 0.75rem);
         }
 
         .analysis-label {
@@ -261,8 +262,8 @@ export class WebmapxLayerStyleDialog extends LitElement {
         .style-target {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            font-size: 0.9rem;
+            gap: var(--webmapx-space-sm, 0.5rem);
+            font-size: var(--webmapx-font-size-md, 0.9rem);
         }
 
         .style-target sl-icon {
@@ -278,20 +279,20 @@ export class WebmapxLayerStyleDialog extends LitElement {
         .target-type {
             flex: 0 0 auto;
             color: var(--sl-color-neutral-600);
-            font-size: 0.8rem;
+            font-size: var(--webmapx-font-size-sm, 0.8rem);
         }
 
         .placeholder {
             color: var(--sl-color-neutral-500);
-            font-size: 0.9rem;
+            font-size: var(--webmapx-font-size-md, 0.9rem);
         }
 
         .footer {
             display: flex;
             justify-content: flex-end;
-            margin-top: 1rem;
+            margin-top: var(--webmapx-space-lg, 1rem);
         }
-    `;
+    `];
 
     open(title: string, groups: SourceStyleGroup[]): void {
         this.dialogTitle = title ? `Layer style: ${title}` : 'Layer style';

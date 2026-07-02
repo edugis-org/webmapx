@@ -2,6 +2,7 @@ import { html, css, TemplateResult } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
+import { controlSurfaceStyles } from './internal/control-surface-styles';
 
 const PITCH_PRESETS = [0, 30, 60];
 
@@ -12,21 +13,21 @@ export class Webmapx3dTool extends WebmapxBaseTool {
     @state() private terrainSupported = false;
     @state() private pitchSupported = true;
 
-    static styles = css`
-        :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
+    static styles = [controlSurfaceStyles, css`
+        :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: var(--webmapx-font-size-md, 0.875rem); }
         .unsupported { color: var(--sl-color-neutral-500, #888); font-style: italic; }
-        label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
-        .pitch-buttons { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+        label { display: block; font-weight: 600; margin-bottom: var(--webmapx-space-xs, 0.25rem); }
+        .pitch-buttons { display: flex; gap: var(--webmapx-space-sm, 0.5rem); margin-bottom: var(--webmapx-space-md, 0.75rem); }
         .pitch-buttons button {
             flex: 1; padding: 0.35rem 0; border: 1px solid var(--color-border, #d7dce3);
-            border-radius: 4px; background: var(--color-background, #fff); cursor: pointer; font-size: 0.875rem;
+            border-radius: var(--webmapx-radius-sm, 4px); background-color: var(--color-background, #fff); cursor: pointer; font-size: var(--webmapx-font-size-md, 0.875rem);
         }
         .pitch-buttons button.active {
-            background: var(--color-primary, #0f62fe); color: #fff; border-color: var(--color-primary, #0f62fe);
+            background-color: var(--color-primary, #0f62fe); color: #fff; border-color: var(--color-primary, #0f62fe);
         }
-        .pitch-hint { font-size: 0.8rem; color: var(--sl-color-neutral-600, #555); margin-bottom: 0.5rem; line-height: 1.5; }
-        .terrain-row { display: flex; align-items: center; gap: 0.5rem; }
-    `;
+        .pitch-hint { font-size: var(--webmapx-font-size-sm, 0.8rem); color: var(--sl-color-neutral-600, #555); margin-bottom: var(--webmapx-space-sm, 0.5rem); line-height: 1.5; }
+        .terrain-row { display: flex; align-items: center; gap: var(--webmapx-space-sm, 0.5rem); }
+    `];
 
     protected onMapAttached(): void {
         this.syncFromAdapter();
@@ -192,9 +193,9 @@ export class Webmapx3dTool extends WebmapxBaseTool {
             ${this.pitchSupported ? html`
                 <label>3D terrain and viewing angle</label>
                 <div class="pitch-buttons">
-                    <button class=${activePreset === 0 ? 'active' : ''} @click=${() => this.setPitch(0)}>0°</button>
-                    <button class=${(activePreset === 30 || midActive) ? 'active' : ''} @click=${() => this.setPitch(30)}>${midLabel}</button>
-                    <button class=${(activePreset === 60 || rightActive) ? 'active' : ''} @click=${() => this.setPitch(60)}>${rightLabel}</button>
+                    <button class="webmapx-control ${activePreset === 0 ? 'active' : ''}" @click=${() => this.setPitch(0)}>0°</button>
+                    <button class="webmapx-control ${(activePreset === 30 || midActive) ? 'active' : ''}" @click=${() => this.setPitch(30)}>${midLabel}</button>
+                    <button class="webmapx-control ${(activePreset === 60 || rightActive) ? 'active' : ''}" @click=${() => this.setPitch(60)}>${rightLabel}</button>
                 </div>
                 <div class="pitch-hint">
                     Choose a different viewing angle above,<br>

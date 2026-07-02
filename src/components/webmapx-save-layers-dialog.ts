@@ -8,6 +8,7 @@ import '@shoelace-style/shoelace/dist/components/input/input.js';
 import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import type SlInput from '@shoelace-style/shoelace/dist/components/input/input.js';
 import type { IMap } from '../map/IMapInterfaces';
+import { controlSurfaceStyles } from './internal/control-surface-styles';
 
 export interface SaveLayerCandidate {
     layerId: string;
@@ -37,7 +38,7 @@ export class WebmapxSaveLayersDialog extends LitElement {
     @query('sl-dialog') private dialog!: SlDialog;
     @query('.filename-input') private filenameInput!: SlInput;
 
-    static styles = css`
+    static styles = [controlSurfaceStyles, css`
         :host { display: block; }
 
         sl-dialog::part(panel) {
@@ -48,42 +49,42 @@ export class WebmapxSaveLayersDialog extends LitElement {
         .layer-list {
             display: flex;
             flex-direction: column;
-            gap: 0.4rem;
+            gap: var(--webmapx-space-xs, 0.4rem);
             max-height: 40vh;
             overflow-y: auto;
-            margin-bottom: 0.75rem;
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
         }
 
         .layer-row sl-checkbox::part(label) {
             display: flex;
             align-items: center;
-            gap: 0.4rem;
+            gap: var(--webmapx-space-xs, 0.4rem);
         }
 
         .unsupported {
             color: var(--sl-color-neutral-400);
-            font-size: 0.8rem;
+            font-size: var(--webmapx-font-size-sm, 0.8rem);
         }
 
         .external-hint {
             color: var(--sl-color-neutral-500);
-            font-size: 0.8rem;
+            font-size: var(--webmapx-font-size-sm, 0.8rem);
         }
 
         .options {
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
-            margin-top: 0.75rem;
+            gap: var(--webmapx-space-sm, 0.5rem);
+            margin-top: var(--webmapx-space-md, 0.75rem);
         }
 
         .footer {
             display: flex;
             justify-content: flex-end;
-            gap: 0.5rem;
-            margin-top: 1rem;
+            gap: var(--webmapx-space-sm, 0.5rem);
+            margin-top: var(--webmapx-space-lg, 1rem);
         }
-    `;
+    `];
 
     open(candidates: SaveLayerCandidate[], adapter: IMap | null): void {
         this.items = candidates.map((candidate) => {

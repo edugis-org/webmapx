@@ -20,6 +20,7 @@ export class WebmapxToolbar extends LitElement {
       flex: 0 0 auto;
       background: var(--webmapx-toolbar-bg, var(--sl-color-neutral-0, #fff));
       border: 1px solid var(--sl-color-neutral-200, #e5e5e5);
+      border-radius: var(--webmapx-toolbar-radius, 0);
       height: fit-content;
       align-self: stretch;
       width: fit-content;
@@ -35,8 +36,8 @@ export class WebmapxToolbar extends LitElement {
 
     ::slotted(sl-button) {
       margin: 0;
-      width: var(--webmapx-toolbar-button-size, var(--sl-input-height-medium));
-      height: var(--webmapx-toolbar-button-size, var(--sl-input-height-medium));
+      width: var(--webmapx-toolbar-button-size, var(--sl-input-height-medium, 2.5rem));
+      height: var(--webmapx-toolbar-button-size, var(--sl-input-height-medium, 2.5rem));
       --sl-input-border-color: transparent;
       --sl-input-border-radius-small: 0;
       --sl-input-border-radius-medium: 0;

@@ -8,6 +8,7 @@ import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
+import { controlSurfaceStyles } from './internal/control-surface-styles';
 
 interface ToolboxEntry {
   id: string;
@@ -29,7 +30,7 @@ export class WebmapxToolboxTool extends WebmapxBaseTool {
   @query('.toolbox-scroll') private scrollEl?: HTMLElement;
   private resizeObserver?: ResizeObserver;
 
-  static styles = css`
+  static styles = [controlSurfaceStyles, css`
     :host {
       display: block;
     }
@@ -77,7 +78,7 @@ export class WebmapxToolboxTool extends WebmapxBaseTool {
     .tool-content-area ::slotted([data-toolbox-active]) {
       display: block;
     }
-  `;
+  `];
 
   connectedCallback(): void {
     super.connectedCallback();

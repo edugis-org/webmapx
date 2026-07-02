@@ -4,6 +4,7 @@ import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
+import { controlSurfaceStyles } from './internal/control-surface-styles';
 
 @customElement('webmapx-permalink-dialog')
 export class WebmapxPermalinkDialog extends LitElement {
@@ -14,7 +15,7 @@ export class WebmapxPermalinkDialog extends LitElement {
 
     @query('sl-dialog') private dialog!: SlDialog;
 
-    static styles = css`
+    static styles = [controlSurfaceStyles, css`
         :host { display: block; }
 
         sl-dialog::part(panel) {
@@ -24,13 +25,13 @@ export class WebmapxPermalinkDialog extends LitElement {
 
         .url-box {
             font-family: var(--sl-font-mono);
-            font-size: 0.78rem;
+            font-size: var(--webmapx-font-size-sm, 0.78rem);
             background: var(--sl-color-neutral-100);
             border: 1px solid var(--sl-color-neutral-300);
             border-radius: var(--sl-border-radius-medium);
-            padding: 0.5rem 0.75rem;
+            padding: var(--webmapx-space-sm, 0.5rem) var(--webmapx-space-md, 0.75rem);
             word-break: break-all;
-            margin-bottom: 0.75rem;
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
             user-select: all;
             line-height: 1.5;
         }
@@ -38,21 +39,21 @@ export class WebmapxPermalinkDialog extends LitElement {
         .warning {
             display: flex;
             align-items: flex-start;
-            gap: 0.4rem;
-            font-size: 0.85rem;
+            gap: var(--webmapx-space-xs, 0.4rem);
+            font-size: var(--webmapx-font-size-md, 0.85rem);
             color: var(--sl-color-warning-800);
             background: var(--sl-color-warning-50);
             border: 1px solid var(--sl-color-warning-200);
             border-radius: var(--sl-border-radius-medium);
-            padding: 0.5rem 0.65rem;
-            margin-bottom: 0.75rem;
+            padding: var(--webmapx-space-sm, 0.5rem) var(--webmapx-space-sm, 0.65rem);
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
         }
 
         .warning sl-icon {
             flex-shrink: 0;
             margin-top: 0.1rem;
         }
-    `;
+    `];
 
     open(url: string, hasConfig: boolean, dynamicLayerIds: string[] = []): void {
         this.url = url;

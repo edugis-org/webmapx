@@ -20,13 +20,13 @@ export class WebmapxActiveAdapter extends WebmapxBaseTool {
         .badge {
             display: inline-flex;
             align-items: center;
-            gap: 0.4rem;
-            padding: 0.2rem 0.6rem;
+            gap: var(--webmapx-space-xs, 0.4rem);
+            padding: var(--webmapx-space-xs, 0.2rem) var(--webmapx-space-sm, 0.6rem);
             border: 1px solid var(--color-border, #ccc);
             background: var(--color-background-secondary, #f5f5f5);
             color: var(--color-text-primary, #333);
             font-size: 0.8rem;
-            border-radius: 3px;
+            border-radius: var(--webmapx-radius-xs, 3px);
             white-space: nowrap;
         }
         .dot {

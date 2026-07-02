@@ -8,6 +8,7 @@ import {
 
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
+import { controlSurfaceStyles } from './internal/control-surface-styles';
 
 @customElement('webmapx-tool-panel')
 export class WebmapxToolPanel extends LitElement {
@@ -221,7 +222,7 @@ export class WebmapxToolPanel extends LitElement {
     return this.mapHost?.querySelector('webmapx-toolbar') ?? null;
   }
 
-  static styles = css`
+  static styles = [controlSurfaceStyles, css`
     :host {
       display: none;
       box-sizing: border-box;
@@ -236,6 +237,7 @@ export class WebmapxToolPanel extends LitElement {
       );
       background: var(--webmapx-panel-bg, var(--sl-color-neutral-0, #fff));
       border: 1px solid var(--sl-color-neutral-200, #e5e5e5);
+      border-radius: var(--webmapx-panel-radius, 0);
       box-shadow: var(--sl-shadow-medium);
       pointer-events: auto;
       overflow: hidden; /* clamp host; inner content manages scroll */
@@ -249,7 +251,7 @@ export class WebmapxToolPanel extends LitElement {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 0.5rem 1rem;
+      padding: var(--webmapx-panel-header-padding, var(--webmapx-space-sm, 0.5rem) var(--webmapx-space-lg, 1rem));
       border-bottom: 1px solid var(--sl-color-neutral-200, #e5e5e5);
       background: var(--sl-color-neutral-50, #f9f9f9);
       flex-shrink: 0;
@@ -257,7 +259,7 @@ export class WebmapxToolPanel extends LitElement {
 
     .panel-header h3 {
       margin: 0;
-      font-size: 1rem;
+      font-size: var(--webmapx-font-size-lg, 1rem);
       font-weight: var(--sl-font-weight-semibold, 600);
       color: var(--sl-color-neutral-900, #333);
     }
@@ -269,7 +271,7 @@ export class WebmapxToolPanel extends LitElement {
       max-height: var(--webmapx-panel-content-max-height, 100%);
       overflow-y: auto;
       overflow-x: hidden;
-      --webmapx-tool-padding: 0.75rem;
+      --webmapx-tool-padding: var(--webmapx-panel-content-padding, var(--webmapx-space-md, 0.75rem));
     }
 
     :host([collapsed]) {
@@ -285,7 +287,7 @@ export class WebmapxToolPanel extends LitElement {
       display: none !important;
     }
 
-  `;
+  `];
   private toggleCollapsed() {
     this.collapsed = !this.collapsed;
   }
