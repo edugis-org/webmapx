@@ -107,13 +107,38 @@ async function openDataset(gdal: GdalInstance, path: string): Promise<any> {
     return ds;
 }
 
+/**
+ * Recursively drops a Z/M coordinate from every position in a geometry.
+ * GDAL's SQLite dialect (ST_MakeValid/ST_Buffer, used by `buffer()` below) can
+ * hard-abort the WASM module on 3D input — e.g. USGS earthquake feeds encode
+ * depth as coordinates[2]. Buffering only needs 2D input regardless, so strip
+ * any extra dimensions before anything reaches GDAL.
+ */
+function dropZ(coords: unknown): unknown {
+    if (!Array.isArray(coords)) return coords;
+    if (typeof coords[0] === 'number') return coords.slice(0, 2);
+    return coords.map(dropZ);
+}
+
+function flattenTo2D(fc: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
+    return {
+        ...fc,
+        features: fc.features.map((f) => {
+            if (!f.geometry || !('coordinates' in f.geometry)) return f;
+            return { ...f, geometry: { ...f.geometry, coordinates: dropZ(f.geometry.coordinates) } as GeoJSON.Geometry };
+        }),
+    };
+}
+
 async function buffer(
     gdal: GdalInstance,
-    input: GeoJSON.FeatureCollection,
+    rawInput: GeoJSON.FeatureCollection,
     distanceMeters: number,
     segments: number = 16,
     centerLat: number = 0,
 ): Promise<GeoJSON.FeatureCollection> {
+    const input = flattenTo2D(rawInput);
+
     // EPSG:3857 unit = meters at equator, scaled by 1/cos(lat) elsewhere.
     // Divide by cos(lat) so ST_Buffer in 3857-space produces correct real-world size.
     const scale = Math.cos(centerLat * Math.PI / 180);
