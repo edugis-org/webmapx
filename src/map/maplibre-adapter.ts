@@ -1,6 +1,6 @@
 // src/map/maplibre-adapter.ts
 
-import { IMap, IMapCore, IToolService, ISubMapFactory, LayerInsertOptions, type SourceFeatureQueryOptions, type SourceFeatureSample, type QueryLayerFeaturesOptions } from './IMapInterfaces';
+import { IMap, IMapCore, ISource, IToolService, ISubMapFactory, LayerInsertOptions, type SourceFeatureQueryOptions, type SourceFeatureSample, type QueryLayerFeaturesOptions } from './IMapInterfaces';
 import * as _ml from 'maplibre-gl';
 
 import { LngLat, Pixel } from '../store/map-events';
@@ -174,6 +174,18 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
 
     getSourceConfig(sourceId: string): Record<string, unknown> | null {
         return this.layerService?.getSourceConfig(sourceId) ?? super.getSourceConfig(sourceId);
+    }
+
+    getSource(sourceId: string): ISource | undefined {
+        const direct = this.core.getSource(sourceId);
+        if (direct) return direct;
+        // Sources added via style layers are registered under a native ID — translate and retry.
+        const nativeId = this.layerService?.getNativeSourceId(sourceId);
+        if (nativeId && nativeId !== sourceId) {
+            const byNative = this.core.getSource(nativeId);
+            if (byNative) return byNative;
+        }
+        return super.getSource(sourceId);
     }
 
     querySourceFeatures(sourceId: string, options?: SourceFeatureQueryOptions): SourceFeatureSample | null {

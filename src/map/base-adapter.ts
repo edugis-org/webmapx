@@ -20,6 +20,7 @@ import type { LngLat } from '../store/map-events';
 import { MapEventBus } from '../store/map-events';
 import type { DeferredLogicalLayerExecutor } from './logical-layer-executor';
 import { ensureApiKeysLoaded, substituteApiKeysDeep } from '../config/apikeys';
+import { normalizeCompositeLayer, findNormalizedSource } from './composite-layer-utils';
 
 interface MarkerService {
     add(id: string, lngLat: LngLat, options?: MarkerOptions): void;
@@ -130,17 +131,24 @@ export abstract class BaseAdapter {
         const logicalId = layer.id;
         const legendRole = (layer.metadata as Record<string, unknown> | undefined)?.legendRole ?? 'overlay';
 
-        // Register all sources before adding any sublayer.
-        const sources = (layer.sources ?? {}) as Record<string, unknown>;
-        for (const [sourceId, sourceConfig] of Object.entries(sources)) {
-            this.engineRegisterCompositeSource(sourceId, sourceConfig);
+        // Normalize sources to the same globally-addressable `${logicalId}:${key}` id
+        // convention every other engine's composite-layer path uses (composite-layer-utils),
+        // so store.mapLayers[id].sourceId (set by registerMapLayer below) actually
+        // resolves to a source the engine registered.
+        const normalized = normalizeCompositeLayer(layer);
+        const sources = normalized?.sources ?? [];
+        for (const source of sources) {
+            this.engineRegisterCompositeSource(source.globalId, source.config);
         }
 
         // Add each sublayer individually; engine groups them under logicalLayerId
         let anySuccess = false;
         for (const sublayer of (layer.layers ?? [])) {
+            const resolvedSource = (normalized && findNormalizedSource(normalized, (sublayer as any).source)?.globalId)
+                ?? (sublayer as any).source;
             const sublayerWithMeta: any = {
                 ...sublayer,
+                source: resolvedSource,
                 metadata: {
                     ...((sublayer as any).metadata ?? {}),
                     logicalLayerId: logicalId,
