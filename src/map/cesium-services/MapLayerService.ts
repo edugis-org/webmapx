@@ -8,7 +8,6 @@ import type { MapStateStore } from '../../store/map-state-store';
 import { throttle } from '../../utils/throttle';
 import { evaluateColor, evaluateNumber, matchesFilter } from '../../utils/maplibre-expression-evaluator';
 import { countFeatureCollectionVertices } from '../geojson-loader';
-import { splitAntimeridianFeatures } from './antimeridian';
 
 // Cesium's GeoJsonDataSource hardcodes arcType = ArcType.RHUMB for every polygon/
 // polyline it creates. Rhumb lines spiral without bound near the poles, so any
@@ -340,7 +339,7 @@ export class MapLayerService implements ILayerService {
             if (!clampToGround) {
                 console.info(`[CESIUM] Layer "${layerId}": ${vertexCount} vertices exceeds clamp-to-ground limit (${MAX_CLAMPED_VERTICES}), rendering without terrain clamping`);
             }
-            const dataSource = await Cesium.GeoJsonDataSource.load(splitAntimeridianFeatures(geojson), { clampToGround });
+            const dataSource = await Cesium.GeoJsonDataSource.load(geojson, { clampToGround });
             forceGeodesicArcType(dataSource, Cesium);
             await this.viewer.dataSources.add(dataSource);
             this.applyGeoJsonStyles(dataSource, subLayers, clampToGround);
@@ -562,7 +561,7 @@ export class MapLayerService implements ILayerService {
         if (!Cesium) return;
         this.beginBusyOperation();
         try {
-            const nextDataSource = await Cesium.GeoJsonDataSource.load(splitAntimeridianFeatures(handle.data), { clampToGround: false });
+            const nextDataSource = await Cesium.GeoJsonDataSource.load(handle.data, { clampToGround: false });
             forceGeodesicArcType(nextDataSource, Cesium);
             const current = this.handles.get(handleKey);
             if (current?.kind !== 'geojson' || current.updateToken !== token) return;

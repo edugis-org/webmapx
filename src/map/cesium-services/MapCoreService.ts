@@ -7,7 +7,6 @@ import { MapEventBus, LngLat, Pixel } from '../../store/map-events';
 import { throttle } from '../../utils/throttle';
 import { evaluateColor, evaluateNumber } from '../../utils/maplibre-expression-evaluator';
 import { forceGeodesicArcType } from './MapLayerService';
-import { splitAntimeridianFeatures } from './antimeridian';
 
 function getCesium(): any {
     return (globalThis as any).Cesium;
@@ -1252,7 +1251,7 @@ export class MapCoreService implements IMapCore {
         const state = this.sourceState.get(sourceId);
         if (!state?.data) return;
 
-        const nextDataSource = await Cesium.GeoJsonDataSource.load(splitAntimeridianFeatures(state.data), { clampToGround: false });
+        const nextDataSource = await Cesium.GeoJsonDataSource.load(state.data, { clampToGround: false });
         forceGeodesicArcType(nextDataSource, Cesium);
         const currentState = this.sourceState.get(sourceId);
         const stillPresent = currentState?.layers.includes(layerState) ?? false;
