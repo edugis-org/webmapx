@@ -59,7 +59,7 @@
       },
       "traffic": {
         "type": "geojson",
-        "data": "data/traffic-speed-amsterdam.geojson",
+        "data": "../data/traffic-speed-amsterdam.geojson",
         "attribution": "StevenF"
       },
       "drawn-lines-source": {
@@ -318,7 +318,7 @@
         "visible": true,
         "source": {
           "type": "geojson",
-          "data": "data/local-buffered-lines.geojson"
+          "data": "../data/local-buffered-lines.geojson"
         },
         "layerset": [
           {

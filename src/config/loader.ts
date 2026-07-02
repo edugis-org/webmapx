@@ -53,7 +53,26 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function normalizeSourceDefinition(id: string, value: unknown): Record<string, unknown> {
+/**
+ * Resolves a possibly-relative resource URL against the config file's own URL —
+ * the same rule CSS `url()` uses relative to its stylesheet. Lets a config and
+ * its sibling data files be moved/deployed as a unit to any path, without the
+ * result depending on which page loaded the config. Non-string, absolute, and
+ * data:/blob: values pass through unchanged.
+ */
+function resolveConfigRelativeUrl(value: string, baseUrl: string): string {
+  if (/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(value)) {
+    // Already absolute (has a scheme) or protocol-relative — leave as-is.
+    return value;
+  }
+  try {
+    return new URL(value, baseUrl).toString();
+  } catch {
+    return value;
+  }
+}
+
+function normalizeSourceDefinition(id: string, value: unknown, baseUrl: string): Record<string, unknown> {
   if (!isObject(value)) {
     return { id, type: 'geojson', data: value };
   }
@@ -66,15 +85,27 @@ function normalizeSourceDefinition(id: string, value: unknown): Record<string, u
     normalized.service = 'xyz';
   }
 
+  if (typeof normalized.data === 'string') {
+    normalized.data = resolveConfigRelativeUrl(normalized.data, baseUrl);
+  }
+  if (typeof normalized.url === 'string') {
+    normalized.url = resolveConfigRelativeUrl(normalized.url, baseUrl);
+  } else if (Array.isArray(normalized.url)) {
+    normalized.url = normalized.url.map((u) => typeof u === 'string' ? resolveConfigRelativeUrl(u, baseUrl) : u);
+  }
+  if (Array.isArray(normalized.tiles)) {
+    normalized.tiles = normalized.tiles.map((t) => typeof t === 'string' ? resolveConfigRelativeUrl(t, baseUrl) : t);
+  }
+
   return normalized;
 }
 
-function normalizeSourceMap(sourceMap: unknown): Record<string, unknown>[] {
+function normalizeSourceMap(sourceMap: unknown, baseUrl: string): Record<string, unknown>[] {
   if (!isObject(sourceMap)) {
     return [];
   }
 
-  return Object.entries(sourceMap).map(([id, value]) => normalizeSourceDefinition(id, value));
+  return Object.entries(sourceMap).map(([id, value]) => normalizeSourceDefinition(id, value, baseUrl));
 }
 
 function normalizeRenderLayer(renderLayer: Record<string, unknown>, fallbackSource?: string): Record<string, unknown> {
@@ -110,11 +141,12 @@ function normalizeSubLayerSpec(renderLayer: Record<string, unknown>, sourceAlias
 
 function normalizeLayerMap(
   layerMap: unknown,
-  _extraSources: Record<string, unknown>[]
+  _extraSources: Record<string, unknown>[],
+  configUrl: string
 ): unknown[] {
   if (Array.isArray(layerMap)) {
     // New format: layers array — pass through, normalizing sub-specs
-    return layerMap.filter(isObject).map((value) => normalizeLayerEntry(value, _extraSources));
+    return layerMap.filter(isObject).map((value) => normalizeLayerEntry(value, _extraSources, configUrl));
   }
 
   if (!isObject(layerMap)) {
@@ -125,12 +157,12 @@ function normalizeLayerMap(
   return Object.entries(layerMap)
     .map(([id, value]) => {
       if (!isObject(value)) return null;
-      return normalizeLayerEntry({ id, ...value }, _extraSources);
+      return normalizeLayerEntry({ id, ...value }, _extraSources, configUrl);
     })
     .filter(Boolean);
 }
 
-function normalizeLayerEntry(value: Record<string, unknown>, extraSources: Record<string, unknown>[]): Record<string, unknown> | null {
+function normalizeLayerEntry(value: Record<string, unknown>, extraSources: Record<string, unknown>[], configUrl: string): Record<string, unknown> | null {
   const id = typeof value.id === 'string' ? value.id : null;
   if (!id) return null;
 
@@ -170,7 +202,7 @@ function normalizeLayerEntry(value: Record<string, unknown>, extraSources: Recor
       for (const [srcId, srcDef] of Object.entries(value.sources)) {
         const scoped = `${id}:${srcId}`;
         sourceAliases.set(srcId, scoped);
-        extraSources.push(normalizeSourceDefinition(scoped, srcDef));
+        extraSources.push(normalizeSourceDefinition(scoped, srcDef, configUrl));
         localSources[srcId] = srcDef;
       }
     }
@@ -210,7 +242,7 @@ function normalizeLayerEntry(value: Record<string, unknown>, extraSources: Recor
       for (const [srcId, srcDef] of Object.entries(style.sources)) {
         const scoped = `${id}:${srcId}`;
         sourceAliases.set(srcId, scoped);
-        extraSources.push(normalizeSourceDefinition(scoped, srcDef));
+        extraSources.push(normalizeSourceDefinition(scoped, srcDef, configUrl));
         localSources[srcId] = srcDef;
       }
     }
@@ -347,7 +379,7 @@ function injectLayerTreeIntoTools(tools: unknown, tree: unknown[]): Record<strin
   return clonedTools;
 }
 
-function normalizeLayerDataSection(layerData: unknown): { sources: unknown[]; layers: unknown[] } {
+function normalizeLayerDataSection(layerData: unknown, configUrl: string): { sources: unknown[]; layers: unknown[] } {
   if (!isObject(layerData)) {
     return { sources: [], layers: [] };
   }
@@ -355,10 +387,10 @@ function normalizeLayerDataSection(layerData: unknown): { sources: unknown[]; la
   const record = layerData as Record<string, unknown>;
   const sources = Array.isArray(record.sources)
     ? record.sources
-    : normalizeSourceMap(record.sources);
+    : normalizeSourceMap(record.sources, configUrl);
 
   const extraSources: Record<string, unknown>[] = [];
-  const layers = normalizeLayerMap(record.layers, extraSources);
+  const layers = normalizeLayerMap(record.layers, extraSources, configUrl);
 
   // extraSources may duplicate IDs already in sources (e.g. inline layer sources that
   // were also listed in layerData.sources). Keep only the first occurrence per id.
@@ -398,7 +430,7 @@ function normalizeLayerDataSection(layerData: unknown): { sources: unknown[]; la
   };
 }
 
-function normalizeAppConfig(rawConfig: unknown): AppConfig {
+function normalizeAppConfig(rawConfig: unknown, configUrl: string): AppConfig {
   if (!isObject(rawConfig)) {
     return rawConfig as unknown as AppConfig;
   }
@@ -407,7 +439,7 @@ function normalizeAppConfig(rawConfig: unknown): AppConfig {
   if (isObject(raw.layerData)) {
     return {
       ...(raw as unknown as AppConfig),
-      layerData: normalizeLayerDataSection(raw.layerData) as any,
+      layerData: normalizeLayerDataSection(raw.layerData, configUrl) as any,
     };
   }
 
@@ -429,8 +461,8 @@ function normalizeAppConfig(rawConfig: unknown): AppConfig {
   }
 
   const library = raw.library as Record<string, unknown>;
-  const sources = normalizeSourceMap(library.sources);
-  const layers = normalizeLayerMap(library.layers, sources);
+  const sources = normalizeSourceMap(library.sources, configUrl);
+  const layers = normalizeLayerMap(library.layers, sources, configUrl);
   const tree = normalizeCatalogTree(library.catalogs, layers);
 
   const normalized: AppConfig = {
@@ -464,9 +496,18 @@ export function getConfigUrlParam(): string | null {
 /**
  * Normalizes and validates a raw config object (already parsed from JSON).
  * `label` is used only for error/warning messages (e.g. a URL or filename).
+ * `configUrl` — relative resource paths (source `data`/`url`/`tiles`) are
+ * resolved against this URL, not the page URL, so a config and its sibling
+ * data files can be deployed to any path and keep working. Defaults to the
+ * page's own URL for inline/embedder-supplied configs that have no file of
+ * their own to be relative to.
  */
-export function parseAndValidateConfig(rawConfig: unknown, label: string): AppConfig {
-  const config = normalizeAppConfig(rawConfig);
+export function parseAndValidateConfig(
+  rawConfig: unknown,
+  label: string,
+  configUrl: string = typeof document !== 'undefined' ? document.baseURI : 'http://localhost/'
+): AppConfig {
+  const config = normalizeAppConfig(rawConfig, configUrl);
 
   const result = validateConfig(config);
   if (!result.valid) {
@@ -493,7 +534,10 @@ export async function fetchConfig(url: string): Promise<AppConfig> {
   }
 
   const rawConfig = await response.json();
-  const config = parseAndValidateConfig(rawConfig, url);
+  // response.url is the final, absolute URL (resolves relative fetch input and
+  // any redirects) — the correct base for resolving relative resource paths
+  // inside the config, regardless of what page loaded it or from where.
+  const config = parseAndValidateConfig(rawConfig, url, response.url);
 
   configCache.set(url, config);
   return config;
