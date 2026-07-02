@@ -322,18 +322,6 @@ export class MapLayerService implements ILayerService {
             const data = sourceConfig.data;
             const geojson: GeoJSON.FeatureCollection = typeof data === 'string' ? await (await fetch(data)).json() : data;
 
-            // Reject globe-spanning fill polygons — Cesium's polygon subdivision garbles huge
-            // single-region fills into fragmented, mis-colored slivers (e.g. the live "Day/twilight/
-            // night terminator" layer, whose Nighttime polygon spans ~half the globe).
-            // Restricted to layers that are PURELY fill/polygon: composite layers mixing fill+line
-            // (e.g. "World countries") legitimately contain large per-feature spans (Russia,
-            // Antarctica, ...) that render fine — only standalone polygon-fill datasets are at risk.
-            const isPureFillLayer = subLayers.length > 0 && subLayers.every((l) => l.type === 'fill');
-            if (isPureFillLayer && this.isGlobeSpanningFillData(geojson, subLayers)) {
-                console.warn(`[CESIUM] Skipping layer "${layerId}": fill polygon too large for Cesium renderer`);
-                return false;
-            }
-
             const vertexCount = countFeatureCollectionVertices(geojson);
             const clampToGround = vertexCount <= MAX_CLAMPED_VERTICES;
             if (!clampToGround) {
@@ -352,28 +340,6 @@ export class MapLayerService implements ILayerService {
         } finally {
             this.endBusyOperation();
         }
-    }
-
-    /** Detect fill-type GeoJSON that covers large portions of the globe (would crash Cesium's rhumb subdivision). */
-    private isGlobeSpanningFillData(geojson: GeoJSON.FeatureCollection, subLayers: SubLayerSpec[]): boolean {
-        const fillSubLayer = subLayers.find((l) => l.type === 'fill');
-        const paint = (fillSubLayer as any)?.paint ?? {};
-        const hasFill = 'fill-color' in paint || 'fill-opacity' in paint;
-        if (!hasFill) return false;
-        // Check if any polygon bbox exceeds ~90 degrees in either dimension
-        for (const feature of geojson.features ?? []) {
-            const geom = feature.geometry;
-            if (!geom || (geom.type !== 'Polygon' && geom.type !== 'MultiPolygon')) continue;
-            const rings = geom.type === 'Polygon' ? [geom.coordinates[0]] : geom.coordinates.map((p: any) => p[0]);
-            for (const ring of rings) {
-                const lons = ring.map((c: number[]) => c[0]);
-                const lats = ring.map((c: number[]) => c[1]);
-                const lonSpan = Math.max(...lons) - Math.min(...lons);
-                const latSpan = Math.max(...lats) - Math.min(...lats);
-                if (lonSpan > 90 || latSpan > 60) return true;
-            }
-        }
-        return false;
     }
 
     async addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
