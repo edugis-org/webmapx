@@ -6,9 +6,42 @@ import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel } from '../../store/map-events';
 import { throttle } from '../../utils/throttle';
 import { evaluateColor, evaluateNumber } from '../../utils/maplibre-expression-evaluator';
+import { forceGeodesicArcType } from './MapLayerService';
 
 function getCesium(): any {
     return (globalThis as any).Cesium;
+}
+
+function setSafeProperty(graphics: any, propName: string, value: any): void {
+    if (!graphics) return;
+    const Cesium = getCesium();
+    const currentProp = graphics[propName];
+    if (Cesium && currentProp && typeof currentProp.getValue === 'function') {
+        const julian = Cesium.JulianDate?.now?.() || new Cesium.JulianDate();
+        const currentVal = currentProp.getValue(julian);
+        if (currentVal === value) {
+            return;
+        }
+        if (currentVal && typeof currentVal.equals === 'function' && currentVal.equals(value)) {
+            return;
+        }
+    }
+    graphics[propName] = value;
+}
+
+function setColorMaterial(graphics: any, color: any): void {
+    const Cesium = getCesium();
+    const material = graphics.material;
+    if (Cesium && material instanceof Cesium.ColorMaterialProperty && material.color instanceof Cesium.ConstantProperty) {
+        const julian = Cesium.JulianDate?.now?.() || new Cesium.JulianDate();
+        const currentVal = material.color.getValue(julian);
+        if (currentVal === color || (currentVal && typeof currentVal.equals === 'function' && currentVal.equals(color))) {
+            return;
+        }
+        material.color.setValue(color);
+        return;
+    }
+    graphics.material = color;
 }
 
 function zoomToHeightMeters(zoom: number): number {
@@ -853,7 +886,7 @@ export class MapCoreService implements IMapCore {
         this.lastCenter = viewport.center;
         const bounds = this.computeViewportBounds();
         this.store.dispatch({ zoomLevel: viewport.zoom, mapCenter: viewport.center, mapViewportBounds: bounds }, 'MAP');
-        if (this.lastStyledZoom === null || Math.abs(this.lastStyledZoom - viewport.zoom) > 0.0001) {
+        if (this.lastStyledZoom === null || Math.abs(this.lastStyledZoom - viewport.zoom) > 0.05) {
             this.lastStyledZoom = viewport.zoom;
             this.applyAllSourceStyles();
         }
@@ -905,19 +938,19 @@ export class MapCoreService implements IMapCore {
             const matches = visibleAtZoom && this.entityMatchesLayer(entity, layer, geometryType);
 
             if (entity.polygon) {
-                entity.polygon.show = matches && layer?.type === 'fill';
+                setSafeProperty(entity.polygon, 'show', matches && layer?.type === 'fill');
             }
             if (entity.polyline && layer?.type !== 'line') {
-                entity.polyline.show = false;
+                setSafeProperty(entity.polyline, 'show', false);
             }
             if (entity.billboard) {
-                entity.billboard.show = false;
+                setSafeProperty(entity.billboard, 'show', false);
             }
             if (entity.point) {
-                entity.point.show = false;
+                setSafeProperty(entity.point, 'show', false);
             }
             if (entity.ellipse) {
-                entity.ellipse.show = matches && layer?.type === 'circle';
+                setSafeProperty(entity.ellipse, 'show', matches && layer?.type === 'circle');
             }
 
             if (!matches) {
@@ -929,9 +962,9 @@ export class MapCoreService implements IMapCore {
                 const featureLike = { properties: entityProps, geometry: { type: 'Polygon' } };
                 const fillColor = evaluateColor(paint['fill-color'] ?? '#3388ff', featureLike, currentZoom, '#3388ff');
                 const fillOpacity = evaluateNumber(paint['fill-opacity'] ?? 0.2, featureLike, currentZoom, 0.2);
-                entity.polygon.material = Cesium.Color.fromCssColorString(fillColor).withAlpha(fillOpacity);
-                entity.polygon.outline = false;
-                entity.polygon.height = layerZ;
+                setColorMaterial(entity.polygon, Cesium.Color.fromCssColorString(fillColor).withAlpha(fillOpacity));
+                setSafeProperty(entity.polygon, 'outline', false);
+                setSafeProperty(entity.polygon, 'height', layerZ);
             }
 
             if (layer?.type === 'line') {
@@ -946,19 +979,35 @@ export class MapCoreService implements IMapCore {
                     }
                 }
                 if (entity.polyline) {
-                    entity.polyline.show = true;
+                    setSafeProperty(entity.polyline, 'show', true);
                     const entityProps = this.getEntityProperties(entity);
                     const featureLike = { properties: entityProps, geometry: { type: 'LineString' } };
                     const lineColor = evaluateColor(paint['line-color'] ?? '#3388ff', featureLike, currentZoom, '#3388ff');
                     const lineWidth = evaluateNumber(paint['line-width'] ?? 2, featureLike, currentZoom, 2);
-                    entity.polyline.material = Cesium.Color.fromCssColorString(lineColor).withAlpha(1);
-                    entity.polyline.width = lineWidth;
+                    setColorMaterial(entity.polyline, Cesium.Color.fromCssColorString(lineColor).withAlpha(1));
+                    setSafeProperty(entity.polyline, 'width', lineWidth);
                     const dash = paint['line-dasharray'];
                     if (Array.isArray(dash) && dash.length >= 2 && Cesium.PolylineDashMaterialProperty) {
-                        entity.polyline.material = new Cesium.PolylineDashMaterialProperty({
-                            color: Cesium.Color.fromCssColorString(lineColor).withAlpha(1),
-                            dashLength: dash[0] + dash[1],
-                        });
+                        const currentMaterial = entity.polyline.material;
+                        const targetColor = Cesium.Color.fromCssColorString(lineColor).withAlpha(1);
+                        const targetDashLength = dash[0] + dash[1];
+                        let needsNewDash = true;
+                        if (currentMaterial instanceof Cesium.PolylineDashMaterialProperty && currentMaterial.color instanceof Cesium.ConstantProperty) {
+                            const julian = Cesium.JulianDate?.now?.() || new Cesium.JulianDate();
+                            const currentVal = currentMaterial.color.getValue(julian);
+                            if (currentVal && currentVal.equals(targetColor)) {
+                                const currentDashLen = currentMaterial.dashLength?.getValue?.(julian) ?? currentMaterial.dashLength;
+                                if (currentDashLen === targetDashLength) {
+                                    needsNewDash = false;
+                                }
+                            }
+                        }
+                        if (needsNewDash) {
+                            entity.polyline.material = new Cesium.PolylineDashMaterialProperty({
+                                color: targetColor,
+                                dashLength: targetDashLength,
+                            });
+                        }
                     }
                     this.applyPolylineHeightOffset(entity, layerZ);
                 }
@@ -990,13 +1039,22 @@ export class MapCoreService implements IMapCore {
                 if (!entity.ellipse) {
                     entity.ellipse = new Cesium.EllipseGraphics();
                 }
-                entity.ellipse.show = true;
-                entity.ellipse.semiMajorAxis = radiusMeters;
-                entity.ellipse.semiMinorAxis = radiusMeters;
-                entity.ellipse.material = Cesium.Color.fromCssColorString(String(circleColor)).withAlpha(Number(circleOpacity));
-                entity.ellipse.outline = true;
-                entity.ellipse.outlineColor = Cesium.Color.fromCssColorString(String(circleStrokeColor)).withAlpha(1);
-                entity.ellipse.outlineWidth = Number(circleStrokeWidth);
+                setSafeProperty(entity.ellipse, 'show', true);
+                setSafeProperty(entity.ellipse, 'semiMajorAxis', radiusMeters);
+                setSafeProperty(entity.ellipse, 'semiMinorAxis', radiusMeters);
+                setColorMaterial(entity.ellipse, Cesium.Color.fromCssColorString(String(circleColor)).withAlpha(Number(circleOpacity)));
+                setSafeProperty(entity.ellipse, 'outline', true);
+                const outlineColor = Cesium.Color.fromCssColorString(String(circleStrokeColor)).withAlpha(1);
+                if (entity.ellipse.outlineColor instanceof Cesium.ConstantProperty) {
+                    const julian = Cesium.JulianDate?.now?.() || new Cesium.JulianDate();
+                    const currentVal = entity.ellipse.outlineColor.getValue(julian);
+                    if (!currentVal || !currentVal.equals(outlineColor)) {
+                        entity.ellipse.outlineColor.setValue(outlineColor);
+                    }
+                } else {
+                    entity.ellipse.outlineColor = outlineColor;
+                }
+                setSafeProperty(entity.ellipse, 'outlineWidth', Number(circleStrokeWidth));
 
                 const lon = Cesium.Math.toDegrees(carto.longitude);
                 const ringLonLat = buildCircleOutlineLonLat(lon, lat, radiusMeters, 64);
@@ -1007,18 +1065,35 @@ export class MapCoreService implements IMapCore {
                 if (!entity.polyline) {
                     entity.polyline = new Cesium.PolylineGraphics();
                 }
-                entity.polyline.show = true;
-                entity.polyline.positions = ringPositions;
-                entity.polyline.width = Math.max(1, Number(circleStrokeWidth));
-                entity.polyline.material = Cesium.Color.fromCssColorString(String(circleStrokeColor)).withAlpha(1);
+                setSafeProperty(entity.polyline, 'show', true);
+                const currentPositionsProp = entity.polyline.positions;
+                let positionsChanged = true;
+                if (currentPositionsProp && typeof currentPositionsProp.getValue === 'function') {
+                    const julian = Cesium.JulianDate?.now?.() || new Cesium.JulianDate();
+                    const currentVal = currentPositionsProp.getValue(julian);
+                    if (Array.isArray(currentVal) && currentVal.length === ringPositions.length) {
+                        positionsChanged = false;
+                        for (let i = 0; i < ringPositions.length; i++) {
+                            if (!currentVal[i].equals(ringPositions[i])) {
+                                positionsChanged = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (positionsChanged) {
+                    entity.polyline.positions = ringPositions;
+                }
+                setSafeProperty(entity.polyline, 'width', Math.max(1, Number(circleStrokeWidth)));
+                setColorMaterial(entity.polyline, Cesium.Color.fromCssColorString(String(circleStrokeColor)).withAlpha(1));
                 if ('clampToGround' in entity.polyline) {
-                    entity.polyline.clampToGround = shouldClamp;
+                    setSafeProperty(entity.polyline, 'clampToGround', shouldClamp);
                 }
 
                 if (Cesium.HeightReference?.CLAMP_TO_GROUND) {
-                    entity.ellipse.heightReference = shouldClamp ? Cesium.HeightReference.CLAMP_TO_GROUND : Cesium.HeightReference.NONE;
+                    setSafeProperty(entity.ellipse, 'heightReference', shouldClamp ? Cesium.HeightReference.CLAMP_TO_GROUND : Cesium.HeightReference.NONE);
                 }
-                entity.ellipse.height = circleZ;
+                setSafeProperty(entity.ellipse, 'height', circleZ);
                 entity.billboard = undefined;
                 entity.point = undefined;
             }
@@ -1123,6 +1198,11 @@ export class MapCoreService implements IMapCore {
             return;
         }
 
+        const lastOffset = (entity as any)._lastHeightOffset;
+        if (lastOffset === heightOffset) {
+            return;
+        }
+
         const julian = Cesium.JulianDate.now();
         const polyline = entity.polyline;
         const currentPositions = polyline.positions?.getValue?.(julian) ?? polyline.positions;
@@ -1135,6 +1215,8 @@ export class MapCoreService implements IMapCore {
             basePositions = [...currentPositions];
             this.basePolylinePositions.set(entity, basePositions);
         }
+
+        (entity as any)._lastHeightOffset = heightOffset;
 
         if (!(typeof heightOffset === 'number' && isFinite(heightOffset) && heightOffset > 0)) {
             polyline.positions = basePositions;
@@ -1170,6 +1252,7 @@ export class MapCoreService implements IMapCore {
         if (!state?.data) return;
 
         const nextDataSource = await Cesium.GeoJsonDataSource.load(state.data, { clampToGround: false });
+        forceGeodesicArcType(nextDataSource, Cesium);
         const currentState = this.sourceState.get(sourceId);
         const stillPresent = currentState?.layers.includes(layerState) ?? false;
         if (!currentState || currentState.updateToken !== token || !stillPresent) {

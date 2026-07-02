@@ -73,6 +73,10 @@ const VERTEX_CAP = 6_000_000;
 // Page size for paged WFS/Esri requests.
 const PAGE_SIZE = 10_000;
 
+export function countFeatureCollectionVertices(fc: GeoJSON.FeatureCollection): number {
+    return (fc.features ?? []).reduce((sum, f) => sum + countVertices(f.geometry), 0);
+}
+
 function countVertices(geometry: GeoJSON.Geometry | null | undefined): number {
     if (!geometry) return 0;
     switch (geometry.type) {

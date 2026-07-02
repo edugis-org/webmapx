@@ -2,6 +2,7 @@
 
 import type { ISubMapFactory, ISubMap, ISource, ILayer, LayerSpec, MapCreateOptions } from '../IMapInterfaces';
 import type { LngLat, Pixel } from '../../store/map-events';
+import { forceGeodesicArcType } from './MapLayerService';
 
 function getCesium(): any {
     return (globalThis as any).Cesium;
@@ -113,6 +114,7 @@ class CesiumMap implements ISubMap {
             if (!state) return;
             const previous = state.dataSource;
             void Cesium.GeoJsonDataSource.load(nextData, { clampToGround: false }).then((loaded: any) => {
+                forceGeodesicArcType(loaded, Cesium);
                 if (previous) {
                     this.viewer.dataSources.remove(previous, true);
                 }

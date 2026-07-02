@@ -7,6 +7,21 @@ import type { AnyLayerConfig, StandardLayerConfig, SourceConfig, WMSSourceConfig
 import type { MapStateStore } from '../../store/map-state-store';
 import { throttle } from '../../utils/throttle';
 import { evaluateColor, evaluateNumber, matchesFilter } from '../../utils/maplibre-expression-evaluator';
+import { countFeatureCollectionVertices } from '../geojson-loader';
+
+// Cesium's GeoJsonDataSource hardcodes arcType = ArcType.RHUMB for every polygon/
+// polyline it creates. Rhumb lines spiral without bound near the poles, so any
+// edge with a significant longitude span at high latitude (e.g. Antarctica) makes
+// Cesium's rhumb-line subdivision try to generate an unbounded number of segments,
+// crashing with "RangeError: Too many properties to enumerate". Force geodesic
+// arcs instead — visually equivalent for short/mid edges, and bounded everywhere.
+export function forceGeodesicArcType(dataSource: any, Cesium: any): void {
+    const entities = dataSource?.entities?.values ?? [];
+    for (const entity of entities) {
+        if (entity.polygon) entity.polygon.arcType = Cesium.ArcType.GEODESIC;
+        if (entity.polyline) entity.polyline.arcType = Cesium.ArcType.GEODESIC;
+    }
+}
 
 function getCesium(): any {
     return (globalThis as any).Cesium;
@@ -14,6 +29,14 @@ function getCesium(): any {
 
 const WEB_MERCATOR_EARTH_RADIUS_M = 6378137;
 const LOGICAL_TILE_SIZE = 512;
+
+// Above this vertex count, GeoJSON is loaded with clampToGround: false. Clamped
+// geometry becomes GroundPrimitives/GroundPolylinePrimitives, whose per-vertex
+// terrain tessellation makes large datasets (e.g. "World countries", ~240k
+// vertices) freeze the renderer. Non-clamped geometry sits on the ellipsoid
+// surface, which is visually equivalent here since the viewer uses
+// EllipsoidTerrainProvider (no real terrain).
+const MAX_CLAMPED_VERTICES = 20_000;
 
 function clampLatitude(lat: number): number {
     return Math.max(-85.05112878, Math.min(85.05112878, lat));
@@ -42,6 +65,46 @@ function buildCircleOutlineLonLat(lon: number, lat: number, radiusMeters: number
     return positions;
 }
 
+
+function setSafeProperty(graphics: any, propName: string, value: any): void {
+    if (!graphics) return;
+    const Cesium = getCesium();
+    const currentProp = graphics[propName];
+    if (Cesium && currentProp && typeof currentProp.getValue === 'function') {
+        const julian = Cesium.JulianDate?.now?.() || new Cesium.JulianDate();
+        const currentVal = currentProp.getValue(julian);
+        if (currentVal === value) {
+            return;
+        }
+        if (currentVal && typeof currentVal.equals === 'function' && currentVal.equals(value)) {
+            return;
+        }
+    }
+    graphics[propName] = value;
+}
+
+/**
+ * Assigns a solid color material without replacing the material property instance.
+ * Assigning a raw Color wraps it in a NEW ColorMaterialProperty, which fires
+ * definitionChanged and makes Cesium drop and re-tessellate the entity's geometry —
+ * on every style reapply. Mutating the existing ColorMaterialProperty's constant
+ * color is equality-checked (no-op when unchanged) and, when it does change, updates
+ * per-instance color attributes in place without a geometry rebuild.
+ */
+function setColorMaterial(graphics: any, color: any): void {
+    const Cesium = getCesium();
+    const material = graphics.material;
+    if (Cesium && material instanceof Cesium.ColorMaterialProperty && material.color instanceof Cesium.ConstantProperty) {
+        const julian = Cesium.JulianDate?.now?.() || new Cesium.JulianDate();
+        const currentVal = material.color.getValue(julian);
+        if (currentVal === color || (currentVal && typeof currentVal.equals === 'function' && currentVal.equals(color))) {
+            return;
+        }
+        material.color.setValue(color);
+        return;
+    }
+    graphics.material = color;
+}
 
 function getMinZoom(source: Partial<{ minzoom?: number; minZoom?: number }>): number | undefined {
     const value = source.minzoom ?? source.minZoom;
@@ -73,7 +136,7 @@ function parseWmsUrl(url: string): { baseUrl: string; layers: string } {
 
 type CesiumLayerHandle =
     | { kind: 'imagery'; imageryLayer: any; minLevel?: number; maxLevel?: number; userVisible: boolean }
-    | { kind: 'geojson'; dataSource: any; sourceId: string; subLayers: SubLayerSpec[]; data: GeoJSON.FeatureCollection; updateToken: number };
+    | { kind: 'geojson'; dataSource: any; sourceId: string; subLayers: SubLayerSpec[]; data: GeoJSON.FeatureCollection; updateToken: number; clampToGround: boolean };
 
 export class MapLayerService implements ILayerService {
     private readonly handles = new Map<string, CesiumLayerHandle>();
@@ -99,7 +162,9 @@ export class MapLayerService implements ILayerService {
 
         this.unsubscribeStore = this.store.subscribe((state) => {
             if (state.zoomLevel == null) return;
-            if (state.zoomLevel === this.lastZoomLevel) return;
+            if (this.lastZoomLevel !== null && Math.abs(state.zoomLevel - this.lastZoomLevel) < 0.05) {
+                return;
+            }
             this.lastZoomLevel = state.zoomLevel;
             this.applyGeoJsonStylesThrottled();
             this.applyImageryVisibility(state.zoomLevel);
@@ -269,10 +334,16 @@ export class MapLayerService implements ILayerService {
                 return false;
             }
 
-            const dataSource = await Cesium.GeoJsonDataSource.load(geojson, { clampToGround: true });
+            const vertexCount = countFeatureCollectionVertices(geojson);
+            const clampToGround = vertexCount <= MAX_CLAMPED_VERTICES;
+            if (!clampToGround) {
+                console.info(`[CESIUM] Layer "${layerId}": ${vertexCount} vertices exceeds clamp-to-ground limit (${MAX_CLAMPED_VERTICES}), rendering without terrain clamping`);
+            }
+            const dataSource = await Cesium.GeoJsonDataSource.load(geojson, { clampToGround });
+            forceGeodesicArcType(dataSource, Cesium);
             await this.viewer.dataSources.add(dataSource);
-            this.applyGeoJsonStyles(dataSource, subLayers);
-            this.handles.set(handleKey, { kind: 'geojson', dataSource, sourceId, subLayers, data: geojson, updateToken: 0 });
+            this.applyGeoJsonStyles(dataSource, subLayers, clampToGround);
+            this.handles.set(handleKey, { kind: 'geojson', dataSource, sourceId, subLayers, data: geojson, updateToken: 0, clampToGround });
             this.upsertLogicalOrder(layerId, options);
                 return true;
         } catch (e) {
@@ -368,7 +439,7 @@ export class MapLayerService implements ILayerService {
             if (subLayerIndex < 0) continue;
             const subLayer = handle.subLayers[subLayerIndex];
             handle.subLayers[subLayerIndex] = { ...subLayer, paint: { ...(subLayer.paint ?? {}), ...partialPaint } };
-            this.applyGeoJsonStyles(handle.dataSource, handle.subLayers);
+            this.applyGeoJsonStyles(handle.dataSource, handle.subLayers, handle.clampToGround);
             updated = true;
         }
         return updated;
@@ -491,13 +562,14 @@ export class MapLayerService implements ILayerService {
         this.beginBusyOperation();
         try {
             const nextDataSource = await Cesium.GeoJsonDataSource.load(handle.data, { clampToGround: false });
+            forceGeodesicArcType(nextDataSource, Cesium);
             const current = this.handles.get(handleKey);
             if (current?.kind !== 'geojson' || current.updateToken !== token) return;
 
             const previousDataSource = current.dataSource;
             current.dataSource = nextDataSource;
             await this.viewer.dataSources.add(nextDataSource);
-            this.applyGeoJsonStyles(nextDataSource, current.subLayers);
+            this.applyGeoJsonStyles(nextDataSource, current.subLayers, current.clampToGround);
             try {
                 this.viewer.dataSources.remove(previousDataSource, true);
             } catch {
@@ -625,7 +697,7 @@ export class MapLayerService implements ILayerService {
         return evaluateColor(expression, this.entityToFeature(entity), zoom, fallback);
     }
 
-    private applyGeoJsonStyles(dataSource: any, subLayers: SubLayerSpec[]): void {
+    private applyGeoJsonStyles(dataSource: any, subLayers: SubLayerSpec[], clampToGround = true): void {
         const Cesium = getCesium();
         if (!Cesium) return;
 
@@ -688,11 +760,11 @@ export class MapLayerService implements ILayerService {
                     if (!entity.ellipse) {
                         entity.ellipse = new Cesium.EllipseGraphics();
                     }
-                    entity.ellipse.semiMajorAxis = radiusMeters;
-                    entity.ellipse.semiMinorAxis = radiusMeters;
-                    entity.ellipse.material = Cesium.Color.fromCssColorString(circleColor).withAlpha(circleOpacity);
-                    entity.ellipse.outline = false; // outlines on terrain require explicit height; use polyline ring instead
-                    entity.ellipse.height = 0; // prevent heightReference warning
+                    setSafeProperty(entity.ellipse, 'semiMajorAxis', radiusMeters);
+                    setSafeProperty(entity.ellipse, 'semiMinorAxis', radiusMeters);
+                    setColorMaterial(entity.ellipse, Cesium.Color.fromCssColorString(circleColor).withAlpha(circleOpacity));
+                    setSafeProperty(entity.ellipse, 'outline', false); // outlines on terrain require explicit height; use polyline ring instead
+                    setSafeProperty(entity.ellipse, 'height', 0); // prevent heightReference warning
 
                     // Cesium can skip ellipse outlines when clamped to terrain; draw a clamped ring polyline.
                     const lon = Cesium.Math.toDegrees(carto.longitude);
@@ -703,15 +775,32 @@ export class MapLayerService implements ILayerService {
                     if (!entity.polyline) {
                         entity.polyline = new Cesium.PolylineGraphics();
                     }
-                    entity.polyline.positions = ringPositions;
-                    entity.polyline.width = Math.max(1, circleStrokeWidth);
-                    entity.polyline.material = Cesium.Color.fromCssColorString(circleStrokeColor).withAlpha(1);
+                    const currentPositionsProp = entity.polyline.positions;
+                    let positionsChanged = true;
+                    if (currentPositionsProp && typeof currentPositionsProp.getValue === 'function') {
+                        const julian = Cesium.JulianDate?.now?.() || new Cesium.JulianDate();
+                        const currentVal = currentPositionsProp.getValue(julian);
+                        if (Array.isArray(currentVal) && currentVal.length === ringPositions.length) {
+                            positionsChanged = false;
+                            for (let i = 0; i < ringPositions.length; i++) {
+                                if (!currentVal[i].equals(ringPositions[i])) {
+                                    positionsChanged = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (positionsChanged) {
+                        entity.polyline.positions = ringPositions;
+                    }
+                    setSafeProperty(entity.polyline, 'width', Math.max(1, circleStrokeWidth));
+                    setColorMaterial(entity.polyline, Cesium.Color.fromCssColorString(circleStrokeColor).withAlpha(1));
                     if ('clampToGround' in entity.polyline) {
-                        entity.polyline.clampToGround = true;
+                        setSafeProperty(entity.polyline, 'clampToGround', true);
                     }
 
                     if (Cesium.HeightReference?.CLAMP_TO_GROUND) {
-                        entity.ellipse.heightReference = Cesium.HeightReference.CLAMP_TO_GROUND;
+                        setSafeProperty(entity.ellipse, 'heightReference', Cesium.HeightReference.CLAMP_TO_GROUND);
                     }
                     // Do not render default marker/point if ellipse is active.
                     entity.billboard = undefined;
@@ -719,14 +808,23 @@ export class MapLayerService implements ILayerService {
                 }
             }
             if (entity.polyline && line && lineMatches) {
-                entity.polyline.material = Cesium.Color.fromCssColorString(lineColor).withAlpha(1);
-                entity.polyline.width = lineWidth;
-                entity.polyline.clampToGround = true;
+                setColorMaterial(entity.polyline, Cesium.Color.fromCssColorString(lineColor).withAlpha(1));
+                setSafeProperty(entity.polyline, 'width', lineWidth);
+                setSafeProperty(entity.polyline, 'clampToGround', clampToGround);
             }
             if (entity.polygon && fill && fillMatches) {
-                entity.polygon.material = Cesium.Color.fromCssColorString(fillColor).withAlpha(fillOpacity);
-                entity.polygon.outline = true;
-                entity.polygon.outlineColor = Cesium.Color.fromCssColorString(lineColor).withAlpha(1);
+                setColorMaterial(entity.polygon, Cesium.Color.fromCssColorString(fillColor).withAlpha(fillOpacity));
+                setSafeProperty(entity.polygon, 'outline', true);
+                const outlineColor = Cesium.Color.fromCssColorString(lineColor).withAlpha(1);
+                if (entity.polygon.outlineColor instanceof Cesium.ConstantProperty) {
+                    const julian = Cesium.JulianDate?.now?.() || new Cesium.JulianDate();
+                    const currentVal = entity.polygon.outlineColor.getValue(julian);
+                    if (!currentVal || !currentVal.equals(outlineColor)) {
+                        entity.polygon.outlineColor.setValue(outlineColor);
+                    }
+                } else {
+                    entity.polygon.outlineColor = outlineColor;
+                }
             }
         }
     }
@@ -734,7 +832,7 @@ export class MapLayerService implements ILayerService {
     private applyAllGeoJsonStyles(): void {
         for (const handle of this.handles.values()) {
             if (handle.kind !== 'geojson') continue;
-            this.applyGeoJsonStyles(handle.dataSource, handle.subLayers);
+            this.applyGeoJsonStyles(handle.dataSource, handle.subLayers, handle.clampToGround);
         }
     }
 }
