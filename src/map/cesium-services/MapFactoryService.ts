@@ -3,6 +3,7 @@
 import type { ISubMapFactory, ISubMap, ISource, ILayer, LayerSpec, MapCreateOptions } from '../IMapInterfaces';
 import type { LngLat, Pixel } from '../../store/map-events';
 import { forceGeodesicArcType } from './MapLayerService';
+import { splitAntimeridianFeatures } from './antimeridian';
 
 function getCesium(): any {
     return (globalThis as any).Cesium;
@@ -113,7 +114,7 @@ class CesiumMap implements ISubMap {
             const state = this.sourceState.get(sourceId);
             if (!state) return;
             const previous = state.dataSource;
-            void Cesium.GeoJsonDataSource.load(nextData, { clampToGround: false }).then((loaded: any) => {
+            void Cesium.GeoJsonDataSource.load(splitAntimeridianFeatures(nextData), { clampToGround: false }).then((loaded: any) => {
                 forceGeodesicArcType(loaded, Cesium);
                 if (previous) {
                     this.viewer.dataSources.remove(previous, true);
