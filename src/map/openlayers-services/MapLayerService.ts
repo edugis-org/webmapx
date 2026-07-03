@@ -24,6 +24,7 @@ import type Projection from 'ol/proj/Projection';
 import type BaseLayer from 'ol/layer/Base';
 import type { WarpedMapLayer } from '@allmaps/openlayers';
 import { stylefunction } from 'ol-mapbox-style';
+import { evaluateNumber } from '../../utils/maplibre-expression-evaluator';
 
 const WARPEDMAP_PROTOCOL = 'warpedmap://';
 
@@ -34,6 +35,10 @@ export class MapLayerService implements ILayerService {
     private logicalSourceToNative: Map<string, string> = new Map();
     private nativeLayerToSource: Map<string, string> = new Map();
     private nativeLayerInstances: Map<string, BaseLayer> = new Map();
+    /** Authored `raster-opacity` paint value (number or zoom expression) per native raster/image layer. */
+    private rasterOpacityAuthored: Map<string, unknown> = new Map();
+    /** Current transparency-slider factor per native raster/image layer (default 1 = untouched). */
+    private rasterOpacityFactor: Map<string, number> = new Map();
     private spriteResourceCache: Map<string, Promise<{ spriteData: Record<string, unknown>; spriteImageUrl: string } | null>> = new Map();
     // Track WarpedMapLayer instances for cleanup
     private warpedMapLayers: Map<string, WarpedMapLayer> = new Map();
@@ -676,6 +681,33 @@ export class MapLayerService implements ILayerService {
         return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
     }
 
+    /**
+     * `raster-opacity` can be a zoom-interpolated expression (e.g. a shaded-relief fade), not
+     * just a literal number. OL's `layer.opacity` is a static value, so — unlike MapLibre,
+     * which re-evaluates paint expressions every frame — it needs a resolution-change listener
+     * to keep it in sync with the current zoom. This also has to account for the layer
+     * transparency slider's factor (`setLayerOpacity`), which multiplies on top of this
+     * authored base rather than replacing it — otherwise zooming after moving the slider
+     * would snap back to the raw authored value and undo the slider.
+     */
+    private bindDynamicRasterOpacity(layer: BaseLayer, nativeLayerId: string, rasterOpacity: unknown): void {
+        this.rasterOpacityAuthored.set(nativeLayerId, rasterOpacity);
+        this.applyRasterOpacity(nativeLayerId);
+        if (typeof rasterOpacity !== 'object' || rasterOpacity === null) return;
+        const view = this.map.getView();
+        view.on('change:resolution', () => this.applyRasterOpacity(nativeLayerId));
+    }
+
+    private applyRasterOpacity(nativeLayerId: string): void {
+        const instance = this.nativeLayerInstances.get(nativeLayerId);
+        const authored = this.rasterOpacityAuthored.get(nativeLayerId);
+        if (!instance || authored === undefined) return;
+        const factor = this.rasterOpacityFactor.get(nativeLayerId) ?? 1;
+        const zoom = this.map.getView().getZoom() ?? 0;
+        const base = typeof authored === 'number' ? authored : evaluateNumber(authored, { properties: {} }, zoom, 1);
+        instance.setOpacity(base * factor);
+    }
+
     private createVectorTileLayer(
         layerId: string,
         sourceConfig: SourceConfig & { type: 'vector' },
@@ -753,6 +785,7 @@ export class MapLayerService implements ILayerService {
             maxZoom: style.maxzoom,
             opacity: this.getLiteralNumberValue((style.paint as any)?.['raster-opacity'], 1)
         });
+        this.bindDynamicRasterOpacity(layer, layerId, (style.paint as any)?.["raster-opacity"]);
 
         (layer as any).__layerId = layerId;
         return layer;
@@ -825,6 +858,7 @@ export class MapLayerService implements ILayerService {
                 opacity: this.getLiteralNumberValue((style.paint as any)?.['raster-opacity'], 1)
             });
         }
+        this.bindDynamicRasterOpacity(layer, layerId, (style.paint as any)?.["raster-opacity"]);
 
         (layer as any).__layerId = layerId;
         return layer;
@@ -999,6 +1033,13 @@ export class MapLayerService implements ILayerService {
     setLayerOpacity(layerId: string, opacity: number): void {
         const nativeIds = this.logicalToNative.get(layerId) ?? [];
         for (const nativeId of nativeIds) {
+            if (this.rasterOpacityAuthored.has(nativeId)) {
+                // Raster/image layers: multiply the slider factor against the authored
+                // raster-opacity (possibly zoom-dependent) rather than replacing it outright.
+                this.rasterOpacityFactor.set(nativeId, opacity);
+                this.applyRasterOpacity(nativeId);
+                continue;
+            }
             const instance = this.nativeLayerInstances.get(nativeId);
             instance?.setOpacity(opacity);
         }

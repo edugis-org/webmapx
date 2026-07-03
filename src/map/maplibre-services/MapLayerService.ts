@@ -426,10 +426,55 @@ export class MapLayerService implements ILayerService {
         }
     }
 
-    setLayerOpacity(layerId: string, opacity: number): void {
+    /**
+     * Scales an opacity paint value by `factor`. MapLibre rejects wrapping a `["zoom"]` (or
+     * other camera) expression in an outer `['*', expr, factor]` — "zoom expression may only
+     * be used as input to a top-level step/interpolate expression" — so `interpolate`/`step`
+     * stops must be rewritten in place (scaling each output value) instead of nested.
+     * Falls back to a flat `factor` for expression shapes we don't recognize.
+     */
+    private scaleOpacityValue(value: unknown, factor: number): unknown {
+        if (typeof value === 'number') return value * factor;
+        if (!Array.isArray(value)) return factor;
+        const [op, ...args] = value;
+        if (op === 'interpolate' && args.length >= 2) {
+            const [interpType, input, ...stops] = args;
+            const scaledStops = stops.map((v: unknown, i: number) => (i % 2 === 1 ? this.scaleOpacityValue(v, factor) : v));
+            return ['interpolate', interpType, input, ...scaledStops];
+        }
+        if (op === 'step' && args.length >= 1) {
+            const [input, base, ...stops] = args;
+            const scaledStops = stops.map((v: unknown, i: number) => (i % 2 === 1 ? this.scaleOpacityValue(v, factor) : v));
+            return ['step', input, this.scaleOpacityValue(base, factor), ...scaledStops];
+        }
+        return factor;
+    }
+
+    /**
+     * Author-set (style-editor or original style JSON) opacity for one paint property of a
+     * sublayer, read live from the store — the slider multiplies against this, never against
+     * a previously-rendered value. Can be a plain number or a full expression (e.g. a
+     * zoom-interpolated `raster-opacity` fade from a fetched remote style); undefined when
+     * the property isn't authored at all (defaults to fully opaque, base 1).
+     */
+    private getAuthoredOpacity(layerId: string, nativeLayerId: string, property: string): unknown {
+        const entry = this.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined;
+        if (!entry) return undefined;
+        const sublayers = Array.isArray(entry.sublayers) ? entry.sublayers as Record<string, unknown>[] : null;
+        let paint: Record<string, unknown> | undefined;
+        if (sublayers) {
+            const sub = sublayers.find((s) => `${layerId}-${s.id}` === nativeLayerId);
+            paint = (sub?.paint && typeof sub.paint === 'object') ? sub.paint as Record<string, unknown> : undefined;
+        } else {
+            paint = (entry.paint && typeof entry.paint === 'object') ? entry.paint as Record<string, unknown> : undefined;
+        }
+        return paint?.[property];
+    }
+
+    setLayerOpacity(layerId: string, factor: number): void {
         const warpedMapLayer = this.warpedMapLayers.get(layerId);
         if (warpedMapLayer) {
-            warpedMapLayer.setOpacity(opacity);
+            warpedMapLayer.setOpacity(factor);
             return;
         }
         const nativeLayerIds = this.logicalToNative.get(layerId) ?? [];
@@ -439,13 +484,20 @@ export class MapLayerService implements ILayerService {
                 const properties = nativeLayer ? OPACITY_PAINT_PROPERTIES[nativeLayer.type] : undefined;
                 if (!properties) continue;
                 if (nativeLayer!.type === 'hillshade') {
-                    this.map.setPaintProperty(nativeLayerId, 'hillshade-shadow-color', `rgba(0,0,0,${opacity})`);
-                    this.map.setPaintProperty(nativeLayerId, 'hillshade-highlight-color', `rgba(255,255,255,${opacity})`);
-                    this.map.setPaintProperty(nativeLayerId, 'hillshade-accent-color', `rgba(0,0,0,${opacity})`);
+                    this.map.setPaintProperty(nativeLayerId, 'hillshade-shadow-color', `rgba(0,0,0,${factor})`);
+                    this.map.setPaintProperty(nativeLayerId, 'hillshade-highlight-color', `rgba(255,255,255,${factor})`);
+                    this.map.setPaintProperty(nativeLayerId, 'hillshade-accent-color', `rgba(0,0,0,${factor})`);
                     continue;
                 }
                 for (const property of properties) {
-                    this.map.setPaintProperty(nativeLayerId, property as any, opacity);
+                    const authored = this.getAuthoredOpacity(layerId, nativeLayerId, property);
+                    if (authored === undefined) {
+                        this.map.setPaintProperty(nativeLayerId, property as any, factor);
+                    } else if (factor === 1) {
+                        this.map.setPaintProperty(nativeLayerId, property as any, authored);
+                    } else {
+                        this.map.setPaintProperty(nativeLayerId, property as any, this.scaleOpacityValue(authored, factor));
+                    }
                 }
             } catch (_) {}
         }

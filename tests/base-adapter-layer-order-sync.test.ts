@@ -21,6 +21,7 @@ class StubAdapter extends BaseAdapter {
   protected getMarkerService(): any {
     return null;
   }
+  setLayerOpacity(_layerId: string, _opacity: number): void {}
 }
 
 function makeLayer(id: string, legendRole: 'background' | 'overlay' = 'overlay') {

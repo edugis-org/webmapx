@@ -462,7 +462,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 seen.add(dedupKey);
                 const swatch = this.renderSwatch(type, evalPaint, zoom, evalLayout);
                 if (!swatch) continue;
-                const editable = this.isEditableType(type, evalPaint);
+                const editable = this.isEditableType(type, evalPaint, true);
                 // Track open editor by sublayer ID (not dedupKey) so changing a paint
                 // value (e.g. text-size) doesn't mutate the dedupKey and close the editor.
                 const groupIds = dedupGroups.get(dedupKey)!;
@@ -1164,6 +1164,15 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             </div>`;
         }
 
+        if (layerType === 'raster') {
+            const rawOpacity = paint['raster-opacity'];
+            const resolved = Array.isArray(rawOpacity) ? this.evalAtZoom(rawOpacity, this.zoom) : rawOpacity;
+            const opacity = Number(isFinite(Number(resolved)) ? resolved : 1);
+            return html`<div class="style-editor">
+                ${this.renderRangeRow(subLayerIds, 'opacity', 'raster-opacity', opacity, 0, 1, 0.05)}
+            </div>`;
+        }
+
         if (layerType === 'hillshade') {
             return html``;
         }
@@ -1210,9 +1219,13 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     }
 
     /** Whether the given (single, non-composite) layer's paint is simple enough to edit inline (no data/zoom expressions). */
-    private isEditableType(layerType: string | null, paint: Record<string, unknown>): boolean {
+    private isEditableType(layerType: string | null, paint: Record<string, unknown>, isComposite = false): boolean {
         if (!layerType) return false;
         if (layerType === 'hillshade') return true;
+        // Raster opacity editing is only offered for sublayers of a composite/style layer
+        // (e.g. a remote-style basemap's imagery layer) — a standalone raster layer is
+        // already fully covered by the layer's own transparency slider.
+        if (layerType === 'raster') return isComposite;
         const colorKey = layerType === 'fill' ? 'fill-color'
             : layerType === 'fill-extrusion' ? 'fill-extrusion-color'
             : layerType === 'line' ? 'line-color'

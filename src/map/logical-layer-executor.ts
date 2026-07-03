@@ -1,6 +1,5 @@
 import type { AnyLayerConfig } from '../config/types';
 import type { ILayerService, ILogicalLayerExecutor, LayerInsertOptions, SourceFeatureQueryOptions, SourceFeatureSample, QueryLayerFeaturesOptions } from './IMapInterfaces';
-import { extractBaseOpacity } from './layer-opacity-utils';
 
 type PendingAddRequest = {
     layerConfig: AnyLayerConfig;
@@ -12,8 +11,6 @@ export class DeferredLogicalLayerExecutor implements ILogicalLayerExecutor {
     private layerService?: ILayerService;
     private pendingAddRequests: PendingAddRequest[] = [];
     private pendingRemoveRequests: string[] = [];
-    /** Config-defined base opacity per logical layer id — the slider scales relative to this. */
-    private baseOpacity: Map<string, number> = new Map();
 
     bind(layerService: ILayerService): void {
         this.layerService = layerService;
@@ -24,12 +21,9 @@ export class DeferredLogicalLayerExecutor implements ILogicalLayerExecutor {
         this.layerService = undefined;
         this.pendingAddRequests = [];
         this.pendingRemoveRequests = [];
-        this.baseOpacity.clear();
     }
 
     async addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
-        this.baseOpacity.set(layerConfig.id, extractBaseOpacity(layerConfig));
-
         if (this.layerService) {
             return this.layerService.addLayer(layerConfig, options);
         }
@@ -40,8 +34,6 @@ export class DeferredLogicalLayerExecutor implements ILogicalLayerExecutor {
     }
 
     removeLayer(layerId: string): void {
-        this.baseOpacity.delete(layerId);
-
         if (this.layerService) {
             this.layerService.removeLayer(layerId);
             return;
@@ -67,8 +59,7 @@ export class DeferredLogicalLayerExecutor implements ILogicalLayerExecutor {
     }
 
     setLayerOpacity(layerId: string, factor: number): void {
-        const baseOpacity = this.baseOpacity.get(layerId) ?? 1;
-        this.layerService?.setLayerOpacity(layerId, baseOpacity * factor);
+        this.layerService?.setLayerOpacity(layerId, factor);
     }
 
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {

@@ -32,6 +32,9 @@ export abstract class BaseAdapter {
     public readonly store: MapStateStore;
     public readonly events: MapEventBus;
 
+    /** Implemented by each engine adapter, delegating to its DeferredLogicalLayerExecutor. */
+    abstract setLayerOpacity(layerId: string, opacity: number): void;
+
     /**
      * When true, composite (`type: 'style'`) layers are decomposed here in generic
      * code: sources registered individually, each sublayer passed to engineAddLayer
@@ -81,6 +84,14 @@ export abstract class BaseAdapter {
         return (this.store.getState().mapLayers ?? {})[layerId] !== undefined;
     }
 
+    /** Config-authored `metadata.transparency` (0-100, matches the slider) applied once at add time. */
+    private applyConfigTransparency(layerId: string, layer: any): void {
+        const transparency = layer?.metadata?.transparency;
+        if (typeof transparency === 'number' && transparency > 0) {
+            this.setLayerOpacity(layerId, (100 - transparency) / 100);
+        }
+    }
+
     // ── Generic layer lifecycle ───────────────────────────────────────────────
 
     async addLayer(layer: any, options?: LayerInsertOptions): Promise<boolean> {
@@ -105,6 +116,7 @@ export abstract class BaseAdapter {
             if (typeof layerId === 'string') {
                 this.syncMapLayerOrder(layerId, options);
                 this.layerConfigStore.set(layerId, { config: layer, options });
+                this.applyConfigTransparency(layerId, layer);
                 const activeLayers = Object.keys(this.store.getState().mapLayers ?? {});
                 this.events.emit({ type: 'layer-add', layerId, activeLayers });
             }
@@ -163,6 +175,7 @@ export abstract class BaseAdapter {
             registerMapLayer(this.store, layer);
             this.syncMapLayerOrder(logicalId, options);
             this.layerConfigStore.set(logicalId, { config: layer, options });
+            this.applyConfigTransparency(logicalId, layer);
             const activeLayers = Object.keys(this.store.getState().mapLayers ?? {});
             this.events.emit({ type: 'layer-add', layerId: logicalId, activeLayers });
         }
