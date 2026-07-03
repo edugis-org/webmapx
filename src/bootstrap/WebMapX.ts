@@ -108,6 +108,7 @@ export class WebMapX {
       zoom: mapConfig?.zoom ?? 2,
       ...(mapConfig?.bearing != null ? { bearing: mapConfig.bearing } : {}),
       ...(mapConfig?.pitch != null ? { pitch: mapConfig.pitch } : {}),
+      ...(mapConfig?.projection != null ? { projection: mapConfig.projection } : {}),
       // runtimeMap takes priority over deprecated map.min/maxZoom/Pitch
       ...(runtimeMap?.minZoom ?? mapConfig?.minZoom) != null ? { minZoom: runtimeMap?.minZoom ?? mapConfig?.minZoom } : {},
       ...(runtimeMap?.maxZoom ?? mapConfig?.maxZoom) != null ? { maxZoom: runtimeMap?.maxZoom ?? mapConfig?.maxZoom } : {},
