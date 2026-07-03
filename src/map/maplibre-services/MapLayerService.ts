@@ -301,7 +301,11 @@ export class MapLayerService implements ILayerService {
         // Standard layer (type: 'style' no longer reaches here — base-adapter decomposes it)
         const stdLayer = layerConfig as StandardLayerConfig;
         if (stdLayer.type === 'background') {
-            const nativeLayerId = `${layerId}-background`;
+            // Scope by groupId: every fetched remote style typically names its background
+            // sublayer literally "background", so without this every composite/style layer's
+            // background would collide on the same native id — whichever was added first wins,
+            // and later ones (e.g. switching basemap styles) silently keep the old color.
+            const nativeLayerId = `${groupId}-${layerId}-background`;
             if (!this.map.getLayer(nativeLayerId)) {
                 const native: any = { id: nativeLayerId, type: 'background' };
                 if (stdLayer.paint) native.paint = stdLayer.paint;

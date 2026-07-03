@@ -25,6 +25,10 @@ import type BaseLayer from 'ol/layer/Base';
 import type { WarpedMapLayer } from '@allmaps/openlayers';
 import { stylefunction } from 'ol-mapbox-style';
 import { evaluateNumber } from '../../utils/maplibre-expression-evaluator';
+import Feature from 'ol/Feature';
+import Polygon from 'ol/geom/Polygon';
+import Style from 'ol/style/Style';
+import Fill from 'ol/style/Fill';
 
 const WARPEDMAP_PROTOCOL = 'warpedmap://';
 
@@ -249,6 +253,20 @@ export class MapLayerService implements ILayerService {
         const layerConfig = spec.rawConfig;
 
         const nativeLayerIds: string[] = [];
+
+        // Background sublayers have no source, so neither branch below (both keyed off
+        // findNormalizedSource) would ever see them — handle them first, and first in the
+        // stack (bottom), matching every fetched style's own layer order.
+        for (const subLayer of spec.subLayers.filter((sl) => sl.type === 'background')) {
+            const nativeLayerId = `${layerId}-${subLayer.id}`;
+            if (!this.nativeLayerInstances.has(nativeLayerId)) {
+                const layer = this.createBackgroundLayer(subLayer);
+                (layer as any).__mapLayerId = layerId;
+                insertIndex = this.addMapLayerAtIndex(layer, insertIndex);
+                this.nativeLayerInstances.set(nativeLayerId, layer);
+            }
+            nativeLayerIds.push(nativeLayerId);
+        }
 
         // Check for style-backed vector tile (needs stylefunction) — requires the
         // raw config to rebuild a full GL-style document for `stylefunction`.
@@ -567,6 +585,31 @@ export class MapLayerService implements ILayerService {
             return this.createVectorTileLayer(layerId, sourceConfig, style);
         }
         return null;
+    }
+
+    /**
+     * `background` sublayers (a solid `background-color` fill, common in every fetched remote
+     * style) have no source at all — OL has no native "solid color" layer type, so this fakes
+     * one with a single polygon feature covering the full Web Mercator world extent.
+     */
+    private createBackgroundLayer(style: SubLayerSpec): VectorLayer<VectorSource> {
+        const WORLD_EXTENT_3857 = 20037508.342789244;
+        const ring = [
+            [-WORLD_EXTENT_3857, -WORLD_EXTENT_3857],
+            [WORLD_EXTENT_3857, -WORLD_EXTENT_3857],
+            [WORLD_EXTENT_3857, WORLD_EXTENT_3857],
+            [-WORLD_EXTENT_3857, WORLD_EXTENT_3857],
+            [-WORLD_EXTENT_3857, -WORLD_EXTENT_3857],
+        ];
+        const paint = (style.paint as any) ?? {};
+        const color = typeof paint['background-color'] === 'string' ? paint['background-color'] : '#ffffff';
+        const feature = new Feature({ geometry: new Polygon([ring]) });
+        feature.setStyle(new Style({ fill: new Fill({ color }) }));
+        const source = new VectorSource({ features: [feature] });
+        return new VectorLayer({
+            source,
+            opacity: this.getLiteralNumberValue(paint['background-opacity'], 1)
+        });
     }
 
     private async resolveVectorTileUrl(sourceConfig: SourceConfig & { type: 'vector' }): Promise<string | null> {
