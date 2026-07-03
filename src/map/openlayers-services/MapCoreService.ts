@@ -13,6 +13,11 @@ import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import GeoJSON from 'ol/format/GeoJSON';
 import { Circle, Fill, Stroke, Style } from 'ol/style';
+import { defaults as defaultInteractions } from 'ol/interaction/defaults';
+import KeyboardPan from 'ol/interaction/KeyboardPan';
+import KeyboardZoom from 'ol/interaction/KeyboardZoom';
+import { noModifierKeys, platformModifierKey } from 'ol/events/condition';
+import { isEventFromEditableElement } from '../../utils/dom-focus-utils';
 
 /**
  * Implements the core map contract (IMapCore) for OpenLayers.
@@ -121,6 +126,19 @@ export class MapCoreService implements IMapCore {
             }),
             controls: [],
             keyboardEventTarget: document,
+            // OL's own keyboard interactions gate on `targetNotEditable`, which checks
+            // `event.target.tagName` directly — for a Shoelace <sl-input> (shadow DOM),
+            // a document-level listener sees the retargeted shadow host ("SL-INPUT"), not
+            // the real <input>, so typing "-"/"+" or arrow keys leaks through as zoom/pan.
+            // Replace with equivalents using composedPath()-based detection instead.
+            interactions: defaultInteractions({ keyboard: false }).extend([
+                new KeyboardPan({
+                    condition: (e) => noModifierKeys(e) && !isEventFromEditableElement(e.originalEvent)
+                }),
+                new KeyboardZoom({
+                    condition: (e) => !platformModifierKey(e) && !isEventFromEditableElement(e.originalEvent)
+                }),
+            ]),
         });
 
         // Remove OL viewport from tab order; keyboard zoom works via keyboardEventTarget:document

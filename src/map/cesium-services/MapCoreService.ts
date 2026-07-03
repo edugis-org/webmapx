@@ -6,6 +6,7 @@ import { MapStateStore } from '../../store/map-state-store';
 import { MapEventBus, LngLat, Pixel } from '../../store/map-events';
 import { throttle } from '../../utils/throttle';
 import { evaluateColor, evaluateNumber } from '../../utils/maplibre-expression-evaluator';
+import { isEventFromEditableElement } from '../../utils/dom-focus-utils';
 import { forceGeodesicArcType } from './MapLayerService';
 
 function getCesium(): any {
@@ -617,9 +618,11 @@ export class MapCoreService implements IMapCore {
         // Keyboard zoom (+/-) and pan (arrow keys) — Cesium canvas needs focus for built-in handlers
         // but we removed it from tab order, so handle globally here.
         this.boundKeydown = (e: KeyboardEvent) => {
+            // composedPath() finds the real originating element even through shadow DOM (e.g.
+            // Shoelace's <sl-input>), where document.activeElement would only report the
+            // shadow host and miss that the user is typing.
+            if (isEventFromEditableElement(e)) return;
             const el = document.activeElement as HTMLElement | null;
-            const tag = el?.tagName?.toLowerCase() ?? '';
-            if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
             // Only handle keys when focus is outside interactive UI (body, html, or the map canvas itself)
             if (el && el !== document.body && el !== document.documentElement) {
                 // Allow if focused element is the Cesium canvas; skip otherwise
