@@ -1438,6 +1438,20 @@ export class WebmapxMapElement extends HTMLElement {
     }
     await this.restoreState();
     await this.applyPermalinkState(adapter);
+    this.applyConfigTerrainState(adapter);
+  }
+
+  /**
+   * Config-file terrain restore (state.terrainEnabled) — permalinks have their own terrain
+   * flag (state.terrain) handled in applyPermalinkState, which takes precedence when present.
+   * Both funnel into the same store dispatch that webmapx-3d-tool already reacts to by
+   * calling adapter.setTerrainEnabled() against whichever hillshade layer is active.
+   */
+  private applyConfigTerrainState(adapter: IMap): void {
+    if (getPermalinkStateForIndex(getMapDomIndex(this))) return;
+    if (this.configInstance?.state?.terrainEnabled === true) {
+      adapter.store.dispatch({ terrainEnabled: true }, 'UI');
+    }
   }
 
   private async applyPermalinkState(adapter: IMap): Promise<void> {

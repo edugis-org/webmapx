@@ -109,6 +109,48 @@ function configToToolItem(id: string, cfg: Record<string, unknown>): ToolItem {
     return { id, label: knownLabel(id), configItem: merged, isNew: false };
 }
 
+// ── Dynamic (tool-added) layers ─────────────────────────────────────────────
+//
+// Tools like webmapx-3d-tool can call adapter.addLayer() at runtime with an
+// ad-hoc layer (e.g. an on-demand hillshade layer with an inline `sources`
+// object) that never existed in the loaded config's static layerData.layers.
+// The download logic below lists every currently-active layer id as a
+// state.activeLayers ref regardless of origin, so without this, saving after
+// using such a tool produces a config referencing a layer that was never
+// added to layerData.layers — invalid on next load ("Layer ... not found").
+// adapter.getLayerConfigs() (BaseAdapter) tracks the exact config every
+// active layer was added with, dynamic or not, so use it to backfill.
+function mergeDynamicLayers(
+    base: AppConfig,
+    layerConfigs: Map<string, unknown>,
+    activeIds: string[],
+): { layers: unknown[]; sources: unknown[] } {
+    const layers: unknown[] = [...(base.layerData?.layers ?? [])];
+    const sources: unknown[] = [...(base.layerData?.sources ?? [])];
+    const existingLayerIds = new Set(layers.map(l => (l as unknown as Record<string, unknown>).id));
+    const existingSourceIds = new Set(sources.map(s => (s as unknown as Record<string, unknown>).id));
+
+    for (const id of activeIds) {
+        if (existingLayerIds.has(id)) continue;
+        const cfg = layerConfigs.get(id) as Record<string, unknown> | undefined;
+        if (!cfg) continue;
+
+        const { sources: inlineSources, ...layerWithoutInlineSources } = cfg;
+        layers.push(layerWithoutInlineSources);
+        existingLayerIds.add(id);
+
+        if (inlineSources && typeof inlineSources === 'object') {
+            for (const [sourceId, sourceDef] of Object.entries(inlineSources as Record<string, unknown>)) {
+                if (existingSourceIds.has(sourceId)) continue;
+                sources.push({ ...(sourceDef as Record<string, unknown>), id: sourceId });
+                existingSourceIds.add(sourceId);
+            }
+        }
+    }
+
+    return { layers, sources };
+}
+
 // ── buildSaveConfig ───────────────────────────────────────────────────────────
 
 function buildSaveConfig(
@@ -122,6 +164,7 @@ function buildSaveConfig(
     projection?: string | null,
     projectTitle?: string,
     unsupportedLayerIds?: Set<string>,
+    terrainEnabled?: boolean,
 ): AppConfig {
     const tools: Record<string, unknown> = { ...(base.tools ?? {}) };
 
@@ -204,7 +247,12 @@ function buildSaveConfig(
         ...(runtimeBackground && !unsupported.has(runtimeBackground) ? [runtimeBackground] : []),
         ...runtimeActiveLayers.filter(id => !unsupported.has(id)),
     ];
-    const runtimeState = { ...base.state, activeLayers: allActiveIds.map(id => ({ ref: id, visible: true })), ...(runtimeBackground ? { activeBackground: runtimeBackground } : {}) };
+    const runtimeState = {
+        ...base.state,
+        activeLayers: allActiveIds.map(id => ({ ref: id, visible: true })),
+        ...(runtimeBackground ? { activeBackground: runtimeBackground } : {}),
+        ...(terrainEnabled ? { terrainEnabled: true } : { terrainEnabled: undefined }),
+    };
 
     if (!onlyActiveLayers) {
         return { ...base, project: project as AppConfig['project'], map: runtimeMap, layerData: filteredLayerData, tools: tools as AppConfig['tools'], state: runtimeState };
@@ -542,13 +590,15 @@ export class WebmapxConfigEditTool extends LitElement {
 
     private async handleDownload(): Promise<void> {
         const mapEl = this.mapElement;
-        const config = mapEl?.config;
-        if (!config) return;
+        const loadedConfig = mapEl?.config;
+        if (!loadedConfig) return;
 
         const adapter = (mapEl as unknown as Record<string, unknown>)?.adapter as {
             store?: { getState?: () => { mapLayers?: Record<string, Record<string, unknown>> } };
             getViewportState?: () => { center: [number, number]; zoom: number; bearing: number; pitch: number };
             getProjection?: () => { name: string } | null;
+            getLayerConfigs?: () => Map<string, unknown>;
+            isTerrainEnabled?: () => boolean | null;
         } | undefined;
         const runtimeLayers = adapter?.store?.getState?.()?.mapLayers ?? {};
         const viewport = adapter?.getViewportState?.();
@@ -560,6 +610,14 @@ export class WebmapxConfigEditTool extends LitElement {
             if (entry?.legendRole === 'background') runtimeBackground = id;
             else runtimeActiveLayers.push(id);
         }
+
+        // Backfill any tool-added dynamic layers (e.g. 3D tool's on-demand hillshade) into
+        // layerData before building the save config, so activeLayers refs resolve on next load.
+        const layerConfigs = adapter?.getLayerConfigs?.() ?? new Map<string, unknown>();
+        const { layers: mergedLayers, sources: mergedSources } = mergeDynamicLayers(
+            loadedConfig, layerConfigs, [...runtimeActiveLayers, ...(runtimeBackground ? [runtimeBackground] : [])]
+        );
+        const config: AppConfig = { ...loadedConfig, layerData: { ...loadedConfig.layerData, layers: mergedLayers as AppConfig['layerData']['layers'], sources: mergedSources as AppConfig['layerData']['sources'] } };
 
         type MapElWithSupport = { isCatalogLayerSupported?: (id: string) => Promise<boolean> };
         let unsupportedLayerIds = new Set<string>();
@@ -590,7 +648,8 @@ export class WebmapxConfigEditTool extends LitElement {
         }
 
         const effectiveBackground = (runtimeBackground && unsupportedLayerIds.has(runtimeBackground)) ? fallbackBackground : runtimeBackground;
-        const out = buildSaveConfig(config, this.toolbars, this.controls, this.onlyActiveLayers, runtimeActiveLayers, effectiveBackground, viewport, projectionName, this.projectTitle, unsupportedLayerIds);
+        const terrainEnabled = adapter?.isTerrainEnabled?.() === true;
+        const out = buildSaveConfig(config, this.toolbars, this.controls, this.onlyActiveLayers, runtimeActiveLayers, effectiveBackground, viewport, projectionName, this.projectTitle, unsupportedLayerIds, terrainEnabled);
         const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         Object.assign(document.createElement('a'), { href: url, download: this.filename || 'config.json' }).click();

@@ -27,7 +27,7 @@ const KNOWN_KEYS = {
   layerData: ['sources', 'layers'],
   catalog: ['label', 'tree', 'sources', 'layers'],
   treeNode: ['label', 'layerId', 'selectionMode', 'selectionGroup', 'allowNone', 'stackOrder', 'checked', 'expanded', 'children', 'separator'],
-  state: ['activeBackground', 'activeLayers', 'activeExclusiveLayers'],
+  state: ['activeBackground', 'activeLayers', 'activeExclusiveLayers', 'terrainEnabled'],
   stateLayer: ['id', 'ref', 'layerId', 'visible', 'timeState', 'paint', 'layout', 'metadata', 'source', 'type'],
   sourceBase: ['id', 'type', 'attribution'],
   sourceRaster: ['service', 'url', 'tiles', 'tileSize', 'minzoom', 'maxzoom', 'bounds', 'scheme', 'volatile', 'attribution', 'layers', 'format', 'transparent', 'version', 'crs'],

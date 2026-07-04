@@ -361,6 +361,8 @@ export interface AppStateConfig {
   activeBackground?: string;
   activeLayers?: ActiveLayerStateEntry[];
   activeExclusiveLayers?: Record<string, string>;
+  /** Whether 3D terrain (elevation from the active hillshade layer) was enabled when saved. */
+  terrainEnabled?: boolean;
 }
 
 export type ToolIconConfig = string | {
