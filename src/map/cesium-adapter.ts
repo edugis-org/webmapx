@@ -138,7 +138,11 @@ export class CesiumAdapter extends BaseAdapter implements IMap {
     }
 
     setTerrainEnabled(enabled: boolean, terrainSource?: unknown): boolean {
-        return this.core.setTerrainEnabled(enabled, terrainSource as string | undefined);
+        const applied = this.core.setTerrainEnabled(enabled, terrainSource as string | undefined);
+        if (applied) {
+            this.store.dispatch({ terrainEnabled: enabled }, 'UI');
+        }
+        return applied;
     }
 
     isTerrainEnabled(): boolean | null {

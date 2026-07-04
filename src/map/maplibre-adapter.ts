@@ -105,7 +105,11 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
         // source that MapLayerService already registered for the hillshade layer.
         const logicalId = (terrainSource as any)?.id as string | undefined;
         const nativeSourceId = logicalId ? this.layerService?.getNativeSourceId(logicalId) : undefined;
-        return (this.core as MapCoreService).setTerrainEnabled(enabled, terrainSource, nativeSourceId);
+        const applied = (this.core as MapCoreService).setTerrainEnabled(enabled, terrainSource, nativeSourceId);
+        if (applied) {
+            this.store.dispatch({ terrainEnabled: enabled }, 'UI');
+        }
+        return applied;
     }
 
     isTerrainEnabled(): boolean | null {
