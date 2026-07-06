@@ -579,7 +579,7 @@ export class MapLayerService implements ILayerService {
             }
         }
         // Vector/GeoJSON layers
-        else if (['fill', 'line', 'circle'].includes(style.type) && sourceConfig.type === 'geojson') {
+        else if (['fill', 'line', 'circle', 'symbol'].includes(style.type) && sourceConfig.type === 'geojson') {
             return this.createGeoJSONLayer(layerId, sourceConfig, style);
         } else if (['fill', 'line', 'circle', 'symbol'].includes(style.type) && sourceConfig.type === 'vector') {
             return this.createVectorTileLayer(layerId, sourceConfig, style);
@@ -841,6 +841,17 @@ export class MapLayerService implements ILayerService {
     ): BaseLayer {
         const fullUrl = Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url;
 
+        // Discovered/ad-hoc WMS layers (layer-discovery.ts) hand us an already-complete GetMap
+        // URL template built for MapLibre (with a literal `{bbox-epsg-3857}` placeholder baked
+        // into its query string), not a bare WMS endpoint. ImageWMS/TileWMS below always add
+        // their OWN uppercase BBOX/WIDTH/HEIGHT on request — since query keys are case-sensitive,
+        // the server then sees both our lowercase baked-in params AND OL's uppercase ones
+        // (including the still-unsubstituted literal `bbox={bbox-epsg-3857}`), which trips a
+        // WMS 500. Treat it as an already-built template instead, same as the XYZ bbox path.
+        if (fullUrl.includes('{bbox-epsg-3857}')) {
+            return this.createXYZLayer(layerId, sourceConfig as unknown as SourceConfig & { type: 'raster'; service: 'xyz' }, style);
+        }
+
         // Parse URL and extract all existing parameters
         const { baseUrl, params } = this.parseUrlParams(fullUrl);
 
@@ -954,7 +965,8 @@ export class MapLayerService implements ILayerService {
         const layer = new VectorLayer({
             source,
             minZoom: style.minzoom,
-            maxZoom: style.maxzoom
+            maxZoom: style.maxzoom,
+            declutter: true
         });
 
         const glSourceId = layerId;

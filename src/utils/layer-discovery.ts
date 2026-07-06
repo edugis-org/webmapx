@@ -49,6 +49,37 @@ function stripQuery(url: string): string {
   return url.split('?')[0].split('#')[0];
 }
 
+// Standard WMS GetMap/GetFeatureInfo request params — buildWMSGetMapUrl/fetchWMSFeatureInfo
+// only fill these in `if not already present` (except bbox, which they always overwrite), so
+// any stale value baked into the capabilities-advertised operation URL (e.g. a sample
+// `layers=`/`width=`/`height=` left over from however that href was generated) would silently
+// win over the one we actually want to request. Matches wms-feature-info.ts's STANDARD_KEYS.
+const STANDARD_WMS_PARAMS = ['service', 'request', 'version', 'layers', 'styles', 'format', 'transparent', 'crs', 'srs', 'width', 'height', 'bbox'];
+
+/** Drops the standard WMS operation params from a GetCapabilities operation URL so
+ *  `buildWMSGetMapUrl`/`fetchWMSFeatureInfo` (which set their own) aren't shadowed by stale
+ *  values — while keeping deployment-specific params like QGIS Server's `map=` intact. A
+ *  blanket `stripQuery` here would silently drop `map=` too, breaking every request against
+ *  that server.
+ *
+ *  If the URL already carries a `layers=`, that's surfaced via `onLayers` before being
+ *  dropped — it usually reflects which layer(s) the published operation URL was meant for. */
+function stripWmsOperationParams(url: string, onLayers?: (layers: string) => void): string {
+  try {
+    const parsed = new URL(url);
+    const existingLayers = parsed.searchParams.get('layers') ?? parsed.searchParams.get('LAYERS');
+    if (existingLayers) onLayers?.(existingLayers);
+    for (const key of [...parsed.searchParams.keys()]) {
+      if (STANDARD_WMS_PARAMS.includes(key.toLowerCase())) {
+        parsed.searchParams.delete(key);
+      }
+    }
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 /**
  * Builds a native MapLibre raster source spec (`tiles` array, not webmapx's
  * `service`/`url` shape). Discovered layers are injected via `adapter.addSource`
@@ -267,11 +298,20 @@ export async function discoverWms(baseUrl: string): Promise<DiscoveredLayer[]> {
         ...(layer.abstract ? { abstract: layer.abstract } : {}),
         source: rasterTilesSource(id, [
           buildWMSGetMapUrl({
-            baseUrl: stripQuery(endpoint.getOperationUrl('GetMap') || baseUrl),
+            baseUrl: stripWmsOperationParams(endpoint.getOperationUrl('GetMap') || baseUrl, (existingLayers) => {
+              if (existingLayers !== layer.name) {
+                console.debug(`[layer-discovery] GetMap operation URL for "${layer.name}" already specified layers="${existingLayers}" — overriding with the discovered layer name.`);
+              }
+            }),
             layers: layer.name,
             version,
           }, 'maplibre'),
         ], {
+          // buildWMSGetMapUrl() above bakes width=256&height=256 into the URL (its own
+          // `tileSize` default) — MapLibre's raster source spec defaults `tileSize` to 512,
+          // so without this it stretches every 256px tile to 512px (blurry/thicker-looking
+          // lines, plus wasted GPU upscale work).
+          tileSize: 256,
           ...(info?.title ? { attribution: info.title } : {}),
           ...(bounds ? { bounds } : {}),
           // GetFeatureInfo support: identified via service==='wms' by getVisibleWMSLayers,
@@ -281,7 +321,7 @@ export async function discoverWms(baseUrl: string): Promise<DiscoveredLayer[]> {
           // MapLibre's raster source spec (an `url` key there triggers a TileJSON fetch).
           ...(full?.queryable ? {
             service: 'wms',
-            gfiUrl: stripQuery(endpoint.getOperationUrl('GetFeatureInfo') || endpoint.getOperationUrl('GetMap') || baseUrl),
+            gfiUrl: stripWmsOperationParams(endpoint.getOperationUrl('GetFeatureInfo') || endpoint.getOperationUrl('GetMap') || baseUrl),
             gfiLayers: layer.name,
             gfiVersion: version,
           } : {}),

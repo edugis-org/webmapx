@@ -6,8 +6,9 @@ import { normalizeCompositeLayer, findNormalizedSource, type NormalizedComposite
 import type { AnyLayerConfig, StandardLayerConfig, SourceConfig, WMSSourceConfig, GeoJSONSourceConfig, SubLayerSpec } from '../../config/types';
 import type { MapStateStore } from '../../store/map-state-store';
 import { throttle } from '../../utils/throttle';
-import { evaluateColor, evaluateNumber, matchesFilter } from '../../utils/maplibre-expression-evaluator';
+import { evaluateColor, evaluateNumber, evaluateString, matchesFilter } from '../../utils/maplibre-expression-evaluator';
 import { countFeatureCollectionVertices } from '../geojson-loader';
+import { setupLabelCollision, updateLabelCollision } from './label-collision';
 
 // Cesium's GeoJsonDataSource hardcodes arcType = ArcType.RHUMB for every polygon/
 // polyline it creates. Rhumb lines spiral without bound near the poles, so any
@@ -83,6 +84,15 @@ function setSafeProperty(graphics: any, propName: string, value: any): void {
     graphics[propName] = value;
 }
 
+/** `Color.withAlpha()` REPLACES the alpha channel — for a CSS color like `rgba(128,128,128,0)`
+ *  (intentionally fully transparent), calling `.withAlpha(fillOpacity)` would discard that 0
+ *  and substitute fillOpacity instead, turning "transparent" into an opaque-ish fill. Multiply
+ *  the two instead, matching how MapLibre/OL/Leaflet combine a color's own alpha with the
+ *  paint `-opacity` property. */
+function withMultipliedAlpha(color: any, opacity: number): any {
+    return color.withAlpha(color.alpha * opacity);
+}
+
 /**
  * Assigns a solid color material without replacing the material property instance.
  * Assigning a raw Color wraps it in a NEW ColorMaterialProperty, which fires
@@ -94,7 +104,11 @@ function setSafeProperty(graphics: any, propName: string, value: any): void {
 function setColorMaterial(graphics: any, color: any): void {
     const Cesium = getCesium();
     const material = graphics.material;
-    if (Cesium && material instanceof Cesium.ColorMaterialProperty && material.color instanceof Cesium.ConstantProperty) {
+    // GeoJsonDataSource hands every polygon/polyline the SAME default ColorMaterialProperty
+    // instance when the feature has no per-feature "fill"/"stroke" simplestyle property, so
+    // mutating `.color` in place here would recolor every entity sharing that instance at
+    // once. Only mutate in place a material we ourselves previously created (tagged below).
+    if (Cesium && material?.__webmapxOwned && material instanceof Cesium.ColorMaterialProperty && material.color instanceof Cesium.ConstantProperty) {
         const julian = Cesium.JulianDate?.now?.() || new Cesium.JulianDate();
         const currentVal = material.color.getValue(julian);
         if (currentVal === color || (currentVal && typeof currentVal.equals === 'function' && currentVal.equals(color))) {
@@ -103,7 +117,9 @@ function setColorMaterial(graphics: any, color: any): void {
         material.color.setValue(color);
         return;
     }
-    graphics.material = color;
+    const owned = new Cesium.ColorMaterialProperty(color);
+    (owned as any).__webmapxOwned = true;
+    graphics.material = owned;
 }
 
 function getMinZoom(source: Partial<{ minzoom?: number; minZoom?: number }>): number | undefined {
@@ -121,11 +137,19 @@ function normalizeLevel(value?: number): number | undefined {
     return Math.max(0, Math.floor(value));
 }
 
+// Standard WMS GetMap params — Cesium.WebMapServiceImageryProvider sets these itself (via its
+// own `layers`/`parameters` options merged onto the url's existing query string), so they need
+// to come out here. Anything else (QGIS Server's `map=`, `dpi=`, etc.) must stay, or every
+// request against that server breaks — matches layer-discovery.ts's STANDARD_WMS_PARAMS.
+const STANDARD_WMS_PARAMS = ['service', 'request', 'version', 'layers', 'styles', 'format', 'transparent', 'crs', 'srs', 'width', 'height', 'bbox'];
+
 function parseWmsUrl(url: string): { baseUrl: string; layers: string } {
     try {
         const u = new URL(url, window.location.origin);
-        const layers = u.searchParams.get('layers') ?? '';
-        u.search = '';
+        const layers = u.searchParams.get('layers') ?? u.searchParams.get('LAYERS') ?? '';
+        for (const key of [...u.searchParams.keys()]) {
+            if (STANDARD_WMS_PARAMS.includes(key.toLowerCase())) u.searchParams.delete(key);
+        }
         return { baseUrl: u.toString(), layers };
     } catch {
         const [base, query] = url.split('?', 2);
@@ -151,6 +175,12 @@ export class MapLayerService implements ILayerService {
         private readonly store: MapStateStore
     ) {
         this.applyGeoJsonStylesThrottled = throttle(() => this.applyAllGeoJsonStyles(), 100);
+
+        setupLabelCollision(this.viewer, () =>
+            Array.from(this.handles.values())
+                .filter((h): h is Extract<typeof h, { kind: 'geojson' }> => h.kind === 'geojson')
+                .map((h) => h.dataSource)
+        );
 
         this.viewer?.scene?.globe?.tileLoadProgressEvent?.addEventListener?.((pendingTiles: number) => {
             if (pendingTiles > 0) {
@@ -294,9 +324,15 @@ export class MapLayerService implements ILayerService {
             const minLevel = normalizeLevel(getMinZoom(wms));
             const maxLevel = normalizeLevel(getMaxZoom(wms)) ?? 22;
             // Do NOT pass minimumLevel — see XYZ branch above for explanation.
+            // WebMapServiceImageryProvider defaults to a GeographicTilingScheme (EPSG:4326)
+            // unless told otherwise. Every other engine (and the WMS backend's own project
+            // config) requests EPSG:3857 — an unrequested EPSG:4326 request can come back
+            // blank/mis-scaled even though it "succeeds" (e.g. scale-based layer visibility
+            // rules in the server project keyed to Web Mercator scale denominators).
             const provider = new Cesium.WebMapServiceImageryProvider({
                 url: baseUrl, layers: wms.layers ?? layers,
-                parameters: { transparent: wms.transparent ?? true, format: wms.format ?? 'image/png', styles: wms.styles ?? '', version: wms.version ?? '1.1.1' },
+                parameters: { transparent: wms.transparent ?? true, format: wms.format ?? 'image/png', styles: wms.styles ?? '', version: wms.version ?? '1.1.1', crs: 'EPSG:3857' },
+                tilingScheme: new Cesium.WebMercatorTilingScheme(),
                 maximumLevel: maxLevel, credit: wms.attribution ?? '',
             });
             this.enforceMaxLevel(provider, maxLevel);
@@ -666,6 +702,11 @@ export class MapLayerService implements ILayerService {
         return evaluateColor(expression, this.entityToFeature(entity), zoom, fallback);
     }
 
+    private resolveString(entity: any, expression: unknown, fallback: string): string {
+        const zoom = this.store.getState().zoomLevel ?? 0;
+        return evaluateString(expression, this.entityToFeature(entity), zoom, fallback);
+    }
+
     private applyGeoJsonStyles(dataSource: any, subLayers: SubLayerSpec[], clampToGround = true, opacityFactor = 1): void {
         const Cesium = getCesium();
         if (!Cesium) return;
@@ -673,17 +714,15 @@ export class MapLayerService implements ILayerService {
         const circle = subLayers.find(l => l.type === 'circle') as any;
         const line = subLayers.find(l => l.type === 'line') as any;
         const fill = subLayers.find(l => l.type === 'fill') as any;
+        const symbol = subLayers.find(l => l.type === 'symbol') as any;
+        const symbolLayout = symbol?.layout ?? {};
+        const symbolPaint = symbol?.paint ?? {};
 
         const circlePaint = circle?.paint ?? {};
         const linePaint = line?.paint ?? {};
         const fillPaint = fill?.paint ?? {};
 
-        const zoom = this.store.getState().zoomLevel ?? 0;
-        const emptyFeature = { properties: {} };
-        const lineColor = evaluateColor(linePaint['line-color'], emptyFeature, zoom, '#3388ff');
-        const lineWidth = evaluateNumber(linePaint['line-width'], emptyFeature, zoom, 2);
-        const fillColor = evaluateColor(fillPaint['fill-color'], emptyFeature, zoom, '#3388ff');
-        const fillOpacity = evaluateNumber(fillPaint['fill-opacity'], emptyFeature, zoom, 0.2);
+        const DEFAULT_LINE_COLOR = '#3388ff';
 
         const entities = dataSource.entities?.values ?? [];
         for (const entity of entities) {
@@ -718,7 +757,7 @@ export class MapLayerService implements ILayerService {
                     const circleRadius = this.resolveNumber(entity, circlePaint['circle-radius'], 6);
                     const circleColor = this.resolveColor(entity, circlePaint['circle-color'], '#FF5722');
                     const circleOpacity = this.resolveNumber(entity, circlePaint['circle-opacity'], 1.0);
-                    const circleStrokeColor = this.resolveColor(entity, circlePaint['circle-stroke-color'], lineColor);
+                    const circleStrokeColor = this.resolveColor(entity, circlePaint['circle-stroke-color'], this.resolveColor(entity, linePaint['line-color'], DEFAULT_LINE_COLOR));
                     const circleStrokeWidth = this.resolveNumber(entity, circlePaint['circle-stroke-width'], 1);
 
                     const carto = Cesium.Ellipsoid.WGS84.cartesianToCartographic(position);
@@ -731,7 +770,7 @@ export class MapLayerService implements ILayerService {
                     }
                     setSafeProperty(entity.ellipse, 'semiMajorAxis', radiusMeters);
                     setSafeProperty(entity.ellipse, 'semiMinorAxis', radiusMeters);
-                    setColorMaterial(entity.ellipse, Cesium.Color.fromCssColorString(circleColor).withAlpha(circleOpacity * opacityFactor));
+                    setColorMaterial(entity.ellipse, withMultipliedAlpha(Cesium.Color.fromCssColorString(circleColor), circleOpacity * opacityFactor));
                     setSafeProperty(entity.ellipse, 'outline', false); // outlines on terrain require explicit height; use polyline ring instead
                     setSafeProperty(entity.ellipse, 'height', 0); // prevent heightReference warning
 
@@ -763,7 +802,7 @@ export class MapLayerService implements ILayerService {
                         entity.polyline.positions = ringPositions;
                     }
                     setSafeProperty(entity.polyline, 'width', Math.max(1, circleStrokeWidth));
-                    setColorMaterial(entity.polyline, Cesium.Color.fromCssColorString(circleStrokeColor).withAlpha(opacityFactor));
+                    setColorMaterial(entity.polyline, withMultipliedAlpha(Cesium.Color.fromCssColorString(circleStrokeColor), opacityFactor));
                     if ('clampToGround' in entity.polyline) {
                         setSafeProperty(entity.polyline, 'clampToGround', true);
                     }
@@ -776,15 +815,54 @@ export class MapLayerService implements ILayerService {
                     entity.point = undefined;
                 }
             }
+            if (symbol && pointLikeEntity) {
+                const symbolMatches = this.matchesStyleFilter(entity, symbol.filter);
+                if (symbolMatches) {
+                    const text = this.resolveString(entity, symbolLayout['text-field'], '');
+                    if (text) {
+                        const textColor = this.resolveColor(entity, symbolPaint['text-color'], '#000000');
+                        const haloColor = this.resolveColor(entity, symbolPaint['text-halo-color'], '#ffffff');
+                        const haloWidth = this.resolveNumber(entity, symbolPaint['text-halo-width'], 0);
+                        const fontSize = this.resolveNumber(entity, symbolLayout['text-size'], 12);
+                        if (!entity.label) {
+                            entity.label = new Cesium.LabelGraphics();
+                        }
+                        setSafeProperty(entity.label, 'text', text);
+                        setSafeProperty(entity.label, 'font', `${fontSize}px sans-serif`);
+                        setSafeProperty(entity.label, 'fillColor', Cesium.Color.fromCssColorString(textColor));
+                        setSafeProperty(entity.label, 'style', Cesium.LabelStyle.FILL_AND_OUTLINE);
+                        setSafeProperty(entity.label, 'outlineColor', Cesium.Color.fromCssColorString(haloColor));
+                        setSafeProperty(entity.label, 'outlineWidth', Math.max(1, haloWidth * 2));
+                        setSafeProperty(entity.label, 'verticalOrigin', Cesium.VerticalOrigin.CENTER);
+                        setSafeProperty(entity.label, 'horizontalOrigin', Cesium.HorizontalOrigin.CENTER);
+                        setSafeProperty(entity.label, 'disableDepthTestDistance', Number.POSITIVE_INFINITY);
+                        if (Cesium.HeightReference?.CLAMP_TO_GROUND && 'heightReference' in entity.label) {
+                            setSafeProperty(entity.label, 'heightReference', Cesium.HeightReference.CLAMP_TO_GROUND);
+                        }
+                        entity._webmapxSortKey = this.resolveNumber(entity, symbolLayout['symbol-sort-key'], 0);
+                    }
+                }
+                // MapLibre `symbol` layers show only text, not the default GeoJsonDataSource pin/point marker.
+                if (!circle) {
+                    entity.billboard = undefined;
+                    entity.point = undefined;
+                    entity.ellipse = undefined;
+                }
+            }
             if (entity.polyline && line && lineMatches) {
-                setColorMaterial(entity.polyline, Cesium.Color.fromCssColorString(lineColor).withAlpha(opacityFactor));
+                const lineColor = this.resolveColor(entity, linePaint['line-color'], DEFAULT_LINE_COLOR);
+                const lineWidth = this.resolveNumber(entity, linePaint['line-width'], 2);
+                setColorMaterial(entity.polyline, withMultipliedAlpha(Cesium.Color.fromCssColorString(lineColor), opacityFactor));
                 setSafeProperty(entity.polyline, 'width', lineWidth);
                 setSafeProperty(entity.polyline, 'clampToGround', clampToGround);
             }
             if (entity.polygon && fill && fillMatches) {
-                setColorMaterial(entity.polygon, Cesium.Color.fromCssColorString(fillColor).withAlpha(fillOpacity * opacityFactor));
+                const fillColor = this.resolveColor(entity, fillPaint['fill-color'], DEFAULT_LINE_COLOR);
+                const fillOpacity = this.resolveNumber(entity, fillPaint['fill-opacity'], 0.2);
+                const outlineColorStr = this.resolveColor(entity, fillPaint['fill-outline-color'] ?? linePaint['line-color'], DEFAULT_LINE_COLOR);
+                setColorMaterial(entity.polygon, withMultipliedAlpha(Cesium.Color.fromCssColorString(fillColor), fillOpacity * opacityFactor));
                 setSafeProperty(entity.polygon, 'outline', true);
-                const outlineColor = Cesium.Color.fromCssColorString(lineColor).withAlpha(opacityFactor);
+                const outlineColor = withMultipliedAlpha(Cesium.Color.fromCssColorString(outlineColorStr), opacityFactor);
                 if (entity.polygon.outlineColor instanceof Cesium.ConstantProperty) {
                     const julian = Cesium.JulianDate?.now?.() || new Cesium.JulianDate();
                     const currentVal = entity.polygon.outlineColor.getValue(julian);
@@ -795,6 +873,9 @@ export class MapLayerService implements ILayerService {
                     entity.polygon.outlineColor = outlineColor;
                 }
             }
+        }
+        if (symbol) {
+            updateLabelCollision(this.viewer);
         }
     }
 

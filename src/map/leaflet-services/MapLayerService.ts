@@ -125,6 +125,18 @@ export class MapLayerService implements ILayerService {
         // Leaflet has no removePane API; drop the registry entry so the name can be reused.
         const panes = (this.map as any)._panes;
         if (panes) delete panes[paneName];
+        // Leaflet also caches a per-pane SVG/Canvas renderer in the private `_paneRenderers`
+        // map (Map.getRenderer/_getPaneRenderer), keyed by pane name and reused across
+        // L.geoJSON layers using `{ pane: paneName }`. Its `_container` is a child of the pane
+        // DOM node we just removed — if we don't evict it too, re-creating a pane with the
+        // same (reused) name later makes new vector layers render into that stale, detached
+        // renderer instead of a fresh one, so they never appear.
+        const paneRenderers = (this.map as any)._paneRenderers;
+        const staleRenderer = paneRenderers?.[paneName];
+        if (staleRenderer) {
+            this.map.removeLayer(staleRenderer);
+            delete paneRenderers[paneName];
+        }
         this.layerPanes.delete(layerId);
     }
 
@@ -272,7 +284,7 @@ export class MapLayerService implements ILayerService {
                 this.removePaneIfUntracked(layerId);
                 return false;
             }
-            const specs = LeafletLayerFactory.createGeoJSONLayer(layerId, sourceConfig, data, subLayers, pane);
+            const specs = LeafletLayerFactory.createGeoJSONLayer(layerId, sourceConfig, data, subLayers, pane, this.map);
             for (const spec of specs) {
                 if (!this.nativeLayerInstances.has(spec.id)) {
                     spec.layer.addTo(this.map);
@@ -344,7 +356,7 @@ export class MapLayerService implements ILayerService {
             } else if (sourceConfig.type === 'geojson') {
                 const data = await this.fetchGeoJSON(sourceConfig as GeoJSONSourceConfig);
                 if (!data) continue;
-                const specs = LeafletLayerFactory.createGeoJSONLayer(layerId, sourceConfig, data, layers, pane);
+                const specs = LeafletLayerFactory.createGeoJSONLayer(layerId, sourceConfig, data, layers, pane, this.map);
                 for (const layerSpec of specs) {
                     if (!this.nativeLayerInstances.has(layerSpec.id)) {
                         layerSpec.layer.addTo(this.map);

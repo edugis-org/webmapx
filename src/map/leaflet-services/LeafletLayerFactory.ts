@@ -3,6 +3,7 @@
 import * as L from 'leaflet';
 import type { AnyLayerConfig, StandardLayerConfig, SourceConfig, WMSSourceConfig, SubLayerSpec } from '../../config/types';
 import { evaluateColor, evaluateNumber, evaluateString, matchesFilter } from '../../utils/maplibre-expression-evaluator';
+import { setupLabelCollision } from './label-collision';
 
 if (typeof document !== 'undefined' && typeof document.getElementById === 'function' && !document.getElementById('webmapx-symbol-label-style')) {
     const style = document.createElement('style');
@@ -62,8 +63,36 @@ export class LeafletLayerFactory {
         if (sourceConfig.type !== 'raster' || sourceConfig.service !== 'wms') return null;
         const wmsConfig = sourceConfig as WMSSourceConfig;
         const baseUrl = Array.isArray(wmsConfig.url) ? wmsConfig.url[0] : wmsConfig.url;
+
+        // Discovered/ad-hoc WMS layers (layer-discovery.ts) hand us an already-complete GetMap
+        // URL template (built for MapLibre, with a literal `{bbox-epsg-3857}` placeholder baked
+        // into its query string) rather than a bare WMS endpoint. Feeding that into
+        // `L.tileLayer.wms` is wrong on two counts: it re-derives its own LAYERS/etc params
+        // (redundant, already handled below) AND its `getTileUrl` runs the whole url through
+        // Leaflet's generic `{s}/{x}/{y}/{z}` template substitution, which throws
+        // "No value provided for variable {bbox-epsg-3857}" on the unrecognized token. Treat it
+        // as an already-built template instead, same as the XYZ path's `BboxTileLayer`.
+        if (baseUrl.includes('{bbox-epsg-3857}')) {
+            const layer = new BboxTileLayer(baseUrl, {
+                attribution: wmsConfig.attribution,
+                minZoom: wmsConfig.minzoom,
+                maxNativeZoom: wmsConfig.maxzoom,
+                ...(pane ? { pane } : {}),
+            });
+            return { id: `${layerId}-raster-wms`, type: 'raster', layer };
+        }
+
+        // Some configs bake LAYERS (and other GetMap params) into the base url's query string
+        // instead of setting an explicit `layers` field. L.tileLayer.wms always appends its own
+        // LAYERS param, which would duplicate/override the baked-in one with an empty value.
+        const urlLayers = (() => {
+            const q = baseUrl.split('?')[1];
+            if (!q) return undefined;
+            const match = new URLSearchParams(q).get('layers') ?? new URLSearchParams(q).get('LAYERS');
+            return match ?? undefined;
+        })();
         const layer = L.tileLayer.wms(baseUrl, {
-            layers: wmsConfig.layers || '',
+            layers: wmsConfig.layers || urlLayers || '',
             styles: wmsConfig.styles || '',
             format: wmsConfig.format || 'image/png',
             transparent: wmsConfig.transparent ?? true,
@@ -83,6 +112,7 @@ export class LeafletLayerFactory {
         data: GeoJSON.FeatureCollection | GeoJSON.Feature,
         subLayers: SubLayerSpec[],
         pane?: string,
+        map?: L.Map,
     ): LeafletLayerSpec[] {
         const specs: LeafletLayerSpec[] = [];
         const paneOption = pane ? { pane } : {};
@@ -106,7 +136,10 @@ export class LeafletLayerFactory {
                         });
                     }
                     if (style.type === 'symbol') {
-                        return L.marker(latlng, { icon: LeafletLayerFactory.createTextLabelIcon(style, feature), interactive: false, ...paneOption });
+                        const marker = L.marker(latlng, { icon: LeafletLayerFactory.createTextLabelIcon(style, feature), interactive: false, ...paneOption });
+                        const sortKey = evaluateNumber((style.layout as any)?.['symbol-sort-key'], feature ?? { properties: {} }, 0, 0);
+                        (marker as any)._webmapxSortKey = sortKey;
+                        return marker;
                     }
                     return L.marker(latlng, { opacity: 0, interactive: false, ...paneOption });
                 },
@@ -116,6 +149,10 @@ export class LeafletLayerFactory {
             });
             const specId = style.id ? `${logicalLayerId}-${style.id}` : `${logicalLayerId}-${style.type}-${specs.length}`;
             specs.push({ id: specId, type: 'geojson', layer });
+
+            if (style.type === 'symbol' && map) {
+                setupLabelCollision(layer, map);
+            }
         }
 
         return specs;

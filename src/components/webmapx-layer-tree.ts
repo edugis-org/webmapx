@@ -919,7 +919,14 @@ export class WebmapxLayerTree extends LitElement {
                         const originalUrl = Array.isArray(source.url) ? source.url[0] : source.url;
                         const qIdx = (originalUrl as string).indexOf('?');
                         const search = qIdx >= 0 ? (originalUrl as string).slice(qIdx) : '';
-                        source.url = tilecacheUrls.map((u: string) => u + search);
+                        const rewritten = tilecacheUrls.map((u: string) => u + search);
+                        source.url = rewritten;
+                        // rasterTilesSource() sets `tiles` to the SAME array as `url` (MapLibre's
+                        // WMS branch reads `tiles`, other engines read `url`) — reassigning only
+                        // `.url` above left `.tiles` pointing at the original, un-rewritten array,
+                        // so MapLibre kept hitting the raw WMS endpoint while every other engine
+                        // correctly used the tile cache.
+                        if (source.tiles) source.tiles = rewritten;
                     }
 
                     return {

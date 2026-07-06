@@ -20,10 +20,25 @@ const numberSpec: any = { type: 'number', 'property-type': 'data-driven', transi
 const booleanSpec: any = { type: 'boolean', 'property-type': 'data-driven', transition: false, overridable: false, expression: { interpolated: false, parameters: ['zoom', 'feature'] } };
 const stringSpec: any = { type: 'string', 'property-type': 'data-driven', transition: false, overridable: false, expression: { interpolated: false, parameters: ['zoom', 'feature'] } };
 
+// createExpression()/featureFilter() parse and validate the whole expression tree, which is
+// too expensive to redo for every single feature (data-driven paint properties get evaluated
+// once per entity/feature — large layers have tens of thousands of them). Cache the compiled
+// result per expression array (by reference — callers always pass the same paint/layout
+// array instance for a given style layer) so repeated evaluate() calls are cheap.
+const colorExprCache = new WeakMap<object, ReturnType<typeof createExpression>>();
+const numberExprCache = new WeakMap<object, ReturnType<typeof createExpression>>();
+const booleanExprCache = new WeakMap<object, ReturnType<typeof createExpression>>();
+const stringExprCache = new WeakMap<object, ReturnType<typeof createExpression>>();
+const filterCache = new WeakMap<object, ReturnType<typeof featureFilter>>();
+
 function evaluateColor(expression: unknown, feature: FeatureLike, zoom: number, fallback: string): string {
     if (typeof expression === 'string') return expression;
     if (!Array.isArray(expression)) return fallback;
-    const result = createExpression(expression as any, colorSpec);
+    let result = colorExprCache.get(expression);
+    if (!result) {
+        result = createExpression(expression as any, colorSpec);
+        colorExprCache.set(expression, result);
+    }
     if (result.result !== 'success') return fallback;
     try {
         const origWarn = console.warn;
@@ -41,7 +56,11 @@ function evaluateColor(expression: unknown, feature: FeatureLike, zoom: number, 
 function evaluateNumber(expression: unknown, feature: FeatureLike, zoom: number, fallback: number): number {
     if (typeof expression === 'number') return expression;
     if (!Array.isArray(expression)) return fallback;
-    const result = createExpression(expression as any, numberSpec);
+    let result = numberExprCache.get(expression);
+    if (!result) {
+        result = createExpression(expression as any, numberSpec);
+        numberExprCache.set(expression, result);
+    }
     if (result.result !== 'success') return fallback;
     try {
         const val = result.value.evaluate({ zoom }, makeEvalFeature(feature));
@@ -54,7 +73,11 @@ function evaluateNumber(expression: unknown, feature: FeatureLike, zoom: number,
 function evaluateBoolean(expression: unknown, feature: FeatureLike, zoom: number, fallback: boolean): boolean {
     if (typeof expression === 'boolean') return expression;
     if (!Array.isArray(expression)) return fallback;
-    const result = createExpression(expression as any, booleanSpec);
+    let result = booleanExprCache.get(expression);
+    if (!result) {
+        result = createExpression(expression as any, booleanSpec);
+        booleanExprCache.set(expression, result);
+    }
     if (result.result !== 'success') return fallback;
     try {
         return Boolean(result.value.evaluate({ zoom }, makeEvalFeature(feature)));
@@ -63,10 +86,24 @@ function evaluateBoolean(expression: unknown, feature: FeatureLike, zoom: number
     }
 }
 
+/** Legacy mapbox-gl "token" syntax, e.g. `"{NamenNL}"`. MapLibre GL JS resolves these natively
+ *  at render time (`resolveTokens`); our own evaluator must do the same since it evaluates
+ *  text-field independently of the real MapLibre renderer. */
+function resolveTokens(template: string, feature: FeatureLike): string {
+    return template.replace(/\{([^{}]+)\}/g, (match, key) => {
+        const val = feature.properties?.[key];
+        return val == null ? '' : String(val);
+    });
+}
+
 function evaluateString(expression: unknown, feature: FeatureLike, zoom: number, fallback: string): string {
-    if (typeof expression === 'string') return expression;
+    if (typeof expression === 'string') return /\{[^{}]+\}/.test(expression) ? resolveTokens(expression, feature) : expression;
     if (!Array.isArray(expression)) return fallback;
-    const result = createExpression(expression as any, stringSpec);
+    let result = stringExprCache.get(expression);
+    if (!result) {
+        result = createExpression(expression as any, stringSpec);
+        stringExprCache.set(expression, result);
+    }
     if (result.result !== 'success') return fallback;
     try {
         const val = result.value.evaluate({ zoom }, makeEvalFeature(feature));
@@ -98,7 +135,11 @@ function matchesFilter(expression: unknown, feature: FeatureLike, zoom = 0): boo
 
     // Use featureFilter for legacy filters (handles $type, $id correctly)
     try {
-        const compiled = featureFilter(expression as any);
+        let compiled = filterCache.get(expression);
+        if (!compiled) {
+            compiled = featureFilter(expression as any);
+            filterCache.set(expression, compiled);
+        }
         // featureFilter expects type to be the geometry type, not "Feature"
         // Normalize Multi* types to base types (MapLibre does this for $type filters)
         const filterFeature: MapLibreFeature = {
