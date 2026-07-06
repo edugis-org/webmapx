@@ -2,7 +2,7 @@
 
 Config-driven web map UI with adapters for MapLibre, OpenLayers, Leaflet, and Cesium.
 
-**[Live demo](https://edugis-org.github.io/webmapx/)**
+**[Live demo](https://webmapx.com/)**
 
 <!-- TODO: add screenshot of map with toolbar, legend, and tools visible -->
 
