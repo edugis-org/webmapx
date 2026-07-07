@@ -307,13 +307,13 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             bubbles: true, composed: true
         }));
         this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
-            detail: { id: LINES_LAYER_ID, type: 'line', source: STATIC_SOURCE_ID, metadata: { hideFromLegend: true, label: 'Measure lines' }, filter: ['==', ['get', 'type'], 'line'], paint: { 'line-color': '#ff8c00', 'line-width': 2 } },
+            detail: { id: LINES_LAYER_ID, type: 'line', source: STATIC_SOURCE_ID, metadata: { hideFromLegend: true, label: 'Measure lines' }, filter: ['==', ['get', 'type'], 'line'], paint: { 'line-color': '#0f62fe', 'line-width': 2 } },
             bubbles: true, composed: true
         }));
 
         // Add rubber-band line before points so point circles remain visually on top.
         this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
-            detail: { id: RUBBERBAND_LAYER_ID, type: 'line', source: RUBBERBAND_SOURCE_ID, metadata: { hideFromLegend: true, label: 'Measure rubberband' }, paint: { 'line-color': '#ff8c00', 'line-width': 2, 'line-dasharray': [4, 4] } },
+            detail: { id: RUBBERBAND_LAYER_ID, type: 'line', source: RUBBERBAND_SOURCE_ID, metadata: { hideFromLegend: true, label: 'Measure rubberband' }, paint: { 'line-color': '#0f62fe', 'line-width': 2, 'line-dasharray': [4, 4] } },
             bubbles: true, composed: true
         }));
 
