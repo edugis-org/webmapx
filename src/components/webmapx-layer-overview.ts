@@ -510,30 +510,32 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     return html`
       <section class="section">
         <h3 class="section-title">${title}</h3>
-        ${isOverviewSection && items.length > 0
+        ${isOverviewSection
           ? html`
               <div class="save-layers-row">
-                <sl-tooltip content="Show all layers">
-                  <sl-icon-button
-                    name="eye"
-                    label="Show all layers"
-                    @click=${() => this.handleShowAllLayers()}
-                  ></sl-icon-button>
-                </sl-tooltip>
-                <sl-tooltip content="Hide all layers">
-                  <sl-icon-button
-                    name="eye-slash"
-                    label="Hide all layers"
-                    @click=${() => this.handleHideAllLayers()}
-                  ></sl-icon-button>
-                </sl-tooltip>
-                <sl-tooltip content="Clear all layers">
-                  <sl-icon-button
-                    name="trash"
-                    label="Clear all layers"
-                    @click=${() => this.handleClearAllLayers()}
-                  ></sl-icon-button>
-                </sl-tooltip>
+                ${items.length > 0 ? html`
+                  <sl-tooltip content="Show all layers">
+                    <sl-icon-button
+                      name="eye"
+                      label="Show all layers"
+                      @click=${() => this.handleShowAllLayers()}
+                    ></sl-icon-button>
+                  </sl-tooltip>
+                  <sl-tooltip content="Hide all layers">
+                    <sl-icon-button
+                      name="eye-slash"
+                      label="Hide all layers"
+                      @click=${() => this.handleHideAllLayers()}
+                    ></sl-icon-button>
+                  </sl-tooltip>
+                  <sl-tooltip content="Clear all layers">
+                    <sl-icon-button
+                      name="trash"
+                      label="Clear all layers"
+                      @click=${() => this.handleClearAllLayers()}
+                    ></sl-icon-button>
+                  </sl-tooltip>
+                ` : null}
                 <sl-tooltip content="Permalink">
                   <sl-icon-button
                     name="link-45deg"
@@ -541,13 +543,15 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                     @click=${() => this.handlePermalink()}
                   ></sl-icon-button>
                 </sl-tooltip>
-                <sl-tooltip content="Save layer(s)…">
-                  <sl-icon-button
-                    name="download"
-                    label="Save layer(s)…"
-                    @click=${() => this.handleSaveLayers()}
-                  ></sl-icon-button>
-                </sl-tooltip>
+                ${items.length > 0 ? html`
+                  <sl-tooltip content="Save layer(s)…">
+                    <sl-icon-button
+                      name="download"
+                      label="Save layer(s)…"
+                      @click=${() => this.handleSaveLayers()}
+                    ></sl-icon-button>
+                  </sl-tooltip>
+                ` : null}
               </div>
             `
           : null}
