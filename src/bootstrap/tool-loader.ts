@@ -1,8 +1,11 @@
-// Types already included in webmapx-core-bundle — no separate import needed.
+// Types already included in webmapx-core-bundle — no separate import needed. Includes both
+// the toolbar-item "type" spelling (scaleControl, attributionControl) and the standalone
+// config-section spelling (scale, attribution) — dynamic-layout.ts's STANDALONE_TAGS keys
+// standalone tools by their config section name, which doesn't always match the type string.
 const BUNDLED_TOOL_TYPES = new Set([
   'layerTree', 'layerOverview', 'toolbox', 'spacer',
-  'navigation', 'fullscreen', 'scaleControl', 'zoomLevel',
-  'attributionControl', 'spinner', 'insetMap', 'active-adapter', 'activeAdapter',
+  'navigation', 'fullscreen', 'scaleControl', 'scale', 'zoomLevel',
+  'attributionControl', 'attribution', 'spinner', 'insetMap', 'active-adapter', 'activeAdapter',
 ]);
 
 const TOOL_MAP: Record<string, () => Promise<unknown>> = {
