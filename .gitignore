@@ -3,6 +3,8 @@ dist/
 .claude/
 .codex
 .agents/
+.crush/
+skills-lock.json
 .vscode/
 public/cesium/
 public/styles/
