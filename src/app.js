@@ -27,34 +27,20 @@ import {
 import { peekMapState } from './map/map-state-persistence.ts';
 import { resolveInitOptions } from './bootstrap/resolve-init-options.ts';
 import { injectConfigEditTool } from './bootstrap/inject-config-edit-tool.ts';
+import { observeToolElements } from './bootstrap/tool-loader.ts';
 
-// 2. Register your custom Web Components
-import './components/webmapx-map.ts';
-import './components/webmapx-tool-template.ts';
-import './components/webmapx-zoom-level.ts';
-import './components/webmapx-layout.ts';
-import './components/webmapx-inset-map.ts';
-import './components/webmapx-search-tool.ts';
-import './components/webmapx-toolbar.ts';
-import './components/webmapx-control-group.ts';
-import './components/webmapx-tool-panel.ts';
-import './components/webmapx-layer-tree.ts';
-import './components/webmapx-layer-overview.ts';
-import './components/webmapx-settings.ts';
-import './components/webmapx-coordinates-tool.ts';
-import './components/webmapx-spinner.ts';
-import './components/webmapx-measure-tool.ts';
-import './components/webmapx-info-tool.ts';
-import './components/webmapx-draw-tool.ts';
-import './components/webmapx-geolocation-tool.ts';
-import './components/webmapx-import-layer-tool.ts';
-import './components/webmapx-scale-control.ts';
-import './components/webmapx-navigation-control.ts';
-import './components/webmapx-fullscreen-control.ts';
-import './components/webmapx-attribution-control.ts';
-import './components/webmapx-language-osmvector.ts';
-import './components/webmapx-print-tool.ts';
-import './components/webmapx-toolbox-tool.ts';
+// 2. Register the core framework components (map, layout, toolbar, ...) — always needed.
+// Tool-specific components (measure, draw, buffer, ...) are loaded lazily, the moment their
+// custom element actually appears in the DOM — see observeToolElements() below. A tool only
+// needs to be added to tool-loader.ts's TOOL_MAP to work everywhere, instead of also needing
+// a static import here that's easy to forget (see: buffer/routing/isochrone tools shipping
+// without one).
+import './bootstrap/webmapx-core-bundle.ts';
+
+// Starts watching the whole document for any webmapx-* tool element and lazily loads its
+// module on first sight — covers config-driven toolbar tools AND tools used standalone
+// outside any config (e.g. this page's "External Tools" column below, or a future plugin).
+observeToolElements();
 
 function installMobileAddressBarNudge() {
     const mobileLikeViewport = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
@@ -272,8 +258,3 @@ async function initializeMap(mapElement, appConfig, mapIndex = 0) {
         await injectConfigEditTool(mapElement);
     }
 }
-
-import './components/webmapx-view-mode-tool.ts';
-import './components/webmapx-3d-tool.ts';
-import './components/webmapx-truearea-tool.ts';
-import './components/webmapx-active-adapter.ts';

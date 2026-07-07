@@ -27,6 +27,13 @@ async function screenshot(page, name) {
 
 /** Create a draw layer with rich attribute schema and draw one point feature. */
 async function setupDrawLayer(page) {
+    // Toolbar buttons exist once the config is applied, but the tool component behind them
+    // loads lazily — wait for it rather than assuming map-ready implies toolbar-fully-built.
+    await page.waitForFunction(() => {
+        return Boolean(document.querySelector('webmapx-toolbar sl-button[name="draw"]'))
+            && customElements.get('webmapx-draw-tool') !== undefined;
+    }, undefined, { timeout: 15_000 });
+
     // Activate draw tool
     await page.evaluate(() => {
         const btn = document.querySelector('webmapx-toolbar sl-button[name="draw"]');

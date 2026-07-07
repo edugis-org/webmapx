@@ -1,5 +1,5 @@
 import { loadEngine } from './engine-loader.js';
-import { loadTools } from './tool-loader.js';
+import { loadTools, extractToolIds } from './tool-loader.js';
 import { loadPlugins } from './plugin-loader.js';
 import { initI18n } from '../i18n/i18n.js';
 import { loadLocale } from './locale-loader.js';
@@ -18,27 +18,6 @@ const SHOELACE_VERSION = '2';
 const SHOELACE_CDN = `https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@${SHOELACE_VERSION}/cdn/`;
 
 const BLANK_STYLE = { version: 8 as const, sources: {}, layers: [] };
-
-function extractToolIds(tools: Record<string, unknown> | undefined): string[] {
-  if (!tools) return [];
-  const ids: string[] = [];
-  for (const [key, value] of Object.entries(tools)) {
-    if (!value || typeof value !== 'object') continue;
-    const cfg = value as Record<string, unknown>;
-    if (cfg.type === 'toolbar' && Array.isArray(cfg.items)) {
-      for (const item of cfg.items) {
-        if (item && typeof item === 'object' && typeof (item as Record<string, unknown>).type === 'string') {
-          ids.push((item as Record<string, unknown>).type as string);
-        }
-      }
-    } else if (typeof cfg.type === 'string') {
-      ids.push(cfg.type as string);
-    } else {
-      ids.push(key);
-    }
-  }
-  return ids;
-}
 
 function toolArrayToConfig(tools: string[]): ToolsConfig {
   return {

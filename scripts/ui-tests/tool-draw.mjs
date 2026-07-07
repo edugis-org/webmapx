@@ -12,6 +12,13 @@ async function waitForMapReady(page) {
 }
 
 async function toggleDrawTool(page) {
+  // Toolbar buttons exist as soon as the config is applied, but the tool component behind
+  // them (webmapx-draw-tool) loads lazily based on config — wait for it to be registered
+  // rather than assuming "adapter ready" (waitForMapReady) implies "toolbar fully built".
+  await page.waitForFunction(() => {
+    return Boolean(document.querySelector('webmapx-toolbar sl-button[name="draw"]'))
+      && customElements.get('webmapx-draw-tool') !== undefined;
+  }, undefined, { timeout: 15_000 });
   await page.evaluate(() => {
     const drawButton = document.querySelector('webmapx-toolbar sl-button[name="draw"]');
     if (!drawButton) throw new Error('Draw toolbar button not found');

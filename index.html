@@ -110,7 +110,11 @@
             }
         });
 
-        trueAreaButton?.addEventListener('click', () => {
+        // Tool components load lazily (see observeToolElements() in app.js) — a click that
+        // lands before a tool's module has finished loading must wait for it to upgrade
+        // before calling any of its methods, otherwise the call silently no-ops on the
+        // not-yet-upgraded element and the click is lost.
+        trueAreaButton?.addEventListener('click', async () => {
             if (!trueAreaOutput) return;
             let tool = trueAreaOutput.querySelector('webmapx-truearea-tool');
             if (!tool) {
@@ -118,6 +122,7 @@
                 tool.setAttribute('map', '#map-container');
                 trueAreaOutput.appendChild(tool);
             }
+            await customElements.whenDefined('webmapx-truearea-tool');
             if (tool.active) {
                 tool.deactivate?.();
             } else {
@@ -126,7 +131,7 @@
             setTrueAreaLabel(tool.active);
         });
 
-        externalGeoButton?.addEventListener('click', () => {
+        externalGeoButton?.addEventListener('click', async () => {
             if (!externalGeoOutput || !externalToolsHost) return;
             let tool = externalToolsHost.querySelector('webmapx-geolocation-tool');
             if (!tool) {
@@ -135,6 +140,7 @@
                 tool.setAttribute('render-target', '#external-geolocation-output');
                 externalToolsHost.appendChild(tool);
             }
+            await customElements.whenDefined('webmapx-geolocation-tool');
             if (tool.active) {
                 tool.deactivate?.();
             } else {
@@ -143,7 +149,7 @@
             updateExternalLabelFromTool();
         });
 
-        externalLanguageButton?.addEventListener('click', () => {
+        externalLanguageButton?.addEventListener('click', async () => {
             if (!externalLanguageOutput || !externalLanguageHost) return;
             let tool = externalLanguageHost.querySelector('webmapx-language-osmvector');
             if (!tool) {
@@ -153,6 +159,7 @@
                 tool.setAttribute('render-target', '#external-language-output');
                 externalLanguageHost.appendChild(tool);
             }
+            await customElements.whenDefined('webmapx-language-osmvector');
             if (tool.active) {
                 tool.deactivate?.();
             } else {

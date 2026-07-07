@@ -24,7 +24,7 @@ interface ToolMetadata {
 
 type NormalizedToolIconConfig = Exclude<ToolIconConfig, string>;
 
-const TOOL_ELEMENT_TAGS: Record<string, string> = {
+export const TOOL_ELEMENT_TAGS: Record<string, string> = {
   layerTree: 'webmapx-layer-tree',
   search: 'webmapx-search-tool',
   measure: 'webmapx-measure-tool',
@@ -71,7 +71,7 @@ const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = {
   buffer: { label: 'Buffer', icon: { src: bufferIconUrl } },
 };
 
-const STANDALONE_TAGS: Record<string, string> = {
+export const STANDALONE_TAGS: Record<string, string> = {
   scale: 'webmapx-scale-control',
   attribution: 'webmapx-attribution-control',
   coordinates: 'webmapx-coordinates-tool',

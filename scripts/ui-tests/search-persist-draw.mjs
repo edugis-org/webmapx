@@ -22,6 +22,13 @@ async function waitForMapReady(page) {
 }
 
 async function openSearchTool(page) {
+  // Toolbar buttons exist once the config is applied, but the tool component behind them
+  // loads lazily — wait for it rather than assuming map-ready implies toolbar-fully-built.
+  await page.waitForFunction(() => {
+    return Boolean(document.querySelector('webmapx-toolbar sl-button[name="search"]'))
+      && customElements.get('webmapx-search-tool') !== undefined;
+  }, undefined, { timeout: 15_000 });
+
   await page.evaluate(() => {
     const searchButton = document.querySelector('webmapx-toolbar sl-button[name="search"]');
     if (!searchButton) throw new Error('Search toolbar button not found');
