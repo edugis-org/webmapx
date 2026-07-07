@@ -2,6 +2,7 @@ node_modules/
 dist/
 .claude/
 .codex
+.agents/
 .vscode/
 public/cesium/
 public/styles/
