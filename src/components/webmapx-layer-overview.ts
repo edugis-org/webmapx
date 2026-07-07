@@ -18,6 +18,9 @@ import { Webmapx3dTool } from './webmapx-3d-tool';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
+import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
+import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 
 /** Computes [west, south, east, north] from a GeoJSON FeatureCollection's coordinates. */
 function geojsonExtent(geojson: GeoJSON.FeatureCollection): [number, number, number, number] | null {
@@ -167,6 +170,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   @query('webmapx-layer-style-dialog') private styleDialog!: WebmapxLayerStyleDialog;
   @query('webmapx-save-layers-dialog') private saveLayersDialog!: WebmapxSaveLayersDialog;
   @query('webmapx-permalink-dialog') private permalinkDialog!: WebmapxPermalinkDialog;
+  @query('#clear-all-layers-dialog') private clearAllLayersDialog!: SlDialog;
   private unsubscribeLayerAdd: (() => void) | null = null;
   private unsubscribeLayerRemove: (() => void) | null = null;
 
@@ -494,6 +498,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       <webmapx-layer-style-dialog></webmapx-layer-style-dialog>
       <webmapx-save-layers-dialog></webmapx-save-layers-dialog>
       <webmapx-permalink-dialog></webmapx-permalink-dialog>
+      <sl-dialog id="clear-all-layers-dialog" label="Alle kaartlagen wissen">
+        <p>Dit wist alle kaartlagen uit 'actieve lagen'. Sla zelfgemaakte lagen eerst op. Je kunt bestaande lagen weer openen via de kaartlagen knop.</p>
+        <sl-button slot="footer" variant="default" @click=${() => this.clearAllLayersDialog.hide()}>Annuleren</sl-button>
+        <sl-button slot="footer" variant="danger" @click=${() => this.handleConfirmClearAllLayers()}>Wissen</sl-button>
+      </sl-dialog>
     `;
   }
 
@@ -601,6 +610,29 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         ${isOverviewSection
           ? html`
               <div class="save-layers-row">
+                ${items.length > 0 ? html`
+                  <sl-tooltip content="Show all layers">
+                    <sl-icon-button
+                      name="eye"
+                      label="Show all layers"
+                      @click=${() => this.handleShowAllLayers()}
+                    ></sl-icon-button>
+                  </sl-tooltip>
+                  <sl-tooltip content="Hide all layers">
+                    <sl-icon-button
+                      name="eye-slash"
+                      label="Hide all layers"
+                      @click=${() => this.handleHideAllLayers()}
+                    ></sl-icon-button>
+                  </sl-tooltip>
+                  <sl-tooltip content="Clear all layers">
+                    <sl-icon-button
+                      name="trash"
+                      label="Clear all layers"
+                      @click=${() => this.handleClearAllLayers()}
+                    ></sl-icon-button>
+                  </sl-tooltip>
+                ` : null}
                 <sl-tooltip content="Permalink">
                   <sl-icon-button
                     name="link-45deg"
@@ -1264,6 +1296,41 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     this.store.dispatch({
       mapLayers: { ...current.mapLayers, [layerId]: { ...entry, legendExpandMode: nextMode } },
     }, 'UI');
+  }
+
+  private setAllLayersVisibility(visible: boolean): void {
+    if (!this.adapter || !this.store) return;
+    const currentLayers = this.store.getState().mapLayers;
+    const updatedLayers = { ...currentLayers };
+    for (const item of this.overviewLayers) {
+      const entry = currentLayers[item.layerId];
+      if (!entry || entry.visible === visible) continue;
+      this.adapter.setLayerVisibility(item.layerId, visible);
+      updatedLayers[item.layerId] = { ...entry, visible };
+    }
+    this.store.dispatch({ mapLayers: updatedLayers }, 'UI');
+    this.applyVisibleLayers(this.store.getState());
+  }
+
+  private handleHideAllLayers(): void {
+    this.setAllLayersVisibility(false);
+  }
+
+  private handleShowAllLayers(): void {
+    this.setAllLayersVisibility(true);
+  }
+
+  private handleClearAllLayers(): void {
+    this.clearAllLayersDialog?.show();
+  }
+
+  private handleConfirmClearAllLayers(): void {
+    this.clearAllLayersDialog?.hide();
+    if (!this.adapter) return;
+    for (const item of this.overviewLayers) {
+      this.adapter.removeLayer(item.layerId);
+    }
+    this.applyVisibleLayers(this.adapter.store.getState());
   }
 
   private handleVisibilityToggle(layerId: string): void {
