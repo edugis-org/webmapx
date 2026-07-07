@@ -16,6 +16,7 @@ import './webmapx-draw-layer-dialog';
 import type { WebmapxDrawLayerDialog, DrawLayerConfig, GeometryType } from './webmapx-draw-layer-dialog';
 import { unregisterMapLayer } from '../map/map-layer-registry';
 import { flatVertices, flatEdges, findSnap } from '../utils/snap-utils';
+import { haversineDistanceCm, formatDistance, circlePolygonRing } from '../utils/geo-calculations';
 
 // ─── Shared source / layer IDs ────────────────────────────────────────────────
 
@@ -51,6 +52,8 @@ const SNAP_SOURCE_ID = 'webmapx-draw-snap-source';
 const SNAP_LAYER_ID  = 'webmapx-draw-snap-layer';
 const SNAP_THRESHOLD = 16; // px
 
+const MIN_CIRCLE_RADIUS_M = 1; // ignore drags that end up smaller than this (accidental clicks)
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type EditState = 'none' | 'selected' | 'editing';
@@ -75,7 +78,7 @@ interface MidpointHandle {
 
 type EditHandle = VertexHandle | MidpointHandle;
 
-export type DrawMode = 'select' | 'draw-point' | 'draw-line' | 'draw-polygon';
+export type DrawMode = 'select' | 'draw-point' | 'draw-line' | 'draw-polygon' | 'draw-circle';
 export type { DrawLayerConfig, GeometryType } from './webmapx-draw-layer-dialog';
 type DrawGeometryType = 'Point' | 'MultiPoint' | 'LineString' | 'MultiLineString' | 'Polygon' | 'MultiPolygon';
 
@@ -115,6 +118,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private draftPoints: LngLat[] = [];
     private draftRedoStack: LngLat[] = [];
     private cursorPos: LngLat | null = null;
+
+    /** Center + live radius of a circle being dragged out (draw-circle mode). */
+    private circleDraft: { center: LngLat; radiusM: number } | null = null;
 
     /** Active layer id per geometry type. */
     private activeLayerIds: Partial<Record<GeometryType, string>> = {};
@@ -348,6 +354,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             this.suspendDrawLayerFromMap(layer);
         }
         this.draftPoints = [];
+        this.circleDraft = null;
         this.cursorPos = null;
         this.snapPos = null;
         this.lastCursorPx = null;
@@ -833,6 +840,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private setModeInternal(mode: DrawMode): void {
+        if (this.circleDraft) {
+            this.circleDraft = null;
+            this.adapter?.setPanEnabled(true);
+        }
         this.mode = mode;
         this.draftPoints = [];
         this.cursorPos = null;
@@ -852,6 +863,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             case 'draw-point':
             case 'draw-line':
             case 'draw-polygon':
+            case 'draw-circle':
                 this.adapter?.setDoubleClickZoomEnabled(false);
                 this.editState = 'none';
                 this.editHandles = [];
@@ -862,6 +874,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 this.adapter?.setCursor('crosshair');
                 this.helpText = this.mode === 'draw-point' ? 'Click to place a point.'
                     : this.mode === 'draw-line' ? 'Click to add vertices. Right-click or double-click to finish.'
+                    : this.mode === 'draw-circle' ? 'Click and drag to draw a circle.'
                     : 'Click to add vertices. Click first point or double-click to close.';
                 break;
         }
@@ -1116,6 +1129,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private handlePointerMove(e: PointerMoveEvent): void {
         this.cursorPos = e.coords;
 
+        if (this.circleDraft) {
+            this.updateCircleDraft(e.coords);
+            return;
+        }
+
         if (this.featureDrag) {
             // Move entire feature — compute from original coords to avoid drift
             const f = this.features.find(f => f.id === this.featureDrag!.featureId);
@@ -1211,6 +1229,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private handlePointerDown(e: PointerDownEvent): void {
         if (e.button !== 0) return;
 
+        if (this.mode === 'draw-circle') {
+            this.startCircleDraft(e.coords);
+            return;
+        }
+
         // In selected state: drag the entire feature to move it
         if (this.editState === 'selected' && this.selectedFeatureId) {
             const px: [number, number] = [e.pixel[0], e.pixel[1]];
@@ -1273,6 +1296,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private handlePointerUp(_e: PointerUpEvent): void {
+        if (this.circleDraft) {
+            this.finishCircleDraft();
+            return;
+        }
         if (this.featureDrag) {
             const f = this.features.find(f => f.id === this.featureDrag!.featureId);
             if (f) {
@@ -1343,6 +1370,53 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.draftRedoStack = [];
         this.cursorPos = null;
         this.updateRubberband();
+    }
+
+    // ─── Circle drawing ──────────────────────────────────────────────────────
+
+    private startCircleDraft(coords: LngLat): void {
+        const layerId = this.activeLayerIds['Polygon'];
+        if (!layerId) return;
+        const center = (this.effectiveSnap && this.snapPos) ? this.snapPos : coords;
+        this.circleDraft = { center, radiusM: 0 };
+        this.adapter?.setPanEnabled(false);
+        this.helpText = 'Drag to set circle radius.';
+    }
+
+    private updateCircleDraft(coords: LngLat): void {
+        if (!this.circleDraft) return;
+        this.circleDraft.radiusM = haversineDistanceCm(this.circleDraft.center, coords) / 100;
+        this.updateCirclePreview();
+        this.helpText = `Radius: ${formatDistance(this.circleDraft.radiusM * 100)}`;
+    }
+
+    private updateCirclePreview(): void {
+        if (!this.sharedLayersCreated || !this.circleDraft) return;
+        const features = this.circleDraft.radiusM >= MIN_CIRCLE_RADIUS_M
+            ? [{
+                type: 'Feature' as const,
+                geometry: { type: 'LineString' as const, coordinates: circlePolygonRing(this.circleDraft.center, this.circleDraft.radiusM) },
+                properties: {}
+            }]
+            : [];
+        this.dispatch('webmapx-set-source-data', { id: RUBBER_SOURCE_ID, data: { type: 'FeatureCollection', features } });
+    }
+
+    private finishCircleDraft(): void {
+        if (!this.circleDraft) return;
+        const { center, radiusM } = this.circleDraft;
+        this.circleDraft = null;
+        this.adapter?.setPanEnabled(true);
+        this.dispatch('webmapx-set-source-data', { id: RUBBER_SOURCE_ID, data: { type: 'FeatureCollection', features: [] } });
+
+        const layerId = this.activeLayerIds['Polygon'];
+        if (layerId && radiusM >= MIN_CIRCLE_RADIUS_M) {
+            this.commitFeature({
+                id: this.newId(), layerId, type: 'Polygon',
+                coordinates: [circlePolygonRing(center, radiusM)], properties: this.defaultProperties(layerId)
+            });
+        }
+        this.helpText = 'Click and drag to draw a circle.';
     }
 
     // ─── Snap ─────────────────────────────────────────────────────────────────
@@ -2041,6 +2115,12 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                         @click=${() => this.requestDrawMode('draw-polygon')}>
                     </sl-icon-button>
                 </sl-tooltip>
+                <sl-tooltip content="Draw circle">
+                    <sl-icon-button name="circle"
+                        ?active=${this.mode === 'draw-circle'}
+                        @click=${() => this.requestDrawMode('draw-circle')}>
+                    </sl-icon-button>
+                </sl-tooltip>
 
                 <div class="divider"></div>
 
@@ -2213,7 +2293,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 function modeToGeometryType(mode: DrawMode): GeometryType | null {
     if (mode === 'draw-point')   return 'Point';
     if (mode === 'draw-line')    return 'LineString';
-    if (mode === 'draw-polygon') return 'Polygon';
+    if (mode === 'draw-polygon' || mode === 'draw-circle') return 'Polygon';
     return null;
 }
 

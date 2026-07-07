@@ -59,6 +59,52 @@ export function geodesicAreaM2(ring: LngLat[]): number {
 }
 
 /**
+ * Calculate the destination point given a start point, distance and bearing.
+ * Uses the spherical earth direct geodesic formula.
+ *
+ * @param origin Start point
+ * @param distanceM Distance in meters
+ * @param bearingDeg Bearing in degrees, clockwise from north
+ */
+export function destinationPoint(origin: LngLat, distanceM: number, bearingDeg: number): LngLat {
+    const EARTH_RADIUS_M = 6371008.8;
+    const toRad = (deg: number) => deg * Math.PI / 180;
+    const toDeg = (rad: number) => rad * 180 / Math.PI;
+
+    const angularDistance = distanceM / EARTH_RADIUS_M;
+    const bearing = toRad(bearingDeg);
+    const lat1 = toRad(origin[1]);
+    const lon1 = toRad(origin[0]);
+
+    const lat2 = Math.asin(
+        Math.sin(lat1) * Math.cos(angularDistance) +
+        Math.cos(lat1) * Math.sin(angularDistance) * Math.cos(bearing)
+    );
+    const lon2 = lon1 + Math.atan2(
+        Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(lat1),
+        Math.cos(angularDistance) - Math.sin(lat1) * Math.sin(lat2)
+    );
+
+    return [((toDeg(lon2) + 540) % 360) - 180, toDeg(lat2)];
+}
+
+/**
+ * Build a closed polygon ring approximating a geodesic circle.
+ *
+ * @param center Circle center
+ * @param radiusM Circle radius in meters
+ * @param steps Number of vertices around the circle
+ */
+export function circlePolygonRing(center: LngLat, radiusM: number, steps = 64): LngLat[] {
+    const ring: LngLat[] = [];
+    for (let i = 0; i < steps; i++) {
+        ring.push(destinationPoint(center, radiusM, (i / steps) * 360));
+    }
+    ring.push(ring[0]);
+    return ring;
+}
+
+/**
  * Format distance for display with metric units.
  * - Below 1000m: show meters (e.g., "523 m")
  * - Above 1000m: show km with 3 significant digits
