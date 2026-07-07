@@ -15,7 +15,7 @@ if (import.meta.env.DEV) {
 
 // 1. Import configuration loader
 import { loadAppConfig, resolveMapConfig, fetchConfig, parseAndValidateConfig, getConfigUrlParam } from './config/index.ts';
-import { getConfigUrlForIndex } from './utils/permalink.ts';
+import { getConfigUrlForIndex, getPermalinkStateForIndex } from './utils/permalink.ts';
 import { consumeDroppedConfig } from './utils/dropped-config.ts';
 import { isConfigEditEnabled } from './utils/config-edit-mode.ts';
 import { showToast } from './utils/toast.ts';
@@ -25,6 +25,8 @@ import {
     resolveAdapterSelection
 } from './config/adapter-resolution.ts';
 import { peekMapState } from './map/map-state-persistence.ts';
+import { resolveInitOptions } from './bootstrap/resolve-init-options.ts';
+import { injectConfigEditTool } from './bootstrap/inject-config-edit-tool.ts';
 
 // 2. Register your custom Web Components
 import './components/webmapx-map.ts';
@@ -217,86 +219,49 @@ async function initializeMap(mapElement, appConfig, mapIndex = 0) {
 
     // Determine style options: string = URL, object = inline style
     const styleConfig = mapConfig.style;
-    const isStyleUrl = typeof styleConfig === 'string';
 
-    let initOptions = {
-        center: mapConfig.center,
-        zoom: mapConfig.zoom,
-        ...(mapConfig.bearing != null ? { bearing: mapConfig.bearing } : {}),
-        ...(mapConfig.pitch != null ? { pitch: mapConfig.pitch } : {}),
-        minZoom: mapConfig.minZoom,
-        maxZoom: mapConfig.maxZoom,
-        minPitch: mapConfig.minPitch,
-        maxPitch: mapConfig.maxPitch,
-        ...(mapConfig.maxBounds ? { maxBounds: mapConfig.maxBounds } : {}),
-        // Use styleUrl if string, otherwise inline style object
-        ...(isStyleUrl ? { styleUrl: styleConfig } : { style: styleConfig })
-    };
+    // Permalink viewport/projection takes highest priority — parsed once and reused
+    // (s.0= takes precedence over s= for index 0, handled by getPermalinkStateForIndex).
+    const permalinkState = getPermalinkStateForIndex(mapIndex);
 
-    // Permalink viewport takes highest priority — apply before map init so the
-    // engine never renders at the config's default center/zoom
-    // s.0= takes precedence over s= for index 0
-    const searchParams = new URLSearchParams(window.location.search);
-    const permalinkParam = searchParams.get(`s.${mapIndex}`) ?? (mapIndex === 0 ? searchParams.get('s') : null);
-    if (permalinkParam) {
-        try {
-            const permalinkState = JSON.parse(atob(permalinkParam));
-            if (Array.isArray(permalinkState?.v) && permalinkState.v.length === 5) {
-                const [lng, lat, zoom, bearing, pitch] = permalinkState.v;
-                initOptions.center = [lng, lat];
-                initOptions.zoom = zoom;
-                if (bearing !== 0) initOptions.bearing = bearing;
-                if (pitch !== 0) initOptions.pitch = pitch;
-            }
-        } catch { /* ignore malformed permalink */ }
-    } else if (persistedState?.viewport) {
-        initOptions.center = persistedState.viewport.center;
-        initOptions.zoom = persistedState.viewport.zoom;
-    } else if (savedViewport) {
-        try {
-            const viewport = JSON.parse(savedViewport);
-            initOptions.center = viewport.center;
-            initOptions.zoom = viewport.zoom;
-            if (savedViewportKey) {
-                localStorage.removeItem(savedViewportKey);
-            }
-        } catch (e) {
-            console.warn(`[app] Failed to parse saved viewport for "${mapId}":`, e);
-            if (savedViewportKey) {
-                localStorage.removeItem(savedViewportKey);
-            }
-        }
-    }
-
-    // Determine which projection to apply: permalink > persisted state
-    const projectionToApply = (() => {
-        if (permalinkParam) {
+    // Fallback viewport/projection when there's no permalink: sessionStorage state first,
+    // then the legacy localStorage viewport key (consumed once, regardless of whether it's used).
+    let fallbackViewport = null;
+    let fallbackProjection = null;
+    if (!permalinkState) {
+        if (persistedState?.viewport) {
+            fallbackViewport = persistedState.viewport;
+            fallbackProjection = persistedState.projection ?? null;
+        } else if (savedViewport) {
             try {
-                const ps = JSON.parse(atob(permalinkParam));
-                if (typeof ps?.p === 'string') return ps.p;
-            } catch { /* ignore */ }
-            return null;
-        }
-        return persistedState?.projection ?? mapConfig.projection ?? null;
-    })();
-
-    if (projectionToApply) {
-        // Always set projection option — MapCoreService adds it to the style spec via projectionSpec
-        initOptions.projection = projectionToApply;
-        if (isStyleUrl) {
-            // Switch URL style to inline so MapCoreService can inject projection into setStyle()
-            // v4 only applies projection during initial renderer setup (first setStyle call)
-            try {
-                const resp = await fetch(styleConfig);
-                initOptions.style = await resp.json();
-                delete initOptions.styleUrl;
+                fallbackViewport = JSON.parse(savedViewport);
             } catch (e) {
-                console.warn('[app] Failed to fetch style for projection injection:', e);
-                // styleUrl fallback — projection will still apply in v5+ via runtime setProjection
+                console.warn(`[app] Failed to parse saved viewport for "${mapId}":`, e);
+            }
+            if (savedViewportKey) {
+                localStorage.removeItem(savedViewportKey);
             }
         }
     }
 
+    const initOptions = await resolveInitOptions({
+        mapConfig: {
+            center: mapConfig.center,
+            zoom: mapConfig.zoom,
+            bearing: mapConfig.bearing,
+            pitch: mapConfig.pitch,
+            minZoom: mapConfig.minZoom,
+            maxZoom: mapConfig.maxZoom,
+            minPitch: mapConfig.minPitch,
+            maxPitch: mapConfig.maxPitch,
+            maxBounds: mapConfig.maxBounds,
+            style: styleConfig,
+            projection: mapConfig.projection,
+        },
+        permalinkState,
+        fallbackViewport,
+        fallbackProjection,
+    });
 
     // Initialize the map
     adapter.initialize(mapElement.id, initOptions);
@@ -308,76 +273,6 @@ async function initializeMap(mapElement, appConfig, mapIndex = 0) {
     }
 }
 
-/**
- * Injects the config-edit toolbar button into the map.
- * Finds an existing toolbar or creates a new one at top-left.
- * Also injects the settings tool if not already present.
- */
-async function injectConfigEditTool(mapElement) {
-    await import('./components/webmapx-config-edit-tool.ts');
-
-    // Find existing layout, or create one
-    let layout = mapElement.querySelector('webmapx-layout');
-    if (!layout) {
-        layout = document.createElement('webmapx-layout');
-        mapElement.appendChild(layout);
-    }
-
-    // Find existing top-left toolbar control group, or create one
-    let group = layout.querySelector('webmapx-control-group[slot="top-left"]');
-    let toolbar = group?.querySelector('webmapx-toolbar');
-    let panel = group?.querySelector('webmapx-tool-panel');
-
-    if (!group) {
-        group = document.createElement('webmapx-control-group');
-        group.setAttribute('slot', 'top-left');
-        group.setAttribute('orientation', 'vertical');
-        group.setAttribute('panel-position', 'after');
-        toolbar = document.createElement('webmapx-toolbar');
-        panel = document.createElement('webmapx-tool-panel');
-        group.appendChild(toolbar);
-        group.appendChild(panel);
-        layout.appendChild(group);
-    }
-
-    if (!toolbar) {
-        toolbar = document.createElement('webmapx-toolbar');
-        group.prepend(toolbar);
-    }
-    if (!panel) {
-        panel = document.createElement('webmapx-tool-panel');
-        group.appendChild(panel);
-    }
-
-    // Add settings button if not already present
-    if (!toolbar.querySelector('[name="settings"]')) {
-        await import('./components/webmapx-settings.ts');
-        const btn = document.createElement('sl-button');
-        btn.setAttribute('name', 'settings');
-        btn.setAttribute('circle', '');
-        btn.title = 'Settings';
-        btn.innerHTML = '<sl-icon name="gear"></sl-icon>';
-        toolbar.appendChild(btn);
-
-        const tool = document.createElement('webmapx-settings');
-        tool.setAttribute('tool-id', 'settings');
-        panel.appendChild(tool);
-    }
-
-    // Add config-edit button if not already present
-    if (!toolbar.querySelector('[name="configedit"]')) {
-        const btn = document.createElement('sl-button');
-        btn.setAttribute('name', 'configedit');
-        btn.setAttribute('circle', '');
-        btn.title = 'Edit config';
-        btn.innerHTML = '<sl-icon name="pencil-square"></sl-icon>';
-        toolbar.appendChild(btn);
-
-        const tool = document.createElement('webmapx-config-edit-tool');
-        tool.setAttribute('tool-id', 'configedit');
-        panel.appendChild(tool);
-    }
-}
 import './components/webmapx-view-mode-tool.ts';
 import './components/webmapx-3d-tool.ts';
 import './components/webmapx-truearea-tool.ts';

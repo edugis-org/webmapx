@@ -9,6 +9,9 @@ import type { AppConfig, ToolsConfig } from '../config/types.js';
 import { parseAndValidateConfig } from '../config/loader.js';
 import { setBasePath } from '@shoelace-style/shoelace/dist/utilities/base-path.js';
 import { isConfigEditEnabled } from '../utils/config-edit-mode.js';
+import { getMapDomIndex, getPermalinkStateForIndex } from '../utils/permalink.js';
+import { resolveInitOptions } from './resolve-init-options.js';
+import { injectConfigEditTool } from './inject-config-edit-tool.js';
 
 declare const __WEBMAPX_VERSION__: string;
 const SHOELACE_VERSION = '2';
@@ -103,20 +106,28 @@ export class WebMapX {
 
     const styleConfig = (mapConfig?.style ?? BLANK_STYLE) as Record<string, unknown> | string;
     const runtimeMap = appConfig.runtimeMap;
-    const initOptions: Record<string, unknown> = {
-      center: mapConfig?.center ?? [0, 0],
-      zoom: mapConfig?.zoom ?? 2,
-      ...(mapConfig?.bearing != null ? { bearing: mapConfig.bearing } : {}),
-      ...(mapConfig?.pitch != null ? { pitch: mapConfig.pitch } : {}),
-      ...(mapConfig?.projection != null ? { projection: mapConfig.projection } : {}),
-      // runtimeMap takes priority over deprecated map.min/maxZoom/Pitch
-      ...(runtimeMap?.minZoom ?? mapConfig?.minZoom) != null ? { minZoom: runtimeMap?.minZoom ?? mapConfig?.minZoom } : {},
-      ...(runtimeMap?.maxZoom ?? mapConfig?.maxZoom) != null ? { maxZoom: runtimeMap?.maxZoom ?? mapConfig?.maxZoom } : {},
-      ...(runtimeMap?.minPitch ?? mapConfig?.minPitch) != null ? { minPitch: runtimeMap?.minPitch ?? mapConfig?.minPitch } : {},
-      ...(runtimeMap?.maxPitch ?? mapConfig?.maxPitch) != null ? { maxPitch: runtimeMap?.maxPitch ?? mapConfig?.maxPitch } : {},
-      ...(runtimeMap?.maxBounds != null ? { maxBounds: runtimeMap.maxBounds } : {}),
-      ...(typeof styleConfig === 'string' ? { styleUrl: styleConfig } : { style: styleConfig }),
-    };
+
+    // Permalink viewport/projection takes highest priority — resolved before init so the
+    // engine never renders at the config's default center/zoom. Shared with src/app.js so
+    // every mount path behaves identically.
+    const permalinkState = getPermalinkStateForIndex(getMapDomIndex(mapEl));
+    const initOptions = await resolveInitOptions({
+      mapConfig: {
+        center: mapConfig?.center as [number, number] | undefined,
+        zoom: mapConfig?.zoom as number | undefined,
+        bearing: mapConfig?.bearing as number | undefined,
+        pitch: mapConfig?.pitch as number | undefined,
+        // runtimeMap takes priority over deprecated map.min/maxZoom/Pitch
+        minZoom: (runtimeMap?.minZoom ?? mapConfig?.minZoom) as number | undefined,
+        maxZoom: (runtimeMap?.maxZoom ?? mapConfig?.maxZoom) as number | undefined,
+        minPitch: (runtimeMap?.minPitch ?? mapConfig?.minPitch) as number | undefined,
+        maxPitch: (runtimeMap?.maxPitch ?? mapConfig?.maxPitch) as number | undefined,
+        maxBounds: runtimeMap?.maxBounds,
+        style: styleConfig,
+        projection: mapConfig?.projection as string | undefined,
+      },
+      permalinkState,
+    });
 
     adapter.initialize(mapId, initOptions);
 
@@ -129,7 +140,7 @@ export class WebMapX {
 
     const devTools = (config as Record<string, unknown>)._devTools as Record<string, unknown> | undefined;
     if (devTools?.['configedit'] === true || isConfigEditEnabled(0)) {
-      await WebMapX._injectConfigEditTool(mapEl);
+      await injectConfigEditTool(mapEl);
     }
   }
 
@@ -141,59 +152,6 @@ export class WebMapX {
     const mapEl = document.querySelector(`${selector} webmapx-map`) as HTMLElement | null
       ?? document.querySelector(selector) as HTMLElement | null;
     if (!mapEl) throw new Error(`[webmapx] enableConfigEditTool: no element found for "${selector}"`);
-    await WebMapX._injectConfigEditTool(mapEl);
-  }
-
-  private static async _injectConfigEditTool(mapEl: HTMLElement): Promise<void> {
-    await import('../components/webmapx-config-edit-tool.js');
-
-    let layout = mapEl.querySelector('webmapx-layout') as HTMLElement | null;
-    if (!layout) {
-      layout = document.createElement('webmapx-layout');
-      mapEl.appendChild(layout);
-    }
-
-    let group = layout.querySelector('webmapx-control-group[slot="top-left"]') as HTMLElement | null;
-    let toolbar = group?.querySelector('webmapx-toolbar') as HTMLElement | null;
-    let panel = group?.querySelector('webmapx-tool-panel') as HTMLElement | null;
-
-    if (!group) {
-      group = document.createElement('webmapx-control-group');
-      group.setAttribute('slot', 'top-left');
-      group.setAttribute('orientation', 'vertical');
-      group.setAttribute('panel-position', 'after');
-      toolbar = document.createElement('webmapx-toolbar');
-      panel = document.createElement('webmapx-tool-panel');
-      group.appendChild(toolbar);
-      group.appendChild(panel);
-      layout.appendChild(group);
-    }
-    if (!toolbar) { toolbar = document.createElement('webmapx-toolbar'); group.prepend(toolbar); }
-    if (!panel)   { panel   = document.createElement('webmapx-tool-panel'); group.appendChild(panel); }
-
-    if (!toolbar.querySelector('[name="settings"]')) {
-      await import('../components/webmapx-settings.js');
-      const btn = document.createElement('sl-button');
-      btn.setAttribute('name', 'settings');
-      btn.setAttribute('circle', '');
-      btn.title = 'Settings';
-      btn.innerHTML = '<sl-icon name="gear"></sl-icon>';
-      toolbar.appendChild(btn);
-      const tool = document.createElement('webmapx-settings');
-      tool.setAttribute('tool-id', 'settings');
-      panel.appendChild(tool);
-    }
-
-    if (!toolbar.querySelector('[name="configedit"]')) {
-      const btn = document.createElement('sl-button');
-      btn.setAttribute('name', 'configedit');
-      btn.setAttribute('circle', '');
-      btn.title = 'Edit config';
-      btn.innerHTML = '<sl-icon name="pencil-square"></sl-icon>';
-      toolbar.appendChild(btn);
-      const tool = document.createElement('webmapx-config-edit-tool');
-      tool.setAttribute('tool-id', 'configedit');
-      panel.appendChild(tool);
-    }
+    await injectConfigEditTool(mapEl);
   }
 }
