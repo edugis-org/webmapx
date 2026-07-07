@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import net from 'node:net';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -11,8 +12,11 @@ const suitesDir = path.join(__dirname, 'ui-tests');
 
 const DEFAULT_ENGINES = ['maplibre', 'openlayers', 'leaflet', 'cesium'];
 const DEV_HOST = process.env.UI_TEST_HOST ?? '127.0.0.1';
-const DEV_PORT = Number(process.env.UI_TEST_PORT ?? '41730');
-const BASE_URL = `http://${DEV_HOST}:${DEV_PORT}`;
+// UI_TEST_PORT pins an exact port (e.g. for CI log parsing or attaching a debugger) and is
+// used as-is, single attempt. Without it, each run gets its own free OS-assigned port so
+// concurrent `npm run ui-test` invocations (different people, or CI + local) never collide
+// on a fixed port.
+const EXPLICIT_PORT = process.env.UI_TEST_PORT ? Number(process.env.UI_TEST_PORT) : null;
 
 function parseArgs(argv) {
   const result = {
@@ -75,10 +79,26 @@ async function importSuite(suiteId) {
   return mod;
 }
 
+/** Asks the OS for a currently-free port by binding to port 0 and reading back what it picked. */
+function getFreePort(host) {
+  return new Promise((resolve, reject) => {
+    const probe = net.createServer();
+    probe.unref();
+    probe.on('error', reject);
+    probe.listen(0, host, () => {
+      const { port } = probe.address();
+      probe.close(() => resolve(port));
+    });
+  });
+}
+
 async function waitForServer(url, timeoutMs, proc) {
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
+    if (proc.exitCode !== null) {
+      throw new Error(`Dev server process exited early (code ${proc.exitCode}) before becoming ready at ${url}`);
+    }
     try {
       const res = await fetch(url);
       if (res.ok) return;
@@ -92,8 +112,8 @@ async function waitForServer(url, timeoutMs, proc) {
   throw new Error(`Timed out waiting for dev server at ${url}`);
 }
 
-function startDevServer() {
-  const child = spawn('npm', ['run', 'dev', '--', '--host', DEV_HOST, '--port', String(DEV_PORT), '--strictPort', '--no-open'], {
+function startDevServer(host, port) {
+  const child = spawn('npm', ['run', 'dev', '--', '--host', host, '--port', String(port), '--strictPort', '--no-open'], {
     cwd: repoRoot,
     detached: true,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -108,6 +128,31 @@ function startDevServer() {
   });
 
   return child;
+}
+
+/**
+ * Starts the dev server on a free port, retrying with a different port if a rare bind race
+ * loses the port between our free-port probe and vite's --strictPort bind. An explicit
+ * UI_TEST_PORT is honored exactly, single attempt, so a deliberately pinned port still fails
+ * loudly instead of silently moving elsewhere.
+ */
+async function startDevServerWithRetry(host) {
+  const maxAttempts = EXPLICIT_PORT ? 1 : 5;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const port = EXPLICIT_PORT ?? await getFreePort(host);
+    const baseUrl = `http://${host}:${port}`;
+    const server = startDevServer(host, port);
+
+    try {
+      await waitForServer(baseUrl, 90_000, server);
+      return { server, baseUrl };
+    } catch (error) {
+      await stopProcess(server);
+      if (attempt === maxAttempts) throw error;
+      console.warn(`[ui-test] Dev server failed to start on port ${port} (attempt ${attempt}/${maxAttempts}), retrying on a different port…`);
+    }
+  }
 }
 
 async function stopProcess(proc) {
@@ -158,12 +203,12 @@ async function run() {
     process.exit(1);
   }
 
-  const server = startDevServer();
+  const { server, baseUrl } = await startDevServerWithRetry(DEV_HOST);
+  console.log(`[ui-test] Dev server running at ${baseUrl}`);
   let browser;
   let failures = 0;
 
   try {
-    await waitForServer(BASE_URL, 90_000, server);
     browser = await chromium.launch({
       headless: true,
       args: ['--disable-gpu', '--use-gl=swiftshader'],
@@ -194,12 +239,12 @@ async function run() {
         }, engine);
 
         try {
-          await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+          await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
 
           await suite.run({
             page,
             engine,
-            baseUrl: BASE_URL,
+            baseUrl,
           });
 
           process.stdout.write(`PASS ${suiteId} (${engine})\n`);
