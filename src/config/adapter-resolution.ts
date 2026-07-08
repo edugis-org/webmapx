@@ -17,8 +17,13 @@ export function normalizeAdapterName(name: string | null | undefined): string | 
   }
 }
 
-export function getMapScopedStorageKey(mapId: string | null | undefined, kind: MapStorageKind): string | null {
-  return mapId ? `webmapx-${kind}:${mapId}` : null;
+/**
+ * `pageScope` (typically `location.pathname + location.search`) keeps preferences from
+ * leaking across pages/configs that reuse the same map element id — e.g. several demo
+ * cards embedding the same `<webmapx-map id="map">` with different `?config=` values.
+ */
+export function getMapScopedStorageKey(mapId: string | null | undefined, kind: MapStorageKind, pageScope: string): string | null {
+  return mapId ? `webmapx-${kind}:${pageScope}:${mapId}` : null;
 }
 
 export interface ResolveAdapterSelectionOptions {

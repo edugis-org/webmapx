@@ -15,21 +15,25 @@ export interface PersistedMapState {
 
 const STATE_KEY_PREFIX = 'webmapx-state';
 
-function stateKey(mapId: string): string {
-    return `${STATE_KEY_PREFIX}:${mapId}`;
+// `pageScope` (typically `location.pathname + location.search`) keeps this from leaking
+// across same-origin sibling frames/tabs that reuse the same map element id — e.g. demo
+// cards embedding the same `<webmapx-map id="map">` with different `?config=` values, or
+// a same-origin "open full screen" link inheriting a cloned sessionStorage snapshot.
+function stateKey(mapId: string, pageScope: string): string {
+    return `${STATE_KEY_PREFIX}:${pageScope}:${mapId}`;
 }
 
-export function saveMapState(mapId: string, state: PersistedMapState): void {
+export function saveMapState(mapId: string, pageScope: string, state: PersistedMapState): void {
     try {
-        sessionStorage.setItem(stateKey(mapId), JSON.stringify(state));
+        sessionStorage.setItem(stateKey(mapId, pageScope), JSON.stringify(state));
     } catch {
         // sessionStorage full (e.g. large inline GeoJSON) — skip silently
     }
 }
 
 /** Read state without consuming it. Returns null if nothing stored. */
-export function peekMapState(mapId: string): PersistedMapState | null {
-    const raw = sessionStorage.getItem(stateKey(mapId));
+export function peekMapState(mapId: string, pageScope: string): PersistedMapState | null {
+    const raw = sessionStorage.getItem(stateKey(mapId, pageScope));
     if (!raw) return null;
     try {
         return JSON.parse(raw) as PersistedMapState;
@@ -39,8 +43,8 @@ export function peekMapState(mapId: string): PersistedMapState | null {
 }
 
 /** Read and clear state. */
-export function consumeMapState(mapId: string): PersistedMapState | null {
-    const state = peekMapState(mapId);
-    if (state) sessionStorage.removeItem(stateKey(mapId));
+export function consumeMapState(mapId: string, pageScope: string): PersistedMapState | null {
+    const state = peekMapState(mapId, pageScope);
+    if (state) sessionStorage.removeItem(stateKey(mapId, pageScope));
     return state;
 }

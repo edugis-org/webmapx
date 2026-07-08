@@ -90,7 +90,7 @@ export class WebmapxSettings extends LitElement {
     }
 
     private getMapStorageKey(mapElement: HTMLElement, kind: 'adapter' | 'viewport'): string | null {
-        return getMapScopedStorageKey(mapElement.id, kind);
+        return getMapScopedStorageKey(mapElement.id, kind, `${location.pathname}${location.search}`);
     }
 
     private detectCurrentAdapter(): string {

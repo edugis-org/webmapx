@@ -508,7 +508,7 @@ export class WebmapxMapElement extends HTMLElement {
   }
 
   private getScopedStorageKey(kind: 'adapter' | 'viewport'): string | null {
-    return getMapScopedStorageKey(this.id, kind);
+    return getMapScopedStorageKey(this.id, kind, `${location.pathname}${location.search}`);
   }
 
   /** Save full map state (viewport + dynamic layers + optional projection) to sessionStorage. */
@@ -516,7 +516,7 @@ export class WebmapxMapElement extends HTMLElement {
     if (!this.id) return;
     const viewport = this.adapter?.getViewportState();
     const layers = [...this.dynamicLayerRequests.values()];
-    saveMapState(this.id, {
+    saveMapState(this.id, `${location.pathname}${location.search}`, {
       ...(viewport ? { viewport } : {}),
       ...(layers.length > 0 ? { layers } : {}),
       ...(extra?.projection ? { projection: extra.projection } : {}),
@@ -535,7 +535,7 @@ export class WebmapxMapElement extends HTMLElement {
 
   private async restoreState(): Promise<void> {
     if (!this.id) return;
-    const state = consumeMapState(this.id);
+    const state = consumeMapState(this.id, `${location.pathname}${location.search}`);
     if (!state) return;
     for (const entry of state.layers ?? []) {
       await this.addLayerRequest(

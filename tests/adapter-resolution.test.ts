@@ -22,11 +22,17 @@ test('normalizeAdapterName resolves built-in aliases and lowercases custom names
   assert.equal(normalizeAdapterName(null), null);
 });
 
-test('getMapScopedStorageKey scopes preferences by map id', () => {
-  assert.equal(getMapScopedStorageKey('main-map', 'adapter'), 'webmapx-adapter:main-map');
-  assert.equal(getMapScopedStorageKey('main-map', 'viewport'), 'webmapx-viewport:main-map');
-  assert.equal(getMapScopedStorageKey('', 'adapter'), null);
-  assert.equal(getMapScopedStorageKey(undefined, 'viewport'), null);
+test('getMapScopedStorageKey scopes preferences by page (path+query) and map id', () => {
+  assert.equal(getMapScopedStorageKey('main-map', 'adapter', '/demo/index.html?config=a.json'), 'webmapx-adapter:/demo/index.html?config=a.json:main-map');
+  assert.equal(getMapScopedStorageKey('main-map', 'viewport', '/demo/index.html?config=a.json'), 'webmapx-viewport:/demo/index.html?config=a.json:main-map');
+  assert.equal(getMapScopedStorageKey('', 'adapter', '/demo/index.html'), null);
+  assert.equal(getMapScopedStorageKey(undefined, 'viewport', '/demo/index.html'), null);
+
+  // Same map id, different page (config) — must not collide.
+  assert.notEqual(
+    getMapScopedStorageKey('map', 'adapter', '/demo/index.html?config=a.json'),
+    getMapScopedStorageKey('map', 'adapter', '/demo/index.html?config=b.json'),
+  );
 });
 
 test('resolveAdapterSelection applies explicit, saved, configured, default precedence', () => {

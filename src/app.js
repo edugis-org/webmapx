@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function resolveRequestedAdapter(mapElement, mapConfig) {
-    const savedKey = getMapScopedStorageKey(mapElement.id, 'adapter');
+    const savedKey = getMapScopedStorageKey(mapElement.id, 'adapter', `${location.pathname}${location.search}`);
     return resolveAdapterSelection({
         explicitAdapter: mapElement.getAttribute('adapter') ?? mapElement.getAttribute('type'),
         savedAdapter: savedKey ? localStorage.getItem(savedKey) : null,
@@ -199,8 +199,9 @@ async function initializeMap(mapElement, appConfig, mapIndex = 0) {
 
     // Check for saved viewport state — sessionStorage state (from saveState) takes priority,
     // fall back to legacy localStorage viewport key (from old adapter-switch path).
-    const persistedState = peekMapState(mapElement.id);
-    const savedViewportKey = getMapScopedStorageKey(mapElement.id, 'viewport');
+    const pageScope = `${location.pathname}${location.search}`;
+    const persistedState = peekMapState(mapElement.id, pageScope);
+    const savedViewportKey = getMapScopedStorageKey(mapElement.id, 'viewport', pageScope);
     const savedViewport = savedViewportKey ? localStorage.getItem(savedViewportKey) : null;
 
     // Determine style options: string = URL, object = inline style
