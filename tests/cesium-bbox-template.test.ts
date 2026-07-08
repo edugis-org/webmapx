@@ -51,7 +51,11 @@ function createViewer() {
       indexOf(layer: any) { return layers.indexOf(layer); },
     },
     dataSources: { async add(d: unknown) { return d; }, remove() { return true; } },
-    scene: { globe: { tileLoadProgressEvent: { addEventListener() {} } } },
+    scene: {
+      globe: { tileLoadProgressEvent: { addEventListener() {} } },
+      postRender: { addEventListener() {} },
+    },
+    camera: { changed: { addEventListener() {} } },
     layers,
   };
 }

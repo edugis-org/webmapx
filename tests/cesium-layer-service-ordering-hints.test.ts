@@ -87,7 +87,9 @@ function createViewer() {
           addEventListener() {},
         },
       },
+      postRender: { addEventListener() {} },
     },
+    camera: { changed: { addEventListener() {} } },
   };
 }
 
