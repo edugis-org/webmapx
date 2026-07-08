@@ -33,6 +33,10 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
     private readonly queryExecutor: DeferredQueryService;
     private markerService: MapMarkerService | null = null;
     private layerService: MapLayerService | null = null;
+    /** Composite (style-layer) source registrations that arrived before `layerService`
+     *  was bound — flushed once it is, so they still go through native-format conversion
+     *  instead of falling through to the un-normalized `core.addSource` path below. */
+    private pendingCompositeSources: Array<{ id: string; config: unknown }> = [];
 
     constructor() {
         super();
@@ -50,6 +54,11 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
                 this.logicalLayerExecutor.bind(layerService);
                 this.queryExecutor.bind(new MapQueryService(map, layerService, this.store));
                 this.markerService = new MapMarkerService(map);
+
+                for (const { id, config } of this.pendingCompositeSources) {
+                    layerService.registerCompositeSource(id, config as any);
+                }
+                this.pendingCompositeSources = [];
             };
 
             if (typeof map?.once === 'function') {
@@ -241,7 +250,11 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
             // and the logical→native id mapping is recorded for sublayer lookup.
             this.layerService.registerCompositeSource(id, config as any);
         } else {
-            this.core.addSource(id, config);
+            // layerService isn't bound yet (map hasn't fired 'load'). `config` here is still
+            // the un-normalized webmapx SourceConfig (e.g. `url: string[]` for xyz), which
+            // native MapLibre addSource rejects — queue it and let bindLogicalLayers flush
+            // it through MapLayerService once bound, instead of adding it raw.
+            this.pendingCompositeSources.push({ id, config });
         }
     }
 

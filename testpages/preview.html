@@ -26,7 +26,9 @@
   <script type="module">
     import { WebMapX } from '/src/lib.ts';
 
-    const STORAGE_KEY = 'webmapx-setup-config';
+    // Allows a caller (e.g. setup.html's embedded Map-tab preview iframe) to point this
+    // page at its own localStorage key, independent of the main "Update preview" window.
+    const STORAGE_KEY = new URLSearchParams(window.location.search).get('storageKey') ?? 'webmapx-setup-config';
 
     function showError(msg) {
       document.getElementById('map').hidden = true;

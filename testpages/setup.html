@@ -19,6 +19,23 @@
     .placeholder { color: #888; font-style: italic; padding: 2rem 0; }
     .layers-section { margin-bottom: 1.75rem; }
     .layers-section h2 { font-size: 1rem; margin: 0 0 0.6rem; color: #333; }
+    .map-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.6rem 1rem; }
+    .map-form-grid label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; color: #555; }
+    .map-form-grid input, .map-form-grid select {
+      padding: 0.35rem 0.5rem; font-size: 0.85rem; border: 1px solid #ccc; border-radius: 4px;
+    }
+    .map-checkbox-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; margin-bottom: 0.6rem; cursor: pointer; }
+    #map-maxbounds-fields.disabled { opacity: 0.45; pointer-events: none; }
+    .map-preview-hint { margin: 0.9rem 0 0.4rem; }
+    .map-preview { width: 100%; height: 380px; border: 1px solid #ccc; border-radius: 4px; display: block; }
+    .map-preview-actions { display: flex; gap: 0.6rem; margin-top: 0.5rem; }
+    .btn-map-sync {
+      background: #0f62fe; color: #fff; border: none; border-radius: 4px;
+      font-size: 0.8rem; padding: 0.4rem 0.9rem; cursor: pointer;
+    }
+    .btn-map-sync:hover { background: #0353e9; }
+    .btn-map-refresh { background: #e0e0e0; color: #333; }
+    .btn-map-refresh:hover { background: #c6c6c6; }
     .section-hint { font-size: 0.75rem; font-weight: normal; color: #888; text-transform: none; letter-spacing: normal; }
     .active-layer-row {
       display: flex; align-items: center; gap: 0.4rem; padding: 0.15rem 0;
@@ -284,7 +301,90 @@
       <p class="placeholder">Coming soon (e.g. 3D terrain exaggeration).</p>
     </section>
   </div>
-  <div class="tab-panel" id="tab-map"><p class="placeholder">Map — coming soon.</p></div>
+  <div class="tab-panel" id="tab-map">
+    <section class="layers-section">
+      <h2>Map <span class="section-hint">— initial view and engine</span></h2>
+      <div class="map-form-grid">
+        <label>Label
+          <input type="text" id="map-label">
+        </label>
+        <label>Engine
+          <select id="map-type">
+            <option value="maplibre">maplibre</option>
+            <option value="openlayers">openlayers</option>
+            <option value="leaflet">leaflet</option>
+            <option value="cesium">cesium</option>
+          </select>
+        </label>
+        <label>Center longitude
+          <input type="number" id="map-center-lon" step="any">
+        </label>
+        <label>Center latitude
+          <input type="number" id="map-center-lat" step="any">
+        </label>
+        <label>Zoom
+          <input type="number" id="map-zoom" step="any">
+        </label>
+        <label>Bearing
+          <input type="number" id="map-bearing" step="any">
+        </label>
+        <label>Pitch
+          <input type="number" id="map-pitch" step="any">
+        </label>
+        <label>Projection <span class="section-hint">(view-mode tool default)</span>
+          <select id="map-projection">
+            <option value="">(default — mercator)</option>
+            <option value="mercator">mercator</option>
+            <option value="globe">globe</option>
+          </select>
+        </label>
+      </div>
+
+      <p class="section-hint map-preview-hint">A real webmapx map — same engine, tools, and active layers as your config. Pan/zoom/rotate/tilt it, then use the button below to pull those values back into the form.</p>
+      <iframe id="map-preview-frame" class="map-preview" src="./preview.html?storageKey=webmapx-setup-map-preview-config"></iframe>
+      <div class="map-preview-actions">
+        <button id="btn-map-refresh" class="btn-map-sync btn-map-refresh">⟳ Refresh preview from form</button>
+        <button id="btn-map-sync" class="btn-map-sync" hidden>↻ Update form with map settings</button>
+      </div>
+    </section>
+
+    <section class="layers-section">
+      <h2>View limits <span class="section-hint">— runtimeMap zoom/pitch bounds</span></h2>
+      <div class="map-form-grid">
+        <label>Min zoom
+          <input type="number" id="map-minzoom" step="any">
+        </label>
+        <label>Max zoom
+          <input type="number" id="map-maxzoom" step="any">
+        </label>
+        <label>Min pitch
+          <input type="number" id="map-minpitch" step="any">
+        </label>
+        <label>Max pitch
+          <input type="number" id="map-maxpitch" step="any">
+        </label>
+      </div>
+    </section>
+
+    <section class="layers-section">
+      <h2>Max extent <span class="section-hint">— runtimeMap.maxBounds, restricts pan/zoom-out</span></h2>
+      <label class="map-checkbox-row"><input type="checkbox" id="map-maxbounds-enabled"> Restrict to a bounding box</label>
+      <div class="map-form-grid" id="map-maxbounds-fields">
+        <label>West
+          <input type="number" id="map-maxbounds-west" step="any">
+        </label>
+        <label>South
+          <input type="number" id="map-maxbounds-south" step="any">
+        </label>
+        <label>East
+          <input type="number" id="map-maxbounds-east" step="any">
+        </label>
+        <label>North
+          <input type="number" id="map-maxbounds-north" step="any">
+        </label>
+      </div>
+    </section>
+  </div>
   <div id="status"></div>
 
   <script type="module">
@@ -815,6 +915,24 @@
       saveOverrides(ov);
     }
 
+    function getExclusiveSelection(config) {
+      const ov = getSaved();
+      return ov['state:activeExclusiveLayers'] ?? { ...(config.state?.activeExclusiveLayers ?? {}) };
+    }
+
+    // Selects `layerId` as the sole active member of its `singleGroup`: removes any other
+    // group member from the active-layers list, adds this one, and records the selection.
+    function selectExclusiveLayer(config, layers, group, layerId) {
+      const groupIds = new Set(Object.entries(layers).filter(([, l]) => l.singleGroup === group).map(([id]) => id));
+      const list = getActiveLayers(config).filter(l => !groupIds.has(l.ref));
+      list.push({ ref: layerId, visible: true });
+      setActiveLayers(list);
+
+      const ov = getSaved();
+      ov['state:activeExclusiveLayers'] = { ...getExclusiveSelection(config), [group]: layerId };
+      saveOverrides(ov);
+    }
+
     // Layers added via the "+ Add layer…" panel (repository or URL discovery), staged
     // as an override until "Update preview"/"Download config" merges them into layerData.
     function getAddedLayerData() {
@@ -1177,12 +1295,40 @@
       return span;
     }
 
-    function renderTree(nodes, container, layers, config, rootTree) {
+    function renderTree(nodes, container, layers, config, rootTree, activeList) {
       for (const node of nodes ?? []) {
         if (node.layerId) {
           const layer = layers[node.layerId];
           const row = document.createElement('div');
           row.className = 'tree-leaf';
+
+          const activeCb = document.createElement('input');
+          if (layer?.singleGroup) {
+            activeCb.type = 'radio';
+            activeCb.name = `excl-${layer.singleGroup}`;
+            activeCb.title = `Exclusive group "${layer.singleGroup}" — only one active at a time`;
+            activeCb.checked = getExclusiveSelection(config)[layer.singleGroup] === node.layerId;
+            activeCb.addEventListener('change', () => {
+              selectExclusiveLayer(config, layers, layer.singleGroup, node.layerId);
+              buildLayersUI(config);
+            });
+          } else {
+            activeCb.type = 'checkbox';
+            activeCb.title = 'Add to active layers';
+            activeCb.checked = activeList.some(l => l.ref === node.layerId);
+            activeCb.addEventListener('change', () => {
+              let updated = getActiveLayers(config).slice();
+              if (activeCb.checked) {
+                if (!updated.some(l => l.ref === node.layerId)) updated.push({ ref: node.layerId, visible: true });
+              } else {
+                updated = updated.filter(l => l.ref !== node.layerId);
+              }
+              setActiveLayers(updated);
+              buildLayersUI(config);
+            });
+          }
+          row.appendChild(activeCb);
+
           const title = makeEditableText('layer-title', getLayerTitle(node.layerId, layer), (val) => setLayerTitle(node.layerId, val));
           row.appendChild(title);
           row.appendChild(typeBadge(layer));
@@ -1244,7 +1390,7 @@
             header.appendChild(removeGroupBtn);
           }
           group.appendChild(header);
-          renderTree(node.children, group, layers, config, rootTree);
+          renderTree(node.children, group, layers, config, rootTree, activeList);
           container.appendChild(group);
         } else if (node.separator) {
           const row = document.createElement('div');
@@ -1271,6 +1417,177 @@
         }
       }
     }
+
+    // --- Map tab: initial view, view limits, max extent ---
+    function getMapFields(config) {
+      const ov = getSaved();
+      return { ...(config.map ?? {}), ...(ov['map:fields'] ?? {}) };
+    }
+
+    function setMapField(key, value) {
+      const ov = getSaved();
+      ov['map:fields'] = { ...(ov['map:fields'] ?? {}), [key]: value };
+      saveOverrides(ov);
+    }
+
+    function getRuntimeMapFields(config) {
+      const ov = getSaved();
+      return { ...(config.runtimeMap ?? {}), ...(ov['runtimeMap:fields'] ?? {}) };
+    }
+
+    function setRuntimeMapField(key, value) {
+      const ov = getSaved();
+      ov['runtimeMap:fields'] = { ...(ov['runtimeMap:fields'] ?? {}), [key]: value };
+      saveOverrides(ov);
+    }
+
+    function numOrUndefined(el) {
+      return el.value === '' ? undefined : Number(el.value);
+    }
+
+    function buildMapUI(config) {
+      const map = getMapFields(config);
+      const runtimeMap = getRuntimeMapFields(config);
+
+      document.getElementById('map-label').value = map.label ?? '';
+      document.getElementById('map-type').value = map.type ?? 'maplibre';
+      document.getElementById('map-center-lon').value = map.center?.[0] ?? '';
+      document.getElementById('map-center-lat').value = map.center?.[1] ?? '';
+      document.getElementById('map-zoom').value = map.zoom ?? '';
+      document.getElementById('map-bearing').value = map.bearing ?? '';
+      document.getElementById('map-pitch').value = map.pitch ?? '';
+      document.getElementById('map-projection').value = map.projection ?? '';
+
+      document.getElementById('map-minzoom').value = runtimeMap.minZoom ?? '';
+      document.getElementById('map-maxzoom').value = runtimeMap.maxZoom ?? '';
+      document.getElementById('map-minpitch').value = runtimeMap.minPitch ?? '';
+      document.getElementById('map-maxpitch').value = runtimeMap.maxPitch ?? '';
+
+      const bounds = runtimeMap.maxBounds;
+      const enabled = Array.isArray(bounds);
+      document.getElementById('map-maxbounds-enabled').checked = enabled;
+      document.getElementById('map-maxbounds-fields').classList.toggle('disabled', !enabled);
+      document.getElementById('map-maxbounds-west').value = bounds?.[0] ?? '';
+      document.getElementById('map-maxbounds-south').value = bounds?.[1] ?? '';
+      document.getElementById('map-maxbounds-east').value = bounds?.[2] ?? '';
+      document.getElementById('map-maxbounds-north').value = bounds?.[3] ?? '';
+    }
+
+    function wireMapUI(config) {
+      document.getElementById('map-label').addEventListener('input', (e) => setMapField('label', e.target.value));
+      document.getElementById('map-type').addEventListener('change', (e) => setMapField('type', e.target.value));
+
+      const onCenterChange = () => {
+        const lon = numOrUndefined(document.getElementById('map-center-lon'));
+        const lat = numOrUndefined(document.getElementById('map-center-lat'));
+        if (lon !== undefined && lat !== undefined) setMapField('center', [lon, lat]);
+      };
+      document.getElementById('map-center-lon').addEventListener('input', onCenterChange);
+      document.getElementById('map-center-lat').addEventListener('input', onCenterChange);
+
+      document.getElementById('map-zoom').addEventListener('input', (e) => setMapField('zoom', numOrUndefined(e.target)));
+      document.getElementById('map-bearing').addEventListener('input', (e) => setMapField('bearing', numOrUndefined(e.target)));
+      document.getElementById('map-pitch').addEventListener('input', (e) => setMapField('pitch', numOrUndefined(e.target)));
+      document.getElementById('map-projection').addEventListener('change', (e) => setMapField('projection', e.target.value || undefined));
+
+      document.getElementById('map-minzoom').addEventListener('input', (e) => setRuntimeMapField('minZoom', numOrUndefined(e.target)));
+      document.getElementById('map-maxzoom').addEventListener('input', (e) => setRuntimeMapField('maxZoom', numOrUndefined(e.target)));
+      document.getElementById('map-minpitch').addEventListener('input', (e) => setRuntimeMapField('minPitch', numOrUndefined(e.target)));
+      document.getElementById('map-maxpitch').addEventListener('input', (e) => setRuntimeMapField('maxPitch', numOrUndefined(e.target)));
+
+      const onBoundsChange = () => {
+        const enabled = document.getElementById('map-maxbounds-enabled').checked;
+        document.getElementById('map-maxbounds-fields').classList.toggle('disabled', !enabled);
+        if (!enabled) { setRuntimeMapField('maxBounds', undefined); return; }
+        const west = numOrUndefined(document.getElementById('map-maxbounds-west'));
+        const south = numOrUndefined(document.getElementById('map-maxbounds-south'));
+        const east = numOrUndefined(document.getElementById('map-maxbounds-east'));
+        const north = numOrUndefined(document.getElementById('map-maxbounds-north'));
+        if ([west, south, east, north].every(v => v !== undefined)) {
+          setRuntimeMapField('maxBounds', [west, south, east, north]);
+        }
+      };
+      document.getElementById('map-maxbounds-enabled').addEventListener('change', onBoundsChange);
+      ['map-maxbounds-west', 'map-maxbounds-south', 'map-maxbounds-east', 'map-maxbounds-north']
+        .forEach(id => document.getElementById(id).addEventListener('input', onBoundsChange));
+    }
+
+    // The Map-tab preview is a real <webmapx-map>, mounted the same way as preview.html —
+    // via an iframe pointed at that very page. This keeps the mount path identical to a
+    // real embed (correct engine, real layer normalization, no reimplemented source logic)
+    // and — importantly — isolates the permalink/URL-param reader from setup.html's own
+    // URL, since WebMapX.mount reads viewport state from window.location per mounted map.
+    const PREVIEW_STORAGE_KEY = 'webmapx-setup-map-preview-config';
+    let previewViewListenerAttached = false;
+
+    function mapPreviewFrame() {
+      return document.getElementById('map-preview-frame');
+    }
+
+    // Pushes the current merged config into the iframe's own localStorage-backed preview
+    // (separate key from the main "Update preview" flow, so this tab doesn't clobber it).
+    function refreshMapPreviewFrame(config) {
+      const finalConfig = applyOverrides(config, getSaved());
+      localStorage.setItem(PREVIEW_STORAGE_KEY, JSON.stringify(finalConfig));
+      // webmapx-map remembers a manually-picked adapter per map id and that preference
+      // wins over the config's engine entirely (see resolveAdapterSelection) — both this
+      // iframe and the main "Update preview" popup mount at #map, so they share the id
+      // "map-webmapx" and thus this same storage key. Reset it or engine switches here
+      // are silently ignored.
+      const engine = finalConfig.engine ?? finalConfig.map?.type ?? 'maplibre';
+      localStorage.setItem('webmapx-adapter:map-webmapx', engine);
+      const frame = mapPreviewFrame();
+      if (!frame) return;
+      previewViewListenerAttached = false;
+      frame.contentWindow.location.reload();
+    }
+
+    // Reaches into the (same-origin) iframe once its map has mounted and wires the
+    // view-change-end event so the "update form" button appears after a manual pan/zoom.
+    function watchMapPreviewFrame(config) {
+      const frame = mapPreviewFrame();
+      if (!frame) return;
+      const tryAttach = async () => {
+        if (previewViewListenerAttached) return;
+        const mapEl = frame.contentDocument?.querySelector('webmapx-map');
+        const adapter = await mapEl?.getAdapterAsync?.();
+        if (!adapter) { setTimeout(tryAttach, 250); return; }
+        previewViewListenerAttached = true;
+        adapter.events.on('view-change-end', () => {
+          document.getElementById('btn-map-sync').hidden = false;
+        });
+      };
+      tryAttach();
+    }
+
+    // Which view fields each engine actually supports — reading e.g. pitch back from an
+    // engine that doesn't support it just returns a meaningless 0, so treat it as unset
+    // rather than writing that 0 into the form.
+    const ENGINE_VIEW_CAPABILITIES = {
+      maplibre:   { bearing: true,  pitch: true,  projection: true },
+      openlayers: { bearing: true,  pitch: false, projection: false },
+      leaflet:    { bearing: false, pitch: false, projection: false },
+      cesium:     { bearing: true,  pitch: true,  projection: false },
+    };
+
+    document.getElementById('btn-map-sync').addEventListener('click', async () => {
+      const frame = mapPreviewFrame();
+      const mapEl = frame?.contentDocument?.querySelector('webmapx-map');
+      const adapter = await mapEl?.getAdapterAsync?.();
+      if (!adapter) return;
+      const view = adapter.getViewportState();
+      const engine = getMapFields(baseConfig).type ?? 'maplibre';
+      const caps = ENGINE_VIEW_CAPABILITIES[engine] ?? ENGINE_VIEW_CAPABILITIES.maplibre;
+
+      setMapField('center', view.center);
+      setMapField('zoom', view.zoom);
+      setMapField('bearing', caps.bearing ? view.bearing : undefined);
+      setMapField('pitch', caps.pitch ? view.pitch : undefined);
+      if (!caps.projection) setMapField('projection', undefined);
+
+      buildMapUI(baseConfig);
+      document.getElementById('btn-map-sync').hidden = true;
+    });
 
     function buildLayersUI(config) {
       const layers = { ...(config.layerData?.layers ?? {}), ...getAddedLayerData().layers };
@@ -1310,19 +1627,30 @@
           row.className = 'pool-row';
 
           const cb = document.createElement('input');
-          cb.type = 'checkbox';
-          cb.title = 'Add to active layers';
-          cb.checked = activeList.some(l => l.ref === id);
-          cb.addEventListener('change', () => {
-            let updated = getActiveLayers(config).slice();
-            if (cb.checked) {
-              if (!updated.some(l => l.ref === id)) updated.push({ ref: id, visible: true });
-            } else {
-              updated = updated.filter(l => l.ref !== id);
-            }
-            setActiveLayers(updated);
-            buildLayersUI(config);
-          });
+          if (layer.singleGroup) {
+            cb.type = 'radio';
+            cb.name = `excl-${layer.singleGroup}`;
+            cb.title = `Exclusive group "${layer.singleGroup}" — only one active at a time`;
+            cb.checked = getExclusiveSelection(config)[layer.singleGroup] === id;
+            cb.addEventListener('change', () => {
+              selectExclusiveLayer(config, layers, layer.singleGroup, id);
+              buildLayersUI(config);
+            });
+          } else {
+            cb.type = 'checkbox';
+            cb.title = 'Add to active layers';
+            cb.checked = activeList.some(l => l.ref === id);
+            cb.addEventListener('change', () => {
+              let updated = getActiveLayers(config).slice();
+              if (cb.checked) {
+                if (!updated.some(l => l.ref === id)) updated.push({ ref: id, visible: true });
+              } else {
+                updated = updated.filter(l => l.ref !== id);
+              }
+              setActiveLayers(updated);
+              buildLayersUI(config);
+            });
+          }
           row.appendChild(cb);
 
           const title = makeEditableText('layer-title', getLayerTitle(id, layer), (val) => setLayerTitle(id, val));
@@ -1389,7 +1717,7 @@
         rootControls.appendChild(addLayerSelect);
         treeEl.appendChild(rootControls);
 
-        renderTree(tree, treeEl, layers, config, tree);
+        renderTree(tree, treeEl, layers, config, tree, activeList);
       }
 
       // Active layers: current stack, reorderable, toggle visibility, remove
@@ -1603,6 +1931,13 @@
         result.state.activeLayers = activeLayersOverride.map(l => ({ ...l }));
       }
 
+      // Exclusive-group selections (Layers tab)
+      const exclusiveOverride = overrides['state:activeExclusiveLayers'];
+      if (exclusiveOverride) {
+        if (!result.state) result.state = {};
+        result.state.activeExclusiveLayers = { ...exclusiveOverride };
+      }
+
       // Layer tree (Layers tab)
       const treeOverride = overrides['layerTree:tree'];
       if (treeOverride) {
@@ -1627,6 +1962,30 @@
         if (!result.layerData.layers) result.layerData.layers = {};
         Object.assign(result.layerData.sources, JSON.parse(JSON.stringify(added.sources)));
         Object.assign(result.layerData.layers, JSON.parse(JSON.stringify(added.layers)));
+      }
+
+      // Map tab: initial view + engine
+      const mapFieldsOverride = overrides['map:fields'];
+      if (mapFieldsOverride) {
+        if (!result.map) result.map = {};
+        for (const [k, v] of Object.entries(mapFieldsOverride)) {
+          if (v === undefined) delete result.map[k];
+          else result.map[k] = JSON.parse(JSON.stringify(v));
+        }
+        // WebMapX.mount picks which adapter to load from the top-level `engine` field
+        // (defaulting to maplibre), not from map.type — keep both in sync so the Engine
+        // dropdown actually switches engines.
+        if (mapFieldsOverride.type) result.engine = mapFieldsOverride.type;
+      }
+
+      // Map tab: view limits + max extent
+      const runtimeMapOverride = overrides['runtimeMap:fields'];
+      if (runtimeMapOverride) {
+        if (!result.runtimeMap) result.runtimeMap = {};
+        for (const [k, v] of Object.entries(runtimeMapOverride)) {
+          if (v === undefined) delete result.runtimeMap[k];
+          else result.runtimeMap[k] = JSON.parse(JSON.stringify(v));
+        }
       }
 
       // Dev tools
@@ -1675,6 +2034,8 @@
       saveOverrides({});
       buildUI(baseConfig, {});
       buildLayersUI(baseConfig);
+      buildMapUI(baseConfig);
+      refreshMapPreviewFrame(baseConfig);
       updateSelectAll();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(baseConfig));
       document.getElementById('status').textContent = 'Reset to defaults — preview updated.';
@@ -1823,6 +2184,7 @@
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+        if (btn.dataset.tab === 'map' && baseConfig) refreshMapPreviewFrame(baseConfig);
       });
     });
 
@@ -1854,10 +2216,18 @@
       if (e.key === 'Enter') { e.preventDefault(); runDiscovery(baseConfig); }
     });
 
+    document.getElementById('btn-map-refresh').addEventListener('click', () => {
+      refreshMapPreviewFrame(baseConfig);
+    });
+    mapPreviewFrame().addEventListener('load', () => watchMapPreviewFrame(baseConfig));
+
     // Init
     const config = await loadConfig();
     buildUI(config, getSaved());
     buildLayersUI(config);
+    buildMapUI(config);
+    wireMapUI(config);
+    refreshMapPreviewFrame(config);
     updateSelectAll();
   </script>
 </body>
