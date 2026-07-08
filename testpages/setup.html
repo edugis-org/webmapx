@@ -7,6 +7,106 @@
   <style>
     body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
     h1 { font-size: 1.4rem; margin-bottom: 1.5rem; }
+    .tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid #ddd; margin-bottom: 1.25rem; }
+    .tab-btn {
+      background: none; border: none; padding: 0.5rem 0.9rem; font-size: 0.9rem;
+      cursor: pointer; color: #666; border-bottom: 2px solid transparent; border-radius: 0;
+    }
+    .tab-btn:hover { color: #0f62fe; }
+    .tab-btn.active { color: #0f62fe; border-bottom-color: #0f62fe; font-weight: 600; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .placeholder { color: #888; font-style: italic; padding: 2rem 0; }
+    .layers-section { margin-bottom: 1.75rem; }
+    .layers-section h2 { font-size: 1rem; margin: 0 0 0.6rem; color: #333; }
+    .section-hint { font-size: 0.75rem; font-weight: normal; color: #888; text-transform: none; letter-spacing: normal; }
+    .active-layer-row {
+      display: flex; align-items: center; gap: 0.4rem; padding: 0.15rem 0;
+    }
+    .active-layer-row .layer-title { flex: 1; }
+    .active-layer-row .layer-remove {
+      background: none; border: none; color: #999; cursor: pointer; font-size: 0.9rem;
+      padding: 0 0.3rem; line-height: 1;
+    }
+    .active-layer-row .layer-remove:hover { color: #c00; }
+    .catalog-search {
+      width: 100%; box-sizing: border-box; padding: 0.4rem 0.6rem; margin-bottom: 0.6rem;
+      border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem;
+    }
+    .btn-add-layer {
+      background: #0f62fe; color: #fff; border: none; border-radius: 4px;
+      font-size: 0.8rem; padding: 0.35rem 0.8rem; cursor: pointer; margin-bottom: 0.6rem;
+    }
+    .btn-add-layer:hover { background: #0353e9; }
+    .add-layer-panel {
+      border: 1px solid #ddd; border-radius: 6px; padding: 0.7rem; margin-bottom: 0.8rem; background: #fafbfc;
+    }
+    .add-layer-tabs { display: flex; gap: 0.3rem; margin-bottom: 0.6rem; }
+    .add-layer-tab {
+      background: none; border: 1px solid transparent; border-bottom: 2px solid transparent;
+      padding: 0.3rem 0.6rem; font-size: 0.8rem; color: #666; cursor: pointer;
+    }
+    .add-layer-tab.active { color: #0f62fe; border-bottom-color: #0f62fe; font-weight: 600; }
+    .add-layer-source { display: none; }
+    .add-layer-source.active { display: block; }
+    .add-layer-source input[type=search], .add-layer-source input[type=text] {
+      width: 100%; box-sizing: border-box; padding: 0.35rem 0.5rem; font-size: 0.8rem;
+      border: 1px solid #ccc; border-radius: 4px;
+    }
+    .add-layer-source .urlbox { display: flex; gap: 0.4rem; }
+    .add-layer-source .urlbox input { flex: 1; }
+    .discover-error { color: #c00; font-size: 0.75rem; margin-top: 0.3rem; }
+    .add-layer-results { margin-top: 0.5rem; max-height: 260px; overflow-y: auto; }
+    .repo-provider { border-bottom: 1px solid #eee; padding: 0.3rem 0; }
+    .repo-provider-header {
+      display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.8rem; padding: 0.2rem 0;
+    }
+    .repo-provider-header .provider-name { flex: 1; font-weight: 600; }
+    .repo-provider-layers { padding-left: 0.9rem; display: none; }
+    .repo-provider-layers.open { display: block; }
+    .repo-layer-row, .discover-layer-row {
+      display: flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0; font-size: 0.8rem;
+    }
+    .repo-layer-row .layer-title, .discover-layer-row .layer-title { flex: 1; }
+    .catalog-group { margin-bottom: 0.3rem; }
+    .catalog-group > summary {
+      cursor: pointer; font-size: 0.8rem; color: #777; text-transform: uppercase;
+      letter-spacing: .04em; padding: 0.25rem 0; user-select: none;
+    }
+    .catalog-group > summary:hover { color: #0f62fe; }
+    .catalog-group .tool-list { padding-left: 0.6rem; }
+    .catalog-group[hidden] { display: none; }
+    .type-badge {
+      display: inline-block; font-size: 0.65rem; text-transform: uppercase; letter-spacing: .03em;
+      background: #eef1f6; color: #5a6472; border-radius: 3px; padding: 1px 5px; margin-left: 0.4rem;
+      flex-shrink: 0;
+    }
+    .pool-row {
+      display: flex; align-items: center; gap: 0.4rem; padding: 0.15rem 0;
+    }
+    .pool-row .layer-title { flex: 1; }
+    .pool-row .btn-add {
+      background: #f0f4ff; color: #0f62fe; border: 1px solid #cdd9ff; border-radius: 3px;
+      font-size: 0.7rem; padding: 1px 6px; cursor: pointer;
+    }
+    .pool-row .btn-add:hover { background: #dde8ff; }
+    .tree-group { margin: 0.2rem 0 0.2rem 0.9rem; }
+    .tree-group-header { display: flex; align-items: center; gap: 0.4rem; }
+    .tree-group-label { font-size: 0.8rem; font-weight: 600; color: #555; padding: 0.15rem 0; flex: 1; }
+    .tree-separator {
+      display: flex; align-items: center; gap: 0.4rem; margin: 0.35rem 0 0.15rem 0.9rem;
+      border-top: 1px dashed #ddd; padding-top: 0.2rem;
+    }
+    .tree-separator-label { font-size: 0.7rem; letter-spacing: .04em; color: #999; flex: 1; }
+    .tree-root-controls { display: flex; gap: 0.4rem; margin-bottom: 0.5rem; }
+    .add-layer-select {
+      font-size: 0.7rem; padding: 1px 4px; border: 1px solid #cdd9ff; border-radius: 3px;
+      background: #f0f4ff; color: #0f62fe; cursor: pointer; max-width: 160px;
+    }
+    .tree-leaf {
+      display: flex; align-items: center; gap: 0.4rem; padding: 0.15rem 0 0.15rem 0.9rem;
+    }
+    .tree-leaf .layer-title { flex: 1; }
     h2 { font-size: 1rem; margin: 1.5rem 0 0.5rem; color: #555; text-transform: uppercase; letter-spacing: .05em; }
     .tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.4rem; }
     .tool-list { display: flex; flex-direction: column; gap: 0.25rem; }
@@ -65,21 +165,83 @@
   </style>
 </head>
 <body>
-  <h1>WebMapX Tool Setup</h1>
-  <p>Open <a href="preview.html" target="_blank">preview.html</a> in a split tab, then use the button below to push config to it.</p>
-  <div style="margin-bottom:0.5rem">
-    <label><input type="checkbox" id="select-all" checked> Select / deselect all</label>
-  </div>
-  <div id="ui"></div>
+  <h1>WebMapX Setup</h1>
+
   <div class="actions">
     <button id="btn-launch">Update preview</button>
     <button id="btn-reset">Reset to defaults</button>
     <button id="btn-download">Download config</button>
   </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="tools">Tools</button>
+    <button class="tab-btn" data-tab="layers">Layers</button>
+    <button class="tab-btn" data-tab="map">Map</button>
+  </div>
+
+  <div class="tab-panel active" id="tab-tools">
+    <p>Open <a href="preview.html" target="_blank">preview.html</a> in a split tab, then use the button below to push config to it.</p>
+    <div style="margin-bottom:0.5rem">
+      <label><input type="checkbox" id="select-all" checked> Select / deselect all</label>
+    </div>
+    <div id="ui"></div>
+  </div>
+
+  <div class="tab-panel" id="tab-layers">
+    <section class="layers-section">
+      <h2>Available layers <span class="section-hint">— layers not yet in the Layer tree tool below</span></h2>
+      <input type="search" id="catalog-search" class="catalog-search" placeholder="Filter layers…">
+
+      <button id="btn-add-layer" class="btn-add-layer">+ Add layer…</button>
+      <div id="add-layer-panel" class="add-layer-panel" hidden>
+        <div class="add-layer-tabs">
+          <button class="add-layer-tab active" data-source="repo" type="button">From layer repository</button>
+          <button class="add-layer-tab" data-source="url" type="button">From a service URL</button>
+        </div>
+
+        <div id="add-layer-repo" class="add-layer-source active">
+          <input type="search" id="repo-search" placeholder="Search provider, region, category…">
+          <div id="repo-results" class="add-layer-results"></div>
+        </div>
+
+        <div id="add-layer-url" class="add-layer-source">
+          <div class="urlbox">
+            <input type="text" id="discover-url" placeholder="Paste a WMS/WMTS/Esri/XYZ service URL…">
+            <button id="btn-discover">Discover</button>
+          </div>
+          <div id="discover-error" class="discover-error"></div>
+          <div id="discover-results" class="add-layer-results"></div>
+        </div>
+      </div>
+
+      <div id="catalog-list"></div>
+    </section>
+
+    <section class="layers-section">
+      <h2>Layer tree <span class="section-hint">— structure shown by the layerTree tool</span></h2>
+      <div id="layertree-list"></div>
+      <p id="layertree-empty" class="placeholder" style="display:none; padding:0.5rem 0;">No layerTree tool found in this config.</p>
+    </section>
+
+    <section class="layers-section">
+      <h2>Active layers <span class="section-hint">— current map stack, top of list = top of map</span></h2>
+      <div id="activelayers-list" class="tool-list"></div>
+      <p id="activelayers-empty" class="placeholder" style="display:none; padding:0.5rem 0;">No active layers — check layers in Available layers above to add them.</p>
+    </section>
+
+    <section class="layers-section">
+      <h2>Built-in data <span class="section-hint">— terrain and other tools needing bundled data</span></h2>
+      <p class="placeholder">Coming soon (e.g. 3D terrain exaggeration).</p>
+    </section>
+  </div>
+  <div class="tab-panel" id="tab-map"><p class="placeholder">Map — coming soon.</p></div>
   <div id="status"></div>
 
   <script type="module">
     import { KNOWN_TOOLS } from '/src/utils/dynamic-layout.ts';
+    import { discoverLayers } from '/src/utils/layer-discovery.ts';
+
+    const LAYER_REPO_RAW_BASE = 'https://raw.githubusercontent.com/edugis-org/webmapx-layer-repository/main/layers';
 
     const STORAGE_KEY = 'webmapx-setup-config';
 
@@ -591,6 +753,671 @@
       });
     }
 
+    // --- Layers tab: catalog + active layers ---
+    function getActiveLayers(config) {
+      const ov = getSaved();
+      return ov['state:activeLayers'] ?? (config.state?.activeLayers ?? []).map(l => ({ ...l }));
+    }
+
+    function setActiveLayers(list) {
+      const ov = getSaved();
+      ov['state:activeLayers'] = list;
+      saveOverrides(ov);
+    }
+
+    // Layers added via the "+ Add layer…" panel (repository or URL discovery), staged
+    // as an override until "Update preview"/"Download config" merges them into layerData.
+    function getAddedLayerData() {
+      const ov = getSaved();
+      return ov['layerData:added'] ?? { sources: {}, layers: {} };
+    }
+
+    function uniqueLayerId(config, baseId) {
+      const existing = new Set([
+        ...Object.keys(config.layerData?.layers ?? {}),
+        ...Object.keys(getAddedLayerData().layers),
+      ]);
+      let id = baseId || 'layer';
+      let n = 2;
+      while (existing.has(id)) { id = `${baseId}-${n}`; n++; }
+      return id;
+    }
+
+    // Registers a source + layer pair (from repository or URL discovery) as an available layer.
+    function addLayerData(config, sourceObj, layerObj, title, type) {
+      const added = getAddedLayerData();
+      const id = uniqueLayerId(config, layerObj.id || (layerObj.metadata?.title) || title);
+      const sourceKey = `${id}-source`;
+      const ov = getSaved();
+      ov['layerData:added'] = {
+        sources: { ...added.sources, [sourceKey]: sourceObj },
+        layers: { ...added.layers, [id]: { ...layerObj, id, source: sourceKey, title: title ?? layerObj.metadata?.title ?? id, type: type ?? layerObj.type } },
+      };
+      saveOverrides(ov);
+      return id;
+    }
+
+    // --- Repository tab: browse the GitHub-hosted webmapx-layer-repository ---
+    let repoIndexPromise = null;
+    const repoProviderCache = new Map(); // path → provider file JSON
+
+    function loadRepoIndex() {
+      if (!repoIndexPromise) {
+        repoIndexPromise = fetch(`${LAYER_REPO_RAW_BASE}/index.json`).then(r => {
+          if (!r.ok) throw new Error(`Repository index fetch failed (${r.status})`);
+          return r.json();
+        });
+      }
+      return repoIndexPromise;
+    }
+
+    async function loadRepoProvider(path) {
+      if (!repoProviderCache.has(path)) {
+        repoProviderCache.set(path, fetch(`${LAYER_REPO_RAW_BASE}/${path}`).then(r => {
+          if (!r.ok) throw new Error(`Provider file fetch failed (${r.status})`);
+          return r.json();
+        }));
+      }
+      return repoProviderCache.get(path);
+    }
+
+    async function buildRepoResults(config, filterText) {
+      const resultsEl = document.getElementById('repo-results');
+      resultsEl.textContent = 'Loading…';
+      let index;
+      try {
+        index = await loadRepoIndex();
+      } catch (err) {
+        resultsEl.textContent = `Failed to load repository: ${err.message}`;
+        return;
+      }
+
+      const text = filterText.trim().toLowerCase();
+      const matches = index.filter(entry => !text
+        || entry.providerName.toLowerCase().includes(text)
+        || entry.region.toLowerCase().includes(text)
+        || (entry.categories ?? []).some(c => c.toLowerCase().includes(text)));
+
+      resultsEl.innerHTML = '';
+      if (matches.length === 0) {
+        resultsEl.textContent = 'No providers match.';
+        return;
+      }
+
+      for (const entry of matches.slice(0, 60)) {
+        const provider = document.createElement('div');
+        provider.className = 'repo-provider';
+        const header = document.createElement('div');
+        header.className = 'repo-provider-header';
+        const name = document.createElement('span');
+        name.className = 'provider-name';
+        name.textContent = `${entry.providerName} — ${entry.region}`;
+        header.appendChild(name);
+        const badge = document.createElement('span');
+        badge.className = 'type-badge';
+        badge.textContent = entry.access;
+        header.appendChild(badge);
+        const countBadge = document.createElement('span');
+        countBadge.className = 'type-badge';
+        countBadge.textContent = `${entry.layerCount} layer${entry.layerCount === 1 ? '' : 's'}`;
+        header.appendChild(countBadge);
+        provider.appendChild(header);
+
+        const layersEl = document.createElement('div');
+        layersEl.className = 'repo-provider-layers';
+        provider.appendChild(layersEl);
+
+        header.addEventListener('click', async () => {
+          const opening = !layersEl.classList.contains('open');
+          layersEl.classList.toggle('open', opening);
+          if (opening && !layersEl.dataset.loaded) {
+            layersEl.dataset.loaded = '1';
+            layersEl.textContent = 'Loading…';
+            try {
+              const file = await loadRepoProvider(entry.path);
+              layersEl.innerHTML = '';
+              for (const layer of file.layers ?? []) {
+                const row = document.createElement('div');
+                row.className = 'repo-layer-row';
+                const title = document.createElement('span');
+                title.className = 'layer-title';
+                title.textContent = layer.title ?? layer.id;
+                row.appendChild(title);
+                const typeB = document.createElement('span');
+                typeB.className = 'type-badge';
+                typeB.textContent = layer.type ?? '?';
+                row.appendChild(typeB);
+                if (layer.requiresKey) {
+                  const keyB = document.createElement('span');
+                  keyB.className = 'type-badge';
+                  keyB.textContent = 'needs api key';
+                  row.appendChild(keyB);
+                }
+                const addBtn = document.createElement('button');
+                addBtn.className = 'btn-add';
+                addBtn.textContent = '+ Add';
+                addBtn.addEventListener('click', () => {
+                  const cfg = layer.webmapxConfig;
+                  if (!cfg?.source || !cfg?.layer) return;
+                  addLayerData(config, cfg.source, cfg.layer, layer.title, cfg.layer.type);
+                  buildLayersUI(config);
+                  document.getElementById('status').textContent = `Added "${layer.title}" — check Available layers below.`;
+                });
+                row.appendChild(addBtn);
+                layersEl.appendChild(row);
+              }
+              if (!(file.layers ?? []).length) layersEl.textContent = 'No layers in this provider file.';
+            } catch (err) {
+              layersEl.textContent = `Failed to load: ${err.message}`;
+            }
+          }
+        });
+
+        resultsEl.appendChild(provider);
+      }
+    }
+
+    // --- URL discovery tab: reuses the same probing logic as webmapx-import-layer-tool ---
+    async function runDiscovery(config) {
+      const url = document.getElementById('discover-url').value.trim();
+      const errorEl = document.getElementById('discover-error');
+      const resultsEl = document.getElementById('discover-results');
+      errorEl.textContent = '';
+      resultsEl.innerHTML = '';
+      if (!url) return;
+      resultsEl.textContent = 'Discovering…';
+      let result;
+      try {
+        result = await discoverLayers(url);
+      } catch (err) {
+        resultsEl.innerHTML = '';
+        errorEl.textContent = err.message ?? String(err);
+        return;
+      }
+      resultsEl.innerHTML = '';
+      if (!result.layers.length) {
+        resultsEl.textContent = 'No layers found at that URL.';
+        return;
+      }
+      for (const discovered of result.layers) {
+        const row = document.createElement('div');
+        row.className = 'discover-layer-row';
+        const title = document.createElement('span');
+        title.className = 'layer-title';
+        title.textContent = discovered.title;
+        row.appendChild(title);
+        const typeB = document.createElement('span');
+        typeB.className = 'type-badge';
+        typeB.textContent = discovered.serviceType;
+        row.appendChild(typeB);
+        const addBtn = document.createElement('button');
+        addBtn.className = 'btn-add';
+        addBtn.textContent = '+ Add';
+        addBtn.addEventListener('click', () => {
+          addLayerData(config, discovered.source, discovered.layer, discovered.title, discovered.layer.type);
+          buildLayersUI(config);
+          document.getElementById('status').textContent = `Added "${discovered.title}" — check Available layers below.`;
+        });
+        row.appendChild(addBtn);
+        resultsEl.appendChild(row);
+      }
+    }
+
+    // Layer tree: locate the first layerTree tool item anywhere in tools/toolbars/toolbox.
+    // Only one instance is editable here — configs with multiple layerTree tools keep the rest untouched.
+    function findLayerTreeLocation(config) {
+      const toolsCfg = config.tools ?? {};
+      for (const [toolbarKey, tb] of Object.entries(toolsCfg)) {
+        if (!tb || typeof tb !== 'object' || tb.type !== 'toolbar') continue;
+        for (const item of tb.items ?? []) {
+          const id = item.id ?? item.type;
+          if (item.type === 'layerTree') return { toolbarKey, itemId: id };
+          if ((item.id ?? item.type) === 'toolbox') {
+            for (const sub of item.items ?? []) {
+              const sid = sub.id ?? sub.type;
+              if (sub.type === 'layerTree') return { toolbarKey, toolboxId: item.id ?? 'toolbox', itemId: sid };
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    function getBaseLayerTreeItem(config, loc) {
+      if (!loc) return null;
+      const tb = config.tools?.[loc.toolbarKey];
+      if (!tb) return null;
+      if (loc.toolboxId) {
+        const toolboxItem = tb.items?.find(i => (i.id ?? i.type) === 'toolbox' && (i.id ?? 'toolbox') === loc.toolboxId);
+        return toolboxItem?.items?.find(i => (i.id ?? i.type) === loc.itemId) ?? null;
+      }
+      return tb.items?.find(i => (i.id ?? i.type) === loc.itemId) ?? null;
+    }
+
+    function getTree(config, loc) {
+      const ov = getSaved();
+      if (ov['layerTree:tree']) return ov['layerTree:tree'];
+      const item = getBaseLayerTreeItem(config, loc);
+      return item?.tree ? JSON.parse(JSON.stringify(item.tree)) : [];
+    }
+
+    function setTree(tree) {
+      const ov = getSaved();
+      ov['layerTree:tree'] = tree;
+      saveOverrides(ov);
+    }
+
+    function collectTreeLayerIds(tree) {
+      const ids = new Set();
+      const walk = (nodes) => {
+        for (const n of nodes ?? []) {
+          if (n.layerId) ids.add(n.layerId);
+          if (n.children) walk(n.children);
+        }
+      };
+      walk(tree);
+      return ids;
+    }
+
+    // Remove a leaf node (by layerId) from the tree, wherever it is nested.
+    function removeFromTree(tree, layerId) {
+      const walk = (nodes) => {
+        const filtered = [];
+        for (const n of nodes) {
+          if (n.layerId === layerId) continue;
+          if (n.children) n.children = walk(n.children);
+          filtered.push(n);
+        }
+        return filtered;
+      };
+      return walk(tree);
+    }
+
+    // Remove a node by identity (used for separator/divider nodes, which have no layerId).
+    function removeNodeByRef(tree, targetNode) {
+      const walk = (nodes) => {
+        const filtered = [];
+        for (const n of nodes) {
+          if (n === targetNode) continue;
+          if (n.children) n.children = walk(n.children);
+          filtered.push(n);
+        }
+        return filtered;
+      };
+      return walk(tree);
+    }
+
+    // Add a layer to a top-level "Unsorted" group, creating it if needed.
+    function addToTree(tree, layerId) {
+      const next = tree.map(n => ({ ...n, children: n.children ? [...n.children] : n.children }));
+      let unsorted = next.find(n => n.label === 'Unsorted' && !n.layerId);
+      if (!unsorted) {
+        unsorted = { label: 'Unsorted', children: [] };
+        next.push(unsorted);
+      }
+      unsorted.children = [...(unsorted.children ?? []), { layerId }];
+      return next;
+    }
+
+    // <select> of layers not yet placed anywhere in the tree; onAdd(layerId) fires on pick.
+    function createAddLayerSelect(config, rootTree, onAdd) {
+      const layers = { ...(config.layerData?.layers ?? {}), ...getAddedLayerData().layers };
+      const treeIds = collectTreeLayerIds(rootTree);
+      const available = Object.entries(layers)
+        .filter(([id]) => !treeIds.has(id))
+        .sort((a, b) => (a[1].title ?? a[0]).localeCompare(b[1].title ?? b[0]));
+
+      const sel = document.createElement('select');
+      sel.className = 'add-layer-select';
+      const optDefault = document.createElement('option');
+      optDefault.value = '';
+      optDefault.textContent = available.length ? '+ Layer…' : '(no available layers)';
+      sel.appendChild(optDefault);
+      for (const [id, layer] of available) {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = layer.title ?? id;
+        sel.appendChild(opt);
+      }
+      sel.disabled = available.length === 0;
+      sel.addEventListener('change', () => {
+        if (!sel.value) return;
+        onAdd(sel.value);
+      });
+      return sel;
+    }
+
+    function typeBadge(layer) {
+      const badge = document.createElement('span');
+      badge.className = 'type-badge';
+      badge.textContent = layer?.type ?? '?';
+      return badge;
+    }
+
+    // Layer titles are edited via override so the underlying layerData.layers entry
+    // (shared by pool/tree/active-layers views) isn't mutated until "Update preview".
+    function getLayerTitle(id, layer) {
+      const ov = getSaved();
+      return ov.layerTitles?.[id] ?? layer?.title ?? id;
+    }
+
+    function setLayerTitle(id, newTitle) {
+      const ov = getSaved();
+      ov.layerTitles = { ...(ov.layerTitles ?? {}), [id]: newTitle };
+      saveOverrides(ov);
+    }
+
+    // Editable <span> for a layer title or a tree group label.
+    function makeEditableText(className, text, onSave) {
+      const span = document.createElement('span');
+      span.className = className;
+      span.contentEditable = 'true';
+      span.spellcheck = false;
+      span.textContent = text;
+      span.title = 'Click to rename';
+      span.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); span.blur(); }
+        if (e.key === 'Escape') { span.textContent = text; span.blur(); }
+      });
+      span.addEventListener('blur', () => {
+        const val = span.textContent.trim();
+        if (val && val !== text) onSave(val);
+        else span.textContent = text;
+      });
+      return span;
+    }
+
+    function renderTree(nodes, container, layers, config, rootTree) {
+      for (const node of nodes ?? []) {
+        if (node.layerId) {
+          const layer = layers[node.layerId];
+          const row = document.createElement('div');
+          row.className = 'tree-leaf';
+          const title = makeEditableText('layer-title', getLayerTitle(node.layerId, layer), (val) => setLayerTitle(node.layerId, val));
+          row.appendChild(title);
+          row.appendChild(typeBadge(layer));
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'layer-remove';
+          removeBtn.textContent = '✕';
+          removeBtn.title = 'Remove from layer tree';
+          removeBtn.addEventListener('click', () => {
+            setTree(removeFromTree(rootTree, node.layerId));
+            buildLayersUI(config);
+          });
+          row.appendChild(removeBtn);
+          container.appendChild(row);
+        } else if (node.children) {
+          const group = document.createElement('div');
+          group.className = 'tree-group';
+          const header = document.createElement('div');
+          header.className = 'tree-group-header';
+          const label = makeEditableText('tree-group-label', node.label ?? '(group)', (val) => {
+            node.label = val;
+            setTree(rootTree);
+          });
+          header.appendChild(label);
+          const addDividerBtn = document.createElement('button');
+          addDividerBtn.className = 'btn-add';
+          addDividerBtn.textContent = '+ Divider';
+          addDividerBtn.title = 'Add a divider in this group';
+          addDividerBtn.addEventListener('click', () => {
+            node.children = [{ label: 'New divider', separator: true }, ...(node.children ?? [])];
+            setTree(rootTree);
+            buildLayersUI(config);
+          });
+          header.appendChild(addDividerBtn);
+          const addGroupBtn = document.createElement('button');
+          addGroupBtn.className = 'btn-add';
+          addGroupBtn.textContent = '+ Group';
+          addGroupBtn.title = 'Add a sub-group';
+          addGroupBtn.addEventListener('click', () => {
+            node.children = [{ label: 'New group', children: [] }, ...(node.children ?? [])];
+            setTree(rootTree);
+            buildLayersUI(config);
+          });
+          header.appendChild(addGroupBtn);
+          const addLayerSelect = createAddLayerSelect(config, rootTree, (layerId) => {
+            node.children = [{ layerId }, ...(node.children ?? [])];
+            setTree(rootTree);
+            buildLayersUI(config);
+          });
+          header.appendChild(addLayerSelect);
+          if ((node.children ?? []).length === 0) {
+            const removeGroupBtn = document.createElement('button');
+            removeGroupBtn.className = 'layer-remove';
+            removeGroupBtn.textContent = '✕';
+            removeGroupBtn.title = 'Remove this empty group';
+            removeGroupBtn.addEventListener('click', () => {
+              setTree(removeNodeByRef(rootTree, node));
+              buildLayersUI(config);
+            });
+            header.appendChild(removeGroupBtn);
+          }
+          group.appendChild(header);
+          renderTree(node.children, group, layers, config, rootTree);
+          container.appendChild(group);
+        } else if (node.separator) {
+          const row = document.createElement('div');
+          row.className = 'tree-separator';
+          const label = makeEditableText('tree-separator-label', node.label ?? '', (val) => {
+            node.label = val;
+            setTree(rootTree);
+          });
+          row.appendChild(label);
+          const sepBadge = document.createElement('span');
+          sepBadge.className = 'type-badge';
+          sepBadge.textContent = 'separator';
+          row.appendChild(sepBadge);
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'layer-remove';
+          removeBtn.textContent = '✕';
+          removeBtn.title = 'Remove this divider';
+          removeBtn.addEventListener('click', () => {
+            setTree(removeNodeByRef(rootTree, node));
+            buildLayersUI(config);
+          });
+          row.appendChild(removeBtn);
+          container.appendChild(row);
+        }
+      }
+    }
+
+    function buildLayersUI(config) {
+      const layers = { ...(config.layerData?.layers ?? {}), ...getAddedLayerData().layers };
+      const activeList = getActiveLayers(config);
+      const treeLoc = findLayerTreeLocation(config);
+      const tree = getTree(config, treeLoc);
+      const treeLayerIds = collectTreeLayerIds(tree);
+
+      // Available layers: layers not yet placed in the layerTree tool's tree.
+      // Grouped by type + filterable — configs can have 200+ layers.
+      const catalogEl = document.getElementById('catalog-list');
+      catalogEl.innerHTML = '';
+      const filterText = (document.getElementById('catalog-search')?.value ?? '').trim().toLowerCase();
+
+      const groups = new Map(); // groupKey → [id, layer][]
+      for (const [id, layer] of Object.entries(layers)) {
+        if (treeLayerIds.has(id)) continue;
+        const title = layer.title ?? id;
+        if (filterText && !title.toLowerCase().includes(filterText) && !id.toLowerCase().includes(filterText)) continue;
+        const groupKey = layer.singleGroup ? `${layer.singleGroup} (exclusive group)` : (layer.type ?? 'other');
+        if (!groups.has(groupKey)) groups.set(groupKey, []);
+        groups.get(groupKey).push([id, layer]);
+      }
+
+      const sortedGroupKeys = [...groups.keys()].sort();
+      for (const groupKey of sortedGroupKeys) {
+        const entries = groups.get(groupKey).sort((a, b) => (a[1].title ?? a[0]).localeCompare(b[1].title ?? b[0]));
+        const details = document.createElement('details');
+        details.className = 'catalog-group';
+        details.open = Boolean(filterText) || sortedGroupKeys.length <= 4;
+        const summary = document.createElement('summary');
+        summary.textContent = `${groupKey} (${entries.length})`;
+        details.appendChild(summary);
+        const list = document.createElement('div');
+        for (const [id, layer] of entries) {
+          const row = document.createElement('div');
+          row.className = 'pool-row';
+
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.title = 'Add to active layers';
+          cb.checked = activeList.some(l => l.ref === id);
+          cb.addEventListener('change', () => {
+            let updated = getActiveLayers(config).slice();
+            if (cb.checked) {
+              if (!updated.some(l => l.ref === id)) updated.push({ ref: id, visible: true });
+            } else {
+              updated = updated.filter(l => l.ref !== id);
+            }
+            setActiveLayers(updated);
+            buildLayersUI(config);
+          });
+          row.appendChild(cb);
+
+          const title = makeEditableText('layer-title', getLayerTitle(id, layer), (val) => setLayerTitle(id, val));
+          row.appendChild(title);
+          row.appendChild(typeBadge(layer));
+
+          if (treeLoc) {
+            const addBtn = document.createElement('button');
+            addBtn.className = 'btn-add';
+            addBtn.textContent = '+ Tree';
+            addBtn.title = 'Add to layer tree (Unsorted group)';
+            addBtn.addEventListener('click', () => {
+              setTree(addToTree(getTree(config, treeLoc), id));
+              buildLayersUI(config);
+            });
+            row.appendChild(addBtn);
+          }
+
+          list.appendChild(row);
+        }
+        details.appendChild(list);
+        catalogEl.appendChild(details);
+      }
+      if (sortedGroupKeys.length === 0) {
+        const none = document.createElement('p');
+        none.className = 'placeholder';
+        none.textContent = filterText ? 'No layers match.' : 'All layers are already placed in the layer tree.';
+        catalogEl.appendChild(none);
+      }
+
+      // Layer tree: structure shown by the layerTree tool, editable here (add/remove leaves)
+      const treeEl = document.getElementById('layertree-list');
+      const treeEmptyEl = document.getElementById('layertree-empty');
+      treeEl.innerHTML = '';
+      treeEmptyEl.style.display = treeLoc ? 'none' : 'block';
+      if (treeLoc) {
+        const rootControls = document.createElement('div');
+        rootControls.className = 'tree-root-controls';
+        const addGroupBtn = document.createElement('button');
+        addGroupBtn.className = 'btn-add';
+        addGroupBtn.textContent = '+ Group';
+        addGroupBtn.title = 'Add a top-level group';
+        addGroupBtn.addEventListener('click', () => {
+          tree.unshift({ label: 'New group', children: [] });
+          setTree(tree);
+          buildLayersUI(config);
+        });
+        rootControls.appendChild(addGroupBtn);
+        const addDividerBtn = document.createElement('button');
+        addDividerBtn.className = 'btn-add';
+        addDividerBtn.textContent = '+ Divider';
+        addDividerBtn.title = 'Add a top-level divider';
+        addDividerBtn.addEventListener('click', () => {
+          tree.unshift({ label: 'New divider', separator: true });
+          setTree(tree);
+          buildLayersUI(config);
+        });
+        rootControls.appendChild(addDividerBtn);
+        const addLayerSelect = createAddLayerSelect(config, tree, (layerId) => {
+          tree.unshift({ layerId });
+          setTree(tree);
+          buildLayersUI(config);
+        });
+        rootControls.appendChild(addLayerSelect);
+        treeEl.appendChild(rootControls);
+
+        renderTree(tree, treeEl, layers, config, tree);
+      }
+
+      // Active layers: current stack, reorderable, toggle visibility, remove
+      const activeEl = document.getElementById('activelayers-list');
+      const emptyEl = document.getElementById('activelayers-empty');
+      activeEl.innerHTML = '';
+      emptyEl.style.display = activeList.length === 0 ? 'block' : 'none';
+
+      activeList.forEach((entry, idx) => {
+        const row = document.createElement('div');
+        row.className = 'active-layer-row';
+        row.draggable = true;
+
+        const handle = document.createElement('span');
+        handle.className = 'drag-handle';
+        handle.textContent = '⠿';
+        handle.title = 'Drag to reorder';
+        row.appendChild(handle);
+
+        const visCb = document.createElement('input');
+        visCb.type = 'checkbox';
+        visCb.checked = entry.visible !== false;
+        visCb.title = 'Visible';
+        visCb.addEventListener('change', () => {
+          const list = getActiveLayers(config).slice();
+          list[idx] = { ...list[idx], visible: visCb.checked };
+          setActiveLayers(list);
+        });
+        row.appendChild(visCb);
+
+        const title = makeEditableText('layer-title', getLayerTitle(entry.ref, layers[entry.ref]), (val) => setLayerTitle(entry.ref, val));
+        row.appendChild(title);
+        row.appendChild(typeBadge(layers[entry.ref]));
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'layer-remove';
+        removeBtn.textContent = '✕';
+        removeBtn.title = 'Remove from active layers';
+        removeBtn.addEventListener('click', () => {
+          const list = getActiveLayers(config).filter((_, i) => i !== idx);
+          setActiveLayers(list);
+          buildLayersUI(config);
+        });
+        row.appendChild(removeBtn);
+
+        row.addEventListener('dragstart', (e) => {
+          if (e.target.isContentEditable) { e.preventDefault(); return; }
+          row.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', String(idx));
+        });
+        row.addEventListener('dragend', () => {
+          row.classList.remove('dragging');
+          activeEl.querySelectorAll('.active-layer-row').forEach(r => r.classList.remove('drag-over'));
+        });
+        row.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          activeEl.querySelectorAll('.active-layer-row').forEach(r => r.classList.remove('drag-over'));
+          row.classList.add('drag-over');
+        });
+        row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+        row.addEventListener('drop', (e) => {
+          e.preventDefault();
+          row.classList.remove('drag-over');
+          const fromIdx = Number(e.dataTransfer.getData('text/plain'));
+          if (isNaN(fromIdx) || fromIdx === idx) return;
+          const list = getActiveLayers(config).slice();
+          const [moved] = list.splice(fromIdx, 1);
+          list.splice(idx, 0, moved);
+          setActiveLayers(list);
+          buildLayersUI(config);
+        });
+
+        activeEl.appendChild(row);
+      });
+    }
+
     function applyOverrides(config, overrides) {
       const result = JSON.parse(JSON.stringify(config));
       if (!result.tools) result.tools = {};
@@ -719,6 +1546,39 @@
         }
       }
 
+      // Active layers (Layers tab)
+      const activeLayersOverride = overrides['state:activeLayers'];
+      if (activeLayersOverride) {
+        if (!result.state) result.state = {};
+        result.state.activeLayers = activeLayersOverride.map(l => ({ ...l }));
+      }
+
+      // Layer tree (Layers tab)
+      const treeOverride = overrides['layerTree:tree'];
+      if (treeOverride) {
+        const loc = findLayerTreeLocation(config);
+        const target = loc ? getBaseLayerTreeItem(result, loc) : null;
+        if (target) target.tree = JSON.parse(JSON.stringify(treeOverride));
+      }
+
+      // Layer title renames (Layers tab)
+      const titleOverrides = overrides.layerTitles;
+      if (titleOverrides && result.layerData?.layers) {
+        for (const [id, newTitle] of Object.entries(titleOverrides)) {
+          if (result.layerData.layers[id]) result.layerData.layers[id].title = newTitle;
+        }
+      }
+
+      // Layers added via the "+ Add layer…" panel (Layers tab)
+      const added = overrides['layerData:added'];
+      if (added && (Object.keys(added.sources).length || Object.keys(added.layers).length)) {
+        if (!result.layerData) result.layerData = { sources: {}, layers: {} };
+        if (!result.layerData.sources) result.layerData.sources = {};
+        if (!result.layerData.layers) result.layerData.layers = {};
+        Object.assign(result.layerData.sources, JSON.parse(JSON.stringify(added.sources)));
+        Object.assign(result.layerData.layers, JSON.parse(JSON.stringify(added.layers)));
+      }
+
       // Dev tools
       result._devTools = { configedit: overrides['dev:configedit'] === true };
 
@@ -764,6 +1624,7 @@
     document.getElementById('btn-reset').addEventListener('click', () => {
       saveOverrides({});
       buildUI(baseConfig, {});
+      buildLayersUI(baseConfig);
       updateSelectAll();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(baseConfig));
       document.getElementById('status').textContent = 'Reset to defaults — preview updated.';
@@ -781,9 +1642,48 @@
       URL.revokeObjectURL(url);
     });
 
+    // --- Tabs ---
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    document.getElementById('catalog-search').addEventListener('input', () => buildLayersUI(baseConfig));
+
+    // --- "+ Add layer…" panel: toggle, tabs, repository search, URL discovery ---
+    document.getElementById('btn-add-layer').addEventListener('click', () => {
+      const panel = document.getElementById('add-layer-panel');
+      const opening = panel.hidden;
+      panel.hidden = !opening;
+      if (opening) buildRepoResults(baseConfig, document.getElementById('repo-search').value);
+    });
+
+    document.querySelectorAll('.add-layer-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.add-layer-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.add-layer-source').forEach(s => s.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('add-layer-' + tab.dataset.source).classList.add('active');
+      });
+    });
+
+    document.getElementById('repo-search').addEventListener('input', (e) => {
+      buildRepoResults(baseConfig, e.target.value);
+    });
+
+    document.getElementById('btn-discover').addEventListener('click', () => runDiscovery(baseConfig));
+    document.getElementById('discover-url').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); runDiscovery(baseConfig); }
+    });
+
     // Init
     const config = await loadConfig();
     buildUI(config, getSaved());
+    buildLayersUI(config);
     updateSelectAll();
   </script>
 </body>
