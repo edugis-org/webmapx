@@ -387,6 +387,8 @@ function normalizeLayerDataSection(layerData: unknown, configUrl: string): { sou
   const record = layerData as Record<string, unknown>;
   const sources = Array.isArray(record.sources)
     ? record.sources
+        .filter(isObject)
+        .map((value) => normalizeSourceDefinition(typeof value.id === 'string' ? value.id : '', value, configUrl))
     : normalizeSourceMap(record.sources, configUrl);
 
   const extraSources: Record<string, unknown>[] = [];
