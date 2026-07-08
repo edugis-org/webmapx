@@ -162,6 +162,26 @@
     #btn-reset { background: #e0e0e0; }
     #btn-reset:hover { background: #c6c6c6; }
     #status { margin-top: 1rem; font-size: 0.875rem; color: #555; }
+    #btn-publish { background: #e0e0e0; }
+    #btn-publish:hover { background: #c6c6c6; }
+    .publish-panel {
+      border: 1px solid #ddd; border-radius: 6px; padding: 0.9rem; margin: 0.75rem 0 1.25rem;
+      background: #fafbfc; max-width: 480px;
+    }
+    .publish-row { margin-bottom: 0.6rem; }
+    .publish-row label { display: block; font-size: 0.8rem; color: #555; margin-bottom: 0.2rem; }
+    .publish-row input {
+      width: 100%; box-sizing: border-box; padding: 0.35rem 0.5rem; font-size: 0.85rem;
+      border: 1px solid #ccc; border-radius: 4px;
+    }
+    .publish-actions { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
+    .publish-actions button { padding: 0.4rem 0.9rem; font-size: 0.85rem; }
+    #btn-publish-submit { background: #0f62fe; color: #fff; }
+    #btn-publish-submit:hover { background: #0353e9; }
+    #btn-publish-forget { background: none; border: 1px solid #ccc; margin-left: auto; }
+    .publish-status { margin-top: 0.6rem; font-size: 0.8rem; }
+    .publish-status.error { color: #c00; }
+    .publish-status.success { color: #0a7d2c; }
   </style>
 </head>
 <body>
@@ -171,6 +191,36 @@
     <button id="btn-launch">Update preview</button>
     <button id="btn-reset">Reset to defaults</button>
     <button id="btn-download">Download config</button>
+    <button id="btn-publish">Publish to GitHub…</button>
+  </div>
+
+  <div id="publish-panel" class="publish-panel" hidden>
+    <div class="publish-row">
+      <label>Personal access token <span class="section-hint">(repo / contents:write scope, saved in this browser's localStorage)</span></label>
+      <input type="password" id="publish-token" autocomplete="off">
+    </div>
+    <div class="publish-row">
+      <label>Repository <span class="section-hint">(owner/repo)</span></label>
+      <input type="text" id="publish-repo" placeholder="owner/repo">
+    </div>
+    <div class="publish-row">
+      <label>Branch</label>
+      <input type="text" id="publish-branch" value="main">
+    </div>
+    <div class="publish-row">
+      <label>File path</label>
+      <input type="text" id="publish-path" value="configs/webmapx-config.json">
+    </div>
+    <div class="publish-row">
+      <label>Commit message</label>
+      <input type="text" id="publish-message" value="Update webmapx config">
+    </div>
+    <div class="publish-actions">
+      <button id="btn-publish-submit">Publish</button>
+      <button id="btn-publish-cancel">Cancel</button>
+      <button id="btn-publish-forget">Forget saved token</button>
+    </div>
+    <div id="publish-status" class="publish-status"></div>
   </div>
 
   <div class="tabs">
@@ -1640,6 +1690,130 @@
       a.download = 'webmapx-config.json';
       a.click();
       URL.revokeObjectURL(url);
+    });
+
+    // --- Publish to GitHub (Contents API, called directly from the browser — CORS is allowed) ---
+    const GITHUB_AUTH_KEY = 'webmapx-setup-github-auth';
+
+    function getGithubAuth() {
+      try { return JSON.parse(localStorage.getItem(GITHUB_AUTH_KEY) ?? 'null'); }
+      catch { return null; }
+    }
+
+    function saveGithubAuth(auth) {
+      localStorage.setItem(GITHUB_AUTH_KEY, JSON.stringify(auth));
+    }
+
+    function forgetGithubAuth() {
+      localStorage.removeItem(GITHUB_AUTH_KEY);
+    }
+
+    function fillPublishForm(auth) {
+      document.getElementById('publish-token').value = auth?.token ?? '';
+      document.getElementById('publish-repo').value = auth?.repo ?? '';
+      document.getElementById('publish-branch').value = auth?.branch ?? 'main';
+      document.getElementById('publish-path').value = auth?.path ?? 'configs/webmapx-config.json';
+    }
+
+    function setPublishStatus(text, kind) {
+      const el = document.getElementById('publish-status');
+      el.textContent = text;
+      el.className = 'publish-status' + (kind ? ' ' + kind : '');
+    }
+
+    function setPublishStatusHtml(html, kind) {
+      const el = document.getElementById('publish-status');
+      el.innerHTML = html;
+      el.className = 'publish-status' + (kind ? ' ' + kind : '');
+    }
+
+    function rawGithubUrl(repo, branch, path) {
+      return `https://raw.githubusercontent.com/${repo}/${branch}/${path}`;
+    }
+
+    // btoa() only handles Latin1 — this round-trip makes UTF-8 content safe to base64-encode.
+    function utf8ToBase64(str) {
+      return btoa(unescape(encodeURIComponent(str)));
+    }
+
+    async function publishToGithub() {
+      const token = document.getElementById('publish-token').value.trim();
+      const repo = document.getElementById('publish-repo').value.trim();
+      const branch = document.getElementById('publish-branch').value.trim() || 'main';
+      const path = document.getElementById('publish-path').value.trim();
+      const message = document.getElementById('publish-message').value.trim() || 'Update webmapx config';
+
+      if (!token || !repo || !path) {
+        setPublishStatus('Token, repository and file path are required.', 'error');
+        return;
+      }
+
+      saveGithubAuth({ token, repo, branch, path });
+
+      setPublishStatus('Publishing…');
+      const apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+      };
+
+      try {
+        // Look up the current file's sha (required by the Contents API to update an existing file).
+        let sha;
+        const getRes = await fetch(`${apiUrl}?ref=${encodeURIComponent(branch)}`, { headers });
+        if (getRes.ok) {
+          sha = (await getRes.json()).sha;
+        } else if (getRes.status !== 404) {
+          throw new Error(`Lookup failed (${getRes.status}): ${(await getRes.json()).message ?? getRes.statusText}`);
+        }
+
+        const finalConfig = applyOverrides(baseConfig, getSaved());
+        const content = utf8ToBase64(JSON.stringify(finalConfig, null, 2));
+
+        const putRes = await fetch(apiUrl, {
+          method: 'PUT',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, content, branch, ...(sha ? { sha } : {}) }),
+        });
+        if (!putRes.ok) {
+          const body = await putRes.json().catch(() => ({}));
+          throw new Error(`Publish failed (${putRes.status}): ${body.message ?? putRes.statusText}`);
+        }
+        const result = await putRes.json();
+        const rawUrl = rawGithubUrl(repo, branch, path);
+        const setupUrl = `${window.location.pathname}?config=${encodeURIComponent(rawUrl)}`;
+        setPublishStatusHtml(
+          `Published. Commit: <a href="${result.content?.html_url ?? '#'}" target="_blank" rel="noopener">${result.commit?.sha?.slice(0, 7) ?? 'view'}</a><br>` +
+          `Raw URL: <a href="${rawUrl}" target="_blank" rel="noopener">${rawUrl}</a><br>` +
+          `Setup link: <a href="${setupUrl}">${setupUrl}</a>`,
+          'success'
+        );
+      } catch (err) {
+        setPublishStatus(err.message ?? String(err), 'error');
+      }
+    }
+
+    document.getElementById('btn-publish').addEventListener('click', () => {
+      if (!baseConfig) return;
+      const panel = document.getElementById('publish-panel');
+      fillPublishForm(getGithubAuth());
+      panel.hidden = !panel.hidden;
+      setPublishStatus('');
+    });
+
+    document.getElementById('btn-publish-cancel').addEventListener('click', () => {
+      document.getElementById('publish-panel').hidden = true;
+    });
+
+    document.getElementById('btn-publish-forget').addEventListener('click', () => {
+      forgetGithubAuth();
+      fillPublishForm(null);
+      setPublishStatus('Saved token cleared.');
+    });
+
+    document.getElementById('btn-publish-submit').addEventListener('click', () => {
+      if (!baseConfig) return;
+      publishToGithub();
     });
 
     // --- Tabs ---
