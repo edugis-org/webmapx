@@ -416,8 +416,82 @@
       activeConfigUrl = params.get('config') ?? '../config/demo.json';
       const res = await fetch(activeConfigUrl);
       if (!res.ok) throw new Error(`Failed to load config: ${activeConfigUrl} (${res.status})`);
-      baseConfig = await res.json();
+      baseConfig = normalizeRawConfig(await res.json());
       return baseConfig;
+    }
+
+    // Real configs use one of 3 top-level shapes for layer catalog data (see
+    // src/config/loader.ts normalizeAppConfig): `layerData` (canonical), `catalog`
+    // (sources/layers arrays under a differently-named key), or `library` (older format,
+    // sources/layers as array-or-object-map plus a `catalogs` map of named trees, with
+    // a layerTree tool item pointing at one by name via `item.catalog`). This funnels
+    // all 3 into `layerData` + an inline tool `tree`, so the rest of the Layers tab only
+    // ever has to deal with one shape. Runs once, in place, right after fetch.
+    function normalizeRawConfig(raw) {
+      if (!isPlainObject(raw)) return raw;
+
+      if (isPlainObject(raw.layerData)) return raw;
+
+      if (isPlainObject(raw.catalog)) {
+        raw.layerData = {
+          sources: asEntryList(raw.catalog.sources),
+          layers: asEntryList(raw.catalog.layers),
+        };
+        delete raw.catalog;
+        return raw;
+      }
+
+      if (isPlainObject(raw.library)) {
+        const sources = asEntryList(raw.library.sources);
+        const layers = asEntryList(raw.library.layers);
+        raw.layerData = { sources, layers };
+
+        // Runtime always uses the FIRST catalog in `library.catalogs`, regardless of
+        // which one the layerTree tool's `item.catalog` names (loader.ts normalizeCatalogTree
+        // does the same) — mirrored here so the tree matches what actually renders.
+        const catalogs = raw.library.catalogs;
+        const firstCatalog = isPlainObject(catalogs)
+          ? Object.values(catalogs).find(isPlainObject)
+          : null;
+        const tree = catalogTreeFromLibraryItems(firstCatalog?.items, layers);
+
+        const loc = findLayerTreeLocation(raw);
+        const item = loc ? getBaseLayerTreeItem(raw, loc) : null;
+        if (item && !(Array.isArray(item.tree) && item.tree.length)) {
+          item.tree = tree;
+          delete item.catalog;
+        }
+
+        delete raw.library;
+        return raw;
+      }
+
+      return raw;
+    }
+
+    function isPlainObject(v) {
+      return v !== null && typeof v === 'object' && !Array.isArray(v);
+    }
+
+    function catalogTreeFromLibraryItems(items, layers) {
+      const mapItem = (item) => {
+        if (!isPlainObject(item)) return null;
+        if (item.kind === 'group') {
+          return {
+            label: typeof item.title === 'string' ? item.title : 'Group',
+            children: (item.children ?? []).map(mapItem).filter(Boolean),
+          };
+        }
+        if (item.kind === 'layer') {
+          const ref = item.ref;
+          if (typeof ref !== 'string') return null;
+          return { label: typeof item.title === 'string' ? item.title : ref, layerId: ref };
+        }
+        return null;
+      };
+      const mapped = (Array.isArray(items) ? items : []).map(mapItem).filter(Boolean);
+      if (mapped.length) return mapped;
+      return layers.map(l => ({ label: l.id, layerId: l.id }));
     }
 
     const TOOLBAR_TOOLS = KNOWN_TOOLS.filter(t => !t.standalone);
@@ -940,10 +1014,46 @@
       return ov['layerData:added'] ?? { sources: {}, layers: {} };
     }
 
+    // config.layerData.layers/sources come in two shapes depending on config vintage:
+    // a new-format ordered array of { id, ... } entries, or an old-format object keyed by id.
+    // This normalizes either shape to a plain array.
+    function asEntryList(collection) {
+      if (Array.isArray(collection)) return collection.filter(Boolean);
+      if (collection && typeof collection === 'object') {
+        return Object.entries(collection).map(([id, v]) => ({ id, ...v }));
+      }
+      return [];
+    }
+
+    // Looks up an entry by id in either shape without normalizing (keeps the caller's reference).
+    function findById(collection, id) {
+      if (Array.isArray(collection)) return collection.find(x => x && x.id === id);
+      if (collection && typeof collection === 'object') return collection[id];
+      return undefined;
+    }
+
+    // Inserts/replaces an entry by id in either shape, mutating in place.
+    function upsertById(collection, id, entry) {
+      if (Array.isArray(collection)) {
+        const idx = collection.findIndex(x => x && x.id === id);
+        if (idx >= 0) collection[idx] = entry; else collection.push(entry);
+      } else if (collection && typeof collection === 'object') {
+        collection[id] = entry;
+      }
+    }
+
+    // Maps config.layerData.layers to an id-keyed object for lookups, merged with staged "added" layers.
+    function getLayersById(config) {
+      const byId = {};
+      for (const layer of asEntryList(config.layerData?.layers)) {
+        if (layer.id) byId[layer.id] = layer;
+      }
+      return { ...byId, ...getAddedLayerData().layers };
+    }
+
     function uniqueLayerId(config, baseId) {
       const existing = new Set([
-        ...Object.keys(config.layerData?.layers ?? {}),
-        ...Object.keys(getAddedLayerData().layers),
+        ...Object.keys(getLayersById(config)),
       ]);
       let id = baseId || 'layer';
       let n = 2;
@@ -1229,7 +1339,7 @@
 
     // <select> of layers not yet placed anywhere in the tree; onAdd(layerId) fires on pick.
     function createAddLayerSelect(config, rootTree, onAdd) {
-      const layers = { ...(config.layerData?.layers ?? {}), ...getAddedLayerData().layers };
+      const layers = getLayersById(config);
       const treeIds = collectTreeLayerIds(rootTree);
       const available = Object.entries(layers)
         .filter(([id]) => !treeIds.has(id))
@@ -1590,7 +1700,7 @@
     });
 
     function buildLayersUI(config) {
-      const layers = { ...(config.layerData?.layers ?? {}), ...getAddedLayerData().layers };
+      const layers = getLayersById(config);
       const activeList = getActiveLayers(config);
       const treeLoc = findLayerTreeLocation(config);
       const tree = getTree(config, treeLoc);
@@ -1950,18 +2060,23 @@
       const titleOverrides = overrides.layerTitles;
       if (titleOverrides && result.layerData?.layers) {
         for (const [id, newTitle] of Object.entries(titleOverrides)) {
-          if (result.layerData.layers[id]) result.layerData.layers[id].title = newTitle;
+          const layer = findById(result.layerData.layers, id);
+          if (layer) layer.title = newTitle;
         }
       }
 
       // Layers added via the "+ Add layer…" panel (Layers tab)
       const added = overrides['layerData:added'];
       if (added && (Object.keys(added.sources).length || Object.keys(added.layers).length)) {
-        if (!result.layerData) result.layerData = { sources: {}, layers: {} };
-        if (!result.layerData.sources) result.layerData.sources = {};
-        if (!result.layerData.layers) result.layerData.layers = {};
-        Object.assign(result.layerData.sources, JSON.parse(JSON.stringify(added.sources)));
-        Object.assign(result.layerData.layers, JSON.parse(JSON.stringify(added.layers)));
+        if (!result.layerData) result.layerData = { sources: [], layers: [] };
+        if (!result.layerData.sources) result.layerData.sources = [];
+        if (!result.layerData.layers) result.layerData.layers = [];
+        for (const [id, source] of Object.entries(JSON.parse(JSON.stringify(added.sources)))) {
+          upsertById(result.layerData.sources, id, { ...source, id });
+        }
+        for (const [id, layer] of Object.entries(JSON.parse(JSON.stringify(added.layers)))) {
+          upsertById(result.layerData.layers, id, { ...layer, id });
+        }
       }
 
       // Map tab: initial view + engine
