@@ -29,8 +29,9 @@
     "maxPitch": 85
   },
   "layerData": {
-    "sources": {
-      "xyz-source": {
+    "sources": [
+      {
+        "id": "xyz-source",
         "type": "raster",
         "service": "xyz",
         "url": [
@@ -42,24 +43,28 @@
         "attribution": "&copy; OpenStreetMap contributors",
         "maxzoom": 19
       },
-      "google-satellite-source": {
+      {
+        "id": "google-satellite-source",
         "type": "raster",
         "service": "xyz",
         "url": "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
         "tileSize": 256,
-        "attribution": "\u00a9 Google Satellite"
+        "attribution": "© Google Satellite"
       },
-      "world-countries-source": {
+      {
+        "id": "world-countries-source",
         "type": "geojson",
         "data": "../data/world-countries-simplified.topojson#world-countries-simplified2",
         "attribution": "&copy; Natural Earth"
       },
-      "earthquake-source": {
+      {
+        "id": "earthquake-source",
         "type": "geojson",
         "data": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson",
         "attribution": "USGS Earthquake Data"
       },
-      "countrypopest-source": {
+      {
+        "id": "countrypopest-source",
         "type": "vector",
         "bounds": [
           -180,
@@ -72,7 +77,8 @@
         ],
         "attribution": "Natural Earth"
       },
-      "countrypopdensity-source": {
+      {
+        "id": "countrypopdensity-source",
         "type": "vector",
         "bounds": [
           -180,
@@ -85,7 +91,8 @@
           "https://tiles.edugis.nl/data/public.world_population_moredetailed/mvt/{z}/{x}/{y}?geom_column=geom&columns=country,population,population_density,area&include_nulls=0"
         ]
       },
-      "bevolking2015-source": {
+      {
+        "id": "bevolking2015-source",
         "type": "raster",
         "tileSize": 256,
         "bounds": [
@@ -103,7 +110,8 @@
         ],
         "attribution": "&copy; <a href='https://www.cbs.nl' target='copyright'>CBS</a>"
       },
-      "populationdensity-source": {
+      {
+        "id": "populationdensity-source",
         "type": "vector",
         "bounds": [
           -180,
@@ -116,7 +124,8 @@
           "https://tiles.edugis.nl/data/public.ne_10m_admin_1_states_provinces_lakes_pop/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,pop_sum,pop_dens,admin,type,type_en&include_nulls=0"
         ]
       },
-      "population3d-source": {
+      {
+        "id": "population3d-source",
         "type": "vector",
         "bounds": [
           -180,
@@ -129,7 +138,8 @@
           "https://tiles.edugis.nl/data/public.ne_10m_admin_1_states_provinces_lakes_pop/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,pop_sum,pop_dens,admin,type,type_en&include_nulls=0"
         ]
       },
-      "populationsum-source": {
+      {
+        "id": "populationsum-source",
         "type": "vector",
         "bounds": [
           -180,
@@ -142,29 +152,33 @@
           "https://tiles.edugis.nl/data/public.ne_10m_admin_1_states_provinces_lakes_pop/mvt/{z}/{x}/{y}?geom_column=geompoint&columns=name,pop_sum,pop_dens,admin,type,type_en&include_nulls=0"
         ]
       },
-      "citiesandtowns2-source": {
+      {
+        "id": "citiesandtowns2-source",
         "type": "vector",
         "tiles": [
           "https://tiles.edugis.nl/data/public.ne_10m_populated_places/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,name_nl,timezone,pop_min,pop_max&include_nulls=0"
         ],
         "attribution": "Natural Earth"
       },
-      "worldlandcover-source": {
+      {
+        "id": "worldlandcover-source",
         "type": "raster",
-        "tiles": [
+        "url": [
           "https://tiles.edugis.nl/mapproxy/landcover/wmts/landcover/GLOBAL_WEBMERCATOR/{z}/{x}/{y}.png"
         ],
         "tileSize": 256,
         "attribution": "&copy; <a href=\"https://github.com/globalmaps/gm_lc_v3\" target=\"copyright\">GLCNMO Version 3</a>"
       },
-      "geographiclines-source": {
+      {
+        "id": "geographiclines-source",
         "type": "vector",
         "tiles": [
           "https://tiles.edugis.nl/data/public.ne_10m_geographic_lines/mvt/{z}/{x}/{y}?geom_column=geom&columns=name_nl&include_nulls=0"
         ],
         "attribution": "Natural Earth"
       },
-      "latitudes-source": {
+      {
+        "id": "latitudes-source",
         "type": "geojson",
         "attribution": "",
         "data": {
@@ -488,7 +502,8 @@
           ]
         }
       },
-      "longitudes-source": {
+      {
+        "id": "longitudes-source",
         "type": "geojson",
         "attribution": "",
         "data": {
@@ -871,24 +886,28 @@
           ]
         }
       },
-      "timezones-source": {
+      {
+        "id": "timezones-source",
         "type": "vector",
         "tiles": [
           "https://tiles.edugis.nl/data/public.ne_10m_time_zones/mvt/{z}/{x}/{y}?geom_column=geom&columns=tz_name1st,zone&include_nulls=0"
         ],
         "attribution": "Natural Earth"
       },
-      "daynight-source": {
+      {
+        "id": "daynight-source",
         "type": "geojson",
         "data": "https://services9.arcgis.com/RHVPKKiFTONKtxq3/ArcGIS/rest/services/Day_Night_Terminator/FeatureServer/2/query?where=1%3D1&outFields=*&returnGeometry=true&f=geojson",
         "attribution": "Esri Day Night Terminator"
       },
-      "sunposition-source": {
+      {
+        "id": "sunposition-source",
         "type": "geojson",
         "data": "https://services9.arcgis.com/RHVPKKiFTONKtxq3/ArcGIS/rest/services/Day_Night_Terminator/FeatureServer/0/query?where=1%3D1&outFields=*&returnGeometry=true&f=geojson",
         "attribution": "Esri Day Night Terminator"
       },
-      "pdok-ahn-source": {
+      {
+        "id": "pdok-ahn-source",
         "type": "raster",
         "service": "xyz",
         "tileSize": 512,
@@ -903,7 +922,8 @@
         ],
         "attribution": "&copy; AHN | PDOK"
       },
-      "pdok-luchtfoto-source": {
+      {
+        "id": "pdok-luchtfoto-source",
         "type": "raster",
         "service": "xyz",
         "tileSize": 256,
@@ -918,7 +938,8 @@
         ],
         "attribution": "&copy; Beeldmateriaal.nl | PDOK"
       },
-      "pdok-brt-achtergrond-source": {
+      {
+        "id": "pdok-brt-achtergrond-source",
         "type": "raster",
         "service": "xyz",
         "tileSize": 256,
@@ -933,7 +954,8 @@
         ],
         "attribution": "&copy; Kadaster | PDOK"
       },
-      "pdok-brt-achtergrond-grijs-source": {
+      {
+        "id": "pdok-brt-achtergrond-grijs-source",
         "type": "raster",
         "service": "xyz",
         "tileSize": 256,
@@ -948,7 +970,8 @@
         ],
         "attribution": "&copy; Kadaster | PDOK"
       },
-      "pdok-brt-achtergrond-pastel-source": {
+      {
+        "id": "pdok-brt-achtergrond-pastel-source",
         "type": "raster",
         "service": "xyz",
         "tileSize": 256,
@@ -963,7 +986,8 @@
         ],
         "attribution": "&copy; Kadaster | PDOK"
       },
-      "pdok-brt-achtergrond-water-source": {
+      {
+        "id": "pdok-brt-achtergrond-water-source",
         "type": "raster",
         "service": "xyz",
         "tileSize": 256,
@@ -978,7 +1002,8 @@
         ],
         "attribution": "&copy; Kadaster | PDOK"
       },
-      "pdok-bag-source": {
+      {
+        "id": "pdok-bag-source",
         "type": "raster",
         "service": "wms",
         "tileSize": 256,
@@ -998,7 +1023,8 @@
         ],
         "attribution": "&copy; Kadaster | PDOK"
       },
-      "pdok-kadastralekaart-source": {
+      {
+        "id": "pdok-kadastralekaart-source",
         "type": "raster",
         "service": "xyz",
         "tileSize": 256,
@@ -1013,7 +1039,8 @@
         ],
         "attribution": "&copy; Kadaster | PDOK"
       },
-      "mapzenhillshading-source": {
+      {
+        "id": "mapzenhillshading-source",
         "type": "raster-dem",
         "tiles": [
           "https://t1.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png",
@@ -1026,7 +1053,7 @@
         "maxzoom": 15,
         "attribution": "NextZen"
       }
-    },
+    ],
     "attributeMetadata": {
       "pop_dens": {
         "translations": [
@@ -1035,37 +1062,77 @@
             "translation": "population density",
             "unit": " inh/km²",
             "valuemap": [
-              { "value": 0,      "operator": "==", "label": "no data" },
-              { "value": 10,     "operator": "<",  "label": "0 - 10 inh/km²" },
-              { "value": 26,     "operator": "<",  "label": "10 - 26 inh/km²" },
-              { "value": 48,     "operator": "<",  "label": "26 - 48 inh/km²" },
-              { "value": 72,     "operator": "<",  "label": "48 - 72 inh/km²" },
-              { "value": 107,    "operator": "<=", "label": "72 - 107 inh/km²" },
-              { "value": 174,    "operator": "<",  "label": "107 - 174 inh/km²" },
-              { "value": 309,    "operator": "<",  "label": "174 - 309 inh/km²" },
-              { "value": 759,    "operator": "<=", "label": "309 - 759 inh/km²" },
-              { "value": 600104, "operator": "<=", "label": "> 759 inh/km²" }
+              {
+                "value": 0,
+                "operator": "==",
+                "label": "no data"
+              },
+              {
+                "value": 10,
+                "operator": "<",
+                "label": "0 - 10 inh/km²"
+              },
+              {
+                "value": 26,
+                "operator": "<",
+                "label": "10 - 26 inh/km²"
+              },
+              {
+                "value": 48,
+                "operator": "<",
+                "label": "26 - 48 inh/km²"
+              },
+              {
+                "value": 72,
+                "operator": "<",
+                "label": "48 - 72 inh/km²"
+              },
+              {
+                "value": 107,
+                "operator": "<=",
+                "label": "72 - 107 inh/km²"
+              },
+              {
+                "value": 174,
+                "operator": "<",
+                "label": "107 - 174 inh/km²"
+              },
+              {
+                "value": 309,
+                "operator": "<",
+                "label": "174 - 309 inh/km²"
+              },
+              {
+                "value": 759,
+                "operator": "<=",
+                "label": "309 - 759 inh/km²"
+              },
+              {
+                "value": 600104,
+                "operator": "<=",
+                "label": "> 759 inh/km²"
+              }
             ]
           }
         ]
       }
     },
-    "layers": {
-      "osm": {
+    "layers": [
+      {
         "id": "osm",
         "type": "raster",
         "source": "xyz-source",
         "singleGroup": "basemap",
         "title": "OpenStreetMap (xyz)"
       },
-      "google-satellite": {
+      {
         "id": "google-satellite",
         "type": "raster",
         "source": "google-satellite-source",
         "singleGroup": "basemap",
         "title": "Google Satellite"
       },
-      "relief": {
+      {
         "id": "relief",
         "type": "hillshade",
         "source": "mapzenhillshading-source",
@@ -1074,7 +1141,7 @@
           "hillshade-exaggeration": 0.2
         }
       },
-      "openfreemap-liberty": {
+      {
         "id": "openfreemap-liberty",
         "type": "style",
         "url": "https://tiles.openfreemap.org/styles/liberty",
@@ -1090,13 +1157,13 @@
           ]
         }
       },
-      "world-countries": {
+      {
         "id": "world-countries",
         "type": "style",
         "version": 8,
         "title": "World countries",
         "metadata": {
-          "abstract": "<p>Countries distinguish between metropolitan (homeland) and independent and semi-independent portions of sovereign states. If you want to see the dependent overseas regions broken out (like in ISO codes, see France for example), use map units instead.</p><p>Each country is coded with a world region that roughly follows the United Nations setup.</p><p>Countries are coded with standard ISO and FIPS codes. French INSEE codes are also included.</p><p>Includes some thematic data from the United Nations (1), U.S. Central Intelligence Agency, and elsewhere.</p><p><img src=\"https://www.naturalearthdata.com/wp-content/uploads/2009/09/banner_countries.png\" alt=\"World countries banner\"></p><p><strong>Disclaimer</strong></p><p>Natural Earth Vector draws boundaries of countries according to defacto status. We show who actually controls the situation on the ground. Please feel free to mashup our disputed area themes to match your particular political outlook.</p><p>Source: <a href=\"https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-countries/\">Natural Earth \u2013 Admin 0 Countries</a></p>"
+          "abstract": "<p>Countries distinguish between metropolitan (homeland) and independent and semi-independent portions of sovereign states. If you want to see the dependent overseas regions broken out (like in ISO codes, see France for example), use map units instead.</p><p>Each country is coded with a world region that roughly follows the United Nations setup.</p><p>Countries are coded with standard ISO and FIPS codes. French INSEE codes are also included.</p><p>Includes some thematic data from the United Nations (1), U.S. Central Intelligence Agency, and elsewhere.</p><p><img src=\"https://www.naturalearthdata.com/wp-content/uploads/2009/09/banner_countries.png\" alt=\"World countries banner\"></p><p><strong>Disclaimer</strong></p><p>Natural Earth Vector draws boundaries of countries according to defacto status. We show who actually controls the situation on the ground. Please feel free to mashup our disputed area themes to match your particular political outlook.</p><p>Source: <a href=\"https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-countries/\">Natural Earth – Admin 0 Countries</a></p>"
         },
         "layers": [
           {
@@ -1119,7 +1186,7 @@
           }
         ]
       },
-      "earthquake": {
+      {
         "id": "earthquake",
         "type": "style",
         "version": 8,
@@ -1210,13 +1277,13 @@
           }
         ]
       },
-      "nyc-historical": {
+      {
         "id": "nyc-historical",
         "type": "allmaps",
         "annotation": "https://annotations.allmaps.org/images/d180902cb93d5bf2",
         "title": "NYC 1836 (Allmaps)"
       },
-      "amsterdam-historical": {
+      {
         "id": "amsterdam-historical",
         "type": "allmaps",
         "annotation": "https://annotations.allmaps.org/maps/f60ecda322d09956",
@@ -1230,7 +1297,7 @@
           ]
         }
       },
-      "countrypopest": {
+      {
         "id": "countrypopest",
         "type": "circle",
         "title": "Population by country",
@@ -1311,7 +1378,7 @@
           "circle-pitch-alignment": "map"
         }
       },
-      "countrypopdensity": {
+      {
         "id": "countrypopdensity",
         "type": "fill",
         "title": "Population density | Countries",
@@ -1333,15 +1400,43 @@
               {
                 "name": "population_density",
                 "translation": "population density",
-                "unit": " inh/km\u00b2",
+                "unit": " inh/km²",
                 "valuemap": [
-                  { "value": 20,    "operator": "<",  "label": "0 - 20 inh/km\u00b2" },
-                  { "value": 40,    "operator": "<",  "label": "20 - 40 inh/km\u00b2" },
-                  { "value": 70,    "operator": "<",  "label": "40 - 70 inh/km\u00b2" },
-                  { "value": 100,   "operator": "<",  "label": "70 - 100 inh/km\u00b2" },
-                  { "value": 150,   "operator": "<",  "label": "100 - 150 inh/km\u00b2" },
-                  { "value": 300,   "operator": "<",  "label": "150 - 300 inh/km\u00b2" },
-                  { "value": 20000, "operator": "<=", "label": "300 - 20000 inh/km\u00b2" }
+                  {
+                    "value": 20,
+                    "operator": "<",
+                    "label": "0 - 20 inh/km²"
+                  },
+                  {
+                    "value": 40,
+                    "operator": "<",
+                    "label": "20 - 40 inh/km²"
+                  },
+                  {
+                    "value": 70,
+                    "operator": "<",
+                    "label": "40 - 70 inh/km²"
+                  },
+                  {
+                    "value": 100,
+                    "operator": "<",
+                    "label": "70 - 100 inh/km²"
+                  },
+                  {
+                    "value": 150,
+                    "operator": "<",
+                    "label": "100 - 150 inh/km²"
+                  },
+                  {
+                    "value": 300,
+                    "operator": "<",
+                    "label": "150 - 300 inh/km²"
+                  },
+                  {
+                    "value": 20000,
+                    "operator": "<=",
+                    "label": "300 - 20000 inh/km²"
+                  }
                 ]
               },
               {
@@ -1429,7 +1524,7 @@
           "population_density"
         ]
       },
-      "bevolking2015": {
+      {
         "id": "bevolking2015",
         "type": "raster",
         "title": "Population density | Raster",
@@ -1453,7 +1548,7 @@
         "minzoom": 0,
         "maxzoom": 8.5
       },
-      "populationdensity": {
+      {
         "id": "populationdensity",
         "type": "fill",
         "title": "Population density | Regions",
@@ -1561,7 +1656,7 @@
           "fill-opacity": 0.8
         }
       },
-      "population3d": {
+      {
         "id": "population3d",
         "type": "fill-extrusion",
         "title": "Population density | Regions 3D",
@@ -1677,7 +1772,7 @@
           "fill-extrusion-opacity": 0.8
         }
       },
-      "populationsum": {
+      {
         "id": "populationsum",
         "type": "circle",
         "title": "Population density | Dot map",
@@ -1754,7 +1849,7 @@
           "circle-pitch-alignment": "map"
         }
       },
-      "citiesandtowns2": {
+      {
         "id": "citiesandtowns2",
         "type": "circle",
         "title": "Urban population",
@@ -1850,7 +1945,7 @@
           "circle-pitch-alignment": "map"
         }
       },
-      "worldlandcover": {
+      {
         "id": "worldlandcover",
         "type": "raster",
         "title": "Land cover",
@@ -1954,7 +2049,7 @@
           }
         }
       },
-      "pdok-bag": {
+      {
         "id": "pdok-bag",
         "type": "style",
         "url": "https://api.pdok.nl/lv/bag/ogc/v1/styles/bag_standaardvisualisatie__webmercatorquad?f=mapbox",
@@ -1971,7 +2066,7 @@
         },
         "layers": []
       },
-      "pdok-bgt": {
+      {
         "id": "pdok-bgt",
         "type": "style",
         "url": "https://api.pdok.nl/lv/bgt/ogc/v1/styles/bgt_standaardvisualisatie__webmercatorquad?f=mapbox",
@@ -1988,7 +2083,7 @@
         },
         "layers": []
       },
-      "pdok-bgt-achtergrond": {
+      {
         "id": "pdok-bgt-achtergrond",
         "type": "style",
         "url": "https://api.pdok.nl/lv/bgt/ogc/v1/styles/bgt_achtergrondvisualisatie__webmercatorquad?f=mapbox",
@@ -2005,7 +2100,7 @@
         },
         "layers": []
       },
-      "pdok-brk-bestuurlijkegebieden": {
+      {
         "id": "pdok-brk-bestuurlijkegebieden",
         "type": "style",
         "url": "https://api.pdok.nl/kadaster/brk-bestuurlijke-gebieden/ogc/v1/styles/bestuurlijkegebieden_standaardvisualisatie__webmercatorquad?f=mapbox",
@@ -2022,7 +2117,7 @@
         },
         "layers": []
       },
-      "pdok-ahn": {
+      {
         "id": "pdok-ahn",
         "type": "raster",
         "title": "Hoogte (AHN)",
@@ -2051,7 +2146,7 @@
           }
         }
       },
-      "pdok-bag-raster": {
+      {
         "id": "pdok-bag-raster",
         "type": "raster",
         "title": "BAG panden (raster)",
@@ -2068,7 +2163,7 @@
           "abstract": "Panden uit de Basisregistratie Adressen en Gebouwen (BAG), als raster (alle zoomniveaus)."
         }
       },
-      "pdok-luchtfoto": {
+      {
         "id": "pdok-luchtfoto",
         "type": "raster",
         "title": "Luchtfoto (PDOK)",
@@ -2084,7 +2179,7 @@
           "abstract": "Actuele luchtfoto van Nederland, 25 cm resolutie."
         }
       },
-      "pdok-brt-achtergrond": {
+      {
         "id": "pdok-brt-achtergrond",
         "type": "raster",
         "title": "Achtergrondkaart (PDOK)",
@@ -2100,7 +2195,7 @@
           "abstract": "BRT Achtergrondkaart, standaard stijl."
         }
       },
-      "pdok-brt-achtergrond-grijs": {
+      {
         "id": "pdok-brt-achtergrond-grijs",
         "type": "raster",
         "title": "Achtergrondkaart grijs (PDOK)",
@@ -2116,7 +2211,7 @@
           "abstract": "BRT Achtergrondkaart, grijze stijl."
         }
       },
-      "pdok-brt-achtergrond-pastel": {
+      {
         "id": "pdok-brt-achtergrond-pastel",
         "type": "raster",
         "title": "Achtergrondkaart pastel (PDOK)",
@@ -2132,7 +2227,7 @@
           "abstract": "BRT Achtergrondkaart, pastel stijl."
         }
       },
-      "pdok-brt-achtergrond-water": {
+      {
         "id": "pdok-brt-achtergrond-water",
         "type": "raster",
         "title": "Achtergrondkaart water (PDOK)",
@@ -2148,7 +2243,7 @@
           "abstract": "BRT Achtergrondkaart, water stijl."
         }
       },
-      "pdok-percelen": {
+      {
         "id": "pdok-percelen",
         "type": "raster",
         "title": "Percelen (Kadastrale kaart)",
@@ -2167,7 +2262,7 @@
           "getFeatureInfoFormat": "application/json"
         }
       },
-      "geographiclines": {
+      {
         "id": "geographiclines",
         "type": "style",
         "version": 8,
@@ -2285,7 +2380,7 @@
           "title": "Equator | Tropics | Polar circles"
         }
       },
-      "latitudes": {
+      {
         "id": "latitudes",
         "type": "line",
         "title": "Latitudes",
@@ -2298,7 +2393,7 @@
           "title": "Latitudes"
         }
       },
-      "longitudes": {
+      {
         "id": "longitudes",
         "type": "line",
         "title": "Longitudes",
@@ -2311,7 +2406,7 @@
           "title": "Longitudes"
         }
       },
-      "timezones": {
+      {
         "id": "timezones",
         "type": "style",
         "version": 8,
@@ -2474,7 +2569,7 @@
           "title": "Time zones"
         }
       },
-      "daynight": {
+      {
         "id": "daynight",
         "type": "fill",
         "title": "Day, twilight and night",
@@ -2513,7 +2608,7 @@
           }
         }
       },
-      "sunposition": {
+      {
         "id": "sunposition",
         "type": "circle",
         "title": "Sun position",
@@ -2530,7 +2625,7 @@
           "abstract": "Current position of the sun (perpendicular solar radiation point)."
         }
       }
-    }
+    ]
   },
   "state": {
     "activeExclusiveLayers": {
@@ -2547,7 +2642,9 @@
     "buffer": {
       "enabled": true,
       "label": "Buffer",
-      "icon": { "name": "bounding-box" }
+      "icon": {
+        "name": "bounding-box"
+      }
     },
     "info": {
       "enabled": true,
