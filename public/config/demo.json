@@ -2656,6 +2656,11 @@
       "position": "bottom-left",
       "language": "browser"
     },
+    "search": {
+      "enabled": true,
+      "provider": "nominatim",
+      "attribution": "&copy; OpenStreetMap contributors | &copy; Nominatim"
+    },
     "mainToolbar": {
       "type": "toolbar",
       "enabled": true,
@@ -2672,9 +2677,7 @@
           "type": "search",
           "enabled": true,
           "title": "Search",
-          "icon": "search",
-          "provider": "nominatim",
-          "attribution": "&copy; OpenStreetMap contributors | &copy; Nominatim"
+          "icon": "search"
         },
         {
           "id": "layerTree",

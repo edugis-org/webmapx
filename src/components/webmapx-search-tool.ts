@@ -88,7 +88,20 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     attribution: ''
   } as any;
 
-  private static readonly KNOWN_PROVIDERS = new Set(['nominatim']);
+  private static readonly PROVIDER_DEFAULTS: Record<string, { endpoint: string; params: Record<string, unknown>; attribution: string }> = {
+    nominatim: {
+      endpoint: 'https://nominatim.openstreetmap.org/search',
+      params: { format: 'geojson', polygon_geojson: 1, addressdetails: 1 },
+      attribution: '&copy; OpenStreetMap contributors | &copy; Nominatim',
+    },
+    pdok: {
+      endpoint: 'https://api.pdok.nl/bzk/locatieserver/search/v3_1/free',
+      params: { fl: 'id,type,weergavenaam,centroide_ll,geometrie_ll' },
+      attribution: '&copy; PDOK Locatieserver, Kadaster',
+    },
+  };
+
+  private static readonly KNOWN_PROVIDERS = new Set(Object.keys(WebmapxSearchTool.PROVIDER_DEFAULTS));
 
   private isKnownProvider(provider: string): boolean {
     return WebmapxSearchTool.KNOWN_PROVIDERS.has(provider.toLowerCase());
@@ -124,14 +137,27 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
 
   protected onConfigReady(config: any): void {
     const searchCfg = config?.tools?.search;
-    if (searchCfg) {
+    const provider = (searchCfg?.provider ?? this.cfg.provider ?? 'nominatim').toLowerCase();
+    const defaults = WebmapxSearchTool.PROVIDER_DEFAULTS[provider];
+
+    if (defaults) {
+      // Apply provider-specific defaults first (endpoint/params/attribution), then let
+      // explicit user config win. Config's `params` merges on top of the provider's,
+      // rather than fully replacing them.
+      this.cfg = {
+        ...this.cfg,
+        endpoint: defaults.endpoint,
+        attribution: defaults.attribution,
+        ...searchCfg,
+        provider,
+        params: { ...defaults.params, ...(searchCfg?.params ?? {}) },
+      };
+    } else if (searchCfg) {
       this.cfg = { ...this.cfg, ...searchCfg };
     }
-    if (this.cfg.provider && !this.isKnownProvider(this.cfg.provider)) {
+
+    if (!this.isKnownProvider(this.cfg.provider)) {
       console.warn(`webmapx-search-tool: unknown provider "${this.cfg.provider}"`);
-    }
-    if (!this.cfg.attribution && this.cfg.provider?.toLowerCase() === 'nominatim') {
-      this.cfg.attribution = '&copy; OpenStreetMap contributors | &copy; Nominatim';
     }
   }
 
@@ -159,6 +185,149 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     // No-op
   }
 
+  // A hard geo filter (Nominatim bounded=1, PDOK fq=centroide_ll:[...]) can exclude the
+  // one result the user actually wants (e.g. a real address just outside a tight bbox, or
+  // ranked past a low `rows`/`limit` cutoff within it) while a fuzzy in-bbox false-positive
+  // takes its place. So: fetch once, unrestricted, with a high result cap, and rank
+  // in-viewport results first client-side instead of asking the provider to exclude anything.
+  private static readonly NOMINATIM_SCAN_LIMIT = 40;
+  private static readonly PDOK_SCAN_LIMIT = 100; // PDOK Locatieserver's documented max for `rows`
+
+  private buildSearchUrl(q: string): string {
+    const params = new URLSearchParams();
+    Object.entries(this.cfg.params || {}).forEach(([k, v]) => params.set(k, String(v)));
+    params.set('q', q);
+
+    if (this.cfg.provider === 'pdok') {
+      params.set('rows', String(Math.min(this.cfg.maxResults ? Math.max(this.cfg.maxResults, 15) : WebmapxSearchTool.PDOK_SCAN_LIMIT, WebmapxSearchTool.PDOK_SCAN_LIMIT)));
+    } else {
+      params.set('limit', String(Math.min(this.cfg.maxResults ? Math.max(this.cfg.maxResults, 15) : WebmapxSearchTool.NOMINATIM_SCAN_LIMIT, WebmapxSearchTool.NOMINATIM_SCAN_LIMIT)));
+      const viewbox = this.getCurrentViewBbox();
+      if (viewbox) {
+        // Soft bias only (no `bounded=1`): nudges ranking toward the current view without
+        // excluding anything outside it.
+        const [west, south, east, north] = viewbox;
+        params.set('viewbox', `${west},${north},${east},${south}`);
+      }
+    }
+    return `${this.cfg.endpoint}?${params.toString()}`;
+  }
+
+  // Parses the WKT subset PDOK Locatieserver returns (POINT, (MULTI)POLYGON, (MULTI)LINESTRING).
+  private parseWkt(wkt: string): GeoJSON.Geometry | null {
+    const match = wkt.match(/^\s*([A-Z]+)\s*\((.*)\)\s*$/s);
+    if (!match) return null;
+    const type = match[1].toUpperCase();
+    const body = match[2];
+
+    const splitTopLevel = (s: string): string[] => {
+      const parts: string[] = [];
+      let depth = 0, start = 0;
+      for (let i = 0; i < s.length; i++) {
+        if (s[i] === '(') depth++;
+        else if (s[i] === ')') depth--;
+        else if (s[i] === ',' && depth === 0) {
+          parts.push(s.slice(start, i));
+          start = i + 1;
+        }
+      }
+      parts.push(s.slice(start));
+      return parts.map(p => p.trim());
+    };
+    const stripParens = (s: string): string => s.trim().replace(/^\(/, '').replace(/\)$/, '');
+    const parsePoint = (s: string): [number, number] => {
+      const [lng, lat] = s.trim().split(/\s+/).map(Number);
+      return [lng, lat];
+    };
+    const parsePointList = (s: string): [number, number][] => splitTopLevel(s).map(parsePoint);
+    const parseRingList = (s: string): [number, number][][] => splitTopLevel(s).map(r => parsePointList(stripParens(r)));
+    const parsePolygonList = (s: string): [number, number][][][] => splitTopLevel(s).map(p => parseRingList(stripParens(p)));
+
+    switch (type) {
+      case 'POINT':
+        return { type: 'Point', coordinates: parsePoint(body) };
+      case 'LINESTRING':
+        return { type: 'LineString', coordinates: parsePointList(body) };
+      case 'MULTILINESTRING':
+        return { type: 'MultiLineString', coordinates: splitTopLevel(body).map(l => parsePointList(stripParens(l))) };
+      case 'POLYGON':
+        return { type: 'Polygon', coordinates: parseRingList(body) };
+      case 'MULTIPOLYGON':
+        return { type: 'MultiPolygon', coordinates: parsePolygonList(body) };
+      default:
+        return null;
+    }
+  }
+
+  private pdokDocToFeature(doc: Record<string, any>): GeoJSON.Feature | null {
+    const wkt = doc.geometrie_ll || doc.centroide_ll;
+    if (!wkt) return null;
+    const geometry = this.parseWkt(wkt);
+    if (!geometry) return null;
+    return {
+      type: 'Feature',
+      geometry,
+      properties: { ...doc, display_name: doc.weergavenaam },
+    };
+  }
+
+  private async fetchResults(url: string): Promise<GeoJSON.FeatureCollection> {
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error('search failed:', res.statusText);
+      return { type: 'FeatureCollection', features: [] };
+    }
+    const body = await res.json();
+
+    if (this.cfg.provider === 'pdok') {
+      const docs = body?.response?.docs || [];
+      const features = docs
+        .map((d: Record<string, any>) => this.pdokDocToFeature(d))
+        .filter((f: GeoJSON.Feature | null): f is GeoJSON.Feature => f !== null);
+      return { type: 'FeatureCollection', features };
+    }
+
+    return body;
+  }
+
+  private getCurrentViewBbox(): [number, number, number, number] | null {
+    const bounds = this.adapter?.store?.getState()?.mapViewportBounds;
+    const ring = bounds?.geometry?.coordinates?.[0];
+    if (!ring || ring.length === 0) return null;
+    let west = Infinity, south = Infinity, east = -Infinity, north = -Infinity;
+    for (const [lon, lat] of ring) {
+      if (lon < west) west = lon;
+      if (lon > east) east = lon;
+      if (lat < south) south = lat;
+      if (lat > north) north = lat;
+    }
+    if (!isFinite(west) || !isFinite(south) || !isFinite(east) || !isFinite(north)) return null;
+    return [west, south, east, north];
+  }
+
+  private featureKey(f: GeoJSON.Feature): string {
+    const p = f.properties || {};
+    if (p.osm_type || p.osm_id) return `osm:${p.osm_type}:${p.osm_id}`;
+    if (p.id) return `id:${p.id}`;
+    return JSON.stringify(f.geometry);
+  }
+
+  // Representative point for a feature: its own coords if Point, else its bbox center.
+  private featureRepresentativePoint(f: GeoJSON.Feature): [number, number] | null {
+    if (f.geometry?.type === 'Point') return f.geometry.coordinates as [number, number];
+    const bbox = this.geometryBbox(f.geometry);
+    if (!bbox) return null;
+    return [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2];
+  }
+
+  private featureInBbox(f: GeoJSON.Feature, bbox: [number, number, number, number]): boolean {
+    const point = this.featureRepresentativePoint(f);
+    if (!point) return false;
+    const [lon, lat] = point;
+    const [west, south, east, north] = bbox;
+    return lon >= west && lon <= east && lat >= south && lat <= north;
+  }
+
   private async doSearch(): Promise<void> {
     const q = this.query.trim();
     if (!q || q.length < 1) {
@@ -166,22 +335,24 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
       return;
     }
 
-    const params = new URLSearchParams();
-    Object.entries(this.cfg.params || {}).forEach(([k, v]) => params.set(k, String(v)));
-    params.set('q', q);
-    params.set('limit', String(this.cfg.maxResults || 15));
-
-    const url = `${this.cfg.endpoint}?${params.toString()}`;
     this.searching = true;
     try {
-      const res = await fetch(url);
-      if (!res.ok) {
-        console.error('search failed:', res.statusText);
-        this.results = { type: 'FeatureCollection', features: [] };
-      } else {
-        const geojson = await res.json();
-        this.results = geojson;
-      }
+      const result = await this.fetchResults(this.buildSearchUrl(q));
+      let features = result.features || [];
+
+      // Rank a title that starts with the exact query text first (almost certainly what the
+      // user meant), then prefer results inside the current view among equal matches. Stable
+      // sort preserves the provider's own relevance order within each tier.
+      const ql = q.toLowerCase();
+      const viewbox = this.getCurrentViewBbox();
+      const matchRank = (f: GeoJSON.Feature) => this.getFeatureTitle(f).toLowerCase().startsWith(ql) ? 0 : 1;
+      const localRank = (f: GeoJSON.Feature) => (viewbox && this.featureInBbox(f, viewbox)) ? 0 : 1;
+      features = features
+        .map((f, i) => ({ f, i }))
+        .sort((a, b) => (matchRank(a.f) - matchRank(b.f)) || (localRank(a.f) - localRank(b.f)) || (a.i - b.i))
+        .map(({ f }) => f);
+
+      this.results = { type: 'FeatureCollection', features };
     } catch (e) {
       console.error('search error', e);
       this.results = { type: 'FeatureCollection', features: [] };
@@ -206,10 +377,33 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     return (f.properties && (f.properties.display_name || f.properties.name)) ?? JSON.stringify(f.geometry?.type ?? '');
   }
 
+  // Recursively walks any GeoJSON geometry's coordinate arrays to derive a bbox.
+  // Nominatim sets feature.bbox directly; providers like PDOK don't, so this covers
+  // Line/(Multi)Polygon results that would otherwise have no way to center/zoom to.
+  private geometryBbox(geometry: GeoJSON.Geometry | undefined): [number, number, number, number] | null {
+    if (!geometry) return null;
+    let west = Infinity, south = Infinity, east = -Infinity, north = -Infinity;
+    const visit = (coords: any): void => {
+      if (typeof coords[0] === 'number') {
+        const [lon, lat] = coords as [number, number];
+        if (lon < west) west = lon;
+        if (lon > east) east = lon;
+        if (lat < south) south = lat;
+        if (lat > north) north = lat;
+      } else {
+        for (const c of coords) visit(c);
+      }
+    };
+    visit((geometry as any).coordinates);
+    if (!isFinite(west) || !isFinite(south) || !isFinite(east) || !isFinite(north)) return null;
+    return [west, south, east, north];
+  }
+
   private centerFeature(feature: GeoJSON.Feature) {
     // If bbox exists, fit to bbox using a pixel-based zoom calc; otherwise use point+defaultZoom
     let center: [number, number] | null = null;
-    const bbox = (feature as any).bbox as number[] | undefined;
+    const bbox = ((feature as any).bbox as number[] | undefined)
+      ?? (feature.geometry?.type !== 'Point' ? this.geometryBbox(feature.geometry) ?? undefined : undefined);
 
     if (bbox && bbox.length === 4 && this.adapter) {
       // compute center

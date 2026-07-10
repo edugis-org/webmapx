@@ -504,6 +504,7 @@
     // so config-defined options surface even when absent from the config JSON.
     const TOOL_EXTRA_PROPS = {
       coordinates: { defaultFormat: 'geographic-en' },
+      search: { provider: 'nominatim' },
     };
 
     const LAYOUT_POSITIONS = [
@@ -520,7 +521,7 @@
       position:        LAYOUT_POSITIONS,
       orientation:     ['vertical', 'horizontal'],
       'panel-position': ['after', 'before'],
-      provider:        ['nominatim'],
+      provider:        ['nominatim', 'pdok'],
       direction:       ['up', 'down', 'left', 'right'],
       tooltipPlacement:['right','left','top','bottom'],
       alignment:       ['start','center','end'],
@@ -853,6 +854,11 @@
           const inCfg = item !== undefined;
           // Fall back to top-level standalone config for dual-mode tools (e.g. maplanguage)
           const standaloneVal = !inCfg && tools[tool.id] && typeof tools[tool.id] === 'object' ? tools[tool.id] : null;
+          // Merge extra prop defaults so options like search's "provider" surface in the
+          // ⚙ popup even when absent from the config JSON (mirrors the standalone-tool path).
+          const itemOrDefault = TOOL_EXTRA_PROPS[tool.id]
+            ? { ...TOOL_EXTRA_PROPS[tool.id], ...(inCfg ? item : (standaloneVal ?? {})) }
+            : (inCfg ? item : standaloneVal);
           const defaultEnabled = inCfg ? item.enabled !== false : false;
           const enabled = overrides[key] !== undefined ? overrides[key] : defaultEnabled;
           const cb = document.createElement('input');
@@ -861,7 +867,7 @@
           cb.dataset.toolbar = toolbarKey;
           cb.dataset.tool = tool.id;
           if (enabled) cb.checked = true;
-          const label = makeToolLabel(cb, tool.label, inCfg ? item : standaloneVal, propsKey);
+          const label = makeToolLabel(cb, tool.label, itemOrDefault, propsKey);
           if (!inCfg) label.className = 'not-in-config';
           makeDraggable(label, toolOrderKey);
           toolLabels.push(label);
@@ -897,6 +903,9 @@
               const subInCfg = subItem !== undefined;
               const subStandaloneVal = !subInCfg && tools[subTool.id] && typeof tools[subTool.id] === 'object' ? tools[subTool.id] : null;
               const subDefaultProps = !subInCfg && !subStandaloneVal ? { title: subTool.label, ...(subTool.icon ? { icon: subTool.icon } : {}) } : null;
+              const subItemOrDefault = TOOL_EXTRA_PROPS[subTool.id]
+                ? { ...TOOL_EXTRA_PROPS[subTool.id], ...(subInCfg ? subItem : (subStandaloneVal ?? subDefaultProps ?? {})) }
+                : (subInCfg ? subItem : (subStandaloneVal ?? subDefaultProps));
               const subDefaultEnabled = subInCfg ? subItem.enabled !== false : false;
               const subEnabled = overrides[subKey] !== undefined ? overrides[subKey] : subDefaultEnabled;
               const subCb = document.createElement('input');
@@ -904,7 +913,7 @@
               subCb.dataset.key = subKey;
               subCb.dataset.tool = subTool.id;
               if (subEnabled) subCb.checked = true;
-              const subLabel = makeToolLabel(subCb, subTool.label, subInCfg ? subItem : (subStandaloneVal ?? subDefaultProps), subPropsKey);
+              const subLabel = makeToolLabel(subCb, subTool.label, subItemOrDefault, subPropsKey);
               if (!subInCfg) subLabel.className = 'not-in-config';
               makeDraggable(subLabel, subOrderKey);
               subLabels.push(subLabel);
@@ -1906,6 +1915,12 @@
       });
     }
 
+    // Tools whose runtime component reads its functional config from a top-level
+    // `tools.<id>` object (see e.g. webmapx-search-tool's onConfigReady), even when
+    // placed inside a toolbar/toolbox. dynamic-layout.ts only forwards id/label/icon
+    // to the toolbar-embedded element — everything else must land at `tools.<id>`.
+    const DUAL_MODE_TOOL_IDS = new Set(['search']);
+
     function applyOverrides(config, overrides) {
       const result = JSON.parse(JSON.stringify(config));
       if (!result.tools) result.tools = {};
@@ -1946,7 +1961,12 @@
           if (!knownTool) continue;
           const propsKey = `toolbar:${toolbarKey}:${knownTool.id}:props`;
           const propOverrides = overrides[propsKey];
-          if (propOverrides) Object.assign(item, propOverrides);
+          if (propOverrides) {
+            Object.assign(item, propOverrides);
+            if (DUAL_MODE_TOOL_IDS.has(knownTool.id)) {
+              tools[knownTool.id] = { enabled: true, ...(tools[knownTool.id] ?? {}), ...propOverrides };
+            }
+          }
 
           // Toolbox: apply sub-item overrides
           if (knownTool.id === 'toolbox') {
@@ -1965,6 +1985,9 @@
               if (overrides[subKey] === true && !existingSubIds.has(subTool.id)) {
                 const subProps = overrides[`${subKey}:props`] ?? {};
                 item.items.push({ type: subTool.id, id: subTool.id, enabled: true, ...subProps });
+                if (DUAL_MODE_TOOL_IDS.has(subTool.id)) {
+                  tools[subTool.id] = { enabled: true, ...(tools[subTool.id] ?? {}), ...subProps };
+                }
               }
             }
           }
@@ -1978,6 +2001,9 @@
             const propsKey = `${key}:props`;
             const propOverrides = overrides[propsKey] ?? {};
             const newItem = { type: tool.id, id: tool.id, enabled: true, ...propOverrides };
+            if (DUAL_MODE_TOOL_IDS.has(tool.id)) {
+              tools[tool.id] = { enabled: true, ...(tools[tool.id] ?? {}), ...propOverrides };
+            }
             // Populate sub-items for newly added toolboxes
             if (tool.id === 'toolbox') {
               const toolboxId = newItem.id ?? 'toolbox';
@@ -1987,6 +2013,9 @@
                 if (overrides[subKey] === true) {
                   const subProps = overrides[`${subKey}:props`] ?? {};
                   newItem.items.push({ type: subTool.id, id: subTool.id, enabled: true, ...subProps });
+                  if (DUAL_MODE_TOOL_IDS.has(subTool.id)) {
+                    tools[subTool.id] = { enabled: true, ...(tools[subTool.id] ?? {}), ...subProps };
+                  }
                 }
               }
             }
