@@ -2924,6 +2924,13 @@
           "enabled": true,
           "title": "Settings",
           "icon": "gear"
+        },
+        {
+          "id": "stories",
+          "type": "stories",
+          "enabled": true,
+          "title": "Stories",
+          "icon": "book"
         }
       ]
     },
@@ -2988,5 +2995,83 @@
       "enabled": true,
       "position": "middle-center"
     }
+  },
+  "stories": {
+    "stories": [
+      {
+        "name": "Demo tour",
+        "description": "A short guided tour demonstrating the stories tool.",
+        "chapters": [
+          {
+            "id": "intro",
+            "title": "Introduction",
+            "buttonText": "Intro",
+            "steps": [
+              {
+                "title": "Welcome",
+                "html": "<p>This is the <strong>webmapx</strong> stories tool. Use Next to continue.</p>",
+                "state": {
+                  "l": [
+                    "osm"
+                  ],
+                  "v": [
+                    -74.0,
+                    40.7,
+                    4,
+                    0,
+                    0
+                  ]
+                }
+              },
+              {
+                "title": "From a URL",
+                "htmlUrl": "stories-demo/step2.html",
+                "state": {
+                  "l": [
+                    "osm",
+                    "world-countries"
+                  ],
+                  "v": [
+                    10,
+                    50,
+                    4,
+                    0,
+                    0
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "detail",
+            "title": "Detail",
+            "buttonText": "Detail",
+            "steps": [
+              {
+                "title": "Zoomed in",
+                "html": "<p>Country borders layer is now hidden.</p>",
+                "state": {
+                  "l": [
+                    "osm",
+                    "world-countries"
+                  ],
+                  "h": [
+                    "world-countries"
+                  ],
+                  "v": [
+                    4.9041,
+                    52.3676,
+                    10,
+                    0,
+                    0
+                  ]
+                }
+              }
+            ]
+          }
+        ],
+        "width": "480px"
+      }
+    ]
   }
 }

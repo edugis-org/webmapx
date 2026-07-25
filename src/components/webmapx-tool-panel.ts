@@ -24,6 +24,9 @@ export class WebmapxToolPanel extends LitElement {
   private boundHandleToolDeactivated = (e: Event) => this.handleToolDeactivated(e as CustomEvent);
   private boundHandleToolSelect = (e: Event) => this.handleToolSelect(e as CustomEvent);
   private boundHandleKeydown = (e: Event) => this.handleKeydown(e as KeyboardEvent);
+  private boundHandlePanelWidth = (e: Event) => this.handlePanelWidth(e as CustomEvent);
+  /** CSS width of the panel host while collapsed to its default (no active-tool override). */
+  private static readonly DEFAULT_WIDTH = '300px';
   /** The toolbar button that last activated a tool — focus is restored here on close. */
   private triggerButton: HTMLElement | null = null;
 
@@ -38,6 +41,7 @@ export class WebmapxToolPanel extends LitElement {
     this.mapHost?.addEventListener('webmapx-tool-select', this.boundHandleToolSelect);
     document.addEventListener('keydown', this.boundHandleKeydown, { capture: true });
     this.addEventListener('webmapx-content-updated', this.handleContentUpdated as EventListener);
+    this.addEventListener('webmapx-panel-width', this.boundHandlePanelWidth);
   }
 
   disconnectedCallback(): void {
@@ -48,6 +52,7 @@ export class WebmapxToolPanel extends LitElement {
     document.removeEventListener('keydown', this.boundHandleKeydown, { capture: true });
     this.mapHost = null;
     this.removeEventListener('webmapx-content-updated', this.handleContentUpdated as EventListener);
+    this.removeEventListener('webmapx-panel-width', this.boundHandlePanelWidth);
   }
 
   protected firstUpdated(): void {
@@ -133,6 +138,7 @@ export class WebmapxToolPanel extends LitElement {
       const tool = this.toolIndex.get(this.activeToolId);
       if (tool) {
         this.label = tool.label;
+        this.applyWidth(tool.element.getAttribute('panel-width'));
       }
       this.active = true;
       this.setAttribute('aria-label', this.label);
@@ -144,6 +150,22 @@ export class WebmapxToolPanel extends LitElement {
     this.label = this.defaultLabel;
     this.active = false;
     this.setAttribute('aria-label', this.label);
+    this.applyWidth(null);
+  }
+
+  private applyWidth(width: string | null): void {
+    this.style.width = width || WebmapxToolPanel.DEFAULT_WIDTH;
+  }
+
+  /**
+   * Lets the currently active tool override the panel width at runtime (beyond its static
+   * `panel-width` attribute) — e.g. the stories tool switching width per-story. Ignored when
+   * dispatched by a tool that isn't the active one (stale/portal-detached dispatch).
+   */
+  private handlePanelWidth(e: CustomEvent<{ toolId?: string; width?: string | null }>): void {
+    const { toolId, width } = e.detail ?? {};
+    if (toolId && toolId !== this.activeToolId) return;
+    this.applyWidth(width ?? null);
   }
 
   private syncActiveTool(): void {

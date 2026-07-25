@@ -432,16 +432,45 @@ function normalizeLayerDataSection(layerData: unknown, configUrl: string): { sou
   };
 }
 
+function normalizeStoriesSection(stories: unknown, baseUrl: string): unknown {
+  if (!isObject(stories) || !Array.isArray(stories.stories)) {
+    return stories;
+  }
+
+  return {
+    ...stories,
+    stories: stories.stories.map((story) => {
+      if (!isObject(story) || !Array.isArray(story.chapters)) return story;
+      return {
+        ...story,
+        chapters: story.chapters.map((chapter) => {
+          if (!isObject(chapter) || !Array.isArray(chapter.steps)) return chapter;
+          return {
+            ...chapter,
+            steps: chapter.steps.map((step) => {
+              if (!isObject(step) || typeof step.htmlUrl !== 'string') return step;
+              return { ...step, htmlUrl: resolveConfigRelativeUrl(step.htmlUrl, baseUrl) };
+            }),
+          };
+        }),
+      };
+    }),
+  };
+}
+
 function normalizeAppConfig(rawConfig: unknown, configUrl: string): AppConfig {
   if (!isObject(rawConfig)) {
     return rawConfig as unknown as AppConfig;
   }
 
   const raw = rawConfig as Record<string, unknown>;
+  const stories = raw.stories !== undefined ? normalizeStoriesSection(raw.stories, configUrl) : undefined;
+
   if (isObject(raw.layerData)) {
     return {
       ...(raw as unknown as AppConfig),
       layerData: normalizeLayerDataSection(raw.layerData, configUrl) as any,
+      ...(stories !== undefined ? { stories: stories as any } : {}),
     };
   }
 
@@ -454,12 +483,13 @@ function normalizeAppConfig(rawConfig: unknown, configUrl: string): AppConfig {
         layers: Array.isArray(catalog.layers) ? (catalog.layers as any) : [],
       },
       catalog: raw.catalog as any,
+      ...(stories !== undefined ? { stories: stories as any } : {}),
     };
     return normalizedFromCatalog;
   }
 
   if (!isObject(raw.library)) {
-    return raw as unknown as AppConfig;
+    return { ...(raw as unknown as AppConfig), ...(stories !== undefined ? { stories: stories as any } : {}) };
   }
 
   const library = raw.library as Record<string, unknown>;
@@ -478,6 +508,7 @@ function normalizeAppConfig(rawConfig: unknown, configUrl: string): AppConfig {
     state: isObject(raw.state) ? (raw.state as any) : undefined,
     version: typeof raw.version === 'number' ? raw.version : undefined,
     project: isObject(raw.project) ? (raw.project as Record<string, unknown>) : undefined,
+    ...(stories !== undefined ? { stories: stories as any } : {}),
   };
 
   return normalized;

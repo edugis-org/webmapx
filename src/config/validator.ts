@@ -21,7 +21,7 @@ export interface ValidationResult {
 const KNOWN_SEARCH_PROVIDERS = new Set(['nominatim']);
 
 const KNOWN_KEYS = {
-  root: ['version', 'project', 'map', 'runtimeMap', 'layerData', 'catalog', 'library', 'state', 'ui', 'tools', '_devTools'],
+  root: ['version', 'project', 'map', 'runtimeMap', 'layerData', 'catalog', 'library', 'state', 'ui', 'tools', 'stories', '_devTools'],
   map: ['label', 'center', 'zoom', 'minZoom', 'maxZoom', 'minPitch', 'maxPitch', 'type', 'style', 'styleUrl', 'bearing', 'pitch', 'projection'],
   runtimeMap: ['minZoom', 'maxZoom', 'minPitch', 'maxPitch', 'maxBounds'],
   layerData: ['sources', 'layers'],
@@ -111,6 +111,11 @@ export function validateConfig(config: unknown): ValidationResult {
   // Validate tools section (optional)
   if (cfg.tools !== undefined) {
     validateToolsSection(cfg.tools, 'tools', layerIds, errors, warnings);
+  }
+
+  // Validate stories section (optional)
+  if (cfg.stories !== undefined) {
+    validateStoriesSection(cfg.stories, layerIds, errors, warnings);
   }
 
   // Cross-reference validation is done within validateCatalogSection
@@ -998,6 +1003,83 @@ function validateToolIcon(
   if (iconRecord.name === undefined && iconRecord.src === undefined) {
     warnings.push({ severity: 'warning', path, message: '"icon" object should define either "name" or "src"' });
   }
+}
+
+function validateStoriesSection(
+  stories: unknown,
+  layerIds: Set<string>,
+  errors: ValidationMessage[],
+  warnings: ValidationMessage[]
+): void {
+  const path = 'stories';
+  if (!isObject(stories)) {
+    errors.push({ severity: 'error', path, message: '"stories" must be an object' });
+    return;
+  }
+
+  if (!Array.isArray(stories.stories)) {
+    errors.push({ severity: 'error', path: `${path}.stories`, message: '"stories.stories" must be an array' });
+    return;
+  }
+
+  stories.stories.forEach((story, storyIndex) => {
+    const storyPath = `${path}.stories[${storyIndex}]`;
+    if (!isObject(story)) {
+      errors.push({ severity: 'error', path: storyPath, message: 'Story entry must be an object' });
+      return;
+    }
+    if (typeof story.name !== 'string' || story.name.length === 0) {
+      errors.push({ severity: 'error', path: `${storyPath}.name`, message: '"name" must be a non-empty string' });
+    }
+    if (!Array.isArray(story.chapters)) {
+      errors.push({ severity: 'error', path: `${storyPath}.chapters`, message: '"chapters" must be an array' });
+      return;
+    }
+
+    story.chapters.forEach((chapter, chapterIndex) => {
+      const chapterPath = `${storyPath}.chapters[${chapterIndex}]`;
+      if (!isObject(chapter)) {
+        errors.push({ severity: 'error', path: chapterPath, message: 'Chapter entry must be an object' });
+        return;
+      }
+      if (typeof chapter.id !== 'string' || chapter.id.length === 0) {
+        errors.push({ severity: 'error', path: `${chapterPath}.id`, message: '"id" must be a non-empty string' });
+      }
+      if (!Array.isArray(chapter.steps)) {
+        errors.push({ severity: 'error', path: `${chapterPath}.steps`, message: '"steps" must be an array' });
+        return;
+      }
+
+      chapter.steps.forEach((step, stepIndex) => {
+        const stepPath = `${chapterPath}.steps[${stepIndex}]`;
+        if (!isObject(step)) {
+          errors.push({ severity: 'error', path: stepPath, message: 'Step entry must be an object' });
+          return;
+        }
+        if (step.html !== undefined && step.htmlUrl !== undefined) {
+          warnings.push({ severity: 'warning', path: stepPath, message: '"html" and "htmlUrl" are both set; "htmlUrl" takes precedence' });
+        }
+
+        const state = step.state;
+        if (!isObject(state)) {
+          errors.push({ severity: 'error', path: `${stepPath}.state`, message: '"state" must be an object' });
+          return;
+        }
+        if (!Array.isArray(state.l)) {
+          errors.push({ severity: 'error', path: `${stepPath}.state.l`, message: '"state.l" must be an array of layer ids' });
+        } else {
+          state.l.forEach((id) => {
+            if (typeof id === 'string' && !layerIds.has(id)) {
+              warnings.push({ severity: 'warning', path: `${stepPath}.state.l`, message: `Layer "${id}" not found in layers` });
+            }
+          });
+        }
+        if (!Array.isArray(state.v) || state.v.length !== 5 || !state.v.every((n: unknown) => typeof n === 'number')) {
+          errors.push({ severity: 'error', path: `${stepPath}.state.v`, message: '"state.v" must be [lng, lat, zoom, bearing, pitch]' });
+        }
+      });
+    });
+  });
 }
 
 // Helper functions

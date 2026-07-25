@@ -456,6 +456,57 @@ export interface ToolsConfig {
   [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | InfoToolConfig | undefined;
 }
 
+/**
+ * Camera + layer visibility/opacity to apply for one story step — the same shape as a
+ * permalink's decoded state (see `PermalinkState` in `src/utils/permalink.ts`), reused here
+ * so applying a step never touches tool state (which permalinks never carry either).
+ */
+export interface StoryStepState {
+  /** All layer ids relevant to this step (bottom-to-top order not significant here). */
+  l: string[];
+  /** Layer ids from `l` that should be hidden for this step. Omit or empty = all visible. */
+  h?: string[];
+  /** [lng, lat, zoom, bearing, pitch]. */
+  v: [number, number, number, number, number];
+  /** Per-layer transparency overrides (0-100%). */
+  t?: Record<string, number>;
+  /** Projection name (e.g. 'globe', 'equalEarth'). Omitted when mercator (default). */
+  p?: string;
+  /** Whether 3D terrain should be enabled for this step. */
+  terrain?: boolean;
+}
+
+export interface StoryStepConfig {
+  title?: string;
+  /** Inline HTML content (sanitized on render). Mutually exclusive with `htmlUrl`. */
+  html?: string;
+  /**
+   * URL to fetch HTML content from, resolved relative to the config file's own URL at load
+   * time. Relative links/images inside the fetched HTML are resolved against this URL too.
+   */
+  htmlUrl?: string;
+  state: StoryStepState;
+}
+
+export interface StoryChapterConfig {
+  id: string;
+  title: string;
+  buttonText?: string;
+  steps: StoryStepConfig[];
+}
+
+export interface StoryConfig {
+  name: string;
+  description?: string;
+  /** Overrides the tool panel's default width while this story is open (any CSS width value, e.g. "480px"). */
+  width?: string;
+  chapters: StoryChapterConfig[];
+}
+
+export interface StoriesConfig {
+  stories: StoryConfig[];
+}
+
 export interface AppConfig {
   version?: number;
   project?: Record<string, unknown>;
@@ -465,4 +516,5 @@ export interface AppConfig {
   catalog?: CatalogConfig;
   state?: AppStateConfig;
   tools?: ToolsConfig;
+  stories?: StoriesConfig;
 }
