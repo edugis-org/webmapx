@@ -3011,33 +3011,28 @@
                 "title": "Welcome",
                 "html": "<p>This is the <strong>webmapx</strong> stories tool. Use Next to continue.</p>",
                 "state": {
-                  "l": [
+                  "layers": [
                     "osm"
                   ],
-                  "v": [
-                    -74.0,
-                    40.7,
-                    4,
-                    0,
-                    0
-                  ]
+                  "view": {
+                    "center": [-74.0, 40.7],
+                    "zoom": 4
+                  }
                 }
               },
               {
                 "title": "From a URL",
                 "htmlUrl": "stories-demo/step2.html",
                 "state": {
-                  "l": [
+                  "layers": [
                     "osm",
                     "world-countries"
                   ],
-                  "v": [
-                    10,
-                    50,
-                    4,
-                    0,
-                    0
-                  ]
+                  "view": {
+                    "center": [10, 50],
+                    "zoom": 4
+                  },
+                  "projection": "globe"
                 }
               }
             ]
@@ -3051,20 +3046,17 @@
                 "title": "Zoomed in",
                 "html": "<p>Country borders layer is now hidden.</p>",
                 "state": {
-                  "l": [
+                  "layers": [
                     "osm",
                     "world-countries"
                   ],
-                  "h": [
+                  "hiddenLayers": [
                     "world-countries"
                   ],
-                  "v": [
-                    4.9041,
-                    52.3676,
-                    10,
-                    0,
-                    0
-                  ]
+                  "view": {
+                    "center": [4.9041, 52.3676],
+                    "zoom": 10
+                  }
                 }
               }
             ]

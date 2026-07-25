@@ -457,9 +457,12 @@ export interface ToolsConfig {
 }
 
 /**
- * Camera + layer visibility/opacity to apply for one story step — the same shape as a
- * permalink's decoded state (see `PermalinkState` in `src/utils/permalink.ts`), reused here
- * so applying a step never touches tool state (which permalinks never carry either).
+ * Internal camera + layer visibility/opacity shape applied for one story step — the same
+ * shape as a permalink's decoded state (see `PermalinkState` in `src/utils/permalink.ts`),
+ * reused here so applying a step never touches tool state (which permalinks never carry
+ * either). Keys are kept short because `PermalinkState` is URL-encoded; config authors write
+ * the human-readable `StoryStepConfigState` instead (see `toStoryStepState` in
+ * `src/config/story-step-state.ts`) — this type is only for runtime/tool code.
  */
 export interface StoryStepState {
   /** All layer ids relevant to this step (bottom-to-top order not significant here). */
@@ -476,6 +479,33 @@ export interface StoryStepState {
   terrain?: boolean;
 }
 
+/** Camera position for a story step, written out as named fields instead of a positional tuple. */
+export interface StoryStepView {
+  center: [number, number];
+  zoom: number;
+  bearing?: number;
+  pitch?: number;
+}
+
+/**
+ * Human-readable camera + layer visibility/opacity to apply for one story step — this is what
+ * config authors write in `state`. Converted straight to the short-key `StoryStepState` for
+ * internal use via `toStoryStepState`.
+ */
+export interface StoryStepConfigState {
+  /** All layer ids relevant to this step (bottom-to-top order not significant here). */
+  layers: string[];
+  /** Layer ids from `layers` that should be hidden for this step. Omit or empty = all visible. */
+  hiddenLayers?: string[];
+  view: StoryStepView;
+  /** Per-layer transparency overrides (0-100%), keyed by layer id. */
+  transparency?: Record<string, number>;
+  /** Projection name (e.g. 'globe', 'equalEarth'). Omitted or 'mercator' = default. */
+  projection?: string;
+  /** Whether 3D terrain should be enabled for this step. */
+  terrain?: boolean;
+}
+
 export interface StoryStepConfig {
   title?: string;
   /** Inline HTML content (sanitized on render). Mutually exclusive with `htmlUrl`. */
@@ -485,7 +515,7 @@ export interface StoryStepConfig {
    * time. Relative links/images inside the fetched HTML are resolved against this URL too.
    */
   htmlUrl?: string;
-  state: StoryStepState;
+  state: StoryStepConfigState;
 }
 
 export interface StoryChapterConfig {

@@ -580,6 +580,40 @@ Object-map form (id is inferred from the key):
 }
 ```
 
+### Stories Section
+
+Defines guided-tour content for the [`webmapx-stories-tool`](./components/webmapx-stories-tool.md) — a top-level sibling of `tools`, not nested inside it. Each story is a sequence of chapters/steps that fly the camera and toggle layer visibility/opacity/projection/terrain; step state is written in a human-readable form (`layers`, `hiddenLayers`, `view`, `transparency`, `projection`, `terrain`).
+
+```json
+{
+  "stories": {
+    "stories": [
+      {
+        "name": "Demo tour",
+        "chapters": [
+          {
+            "id": "intro",
+            "title": "Introduction",
+            "steps": [
+              {
+                "title": "Welcome",
+                "html": "<p>Use Next to continue.</p>",
+                "state": {
+                  "layers": ["osm"],
+                  "view": { "center": [-74.0, 40.7], "zoom": 4 }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+See [`webmapx-stories-tool`](./components/webmapx-stories-tool.md) for the full `StoryConfig`/`StoryStepConfigState` field reference.
+
 ## API Keys
 
 Some tile services require API keys (Mapbox, OpenWeatherMap, Bing, etc.). WebMapX keeps keys out of config files using a placeholder convention and a separate `config/apikeys.json` file.

@@ -8,6 +8,7 @@ import { unsafeHTML } from 'lit-html/directives/unsafe-html.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
 import type { AppConfig, StoryChapterConfig, StoryConfig, StoryStepConfig } from '../config/types';
+import { toStoryStepState } from '../config/story-step-state';
 import { sanitizeAbstractHtml } from '../utils/sanitize-html';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
@@ -23,6 +24,7 @@ interface StartState {
     visible: Map<string, boolean>;
     transparency: Map<string, number>;
     terrain: boolean;
+    projection: string;
 }
 
 /** True if a logical layer id has actually been added to the map (present in mapLayers). */
@@ -51,7 +53,7 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
     /** Bumped on every step change/close so a stale in-flight applyStep() can no-op. */
     private stepToken = 0;
     /** Union of layer ids referenced by any step of the current story — a layer visible from
-     *  an earlier step but absent from the current step's `state.l` must be hidden again. */
+     *  an earlier step but absent from the current step's `state.layers` must be hidden again. */
     private storyLayerIds = new Set<string>();
     private htmlCache = new Map<string, string>();
     private fetchToken = 0;
@@ -115,7 +117,7 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
         if (this.flattenedSteps.length === 0) return;
 
         this.storyLayerIds = new Set(
-            story.chapters.flatMap(chapter => chapter.steps.flatMap(step => step.state.l))
+            story.chapters.flatMap(chapter => chapter.steps.flatMap(step => step.state.layers))
         );
         this.startState = this.captureStartState();
         this.addedLayerIds.clear();
@@ -166,7 +168,13 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
             transparency.set(id, entry.transparency ?? 0);
         }
 
-        return { viewport, visible, transparency, terrain: adapter.isTerrainEnabled() === true };
+        return {
+            viewport,
+            visible,
+            transparency,
+            terrain: adapter.isTerrainEnabled() === true,
+            projection: adapter.getProjection()?.name ?? 'mercator'
+        };
     }
 
     private restoreStartState(start: StartState): void {
@@ -183,6 +191,7 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
             adapter.setLayerOpacity(id, (100 - transparency) / 100);
         }
         adapter.setTerrainEnabled(start.terrain);
+        adapter.setProjection(start.projection);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -212,7 +221,7 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
         if (!adapter || !mapHost) return;
 
         const token = ++this.stepToken;
-        const { l, h, v, t, terrain } = step.state;
+        const { l, h, v, t, p, terrain } = toStoryStepState(step.state);
 
         await Promise.all(l.map(async (id) => {
             if (isLayerLoaded(adapter, id)) return;
@@ -245,6 +254,7 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
         }
 
         adapter.setTerrainEnabled(!!terrain);
+        adapter.setProjection(p ?? 'mercator');
 
         this.loadContent(step);
     }

@@ -32,6 +32,11 @@
  *    (not loaded by default) to the map
  * 5. Closing the story restores the pre-story camera position, removes "world-countries"
  *    again, and leaves the pre-existing "osm" layer alone
+ *
+ * Also covers the stories tool's projection support: step 2 sets "projection": "globe" in
+ * demo.json (state.projection, converted via toStoryStepState), which must be applied via
+ * adapter.setProjection(); reverted to "mercator" on Prev back to step 1 (which sets no
+ * projection); and restored to the pre-story projection when the story closes.
  */
 
 function fail(message) {
@@ -161,6 +166,13 @@ async function getNativeLayerVisibility(page, logicalLayerId) {
   }, logicalLayerId);
 }
 
+async function getProjectionName(page) {
+  return page.evaluate(() => {
+    const adapter = document.querySelector('webmapx-map')?.adapter;
+    return adapter?.getProjection?.()?.name ?? 'mercator';
+  });
+}
+
 async function closeStory(page) {
   await page.evaluate(() => {
     const tool = document.querySelector('webmapx-stories-tool');
@@ -236,6 +248,12 @@ export async function run({ page, engine, baseUrl }) {
     console.log('    "world-countries" renders visible at step 2');
   });
 
+  await step('step 2\'s "projection: globe" config is applied to the map', async () => {
+    const projection = await getProjectionName(page);
+    if (projection !== 'globe') fail(`Expected projection "globe" at step 2, got: "${projection}"`);
+    console.log('    Projection switched to "globe" at step 2');
+  });
+
   await step('clicking Prev back to step 1 hides "world-countries" again (regression: only step.state.l was toggled, not the story\'s full layer union)', async () => {
     await clickPrev(page);
     await waitForCenterNear(page, [-74, 40.7]);
@@ -246,16 +264,24 @@ export async function run({ page, engine, baseUrl }) {
     }
     console.log('    "world-countries" hidden again at step 1');
 
+    const projection = await getProjectionName(page);
+    if (projection !== 'mercator') fail(`Expected projection to revert to "mercator" at step 1 (no projection set), got: "${projection}"`);
+    console.log('    Projection reverted to "mercator" at step 1');
+
     // Move back to step 2 so the rest of the flow (close/restore) exercises the same path
     // as before this regression check was inserted.
     await clickNext(page);
     await waitForCenterNear(page, [10, 50]);
   });
 
-  await step('closing the story restores the pre-story camera position and removes the added layer', async () => {
+  await step('closing the story restores the pre-story camera position, projection, and removes the added layer', async () => {
     await closeStory(page);
     await waitForCenterNear(page, startCenter, 1, 15_000);
     console.log('    Camera restored on close');
+
+    const projection = await getProjectionName(page);
+    if (projection !== 'mercator') fail(`Expected projection restored to "mercator" after close, got: "${projection}"`);
+    console.log('    Projection restored on close');
 
     const after = await getMapLayerIds(page);
     if (after.includes('world-countries')) fail('"world-countries" was not removed after closing the story');

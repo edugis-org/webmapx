@@ -1065,17 +1065,18 @@ function validateStoriesSection(
           errors.push({ severity: 'error', path: `${stepPath}.state`, message: '"state" must be an object' });
           return;
         }
-        if (!Array.isArray(state.l)) {
-          errors.push({ severity: 'error', path: `${stepPath}.state.l`, message: '"state.l" must be an array of layer ids' });
+        if (!Array.isArray(state.layers)) {
+          errors.push({ severity: 'error', path: `${stepPath}.state.layers`, message: '"state.layers" must be an array of layer ids' });
         } else {
-          state.l.forEach((id) => {
+          state.layers.forEach((id) => {
             if (typeof id === 'string' && !layerIds.has(id)) {
-              warnings.push({ severity: 'warning', path: `${stepPath}.state.l`, message: `Layer "${id}" not found in layers` });
+              warnings.push({ severity: 'warning', path: `${stepPath}.state.layers`, message: `Layer "${id}" not found in layers` });
             }
           });
         }
-        if (!Array.isArray(state.v) || state.v.length !== 5 || !state.v.every((n: unknown) => typeof n === 'number')) {
-          errors.push({ severity: 'error', path: `${stepPath}.state.v`, message: '"state.v" must be [lng, lat, zoom, bearing, pitch]' });
+        const view = state.view;
+        if (!isObject(view) || !isCoordinate(view.center) || typeof view.zoom !== 'number') {
+          errors.push({ severity: 'error', path: `${stepPath}.state.view`, message: '"state.view" must be { center: [lng, lat], zoom, bearing?, pitch? }' });
         }
       });
     });

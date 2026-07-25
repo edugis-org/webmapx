@@ -53,7 +53,7 @@ This guide explains how to assemble the Modular GIS Web UI as an application dev
 ## Configuration
 See [Configuration](./configuration.md) for details on:
 - Loading config files via URL parameter
-- Config file format (map, layerData, state, tools sections)
+- Config file format (map, layerData, state, tools, stories sections)
 - Source and layer definitions
 - Layer tree structure in `layerTree` tool items
 
@@ -72,6 +72,7 @@ See [Configuration](./configuration.md) for details on:
 - [`webmapx-coordinates-tool`](./components/webmapx-coordinates-tool.md)
 - [`webmapx-geolocation-tool`](./components/webmapx-geolocation-tool.md)
 - [`webmapx-zoom-level`](./components/webmapx-zoom-level.md)
+- [`webmapx-stories-tool`](./components/webmapx-stories-tool.md)
 
 See also: [Toolbar and Panel Interaction Guide](./components/interaction-guide.md)
 
@@ -89,3 +90,4 @@ Refer to the individual pages for usage tips, attributes, and slot details.
 - [`webmapx-geolocation-tool`](./components/webmapx-geolocation-tool.md)
 - [`webmapx-tool-template`](./components/webmapx-tool-template.md)
 - [`webmapx-zoom-level`](./components/webmapx-zoom-level.md)
+- [`webmapx-stories-tool`](./components/webmapx-stories-tool.md)
