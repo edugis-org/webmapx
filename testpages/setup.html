@@ -28,6 +28,31 @@
     #map-maxbounds-fields.disabled { opacity: 0.45; pointer-events: none; }
     .map-preview-hint { margin: 0.9rem 0 0.4rem; }
     .map-preview { width: 100%; height: 380px; border: 1px solid #ccc; border-radius: 4px; display: block; }
+
+    /* Stories tab */
+    .story-toolbar { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.6rem; }
+    .story-toolbar select { flex: 1; max-width: 320px; padding: 0.3rem; }
+    .story-editor { margin-top: 0.8rem; }
+    .story-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.8rem; }
+    .story-column h3, .step-editor h3 { font-size: 0.85rem; margin: 0 0 0.4rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+    .chapter-meta { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.5rem; font-size: 0.8rem; }
+    .chapter-meta input { width: 100%; box-sizing: border-box; }
+    .step-editor h4 { font-size: 0.8rem; margin: 0.8rem 0 0.3rem; color: #555; }
+    .btn-add-small { font-size: 0.75rem; padding: 0.15rem 0.5rem; cursor: pointer; }
+    .story-list { display: flex; flex-direction: column; gap: 0.2rem; max-height: 260px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; padding: 0.3rem; }
+    .story-list-row { display: flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.4rem; border-radius: 3px; cursor: pointer; font-size: 0.85rem; }
+    .story-list-row:hover { background: #f5f7fb; }
+    .story-list-row.selected { background: #e5edff; font-weight: 600; }
+    .story-list-row .row-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .story-list-row .row-remove { color: #b00; cursor: pointer; font-size: 0.8rem; }
+    .step-editor { margin-top: 1rem; border-top: 1px solid #eee; padding-top: 0.8rem; }
+    .step-block-label { display: block; font-size: 0.85rem; margin: 0.5rem 0; }
+    .step-block-label textarea { width: 100%; box-sizing: border-box; margin-top: 0.2rem; font-family: inherit; }
+    .step-actions { display: flex; gap: 0.5rem; margin-top: 0.8rem; flex-wrap: wrap; }
+    .btn-danger { color: #b00; }
+    .layer-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.2rem 0.3rem; font-size: 0.82rem; }
+    .layer-row .layer-id { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .layer-row input[type=number] { width: 4.5rem; }
     .map-preview-actions { display: flex; gap: 0.6rem; margin-top: 0.5rem; }
     .btn-map-sync {
       background: #0f62fe; color: #fff; border: none; border-radius: 4px;
@@ -244,6 +269,7 @@
     <button class="tab-btn active" data-tab="tools">Tools</button>
     <button class="tab-btn" data-tab="layers">Layers</button>
     <button class="tab-btn" data-tab="map">Map</button>
+    <button class="tab-btn" data-tab="stories">Stories</button>
   </div>
 
   <div class="tab-panel active" id="tab-tools">
@@ -385,11 +411,104 @@
       </div>
     </section>
   </div>
+  <div class="tab-panel" id="tab-stories">
+    <section class="layers-section">
+      <h2>Stories <span class="section-hint">— guided tours (config `stories` section)</span></h2>
+
+      <div class="story-toolbar">
+        <select id="story-select"></select>
+        <button id="btn-story-add" type="button">+ New story</button>
+        <button id="btn-story-delete" type="button">Delete story</button>
+      </div>
+      <p id="stories-empty" class="placeholder" style="display:none; padding:0.5rem 0;">No stories yet — click "+ New story" to create one.</p>
+
+      <div id="story-editor" class="story-editor" hidden>
+        <div class="map-form-grid">
+          <label>Name
+            <input type="text" id="story-name">
+          </label>
+          <label>Panel width <span class="section-hint">(e.g. 480px)</span>
+            <input type="text" id="story-width" placeholder="(default)">
+          </label>
+          <label style="grid-column: 1 / -1">Description
+            <input type="text" id="story-description">
+          </label>
+        </div>
+
+        <div class="story-columns">
+          <div class="story-column">
+            <h3>Chapters <button id="btn-chapter-add" type="button" class="btn-add-small">+ Add</button></h3>
+            <div id="chapters-list" class="story-list"></div>
+            <div id="chapter-meta" class="chapter-meta" hidden>
+              <label>Title <input type="text" id="chapter-title"></label>
+              <label>Button text <input type="text" id="chapter-buttontext"></label>
+              <label>Id <input type="text" id="chapter-id"></label>
+            </div>
+          </div>
+          <div class="story-column">
+            <h3>Steps <button id="btn-step-add" type="button" class="btn-add-small">+ Add</button></h3>
+            <div id="steps-list" class="story-list"></div>
+          </div>
+        </div>
+
+        <div id="step-editor" class="step-editor" hidden>
+          <h3>Step</h3>
+          <div class="map-form-grid">
+            <label style="grid-column: 1 / -1">Title
+              <input type="text" id="step-title">
+            </label>
+          </div>
+          <label class="step-block-label">Content <span class="section-hint">(inline HTML, sanitized on render)</span>
+            <textarea id="step-html" rows="3"></textarea>
+          </label>
+
+          <div class="map-form-grid">
+            <label>Center longitude
+              <input type="number" id="step-lon" step="any">
+            </label>
+            <label>Center latitude
+              <input type="number" id="step-lat" step="any">
+            </label>
+            <label>Zoom
+              <input type="number" id="step-zoom" step="any">
+            </label>
+            <label>Bearing
+              <input type="number" id="step-bearing" step="any">
+            </label>
+            <label>Pitch
+              <input type="number" id="step-pitch" step="any">
+            </label>
+            <label>Projection
+              <select id="step-projection">
+                <option value="">(default — mercator)</option>
+                <option value="mercator">mercator</option>
+                <option value="globe">globe</option>
+              </select>
+            </label>
+          </div>
+          <label class="map-checkbox-row"><input type="checkbox" id="step-terrain"> 3D terrain enabled</label>
+
+          <h4>Layers <span class="section-hint">— checked = shown; "hidden" = loaded but not visible</span></h4>
+          <div id="step-layers-list" class="story-list"></div>
+
+          <div class="step-actions">
+            <button id="btn-step-capture" type="button">↻ Capture current view from map</button>
+            <button id="btn-step-preview" type="button">▶ Preview step on map</button>
+            <button id="btn-step-delete" type="button" class="btn-danger">Delete step</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-hint map-preview-hint">A real webmapx map — same engine, tools, and active layers as your config. Position it, then "Capture current view" to fill in a step's camera, or "Preview step" to see what a step looks like.</p>
+      <iframe id="stories-preview-frame" class="map-preview" src="./preview.html?storageKey=webmapx-setup-stories-preview-config"></iframe>
+    </section>
+  </div>
   <div id="status"></div>
 
   <script type="module">
     import { KNOWN_TOOLS } from '/src/utils/dynamic-layout.ts';
     import { discoverLayers } from '/src/utils/layer-discovery.ts';
+    import { toStoryStepState } from '/src/config/story-step-state.ts';
 
     const LAYER_REPO_RAW_BASE = 'https://raw.githubusercontent.com/edugis-org/webmapx-layer-repository/main/layers';
 
@@ -2132,6 +2251,12 @@
         }
       }
 
+      // Stories tab
+      const storiesOverride = overrides['stories:data'];
+      if (storiesOverride) {
+        result.stories = { stories: JSON.parse(JSON.stringify(storiesOverride)) };
+      }
+
       // Dev tools
       result._devTools = { configedit: overrides['dev:configedit'] === true };
 
@@ -2180,6 +2305,11 @@
       buildLayersUI(baseConfig);
       buildMapUI(baseConfig);
       refreshMapPreviewFrame(baseConfig);
+      selStoryIdx = 0;
+      selChapterIdx = 0;
+      selStepIdx = 0;
+      buildStoriesUI(baseConfig);
+      refreshStoriesPreviewFrame(baseConfig);
       updateSelectAll();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(baseConfig));
       document.getElementById('status').textContent = 'Reset to defaults — preview updated.';
@@ -2321,6 +2451,477 @@
       publishToGithub();
     });
 
+    // --- Stories tab ---
+    let storiesData = [];
+    let selStoryIdx = 0;
+    let selChapterIdx = 0;
+    let selStepIdx = 0;
+
+    function emptyStep() {
+      return { title: 'New step', html: '<p>New step</p>', state: { layers: [], view: { center: [0, 0], zoom: 2 } } };
+    }
+    function emptyChapter() {
+      return { id: 'chapter-' + Date.now().toString(36), title: 'New chapter', buttonText: 'Chapter', steps: [emptyStep()] };
+    }
+    function emptyStory() {
+      return { name: 'New story', description: '', chapters: [emptyChapter()] };
+    }
+
+    function currentStory() { return storiesData[selStoryIdx] ?? null; }
+    function currentChapter() { return currentStory()?.chapters?.[selChapterIdx] ?? null; }
+    function currentStep() { return currentChapter()?.steps?.[selStepIdx] ?? null; }
+
+    function loadStoriesData(config) {
+      const ov = getSaved();
+      const src = ov['stories:data'] ?? (config.stories?.stories ?? []);
+      return JSON.parse(JSON.stringify(src));
+    }
+
+    function persistStoriesData() {
+      const ov = getSaved();
+      ov['stories:data'] = JSON.parse(JSON.stringify(storiesData));
+      saveOverrides(ov);
+    }
+
+    function buildStoriesUI(config) {
+      storiesData = loadStoriesData(config);
+      if (selStoryIdx >= storiesData.length) selStoryIdx = storiesData.length - 1;
+      renderStoriesTab(config);
+    }
+
+    function renderStoriesTab(config) {
+      const select = document.getElementById('story-select');
+      select.innerHTML = '';
+      storiesData.forEach((s, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = s.name || `Story ${i + 1}`;
+        select.appendChild(opt);
+      });
+      const hasStory = storiesData.length > 0 && selStoryIdx >= 0;
+      if (hasStory) select.value = String(selStoryIdx);
+      document.getElementById('stories-empty').style.display = hasStory ? 'none' : '';
+      document.getElementById('story-editor').hidden = !hasStory;
+      if (!hasStory) return;
+
+      const story = currentStory();
+      if (!Array.isArray(story.chapters)) story.chapters = [];
+      if (selChapterIdx >= story.chapters.length) selChapterIdx = story.chapters.length - 1;
+      if (selChapterIdx < 0 && story.chapters.length > 0) selChapterIdx = 0;
+
+      document.getElementById('story-name').value = story.name ?? '';
+      document.getElementById('story-description').value = story.description ?? '';
+      document.getElementById('story-width').value = story.width ?? '';
+
+      renderChaptersList(config);
+      renderStepsList(config);
+      renderStepEditor(config);
+    }
+
+    function renderChaptersList(config) {
+      const story = currentStory();
+      const list = document.getElementById('chapters-list');
+      list.innerHTML = '';
+      (story.chapters ?? []).forEach((chapter, i) => {
+        const row = document.createElement('div');
+        row.className = 'story-list-row' + (i === selChapterIdx ? ' selected' : '');
+        const label = document.createElement('span');
+        label.className = 'row-label';
+        label.textContent = chapter.title || chapter.id || `Chapter ${i + 1}`;
+        row.appendChild(label);
+        const remove = document.createElement('span');
+        remove.className = 'row-remove';
+        remove.textContent = '✕';
+        remove.title = 'Delete chapter';
+        remove.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!confirm(`Delete chapter "${label.textContent}" and its steps?`)) return;
+          story.chapters.splice(i, 1);
+          selChapterIdx = 0;
+          selStepIdx = 0;
+          persistStoriesData();
+          renderStoriesTab(config);
+        });
+        row.appendChild(remove);
+        row.addEventListener('click', () => {
+          selChapterIdx = i;
+          selStepIdx = 0;
+          renderStoriesTab(config);
+        });
+        list.appendChild(row);
+      });
+
+      const chapter = currentChapter();
+      const meta = document.getElementById('chapter-meta');
+      meta.hidden = !chapter;
+      if (chapter) {
+        document.getElementById('chapter-title').value = chapter.title ?? '';
+        document.getElementById('chapter-buttontext').value = chapter.buttonText ?? '';
+        document.getElementById('chapter-id').value = chapter.id ?? '';
+      }
+    }
+
+    function renderStepsList(config) {
+      const chapter = currentChapter();
+      const list = document.getElementById('steps-list');
+      list.innerHTML = '';
+      if (!chapter) return;
+      if (!Array.isArray(chapter.steps)) chapter.steps = [];
+      if (selStepIdx >= chapter.steps.length) selStepIdx = chapter.steps.length - 1;
+      if (selStepIdx < 0 && chapter.steps.length > 0) selStepIdx = 0;
+
+      chapter.steps.forEach((step, i) => {
+        const row = document.createElement('div');
+        row.className = 'story-list-row' + (i === selStepIdx ? ' selected' : '');
+        const label = document.createElement('span');
+        label.className = 'row-label';
+        label.textContent = step.title || `Step ${i + 1}`;
+        row.appendChild(label);
+        const remove = document.createElement('span');
+        remove.className = 'row-remove';
+        remove.textContent = '✕';
+        remove.title = 'Delete step';
+        remove.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!confirm(`Delete step "${label.textContent}"?`)) return;
+          chapter.steps.splice(i, 1);
+          selStepIdx = 0;
+          persistStoriesData();
+          renderStoriesTab(config);
+        });
+        row.appendChild(remove);
+        row.addEventListener('click', () => {
+          selStepIdx = i;
+          renderStoriesTab(config);
+        });
+        list.appendChild(row);
+      });
+    }
+
+    function renderStepEditor(config) {
+      const step = currentStep();
+      const editor = document.getElementById('step-editor');
+      editor.hidden = !step;
+      if (!step) return;
+
+      if (!step.state) step.state = { layers: [], view: { center: [0, 0], zoom: 2 } };
+      if (!step.state.view) step.state.view = { center: [0, 0], zoom: 2 };
+      if (!Array.isArray(step.state.layers)) step.state.layers = [];
+
+      document.getElementById('step-title').value = step.title ?? '';
+      document.getElementById('step-html').value = step.html ?? '';
+      document.getElementById('step-lon').value = step.state.view.center?.[0] ?? 0;
+      document.getElementById('step-lat').value = step.state.view.center?.[1] ?? 0;
+      document.getElementById('step-zoom').value = step.state.view.zoom ?? 2;
+      document.getElementById('step-bearing').value = step.state.view.bearing ?? 0;
+      document.getElementById('step-pitch').value = step.state.view.pitch ?? 0;
+      document.getElementById('step-projection').value = step.state.projection ?? '';
+      document.getElementById('step-terrain').checked = Boolean(step.state.terrain);
+
+      renderStepLayersList(config, step);
+    }
+
+    // One row per catalog layer: checkbox = included in state.layers, "hidden" checkbox =
+    // included in state.hiddenLayers (only meaningful/shown when the layer is checked), and a
+    // transparency number input (0-100%, only kept in state.transparency when non-zero).
+    function renderStepLayersList(config, step) {
+      const list = document.getElementById('step-layers-list');
+      list.innerHTML = '';
+      const layersById = getLayersById(config);
+      // Sort by the visible title, not the internal id — otherwise the list order looks
+      // scrambled relative to what's actually shown in each row.
+      const layerIds = Object.keys(layersById).sort((a, b) =>
+        (layersById[a]?.title ?? a).localeCompare(layersById[b]?.title ?? b)
+      );
+      const hiddenSet = new Set(step.state.hiddenLayers ?? []);
+      const transparency = step.state.transparency ?? {};
+
+      layerIds.forEach((id) => {
+        const row = document.createElement('div');
+        row.className = 'layer-row';
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = step.state.layers.includes(id);
+        cb.addEventListener('change', () => {
+          if (cb.checked) {
+            if (!step.state.layers.includes(id)) step.state.layers.push(id);
+          } else {
+            step.state.layers = step.state.layers.filter((l) => l !== id);
+            step.state.hiddenLayers = (step.state.hiddenLayers ?? []).filter((l) => l !== id);
+            delete (step.state.transparency ?? {})[id];
+          }
+          persistStoriesData();
+          renderStepLayersList(config, step);
+        });
+        row.appendChild(cb);
+
+        const idLabel = document.createElement('span');
+        idLabel.className = 'layer-id';
+        idLabel.textContent = layersById[id]?.title ?? id;
+        row.appendChild(idLabel);
+
+        if (cb.checked) {
+          const hiddenLabel = document.createElement('label');
+          hiddenLabel.style.fontSize = '0.78rem';
+          const hiddenCb = document.createElement('input');
+          hiddenCb.type = 'checkbox';
+          hiddenCb.checked = hiddenSet.has(id);
+          hiddenCb.addEventListener('change', () => {
+            const set = new Set(step.state.hiddenLayers ?? []);
+            if (hiddenCb.checked) set.add(id); else set.delete(id);
+            step.state.hiddenLayers = [...set];
+            persistStoriesData();
+          });
+          hiddenLabel.appendChild(hiddenCb);
+          hiddenLabel.append(' hidden');
+          row.appendChild(hiddenLabel);
+
+          const transInput = document.createElement('input');
+          transInput.type = 'number';
+          transInput.min = '0';
+          transInput.max = '100';
+          transInput.title = 'Transparency %';
+          transInput.value = transparency[id] ?? 0;
+          transInput.addEventListener('change', () => {
+            const value = Number(transInput.value) || 0;
+            const t = { ...(step.state.transparency ?? {}) };
+            if (value > 0) t[id] = value; else delete t[id];
+            step.state.transparency = t;
+            persistStoriesData();
+          });
+          row.appendChild(transInput);
+        }
+
+        list.appendChild(row);
+      });
+    }
+
+    function storiesPreviewMapEl() {
+      const frame = document.getElementById('stories-preview-frame');
+      return frame?.contentDocument?.querySelector('webmapx-map') ?? null;
+    }
+
+    async function storiesPreviewAdapter() {
+      return storiesPreviewMapEl()?.getAdapterAsync?.();
+    }
+
+    function refreshStoriesPreviewFrame(config) {
+      const finalConfig = applyOverrides(config, getSaved());
+      localStorage.setItem('webmapx-setup-stories-preview-config', JSON.stringify(finalConfig));
+      const engine = finalConfig.engine ?? finalConfig.map?.type ?? 'maplibre';
+      localStorage.setItem('webmapx-adapter:map-webmapx', engine);
+      const frame = document.getElementById('stories-preview-frame');
+      if (frame) frame.contentWindow.location.reload();
+    }
+
+    document.getElementById('btn-story-add').addEventListener('click', () => {
+      storiesData.push(emptyStory());
+      selStoryIdx = storiesData.length - 1;
+      selChapterIdx = 0;
+      selStepIdx = 0;
+      persistStoriesData();
+      renderStoriesTab(baseConfig);
+    });
+
+    document.getElementById('btn-story-delete').addEventListener('click', () => {
+      const story = currentStory();
+      if (!story) return;
+      if (!confirm(`Delete story "${story.name}"?`)) return;
+      storiesData.splice(selStoryIdx, 1);
+      selStoryIdx = 0;
+      selChapterIdx = 0;
+      selStepIdx = 0;
+      persistStoriesData();
+      renderStoriesTab(baseConfig);
+    });
+
+    document.getElementById('story-select').addEventListener('change', (e) => {
+      selStoryIdx = Number(e.target.value);
+      selChapterIdx = 0;
+      selStepIdx = 0;
+      renderStoriesTab(baseConfig);
+    });
+
+    document.getElementById('story-name').addEventListener('change', (e) => {
+      const story = currentStory();
+      if (!story) return;
+      story.name = e.target.value;
+      persistStoriesData();
+      renderStoriesTab(baseConfig);
+    });
+    document.getElementById('story-description').addEventListener('change', (e) => {
+      const story = currentStory();
+      if (!story) return;
+      story.description = e.target.value;
+      persistStoriesData();
+    });
+    document.getElementById('story-width').addEventListener('change', (e) => {
+      const story = currentStory();
+      if (!story) return;
+      story.width = e.target.value || undefined;
+      persistStoriesData();
+    });
+
+    document.getElementById('btn-chapter-add').addEventListener('click', () => {
+      const story = currentStory();
+      if (!story) return;
+      story.chapters.push(emptyChapter());
+      selChapterIdx = story.chapters.length - 1;
+      selStepIdx = 0;
+      persistStoriesData();
+      renderStoriesTab(baseConfig);
+    });
+
+    ['chapter-title', 'chapter-buttontext', 'chapter-id'].forEach((id) => {
+      document.getElementById(id).addEventListener('change', (e) => {
+        const chapter = currentChapter();
+        if (!chapter) return;
+        if (id === 'chapter-title') chapter.title = e.target.value;
+        if (id === 'chapter-buttontext') chapter.buttonText = e.target.value;
+        if (id === 'chapter-id') chapter.id = e.target.value;
+        persistStoriesData();
+        renderChaptersList(baseConfig);
+      });
+    });
+
+    document.getElementById('btn-step-add').addEventListener('click', () => {
+      const chapter = currentChapter();
+      if (!chapter) return;
+      chapter.steps.push(emptyStep());
+      selStepIdx = chapter.steps.length - 1;
+      persistStoriesData();
+      renderStoriesTab(baseConfig);
+    });
+
+    document.getElementById('btn-step-delete').addEventListener('click', () => {
+      const chapter = currentChapter();
+      const step = currentStep();
+      if (!chapter || !step) return;
+      if (!confirm(`Delete step "${step.title}"?`)) return;
+      chapter.steps.splice(selStepIdx, 1);
+      selStepIdx = 0;
+      persistStoriesData();
+      renderStoriesTab(baseConfig);
+    });
+
+    document.getElementById('step-title').addEventListener('change', (e) => {
+      const step = currentStep();
+      if (!step) return;
+      step.title = e.target.value;
+      persistStoriesData();
+      renderStepsList(baseConfig);
+    });
+    document.getElementById('step-html').addEventListener('change', (e) => {
+      const step = currentStep();
+      if (!step) return;
+      step.html = e.target.value;
+      persistStoriesData();
+    });
+
+    [
+      ['step-lon', (step, v) => { step.state.view.center = [v, step.state.view.center?.[1] ?? 0]; }],
+      ['step-lat', (step, v) => { step.state.view.center = [step.state.view.center?.[0] ?? 0, v]; }],
+      ['step-zoom', (step, v) => { step.state.view.zoom = v; }],
+      ['step-bearing', (step, v) => { step.state.view.bearing = v || undefined; }],
+      ['step-pitch', (step, v) => { step.state.view.pitch = v || undefined; }],
+    ].forEach(([id, apply]) => {
+      document.getElementById(id).addEventListener('change', (e) => {
+        const step = currentStep();
+        if (!step) return;
+        apply(step, Number(e.target.value));
+        persistStoriesData();
+      });
+    });
+
+    document.getElementById('step-projection').addEventListener('change', (e) => {
+      const step = currentStep();
+      if (!step) return;
+      step.state.projection = e.target.value || undefined;
+      persistStoriesData();
+    });
+    document.getElementById('step-terrain').addEventListener('change', (e) => {
+      const step = currentStep();
+      if (!step) return;
+      step.state.terrain = e.target.checked || undefined;
+      persistStoriesData();
+    });
+
+    document.getElementById('btn-step-capture').addEventListener('click', async () => {
+      const step = currentStep();
+      if (!step) return;
+      const adapter = await storiesPreviewAdapter();
+      if (!adapter) { alert('Preview map not ready yet.'); return; }
+      const view = adapter.getViewportState();
+      const engine = getMapFields(baseConfig).type ?? 'maplibre';
+      const caps = ENGINE_VIEW_CAPABILITIES[engine] ?? ENGINE_VIEW_CAPABILITIES.maplibre;
+      step.state.view = {
+        center: view.center,
+        zoom: view.zoom,
+        bearing: caps.bearing ? view.bearing : undefined,
+        pitch: caps.pitch ? view.pitch : undefined,
+      };
+      if (caps.projection) step.state.projection = adapter.getProjection?.()?.name ?? undefined;
+      step.state.terrain = adapter.isTerrainEnabled?.() === true || undefined;
+      persistStoriesData();
+      renderStepEditor(baseConfig);
+    });
+
+    // Union of layer ids referenced by any step of the given story — a layer left visible by
+    // a previous "Preview step" click must be dealt with again when previewing a step that
+    // doesn't reference it (mirrors webmapx-stories-tool's storyLayerIds/applyStep).
+    function storyLayerIds(story) {
+      return new Set((story?.chapters ?? []).flatMap((c) => (c.steps ?? []).flatMap((st) => st.state?.layers ?? [])));
+    }
+
+    // Layers this preview has itself lazily added (as opposed to ones already on the
+    // config's default map) — mirrors webmapx-stories-tool's addedLayerIds, so "Preview step"
+    // removes them outright once unneeded instead of leaving them hidden-but-listed forever.
+    const previewAddedLayerIds = new Set();
+
+    document.getElementById('btn-step-preview').addEventListener('click', async () => {
+      const story = currentStory();
+      const step = currentStep();
+      if (!story || !step) return;
+      const mapEl = storiesPreviewMapEl();
+      const adapter = await mapEl?.getAdapterAsync?.();
+      if (!adapter || !mapEl) { alert('Preview map not ready yet.'); return; }
+      const s = toStoryStepState(step.state);
+
+      // Mirror the real stories tool's applyStep: lazily add any referenced layer that isn't
+      // loaded in the preview yet (same catalog-lookup path as addLayerRequest elsewhere).
+      await Promise.all(s.l.map(async (id) => {
+        if (id in (adapter.store.getState().mapLayers ?? {})) return;
+        await mapEl.addLayerRequest({ layerId: id });
+        previewAddedLayerIds.add(id);
+      }));
+
+      const [lng, lat, zoom, bearing, pitch] = s.v;
+      adapter.setBearing(bearing);
+      adapter.setPitch(pitch);
+      adapter.setViewport([lng, lat], zoom);
+      const hidden = new Set(s.h ?? []);
+      const visibleHere = new Set(s.l);
+      const mapLayers = adapter.store.getState().mapLayers ?? {};
+      for (const id of storyLayerIds(story)) {
+        if (!(id in mapLayers)) continue;
+        if (!visibleHere.has(id)) {
+          if (previewAddedLayerIds.has(id)) {
+            adapter.removeLogicalLayer(id);
+            previewAddedLayerIds.delete(id);
+          } else {
+            adapter.setLayerVisibility(id, false);
+          }
+          continue;
+        }
+        adapter.setLayerVisibility(id, !hidden.has(id));
+        const t = s.t?.[id] ?? 0;
+        adapter.setLayerOpacity(id, (100 - t) / 100);
+      }
+      adapter.setTerrainEnabled(!!s.terrain);
+      adapter.setProjection(s.p ?? 'mercator');
+    });
+
     // --- Tabs ---
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -2329,6 +2930,7 @@
         btn.classList.add('active');
         document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
         if (btn.dataset.tab === 'map' && baseConfig) refreshMapPreviewFrame(baseConfig);
+        if (btn.dataset.tab === 'stories' && baseConfig) refreshStoriesPreviewFrame(baseConfig);
       });
     });
 
@@ -2372,6 +2974,8 @@
     buildMapUI(config);
     wireMapUI(config);
     refreshMapPreviewFrame(config);
+    buildStoriesUI(config);
+    refreshStoriesPreviewFrame(config);
     updateSelectAll();
   </script>
 </body>

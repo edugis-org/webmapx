@@ -129,14 +129,6 @@ export class LeafletAdapter extends BaseAdapter implements IMap {
         this.core.setDoubleClickZoomEnabled(enabled);
     }
 
-    setLayerVisibility(layerId: string, visible: boolean): void {
-        this.logicalLayerExecutor.setLayerVisibility(layerId, visible);
-    }
-
-    setLayerOpacity(layerId: string, opacity: number): void {
-        this.logicalLayerExecutor.setLayerOpacity(layerId, opacity);
-    }
-
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
         return this.core.getSourceData(sourceId) ?? this.logicalLayerExecutor.getSourceData(sourceId);
     }

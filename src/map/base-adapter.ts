@@ -32,9 +32,6 @@ export abstract class BaseAdapter {
     public readonly store: MapStateStore;
     public readonly events: MapEventBus;
 
-    /** Implemented by each engine adapter, delegating to its DeferredLogicalLayerExecutor. */
-    abstract setLayerOpacity(layerId: string, opacity: number): void;
-
     /**
      * When true, composite (`type: 'style'`) layers are decomposed here in generic
      * code: sources registered individually, each sublayer passed to engineAddLayer
@@ -220,6 +217,32 @@ export abstract class BaseAdapter {
 
     updateLayerStyle(layerId: string, subLayerId: string, partialPaint: Record<string, unknown>): boolean {
         return this.getLogicalLayerExecutor().updateLayerStyle(layerId, subLayerId, partialPaint);
+    }
+
+    /** Engine-agnostic: delegates the actual rendering to whichever executor the concrete
+     *  adapter is bound to, and mirrors the change into store.mapLayers so anything reading
+     *  visibility from the store (the legend, story steps, etc.) stays in sync automatically —
+     *  callers no longer need to dispatch this themselves. */
+    setLayerVisibility(layerId: string, visible: boolean): void {
+        this.getLogicalLayerExecutor().setLayerVisibility(layerId, visible);
+        const current = this.store.getState().mapLayers ?? {};
+        const entry = current[layerId];
+        if (entry && entry.visible !== visible) {
+            this.store.dispatch({ mapLayers: { ...current, [layerId]: { ...entry, visible } } }, 'UI');
+        }
+    }
+
+    /** Engine-agnostic counterpart to setLayerVisibility — see its comment. `opacity` is the
+     *  0-1 fraction the engine expects; the store tracks the inverse as `transparency` (0-100,
+     *  matching the legend's slider). */
+    setLayerOpacity(layerId: string, opacity: number): void {
+        this.getLogicalLayerExecutor().setLayerOpacity(layerId, opacity);
+        const transparency = Math.round((1 - opacity) * 100);
+        const current = this.store.getState().mapLayers ?? {};
+        const entry = current[layerId];
+        if (entry && entry.transparency !== transparency) {
+            this.store.dispatch({ mapLayers: { ...current, [layerId]: { ...entry, transparency } } }, 'UI');
+        }
     }
 
     removeSource(id: string): void {

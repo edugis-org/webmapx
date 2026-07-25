@@ -184,12 +184,17 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
         adapter.setBearing(start.viewport.bearing);
         adapter.setPitch(start.viewport.pitch);
         adapter.setViewport(start.viewport.center, start.viewport.zoom);
+
+        // setLayerVisibility/setLayerOpacity mirror into store.mapLayers themselves (see
+        // base-adapter.ts), so the legend reflects the restored state without any extra work
+        // here.
         for (const [id, visible] of start.visible) {
             adapter.setLayerVisibility(id, visible);
         }
         for (const [id, transparency] of start.transparency) {
             adapter.setLayerOpacity(id, (100 - transparency) / 100);
         }
+
         adapter.setTerrainEnabled(start.terrain);
         adapter.setProjection(start.projection);
     }
@@ -209,12 +214,16 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
         if (index >= 0) this.goToStep(index);
     }
 
-    /** Applies a step's camera/layer/terrain state directly via adapter calls — no store
-     *  dispatch, so this transient overlay never leaks into permalink generation or global
-     *  map state (see PermalinkState reuse rationale). Layers the step references that
-     *  aren't loaded yet are added on demand (and tracked in `addedLayerIds` for removal
-     *  when the story closes) — unlike permalink restore, a story step is allowed to bring
-     *  in layers the map didn't start with. */
+    /** Applies a step's camera/layer/terrain state via adapter calls. setLayerVisibility/
+     *  setLayerOpacity mirror into store.mapLayers themselves (see base-adapter.ts), so the
+     *  legend reflects what the story is showing without this needing to touch the store
+     *  directly. Camera/projection/terrain are still never dispatched — no UI needs those
+     *  live, and captureStartState/restoreStartState already give the story its own restore
+     *  path for them. Layers the step references that aren't loaded yet are added on demand
+     *  (tracked in `addedLayerIds`); unlike permalink restore, a story step is allowed to
+     *  bring in layers the map didn't start with. A story-added layer no longer referenced by
+     *  the new step is removed outright rather than just hidden, so the legend never lists a
+     *  leftover layer from a step the story isn't currently on. */
     private async applyStep(step: StoryStepConfig): Promise<void> {
         const adapter = this.adapter;
         const mapHost = this.mapHost;
@@ -238,14 +247,28 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
         adapter.setViewport([lng, lat], zoom);
 
         // Iterate the story's full layer union, not just this step's `l` — a layer shown by
-        // an earlier step but not referenced by this one must be hidden again (regression:
+        // an earlier step but not referenced by this one must be dealt with again (regression:
         // going Prev from a step that showed a layer back to one that doesn't mention it at
         // all previously left that layer visible).
         const visibleHere = new Set(l);
         const hidden = new Set(h ?? []);
+        // setLayerVisibility/setLayerOpacity mirror into store.mapLayers themselves (see
+        // base-adapter.ts), so the legend reflects what the story is showing automatically.
         for (const id of this.storyLayerIds) {
             if (!visibleHere.has(id)) {
-                adapter.setLayerVisibility(id, false);
+                // A layer the story itself added is fully removed once no longer needed,
+                // instead of merely hidden — otherwise the legend keeps listing (hidden)
+                // layers left over from whichever steps happened to be visited earlier,
+                // making it depend on navigation history rather than just the current step.
+                // A layer that was already on the map before the story opened isn't the
+                // story's to delete, so that one is only hidden (restored by
+                // captureStartState/restoreStartState when the story closes).
+                if (this.addedLayerIds.has(id)) {
+                    adapter.removeLogicalLayer(id);
+                    this.addedLayerIds.delete(id);
+                } else {
+                    adapter.setLayerVisibility(id, false);
+                }
                 continue;
             }
             adapter.setLayerVisibility(id, !hidden.has(id));

@@ -106,7 +106,7 @@ Human-readable step state — this is what you write in config. Internally it's 
 
 | Field | Type | Description |
 |---|---|---|
-| `layers` | `string[]` | All layer ids relevant to this step. Any layer referenced here that isn't already loaded is added on demand (same catalog-lookup path as the search/buffer tools) and removed again when the story closes. |
+| `layers` | `string[]` | All layer ids relevant to this step. Any layer referenced here that isn't already loaded is added on demand (same catalog-lookup path as the search/buffer tools). A layer the story added is removed outright (not just hidden) as soon as you navigate to a step that doesn't reference it, so the legend never lists a leftover layer from an earlier step — and any still loaded when the story closes are removed then too. A layer that was already on the map before the story opened is only ever hidden/restored, never removed. |
 | `hiddenLayers` | `string[]?` | Subset of `layers` to hide for this step. Omit or empty = all visible. |
 | `view` | `{ center: [lng, lat], zoom: number, bearing?: number, pitch?: number }` | Camera position. `bearing`/`pitch` default to `0`. |
 | `transparency` | `Record<string, number>?` | Per-layer transparency overrides (0–100%), keyed by layer id. |
@@ -119,10 +119,10 @@ A layer visible in an earlier step but not listed in a later step's `layers` is 
 
 *   **Chapters and steps:** Multi-chapter tours with per-chapter jump buttons and linear Next/Prev navigation.
 *   **Camera flythrough:** Each step flies the camera to its configured `view`.
-*   **Layer choreography:** Steps show/hide/set-opacity on layers, lazily loading any layer not already on the map.
+*   **Layer choreography:** Steps show/hide/set-opacity on layers, lazily loading any layer not already on the map, and removing story-added layers again as soon as a step stops needing them (so the legend's layer list depends only on the current step, not on navigation history).
 *   **Projection and terrain:** Steps can switch projection (e.g. flat ↔ globe) and toggle 3D terrain.
 *   **Rich content:** Step content is inline `html` (sanitized) or fetched from `htmlUrl`, with relative links/images resolved against the source file.
-*   **Transient overlay:** Applying a step never touches the store or the permalink — it's pure adapter calls (`setViewport`/`setBearing`/`setPitch`/`setLayerVisibility`/`setLayerOpacity`/`setProjection`/`setTerrainEnabled`). Closing a story restores the exact camera/layer/projection/terrain state from before it opened.
+*   **Transient overlay:** Applying a step drives the map via adapter calls (`setViewport`/`setBearing`/`setPitch`/`setLayerVisibility`/`setLayerOpacity`/`setProjection`/`setTerrainEnabled`); layer visibility/opacity are also mirrored into the store so the legend reflects what a step is showing. Closing a story restores the exact camera/layer/projection/terrain state (both engine and store) from before it opened, and none of it reaches the permalink since that's generated from store state after the story has closed.
 *   **Deep linking:** `?story=<name>` in the page URL opens a matching story automatically on load.
 
 ## Integration

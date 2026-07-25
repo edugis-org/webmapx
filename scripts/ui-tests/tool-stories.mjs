@@ -37,6 +37,11 @@
  * demo.json (state.projection, converted via toStoryStepState), which must be applied via
  * adapter.setProjection(); reverted to "mercator" on Prev back to step 1 (which sets no
  * projection); and restored to the pre-story projection when the story closes.
+ *
+ * And a regression check that applyStep mirrors layer visibility into store.mapLayers (not
+ * just the engine) — the legend (webmapx-layer-overview.ts) reads visible/transparency
+ * straight from the store, so a step that hides a layer via adapter.setLayerVisibility alone
+ * left the legend showing it as active/eye-open even though it wasn't rendered.
  */
 
 function fail(message) {
@@ -153,9 +158,9 @@ async function clickPrev(page) {
   });
 }
 
-/** Native rendered visibility of a logical layer's MapLibre layers ('visible'/'none') — the
- *  webmapx store doesn't track per-step visibility (see applyStep's no-store-dispatch design),
- *  so this reaches past IMap into MapLibre-specific internals for verification purposes only. */
+/** Native rendered visibility of a logical layer's MapLibre layers ('visible'/'none') —
+ *  reaches past IMap into MapLibre-specific internals to verify the engine actually rendered
+ *  what applyStep asked for, independent of the store mirror checked by getStoreLayerVisible. */
 async function getNativeLayerVisibility(page, logicalLayerId) {
   return page.evaluate((id) => {
     const adapter = document.querySelector('webmapx-map')?.adapter;
@@ -163,6 +168,17 @@ async function getNativeLayerVisibility(page, logicalLayerId) {
     const mapInstance = adapter?.core?.mapInstance;
     if (!mapInstance || nativeIds.length === 0) return [];
     return nativeIds.map((nativeId) => mapInstance.getLayoutProperty(nativeId, 'visibility') ?? 'visible');
+  }, logicalLayerId);
+}
+
+/** store.mapLayers[id].visible — what the legend (webmapx-layer-overview.ts) actually reads,
+ *  as opposed to the engine-level rendering checked by getNativeLayerVisibility. applyStep
+ *  mirrors visibility/transparency into the store precisely so this reflects story steps too. */
+async function getStoreLayerVisible(page, logicalLayerId) {
+  return page.evaluate((id) => {
+    const adapter = document.querySelector('webmapx-map')?.adapter;
+    const entry = adapter?.store?.getState()?.mapLayers?.[id];
+    return entry?.visible !== false;
   }, logicalLayerId);
 }
 
@@ -246,6 +262,10 @@ export async function run({ page, engine, baseUrl }) {
       fail(`Expected "world-countries" to render visible at step 2, got: ${JSON.stringify(visibility)}`);
     }
     console.log('    "world-countries" renders visible at step 2');
+
+    const storeVisible = await getStoreLayerVisible(page, 'world-countries');
+    if (!storeVisible) fail('Expected store.mapLayers["world-countries"].visible to be true at step 2 (legend must reflect this)');
+    console.log('    Legend (store) shows "world-countries" visible at step 2');
   });
 
   await step('step 2\'s "projection: globe" config is applied to the map', async () => {
@@ -260,9 +280,18 @@ export async function run({ page, engine, baseUrl }) {
 
     const visibility = await getNativeLayerVisibility(page, 'world-countries');
     if (visibility.some((v) => v === 'visible')) {
-      fail(`Expected "world-countries" to be hidden again at step 1, got: ${JSON.stringify(visibility)}`);
+      fail(`Expected "world-countries" to be gone at step 1, got: ${JSON.stringify(visibility)}`);
     }
-    console.log('    "world-countries" hidden again at step 1');
+
+    // "world-countries" isn't in step 1 at all and was added by the story itself (not a
+    // pre-existing default layer), so it must be removed outright here, not just hidden —
+    // otherwise the legend would keep listing it (hidden) purely because an earlier step in
+    // this session happened to reference it, i.e. depend on navigation history.
+    const afterPrev = await getMapLayerIds(page);
+    if (afterPrev.includes('world-countries')) {
+      fail('Expected "world-countries" to be fully removed (not just hidden) at step 1, since the story added it and step 1 doesn\'t need it');
+    }
+    console.log('    "world-countries" removed (not just hidden) at step 1 — legend list depends only on the current step');
 
     const projection = await getProjectionName(page);
     if (projection !== 'mercator') fail(`Expected projection to revert to "mercator" at step 1 (no projection set), got: "${projection}"`);
