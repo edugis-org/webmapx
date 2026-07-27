@@ -34,6 +34,18 @@ export interface IMapState {
     activeTool: ActiveToolState | null;
     /** True when 3D terrain is enabled (set by permalink restore to signal the 3D tool). */
     terrainEnabled?: boolean;
+    /**
+     * Current map projection, mirrored by BaseAdapter.setProjection and seeded once the
+     * map has loaded. `undefined` means "not known yet"; `null` means the active engine
+     * has no runtime projection support (same tri-state as IMap.getProjection()).
+     */
+    mapProjection?: MapProjectionState | null;
+}
+
+export interface MapProjectionState {
+    name: string;
+    center?: [number, number];
+    parallels?: [number, number];
 }
 
 export interface ActiveToolState {

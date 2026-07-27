@@ -14,13 +14,31 @@
 
 import { MapStateStore } from '../store/map-state-store';
 import { registerMapLayer, unregisterMapLayer, reorderMapLayers } from './map-layer-registry';
-import type { IMapCore, ISource, LayerInsertOptions, MarkerOptions } from './IMapInterfaces';
-import type { CompositeStyleLayerConfig } from '../config/types';
-import type { LngLat } from '../store/map-events';
+import type {
+    IMapCore, ISource, LayerInsertOptions, MarkerOptions,
+    NavigationCapabilities, QueryLayerFeaturesOptions,
+} from './IMapInterfaces';
+import type { CompositeStyleLayerConfig, MapStyle } from '../config/types';
+import type { LngLat, Pixel } from '../store/map-events';
+import type { MapProjectionState } from '../store/IMapState';
 import { MapEventBus } from '../store/map-events';
 import type { DeferredLogicalLayerExecutor } from './logical-layer-executor';
 import { ensureApiKeysLoaded, substituteApiKeysDeep } from '../config/apikeys';
 import { normalizeCompositeLayer, findNormalizedSource } from './composite-layer-utils';
+
+/** Options accepted by every adapter's `initialize` (mirrors IMap.initialize). */
+export interface MapInitOptions {
+    center?: [number, number];
+    zoom?: number;
+    minZoom?: number;
+    maxZoom?: number;
+    minPitch?: number;
+    maxPitch?: number;
+    /** Restricts panning/zoom-out to [west, south, east, north] (lon/lat). */
+    maxBounds?: [number, number, number, number];
+    styleUrl?: string;
+    style?: MapStyle;
+}
 
 interface MarkerService {
     add(id: string, lngLat: LngLat, options?: MarkerOptions): void;
@@ -49,6 +67,15 @@ export abstract class BaseAdapter {
         this.events = new MapEventBus();
         this.events.on('view-change-end', (e) => {
             this.store.dispatch({ mapBearing: e.bearing, mapPitch: e.pitch }, 'MAP');
+        });
+        // Seed store.mapProjection once the map is up. Before `mapLoaded` the engine has
+        // not applied the configured projection yet, so reading earlier gives a stale
+        // default; at this point getProjection() is definitive (object, or null when the
+        // engine has no runtime projection support).
+        const unsubscribe = this.store.subscribe((state) => {
+            if (!state.mapLoaded || state.mapProjection !== undefined) return;
+            unsubscribe();
+            this.store.dispatch({ mapProjection: this.getProjection() }, 'MAP');
         });
     }
 
@@ -245,6 +272,23 @@ export abstract class BaseAdapter {
         }
     }
 
+    /** Engine-agnostic counterpart to setLayerVisibility — the engine only does the engine
+     *  work in `engineSetTerrainEnabled`; mirroring the result into `store.terrainEnabled`
+     *  happens here, so every engine (and every caller) stays in sync automatically.
+     *  Nothing is dispatched when the engine reports the change was not applied. */
+    setTerrainEnabled(enabled: boolean, terrainSource?: unknown): boolean {
+        const applied = this.engineSetTerrainEnabled(enabled, terrainSource);
+        if (applied && this.store.getState().terrainEnabled !== enabled) {
+            this.store.dispatch({ terrainEnabled: enabled }, 'UI');
+        }
+        return applied;
+    }
+
+    /** Engine-specific terrain toggle. Default: engine has no terrain support. */
+    protected engineSetTerrainEnabled(_enabled: boolean, _terrainSource?: unknown): boolean {
+        return false;
+    }
+
     removeSource(id: string): void {
         // Unregister all layers whose sourceId matches this source before delegating
         // to the engine. Only the store knows which layer IDs were registered under
@@ -263,17 +307,32 @@ export abstract class BaseAdapter {
 
     // ── Engine hooks (implement in each concrete adapter) ────────────────────
 
-    /** Engine-specific layer add. Return true if the layer was accepted and added. */
-    protected abstract engineAddLayer(layer: any, options?: LayerInsertOptions): Promise<boolean>;
+    /**
+     * Engine-specific layer add. Return true if the layer was accepted and added.
+     * Default: try the logical-layer executor first, fall back to the engine core for
+     * inline/native layer defs. Override only when the engine needs extra routing.
+     */
+    protected async engineAddLayer(layer: any, options?: LayerInsertOptions): Promise<boolean> {
+        const success = await this.getLogicalLayerExecutor().addLayer(layer, options);
+        if (success) return true;
+        return this.getCore().addLayer(layer, options);
+    }
 
     /** Engine-specific layer remove. */
-    protected abstract engineRemoveLayer(id: string): void;
+    protected engineRemoveLayer(id: string): void {
+        this.getLogicalLayerExecutor().removeLayer(id);
+        this.getCore().removeLayer(id);
+    }
 
     /** Engine-specific source remove. */
-    protected abstract engineRemoveSource(id: string): void;
+    protected engineRemoveSource(id: string): void {
+        this.getCore().removeSource(id);
+    }
 
     /** Engine-specific source add. */
-    protected abstract engineAddSource(id: string, config: any): void;
+    protected engineAddSource(id: string, config: any): void {
+        this.getCore().addSource(id, config);
+    }
 
     /**
      * Registers a composite layer source. Override in engines that need format conversion
@@ -323,5 +382,137 @@ export abstract class BaseAdapter {
 
     removeMarker(id: string): void {
         this.getMarkerService()?.remove(id);
+    }
+
+    // ── Camera / core pass-throughs ──────────────────────────────────────────
+    // Plain delegation to the engine core. Engines override only where their
+    // behaviour actually differs — anything not overridden below is identical
+    // across all engines by construction.
+
+    initialize(containerId: string, options?: MapInitOptions): void {
+        this.getCore().initialize(containerId, options);
+    }
+
+    getViewportState() {
+        return this.getCore().getViewportState();
+    }
+
+    setViewport(center: [number, number], zoom: number): void {
+        this.getCore().setViewport(center, zoom);
+    }
+
+    getZoom(): number {
+        return this.getCore().getZoom();
+    }
+
+    setZoom(level: number): void {
+        this.getCore().setZoom(level);
+    }
+
+    getBearing(): number {
+        return this.getCore().getBearing();
+    }
+
+    setBearing(bearing: number): void {
+        this.getCore().setBearing(bearing);
+    }
+
+    getPitch(): number {
+        return this.getCore().getPitch();
+    }
+
+    setPitch(pitch: number): void {
+        this.getCore().setPitch(pitch);
+    }
+
+    resetNorth(): void {
+        this.getCore().resetNorth();
+    }
+
+    resetNorthPitch(): void {
+        this.getCore().resetNorthPitch();
+    }
+
+    fitBounds(bbox: [number, number, number, number]): void {
+        this.getCore().fitBounds(bbox);
+    }
+
+    setCursor(cursor: string): void {
+        this.getCore().setCursor(cursor);
+    }
+
+    setPanEnabled(enabled: boolean): void {
+        this.getCore().setPanEnabled(enabled);
+    }
+
+    /** Default: nothing to do — most engines' canvases already have touch-action: none. */
+    setTouchCaptureEnabled(_enabled: boolean): void {}
+
+    setDoubleClickZoomEnabled(enabled: boolean): void {
+        this.getCore().setDoubleClickZoomEnabled(enabled);
+    }
+
+    project(coords: LngLat): Pixel {
+        return this.getCore().project(coords);
+    }
+
+    unproject(pixel: Pixel): LngLat | null {
+        return this.getCore().unproject(pixel);
+    }
+
+    getNavigationCapabilities(): NavigationCapabilities {
+        return this.getCore().getNavigationCapabilities();
+    }
+
+    getElevation(lngLat: LngLat): number | null {
+        return this.getCore().getElevation?.(lngLat) ?? null;
+    }
+
+    /** Default: engine has no terrain support (see setTerrainEnabled/engineSetTerrainEnabled). */
+    isTerrainEnabled(): boolean | null {
+        return null;
+    }
+
+    /**
+     * Engine-agnostic counterpart to setLayerVisibility/setTerrainEnabled: the engine half
+     * lives in `engineSetProjection`, the store mirror happens here. Mirrors the projection
+     * the engine actually ended up with (`getProjection()`), not the requested one, so
+     * normalisation by the engine is reflected. Nothing is dispatched when unsupported.
+     */
+    setProjection(projection: string | MapProjectionState): boolean {
+        const applied = this.engineSetProjection(projection);
+        if (applied) {
+            this.store.dispatch({ mapProjection: this.getProjection() }, 'UI');
+        }
+        return applied;
+    }
+
+    /** Engine-specific projection switch. Default: engine has no runtime projection switching. */
+    protected engineSetProjection(_projection: string | MapProjectionState): boolean {
+        return false;
+    }
+
+    /** Reads live engine state (not the store mirror). `null` = engine has no projection support. */
+    getProjection(): MapProjectionState | null {
+        return null;
+    }
+
+    // ── Logical-layer pass-throughs ──────────────────────────────────────────
+
+    /** Alias of removeLayer — logical and native removal follow the same path. */
+    removeLogicalLayer(layerId: string): void {
+        this.removeLayer(layerId);
+    }
+
+    getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
+        return this.getCore().getSourceData(sourceId) ?? this.getLogicalLayerExecutor().getSourceData(sourceId);
+    }
+
+    queryLayerFeatures(layerId: string, options?: QueryLayerFeaturesOptions): Promise<GeoJSON.FeatureCollection> {
+        return this.getLogicalLayerExecutor().queryLayerFeatures(layerId, options);
+    }
+
+    getLayerSourceLayers(layerId: string): string[] {
+        return this.getLogicalLayerExecutor().getLayerSourceLayers(layerId);
     }
 }

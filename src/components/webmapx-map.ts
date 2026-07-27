@@ -1459,28 +1459,23 @@ export class WebmapxMapElement extends HTMLElement {
     if (!state) return;
 
     // Viewport is already applied at map init time in app.js; only layer state needs restoring here.
+    // adapter.setLayerVisibility / setLayerOpacity mirror visible/transparency into
+    // store.mapLayers themselves — no separate dispatch needed here.
     if (state.h && state.h.length > 0) {
       const hiddenSet = new Set(state.h);
       const mapLayers = adapter.store.getState().mapLayers ?? {};
-      const storeUpdate: Record<string, unknown> = { ...mapLayers };
       for (const layerId of state.h) {
         if (!mapLayers[layerId]) continue;
         adapter.setLayerVisibility(layerId, false);
-        storeUpdate[layerId] = { ...mapLayers[layerId], visible: false };
       }
-      adapter.store.dispatch({ mapLayers: storeUpdate as typeof mapLayers }, 'UI');
     }
 
     if (state.t) {
       const current = adapter.store.getState().mapLayers ?? {};
-      const tUpdate: Record<string, unknown> = { ...current };
       for (const [layerId, transparency] of Object.entries(state.t)) {
-        const entry = current[layerId];
-        if (!entry) continue;
+        if (!current[layerId]) continue;
         adapter.setLayerOpacity(layerId, (100 - transparency) / 100);
-        tUpdate[layerId] = { ...entry, transparency };
       }
-      adapter.store.dispatch({ mapLayers: tUpdate as typeof current }, 'UI');
     }
 
     if (state.terrain) {

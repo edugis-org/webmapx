@@ -2,7 +2,7 @@ import { html, css, TemplateResult } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import { resolveMapElement } from './internal/map-context';
-import type { IMapState } from '../store/IMapState';
+import type { IMapState, MapProjectionState } from '../store/IMapState';
 import mercatorViewUrl from '../icons/mercator-view.png?url';
 import globeViewUrl from '../icons/globe-view.png?url';
 
@@ -27,6 +27,8 @@ export class WebmapxViewModeTool extends WebmapxBaseTool {
     @state() private parallel1 = 29.5;
     @state() private parallel2 = 45.5;
     @state() private supported = true;
+    /** True while this tool is itself calling setProjection — see applyViewMode(). */
+    private applyingOwnChange = false;
 
     static styles = css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
@@ -42,35 +44,51 @@ export class WebmapxViewModeTool extends WebmapxBaseTool {
     `;
 
     protected onStateChanged(state: IMapState): void {
-        // Keep re-syncing until we get a valid view mode (map may not be ready immediately)
-        if (!this.supported || this.viewModeName === '') this.syncFromAdapter(state.mapLoaded);
+        // store.mapProjection is maintained by BaseAdapter: seeded once the map has loaded
+        // and re-dispatched on every successful setProjection — including ones this tool did
+        // not initiate (story steps, other tools), which is why we follow the store rather
+        // than polling the adapter.
+        if (this.applyingOwnChange) return;
+        this.applyProjectionState(state.mapProjection);
     }
 
     protected onMapAttached(): void {
         this.supported = true; // assume supported until proven otherwise
         this.viewModeName = '';
-        this.syncFromAdapter(this.adapter?.store.getState().mapLoaded ?? false);
+        this.applyProjectionState(this.adapter?.store.getState().mapProjection);
     }
 
-    private syncFromAdapter(mapLoaded = false): void {
-        if (!this.adapter) return;
-        // Defer until map is loaded — projection is applied during adapter.initialize()
-        // which runs after onMapAttached, so reading too early gives a stale default.
-        if (!mapLoaded) return;
-        const proj = this.adapter.getProjection();
+    /** undefined = not known yet (map still loading), null = engine has no projection support. */
+    private applyProjectionState(proj: MapProjectionState | null | undefined): void {
+        if (proj === undefined) return;
         if (proj === null) {
-            // null = engine definitively doesn't support runtime view-mode changes; undefined timing = try again later
             this.supported = false;
             return;
         }
-        // Got a valid view mode, so this engine supports the control.
         this.supported = true;
         this.viewModeName = proj.name ?? 'mercator';
         if (proj.center) { this.centerLng = proj.center[0]; this.centerLat = proj.center[1]; }
         if (proj.parallels) { this.parallel1 = proj.parallels[0]; this.parallel2 = proj.parallels[1]; }
     }
 
+    /** Re-reads live engine state after a rejected setProjection, so the UI snaps back. */
+    private syncFromAdapter(): void {
+        this.applyProjectionState(this.adapter?.getProjection());
+    }
+
     private applyViewMode(): void {
+        if (!this.adapter) return;
+        // The setProjection below dispatches store.mapProjection back to us. Ignore that
+        // echo so an engine-normalised value cannot fight the slider the user is dragging.
+        this.applyingOwnChange = true;
+        try {
+            this.applyViewModeToEngine();
+        } finally {
+            this.applyingOwnChange = false;
+        }
+    }
+
+    private applyViewModeToEngine(): void {
         if (!this.adapter) return;
         const def = VIEW_MODES.find(p => p.id === this.viewModeName);
         if (def?.conic) {

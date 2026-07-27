@@ -82,6 +82,23 @@ async function searchForUtrecht(page) {
   }, undefined, { timeout: 30_000 });
 }
 
+/**
+ * Index of the first polygon result. The suite drives the *polygon* draw mode, so it needs a
+ * polygon-geometry result — but the provider's ordering is not stable: Nominatim returns a
+ * different mix/order per call for "Utrecht" (a node in South Africa, relations in Guyana and
+ * the Netherlands), and the search tool's in-view ranking cannot break the tie at world zoom
+ * where every candidate is inside the viewport. Picking index 0 blindly made the suite fail
+ * whenever a point result happened to sort first.
+ */
+async function findPolygonResultIndex(page) {
+  return page.evaluate(() => {
+    const map = document.querySelector('webmapx-map');
+    const tool = map?.querySelector('webmapx-search-tool');
+    const features = tool?.results?.features ?? [];
+    return features.findIndex(f => f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon');
+  });
+}
+
 async function getSearchResultCount(page) {
   return page.evaluate(() => {
     const map = document.querySelector('webmapx-map');
@@ -399,8 +416,14 @@ export async function run({ page, engine }) {
     console.log(`    Found ${resultCount} search results for "Utrecht"`);
   });
 
-  // Use the first result (index 0)
-  const resultIndex = 0;
+  let resultIndex;
+  await step('pick a polygon search result', async () => {
+    resultIndex = await findPolygonResultIndex(page);
+    if (resultIndex < 0) {
+      fail(`No polygon result among ${resultCount} results for "Utrecht"`);
+    }
+    console.log(`    Using polygon search result at index ${resultIndex}`);
+  });
 
   await step('click search result to zoom', async () => {
     await clickSearchResult(page, resultIndex);

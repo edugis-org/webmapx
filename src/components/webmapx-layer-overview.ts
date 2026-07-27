@@ -972,11 +972,13 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     const transparency = Number((e.target as HTMLInputElement).value);
     const current = this.adapter.store.getState().mapLayers;
     const entry = current[layerId];
-    if (entry) {
-      this.adapter.store.dispatch({ mapLayers: { ...current, [layerId]: { ...entry, transparency } } }, 'UI');
-    }
     const meta = entry as Record<string, unknown> | undefined;
     if (meta?.layerType === 'hillshade') {
+      // Hillshade uses exaggeration instead of opacity, so adapter.setLayerOpacity
+      // (which mirrors transparency into the store itself) is not called here.
+      if (entry) {
+        this.adapter.store.dispatch({ mapLayers: { ...current, [layerId]: { ...entry, transparency } } }, 'UI');
+      }
       const sublayers = meta?.sublayers as any[] | undefined;
       const primarySub = sublayers?.find((s: any) => s?.type === 'hillshade');
       const subLayerId = primarySub?.id ?? layerId;
@@ -1338,12 +1340,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     const currentLayers = this.store.getState().mapLayers;
     const entry = currentLayers[layerId];
     const nextVisible = entry?.visible === false; // toggle: false→true, undefined/true→false
+    // adapter.setLayerVisibility mirrors `visible` into store.mapLayers itself.
     this.adapter.setLayerVisibility(layerId, nextVisible);
-    if (entry) {
-      this.store.dispatch({
-        mapLayers: { ...currentLayers, [layerId]: { ...entry, visible: nextVisible } },
-      }, 'UI');
-    }
     this.applyVisibleLayers(this.store.getState());
   }
 }

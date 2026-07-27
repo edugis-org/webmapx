@@ -215,8 +215,17 @@ export class MapCoreService implements IMapCore {
 
         this.attachEvents();
 
-        // Initial store state (center/zoom will be corrected on first moveEnd tick)
-        this.store.dispatch({ mapLoaded: true, mapBusy: false, mapCenter: center, zoomLevel: zoom }, 'MAP');
+        // Initial store state (center/zoom will be corrected on first moveEnd tick).
+        // mapViewportBounds must be seeded here like the other engines do at load —
+        // consumers that read it before the first camera move (e.g. the search tool's
+        // in-view ranking) otherwise see null and silently skip view-aware behaviour.
+        this.store.dispatch({
+            mapLoaded: true,
+            mapBusy: false,
+            mapCenter: center,
+            zoomLevel: zoom,
+            mapViewportBounds: this.computeViewportBounds(),
+        }, 'MAP');
         this.flushReady();
     }
 

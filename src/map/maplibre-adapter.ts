@@ -3,7 +3,6 @@
 import { IMap, IMapCore, ISource, IToolService, ISubMapFactory, LayerInsertOptions, type SourceFeatureQueryOptions, type SourceFeatureSample, type QueryLayerFeaturesOptions } from './IMapInterfaces';
 import * as _ml from 'maplibre-gl';
 
-import { LngLat, Pixel } from '../store/map-events';
 import { BaseAdapter } from './base-adapter';
 import { MapCoreService } from './maplibre-services/MapCoreService';
 import { MapServiceTemplate } from './maplibre-services/MapServiceTemplate';
@@ -13,7 +12,6 @@ import { MapQueryService } from './maplibre-services/MapQueryService';
 import { MapMarkerService } from './maplibre-services/MapMarkerService';
 import { DeferredLogicalLayerExecutor } from './logical-layer-executor';
 import { DeferredQueryService } from './deferred-query-service';
-import type { MapStyle } from '../config/types';
 import type { IQueryService } from './IQueryService';
 
 /**
@@ -73,96 +71,24 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
 
     // ===== Delegation Methods =====
 
-    initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; maxBounds?: [number, number, number, number]; styleUrl?: string; style?: MapStyle }): void {
-        this.core.initialize(containerId, options);
-    }
-
-    getViewportState() {
-        return this.core.getViewportState();
-    }
-
-    setViewport(center: [number, number], zoom: number): void {
-        this.core.setViewport(center, zoom);
-    }
-
-    getZoom(): number {
-        return this.core.getZoom();
-    }
-
-    setZoom(level: number): void {
-        this.core.setZoom(level);
-    }
-
-    getBearing(): number {
-        return this.core.getBearing();
-    }
-
-    setBearing(bearing: number): void {
-        this.core.setBearing(bearing);
-    }
-
-    getPitch(): number {
-        return this.core.getPitch();
-    }
-
-    setPitch(pitch: number): void {
-        this.core.setPitch(pitch);
-    }
-
-    setTerrainEnabled(enabled: boolean, terrainSource?: unknown): boolean {
+    protected override engineSetTerrainEnabled(enabled: boolean, terrainSource?: unknown): boolean {
         // Resolve logical source id → native source id so core uses the same
         // source that MapLayerService already registered for the hillshade layer.
         const logicalId = (terrainSource as any)?.id as string | undefined;
         const nativeSourceId = logicalId ? this.layerService?.getNativeSourceId(logicalId) : undefined;
-        const applied = (this.core as MapCoreService).setTerrainEnabled(enabled, terrainSource, nativeSourceId);
-        if (applied) {
-            this.store.dispatch({ terrainEnabled: enabled }, 'UI');
-        }
-        return applied;
+        return (this.core as MapCoreService).setTerrainEnabled(enabled, terrainSource, nativeSourceId);
     }
 
     isTerrainEnabled(): boolean | null {
         return this.core.isTerrainEnabled();
     }
 
-    getElevation(lngLat: LngLat): number | null {
-        return (this.core as MapCoreService).getElevation(lngLat);
-    }
-
-    resetNorth(): void {
-        this.core.resetNorth();
-    }
-
-    resetNorthPitch(): void {
-        this.core.resetNorthPitch();
-    }
-
-    fitBounds(bbox: [number, number, number, number]): void {
-        this.core.fitBounds(bbox);
-    }
-
-    setProjection(projection: string | { name: string; center?: [number, number]; parallels?: [number, number] }): boolean {
+    protected override engineSetProjection(projection: string | { name: string; center?: [number, number]; parallels?: [number, number] }): boolean {
         return this.core.setProjection(projection);
     }
 
     getProjection(): { name: string; center?: [number, number]; parallels?: [number, number] } | null {
         return this.core.getProjection();
-    }
-
-    setCursor(cursor: string): void {
-        this.core.setCursor(cursor);
-    }
-
-    setPanEnabled(enabled: boolean): void {
-        this.core.setPanEnabled(enabled);
-    }
-
-    setTouchCaptureEnabled(_enabled: boolean): void {
-        // MapLibre canvas has touch-action:none by default; no action needed
-    }
-
-    setDoubleClickZoomEnabled(enabled: boolean): void {
-        this.core.setDoubleClickZoomEnabled(enabled);
     }
 
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
@@ -197,26 +123,6 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
         return this.logicalLayerExecutor.querySourceFeatures(sourceId, options);
     }
 
-    queryLayerFeatures(layerId: string, options?: QueryLayerFeaturesOptions): Promise<GeoJSON.FeatureCollection> {
-        return this.logicalLayerExecutor.queryLayerFeatures(layerId, options);
-    }
-
-    getLayerSourceLayers(layerId: string): string[] {
-        return this.logicalLayerExecutor.getLayerSourceLayers(layerId);
-    }
-
-    project(coords: LngLat): Pixel {
-        return this.core.project(coords);
-    }
-
-    unproject(pixel: Pixel): LngLat | null {
-        return this.core.unproject(pixel);
-    }
-
-    getNavigationCapabilities() {
-        return this.core.getNavigationCapabilities();
-    }
-
     protected override readonly _decomposeComposite = true;
 
     protected async engineAddLayer(layer: any, options?: LayerInsertOptions): Promise<boolean> {
@@ -226,14 +132,6 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
         // core.addLayer — they have no inline source def and would fail there.
         if ((layer as any)?.metadata?.logicalLayerId) return false;
         return this.core.addLayer(layer, options);
-    }
-
-    removeLogicalLayer(layerId: string): void {
-        this.removeLayer(layerId);
-    }
-
-    protected engineAddSource(id: string, config: any): void {
-        this.core.addSource(id, config);
     }
 
     protected engineRegisterCompositeSource(id: string, config: unknown): void {
@@ -248,15 +146,6 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
             // it through MapLayerService once bound, instead of adding it raw.
             this.pendingCompositeSources.push({ id, config });
         }
-    }
-
-    protected engineRemoveLayer(id: string): void {
-        this.logicalLayerExecutor.removeLayer(id);
-        this.core.removeLayer(id);
-    }
-
-    protected engineRemoveSource(id: string): void {
-        this.core.removeSource(id);
     }
 
     protected getCore(): IMapCore {

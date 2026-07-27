@@ -1,9 +1,8 @@
 // src/map/openlayers-adapter.ts
 
-import { IMap, IMapCore, IToolService, ISubMapFactory, LayerInsertOptions, type QueryLayerFeaturesOptions } from './IMapInterfaces';
+import { IMap, IMapCore, IToolService, ISubMapFactory } from './IMapInterfaces';
 import { VERSION as olVersion } from 'ol/util.js';
 
-import { LngLat, Pixel } from '../store/map-events';
 import { BaseAdapter } from './base-adapter';
 import { MapCoreService } from './openlayers-services/MapCoreService';
 import { MapServiceTemplate } from './openlayers-services/MapServiceTemplate';
@@ -13,7 +12,6 @@ import { MapQueryService } from './openlayers-services/MapQueryService';
 import { MapMarkerService } from './openlayers-services/MapMarkerService';
 import { DeferredLogicalLayerExecutor } from './logical-layer-executor';
 import { DeferredQueryService } from './deferred-query-service';
-import type { MapStyle } from '../config/types';
 import type { IQueryService } from './IQueryService';
 
 /**
@@ -51,131 +49,8 @@ export class OpenLayersAdapter extends BaseAdapter implements IMap {
 
     // ===== Delegation Methods =====
 
-    initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; maxBounds?: [number, number, number, number]; styleUrl?: string; style?: MapStyle }): void {
-        this.core.initialize(containerId, options);
-    }
-
-    getViewportState() {
-        return this.core.getViewportState();
-    }
-
-    setViewport(center: [number, number], zoom: number): void {
-        this.core.setViewport(center, zoom);
-    }
-
-    getZoom(): number {
-        return this.core.getZoom();
-    }
-
-    setZoom(level: number): void {
-        this.core.setZoom(level);
-    }
-
-    getBearing(): number {
-        return this.core.getBearing();
-    }
-
-    setBearing(bearing: number): void {
-        this.core.setBearing(bearing);
-    }
-
-    getPitch(): number {
-        return this.core.getPitch();
-    }
-
-    setPitch(pitch: number): void {
-        this.core.setPitch(pitch);
-    }
-
-    setTerrainEnabled(_enabled: boolean): boolean {
-        return false;
-    }
-
-    isTerrainEnabled(): boolean | null {
-        return null;
-    }
-
-    resetNorth(): void {
-        this.core.resetNorth();
-    }
-
-    resetNorthPitch(): void {
-        this.core.resetNorthPitch();
-    }
-
-    fitBounds(bbox: [number, number, number, number]): void {
-        this.core.fitBounds(bbox);
-    }
-
-    setProjection(_projection: string | { name: string; center?: [number, number]; parallels?: [number, number] }): boolean {
-        return false;
-    }
-
-    getProjection(): { name: string; center?: [number, number]; parallels?: [number, number] } | null {
-        return null;
-    }
-
-    setCursor(cursor: string): void {
-        this.core.setCursor(cursor);
-    }
-
-    setPanEnabled(enabled: boolean): void {
-        this.core.setPanEnabled(enabled);
-    }
-
     setTouchCaptureEnabled(enabled: boolean): void {
         this.core.setTouchCaptureEnabled(enabled);
-    }
-
-    setDoubleClickZoomEnabled(enabled: boolean): void {
-        this.core.setDoubleClickZoomEnabled(enabled);
-    }
-
-    getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
-        return this.core.getSourceData(sourceId) ?? this.logicalLayerExecutor.getSourceData(sourceId);
-    }
-
-    queryLayerFeatures(layerId: string, options?: QueryLayerFeaturesOptions): Promise<GeoJSON.FeatureCollection> {
-        return this.logicalLayerExecutor.queryLayerFeatures(layerId, options);
-    }
-
-    getLayerSourceLayers(layerId: string): string[] {
-        return this.logicalLayerExecutor.getLayerSourceLayers(layerId);
-    }
-
-    project(coords: LngLat): Pixel {
-        return this.core.project(coords);
-    }
-
-    unproject(pixel: Pixel): LngLat | null {
-        return this.core.unproject(pixel);
-    }
-
-    getNavigationCapabilities() {
-        return this.core.getNavigationCapabilities();
-    }
-
-    protected async engineAddLayer(layer: any, options?: LayerInsertOptions): Promise<boolean> {
-        const success = await this.logicalLayerExecutor.addLayer(layer, options);
-        if (success) return true;
-        return this.core.addLayer(layer, options);
-    }
-
-    removeLogicalLayer(layerId: string): void {
-        this.removeLayer(layerId);
-    }
-
-    protected engineAddSource(id: string, config: any): void {
-        this.core.addSource(id, config);
-    }
-
-    protected engineRemoveLayer(id: string): void {
-        this.logicalLayerExecutor.removeLayer(id);
-        this.core.removeLayer(id);
-    }
-
-    protected engineRemoveSource(id: string): void {
-        this.core.removeSource(id);
     }
 
     protected getCore(): IMapCore {
