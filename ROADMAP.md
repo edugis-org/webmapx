@@ -16,6 +16,16 @@
 
 ## Completed
 
+### 2026 Q3
+- [x] Menu tool (`type: "menu"`) — drill-in list container with submenus, breadcrumb and cross-level search; sub-tool containers now nest to any depth
+- [x] Stories tool — guided tours with per-step camera/layer state, HTML content, per-story panel width
+- [x] Visual story builder in `testpages/setup.html`
+- [x] `BaseAdapter` — generic adapter behaviour (camera pass-throughs, store mirroring for visibility/opacity/terrain/projection) hoisted out of the four engine adapters
+- [x] Buffer, routing and isochrone tools
+- [x] Print map (A4 PDF)
+- [x] Fully lazy tool loading (`tool-loader.ts`, `extractToolIds`)
+- [x] Config setup page (`testpages/setup.html`) — tools, layers, map tabs, live preview, publish to GitHub
+
 ### 2026 Q2
 - [x] Permalink — shareable URL encoding map state (layers, viewport, transparency, projection) with multi-map support via DOM index (`?s=`, `?s.1=`, `?config=`, `?config.1=`)
 - [x] Map state moved to `IMapState` — `mapBearing`, `mapPitch`, layer `visible` and `transparency` now in store; base-adapter publishes bearing/pitch from `view-change-end` event
@@ -100,10 +110,11 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 - [x] Draw tool (point, line, polygon)
 
 ### Geoprocessing Tools
-- [ ] Buffer tool
+- [x] Buffer tool
+- [x] Routing tool
+- [x] Isochrone tool
 - [ ] Merge tool
 - [ ] Overlay tool (union, intersection, difference)
-- [ ] Routing tool
 
 ### Visualization & View
 - [x] Projection tool (CRS switching)
@@ -116,6 +127,18 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 - [x] 3D tool (tilt, camera controls — Cesium + MapLibre GL)
 - [x] Layer transparency tool
 - [x] Print map (A4 PDF via browser print; MapLibre offscreen render, CSS-transform for OL/Leaflet/Cesium; legend, attribution, title, viewer link)
+
+### Tool Organization
+- [x] Toolbox container — scrolling icon row of sub-tools
+- [x] Menu container — drill-in list with submenus, breadcrumb, cross-level search
+- [ ] Recursive submenu editing in the config setup page (only the top level of a container is editable there today)
+- [ ] Favourites / recently-used section in the menu
+- [ ] Keyboard navigation inside the menu (arrow keys, Enter to drill in, Escape to go back)
+
+### Storytelling
+- [x] Stories tool — chapters/steps with camera, layer visibility, transparency, projection and terrain state
+- [x] Visual story builder in the setup page
+- [ ] Story permalink (deep-link into a chapter/step)
 
 ### Internationalization (i18n)
 - [x] Language switcher tool — change map label language (OSM vector tile name fields) at runtime
@@ -138,6 +161,11 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
   - Active layer IDs + hidden layer IDs
   - Map center (lng/lat), zoom, bearing, pitch, projection
   - Per-layer transparency overrides
+
+### Known Issues
+- [ ] Cesium fill polygons render at double opacity on highly detailed/concave shapes (Russia, Antarctica) — `PolygonGeometry` ear-clipping triangulation produces overlapping triangles; proposed fix is pre-triangulating with `earcut`
+- [ ] Cesium layer reorder across types is inherently impossible (imagery is baked into the globe surface; vector primitives always draw on top) — only within-type reorder works
+- [ ] `public/data/world-countries-simplified.topojson` has slivers and self-intersections; needs a rebuild with `ogr2ogr -makevalid` / `mapshaper -clean` (surfaces as buffer-tool topology exceptions)
 
 ### Configuration
 - [x] Config edit tool — runtime UI for editing layer/map/tool config (add/remove/reorder layers, change sources, configure tools)
