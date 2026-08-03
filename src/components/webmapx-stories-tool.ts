@@ -341,8 +341,15 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
         }
 
         .story-list-item {
+            display: block;
+            width: 100%;
             padding: 0.5rem;
+            border: 0;
             border-bottom: 1px solid var(--color-border-light, #eee);
+            background: transparent;
+            font: inherit;
+            color: inherit;
+            text-align: left;
             cursor: pointer;
         }
 
@@ -414,10 +421,10 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
         }
         return html`
             ${this.stories.map(story => html`
-                <div class="story-list-item" @click=${() => this.openStory(story)}>
+                <button type="button" class="story-list-item" @click=${() => this.openStory(story)}>
                     <div class="story-name">${story.name}</div>
                     ${story.description ? html`<div class="story-description">${story.description}</div>` : nothing}
-                </div>
+                </button>
             `)}
         `;
     }
@@ -456,7 +463,7 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
                 `)}
             </div>
 
-            <div class="step-content">
+            <div class="step-content" aria-live="polite">
                 ${current?.step.title ? html`<div class="step-title">${current.step.title}</div>` : nothing}
                 ${this.renderContent()}
             </div>

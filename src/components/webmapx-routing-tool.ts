@@ -693,14 +693,14 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
 
             ${this.showServiceDropdown ? html`
                 <div class="row" style="margin-top:0.5rem;">
-                    <select @change=${(e: Event) => this.onServiceChange(e)}>
+                    <select aria-label="Routing service" @change=${(e: Event) => this.onServiceChange(e)}>
                         ${this.availableServices.map(s => html`<option value=${s.id} ?selected=${s.id === this.serviceId}>${s.label}</option>`)}
                     </select>
                 </div>
             ` : nothing}
 
             <div class="row" style="${this.showServiceDropdown ? '' : 'margin-top:0.5rem;'}">
-                <select @change=${(e: Event) => this.onModeChange(e)}>
+                <select aria-label="Travel mode" @change=${(e: Event) => this.onModeChange(e)}>
                     ${svc.modes.map(m => html`<option value=${m.value} ?selected=${m.value === this.travelMode}>${m.label}</option>`)}
                 </select>
                 ${this.start && this.end ? html`

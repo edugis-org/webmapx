@@ -74,7 +74,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         .legend-toggle:hover {
             text-decoration: underline;
         }
-        .legend-row { display: flex; align-items: center; gap: 6px; min-height: 18px; }
+        .legend-row { display: flex; align-items: center; gap: 6px; min-height: 18px; width: 100%; padding: 0; border: 0; background: transparent; font: inherit; color: inherit; text-align: left; }
         .legend-label { font-size: 0.75rem; color: var(--color-text-primary, #1f2937); line-height: 1.2; }
         .legend-img { max-width: 100%; width: auto; height: auto; display: block; border-radius: 3px; align-self: flex-start; }
         .img-error { font-size: 0.75rem; color: var(--sl-color-danger-600, #c0392b); font-style: italic; }
@@ -468,11 +468,16 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 const groupIds = dedupGroups.get(dedupKey)!;
                 const isOpen = groupIds.includes(this.editorOpenKey ?? '');
                 rows.push(html`
-                    <div class="legend-row ${editable ? 'editable' : ''}"
-                        @click=${editable ? () => { this.editorOpenKey = isOpen ? null : groupIds[0]; } : null}>
-                        ${swatch}
-                        <span class="legend-label">${label}</span>
-                    </div>`);
+                    ${editable
+                        ? html`<button type="button" class="legend-row editable" aria-expanded=${isOpen}
+                            @click=${() => { this.editorOpenKey = isOpen ? null : groupIds[0]; }}>
+                            ${swatch}
+                            <span class="legend-label">${label}</span>
+                        </button>`
+                        : html`<div class="legend-row">
+                            ${swatch}
+                            <span class="legend-label">${label}</span>
+                        </div>`}`);
                 if (editable && isOpen) {
                     const editorPaint = type === 'symbol' ? { ...evalPaint, 'text-size': evalLayout['text-size'] ?? evalPaint['text-size'] } : evalPaint;
                     rows.push(this.renderStyleEditor(groupIds, type, editorPaint));
@@ -1438,9 +1443,12 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         return this.renderCollapsibleLegend(html`
             <div class="legend-wrap">
                 ${hasSwatch ? html`
-                    <div class=${editable ? 'editable' : ''} @click=${editable ? () => { this.editorOpenKey = isOpen ? null : this.layerId; } : null}>
-                        ${this.renderLegendItems(stdSubLayerIds, layerType!, effectivePaint)}
-                    </div>
+                    ${editable
+                        ? html`<button type="button" class="editable legend-row" aria-expanded=${isOpen} aria-label=${`Edit style of ${label}`}
+                            @click=${() => { this.editorOpenKey = isOpen ? null : this.layerId; }}>
+                            ${this.renderLegendItems(stdSubLayerIds, layerType!, effectivePaint)}
+                        </button>`
+                        : html`<div>${this.renderLegendItems(stdSubLayerIds, layerType!, effectivePaint)}</div>`}
                     ${layerType === 'hillshade' ? this.renderHillshadeTerrainCheckbox() : ''}
                     ${editable && isOpen ? this.renderStyleEditor(stdSubLayerIds, layerType!, effectivePaint) : ''}
                 ` : ''}

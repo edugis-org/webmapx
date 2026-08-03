@@ -237,6 +237,22 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             padding: 0.2rem 0.4rem;
             border-radius: 4px;
             font-size: 0.85rem;
+        }
+
+        /* The row itself holds a remove button, so the "switch layer" affordance
+           is its own button rather than a click handler on the row. */
+        .layer-select-btn {
+            display: flex;
+            flex: 1;
+            min-width: 0;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            font: inherit;
+            color: inherit;
+            text-align: left;
             cursor: pointer;
         }
 
@@ -250,7 +266,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             transition: opacity 0.1s;
         }
 
-        .layer-row:hover .remove-layer-btn {
+        .layer-row:hover .remove-layer-btn,
+        .layer-row:focus-within .remove-layer-btn {
             opacity: 1;
         }
 
@@ -2184,12 +2201,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 <div class="layers-section">
                     <div class="section-label">Editing</div>
                     ${this.drawLayers.map(l => html`
-                        <div class="layer-row" title="Click to change layer"
-                             @click=${() => this.openLayerDialog(l.type === 'Point' ? 'draw-point' : l.type === 'LineString' ? 'draw-line' : 'draw-polygon')}>
-                            <span class="color-dot" style="background:${l.color}"></span>
-                            <span class="layer-name">${l.name}</span>
-                            <span class="layer-type">${l.type === 'LineString' ? 'Line' : l.type}</span>
-                            <small style="color:var(--sl-color-neutral-400);font-size:.7rem">${this.features.filter(f => f.layerId === l.id).length}</small>
+                        <div class="layer-row">
+                            <button type="button" class="layer-select-btn" title="Click to change layer"
+                                 @click=${() => this.openLayerDialog(l.type === 'Point' ? 'draw-point' : l.type === 'LineString' ? 'draw-line' : 'draw-polygon')}>
+                                <span class="color-dot" style="background:${l.color}"></span>
+                                <span class="layer-name">${l.name}</span>
+                                <span class="layer-type">${l.type === 'LineString' ? 'Line' : l.type}</span>
+                                <small style="color:var(--sl-color-neutral-400);font-size:.7rem">${this.features.filter(f => f.layerId === l.id).length}</small>
+                            </button>
                             ${this.drawLayers.length > 1 ? html`
                                 <sl-tooltip content="Stop editing">
                                     <sl-icon-button name="x" class="remove-layer-btn"

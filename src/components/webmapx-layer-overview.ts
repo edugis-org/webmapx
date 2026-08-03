@@ -597,6 +597,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                                     <sl-icon name="circle-half"></sl-icon>
                                     <input
                                       type="range"
+                                      aria-label=${`Transparency of ${item.label}`}
                                       min="0"
                                       max="100"
                                       .value=${String(this.layerTransparency.get(item.layerId) ?? 0)}

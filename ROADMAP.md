@@ -146,8 +146,10 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 - [ ] Locale switcher — change UI locale at runtime
 
 ### Accessibility
-- [ ] ARIA labels on all interactive controls (buttons, sliders, toggles)
-- [ ] Keyboard navigation & logical tab order across toolbar, layer tree, tool panels
+- [x] ARIA labels on all interactive controls (buttons, sliders, toggles) — audited 2026-08-04; unlabelled selects/ranges fixed in view-mode, routing, isochrone, truearea, layer-overview, maplanguage, config-edit, and the toolbox/menu search boxes
+- [x] Keyboard-reachable click targets — click handlers on plain `div`/`li` converted to real buttons in stories, search, import-layer, draw, draw-layer-dialog, layer-legend, coordinates
+- [ ] Keyboard navigation & logical tab order across toolbar, layer tree, tool panels (roving tabindex / arrow keys still missing in the toolbar, toolbox and menu)
+- [ ] Live regions for tool results (only coordinates and the stories step content announce today)
 - [ ] Focus management for dialogs (trap focus on open, restore on close)
 - [ ] Screen-reader announcements for dynamic state changes (layer added/removed, tool activated)
 - [ ] Keyboard-operable map controls (pan/zoom via keyboard)

@@ -671,10 +671,13 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
                     @click=${(e: Event) => e.stopPropagation()}
                     style="flex:0 0 auto;">
                   </sl-checkbox>
-                  <div @click=${() => this.handleSelect(f)} style="flex:1; display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                  <button type="button" @click=${() => this.handleSelect(f)}
+                          @focus=${() => this.showPreviewForFeature(f)}
+                          @blur=${() => this.clearPreview()}
+                          style="flex:1; display:flex; justify-content:space-between; align-items:center; gap:8px; cursor:pointer; border:0; background:transparent; font:inherit; color:inherit; text-align:left; padding:0;">
                     <strong>${this.getFeatureTitle(f)}</strong>
                     <span style="font-size:12px; color:var(--color-text-secondary);">${f.properties ? (f.properties.type || f.properties.category || '') : ''}</span>
-                  </div>
+                  </button>
                 </li>
               `)}
             </ul>

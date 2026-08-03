@@ -112,6 +112,11 @@ export class WebmapxDrawLayerDialog extends LitElement {
 
         .layer-option {
             display: flex;
+            width: 100%;
+            background: transparent;
+            font: inherit;
+            color: inherit;
+            text-align: left;
             align-items: center;
             gap: var(--webmapx-space-sm, 0.5rem);
             padding: var(--webmapx-space-xs, 0.4rem) var(--webmapx-space-sm, 0.6rem);
@@ -175,6 +180,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
         }
 
         .color-swatch {
+            padding: 0;
             width: 32px; height: 32px;
             border-radius: var(--webmapx-radius-sm, 4px);
             border: 1px solid var(--sl-color-neutral-300);
@@ -287,30 +293,33 @@ export class WebmapxDrawLayerDialog extends LitElement {
         const label = this.geometryType === 'LineString' ? 'Line' : this.geometryType;
         return html`
             <div class="layer-list">
-                <div class="layer-option ${this.selectedId === 'new' ? 'selected' : ''}"
+                <button type="button" class="layer-option ${this.selectedId === 'new' ? 'selected' : ''}"
+                     aria-pressed=${this.selectedId === 'new'}
                      @click=${() => this.selectOption('new')}
                      @dblclick=${() => { this.selectOption('new'); this.goToDetail(); }}>
                     <span class="new-icon">＋</span>
                     <span>New ${label} layer</span>
-                </div>
+                </button>
                 ${this.existingLayers.map(l => html`
-                    <div class="layer-option ${this.selectedId === l.id ? 'selected' : ''}"
+                    <button type="button" class="layer-option ${this.selectedId === l.id ? 'selected' : ''}"
+                         aria-pressed=${this.selectedId === l.id}
                          @click=${() => this.selectOption(l.id)}
                          @dblclick=${() => { this.selectOption(l.id); this.goToDetail(); }}>
                         <span class="color-dot" style="background:${l.color}"></span>
                         <span>${l.name}</span>
-                    </div>
+                    </button>
                 `)}
                 ${this.mapLayers.length > 0 ? html`
                     <div style="font-size:0.72rem;color:var(--sl-color-neutral-500);padding:0.4rem 0.2rem 0.1rem;text-transform:uppercase;letter-spacing:0.05em">Map layers</div>
                     ${this.mapLayers.map(l => html`
-                        <div class="layer-option ${this.selectedId === l.layerId ? 'selected' : ''}"
+                        <button type="button" class="layer-option ${this.selectedId === l.layerId ? 'selected' : ''}"
+                             aria-pressed=${this.selectedId === l.layerId}
                              @click=${() => this.selectOption(l.layerId)}
                              @dblclick=${() => { this.selectOption(l.layerId); this.goToDetail(); }}>
                             <span class="new-icon" style="color:var(--sl-color-warning-600)">✎</span>
                             <span>${l.label}</span>
                             <span style="font-size:0.7rem;color:var(--sl-color-neutral-400);margin-left:auto">map layer</span>
-                        </div>
+                        </button>
                     `)}
                 ` : ''}
             </div>
@@ -343,11 +352,12 @@ export class WebmapxDrawLayerDialog extends LitElement {
                     value=${this.layer.name}
                     @keydown=${(e: KeyboardEvent) => e.key === 'Enter' && this.renderRoot.querySelector<HTMLElement>('#new-prop-name')?.focus()}
                 ></sl-input>
-                <div class="color-swatch"
+                <button type="button" class="color-swatch"
                      style="background:${this.layer.color}"
                      title="Layer color"
+                     aria-label="Layer color"
                      @click=${() => (this.renderRoot.querySelector('input[type=color]') as HTMLInputElement)?.click()}>
-                </div>
+                </button>
                 <input type="color" style="display:none" .value=${this.layer.color}
                     @input=${(e: Event) => { this.layer = { ...this.layer, color: (e.target as HTMLInputElement).value }; }}>
             </div>

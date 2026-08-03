@@ -233,6 +233,7 @@ export class WebmapxToolboxTool extends WebmapxBaseTool {
             <sl-input
               class="search-input"
               size="small"
+              aria-label="Search tools"
               placeholder="Search tools…"
               clearable
               .value=${this.searchQuery}

@@ -740,24 +740,24 @@ export class WebmapxConfigEditTool extends LitElement {
                     const options = PROP_OPTIONS[k];
                     return html`
                         <div class="prop-row">
-                            <label title=${k}>${k}</label>
+                            <label title=${k} for=${`prop-${k}`}>${k}</label>
                             ${typeof v === 'boolean' ? html`
-                                <input type="checkbox" ?checked=${v}
+                                <input type="checkbox" id=${`prop-${k}`} ?checked=${v}
                                     @change=${(e: Event) => { this.popupDraft = { ...this.popupDraft, [k]: (e.target as HTMLInputElement).checked }; }}>
                             ` : typeof v === 'number' ? html`
-                                <input type="number" .value=${String(v)}
+                                <input type="number" id=${`prop-${k}`} .value=${String(v)}
                                     @input=${(e: Event) => { const n = parseFloat((e.target as HTMLInputElement).value); if (!isNaN(n)) this.popupDraft = { ...this.popupDraft, [k]: n }; }}>
                             ` : options ? html`
-                                <select .value=${String(v)}
+                                <select id=${`prop-${k}`} .value=${String(v)}
                                     @change=${(e: Event) => { this.popupDraft = { ...this.popupDraft, [k]: (e.target as HTMLSelectElement).value }; }}>
                                     ${!options.includes(String(v)) ? html`<option value=${String(v)}>${String(v)}</option>` : nothing}
                                     ${options.map(o => html`<option value=${o} ?selected=${String(v) === o}>${o}</option>`)}
                                 </select>
                             ` : typeof v === 'string' ? html`
-                                <input type="text" .value=${v}
+                                <input type="text" id=${`prop-${k}`} .value=${v}
                                     @input=${(e: Event) => { this.popupDraft = { ...this.popupDraft, [k]: (e.target as HTMLInputElement).value }; }}>
                             ` : html`
-                                <textarea rows="3" .value=${JSON.stringify(v, null, 2)}
+                                <textarea rows="3" id=${`prop-${k}`} .value=${JSON.stringify(v, null, 2)}
                                     @input=${(e: Event) => {
                                         const ta = e.target as HTMLTextAreaElement;
                                         try { const parsed = JSON.parse(ta.value); ta.classList.remove('json-invalid'); this.popupDraft = { ...this.popupDraft, [k]: parsed }; }

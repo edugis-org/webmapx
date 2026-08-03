@@ -617,7 +617,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
             ${this.availableLayers.length === 0
                 ? html`<div class="hint">No visible polygon layers on map.</div>`
                 : html`
-                    <select @change=${(e: Event) => { this.selectedLayerId = (e.target as HTMLSelectElement).value; }}>
+                    <select aria-label="Source layer" @change=${(e: Event) => { this.selectedLayerId = (e.target as HTMLSelectElement).value; }}>
                         ${this.availableLayers.map(l => html`
                             <option value=${l.id} ?selected=${l.id === this.selectedLayerId}>${l.label}</option>
                         `)}
@@ -640,7 +640,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
                         <button class="copy-remove" @click=${() => this.removeCopy(active.id)} title="Remove">✕</button>
                     </div>
                     <div class="rotation-row">
-                        <input type="range" min="-180" max="180" step="1"
+                        <input type="range" aria-label="Rotation" min="-180" max="180" step="1"
                             .value=${String(this.rotationDeg)}
                             @input=${(e: Event) => this.rotateLastCopy(Number((e.target as HTMLInputElement).value))}
                         />

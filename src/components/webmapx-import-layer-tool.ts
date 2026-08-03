@@ -280,11 +280,12 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
           <div class="results">
             <ul>
               ${this.catalog.map((entry) => html`
-                <li class="result-item" @click="${() => this.openCatalogEntry(entry)}" style="cursor:pointer;">
-                  <div style="flex:1; min-width:0;">
+                <li class="result-item">
+                  <button type="button" @click="${() => this.openCatalogEntry(entry)}"
+                          style="flex:1; min-width:0; cursor:pointer; border:0; background:transparent; font:inherit; color:inherit; text-align:left; padding:0;">
                     <div style="white-space:normal; word-break:break-word;" title="${entry.name}">${entry.kind === 'folder' ? '\u{1F4C1}' : '\u{1F5FA}'} ${entry.name}</div>
                     ${entry.type ? html`<div class="meta">${entry.type}</div>` : ''}
-                  </div>
+                  </button>
                 </li>
               `)}
             </ul>

@@ -117,6 +117,13 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
 
     .click-row, .cursor-row {
       position: relative;
+      width: 100%;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      font: inherit;
+      color: inherit;
+      text-align: left;
       cursor: pointer;
       transition: background-color 0.15s ease;
       pointer-events: auto;
@@ -313,9 +320,10 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
 
   private renderCursorRow(): TemplateResult {
     return html`
-      <div class="value-line cursor-row" @click=${this.handleCursorRowClick}>
+      <button type="button" class="value-line cursor-row" aria-label="Cursor coordinate format"
+        aria-expanded=${this.showCursorFormatPopup} @click=${this.handleCursorRowClick}>
         <span class="value">${this.formatPair(this.cursorCoords, this.resolution)}</span>
-      </div>
+      </button>
       ${this.renderCursorFormatPopup()}
     `;
   }
@@ -328,16 +336,19 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
     const exampleRes = this.cursorCoords ? this.resolution : null;
 
     const makeLine = (key: CursorFormat, label: string, value: string, disabled = false) => html`
-      <div
+      <button
+        type="button"
         class="format-line ${this.selectedCursorFormat === key ? 'active-format' : ''}"
+        ?disabled=${disabled}
+        aria-pressed=${this.selectedCursorFormat === key}
         @click=${disabled ? nothing : (e: MouseEvent) => { e.stopPropagation(); this.selectedCursorFormat = key; this.showCursorFormatPopup = false; }}
-        style="${disabled ? 'opacity:0.5;cursor:default' : 'cursor:pointer'}"
+        style="${disabled ? 'opacity:0.5;cursor:default' : 'cursor:pointer'};width:100%;border:0;background:transparent;font:inherit;color:inherit;text-align:left"
       >
         <div class="format-content">
           <div class="format-label">${label}</div>
           <div class="format-value">${value}</div>
         </div>
-      </div>
+      </button>
     `;
 
     return html`
@@ -368,10 +379,11 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
     }
 
     return html`
-      <div class="value-line click-row" @click=${this.handleClickRowClick}>
+      <button type="button" class="value-line click-row" aria-label="Clicked coordinate"
+        aria-expanded=${this.showPopup} @click=${this.handleClickRowClick}>
         <span class="click-label">Click</span>
         <span class="value">${this.formatPair(this.pinnedCoords, this.pinnedResolution)}</span>
-      </div>
+      </button>
       ${this.renderPopup()}
     `;
   }

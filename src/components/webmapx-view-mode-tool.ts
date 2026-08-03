@@ -119,8 +119,8 @@ export class WebmapxViewModeTool extends WebmapxBaseTool {
         const isConic = def.conic === true;
 
         return html`
-            <label>View mode</label>
-            <select @change=${(e: Event) => { this.viewModeName = (e.target as HTMLSelectElement).value; this.applyViewMode(); }}>
+            <label for="view-mode-select">View mode</label>
+            <select id="view-mode-select" @change=${(e: Event) => { this.viewModeName = (e.target as HTMLSelectElement).value; this.applyViewMode(); }}>
                 ${VIEW_MODES.map(p => html`<option value=${p.id} ?selected=${p.id === this.viewModeName}>${p.name}</option>`)}
             </select>
             <div class="mode-description">${def.description}</div>
@@ -128,22 +128,22 @@ export class WebmapxViewModeTool extends WebmapxBaseTool {
 
             <div class="slider-group ${isConic ? 'visible' : ''}">
                 <div class="slider-row"><span>Center longitude</span><strong>${this.centerLng}°</strong></div>
-                <input type="range" min="-180" max="180" .value=${String(this.centerLng)}
+                <input type="range" aria-label="Center longitude" min="-180" max="180" .value=${String(this.centerLng)}
                     @input=${(e: Event) => { this.centerLng = Number((e.target as HTMLInputElement).value); this.applyViewMode(); }}>
             </div>
             <div class="slider-group ${isConic ? 'visible' : ''}">
                 <div class="slider-row"><span>Center latitude</span><strong>${this.centerLat}°</strong></div>
-                <input type="range" min="-90" max="90" .value=${String(this.centerLat)}
+                <input type="range" aria-label="Center latitude" min="-90" max="90" .value=${String(this.centerLat)}
                     @input=${(e: Event) => { this.centerLat = Number((e.target as HTMLInputElement).value); this.applyViewMode(); }}>
             </div>
             <div class="slider-group ${isConic ? 'visible' : ''}">
                 <div class="slider-row"><span>South parallel</span><strong>${this.parallel1}°</strong></div>
-                <input type="range" min="-90" max="90" .value=${String(this.parallel1)}
+                <input type="range" aria-label="South parallel" min="-90" max="90" .value=${String(this.parallel1)}
                     @input=${(e: Event) => { this.parallel1 = Number((e.target as HTMLInputElement).value); this.applyViewMode(); }}>
             </div>
             <div class="slider-group ${isConic ? 'visible' : ''}">
                 <div class="slider-row"><span>North parallel</span><strong>${this.parallel2}°</strong></div>
-                <input type="range" min="-90" max="90" .value=${String(this.parallel2)}
+                <input type="range" aria-label="North parallel" min="-90" max="90" .value=${String(this.parallel2)}
                     @input=${(e: Event) => { this.parallel2 = Number((e.target as HTMLInputElement).value); this.applyViewMode(); }}>
             </div>
         `;

@@ -471,7 +471,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
             ${this.showServiceDropdown ? html`
                 <div class="field">
                     <div class="field-label">Service</div>
-                    <select @change=${(e: Event) => this.onServiceChange(e)}>
+                    <select aria-label="Isochrone service" @change=${(e: Event) => this.onServiceChange(e)}>
                         ${this.availableServices.map(s => html`<option value=${s.id} ?selected=${s.id === this.serviceId}>${s.label}</option>`)}
                     </select>
                 </div>
@@ -480,13 +480,13 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
             <div class="row">
                 <div class="field" style="flex:1">
                     <div class="field-label">Mode</div>
-                    <select @change=${(e: Event) => this.onModeChange(e)}>
+                    <select aria-label="Travel mode" @change=${(e: Event) => this.onModeChange(e)}>
                         ${svc.modes.map(m => html`<option value=${m.value} ?selected=${m.value === this.mode}>${m.label}</option>`)}
                     </select>
                 </div>
                 <div class="field" style="flex:1">
                     <div class="field-label">Range type</div>
-                    <select @change=${(e: Event) => this.onRangeTypeChange(e)}>
+                    <select aria-label="Range type" @change=${(e: Event) => this.onRangeTypeChange(e)}>
                         <option value="time"     ?selected=${this.rangeType === 'time'}>Time</option>
                         <option value="distance" ?selected=${this.rangeType === 'distance'}>Distance</option>
                     </select>
@@ -496,7 +496,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
             <div class="field">
                 <div class="field-label">Ranges (${rangeLabel}, comma-separated)</div>
                 <div class="row">
-                    <input type="text" .value=${this.rangesInput}
+                    <input type="text" aria-label="Ranges, comma-separated" .value=${this.rangesInput}
                         @input=${(e: Event) => { this.rangesInput = (e.target as HTMLInputElement).value; }}
                         @change=${() => { if (this.center) void this.calculate(); }}
                         placeholder="e.g. 10, 20, 30">
