@@ -426,6 +426,39 @@ Built-in tool types (e.g. `search`, `measure`, `legend`) have sensible defaults;
 }
 ```
 
+#### Container Items: `toolbox` and `menu`
+
+Two item types hold other tools instead of being a tool themselves. Both take an `items` array of ordinary toolbar items, and both open in a single tool panel:
+
+- **`toolbox`** — a horizontal scrolling row of icon buttons, with a search box once the row overflows.
+- **`menu`** — a vertical list of labelled rows with drill-in submenus, a back button and a breadcrumb trail. A search box appears from 8 tools onward and matches across all levels. See [`webmapx-menu-tool`](./components/webmapx-menu-tool.md).
+
+```json
+{
+  "type": "menu",
+  "id": "tools",
+  "label": "Tools",
+  "icon": "list",
+  "items": [
+    { "type": "measure", "id": "measure" },
+    {
+      "type": "menu",
+      "id": "analysis",
+      "label": "Analysis",
+      "icon": "diagram-3",
+      "items": [
+        { "type": "buffer", "id": "buffer" },
+        { "type": "isochrone", "id": "isochrone" }
+      ]
+    }
+  ]
+}
+```
+
+Containers nest to any depth and may be mixed: a `menu` inside a `menu` becomes a submenu, while a nested container inside a `toolbox` is flattened into the same icon row (the toolbox has no submenu UI). Sub-item `id`s must be unique within one container.
+
+A tool placed inside a container is not registered with the map-wide `ToolManager` — the container decides which of its sub-tools is active. Tools that read their own settings from a top-level `tools.<id>` object (such as `search`) still do so when nested.
+
 #### 3D Tool Terrain Fallback
 
 The `3d` tool can define engine-specific terrain fallback URLs. These URLs are only used when the map configuration does not provide a terrain layer/source for the active adapter.

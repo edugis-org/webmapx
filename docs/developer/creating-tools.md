@@ -2,7 +2,7 @@
 
 This is the primary reference for building new tools. Read it before writing any tool code.
 
-The companion file [creating-modal-tools.md](creating-modal-tools.md) has deeper detail on the modal lifecycle; this file covers the full picture: non-modal tools, map controls, toolbar/toolbox integration, config wiring, and accessibility.
+The companion file [creating-modal-tools.md](creating-modal-tools.md) has deeper detail on the modal lifecycle; this file covers the full picture: non-modal tools, map controls, toolbar and container (toolbox/menu) integration, config wiring, and accessibility.
 
 ---
 
@@ -225,9 +225,13 @@ Rules:
 
 ---
 
-## Toolbox integration
+## Container integration (toolbox and menu)
 
-`webmapx-toolbox-tool` is a container for tools that shows a scrollable icon bar. Slot any tool inside it; the toolbox reads these attributes from each child:
+Two components hold other tools inside one tool panel: `webmapx-toolbox-tool` (scrollable icon bar) and `webmapx-menu-tool` (drill-in list with submenus). Both call `activate()` / `deactivate()` on their children when switching, and both keep their children out of the global `ToolManager` — `webmapx-modal-tool` skips registration for anything inside a container, so the container alone decides which sub-tool is active. A modal tool that registered globally would be deactivated behind the container's back.
+
+### Toolbox
+
+Slot any tool inside it; the toolbox reads these attributes from each child:
 
 | Attribute | Purpose |
 |-----------|---------|
@@ -252,7 +256,38 @@ Rules:
 </webmapx-toolbox-tool>
 ```
 
-The toolbox calls `activate()` / `deactivate()` on children when it switches tabs. Children must implement those methods (modal tools get this for free).
+### Menu
+
+`webmapx-menu-tool` shows the same kind of children as labelled rows and adds submenus. Nesting is expressed by a `menu-path` attribute rather than by nested elements — every sub-tool stays a *direct* child at any depth, so the menu's single content slot can reach it. Submenu labels/icons come from a `groups` attribute (JSON array of `{ path, label, icon }`).
+
+| Attribute | Purpose |
+|-----------|---------|
+| `tool-id` (or `name`) | Unique ID used to activate/deactivate |
+| `label` | Row label and search keyword |
+| `menu-path` | Slash-joined submenu ids ('' or absent = top level) |
+| `menu-icon` | Shoelace icon name for the row |
+| `menu-icon-src` | Same-origin SVG URL, for tools with a custom icon |
+| `menu-keywords` | Comma-separated extra search terms |
+
+```html
+<webmapx-menu-tool
+  tool-id="tools"
+  label="Tools"
+  groups='[{"path":"analysis","label":"Analysis","icon":"diagram-3"}]'>
+
+  <webmapx-measure-tool tool-id="measure" label="Measure" menu-icon="rulers">
+  </webmapx-measure-tool>
+
+  <webmapx-buffer-tool tool-id="buffer" label="Buffer" menu-path="analysis">
+  </webmapx-buffer-tool>
+</webmapx-menu-tool>
+```
+
+`toolbox-icon` / `toolbox-keywords` are read as fallbacks, so the same children work in either container.
+
+Children must implement `activate()` / `deactivate()` (modal tools get this for free). Hide inactive children with `[hidden]` + `inert` rather than a forced `display` value — both containers do this, so a sub-tool keeps whatever `display` its own `:host` rule sets.
+
+In config, both containers are declared as an item with an `items` array; `dynamic-layout.ts` builds the children recursively (`appendSubTools`) — see [configuration.md](../user/configuration.md#container-items-toolbox-and-menu).
 
 ---
 
@@ -326,7 +361,7 @@ Call `this.subscribeToConfig()` in `connectedCallback` to receive `onConfigReady
 - Use `aria-pressed` on toggle buttons, `aria-expanded` on disclosure buttons.
 - Toolbar arrow-key navigation is handled by `webmapx-toolbar`; you do not need to implement it.
 - When tool is deactivated, `active` attribute is removed; use `[active]` CSS selectors rather than JS checks where possible.
-- Use `inert` (already applied by toolbox) rather than `display:none` when hiding panels, so focus can never reach hidden content.
+- Use `inert` (already applied by the toolbox and menu containers) rather than `display:none` when hiding panels, so focus can never reach hidden content.
 - Escape key should deactivate modal tools:
 
 ```typescript

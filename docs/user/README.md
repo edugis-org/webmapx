@@ -63,6 +63,7 @@ See [Configuration](./configuration.md) for details on:
 - [`webmapx-control-group`](./components/webmapx-control-group.md)
 - [`webmapx-toolbar`](./components/webmapx-toolbar.md)
 - [`webmapx-tool-panel`](./components/webmapx-tool-panel.md)
+- [`webmapx-menu-tool`](./components/webmapx-menu-tool.md)
 - [`webmapx-layer-tree`](./components/webmapx-layer-tree.md)
 - [`webmapx-layer-overview`](./components/webmapx-layer-overview.md)
 - [`webmapx-inset-map`](./components/webmapx-inset-map.md)
@@ -79,6 +80,7 @@ See also: [Toolbar and Panel Interaction Guide](./components/interaction-guide.m
 Refer to the individual pages for usage tips, attributes, and slot details.
 
 ## Tool Documentation
+- [`webmapx-menu-tool`](./components/webmapx-menu-tool.md)
 - [`webmapx-measure-tool`](./components/webmapx-measure-tool.md)
 - [`webmapx-search-tool`](./components/webmapx-search-tool.md)
 - [`webmapx-spinner`](./components/webmapx-spinner.md)

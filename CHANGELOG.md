@@ -3,6 +3,13 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 
+### Added
+- **Menu tool (`type: "menu"`)** — container tool showing its sub-tools as a labelled, drill-in list with submenus, back button, breadcrumb and cross-level search. Alternative to the toolbox's icon row; configurable in the visual builder (`testpages/setup.html`). See [`webmapx-menu-tool`](docs/user/components/webmapx-menu-tool.md).
+
+### Fixed
+- Sub-tool containers nested inside another container are no longer dropped when building the layout — `dynamic-layout.ts` now builds sub-tools recursively.
+- Modal tools nested in a container (draw, measure, info, …) no longer register with the global `ToolManager`, which previously deactivated them behind the container's back.
+
 ---
 
 ## [2026 Q1–Q2] - Marker API, Info Tool, Layer Order Fixes
