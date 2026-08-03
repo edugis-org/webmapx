@@ -42,6 +42,7 @@ export const TOOL_ELEMENT_TAGS: Record<string, string> = {
   routing: 'webmapx-routing-tool',
   isochrone: 'webmapx-isochrone-tool',
   toolbox: 'webmapx-toolbox-tool',
+  menu: 'webmapx-menu-tool',
   buffer: 'webmapx-buffer-tool',
   stories: 'webmapx-stories-tool',
 };
@@ -69,6 +70,7 @@ const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = {
   routing: { label: 'Routing', icon: 'signpost-split' },
   isochrone: { label: 'Isochrone', icon: 'broadcast' },
   toolbox: { label: 'Toolbox', icon: 'grid' },
+  menu: { label: 'Tools', icon: 'list' },
   buffer: { label: 'Buffer', icon: { src: bufferIconUrl } },
   stories: { label: 'Stories', icon: 'book' },
 };
@@ -109,6 +111,7 @@ export const KNOWN_TOOLS: Array<{ id: string; label: string; icon?: string | Too
   { id: 'isochrone',    label: 'Isochrone',      icon: 'broadcast' },
   { id: 'settings',      label: 'Settings',       icon: 'gear' },
   { id: 'toolbox',       label: 'Toolbox',        icon: 'grid' },
+  { id: 'menu',          label: 'Menu',           icon: 'list' },
   { id: 'buffer',        label: 'Buffer',         icon: { src: bufferIconUrl } },
   { id: 'stories',       label: 'Stories',        icon: 'book' },
   { id: 'navigation',    label: 'Navigation',     icon: 'compass',     standalone: true },
@@ -194,6 +197,70 @@ function setAttrs(el: HTMLElement, attrs: Record<string, unknown>): void {
   }
 }
 
+/**
+ * Item types that hold sub-tools rather than being a tool themselves.
+ * `toolbox` renders them as a flat icon row, `menu` as a drill-in list.
+ */
+export const SUBTOOL_CONTAINER_TYPES = new Set(['toolbox', 'menu']);
+
+interface SubToolGroup {
+  path: string;
+  label: string;
+  icon?: ToolIconConfig;
+}
+
+/**
+ * Appends a container's sub-tools as *direct* children of `containerEl`, at any
+ * nesting depth: a nested container contributes its label/icon to `groups` and
+ * its own items are flattened into the same parent, tagged with `menu-path`.
+ * Both container components read a flat child list, so nesting never puts a
+ * sub-tool out of reach of their content slot.
+ */
+function appendSubTools(
+  containerEl: HTMLElement,
+  items: ToolbarItemConfig[],
+  kind: 'toolbox' | 'menu',
+  pathPrefix: string,
+  groups: SubToolGroup[]
+): void {
+  for (const item of items) {
+    if (item.enabled === false) continue;
+    const metadata = resolveToolbarItemMetadata(item);
+    const itemId = String(item.id ?? item.type ?? '');
+    if (!itemId) continue;
+
+    if (item.type && SUBTOOL_CONTAINER_TYPES.has(item.type)) {
+      const path = pathPrefix ? `${pathPrefix}/${itemId}` : itemId;
+      groups.push({ path, label: metadata.label, icon: metadata.icon });
+      appendSubTools(containerEl, Array.isArray(item.items) ? item.items : [], kind, path, groups);
+      continue;
+    }
+
+    const tagName = item.type ? TOOL_ELEMENT_TAGS[item.type] : undefined;
+    if (!tagName) continue;
+
+    const subEl = document.createElement(tagName);
+    subEl.setAttribute('tool-id', itemId);
+    subEl.setAttribute('label', metadata.label);
+    if (metadata.icon) {
+      const iconConfig = normalizeIconConfig(metadata.icon);
+      if (iconConfig?.name) subEl.setAttribute(`${kind}-icon`, iconConfig.name);
+      if (kind === 'menu' && iconConfig?.src && isSameOriginSrc(iconConfig.src)) {
+        subEl.setAttribute('menu-icon-src', iconConfig.src);
+      }
+      // Set as a pre-upgrade property; Lit replays it on upgrade for @property({ attribute: false })
+      (subEl as unknown as Record<string, unknown>)['icon'] = metadata.icon;
+    }
+    if (item.keywords) {
+      subEl.setAttribute(`${kind}-keywords`, String(item.keywords));
+    }
+    if (kind === 'menu' && pathPrefix) {
+      subEl.setAttribute('menu-path', pathPrefix);
+    }
+    containerEl.appendChild(subEl);
+  }
+}
+
 function buildToolbarGroup(config: Record<string, unknown>): HTMLElement {
   const panelConfig = config.panel as Record<string, unknown> | undefined;
 
@@ -259,25 +326,12 @@ function buildToolbarGroup(config: Record<string, unknown>): HTMLElement {
         (toolEl as unknown as Record<string, unknown>)['icon'] = metadata.icon;
       }
 
-      if (item.type === 'toolbox') {
-        const subItems = Array.isArray(item.items) ? (item.items as ToolbarItemConfig[]) : [];
-        for (const subItem of subItems) {
-          if (subItem.enabled === false) continue;
-          const subTagName = subItem.type ? TOOL_ELEMENT_TAGS[subItem.type] : undefined;
-          if (!subTagName) continue;
-          const subMeta = resolveToolbarItemMetadata(subItem);
-          const subEl = document.createElement(subTagName);
-          subEl.setAttribute('tool-id', String(subItem.id));
-          subEl.setAttribute('label', subMeta.label);
-          if (subMeta.icon) {
-            const iconCfg = typeof subMeta.icon === 'string' ? subMeta.icon : (subMeta.icon as { name?: string }).name;
-            if (iconCfg) subEl.setAttribute('toolbox-icon', iconCfg);
-            (subEl as unknown as Record<string, unknown>)['icon'] = subMeta.icon;
-          }
-          if (subItem.keywords) {
-            subEl.setAttribute('toolbox-keywords', String(subItem.keywords));
-          }
-          toolEl.appendChild(subEl);
+      if (item.type && SUBTOOL_CONTAINER_TYPES.has(item.type)) {
+        const kind = item.type as 'toolbox' | 'menu';
+        const groups: SubToolGroup[] = [];
+        appendSubTools(toolEl, Array.isArray(item.items) ? item.items : [], kind, '', groups);
+        if (kind === 'menu' && groups.length > 0) {
+          toolEl.setAttribute('groups', JSON.stringify(groups));
         }
       }
 

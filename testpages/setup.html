@@ -616,6 +616,14 @@
     const TOOLBAR_TOOLS = KNOWN_TOOLS.filter(t => !t.standalone);
     const STANDALONE_TOOLS = KNOWN_TOOLS.filter(t => t.standalone);
 
+    // Tool types that hold other tools (see SUBTOOL_CONTAINER_TYPES in dynamic-layout.ts).
+    // Each gets its own "contents" section here; override keys are namespaced by the
+    // container's own id (`toolbox:…` / `menu:…`), so both can be configured side by side.
+    // Submenus nested deeper inside a container are left as-is — they are preserved on
+    // save, but only the container's top level is editable here.
+    const CONTAINER_TOOL_IDS = new Set(['toolbox', 'menu']);
+    const LEAF_TOOLBAR_TOOLS = TOOLBAR_TOOLS.filter(t => !CONTAINER_TOOL_IDS.has(t.id));
+
     // Keys not shown as editable props (structural or handled elsewhere)
     const SKIP_PROPS = new Set(['id', 'type', 'enabled', 'items']);
 
@@ -955,7 +963,7 @@
         const toolOrderKey = `order:toolbar:${toolbarKey}`;
 
         const toolLabels = [];
-        let toolboxSection = null;
+        const containerSections = [];
 
         // Build display order: config order first, then remaining TOOLBAR_TOOLS
         const configOrderedIds = (toolbar?.items ?? [])
@@ -991,32 +999,32 @@
           makeDraggable(label, toolOrderKey);
           toolLabels.push(label);
 
-          // If this is a toolbox, show its sub-items as a nested section
-          if (tool.id === 'toolbox' && enabled) {
-            const toolboxItem = inCfg ? item : null;
+          // If this is a container (toolbox/menu), show its sub-items as a nested section
+          if (CONTAINER_TOOL_IDS.has(tool.id) && enabled) {
+            const containerItem = inCfg ? item : null;
             const subSection = document.createElement('div');
             subSection.className = 'toolbox-section';
             const subH4 = document.createElement('h4');
-            subH4.textContent = (toolboxItem?.title ?? toolboxItem?.label ?? 'Toolbox') + ' contents';
+            subH4.textContent = (containerItem?.title ?? containerItem?.label ?? tool.label) + ' contents';
             subSection.appendChild(subH4);
             const subList = document.createElement('div');
             subList.className = 'tool-list';
 
-            // Build lookup for toolbox sub-items
+            // Build lookup for container sub-items
             const subInConfig = new Map();
-            for (const sub of toolboxItem?.items ?? []) {
+            for (const sub of containerItem?.items ?? []) {
               const sid = sub.id ?? sub.type;
               if (sid) subInConfig.set(sid, sub);
               if (sub.type && sub.type !== sid) {
                 if (!subInConfig.has(sub.type)) subInConfig.set(sub.type, sub);
               }
             }
-            const toolboxId = toolboxItem?.id ?? 'toolbox';
-            const subOrderKey = `order:toolbox:${toolbarKey}:${toolboxId}`;
+            const containerId = containerItem?.id ?? tool.id;
+            const subOrderKey = `order:${tool.id}:${toolbarKey}:${containerId}`;
             const subLabels = [];
 
-            for (const subTool of TOOLBAR_TOOLS.filter(t => t.id !== 'toolbox')) {
-              const subKey = `toolbox:${toolbarKey}:${toolboxId}:${subTool.id}`;
+            for (const subTool of LEAF_TOOLBAR_TOOLS) {
+              const subKey = `${tool.id}:${toolbarKey}:${containerId}:${subTool.id}`;
               const subPropsKey = `${subKey}:props`;
               const subItem = subInConfig.get(subTool.id);
               const subInCfg = subItem !== undefined;
@@ -1039,12 +1047,12 @@
             }
             applyStoredOrder(subLabels, subOrderKey).forEach(l => subList.appendChild(l));
             subSection.appendChild(subList);
-            toolboxSection = subSection;
+            containerSections.push(subSection);
           }
         }
         applyStoredOrder(toolLabels, toolOrderKey).forEach(l => grid.appendChild(l));
         col.appendChild(grid);
-        if (toolboxSection) col.appendChild(toolboxSection);
+        containerSections.forEach(section => col.appendChild(section));
       }
 
       // --- Standalone / map controls ---
@@ -1096,8 +1104,8 @@
           const ov = getSaved();
           ov[cb.dataset.key] = cb.checked;
           saveOverrides(ov);
-          // Rebuild UI if a toolbox was toggled (sub-section appears/disappears)
-          if (cb.dataset.tool === 'toolbox') {
+          // Rebuild UI if a container was toggled (sub-section appears/disappears)
+          if (CONTAINER_TOOL_IDS.has(cb.dataset.tool)) {
             buildUI(baseConfig, getSaved());
           }
           updateSelectAll();
@@ -1378,10 +1386,12 @@
         for (const item of tb.items ?? []) {
           const id = item.id ?? item.type;
           if (item.type === 'layerTree') return { toolbarKey, itemId: id };
-          if ((item.id ?? item.type) === 'toolbox') {
+          if (CONTAINER_TOOL_IDS.has(item.type)) {
             for (const sub of item.items ?? []) {
               const sid = sub.id ?? sub.type;
-              if (sub.type === 'layerTree') return { toolbarKey, toolboxId: item.id ?? 'toolbox', itemId: sid };
+              if (sub.type === 'layerTree') {
+                return { toolbarKey, containerType: item.type, containerId: item.id ?? item.type, itemId: sid };
+              }
             }
           }
         }
@@ -1393,9 +1403,9 @@
       if (!loc) return null;
       const tb = config.tools?.[loc.toolbarKey];
       if (!tb) return null;
-      if (loc.toolboxId) {
-        const toolboxItem = tb.items?.find(i => (i.id ?? i.type) === 'toolbox' && (i.id ?? 'toolbox') === loc.toolboxId);
-        return toolboxItem?.items?.find(i => (i.id ?? i.type) === loc.itemId) ?? null;
+      if (loc.containerId) {
+        const containerItem = tb.items?.find(i => i.type === loc.containerType && (i.id ?? i.type) === loc.containerId);
+        return containerItem?.items?.find(i => (i.id ?? i.type) === loc.itemId) ?? null;
       }
       return tb.items?.find(i => (i.id ?? i.type) === loc.itemId) ?? null;
     }
@@ -2087,20 +2097,20 @@
             }
           }
 
-          // Toolbox: apply sub-item overrides
-          if (knownTool.id === 'toolbox') {
-            const toolboxId = item.id ?? 'toolbox';
+          // Container (toolbox/menu): apply sub-item overrides
+          if (CONTAINER_TOOL_IDS.has(knownTool.id)) {
+            const containerId = item.id ?? knownTool.id;
             if (!item.items) item.items = [];
             // Filter disabled sub-items
             item.items = item.items.filter(sub => {
               const sid = sub.id ?? sub.type;
-              return overrides[`toolbox:${toolbarKey}:${toolboxId}:${sid}`] !== false
-                && overrides[`toolbox:${toolbarKey}:${toolboxId}:${sub.type}`] !== false;
+              return overrides[`${knownTool.id}:${toolbarKey}:${containerId}:${sid}`] !== false
+                && overrides[`${knownTool.id}:${toolbarKey}:${containerId}:${sub.type}`] !== false;
             });
             // Add newly enabled sub-items
             const existingSubIds = new Set(item.items.flatMap(s => [s.id, s.type].filter(Boolean)));
-            for (const subTool of TOOLBAR_TOOLS.filter(t => t.id !== 'toolbox')) {
-              const subKey = `toolbox:${toolbarKey}:${toolboxId}:${subTool.id}`;
+            for (const subTool of LEAF_TOOLBAR_TOOLS) {
+              const subKey = `${knownTool.id}:${toolbarKey}:${containerId}:${subTool.id}`;
               if (overrides[subKey] === true && !existingSubIds.has(subTool.id)) {
                 const subProps = overrides[`${subKey}:props`] ?? {};
                 item.items.push({ type: subTool.id, id: subTool.id, enabled: true, ...subProps });
@@ -2123,12 +2133,12 @@
             if (DUAL_MODE_TOOL_IDS.has(tool.id)) {
               tools[tool.id] = { enabled: true, ...(tools[tool.id] ?? {}), ...propOverrides };
             }
-            // Populate sub-items for newly added toolboxes
-            if (tool.id === 'toolbox') {
-              const toolboxId = newItem.id ?? 'toolbox';
+            // Populate sub-items for newly added containers
+            if (CONTAINER_TOOL_IDS.has(tool.id)) {
+              const containerId = newItem.id ?? tool.id;
               newItem.items = [];
-              for (const subTool of TOOLBAR_TOOLS.filter(t => t.id !== 'toolbox')) {
-                const subKey = `toolbox:${toolbarKey}:${toolboxId}:${subTool.id}`;
+              for (const subTool of LEAF_TOOLBAR_TOOLS) {
+                const subKey = `${tool.id}:${toolbarKey}:${containerId}:${subTool.id}`;
                 if (overrides[subKey] === true) {
                   const subProps = overrides[`${subKey}:props`] ?? {};
                   newItem.items.push({ type: subTool.id, id: subTool.id, enabled: true, ...subProps });
@@ -2151,11 +2161,11 @@
           toolbar.items = [...ordered, ...unordered];
         }
 
-        // Apply stored drag order to toolbox sub-items
+        // Apply stored drag order to container sub-items
         for (const item of toolbar.items) {
-          if ((item.id ?? item.type) !== 'toolbox' || !Array.isArray(item.items)) continue;
-          const toolboxId = item.id ?? 'toolbox';
-          const subOrder = overrides[`order:toolbox:${toolbarKey}:${toolboxId}`];
+          if (!CONTAINER_TOOL_IDS.has(item.type) || !Array.isArray(item.items)) continue;
+          const containerId = item.id ?? item.type;
+          const subOrder = overrides[`order:${item.type}:${toolbarKey}:${containerId}`];
           if (Array.isArray(subOrder) && subOrder.length > 0) {
             const subById = new Map(item.items.map(s => [s.id ?? s.type, s]));
             const ordered = subOrder.map(id => subById.get(id)).filter(Boolean);

@@ -3,7 +3,7 @@
 // config-section spelling (scale, attribution) — dynamic-layout.ts's STANDALONE_TAGS keys
 // standalone tools by their config section name, which doesn't always match the type string.
 const BUNDLED_TOOL_TYPES = new Set([
-  'layerTree', 'layerOverview', 'toolbox', 'spacer',
+  'layerTree', 'layerOverview', 'toolbox', 'menu', 'spacer',
   'navigation', 'fullscreen', 'scaleControl', 'scale', 'zoomLevel',
   'attributionControl', 'attribution', 'spinner', 'insetMap', 'active-adapter', 'activeAdapter',
 ]);

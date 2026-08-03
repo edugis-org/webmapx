@@ -18,3 +18,4 @@ import '../components/webmapx-plugin-tool.js';
 import '../components/webmapx-modal-tool.js';
 import '../components/webmapx-active-adapter.js';
 import '../components/webmapx-toolbox-tool.js';
+import '../components/webmapx-menu-tool.js';

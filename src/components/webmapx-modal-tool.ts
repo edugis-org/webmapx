@@ -129,10 +129,10 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
     protected onMapAttached(adapter: IMap): void {
         super.onMapAttached(adapter);
 
-        // Register with ToolManager — skip when nested inside a toolbox
-        // (toolbox manages its sub-tools internally; global ToolManager must not see them)
+        // Register with ToolManager — skip when nested inside a sub-tool container
+        // (toolbox/menu manage their sub-tools internally; global ToolManager must not see them)
         const mapHost = resolveMapElement(this) as WebmapxMapElement & { toolManager?: ToolManager } | null;
-        if (this.registerWithToolManager && mapHost?.toolManager && !this.closest('webmapx-toolbox-tool')) {
+        if (this.registerWithToolManager && mapHost?.toolManager && !this.closest('webmapx-toolbox-tool, webmapx-menu-tool')) {
             this.toolManager = mapHost.toolManager;
             this.toolManager.register(this);
         }

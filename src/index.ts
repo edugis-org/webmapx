@@ -14,6 +14,7 @@ export { WebmapxPluginTool } from './components/webmapx-plugin-tool.js';
 
 // Toolbox tool
 export { WebmapxToolboxTool } from './components/webmapx-toolbox-tool.js';
+export { WebmapxMenuTool } from './components/webmapx-menu-tool.js';
 
 // Draw tool
 export { WebmapxDrawTool } from './components/webmapx-draw-tool.js';
