@@ -4,7 +4,7 @@ All notable changes to this project will be documented here.
 ## [Unreleased]
 
 ### Added
-- **Menu tool (`type: "menu"`)** — container tool showing its sub-tools as a labelled, drill-in list with submenus, back button, breadcrumb and cross-level search. Alternative to the toolbox's icon row; configurable in the visual builder (`testpages/setup.html`). See [`webmapx-menu-tool`](docs/user/components/webmapx-menu-tool.md).
+- **Menu tool (`type: "menu"`)** — container tool showing its sub-tools as a labelled, drill-in list with submenus, back button, breadcrumb and cross-level search. Keyboard navigable per the ARIA menu pattern (roving tabindex, arrows, Home/End, ←/→ to walk submenus). Alternative to the toolbox's icon row; configurable in the visual builder (`testpages/setup.html`). See [`webmapx-menu-tool`](docs/user/components/webmapx-menu-tool.md).
 
 ### Fixed
 - Sub-tool containers nested inside another container are no longer dropped when building the layout — `dynamic-layout.ts` now builds sub-tools recursively.

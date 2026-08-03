@@ -11,6 +11,22 @@ Use it when a toolbar has more tools than fit comfortably as buttons, or when th
 - **Search** — appears once the menu holds 8 or more tools. It matches across every level and shows each hit's submenu path.
 - **Single active tool** — opening a tool replaces the list; closing it returns to the submenu the tool lives in.
 - **Transient** — closing the tool panel resets the menu to its top level.
+- **Keyboard navigable** — see below.
+
+## Keyboard
+
+The list follows the ARIA menu pattern: it is a single tab stop (roving `tabindex`), and arrow keys move within it.
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Move into or out of the list — one stop for the whole menu, not one per row |
+| `↓` / `↑` | Move to the next / previous row, wrapping at the ends |
+| `Home` / `End` | First / last row |
+| `→` | Open the submenu on the focused row (no effect on a tool row) |
+| `←` | Go back one submenu level, landing on the submenu row you came from |
+| `Enter` / `Space` | Open the focused tool, or drill into the focused submenu |
+| `↓` from the search box | Move into the first result |
+| `Escape` | Closes the whole tool panel (handled by `webmapx-tool-panel`, not the menu) |
 
 ## Configuration
 

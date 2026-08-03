@@ -133,7 +133,7 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 - [x] Menu container — drill-in list with submenus, breadcrumb, cross-level search
 - [ ] Recursive submenu editing in the config setup page (only the top level of a container is editable there today)
 - [ ] Favourites / recently-used section in the menu
-- [ ] Keyboard navigation inside the menu (arrow keys, Enter to drill in, Escape to go back)
+- [x] Keyboard navigation inside the menu (roving tabindex, arrow keys, Home/End, ←/→ to walk submenus)
 
 ### Storytelling
 - [x] Stories tool — chapters/steps with camera, layer visibility, transparency, projection and terrain state
@@ -148,7 +148,7 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 ### Accessibility
 - [x] ARIA labels on all interactive controls (buttons, sliders, toggles) — audited 2026-08-04; unlabelled selects/ranges fixed in view-mode, routing, isochrone, truearea, layer-overview, maplanguage, config-edit, and the toolbox/menu search boxes
 - [x] Keyboard-reachable click targets — click handlers on plain `div`/`li` converted to real buttons in stories, search, import-layer, draw, draw-layer-dialog, layer-legend, coordinates
-- [ ] Keyboard navigation & logical tab order across toolbar, layer tree, tool panels (roving tabindex / arrow keys still missing in the toolbar, toolbox and menu)
+- [ ] Keyboard navigation & logical tab order across toolbar, layer tree, tool panels (roving tabindex / arrow keys done in the menu, still missing in the toolbar and toolbox)
 - [ ] Live regions for tool results (only coordinates and the stories step content announce today)
 - [ ] Focus management for dialogs (trap focus on open, restore on close)
 - [ ] Screen-reader announcements for dynamic state changes (layer added/removed, tool activated)

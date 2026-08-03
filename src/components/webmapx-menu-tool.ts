@@ -51,6 +51,10 @@ export class WebmapxMenuTool extends WebmapxBaseTool {
   @state() private currentPath = '';
   @state() private entries: MenuEntry[] = [];
   @state() private groups: MenuGroup[] = [];
+  /** Roving-tabindex position within the current list; only this row is tabbable. */
+  @state() private focusedIndex = 0;
+  /** Set when a keyboard action should move DOM focus after the next render. */
+  private pendingRowFocus = false;
 
   static styles = [controlSurfaceStyles, css`
     :host {
@@ -289,8 +293,94 @@ export class WebmapxMenuTool extends WebmapxBaseTool {
       return;
     }
     const segments = this.currentPath.split('/').filter(Boolean);
-    segments.pop();
+    const leaving = segments.pop();
     this.currentPath = segments.join('/');
+    // Land on the submenu we just left, so repeated ArrowLeft walks back up
+    // the same trail the user came down.
+    const leftIndex = leaving
+      ? this.childGroups(this.currentPath).findIndex(g => g.path === leaving || g.path.endsWith(`/${leaving}`))
+      : -1;
+    this.focusRow(Math.max(0, leftIndex));
+  }
+
+  private enterGroup(path: string): void {
+    this.currentPath = path;
+    this.focusRow(0);
+  }
+
+  /** Number of rows in the list as currently rendered. */
+  private get rowCount(): number {
+    if (this.searchQuery.trim()) return this.searchResults.length;
+    return this.childGroups(this.currentPath).length + this.childEntries(this.currentPath).length;
+  }
+
+  private get rowElements(): HTMLButtonElement[] {
+    return Array.from((this.renderRoot as ShadowRoot).querySelectorAll<HTMLButtonElement>('.menu-row'));
+  }
+
+  /**
+   * Moves the roving tabindex to `index` and takes DOM focus with it after the
+   * next render — the target row may not exist yet when the list is changing.
+   */
+  private focusRow(index: number): void {
+    const count = this.rowCount;
+    if (count === 0) {
+      this.focusedIndex = 0;
+      return;
+    }
+    this.focusedIndex = ((index % count) + count) % count;
+    this.pendingRowFocus = true;
+  }
+
+  protected updated(): void {
+    if (!this.pendingRowFocus) return;
+    this.pendingRowFocus = false;
+    this.rowElements[this.focusedIndex]?.focus();
+  }
+
+  private handleListKeydown(e: KeyboardEvent): void {
+    const rows = this.rowElements;
+    if (rows.length === 0) return;
+    const current = rows.findIndex(row => row === (this.renderRoot as ShadowRoot).activeElement);
+    const index = current === -1 ? this.focusedIndex : current;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        this.focusRow(index + 1);
+        break;
+      case 'ArrowUp':
+        this.focusRow(index - 1);
+        break;
+      case 'Home':
+        this.focusRow(0);
+        break;
+      case 'End':
+        this.focusRow(rows.length - 1);
+        break;
+      case 'ArrowRight': {
+        // Only submenu rows drill in; a tool row has nothing to open.
+        if (this.searchQuery.trim()) return;
+        const group = this.childGroups(this.currentPath)[index];
+        if (!group) return;
+        this.enterGroup(group.path);
+        break;
+      }
+      case 'ArrowLeft':
+        if (this.currentPath === '') return;
+        this.goBack();
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  /** ArrowDown from the search box moves into the result list. */
+  private handleSearchKeydown(e: KeyboardEvent): void {
+    if (e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    this.focusRow(0);
   }
 
   // Called by webmapx-tool-panel when this tool becomes visible
@@ -310,6 +400,7 @@ export class WebmapxMenuTool extends WebmapxBaseTool {
 
   private handleSearchInput(e: Event): void {
     this.searchQuery = (e.target as HTMLInputElement).value;
+    this.focusedIndex = 0;
   }
 
   private renderIcon(icon: ToolIconConfig | undefined): TemplateResult | typeof nothing {
@@ -324,13 +415,22 @@ export class WebmapxMenuTool extends WebmapxBaseTool {
   }
 
   private renderRow(
+    index: number,
     label: string,
     icon: ToolIconConfig | undefined,
     onClick: () => void,
-    options: { trailing?: TemplateResult | typeof nothing; sublabel?: string } = {}
+    options: { trailing?: TemplateResult | typeof nothing; sublabel?: string; submenu?: boolean } = {}
   ): TemplateResult {
     return html`
-      <button type="button" class="menu-row" @click=${onClick}>
+      <button
+        type="button"
+        class="menu-row"
+        role="menuitem"
+        aria-haspopup=${options.submenu ? 'true' : nothing}
+        tabindex=${index === this.focusedIndex ? 0 : -1}
+        @focus=${() => { this.focusedIndex = index; }}
+        @click=${onClick}
+      >
         ${this.renderIcon(icon)}
         <span class="row-label">${label}</span>
         ${options.sublabel ? html`<span class="row-path">${options.sublabel}</span>` : nothing}
@@ -346,8 +446,9 @@ export class WebmapxMenuTool extends WebmapxBaseTool {
         return html`<div class="empty">No matching tools</div>`;
       }
       return html`
-        <div class="menu-list">
-          ${results.map(entry => this.renderRow(
+        <div class="menu-list" role="menu" @keydown=${this.handleListKeydown}>
+          ${results.map((entry, index) => this.renderRow(
+            index,
             entry.label,
             entry.icon,
             () => this.activateSubTool(entry.id),
@@ -364,14 +465,16 @@ export class WebmapxMenuTool extends WebmapxBaseTool {
     }
 
     return html`
-      <div class="menu-list">
-        ${groups.map(group => this.renderRow(
+      <div class="menu-list" role="menu" @keydown=${this.handleListKeydown}>
+        ${groups.map((group, index) => this.renderRow(
+          index,
           group.label,
           group.icon ?? 'folder',
-          () => { this.currentPath = group.path; },
-          { trailing: html`<sl-icon name="chevron-right" aria-hidden="true"></sl-icon>` }
+          () => this.enterGroup(group.path),
+          { trailing: html`<sl-icon name="chevron-right" aria-hidden="true"></sl-icon>`, submenu: true }
         ))}
-        ${entries.map(entry => this.renderRow(
+        ${entries.map((entry, index) => this.renderRow(
+          groups.length + index,
           entry.label,
           entry.icon,
           () => this.activateSubTool(entry.id)
@@ -409,7 +512,8 @@ export class WebmapxMenuTool extends WebmapxBaseTool {
               clearable
               .value=${this.searchQuery}
               @sl-input=${this.handleSearchInput}
-              @sl-clear=${() => { this.searchQuery = ''; }}
+              @keydown=${this.handleSearchKeydown}
+              @sl-clear=${() => { this.searchQuery = ''; this.focusedIndex = 0; }}
             >
               <sl-icon name="search" slot="prefix"></sl-icon>
             </sl-input>
