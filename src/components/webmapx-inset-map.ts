@@ -7,6 +7,7 @@ import { IMapState } from '../store/IMapState';
 import { throttle } from '../utils/throttle';
 import type { LngLat } from '../store/map-events';
 import type { InsetMapToolConfig } from '../config/types';
+import { DATA_TOOL } from '../theme/data-colors';
 
 const DEFAULT_STYLE = 'https://demotiles.maplibre.org/style.json';
 const MIN_ZOOM = 0;
@@ -82,10 +83,10 @@ export class WebmapxInsetMap extends LitElement {
       position: relative;
       width: var(--webmapx-inset-width, 256px);
       height: var(--webmapx-inset-height, 256px);
-      border: 1px solid var(--color-border, #ccc);
+      border: 1px solid var(--color-border, #d5dce3);
       border-radius: var(--webmapx-radius-md, 6px);
       overflow: hidden;
-      background: var(--color-background-secondary, #f4f4f4);
+      background: var(--color-background-secondary, #f4f6f8);
       box-shadow: var(--webmapx-shadow-md, 0 4px 12px rgba(0, 0, 0, 0.12));
       pointer-events: auto;
     }
@@ -122,8 +123,15 @@ export class WebmapxInsetMap extends LitElement {
       display: none;
     }
 
+    /* Pointer focus on the frame should not draw a ring, but the frame is
+       tabindex=0 when minimizable, so keyboard focus must stay visible. */
     .inset-map-frame:focus {
       outline: none;
+    }
+
+    .inset-map-frame:focus-visible {
+      outline: var(--webmapx-focus-ring, 2px solid var(--color-primary, #2b6c8f));
+      outline-offset: var(--webmapx-focus-offset, 2px);
     }
 
     .inset-map-frame {
@@ -414,7 +422,7 @@ export class WebmapxInsetMap extends LitElement {
       type: 'fill',
       sourceId: VIEWPORT_SOURCE_ID,
       paint: {
-        'fill-color': '#0f62fe',
+        'fill-color': DATA_TOOL,
         'fill-opacity': 0.15,
       },
     });
@@ -425,7 +433,7 @@ export class WebmapxInsetMap extends LitElement {
       type: 'line',
       sourceId: VIEWPORT_SOURCE_ID,
       paint: {
-        'line-color': '#0f62fe',
+        'line-color': DATA_TOOL,
         'line-width': 1.5,
       },
     });

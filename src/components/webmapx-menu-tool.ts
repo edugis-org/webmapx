@@ -66,7 +66,7 @@ export class WebmapxMenuTool extends WebmapxBaseTool {
       flex-direction: column;
       gap: 4px;
       padding: 4px;
-      border-bottom: 1px solid var(--sl-color-neutral-200);
+      border-bottom: 1px solid var(--color-border-light, #e2e7ec);
     }
 
     .breadcrumb {
@@ -75,7 +75,7 @@ export class WebmapxMenuTool extends WebmapxBaseTool {
       gap: 4px;
       min-height: 24px;
       font-size: var(--sl-font-size-small);
-      color: var(--sl-color-neutral-700);
+      color: var(--color-text-secondary, #5a6773);
     }
 
     .breadcrumb .crumb-text {
@@ -108,14 +108,14 @@ export class WebmapxMenuTool extends WebmapxBaseTool {
       background: transparent;
       font: inherit;
       font-size: var(--sl-font-size-small);
-      color: var(--sl-color-neutral-900);
+      color: var(--color-text-primary, #16202a);
       text-align: left;
       cursor: pointer;
     }
 
     .menu-row:hover,
     .menu-row:focus-visible {
-      background: var(--sl-color-neutral-100);
+      background: var(--color-background-secondary, #f4f6f8);
     }
 
     .menu-row .row-label {
@@ -127,7 +127,7 @@ export class WebmapxMenuTool extends WebmapxBaseTool {
 
     .menu-row .row-path {
       font-size: var(--sl-font-size-x-small);
-      color: var(--sl-color-neutral-500);
+      color: var(--color-text-muted, #6b7681);
       white-space: nowrap;
     }
 
@@ -139,7 +139,7 @@ export class WebmapxMenuTool extends WebmapxBaseTool {
     .empty {
       padding: 8px;
       font-size: var(--sl-font-size-small);
-      color: var(--sl-color-neutral-500);
+      color: var(--color-text-muted, #6b7681);
     }
 
     sl-input.search-input {

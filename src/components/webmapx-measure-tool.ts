@@ -16,6 +16,7 @@ import { throttle } from '../utils/throttle';
 import type { MeasureToolConfig } from '../config/types';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
+import { DATA_TOOL, DATA_TOOL_HALO } from '../theme/data-colors';
 
 // Layer IDs for visualization
 const STATIC_SOURCE_ID = 'webmapx-measure-static-source';
@@ -137,7 +138,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             display: flex;
             justify-content: space-between;
             padding: 0.25rem 0;
-            border-bottom: 1px solid var(--color-border-light, #eee);
+            border-bottom: 1px solid var(--color-border-light, #e2e7ec);
         }
 
         .segment:last-child {
@@ -145,7 +146,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         }
 
         .segment-label {
-            color: var(--color-text-secondary, #666);
+            color: var(--color-text-secondary, #5a6773);
         }
 
         .segment-value {
@@ -157,7 +158,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             display: flex;
             justify-content: space-between;
             padding-top: 0.5rem;
-            border-top: 2px solid var(--color-border, #ccc);
+            border-top: 2px solid var(--color-border, #d5dce3);
             font-weight: 600;
         }
 
@@ -165,12 +166,12 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             display: flex;
             justify-content: space-between;
             padding-top: 0.25rem;
-            color: var(--color-primary, #0f62fe);
+            color: var(--color-primary, #2b6c8f);
             font-weight: 600;
         }
 
         .instructions {
-            color: var(--color-text-secondary, #666);
+            color: var(--color-text-secondary, #5a6773);
             font-size: 0.75rem;
             font-style: italic;
             margin: 0;
@@ -193,7 +194,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
         .elevation-profile-label {
             font-size: 0.7rem;
-            color: var(--color-text-secondary, #666);
+            color: var(--color-text-secondary, #5a6773);
             margin-bottom: 2px;
         }
     `;
@@ -333,8 +334,8 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
                     'text-ignore-placement': true,
                 },
                 paint: {
-                    'text-color': '#0f62fe',
-                    'text-halo-color': '#fff',
+                    'text-color': DATA_TOOL,
+                    'text-halo-color': DATA_TOOL_HALO,
                     'text-halo-width': 1.5,
                 },
             },
@@ -350,9 +351,9 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
                 filter: ['==', ['get', 'type'], 'point'],
                 paint: {
                     'circle-radius': 5,
-                    'circle-color': '#fff',
+                    'circle-color': DATA_TOOL_HALO,
                     'circle-opacity': 1,
-                    'circle-stroke-color': '#0f62fe',
+                    'circle-stroke-color': DATA_TOOL,
                     'circle-stroke-width': 2,
                 },
             },
@@ -891,7 +892,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
                     <polyline
                         points="${pts}"
                         fill="none"
-                        stroke="var(--color-primary, #0f62fe)"
+                        stroke="var(--color-primary, #2b6c8f)"
                         stroke-width="1.5"
                         stroke-linejoin="round"
                     />

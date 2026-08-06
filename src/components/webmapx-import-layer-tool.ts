@@ -65,7 +65,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
     .actions { margin: 8px 0; display:flex; justify-content:flex-end; gap:6px; }
     .file-row { display: flex; gap: 6px; align-items: center; }
     .drop-zone {
-      border: 2px dashed var(--sl-color-neutral-400);
+      border: 2px dashed var(--color-border, #d5dce3);
       border-radius: var(--sl-border-radius-medium);
       padding: 16px 8px;
       text-align: center;

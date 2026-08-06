@@ -22,9 +22,9 @@ export class WebmapxActiveAdapter extends WebmapxBaseTool {
             align-items: center;
             gap: var(--webmapx-space-xs, 0.4rem);
             padding: var(--webmapx-space-xs, 0.2rem) var(--webmapx-space-sm, 0.6rem);
-            border: 1px solid var(--color-border, #ccc);
-            background: var(--color-background-secondary, #f5f5f5);
-            color: var(--color-text-primary, #333);
+            border: 1px solid var(--color-border, #d5dce3);
+            background: var(--color-background-secondary, #f4f6f8);
+            color: var(--color-text-primary, #16202a);
             font-size: 0.8rem;
             border-radius: var(--webmapx-radius-xs, 3px);
             white-space: nowrap;
@@ -33,7 +33,7 @@ export class WebmapxActiveAdapter extends WebmapxBaseTool {
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: var(--color-primary, #2a9d8f);
+            background: var(--color-primary, #2b6c8f);
         }
     `;
 

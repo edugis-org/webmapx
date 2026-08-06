@@ -25,7 +25,12 @@ export class WebmapxLayout extends LitElement {
       inset: 0;
       display: block;
       pointer-events: none;
+      /* Follow the density axis: --overlay-inset is 16px under atlas/folio and
+         8px under console, so a dense preset pulls the chrome in toward the
+         map edges without every zone needing its own override. */
+      --webmapx-layout-inset: var(--overlay-inset, 16px);
       --webmapx-layout-inset-vertical: calc(var(--webmapx-layout-inset, 16px) + 2px);
+      --webmapx-layout-slot-gap: var(--webmapx-space-sm, 8px);
     }
 
     .overlay-surface {

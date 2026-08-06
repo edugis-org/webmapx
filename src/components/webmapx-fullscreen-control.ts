@@ -17,15 +17,22 @@ export class WebmapxFullscreenControl extends WebmapxBaseTool {
       display: inline-flex;
       pointer-events: auto;
       font-size: var(--webmapx-navigation-font-size, var(--font-size-small, 12px));
-      color: var(--webmapx-navigation-color, var(--sl-color-neutral-700, var(--color-text-primary, #1a1a1a)));
+      color: var(--webmapx-navigation-color, var(--color-text-primary, #16202a));
     }
 
     .nav-shell {
       display: inline-flex;
-      background: var(--webmapx-navigation-bg, var(--sl-color-neutral-0, #ffffff));
-      border: var(--webmapx-navigation-border, 1px solid var(--sl-color-neutral-200, #e5e5e5));
-      box-shadow: var(--webmapx-navigation-shadow, var(--sl-shadow-small, var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05))));
-      border-radius: var(--webmapx-navigation-radius, 0);
+      background: var(--webmapx-navigation-bg, rgb(var(--color-surface-rgb, 255 255 255) / var(--webmapx-surface-alpha, 1)));
+      -webkit-backdrop-filter: var(--webmapx-surface-blur, none);
+      backdrop-filter: var(--webmapx-surface-blur, none);
+      border: var(--webmapx-navigation-border, var(--webmapx-surface-border, 1px solid var(--color-border-light, #e2e7ec)));
+      box-shadow: var(--webmapx-navigation-shadow, var(--webmapx-surface-shadow, 0 1px 2px rgba(16, 24, 40, 0.07)));
+      border-radius: var(--webmapx-navigation-radius, var(--webmapx-surface-radius, 6px));
+    }
+
+    .nav-btn:focus-visible {
+      outline: var(--webmapx-focus-ring, 2px solid var(--color-primary, #2b6c8f));
+      outline-offset: calc(-1 * var(--webmapx-focus-offset, 2px));
     }
 
     .nav-btn {
@@ -33,8 +40,8 @@ export class WebmapxFullscreenControl extends WebmapxBaseTool {
       border: none;
       background: transparent;
       box-sizing: border-box;
-      width: var(--webmapx-navigation-button-size, var(--webmapx-toolbar-button-size, var(--sl-input-height-medium, 2.5rem)));
-      height: var(--webmapx-navigation-button-size, var(--webmapx-toolbar-button-size, var(--sl-input-height-medium, 2.5rem)));
+      width: var(--webmapx-navigation-button-size, var(--webmapx-toolbar-button-size, var(--webmapx-hit-size, 36px)));
+      height: var(--webmapx-navigation-button-size, var(--webmapx-toolbar-button-size, var(--webmapx-hit-size, 36px)));
       padding: 0;
       display: inline-flex;
       align-items: center;
@@ -45,8 +52,8 @@ export class WebmapxFullscreenControl extends WebmapxBaseTool {
     }
 
     .nav-btn:hover {
-      background: var(--webmapx-navigation-hover-bg, var(--sl-color-primary-50, #f0f9ff));
-      color: var(--webmapx-navigation-hover-color, var(--sl-color-primary-700, #0369a1));
+      background: var(--webmapx-navigation-hover-bg, var(--color-background-hover, rgba(22, 32, 42, 0.06)));
+      color: var(--webmapx-navigation-hover-color, var(--color-text-primary, #16202a));
     }
 
     .nav-btn:active {

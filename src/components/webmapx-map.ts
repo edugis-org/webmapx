@@ -356,7 +356,7 @@ export class WebmapxMapElement extends HTMLElement {
       target.style.height = '100%';
     }
     if (!target.style.background) {
-      target.style.setProperty('background', 'var(--color-background-secondary, #f4f4f4)');
+      target.style.setProperty('background', 'var(--color-background-secondary, #f4f6f8)');
     }
   }
 

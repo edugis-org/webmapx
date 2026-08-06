@@ -198,15 +198,15 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         :host([active]) { display: block; }
         label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
         select { width: 100%; margin-bottom: 0.75rem; padding: 0.25rem; box-sizing: border-box; }
-        .hint { color: var(--sl-color-neutral-500, #888); font-style: italic; margin-bottom: 0.5rem; font-size: 0.8rem; }
+        .hint { color: var(--color-text-muted, #6b7681); font-style: italic; margin-bottom: 0.5rem; font-size: 0.8rem; }
         .copy-item { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
         .copy-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
         .copy-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .copy-remove { cursor: pointer; color: var(--sl-color-danger-600, #c00); border: none; background: none; padding: 0 2px; font-size: 0.9rem; }
         .clear-btn { width: 100%; padding: 0.3rem; cursor: pointer; }
-        .no-copies { color: var(--sl-color-neutral-500, #888); font-style: italic; font-size: 0.8rem; margin-bottom: 0.5rem; margin-top: 0.25rem; }
-        .dragging-hint { color: var(--sl-color-primary-600, #3b82f6); font-size: 0.8rem; margin-bottom: 0.4rem; }
-        .method-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--sl-color-neutral-600, #555); }
+        .no-copies { color: var(--color-text-muted, #6b7681); font-style: italic; font-size: 0.8rem; margin-bottom: 0.5rem; margin-top: 0.25rem; }
+        .dragging-hint { color: var(--color-primary, #2b6c8f); font-size: 0.8rem; margin-bottom: 0.4rem; }
+        .method-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
         .method-row input { cursor: pointer; }
         .method-row label { cursor: pointer; }
         .rotation-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
@@ -215,9 +215,14 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
             -webkit-appearance: none;
             appearance: none;
             height: 4px;
-            background: var(--sl-color-neutral-300, #ccc);
+            background: var(--color-background-tertiary, #e9edf1);
             border-radius: 2px;
             outline: none;
+        }
+        /* Restore a focus indicator for the slider the rule above stripped. */
+        .rotation-row input[type=range]:focus-visible {
+            outline: var(--webmapx-focus-ring, 2px solid var(--color-primary, #2b6c8f));
+            outline-offset: var(--webmapx-focus-offset, 2px);
         }
         .rotation-row input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
@@ -225,7 +230,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
             width: 14px;
             height: 14px;
             border-radius: 50%;
-            background: var(--sl-color-primary-600, #3b82f6);
+            background: var(--color-primary, #2b6c8f);
             cursor: pointer;
         }
         .rotation-row input[type=range]::-moz-range-thumb {
@@ -233,12 +238,12 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
             height: 14px;
             border: none;
             border-radius: 50%;
-            background: var(--sl-color-primary-600, #3b82f6);
+            background: var(--color-primary, #2b6c8f);
             cursor: pointer;
         }
-        .rotation-reset { border: none; background: none; cursor: pointer; padding: 0 2px; font-size: 1rem; line-height: 1; color: var(--sl-color-neutral-600, #555); }
-        .rotation-reset:hover { color: var(--sl-color-primary-600, #3b82f6); }
-        .rotation-value { font-variant-numeric: tabular-nums; min-width: 3.5em; text-align: right; font-size: 0.8rem; color: var(--sl-color-neutral-600, #555); }
+        .rotation-reset { border: none; background: none; cursor: pointer; padding: 0 2px; font-size: 1rem; line-height: 1; color: var(--color-text-secondary, #5a6773); }
+        .rotation-reset:hover { color: var(--color-primary, #2b6c8f); }
+        .rotation-value { font-variant-numeric: tabular-nums; min-width: 3.5em; text-align: right; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
     `;
 
     protected onMapAttached(adapter: IMap): void {

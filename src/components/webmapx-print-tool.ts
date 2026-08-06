@@ -66,7 +66,7 @@ export class WebmapxPrintTool extends WebmapxModalTool {
             padding: var(--webmapx-tool-panel-padding, 12px);
             display: flex; flex-direction: column; gap: 12px; min-width: 220px;
         }
-        .description { color: var(--sl-color-neutral-600); margin: 0; line-height: 1.4; }
+        .description { color: var(--color-text-secondary, #5a6773); margin: 0; line-height: 1.4; }
         .field { display: flex; flex-direction: column; gap: 4px; }
         .field label { font-weight: var(--sl-font-weight-semibold); font-size: var(--sl-font-size-small); }
         .error { color: var(--sl-color-danger-600); font-size: var(--sl-font-size-x-small); margin: 0; }
@@ -80,7 +80,7 @@ export class WebmapxPrintTool extends WebmapxModalTool {
             margin: 0;
             line-height: 1.4;
         }
-        .busy { display: flex; align-items: center; gap: 8px; color: var(--sl-color-neutral-600); }
+        .busy { display: flex; align-items: center; gap: 8px; color: var(--color-text-secondary, #5a6773); }
     `;
 
     // ── Print box overlay ──────────────────────────────────────────────────────

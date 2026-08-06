@@ -5,6 +5,7 @@ import type { IMap } from '../map/IMapInterfaces';
 import type { LngLat, ClickEvent } from '../store/map-events';
 import type { IMapState } from '../store/IMapState';
 import { substituteApiKeys } from '../config/apikeys';
+import { DATA_ROUTE, DATA_TOOL_HALO } from '../theme/data-colors';
 
 const ISO_SOURCE_ID = 'webmapx-isochrone-source';
 const ISO_FILL_ID   = 'webmapx-isochrone-fill';
@@ -170,17 +171,17 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
     static styles = css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
-        .hint { color: var(--sl-color-neutral-600, #555); font-size: 0.8rem; margin-bottom: 0.75rem; line-height: 1.4; }
+        .hint { color: var(--color-text-secondary, #5a6773); font-size: 0.8rem; margin-bottom: 0.75rem; line-height: 1.4; }
         .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
-        select, input[type="text"] { flex: 1; padding: 0.3rem 0.5rem; border: 1px solid var(--color-border, #d7dce3); border-radius: 4px; font-size: 0.875rem; background: var(--color-background, #fff); color: var(--color-text-primary, inherit); }
-        button { padding: 0.35rem 0.75rem; border: 1px solid var(--color-border, #d7dce3); border-radius: 4px; background: var(--color-background, #fff); cursor: pointer; font-size: 0.875rem; color: var(--color-text-primary, inherit); }
+        select, input[type="text"] { flex: 1; padding: 0.3rem 0.5rem; border: 1px solid var(--color-border, #d5dce3); border-radius: 4px; font-size: 0.875rem; background: var(--color-background, #fff); color: var(--color-text-primary, #16202a); }
+        button { padding: 0.35rem 0.75rem; border: 1px solid var(--color-border, #d5dce3); border-radius: 4px; background: var(--color-background, #fff); cursor: pointer; font-size: 0.875rem; color: var(--color-text-primary, #16202a); }
         button:disabled { opacity: 0.5; cursor: default; }
-        .field-label { font-size: 0.78rem; color: var(--sl-color-neutral-600, #555); margin-bottom: 0.15rem; font-weight: 600; }
+        .field-label { font-size: 0.78rem; color: var(--color-text-secondary, #5a6773); margin-bottom: 0.15rem; font-weight: 600; }
         .field { margin-bottom: 0.5rem; }
         .error { color: var(--sl-color-danger-600, #c00); font-size: 0.8rem; margin-top: 0.25rem; }
-        .center-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--sl-color-neutral-600, #555); }
-        .dot { width: 10px; height: 10px; border-radius: 50%; background: #2563eb; display: inline-block; flex-shrink: 0; }
-        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--color-border, #d7dce3); border-top-color: var(--color-primary, #0f62fe); border-radius: 50%; animation: spin 0.6s linear infinite; }
+        .center-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
+        .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--webmapx-data-route, #2563eb); display: inline-block; flex-shrink: 0; }
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--color-border, #d5dce3); border-top-color: var(--color-primary, #2b6c8f); border-radius: 50%; animation: spin 0.6s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
     `;
 
@@ -340,7 +341,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
         const polygonFc: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: this.currentFc.features };
         const pointFc:   GeoJSON.FeatureCollection = {
             type: 'FeatureCollection',
-            features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: this.center }, properties: { point_color: '#2563eb' } }],
+            features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: this.center }, properties: { point_color: DATA_ROUTE } }],
         };
         const isoLabel = this.rangeType === 'time' ? 'Isochrones' : 'Isodistances';
 
@@ -368,7 +369,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
                     },
                     {
                         id: `${id}-circle`, type: 'circle', source: 'center',
-                        paint: { 'circle-color': ['get', 'point_color'], 'circle-radius': 6, 'circle-stroke-color': '#fff', 'circle-stroke-width': 2 },
+                        paint: { 'circle-color': ['get', 'point_color'], 'circle-radius': 6, 'circle-stroke-color': DATA_TOOL_HALO, 'circle-stroke-width': 2 },
                         metadata: { label: 'Center' },
                     },
                 ],
@@ -383,7 +384,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
         if (!this.active) return;
         this.center = e.coords;
         this.adapter?.addMarker('webmapx-isochrone-center', e.coords, {
-            color: '#2563eb', draggable: true,
+            color: DATA_ROUTE, draggable: true,
             onDragEnd: (ll) => { this.center = ll; void this.calculate(); },
         });
         void this.calculate();
@@ -509,7 +510,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
 
             ${this.currentFc && !this.loading ? html`
                 <div class="row" style="margin-top:0.5rem;">
-                    <button @click=${() => this.persistToMap()} style="flex:1;padding:0.35rem 0.75rem;border:1px solid var(--color-primary,#0f62fe);border-radius:4px;background:var(--color-primary,#0f62fe);color:#fff;cursor:pointer;font-size:0.875rem;">Persist to map</button>
+                    <button @click=${() => this.persistToMap()} style="flex:1;padding:0.35rem 0.75rem;border:1px solid var(--color-primary,#2b6c8f);border-radius:var(--webmapx-radius-sm,4px);background:var(--color-primary,#2b6c8f);color:var(--color-on-primary,#fff);cursor:pointer;font-size:0.875rem;">Persist to map</button>
                 </div>
             ` : nothing}
         `;

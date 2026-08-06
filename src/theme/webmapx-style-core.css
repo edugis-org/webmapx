@@ -1,45 +1,145 @@
-/* src/theme/webmapx-style-core.css */
+/* src/theme/webmapx-style-core.css
+ *
+ * Token architecture — two INDEPENDENT axes:
+ *
+ *   [data-theme="light" | "dark"]        COLOUR only
+ *   [data-style="atlas" | "folio" | …]   FORM only  (radius, shadow, density, type)
+ *
+ * A style block must not set a colour, and a theme block must not set a
+ * radius/spacing/size. That separation is what makes every style work in
+ * both themes for free — and it is why the old [data-style="glossy"] block
+ * (which set blue-tinted shadows) could not survive dark mode.
+ *
+ * Components reference tokens with a literal fallback so they still render
+ * correctly when this file is not loaded.
+ */
 
+/* ════════════════════════════════════════════════════════════════
+   COLOUR AXIS — light (default)
+   All values verified against WCAG 2.1 AA on their intended ground.
+   ════════════════════════════════════════════════════════════════ */
 :root {
-    /* ========================================
-       LIGHT THEME (Default)
-       ======================================== */
+    /* Accent — UI chrome only. Never used for map geometry (see below).
+       #2b6c8f on white = 5.76:1, white on #2b6c8f = 5.76:1 — AA for body text.
+       (The previous #007bff was 3.98:1 and failed AA for text.) */
+    --color-primary: #2b6c8f;
+    --color-primary-hover: #21566f;      /* 8.00:1 */
+    --color-primary-soft: #e6f0f5;       /* tinted fill behind selected rows */
+    --color-on-primary: #ffffff;         /* text/icon on an accent fill */
 
-    /* Primary Colors */
-    --color-primary: #007bff;
-    --color-primary-hover: #0056b3;
-
-    /* Background Colors */
+    /* Backgrounds */
     --color-background: #ffffff;
-    --color-background-secondary: #f4f4f4;
-    --color-background-tertiary: #e9e9e9;
+    --color-background-secondary: #f4f6f8;
+    --color-background-tertiary: #e9edf1;
+    /* Hover wash. Kept as a translucent ink rather than a solid grey so it
+       composes correctly over both opaque and translucent surfaces. */
+    --color-background-hover: rgba(22, 32, 42, 0.06);
 
-    /* Text Colors */
-    --color-text-primary: #1a1a1a;
-    --color-text-secondary: #666666;
-    --color-text-muted: #999999;
+    /* Text — all AA on --color-background */
+    --color-text-primary: #16202a;       /* 16.48:1 */
+    --color-text-secondary: #5a6773;     /*  5.80:1 */
+    --color-text-muted: #6b7681;         /*  4.63:1 — still AA; muted means
+                                            quiet, not unreadable. */
 
-    /* Border Colors */
-    --color-border: #cccccc;
-    --color-border-light: #e5e5e5;
+    /* Borders (decorative — no contrast minimum) */
+    --color-border: #d5dce3;
+    --color-border-light: #e2e7ec;
 
-    /* Surface Colors (for panels, toolbars, etc.) */
+    /* Surfaces (panels, toolbars, dialogs) */
     --color-surface: #ffffff;
-    --color-surface-raised: #f9f9f9;
+    --color-surface-raised: #f4f6f8;
+    /* Surface as a raw RGB triplet, so styles can compose their own alpha
+       (translucent glass) without needing a second colour token. */
+    --color-surface-rgb: 255 255 255;
 
-    /* Shadows */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
+    /* Semantic status — independent of the accent hue. */
+    --color-success: #1c7c4a;            /* 4.72:1 */
+    --color-warning: #8a5a00;            /* 5.42:1 */
+    --color-danger: #b3261e;             /* 5.94:1 */
 
-    /* ── Design-token primitives ─────────────────────────
-       Generic scales consumed by all webmapx UI chrome
-       (panels, dialogs, toolbars, map controls).
-       Style presets ([data-style="..."]) override these to
-       retheme every component at once. Components reference
-       them with a literal fallback so they render correctly
-       even when this file isn't loaded. */
+    /* Shadow key colour + intensities, consumed by the style axis. */
+    --shadow-key: 16 24 40;
+    --shadow-alpha-near: .07;
+    --shadow-alpha-far: .17;
 
+    --shadow-sm: 0 1px 2px rgb(var(--shadow-key) / var(--shadow-alpha-near));
+    --shadow-md: 0 4px 12px rgb(var(--shadow-key) / calc(var(--shadow-alpha-far) * .7));
+    --shadow-lg: 0 12px 32px -8px rgb(var(--shadow-key) / var(--shadow-alpha-far));
+
+    /* Glass edge highlight — a light catch along the top of a translucent
+       surface, not an outline. Near-invisible in dark mode by design. */
+    --color-edge: 255 255 255;
+    --color-edge-alpha: .70;
+
+    /* Focus ring — one definition for every focusable thing in webmapx.
+       3:1 against both adjacent colours is the WCAG 2.4.11 requirement;
+       the accent gives 5.76:1 on white. */
+    --webmapx-focus-color: var(--color-primary);
+    --webmapx-focus-width: 2px;
+    --webmapx-focus-offset: 2px;
+    --webmapx-focus-ring: var(--webmapx-focus-width) solid var(--webmapx-focus-color);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   COLOUR AXIS — dark
+   ════════════════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+    --color-primary: #74b6d6;            /* 7.67:1 on --color-surface */
+    --color-primary-hover: #9acbe3;      /* 9.80:1 */
+    --color-primary-soft: #1e3946;
+    --color-on-primary: #0d1418;         /* 8.32:1 on the accent */
+
+    --color-background: #14171b;
+    --color-background-secondary: #1c2026;
+    --color-background-tertiary: #262c33;
+    --color-background-hover: rgba(233, 237, 241, 0.09);
+
+    --color-text-primary: #e9edf1;       /* 14.55:1 */
+    --color-text-secondary: #a3aeb9;     /*  7.59:1 */
+    --color-text-muted: #8b95a0;         /*  5.63:1 */
+
+    --color-border: #343c45;
+    --color-border-light: #2e353d;
+
+    --color-surface: #181c21;
+    --color-surface-raised: #21262d;
+    --color-surface-rgb: 24 28 33;
+
+    --color-success: #5cc98d;
+    --color-warning: #e0b354;
+    --color-danger: #f08a84;
+
+    --shadow-key: 0 0 0;
+    --shadow-alpha-near: .30;
+    --shadow-alpha-far: .55;
+
+    --color-edge-alpha: .10;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   MAP GEOMETRY COLOURS — deliberately NOT part of the theme axis.
+   Draw vertices, measure lines, routing lines, markers and highlights are
+   drawn ON the map, over basemaps that range from white paper to satellite
+   imagery. They need saturation and a light halo to stay visible, so they
+   do not follow the muted UI accent and do not invert in dark mode.
+   The canonical values live in src/theme/data-colors.ts, because maplibre /
+   OpenLayers paint specs are JS and cannot read a CSS variable. These
+   mirrors exist so legend dots and swatches in the UI can match the
+   geometry the tool draws.
+   ════════════════════════════════════════════════════════════════ */
+:root {
+    --webmapx-data-tool: #0f62fe;        /* active tool geometry: draw, measure, info pin */
+    --webmapx-data-tool-halo: #ffffff;   /* casing/vertex fill that keeps it legible */
+    --webmapx-data-route: #2563eb;       /* routing + isochrone */
+    --webmapx-data-start: #22c55e;
+    --webmapx-data-end: #e63946;
+    --webmapx-data-highlight: #ffdd00;   /* selection / hover highlight */
+}
+
+/* ════════════════════════════════════════════════════════════════
+   FORM AXIS — shared primitives (defaults = "atlas")
+   ════════════════════════════════════════════════════════════════ */
+:root {
     /* Radius scale */
     --webmapx-radius-xs: 3px;
     --webmapx-radius-sm: 4px;
@@ -57,16 +157,32 @@
     --webmapx-font-size-md: 0.875rem;
     --webmapx-font-size-lg: 1rem;
 
-    /* Shadow scale (aliases the themed --shadow-* values so
-       dark mode adjustments carry through automatically) */
+    /* Shadow scale (aliases the themed --shadow-* values so dark-mode
+       adjustments carry through automatically) */
     --webmapx-shadow-sm: var(--shadow-sm);
     --webmapx-shadow-md: var(--shadow-md);
     --webmapx-shadow-lg: var(--shadow-lg);
 
+    /* Surface composition — one recipe for every floating element */
+    --webmapx-surface-alpha: 1;
+    --webmapx-surface-blur: none;
+    --webmapx-surface-border: 1px solid var(--color-border-light);
+    --webmapx-surface-radius: var(--webmapx-radius-md);
+    --webmapx-surface-shadow: var(--shadow-md);
+
+    /* Density */
+    --webmapx-row-height: 32px;
+    --webmapx-hit-size: 36px;
+
+    /* Micro-label treatment (group headings inside panels) */
+    --webmapx-label-size: var(--webmapx-font-size-sm);
+    --webmapx-label-spacing: .06em;
+    --webmapx-label-transform: uppercase;
+
     /* Layout */
     --overlay-inset: 16px;
 
-    /* Compact Controls */
+    /* Compact Controls (legacy names, still referenced by map controls) */
     --tool-background-opacity: 0.95;
     --font-size-small: 12px;
     --compact-padding-vertical: 2px;
@@ -74,46 +190,211 @@
     --compact-gap: 8px;
 
     /* Global styles */
-    font-family: Arial, sans-serif;
-    /*font-family: 'Inter', sans-serif;
-    font-size: 14px;*/
+    font-family: var(--webmapx-font-ui, ui-sans-serif, system-ui, -apple-system,
+        "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
 }
 
-/* ========================================
-   DARK THEME
-   ======================================== */
-[data-theme="dark"] {
-    /* Primary Colors */
-    --color-primary: #4da3ff;
-    --color-primary-hover: #7fbfff;
+/* ════════════════════════════════════════════════════════════════
+   STYLE: atlas — public/consumer maps.
+   Translucent, soft, roomy. This is the default, so the block only needs
+   to state what differs from the primitives above.
+   ════════════════════════════════════════════════════════════════ */
+[data-style="atlas"] {
+    --webmapx-radius-sm: 9px;
+    --webmapx-radius-md: 11px;
+    --webmapx-radius-lg: 14px;
 
-    /* Background Colors */
-    --color-background: #1a1a1a;
-    --color-background-secondary: #252525;
-    --color-background-tertiary: #333333;
+    --webmapx-surface-alpha: .86;
+    --webmapx-surface-blur: blur(18px) saturate(1.5);
+    --webmapx-surface-border: 1px solid rgb(var(--color-edge) / var(--color-edge-alpha));
+    --webmapx-surface-radius: var(--webmapx-radius-lg);
+    --webmapx-surface-shadow: var(--shadow-sm), var(--shadow-lg);
 
-    /* Text Colors */
-    --color-text-primary: #f0f0f0;
-    --color-text-secondary: #b0b0b0;
-    --color-text-muted: #808080;
+    --webmapx-row-height: 38px;
+    --webmapx-hit-size: 40px;
+    --webmapx-label-spacing: .085em;
 
-    /* Border Colors */
-    --color-border: #444444;
-    --color-border-light: #3a3a3a;
-
-    /* Surface Colors */
-    --color-surface: #2a2a2a;
-    --color-surface-raised: #333333;
-
-    /* Shadows (more subtle in dark mode) */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+    /* Bridge to Shoelace */
+    --sl-border-radius-small: var(--webmapx-radius-sm);
+    --sl-border-radius-medium: var(--webmapx-radius-md);
+    --sl-border-radius-large: var(--webmapx-radius-lg);
 }
 
+/* ════════════════════════════════════════════════════════════════
+   STYLE: folio — embeds inside a designed page.
+   Opaque, near-square, hairline dividers, generous padding, wide-tracked
+   micro-labels. Sans throughout (a serif was considered and rejected: it
+   reads as decoration on a data tool).
+   ════════════════════════════════════════════════════════════════ */
+[data-style="folio"] {
+    --webmapx-radius-xs: 2px;
+    --webmapx-radius-sm: 3px;
+    --webmapx-radius-md: 4px;
+    --webmapx-radius-lg: 4px;
 
+    --webmapx-space-md: 0.9rem;
+    --webmapx-space-lg: 1.25rem;
 
+    --webmapx-surface-alpha: 1;
+    --webmapx-surface-blur: none;
+    --webmapx-surface-border: 1px solid var(--color-border);
+    --webmapx-surface-radius: var(--webmapx-radius-md);
+    --webmapx-surface-shadow: var(--shadow-sm), var(--shadow-md);
 
+    --webmapx-row-height: 36px;
+    --webmapx-hit-size: 38px;
+    --webmapx-label-size: 0.6875rem;
+    --webmapx-label-spacing: .13em;
+
+    --sl-border-radius-small: var(--webmapx-radius-sm);
+    --sl-border-radius-medium: var(--webmapx-radius-md);
+    --sl-border-radius-large: var(--webmapx-radius-lg);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   STYLE: console — dense, daily operational use.
+   ════════════════════════════════════════════════════════════════ */
+[data-style="console"] {
+    --webmapx-radius-xs: 2px;
+    --webmapx-radius-sm: 3px;
+    --webmapx-radius-md: 5px;
+    --webmapx-radius-lg: 6px;
+
+    --webmapx-space-xs: 0.15rem;
+    --webmapx-space-sm: 0.3rem;
+    --webmapx-space-md: 0.45rem;
+    --webmapx-space-lg: 0.6rem;
+
+    --webmapx-font-size-sm: 0.7rem;
+    --webmapx-font-size-md: 0.8rem;
+    --webmapx-font-size-lg: 0.9rem;
+
+    --webmapx-surface-alpha: .97;
+    --webmapx-surface-blur: none;
+    --webmapx-surface-border: 1px solid var(--color-border-light);
+    --webmapx-surface-radius: var(--webmapx-radius-md);
+    --webmapx-surface-shadow: var(--shadow-sm);
+
+    --webmapx-row-height: 28px;
+    --webmapx-hit-size: 30px;
+    --webmapx-label-size: 0.625rem;
+    --webmapx-label-spacing: .07em;
+
+    --overlay-inset: 8px;
+    --font-size-small: 11px;
+    --compact-gap: 4px;
+
+    /* Bridge to Shoelace so sl-* components shrink too */
+    --sl-spacing-x-small: var(--webmapx-space-xs);
+    --sl-spacing-small: var(--webmapx-space-sm);
+    --sl-spacing-medium: var(--webmapx-space-sm);
+    --sl-font-size-small: 11px;
+    --sl-input-height-small: 1.6rem;
+    --sl-input-height-medium: 1.9rem;
+}
+
+/* ── Deprecated style aliases ────────────────────────────────────
+   Existing configs use "compact" and "glossy". Keep them working by
+   pointing at the closest replacement. Remove after one minor release. */
+[data-style="compact"] {
+    --webmapx-radius-xs: 2px;
+    --webmapx-radius-sm: 3px;
+    --webmapx-radius-md: 5px;
+    --webmapx-radius-lg: 6px;
+    --webmapx-space-xs: 0.15rem;
+    --webmapx-space-sm: 0.3rem;
+    --webmapx-space-md: 0.45rem;
+    --webmapx-space-lg: 0.6rem;
+    --webmapx-font-size-sm: 0.7rem;
+    --webmapx-font-size-md: 0.8rem;
+    --webmapx-font-size-lg: 0.9rem;
+    --webmapx-surface-shadow: var(--shadow-sm);
+    --webmapx-row-height: 28px;
+    --webmapx-hit-size: 30px;
+    --overlay-inset: 8px;
+    --font-size-small: 11px;
+    --compact-gap: 4px;
+    --sl-spacing-x-small: var(--webmapx-space-xs);
+    --sl-spacing-small: var(--webmapx-space-sm);
+    --sl-spacing-medium: var(--webmapx-space-sm);
+    --sl-font-size-small: 11px;
+    --sl-input-height-small: 1.6rem;
+    --sl-input-height-medium: 1.9rem;
+}
+
+[data-style="glossy"] {
+    --webmapx-radius-xs: 0.4rem;
+    --webmapx-radius-sm: 0.5rem;
+    --webmapx-radius-md: 0.75rem;
+    --webmapx-radius-lg: 1rem;
+    --webmapx-surface-alpha: .86;
+    --webmapx-surface-blur: blur(18px) saturate(1.5);
+    --webmapx-surface-border: 1px solid rgb(var(--color-edge) / var(--color-edge-alpha));
+    --webmapx-surface-radius: var(--webmapx-radius-lg);
+    --webmapx-surface-shadow: var(--shadow-sm), var(--shadow-lg);
+    --sl-border-radius-small: var(--webmapx-radius-sm);
+    --sl-border-radius-medium: var(--webmapx-radius-md);
+    --sl-border-radius-large: var(--webmapx-radius-lg);
+    --webmapx-panel-radius: var(--webmapx-radius-md);
+    --webmapx-toolbar-radius: var(--webmapx-radius-md);
+
+    /* Control gloss — custom props inherit into shadow roots, so components
+       rendering their own sl-buttons consume these with a `none` fallback
+       (see e.g. webmapx-toolbox-tool). */
+    --webmapx-control-bg-image: linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0));
+    --webmapx-control-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* Light-DOM shoelace controls (e.g. toolbar slotted buttons).
+   Shadow-DOM ones must apply the same vars in their own styles —
+   document selectors cannot reach them. */
+[data-style="glossy"] sl-button::part(base),
+[data-style="glossy"] sl-select::part(combobox),
+[data-style="glossy"] sl-input::part(base) {
+    background-image: var(--webmapx-control-bg-image, none);
+    box-shadow: var(--webmapx-control-shadow, none);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ACCESSIBILITY
+   ════════════════════════════════════════════════════════════════ */
+
+/* Reduced motion — webmapx animates panel entry, spinners and control
+   transitions. Honour the OS setting rather than removing the feedback
+   entirely: 1ms keeps state changes instant but still committed. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 1ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Forced colours (Windows High Contrast). Translucency and shadow carry no
+   meaning there and actively hurt: a blurred surface over a map becomes an
+   unreadable smear. Fall back to opaque system colours with real borders. */
+@media (forced-colors: active) {
+    :root {
+        --webmapx-surface-alpha: 1;
+        --webmapx-surface-blur: none;
+        --webmapx-surface-border: 1px solid CanvasText;
+        --webmapx-surface-shadow: none;
+        --color-surface: Canvas;
+        --color-surface-raised: Canvas;
+        --color-text-primary: CanvasText;
+        --color-text-secondary: CanvasText;
+        --color-text-muted: CanvasText;
+        --color-border: CanvasText;
+        --color-border-light: CanvasText;
+        --color-background-hover: Highlight;
+        --color-primary: Highlight;
+        --color-on-primary: HighlightText;
+        --webmapx-focus-color: Highlight;
+    }
+}
 
 /* ─── Toolbar button tooltips ─────────────────────────────────────────────── */
 /* CSS-based tooltips driven by data-tooltip attribute on sl-button elements. */
@@ -137,11 +418,11 @@ webmapx-toolbar sl-button[data-tooltip]::after {
     max-width: var(--webmapx-tooltip-max-width, 16rem);
     padding: var(--webmapx-tooltip-padding, 0.35rem 0.55rem);
     border: var(--webmapx-tooltip-border, 1px solid rgba(255, 255, 255, 0.18));
-    border-radius: var(--webmapx-tooltip-radius, 3px);
+    border-radius: var(--webmapx-tooltip-radius, var(--webmapx-radius-xs, 3px));
     background: var(--webmapx-tooltip-bg, rgba(32, 32, 32, 0.95));
     color: var(--webmapx-tooltip-color, #fff);
     box-shadow: var(--webmapx-tooltip-shadow, 0 2px 8px rgba(0, 0, 0, 0.22));
-    font: var(--webmapx-tooltip-font, 12px/1.3 Arial, sans-serif);
+    font: var(--webmapx-tooltip-font, 12px/1.3 inherit);
     white-space: normal;
     pointer-events: none;
     opacity: 0;
@@ -169,76 +450,6 @@ webmapx-toolbar sl-button[data-tooltip]:focus-visible::after {
         visibility: visible;
         transition-delay: var(--webmapx-tooltip-delay, 350ms);
     }
-}
-
-/* ========================================
-   COMPACT STYLE — tighter spacing, smaller text
-   ======================================== */
-[data-style="compact"] {
-    --overlay-inset: 8px;
-    --font-size-small: 11px;
-    --compact-gap: 4px;
-
-    /* Tighten the generic scales — all chrome follows */
-    --webmapx-space-xs: 0.15rem;
-    --webmapx-space-sm: 0.3rem;
-    --webmapx-space-md: 0.45rem;
-    --webmapx-space-lg: 0.6rem;
-    --webmapx-font-size-sm: 0.7rem;
-    --webmapx-font-size-md: 0.8rem;
-    --webmapx-font-size-lg: 0.9rem;
-
-    --shadow-sm: 0 1px 1px rgba(0, 0, 0, 0.06);
-    --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.12);
-
-    /* Bridge to Shoelace so sl-* components shrink too */
-    --sl-spacing-x-small: var(--webmapx-space-xs);
-    --sl-spacing-small: var(--webmapx-space-sm);
-    --sl-spacing-medium: var(--webmapx-space-sm);
-    --sl-font-size-small: 11px;
-    --sl-input-height-small: 1.6rem;
-    --sl-input-height-medium: 1.9rem;
-}
-
-/* ========================================
-   GLOSSY STYLE — rounded, gradient surfaces, deeper shadows
-   ======================================== */
-[data-style="glossy"] {
-    /* Rounder radius scale — all chrome follows */
-    --webmapx-radius-xs: 0.4rem;
-    --webmapx-radius-sm: 0.5rem;
-    --webmapx-radius-md: 0.75rem;
-    --webmapx-radius-lg: 1rem;
-
-    --shadow-sm: 0 2px 4px rgba(0, 60, 150, 0.1);
-    --shadow-md: 0 6px 16px rgba(0, 60, 150, 0.18);
-    --shadow-lg: 0 12px 32px rgba(0, 60, 150, 0.22);
-
-    /* Bridge to Shoelace */
-    --sl-border-radius-small: var(--webmapx-radius-sm);
-    --sl-border-radius-medium: var(--webmapx-radius-md);
-    --sl-border-radius-large: var(--webmapx-radius-lg);
-    --sl-panel-background-color: rgba(255, 255, 255, 0.85);
-
-    --webmapx-panel-radius: var(--webmapx-radius-md);
-    --webmapx-toolbar-radius: var(--webmapx-radius-md);
-
-    /* Control gloss — custom props inherit into shadow roots, so
-       components rendering their own sl-buttons consume these with
-       a `none` fallback (see e.g. webmapx-toolbox-tool). */
-    --webmapx-control-bg-image: linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0));
-    --webmapx-control-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-}
-
-/* Light-DOM shoelace controls (e.g. toolbar slotted buttons).
-   Shadow-DOM ones must apply the same vars in their own styles —
-   document selectors cannot reach them. */
-[data-style="glossy"] sl-button::part(base),
-[data-style="glossy"] sl-select::part(combobox),
-[data-style="glossy"] sl-input::part(base) {
-    background-image: var(--webmapx-control-bg-image, none);
-    box-shadow: var(--webmapx-control-shadow, none);
 }
 
 [data-theme="dark"] webmapx-toolbar {

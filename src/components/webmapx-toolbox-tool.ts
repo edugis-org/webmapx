@@ -40,7 +40,7 @@ export class WebmapxToolboxTool extends WebmapxBaseTool {
       flex-direction: column;
       gap: 4px;
       padding: 4px;
-      border-bottom: 1px solid var(--sl-color-neutral-200);
+      border-bottom: 1px solid var(--color-border-light, #e2e7ec);
     }
 
     .toolbox-scroll {

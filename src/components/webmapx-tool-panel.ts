@@ -257,10 +257,12 @@ export class WebmapxToolPanel extends LitElement {
         var(--webmapx-panel-header-min-height, 3rem) +
         var(--webmapx-panel-min-content, 0px)
       );
-      background: var(--webmapx-panel-bg, var(--sl-color-neutral-0, #fff));
-      border: 1px solid var(--sl-color-neutral-200, #e5e5e5);
-      border-radius: var(--webmapx-panel-radius, 0);
-      box-shadow: var(--sl-shadow-medium);
+      background: var(--webmapx-panel-bg, rgb(var(--color-surface-rgb, 255 255 255) / var(--webmapx-surface-alpha, 1)));
+      -webkit-backdrop-filter: var(--webmapx-surface-blur, none);
+      backdrop-filter: var(--webmapx-surface-blur, none);
+      border: var(--webmapx-surface-border, 1px solid var(--color-border-light, #e2e7ec));
+      border-radius: var(--webmapx-panel-radius, var(--webmapx-surface-radius, 6px));
+      box-shadow: var(--webmapx-surface-shadow, 0 4px 12px rgba(16, 24, 40, 0.12));
       pointer-events: auto;
       overflow: hidden; /* clamp host; inner content manages scroll */
     }
@@ -274,16 +276,17 @@ export class WebmapxToolPanel extends LitElement {
       justify-content: space-between;
       align-items: center;
       padding: var(--webmapx-panel-header-padding, var(--webmapx-space-sm, 0.5rem) var(--webmapx-space-lg, 1rem));
-      border-bottom: 1px solid var(--sl-color-neutral-200, #e5e5e5);
-      background: var(--sl-color-neutral-50, #f9f9f9);
+      border-bottom: var(--webmapx-panel-header-divider, 1px solid var(--color-border-light, #e2e7ec));
+      background: var(--webmapx-panel-header-bg, transparent);
       flex-shrink: 0;
     }
 
     .panel-header h3 {
       margin: 0;
       font-size: var(--webmapx-font-size-lg, 1rem);
-      font-weight: var(--sl-font-weight-semibold, 600);
-      color: var(--sl-color-neutral-900, #333);
+      font-weight: 600;
+      letter-spacing: -0.005em;
+      color: var(--color-text-primary, #16202a);
     }
 
     .panel-content {

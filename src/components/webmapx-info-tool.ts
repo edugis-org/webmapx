@@ -16,6 +16,7 @@ import { substituteApiKeys } from '../config/apikeys';
 import { fetchWMSFeatureInfo } from '../map/wms-feature-info';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
+import { DATA_TOOL } from '../theme/data-colors';
 
 const PIN_MARKER_ID = 'webmapx-info-pin';
 
@@ -99,15 +100,15 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
             font-weight: 600;
             letter-spacing: 0.05em;
             text-transform: uppercase;
-            color: var(--color-text-secondary, #666);
+            color: var(--color-text-secondary, #5a6773);
         }
 
         .mode-badge.pinned {
-            color: var(--color-primary, #0f62fe);
+            color: var(--color-primary, #2b6c8f);
         }
 
         .instructions {
-            color: var(--color-text-secondary, #666);
+            color: var(--color-text-secondary, #5a6773);
             font-size: 0.75rem;
             font-style: italic;
             margin: 0;
@@ -137,23 +138,23 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 
         .streetview-caption {
             font-size: 0.7rem;
-            color: var(--color-text-secondary, #666);
+            color: var(--color-text-secondary, #5a6773);
             font-style: italic;
             margin: 0.2rem 0 0;
         }
 
 
         .layer-group {
-            border: 1px solid var(--color-border-light, #eee);
+            border: 1px solid var(--color-border-light, #e2e7ec);
             border-radius: 4px;
             overflow: hidden;
         }
         .feature-limit-notice {
             padding: 0.2rem 0.5rem;
             font-size: 0.7rem;
-            color: var(--color-text-secondary, #888);
+            color: var(--color-text-secondary, #5a6773);
             font-style: italic;
-            border-top: 1px solid var(--color-border-light, #eee);
+            border-top: 1px solid var(--color-border-light, #e2e7ec);
         }
 
         .feature-index {
@@ -163,24 +164,24 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
             padding: 0.15rem 0.5rem;
             font-size: 0.7rem;
             font-weight: 600;
-            color: var(--color-text-secondary, #888);
-            background: var(--color-surface-alt, #f5f5f5);
-            border-top: 1px solid var(--color-border-light, #eee);
+            color: var(--color-text-secondary, #5a6773);
+            background: var(--color-surface-raised, #f4f6f8);
+            border-top: 1px solid var(--color-border-light, #e2e7ec);
         }
         .feature-index::before,
         .feature-index::after {
             content: '';
             flex: 1;
-            border-top: 1px solid var(--color-text-secondary, #888);
+            border-top: 1px solid var(--color-text-secondary, #5a6773);
         }
 
         .layer-title {
-            background: var(--color-surface-alt, #f5f5f5);
+            background: var(--color-surface-raised, #f4f6f8);
             padding: 0.25rem 0.5rem;
             font-weight: 600;
             font-size: 0.75rem;
-            color: var(--color-text-secondary, #555);
-            border-bottom: 1px solid var(--color-border-light, #eee);
+            color: var(--color-text-secondary, #5a6773);
+            border-bottom: 1px solid var(--color-border-light, #e2e7ec);
         }
 
         .props-list {
@@ -195,23 +196,23 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 
         .props-row:nth-child(even) > .props-key,
         .props-row:nth-child(even) > .props-val {
-            background: var(--color-surface-alt, #fafafa);
+            background: var(--color-surface-raised, #f4f6f8);
         }
 
         .props-key {
             min-width: 0;
             padding: 0.2rem 0.5rem;
             font-weight: 500;
-            color: var(--color-text-secondary, #555);
+            color: var(--color-text-secondary, #5a6773);
             overflow-wrap: break-word;
-            border-bottom: 1px solid var(--color-border-light, #f0f0f0);
+            border-bottom: 1px solid var(--color-border-light, #e2e7ec);
         }
 
         .props-val {
             min-width: 0;
             overflow-wrap: break-word;
             padding: 0.2rem 0.5rem;
-            border-bottom: 1px solid var(--color-border-light, #f0f0f0);
+            border-bottom: 1px solid var(--color-border-light, #e2e7ec);
         }
 
         .img-error {
@@ -255,19 +256,19 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
             align-items: center;
             gap: 0.3rem;
             padding: 0.15rem 0.5rem;
-            background: var(--color-surface-alt, #f5f5f5);
-            border-bottom: 1px solid var(--color-border-light, #eee);
+            background: var(--color-surface-raised, #f4f6f8);
+            border-bottom: 1px solid var(--color-border-light, #e2e7ec);
         }
 
         .sub-layer-name {
             font-size: 0.75rem;
             font-weight: 500;
-            color: var(--color-text-secondary, #555);
+            color: var(--color-text-secondary, #5a6773);
         }
 
         .sub-layer-type {
             font-size: 0.65rem;
-            color: var(--color-text-secondary, #888);
+            color: var(--color-text-secondary, #5a6773);
             font-style: italic;
         }
 
@@ -281,20 +282,20 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
             font-size: 0.65rem;
             padding: 0 0.3rem;
             border-radius: 3px;
-            background: var(--color-border-light, #e0e0e0);
-            color: var(--color-text-secondary, #555);
+            background: var(--color-border-light, #e2e7ec);
+            color: var(--color-text-secondary, #5a6773);
             margin-left: 0.25rem;
             vertical-align: middle;
         }
 
         .source-badge.wms {
-            background: var(--color-primary-light, #d0e4ff);
-            color: var(--color-primary, #0043a8);
+            background: var(--color-primary-soft, #e6f0f5);
+            color: var(--color-primary, #2b6c8f);
         }
 
         .empty-hint {
             padding: 0.3rem 0.5rem;
-            color: var(--color-text-secondary, #999);
+            color: var(--color-text-secondary, #5a6773);
             font-size: 0.8rem;
             font-style: italic;
         }
@@ -302,7 +303,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         .elevation-row {
             padding: 0.3rem 0.5rem;
             font-size: 0.8rem;
-            color: var(--color-text-secondary, #555);
+            color: var(--color-text-secondary, #5a6773);
         }
 
         sl-spinner {
@@ -483,7 +484,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         if (this.pinMarkerAdded) {
             this.adapter.moveMarker(PIN_MARKER_ID, coords);
         } else {
-            this.adapter.addMarker(PIN_MARKER_ID, coords, { color: '#0f62fe' });
+            this.adapter.addMarker(PIN_MARKER_ID, coords, { color: DATA_TOOL });
             this.pinMarkerAdded = true;
         }
     }

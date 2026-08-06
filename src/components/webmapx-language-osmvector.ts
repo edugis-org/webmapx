@@ -148,7 +148,7 @@ export class WebmapxLanguageOsmVector extends WebmapxModalTool {
             font-size: 0.875rem;
         }
         .current-en {
-            color: var(--sl-color-neutral-500);
+            color: var(--color-text-muted, #6b7681);
             margin-bottom: 0.25rem;
         }
         sl-select {

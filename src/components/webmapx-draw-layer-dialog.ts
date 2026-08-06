@@ -9,6 +9,7 @@ import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/color-picker/color-picker.js';
 import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
+import { DATA_TOOL } from '../theme/data-colors';
 
 export type GeometryType = 'Point' | 'LineString' | 'Polygon';
 
@@ -48,9 +49,9 @@ const DEFAULT_PROPERTIES: PropertyDef[] = [
 ];
 
 const DEFAULT_COLORS: Record<GeometryType, string> = {
-    Point:      '#0f62fe',
-    LineString: '#0f62fe',
-    Polygon:    '#0f62fe',
+    Point:      DATA_TOOL,
+    LineString: DATA_TOOL,
+    Polygon:    DATA_TOOL,
 };
 
 function newLayerConfig(type: GeometryType): DrawLayerConfig {
@@ -126,7 +127,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
             font-size: var(--webmapx-font-size-md, 0.9rem);
         }
 
-        .layer-option:hover { background: var(--sl-color-neutral-100); }
+        .layer-option:hover { background: var(--color-background-secondary, #f4f6f8); }
 
         .layer-option.selected {
             background: var(--sl-color-primary-100);
@@ -139,7 +140,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
             flex-shrink: 0;
         }
 
-        .new-icon { color: var(--sl-color-neutral-500); font-size: var(--webmapx-font-size-lg, 1rem); }
+        .new-icon { color: var(--color-text-muted, #6b7681); font-size: var(--webmapx-font-size-lg, 1rem); }
 
         .prop-table {
             width: 100%;
@@ -150,24 +151,24 @@ export class WebmapxDrawLayerDialog extends LitElement {
 
         .prop-table th {
             text-align: left;
-            background: var(--sl-color-neutral-100);
+            background: var(--color-background-secondary, #f4f6f8);
             padding: var(--webmapx-space-xs, 0.25rem) var(--webmapx-space-xs, 0.4rem);
-            border-bottom: 1px solid var(--sl-color-neutral-200);
+            border-bottom: 1px solid var(--color-border-light, #e2e7ec);
         }
 
         .prop-table td {
             padding: var(--webmapx-space-xs, 0.2rem) var(--webmapx-space-xs, 0.4rem);
-            border-bottom: 1px solid var(--sl-color-neutral-100);
+            border-bottom: 1px solid var(--color-border-light, #e2e7ec);
             vertical-align: middle;
         }
 
         .prop-table tr:last-child td { border-bottom: none; }
 
-        .prop-row-auto td { color: var(--sl-color-neutral-400); font-style: italic; }
+        .prop-row-auto td { color: var(--color-text-muted, #6b7681); font-style: italic; }
 
         .type-computed { color: var(--sl-color-primary-600); font-size: var(--webmapx-font-size-sm, 0.75rem); }
 
-        .add-row td { background: var(--sl-color-neutral-50); }
+        .add-row td { background: var(--color-surface-raised, #f4f6f8); }
 
         .add-row sl-input,
         .add-row sl-select { font-size: var(--webmapx-font-size-md, 0.85rem); }
@@ -183,7 +184,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
             padding: 0;
             width: 32px; height: 32px;
             border-radius: var(--webmapx-radius-sm, 4px);
-            border: 1px solid var(--sl-color-neutral-300);
+            border: 1px solid var(--color-border, #d5dce3);
             cursor: pointer;
             flex-shrink: 0;
         }
@@ -310,7 +311,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
                     </button>
                 `)}
                 ${this.mapLayers.length > 0 ? html`
-                    <div style="font-size:0.72rem;color:var(--sl-color-neutral-500);padding:0.4rem 0.2rem 0.1rem;text-transform:uppercase;letter-spacing:0.05em">Map layers</div>
+                    <div style="font-size:0.72rem;color:var(--color-text-muted, #6b7681);padding:0.4rem 0.2rem 0.1rem;text-transform:uppercase;letter-spacing:0.05em">Map layers</div>
                     ${this.mapLayers.map(l => html`
                         <button type="button" class="layer-option ${this.selectedId === l.layerId ? 'selected' : ''}"
                              aria-pressed=${this.selectedId === l.layerId}
@@ -318,7 +319,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
                              @dblclick=${() => { this.selectOption(l.layerId); this.goToDetail(); }}>
                             <span class="new-icon" style="color:var(--sl-color-warning-600)">✎</span>
                             <span>${l.label}</span>
-                            <span style="font-size:0.7rem;color:var(--sl-color-neutral-400);margin-left:auto">map layer</span>
+                            <span style="font-size:0.7rem;color:var(--color-text-muted, #6b7681);margin-left:auto">map layer</span>
                         </button>
                     `)}
                 ` : ''}

@@ -52,16 +52,18 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
       display: inline-flex;
       pointer-events: auto;
       font-size: var(--webmapx-navigation-font-size, var(--font-size-small, 12px));
-      color: var(--webmapx-navigation-color, var(--sl-color-neutral-700, var(--color-text-primary, #1a1a1a)));
+      color: var(--webmapx-navigation-color, var(--color-text-primary, #16202a));
     }
 
     .nav-shell {
       display: inline-flex;
-      background: var(--webmapx-navigation-bg, var(--sl-color-neutral-0, #ffffff));
-      border: var(--webmapx-navigation-border, 1px solid var(--sl-color-neutral-200, #e5e5e5));
-      box-shadow: var(--webmapx-navigation-shadow, var(--sl-shadow-small, var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05))));
+      background: var(--webmapx-navigation-bg, rgb(var(--color-surface-rgb, 255 255 255) / var(--webmapx-surface-alpha, 1)));
+      -webkit-backdrop-filter: var(--webmapx-surface-blur, none);
+      backdrop-filter: var(--webmapx-surface-blur, none);
+      border: var(--webmapx-navigation-border, var(--webmapx-surface-border, 1px solid var(--color-border-light, #e2e7ec)));
+      box-shadow: var(--webmapx-navigation-shadow, var(--webmapx-surface-shadow, 0 1px 2px rgba(16, 24, 40, 0.07)));
       overflow: hidden;
-      border-radius: var(--webmapx-navigation-radius, 0);
+      border-radius: var(--webmapx-navigation-radius, var(--webmapx-surface-radius, 6px));
       touch-action: none;
     }
 
@@ -73,13 +75,18 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
       flex-direction: row;
     }
 
+    .nav-btn:focus-visible {
+      outline: var(--webmapx-focus-ring, 2px solid var(--color-primary, #2b6c8f));
+      outline-offset: calc(-1 * var(--webmapx-focus-offset, 2px));
+    }
+
     .nav-btn {
       appearance: none;
       border: none;
       background: transparent;
       box-sizing: border-box;
-      width: var(--webmapx-navigation-button-size, 28px);
-      height: var(--webmapx-navigation-button-size, 28px);
+      width: var(--webmapx-navigation-button-size, var(--webmapx-hit-size, 36px));
+      height: var(--webmapx-navigation-button-size, var(--webmapx-hit-size, 36px));
       padding: 0;
       display: inline-flex;
       align-items: center;
@@ -91,17 +98,17 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
     }
 
     .nav-btn + .nav-btn {
-      border-top: 1px solid var(--webmapx-navigation-separator-color, var(--sl-color-neutral-200, #e5e5e5));
+      border-top: 1px solid var(--webmapx-navigation-separator-color, var(--color-border-light, #e2e7ec));
     }
 
     :host([orientation='horizontal']) .nav-btn + .nav-btn {
       border-top: none;
-      border-left: 1px solid var(--webmapx-navigation-separator-color, var(--sl-color-neutral-200, #e5e5e5));
+      border-left: 1px solid var(--webmapx-navigation-separator-color, var(--color-border-light, #e2e7ec));
     }
 
     .nav-btn:hover:not(:disabled) {
-      background: var(--webmapx-navigation-hover-bg, var(--sl-color-primary-50, #f0f9ff));
-      color: var(--webmapx-navigation-hover-color, var(--sl-color-primary-700, #0369a1));
+      background: var(--webmapx-navigation-hover-bg, var(--color-background-hover, rgba(22, 32, 42, 0.06)));
+      color: var(--webmapx-navigation-hover-color, var(--color-text-primary, #16202a));
     }
 
     .nav-btn:active:not(:disabled) {
@@ -125,11 +132,11 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
       width: 16px;
       height: 16px;
       border-radius: 50%;
-      border: 1.5px solid var(--webmapx-navigation-separator-color, var(--sl-color-neutral-200, #e5e5e5));
+      border: 1.5px solid var(--webmapx-navigation-separator-color, var(--color-border-light, #e2e7ec));
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background: var(--webmapx-navigation-bg, var(--sl-color-neutral-0, #ffffff));
+      background: var(--webmapx-navigation-bg, var(--color-surface, #fff));
       transform-style: preserve-3d;
       transition: transform 120ms ease;
     }
@@ -139,7 +146,7 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
       height: 0;
       border-left: 4px solid transparent;
       border-right: 4px solid transparent;
-      border-bottom: 7px solid var(--color-primary, #007bff);
+      border-bottom: 7px solid var(--color-primary, #2b6c8f);
       transform-origin: center 70%;
       filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.2));
     }

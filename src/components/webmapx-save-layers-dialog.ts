@@ -62,12 +62,12 @@ export class WebmapxSaveLayersDialog extends LitElement {
         }
 
         .unsupported {
-            color: var(--sl-color-neutral-400);
+            color: var(--color-text-muted, #6b7681);
             font-size: var(--webmapx-font-size-sm, 0.8rem);
         }
 
         .external-hint {
-            color: var(--sl-color-neutral-500);
+            color: var(--color-text-muted, #6b7681);
             font-size: var(--webmapx-font-size-sm, 0.8rem);
         }
 

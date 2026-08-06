@@ -139,7 +139,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
 
     .format-line.active-format .format-label::after {
       content: ' ✓';
-      color: var(--color-primary, #007acc);
+      color: var(--color-primary, #2b6c8f);
     }
 
     .value {
@@ -159,7 +159,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
       position: absolute;
       left: 0;
       right: 0;
-      background: var(--color-background-primary, #ffffff);
+      background: var(--color-background, #fff);
       border: 1px solid var(--color-border);
       box-shadow: var(--webmapx-shadow-md, 0 4px 12px rgba(0, 0, 0, 0.15));
       padding: 8px;
@@ -192,7 +192,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
     }
 
     .format-line + .format-line {
-      border-top: 1px solid var(--color-border-light, #e0e0e0);
+      border-top: 1px solid var(--color-border-light, #e2e7ec);
     }
 
     .format-content {
@@ -205,7 +205,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
 
     .format-label {
       font-size: 0.75em;
-      color: var(--color-text-secondary, #666);
+      color: var(--color-text-secondary, #5a6773);
       text-transform: uppercase;
       letter-spacing: 0.05em;
       font-weight: 600;
@@ -214,7 +214,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
     .format-value {
       font-family: monospace;
       font-size: 0.9em;
-      color: var(--color-text-primary, #000);
+      color: var(--color-text-primary, #16202a);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -224,10 +224,10 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
       flex-shrink: 0;
       padding: 4px 8px;
       background: transparent;
-      border: 1px solid var(--color-border, #ccc);
+      border: 1px solid var(--color-border, #d5dce3);
       border-radius: var(--webmapx-radius-xs, 3px);
       cursor: pointer;
-      color: var(--color-text-primary, #000);
+      color: var(--color-text-primary, #16202a);
       font-size: 0.85em;
       transition: all 0.15s ease;
       display: flex;
@@ -236,9 +236,9 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
     }
 
     .copy-button:hover {
-      background: var(--color-primary, #007acc);
+      background: var(--color-primary, #2b6c8f);
       color: white;
-      border-color: var(--color-primary, #007acc);
+      border-color: var(--color-primary, #2b6c8f);
     }
 
     .copy-button:active {
@@ -258,7 +258,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
     .loading-indicator {
       padding: 8px;
       text-align: center;
-      color: var(--color-text-secondary, #666);
+      color: var(--color-text-secondary, #5a6773);
       font-size: 0.85em;
       font-style: italic;
     }
@@ -266,7 +266,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
     .crs-section-header {
       padding: 8px;
       font-size: 0.75em;
-      color: var(--color-text-secondary, #666);
+      color: var(--color-text-secondary, #5a6773);
       text-transform: uppercase;
       letter-spacing: 0.05em;
       font-weight: 600;
@@ -276,7 +276,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
 
     .accuracy-note {
       font-size: 0.7em;
-      color: var(--color-text-secondary, #999);
+      color: var(--color-text-secondary, #5a6773);
       font-style: italic;
       margin-top: 2px;
     }

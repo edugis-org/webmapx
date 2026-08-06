@@ -42,7 +42,7 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
       margin: var(--webmapx-tool-margin, 0);
       pointer-events: auto;
       font-size: var(--font-size-small, 12px);
-      color: var(--webmapx-scale-color, var(--color-text-primary, #1a1a1a));
+      color: var(--webmapx-scale-color, var(--color-text-primary, #16202a));
     }
 
     .scale-shell {
@@ -52,10 +52,10 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
       height: 22px;
       padding: 0;
       margin: 0;
-      background: var(--webmapx-scale-bg, var(--color-background, #ffffff));
-      border-left: var(--webmapx-scale-border-thickness, 2px) solid var(--webmapx-scale-border-color, #000);
-      border-right: var(--webmapx-scale-border-thickness, 2px) solid var(--webmapx-scale-border-color, #000);
-      border-bottom: var(--webmapx-scale-border-thickness, 2px) solid var(--webmapx-scale-border-color, #000);
+      background: var(--webmapx-scale-bg, transparent);
+      border-left: var(--webmapx-scale-border-thickness, 2px) solid var(--webmapx-scale-border-color, var(--color-text-primary, #16202a));
+      border-right: var(--webmapx-scale-border-thickness, 2px) solid var(--webmapx-scale-border-color, var(--color-text-primary, #16202a));
+      border-bottom: var(--webmapx-scale-border-thickness, 2px) solid var(--webmapx-scale-border-color, var(--color-text-primary, #16202a));
       box-sizing: border-box;
       user-select: none;
     }
@@ -69,7 +69,7 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
     }
 
     .muted {
-      color: var(--color-text-secondary, #666666);
+      color: var(--color-text-secondary, #5a6773);
     }
   `;
 

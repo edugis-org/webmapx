@@ -307,27 +307,27 @@ export class WebmapxConfigEditTool extends LitElement {
     static styles = css`
         :host { display: block; padding: 0.75rem; box-sizing: border-box; min-width: 260px; }
         h4 { margin: 0 0 0.6rem; font-size: var(--webmapx-font-size-md, 0.85rem); font-weight: 600; display: flex; align-items: center; gap: 0.4rem; }
-        .section-label { font-size: var(--webmapx-font-size-sm, 0.78rem); font-weight: 600; color: var(--sl-color-neutral-600); margin: 0.75rem 0 0.3rem; text-transform: uppercase; letter-spacing: .04em; }
-        .toolbar-label { font-size: var(--webmapx-font-size-sm, 0.8rem); font-weight: 600; color: var(--sl-color-neutral-700); margin: 0.5rem 0 0.25rem; }
+        .section-label { font-size: var(--webmapx-font-size-sm, 0.78rem); font-weight: 600; color: var(--color-text-secondary, #5a6773); margin: 0.75rem 0 0.3rem; text-transform: uppercase; letter-spacing: .04em; }
+        .toolbar-label { font-size: var(--webmapx-font-size-sm, 0.8rem); font-weight: 600; color: var(--color-text-secondary, #5a6773); margin: 0.5rem 0 0.25rem; }
 
         /* Tool rows */
         .tool-list { display: flex; flex-direction: column; gap: 2px; }
         .tool-row {
             display: flex; align-items: center; gap: 0.25rem;
             padding: 0.2rem 0.3rem; border-radius: var(--webmapx-radius-sm, 4px);
-            border: 1px solid var(--sl-color-neutral-200);
-            background: var(--sl-color-neutral-0);
+            border: 1px solid var(--color-border-light, #e2e7ec);
+            background: var(--color-surface, #fff);
             font-size: var(--webmapx-font-size-sm, 0.82rem);
         }
         .tool-row.drag-over { outline: 2px solid var(--sl-color-primary-500); background: var(--sl-color-primary-50); }
         .tool-row.dragging  { opacity: 0.4; }
-        .drag-handle { cursor: grab; color: var(--sl-color-neutral-400); user-select: none; flex-shrink: 0; }
+        .drag-handle { cursor: grab; color: var(--color-text-muted, #6b7681); user-select: none; flex-shrink: 0; }
         .drag-handle:active { cursor: grabbing; }
         .tool-name { flex: 1; }
 
         /* Toolbox sub-section */
-        .toolbox-sub { margin: 2px 0 2px 1rem; padding: 0.25rem 0.4rem; border-left: 2px solid var(--sl-color-neutral-300); }
-        .toolbox-sub-label { font-size: 0.73rem; color: var(--sl-color-neutral-500); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 0.2rem; }
+        .toolbox-sub { margin: 2px 0 2px 1rem; padding: 0.25rem 0.4rem; border-left: 2px solid var(--color-border, #d5dce3); }
+        .toolbox-sub-label { font-size: 0.73rem; color: var(--color-text-muted, #6b7681); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 0.2rem; }
 
         /* Map controls (no drag) */
         .control-row { display: flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.3rem; font-size: var(--webmapx-font-size-sm, 0.82rem); }
@@ -343,8 +343,8 @@ export class WebmapxConfigEditTool extends LitElement {
         /* Popup */
         .prop-popup {
             position: fixed;
-            background: #fff;
-            border: 1px solid #ccc;
+            background: var(--color-surface, #fff);
+            border: 1px solid var(--color-border, #d5dce3);
             border-radius: var(--webmapx-radius-md, 6px);
             box-shadow: var(--webmapx-shadow-lg, 0 4px 16px rgba(0,0,0,.18));
             padding: 0.7rem;
@@ -354,18 +354,18 @@ export class WebmapxConfigEditTool extends LitElement {
             max-height: 480px;
             overflow-y: auto;
         }
-        .prop-popup h3 { margin: 0 0 0.5rem; font-size: var(--webmapx-font-size-md, 0.85rem); border-bottom: 1px solid #eee; padding-bottom: 0.35rem; }
+        .prop-popup h3 { margin: 0 0 0.5rem; font-size: var(--webmapx-font-size-md, 0.85rem); border-bottom: 1px solid var(--color-border-light, #e2e7ec); padding-bottom: 0.35rem; }
         .prop-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; font-size: var(--webmapx-font-size-sm, 0.8rem); }
-        .prop-row label { flex: 0 0 120px; color: #555; }
+        .prop-row label { flex: 0 0 120px; color: var(--color-text-secondary, #5a6773); }
         .prop-row input[type="text"],
         .prop-row input[type="number"],
-        .prop-row select { flex: 1; padding: 0.15rem 0.3rem; font-size: var(--webmapx-font-size-sm, 0.8rem); border: 1px solid #ccc; border-radius: var(--webmapx-radius-xs, 3px); }
+        .prop-row select { flex: 1; padding: 0.15rem 0.3rem; font-size: var(--webmapx-font-size-sm, 0.8rem); border: 1px solid var(--color-border, #d5dce3); border-radius: var(--webmapx-radius-xs, 3px); }
         .prop-row input[type="checkbox"] { width: 1rem; height: 1rem; }
         .prop-row textarea { flex: 1; font-size: var(--webmapx-font-size-sm, 0.78rem); font-family: monospace; border: 1px solid #ccc; border-radius: var(--webmapx-radius-xs, 3px); padding: 0.2rem; resize: vertical; }
         .prop-row textarea.json-invalid { border-color: red; }
         .prop-footer { display: flex; justify-content: flex-end; gap: 0.4rem; margin-top: 0.5rem; }
-        .prop-footer button { padding: 0.25rem 0.6rem; font-size: var(--webmapx-font-size-sm, 0.8rem); border-radius: var(--webmapx-radius-xs, 3px); cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; }
-        .prop-footer .btn-apply { background: #0f62fe; color: #fff; border-color: #0f62fe; }
+        .prop-footer button { padding: 0.25rem 0.6rem; font-size: var(--webmapx-font-size-sm, 0.8rem); border-radius: var(--webmapx-radius-xs, 3px); cursor: pointer; border: 1px solid var(--color-border, #d5dce3); background: var(--color-surface-raised, #f4f6f8); }
+        .prop-footer .btn-apply { background: var(--color-primary, #2b6c8f); color: var(--color-on-primary, #fff); border-color: var(--color-primary, #2b6c8f); }
     `;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -735,7 +735,7 @@ export class WebmapxConfigEditTool extends LitElement {
         return html`
             <div class="prop-popup" style="top:${top}px;left:${left}px" @mousedown=${(e: Event) => e.stopPropagation()}>
                 <h3>${label} options</h3>
-                ${fields.length === 0 ? html`<p style="font-size:0.8rem;color:#888;margin:0">No editable options.</p>` : nothing}
+                ${fields.length === 0 ? html`<p style="font-size:0.8rem;color:var(--color-text-muted,#6b7681);margin:0">No editable options.</p>` : nothing}
                 ${fields.map(([k, v]) => {
                     const options = PROP_OPTIONS[k];
                     return html`

@@ -87,11 +87,11 @@ export class WebmapxExampleTool extends WebmapxModalTool {
             display: flex;
             justify-content: space-between;
             padding: 0.5rem 0;
-            border-bottom: 1px solid var(--sl-color-neutral-200);
+            border-bottom: 1px solid var(--color-border-light, #e2e7ec);
         }
 
         .stat-label {
-            color: var(--sl-color-neutral-600);
+            color: var(--color-text-secondary, #5a6773);
         }
 
         .stat-value {
@@ -100,7 +100,7 @@ export class WebmapxExampleTool extends WebmapxModalTool {
         }
 
         .instructions {
-            color: var(--sl-color-neutral-500);
+            color: var(--color-text-muted, #6b7681);
             font-size: 0.75rem;
             font-style: italic;
             margin-top: 1rem;

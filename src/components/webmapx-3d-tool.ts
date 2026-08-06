@@ -15,17 +15,17 @@ export class Webmapx3dTool extends WebmapxBaseTool {
 
     static styles = [controlSurfaceStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: var(--webmapx-font-size-md, 0.875rem); }
-        .unsupported { color: var(--sl-color-neutral-500, #888); font-style: italic; }
+        .unsupported { color: var(--color-text-muted, #6b7681); font-style: italic; }
         label { display: block; font-weight: 600; margin-bottom: var(--webmapx-space-xs, 0.25rem); }
         .pitch-buttons { display: flex; gap: var(--webmapx-space-sm, 0.5rem); margin-bottom: var(--webmapx-space-md, 0.75rem); }
         .pitch-buttons button {
-            flex: 1; padding: 0.35rem 0; border: 1px solid var(--color-border, #d7dce3);
+            flex: 1; padding: 0.35rem 0; border: 1px solid var(--color-border, #d5dce3);
             border-radius: var(--webmapx-radius-sm, 4px); background-color: var(--color-background, #fff); cursor: pointer; font-size: var(--webmapx-font-size-md, 0.875rem);
         }
         .pitch-buttons button.active {
-            background-color: var(--color-primary, #0f62fe); color: #fff; border-color: var(--color-primary, #0f62fe);
+            background-color: var(--color-primary, #2b6c8f); color: #fff; border-color: var(--color-primary, #2b6c8f);
         }
-        .pitch-hint { font-size: var(--webmapx-font-size-sm, 0.8rem); color: var(--sl-color-neutral-600, #555); margin-bottom: var(--webmapx-space-sm, 0.5rem); line-height: 1.5; }
+        .pitch-hint { font-size: var(--webmapx-font-size-sm, 0.8rem); color: var(--color-text-secondary, #5a6773); margin-bottom: var(--webmapx-space-sm, 0.5rem); line-height: 1.5; }
         .terrain-row { display: flex; align-items: center; gap: var(--webmapx-space-sm, 0.5rem); }
     `];
 

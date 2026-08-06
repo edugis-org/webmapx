@@ -17,6 +17,7 @@ import type { WebmapxDrawLayerDialog, DrawLayerConfig, GeometryType } from './we
 import { unregisterMapLayer } from '../map/map-layer-registry';
 import { flatVertices, flatEdges, findSnap } from '../utils/snap-utils';
 import { haversineDistanceCm, formatDistance, circlePolygonRing } from '../utils/geo-calculations';
+import { DATA_TOOL, DATA_TOOL_HALO } from '../theme/data-colors';
 
 // ─── Shared source / layer IDs ────────────────────────────────────────────────
 
@@ -213,7 +214,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
         .help {
             font-size: 0.8rem;
-            color: var(--sl-color-neutral-600);
+            color: var(--color-text-secondary, #5a6773);
             margin-bottom: 0.5rem;
             min-height: 2.5em;
         }
@@ -226,7 +227,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             font-size: 0.7rem;
             text-transform: uppercase;
             letter-spacing: 0.06em;
-            color: var(--sl-color-neutral-500);
+            color: var(--color-text-muted, #6b7681);
             margin-bottom: 0.25rem;
         }
 
@@ -257,7 +258,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }
 
         .layer-row:hover {
-            background: var(--sl-color-neutral-100);
+            background: var(--color-background-secondary, #f4f6f8);
         }
 
         .remove-layer-btn {
@@ -281,7 +282,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
         .layer-type {
             font-size: 0.7rem;
-            color: var(--sl-color-neutral-500);
+            color: var(--color-text-muted, #6b7681);
         }
 
         .features-section {
@@ -300,17 +301,17 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             font-size: 0.82rem;
         }
 
-        .feature-row:hover { background: var(--sl-color-neutral-100); }
+        .feature-row:hover { background: var(--color-background-secondary, #f4f6f8); }
         .feature-row.selected { background: var(--sl-color-primary-100); }
 
         .divider {
             width: 1px; height: 1.2rem;
-            background: var(--sl-color-neutral-200);
+            background: var(--color-background-secondary, #f4f6f8);
             margin: 0 0.1rem;
         }
 
         .prop-row { display: flex; gap: 0.4rem; align-items: center; font-size: 0.82rem; margin-bottom: 0.2rem; }
-        .prop-label { width: 80px; color: var(--sl-color-neutral-500); flex-shrink: 0; }
+        .prop-label { width: 80px; color: var(--color-text-muted, #6b7681); flex-shrink: 0; }
         .prop-value { flex: 1; min-width: 0; }
         .prop-link { display: block; width: 100%; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .prop-img { max-width: 100%; max-height: 80px; border-radius: 3px; object-fit: cover; }
@@ -414,7 +415,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.dispatch('webmapx-add-layer', {
             id: RUBBER_LINE_ID, type: 'line', source: RUBBER_SOURCE_ID,
             metadata: { isToolLayer: true, hideFromLegend: true },
-            paint: { 'line-color': '#0f62fe', 'line-width': 2, 'line-dasharray': [4, 4] }
+            paint: { 'line-color': DATA_TOOL, 'line-width': 2, 'line-dasharray': [4, 4] }
         });
         this.dispatch('webmapx-add-layer', {
             id: VERTEX_LAYER_ID, type: 'circle', source: VERTEX_SOURCE_ID,
@@ -438,7 +439,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.dispatch('webmapx-add-layer', {
             id: DRAFT_POINT_ID, type: 'circle', source: DRAFT_SOURCE_ID,
             metadata: { isToolLayer: true, hideFromLegend: true },
-            paint: { 'circle-radius': 5, 'circle-color': '#fff', 'circle-stroke-width': 2, 'circle-stroke-color': '#0f62fe' }
+            paint: { 'circle-radius': 5, 'circle-color': DATA_TOOL_HALO, 'circle-stroke-width': 2, 'circle-stroke-color': DATA_TOOL }
         });
 
         // Vertex editing handles
@@ -446,7 +447,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.dispatch('webmapx-add-layer', {
             id: EDIT_VERT_LAYER, type: 'circle', source: EDIT_VERT_SOURCE,
             metadata: { isToolLayer: true, hideFromLegend: true },
-            paint: { 'circle-radius': 6, 'circle-color': '#fff', 'circle-stroke-width': 2, 'circle-stroke-color': '#0f62fe' }
+            paint: { 'circle-radius': 6, 'circle-color': DATA_TOOL_HALO, 'circle-stroke-width': 2, 'circle-stroke-color': DATA_TOOL }
         });
 
         // Midpoint handles (insert-vertex affordance)
@@ -454,7 +455,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.dispatch('webmapx-add-layer', {
             id: EDIT_MID_LAYER, type: 'circle', source: EDIT_MID_SOURCE,
             metadata: { isToolLayer: true, hideFromLegend: true },
-            paint: { 'circle-radius': 4, 'circle-color': '#fff', 'circle-stroke-width': 1.5, 'circle-stroke-color': '#0f62fe', 'circle-opacity': 0.7 }
+            paint: { 'circle-radius': 4, 'circle-color': DATA_TOOL_HALO, 'circle-stroke-width': 1.5, 'circle-stroke-color': DATA_TOOL, 'circle-opacity': 0.7 }
         });
 
         // Selected vertex highlight (delete with Delete/Backspace)
@@ -2207,7 +2208,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                                 <span class="color-dot" style="background:${l.color}"></span>
                                 <span class="layer-name">${l.name}</span>
                                 <span class="layer-type">${l.type === 'LineString' ? 'Line' : l.type}</span>
-                                <small style="color:var(--sl-color-neutral-400);font-size:.7rem">${this.features.filter(f => f.layerId === l.id).length}</small>
+                                <small style="color:var(--color-text-muted, #6b7681);font-size:.7rem">${this.features.filter(f => f.layerId === l.id).length}</small>
                             </button>
                             ${this.drawLayers.length > 1 ? html`
                                 <sl-tooltip content="Stop editing">
@@ -2227,7 +2228,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                     <div class="prop-row">
                         <span class="prop-label">${p.name}</span>
                         ${p.name === 'id' || ['longitude','latitude','area','perimeter','length','create-time','update-time'].includes(p.type)
-                            ? html`<span class="prop-value" style="color:var(--sl-color-neutral-400);font-style:italic;padding:0 0.3rem">${
+                            ? html`<span class="prop-value" style="color:var(--color-text-muted, #6b7681);font-style:italic;padding:0 0.3rem">${
                                 ['create-time','update-time'].includes(p.type)
                                     ? (selFeature.properties[p.name] ? new Date(selFeature.properties[p.name] as number).toLocaleString() : '—')
                                     : (selFeature.properties[p.name] ?? '—')

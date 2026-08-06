@@ -252,8 +252,8 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     .title sl-spinner {
       font-size: 1em;
       --track-width: 2px;
-      --indicator-color: var(--sl-color-neutral-900);
-      --track-color: var(--sl-color-neutral-300);
+      --indicator-color: var(--color-text-primary, #16202a);
+      --track-color: var(--color-border, #d5dce3);
     }
 
     .status {

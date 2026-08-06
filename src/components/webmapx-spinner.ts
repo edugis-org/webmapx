@@ -47,15 +47,15 @@ export class WebmapxSpinner extends WebmapxBaseTool {
             font-size: 1.5rem;
             --track-width: 3px;
             --indicator-color: var(--sl-color-primary-600);
-            --track-color: var(--sl-color-neutral-200);
+            --track-color: var(--color-border-light, #e2e7ec);
         }
         :host([small]) sl-spinner {
             font-size: 1em;
             --track-width: 2px;
         }
         :host([nocolor]) sl-spinner {
-            --indicator-color: var(--sl-color-neutral-900);
-            --track-color: var(--sl-color-neutral-300);
+            --indicator-color: var(--color-text-primary, #16202a);
+            --track-color: var(--color-border, #d5dce3);
         }
     `;
 

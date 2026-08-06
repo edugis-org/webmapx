@@ -41,7 +41,7 @@ export class WebmapxToolTemplate extends WebmapxBaseTool {
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            color: var(--color-text-secondary, #666);
+            color: var(--color-text-secondary, #5a6773);
         }
         .radius-row {
             display: flex;

@@ -345,7 +345,7 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
             width: 100%;
             padding: 0.5rem;
             border: 0;
-            border-bottom: 1px solid var(--color-border-light, #eee);
+            border-bottom: 1px solid var(--color-border-light, #e2e7ec);
             background: transparent;
             font: inherit;
             color: inherit;
@@ -354,7 +354,7 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
         }
 
         .story-list-item:hover {
-            background: var(--color-surface-hover, #f5f5f5);
+            background: var(--color-background-hover, #f5f5f5);
         }
 
         .story-name {
@@ -362,7 +362,7 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
         }
 
         .story-description {
-            color: var(--color-text-secondary, #666);
+            color: var(--color-text-secondary, #5a6773);
             font-size: 0.8125rem;
         }
 
@@ -384,7 +384,7 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
         }
 
         .step-content {
-            border-top: 1px solid var(--color-border-light, #eee);
+            border-top: 1px solid var(--color-border-light, #e2e7ec);
             padding-top: 0.5rem;
             max-height: 20rem;
             overflow-y: auto;
@@ -403,7 +403,7 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
         }
 
         .step-counter {
-            color: var(--color-text-secondary, #666);
+            color: var(--color-text-secondary, #5a6773);
             font-size: 0.75rem;
         }
 
@@ -411,7 +411,7 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            color: var(--color-text-secondary, #666);
+            color: var(--color-text-secondary, #5a6773);
         }
     `;
 

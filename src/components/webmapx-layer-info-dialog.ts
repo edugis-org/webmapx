@@ -53,19 +53,19 @@ export class WebmapxLayerInfoDialog extends LitElement {
         .abstract img { max-width: 100%; }
 
         .placeholder {
-            color: var(--sl-color-neutral-500);
+            color: var(--color-text-muted, #6b7681);
             font-style: italic;
         }
 
         .layer-meta {
             margin-top: 0.75rem;
             padding-top: 0.5rem;
-            border-top: 1px solid var(--sl-color-neutral-200);
+            border-top: 1px solid var(--color-border-light, #e2e7ec);
         }
 
         .feature-summary {
             font-size: var(--webmapx-font-size-md, 0.85rem);
-            color: var(--sl-color-neutral-600);
+            color: var(--color-text-secondary, #5a6773);
         }
 
         .feature-summary + .attribution {
@@ -74,14 +74,14 @@ export class WebmapxLayerInfoDialog extends LitElement {
 
         .attribution {
             font-size: var(--webmapx-font-size-sm, 0.8rem);
-            color: var(--sl-color-neutral-500);
+            color: var(--color-text-muted, #6b7681);
         }
 
         .loading {
             display: flex;
             align-items: center;
             gap: var(--webmapx-space-sm, 0.5rem);
-            color: var(--sl-color-neutral-500);
+            color: var(--color-text-muted, #6b7681);
         }
 
         .footer {

@@ -88,7 +88,7 @@ export class WebmapxBufferTool extends WebmapxModalTool {
             align-items: center;
             gap: var(--sl-spacing-x-small);
             font-size: var(--sl-font-size-x-small);
-            color: var(--sl-color-neutral-600);
+            color: var(--color-text-secondary, #5a6773);
         }
 
         sl-alert {

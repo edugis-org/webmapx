@@ -196,7 +196,7 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
             --webmapx-pointer-events: none;
             pointer-events: none;
             font-size: var(--webmapx-font-size-sm, 11px);
-            color: var(--color-text-secondary, #444);
+            color: var(--color-text-secondary, #5a6773);
             box-sizing: border-box;
         }
 
@@ -205,7 +205,9 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
             align-items: center;
             max-width: 80%;
             flex: 0 1 auto;
-            background: rgba(255, 255, 255, 0.85);
+            background: rgb(var(--color-surface-rgb, 255 255 255) / calc(var(--webmapx-surface-alpha, 1) * 0.85));
+            -webkit-backdrop-filter: var(--webmapx-surface-blur, none);
+            backdrop-filter: var(--webmapx-surface-blur, none);
             border-radius: var(--webmapx-radius-sm, 4px) var(--webmapx-radius-sm, 4px) 0 0;
             box-sizing: border-box;
             pointer-events: none;

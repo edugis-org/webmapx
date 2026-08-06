@@ -54,7 +54,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             background: linear-gradient(
                 to bottom,
                 rgba(255, 255, 255, 0),
-                var(--webmapx-legend-bg, var(--color-background, #ffffff))
+                var(--webmapx-legend-bg, var(--color-background, #fff))
             );
         }
         .legend-toggle {
@@ -65,7 +65,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             padding: 0;
             border: 0;
             background: none;
-            color: var(--webmapx-legend-title-color, var(--color-primary, #0f62fe));
+            color: var(--webmapx-legend-title-color, var(--color-primary, #2b6c8f));
             font: inherit;
             font-size: 0.75rem;
             line-height: 1.2;
@@ -75,30 +75,30 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             text-decoration: underline;
         }
         .legend-row { display: flex; align-items: center; gap: 6px; min-height: 18px; width: 100%; padding: 0; border: 0; background: transparent; font: inherit; color: inherit; text-align: left; }
-        .legend-label { font-size: 0.75rem; color: var(--color-text-primary, #1f2937); line-height: 1.2; }
+        .legend-label { font-size: 0.75rem; color: var(--color-text-primary, #16202a); line-height: 1.2; }
         .legend-img { max-width: 100%; width: auto; height: auto; display: block; border-radius: 3px; align-self: flex-start; }
         .img-error { font-size: 0.75rem; color: var(--sl-color-danger-600, #c0392b); font-style: italic; }
-        .sub-group-title { font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary, #555); margin-top: 4px; }
+        .sub-group-title { font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary, #5a6773); margin-top: 4px; }
         .sub-row { padding-left: 8px; }
         .editable { cursor: pointer; }
-        .editable:hover { background: var(--sl-color-neutral-100, #f4f4f4); }
+        .editable:hover { background: var(--color-background-secondary, #f4f6f8); }
         .style-editor {
             display: flex;
             flex-direction: column;
             gap: 4px;
             padding: 6px 4px 8px 8px;
             font-size: 0.75rem;
-            color: var(--color-text-primary, #1f2937);
+            color: var(--color-text-primary, #16202a);
         }
         .style-editor-row { display: flex; align-items: center; gap: 6px; }
         .style-editor-row label { flex: 0 0 5.5rem; }
         .style-editor-row input[type='range'] { flex: 1 1 auto; min-width: 0; }
-        .style-editor-row output { flex: 0 0 2.5rem; text-align: right; color: var(--color-text-secondary, #555); }
+        .style-editor-row output { flex: 0 0 2.5rem; text-align: right; color: var(--color-text-secondary, #5a6773); }
         .color-swatch {
             width: 20px;
             height: 12px;
             padding: 0;
-            border: 1px solid var(--sl-color-neutral-300, #ccc);
+            border: 1px solid var(--color-border, #d5dce3);
             border-radius: 3px;
             cursor: pointer;
             background-image:

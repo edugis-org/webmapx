@@ -32,10 +32,10 @@ export class WebmapxViewModeTool extends WebmapxBaseTool {
 
     static styles = css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
-        .unsupported { color: var(--sl-color-neutral-500, #888); font-style: italic; }
+        .unsupported { color: var(--color-text-muted, #6b7681); font-style: italic; }
         label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
         select { width: 100%; margin-bottom: 0.75rem; padding: 0.25rem; box-sizing: border-box; }
-        .mode-description { margin-bottom: 0.5rem; color: var(--sl-color-neutral-600, #555); }
+        .mode-description { margin-bottom: 0.5rem; color: var(--color-text-secondary, #5a6773); }
         img { width: 100%; border-radius: 4px; margin-bottom: 0.75rem; }
         .slider-group { margin-bottom: 0.75rem; display: none; }
         .slider-group.visible { display: block; }

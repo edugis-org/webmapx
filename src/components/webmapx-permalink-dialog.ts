@@ -26,8 +26,8 @@ export class WebmapxPermalinkDialog extends LitElement {
         .url-box {
             font-family: var(--sl-font-mono);
             font-size: var(--webmapx-font-size-sm, 0.78rem);
-            background: var(--sl-color-neutral-100);
-            border: 1px solid var(--sl-color-neutral-300);
+            background: var(--color-background-secondary, #f4f6f8);
+            border: 1px solid var(--color-border, #d5dce3);
             border-radius: var(--sl-border-radius-medium);
             padding: var(--webmapx-space-sm, 0.5rem) var(--webmapx-space-md, 0.75rem);
             word-break: break-all;

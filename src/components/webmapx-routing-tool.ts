@@ -5,6 +5,7 @@ import type { IMap } from '../map/IMapInterfaces';
 import type { LngLat, ClickEvent } from '../store/map-events';
 import type { IMapState } from '../store/IMapState';
 import { substituteApiKeys } from '../config/apikeys';
+import { DATA_ROUTE } from '../theme/data-colors';
 
 const ROUTE_SOURCE_ID = 'webmapx-routing-source';
 const ROUTE_LAYER_ID  = 'webmapx-routing-route';
@@ -304,24 +305,24 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
     static styles = css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
-        .hint { color: var(--sl-color-neutral-600, #555); font-size: 0.8rem; margin-bottom: 0.75rem; line-height: 1.4; }
+        .hint { color: var(--color-text-secondary, #5a6773); font-size: 0.8rem; margin-bottom: 0.75rem; line-height: 1.4; }
         .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
-        select { flex: 1; padding: 0.3rem 0.5rem; border: 1px solid var(--color-border, #d7dce3); border-radius: 4px; font-size: 0.875rem; background: var(--color-background, #fff); color: var(--color-text-primary, inherit); }
-        button { padding: 0.35rem 0.75rem; border: 1px solid var(--color-border, #d7dce3); border-radius: 4px; background: var(--color-background, #fff); cursor: pointer; font-size: 0.875rem; color: var(--color-text-primary, inherit); }
+        select { flex: 1; padding: 0.3rem 0.5rem; border: 1px solid var(--color-border, #d5dce3); border-radius: 4px; font-size: 0.875rem; background: var(--color-background, #fff); color: var(--color-text-primary, #16202a); }
+        button { padding: 0.35rem 0.75rem; border: 1px solid var(--color-border, #d5dce3); border-radius: 4px; background: var(--color-background, #fff); cursor: pointer; font-size: 0.875rem; color: var(--color-text-primary, #16202a); }
         button:disabled { opacity: 0.5; cursor: default; }
-        .result { margin-top: 0.5rem; padding: 0.5rem; background: var(--sl-color-neutral-50, #f5f5f5); border-radius: 4px; }
+        .result { margin-top: 0.5rem; padding: 0.5rem; background: var(--color-surface-raised, #f4f6f8); border-radius: 4px; }
         .result strong { display: block; }
         .error { color: var(--sl-color-danger-600, #c00); font-size: 0.8rem; margin-top: 0.25rem; }
-        .waypoint { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; font-size: 0.8rem; color: var(--sl-color-neutral-600, #555); }
+        .waypoint { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
         .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-        .dot.start { background: #22c55e; }
-        .dot.end   { background: #e63946; }
+        .dot.start { background: var(--webmapx-data-start, #22c55e); }
+        .dot.end   { background: var(--webmapx-data-end, #e63946); }
         details { margin-bottom: 0.5rem; }
         summary { cursor: pointer; font-weight: 600; font-size: 0.8rem; margin-bottom: 0.25rem; user-select: none; }
         .truck-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem 0.5rem; font-size: 0.8rem; }
         .truck-grid label { font-weight: normal; margin: 0; }
-        .truck-grid input { width: 100%; padding: 0.2rem 0.35rem; border: 1px solid var(--color-border, #d7dce3); border-radius: 4px; font-size: 0.8rem; background: var(--color-background, #fff); color: var(--color-text-primary, inherit); }
-        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--color-border, #d7dce3); border-top-color: var(--color-primary, #0f62fe); border-radius: 50%; animation: spin 0.6s linear infinite; }
+        .truck-grid input { width: 100%; padding: 0.2rem 0.35rem; border: 1px solid var(--color-border, #d5dce3); border-radius: 4px; font-size: 0.8rem; background: var(--color-background, #fff); color: var(--color-text-primary, #16202a); }
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--color-border, #d5dce3); border-top-color: var(--color-primary, #2b6c8f); border-radius: 50%; animation: spin 0.6s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
     `;
 
@@ -444,7 +445,7 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
         this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
             detail: {
                 id: ROUTE_LAYER_ID, type: 'line', source: ROUTE_SOURCE_ID,
-                paint: { 'line-color': '#2563eb', 'line-width': 5, 'line-opacity': 0.85 },
+                paint: { 'line-color': DATA_ROUTE, 'line-width': 5, 'line-opacity': 0.85 },
                 layout: { 'line-cap': 'round', 'line-join': 'round' },
                 metadata: { isToolLayer: true, hideFromLegend: true },
             },
@@ -522,7 +523,7 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
                 layers: [
                     {
                         id: `${id}-line`, type: 'line', source: 'route',
-                        paint: { 'line-color': '#2563eb', 'line-width': 5, 'line-opacity': 0.85 },
+                        paint: { 'line-color': DATA_ROUTE, 'line-width': 5, 'line-opacity': 0.85 },
                         layout: { 'line-cap': 'round', 'line-join': 'round' },
                         metadata: { label: 'Route' },
                     },

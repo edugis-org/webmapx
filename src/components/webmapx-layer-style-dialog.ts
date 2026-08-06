@@ -68,7 +68,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
             flex-direction: column;
             gap: var(--webmapx-space-sm, 0.5rem);
             padding-bottom: 0.75rem;
-            border-bottom: 1px solid var(--sl-color-neutral-200);
+            border-bottom: 1px solid var(--color-border-light, #e2e7ec);
         }
 
         .source-group:last-child {
@@ -79,7 +79,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
             margin: 0;
             font-size: 0.95rem;
             font-weight: 700;
-            color: var(--color-text-primary, #1f2937);
+            color: var(--color-text-primary, #16202a);
             word-break: break-word;
         }
 
@@ -88,7 +88,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
             flex-wrap: wrap;
             gap: var(--webmapx-space-xs, 0.35rem);
             font-size: var(--webmapx-font-size-sm, 0.8rem);
-            color: var(--sl-color-neutral-600);
+            color: var(--color-text-secondary, #5a6773);
         }
 
         .pill {
@@ -96,16 +96,16 @@ export class WebmapxLayerStyleDialog extends LitElement {
             align-items: center;
             min-height: 1.35rem;
             padding: 0 0.4rem;
-            border: 1px solid var(--sl-color-neutral-200);
+            border: 1px solid var(--color-border-light, #e2e7ec);
             border-radius: var(--webmapx-radius-sm, 0.35rem);
-            background: var(--sl-color-neutral-50);
+            background: var(--color-surface-raised, #f4f6f8);
         }
 
         .subheading {
             margin: 0.2rem 0 0;
             font-size: 0.78rem;
             font-weight: 700;
-            color: var(--sl-color-neutral-700);
+            color: var(--color-text-secondary, #5a6773);
         }
 
         .table-controls {
@@ -117,7 +117,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         .table-hint {
             flex: 1 1 auto;
             min-width: 0;
-            color: var(--sl-color-neutral-500);
+            color: var(--color-text-muted, #6b7681);
             font-size: var(--webmapx-font-size-sm, 0.8rem);
             line-height: 1.3;
         }
@@ -127,16 +127,16 @@ export class WebmapxLayerStyleDialog extends LitElement {
             flex-direction: column;
             gap: var(--webmapx-space-xs, 0.25rem);
             padding: var(--webmapx-space-sm, 0.5rem);
-            border: 1px solid var(--sl-color-neutral-200);
+            border: 1px solid var(--color-border-light, #e2e7ec);
             border-radius: var(--webmapx-radius-sm, 0.35rem);
-            background: var(--sl-color-neutral-50);
+            background: var(--color-surface-raised, #f4f6f8);
             font-size: var(--webmapx-font-size-md, 0.85rem);
         }
 
         .attribute-table-wrap {
             max-height: 16rem;
             overflow: auto;
-            border: 1px solid var(--sl-color-neutral-200);
+            border: 1px solid var(--color-border-light, #e2e7ec);
             border-radius: var(--webmapx-radius-sm, 0.35rem);
         }
 
@@ -151,8 +151,8 @@ export class WebmapxLayerStyleDialog extends LitElement {
         .attribute-table th,
         .attribute-table td {
             padding: 0.35rem 0.45rem;
-            border-right: 1px solid var(--sl-color-neutral-200);
-            border-bottom: 1px solid var(--sl-color-neutral-200);
+            border-right: 1px solid var(--color-border-light, #e2e7ec);
+            border-bottom: 1px solid var(--color-border-light, #e2e7ec);
             text-align: left;
             vertical-align: top;
         }
@@ -166,8 +166,8 @@ export class WebmapxLayerStyleDialog extends LitElement {
             position: sticky;
             top: 0;
             z-index: 1;
-            background: var(--sl-color-neutral-50);
-            color: var(--sl-color-neutral-700);
+            background: var(--color-surface-raised, #f4f6f8);
+            color: var(--color-text-secondary, #5a6773);
             font-weight: 700;
         }
 
@@ -186,7 +186,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         }
 
         .attribute-header-button:hover {
-            color: var(--sl-color-primary-700, #0f62fe);
+            color: var(--color-primary, #2b6c8f);
             text-decoration: underline;
         }
 
@@ -195,7 +195,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         }
 
         .attribute-table .feature-index-cell {
-            color: var(--sl-color-neutral-600);
+            color: var(--color-text-secondary, #5a6773);
             font-variant-numeric: tabular-nums;
             white-space: nowrap;
         }
@@ -235,7 +235,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         }
 
         .analysis-label {
-            color: var(--sl-color-neutral-600);
+            color: var(--color-text-secondary, #5a6773);
         }
 
         .analysis-value {
@@ -245,7 +245,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         }
 
         a {
-            color: var(--sl-color-primary-700, #0f62fe);
+            color: var(--color-primary, #2b6c8f);
             text-decoration: none;
         }
 
@@ -267,7 +267,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         }
 
         .style-target sl-icon {
-            color: var(--sl-color-neutral-600);
+            color: var(--color-text-secondary, #5a6773);
         }
 
         .target-label {
@@ -278,12 +278,12 @@ export class WebmapxLayerStyleDialog extends LitElement {
 
         .target-type {
             flex: 0 0 auto;
-            color: var(--sl-color-neutral-600);
+            color: var(--color-text-secondary, #5a6773);
             font-size: var(--webmapx-font-size-sm, 0.8rem);
         }
 
         .placeholder {
-            color: var(--sl-color-neutral-500);
+            color: var(--color-text-muted, #6b7681);
             font-size: var(--webmapx-font-size-md, 0.9rem);
         }
 

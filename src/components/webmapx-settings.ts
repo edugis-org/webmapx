@@ -15,19 +15,52 @@ import {
 import { resolveMapElement } from './internal/map-context';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
 
-export type WebmapxUiStyle = 'light' | 'dark' | 'compact' | 'glossy';
+/**
+ * Appearance is two independent choices, mirroring the token axes in
+ * webmapx-style-core.css: `data-style` is form, `data-theme` is colour.
+ *
+ * They used to be one dropdown (Light/Dark/Compact/Glossy), which made
+ * "dark" and "compact" mutually exclusive even though they describe
+ * different things — there was no way to ask for a dense dark UI.
+ */
+export type WebmapxUiStyle = 'atlas' | 'folio' | 'console';
+export type WebmapxUiTheme = 'auto' | 'light' | 'dark';
 
-const UI_STYLES: { value: WebmapxUiStyle; label: string; theme: 'light' | 'dark' }[] = [
-    { value: 'light', label: 'Light', theme: 'light' },
-    { value: 'dark', label: 'Dark', theme: 'dark' },
-    { value: 'compact', label: 'Compact', theme: 'light' },
-    { value: 'glossy', label: 'Glossy', theme: 'light' }
+const UI_STYLES: { value: WebmapxUiStyle; label: string; hint: string }[] = [
+    { value: 'atlas', label: 'Atlas', hint: 'Soft and roomy — public maps' },
+    { value: 'folio', label: 'Folio', hint: 'Flat and precise — page embeds' },
+    { value: 'console', label: 'Console', hint: 'Dense — daily operational use' }
 ];
+
+const UI_THEMES: { value: WebmapxUiTheme; label: string }[] = [
+    { value: 'auto', label: 'Match system' },
+    { value: 'light', label: 'Light' },
+    { value: 'dark', label: 'Dark' }
+];
+
+const STYLE_KEY = 'webmapx-style';
+const THEME_KEY = 'webmapx-theme';
+
+/**
+ * Values written by the previous single-dropdown version, mapped onto the two
+ * axes. Without this, someone who had picked "Compact" would silently land on
+ * the default after upgrading.
+ */
+const LEGACY_STYLE_MIGRATION: Record<string, { style: WebmapxUiStyle; theme: WebmapxUiTheme }> = {
+    light: { style: 'atlas', theme: 'light' },
+    dark: { style: 'atlas', theme: 'dark' },
+    compact: { style: 'console', theme: 'light' },
+    glossy: { style: 'atlas', theme: 'light' }
+};
 
 @customElement('webmapx-settings')
 export class WebmapxSettings extends LitElement {
-    @state() private uiStyle: WebmapxUiStyle = 'light';
+    @state() private uiStyle: WebmapxUiStyle = 'atlas';
+    @state() private uiTheme: WebmapxUiTheme = 'auto';
     @state() private apiKey = '';
+    /** Live OS preference, watched so 'Match system' keeps following it. */
+    private systemDark: MediaQueryList | null = null;
+    private systemDarkHandler: (() => void) | null = null;
     @state() private currentAdapter = DEFAULT_ADAPTER_NAME;
     @state() private availableAdapters: string[] = [];
 
@@ -50,7 +83,7 @@ export class WebmapxSettings extends LitElement {
             margin: 0 0 0.75rem 0;
             font-size: 0.875rem;
             font-weight: 600;
-            color: var(--color-text-secondary, #666);
+            color: var(--color-text-secondary, #5a6773);
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
@@ -71,13 +104,38 @@ export class WebmapxSettings extends LitElement {
     connectedCallback() {
         super.connectedCallback();
         this.loadSettings();
+
+        // 'Match system' has to keep matching, not just read the preference once.
+        this.systemDark = window.matchMedia('(prefers-color-scheme: dark)');
+        this.systemDarkHandler = () => {
+            if (this.uiTheme === 'auto') this.applyAppearance();
+        };
+        this.systemDark.addEventListener('change', this.systemDarkHandler);
+    }
+
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this.systemDark && this.systemDarkHandler) {
+            this.systemDark.removeEventListener('change', this.systemDarkHandler);
+        }
+        this.systemDark = null;
+        this.systemDarkHandler = null;
     }
 
     private loadSettings() {
-        // Load style
-        const savedStyle = localStorage.getItem('webmapx-style') as WebmapxUiStyle | null;
-        this.uiStyle = UI_STYLES.some(s => s.value === savedStyle) ? savedStyle! : 'light';
-        this.applyStyle();
+        const savedStyle = localStorage.getItem(STYLE_KEY);
+        const savedTheme = localStorage.getItem(THEME_KEY) as WebmapxUiTheme | null;
+
+        const legacy = savedStyle ? LEGACY_STYLE_MIGRATION[savedStyle] : undefined;
+        if (legacy) {
+            // One-time upgrade from the old combined dropdown.
+            this.uiStyle = legacy.style;
+            this.uiTheme = savedTheme ?? legacy.theme;
+        } else {
+            this.uiStyle = UI_STYLES.some(s => s.value === savedStyle) ? savedStyle as WebmapxUiStyle : 'atlas';
+            this.uiTheme = UI_THEMES.some(t => t.value === savedTheme) ? savedTheme! : 'auto';
+        }
+        this.applyAppearance();
 
         // Load API key
         this.apiKey = localStorage.getItem('webmapx-api-key') || '';
@@ -109,37 +167,55 @@ export class WebmapxSettings extends LitElement {
         return this.availableAdapters.includes(resolved) ? resolved : DEFAULT_ADAPTER_NAME;
     }
 
-    private applyStyle() {
-        const preset = UI_STYLES.find(s => s.value === this.uiStyle) ?? UI_STYLES[0];
+    /** Resolves 'auto' against the OS; light/dark are taken at face value. */
+    private resolvedTheme(): 'light' | 'dark' {
+        if (this.uiTheme === 'auto') {
+            return this.systemDark?.matches ?? window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light';
+        }
+        return this.uiTheme;
+    }
+
+    private applyAppearance() {
+        const style = UI_STYLES.find(s => s.value === this.uiStyle) ?? UI_STYLES[0];
+        const theme = this.resolvedTheme();
         const html = document.documentElement;
 
-        if (preset.theme === 'dark') {
-            html.setAttribute('data-theme', 'dark');
-            html.classList.add('sl-theme-dark');
-        } else {
-            html.removeAttribute('data-theme');
-            html.classList.remove('sl-theme-dark');
-        }
+        // 'auto' is resolved here rather than left to a CSS media query, so the
+        // attribute always states the theme actually in force — the artifact of
+        // truth other components and host pages read.
+        html.setAttribute('data-theme', theme);
+        html.classList.toggle('sl-theme-dark', theme === 'dark');
 
-        if (preset.value === 'compact' || preset.value === 'glossy') {
-            html.setAttribute('data-style', preset.value);
-        } else {
-            html.removeAttribute('data-style');
-        }
+        html.setAttribute('data-style', style.value);
 
-        localStorage.setItem('webmapx-style', preset.value);
+        localStorage.setItem(STYLE_KEY, style.value);
+        localStorage.setItem(THEME_KEY, this.uiTheme);
+    }
+
+    private emitAppearanceChange() {
+        this.dispatchEvent(new CustomEvent('theme-change', {
+            // `style` is kept for backwards compatibility with listeners written
+            // against the old single-axis dropdown.
+            detail: { style: this.uiStyle, theme: this.uiTheme, resolvedTheme: this.resolvedTheme() },
+            bubbles: true,
+            composed: true
+        }));
     }
 
     private handleStyleChange(e: Event) {
         const target = e.target as HTMLSelectElement;
         this.uiStyle = target.value as WebmapxUiStyle;
-        this.applyStyle();
+        this.applyAppearance();
+        this.emitAppearanceChange();
+    }
 
-        this.dispatchEvent(new CustomEvent('theme-change', {
-            detail: { style: this.uiStyle },
-            bubbles: true,
-            composed: true
-        }));
+    private handleThemeChange(e: Event) {
+        const target = e.target as HTMLSelectElement;
+        this.uiTheme = target.value as WebmapxUiTheme;
+        this.applyAppearance();
+        this.emitAppearanceChange();
     }
 
     private handleApiKeyChange(e: Event) {
@@ -219,11 +295,21 @@ export class WebmapxSettings extends LitElement {
                 <h4>Appearance</h4>
                 <sl-select
                     label="Style"
+                    help-text=${UI_STYLES.find(s => s.value === this.uiStyle)?.hint ?? ''}
                     value=${this.uiStyle}
                     @sl-change=${this.handleStyleChange}
                 >
                     ${UI_STYLES.map(s => html`
                         <sl-option value=${s.value}>${s.label}</sl-option>
+                    `)}
+                </sl-select>
+                <sl-select
+                    label="Theme"
+                    value=${this.uiTheme}
+                    @sl-change=${this.handleThemeChange}
+                >
+                    ${UI_THEMES.map(t => html`
+                        <sl-option value=${t.value}>${t.label}</sl-option>
                     `)}
                 </sl-select>
             </div>
