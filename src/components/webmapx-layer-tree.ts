@@ -12,6 +12,8 @@ import type { WebmapxMapElement } from './webmapx-map';
 import type { IMap } from '../map/IMapInterfaces';
 import type { LayerAddEvent, LayerRemoveEvent } from '../store/map-events';
 import type { DiscoveredLayer } from '../utils/layer-discovery';
+import { deriveLayerSwatch, splitLayerTitle } from '../utils/layer-swatch';
+
 
 type CapsStatus = { status: 'loading' } | { status: 'error'; error: string } | { status: 'loaded'; children: LayerNode[] };
 
@@ -107,8 +109,8 @@ export class WebmapxLayerTree extends LitElement {
             overflow: visible; /* do not create a nested scroll container */
             padding: 0.25rem;
             box-sizing: border-box;
-            background: var(--webmapx-layer-tree-bg, var(--sl-color-neutral-0));
-            border-left: 1px solid var(--sl-color-neutral-200);
+            background: var(--webmapx-layer-tree-bg, var(--color-surface, #fff));
+            border-left: 1px solid var(--color-border-light, #e2e7ec);
             width: 100%; /* inherit panel width; avoid forcing overflow */
             margin: 0;
             font-size: var(--webmapx-layer-tree-font-size, 0.8rem);
@@ -146,13 +148,74 @@ export class WebmapxLayerTree extends LitElement {
             line-height: 1.2;
             padding-left: 0.3rem;
         }
+        /* A layer row reads as a map thing, not a filename: a derived colour
+           swatch, the human name, and the technical qualifier demoted to a
+           muted second line. */
+        .layer-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 0;
+        }
+        /* The derived colour arrives as --swatch-bg rather than an inline
+           background shorthand, because the shorthand would reset the
+           background-image that the raster/unknown kinds layer on top. */
+        .layer-swatch {
+            flex: none;
+            width: 1.125rem;
+            height: 1.125rem;
+            border-radius: var(--webmapx-radius-xs, 3px);
+            background: var(--swatch-bg, var(--color-background-tertiary, #e9edf1));
+            box-shadow: inset 0 0 0 1px rgba(16, 24, 40, 0.16);
+        }
+        .layer-swatch[data-kind='line'] {
+            height: 0.3125rem;
+            border-radius: 999px;
+        }
+        .layer-swatch[data-kind='circle'] {
+            border-radius: 50%;
+            width: 0.875rem;
+            height: 0.875rem;
+        }
+        /* A real tile (or a style's paper colour) stood in for the hatch.
+           Cover + centre so an 18px box shows the middle of the tile, which at
+           this size reads as the layer's average colour. */
+        .layer-swatch[data-kind='preview'] {
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        /* Nothing derivable: a small hatch says "a layer" without pretending
+           to know what colour it is. */
+        .layer-swatch[data-kind='raster'],
+        .layer-swatch[data-kind='unknown'] {
+            background-image: repeating-linear-gradient(45deg,
+                rgba(16, 24, 40, 0.16) 0 2px, transparent 2px 5px);
+        }
+        .layer-text {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            line-height: 1.2;
+        }
+        .layer-name,
+        .layer-qualifier {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .layer-qualifier {
+            font-size: 0.9em;
+            color: var(--color-text-muted, #6b7681);
+        }
+
         .tree-separator {
             display: flex;
             align-items: center;
             gap: 0.4em;
             width: 100%;
             font-weight: 600;
-            color: var(--sl-color-neutral-500);
+            color: var(--color-text-muted, #6b7681);
             padding: 0.25rem 0 0.1rem;
             pointer-events: none;
             user-select: none;
@@ -200,7 +263,7 @@ export class WebmapxLayerTree extends LitElement {
             box-sizing: border-box;
             font: inherit;
             padding: 0.25rem 1.5rem 0.25rem 0.375rem;
-            border: 1px solid var(--sl-color-neutral-300);
+            border: 1px solid var(--color-border, #d5dce3);
             border-radius: var(--sl-border-radius-medium);
         }
         .search-clear {
@@ -213,7 +276,7 @@ export class WebmapxLayerTree extends LitElement {
             cursor: pointer;
             line-height: 1;
             font-size: 1rem;
-            color: var(--sl-color-neutral-500);
+            color: var(--color-text-muted, #6b7681);
             padding: 0;
         }
         .layer-radio input[type='radio'] {
@@ -626,6 +689,37 @@ export class WebmapxLayerTree extends LitElement {
         return '';
     }
 
+    /**
+     * Renders a catalog row: derived swatch + human name + muted qualifier.
+     *
+     * The title is split BEFORE the "unsupported" note is appended, otherwise
+     * that note would be read as the layer's technical qualifier.
+     *
+     * The swatch is aria-hidden so the accessible name stays the layer name
+     * plus its qualifier, exactly as before this became two lines.
+     */
+    private renderLayerLabel(node: LayerNode, disabled: boolean): TemplateResult {
+        const { name, qualifier } = splitLayerTitle(this.resolveNodeLabel(node));
+        const layer = node.layerId ? this.getLayerInformationById(node.layerId)?.layer : null;
+        const swatch = deriveLayerSwatch(layer ?? node.layerSpec ?? null);
+        const note = disabled ? 'unsupported for current engine' : qualifier;
+
+        return html`
+            <span class="layer-row" title=${qualifier ? `${name} (${qualifier})` : name}>
+                <span
+                    class="layer-swatch"
+                    data-kind=${swatch.kind}
+                    style="--swatch-bg: ${swatch.background}"
+                    aria-hidden="true"
+                ></span>
+                <span class="layer-text">
+                    <span class="layer-name">${name}</span>
+                    ${note ? html`<span class="layer-qualifier">${note}</span>` : ''}
+                </span>
+            </span>
+        `;
+    }
+
     private getLayerInformationById(layerId: string): { layer: unknown } | null {
         const layerData = this.mapHost?.layerDataConfig;
         if (!layerData) return null;
@@ -993,8 +1087,8 @@ export class WebmapxLayerTree extends LitElement {
             const selectionGroup = this.getExclusiveGroupKey(node, nodeContext);
             const layerSupportStatus = this.getSupportStatus(node.layerId);
             const disabled = layerSupportStatus === 'unsupported';
-            const resolvedLabel = this.resolveNodeLabel(node);
-            const label = disabled ? `${resolvedLabel} (unsupported for current engine)` : resolvedLabel;
+            // The label (and the "unsupported" note) is composed by
+            // renderLayerLabel, which also derives the swatch.
 
             const handleLeafKey = (e: KeyboardEvent) => {
                 if (e.key === ' ' || e.key === 'Enter') {
@@ -1026,7 +1120,7 @@ export class WebmapxLayerTree extends LitElement {
                                 }}
                                 @change=${(e: Event) => this.handleCheck(e, node, nodeContext)}
                             />
-                            <span>${label}</span>
+                            ${this.renderLayerLabel(node, disabled)}
                         </label>
                     ` : html`
                         <sl-checkbox
@@ -1035,7 +1129,7 @@ export class WebmapxLayerTree extends LitElement {
                             data-layer-id=${node.layerId ?? ''}
                             @sl-change=${(e: Event) => this.handleCheck(e, node, nodeContext)}
                         >
-                            ${label}
+                            ${this.renderLayerLabel(node, disabled)}
                         </sl-checkbox>
                     `}
                 </sl-tree-item>

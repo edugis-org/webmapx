@@ -41,6 +41,8 @@
     "ui-test:search-persist-draw:leaflet": "node ./scripts/run-ui-tests.mjs --suite search-persist-draw --engines leaflet",
     "ui-test:search-persist-draw:cesium": "node ./scripts/run-ui-tests.mjs --suite search-persist-draw --engines cesium",
     "check:architecture": "node ./scripts/check-architecture.mjs",
+    "generate:swatches": "node ./scripts/run-ts.mjs scripts/generate-layer-swatches.ts",
+    "allmaps:bounds": "node ./scripts/run-ts.mjs scripts/allmaps-bounds.ts",
     "postinstall": "node -e \"if(process.env.INIT_CWD===process.cwd()){require('child_process').execSync('npx playwright install chromium',{stdio:'inherit'})}\""
   },
   "peerDependencies": {

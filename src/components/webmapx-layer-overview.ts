@@ -21,6 +21,7 @@ import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
+import { splitLayerTitle } from '../utils/layer-swatch';
 
 /** Computes [west, south, east, north] from a GeoJSON FeatureCollection's coordinates. */
 function geojsonExtent(geojson: GeoJSON.FeatureCollection): [number, number, number, number] | null {
@@ -201,8 +202,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     :host {
       display: block;
       box-sizing: border-box;
-      background: var(--webmapx-legend-bg, var(--color-background, #ffffff));
-      color: var(--webmapx-legend-color, var(--color-text-primary, #1f2937));
+      background: var(--webmapx-legend-bg, var(--color-background, #fff));
+      color: var(--webmapx-legend-color, var(--color-text-primary, #16202a));
     }
 
     .panel {
@@ -221,11 +222,17 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       gap: var(--webmapx-space-sm, 0.5rem);
     }
 
+    /* A section heading is structure, not an action. It used to be bold and
+       accent-coloured, which put it in the same visual class as selected
+       layers and active buttons; a muted micro-label keeps the accent
+       meaning "interactive" and nothing else. */
     .section-title {
       margin: 0;
-      font-size: var(--webmapx-font-size-md, 0.95rem);
-      font-weight: 700;
-      color: var(--webmapx-legend-title-color, var(--color-primary, #0f62fe));
+      font-size: var(--webmapx-label-size, var(--webmapx-font-size-sm, 0.75rem));
+      font-weight: 600;
+      letter-spacing: var(--webmapx-label-spacing, 0.06em);
+      text-transform: var(--webmapx-label-transform, uppercase);
+      color: var(--webmapx-legend-title-color, var(--color-text-muted, #6b7681));
     }
 
     .layer-list {
@@ -237,7 +244,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     .drop-indicator {
       height: 2px;
       margin: -1px 0;
-      background: var(--color-text-primary, #1f2937);
+      background: var(--color-text-primary, #16202a);
       border-radius: 1px;
       pointer-events: none;
     }
@@ -257,9 +264,9 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       align-items: flex-start;
       gap: var(--webmapx-space-xs, 0.35rem);
       padding: var(--webmapx-space-xs, 0.35rem) var(--webmapx-space-sm, 0.625rem);
-      border: 1px solid var(--color-border, #d7dce3);
+      border: 1px solid var(--color-border, #d5dce3);
       border-radius: var(--webmapx-radius-lg, 0.75rem);
-      background: var(--color-background, #ffffff);
+      background: var(--color-background, #fff);
       box-shadow: var(--webmapx-shadow-sm, 0 1px 3px rgba(15, 23, 42, 0.08));
       box-sizing: border-box;
     }
@@ -341,7 +348,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     }
 
     .layer-label.out-of-zoom {
-      color: var(--sl-color-neutral-500);
+      color: var(--color-text-muted, #6b7681);
       opacity: 0.6;
     }
 
@@ -382,7 +389,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       align-items: center;
       gap: var(--webmapx-space-sm, 0.5rem);
       font-size: var(--webmapx-font-size-sm, 0.8rem);
-      color: var(--color-text-secondary, #6b7280);
+      color: var(--color-text-secondary, #5a6773);
     }
 
     .opacity-row sl-icon {
@@ -394,9 +401,16 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       -webkit-appearance: none;
       appearance: none;
       height: 3px;
-      background: var(--sl-color-neutral-300);
+      background: var(--color-background-tertiary, #e9edf1);
       border-radius: var(--webmapx-radius-xs, 2px);
       outline: none;
+    }
+
+    /* The rule above removes the UA focus ring from a keyboard-operable
+       control (arrow keys change the value), so put an equivalent back. */
+    .opacity-row input[type="range"]:focus-visible {
+      outline: var(--webmapx-focus-ring, 2px solid var(--color-primary, #2b6c8f));
+      outline-offset: var(--webmapx-focus-offset, 2px);
     }
 
     .opacity-row input[type="range"]::-webkit-slider-thumb {
@@ -405,7 +419,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       width: 12px;
       height: 12px;
       border-radius: 50%;
-      background: var(--sl-color-neutral-500);
+      background: var(--color-text-muted, #6b7681);
       cursor: pointer;
     }
 
@@ -414,13 +428,13 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       height: 12px;
       border-radius: 50%;
       border: none;
-      background: var(--sl-color-neutral-500);
+      background: var(--color-text-muted, #6b7681);
       cursor: pointer;
     }
 
     .opacity-row input[type="range"]::-moz-range-track {
       height: 3px;
-      background: var(--sl-color-neutral-300);
+      background: var(--color-background-tertiary, #e9edf1);
       border-radius: var(--webmapx-radius-xs, 2px);
     }
 
@@ -439,25 +453,25 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
 
     .layer-meta {
       font-size: var(--webmapx-font-size-sm, 0.75rem);
-      color: var(--color-text-secondary, #6b7280);
+      color: var(--color-text-secondary, #5a6773);
       white-space: nowrap;
       margin-left: 0.75rem;
     }
 
     .layer-editing-notice {
       font-size: var(--webmapx-font-size-sm, 0.75rem);
-      color: var(--color-text-secondary, #6b7280);
+      color: var(--color-text-secondary, #5a6773);
       font-style: italic;
       padding: var(--webmapx-space-xs, 0.25rem) var(--webmapx-space-md, 0.75rem) var(--webmapx-space-sm, 0.5rem);
     }
 
     .empty {
       padding: 0.875rem;
-      border: 1px dashed var(--color-border, #d7dce3);
+      border: 1px dashed var(--color-border, #d5dce3);
       border-radius: var(--webmapx-radius-lg, 0.75rem);
-      color: var(--color-text-secondary, #6b7280);
+      color: var(--color-text-secondary, #5a6773);
       font-size: var(--webmapx-font-size-md, 0.875rem);
-      background: var(--color-background-secondary, #f8fafc);
+      background: var(--color-background-secondary, #f4f6f8);
     }
   `;
 
@@ -491,7 +505,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   render() {
     return html`
       <div class="panel">
-        ${this.renderSection(this.overviewTitle, this.overviewLayers, 'No active layers.', true)}
+        ${this.renderSection(this.overviewTitle, this.overviewLayers, 'No layers on the map yet. Add one from the Catalog.', true)}
         ${this.renderSection(this.backgroundTitle, this.backgroundLayers, 'No base map selected.')}
       </div>
       <webmapx-layer-info-dialog></webmapx-layer-info-dialog>
@@ -577,8 +591,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                           @pointermove=${(e: PointerEvent) => this.onDragHandlePointerMove(e)}
                           @pointerup=${(e: PointerEvent) => this.onDragHandlePointerUp(e)}
                           @pointercancel=${(e: PointerEvent) => this.onDragHandlePointerUp(e)}
-                        ><span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}">${item.label}${item.beingEdited ? html`&nbsp;<sl-icon name="pencil" title="Layer is currently being edited"></sl-icon>` : null}</span></span>
-                      ` : html`<span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}">${item.label}${item.beingEdited ? html`&nbsp;<sl-icon name="pencil" title="Layer is currently being edited"></sl-icon>` : null}</span>`}
+                        ><span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}">${splitLayerTitle(item.label).name}${item.beingEdited ? html`&nbsp;<sl-icon name="pencil" title="Layer is currently being edited"></sl-icon>` : null}</span></span>
+                      ` : html`<span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}">${splitLayerTitle(item.label).name}${item.beingEdited ? html`&nbsp;<sl-icon name="pencil" title="Layer is currently being edited"></sl-icon>` : null}</span>`}
                       <sl-icon-button
                         class="collapse-toggle"
                         name=${this.isLegendCollapsed(item.layerId) ? 'chevron-right' : 'chevron-down'}
