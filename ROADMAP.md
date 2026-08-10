@@ -167,7 +167,7 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 ### Known Issues
 - [ ] Cesium fill polygons render at double opacity on highly detailed/concave shapes (Russia, Antarctica) — `PolygonGeometry` ear-clipping triangulation produces overlapping triangles; proposed fix is pre-triangulating with `earcut`
 - [ ] Cesium layer reorder across types is inherently impossible (imagery is baked into the globe surface; vector primitives always draw on top) — only within-type reorder works
-- [ ] `public/data/world-countries-simplified.topojson` has slivers and self-intersections; needs a rebuild with `ogr2ogr -makevalid` / `mapshaper -clean` (surfaces as buffer-tool topology exceptions)
+- [x] ~~`public/data/world-countries-simplified.topojson` has slivers and self-intersections~~ — rebuilt with valid geometry (2026-07-02)
 
 ### Configuration
 - [x] Config edit tool — runtime UI for editing layer/map/tool config (add/remove/reorder layers, change sources, configure tools)
