@@ -78,6 +78,18 @@
     --webmapx-focus-width: 2px;
     --webmapx-focus-offset: 2px;
     --webmapx-focus-ring: var(--webmapx-focus-width) solid var(--webmapx-focus-color);
+
+    /* Motion — three durations, one knob. Components must express every
+       decorative transition in terms of these rather than a literal, because
+       the reduced-motion query below is document-level CSS and a `*` rule
+       cannot cross a shadow boundary; a custom property inherits through it.
+       `fast` is control feedback (hover, focus, small opacity), `base` is
+       layout/geometry change, `hint` is a one-shot attention animation.
+       Spinners deliberately do NOT use these: a loading indicator is
+       essential feedback, not decoration, and must keep turning. */
+    --webmapx-motion-fast: 120ms;
+    --webmapx-motion-base: 200ms;
+    --webmapx-motion-hint: 1400ms;
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -363,6 +375,17 @@
    transitions. Honour the OS setting rather than removing the feedback
    entirely: 1ms keeps state changes instant but still committed. */
 @media (prefers-reduced-motion: reduce) {
+    /* Zeroing the tokens is what actually reaches the Lit components, since
+       these inherit into every shadow root. */
+    :root {
+        --webmapx-motion-fast: 1ms;
+        --webmapx-motion-base: 1ms;
+        --webmapx-motion-hint: 1ms;
+    }
+
+    /* Light-DOM content and third-party map-library chrome (MapLibre/OL/
+       Leaflet controls, Shoelace host elements) are not covered by the
+       tokens, so keep the blanket rule for them. */
     *,
     *::before,
     *::after {

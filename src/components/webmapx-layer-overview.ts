@@ -314,7 +314,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     }
 
     .layer-label-drag:hover::after {
-      animation: drag-tip 1.4s ease forwards;
+      animation: drag-tip var(--webmapx-motion-hint, 1400ms) ease forwards;
     }
 
     @keyframes drag-tip {
@@ -358,7 +358,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       width: 100%;
       padding-left: 1.5rem;
       box-sizing: border-box;
-      transition: grid-template-rows 0.16s ease-in-out;
+      transition: grid-template-rows var(--webmapx-motion-fast, 120ms) ease-in-out;
     }
 
     .layer-details.collapsed {

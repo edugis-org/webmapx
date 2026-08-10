@@ -125,7 +125,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
       color: inherit;
       text-align: left;
       cursor: pointer;
-      transition: background-color 0.15s ease;
+      transition: background-color var(--webmapx-motion-fast, 120ms) ease;
       pointer-events: auto;
     }
 
@@ -184,7 +184,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
       justify-content: space-between;
       padding: 6px 8px;
       gap: 12px;
-      transition: background-color 0.15s ease;
+      transition: background-color var(--webmapx-motion-fast, 120ms) ease;
     }
 
     .format-line:hover {
@@ -229,7 +229,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
       cursor: pointer;
       color: var(--color-text-primary, #16202a);
       font-size: 0.85em;
-      transition: all 0.15s ease;
+      transition: all var(--webmapx-motion-fast, 120ms) ease;
       display: flex;
       align-items: center;
       gap: 4px;

@@ -48,7 +48,7 @@ export class WebmapxFullscreenControl extends WebmapxBaseTool {
       justify-content: center;
       cursor: pointer;
       color: inherit;
-      transition: background 120ms ease, transform 120ms ease;
+      transition: background var(--webmapx-motion-fast, 120ms) ease, transform var(--webmapx-motion-fast, 120ms) ease;
     }
 
     .nav-btn:hover {

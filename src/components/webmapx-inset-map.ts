@@ -92,7 +92,7 @@ export class WebmapxInsetMap extends LitElement {
     }
 
     :host([minimizable]) {
-      transition: width 0.2s, height 0.2s;
+      transition: width var(--webmapx-motion-base, 200ms), height var(--webmapx-motion-base, 200ms);
     }
 
     :host([collapsed]) {
@@ -110,7 +110,7 @@ export class WebmapxInsetMap extends LitElement {
       border-radius: 4px;
       line-height: 0;
       opacity: 0;
-      transition: opacity 0.15s;
+      transition: opacity var(--webmapx-motion-fast, 120ms);
     }
 
     :host(:hover) .toggle-btn,

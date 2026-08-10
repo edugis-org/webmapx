@@ -38,7 +38,7 @@ export class WebmapxSpinner extends WebmapxBaseTool {
         .spinner-container {
             z-index: 1000;
             opacity: 0;
-            transition: opacity 0.2s ease-in-out;
+            transition: opacity var(--webmapx-motion-base, 200ms) ease-in-out;
         }
         .spinner-container.visible {
             opacity: 1;

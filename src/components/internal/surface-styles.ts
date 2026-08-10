@@ -63,8 +63,8 @@ export const surfaceButtonStyles = css`
     border-radius: var(--webmapx-radius-sm, 4px);
     cursor: pointer;
     transition:
-      background-color 130ms ease,
-      color 130ms ease;
+      background-color var(--webmapx-motion-fast, 120ms) ease,
+      color var(--webmapx-motion-fast, 120ms) ease;
   }
 
   .webmapx-surface-button:hover {

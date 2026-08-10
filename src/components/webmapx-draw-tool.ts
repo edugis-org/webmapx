@@ -264,7 +264,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         .remove-layer-btn {
             font-size: 0.75rem;
             opacity: 0;
-            transition: opacity 0.1s;
+            transition: opacity var(--webmapx-motion-fast, 120ms);
         }
 
         .layer-row:hover .remove-layer-btn,

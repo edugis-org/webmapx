@@ -93,7 +93,7 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
       justify-content: center;
       cursor: pointer;
       color: inherit;
-      transition: background 120ms ease, transform 120ms ease;
+      transition: background var(--webmapx-motion-fast, 120ms) ease, transform var(--webmapx-motion-fast, 120ms) ease;
       touch-action: none;
     }
 
@@ -138,7 +138,7 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
       justify-content: center;
       background: var(--webmapx-navigation-bg, var(--color-surface, #fff));
       transform-style: preserve-3d;
-      transition: transform 120ms ease;
+      transition: transform var(--webmapx-motion-fast, 120ms) ease;
     }
 
     .compass-arrow {
