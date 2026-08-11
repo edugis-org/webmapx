@@ -28,6 +28,7 @@ const TOOL_MAP: Record<string, () => Promise<unknown>> = {
   buffer:             () => import('../components/webmapx-buffer-tool.js'),
   'config-edit':      () => import('../components/webmapx-config-edit-tool.js'),
   stories:            () => import('../components/webmapx-stories-tool.js'),
+  layerLegend3d:      () => import('../components/webmapx-layer-legend3d.js'),
   'active-adapter':   () => import('../components/webmapx-active-adapter.js'),
   activeAdapter:      () => import('../components/webmapx-active-adapter.js'),
 };
