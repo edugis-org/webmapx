@@ -12,7 +12,7 @@ import type { WebmapxMapElement } from './webmapx-map';
 import type { IMap } from '../map/IMapInterfaces';
 import type { LayerAddEvent, LayerRemoveEvent } from '../store/map-events';
 import type { DiscoveredLayer } from '../utils/layer-discovery';
-import { deriveLayerSwatch, splitLayerTitle } from '../utils/layer-swatch';
+import { deriveLayerSwatch, splitLayerTitle, swatchStyle } from '../utils/layer-swatch';
 
 
 type CapsStatus = { status: 'loading' } | { status: 'error'; error: string } | { status: 'loaded'; children: LayerNode[] };
@@ -166,7 +166,12 @@ export class WebmapxLayerTree extends LitElement {
             height: 1.125rem;
             border-radius: var(--webmapx-radius-xs, 3px);
             background: var(--swatch-bg, var(--color-background-tertiary, #e9edf1));
-            box-shadow: inset 0 0 0 1px rgba(16, 24, 40, 0.16);
+            /* The hairline is the swatch's own edge; a layer that states an
+               outline colour (boundaries: transparent fill, coloured line)
+               replaces it with a thicker ring in that colour, so the row shows
+               both what the layer fills and what it draws around it. */
+            box-shadow: inset 0 0 0 var(--swatch-border-width, 1px)
+                var(--swatch-border, rgba(16, 24, 40, 0.16));
         }
         .layer-swatch[data-kind='line'] {
             height: 0.3125rem;
@@ -709,7 +714,7 @@ export class WebmapxLayerTree extends LitElement {
                 <span
                     class="layer-swatch"
                     data-kind=${swatch.kind}
-                    style="--swatch-bg: ${swatch.background}"
+                    style=${swatchStyle(swatch)}
                     aria-hidden="true"
                 ></span>
                 <span class="layer-text">

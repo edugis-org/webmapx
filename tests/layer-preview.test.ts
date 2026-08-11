@@ -6,11 +6,29 @@ import {
   backgroundColorFromStyle,
   choosePreviewTile,
   fillTileTemplate,
+  fitZoomToBounds,
   lonLatToTile,
   resolveRasterPreviewUrl,
   resolveWmsPreviewUrl,
   tileToBBox3857,
+  tileToQuadkey,
 } from '../scripts/lib/layer-preview';
+
+/** True when the tile's lon/lat footprint lies wholly within the extent. */
+function tileInsideBounds(
+  tile: { z: number; x: number; y: number },
+  b: [number, number, number, number],
+): boolean {
+  const n = 2 ** tile.z;
+  const lon = (x: number) => (x / n) * 360 - 180;
+  const lat = (y: number) => {
+    const r = Math.PI - (2 * Math.PI * y) / n;
+    return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(r) - Math.exp(-r)));
+  };
+  return (
+    lon(tile.x) >= b[0] && lon(tile.x + 1) <= b[2] && lat(tile.y + 1) >= b[1] && lat(tile.y) <= b[3]
+  );
+}
 
 test('lonLatToTile matches known slippy-map tiles', () => {
   // z0 is a single tile
@@ -33,9 +51,14 @@ test('choosePreviewTile uses the shared anchor for world-scale layers', () => {
 });
 
 test('choosePreviewTile samples inside the layer extent when the anchor is outside it', () => {
-  // A Netherlands-only layer: Frankfurt is outside, so sample the centre.
-  const nl = choosePreviewTile({ bounds: [3.2, 50.75, 7.22, 53.7] });
-  assert.deepEqual(nl, lonLatToTile((3.2 + 7.22) / 2, (50.75 + 53.7) / 2, 6));
+  // A Netherlands-only layer: Frankfurt is outside, so sample the centre, and
+  // deep enough that the tile fits inside the extent instead of surrounding it.
+  const nlBounds: [number, number, number, number] = [3.2, 50.75, 7.22, 53.7];
+  const nl = choosePreviewTile({ bounds: nlBounds });
+  const zFit = fitZoomToBounds(nlBounds);
+  assert.ok(zFit > 6, 'a country-sized extent needs more than the world zoom');
+  assert.deepEqual(nl, lonLatToTile((3.2 + 7.22) / 2, (50.75 + 53.7) / 2, zFit));
+  assert.ok(tileInsideBounds(nl, nlBounds), 'sampled tile must lie inside the extent');
   // An anchor-containing extent keeps the anchor.
   const world = choosePreviewTile({ bounds: [-180, -85, 180, 85] });
   assert.deepEqual(world, lonLatToTile(PREVIEW_ANCHOR.lon, PREVIEW_ANCHOR.lat, 6));
@@ -84,6 +107,28 @@ test('fillTileTemplate handles query-string templates', () => {
     fillTileTemplate('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { z: 6, x: 33, y: 21 }),
     'https://mt1.google.com/vt/lyrs=s&x=33&y=21&z=6',
   );
+});
+
+test('fillTileTemplate substitutes a VirtualEarth quadkey', () => {
+  // One base-4 digit per zoom level: quadrant order is 0=NW, 1=NE, 2=SW, 3=SE.
+  assert.equal(tileToQuadkey({ z: 1, x: 0, y: 0 }), '0');
+  assert.equal(tileToQuadkey({ z: 1, x: 1, y: 1 }), '3');
+  assert.equal(tileToQuadkey({ z: 3, x: 3, y: 5 }), '213');
+  assert.equal(
+    fillTileTemplate('https://ecn.t0.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=1', { z: 3, x: 3, y: 5 }),
+    'https://ecn.t0.tiles.virtualearth.net/tiles/a213.jpeg?g=1',
+  );
+});
+
+test('resolveRasterPreviewUrl handles a quadkey source, which carries no {z}', () => {
+  const layer = { type: 'raster' };
+  const source = {
+    type: 'raster',
+    url: ['https://ecn.t0.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=1'],
+    maxzoom: 18,
+  };
+  const url = resolveRasterPreviewUrl(layer, source);
+  assert.ok(url && /\/tiles\/a[0-3]+\.jpeg/.test(url), `expected a quadkey tile url, got ${url}`);
 });
 
 test('resolveRasterPreviewUrl builds a tile URL from a raster source', () => {

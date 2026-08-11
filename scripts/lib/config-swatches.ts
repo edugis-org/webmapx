@@ -14,7 +14,7 @@
  * browser or the network.
  */
 
-import { deriveLayerSwatch } from '../../src/utils/layer-swatch';
+import { NEUTRAL_SWATCH, deriveLayerSwatch } from '../../src/utils/layer-swatch';
 
 export interface TextRange {
     start: number;
@@ -180,6 +180,10 @@ export function selectSwatchTargets(layers: unknown, opts: { force?: boolean; on
         // Ask the runtime deriver, so the CLI and the app always agree on which
         // layers are unresolvable — no second copy of that judgement.
         const derived = deriveLayerSwatch(stripBakedSwatch(layer));
+        // Kind alone is not the test: a symbol layer reports kind `unknown`
+        // yet derives a real colour from its text-colour, and label layers are
+        // numerous in a large catalog. Only bake when nothing was derived.
+        if (derived.background !== NEUTRAL_SWATCH) continue;
         if (derived.kind === 'raster' || derived.kind === 'unknown') {
             targets.push({ id, reason: derived.kind });
         }
