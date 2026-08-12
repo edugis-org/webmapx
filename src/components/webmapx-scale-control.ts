@@ -39,7 +39,13 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
   static styles = css`
     :host {
       display: inline-flex;
-      margin: var(--webmapx-tool-margin, 0);
+      /* Default carries bottom breathing room: this control is usually placed
+         in a bottom zone directly above the attribution line, and the bar is
+         open at the bottom, so with no gap it reads as sitting on it. It stays
+         part of the shorthand fallback rather than a separate margin-bottom
+         declaration — a later margin-bottom would silently beat the margin a
+         config sets through --webmapx-tool-margin. */
+      margin: var(--webmapx-tool-margin, 0 0 4px 0);
       pointer-events: auto;
       font-size: var(--font-size-small, 12px);
       color: var(--webmapx-scale-color, var(--color-text-primary, #16202a));
