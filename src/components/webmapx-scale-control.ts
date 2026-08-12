@@ -46,7 +46,11 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
          declaration — a later margin-bottom would silently beat the margin a
          config sets through --webmapx-tool-margin. */
       margin: var(--webmapx-tool-margin, 0 0 4px 0);
-      pointer-events: auto;
+      /* Read-only chrome: the bar has no interaction of its own, and it sits
+         over the map, so pan/zoom/tap must pass straight through it. The
+         layout's overlay surface is pointer-events:none and re-enables it per
+         control, so this is an opt-out, not a default. */
+      pointer-events: none;
       font-size: var(--font-size-small, 12px);
       color: var(--webmapx-scale-color, var(--color-text-primary, #16202a));
     }
