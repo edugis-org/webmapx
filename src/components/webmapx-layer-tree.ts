@@ -4,7 +4,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 
 import '@shoelace-style/shoelace/dist/components/tree/tree.js';
 import '@shoelace-style/shoelace/dist/components/tree-item/tree-item.js';
-import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
+import '@shoelace-style/shoelace/dist/components/switch/switch.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 
 import type { TreeNodeConfig, TreeSelectionMode } from '../config/types';
@@ -129,24 +129,58 @@ export class WebmapxLayerTree extends LitElement {
             padding-bottom: 0;
             min-height: 1.25rem;
         }
+        /* The control sits at the row's trailing edge, as in the legend, which
+           takes growth at BOTH levels. Shoelace's label part is a <slot> that
+           its own stylesheet gives display:flex — so the slot, not the slotted
+           control, is the flex item of the row, and it shrink-wraps unless
+           told to grow. Widening only the control (or only the slot) leaves
+           the switch mid-row. */
         sl-tree-item::part(label) {
             font-size: var(--webmapx-layer-tree-font-size, 0.8rem);
             line-height: 1.2;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+        sl-switch,
+        .layer-radio {
+            flex: 1 1 auto;
+            width: 100%;
+            min-width: 0;
         }
         sl-tree-item::part(expand-button) {
             padding: 0;
         }
-        sl-checkbox {
+        /* Visibility is a state you flip, not a selection you tick — the switch
+           says "this layer is on the map" the way the legend rows do. Sized
+           down from the Shoelace default so the tree keeps its density, and
+           pointed at the webmapx accent rather than the Shoelace primary. */
+        sl-switch {
+            --width: 1.75rem;
+            --height: 1rem;
+            --thumb-size: 0.75rem;
             --sl-input-height-medium: 1rem;
+            --sl-color-primary-600: var(--color-primary, #2b6c8f);
+            --sl-color-primary-500: var(--color-primary, #2b6c8f);
         }
-        sl-checkbox::part(control) {
-            width: 0.75rem;
-            height: 0.75rem;
+        /* row-reverse rather than the order property, so the DOM keeps control-then-label
+           (which is what Shoelace's own label/for wiring and the keyboard
+           handler expect) while the eye reads name-then-switch. */
+        sl-switch::part(base) {
+            width: 100%;
+            flex-direction: row-reverse;
+            justify-content: space-between;
+            gap: 0.4rem;
         }
-        sl-checkbox::part(label) {
+        sl-switch::part(control) {
+            flex: none;
+        }
+        sl-switch::part(label) {
             font-size: var(--webmapx-layer-tree-font-size, 0.8rem);
             line-height: 1.2;
-            padding-left: 0.3rem;
+            padding-left: 0;
+            margin-inline-start: 0;
+            flex: 1;
+            min-width: 0;
         }
         /* A layer row reads as a map thing, not a filename: a derived colour
            swatch, the human name, and the technical qualifier demoted to a
@@ -251,13 +285,22 @@ export class WebmapxLayerTree extends LitElement {
             flex: 1;
             min-width: 0;
         }
+        /* Same trailing-edge alignment as the switch above, so an exclusive
+           background row and a toggleable overlay row line up in one column. */
         .layer-radio {
-            display: inline-flex;
+            display: flex;
+            flex-direction: row-reverse;
+            justify-content: space-between;
             align-items: center;
-            gap: 0.375rem;
+            width: 100%;
+            gap: 0.4rem;
             font: inherit;
             color: inherit;
             cursor: pointer;
+        }
+        .layer-radio > :not(input) {
+            flex: 1;
+            min-width: 0;
         }
         .search {
             position: relative;
@@ -288,6 +331,7 @@ export class WebmapxLayerTree extends LitElement {
             width: 0.75rem;
             height: 0.75rem;
             margin: 0;
+            flex: none;
         }
     `;
 
@@ -1098,7 +1142,7 @@ export class WebmapxLayerTree extends LitElement {
             const handleLeafKey = (e: KeyboardEvent) => {
                 if (e.key === ' ' || e.key === 'Enter') {
                     e.preventDefault();
-                    const inner = (e.currentTarget as HTMLElement).querySelector<HTMLElement>('sl-checkbox, input[type="radio"]');
+                    const inner = (e.currentTarget as HTMLElement).querySelector<HTMLElement>('sl-switch, input[type="radio"]');
                     inner?.click();
                 }
                 // Prevent browser native radio-group arrow-key cycling
@@ -1128,14 +1172,14 @@ export class WebmapxLayerTree extends LitElement {
                             ${this.renderLayerLabel(node, disabled)}
                         </label>
                     ` : html`
-                        <sl-checkbox
+                        <sl-switch
                             ?checked=${node.checked}
                             ?disabled=${disabled}
                             data-layer-id=${node.layerId ?? ''}
                             @sl-change=${(e: Event) => this.handleCheck(e, node, nodeContext)}
                         >
                             ${this.renderLayerLabel(node, disabled)}
-                        </sl-checkbox>
+                        </sl-switch>
                     `}
                 </sl-tree-item>
             `;

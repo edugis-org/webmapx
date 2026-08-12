@@ -380,10 +380,6 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       width: 100%;
     }
 
-    .delete-layer::part(base) {
-      color: var(--sl-color-danger-600, #dc2626);
-    }
-
     .opacity-row {
       display: flex;
       align-items: center;
@@ -627,33 +623,45 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                             ${item.topLevelGroup
                               ? html`<div class="layer-meta">${item.topLevelGroup}</div>`
                               : null}
+                            <!-- sl-icon-button's label attribute is the accessible name only
+                                 (it renders as aria-label, never title), so each action
+                                 needs an explicit sl-tooltip to be readable on hover —
+                                 same pattern as the section actions above. sl-tooltip is
+                                 display:contents, so the flex row is unaffected. -->
                             <div class="layer-details-actions">
-                              <sl-icon-button
-                                name="info-circle"
-                                label="About this layer"
-                                @click=${() => this.handleShowLayerInfo(item.layerId, item.label)}
-                              ></sl-icon-button>
+                              <sl-tooltip content="About this layer">
+                                <sl-icon-button
+                                  name="info-circle"
+                                  label="About this layer"
+                                  @click=${() => this.handleShowLayerInfo(item.layerId, item.label)}
+                                ></sl-icon-button>
+                              </sl-tooltip>
                               ${item.hasStyleDialog
-                                ? html`<sl-icon-button
-                                    name="palette"
-                                    label="Layer style"
-                                    @click=${() => this.handleShowLayerStyle(item.layerId, item.label)}
-                                  ></sl-icon-button>`
+                                ? html`<sl-tooltip content="Layer style">
+                                    <sl-icon-button
+                                      name="palette"
+                                      label="Layer style"
+                                      @click=${() => this.handleShowLayerStyle(item.layerId, item.label)}
+                                    ></sl-icon-button>
+                                  </sl-tooltip>`
                                 : null}
                               ${item.hasExtent
-                                ? html`<sl-icon-button
-                                    name="zoom-in"
-                                    label="Zoom to layer"
-                                    @click=${() => this.handleZoomToLayer(item.layerId)}
-                                  ></sl-icon-button>`
+                                ? html`<sl-tooltip content="Zoom to layer">
+                                    <sl-icon-button
+                                      name="zoom-in"
+                                      label="Zoom to layer"
+                                      @click=${() => this.handleZoomToLayer(item.layerId)}
+                                    ></sl-icon-button>
+                                  </sl-tooltip>`
                                 : null}
                               ${isOverviewSection
-                                ? html`<sl-icon-button
-                                    class="delete-layer"
-                                    name="trash"
-                                    label="Delete layer"
-                                    @click=${() => this.handleDeleteLayer(item.layerId)}
-                                  ></sl-icon-button>`
+                                ? html`<sl-tooltip content="Remove layer">
+                                    <sl-icon-button
+                                      name="x-circle"
+                                      label="Remove layer"
+                                      @click=${() => this.handleDeleteLayer(item.layerId)}
+                                    ></sl-icon-button>
+                                  </sl-tooltip>`
                                 : null}
                             </div>
                           `}
