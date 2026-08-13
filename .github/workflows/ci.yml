@@ -20,8 +20,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Run as separate steps (rather than the composite `npm test`) so a red
+      # check names the stage that failed. `!cancelled()` lets every stage
+      # report, instead of hiding later failures behind the first one.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        if: '!cancelled()'
+        run: npm run lint
+
       - name: Architecture guardrail
+        if: '!cancelled()'
         run: npm run check:architecture
 
-      - name: Run tests
-        run: npm test
+      - name: Unit tests
+        if: '!cancelled()'
+        run: npm run test:unit
