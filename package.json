@@ -29,7 +29,7 @@
     "build:lib": "vite build --config vite.lib.config.ts",
     "prepublishOnly": "npm run build:lib",
     "preview": "vite preview",
-    "test": "npx tsc --noEmit && node ./scripts/run-tests.mjs",
+    "test": "npx tsc --noEmit && npm run lint && node ./scripts/run-tests.mjs",
     "ui-test": "node ./scripts/run-ui-tests.mjs --all",
     "ui-test:tools": "node ./scripts/run-ui-tests.mjs --all",
     "ui-test:tool-draw": "node ./scripts/run-ui-tests.mjs --suite tool-draw",
