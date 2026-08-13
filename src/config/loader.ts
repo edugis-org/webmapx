@@ -108,19 +108,6 @@ function normalizeSourceMap(sourceMap: unknown, baseUrl: string): Record<string,
   return Object.entries(sourceMap).map(([id, value]) => normalizeSourceDefinition(id, value, baseUrl));
 }
 
-function normalizeRenderLayer(renderLayer: Record<string, unknown>, fallbackSource?: string): Record<string, unknown> {
-  const source = typeof renderLayer.source === 'string' ? renderLayer.source : fallbackSource;
-  const minZoom = renderLayer.minZoom ?? renderLayer.minzoom;
-  const maxZoom = renderLayer.maxZoom ?? renderLayer.maxzoom;
-  return {
-    ...renderLayer,
-    ...(source ? { source } : {}),
-    sourceLayer: renderLayer.sourceLayer ?? renderLayer['source-layer'],
-    ...(minZoom !== undefined ? { minZoom } : {}),
-    ...(maxZoom !== undefined ? { maxZoom } : {}),
-  };
-}
-
 function normalizeSubLayerSpec(renderLayer: Record<string, unknown>, sourceAliases?: Map<string, string>): Record<string, unknown> {
   const source = typeof renderLayer.source === 'string'
     ? (sourceAliases?.get(renderLayer.source) ?? renderLayer.source)

@@ -236,7 +236,7 @@ class EpsgLookupWorkerManager {
     if (this.worker) {
       try {
         this.worker.postMessage({ type: 'shutdown' });
-      } catch (e) {
+      } catch (_e) {
         // Worker might already be terminated
       }
       

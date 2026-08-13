@@ -41,7 +41,7 @@ function loadStoredTrackPoints(): StoredTrackPoint[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
+  } catch (_error) {
     return [];
   }
 }
@@ -59,7 +59,7 @@ function nextTrackId(): number {
   const next = last + 1;
   try {
     localStorage.setItem(TRACK_LAST_ID_KEY, String(next));
-  } catch (error) {
+  } catch (_error) {
     // ignore
   }
   return next;
@@ -492,7 +492,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         targetAdapter.addSource(this.sourceId, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       }
       targetAdapter.suppressBusySignalForSource(this.sourceId);
-    } catch (error) {
+    } catch (_error) {
       // ignore if source exists
     }
     // Track whether any add operations failed so we only mark layers ready when everything succeeded
@@ -512,7 +512,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         filter: ['==', '$type', 'LineString']
       });
       if (!added) hadLayerErrors = true;
-    } catch (error) {
+    } catch (_error) {
       hadLayerErrors = true;
     }
     try {
@@ -529,7 +529,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         filter: ['==', '$type', 'Polygon']
       });
       if (!added) hadLayerErrors = true;
-    } catch (error) {
+    } catch (_error) {
       hadLayerErrors = true;
     }
     try {
@@ -547,7 +547,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         filter: ['==', '$type', 'Point']
       });
       if (!added) hadLayerErrors = true;
-    } catch (error) {
+    } catch (_error) {
       hadLayerErrors = true;
     }
 
@@ -567,11 +567,11 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     if (state && !state.layersReady) {
       return;
     }
-    try { this.mapElement.removeInlineLayer(this.trailLayerId); } catch (error) {}
-    try { this.mapElement.removeInlineLayer(this.radiusLayerId); } catch (error) {}
-    try { this.mapElement.removeInlineLayer(this.pointLayerId); } catch (error) {}
-    try { this.adapter.unsuppressBusySignalForSource(this.sourceId); } catch (error) {}
-    try { this.adapter.removeSource(this.sourceId); } catch (error) {}
+    try { this.mapElement.removeInlineLayer(this.trailLayerId); } catch (_error) {}
+    try { this.mapElement.removeInlineLayer(this.radiusLayerId); } catch (_error) {}
+    try { this.mapElement.removeInlineLayer(this.pointLayerId); } catch (_error) {}
+    try { this.adapter.unsuppressBusySignalForSource(this.sourceId); } catch (_error) {}
+    try { this.adapter.removeSource(this.sourceId); } catch (_error) {}
     if (state) {
       state.layersReady = false;
     }
@@ -731,7 +731,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         }
       });
       WebmapxGeolocationTool.wakeLock = sentinel;
-    } catch (error) {
+    } catch (_error) {
       WebmapxGeolocationTool.wakeLock = null;
     }
   }

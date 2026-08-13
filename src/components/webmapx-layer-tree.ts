@@ -637,7 +637,6 @@ export class WebmapxLayerTree extends LitElement {
         }
 
         if (node.layerId === layerId && node.checked !== checked) {
-            changed = true;
             return { ...node, checked, ...(nextChildren ? { children: nextChildren } : {}) };
         }
 
@@ -670,7 +669,6 @@ export class WebmapxLayerTree extends LitElement {
             if (node.layerId) {
                 const nextChecked = active.has(node.layerId);
                 if (node.checked !== nextChecked) {
-                    changed = true;
                     return { ...node, checked: nextChecked, ...(nextChildren ? { children: nextChildren } : {}) };
                 }
             }

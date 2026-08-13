@@ -24,7 +24,7 @@ async function step(name, fn) {
   try {
     await fn();
   } catch (error) {
-    throw new Error(`Step "${name}" failed: ${error.message}`);
+    throw new Error(`Step "${name}" failed: ${error.message}`, { cause: error });
   }
 }
 

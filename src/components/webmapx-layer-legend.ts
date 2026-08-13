@@ -1255,7 +1255,6 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             // Check for proportional bubble (zoom-interp radius with data expr stops)
             const propRadius = this.extractProportionalRadius(radiusExpr, this.zoom);
             if (propRadius) {
-                const LEGEND_MAX_R = 38; // match map pixel size: rMapMax ≈ 38px → legend max ≈ 38px
                 const { coeff, base, isSqrt } = propRadius;
                 const toMapR = (v: number) => base + coeff * (isSqrt ? Math.sqrt(v) : v);
                 const toData = (r: number) => { const net = Math.max(0, r - base); return isSqrt ? (net / coeff) ** 2 : net / coeff; };

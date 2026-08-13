@@ -45,16 +45,6 @@ async function openSearchTool(page) {
 
 async function searchForUtrecht(page) {
   await page.evaluate(async () => {
-    const waitFor = async (fn, timeoutMs, label) => {
-      const started = Date.now();
-      while (Date.now() - started < timeoutMs) {
-        const value = fn();
-        if (value) return value;
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      }
-      throw new Error(`Timed out waiting for ${label}`);
-    };
-
     const map = document.querySelector('webmapx-map');
     const tool = map?.querySelector('webmapx-search-tool');
     if (!tool?.shadowRoot) throw new Error('Search tool shadow root unavailable');
@@ -158,26 +148,6 @@ async function persistSearchResult(page, index) {
     const checkbox = results[idx]?.querySelector('sl-checkbox');
     return checkbox?.checked === true;
   }, { idx: index }, { timeout: 10_000 });
-}
-
-async function getPersistedLayerSourceId(page, index) {
-  return page.evaluate(({ idx }) => {
-    const map = document.querySelector('webmapx-map');
-    const tool = map?.querySelector('webmapx-search-tool');
-    if (!tool) return null;
-
-    // Access the persistedMap via the results
-    const results = tool.results?.features;
-    if (!results || idx >= results.length) return null;
-
-    const feature = results[idx];
-    // The sourceId follows a pattern based on osm_type and osm_id
-    const props = feature.properties || {};
-    if (props.osm_id || props.osm_type) {
-      return `search-persist-osm-${props.osm_type ?? ''}-${props.osm_id ?? ''}`;
-    }
-    return null;
-  }, { idx: index });
 }
 
 async function openDrawTool(page) {
@@ -388,7 +358,7 @@ async function step(name, fn) {
   try {
     await fn();
   } catch (error) {
-    throw new Error(`Step "${name}" failed: ${error.message}`);
+    throw new Error(`Step "${name}" failed: ${error.message}`, { cause: error });
   }
 }
 

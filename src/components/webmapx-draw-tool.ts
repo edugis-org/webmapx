@@ -15,7 +15,7 @@ import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialo
 import './webmapx-draw-layer-dialog';
 import type { WebmapxDrawLayerDialog, DrawLayerConfig, GeometryType } from './webmapx-draw-layer-dialog';
 import { unregisterMapLayer } from '../map/map-layer-registry';
-import { flatVertices, flatEdges, findSnap } from '../utils/snap-utils';
+import { findSnap } from '../utils/snap-utils';
 import { haversineDistanceCm, formatDistance, circlePolygonRing } from '../utils/geo-calculations';
 import { DATA_TOOL, DATA_TOOL_HALO } from '../theme/data-colors';
 
@@ -34,8 +34,6 @@ const SELECTED_VERTEX_COLOR = '#ff3b30';
 const SELECTED_VERTEX_RADIUS = 10;
 
 const SEL_SOURCE_ID = 'webmapx-draw-sel-source';
-const SEL_FILL_ID   = 'webmapx-draw-sel-fill';
-const SEL_LINE_ID   = 'webmapx-draw-sel-line';
 const SEL_POINT_ID  = 'webmapx-draw-sel-point';
 const DRAFT_SOURCE_ID = 'webmapx-draw-draft-source';
 const DRAFT_POINT_ID  = 'webmapx-draw-draft-points';

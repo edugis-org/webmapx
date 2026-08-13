@@ -550,7 +550,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
     render() {
         return html`
             <sl-dialog label=${this.dialogTitle}
-                       @sl-request-close=${(e: Event) => { (e as CustomEvent).detail?.source === 'overlay' && this.close(); }}>
+                       @sl-request-close=${(e: Event) => { if ((e as CustomEvent).detail?.source === 'overlay') this.close(); }}>
                 ${this.groups.length > 0
                     ? html`<div class="source-list">
                         ${this.groups.map((group) => html`

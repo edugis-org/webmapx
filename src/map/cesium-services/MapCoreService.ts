@@ -69,13 +69,6 @@ function webMercatorMetersPerPixelAtLat(zoom: number, lat: number): number {
     return (circumference * Math.cos(phi)) / (LOGICAL_TILE_SIZE * Math.pow(2, zoom));
 }
 
-function globeCurvatureLiftMeters(radiusMeters: number): number {
-    if (!(typeof radiusMeters === 'number' && isFinite(radiusMeters) && radiusMeters > 0)) {
-        return 0;
-    }
-    return (radiusMeters * radiusMeters) / (2 * WEB_MERCATOR_EARTH_RADIUS_M);
-}
-
 function toolCircleLiftMeters(radiusMeters: number): number {
     if (!(typeof radiusMeters === 'number' && isFinite(radiusMeters) && radiusMeters > 0)) {
         return 0.05;
@@ -405,7 +398,7 @@ export class MapCoreService implements IMapCore {
             this.layerOrderRegistry?.unregisterInlineLayer(id);
         }
 
-        for (const [sourceId, state] of this.sourceState.entries()) {
+        for (const [, state] of this.sourceState.entries()) {
             const before = state.layers.length;
             const removedLayers = state.layers.filter((layerState) => layerState.spec?.id === id);
             state.layers = state.layers.filter((layerState) => layerState.spec?.id !== id);
@@ -474,7 +467,6 @@ export class MapCoreService implements IMapCore {
     public unproject(pixel: Pixel): LngLat | null {
         const Cesium = getCesium();
         if (!Cesium || !this.viewer) return null;
-        const canvas = this.viewer.scene.canvas;
         const position = new Cesium.Cartesian2(pixel[0], pixel[1]);
         const cartesian = this.viewer.camera.pickEllipsoid(position, Cesium.Ellipsoid.WGS84);
         if (!cartesian) return null;
@@ -493,7 +485,7 @@ export class MapCoreService implements IMapCore {
             const rectangle = Cesium.Rectangle.fromDegrees(west, south, east, north);
             const camera = this.viewer.camera;
             camera.flyTo({ destination: rectangle, duration: 0.7 });
-        } catch (e) {
+        } catch (_e) {
             // fallback: center
             const lon = (bbox[0] + bbox[2]) / 2;
             const lat = (bbox[1] + bbox[3]) / 2;
@@ -644,7 +636,6 @@ export class MapCoreService implements IMapCore {
             if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                 if (!this.viewer) return;
                 e.preventDefault();
-                const Cesium = getCesium();
                 const canvas = this.viewer.scene.canvas as HTMLCanvasElement;
                 const zoom = this.getZoom();
                 const center = this.computeViewportCenter() ?? this.lastCenter;
@@ -1026,7 +1017,6 @@ export class MapCoreService implements IMapCore {
             }
 
             if (layer?.type === 'circle' && (entity.position || entity.point || entity.billboard || entity.ellipse)) {
-                const circleMetadata = layer?.metadata ?? {};
                 const circleColor = paint['circle-color'] ?? '#3388ff';
                 const circleOpacity = paint['circle-opacity'] ?? 1.0;
                 const circleRadius = paint['circle-radius'] ?? 6;

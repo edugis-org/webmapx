@@ -1,6 +1,6 @@
 // src/map/maplibre-adapter.ts
 
-import { IMap, IMapCore, ISource, IToolService, ISubMapFactory, LayerInsertOptions, type SourceFeatureQueryOptions, type SourceFeatureSample, type QueryLayerFeaturesOptions } from './IMapInterfaces';
+import { IMap, IMapCore, ISource, IToolService, ISubMapFactory, LayerInsertOptions, type SourceFeatureQueryOptions, type SourceFeatureSample } from './IMapInterfaces';
 import * as _ml from 'maplibre-gl';
 
 import { BaseAdapter } from './base-adapter';

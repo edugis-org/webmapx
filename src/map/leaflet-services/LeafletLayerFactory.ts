@@ -1,7 +1,7 @@
 // src/map/leaflet-services/LeafletLayerFactory.ts
 
 import * as L from 'leaflet';
-import type { AnyLayerConfig, StandardLayerConfig, SourceConfig, WMSSourceConfig, SubLayerSpec } from '../../config/types';
+import type { SourceConfig, WMSSourceConfig, SubLayerSpec } from '../../config/types';
 import { evaluateColor, evaluateNumber, evaluateString, matchesFilter } from '../../utils/maplibre-expression-evaluator';
 import { setupLabelCollision } from './label-collision';
 

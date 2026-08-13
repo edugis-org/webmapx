@@ -8,7 +8,6 @@ import type {
   CompositeStyleLayerConfig,
   LayerDataConfig,
   MapConfig,
-  MapStyleLayer,
   SourceConfig,
   SubLayerSpec,
   ToolsConfig,
@@ -1462,7 +1461,6 @@ export class WebmapxMapElement extends HTMLElement {
     // adapter.setLayerVisibility / setLayerOpacity mirror visible/transparency into
     // store.mapLayers themselves — no separate dispatch needed here.
     if (state.h && state.h.length > 0) {
-      const hiddenSet = new Set(state.h);
       const mapLayers = adapter.store.getState().mapLayers ?? {};
       for (const layerId of state.h) {
         if (!mapLayers[layerId]) continue;

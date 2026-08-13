@@ -14,7 +14,6 @@ export const throttle = (func: (...args: any[]) => void, limit: number) => {
     let lastRan = 0;
 
     return function(this: any, ...args: any[]) {
-        const context = this;
         const now = Date.now();
         const elapsed = now - lastRan;
 
@@ -24,7 +23,7 @@ export const throttle = (func: (...args: any[]) => void, limit: number) => {
                 lastFunc = null;
             }
             lastRan = now;
-            func.apply(context, args);
+            func.apply(this, args);
             return;
         }
 
@@ -34,7 +33,7 @@ export const throttle = (func: (...args: any[]) => void, limit: number) => {
         lastFunc = setTimeout(() => {
             lastFunc = null;
             lastRan = Date.now();
-            func.apply(context, args);
+            func.apply(this, args);
         }, limit - elapsed);
     } as (...args: any[]) => void;
 };

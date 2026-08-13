@@ -403,7 +403,7 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
     const { width, height } = surface;
     if (!width || !height || !segmentWidthPx || targetY === null || targetY === undefined || targetX === null || targetX === undefined) return null;
 
-    const attempt = (sampleY: number, tag: string) => {
+    const attempt = (sampleY: number, _tag: string) => {
       const halfSpan = Math.min(segmentWidthPx / 2, width / 2);
       const centerX = Math.min(Math.max(targetX, halfSpan), width - halfSpan);
       const leftPx: Pixel = [centerX - halfSpan, sampleY];

@@ -21,7 +21,7 @@ export function resolveToolbarSelectionState(params: {
   detail: ToolSelectEventDetail;
   ownToolbar: EventTarget | null;
 }): string | null | undefined {
-  const { toolIds, currentActiveToolId, detail, ownToolbar } = params;
+  const { toolIds, detail, ownToolbar } = params;
 
   if (isToolSelectFromDifferentToolbar(detail, ownToolbar)) {
     return undefined;

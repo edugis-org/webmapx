@@ -58,7 +58,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
       return p;
     };
 
-    let r = 0, g = 0, b = 0;
+    let r: number, g: number, b: number;
     if (sNorm === 0) {
       r = g = b = lNorm; // achromatic
     } else {
@@ -455,7 +455,6 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
 
   private addPersistedFeature(feature: GeoJSON.Feature) {
     if (!this.adapter || !this.mapElement) return;
-    const map = this.adapter;
     const mapElement = this.mapElement;
 
     // Determine source id
@@ -519,11 +518,11 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     const sourceId = info.sourceId;
     try {
       // Remove layers if present
-      try { mapElement.removeInlineLayer(`${sourceId}-fill`); } catch (e) {}
-      try { mapElement.removeInlineLayer(`${sourceId}-line`); } catch (e) {}
-      try { mapElement.removeInlineLayer(`${sourceId}-point`); } catch (e) {}
+      try { mapElement.removeInlineLayer(`${sourceId}-fill`); } catch (_e) {}
+      try { mapElement.removeInlineLayer(`${sourceId}-line`); } catch (_e) {}
+      try { mapElement.removeInlineLayer(`${sourceId}-point`); } catch (_e) {}
       // Remove source
-      try { map.removeSource(sourceId); } catch (e) {}
+      try { map.removeSource(sourceId); } catch (_e) {}
     } catch (e) {
       console.warn('Error removing persisted feature', e);
     }
@@ -590,7 +589,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     for (const lid of this.previewLayerIds) {
       if (map.hasLayer(lid)) mapElement.removeInlineLayer(lid);
     }
-    try { map.removeSource(this.previewSourceId); } catch (e) { /* ignore */ }
+    try { map.removeSource(this.previewSourceId); } catch (_e) { /* ignore */ }
     this.previewLayersAdded = false;
   }
 
@@ -605,11 +604,11 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
 
   private onResultCheckboxChange(feature: GeoJSON.Feature, e: Event) {
     // Stop propagation so the parent list item doesn't also handle the click
-    try { e.stopPropagation(); } catch (err) { /* ignore */ }
+    try { e.stopPropagation(); } catch (_err) { /* ignore */ }
 
     // Shoelace emits a custom event 'sl-change' with detail.checked; fall back to target.checked
     const evAny = e as any;
-    let checked = false;
+    let checked: boolean;
     if (evAny?.detail && typeof evAny.detail.checked === 'boolean') {
       checked = evAny.detail.checked;
     } else {

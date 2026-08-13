@@ -424,7 +424,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
         const label = this.geometryType === 'LineString' ? 'Line' : this.geometryType;
         return html`
             <sl-dialog label="${this.step === 'select' ? `Select ${label} layer` : `Configure ${label} layer`}"
-                       @sl-request-close=${(e: Event) => { (e as CustomEvent).detail?.source === 'overlay' && this.cancel(); }}>
+                       @sl-request-close=${(e: Event) => { if ((e as CustomEvent).detail?.source === 'overlay') this.cancel(); }}>
                 ${this.step === 'select' ? this.renderSelectStep() : this.renderDetailStep()}
             </sl-dialog>
         `;

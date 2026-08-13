@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { MapLayerService } from '../src/map/cesium-services/MapLayerService';
 import { MapStateStore } from '../src/store/map-state-store';
-import type { AnyLayerConfig, SourceConfig } from '../src/config/types';
+import type { AnyLayerConfig } from '../src/config/types';
 
 type ImageryLayer = { id: string; provider: unknown; show: boolean };
 

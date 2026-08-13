@@ -678,15 +678,14 @@ export class MapCoreService implements IMapCore {
 
     public getSource(id: string): ISource | undefined {
         if (!this.sources.has(id)) return undefined;
-        const self = this;
         return {
             id,
             setData: (data: GeoJSON.FeatureCollection) => {
-                self.geoJSONData.set(id, data);
-                const layerIds = self.sourceToLayers.get(id);
+                this.geoJSONData.set(id, data);
+                const layerIds = this.sourceToLayers.get(id);
                 if (!layerIds) return;
                 for (const layerId of layerIds) {
-                    const nativeLayers = self.logicalToNative.get(layerId);
+                    const nativeLayers = this.logicalToNative.get(layerId);
                     if (nativeLayers) {
                         nativeLayers.forEach(layer => {
                             if ('clearLayers' in layer && 'addData' in layer) {
@@ -752,7 +751,7 @@ export class MapCoreService implements IMapCore {
             const style = await response.json();
             let layersAdded = 0;
             if (style.sources) {
-                for (const [sourceId, source] of Object.entries(style.sources as Record<string, any>)) {
+                for (const source of Object.values(style.sources as Record<string, any>)) {
                     if (source.type === 'raster' && source.tiles?.length) {
                         L.tileLayer(source.tiles[0], {
                             attribution: source.attribution || '',

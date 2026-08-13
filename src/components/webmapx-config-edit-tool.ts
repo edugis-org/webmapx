@@ -104,11 +104,6 @@ function itemToToolItem(item: Record<string, unknown>, isNew = false): ToolItem 
     return { id, label: knownLabel(id), configItem: item, subItems, isNew };
 }
 
-function configToToolItem(id: string, cfg: Record<string, unknown>): ToolItem {
-    const merged = { id, type: id, ...cfg, ...TOOL_EXTRA_PROPS[id] };
-    return { id, label: knownLabel(id), configItem: merged, isNew: false };
-}
-
 // ── Dynamic (tool-added) layers ─────────────────────────────────────────────
 //
 // Tools like webmapx-3d-tool can call adapter.addLayer() at runtime with an
@@ -557,7 +552,7 @@ export class WebmapxConfigEditTool extends LitElement {
         const { toolId, toolbarKey, parentId, isToolbar } = this.popup;
         const original = this.mapElement?.config;
         const cfgTools = (original?.tools ?? {}) as Record<string, Record<string, unknown>>;
-        let configItem: Record<string, unknown> = {};
+        let configItem: Record<string, unknown>;
         if (isToolbar && toolbarKey) {
             configItem = cfgTools[toolbarKey] ?? DEFAULT_TOOLBAR_CONFIG[toolbarKey] ?? {};
             const draft: Record<string, unknown> = {};

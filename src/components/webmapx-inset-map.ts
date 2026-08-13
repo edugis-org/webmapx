@@ -69,7 +69,7 @@ export class WebmapxInsetMap extends LitElement {
     }
   }, 150);
 
-  private throttledRenderLog = throttle((label: string) => {
+  private throttledRenderLog = throttle((_label: string) => {
     //console.log('[inset-debug]', label);
   }, 50);
 
@@ -580,8 +580,8 @@ export class WebmapxInsetMap extends LitElement {
     // Debug ring size to monitor CPU load
     const densifiedRing = densified ? this.coerceRing(densified.geometry.coordinates?.[0]) : undefined;
     const ringSpan = densifiedRing && densifiedRing.length ? this.computeSpan(densifiedRing) : null;
-    const maxLat = densifiedRing && densifiedRing.length ? Math.max(...densifiedRing.map(([, lat]) => lat)) : null;
-    const minLat = densifiedRing && densifiedRing.length ? Math.min(...densifiedRing.map(([, lat]) => lat)) : null;
+    const _maxLat = densifiedRing && densifiedRing.length ? Math.max(...densifiedRing.map(([, lat]) => lat)) : null;
+    const _minLat = densifiedRing && densifiedRing.length ? Math.min(...densifiedRing.map(([, lat]) => lat)) : null;
 
     const hasIntersection = densifiedRing ? this.hasSelfIntersection(densifiedRing) : false;
     /*console.log('[inset-debug] ring sizes', {
@@ -707,8 +707,6 @@ export class WebmapxInsetMap extends LitElement {
     const anchorLng = this.lastCenter?.[0] ?? closedRing[0]?.[0] ?? 0;
     const unwrapped = this.ensureClosed(this.unwrapLongitudes(ring, anchorLng));
     const span = this.computeSpan(unwrapped);
-    const maxAbsLat = unwrapped.reduce((m, [, lat]) => Math.max(m, Math.abs(lat)), 0);
-    const nearPole = maxAbsLat >= 75;
     if (span.lat <= 2 && span.lon <= 2) {
       return closedRing;
     }

@@ -7,7 +7,7 @@
 // Already-added matching layers are updated live via `adapter.updateLayerStyle`.
 
 import { html, css, TemplateResult } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
 import type { SubLayerSpec } from '../config/types';

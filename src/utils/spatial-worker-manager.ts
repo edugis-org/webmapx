@@ -17,7 +17,6 @@
 import type { GpkgLayerInfo, SpatialOp, SpatialRequest, SpatialResponse } from '../workers/spatial.worker';
 
 type PendingOp = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolve: (value: any) => void;
     reject: (err: Error) => void;
 };

@@ -2,7 +2,7 @@
 
 import { ILayerService, LayerInsertOptions, type SourceFeatureQueryOptions, type SourceFeatureSample, type QueryLayerFeaturesOptions } from '../IMapInterfaces';
 import { normalizeRawSource } from '../layer-source-utils';
-import type { AnyLayerConfig, StandardLayerConfig, SourceConfig, WMSSourceConfig, GeoJSONSourceConfig, SubLayerSpec } from '../../config/types';
+import type { AnyLayerConfig, StandardLayerConfig, SourceConfig, WMSSourceConfig, SubLayerSpec } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import * as maplibregl from 'maplibre-gl';
 import { buildWMSGetMapUrl } from '../../utils/wms-url-builder';
@@ -649,7 +649,6 @@ export class MapLayerService implements ILayerService {
      * Uses _vectorTileFeature._x/_y/_z (MapLibre internal) to detect tile-border
      * features, then unions them using turf + flatbush spatial index.
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private mergeVectorTileFeatures(rawFeatures: maplibregl.MapGeoJSONFeature[]): GeoJSON.FeatureCollection {
         if (!rawFeatures.length) return { type: 'FeatureCollection', features: [] };
 

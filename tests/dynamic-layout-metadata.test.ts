@@ -1,12 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-// Isolate the pure metadata-resolution helpers by importing directly.
-// dynamic-layout.ts has no browser globals at module scope, so Node can load it.
-import {
-  // @ts-ignore — internal exports used only in tests
-} from '../src/utils/dynamic-layout.js';
-
 // ── Re-implement the helpers under test so we can test them without a DOM. ──
 // (They are not exported; we inline equivalent logic and test the public
 //  buildLayoutFromConfig behaviour via a fake DOM stub.)

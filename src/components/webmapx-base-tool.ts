@@ -116,7 +116,7 @@ export abstract class WebmapxBaseTool extends LitElement {
      * Called when the map adapter is successfully attached.
      * Override this to get references to specific services from the adapter.
      */
-    protected onMapAttached(adapter: IMap): void {
+    protected onMapAttached(_adapter: IMap): void {
         // Optional override
     }
 
@@ -217,7 +217,7 @@ export abstract class WebmapxBaseTool extends LitElement {
      * Called when configuration is ready or updated.
      * Override this to initialize your tool with config data.
      */
-    protected onConfigReady(config: AppConfig): void {
+    protected onConfigReady(_config: AppConfig): void {
         // Optional override
     }
 }

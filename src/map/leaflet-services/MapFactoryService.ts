@@ -73,7 +73,7 @@ class LeafletMap implements ISubMap {
         this.resizeObserver.observe(container);
     }
 
-    setViewport(center: [number, number], zoom: number, bearing?: number, pitch?: number): void {
+    setViewport(center: [number, number], zoom: number, _bearing?: number, _pitch?: number): void {
         // center is [lng, lat], Leaflet expects [lat, lng]
         const adjustedZoom = zoom;
         // Apply zoom offset to match MapLibre logical zooms (512px tiles).

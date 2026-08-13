@@ -142,7 +142,7 @@ test('findSnap: snaps to nearest vertex across multiple features', () => {
 
 test('findSnap: excludes feature by id via pre-filter', () => {
     // Simulate excludeFeatureId by filtering before passing to findSnap
-    const f1 = makeFeature('Point', [5, 0]);
+    const _f1 = makeFeature('Point', [5, 0]);
     const f2 = makeFeature('Point', [20, 0]);
     (f2 as any).id = 'f2';
     const result = findSnap([4, 0], [f2], identityProject, { threshold: 16 });

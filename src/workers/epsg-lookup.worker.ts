@@ -79,8 +79,6 @@ interface ShutdownResponse {
   type: 'shutdown-complete';
 }
 
-type WorkerResponse = LookupResponse | ReadyResponse | ShutdownResponse;
-
 // Data cache
 let countryEpsgData: CountryEpsgData | null = null;
 let geoJsonData: GeoJSONData | null = null;

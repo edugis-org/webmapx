@@ -12,7 +12,6 @@ import 'ol/ol.css';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import GeoJSON from 'ol/format/GeoJSON';
-import { Circle, Fill, Stroke, Style } from 'ol/style';
 import { defaults as defaultInteractions } from 'ol/interaction/defaults';
 import KeyboardPan from 'ol/interaction/KeyboardPan';
 import KeyboardZoom from 'ol/interaction/KeyboardZoom';

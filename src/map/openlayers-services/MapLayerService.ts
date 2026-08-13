@@ -201,7 +201,7 @@ export class MapLayerService implements ILayerService {
 
     async addLayer(layerConfig: AnyLayerConfig, options?: LayerInsertOptions): Promise<boolean> {
         const layerId = layerConfig.id;
-        let insertIndex = this.resolveInsertIndex(options);
+        const insertIndex = this.resolveInsertIndex(options);
 
         if (layerConfig.type === 'allmaps') {
             return this.addWarpedMapLayer(layerId, layerConfig.annotation, insertIndex);
@@ -236,7 +236,7 @@ export class MapLayerService implements ILayerService {
             const layer = await this.createLayer(nativeLayerId, stdLayer, sourceConfig);
             if (layer) {
                 (layer as any).__mapLayerId = layerId;
-                insertIndex = this.addMapLayerAtIndex(layer, insertIndex);
+                this.addMapLayerAtIndex(layer, insertIndex);
                 this.nativeLayerInstances.set(nativeLayerId, layer);
             }
         }
@@ -1220,7 +1220,7 @@ export class MapLayerService implements ILayerService {
         return updated;
     }
 
-    registerInlineLayer(logicalId: string, nativeInstance: BaseLayer, insertOptions?: LayerInsertOptions): void {
+    registerInlineLayer(logicalId: string, nativeInstance: BaseLayer, _insertOptions?: LayerInsertOptions): void {
         const nativeId = `${logicalId}-inline`;
         this.nativeLayerInstances.set(nativeId, nativeInstance);
         this.logicalToNative.set(logicalId, [nativeId]);

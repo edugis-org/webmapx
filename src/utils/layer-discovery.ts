@@ -137,7 +137,7 @@ function detectXyzTile(url: string): DiscoveredLayer | null {
  * source-layer name (matches pg_tileserv/martin-style MVT endpoints).
  */
 function detectMvtTile(url: string): DiscoveredLayer | null {
-  const match = url.match(/^(.*\/)([\w.\-]+)\/mvt\/\d+\/\d+\/\d+(\?.*)?$/i);
+  const match = url.match(/^(.*\/)([\w.-]+)\/mvt\/\d+\/\d+\/\d+(\?.*)?$/i);
   if (!match) return null;
 
   const [, prefix, sourceLayer, query] = match;

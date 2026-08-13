@@ -393,8 +393,6 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
       return nothing;
     }
 
-    const [lng, lat] = this.pinnedCoords;
-    
     return html`
       <div class="popup-container direction-${this.popupDirection}" @click=${(e: MouseEvent) => e.stopPropagation()}>
         <div class="format-line">
@@ -641,7 +639,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
   private shouldShowLocalizedFormat(): boolean {
     const browserLang = this.getBrowserLanguage();
     // Show localized format if browser language is supported and not English
-    return browserLang !== 'en' && CARDINAL_DIRECTIONS.hasOwnProperty(browserLang);
+    return browserLang !== 'en' && Object.prototype.hasOwnProperty.call(CARDINAL_DIRECTIONS, browserLang);
   }
 
   private handleCursorRowClick(e: MouseEvent): void {
@@ -653,7 +651,6 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
 
     const rect = this.cursorRowElement.getBoundingClientRect();
     const spaceAbove = rect.top;
-    const spaceBelow = window.innerHeight - rect.bottom;
     const estimatedHeight = 200 + (this.cursorFormatLocalCRS.length * 60);
     this.cursorFormatPopupDirection = spaceAbove >= estimatedHeight ? 'up' : 'down';
 
@@ -680,8 +677,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
     // Determine popup direction based on available space
     const rect = this.clickRowElement.getBoundingClientRect();
     const spaceAbove = rect.top;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    
+
     // Popup is approximately 150px tall (more with local CRS), prefer upward if there's space
     const estimatedHeight = 150 + (this.localCRS.length * 60);
     this.popupDirection = spaceAbove >= estimatedHeight ? 'up' : 'down';
@@ -714,7 +710,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
     }
 
     // First, try to get country-specific EPSG codes from the lookup worker
-    let epsgCodesMap: Map<string, {name: string; codes: string[]}> = new Map();
+    const epsgCodesMap: Map<string, {name: string; codes: string[]}> = new Map();
 
     try {
       const lookupResult = await epsgLookupManager.lookup(lat, lng);
@@ -750,7 +746,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
       const allCodes: Array<{code: string; countryName: string}> = [];
 
       // Collect all codes from all countries (excluding 4326 as it's already shown as lat/lon)
-      for (const [countryCode, {name, codes}] of epsgCodesMap) {
+      for (const [, {name, codes}] of epsgCodesMap) {
         for (const code of codes) {
           if (code !== '4326') {
             allCodes.push({code, countryName: name});
@@ -885,7 +881,7 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
     }
   }
 
-  private getTransformedPrecision(epsgCode: string): number {
+  private getTransformedPrecision(_epsgCode: string): number {
     // Most projected coordinate systems use meters, so 2 decimal places is usually sufficient
     // For specific systems, you could add custom precision rules
     return 2;

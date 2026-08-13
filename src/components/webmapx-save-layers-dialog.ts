@@ -129,7 +129,7 @@ export class WebmapxSaveLayersDialog extends LitElement {
         const bases = new Map<string, string>();
         const used = new Set<string>();
         for (const item of items) {
-            let base = WebmapxSaveLayersDialog.sanitizeFileBase(item.label ?? item.layerId);
+            const base = WebmapxSaveLayersDialog.sanitizeFileBase(item.label ?? item.layerId);
             let candidate = base;
             let n = 2;
             while (used.has(candidate)) {
@@ -242,7 +242,7 @@ export class WebmapxSaveLayersDialog extends LitElement {
 
         return html`
             <sl-dialog label="Save layer(s)"
-                       @sl-request-close=${(e: Event) => { (e as CustomEvent).detail?.source === 'overlay' && this.close(); }}>
+                       @sl-request-close=${(e: Event) => { if ((e as CustomEvent).detail?.source === 'overlay') this.close(); }}>
                 <div class="layer-list">
                     ${this.items.map((item) => html`
                         <div class="layer-row">

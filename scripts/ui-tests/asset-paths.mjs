@@ -95,7 +95,7 @@ export async function run({ page, baseUrl }) {
         try { await fn(); }
         catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
-            throw new Error(`${label}: ${msg}`);
+            throw new Error(`${label}: ${msg}`, { cause: err });
         }
     };
 

@@ -2,7 +2,7 @@
 // Builds the <webmapx-layout> contents (control groups, toolbars, tool
 // panels and standalone tools) from a config's `tools` section.
 
-import type { ToolConfig, ToolIconConfig, ToolsConfig } from '../config/types.js';
+import type { ToolIconConfig, ToolsConfig } from '../config/types.js';
 import bufferIconUrl from '../icons/buffer.svg?url';
 
 interface ToolbarItemConfig {

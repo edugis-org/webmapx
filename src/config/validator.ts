@@ -1,8 +1,6 @@
 // src/config/validator.ts
 // Runtime validator for WebMapX configuration files
 
-import type { AppConfig, SourceConfig, TreeNodeConfig } from './types.js';
-
 export type ValidationSeverity = 'error' | 'warning';
 
 export interface ValidationMessage {
@@ -85,18 +83,16 @@ export function validateConfig(config: unknown): ValidationResult {
     }
   }
 
-  let sourceIds = new Set<string>();
   let layerIds = new Set<string>();
 
   if (cfg.layerData !== undefined) {
-    ({ sourceIds, layerIds } = validateLayerDataSection(cfg.layerData, errors, warnings, 'layerData'));
+    ({ layerIds } = validateLayerDataSection(cfg.layerData, errors, warnings, 'layerData'));
   }
 
   if (cfg.catalog !== undefined) {
     warnings.push({ severity: 'warning', path: 'catalog', message: '"catalog" is deprecated; use "layerData" and place tree under layerTree tool config' });
     const legacy = validateCatalogSection(cfg.catalog, errors, warnings);
     if (cfg.layerData === undefined) {
-      sourceIds = legacy.sourceIds;
       layerIds = legacy.layerIds;
     }
   }

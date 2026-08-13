@@ -545,12 +545,11 @@ export class MapCoreService implements IMapCore {
     public getSource(id: string): ISource | undefined {
         const nativeSource = this.mapInstance?.getSource(id) as any;
         if (!nativeSource) return undefined;
-        const self = this;
         return {
             id,
             setData: (data: GeoJSON.FeatureCollection) => {
                 nativeSource.setData(data);
-                self.geoJSONData.set(id, data);
+                this.geoJSONData.set(id, data);
             }
         };
     }
@@ -565,7 +564,7 @@ export class MapCoreService implements IMapCore {
         try {
             const point = this.mapInstance.project(coords); // MapLibre's project method takes LngLat directly
             return [point.x, point.y];
-        } catch (e) {
+        } catch (_e) {
             return [0, 0];
         }
     }
@@ -586,7 +585,7 @@ export class MapCoreService implements IMapCore {
         try {
             // fitBounds expects [[west, south], [east, north]] as [lng, lat]
             this.mapInstance.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 40, animate: true });
-        } catch (e) {
+        } catch (_e) {
             // fallback: set center + approximate zoom
             const lon = (bbox[0] + bbox[2]) / 2;
             const lat = (bbox[1] + bbox[3]) / 2;
@@ -766,7 +765,6 @@ export class MapCoreService implements IMapCore {
         const degPerPxLat     = 360 / (512 * Math.pow(2, zoom));
         const metersPerPx     = metersPerDegLat * degPerPxLat;
         const camDistPx       = 0.5 * height / Math.tan(fovVR / 2);
-        const H               = camDistPx * metersPerPx;
 
         const halfH = Math.tan(fovVR / 2);
         const halfW = Math.tan(fovHR / 2);

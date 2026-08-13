@@ -99,7 +99,6 @@ async function filePathToFeatureCollection(gdal: GdalInstance, filePath: string 
 
 // ─── Operations ──────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function openDataset(gdal: GdalInstance, path: string): Promise<any> {
     const { datasets, errors } = await gdal.open(path);
     const ds = datasets[0];
@@ -149,9 +148,7 @@ async function buffer(
     const inputDataset = inputDatasets[0];
     if (!inputDataset) throw new Error(`Failed to open input: ${inputErrors.join('; ')}`);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let ds3857: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let dsBuf: any;
 
     try {

@@ -37,7 +37,6 @@ export class WebmapxActiveAdapter extends WebmapxBaseTool {
         }
     `;
 
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
     protected onStateChanged(): void {}
 
     protected onMapAttached(adapter: IMap): void {

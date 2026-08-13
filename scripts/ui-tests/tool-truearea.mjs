@@ -134,13 +134,13 @@ async function setViewCenter(page, lngLat, zoom) {
   await new Promise(r => setTimeout(r, 500));
 }
 
-export async function run({ page, engine }) {
+export async function run({ page }) {
   const step = async (label, fn) => {
     try {
       await fn();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`${label}: ${message}`);
+      throw new Error(`${label}: ${message}`, { cause: error });
     }
   };
 

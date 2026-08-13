@@ -191,7 +191,7 @@ export async function run({ page, engine }) {
             await fn();
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
-            throw new Error(`${label}: ${msg}`);
+            throw new Error(`${label}: ${msg}`, { cause: error });
         }
     };
 

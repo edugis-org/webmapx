@@ -741,7 +741,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                             ${this.streetviewUnavailable ? html`<p class="instructions">No StreetView at this location.</p>` : ''}
                             ${this.streetviewImageUrl ? html`
                                 <div class="streetview-wrap">
-                                    <a href="https://www.google.com/maps/@?api=1&map_action=pano&pano=${this.streetviewPanoId}"
+                                    <a href="https://www.google.com/maps/@?api=1&amp;map_action=pano&amp;pano=${this.streetviewPanoId}"
                                        target="_blank" rel="noopener noreferrer">
                                         <img class="streetview-thumb" src="${this.streetviewImageUrl}" alt="StreetView">
                                     </a>
@@ -751,7 +751,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                         ` : html`
                             <p class="instructions">
                                 <a class="streetview-link"
-                                   href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${this.pinnedLocation[1]},${this.pinnedLocation[0]}"
+                                   href="https://www.google.com/maps/@?api=1&amp;map_action=pano&amp;viewpoint=${this.pinnedLocation[1]},${this.pinnedLocation[0]}"
                                    target="_blank" rel="noopener noreferrer">StreetView</a>
                                 &nbsp;·&nbsp; Click same location to unpin.
                             </p>`}
