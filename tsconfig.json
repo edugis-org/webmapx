@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "strict": true,
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "target": "es2020",
