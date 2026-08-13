@@ -25,8 +25,12 @@ const runners = new WeakMap<object, () => void>();
 export function setupLabelCollision(viewer: any, getGeojsonDataSources: () => any[]): void {
     if (!viewer || runners.has(viewer)) return;
 
+    // Measuring label text needs a real canvas, so this is browser-only. Outside a DOM
+    // (unit tests) there is nothing to collide and nothing to measure with.
+    if (typeof document === 'undefined') return;
+
     const Cesium = getCesium();
-    if (!Cesium) return;
+    if (!Cesium?.JulianDate) return;
 
     const run = () => {
         try {
