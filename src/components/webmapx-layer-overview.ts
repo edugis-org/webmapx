@@ -809,6 +809,19 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                                     <webmapx-layer-legend layer-id=${item.layerId}></webmapx-layer-legend>
                                   </div>
                                   <div class="opacity-row">
+                                    <sl-tooltip content="Transparency">
+                                      <input
+                                        type="range"
+                                        aria-label=${`Transparency of ${item.label}`}
+                                        min="0"
+                                        max="100"
+                                        style="--slider-pct: ${this.layerTransparency.get(item.layerId) ?? 0}%${this.hoveredTransparencySliderLayerId === item.layerId ? '; --thumb-fill: var(--sl-color-primary-600, var(--color-primary, #2b6c8f))' : ''}"
+                                        .value=${String(this.layerTransparency.get(item.layerId) ?? 0)}
+                                        @input=${(e: Event) => this.handleTransparencyChange(item.layerId, e)}
+                                        @mouseenter=${() => { this.hoveredTransparencySliderLayerId = item.layerId; }}
+                                        @mouseleave=${() => { this.hoveredTransparencySliderLayerId = null; }}
+                                      />
+                                    </sl-tooltip>
                                     ${this.editingTransparencyLayerId === item.layerId
                                       ? html`<input
                                           class="opacity-value-input"
@@ -834,19 +847,6 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                                             }}
                                           >${this.layerTransparency.get(item.layerId) ?? 0}%</span>
                                         </sl-tooltip>`}
-                                    <sl-tooltip content="Transparency">
-                                      <input
-                                        type="range"
-                                        aria-label=${`Transparency of ${item.label}`}
-                                        min="0"
-                                        max="100"
-                                        style="--slider-pct: ${this.layerTransparency.get(item.layerId) ?? 0}%${this.hoveredTransparencySliderLayerId === item.layerId ? '; --thumb-fill: var(--sl-color-primary-600, var(--color-primary, #2b6c8f))' : ''}"
-                                        .value=${String(this.layerTransparency.get(item.layerId) ?? 0)}
-                                        @input=${(e: Event) => this.handleTransparencyChange(item.layerId, e)}
-                                        @mouseenter=${() => { this.hoveredTransparencySliderLayerId = item.layerId; }}
-                                        @mouseleave=${() => { this.hoveredTransparencySliderLayerId = null; }}
-                                      />
-                                    </sl-tooltip>
                                   </div>
                                 `
                               : null}
