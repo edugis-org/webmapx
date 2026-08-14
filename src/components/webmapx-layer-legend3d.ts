@@ -9,18 +9,17 @@ import './webmapx-layer-info-dialog';
 import './webmapx-layer-style-dialog';
 import './webmapx-save-layers-dialog';
 import './webmapx-permalink-dialog';
+import './webmapx-clear-layers-dialog';
 import type { WebmapxLayerInfoDialog } from './webmapx-layer-info-dialog';
 import type { LayerStyleTarget, SourceAttributeInfo, SourceStyleGroup, WebmapxLayerStyleDialog } from './webmapx-layer-style-dialog';
 import type { WebmapxSaveLayersDialog, SaveLayerCandidate } from './webmapx-save-layers-dialog';
 import type { WebmapxPermalinkDialog } from './webmapx-permalink-dialog';
+import type { WebmapxClearLayersDialog } from './webmapx-clear-layers-dialog';
 import { buildPermalinkUrl, getMapDomIndex, getConfigUrlForIndex } from '../utils/permalink';
 import { Webmapx3dTool } from './webmapx-3d-tool';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
-import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
-import '@shoelace-style/shoelace/dist/components/button/button.js';
-import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 
 /** Computes [west, south, east, north] from a GeoJSON FeatureCollection's coordinates. */
 function geojsonExtent(geojson: GeoJSON.FeatureCollection): [number, number, number, number] | null {
@@ -175,7 +174,8 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
   // cache: true — see the comment on infoDialog/styleDialog above; same reason.
   @query('webmapx-save-layers-dialog', true) private saveLayersDialog!: WebmapxSaveLayersDialog;
   @query('webmapx-permalink-dialog', true) private permalinkDialog!: WebmapxPermalinkDialog;
-  @query('#clear-all-layers-dialog') private clearAllLayersDialog!: SlDialog;
+  // cache: true — see the comment on infoDialog/styleDialog above; same reason.
+  @query('webmapx-clear-layers-dialog', true) private clearLayersDialog!: WebmapxClearLayersDialog;
   private unsubscribeLayerAdd: (() => void) | null = null;
   private unsubscribeLayerRemove: (() => void) | null = null;
 
@@ -721,11 +721,7 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
       <webmapx-layer-style-dialog></webmapx-layer-style-dialog>
       <webmapx-save-layers-dialog></webmapx-save-layers-dialog>
       <webmapx-permalink-dialog></webmapx-permalink-dialog>
-      <sl-dialog id="clear-all-layers-dialog" label="Alle kaartlagen wissen">
-        <p>Dit wist alle kaartlagen uit 'actieve lagen'. Sla zelfgemaakte lagen eerst op. Je kunt bestaande lagen weer openen via de kaartlagen knop.</p>
-        <sl-button slot="footer" variant="default" @click=${() => this.clearAllLayersDialog.hide()}>Annuleren</sl-button>
-        <sl-button slot="footer" variant="danger" @click=${() => this.handleConfirmClearAllLayers()}>Wissen</sl-button>
-      </sl-dialog>
+      <webmapx-clear-layers-dialog @webmapx-clear-layers-confirm=${() => this.handleConfirmClearAllLayers()}></webmapx-clear-layers-dialog>
     `;
   }
 
@@ -1636,11 +1632,11 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
   }
 
   private handleClearAllLayers(): void {
-    this.clearAllLayersDialog?.show();
+    this.clearLayersDialog?.open();
   }
 
   private handleConfirmClearAllLayers(): void {
-    this.clearAllLayersDialog?.hide();
+    this.clearLayersDialog?.hide();
     if (!this.adapter) return;
     for (const item of this.overviewLayers) {
       this.adapter.removeLayer(item.layerId);
