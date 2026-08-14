@@ -16,6 +16,7 @@
  */
 
 import initGdalJs from 'gdal3.js';
+import { runGeoprocess, type GdalLike, type GeoprocessRequest } from './geoprocessing-runner';
 import wasmUrl from 'gdal3.js/dist/package/gdal3WebAssembly.wasm?url';
 import dataUrl from 'gdal3.js/dist/package/gdal3WebAssembly.data?url';
 import workerJsUrl from 'gdal3.js/dist/package/gdal3.js?url';
@@ -29,6 +30,7 @@ export interface GpkgLayerInfo {
 
 export type SpatialOp =
     | { op: 'buffer'; distanceMeters: number; segments?: number; input: GeoJSON.FeatureCollection; centerLat?: number }
+    | ({ op: 'geoprocess' } & GeoprocessRequest)
     | { op: 'convertToGeoJSON'; data: ArrayBuffer; filename: string }
     | { op: 'inspectFile'; data: ArrayBuffer; filename: string }
     | { op: 'convertFileLayer'; sessionKey: string; layerName: string }
@@ -375,6 +377,9 @@ self.onmessage = async (e: MessageEvent<SpatialRequest>) => {
         switch (operation.op) {
             case 'buffer':
                 result = await buffer(gdal, operation.input, operation.distanceMeters, operation.segments, operation.centerLat);
+                break;
+            case 'geoprocess':
+                result = await runGeoprocess(gdal as unknown as GdalLike, operation);
                 break;
             case 'convertToGeoJSON':
                 result = await convertToGeoJSON(gdal, operation.data, operation.filename);

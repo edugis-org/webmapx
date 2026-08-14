@@ -44,6 +44,7 @@ export const TOOL_ELEMENT_TAGS: Record<string, string> = {
   toolbox: 'webmapx-toolbox-tool',
   menu: 'webmapx-menu-tool',
   buffer: 'webmapx-buffer-tool',
+  geoprocessing: 'webmapx-geoprocessing-tool',
   stories: 'webmapx-stories-tool',
 };
 
@@ -72,6 +73,7 @@ const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = {
   toolbox: { label: 'Toolbox', icon: 'grid' },
   menu: { label: 'Tools', icon: 'list' },
   buffer: { label: 'Buffer', icon: { src: bufferIconUrl } },
+  geoprocessing: { label: 'Analysis', icon: 'intersect' },
   stories: { label: 'Stories', icon: 'book' },
 };
 
@@ -113,6 +115,7 @@ export const KNOWN_TOOLS: Array<{ id: string; label: string; icon?: string | Too
   { id: 'toolbox',       label: 'Toolbox',        icon: 'grid' },
   { id: 'menu',          label: 'Menu',           icon: 'list' },
   { id: 'buffer',        label: 'Buffer',         icon: { src: bufferIconUrl } },
+  { id: 'geoprocessing', label: 'Analysis',       icon: 'intersect' },
   { id: 'stories',       label: 'Stories',        icon: 'book' },
   { id: 'navigation',    label: 'Navigation',     icon: 'compass',     standalone: true },
   { id: 'scale',         label: 'Scale bar',      icon: 'rulers',      standalone: true },

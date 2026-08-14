@@ -53,10 +53,19 @@ function createWorker(): Worker {
 
     w.onerror = (e: ErrorEvent) => {
         // Worker crashed — reject all pending ops and reset so next call recreates it
-        const err = new Error(e.message ?? 'Spatial worker crashed');
+        const err = new Error(e.message || 'The spatial worker crashed. Try again with fewer features.');
         for (const op of pending.values()) op.reject(err);
         pending.clear();
         worker = null;
+    };
+
+    // A response that cannot be structured-cloned back (an enormous result, or a
+    // value holding something uncloneable) fires this instead of onmessage. Left
+    // unhandled it looks exactly like a hang: the caller waits forever.
+    w.onmessageerror = () => {
+        const err = new Error('The result could not be transferred from the worker — it may be too large.');
+        for (const op of pending.values()) op.reject(err);
+        pending.clear();
     };
 
     return w;
@@ -181,4 +190,44 @@ export function terminateSpatialWorker(): void {
     pending.clear();
     worker.terminate();
     worker = null;
+}
+
+/** Thrown into pending operations by `cancelSpatialOps` — not a failure. */
+export class SpatialOperationCancelled extends Error {
+    constructor() {
+        super('Calculation cancelled');
+        this.name = 'SpatialOperationCancelled';
+    }
+}
+
+/** How many operations are currently in flight. */
+export function pendingSpatialOpCount(): number {
+    return pending.size;
+}
+
+/**
+ * Abort everything currently running.
+ *
+ * Terminating the worker is the only way to stop work that has already reached
+ * GDAL: the WASM module runs a single synchronous call that ignores further
+ * messages, so there is nothing to politely ask. The next operation recreates
+ * the worker and reloads GDAL (~3 s), which is the price of being able to escape
+ * a computation that would otherwise freeze the panel indefinitely.
+ *
+ * The worker is shared, so this also cancels unrelated spatial work (a file
+ * import, say). Callers should therefore only cancel on an explicit user action,
+ * and `pendingSpatialOpCount` lets them see what they would be interrupting.
+ *
+ * @returns the number of operations that were cancelled.
+ */
+export function cancelSpatialOps(): number {
+    const count = pending.size;
+    if (!count) return 0;
+
+    const err = new SpatialOperationCancelled();
+    for (const op of pending.values()) op.reject(err);
+    pending.clear();
+    worker?.terminate();
+    worker = null;
+    return count;
 }

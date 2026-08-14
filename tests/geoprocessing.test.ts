@@ -1,0 +1,735 @@
+/**
+ * End-to-end tests for the geoprocessing pipeline.
+ *
+ * These run the *real* GDAL/SpatiaLite WASM build — the same one the browser
+ * worker loads — against small hand-built geometries. That is the point: the SQL
+ * templates in `utils/geoprocessing-operations.ts` are only correct if
+ * SpatiaLite accepts them, and no amount of string assertion proves that.
+ *
+ * gdal3.js's Node build takes file *paths* where the browser build takes `File`
+ * objects, so `nodeGdal()` below adapts one to the other. Everything else is the
+ * production code path.
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+import { pathToFileURL } from 'node:url';
+import { runGeoprocess, type GdalLike } from '../src/workers/geoprocessing-runner';
+import { GEO_OPERATIONS, defaultParams, getOperation } from '../src/utils/geoprocessing-operations';
+
+// ─── Fixtures ────────────────────────────────────────────────────────────────
+
+type FC = GeoJSON.FeatureCollection;
+
+function square(x: number, y: number, size: number, props: Record<string, unknown>): GeoJSON.Feature {
+    return {
+        type: 'Feature',
+        properties: props,
+        geometry: {
+            type: 'Polygon',
+            coordinates: [[[x, y], [x + size, y], [x + size, y + size], [x, y + size], [x, y]]],
+        },
+    };
+}
+
+function fc(...features: GeoJSON.Feature[]): FC {
+    return { type: 'FeatureCollection', features };
+}
+
+/** Two 2°-squares: `left` at 0..2, `right` at 1..3 — they overlap on 1..2. */
+const LEFT: FC = fc(square(0, 0, 2, { name: 'left', pop: 100 }));
+const RIGHT: FC = fc(square(1, 1, 2, { name: 'right', zone: 'B' }));
+/** Three points: inside LEFT, inside the overlap, far away. */
+const POINTS: FC = fc(
+    { type: 'Feature', properties: { id: 'p1' }, geometry: { type: 'Point', coordinates: [0.5, 0.5] } },
+    { type: 'Feature', properties: { id: 'p2' }, geometry: { type: 'Point', coordinates: [1.5, 1.5] } },
+    { type: 'Feature', properties: { id: 'p3' }, geometry: { type: 'Point', coordinates: [10, 10] } },
+);
+/** Two adjacent squares sharing an edge, in two groups. */
+const ADJACENT: FC = fc(
+    square(0, 0, 1, { region: 'north', name: 'a' }),
+    square(1, 0, 1, { region: 'north', name: 'b' }),
+    square(5, 5, 1, { region: 'south', name: 'c' }),
+);
+
+// ─── GDAL adapter ────────────────────────────────────────────────────────────
+
+let gdalPromise: Promise<GdalLike> | null = null;
+
+function nodeGdal(): Promise<GdalLike> {
+    if (gdalPromise) return gdalPromise;
+
+    const scratch = mkdtempSync(path.join(tmpdir(), 'webmapx-gp-'));
+
+    // Imported through a runtime URL, not a static specifier: the Node build of
+    // gdal3.js is CommonJS and `require()`s node builtins, which esbuild cannot
+    // bundle into the ESM test file.
+    const nodeBuild = pathToFileURL(path.resolve(process.cwd(), 'node_modules/gdal3.js/node.js')).href;
+
+    gdalPromise = import(nodeBuild)
+        .then((mod: any) => (mod.default ?? mod)({
+            path: 'node_modules/gdal3.js/dist/package',
+            useWorker: false,
+        }))
+        .then((gdal: any): GdalLike => ({
+        async open(file: unknown) {
+            // The runner hands us browser `File`s; the Node build wants a path.
+            if (typeof File !== 'undefined' && file instanceof File) {
+                const target = path.join(scratch, file.name);
+                writeFileSync(target, Buffer.from(await file.arrayBuffer()));
+                return gdal.open(target);
+            }
+            return gdal.open(file);
+        },
+        close: (ds: unknown) => gdal.close(ds),
+        ogr2ogr: (ds: unknown, args: string[], name?: string) => gdal.ogr2ogr(ds, args, name),
+        getFileBytes: (p: unknown) => gdal.getFileBytes(p),
+    }));
+
+    return gdalPromise;
+}
+
+async function run(operationId: string, inputA: FC, inputB?: FC, params: Record<string, string | number> = {}): Promise<FC> {
+    const op = getOperation(operationId);
+    assert.ok(op, `no such operation: ${operationId}`);
+    const gdal = await nodeGdal();
+    return runGeoprocess(gdal, {
+        operationId,
+        inputA,
+        inputB,
+        params: { ...defaultParams(op!), ...params },
+        centerLat: 1,
+    });
+}
+
+/** Geometry area in square degrees — enough to compare relative sizes. */
+function ringArea(feature: GeoJSON.Feature): number {
+    const g = feature.geometry;
+    const polys = g.type === 'Polygon' ? [g.coordinates]
+        : g.type === 'MultiPolygon' ? g.coordinates
+        : [];
+    let total = 0;
+    for (const poly of polys) {
+        for (const ring of poly) {
+            let sum = 0;
+            for (let i = 0; i < ring.length - 1; i++) {
+                sum += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+            }
+            total += Math.abs(sum) / 2;
+        }
+    }
+    return total;
+}
+
+function totalArea(collection: FC): number {
+    return collection.features.reduce((sum, f) => sum + ringArea(f), 0);
+}
+
+// The WASM module takes a few seconds to instantiate on first use.
+const TIMEOUT = 120_000;
+
+// ─── Registry sanity ─────────────────────────────────────────────────────────
+
+test('every operation declares at least one input and a unique id', () => {
+    const ids = new Set<string>();
+    for (const op of GEO_OPERATIONS) {
+        assert.ok(op.inputs.length >= 1 && op.inputs.length <= 2, `${op.id}: bad arity`);
+        assert.equal(op.inputs[0].key, 'a', `${op.id}: first input must be slot a`);
+        assert.ok(!ids.has(op.id), `duplicate operation id: ${op.id}`);
+        ids.add(op.id);
+    }
+});
+
+test('every operation is computed either by SQL or in JS, never both or neither', () => {
+    for (const op of GEO_OPERATIONS) {
+        const ways = [op.buildSql, op.compute].filter(Boolean).length;
+        assert.equal(ways, 1, `${op.id}: expected exactly one of buildSql/compute, found ${ways}`);
+    }
+});
+
+test('two-input operations reject a missing second layer', { timeout: TIMEOUT }, async () => {
+    await assert.rejects(() => run('clip', LEFT), /two input layers/);
+});
+
+// ─── Two-input operations ────────────────────────────────────────────────────
+
+test('clip keeps only the overlap and the input attributes', { timeout: TIMEOUT }, async () => {
+    const out = await run('clip', LEFT, RIGHT);
+    assert.equal(out.features.length, 1);
+    assert.equal(out.features[0].properties?.name, 'left');
+    assert.equal(out.features[0].properties?.pop, 100);
+    // Attributes of the clip layer must not leak in.
+    assert.ok(!('zone' in (out.features[0].properties ?? {})));
+    // Overlap is 1x1 of a 2x2 input.
+    assert.ok(Math.abs(ringArea(out.features[0]) - 1) < 0.05, `expected ~1, got ${ringArea(out.features[0])}`);
+});
+
+test('clip keeps the input feature count when the clip layer has many parts', { timeout: TIMEOUT }, async () => {
+    // Two separate clip shapes both overlapping the one input feature. Clipping
+    // per pair would emit two features; clip must emit one (possibly multipart).
+    const twoMasks = fc(square(1, 0.2, 1, { m: 1 }), square(1, 1.4, 1, { m: 2 }));
+    const out = await run('clip', LEFT, twoMasks);
+    assert.equal(out.features.length, 1, 'clip must not multiply the input features');
+    assert.equal(out.features[0].properties?.name, 'left');
+    // Both masks contributed: the first lies fully inside the input (1.0), the
+    // second sticks out past its top edge and contributes only 0.6.
+    assert.ok(Math.abs(ringArea(out.features[0]) - 1.6) < 0.15, `expected ~1.6, got ${ringArea(out.features[0])}`);
+});
+
+test('intersect splits per overlapping pair, unlike clip', { timeout: TIMEOUT }, async () => {
+    // The distinction between the two operations: same geometry, different
+    // feature count, because intersect carries the second layer's attributes.
+    const twoZones = fc(square(1, 0.2, 1, { zone: 'north' }), square(1, 1.4, 1, { zone: 'south' }));
+    const clipped = await run('clip', LEFT, twoZones);
+    const intersected = await run('intersect', LEFT, twoZones);
+
+    assert.equal(clipped.features.length, 1);
+    assert.equal(intersected.features.length, 2);
+    assert.deepEqual(
+        intersected.features.map(f => f.properties?.zone).sort(),
+        ['north', 'south'],
+        'each intersect feature carries its own second-layer attributes',
+    );
+});
+
+test('erase removes the overlapping part', { timeout: TIMEOUT }, async () => {
+    const out = await run('erase', LEFT, RIGHT);
+    assert.equal(out.features.length, 1);
+    assert.equal(out.features[0].properties?.name, 'left');
+    // 2x2 minus the 1x1 overlap.
+    assert.ok(Math.abs(ringArea(out.features[0]) - 3) < 0.1, `expected ~3, got ${ringArea(out.features[0])}`);
+});
+
+test('erase does not duplicate features when the erase layer has many parts', { timeout: TIMEOUT }, async () => {
+    const manyErasers = fc(square(1, 1, 1, { n: 1 }), square(0, 0, 0.5, { n: 2 }));
+    const out = await run('erase', LEFT, manyErasers);
+    assert.equal(out.features.length, 1, 'one input feature must yield one output feature');
+});
+
+test('intersect combines attributes from both layers', { timeout: TIMEOUT }, async () => {
+    const out = await run('intersect', LEFT, RIGHT);
+    assert.equal(out.features.length, 1);
+    const props = out.features[0].properties ?? {};
+    assert.equal(props.name, 'left');
+    assert.equal(props.zone, 'B');
+    assert.equal(props.pop, 100);
+});
+
+test('intersect disambiguates colliding attribute names', { timeout: TIMEOUT }, async () => {
+    const other = fc(square(1, 1, 2, { name: 'right' }));
+    const out = await run('intersect', LEFT, other);
+    const props = out.features[0].properties ?? {};
+    assert.equal(props.name, 'left');
+    assert.equal(props.name_2, 'right');
+});
+
+test('union splits into first-only, second-only and both', { timeout: TIMEOUT }, async () => {
+    const out = await run('union', LEFT, RIGHT);
+    const parts = out.features.map(f => f.properties?.part).sort();
+    assert.deepEqual(parts, ['both', 'first', 'second']);
+    // The three pieces tile the union without overlapping: 4 + 4 - 1 = 7.
+    assert.ok(Math.abs(totalArea(out) - 7) < 0.2, `expected ~7, got ${totalArea(out)}`);
+});
+
+test('union carries the attributes of whichever layers a piece came from', { timeout: TIMEOUT }, async () => {
+    const out = await run('union', LEFT, RIGHT);
+    const byPart = new Map(out.features.map(f => [f.properties?.part, f.properties ?? {}]));
+
+    // The overlap belongs to both inputs, so it carries both sets of attributes.
+    assert.equal(byPart.get('both')?.name, 'left');
+    assert.equal(byPart.get('both')?.pop, 100);
+    assert.equal(byPart.get('both')?.zone, 'B');
+
+    // An A-only piece keeps A's attributes and has NULL for B's.
+    assert.equal(byPart.get('first')?.name, 'left');
+    assert.equal(byPart.get('first')?.zone ?? null, null);
+
+    // And the mirror image for B-only.
+    assert.equal(byPart.get('second')?.zone, 'B');
+    assert.equal(byPart.get('second')?.name ?? null, null);
+});
+
+test('union keeps colliding attribute names apart', { timeout: TIMEOUT }, async () => {
+    // Both layers have a `name`; B's must land in name_2 in every branch, or a
+    // positional UNION would file B's values under A's heading.
+    const other = fc(square(1, 1, 2, { name: 'right' }));
+    const out = await run('union', LEFT, other);
+    const byPart = new Map(out.features.map(f => [f.properties?.part, f.properties ?? {}]));
+
+    assert.equal(byPart.get('both')?.name, 'left');
+    assert.equal(byPart.get('both')?.name_2, 'right');
+    assert.equal(byPart.get('first')?.name, 'left');
+    assert.equal(byPart.get('first')?.name_2 ?? null, null);
+    assert.equal(byPart.get('second')?.name ?? null, null);
+    assert.equal(byPart.get('second')?.name_2, 'right');
+});
+
+test('select by location keeps whole features, unchanged', { timeout: TIMEOUT }, async () => {
+    const out = await run('selectByLocation', POINTS, LEFT, { mode: 'intersects' });
+    const ids = out.features.map(f => f.properties?.id).sort();
+    assert.deepEqual(ids, ['p1', 'p2']);
+    assert.equal(out.features[0].geometry.type, 'Point');
+});
+
+test('select by location "disjoint" inverts the selection', { timeout: TIMEOUT }, async () => {
+    const out = await run('selectByLocation', POINTS, LEFT, { mode: 'disjoint' });
+    assert.deepEqual(out.features.map(f => f.properties?.id), ['p3']);
+});
+
+test('select by location "within" excludes partial overlaps', { timeout: TIMEOUT }, async () => {
+    // RIGHT sticks out of LEFT, so it is not fully within it.
+    const out = await run('selectByLocation', RIGHT, LEFT, { mode: 'within' });
+    assert.equal(out.features.length, 0);
+});
+
+test('spatial join copies attributes and keeps every input feature', { timeout: TIMEOUT }, async () => {
+    const out = await run('spatialJoin', POINTS, LEFT, { relation: 'within' });
+    assert.equal(out.features.length, 3, 'left join must keep unmatched features');
+    const byId = new Map(out.features.map(f => [f.properties?.id, f.properties]));
+    assert.equal(byId.get('p1')?.name, 'left');
+    assert.equal(byId.get('p3')?.name ?? null, null, 'unmatched feature must have no joined value');
+});
+
+// ─── Single-input operations ─────────────────────────────────────────────────
+
+test('dissolve without a group merges everything into one feature', { timeout: TIMEOUT }, async () => {
+    const out = await run('dissolve', ADJACENT, undefined, { groupBy: '' });
+    assert.equal(out.features.length, 1);
+    assert.equal(out.features[0].properties?.feature_count, 3);
+});
+
+test('dissolve by attribute merges adjacent shapes per group', { timeout: TIMEOUT }, async () => {
+    const out = await run('dissolve', ADJACENT, undefined, { groupBy: 'region' });
+    assert.equal(out.features.length, 2);
+    const north = out.features.find(f => f.properties?.region === 'north');
+    assert.ok(north, 'expected a "north" group');
+    assert.equal(north!.properties?.feature_count, 2);
+    // The shared edge is gone: two 1x1 squares become one 2x1 rectangle.
+    assert.equal(north!.geometry.type, 'Polygon');
+    assert.ok(Math.abs(ringArea(north!) - 2) < 0.05, `expected ~2, got ${ringArea(north!)}`);
+});
+
+/** Two groups with numbers to add up — provinces into countries, in miniature. */
+const REGIONS: FC = fc(
+    square(0, 0, 1, { country: 'X', pop: 100, year: 1990 }),
+    square(1, 0, 1, { country: 'X', pop: 250, year: 1970 }),
+    square(5, 5, 1, { country: 'Y', pop: 40, year: 2001 }),
+);
+
+test('dissolve summarises attributes per group', { timeout: TIMEOUT }, async () => {
+    const out = await run('dissolve', REGIONS, undefined, {
+        groupBy: 'country',
+        stats: [
+            { field: 'pop', fn: 'sum' },
+            { field: 'pop', fn: 'mean' },
+            { field: 'year', fn: 'min' },
+        ] as never,
+    });
+
+    assert.equal(out.features.length, 2);
+    const x = out.features.find(f => f.properties?.country === 'X')!.properties!;
+    assert.equal(x.feature_count, 2);
+    assert.equal(x.pop_total, 350);
+    assert.equal(x.pop_average, 175);
+    assert.equal(x.year_min, 1970);
+
+    const y = out.features.find(f => f.properties?.country === 'Y')!.properties!;
+    assert.equal(y.pop_total, 40);
+    // The merged geometry is still there — this is dissolve, not statistics.
+    assert.ok(out.features.every(f => f.geometry), 'dissolve must keep geometry');
+});
+
+test('dissolve without aggregations still reports the feature count', { timeout: TIMEOUT }, async () => {
+    const out = await run('dissolve', REGIONS, undefined, { groupBy: 'country', stats: [] as never });
+    const x = out.features.find(f => f.properties?.country === 'X')!.properties!;
+    assert.equal(x.feature_count, 2);
+    assert.ok(!('pop_total' in x));
+});
+
+test('statistics returns rows without geometry', { timeout: TIMEOUT }, async () => {
+    const out = await run('statistics', REGIONS, undefined, {
+        groupBy: 'country',
+        stats: [{ field: 'pop', fn: 'sum' }, { field: 'pop', fn: 'max' }] as never,
+    });
+
+    assert.equal(out.features.length, 2);
+    // Geometry-free rows must survive the pipeline: the normal path drops
+    // features without geometry, which would empty this result entirely.
+    assert.ok(out.features.every(f => f.geometry == null), 'statistics must not produce geometry');
+
+    const x = out.features.find(f => f.properties?.country === 'X')!.properties!;
+    assert.equal(x.feature_count, 2);
+    assert.equal(x.pop_total, 350);
+    assert.equal(x.pop_max, 250);
+});
+
+/** Text values with a duplicate, to exercise listing/uniqueness/order. */
+const NAMED: FC = fc(
+    square(0, 0, 1, { country: 'X', admin: 'Bravo' }),
+    square(1, 0, 1, { country: 'X', admin: 'Alfa' }),
+    square(2, 0, 1, { country: 'X', admin: 'Alfa' }),
+    square(5, 5, 1, { country: 'Y', admin: 'Charlie' }),
+);
+
+test('statistics lists text values per group', { timeout: TIMEOUT }, async () => {
+    const out = await run('statistics', NAMED, undefined, {
+        groupBy: 'country',
+        stats: [{ field: 'admin', fn: 'list' }] as never,
+    });
+    const x = out.features.find(f => f.properties?.country === 'X')!.properties!;
+    // Sorted ascending by default, duplicates kept.
+    assert.equal(x.admin_list, 'Alfa, Alfa, Bravo');
+    assert.equal(out.features.find(f => f.properties?.country === 'Y')!.properties!.admin_list, 'Charlie');
+});
+
+test('statistics honours separator, uniqueness and order when listing', { timeout: TIMEOUT }, async () => {
+    // SQLite refuses `group_concat(DISTINCT x, sep)` and `ORDER BY` inside the
+    // aggregate, so all three together only work via the correlated subquery.
+    const out = await run('statistics', NAMED, undefined, {
+        groupBy: 'country',
+        stats: [{ field: 'admin', fn: 'list', separator: ' | ', unique: true, order: 'desc' }] as never,
+    });
+    const x = out.features.find(f => f.properties?.country === 'X')!.properties!;
+    assert.equal(x.admin_list, 'Bravo | Alfa');
+});
+
+test('dissolve can list the names it merged', { timeout: TIMEOUT }, async () => {
+    const out = await run('dissolve', NAMED, undefined, {
+        groupBy: 'country',
+        stats: [{ field: 'admin', fn: 'list', unique: true }] as never,
+    });
+    const x = out.features.find(f => f.properties?.country === 'X')!.properties!;
+    assert.equal(x.admin_list, 'Alfa, Bravo');
+    assert.ok(out.features.every(f => f.geometry), 'dissolve still produces geometry');
+});
+
+test('listing without a group covers the whole layer', { timeout: TIMEOUT }, async () => {
+    const out = await run('statistics', NAMED, undefined, {
+        groupBy: '',
+        stats: [{ field: 'admin', fn: 'list', unique: true }] as never,
+    });
+    assert.equal(out.features.length, 1);
+    assert.equal(out.features[0].properties?.admin_list, 'Alfa, Bravo, Charlie');
+});
+
+test('min and max work on text fields', { timeout: TIMEOUT }, async () => {
+    const out = await run('statistics', NAMED, undefined, {
+        groupBy: 'country',
+        stats: [{ field: 'admin', fn: 'min' }, { field: 'admin', fn: 'max' }] as never,
+    });
+    const x = out.features.find(f => f.properties?.country === 'X')!.properties!;
+    assert.equal(x.admin_min, 'Alfa');
+    assert.equal(x.admin_max, 'Bravo');
+});
+
+test('statistics without a group gives one row for the whole layer', { timeout: TIMEOUT }, async () => {
+    const out = await run('statistics', REGIONS, undefined, {
+        groupBy: '',
+        stats: [{ field: 'pop', fn: 'sum' }] as never,
+    });
+    assert.equal(out.features.length, 1);
+    assert.equal(out.features[0].properties?.feature_count, 3);
+    assert.equal(out.features[0].properties?.pop_total, 390);
+});
+
+test('centroid produces one point per feature, keeping attributes', { timeout: TIMEOUT }, async () => {
+    const out = await run('centroid', ADJACENT);
+    assert.equal(out.features.length, 3);
+    assert.ok(out.features.every(f => f.geometry.type === 'Point'));
+    assert.deepEqual(out.features.map(f => f.properties?.name).sort(), ['a', 'b', 'c']);
+});
+
+/** A C-shape (crescent) whose centroid falls in the notch, outside the polygon. */
+const CRESCENT: FC = fc({
+    type: 'Feature',
+    properties: { name: 'bay' },
+    geometry: {
+        type: 'Polygon',
+        coordinates: [[
+            [0, 0], [3, 0], [3, 1], [1, 1], [1, 2], [3, 2], [3, 3], [0, 3], [0, 0],
+        ]],
+    },
+});
+
+/** Ray casting — the label point must be *inside*, which is the whole claim. */
+function pointInRing(point: GeoJSON.Position, ring: GeoJSON.Position[]): boolean {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [xi, yi] = ring[i];
+        const [xj, yj] = ring[j];
+        const intersects = (yi > point[1]) !== (yj > point[1])
+            && point[0] < ((xj - xi) * (point[1] - yi)) / (yj - yi) + xi;
+        if (intersects) inside = !inside;
+    }
+    return inside;
+}
+
+test('label point lands inside a shape whose centroid does not', { timeout: TIMEOUT }, async () => {
+    const ring = (CRESCENT.features[0].geometry as GeoJSON.Polygon).coordinates[0];
+
+    const centroids = await run('centroid', CRESCENT);
+    const centroid = (centroids.features[0].geometry as GeoJSON.Point).coordinates;
+    assert.ok(!pointInRing(centroid, ring), 'fixture is pointless unless the centroid falls outside');
+
+    const labels = await run('labelPoint', CRESCENT, undefined, { precision: 1000 });
+    assert.equal(labels.features.length, 1);
+    const label = (labels.features[0].geometry as GeoJSON.Point).coordinates;
+    assert.ok(pointInRing(label, ring), `label point ${label} must lie inside the polygon`);
+    assert.equal(labels.features[0].properties?.name, 'bay', 'attributes must survive');
+});
+
+test('label point gives one point per feature and skips non-polygons', { timeout: TIMEOUT }, async () => {
+    const mixed = fc(
+        square(0, 0, 2, { id: 'poly' }),
+        { type: 'Feature', properties: { id: 'point' }, geometry: { type: 'Point', coordinates: [8, 8] } },
+    );
+    const out = await run('labelPoint', mixed, undefined, { precision: 1000 });
+    assert.equal(out.features.length, 1, 'the point feature has no interior to label');
+    assert.equal(out.features[0].properties?.id, 'poly');
+});
+
+test('label point places a multipolygon label in its largest part', { timeout: TIMEOUT }, async () => {
+    const archipelago = fc({
+        type: 'Feature',
+        properties: { name: 'islands' },
+        geometry: {
+            type: 'MultiPolygon',
+            coordinates: [
+                [[[0, 0], [0.4, 0], [0.4, 0.4], [0, 0.4], [0, 0]]],
+                [[[5, 5], [8, 5], [8, 8], [5, 8], [5, 5]]],
+            ],
+        },
+    });
+    const out = await run('labelPoint', archipelago, undefined, { precision: 500 });
+    assert.equal(out.features.length, 1, 'one label per feature, not per part');
+    const [x, y] = (out.features[0].geometry as GeoJSON.Point).coordinates;
+    assert.ok(x > 4 && y > 4, `expected the label in the big island, got ${x},${y}`);
+});
+
+test('convex hull wraps all features in one polygon', { timeout: TIMEOUT }, async () => {
+    const out = await run('convexHull', ADJACENT, undefined, { scope: 'all' });
+    assert.equal(out.features.length, 1);
+    assert.equal(out.features[0].properties?.feature_count, 3);
+    // The hull spans the far-apart squares, so it is much larger than their sum.
+    assert.ok(ringArea(out.features[0]) > 10, `expected a large hull, got ${ringArea(out.features[0])}`);
+});
+
+test('convex hull per feature keeps the feature count', { timeout: TIMEOUT }, async () => {
+    const out = await run('convexHull', ADJACENT, undefined, { scope: 'each' });
+    assert.equal(out.features.length, 3);
+});
+
+/**
+ * Two polygons sharing a wiggly border — the case that exposes per-geometry
+ * simplification. `west` and `east` both trace the same zigzag between them.
+ */
+function neighbours(): FC {
+    const border: GeoJSON.Position[] = [];
+    for (let i = 0; i <= 20; i++) {
+        // A zigzag fine enough that a coarse tolerance must remove points from it.
+        border.push([1 + (i % 2 === 0 ? 0 : 0.01), i * 0.1]);
+    }
+    const reversed = [...border].reverse();
+    return fc(
+        {
+            type: 'Feature',
+            properties: { name: 'west' },
+            geometry: { type: 'Polygon', coordinates: [[[0, 0], ...border, [0, 2], [0, 0]]] },
+        },
+        {
+            type: 'Feature',
+            properties: { name: 'east' },
+            geometry: { type: 'Polygon', coordinates: [[[3, 0], [3, 2], ...reversed, [3, 0]]] },
+        },
+    );
+}
+
+/**
+ * Points of `feature` on the shared border (x ≈ 1), deduplicated: a ring repeats
+ * its first point at the end, which would otherwise look like a difference
+ * between the two neighbours purely because their rings start in different
+ * places.
+ */
+function borderPoints(feature: GeoJSON.Feature): string[] {
+    const ring = (feature.geometry as GeoJSON.Polygon).coordinates[0];
+    const keys = ring
+        .filter(([x]) => Math.abs(x - 1) < 0.5)
+        .map(([x, y]) => `${x.toFixed(6)},${y.toFixed(6)}`);
+    return [...new Set(keys)].sort();
+}
+
+test('simplify keeps a shared border identical on both sides', { timeout: TIMEOUT }, async () => {
+    const input = neighbours();
+    const out = await run('simplify', input, undefined, { tolerance: 20000 });
+    assert.equal(out.features.length, 2);
+
+    const west = out.features.find(f => f.properties?.name === 'west')!;
+    const east = out.features.find(f => f.properties?.name === 'east')!;
+
+    const westBorder = borderPoints(west);
+    const eastBorder = borderPoints(east);
+    assert.ok(westBorder.length > 1, 'the shared border should still have points');
+    assert.deepEqual(
+        westBorder,
+        eastBorder,
+        'both neighbours must trace the exact same simplified border — otherwise slivers appear between them',
+    );
+
+    // And the border really was simplified, not merely left alone.
+    const before = borderPoints(input.features[0]).length;
+    assert.ok(westBorder.length < before, `expected fewer than ${before} border points, got ${westBorder.length}`);
+});
+
+test('simplify removes detail but keeps the feature count', { timeout: TIMEOUT }, async () => {
+    // A square with a redundant midpoint on each edge.
+    const detailed = fc({
+        type: 'Feature',
+        properties: { name: 'noisy' },
+        geometry: {
+            type: 'Polygon',
+            coordinates: [[[0, 0], [0.5, 0.001], [1, 0], [1, 0.5], [1, 1], [0.5, 1], [0, 1], [0, 0.5], [0, 0]]],
+        },
+    });
+    const before = (detailed.features[0].geometry as GeoJSON.Polygon).coordinates[0].length;
+    const out = await run('simplify', detailed, undefined, { tolerance: 20000 });
+    assert.equal(out.features.length, 1);
+    assert.equal(out.features[0].properties?.name, 'noisy');
+    const after = (out.features[0].geometry as GeoJSON.Polygon).coordinates[0].length;
+    assert.ok(after < before, `expected fewer than ${before} vertices, got ${after}`);
+});
+
+/** Segments ab and cd properly cross (touching at an endpoint does not count). */
+function segmentsCross(a: GeoJSON.Position, b: GeoJSON.Position, c: GeoJSON.Position, d: GeoJSON.Position): boolean {
+    const side = (p: GeoJSON.Position, q: GeoJSON.Position, r: GeoJSON.Position) =>
+        Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+    const o1 = side(a, b, c), o2 = side(a, b, d), o3 = side(c, d, a), o4 = side(c, d, b);
+    return o1 !== o2 && o3 !== o4 && o1 !== 0 && o2 !== 0 && o3 !== 0 && o4 !== 0;
+}
+
+function ringsOf(feature: GeoJSON.Feature): GeoJSON.Position[][] {
+    const g = feature.geometry;
+    if (!g) return [];
+    if (g.type === 'Polygon') return g.coordinates;
+    if (g.type === 'MultiPolygon') return g.coordinates.flat();
+    return [];
+}
+
+function countCrossings(collection: FC): number {
+    let crossings = 0;
+    for (const feature of collection.features) {
+        for (const ring of ringsOf(feature)) {
+            const n = ring.length - 1;
+            for (let i = 0; i < n; i++) {
+                for (let j = i + 2; j < n; j++) {
+                    if (i === 0 && j === n - 1) continue;
+                    if (segmentsCross(ring[i], ring[i + 1], ring[j], ring[j + 1])) crossings++;
+                }
+            }
+        }
+    }
+    return crossings;
+}
+
+/** Decodes the repo's TopoJSON of world countries — real borders, real artefacts. */
+function worldCountries(): FC {
+    const topo = JSON.parse(readFileSync('public/data/world-countries-simplified.topojson', 'utf8'));
+    const { scale, translate } = topo.transform;
+    const arcs: GeoJSON.Position[][] = topo.arcs.map((arc: number[][]) => {
+        let x = 0, y = 0;
+        return arc.map(([dx, dy]) => {
+            x += dx; y += dy;
+            return [x * scale[0] + translate[0], y * scale[1] + translate[1]] as GeoJSON.Position;
+        });
+    });
+    const ring = (indices: number[]): GeoJSON.Position[] => {
+        const out: GeoJSON.Position[] = [];
+        for (const index of indices) {
+            const arc = index < 0 ? [...arcs[~index]].reverse() : arcs[index];
+            out.push(...(out.length ? arc.slice(1) : arc));
+        }
+        return out;
+    };
+    return {
+        type: 'FeatureCollection',
+        features: topo.objects['world-countries-simplified2'].geometries.map((g: never) => {
+            const geom = g as { type: string; arcs: number[][] & number[][][]; properties?: GeoJSON.GeoJsonProperties };
+            return {
+                type: 'Feature',
+                properties: geom.properties ?? {},
+                geometry: geom.type === 'Polygon'
+                    ? { type: 'Polygon', coordinates: geom.arcs.map(ring) }
+                    : { type: 'MultiPolygon', coordinates: geom.arcs.map((p: number[][]) => p.map(ring)) },
+            } as GeoJSON.Feature;
+        }),
+    };
+}
+
+/**
+ * A big tolerance folds an outline over itself, and the renderer fills the fold —
+ * the stray triangles seen along the Morocco/Mauritania and Chad/Nigeria borders.
+ * Simplifying alone produces them; the repair pass is what removes them, which is
+ * why this runs on real borders rather than a contrived shape.
+ */
+test('simplify repairs the crossings a large tolerance creates', { timeout: TIMEOUT }, async () => {
+    const countries = worldCountries();
+    const op = getOperation('simplify');
+    assert.ok(op?.compute, 'simplify must be a JS operation');
+
+    // Degrees here (calling compute directly), so these stand in for the metre
+    // tolerances the app passes after reprojection.
+    for (const tolerance of [0.1, 0.5, 0.9]) {
+        const out: FC = op!.compute!(countries, { tolerance });
+        assert.equal(countCrossings(out), 0, `tolerance ${tolerance} left self-intersections`);
+    }
+});
+
+test('simplify still removes most points despite repair', { timeout: TIMEOUT }, async () => {
+    const countries = worldCountries();
+    const op = getOperation('simplify');
+    const points = (c: FC) => c.features.reduce((sum, f) => sum + ringsOf(f).reduce((s, r) => s + r.length, 0), 0);
+
+    const out = op!.compute!(countries, { tolerance: 0.5 });
+    const kept = points(out) / points(countries);
+    // Repair gives detail back only to the guilty arcs; if it ever starts
+    // restoring everything, simplification silently stops doing anything.
+    assert.ok(kept < 0.2, `expected well under 20% of points kept, got ${(kept * 100).toFixed(1)}%`);
+    assert.equal(out.features.length, countries.features.length);
+});
+
+test('simplify tolerance is interpreted in metres', { timeout: TIMEOUT }, async () => {
+    // A narrow spike: ~2 km across and ~11 km deep, so its Visvalingam area is
+    // around 1.2e7 m². A 100 m tolerance (1e4 m²) must keep it, a 20 km one
+    // (4e8 m²) must remove it. This is what proves the EPSG:3857 scaling works.
+    const spiked = fc({
+        type: 'Feature',
+        properties: {},
+        geometry: {
+            type: 'Polygon',
+            coordinates: [[[0, 0], [1, 0], [1, 1], [0.51, 1], [0.5, 0.9], [0.49, 1], [0, 1], [0, 0]]],
+        },
+    });
+    const fine = await run('simplify', spiked, undefined, { tolerance: 100 });
+    const coarse = await run('simplify', spiked, undefined, { tolerance: 20000 });
+    const count = (c: FC) => (c.features[0].geometry as GeoJSON.Polygon).coordinates[0].length;
+    assert.ok(count(fine) > count(coarse), `fine=${count(fine)} coarse=${count(coarse)}`);
+});
+
+// ─── Robustness ──────────────────────────────────────────────────────────────
+
+test('an empty input is rejected with a readable message', { timeout: TIMEOUT }, async () => {
+    await assert.rejects(() => run('centroid', fc()), /no features/);
+});
+
+test('features with nested properties do not break the SQL', { timeout: TIMEOUT }, async () => {
+    const nested = fc({
+        type: 'Feature',
+        properties: { name: 'x', nested: { a: 1 }, list: [1, 2] },
+        geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] },
+    });
+    const out = await run('centroid', nested);
+    assert.equal(out.features.length, 1);
+    assert.equal(out.features[0].properties?.name, 'x');
+});

@@ -252,6 +252,22 @@ test('buffer tool resolves to webmapx-buffer-tool element', () => {
   assert.equal(toolEls[0].attrs['label'], 'Buffer');
 });
 
+test('geoprocessing tool resolves to webmapx-geoprocessing-tool element', () => {
+  const layout = makeLayout();
+  buildLayoutFromConfig(layout as unknown as HTMLElement, {
+    mainToolbar: {
+      enabled: true,
+      type: 'toolbar',
+      position: 'top-left',
+      items: [{ id: 'analysis', type: 'geoprocessing', enabled: true }],
+    },
+  });
+
+  const toolEls = findByTag(layout, 'webmapx-geoprocessing-tool');
+  assert.equal(toolEls.length, 1);
+  assert.equal(toolEls[0].attrs['label'], 'Analysis');
+});
+
 test('buffer tool uses src icon (not named icon)', () => {
   const layout = makeLayout();
   buildLayoutFromConfig(layout as unknown as HTMLElement, {

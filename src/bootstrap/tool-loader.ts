@@ -26,6 +26,7 @@ const TOOL_MAP: Record<string, () => Promise<unknown>> = {
   routing:            () => import('../components/webmapx-routing-tool.js'),
   isochrone:          () => import('../components/webmapx-isochrone-tool.js'),
   buffer:             () => import('../components/webmapx-buffer-tool.js'),
+  geoprocessing:      () => import('../components/webmapx-geoprocessing-tool.js'),
   'config-edit':      () => import('../components/webmapx-config-edit-tool.js'),
   stories:            () => import('../components/webmapx-stories-tool.js'),
   'active-adapter':   () => import('../components/webmapx-active-adapter.js'),
