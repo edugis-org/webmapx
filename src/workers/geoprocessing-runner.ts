@@ -122,11 +122,22 @@ function pathOf(result: string | { local: string; real: string }): string {
 
 /**
  * An operation can legitimately produce empty geometries — erasing a feature
- * completely, or a label point for a non-polygon. They render as nothing and
- * break bounds fitting, so they are dropped once here rather than per caller.
+ * completely, for instance. They render as nothing and break bounds fitting, so
+ * they are dropped once here rather than per caller.
+ *
+ * But an empty geometry is also what SpatiaLite returns when GEOS gives up on a
+ * row, so this is where a failed calculation would disappear without a trace.
+ * The count goes into the warnings for that reason: "233 in, 229 out" needs an
+ * explanation, and "erased completely" and "could not be calculated" look
+ * identical from here.
  */
-function dropEmptyGeometries(fc: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
+function dropEmptyGeometries(fc: GeoJSON.FeatureCollection, warnings: string[]): GeoJSON.FeatureCollection {
+    const before = fc.features.length;
     fc.features = fc.features.filter(f => f.geometry != null);
+    const dropped = before - fc.features.length;
+    if (dropped > 0) {
+        warnings.push(`${dropped} ${dropped === 1 ? 'result' : 'results'} had no geometry left and were dropped — either the operation removed everything, or that shape could not be calculated.`);
+    }
     return fc;
 }
 
@@ -156,7 +167,7 @@ async function countFeatures(gdal: GdalLike, path: string): Promise<number> {
  * GeoJSON, which GDAL reads as WGS84 by default, and these coordinates are 3857
  * metres. Without it every result lands in the Gulf of Guinea.
  */
-async function backToWgs84(gdal: GdalLike, fc: GeoJSON.FeatureCollection): Promise<GeoJSON.FeatureCollection> {
+async function backToWgs84(gdal: GdalLike, fc: GeoJSON.FeatureCollection, warnings: string[]): Promise<GeoJSON.FeatureCollection> {
     const { datasets, errors } = await gdal.open(toFile(fc, 'gp_computed'));
     const dataset = datasets[0];
     if (!dataset) throw new Error(`Could not read the computed result: ${errors.join('; ')}`);
@@ -169,7 +180,7 @@ async function backToWgs84(gdal: GdalLike, fc: GeoJSON.FeatureCollection): Promi
             '-wrapdateline',
             '-skipfailures',
         ], 'gp_output');
-        return dropEmptyGeometries(await readFeatureCollection(gdal, pathOf(back)));
+        return dropEmptyGeometries(await readFeatureCollection(gdal, pathOf(back)), warnings);
     } finally {
         await gdal.close(dataset);
     }
@@ -335,7 +346,7 @@ export async function runGeoprocess(
         if (skipped > 0) {
             warnings.push(`${skipped} ${skipped === 1 ? 'feature' : 'features'} were skipped by ${operation.label} — their geometry is not of a type it can use.`);
         }
-        return withWarnings(await backToWgs84(gdal, computed), warnings);
+        return withWarnings(await backToWgs84(gdal, computed, warnings), warnings);
     }
 
     if (!operation.buildSql) {
@@ -377,7 +388,7 @@ export async function runGeoprocess(
         // the `postProcessNeeded` gate rather than running it unconditionally.
         if (operation.postProcess && operation.postProcessNeeded?.(params) !== false) {
             const cleaned = operation.postProcess(await readFeatureCollection(gdal, pathOf(computed)), params);
-            return withWarnings(await backToWgs84(gdal, cleaned), warnings);
+            return withWarnings(await backToWgs84(gdal, cleaned, warnings), warnings);
         }
 
         const opened = await gdal.open(pathOf(computed));
@@ -391,7 +402,7 @@ export async function runGeoprocess(
             '-skipfailures',
         ], 'gp_output');
 
-        return withWarnings(dropEmptyGeometries(await readFeatureCollection(gdal, pathOf(back))), warnings);
+        return withWarnings(dropEmptyGeometries(await readFeatureCollection(gdal, pathOf(back)), warnings), warnings);
     } finally {
         if (resultDataset) await gdal.close(resultDataset);
         await db.close();

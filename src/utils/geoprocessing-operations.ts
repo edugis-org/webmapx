@@ -511,8 +511,27 @@ function labelPoints(input: GeoJSON.FeatureCollection, params: GeoParamValues): 
  * geometry does. Skipping rows with no neighbour at all (a cheap index EXISTS,
  * keeping the global union) saves only 8% — not worth the extra SQL.
  */
+/**
+ * `ST_Union` over many geometries, repairing each one on the way in.
+ *
+ * A union is all-or-nothing: GEOS throwing on a single member makes SpatiaLite
+ * return NULL for the whole group, and the runner then drops that row — so one
+ * bad province silently costs you the entire country. Measured on a 233-country
+ * dissolve of vector-tile data, four countries (India, Mozambique, Russia,
+ * Vietnam) came out NULL without this and none with it.
+ *
+ * Repairing the inputs before the SQL is not enough: reprojection to EPSG:3857
+ * and clipping round coordinates, which can make a repaired geometry invalid
+ * again. `ST_Buffer(geom, 0)` fixes the same rows more cheaply (+40% against
+ * +85%) but is a side effect of an unrelated operation, and it alters
+ * geometry rather than repairing it.
+ */
+function unionValid(expression: string): string {
+    return `ST_Union(ST_MakeValid(${expression}))`;
+}
+
 function differenceFromAll(target: string, table: string | null): string {
-    return `ST_Difference(${target}, (SELECT ST_Union(geometry) FROM ${table}))`;
+    return `ST_Difference(${target}, (SELECT ${unionValid('geometry')} FROM ${table}))`;
 }
 
 function indexedPairs(table: string | null, alias: string, aGeom: string): string {
@@ -713,7 +732,7 @@ export const GEO_OPERATIONS: GeoOperation[] = [
         // per-pair behaviour is what `intersect` is for; clip must preserve the
         // input's feature count.
         buildSql: ({ layerA, refB, fieldsA }) => `
-            SELECT ${selectList(cols('a', fieldsA), `ST_Intersection(a.geometry, (SELECT ST_Union(geometry) FROM ${refB})) AS geometry`)}
+            SELECT ${selectList(cols('a', fieldsA), `ST_Intersection(a.geometry, (SELECT ${unionValid('geometry')} FROM ${refB})) AS geometry`)}
             FROM ${q(layerA)} a`,
     },
     {
@@ -888,7 +907,7 @@ export const GEO_OPERATIONS: GeoOperation[] = [
                 field ? `a.${q(field)} AS ${q(field)}` : '',
                 'COUNT(*) AS feature_count',
                 stats,
-                `ST_Union(a.geometry) AS geometry`,
+                `${unionValid('a.geometry')} AS geometry`,
             );
             return `
             SELECT ${columns}

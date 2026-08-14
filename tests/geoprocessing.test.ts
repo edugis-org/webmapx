@@ -570,6 +570,36 @@ const TILED: FC = fc(
     },
 );
 
+/**
+ * A union is all-or-nothing: GEOS giving up on one member makes SpatiaLite
+ * return NULL for the whole group, which the runner then drops — one bad
+ * province costs the entire country. On the 233-country case that silently lost
+ * India, Mozambique, Russia and Vietnam.
+ */
+test('dissolve keeps a group whose parts are invalid', { timeout: TIMEOUT }, async () => {
+    const bowtie = (x: number, group: string): GeoJSON.Feature => ({
+        type: 'Feature',
+        properties: { k: group },
+        geometry: { type: 'Polygon', coordinates: [[[x, 0], [x + 2, 2], [x, 2], [x + 2, 0], [x, 0]]] },
+    });
+    const input = fc(
+        bowtie(0, 'left'), square(3, 0, 2, { k: 'left' }),
+        bowtie(10, 'right'), bowtie(13, 'right'),
+    );
+    const out = await run('dissolve', input, undefined, { groupBy: 'k', holes: 'keep' });
+    assert.deepEqual(out.features.map(f => f.properties?.k).sort(), ['left', 'right']);
+    for (const f of out.features) {
+        assert.ok(f.geometry, `group ${f.properties?.k} came back without geometry`);
+    }
+});
+
+test('a result that loses its geometry is reported, not silently missing', { timeout: TIMEOUT }, async () => {
+    // Erasing a shape with itself leaves nothing at all.
+    const out = await run('erase', LEFT, LEFT);
+    assert.equal(out.features.length, 0);
+    assert.match((out as { warnings?: string[] }).warnings?.join(' ') ?? '', /no geometry left/);
+});
+
 test('dissolve keeps every hole when asked to', { timeout: TIMEOUT }, async () => {
     const out = await run('dissolve', TILED, undefined, { groupBy: 'k', holes: 'keep' });
     assert.equal(out.features.length, 1);
