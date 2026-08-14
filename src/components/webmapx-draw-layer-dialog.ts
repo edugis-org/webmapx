@@ -204,6 +204,12 @@ export class WebmapxDrawLayerDialog extends LitElement {
     `];
 
     open(): void {
+        // Escape to document.body before showing — see webmapx-layer-info-dialog.ts's open()
+        // for why: an ancestor's backdrop-filter (webmapx-tool-panel under the "atlas"/
+        // "glossy" style) otherwise traps this position:fixed dialog inside the panel.
+        if (this.parentNode !== document.body) {
+            document.body.appendChild(this);
+        }
         this.step = 'select';
         this.selectedId = this.existingLayers.length === 0 ? 'new' : this.existingLayers[0].id;
         this.layer = newLayerConfig(this.geometryType);

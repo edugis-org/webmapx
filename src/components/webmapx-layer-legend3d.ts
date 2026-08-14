@@ -21,7 +21,6 @@ import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
-import { splitLayerTitle } from '../utils/layer-swatch';
 
 /** Computes [west, south, east, north] from a GeoJSON FeatureCollection's coordinates. */
 function geojsonExtent(geojson: GeoJSON.FeatureCollection): [number, number, number, number] | null {
@@ -145,8 +144,8 @@ interface SourceLayerTarget extends LayerStyleTarget {
   sourceLayer?: string;
 }
 
-@customElement('webmapx-layer-overview')
-export class WebmapxLayerOverview extends WebmapxBaseTool {
+@customElement('webmapx-layer-legend3d')
+export class WebmapxLayerLegend3d extends WebmapxBaseTool {
   @property({ type: String, attribute: 'background-group-label' })
   backgroundGroupLabel = 'Base Maps';
 
@@ -207,8 +206,10 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     :host {
       display: block;
       box-sizing: border-box;
-      background: var(--webmapx-legend-bg, var(--color-background, #fff));
-      color: var(--webmapx-legend-color, var(--color-text-primary, #16202a));
+      background: var(--webmapx-legend-bg, var(--color-background, #ffffff));
+      color: var(--webmapx-legend-color, var(--color-text-primary, #1f2937));
+      --webmapx-stack-fill: var(--webmapx-legend-stack-fill, var(--color-background-secondary, #f4f4f4));
+      --webmapx-stack-outline: var(--webmapx-legend-stack-outline, #1f2937);
     }
 
     .panel {
@@ -227,17 +228,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       gap: var(--webmapx-space-sm, 0.5rem);
     }
 
-    /* A section heading is structure, not an action. It used to be bold and
-       accent-coloured, which put it in the same visual class as selected
-       layers and active buttons; a muted micro-label keeps the accent
-       meaning "interactive" and nothing else. */
     .section-title {
       margin: 0;
-      font-size: var(--webmapx-label-size, var(--webmapx-font-size-sm, 0.75rem));
-      font-weight: 600;
-      letter-spacing: var(--webmapx-label-spacing, 0.06em);
-      text-transform: var(--webmapx-label-transform, uppercase);
-      color: var(--webmapx-legend-title-color, var(--color-text-muted, #6b7681));
+      font-size: var(--webmapx-font-size-md, 0.95rem);
+      font-weight: 700;
+      color: var(--webmapx-legend-title-color, var(--color-primary, #0f62fe));
     }
 
     .layer-list {
@@ -246,12 +241,37 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       gap: var(--webmapx-space-sm, 0.5rem);
     }
 
+    /* Sits above every slab (including the dragged one, z-index 1000) since
+       the overlapping parallelogram shapes would otherwise paint over a
+       plain in-flow line at this position. */
     .drop-indicator {
-      height: 2px;
-      margin: -1px 0;
-      background: var(--color-text-primary, #16202a);
-      border-radius: 1px;
+      position: relative;
+      z-index: 1001;
+      height: 3px;
+      margin: -1.5px 0;
+      background: var(--color-primary, #0f62fe);
+      border-radius: 2px;
       pointer-events: none;
+    }
+
+    .drop-indicator::before,
+    .drop-indicator::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 8px;
+      height: 8px;
+      background: var(--color-primary, #0f62fe);
+      border-radius: 50%;
+      transform: translateY(-50%);
+    }
+
+    .drop-indicator::before {
+      left: -2px;
+    }
+
+    .drop-indicator::after {
+      right: -2px;
     }
 
     .layer-card.dragging {
@@ -269,9 +289,9 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       align-items: flex-start;
       gap: var(--webmapx-space-xs, 0.35rem);
       padding: var(--webmapx-space-xs, 0.35rem) var(--webmapx-space-sm, 0.625rem);
-      border: 1px solid var(--color-border, #d5dce3);
+      border: 1px solid var(--color-border, #d7dce3);
       border-radius: var(--webmapx-radius-lg, 0.75rem);
-      background: var(--color-background, #fff);
+      background: var(--color-background, #ffffff);
       box-shadow: var(--webmapx-shadow-sm, 0 1px 3px rgba(15, 23, 42, 0.08));
       box-sizing: border-box;
     }
@@ -319,7 +339,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     }
 
     .layer-label-drag:hover::after {
-      animation: drag-tip var(--webmapx-motion-hint, 1400ms) ease forwards;
+      animation: drag-tip 1.4s ease forwards;
     }
 
     @keyframes drag-tip {
@@ -353,7 +373,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     }
 
     .layer-label.out-of-zoom {
-      color: var(--color-text-muted, #6b7681);
+      color: var(--sl-color-neutral-500);
       opacity: 0.6;
     }
 
@@ -363,7 +383,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       width: 100%;
       padding-left: 1.5rem;
       box-sizing: border-box;
-      transition: grid-template-rows var(--webmapx-motion-fast, 120ms) ease-in-out;
+      transition: grid-template-rows 0.16s ease-in-out;
     }
 
     .layer-details.collapsed {
@@ -385,12 +405,16 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       width: 100%;
     }
 
+    .delete-layer::part(base) {
+      color: var(--sl-color-danger-600, #dc2626);
+    }
+
     .opacity-row {
       display: flex;
       align-items: center;
       gap: var(--webmapx-space-sm, 0.5rem);
       font-size: var(--webmapx-font-size-sm, 0.8rem);
-      color: var(--color-text-secondary, #5a6773);
+      color: var(--color-text-secondary, #6b7280);
     }
 
     .opacity-row sl-icon {
@@ -402,16 +426,9 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       -webkit-appearance: none;
       appearance: none;
       height: 3px;
-      background: var(--color-background-tertiary, #e9edf1);
+      background: var(--sl-color-neutral-300);
       border-radius: var(--webmapx-radius-xs, 2px);
       outline: none;
-    }
-
-    /* The rule above removes the UA focus ring from a keyboard-operable
-       control (arrow keys change the value), so put an equivalent back. */
-    .opacity-row input[type="range"]:focus-visible {
-      outline: var(--webmapx-focus-ring, 2px solid var(--color-primary, #2b6c8f));
-      outline-offset: var(--webmapx-focus-offset, 2px);
     }
 
     .opacity-row input[type="range"]::-webkit-slider-thumb {
@@ -420,7 +437,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       width: 12px;
       height: 12px;
       border-radius: 50%;
-      background: var(--color-text-muted, #6b7681);
+      background: var(--sl-color-neutral-500);
       cursor: pointer;
     }
 
@@ -429,13 +446,13 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       height: 12px;
       border-radius: 50%;
       border: none;
-      background: var(--color-text-muted, #6b7681);
+      background: var(--sl-color-neutral-500);
       cursor: pointer;
     }
 
     .opacity-row input[type="range"]::-moz-range-track {
       height: 3px;
-      background: var(--color-background-tertiary, #e9edf1);
+      background: var(--sl-color-neutral-300);
       border-radius: var(--webmapx-radius-xs, 2px);
     }
 
@@ -454,25 +471,216 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
 
     .layer-meta {
       font-size: var(--webmapx-font-size-sm, 0.75rem);
-      color: var(--color-text-secondary, #5a6773);
+      color: var(--color-text-secondary, #6b7280);
       white-space: nowrap;
       margin-left: 0.75rem;
     }
 
     .layer-editing-notice {
       font-size: var(--webmapx-font-size-sm, 0.75rem);
-      color: var(--color-text-secondary, #5a6773);
+      color: var(--color-text-secondary, #6b7280);
       font-style: italic;
       padding: var(--webmapx-space-xs, 0.25rem) var(--webmapx-space-md, 0.75rem) var(--webmapx-space-sm, 0.5rem);
     }
 
     .empty {
       padding: 0.875rem;
-      border: 1px dashed var(--color-border, #d5dce3);
+      border: 1px dashed var(--color-border, #d7dce3);
       border-radius: var(--webmapx-radius-lg, 0.75rem);
-      color: var(--color-text-secondary, #5a6773);
+      color: var(--color-text-secondary, #6b7280);
       font-size: var(--webmapx-font-size-md, 0.875rem);
-      background: var(--color-background-secondary, #f4f6f8);
+      background: var(--color-background-secondary, #f8fafc);
+    }
+
+    /* ---- Perspective layer stack (active layers only) ---- */
+
+    .layer-stack {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .layer-card.slab {
+      align-items: stretch;
+      border: none;
+      background: transparent;
+      box-shadow: none;
+      padding: 0;
+      border-radius: 0;
+      gap: 0;
+    }
+
+    .slab {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* !important: each .slab also carries an inline z-index (see
+       renderLayerStack) so the top layer overlaps the ones below it —
+       inline styles otherwise beat this class outright, which would leave
+       the dragged slab hidden behind whichever ones sit earlier in the list. */
+    .slab.dragging {
+      z-index: 1000 !important;
+      opacity: 0.85;
+      cursor: grabbing;
+    }
+
+    /* Outlining a clip-path parallelogram needs two stacked layers, not a plain
+       border: a border hugs the element's true (rectangular) edges, so it only
+       traces the shape's horizontal top/bottom — the diagonal left/right sides
+       cut through the box interior and would be left bare. Stacking a dark
+       "outline" shape behind a slightly inset colored "face" shape (same
+       clip-path formula, via a shared custom property) gives a uniform frame
+       all the way around instead. */
+    /* box-shadow gets clipped away along with everything else on a clip-path
+       element, so the cast-shadow use filter: drop-shadow instead — it
+       shadows the actual rendered (post-clip) silhouette, including the
+       diagonal edges. */
+    .slab-shape {
+      --slab-clip: polygon(20px 0%, 100% 0%, calc(100% - 20px) 100%, 0% 100%);
+      position: relative;
+      display: grid;
+      /* A larger offset with a tight blur keeps the shadow concentrated at
+         the bottom edge (where the next slab overlaps) instead of bleeding
+         out around the diagonal sides too. */
+      filter: drop-shadow(0 5px 2px rgba(0, 0, 0, 0.5));
+    }
+
+    .slab-shape > * {
+      grid-area: 1 / 1;
+      clip-path: var(--slab-clip);
+    }
+
+    .slab-outline {
+      width: 100%;
+      height: 100%;
+      background: var(--webmapx-stack-outline);
+    }
+
+    /* Left stays close to the vertical padding since the shape's bottom-left
+       corner isn't inset by the clip (see --slab-clip) — only the right side
+       needs the wider 1.5rem to clear the diagonal cut there, so the trash
+       icon doesn't get clipped. */
+    .slab-face {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      margin: 2px;
+      padding: 0.3rem 1.5rem 0.3rem 0.55rem;
+      color: var(--webmapx-stack-outline);
+      background: var(--webmapx-stack-fill);
+      box-sizing: border-box;
+    }
+
+    /* Reserved buffer the next (overlapping) slab tucks into. The slab that
+       overlaps slides *up* into the one before it, so it's this slab's own
+       *top* that ends up hidden behind it — putting the buffer first (and
+       the title row after, near the bottom) keeps the title in the part
+       that's never covered, and reads like the reference: label along the
+       bottom edge, blank "roof" above it. */
+    .slab-face::before {
+      content: '';
+      display: block;
+      height: 0.9rem;
+    }
+
+    /* Pulls this slab up into the previous one, leaving only its bottom
+       band (eye + title) visible — skipped when the previous slab is
+       expanded so its open box isn't overlapped. */
+    .slab-shape.overlap {
+      margin-top: -0.85rem;
+    }
+
+    .slab-title-row {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      touch-action: none;
+    }
+
+    .slab-title-row sl-icon-button::part(base) {
+      font-size: var(--webmapx-font-size-sm, 0.8rem);
+      padding: 0;
+      color: var(--webmapx-stack-outline);
+    }
+
+    /* Hidden until hover so it doesn't compete visually with the eye/title/
+       trash row; stays visible mid-drag even if the pointer drifts off the
+       slab (translated far enough that :hover no longer applies). */
+    .drag-handle {
+      flex: 0 0 auto;
+      font-size: var(--webmapx-font-size-sm, 0.8rem);
+      color: var(--webmapx-stack-outline);
+      cursor: grab;
+      touch-action: none;
+      opacity: 0;
+      transition: opacity 0.12s ease;
+    }
+
+    .slab-face:hover .drag-handle,
+    .slab.dragging .drag-handle {
+      opacity: 1;
+    }
+
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+
+    .slab-label {
+      flex: 1 1 auto;
+      min-width: 0;
+      cursor: pointer;
+      font-size: 0.68rem;
+      font-weight: 600;
+      line-height: 1.3;
+      white-space: normal;
+      word-break: break-word;
+    }
+
+    .slab-label.out-of-zoom {
+      opacity: 0.65;
+    }
+
+    /* Dims the title and trash icon (not the drag handle — that has its own
+       hover-only visibility already — and not the eye-slash toggle itself,
+       so a hidden layer reads at a glance without losing the one control
+       needed to re-enable it). */
+    .slab-title-row.layer-hidden .slab-label,
+    .slab-title-row.layer-hidden .delete-layer::part(base) {
+      opacity: 0.55;
+    }
+
+    /* Width matches the parallelogram's bottom edge, which runs from the
+       shape's left edge to 20px short of its right edge (see --slab-clip) —
+       not the full slab width. Padding is equal on all sides; the overlap
+       (0.85rem) still lands safely since .slab-box-inner's own 0.625rem
+       padding adds further clearance before reaching any visible content. */
+    .slab-box {
+      position: relative;
+      align-self: flex-start;
+      width: calc(100% - 20px);
+      background: var(--webmapx-stack-fill);
+      padding: 0.55rem;
+      box-sizing: border-box;
+      border: 2px solid var(--webmapx-stack-outline);
+      border-top: none;
+      /* A wider blur than .slab-shape's: the parallelogram's tapered
+         diagonal edges already read as a gradual fade regardless of blur
+         amount, but this box is a plain rectangle with a hard straight
+         edge, so it needs more blur radius to fade out the same way. */
+      filter: drop-shadow(0 5px 4px rgba(0, 0, 0, 0.45));
+    }
+
+    .slab-box-inner {
+      display: flex;
+      flex-direction: column;
+      gap: var(--webmapx-space-xs, 0.35rem);
+      background: var(--color-background, #ffffff);
+      color: var(--color-text-primary, #1f2937);
+      border-radius: var(--webmapx-radius-md, 0.5rem);
+      padding: var(--webmapx-space-sm, 0.625rem);
+      box-shadow: inset 0 0 0 1px var(--color-border, #d7dce3);
     }
   `;
 
@@ -506,7 +714,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   render() {
     return html`
       <div class="panel">
-        ${this.renderSection(this.overviewTitle, this.overviewLayers, 'No layers on the map yet. Add one from the Catalog.', true)}
+        ${this.renderSection(this.overviewTitle, this.overviewLayers, 'No active layers.', true)}
         ${this.renderSection(this.backgroundTitle, this.backgroundLayers, 'No base map selected.')}
       </div>
       <webmapx-layer-info-dialog></webmapx-layer-info-dialog>
@@ -525,32 +733,30 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     return html`
       <section class="section">
         <h3 class="section-title">${title}</h3>
-        ${isOverviewSection
+        ${isOverviewSection && items.length > 0
           ? html`
               <div class="save-layers-row">
-                ${items.length > 0 ? html`
-                  <sl-tooltip content="Show all layers">
-                    <sl-icon-button
-                      name="eye"
-                      label="Show all layers"
-                      @click=${() => this.handleShowAllLayers()}
-                    ></sl-icon-button>
-                  </sl-tooltip>
-                  <sl-tooltip content="Hide all layers">
-                    <sl-icon-button
-                      name="eye-slash"
-                      label="Hide all layers"
-                      @click=${() => this.handleHideAllLayers()}
-                    ></sl-icon-button>
-                  </sl-tooltip>
-                  <sl-tooltip content="Clear all layers">
-                    <sl-icon-button
-                      name="trash"
-                      label="Clear all layers"
-                      @click=${() => this.handleClearAllLayers()}
-                    ></sl-icon-button>
-                  </sl-tooltip>
-                ` : null}
+                <sl-tooltip content="Show all layers">
+                  <sl-icon-button
+                    name="eye"
+                    label="Show all layers"
+                    @click=${() => this.handleShowAllLayers()}
+                  ></sl-icon-button>
+                </sl-tooltip>
+                <sl-tooltip content="Hide all layers">
+                  <sl-icon-button
+                    name="eye-slash"
+                    label="Hide all layers"
+                    @click=${() => this.handleHideAllLayers()}
+                  ></sl-icon-button>
+                </sl-tooltip>
+                <sl-tooltip content="Clear all layers">
+                  <sl-icon-button
+                    name="trash"
+                    label="Clear all layers"
+                    @click=${() => this.handleClearAllLayers()}
+                  ></sl-icon-button>
+                </sl-tooltip>
                 <sl-tooltip content="Permalink">
                   <sl-icon-button
                     name="link-45deg"
@@ -558,136 +764,195 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                     @click=${() => this.handlePermalink()}
                   ></sl-icon-button>
                 </sl-tooltip>
-                ${items.length > 0 ? html`
-                  <sl-tooltip content="Save layer(s)…">
-                    <sl-icon-button
-                      name="download"
-                      label="Save layer(s)…"
-                      @click=${() => this.handleSaveLayers()}
-                    ></sl-icon-button>
-                  </sl-tooltip>
-                ` : null}
+                <sl-tooltip content="Save layer(s)…">
+                  <sl-icon-button
+                    name="download"
+                    label="Save layer(s)…"
+                    @click=${() => this.handleSaveLayers()}
+                  ></sl-icon-button>
+                </sl-tooltip>
               </div>
             `
           : null}
         ${items.length > 0
-          ? html`
-              <div class="layer-list">
-                ${items.map((item) => html`
-                  ${this.dropTargetLayerId === item.layerId && this.dropTargetPosition === 'above'
-                    ? html`<div class="drop-indicator"></div>`
-                    : null}
-                  <div class="layer-card" data-layer-id=${item.layerId}>
-                    <div class="layer-row">
-                      <sl-icon-button
-                        class="visibility-toggle"
-                        name=${item.visible ? 'eye' : 'eye-slash'}
-                        label=${item.visible ? 'Hide layer' : 'Show layer'}
-                        @click=${() => this.handleVisibilityToggle(item.layerId)}
-                      ></sl-icon-button>
-                      ${items.length > 1 ? html`
-                        <span
-                          class="layer-label-drag"
-                          @pointerdown=${(e: PointerEvent) => this.onDragHandlePointerDown(e)}
-                          @pointermove=${(e: PointerEvent) => this.onDragHandlePointerMove(e)}
-                          @pointerup=${(e: PointerEvent) => this.onDragHandlePointerUp(e)}
-                          @pointercancel=${(e: PointerEvent) => this.onDragHandlePointerUp(e)}
-                        ><span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}">${splitLayerTitle(item.label).name}${item.beingEdited ? html`&nbsp;<sl-icon name="pencil" title="Layer is currently being edited"></sl-icon>` : null}</span></span>
-                      ` : html`<span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}">${splitLayerTitle(item.label).name}${item.beingEdited ? html`&nbsp;<sl-icon name="pencil" title="Layer is currently being edited"></sl-icon>` : null}</span>`}
-                      <sl-icon-button
-                        class="collapse-toggle"
-                        name=${this.isLegendCollapsed(item.layerId) ? 'chevron-right' : 'chevron-down'}
-                        label=${this.isLegendCollapsed(item.layerId) ? 'Show layer details' : 'Hide layer details'}
-                        @click=${() => this.handleCollapseToggle(item.layerId)}
-                      ></sl-icon-button>
-                    </div>
-                    <div class="layer-details ${this.isLegendCollapsed(item.layerId) ? 'collapsed' : ''}">
-                      <div class="layer-details-inner">
-                        ${item.beingEdited
-                          ? html`<div class="layer-editing-notice">editing</div>`
-                          : html`
-                            ${item.visible
-                              ? html`
-                                  <div class="opacity-row">
-                                    <sl-icon name="circle-half"></sl-icon>
-                                    <input
-                                      type="range"
-                                      aria-label=${`Transparency of ${item.label}`}
-                                      min="0"
-                                      max="100"
-                                      .value=${String(this.layerTransparency.get(item.layerId) ?? 0)}
-                                      @input=${(e: Event) => this.handleTransparencyChange(item.layerId, e)}
-                                    />
-                                    <span class="opacity-value">${this.layerTransparency.get(item.layerId) ?? 0}%</span>
-                                  </div>
-                                  <div class="layer-legend-wrap" style=${item.layerType === 'hillshade' ? '' : `opacity: ${(100 - (this.layerTransparency.get(item.layerId) ?? 0)) / 100}`}>
-                                    <webmapx-layer-legend layer-id=${item.layerId}></webmapx-layer-legend>
-                                  </div>
-                                `
-                              : null}
-                            ${item.topLevelGroup
-                              ? html`<div class="layer-meta">${item.topLevelGroup}</div>`
-                              : null}
-                            <!-- sl-icon-button's label attribute is the accessible name only
-                                 (it renders as aria-label, never title), so each action
-                                 needs an explicit sl-tooltip to be readable on hover —
-                                 same pattern as the section actions above. sl-tooltip is
-                                 display:contents, so the flex row is unaffected. -->
-                            <div class="layer-details-actions">
-                              <sl-tooltip content="About this layer">
-                                <sl-icon-button
-                                  name="info-circle"
-                                  label="About this layer"
-                                  @click=${() => this.handleShowLayerInfo(item.layerId, item.label)}
-                                ></sl-icon-button>
-                              </sl-tooltip>
-                              ${item.hasStyleDialog
-                                ? html`<sl-tooltip content="Layer style">
-                                    <sl-icon-button
-                                      name="palette"
-                                      label="Layer style"
-                                      @click=${() => this.handleShowLayerStyle(item.layerId, item.label)}
-                                    ></sl-icon-button>
-                                  </sl-tooltip>`
-                                : null}
-                              ${item.hasExtent
-                                ? html`<sl-tooltip content="Zoom to layer">
-                                    <sl-icon-button
-                                      name="zoom-in"
-                                      label="Zoom to layer"
-                                      @click=${() => this.handleZoomToLayer(item.layerId)}
-                                    ></sl-icon-button>
-                                  </sl-tooltip>`
-                                : null}
-                              ${isOverviewSection
-                                ? html`<sl-tooltip content="Remove layer">
-                                    <sl-icon-button
-                                      name="x-circle"
-                                      label="Remove layer"
-                                      @click=${() => this.handleDeleteLayer(item.layerId)}
-                                    ></sl-icon-button>
-                                  </sl-tooltip>`
-                                : null}
-                            </div>
-                          `}
-                      </div>
-                    </div>
-                  </div>
-                  ${this.dropTargetLayerId === item.layerId && this.dropTargetPosition === 'below'
-                    ? html`<div class="drop-indicator"></div>`
-                    : null}
-                `)}
-              </div>
-            `
+          ? (isOverviewSection ? this.renderLayerStack(items) : this.renderFlatLayerList(items))
           : html`<div class="empty">${emptyText}</div>`}
       </section>
+    `;
+  }
+
+  private renderFlatLayerList(items: LayerPanelItem[]) {
+    return html`
+      <div class="layer-list">
+        ${items.map((item) => html`
+          ${this.dropTargetLayerId === item.layerId && this.dropTargetPosition === 'above'
+            ? html`<div class="drop-indicator"></div>`
+            : null}
+          <div class="layer-card" data-layer-id=${item.layerId}>
+            <div class="layer-row">
+              <sl-icon-button
+                class="visibility-toggle"
+                name=${item.visible ? 'eye' : 'eye-slash'}
+                label=${item.visible ? 'Hide layer' : 'Show layer'}
+                @click=${() => this.handleVisibilityToggle(item.layerId)}
+              ></sl-icon-button>
+              ${items.length > 1 ? html`
+                <span
+                  class="layer-label-drag"
+                  @pointerdown=${(e: PointerEvent) => this.onDragHandlePointerDown(e)}
+                  @pointermove=${(e: PointerEvent) => this.onDragHandlePointerMove(e)}
+                  @pointerup=${(e: PointerEvent) => this.onDragHandlePointerUp(e)}
+                  @pointercancel=${(e: PointerEvent) => this.onDragHandlePointerUp(e)}
+                ><span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}">${item.label}${item.beingEdited ? html`&nbsp;<sl-icon name="pencil" title="Layer is currently being edited"></sl-icon>` : null}</span></span>
+              ` : html`<span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}">${item.label}${item.beingEdited ? html`&nbsp;<sl-icon name="pencil" title="Layer is currently being edited"></sl-icon>` : null}</span>`}
+              <sl-icon-button
+                class="collapse-toggle"
+                name=${this.isLegendCollapsed(item.layerId) ? 'chevron-right' : 'chevron-down'}
+                label=${this.isLegendCollapsed(item.layerId) ? 'Show layer details' : 'Hide layer details'}
+                @click=${() => this.handleCollapseToggle(item.layerId)}
+              ></sl-icon-button>
+            </div>
+            <div class="layer-details ${this.isLegendCollapsed(item.layerId) ? 'collapsed' : ''}">
+              <div class="layer-details-inner">
+                ${this.renderLayerDetailsContent(item)}
+              </div>
+            </div>
+          </div>
+          ${this.dropTargetLayerId === item.layerId && this.dropTargetPosition === 'below'
+            ? html`<div class="drop-indicator"></div>`
+            : null}
+        `)}
+      </div>
+    `;
+  }
+
+  // Perspective stack: each layer collapses to a slanted "slab" (eye + title +
+  // trash); whichever slab is expanded flips open into a full-width box
+  // beneath it holding the same detail content as the flat layout.
+  //
+  // `items` is ordered top-of-map-stack-first (same as the flat list), so the
+  // top map layer — the one auto-expanded — renders first, at the top of the
+  // visual stack. Screen position alone won't make it look "on top" though:
+  // later DOM siblings paint over earlier ones by default, which would make
+  // the *bottom* item cover everything above it. An explicit per-item
+  // z-index (higher for earlier items) overrides that, so the top item
+  // visually overlaps the second, the second overlaps the third, etc.
+  private renderLayerStack(items: LayerPanelItem[]) {
+    return html`
+      <div class="layer-stack">
+        ${items.map((item, index) => {
+          const collapsed = this.isLegendCollapsed(item.layerId);
+          const overlap = index > 0;
+          return html`
+            ${this.dropTargetLayerId === item.layerId && this.dropTargetPosition === 'above'
+              ? html`<div class="drop-indicator"></div>`
+              : null}
+            <div class="layer-card slab" style="z-index: ${items.length - index}" data-layer-id=${item.layerId}>
+              <div class="slab-shape ${overlap ? 'overlap' : ''}">
+                <div class="slab-outline"></div>
+                <div class="slab-face">
+                  <div class="slab-title-row ${item.visible ? '' : 'layer-hidden'}">
+                    ${items.length > 1 ? html`
+                      <sl-icon
+                        class="drag-handle"
+                        name=${index === 0 ? 'arrow-down' : index === items.length - 1 ? 'arrow-up' : 'arrow-down-up'}
+                        title="Drag to change layer order"
+                        @pointerdown=${(e: PointerEvent) => this.onDragHandlePointerDown(e)}
+                        @pointermove=${(e: PointerEvent) => this.onDragHandlePointerMove(e)}
+                        @pointerup=${(e: PointerEvent) => this.onDragHandlePointerUp(e)}
+                        @pointercancel=${(e: PointerEvent) => this.onDragHandlePointerUp(e)}
+                      ></sl-icon>
+                    ` : null}
+                    <sl-icon-button
+                      class="visibility-toggle"
+                      name=${item.visible ? 'eye' : 'eye-slash'}
+                      label=${item.visible ? 'Hide layer' : 'Show layer'}
+                      @click=${() => this.handleVisibilityToggle(item.layerId)}
+                    ></sl-icon-button>
+                    <span
+                      class="slab-label ${item.outOfZoom ? 'out-of-zoom' : ''}"
+                      @click=${() => this.handleCollapseToggle(item.layerId)}
+                    >${item.label}${item.beingEdited ? html`&nbsp;<sl-icon name="pencil" title="Layer is currently being edited"></sl-icon>` : null}</span>
+                    <sl-icon-button
+                      class="delete-layer"
+                      name="trash"
+                      label="Delete layer"
+                      @click=${() => this.handleDeleteLayer(item.layerId)}
+                    ></sl-icon-button>
+                  </div>
+                </div>
+              </div>
+              ${collapsed ? null : html`
+                <div class="slab-box">
+                  <div class="slab-box-inner">
+                    ${this.renderLayerDetailsContent(item)}
+                  </div>
+                </div>
+              `}
+            </div>
+            ${this.dropTargetLayerId === item.layerId && this.dropTargetPosition === 'below'
+              ? html`<div class="drop-indicator"></div>`
+              : null}
+          `;
+        })}
+      </div>
+    `;
+  }
+
+  private renderLayerDetailsContent(item: LayerPanelItem) {
+    if (item.beingEdited) {
+      return html`<div class="layer-editing-notice">editing</div>`;
+    }
+    return html`
+      ${item.visible
+        ? html`
+            <div class="opacity-row">
+              <sl-icon name="circle-half"></sl-icon>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                .value=${String(this.layerTransparency.get(item.layerId) ?? 0)}
+                @input=${(e: Event) => this.handleTransparencyChange(item.layerId, e)}
+              />
+              <span class="opacity-value">${this.layerTransparency.get(item.layerId) ?? 0}%</span>
+            </div>
+            <div class="layer-legend-wrap" style=${item.layerType === 'hillshade' ? '' : `opacity: ${(100 - (this.layerTransparency.get(item.layerId) ?? 0)) / 100}`}>
+              <webmapx-layer-legend layer-id=${item.layerId}></webmapx-layer-legend>
+            </div>
+          `
+        : null}
+      ${item.topLevelGroup
+        ? html`<div class="layer-meta">${item.topLevelGroup}</div>`
+        : null}
+      <div class="layer-details-actions">
+        <sl-icon-button
+          name="info-circle"
+          label="About this layer"
+          @click=${() => this.handleShowLayerInfo(item.layerId, item.label)}
+        ></sl-icon-button>
+        ${item.hasStyleDialog
+          ? html`<sl-icon-button
+              name="palette"
+              label="Layer style"
+              @click=${() => this.handleShowLayerStyle(item.layerId, item.label)}
+            ></sl-icon-button>`
+          : null}
+        ${item.hasExtent
+          ? html`<sl-icon-button
+              name="zoom-in"
+              label="Zoom to layer"
+              @click=${() => this.handleZoomToLayer(item.layerId)}
+            ></sl-icon-button>`
+          : null}
+      </div>
     `;
   }
 
   private onDragHandlePointerDown(e: PointerEvent): void {
     const handle = e.currentTarget as HTMLElement;
     const card = handle.closest('.layer-card') as HTMLElement | null;
-    const list = handle.closest('.layer-list') as HTMLElement | null;
+    const list = handle.closest('.layer-list, .layer-stack') as HTMLElement | null;
     if (!card || !list) return;
 
     e.preventDefault();
@@ -794,7 +1059,29 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     const beforeLayerId = position === 'below' ? targetLayerId : (ids[targetIndex + 1] ?? null);
     if (beforeLayerId === layerId) return;
 
+    this.freezeLegendExpandState();
     this.adapter.moveLayer(layerId, beforeLayerId);
+  }
+
+  // Reordering changes which layer is topmost, and the 'auto' expand mode
+  // (used so a newly-added layer's legend opens automatically) targets
+  // whichever layer is currently topmost — so a plain drag-to-reorder would
+  // otherwise silently pop a different layer's legend open. Snapshotting
+  // every layer's current collapsed/expanded state as an explicit mode
+  // before the move keeps reordering purely visual.
+  private freezeLegendExpandState(): void {
+    if (!this.store) return;
+    const current = this.store.getState().mapLayers;
+    const updated = { ...current };
+    let changed = false;
+    for (const [id, entry] of Object.entries(current)) {
+      if (entry?.legendExpandMode === 'expanded' || entry?.legendExpandMode === 'collapsed') continue;
+      updated[id] = { ...entry, legendExpandMode: this.isLegendCollapsed(id) ? 'collapsed' : 'expanded' };
+      changed = true;
+    }
+    if (changed) {
+      this.store.dispatch({ mapLayers: updated }, 'UI');
+    }
   }
 
   private onDragHandlePointerUp(e: PointerEvent): void {
@@ -829,7 +1116,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     if (!panel) return;
 
     const rect = panel.getBoundingClientRect();
-    const edge = WebmapxLayerOverview.AUTO_SCROLL_EDGE_PX;
+    const edge = WebmapxLayerLegend3d.AUTO_SCROLL_EDGE_PX;
     let direction: 'up' | 'down' | null = null;
     if (clientY < rect.top + edge) {
       direction = 'up';
@@ -859,8 +1146,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       this.stopAutoScroll();
       return;
     }
-    panel.scrollTop += direction === 'up' ? -WebmapxLayerOverview.AUTO_SCROLL_STEP_PX : WebmapxLayerOverview.AUTO_SCROLL_STEP_PX;
-    state.timer = window.setTimeout(() => this.runAutoScrollStep(), WebmapxLayerOverview.AUTO_SCROLL_INTERVAL_MS);
+    panel.scrollTop += direction === 'up' ? -WebmapxLayerLegend3d.AUTO_SCROLL_STEP_PX : WebmapxLayerLegend3d.AUTO_SCROLL_STEP_PX;
+    state.timer = window.setTimeout(() => this.runAutoScrollStep(), WebmapxLayerLegend3d.AUTO_SCROLL_INTERVAL_MS);
   }
 
   private stopAutoScroll(): void {
@@ -1000,13 +1287,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     const transparency = Number((e.target as HTMLInputElement).value);
     const current = this.adapter.store.getState().mapLayers;
     const entry = current[layerId];
+    if (entry) {
+      this.adapter.store.dispatch({ mapLayers: { ...current, [layerId]: { ...entry, transparency } } }, 'UI');
+    }
     const meta = entry as Record<string, unknown> | undefined;
     if (meta?.layerType === 'hillshade') {
-      // Hillshade uses exaggeration instead of opacity, so adapter.setLayerOpacity
-      // (which mirrors transparency into the store itself) is not called here.
-      if (entry) {
-        this.adapter.store.dispatch({ mapLayers: { ...current, [layerId]: { ...entry, transparency } } }, 'UI');
-      }
       const sublayers = meta?.sublayers as any[] | undefined;
       const primarySub = sublayers?.find((s: any) => s?.type === 'hillshade');
       const subLayerId = primarySub?.id ?? layerId;
@@ -1368,8 +1653,12 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     const currentLayers = this.store.getState().mapLayers;
     const entry = currentLayers[layerId];
     const nextVisible = entry?.visible === false; // toggle: false→true, undefined/true→false
-    // adapter.setLayerVisibility mirrors `visible` into store.mapLayers itself.
     this.adapter.setLayerVisibility(layerId, nextVisible);
+    if (entry) {
+      this.store.dispatch({
+        mapLayers: { ...currentLayers, [layerId]: { ...entry, visible: nextVisible } },
+      }, 'UI');
+    }
     this.applyVisibleLayers(this.store.getState());
   }
 }

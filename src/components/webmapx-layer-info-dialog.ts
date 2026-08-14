@@ -92,6 +92,15 @@ export class WebmapxLayerInfoDialog extends LitElement {
     `];
 
     open(title: string, abstract: string | undefined, attribution?: string, featureSummary?: string): void {
+        // Escape to document.body before showing: sl-dialog is position:fixed and expects
+        // to center over the viewport, but this element is normally nested inside
+        // webmapx-tool-panel, which applies backdrop-filter (the "atlas"/"glossy" style's
+        // blur) to its own :host — and backdrop-filter on an ancestor creates a new
+        // containing block for position:fixed descendants, trapping the dialog inside the
+        // panel's box instead of centering it on the viewport.
+        if (this.parentNode !== document.body) {
+            document.body.appendChild(this);
+        }
         this.fetchToken += 1;
         this.dialogTitle = title;
         this.attribution = attribution?.trim() ?? '';
