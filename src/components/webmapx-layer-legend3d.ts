@@ -212,12 +212,15 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
       --webmapx-stack-outline: var(--webmapx-legend-stack-outline, #1f2937);
     }
 
+    /* No overflow/max-height here: the real scrollport is the ancestor
+       reached through slot assignment (webmapx-tool-panel's
+       .panel-content) — see findScrollableAncestor below. Making this
+       element its own scroll container too would give sticky headers and
+       drag auto-scroll the wrong ancestor to stick/scroll against. */
     .panel {
       display: flex;
       flex-direction: column;
       gap: var(--webmapx-space-lg, 1rem);
-      max-height: min(32rem, 100%);
-      overflow-y: auto;
       padding: var(--webmapx-space-sm, 0.5rem);
       box-sizing: border-box;
     }
@@ -467,6 +470,11 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
       display: flex;
       justify-content: flex-end;
       gap: var(--webmapx-space-xs, 0.4rem);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--webmapx-legend-bg, var(--color-background, #ffffff));
+      padding-bottom: var(--webmapx-space-xs, 0.25rem);
     }
 
     .layer-meta {
