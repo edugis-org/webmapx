@@ -60,6 +60,11 @@ export interface MapLayerStateEntry {
     sourceId?: string;
     /** Generic layer rendering type from the layer spec, e.g. fill, line, circle. */
     layerType?: string;
+    /**
+     * `source-layer` from the layer spec. Required to query a vector-tile source:
+     * `querySourceFeatures` on a vector source returns nothing without it.
+     */
+    sourceLayer?: string;
     hideFromLegend?: boolean;
     legendRole?: 'background' | 'overlay';
     /** Whether the legend for this layer is expanded in the legend panel. Defaults to true. */

@@ -1362,8 +1362,10 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
     } else {
       const layerType = typeof metadata?.layerType === 'string' ? metadata.layerType : undefined;
       const sourceId = typeof metadata?.sourceId === 'string' ? metadata.sourceId : '';
+      // Without the source layer a vector-tile source samples zero features.
+      const sourceLayer = typeof metadata?.sourceLayer === 'string' ? metadata.sourceLayer : undefined;
       if (layerType && STYLE_DIALOG_LAYER_TYPES.has(layerType)) {
-        targets.push({ id: layerId, type: layerType, sourceId });
+        targets.push({ id: layerId, type: layerType, sourceId, ...(sourceLayer ? { sourceLayer } : {}) });
       }
     }
     return targets;

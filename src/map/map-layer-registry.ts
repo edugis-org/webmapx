@@ -27,6 +27,11 @@ export function registerMapLayer(store: MapStateStore, layer: any): void {
     if (typeof layer?.type === 'string' && typeof metadata.layerType !== 'string') {
         metadata.layerType = layer.type;
     }
+    // A vector-tile source cannot be queried without its source layer, so the
+    // legend's style dialog needs this alongside sourceId to sample features.
+    if (typeof layer?.['source-layer'] === 'string' && typeof metadata.sourceLayer !== 'string') {
+        metadata.sourceLayer = layer['source-layer'];
+    }
     if (layer?.paint && typeof layer.paint === 'object' && !metadata.paint) {
         metadata.paint = layer.paint;
     }
@@ -88,6 +93,7 @@ export function registerMapLayer(store: MapStateStore, layer: any): void {
                 legendRole: currentEntry.legendRole ?? metadata.legendRole,
                 sourceId: currentEntry.sourceId ?? metadata.sourceId,
                 layerType: metadata.layerType ?? currentEntry.layerType,
+                sourceLayer: metadata.sourceLayer ?? currentEntry.sourceLayer,
                 sublayers: metadata.sublayers ?? currentEntry.sublayers,
                 sourceData: metadata.sourceData ?? currentEntry.sourceData,
                 attribution: metadata.attribution ?? currentEntry.attribution,
