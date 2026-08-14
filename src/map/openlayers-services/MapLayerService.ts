@@ -26,6 +26,7 @@ import type BaseLayer from 'ol/layer/Base';
 import type { WarpedMapLayer } from '@allmaps/openlayers';
 import { stylefunction } from 'ol-mapbox-style';
 import { evaluateNumber } from '../../utils/maplibre-expression-evaluator';
+import { assembleTileFeatures, type TileFeatureRecord } from '../vector-tile-features';
 import Feature from 'ol/Feature';
 import Polygon from 'ol/geom/Polygon';
 import Style from 'ol/style/Style';
@@ -1139,7 +1140,7 @@ export class MapLayerService implements ILayerService {
 
         const format = new GeoJSON();
         const allFeatures: GeoJSON.Feature[] = [];
-        const seenIds = new Set<string>();
+        const tileRecords: TileFeatureRecord[] = [];
 
         for (const nativeLayerId of nativeLayerIds) {
             const layer = this.nativeLayerInstances.get(nativeLayerId) as any;
@@ -1190,13 +1191,6 @@ export class MapLayerService implements ILayerService {
                     const sl = f.get?.('layer') ?? (f as any)['sourceLayer'];
                     if (sl && sl !== options.sourceLayer) continue;
                 }
-                // A feature crossing a tile border appears in each of those tiles;
-                // the id survives the split, so it is what tells a duplicate apart
-                // from two neighbours with identical attributes.
-                const fid = f.getId?.();
-                const idKey = fid !== undefined ? `id:${fid}` : null;
-                if (idKey && seenIds.has(idKey)) continue;
-                if (idKey) seenIds.add(idKey);
                 try {
                     const olFeature = typeof f.getFlatCoordinates === 'function'
                         ? toFeature(f as RenderFeature)
@@ -1205,9 +1199,21 @@ export class MapLayerService implements ILayerService {
                         dataProjection: 'EPSG:4326',
                         featureProjection: viewProjection,
                     }));
-                    allFeatures.push(geojson);
+                    // Deduplication (world copies) and border merging are shared
+                    // with the other engines; the renderer does not hand out the
+                    // tile a feature came from, so those records carry no `tile`
+                    // and are matched on identity plus geometry alone.
+                    tileRecords.push({
+                        feature: geojson,
+                        sourceLayer: f.get?.('layer') ?? (f as any)['sourceLayer'],
+                        id: f.getId?.(),
+                    });
                 } catch (_) {}
             }
+        }
+
+        if (tileRecords.length) {
+            allFeatures.push(...assembleTileFeatures(tileRecords).features);
         }
 
         return { type: 'FeatureCollection', features: allFeatures };
