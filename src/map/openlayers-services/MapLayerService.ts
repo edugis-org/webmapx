@@ -14,6 +14,7 @@ import VectorSource from 'ol/source/Vector';
 import VectorTileSource from 'ol/source/VectorTile';
 import GeoJSON from 'ol/format/GeoJSON';
 import MVT from 'ol/format/MVT';
+import RenderFeature, { toFeature } from 'ol/render/Feature';
 import ImageWMS from 'ol/source/ImageWMS';
 import ImageLayer from 'ol/layer/Image';
 import TileWMS from 'ol/source/TileWMS';
@@ -1161,41 +1162,52 @@ export class MapLayerService implements ILayerService {
             }
 
             if (!(source instanceof VectorTileSource)) continue;
-            const tileGrid = source.getTileGrid?.();
-            if (!tileGrid || typeof (tileGrid as any).forEachTileCoord !== 'function') continue;
 
+            // Features come from the layer, not from tiles fetched by hand: the
+            // renderer knows which tiles are on screen right now and at which
+            // resolution, which is the same "whatever the map has drawn" contract
+            // the other engines answer with. Fetching tiles through
+            // `source.getTile` instead depends on guessing the zoom the renderer
+            // picked, and returns nothing when that guess is off.
+            //
+            // `MVT` parses into `RenderFeature`s — a stripped-down shape meant for
+            // drawing — so each one is converted with `toFeature` before GeoJSON
+            // serialisation.
             const view = this.map.getView();
             const mapSize = this.map.getSize() ?? [0, 0];
             const extent = view.calculateExtent(mapSize as [number, number]);
-            const resolution = view.getResolution() ?? 1;
-            const zoom = tileGrid.getZForResolution(resolution, 0.5);
-            const projObj = source.getProjection?.() ?? 'EPSG:3857';
-            const projCode = typeof projObj === 'string' ? projObj : ((projObj as any)?.getCode?.() ?? 'EPSG:3857');
-            const pixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio : 1;
+            const viewProjection = view.getProjection().getCode();
 
-            (tileGrid as any).forEachTileCoord(extent, zoom, ([z, x, y]: number[]) => {
+            let tileFeatures: any[];
+            try {
+                tileFeatures = (layer.getFeaturesInExtent?.(extent) as any[]) ?? [];
+            } catch (_) {
+                tileFeatures = [];
+            }
+
+            for (const f of tileFeatures) {
+                if (options?.sourceLayer) {
+                    const sl = f.get?.('layer') ?? (f as any)['sourceLayer'];
+                    if (sl && sl !== options.sourceLayer) continue;
+                }
+                // A feature crossing a tile border appears in each of those tiles;
+                // the id survives the split, so it is what tells a duplicate apart
+                // from two neighbours with identical attributes.
+                const fid = f.getId?.();
+                const idKey = fid !== undefined ? `id:${fid}` : null;
+                if (idKey && seenIds.has(idKey)) continue;
+                if (idKey) seenIds.add(idKey);
                 try {
-                    const tile = (source as any).getTile(z, x, y, pixelRatio, projObj);
-                    const tileFeatures: any[] = tile?.getFeatures?.() ?? [];
-                    for (const f of tileFeatures) {
-                        if (options?.sourceLayer) {
-                            const sl = f.get?.('layer') ?? (f as any)['sourceLayer'];
-                            if (sl && sl !== options.sourceLayer) continue;
-                        }
-                        const fid = f.getId?.();
-                        const idKey = fid !== undefined ? `id:${fid}` : null;
-                        if (idKey && seenIds.has(idKey)) continue;
-                        if (idKey) seenIds.add(idKey);
-                        try {
-                            const geojson = JSON.parse(format.writeFeature(f, {
-                                dataProjection: 'EPSG:4326',
-                                featureProjection: projCode
-                            }));
-                            allFeatures.push(geojson);
-                        } catch (_) {}
-                    }
+                    const olFeature = typeof f.getFlatCoordinates === 'function'
+                        ? toFeature(f as RenderFeature)
+                        : f;
+                    const geojson = JSON.parse(format.writeFeature(olFeature, {
+                        dataProjection: 'EPSG:4326',
+                        featureProjection: viewProjection,
+                    }));
+                    allFeatures.push(geojson);
                 } catch (_) {}
-            });
+            }
         }
 
         return { type: 'FeatureCollection', features: allFeatures };
