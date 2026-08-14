@@ -37,3 +37,42 @@ jobs:
       - name: Unit tests
         if: '!cancelled()'
         run: npm run test:unit
+
+  # A separate job, so the fast checks above stay fast and go red on their own
+  # instead of waiting behind a browser.
+  browser:
+    runs-on: ubuntu-latest
+    # Pull requests only: a push to main has already been through this on its
+    # pull request, and every-push browser runs are not worth the wait.
+    if: github.event_name == 'pull_request'
+    # The whole set takes about a minute. Ten is generous and, more to the point,
+    # bounded — a hung browser or a wait that never resolves cannot run for hours.
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Chromium is ~130 MB; caching it turns a 30 s download into a few seconds.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      # `--with-deps` also installs the system libraries headless Chromium needs,
+      # and is close to a no-op once the browser itself is cached.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # The suites need no network: they run against the local dev server and
+      # tolerate the external tile requests failing, which they do on a runner.
+      - name: UI tests
+        run: npm run ui-test
