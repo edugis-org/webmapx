@@ -404,11 +404,44 @@ export async function run({ page, engine, baseUrl }) {
   const message = await toolMessage(page);
   if (message) fail(`Tool reported a problem after a successful run: ${message}`);
 
+  // ─── A parameter that only applies to one choice of another ──────────────
+  await step('the gap width only appears when gaps are removed by width', () => checkConditionalParam(page));
+
   // ─── A table operation, with aggregation rows ────────────────────────────
   await step('statistics shows a table instead of adding a layer', () => checkStatistics(page));
 
   // ─── Cancelling a long calculation ───────────────────────────────────────
   await step('a running calculation can be cancelled', () => checkCancel(page));
+}
+
+/**
+ * A `showWhen` parameter is absent, not disabled, so the check is that the
+ * element does not exist — and that choosing the value it belongs to brings it
+ * back within one render, without a page reload.
+ */
+async function checkConditionalParam(page) {
+  await clickChange(page);
+  await chooseOperation(page, 'Dissolve');
+
+  const widthShown = () => page.evaluate(() => {
+    const root = document.querySelector('webmapx-geoprocessing-tool')?.shadowRoot;
+    return [...(root?.querySelectorAll('sl-input') ?? [])]
+      .some(el => (el.getAttribute('label') ?? '').startsWith('Gaps narrower than'));
+  });
+
+  if (await widthShown()) fail('The gap width must be hidden while gaps are removed relatively');
+
+  await page.evaluate(() => {
+    const root = document.querySelector('webmapx-geoprocessing-tool')?.shadowRoot;
+    const select = [...(root?.querySelectorAll('sl-select') ?? [])]
+      .find(el => (el.getAttribute('label') ?? '') === 'Small gaps');
+    if (!select) throw new Error('No "Small gaps" select on the dissolve panel');
+    select.value = 'size';
+    select.dispatchEvent(new CustomEvent('sl-change', { bubbles: true, composed: true }));
+  });
+
+  await pollFor(page, 'gap width input appears', widthShown);
+  console.log('    Gap width appears only for "remove up to a given width"');
 }
 
 /**
@@ -422,6 +455,15 @@ async function checkStatistics(page) {
   await clickChange(page);
   await chooseOperation(page, 'Statistics');
   await selectInputLayers(page, ['gp-test-a']);
+
+  // The attribute list is read from the layer's features asynchronously, and the
+  // button stays disabled until it arrives — clicking before that silently does
+  // nothing, which reads as "the row never appeared".
+  await pollFor(page, '"Add attribute" to become enabled', () => page.evaluate(() => {
+    const root = document.querySelector('webmapx-geoprocessing-tool').shadowRoot;
+    const add = [...root.querySelectorAll('sl-button')].find(b => b.textContent.trim() === 'Add attribute');
+    return Boolean(add && !add.disabled);
+  }), { timeout: 10_000, interval: 50 });
 
   // Add one aggregation row, then point it at the numeric attribute.
   await page.evaluate(() => {

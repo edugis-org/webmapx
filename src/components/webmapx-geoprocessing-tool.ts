@@ -48,6 +48,7 @@ import {
     type GeoParamValues,
 } from '../utils/geoprocessing-operations';
 import { operationDiagram } from './internal/geoprocessing-diagrams';
+import type { GeoprocessResult } from '../workers/geoprocessing-runner';
 import { DATA_START } from '../theme/data-colors';
 
 import '@shoelace-style/shoelace/dist/components/button/button.js';
@@ -649,8 +650,14 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
             // covers less than the whole layer.
             this.summary = this.runSummary(op, inputA, inputB, result);
 
+            // Features GDAL could not repair, or that the operation could not
+            // use, are gone from the answer. Silence there reads as a bug in the
+            // operation, so the count is part of the result, not a console log.
+            const warnings = (result as GeoprocessResult).warnings ?? [];
+            if (warnings.length) this.notice = warnings.join(' ');
+
             if (!result.features.length) {
-                this.notice = `${op.label} produced no features — the layers may not overlap.`;
+                this.notice = [`${op.label} produced no features — the layers may not overlap.`, ...warnings].join(' ');
                 return;
             }
 
@@ -895,7 +902,12 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
                 `;
             })}
 
-            ${op.params.map(param => this.renderParam(param))}
+            ${op.params
+                // A parameter another parameter's value makes irrelevant is not
+                // disabled but absent: the panel is already dense, and its value
+                // still travels with the request.
+                .filter(param => param.showWhen?.(this.params) !== false)
+                .map(param => this.renderParam(param))}
 
             ${op.outputGeometry === 'table' ? nothing : html`
                 <sl-input

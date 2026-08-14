@@ -48,7 +48,16 @@ export interface GeoInputSpec {
     hint?: string;
 }
 
-export type GeoParamSpec =
+/**
+ * `showWhen` hides a parameter that another parameter's value makes irrelevant,
+ * so the panel never asks for a number nobody will read. Hidden parameters keep
+ * their default value — the operation still receives them.
+ */
+export type GeoParamSpec = GeoParamSpecBase & {
+    showWhen?: (params: GeoParamValues) => boolean;
+};
+
+type GeoParamSpecBase =
     | {
           kind: 'number';
           key: string;
@@ -151,6 +160,9 @@ export type GeoCompute = (
     params: GeoParamValues,
 ) => GeoJSON.FeatureCollection;
 
+/** Same contract as `GeoCompute`, but applied to a result rather than an input. */
+export type GeoPostProcess = GeoCompute;
+
 export interface GeoOperation {
     id: GeoOperationId;
     label: string;
@@ -175,6 +187,18 @@ export interface GeoOperation {
      */
     buildSql?: (ctx: GeoSqlContext) => string;
     compute?: GeoCompute;
+    /**
+     * Cleanup applied to the *result*, in EPSG:3857, before it is reprojected
+     * back. Not a third computation branch: `buildSql`/`compute` answer the
+     * question, this tidies the answer up (see `removeSmallHoles`), so the
+     * exactly-one invariant between those two still holds.
+     *
+     * Only run when `postProcessNeeded` says so — reading the result back into
+     * JS costs a parse of the whole output, which is wasted when the cleanup is
+     * switched off.
+     */
+    postProcess?: GeoPostProcess;
+    postProcessNeeded?: (params: GeoParamValues) => boolean;
 }
 
 // ─── SQL helpers ─────────────────────────────────────────────────────────────
@@ -281,6 +305,120 @@ function unionBranch(
     return selectList(...fromA, ...fromB, `'${part}' AS part`, `${geometry} AS geometry`);
 }
 
+// ─── Gap cleanup ─────────────────────────────────────────────────────────────
+
+/**
+ * Hole area below which `auto` calls a hole a gap, as a fraction of the ring it
+ * sits in.
+ *
+ * Measured, not guessed. Dissolving a vector-tile layer into 233 countries left
+ * 8906 holes; relative to their own polygon they are p50 3.4e-6, p90 4.4e-5,
+ * p99 5.2e-4. Lake Winnipeg is 2.5e-3 of Canada — the largest real lake most
+ * likely to be mistaken for a gap, and still 2.5x above this line. At 1e-3,
+ * 8833 of the 8906 go and the lake stays.
+ */
+const AUTO_HOLE_FRACTION = 1e-3;
+
+function ringSignedArea(ring: GeoJSON.Position[]): number {
+    let sum = 0;
+    for (let i = 0; i < ring.length - 1; i++) {
+        sum += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+    }
+    return Math.abs(sum / 2);
+}
+
+/** Longest side of a ring's bounding box — how wide the gap reads on the map. */
+function ringExtent(ring: GeoJSON.Position[]): number {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const [x, y] of ring) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+    }
+    return Math.max(maxX - minX, maxY - minY);
+}
+
+/**
+ * Drops the holes that are quantisation gaps and keeps the ones that are lakes.
+ *
+ * Dissolving vector-tile data leaves holes wherever two neighbours' simplified
+ * borders fail to meet. They are not invalid geometry — `ST_MakeValid` repairs a
+ * geometry against itself and never moves one geometry onto another — so they
+ * survive the union as genuine empty space: blocky 4-6 point rectangles on the
+ * tile's quantisation grid (measured on France: 229 holes, p50 3.3 km across).
+ *
+ * Two ways to say which holes are gaps, because the right answer depends on
+ * scale and only the user knows the data:
+ *   - `auto` compares each hole with the ring that contains it, which is
+ *     scale-free: it means the same thing for Dutch municipalities merged into a
+ *     province and for world regions merged into countries.
+ *   - `size` takes a width in metres, for when the relative rule guesses wrong —
+ *     a large country's real lake is relatively small, a small province's gap is
+ *     relatively large.
+ *
+ * Comparing against the containing ring rather than the whole feature matters
+ * for archipelagos: a lake on a small island is a large fraction of that island
+ * and a vanishing fraction of the country.
+ */
+function removeSmallHoles(input: GeoJSON.FeatureCollection, params: GeoParamValues): GeoJSON.FeatureCollection {
+    const mode = String(params.holes ?? 'keep');
+    if (mode !== 'auto' && mode !== 'size') return input;
+    // Already scaled from metres into 3857 units by the runner (METRIC_PARAMS).
+    const maxExtent = Number(params.holeSize) || 0;
+
+    const keepHole = (hole: GeoJSON.Position[], outerArea: number): boolean =>
+        mode === 'auto'
+            ? ringSignedArea(hole) >= AUTO_HOLE_FRACTION * outerArea
+            : ringExtent(hole) >= maxExtent;
+
+    const cleanPolygon = (polygon: GeoJSON.Position[][]): GeoJSON.Position[][] => {
+        if (polygon.length < 2) return polygon;
+        const outerArea = ringSignedArea(polygon[0]);
+        return [polygon[0], ...polygon.slice(1).filter(hole => keepHole(hole, outerArea))];
+    };
+
+    return {
+        ...input,
+        features: input.features.map(feature => {
+            const geometry = feature.geometry;
+            if (geometry?.type === 'Polygon') {
+                return { ...feature, geometry: { ...geometry, coordinates: cleanPolygon(geometry.coordinates) } };
+            }
+            if (geometry?.type === 'MultiPolygon') {
+                return { ...feature, geometry: { ...geometry, coordinates: geometry.coordinates.map(cleanPolygon) } };
+            }
+            return feature;
+        }),
+    };
+}
+
+/** Parameters every operation that can leave gaps behind offers. */
+const HOLE_PARAMS: GeoParamSpec[] = [
+    {
+        kind: 'select',
+        key: 'holes',
+        label: 'Small gaps',
+        default: 'auto',
+        options: [
+            { value: 'auto', label: 'remove (relative to each shape)' },
+            { value: 'size', label: 'remove up to a given width' },
+            { value: 'keep', label: 'keep every hole' },
+        ],
+        hint: 'Merging tile-based data leaves gaps where neighbouring borders do not meet exactly. Real holes such as a large lake are kept.',
+    },
+    {
+        kind: 'number',
+        key: 'holeSize',
+        label: 'Gaps narrower than',
+        default: 1000,
+        min: 0,
+        step: 100,
+        unit: 'm',
+        showWhen: params => params.holes === 'size',
+    },
+];
+
 // ─── polylabel ───────────────────────────────────────────────────────────────
 
 /**
@@ -300,6 +438,23 @@ function poleOfInaccessibility(
 }
 
 /**
+ * Every polygon inside a geometry, whatever wrapper it arrived in.
+ *
+ * GeometryCollection is not an exotic case here: repairing an invalid polygon
+ * (`ogr2ogr -makevalid`) routinely returns the repaired areas *plus* the
+ * collapsed slivers as lines, wrapped in a collection. Treating that as "not a
+ * polygon" is what made whole countries vanish from a label layer. The
+ * non-areal members are ignored — there is no inside to be furthest from.
+ */
+function polygonsOf(geometry: GeoJSON.Geometry | null | undefined): GeoJSON.Position[][][] {
+    if (!geometry) return [];
+    if (geometry.type === 'Polygon') return [geometry.coordinates];
+    if (geometry.type === 'MultiPolygon') return geometry.coordinates;
+    if (geometry.type === 'GeometryCollection') return geometry.geometries.flatMap(polygonsOf);
+    return [];
+}
+
+/**
  * One label point per feature.
  *
  * A MultiPolygon gets a single point, placed in whichever part has the most room
@@ -312,11 +467,7 @@ function labelPoints(input: GeoJSON.FeatureCollection, params: GeoParamValues): 
     const features: GeoJSON.Feature[] = [];
 
     for (const feature of input.features) {
-        const geometry = feature.geometry;
-        const polygons: GeoJSON.Position[][][] =
-            geometry?.type === 'Polygon' ? [geometry.coordinates]
-            : geometry?.type === 'MultiPolygon' ? geometry.coordinates
-            : [];
+        const polygons = polygonsOf(feature.geometry);
 
         let best: { point: GeoJSON.Position; distance: number } | null = null;
         for (const polygon of polygons) {
@@ -722,9 +873,12 @@ export const GEO_OPERATIONS: GeoOperation[] = [
                 from: 'a',
                 hint: 'Merging provinces into countries usually means adding up their populations',
             },
+            ...HOLE_PARAMS,
         ],
         outputGeometry: 'polygon',
         outputName: a => `${a} dissolved`,
+        postProcess: removeSmallHoles,
+        postProcessNeeded: params => params.holes === 'auto' || params.holes === 'size',
         buildSql: ({ layerA, params }) => {
             const field = String(params.groupBy ?? '');
             const stats = aggregationColumns('a', params.stats, layerA, field);
@@ -887,7 +1041,7 @@ export function getOperation(id: string): GeoOperation | undefined {
 }
 
 /** Parameters whose value is a length in metres, and so must be scaled for EPSG:3857. */
-export const METRIC_PARAMS = new Set(['tolerance', 'precision']);
+export const METRIC_PARAMS = new Set(['tolerance', 'precision', 'holeSize']);
 
 export function defaultParams(op: GeoOperation): GeoParamValues {
     const values: GeoParamValues = {};

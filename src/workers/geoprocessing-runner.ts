@@ -36,6 +36,23 @@ export interface GeoprocessRequest {
     centerLat?: number;
 }
 
+/**
+ * A result collection, optionally carrying what the pipeline had to leave out.
+ *
+ * Warnings ride along as a GeoJSON foreign member rather than a separate return
+ * value because the collection is what crosses the worker boundary — the worker
+ * protocol's `ok` response carries one `FeatureCollection` and nothing else, and
+ * a foreign member survives structured clone untouched.
+ */
+export interface GeoprocessResult extends GeoJSON.FeatureCollection {
+    warnings?: string[];
+}
+
+function withWarnings(fc: GeoJSON.FeatureCollection, warnings: string[]): GeoprocessResult {
+    if (!warnings.length) return fc;
+    return { ...fc, warnings };
+}
+
 /** Minimal shape of the gdal3.js instance this runner uses. */
 export interface GdalLike {
     open(file: unknown): Promise<{ datasets: any[]; errors: string[] }>;
@@ -121,6 +138,18 @@ async function readFeatureCollection(gdal: GdalLike, path: string): Promise<GeoJ
 }
 
 /**
+ * Feature count of a GeoJSON file, without parsing it.
+ *
+ * The reprojected inputs can be tens of megabytes, and this is only needed to
+ * tell the user how many features GDAL threw away — not worth a full `JSON.parse`
+ * of a document the SQL branch never otherwise reads into JS.
+ */
+async function countFeatures(gdal: GdalLike, path: string): Promise<number> {
+    const text = new TextDecoder().decode(await gdal.getFileBytes(path));
+    return (text.match(/"type"\s*:\s*"Feature"/g) ?? []).length;
+}
+
+/**
  * Reproject a JS-computed collection back to lon/lat.
  *
  * `-s_srs` is required and not optional politeness: the file is written as plain
@@ -146,29 +175,57 @@ async function backToWgs84(gdal: GdalLike, fc: GeoJSON.FeatureCollection): Promi
     }
 }
 
-/** Reproject one input to EPSG:3857 GeoJSON and return the file path. */
+/**
+ * Reproject one input to EPSG:3857 GeoJSON and return the file path.
+ *
+ * Two ogr2ogr passes, and the split is load-bearing: `-makevalid` in the same
+ * call as `-clipsrc` runs *after* the clip, so an invalid polygon still throws
+ * `TopologyException` inside GEOS while being clipped and `-skipfailures` then
+ * drops the feature without a word. Tile-derived data hits this constantly —
+ * dissolving MVT fragments leaves rings that touch along tile edges. Measured on
+ * a 233-country dissolve of a vector-tile layer: one pass kept 192 features
+ * (and turned 29 of those into `GeometryCollection`s), repairing first keeps all
+ * 233 as clean Polygon/MultiPolygon.
+ */
 async function toMetric(
     gdal: GdalLike,
     fc: GeoJSON.FeatureCollection,
     layerName: string,
-): Promise<string> {
+): Promise<{ path: string; dropped: number }> {
     const { datasets, errors } = await gdal.open(toFile(flattenTo2D(fc), layerName));
     const source = datasets[0];
     if (!source) throw new Error(`Could not read input layer: ${errors.join('; ')}`);
 
+    let repairedPath: string;
     try {
-        const out = await gdal.ogr2ogr(source, [
+        const repaired = await gdal.ogr2ogr(source, [
+            '-f', 'GeoJSON',
+            '-makevalid',
+            '-skipfailures',
+            '-nln', layerName,
+        ], `${layerName}_valid`);
+        repairedPath = pathOf(repaired);
+    } finally {
+        await gdal.close(source);
+    }
+
+    const opened = await gdal.open(repairedPath);
+    const repairedDataset = opened.datasets[0];
+    if (!repairedDataset) throw new Error(`Could not repair input layer: ${opened.errors.join('; ')}`);
+
+    try {
+        const out = await gdal.ogr2ogr(repairedDataset, [
             '-f', 'GeoJSON',
             '-t_srs', 'EPSG:3857',
             // PROJ fails on the poles; 3857 is undefined beyond ±85° anyway.
             '-clipsrc', '-180', '-84', '180', '84',
-            '-makevalid',
             '-skipfailures',
             '-nln', layerName,
         ], `${layerName}_3857`);
-        return pathOf(out);
+        const path = pathOf(out);
+        return { path, dropped: Math.max(fc.features.length - await countFeatures(gdal, path), 0) };
     } finally {
-        await gdal.close(source);
+        await gdal.close(repairedDataset);
     }
 }
 
@@ -241,7 +298,7 @@ function scaleMetricParams(params: GeoParamValues, centerLat: number): GeoParamV
 export async function runGeoprocess(
     gdal: GdalLike,
     request: GeoprocessRequest,
-): Promise<GeoJSON.FeatureCollection> {
+): Promise<GeoprocessResult> {
     const operation = getOperation(request.operationId);
     if (!operation) throw new Error(`Unknown geoprocessing operation: ${request.operationId}`);
 
@@ -250,9 +307,22 @@ export async function runGeoprocess(
     if (!request.inputA.features.length) throw new Error('The input layer has no features.');
     if (needsB && !request.inputB!.features.length) throw new Error('The second layer has no features.');
 
-    const pathA = await toMetric(gdal, request.inputA, LAYER_A);
-    const pathB = needsB ? await toMetric(gdal, request.inputB!, LAYER_B) : null;
+    const metricA = await toMetric(gdal, request.inputA, LAYER_A);
+    const metricB = needsB ? await toMetric(gdal, request.inputB!, LAYER_B) : null;
+    const pathA = metricA.path;
+    const pathB = metricB?.path ?? null;
     const params = scaleMetricParams(request.params, request.centerLat ?? 0);
+
+    // Features GDAL could not carry into the metric projection are gone before
+    // the operation starts, so the result silently answers a smaller question.
+    // Saying so is the whole point: a missing country in a label layer looks
+    // like a bug in the operation, not like an unrepairable input geometry.
+    const warnings: string[] = [];
+    const reportDropped = (dropped: number, which: string) => {
+        if (dropped > 0) warnings.push(`${dropped} ${dropped === 1 ? 'feature' : 'features'} of ${which} could not be repaired and were left out.`);
+    };
+    reportDropped(metricA.dropped, needsB ? 'the first layer' : 'the input layer');
+    if (metricB) reportDropped(metricB.dropped, 'the second layer');
 
     // Operations SpatiaLite cannot express run in JS on the reprojected features
     // instead of through -sql, and need no database at all. Everything either
@@ -260,7 +330,12 @@ export async function runGeoprocess(
     // is the same, so a JS operation is not a second pipeline.
     if (operation.compute) {
         const metric = await readFeatureCollection(gdal, pathA);
-        return await backToWgs84(gdal, operation.compute(metric, params));
+        const computed = operation.compute(metric, params);
+        const skipped = metric.features.length - computed.features.length;
+        if (skipped > 0) {
+            warnings.push(`${skipped} ${skipped === 1 ? 'feature' : 'features'} were skipped by ${operation.label} — their geometry is not of a type it can use.`);
+        }
+        return withWarnings(await backToWgs84(gdal, computed), warnings);
     }
 
     if (!operation.buildSql) {
@@ -293,7 +368,16 @@ export async function runGeoprocess(
         // nothing to reproject, and `dropEmptyGeometries` would throw every row
         // away, so it is read back as-is.
         if (operation.outputGeometry === 'table') {
-            return await readFeatureCollection(gdal, pathOf(computed));
+            return withWarnings(await readFeatureCollection(gdal, pathOf(computed)), warnings);
+        }
+
+        // Result cleanup runs here, on the SQL output, still in EPSG:3857 — the
+        // same coordinates a `compute` operation sees, so metric parameters mean
+        // the same thing in both. It costs a parse of the whole result, hence
+        // the `postProcessNeeded` gate rather than running it unconditionally.
+        if (operation.postProcess && operation.postProcessNeeded?.(params) !== false) {
+            const cleaned = operation.postProcess(await readFeatureCollection(gdal, pathOf(computed)), params);
+            return withWarnings(await backToWgs84(gdal, cleaned), warnings);
         }
 
         const opened = await gdal.open(pathOf(computed));
@@ -307,7 +391,7 @@ export async function runGeoprocess(
             '-skipfailures',
         ], 'gp_output');
 
-        return dropEmptyGeometries(await readFeatureCollection(gdal, pathOf(back)));
+        return withWarnings(dropEmptyGeometries(await readFeatureCollection(gdal, pathOf(back))), warnings);
     } finally {
         if (resultDataset) await gdal.close(resultDataset);
         await db.close();

@@ -489,6 +489,9 @@ test('label point gives one point per feature and skips non-polygons', { timeout
     const out = await run('labelPoint', mixed, undefined, { precision: 1000 });
     assert.equal(out.features.length, 1, 'the point feature has no interior to label');
     assert.equal(out.features[0].properties?.id, 'poly');
+    // Dropping a feature has to be said out loud; silence reads as a bug in the
+    // operation rather than as an input the operation cannot use.
+    assert.match((out as { warnings?: string[] }).warnings?.join(' ') ?? '', /1 feature .*skipped/);
 });
 
 test('label point places a multipolygon label in its largest part', { timeout: TIMEOUT }, async () => {
@@ -507,6 +510,87 @@ test('label point places a multipolygon label in its largest part', { timeout: T
     assert.equal(out.features.length, 1, 'one label per feature, not per part');
     const [x, y] = (out.features[0].geometry as GeoJSON.Point).coordinates;
     assert.ok(x > 4 && y > 4, `expected the label in the big island, got ${x},${y}`);
+});
+
+/**
+ * Invalid input geometry must be repaired, not silently dropped.
+ *
+ * `-makevalid` in the same ogr2ogr call as `-clipsrc` runs *after* the clip, so
+ * a self-intersecting polygon threw `TopologyException` while being clipped and
+ * `-skipfailures` discarded the feature. Real symptom: dissolving a vector-tile
+ * layer into 233 countries produced only 163 label points, with France, Germany
+ * and Spain missing — the big multi-tile countries, which are exactly the ones
+ * whose unioned tile fragments come out invalid.
+ */
+test('label point keeps features whose geometry is invalid', { timeout: TIMEOUT }, async () => {
+    const bowtie = (x: number, id: string): GeoJSON.Feature => ({
+        type: 'Feature',
+        properties: { id },
+        geometry: { type: 'Polygon', coordinates: [[[x, 0], [x + 2, 2], [x, 2], [x + 2, 0], [x, 0]]] },
+    });
+    const out = await run('labelPoint', fc(bowtie(0, 'a'), bowtie(10, 'b'), square(20, 0, 2, { id: 'c' })), undefined, { precision: 1000 });
+    assert.equal(out.features.length, 3, 'self-intersecting polygons must be repaired, not dropped');
+    assert.deepEqual(out.features.map(f => f.properties?.id).sort(), ['a', 'b', 'c']);
+});
+
+/**
+ * Dissolving tile-derived data leaves quantisation gaps between neighbours that
+ * did not quite meet. They are valid geometry — `ST_MakeValid` does not touch
+ * them — so they have to be removed by size, without eating a real lake.
+ *
+ * The fixture is four neighbours that enclose a small gap, plus one of them
+ * carrying a big lake: the two cases that must come out differently.
+ */
+function holeRingsOf(feature: GeoJSON.Feature): GeoJSON.Position[][] {
+    const g = feature.geometry;
+    const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    return polys.flatMap(p => p.slice(1));
+}
+
+/** A ring around (x0,y0)-(x1,y1), wound so it reads as a hole when nested. */
+function box(x0: number, y0: number, x1: number, y1: number): GeoJSON.Position[] {
+    return [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+}
+
+const GAP = 0.02; // ~2 km, the size real tile gaps came out at
+const TILED: FC = fc(
+    { type: 'Feature', properties: { k: 'x' }, geometry: { type: 'Polygon', coordinates: [box(0, 0, 1, 2 + GAP)] } },
+    { type: 'Feature', properties: { k: 'x' }, geometry: { type: 'Polygon', coordinates: [box(1, 0, 2, 1)] } },
+    { type: 'Feature', properties: { k: 'x' }, geometry: { type: 'Polygon', coordinates: [box(1 + GAP, 1, 2, 2 + GAP)] } },
+    // The fourth neighbour has a real lake in it, an order of magnitude bigger.
+    {
+        type: 'Feature',
+        properties: { k: 'x' },
+        geometry: { type: 'Polygon', coordinates: [box(1, 1 + GAP, 1 + GAP, 2 + GAP)] },
+    },
+    {
+        type: 'Feature',
+        properties: { k: 'x' },
+        geometry: { type: 'Polygon', coordinates: [box(2, 0, 4, 2 + GAP), box(2.5, 0.5, 3.5, 1.5)] },
+    },
+);
+
+test('dissolve keeps every hole when asked to', { timeout: TIMEOUT }, async () => {
+    const out = await run('dissolve', TILED, undefined, { groupBy: 'k', holes: 'keep' });
+    assert.equal(out.features.length, 1);
+    assert.equal(holeRingsOf(out.features[0]).length, 2, 'the gap and the lake are both holes');
+});
+
+test('dissolve removes quantisation gaps but keeps a real lake', { timeout: TIMEOUT }, async () => {
+    const out = await run('dissolve', TILED, undefined, { groupBy: 'k', holes: 'auto' });
+    const holes = holeRingsOf(out.features[0]);
+    assert.equal(holes.length, 1, 'only the lake may survive');
+    // Back in lon/lat here: the lake is 1° wide, the gap 0.02°.
+    const width = Math.max(...holes[0].map(p => p[0])) - Math.min(...holes[0].map(p => p[0]));
+    assert.ok(width > 0.5, `expected the lake, got a ${width}° wide ring`);
+});
+
+test('dissolve can remove gaps by width instead', { timeout: TIMEOUT }, async () => {
+    const narrow = await run('dissolve', TILED, undefined, { groupBy: 'k', holes: 'size', holeSize: 5000 });
+    assert.equal(holeRingsOf(narrow.features[0]).length, 1, '5 km removes the 2 km gap, not the lake');
+
+    const wide = await run('dissolve', TILED, undefined, { groupBy: 'k', holes: 'size', holeSize: 500_000 });
+    assert.equal(holeRingsOf(wide.features[0]).length, 0, 'a big enough width removes the lake too');
 });
 
 test('convex hull wraps all features in one polygon', { timeout: TIMEOUT }, async () => {
