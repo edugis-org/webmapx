@@ -169,7 +169,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private unsubDown:  (() => void) | null = null;
     private unsubUp:    (() => void) | null = null;
 
-    @query('webmapx-draw-layer-dialog')
+    // cache: true — this dialog escapes to document.body on open() (see
+    // webmapx-layer-info-dialog.ts) to outrun webmapx-tool-panel's backdrop-filter trapping
+    // its position:fixed sl-dialog. A live (uncached) @query only finds it here on the first
+    // open, before it's moved; every open after that would silently find nothing.
+    @query('webmapx-draw-layer-dialog', true)
     private layerDialog!: WebmapxDrawLayerDialog;
 
     @query('#export-dialog')

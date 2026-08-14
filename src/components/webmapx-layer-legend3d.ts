@@ -166,10 +166,15 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
   // sharing a source don't recompute it for each sublayer.
   private sourceExtentCache: Map<string, [number, number, number, number] | null> = new Map();
   private layerExtentCache: Map<string, [number, number, number, number] | null> = new Map();
-  @query('webmapx-layer-info-dialog') private infoDialog!: WebmapxLayerInfoDialog;
-  @query('webmapx-layer-style-dialog') private styleDialog!: WebmapxLayerStyleDialog;
-  @query('webmapx-save-layers-dialog') private saveLayersDialog!: WebmapxSaveLayersDialog;
-  @query('webmapx-permalink-dialog') private permalinkDialog!: WebmapxPermalinkDialog;
+  // cache: true — these dialogs escape to document.body on open() (see
+  // webmapx-layer-info-dialog.ts) to outrun webmapx-tool-panel's backdrop-filter trapping
+  // their position:fixed sl-dialog. A live (uncached) @query only finds them here on the
+  // first click, before they've moved; every click after that would silently find nothing.
+  @query('webmapx-layer-info-dialog', true) private infoDialog!: WebmapxLayerInfoDialog;
+  @query('webmapx-layer-style-dialog', true) private styleDialog!: WebmapxLayerStyleDialog;
+  // cache: true — see the comment on infoDialog/styleDialog above; same reason.
+  @query('webmapx-save-layers-dialog', true) private saveLayersDialog!: WebmapxSaveLayersDialog;
+  @query('webmapx-permalink-dialog', true) private permalinkDialog!: WebmapxPermalinkDialog;
   @query('#clear-all-layers-dialog') private clearAllLayersDialog!: SlDialog;
   private unsubscribeLayerAdd: (() => void) | null = null;
   private unsubscribeLayerRemove: (() => void) | null = null;

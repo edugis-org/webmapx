@@ -295,6 +295,12 @@ export class WebmapxLayerStyleDialog extends LitElement {
     `];
 
     open(title: string, groups: SourceStyleGroup[]): void {
+        // Escape to document.body before showing — see webmapx-layer-info-dialog.ts's open()
+        // for why: an ancestor's backdrop-filter (webmapx-tool-panel under the "atlas"/
+        // "glossy" style) otherwise traps this position:fixed dialog inside the panel.
+        if (this.parentNode !== document.body) {
+            document.body.appendChild(this);
+        }
         this.dialogTitle = title ? `Layer style: ${title}` : 'Layer style';
         this.groups = groups;
         this.analyses = {};
