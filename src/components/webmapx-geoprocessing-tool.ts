@@ -49,7 +49,7 @@ import {
 } from '../utils/geoprocessing-operations';
 import { operationDiagram } from './internal/geoprocessing-diagrams';
 import type { GeoprocessResult } from '../workers/geoprocessing-runner';
-import { DATA_START } from '../theme/data-colors';
+import { DATA_START, DATA_OUTLINE } from '../theme/data-colors';
 
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
@@ -782,7 +782,10 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
                 paint: {
                     'fill-color': DATA_START,
                     'fill-opacity': 0.35,
-                    'fill-outline-color': DATA_START,
+                    // Not the fill colour: an outline that matches its own fill
+                    // is invisible, so a dissolve result reads as one blob
+                    // instead of as the separate shapes it produced.
+                    'fill-outline-color': DATA_OUTLINE,
                 },
             };
         }

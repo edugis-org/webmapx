@@ -146,6 +146,7 @@
     --webmapx-data-start: #22c55e;
     --webmapx-data-end: #e63946;
     --webmapx-data-highlight: #ffdd00;   /* selection / hover highlight */
+    --webmapx-data-outline: #000000;     /* outline for translucent result polygons */
 }
 
 /* ════════════════════════════════════════════════════════════════

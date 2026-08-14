@@ -34,3 +34,13 @@ export const DATA_END = '#e63946';
 
 /** Selection / hover highlight. */
 export const DATA_HIGHLIGHT = '#ffdd00';
+
+/**
+ * Outline for translucent result polygons.
+ *
+ * An outline in the fill's own colour is invisible against the fill, so a
+ * dissolve result reads as one blob rather than as the shapes it produced.
+ * Black separates neighbouring polygons on every basemap, where a lighter
+ * casing would vanish over imagery.
+ */
+export const DATA_OUTLINE = '#000000';
