@@ -38,28 +38,45 @@ const registered = new Set<string>();
  * map on the projection it already had.
  */
 export function ensureViewProjection(id: string): Projection | null {
-    const existing = getProjection(id);
-    if (existing && (registered.has(id) || !getViewProjectionDef(id)?.proj4)) return existing;
+    if (registered.has(id)) return getProjection(id);
 
     const def = getViewProjectionDef(id);
-    if (!def) return existing ?? null;
-    if (!def.proj4) return existing ?? null;
-
-    proj4.defs(id, def.proj4);
-    register(proj4);
-    registered.add(id);
+    if (def?.proj4) {
+        proj4.defs(id, def.proj4);
+        register(proj4);
+    }
 
     const projection = getProjection(id);
     if (!projection) return null;
 
-    const extent = worldExtentOf(id);
-    if (!extent) return null;
-    projection.setExtent(extent);
-    // Only a full-width cylindrical projection can repeat horizontally; a polar
-    // one wrapped sideways would draw the Arctic next to itself.
-    projection.setGlobal(id === 'EPSG:6933' || id === 'ESRI:54009' || id === 'EPSG:8857');
+    // Checked for every projection, including the ones OL ships with, because
+    // this is the trap that hangs the tab: a view in degrees freezes the map as
+    // soon as a vector-tile layer is on it. `ol/source/VectorTile.js` scales the
+    // source resolution with `resolution / sourceMetersPerUnit /
+    // viewMetersPerUnit`, so a degree view divides by ~111 319 where it should
+    // multiply, asks the source for its deepest zoom level, and then enumerates
+    // millions of tiles for one screen. Hence EPSG:4326 is not in the catalog at
+    // all and ESRI:54001 — the same picture in metres — takes its place.
+    if (projection.getUnits() === 'degrees') {
+        console.error(`[projection] ${id} uses degrees; a view in degrees breaks vector-tile scaling in OpenLayers.`);
+        return null;
+    }
+
+    if (def?.proj4) {
+        const extent = worldExtentOf(id);
+        if (!extent) return null;
+        projection.setExtent(extent);
+        // Only a full-width cylindrical projection can repeat horizontally; a
+        // polar one wrapped sideways would draw the Arctic next to itself.
+        projection.setGlobal(GLOBAL_WRAPPING.has(id));
+    }
+
+    registered.add(id);
     return projection;
 }
+
+/** Cylindrical, full-width projections — the ones that may repeat horizontally. */
+const GLOBAL_WRAPPING = new Set(['EPSG:6933', 'ESRI:54009', 'EPSG:8857', 'ESRI:54001']);
 
 /**
  * The extent the projection covers, measured rather than tabulated.

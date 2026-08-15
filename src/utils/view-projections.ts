@@ -65,11 +65,19 @@ export const VIEW_PROJECTIONS: ViewProjectionDef[] = [
         metric: false,
     },
     {
-        id: 'EPSG:4326',
-        label: 'Equirectangular (WGS84)',
+        id: 'ESRI:54001',
+        label: 'Equirectangular (Plate Carrée)',
         description: 'Longitude and latitude drawn as a plain grid. Simple, but stretches everything away from the equator.',
+        // The same picture as EPSG:4326, in metres rather than degrees — and that
+        // difference is the whole reason this entry exists. A view whose units are
+        // degrees freezes the map: OL scales a vector-tile source's resolution
+        // with `resolution / sourceMetersPerUnit / viewMetersPerUnit`
+        // (`ol/source/VectorTile.js`), so a view in degrees divides by ~111 319
+        // instead of multiplying, asks the source for its deepest zoom level, and
+        // then enumerates millions of tiles for one screen.
+        proj4: '+proj=eqc +lat_ts=0 +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs',
         equalArea: false,
-        metric: false,
+        metric: true,
     },
     {
         id: 'EPSG:8857',
@@ -167,9 +175,5 @@ export function centreWithinProjection(id: string, lonLat: [number, number]): [n
 export function resolutionScaleAt(id: string, latitude: number): number {
     const def = getViewProjectionDef(id);
     if (def?.metric) return 1;
-    if (id === 'EPSG:4326') {
-        // Degrees, not metres: one degree of longitude is ~111 320 m at the equator.
-        return 1 / 111320;
-    }
     return 1 / Math.max(Math.cos((latitude * Math.PI) / 180), 1e-6);
 }

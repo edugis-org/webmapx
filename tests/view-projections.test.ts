@@ -85,6 +85,25 @@ function sampledExtent(definition: string, south: number, north: number): [numbe
     return [minX, minY, maxX, maxY];
 }
 
+test('every projection is metre-based, because a view in degrees hangs the map', () => {
+    // `ol/source/VectorTile.js` scales a source's resolution by the view's
+    // metres-per-unit the wrong way round, so a degree-unit view asks the tile
+    // source for its deepest zoom and enumerates millions of tiles. Reproduced
+    // with nl.json: the tab froze within seconds of switching to EPSG:4326.
+    // `projection-support.ts` refuses such a projection; the catalog must not
+    // offer one in the first place.
+    for (const def of VIEW_PROJECTIONS) {
+        if (!def.proj4) {
+            // Only Web Mercator may rely on OL's built-in definition, and it is
+            // in metres.
+            assert.equal(def.id, 'EPSG:3857', `${def.id} has no proj4 definition`);
+            continue;
+        }
+        assert.match(def.proj4, /\+units=m\b/, `${def.id} is not in metres`);
+    }
+    assert.equal(getViewProjectionDef('EPSG:4326'), undefined, 'EPSG:4326 must not be offered');
+});
+
 test('every projection has a finite, Earth-sized extent over its own latitude range', () => {
     for (const def of VIEW_PROJECTIONS) {
         if (!def.proj4) continue;
@@ -125,7 +144,7 @@ test('switching to a regional projection moves the centre into its area of use',
 test('only the polar projections describe themselves as regional', () => {
     assert.equal(isRegional('EPSG:3031'), true);
     assert.equal(isRegional('EPSG:3575'), true);
-    for (const id of ['EPSG:3857', 'EPSG:4326', 'EPSG:8857', 'ESRI:54009', 'EPSG:6933']) {
+    for (const id of ['EPSG:3857', 'ESRI:54001', 'EPSG:8857', 'ESRI:54009', 'EPSG:6933']) {
         assert.equal(isRegional(id), false, `${id} covers the world`);
     }
 });
@@ -194,7 +213,4 @@ test('resolution scale is projection units per ground metre', () => {
     // Mercator's unit is a metre at the equator and 1/cos(lat) of one elsewhere.
     assert.ok(Math.abs(resolutionScaleAt('EPSG:3857', 0) - 1) < 1e-9);
     assert.ok(Math.abs(resolutionScaleAt('EPSG:3857', 60) - 2) < 1e-6);
-
-    // Degrees, not metres.
-    assert.ok(Math.abs(resolutionScaleAt('EPSG:4326', 0) - 1 / 111320) < 1e-12);
 });
