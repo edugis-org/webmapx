@@ -96,7 +96,7 @@ test('featureCentroid weights parts by area, not by vertex count', () => {
 });
 
 test('scaled cartogram makes area proportional to the value', () => {
-    const out = cartogram(EQUAL_SQUARES, { field: 'pop' }).features;
+    const out = cartogram(EQUAL_SQUARES, { field: 'pop', method: 'scaled' }).features;
     assert.equal(out.features.length, 3);
 
     const areaOf = (name: string) => featureArea(out.features.find(f => f.properties?.name === name)!.geometry);
@@ -117,7 +117,7 @@ test('a continent-sized shape keeps its area to within a rounding error', () => 
         square(0, 0, 10, { name: 'a', pop: 100 }),
         square(30, 0, 10, { name: 'b', pop: 300 }),
     );
-    const out = cartogram(huge, { field: 'pop' }).features;
+    const out = cartogram(huge, { field: 'pop', method: 'scaled' }).features;
     const areaOf = (name: string) => featureArea(out.features.find(f => f.properties?.name === name)!.geometry);
     const ratio = areaOf('b') / areaOf('a');
     assert.ok(Math.abs(ratio - 3) < 0.01, `b/a = ${ratio}`);
@@ -127,13 +127,13 @@ test('a cartogram keeps the total area of the layer', () => {
     // Only the distribution of area changes, so two cartograms of one layer are
     // comparable and a layer measured in millions does not produce continents.
     const before = EQUAL_SQUARES.features.reduce((sum, f) => sum + featureArea(f.geometry), 0);
-    const after = cartogram(EQUAL_SQUARES, { field: 'pop' }).features
+    const after = cartogram(EQUAL_SQUARES, { field: 'pop', method: 'scaled' }).features
         .features.reduce((sum, f) => sum + featureArea(f.geometry), 0);
     assert.ok(Math.abs(after / before - 1) < 1e-4, `total area changed by ${(after / before - 1) * 100}%`);
 });
 
 test('scaled features stay where they were and keep their attributes', () => {
-    const out = cartogram(EQUAL_SQUARES, { field: 'pop' }).features;
+    const out = cartogram(EQUAL_SQUARES, { field: 'pop', method: 'scaled' }).features;
     for (const feature of out.features) {
         const original = EQUAL_SQUARES.features.find(f => f.properties?.name === feature.properties?.name)!;
         const before = featureCentroid(original.geometry)!;
@@ -196,6 +196,86 @@ test('coincident centres are separated rather than turned into NaN', () => {
     assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) > 1, 'the two circles were separated');
 });
 
+/** A 3x3 block of touching squares, the shape a contiguous cartogram is for. */
+function grid(values: number[]): FC {
+    const features: GeoJSON.Feature[] = [];
+    for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 3; col++) {
+            const index = row * 3 + col;
+            features.push(square(col, row, 1, { name: `c${index}`, v: values[index] }));
+        }
+    }
+    return fc(...features);
+}
+
+/** Vertices a feature has, rounded, so two neighbours can be compared. */
+function vertexKeys(feature: GeoJSON.Feature): Set<string> {
+    const g = feature.geometry;
+    const polys = g.type === 'Polygon' ? [g.coordinates] : (g as GeoJSON.MultiPolygon).coordinates;
+    return new Set(polys.flat(2).map(p => `${p[0].toFixed(9)},${p[1].toFixed(9)}`));
+}
+
+test('a contiguous cartogram keeps neighbours joined along their shared border', () => {
+    // The property that separates this from the other two methods, and the whole
+    // reason it exists: the shapes are not resized one by one, every boundary
+    // point moves under the forces of all regions at once. Two features sharing a
+    // border share those coordinates, so both copies move identically.
+    const input = grid([1, 5, 1, 5, 20, 5, 1, 5, 1]);
+    const out = cartogram(input, { field: 'v', method: 'contiguous', passes: 8 }).features;
+
+    const sharedBefore = (a: string, b: string) => {
+        const ka = vertexKeys(input.features.find(f => f.properties?.name === a)!);
+        const kb = vertexKeys(input.features.find(f => f.properties?.name === b)!);
+        return [...ka].filter(k => kb.has(k)).length;
+    };
+    const sharedAfter = (a: string, b: string) => {
+        const ka = vertexKeys(out.features.find(f => f.properties?.name === a)!);
+        const kb = vertexKeys(out.features.find(f => f.properties?.name === b)!);
+        return [...ka].filter(k => kb.has(k)).length;
+    };
+
+    for (const [a, b] of [['c0', 'c1'], ['c1', 'c2'], ['c1', 'c4'], ['c4', 'c7']]) {
+        assert.ok(sharedBefore(a, b) > 0, `${a}/${b} should share vertices to begin with`);
+        assert.equal(sharedAfter(a, b), sharedBefore(a, b), `${a}/${b} came apart`);
+    }
+});
+
+test('a contiguous cartogram moves area towards the value', () => {
+    // Not "matches the value": a rubber sheet trades exactness for staying joined
+    // up, and every region is pulling against its neighbours. What must be true is
+    // that the big value ends up much bigger than the small ones, and that more
+    // passes get closer rather than further away.
+    const input = grid([1, 1, 1, 1, 20, 1, 1, 1, 1]);
+    const areaOf = (out: FC, name: string) =>
+        featureArea(out.features.find(f => f.properties?.name === name)!.geometry);
+
+    const before = areaOf(input, 'c4') / areaOf(input, 'c0');
+    assert.ok(Math.abs(before - 1) < 0.05, 'the input squares start out the same size');
+
+    const coarse = cartogram(input, { field: 'v', method: 'contiguous', passes: 3 }).features;
+    const fine = cartogram(input, { field: 'v', method: 'contiguous', passes: 15 }).features;
+
+    const ratio = (out: FC) => areaOf(out, 'c4') / areaOf(out, 'c0');
+    assert.ok(ratio(coarse) > 2, `expected the middle square to grow, got ${ratio(coarse).toFixed(1)}x`);
+    // Target is 20x; more passes must get closer to it, not overshoot away.
+    assert.ok(Math.abs(ratio(fine) - 20) < Math.abs(ratio(coarse) - 20),
+        `15 passes (${ratio(fine).toFixed(1)}x) should beat 3 passes (${ratio(coarse).toFixed(1)}x)`);
+});
+
+test('a contiguous cartogram keeps every feature and its attributes', () => {
+    const input = grid([3, 1, 4, 1, 5, 9, 2, 6, 5]);
+    const out = cartogram(input, { field: 'v', method: 'contiguous', passes: 6 }).features;
+    assert.equal(out.features.length, 9);
+    assert.deepEqual(
+        out.features.map(f => f.properties?.name).sort(),
+        input.features.map(f => f.properties?.name).sort(),
+    );
+    for (const feature of out.features) {
+        const area = featureArea(feature.geometry);
+        assert.ok(Number.isFinite(area) && area > 0, `${feature.properties?.name} has area ${area}`);
+    }
+});
+
 test('a scattered archipelago grows in place instead of flying apart', () => {
     // Scaling a multipart feature about one centroid multiplies the distance
     // between its parts as well as their size. On world countries sized to equal
@@ -212,7 +292,7 @@ test('a scattered archipelago grows in place instead of flying apart', () => {
         square(150, -8, 5, { name: 'mainland', pop: 100 }),
     );
 
-    const out = cartogram(archipelago, { field: 'pop' }).features;
+    const out = cartogram(archipelago, { field: 'pop', method: 'scaled' }).features;
     const islands = out.features.find(f => f.properties?.name === 'islands')!;
     const mainland = out.features.find(f => f.properties?.name === 'mainland')!;
     // Equal values, equal ground area.
@@ -243,7 +323,7 @@ test('a feature straddling the date line is measured and placed correctly', () =
     const centre = featureCentroid(straddling.features[0].geometry)!;
     assert.ok(Math.abs(centre[0]) > 170, `centre longitude ${centre[0]} is not in the Pacific`);
 
-    const out = cartogram(straddling, { field: 'pop' }).features;
+    const out = cartogram(straddling, { field: 'pop', method: 'scaled' }).features;
     const area = featureArea(out.features[0].geometry);
     assert.ok(Number.isFinite(area) && area > 0, `area came out as ${area}`);
     // Sizing one feature by anything gives it the whole layer's area back.
@@ -271,7 +351,7 @@ test('features without a usable value are counted, not silently dropped', () => 
         square(80, 0, 10, { name: 'negative', v: -3 }),
         { type: 'Feature', properties: { name: 'point', v: 9 }, geometry: { type: 'Point', coordinates: [0, 0] } },
     );
-    const result = cartogram(mixed, { field: 'v' });
+    const result = cartogram(mixed, { field: 'v', method: 'scaled' });
     assert.equal(result.features.features.length, 1);
     // The three reasons are kept apart: they mean different things to whoever
     // picked the field.
@@ -282,7 +362,7 @@ test('features without a usable value are counted, not silently dropped', () => 
 
 test('a field with nothing usable in it is an error, not an empty map', () => {
     assert.throws(
-        () => cartogram(EQUAL_SQUARES, { field: 'nonexistent' }),
+        () => cartogram(EQUAL_SQUARES, { field: 'nonexistent', method: 'scaled' }),
         /No features have a usable number/,
     );
 });

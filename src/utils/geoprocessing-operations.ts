@@ -1503,12 +1503,24 @@ export const GEO_OPERATIONS: GeoOperation[] = [
                 kind: 'select',
                 key: 'method',
                 label: 'Shape',
-                default: 'scaled',
+                default: 'contiguous',
                 options: [
-                    { value: 'scaled', label: 'keep the shapes, resize them' },
+                    { value: 'contiguous', label: 'keep the map joined up (classic)' },
+                    { value: 'scaled', label: 'resize each shape on the spot' },
                     { value: 'dorling', label: 'replace each by a circle (Dorling)' },
                 ],
-                hint: 'Scaled shapes stay recognisable; circles are easier to compare when values differ hugely.',
+                hint: 'The classic cartogram stretches one sheet, so countries still touch. The other two leave gaps but keep every shape exactly.',
+            },
+            {
+                kind: 'number',
+                key: 'passes',
+                label: 'Detail',
+                default: 12,
+                min: 1,
+                max: 40,
+                step: 1,
+                showWhen: params => (params.method ?? 'contiguous') === 'contiguous',
+                hint: 'More passes fit the areas better and take longer',
             },
             {
                 kind: 'number',
@@ -1524,10 +1536,11 @@ export const GEO_OPERATIONS: GeoOperation[] = [
         ],
         outputGeometry: 'polygon',
         outputName: a => `${a} cartogram`,
-        // Non-contiguous by construction: shapes are resized where they stand and
-        // the map comes apart at the seams. That is the honest kind to compute
-        // per feature — a contiguous, rubber-sheet cartogram warps the whole
-        // plane at once and needs the input to tile the region with no gaps.
+        // Three methods, and the default is the contiguous one: a cartogram that
+        // still reads as a map is what people picture when they ask for one, and
+        // the gaps a per-feature method leaves are what made the first version
+        // look wrong. The other two remain because they keep every shape exactly,
+        // which the rubber sheet does not.
         //
         // The runner hands every `compute` operation EPSG:3857 and wants it back,
         // but a cartogram is about *ground area* and Mercator inflates that by
@@ -1538,8 +1551,11 @@ export const GEO_OPERATIONS: GeoOperation[] = [
         // this operation instead of teaching the pipeline about projections.
         compute: (input, params) => toWebMercator(cartogram(fromWebMercator(input), {
             field: String(params.field ?? ''),
-            method: params.method === 'dorling' ? 'dorling' : 'scaled',
+            method: params.method === 'dorling' ? 'dorling'
+                : params.method === 'scaled' ? 'scaled'
+                : 'contiguous',
             iterations: Number(params.iterations) || undefined,
+            passes: Number(params.passes) || undefined,
         }).features),
     },
     {

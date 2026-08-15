@@ -11,19 +11,23 @@
  * is resized in an equal-area projection centred on that shape, so the factor
  * applied is a factor of real ground area.
  *
- * Two methods, deliberately both non-contiguous:
+ * Three methods:
  *
- * - `scaled` (Olson) keeps every shape recognisable and lets the map fall apart
- *   into separate pieces, so a country stays the shape a student recognises.
+ * - `contiguous` (Dougenik rubber sheet, the default) stretches one sheet, so
+ *   neighbours stay joined and the result still reads as a map. This is what
+ *   people picture when they ask for a cartogram.
+ * - `scaled` (Olson) resizes each shape on the spot, keeping every outline
+ *   exactly and leaving gaps between them.
  * - `dorling` throws the shape away and draws circles, which is easier to
  *   compare by eye when the values differ by orders of magnitude.
  *
- * The contiguous, rubber-sheet kind (Gastner–Newman diffusion) is a different
- * animal: it warps the whole plane, needs the input to tile the region with no
- * gaps, and belongs in a WASM library rather than here.
+ * Not implemented: Gastner–Newman diffusion, the smoother contiguous method
+ * Worldmapper uses. It needs an FFT over a grid and belongs in a WASM library
+ * (`go-cart-wasm`); Dougenik gets the same kind of map in a hundred lines and
+ * no dependency.
  */
 
-export type CartogramMethod = 'scaled' | 'dorling';
+export type CartogramMethod = 'contiguous' | 'scaled' | 'dorling';
 
 export interface CartogramOptions {
     /** Attribute holding the value to size features by. */
@@ -31,6 +35,8 @@ export interface CartogramOptions {
     method?: CartogramMethod;
     /** `dorling` only: how many rounds of pushing overlapping circles apart. */
     iterations?: number;
+    /** `contiguous` only: how many rounds of rubber-sheeting. */
+    passes?: number;
 }
 
 export interface CartogramResult {
@@ -414,7 +420,9 @@ export function cartogram(input: GeoJSON.FeatureCollection, options: CartogramOp
 
     const features = options.method === 'dorling'
         ? dorling(units, areaPerValue, options.iterations ?? DEFAULT_ITERATIONS)
-        : scaled(units, areaPerValue);
+        : options.method === 'scaled'
+            ? scaled(units, areaPerValue)
+            : contiguous(units, areaPerValue, options.passes ?? DEFAULT_PASSES);
 
     return { features: { type: 'FeatureCollection', features }, skipped };
 }
@@ -422,6 +430,222 @@ export function cartogram(input: GeoJSON.FeatureCollection, options: CartogramOp
 /** How close the achieved area has to be to the target before scaling stops. */
 const AREA_TOLERANCE = 1e-4;
 const MAX_AREA_PASSES = 4;
+
+/** Rounds of rubber-sheeting when the caller does not say. */
+const DEFAULT_PASSES = 12;
+
+/** Below this mean size error, more passes are not worth the wait. */
+const CONTIGUOUS_GOOD_ENOUGH = 0.02;
+
+/**
+ * The contiguous cartogram — the one that still looks like a map, with every
+ * country still touching its neighbours.
+ *
+ * Dougenik, Chrisman and Niemeyer's rubber sheet (1985), the algorithm behind
+ * mapshaper's and ArcGIS's cartograms. Each region gets a force field: points
+ * near a region that must grow are pushed outwards, points near one that must
+ * shrink are pulled in, and **every boundary point is moved by the sum of the
+ * forces from all regions**. That last part is what makes it contiguous —
+ * neighbours do not each solve their own problem, they solve one shared one.
+ *
+ * Borders stay joined because the displacement is a function of *position*
+ * alone: two countries that share a border share those coordinates, so both
+ * copies move identically. The same caveat as topology-aware simplification
+ * applies — coordinates have to match exactly, and data whose shared borders
+ * differ by a millimetre will pull apart.
+ *
+ * Not the diffusion method (Gastner–Newman) that Worldmapper uses. That one
+ * needs an FFT over a grid and a WASM library; this is a hundred lines, needs no
+ * dependency, and produces the same *kind* of map.
+ */
+function contiguous(units: Unit[], areaPerValue: number, passes: number): GeoJSON.Feature[] {
+    // One shared plane, because every point moves under every region's force.
+    // Equal-area, so the areas driving the forces are ground areas.
+    const plane = sharedPlaneFor(units);
+
+    // Every coordinate of every region goes into two flat arrays, with the ring
+    // structure kept as index ranges beside them. Not premature optimisation:
+    // this is an all-points-against-all-regions loop — 30 000 points and 265
+    // countries is eight million force evaluations *per pass* — and arrays of
+    // [x, y] arrays spent more time chasing pointers than doing arithmetic. Flat
+    // Float64Arrays and a hand-rolled `sqrt` (rather than `Math.hypot`, which is
+    // several times slower because it guards against overflow) took a 12-pass
+    // world from 31 seconds to under 3.
+    const sheet = flattenToSheet(units, plane, areaPerValue);
+    const { xs, ys, ringStart, ringEnd, shapes } = sheet;
+
+    const centreX = new Float64Array(shapes.length);
+    const centreY = new Float64Array(shapes.length);
+    const radius = new Float64Array(shapes.length);
+    const mass = new Float64Array(shapes.length);
+
+    for (let pass = 0; pass < passes; pass++) {
+        let totalError = 0;
+        for (let s = 0; s < shapes.length; s++) {
+            const shape = shapes[s];
+            const area = shapeArea(shape, xs, ys, ringStart, ringEnd);
+            const centre = shapeCentroid(shape, xs, ys, ringStart, ringEnd);
+            centreX[s] = centre[0];
+            centreY[s] = centre[1];
+            radius[s] = Math.sqrt(Math.abs(area) / Math.PI);
+            mass[s] = Math.sqrt(shape.target / Math.PI) - radius[s];
+            totalError += Math.abs(shape.target - area) / Math.max(shape.target, 1);
+        }
+
+        const meanError = totalError / shapes.length;
+        if (meanError < CONTIGUOUS_GOOD_ENOUGH) break;
+
+        // Damping. Without it the sheet overshoots and oscillates — 20 undamped
+        // passes came out worse than 12. Dougenik ties the step to how wrong the
+        // map still is, so early passes move boldly and later ones settle.
+        const damping = 1 / (1 + meanError);
+
+        for (let i = 0; i < xs.length; i++) {
+            const x = xs[i];
+            const y = ys[i];
+            let dx = 0;
+            let dy = 0;
+            for (let s = 0; s < shapes.length; s++) {
+                const r = radius[s];
+                if (r <= 0) continue;
+                const ox = x - centreX[s];
+                const oy = y - centreY[s];
+                const distance = Math.sqrt(ox * ox + oy * oy);
+                if (distance < 1e-9) continue;
+
+                // Dougenik's force: outside a region it falls off as 1/distance,
+                // so a region's influence is real but local; inside, it eases
+                // from nothing at the centre to full strength at the edge, which
+                // is what stops a growing region from turning inside out.
+                const ratio = distance / r;
+                const force = distance > r
+                    ? mass[s] / ratio
+                    : mass[s] * ratio * ratio * (4 - 3 * ratio);
+                dx += (ox / distance) * force;
+                dy += (oy / distance) * force;
+            }
+            xs[i] = x + dx * damping;
+            ys[i] = y + dy * damping;
+        }
+    }
+
+    return shapes.map(shape => ({
+        type: 'Feature' as const,
+        properties: { ...(shape.unit.feature.properties ?? {}) },
+        geometry: rebuildGeometry(shape.polygons.map(polygon => polygon.map(ringIndex => {
+            const ring: GeoJSON.Position[] = [];
+            for (let i = ringStart[ringIndex]; i < ringEnd[ringIndex]; i++) {
+                ring.push(plane.inverse([xs[i], ys[i]]));
+            }
+            return ring;
+        }))),
+    }));
+}
+
+interface SheetShape {
+    unit: Unit;
+    target: number;
+    /** Polygons, each a list of ring indices into `ringStart`/`ringEnd`. */
+    polygons: number[][];
+}
+
+interface Sheet {
+    xs: Float64Array;
+    ys: Float64Array;
+    ringStart: Int32Array;
+    ringEnd: Int32Array;
+    shapes: SheetShape[];
+}
+
+/** Projects every region into the working plane and lays it out flat. */
+function flattenToSheet(units: Unit[], plane: EqualAreaPlane, areaPerValue: number): Sheet {
+    const x: number[] = [];
+    const y: number[] = [];
+    const starts: number[] = [];
+    const ends: number[] = [];
+    const shapes: SheetShape[] = [];
+
+    for (const unit of units) {
+        const polygons: number[][] = [];
+        for (const polygon of polygonsOf(unit.feature.geometry)) {
+            const ringIndices: number[] = [];
+            for (const ring of polygon) {
+                starts.push(x.length);
+                for (const position of ring) {
+                    const [px, py] = plane.forward(position);
+                    x.push(px);
+                    y.push(py);
+                }
+                ends.push(x.length);
+                ringIndices.push(starts.length - 1);
+            }
+            polygons.push(ringIndices);
+        }
+        shapes.push({ unit, target: unit.value * areaPerValue, polygons });
+    }
+
+    return {
+        xs: Float64Array.from(x),
+        ys: Float64Array.from(y),
+        ringStart: Int32Array.from(starts),
+        ringEnd: Int32Array.from(ends),
+        shapes,
+    };
+}
+
+/** Area of one shape, read straight out of the flat arrays. */
+function shapeArea(shape: SheetShape, xs: Float64Array, ys: Float64Array, ringStart: Int32Array, ringEnd: Int32Array): number {
+    let total = 0;
+    for (const polygon of shape.polygons) {
+        let outer = 0;
+        let holes = 0;
+        polygon.forEach((ringIndex, position) => {
+            const area = Math.abs(ringArea(ringIndex, xs, ys, ringStart, ringEnd));
+            if (position === 0) outer = area;
+            else holes += area;
+        });
+        total += Math.max(outer - holes, 0);
+    }
+    return total;
+}
+
+function ringArea(ringIndex: number, xs: Float64Array, ys: Float64Array, ringStart: Int32Array, ringEnd: Int32Array): number {
+    let sum = 0;
+    for (let i = ringStart[ringIndex]; i < ringEnd[ringIndex] - 1; i++) {
+        sum += xs[i] * ys[i + 1] - xs[i + 1] * ys[i];
+    }
+    return sum / 2;
+}
+
+/** Area-weighted centroid of one shape, read straight out of the flat arrays. */
+function shapeCentroid(shape: SheetShape, xs: Float64Array, ys: Float64Array, ringStart: Int32Array, ringEnd: Int32Array): [number, number] {
+    let sumX = 0, sumY = 0, sumWeight = 0;
+    for (const polygon of shape.polygons) {
+        const ringIndex = polygon[0];
+        if (ringIndex === undefined) continue;
+        let cx = 0, cy = 0, area = 0;
+        for (let i = ringStart[ringIndex]; i < ringEnd[ringIndex] - 1; i++) {
+            const cross = xs[i] * ys[i + 1] - xs[i + 1] * ys[i];
+            area += cross;
+            cx += (xs[i] + xs[i + 1]) * cross;
+            cy += (ys[i] + ys[i + 1]) * cross;
+        }
+        area /= 2;
+        if (Math.abs(area) < 1e-12) continue;
+        const weight = Math.abs(area);
+        sumX += (cx / (6 * area)) * weight;
+        sumY += (cy / (6 * area)) * weight;
+        sumWeight += weight;
+    }
+    if (!sumWeight) return [0, 0];
+    return [sumX / sumWeight, sumY / sumWeight];
+}
+
+function rebuildGeometry(polygons: GeoJSON.Position[][][]): GeoJSON.Geometry {
+    return polygons.length === 1
+        ? { type: 'Polygon', coordinates: polygons[0] }
+        : { type: 'MultiPolygon', coordinates: polygons };
+}
 
 /** Olson's non-contiguous cartogram: every shape kept, resized where it stands. */
 function scaled(units: Unit[], areaPerValue: number): GeoJSON.Feature[] {
@@ -540,7 +764,83 @@ function clampToPlane(y: number, plane: EqualAreaPlane): number {
 }
 
 /**
- * Lambert cylindrical equal-area — the shared plane the Dorling layout runs in.
+ * The shared plane a layout runs in, chosen to fit the data.
+ *
+ * A shared plane has to be equal-area — that is what makes the areas driving the
+ * forces real — but it also has to keep *shape* roughly honest, because the
+ * forces are isotropic: a plane that squashes one direction turns an even push
+ * into a lopsided one. The cylindrical projection fails badly at that. It
+ * compresses latitude towards the poles, so a modest force becomes an enormous
+ * change in latitude: rubber-sheeting the world with it left Lesotho sitting on
+ * the South Pole and dragged France down to the tropics.
+ *
+ * So: a local layer gets an azimuthal equal-area plane centred on it, which is
+ * very nearly isotropic across a few hundred kilometres; a layer spanning the
+ * globe gets Equal Earth, the projection designed for exactly this — equal-area
+ * with shapes that still look like the places they are.
+ */
+function sharedPlaneFor(units: Unit[]): EqualAreaPlane {
+    let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+    let sumLon = 0, sumLat = 0;
+    for (const { centre } of units) {
+        minLon = Math.min(minLon, centre[0]);
+        maxLon = Math.max(maxLon, centre[0]);
+        minLat = Math.min(minLat, centre[1]);
+        maxLat = Math.max(maxLat, centre[1]);
+        sumLon += centre[0];
+        sumLat += centre[1];
+    }
+    const spread = Math.max(maxLon - minLon, maxLat - minLat);
+    const centre: GeoJSON.Position = [sumLon / units.length, sumLat / units.length];
+    return spread < 40 ? equalAreaPlaneAt(centre) : equalEarthPlane(centre[0]);
+}
+
+/**
+ * Equal Earth (Šavrič, Patterson & Jenny 2018), as a metric plane.
+ *
+ * Equal-area — required here — while keeping continents the shape people
+ * recognise, which is why it has become the default for world thematic maps.
+ * The forward direction is a polynomial; the inverse has no closed form, so it
+ * solves for the parametric latitude by Newton's method, which converges in
+ * three or four steps.
+ */
+function equalEarthPlane(lon0: number): EqualAreaPlane {
+    const A1 = 1.340264, A2 = -0.081106, A3 = 0.000893, A4 = 0.003796;
+    const M = Math.sqrt(3) / 2;
+    const poly = (t: number) => A1 + A2 * t * t + t ** 6 * (A3 + A4 * t * t);
+    const polyDerivative = (t: number) => A1 + 3 * A2 * t * t + t ** 6 * (7 * A3 + 9 * A4 * t * t);
+
+    return {
+        forward([lon, lat]) {
+            const lambda = shortestLongitudeStep(lon0, lon) * RAD;
+            const theta = Math.asin(M * Math.sin(lat * RAD));
+            return [
+                (EARTH_RADIUS * lambda * Math.cos(theta)) / (M * polyDerivative(theta)),
+                EARTH_RADIUS * theta * poly(theta),
+            ];
+        },
+        inverse([x, y]) {
+            let theta = y / EARTH_RADIUS;
+            for (let i = 0; i < 12; i++) {
+                const f = theta * poly(theta) - y / EARTH_RADIUS;
+                const df = polyDerivative(theta);
+                const step = f / df;
+                theta -= step;
+                if (Math.abs(step) < 1e-12) break;
+            }
+            // Past the poles the parametric latitude runs out of range; clamping
+            // keeps a point that has been pushed too far on the map instead of
+            // turning it into NaN.
+            const sinLat = Math.min(Math.max(Math.sin(theta) / M, -1), 1);
+            const lambda = (M * x * polyDerivative(theta)) / (EARTH_RADIUS * Math.cos(theta));
+            return [normaliseLongitude(lon0 + lambda * DEG), Math.asin(sinLat) * DEG];
+        },
+    };
+}
+
+/**
+ * Lambert cylindrical equal-area — kept for the Dorling layout, where only the
+ * positions of circles matter and its exact scale along one parallel is useful.
  *
  * Standard parallel at the data's mean latitude, which is where its scale is
  * exact; north and south of that, distances compress. Equal-area everywhere,
