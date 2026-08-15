@@ -3,7 +3,7 @@
 
 import OLMap from 'ol/Map';
 import Overlay from 'ol/Overlay';
-import { fromLonLat, toLonLat } from 'ol/proj';
+import { toLonLatCoord, toMapCoord } from './projection-support';
 import type { LngLat } from '../../store/map-events';
 import type { MarkerOptions } from '../IMapInterfaces';
 import { pinSvg } from '../marker-utils';
@@ -34,7 +34,7 @@ export class MapMarkerService {
             element,
             positioning: 'bottom-center',
             stopEvent: false,
-            position: fromLonLat([lngLat[0], lngLat[1]]),
+            position: toMapCoord(this.map, [lngLat[0], lngLat[1]]),
         });
         this.map.addOverlay(overlay);
 
@@ -50,7 +50,7 @@ export class MapMarkerService {
     move(id: string, lngLat: LngLat): void {
         const entry = this.markers.get(id);
         if (entry) {
-            entry.overlay.setPosition(fromLonLat([lngLat[0], lngLat[1]]));
+            entry.overlay.setPosition(toMapCoord(this.map, [lngLat[0], lngLat[1]]));
         }
     }
 
@@ -81,7 +81,7 @@ export class MapMarkerService {
             if (coord) {
                 overlay.setPosition(coord);
                 if (options.onDrag) {
-                    const ll = toLonLat(coord);
+                    const ll = toLonLatCoord(this.map, coord);
                     options.onDrag([ll[0], ll[1]]);
                 }
             }
@@ -93,7 +93,7 @@ export class MapMarkerService {
             if (options.onDragEnd) {
                 const pos = overlay.getPosition();
                 if (pos) {
-                    const ll = toLonLat(pos);
+                    const ll = toLonLatCoord(this.map, pos);
                     options.onDragEnd([ll[0], ll[1]]);
                 }
             }

@@ -6,6 +6,7 @@ import { normalizeCompositeLayer, findNormalizedSource, type NormalizedComposite
 import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, SubLayerSpec } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
 import OLMap from 'ol/Map';
+import { featureProjectionOf } from './projection-support';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import VectorTileLayer from 'ol/layer/VectorTile';
@@ -957,7 +958,7 @@ export class MapLayerService implements ILayerService {
             features: typeof sourceConfig.data === 'string'
                 ? undefined
                 : new GeoJSON().readFeatures(sourceConfig.data, {
-                    featureProjection: 'EPSG:3857'
+                    featureProjection: featureProjectionOf(this.map)
                 }),
             url: typeof sourceConfig.data === 'string' ? sourceConfig.data : undefined,
             format: typeof sourceConfig.data === 'string' ? new GeoJSON() : undefined,
@@ -1112,7 +1113,7 @@ export class MapLayerService implements ILayerService {
             const source = layer?.getSource?.();
             if (!source || typeof source.getFeatures !== 'function') continue;
             const features = source.getFeatures().map((feature: any) =>
-                JSON.parse(format.writeFeature(feature, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' }))
+                JSON.parse(format.writeFeature(feature, { dataProjection: 'EPSG:4326', featureProjection: featureProjectionOf(this.map) }))
             );
             if (features.length === 0 && typeof (source as any).getUrl === 'function') {
                 const url = (source as any).getUrl();
@@ -1154,7 +1155,7 @@ export class MapLayerService implements ILayerService {
                     try {
                         const geojson = JSON.parse(format.writeFeature(f, {
                             dataProjection: 'EPSG:4326',
-                            featureProjection: 'EPSG:3857'
+                            featureProjection: featureProjectionOf(this.map)
                         }));
                         allFeatures.push(geojson);
                     } catch (_) {}
@@ -1231,7 +1232,7 @@ export class MapLayerService implements ILayerService {
             source.clear();
             source.addFeatures(new GeoJSON().readFeatures(data, {
                 dataProjection: 'EPSG:4326',
-                featureProjection: 'EPSG:3857'
+                featureProjection: featureProjectionOf(this.map)
             }));
             updated = true;
         }

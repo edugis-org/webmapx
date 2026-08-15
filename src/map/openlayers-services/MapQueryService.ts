@@ -1,7 +1,7 @@
 // src/map/openlayers-services/MapQueryService.ts
 
 import OLMap from 'ol/Map';
-import { toLonLat } from 'ol/proj';
+import { toLonLatCoord } from './projection-support';
 import type { IQueryService, QueryLocation, QueryOptions, FeatureInfo } from '../IQueryService';
 import type { ILayerService } from '../IMapInterfaces';
 import type { MapStateStore } from '../../store/map-state-store';
@@ -107,8 +107,8 @@ export class MapQueryService implements IQueryService {
             const mapSize = this.map.getSize() ?? [0, 0];
             const extent = view.calculateExtent(mapSize);
             // extent in map projection (EPSG:3857 or similar) → convert corners to WGS84
-            const sw = toLonLat([extent[0], extent[1]]);
-            const ne = toLonLat([extent[2], extent[3]]);
+            const sw = toLonLatCoord(this.map, [extent[0], extent[1]]);
+            const ne = toLonLatCoord(this.map, [extent[2], extent[3]]);
             const bounds = { west: sw[0], south: sw[1], east: ne[0], north: ne[1] };
 
             const wmsLayers = this.layerService.getVisibleWMSLayers();

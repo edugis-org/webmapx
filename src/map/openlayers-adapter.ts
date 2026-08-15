@@ -13,6 +13,7 @@ import { MapMarkerService } from './openlayers-services/MapMarkerService';
 import { DeferredLogicalLayerExecutor } from './logical-layer-executor';
 import { DeferredQueryService } from './deferred-query-service';
 import type { IQueryService } from './IQueryService';
+import type { MapProjectionState } from '../store/IMapState';
 
 /**
  * The concrete Map implementation for OpenLayers.
@@ -51,6 +52,20 @@ export class OpenLayersAdapter extends BaseAdapter implements IMap {
 
     setTouchCaptureEnabled(enabled: boolean): void {
         this.core.setTouchCaptureEnabled(enabled);
+    }
+
+    /**
+     * OpenLayers is the only engine here that can draw a 2D map in an arbitrary
+     * projection — MapLibre and Leaflet are Mercator, Cesium is a globe — so it
+     * is the only one that overrides these. `BaseAdapter` mirrors the result into
+     * `store.mapProjection`.
+     */
+    protected override engineSetProjection(projection: string | MapProjectionState): boolean {
+        return this.core.setProjection(projection);
+    }
+
+    getProjection(): MapProjectionState | null {
+        return this.core.getProjection();
     }
 
     protected getCore(): IMapCore {

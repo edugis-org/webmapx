@@ -2,7 +2,17 @@
 
 import OLMap from 'ol/Map';
 import View from 'ol/View';
-import { fromLonLat, toLonLat, transformExtent } from 'ol/proj';
+import { equivalent, getTransform, transform, transformExtent } from 'ol/proj';
+import {
+    ensureViewProjection,
+    featureProjectionOf,
+    toLonLatCoord,
+    toMapCoord,
+    toMapExtent,
+    viewProjectionOf,
+} from './projection-support';
+import { centreWithinProjection, getViewProjectionDef, resolutionScaleAt } from '../../utils/view-projections';
+import type { MapProjectionState } from '../../store/IMapState';
 import { apply, stylefunction } from 'ol-mapbox-style';
 import { IMapCore, ISource, NavigationCapabilities } from '../IMapInterfaces';
 import { MapStateStore } from '../../store/map-state-store';
@@ -29,6 +39,8 @@ export class MapCoreService implements IMapCore {
     private silentSourceIds = new Set<string>();
     private minZoom?: number;
     private maxZoom?: number;
+    /** Config `maxBounds` in lon/lat, kept so a projection change can re-derive View.extent. */
+    private maxBounds?: [number, number, number, number];
 
     /**
      * Zoom offset to normalize between MapLibre (512px tiles) and OpenLayers/OSM (256px tiles).
@@ -45,6 +57,27 @@ export class MapCoreService implements IMapCore {
         center: [10.45, 51.17] as [number, number],
         zoom: 4
     };
+
+    /**
+     * lon/lat ⇄ map coordinates in whatever projection the view is using.
+     *
+     * These replace `ol/proj`'s `fromLonLat`/`toLonLat`, which are hardcoded to
+     * EPSG:3857. Every one of the ~20 call sites in this file would put its
+     * coordinate in the wrong place the moment the view is equal-area, and
+     * silently: the numbers stay plausible, the map is just wrong.
+     */
+    private toMapCoord(lonLat: number[]): number[] {
+        return toMapCoord(this.mapInstance, lonLat);
+    }
+
+    private toLonLat(coord: number[]): [number, number] {
+        return toLonLatCoord(this.mapInstance, coord);
+    }
+
+    /** Projection to hand GeoJSON read/write; always the view's. */
+    private featureProjection(): string {
+        return featureProjectionOf(this.mapInstance);
+    }
 
     private toLogicalBearing(view: View): number {
         const rotation = view.getRotation() || 0;
@@ -65,7 +98,7 @@ export class MapCoreService implements IMapCore {
     public getViewportState(): { center: [number, number]; zoom: number; bearing: number; pitch: number } {
         if (this.mapInstance) {
             const view = this.mapInstance.getView();
-            const center = toLonLat(view.getCenter() || [0, 0]) as [number, number];
+            const center = this.toLonLat(view.getCenter() || [0, 0]) as [number, number];
             const zoom = this.fromOLZoom(view.getZoom() || 1);
             const bearing = this.toLogicalBearing(view);
             return { center, zoom, bearing, pitch: 0 };
@@ -77,7 +110,7 @@ export class MapCoreService implements IMapCore {
         if (this.mapInstance) {
             const clampedZoom = this.clampZoom(zoom);
             this.mapInstance.getView().animate({
-                center: fromLonLat(center),
+                center: this.toMapCoord(center),
                 zoom: this.toOLZoom(clampedZoom),
                 duration: 500
             });
@@ -102,7 +135,7 @@ export class MapCoreService implements IMapCore {
 
         // Start with empty layers, add style layers after
         const viewOptions: { center: number[]; zoom: number; minZoom?: number; maxZoom?: number; extent?: [number, number, number, number] } = {
-            center: fromLonLat(center),
+            center: this.toMapCoord(center),
             zoom: olZoom
         };
         if (minZoom !== undefined) {
@@ -114,7 +147,10 @@ export class MapCoreService implements IMapCore {
         if (options?.maxBounds) {
             // View.extent constrains the whole viewport (OL ≥6) and derives the matching
             // min resolution from the container size, recomputed on resize.
-            viewOptions.extent = transformExtent(options.maxBounds, 'EPSG:4326', 'EPSG:3857') as [number, number, number, number];
+            // Kept in lon/lat as well, because switching projection rebuilds the
+            // view and has to express the same bounds in the new coordinates.
+            this.maxBounds = options.maxBounds;
+            viewOptions.extent = toMapExtent(null, options.maxBounds);
         }
 
         this.mapInstance = new OLMap({
@@ -173,36 +209,7 @@ export class MapCoreService implements IMapCore {
         // Loading state detection
         this.attachLoadingEvents(this.mapInstance);
 
-        // View change events
-        const view = this.mapInstance.getView();
-
-        view.on('change:resolution', () => {
-            const currentZoom = this.fromOLZoom(view.getZoom() || 0);
-            const viewportBounds = this.buildViewportFeature();
-            this.store.dispatch({ zoomLevel: currentZoom, mapViewportBounds: viewportBounds }, 'MAP');
-            this.eventBus?.emit({ type: 'zoom-end', zoom: currentZoom });
-        });
-
-        view.on('change:center', () => {
-            const currentCenter = toLonLat(view.getCenter() || [0, 0]) as [number, number];
-            const currentZoom = this.fromOLZoom(view.getZoom() || 0);
-            const viewportBounds = this.buildViewportFeature();
-            this.store.dispatch(
-                { mapCenter: currentCenter, zoomLevel: currentZoom, mapViewportBounds: viewportBounds },
-                'MAP'
-            );
-        });
-
-        view.on('change:rotation', () => {
-            const currentCenter = toLonLat(view.getCenter() || [0, 0]) as [number, number];
-            const currentZoom = this.fromOLZoom(view.getZoom() || 0);
-            const viewportBounds = this.buildViewportFeature();
-            this.store.dispatch(
-                { mapCenter: currentCenter, zoomLevel: currentZoom, mapViewportBounds: viewportBounds },
-                'MAP'
-            );
-            this.emitViewChange();
-        });
+        this.attachViewEvents(this.mapInstance.getView());
 
         // Move end event
         this.mapInstance.on('moveend', () => {
@@ -219,11 +226,46 @@ export class MapCoreService implements IMapCore {
         this.attachPointerEvents(this.mapInstance);
     }
 
+    /**
+     * View change events, as their own method because a projection change has to
+     * replace the View object — OL fixes a view's projection at construction —
+     * and the new one arrives with no listeners on it.
+     */
+    private attachViewEvents(view: View): void {
+        view.on('change:resolution', () => {
+            const currentZoom = this.fromOLZoom(view.getZoom() || 0);
+            const viewportBounds = this.buildViewportFeature();
+            this.store.dispatch({ zoomLevel: currentZoom, mapViewportBounds: viewportBounds }, 'MAP');
+            this.eventBus?.emit({ type: 'zoom-end', zoom: currentZoom });
+        });
+
+        view.on('change:center', () => {
+            const currentCenter = this.toLonLat(view.getCenter() || [0, 0]) as [number, number];
+            const currentZoom = this.fromOLZoom(view.getZoom() || 0);
+            const viewportBounds = this.buildViewportFeature();
+            this.store.dispatch(
+                { mapCenter: currentCenter, zoomLevel: currentZoom, mapViewportBounds: viewportBounds },
+                'MAP'
+            );
+        });
+
+        view.on('change:rotation', () => {
+            const currentCenter = this.toLonLat(view.getCenter() || [0, 0]) as [number, number];
+            const currentZoom = this.fromOLZoom(view.getZoom() || 0);
+            const viewportBounds = this.buildViewportFeature();
+            this.store.dispatch(
+                { mapCenter: currentCenter, zoomLevel: currentZoom, mapViewportBounds: viewportBounds },
+                'MAP'
+            );
+            this.emitViewChange();
+        });
+    }
+
     private attachPointerEvents(map: OLMap): void {
         map.on('pointermove', (event) => {
             if (event.dragging && !this.panDisabled) return;
 
-            const coords = toLonLat(event.coordinate) as LngLat;
+            const coords = this.toLonLat(event.coordinate) as LngLat;
             const pixel: Pixel = [event.pixel[0], event.pixel[1]];
             const resolution = this.computePointerResolution();
 
@@ -250,7 +292,7 @@ export class MapCoreService implements IMapCore {
         });
 
         map.on('click', (event) => {
-            const coords = toLonLat(event.coordinate) as LngLat;
+            const coords = this.toLonLat(event.coordinate) as LngLat;
             const pixel: Pixel = [event.pixel[0], event.pixel[1]];
             const resolution = this.computePointerResolution();
 
@@ -271,7 +313,7 @@ export class MapCoreService implements IMapCore {
         });
 
         map.on('dblclick', (event) => {
-            const coords = toLonLat(event.coordinate) as LngLat;
+            const coords = this.toLonLat(event.coordinate) as LngLat;
             const pixel: Pixel = [event.pixel[0], event.pixel[1]];
 
             this.eventBus?.emit({
@@ -286,7 +328,7 @@ export class MapCoreService implements IMapCore {
             const pixel = map.getEventPixel(event) as [number, number];
             const coord = map.getCoordinateFromPixel(pixel);
             if (!coord) return;
-            const ll = toLonLat(coord) as LngLat;
+            const ll = this.toLonLat(coord) as LngLat;
             this.eventBus?.emit({ type: 'pointer-down', coords: ll, pixel, button: event.button, originalEvent: event });
         });
 
@@ -294,7 +336,7 @@ export class MapCoreService implements IMapCore {
             const pixel = map.getEventPixel(event) as [number, number];
             const coord = map.getCoordinateFromPixel(pixel);
             if (!coord) return;
-            const ll = toLonLat(coord) as LngLat;
+            const ll = this.toLonLat(coord) as LngLat;
             this.eventBus?.emit({ type: 'pointer-up', coords: ll, pixel, button: event.button, originalEvent: event });
         });
 
@@ -307,7 +349,7 @@ export class MapCoreService implements IMapCore {
             const pixel = map.getEventPixel(event);
             const coordinate = map.getCoordinateFromPixel(pixel);
             if (coordinate) {
-                const coords = toLonLat(coordinate) as LngLat;
+                const coords = this.toLonLat(coordinate) as LngLat;
 
                 this.eventBus?.emit({
                     type: 'contextmenu',
@@ -340,10 +382,10 @@ export class MapCoreService implements IMapCore {
         if (!this.eventBus || !this.mapInstance) return;
 
         const view = this.mapInstance.getView();
-        const center = toLonLat(view.getCenter() || [0, 0]) as LngLat;
+        const center = this.toLonLat(view.getCenter() || [0, 0]) as LngLat;
         const extent = view.calculateExtent(this.mapInstance.getSize());
-        const sw = toLonLat([extent[0], extent[1]]) as LngLat;
-        const ne = toLonLat([extent[2], extent[3]]) as LngLat;
+        const sw = this.toLonLat([extent[0], extent[1]]) as LngLat;
+        const ne = this.toLonLat([extent[2], extent[3]]) as LngLat;
 
         this.eventBus.emit({
             type: 'view-change',
@@ -359,10 +401,10 @@ export class MapCoreService implements IMapCore {
         if (!this.eventBus || !this.mapInstance) return;
 
         const view = this.mapInstance.getView();
-        const center = toLonLat(view.getCenter() || [0, 0]) as LngLat;
+        const center = this.toLonLat(view.getCenter() || [0, 0]) as LngLat;
         const extent = view.calculateExtent(this.mapInstance.getSize());
-        const sw = toLonLat([extent[0], extent[1]]) as LngLat;
-        const ne = toLonLat([extent[2], extent[3]]) as LngLat;
+        const sw = this.toLonLat([extent[0], extent[1]]) as LngLat;
+        const ne = this.toLonLat([extent[2], extent[3]]) as LngLat;
 
         this.eventBus.emit({
             type: 'view-change-end',
@@ -433,12 +475,103 @@ export class MapCoreService implements IMapCore {
         this.resetNorth();
     }
 
-    setProjection(_projection: string | { name: string; center?: [number, number]; parallels?: [number, number] }): boolean {
-        return false;
+    /**
+     * Redraws the map in another projection.
+     *
+     * A View's projection is fixed when it is constructed, so this builds a new
+     * View and hands it to the map. Three things have to come along with it, and
+     * each is a silent bug if it does not:
+     *
+     * - **Existing vector features** hold coordinates in the *old* projection.
+     *   OL reprojects tiles (raster and vector) by itself, but a `VectorSource`
+     *   filled from GeoJSON is already converted, so its geometry is transformed
+     *   here. Overlays (markers) hold a position in map coordinates for the same
+     *   reason.
+     * - **Scale.** Mercator's unit is a metre only at the equator, so keeping the
+     *   raw resolution number across a switch would change the scale by
+     *   1/cos(latitude) — a factor of 1.6 in the Netherlands. `resolutionScaleAt`
+     *   converts through ground metres so the map stays where the user left it.
+     * - **View listeners**, which live on the View object rather than the map.
+     */
+    setProjection(projection: string | MapProjectionState): boolean {
+        const id = typeof projection === 'string' ? projection : projection.name;
+        if (!this.mapInstance || !getViewProjectionDef(id)) return false;
+
+        const target = ensureViewProjection(id);
+        if (!target) return false;
+
+        const view = this.mapInstance.getView();
+        const current = view.getProjection();
+        if (equivalent(current, target)) return true;
+
+        // A regional projection cannot draw where the user happens to be looking:
+        // switching to the Antarctic projection from Europe would centre the view
+        // far outside its area of use, where a stereographic projection's
+        // coordinates run away to millions of kilometres.
+        const centerLonLat = centreWithinProjection(id, this.toLonLat(view.getCenter() ?? [0, 0]));
+        const resolution = view.getResolution() ?? 1;
+        // `resolutionScaleAt` is projection units per ground metre, so dividing
+        // turns a resolution into ground metres per pixel and multiplying turns
+        // it back. Getting this the wrong way round costs a factor of cos²(lat)
+        // — 2.6x in the Netherlands, and it looks like the map merely jumped.
+        const groundResolution = resolution / resolutionScaleAt(current.getCode(), centerLonLat[1]);
+        const nextResolution = groundResolution * resolutionScaleAt(id, centerLonLat[1]);
+
+        this.reprojectRenderedGeometry(current.getCode(), id);
+
+        const nextView = new View({
+            projection: target,
+            center: transform(centerLonLat, 'EPSG:4326', id),
+            resolution: nextResolution,
+            rotation: view.getRotation(),
+            ...(this.minZoom !== undefined ? { minZoom: this.toOLZoom(this.minZoom) } : {}),
+            ...(this.maxZoom !== undefined ? { maxZoom: this.toOLZoom(this.maxZoom) } : {}),
+            ...(this.maxBounds
+                ? { extent: transformExtent(this.maxBounds, 'EPSG:4326', id) as [number, number, number, number] }
+                : {}),
+        });
+        this.mapInstance.setView(nextView);
+        this.attachViewEvents(nextView);
+
+        // Zoom levels mean different things in different projections (a view's
+        // resolutions derive from its projection extent), so the store's zoom is
+        // re-read from the new view rather than carried over.
+        this.scheduleViewportSync();
+        return true;
     }
 
-    getProjection(): { name: string; center?: [number, number]; parallels?: [number, number] } | null {
-        return null;
+    /**
+     * Moves already-rendered geometry from one projection to another.
+     *
+     * Only data OL will not re-fetch: vector sources built from GeoJSON, and
+     * overlay positions. Tile sources (raster and vector alike) reproject
+     * themselves on the next render — OL 10 transforms vector-tile features in
+     * the renderer — and re-transforming them here would double the shift.
+     */
+    private reprojectRenderedGeometry(from: string, to: string): void {
+        if (!this.mapInstance) return;
+        const transformFn = getTransform(from, to);
+
+        const visitLayer = (layer: any): void => {
+            const source = typeof layer?.getSource === 'function' ? layer.getSource() : null;
+            if (source instanceof VectorSource) {
+                for (const feature of source.getFeatures()) {
+                    feature.getGeometry()?.applyTransform(transformFn);
+                }
+            }
+            const sublayers = typeof layer?.getLayers === 'function' ? layer.getLayers() : null;
+            sublayers?.forEach?.(visitLayer);
+        };
+        this.mapInstance.getLayers().forEach(visitLayer);
+
+        this.mapInstance.getOverlays().forEach(overlay => {
+            const position = overlay.getPosition();
+            if (position) overlay.setPosition(transformFn(position, undefined, position.length));
+        });
+    }
+
+    getProjection(): MapProjectionState | null {
+        return { name: viewProjectionOf(this.mapInstance) };
     }
 
     private scheduleViewportSync(): void {
@@ -446,7 +579,7 @@ export class MapCoreService implements IMapCore {
         requestAnimationFrame(() => {
             if (!this.mapInstance) return;
             const view = this.mapInstance.getView();
-            const center = toLonLat(view.getCenter() || [0, 0]) as [number, number];
+            const center = this.toLonLat(view.getCenter() || [0, 0]) as [number, number];
             const zoom = this.fromOLZoom(view.getZoom() || 0);
             const viewportBounds = this.buildViewportFeature();
             this.store.dispatch({ zoomLevel: zoom, mapCenter: center, mapViewportBounds: viewportBounds }, 'MAP');
@@ -541,7 +674,7 @@ export class MapCoreService implements IMapCore {
         const source = new VectorSource({
             features: new GeoJSON().readFeatures(config.data, {
                 dataProjection: 'EPSG:4326',
-                featureProjection: 'EPSG:3857'
+                featureProjection: this.featureProjection()
             })
         });
         source.set('_webmapx_source_id', id); // Set custom property for later lookup
@@ -572,7 +705,7 @@ export class MapCoreService implements IMapCore {
                 sourceInfo.source.clear();
                 sourceInfo.source.addFeatures(new GeoJSON().readFeatures(data, {
                     dataProjection: 'EPSG:4326',
-                    featureProjection: 'EPSG:3857'
+                    featureProjection: this.featureProjection()
                 }));
             }
         };
@@ -583,7 +716,7 @@ export class MapCoreService implements IMapCore {
             console.warn('[CORE SERVICE - OpenLayers] project called before map instance is ready.');
             return [0, 0];
         }
-        const coordinate = fromLonLat(coords);
+        const coordinate = this.toMapCoord(coords);
         const pixel = this.mapInstance.getPixelFromCoordinate(coordinate);
         if (!pixel) return [0, 0];
         return [pixel[0], pixel[1]];
@@ -593,14 +726,14 @@ export class MapCoreService implements IMapCore {
         if (!this.mapInstance) return null;
         const coordinate = this.mapInstance.getCoordinateFromPixel([pixel[0], pixel[1]]);
         if (!coordinate) return null;
-        const lngLat = toLonLat(coordinate) as LngLat;
+        const lngLat = this.toLonLat(coordinate) as LngLat;
         return lngLat;
     }
 
     public fitBounds(bbox: [number, number, number, number]): void {
         if (!this.mapInstance) return;
-        const sw = fromLonLat([bbox[0], bbox[1]]);
-        const ne = fromLonLat([bbox[2], bbox[3]]);
+        const sw = this.toMapCoord([bbox[0], bbox[1]]);
+        const ne = this.toMapCoord([bbox[2], bbox[3]]);
         const extent = [sw[0], sw[1], ne[0], ne[1]] as [number, number, number, number];
         this.mapInstance.getView().fit(extent, { size: this.mapInstance.getSize(), padding: [40, 40, 40, 40], duration: 300 });
     }
@@ -641,7 +774,7 @@ export class MapCoreService implements IMapCore {
         if (!sourceInfo) return null;
         const format = new GeoJSON();
         const features = sourceInfo.source.getFeatures().map((f: any) =>
-            JSON.parse(format.writeFeature(f, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' }))
+            JSON.parse(format.writeFeature(f, { dataProjection: 'EPSG:4326', featureProjection: this.featureProjection() }))
         );
         return { type: 'FeatureCollection', features };
     }
@@ -788,7 +921,7 @@ export class MapCoreService implements IMapCore {
                     center[0] + dx * cos - dy * sin,
                     center[1] + dx * sin + dy * cos,
                 ];
-                return toLonLat(mapCoord) as [number, number];
+                return this.toLonLat(mapCoord) as [number, number];
             };
             corners.push(
                 corner(-halfWidth, -halfHeight), // bottom-left
@@ -800,8 +933,8 @@ export class MapCoreService implements IMapCore {
 
         if (corners.length === 0) {
             const extent = view.calculateExtent(size);
-            const sw = toLonLat([extent[0], extent[1]]);
-            const ne = toLonLat([extent[2], extent[3]]);
+            const sw = this.toLonLat([extent[0], extent[1]]);
+            const ne = this.toLonLat([extent[2], extent[3]]);
             corners.push(
                 [sw[0], sw[1]],
                 [sw[0], ne[1]],
