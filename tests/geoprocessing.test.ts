@@ -652,6 +652,16 @@ test('convex hull per feature keeps the feature count', { timeout: TIMEOUT }, as
     assert.equal(out.features.length, 3);
 });
 
+test('results carry no legacy crs member', { timeout: TIMEOUT }, async () => {
+    // GDAL writes `crs: urn:ogc:def:crs:OGC:1.3:CRS84` into every output. RFC 7946
+    // removed that member, and OpenLayers honours it as the data projection when
+    // the layer is added — it could not build a transform from that spelling into
+    // a proj4-registered view projection, so a result added to an equal-area map
+    // failed with "transformFn is not a function", a whole subsystem away.
+    const out = await run('centroid', LEFT) as GeoJSON.FeatureCollection & { crs?: unknown };
+    assert.equal(out.crs, undefined);
+});
+
 test('cartogram resizes features by an attribute, end to end', { timeout: TIMEOUT }, async () => {
     // Through the real pipeline rather than the pure function (tests/cartogram.test.ts
     // covers the maths): what this proves is that the result survives the GeoJSON

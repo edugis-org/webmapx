@@ -517,7 +517,9 @@ export class MapCoreService implements IMapCore {
         const groundResolution = resolution / resolutionScaleAt(current.getCode(), centerLonLat[1]);
         const nextResolution = groundResolution * resolutionScaleAt(id, centerLonLat[1]);
 
-        this.reprojectRenderedGeometry(current.getCode(), id);
+        // Geometry first, and only proceed if it worked: a half-moved map is
+        // worse than one that stayed where it was.
+        if (!this.reprojectRenderedGeometry(current.getCode(), id)) return false;
 
         const nextView = new View({
             projection: target,
@@ -548,15 +550,39 @@ export class MapCoreService implements IMapCore {
      * themselves on the next render — OL 10 transforms vector-tile features in
      * the renderer — and re-transforming them here would double the shift.
      */
-    private reprojectRenderedGeometry(from: string, to: string): void {
-        if (!this.mapInstance) return;
-        const transformFn = getTransform(from, to);
+    private reprojectRenderedGeometry(from: string, to: string): boolean {
+        if (!this.mapInstance) return false;
 
+        // `getTransform` returns **null** when OL has no route between the two
+        // projections — an unregistered code, or one registered into a different
+        // copy of the library. Calling that null is a TypeError ("transformFn is
+        // not a function") thrown from deep inside OL's geometry code, halfway
+        // through switching the view, leaving the map in a state where some
+        // geometry has moved and some has not.
+        const transformFn = getTransform(from, to);
+        if (typeof transformFn !== 'function') {
+            console.error(`[projection] OpenLayers has no transform from ${from} to ${to}; the view was left unchanged.`);
+            return false;
+        }
+
+        let skipped = 0;
         const visitLayer = (layer: any): void => {
             const source = typeof layer?.getSource === 'function' ? layer.getSource() : null;
             if (source instanceof VectorSource) {
                 for (const feature of source.getFeatures()) {
-                    feature.getGeometry()?.applyTransform(transformFn);
+                    const geometry = feature.getGeometry();
+                    if (!geometry) continue;
+                    // A feature can hold coordinates no projection can express.
+                    // Reading GeoJSON that reaches latitude ±90 into a Mercator
+                    // view produces ±Infinity — Antarctica does exactly this —
+                    // and proj4 then throws "coordinates must be finite numbers"
+                    // part-way through, leaving the map half-converted. One bad
+                    // feature must not cost the whole switch.
+                    try {
+                        geometry.applyTransform(transformFn);
+                    } catch {
+                        skipped++;
+                    }
                 }
             }
             const sublayers = typeof layer?.getLayers === 'function' ? layer.getLayers() : null;
@@ -566,8 +592,18 @@ export class MapCoreService implements IMapCore {
 
         this.mapInstance.getOverlays().forEach(overlay => {
             const position = overlay.getPosition();
-            if (position) overlay.setPosition(transformFn(position, undefined, position.length));
+            if (!position) return;
+            try {
+                overlay.setPosition(transformFn(position, undefined, position.length));
+            } catch {
+                skipped++;
+            }
         });
+
+        if (skipped > 0) {
+            console.warn(`[projection] ${skipped} ${skipped === 1 ? 'feature' : 'features'} could not be converted to ${to} and were left where they were.`);
+        }
+        return true;
     }
 
     getProjection(): MapProjectionState | null {

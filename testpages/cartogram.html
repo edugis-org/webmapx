@@ -30,6 +30,14 @@
   <webmapx-map id="map-container" adapter="maplibre" src="../config/demo.json">
     <webmapx-cartogram-tool tool-id="cartogram" label="Cartogram" active></webmapx-cartogram-tool>
   </webmapx-map>
+  <script>
+    // ?adapter=openlayers switches engine. A classic script, deliberately: it has
+    // to run before the deferred module that boots the map, because the engine is
+    // read once at start-up and setting the attribute later changes nothing —
+    // which quietly made a whole round of "OpenLayers" testing run on MapLibre.
+    const requested = new URLSearchParams(location.search).get('adapter');
+    if (requested) document.getElementById('map-container').setAttribute('adapter', requested);
+  </script>
   <script type="module">
     import '../src/components/webmapx-cartogram-tool.ts';
   </script>

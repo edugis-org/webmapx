@@ -694,6 +694,10 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
                 this.notice = `${op.label} cancelled after ${this.elapsed} s.`;
                 this.summary = null;
             } else {
+                // The panel has room for one sentence; the stack is what makes a
+                // failure diagnosable, and a message like "x is not a function"
+                // says nothing at all without it.
+                console.error(`[geoprocessing] ${op.id} failed`, err);
                 this.error = err instanceof Error ? err.message : String(err);
             }
         } finally {

@@ -160,3 +160,4 @@ export function toMapExtent(
 ): [number, number, number, number] {
     return transformExtent(bbox, WGS84, viewProjectionOf(map)) as [number, number, number, number];
 }
+
