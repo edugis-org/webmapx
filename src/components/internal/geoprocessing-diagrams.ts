@@ -183,6 +183,52 @@ const DIAGRAMS: Record<GeoOperationId, TemplateResult> = {
         <path class="gp-result" d="M20 34 L34 12 L62 10 L84 26 L66 44 L30 42 Z"
               fill=${RESULT} fill-opacity="0.35" stroke=${RESULT} stroke-width="2" />`),
 
+    // The buffer result is drawn *under* the input so the input line stays
+    // visible inside its own zone — that is the whole picture: a band around it.
+    buffer: frame(svg`
+        <path class="gp-result" d="M22 40 Q34 8 50 26 Q64 42 78 14"
+              fill="none" stroke=${RESULT} stroke-width="14" stroke-opacity="0.4"
+              stroke-linecap="round" stroke-linejoin="round" />
+        <path class="gp-a" d="M22 40 Q34 8 50 26 Q64 42 78 14"
+              fill="none" stroke=${A} stroke-width="1.5" stroke-dasharray="3 2" />`),
+
+    // Voronoi and Delaunay share the same six points on purpose: they are the
+    // two sides of one construction, and the diagrams should make that obvious.
+    voronoi: frame(svg`
+        <g class="gp-result">
+            <path d="M12 26 L34 20 L38 6" fill="none" stroke=${RESULT} stroke-width="2" />
+            <path d="M34 20 L58 30 L54 46" fill="none" stroke=${RESULT} stroke-width="2" />
+            <path d="M34 20 L48 12 L52 2" fill="none" stroke=${RESULT} stroke-width="2" />
+            <path d="M58 30 L80 24 L92 32" fill="none" stroke=${RESULT} stroke-width="2" />
+            <path d="M58 30 L64 48" fill="none" stroke=${RESULT} stroke-width="2" />
+            <path d="M48 12 L74 16 L80 24" fill="none" stroke=${RESULT} stroke-width="2" />
+            <path d="M74 16 L78 4" fill="none" stroke=${RESULT} stroke-width="2" />
+        </g>
+        <g class="gp-a">
+            <circle cx="22" cy="14" r="2.5" fill=${A} />
+            <circle cx="26" cy="38" r="2.5" fill=${A} />
+            <circle cx="48" cy="34" r="2.5" fill=${A} />
+            <circle cx="56" cy="12" r="2.5" fill=${A} />
+            <circle cx="74" cy="36" r="2.5" fill=${A} />
+            <circle cx="84" cy="12" r="2.5" fill=${A} />
+        </g>`),
+
+    delaunay: frame(svg`
+        <g class="gp-result">
+            <path d="M22 14 L26 38 L48 34 Z" fill=${RESULT} fill-opacity="0.25" stroke=${RESULT} stroke-width="2" />
+            <path d="M22 14 L48 34 L56 12 Z" fill=${RESULT} fill-opacity="0.25" stroke=${RESULT} stroke-width="2" />
+            <path d="M48 34 L74 36 L56 12 Z" fill=${RESULT} fill-opacity="0.25" stroke=${RESULT} stroke-width="2" />
+            <path d="M56 12 L74 36 L84 12 Z" fill=${RESULT} fill-opacity="0.25" stroke=${RESULT} stroke-width="2" />
+        </g>
+        <g class="gp-a">
+            <circle cx="22" cy="14" r="2.5" fill=${A} />
+            <circle cx="26" cy="38" r="2.5" fill=${A} />
+            <circle cx="48" cy="34" r="2.5" fill=${A} />
+            <circle cx="56" cy="12" r="2.5" fill=${A} />
+            <circle cx="74" cy="36" r="2.5" fill=${A} />
+            <circle cx="84" cy="12" r="2.5" fill=${A} />
+        </g>`),
+
     simplify: frame(svg`
         <path class="gp-a" d="M12 38 L22 18 L30 30 L38 12 L48 32 L58 14 L68 34 L78 16 L88 30"
               fill="none" stroke=${A} stroke-width="1.5" stroke-dasharray="3 2" />

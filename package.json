@@ -90,6 +90,7 @@
     "@turf/distance": "^7.3.5",
     "@turf/union": "^7.3.5",
     "@types/papaparse": "^5.5.2",
+    "d3-delaunay": "^6.0.4",
     "dompurify": "^3.4.8",
     "flatbush": "^4.6.2",
     "gdal3.js": "^2.8.1",
@@ -106,6 +107,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@shoelace-style/shoelace": "^2.20.1",
+    "@types/d3-delaunay": "^6.0.4",
     "@types/leaflet": "^1.9.21",
     "@types/shpjs": "^3.4.7",
     "@types/topojson-client": "^3.1.5",

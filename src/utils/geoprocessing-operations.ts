@@ -16,6 +16,7 @@
  */
 
 import polylabel from 'polylabel';
+import { Delaunay } from 'd3-delaunay';
 import { topology } from 'topojson-server';
 import { presimplify } from 'topojson-simplify';
 import { feature as topoFeature } from 'topojson-client';
@@ -24,6 +25,9 @@ import { feature as topoFeature } from 'topojson-client';
 
 export type GeoOperationId =
     | 'labelPoint'
+    | 'buffer'
+    | 'voronoi'
+    | 'delaunay'
     | 'statistics'
     | 'clip'
     | 'erase'
@@ -480,6 +484,398 @@ function labelPoints(input: GeoJSON.FeatureCollection, params: GeoParamValues): 
             type: 'Feature',
             properties: { ...(feature.properties ?? {}) },
             geometry: { type: 'Point', coordinates: best.point },
+        });
+    }
+
+    return { type: 'FeatureCollection', features };
+}
+
+// ─── Voronoi / Delaunay ──────────────────────────────────────────────────────
+
+/**
+ * The point a feature is represented by when it takes part in a triangulation.
+ *
+ * Both operations are defined on points, but a student will hand them anything
+ * that is on the map. Rather than silently dropping polygons — which looks like
+ * half the layer disappeared — every feature contributes the average of its
+ * coordinates: for a Point that *is* the point, for anything else its rough
+ * centre, which is what "the Voronoi diagram of these municipalities" means.
+ */
+function representativePoint(geometry: GeoJSON.Geometry | null | undefined): GeoJSON.Position | null {
+    if (!geometry) return null;
+    if (geometry.type === 'GeometryCollection') {
+        const points = geometry.geometries.map(representativePoint).filter(Boolean) as GeoJSON.Position[];
+        if (!points.length) return null;
+        return averagePosition(points);
+    }
+    const points: GeoJSON.Position[] = [];
+    const walk = (coords: unknown): void => {
+        if (!Array.isArray(coords)) return;
+        if (typeof coords[0] === 'number') {
+            points.push([coords[0] as number, coords[1] as number]);
+            return;
+        }
+        for (const child of coords) walk(child);
+    };
+    walk((geometry as { coordinates?: unknown }).coordinates);
+    if (!points.length) return null;
+    return averagePosition(points);
+}
+
+/**
+ * Mean of a set of coordinates, computed in a frame where they are contiguous.
+ *
+ * The averaging matters at the antimeridian for the same reason the whole layer
+ * does: a country split across ±180° (Fiji, Russia, Kiribati — and any polygon
+ * the runner's `-clipsrc` cut in half at the line) has half its coordinates at
+ * +20 037 508 and half at -20 037 508, so a naive mean puts its "centre" on the
+ * prime meridian, off the coast of Africa. Averaging in the shifted frame and
+ * wrapping the answer back puts it in the Pacific where it belongs.
+ */
+function averagePosition(points: GeoJSON.Position[]): GeoJSON.Position {
+    let sumX = 0, sumY = 0, shiftedSumX = 0;
+    let min = Infinity, max = -Infinity, shiftedMin = Infinity, shiftedMax = -Infinity;
+    for (const [x, y] of points) {
+        const shifted = x < 0 ? x + WORLD_WIDTH : x;
+        sumX += x;
+        shiftedSumX += shifted;
+        sumY += y;
+        min = Math.min(min, x);
+        max = Math.max(max, x);
+        shiftedMin = Math.min(shiftedMin, shifted);
+        shiftedMax = Math.max(shiftedMax, shifted);
+    }
+    const useShifted = shiftedMax - shiftedMin < max - min;
+    const x = (useShifted ? shiftedSumX : sumX) / points.length;
+    const y = sumY / points.length;
+    // Back into the canonical range, so the whole-layer unwrap that follows sees
+    // every site expressed the same way.
+    const half = WORLD_WIDTH / 2;
+    return [x > half ? x - WORLD_WIDTH : x, y];
+}
+
+interface Site {
+    point: GeoJSON.Position;
+    feature: GeoJSON.Feature;
+    /** 1-based position in the input, used to name a triangle's corners. */
+    index: number;
+}
+
+/** Width of the world in EPSG:3857 metres — the jump across the antimeridian. */
+const WORLD_WIDTH = 2 * 20037508.342789244;
+
+/**
+ * Moves the western points one world east when that makes the group narrower.
+ *
+ * A planar triangulation has no idea that x = +20 037 508 and x = -20 037 508 are
+ * the same meridian, so a group of points straddling the antimeridian — Fiji,
+ * the Aleutians, the Chatham Islands — looks like two clusters half a planet
+ * apart. The Voronoi cells then run right across the Pacific instead of meeting
+ * at the date line, and the Delaunay triangles connect the wrong neighbours.
+ *
+ * The fix is to work in a frame where the group is contiguous: shift every
+ * negative-x point by one world width and keep that layout if it is narrower
+ * than the original. The result is coordinates beyond ±180° after the inverse
+ * projection, which is exactly what `ogr2ogr -wrapdateline` (already in the
+ * runner's way back to WGS84) exists to normalise — it wraps the coordinates and
+ * splits any geometry that crosses the line.
+ *
+ * A genuinely worldwide layer is left alone: shifting it makes it no narrower,
+ * so the test fails and nothing moves.
+ */
+function unwrapAcrossDateline(sites: Site[]): void {
+    if (sites.length < 2) return;
+
+    let min = Infinity, max = -Infinity;
+    let shiftedMin = Infinity, shiftedMax = -Infinity;
+    for (const { point } of sites) {
+        const shifted = point[0] < 0 ? point[0] + WORLD_WIDTH : point[0];
+        min = Math.min(min, point[0]);
+        max = Math.max(max, point[0]);
+        shiftedMin = Math.min(shiftedMin, shifted);
+        shiftedMax = Math.max(shiftedMax, shifted);
+    }
+    if (shiftedMax - shiftedMin >= max - min) return;
+
+    for (const site of sites) {
+        if (site.point[0] < 0) site.point = [site.point[0] + WORLD_WIDTH, site.point[1]];
+    }
+}
+
+function sitesOf(input: GeoJSON.FeatureCollection): Site[] {
+    const sites: Site[] = [];
+    input.features.forEach((feature, i) => {
+        const point = representativePoint(feature.geometry);
+        if (point && Number.isFinite(point[0]) && Number.isFinite(point[1])) {
+            sites.push({ point, feature, index: i + 1 });
+        }
+    });
+    unwrapAcrossDateline(sites);
+    return sites;
+}
+
+/**
+ * The three copies of the world a triangulation is built on: one world west, the
+ * real one, one world east.
+ *
+ * Unwrapping (above) puts a *local* group of points into one contiguous frame,
+ * but it cannot help a worldwide layer, where the points genuinely span the
+ * globe: there the plane still has an artificial seam down the middle of the
+ * Pacific, so the two countries either side of the date line are not neighbours
+ * and their cells run out to the edge of the diagram instead of meeting.
+ * Reprojection then wraps that overhang round to the far side of the map, which
+ * is what shows up as cells overlapping and edges streaking across the world.
+ *
+ * Copying every point one world east and west closes the seam: a point near
+ * +180° now has the eastern points as real neighbours (through their western
+ * copies), so the bisector between them lands on the date line where it belongs.
+ * The copies exist only to shape the cells — no feature is emitted for them.
+ * The cost is 3x the points, which is nothing next to what the map does with the
+ * result.
+ */
+const REPLICA_OFFSETS = [-WORLD_WIDTH, 0, WORLD_WIDTH];
+
+/** Horizontal span of the points, and the middle of it. */
+function xExtent(sites: Site[]): { min: number; max: number; middle: number } {
+    let min = Infinity, max = -Infinity;
+    for (const { point } of sites) {
+        min = Math.min(min, point[0]);
+        max = Math.max(max, point[0]);
+    }
+    return { min, max, middle: (min + max) / 2 };
+}
+
+/**
+ * The copies of the world to triangulate on: three for a layer that wraps the
+ * globe, one for anything smaller.
+ *
+ * Only a layer wide enough to reach both sides of the date line has a seam to
+ * close. Copying a local layer's points would change its result for no reason —
+ * and does, in near-degenerate cases: three almost collinear points have a
+ * circumcircle thousands of kilometres wide, big enough for a copy one world
+ * away to fall inside it and suppress the triangle.
+ */
+function worldCopies(sites: Site[]): number[] {
+    const { min, max } = xExtent(sites);
+    return max - min > WORLD_WIDTH / 2 ? REPLICA_OFFSETS : [0];
+}
+
+function replicatedPoints(sites: Site[], offsets: number[]): Array<[number, number]> {
+    return offsets.flatMap(offset =>
+        sites.map(s => [s.point[0] + offset, s.point[1]] as [number, number]));
+}
+
+/**
+ * The rectangle a Voronoi diagram is cut off at.
+ *
+ * A Voronoi diagram is infinite, so it only exists inside a boundary. The
+ * bounding box of the points themselves would clip the outer cells hard against
+ * the outermost points, so it is padded — by a distance the user gives, falling
+ * back to a fraction of the extent when they leave it at 0.
+ *
+ * The padded box is then capped at one world wide, centred on the points. Beyond
+ * that the diagram would cover the same ground twice — the same longitudes,
+ * reached by going the other way round — which is exactly the overlap this
+ * operation is trying not to produce. Vertically it is capped at Mercator's own
+ * limit, since y is not periodic and there is nothing past it.
+ */
+function siteWindow(sites: Site[], params: GeoParamValues): [number, number, number, number] {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const { point } of sites) {
+        minX = Math.min(minX, point[0]);
+        maxX = Math.max(maxX, point[0]);
+        minY = Math.min(minY, point[1]);
+        maxY = Math.max(maxY, point[1]);
+    }
+    const padding = Math.max(Number(params.padding) || 0, 0)
+        || Math.max(maxX - minX, maxY - minY) * 0.1
+        || 1000;
+
+    const half = WORLD_WIDTH / 2;
+    const middle = (minX + maxX) / 2;
+    return [
+        Math.max(minX - padding, middle - half),
+        Math.max(minY - padding, -half),
+        Math.min(maxX + padding, middle + half),
+        Math.min(maxY + padding, half),
+    ];
+}
+
+/**
+ * Cuts a convex ring at the antimeridian and brings every piece back inside the
+ * world, as one or more rings.
+ *
+ * This has to happen here rather than being left to `ogr2ogr -wrapdateline` on
+ * the way home. A cell built on the copied worlds can reach past ±180°, and
+ * reprojection folds those coordinates back into range *without* splitting the
+ * ring first: a cell hugging the date line comes back as a polygon stretched
+ * 355° the wrong way round the map. Measured on 257 world centroids, ten cells
+ * came back like that — which is exactly what "overlapping cells and lines
+ * across the whole globe" looks like.
+ *
+ * Both shapes this is used on (Voronoi cells, triangles) are convex, so
+ * Sutherland–Hodgman against the two meridians is exact, and clipping the ring
+ * shifted one world either way collects the pieces that belong on the far side.
+ */
+function splitAtDateline(ring: GeoJSON.Position[]): GeoJSON.Position[][] {
+    const half = WORLD_WIDTH / 2;
+    const parts: GeoJSON.Position[][] = [];
+    // A GeoJSON ring repeats its first point; the clipper walks edges itself and
+    // would treat the repeat as a zero-length one.
+    const open = ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]
+        ? ring.slice(0, -1)
+        : ring;
+
+    for (const shift of [-WORLD_WIDTH, 0, WORLD_WIDTH]) {
+        let clipped = open.map(([x, y]) => [x + shift, y] as GeoJSON.Position);
+        clipped = clipHalfPlane(clipped, -half, true);
+        clipped = clipHalfPlane(clipped, half, false);
+        if (clipped.length < 3) continue;
+
+        const closed = [...clipped, clipped[0]];
+        // Rings that survive only as a sliver on the cut line are floating-point
+        // residue, not geometry: 1 m² against cells of millions of km².
+        if (ringSignedArea(closed) < 1) continue;
+        parts.push(closed);
+    }
+    return parts;
+}
+
+/** One Sutherland–Hodgman pass: keep what is east (`keepAbove`) or west of `x`. */
+function clipHalfPlane(ring: GeoJSON.Position[], x: number, keepAbove: boolean): GeoJSON.Position[] {
+    const inside = (p: GeoJSON.Position) => (keepAbove ? p[0] >= x : p[0] <= x);
+    const out: GeoJSON.Position[] = [];
+
+    for (let i = 0; i < ring.length; i++) {
+        const current = ring[i];
+        const previous = ring[(i + ring.length - 1) % ring.length];
+        const currentIn = inside(current);
+        if (currentIn !== inside(previous)) {
+            const t = (x - previous[0]) / (current[0] - previous[0]);
+            out.push([x, previous[1] + t * (current[1] - previous[1])]);
+        }
+        if (currentIn) out.push(current);
+    }
+    return out;
+}
+
+/**
+ * Voronoi cells: the area closer to each point than to any other point.
+ *
+ * SpatiaLite 5.1 does have `VoronojDiagram`, but it returns the whole diagram as
+ * one collection, and splitting that back into one row per input point — which
+ * is the only way the cell can keep its point's attributes — needs the
+ * `ElementaryGeometries` virtual table that gdal3.js does not expose. d3-delaunay
+ * gives the cells *indexed by input point*, so the join is free.
+ *
+ * Coordinates are EPSG:3857 metres here, which is what makes a planar
+ * triangulation the right thing to compute at all.
+ */
+function voronoiCells(input: GeoJSON.FeatureCollection, params: GeoParamValues): GeoJSON.FeatureCollection {
+    const sites = sitesOf(input);
+    if (!sites.length) throw new Error('Voronoi needs at least one point.');
+
+    const window = siteWindow(sites, params);
+    const offsets = worldCopies(sites);
+    const points = replicatedPoints(sites, offsets);
+    const voronoi = Delaunay.from(points).voronoi(window);
+
+    const features: GeoJSON.Feature[] = [];
+    sites.forEach((site, i) => {
+        // A cell is collected from every copy of its point, because the piece of
+        // it that reaches past the date line belongs to the copy one world over.
+        // Null for a point that coincides exactly with an earlier one: it has no
+        // area of its own. The runner reports the difference in feature counts.
+        const parts: GeoJSON.Position[][][] = [];
+        for (let copy = 0; copy < offsets.length; copy++) {
+            const cell = voronoi.cellPolygon(copy * sites.length + i);
+            if (!cell || cell.length < 4) continue;
+            for (const ring of splitAtDateline(cell.map(([x, y]) => [x, y] as GeoJSON.Position))) {
+                parts.push([ring]);
+            }
+        }
+        if (!parts.length) return;
+        features.push({
+            type: 'Feature',
+            properties: { ...(site.feature.properties ?? {}) },
+            geometry: parts.length === 1
+                ? { type: 'Polygon', coordinates: parts[0] }
+                : { type: 'MultiPolygon', coordinates: parts },
+        });
+    });
+
+    return { type: 'FeatureCollection', features };
+}
+
+/**
+ * Delaunay triangulation: the triangles whose circumcircles contain no other
+ * point — the "most equilateral" way to connect the points, and the dual of the
+ * Voronoi diagram above (same `Delaunay` object, other side of it).
+ *
+ * A triangle belongs to three input features rather than one, so it cannot carry
+ * their attributes; it carries their position in the input instead, which is
+ * what lets a result be traced back to its corners.
+ */
+function delaunayTriangles(input: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
+    const sites = sitesOf(input);
+    if (sites.length < 3) throw new Error('A Delaunay triangulation needs at least three points.');
+
+    // Built on the same three copies of the world as the Voronoi diagram, and
+    // for the same reason: without them the points either side of the date line
+    // are not neighbours, so the mesh joins them the long way round the globe.
+    const offsets = worldCopies(sites);
+    const points = replicatedPoints(sites, offsets);
+    const delaunay = Delaunay.from(points);
+    // Points on one line have no triangulation. d3 does not say so: it jitters
+    // them and hands back a zero-area triangle, which would be added to the map
+    // as an invisible layer. `collinear` is how it flags that it had to.
+    // `collinear` is set by the implementation but missing from its type
+    // definitions, hence the cast.
+    if ((delaunay as unknown as { collinear?: ArrayLike<number> }).collinear) {
+        throw new Error('All points lie on one line, so there are no triangles to build.');
+    }
+
+    const features: GeoJSON.Feature[] = [];
+    const half = WORLD_WIDTH / 2;
+    const middle = xExtent(sites).middle;
+
+    for (let t = 0; t < delaunay.triangles.length; t += 3) {
+        const corners = [delaunay.triangles[t], delaunay.triangles[t + 1], delaunay.triangles[t + 2]];
+        const xs = corners.map(c => points[c][0]);
+
+        if (offsets.length > 1) {
+            // On three copies of the world every triangle exists three times, so
+            // two of each have to go. Keeping the one whose centre falls in the
+            // middle world does it without assuming anything about which copy a
+            // corner came from — a triangle straddling the date line has corners
+            // from two copies by definition.
+            const centre = (xs[0] + xs[1] + xs[2]) / 3;
+            if (centre < middle - half || centre >= middle + half) continue;
+
+            // A triangle joining a point to a *distant* copy of another one is
+            // the artificial kind: it reaches round the globe rather than across
+            // the date line. Anything wider than half the world is one of those.
+            if (Math.max(...xs) - Math.min(...xs) > half) continue;
+        }
+
+        // A triangle whose corners come from two copies of the world crosses the
+        // date line, so it is cut there — one part either side, as a multipart
+        // feature — rather than being left to wrap into a 355°-wide sliver.
+        const ring = corners.map(c => [points[c][0], points[c][1]] as GeoJSON.Position);
+        const rings = splitAtDateline([...ring, ring[0]]);
+        if (!rings.length) continue;
+
+        features.push({
+            type: 'Feature',
+            properties: {
+                triangle: features.length + 1,
+                point_1: sites[corners[0] % sites.length].index,
+                point_2: sites[corners[1] % sites.length].index,
+                point_3: sites[corners[2] % sites.length].index,
+            },
+            geometry: rings.length === 1
+                ? { type: 'Polygon', coordinates: [rings[0]] }
+                : { type: 'MultiPolygon', coordinates: rings.map(r => [r]) },
         });
     }
 
@@ -995,6 +1391,81 @@ export const GEO_OPERATIONS: GeoOperation[] = [
         compute: labelPoints,
     },
     {
+        id: 'buffer',
+        label: 'Buffer',
+        category: 'transform',
+        description: 'Draws a zone at a fixed distance around every feature — the area within 500 m of a road, for example. A negative distance shrinks polygons instead.',
+        inputs: [{ key: 'a', label: 'Input layer' }],
+        params: [
+            {
+                kind: 'number',
+                key: 'distance',
+                label: 'Distance',
+                default: 1000,
+                step: 100,
+                unit: 'm',
+                hint: 'Negative shrinks polygons inwards',
+            },
+            {
+                kind: 'select',
+                key: 'merge',
+                label: 'Overlapping zones',
+                default: 'separate',
+                options: [
+                    { value: 'separate', label: 'one buffer per feature, keeping its attributes' },
+                    { value: 'merged', label: 'merge everything into one zone' },
+                ],
+                hint: 'Merging answers “which area is within this distance of anything?”; separate buffers answer it per feature.',
+            },
+        ],
+        outputGeometry: 'polygon',
+        outputName: a => `${a} buffer`,
+        // Distance is in metres and reaches buildSql already scaled into 3857
+        // units by the runner (METRIC_PARAMS), like every other metric parameter.
+        buildSql: ({ layerA, fieldsA, params }) => {
+            const distance = Number(params.distance) || 0;
+            if (params.merge === 'merged') {
+                return `SELECT COUNT(*) AS feature_count, ${unionValid(`ST_Buffer(geometry, ${distance})`)} AS geometry FROM ${q(layerA)}`;
+            }
+            return `
+            SELECT ${selectList(cols('a', fieldsA), `ST_Buffer(a.geometry, ${distance}) AS geometry`)}
+            FROM ${q(layerA)} a`;
+        },
+    },
+    {
+        id: 'voronoi',
+        label: 'Voronoi',
+        category: 'transform',
+        description: 'Divides the map into one area per point, each covering everything that is closer to that point than to any other — catchment areas of shops, schools or weather stations.',
+        inputs: [{ key: 'a', label: 'Input layer', hint: 'Points; other features use their centre' }],
+        params: [
+            {
+                kind: 'number',
+                key: 'padding',
+                label: 'Extend beyond the points by',
+                default: 0,
+                min: 0,
+                step: 1000,
+                unit: 'm',
+                hint: 'The diagram is infinite, so it is cut off here. 0 uses a tenth of the area covered by the points.',
+            },
+        ],
+        outputGeometry: 'polygon',
+        outputName: a => `${a} Voronoi`,
+        compute: voronoiCells,
+    },
+    {
+        id: 'delaunay',
+        label: 'Delaunay',
+        category: 'transform',
+        description: 'Connects the points into triangles, avoiding thin slivers wherever possible. The mirror image of the Voronoi diagram, and the usual first step in building a surface from measurements.',
+        inputs: [{ key: 'a', label: 'Input layer', hint: 'Points; other features use their centre' }],
+        params: [],
+        outputGeometry: 'polygon',
+        outputName: a => `${a} triangles`,
+        compute: delaunayTriangles,
+    },
+    {
         id: 'convexHull',
         label: 'Convex hull',
         category: 'aggregate',
@@ -1060,7 +1531,7 @@ export function getOperation(id: string): GeoOperation | undefined {
 }
 
 /** Parameters whose value is a length in metres, and so must be scaled for EPSG:3857. */
-export const METRIC_PARAMS = new Set(['tolerance', 'precision', 'holeSize']);
+export const METRIC_PARAMS = new Set(['tolerance', 'precision', 'holeSize', 'distance', 'padding']);
 
 export function defaultParams(op: GeoOperation): GeoParamValues {
     const values: GeoParamValues = {};

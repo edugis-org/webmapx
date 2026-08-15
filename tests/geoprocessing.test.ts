@@ -124,6 +124,22 @@ function ringArea(feature: GeoJSON.Feature): number {
     return total;
 }
 
+/** Ray-casting point-in-polygon, enough for the convex cells tested here. */
+function contains(feature: GeoJSON.Feature, x: number, y: number): boolean {
+    const g = feature.geometry;
+    const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    let inside = false;
+    for (const poly of polys) {
+        const ring = poly[0];
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const [xi, yi] = ring[i];
+            const [xj, yj] = ring[j];
+            if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+        }
+    }
+    return inside;
+}
+
 function totalArea(collection: FC): number {
     return collection.features.reduce((sum, f) => sum + ringArea(f), 0);
 }
@@ -634,6 +650,227 @@ test('convex hull wraps all features in one polygon', { timeout: TIMEOUT }, asyn
 test('convex hull per feature keeps the feature count', { timeout: TIMEOUT }, async () => {
     const out = await run('convexHull', ADJACENT, undefined, { scope: 'each' });
     assert.equal(out.features.length, 3);
+});
+
+test('buffer grows every feature and keeps its attributes', { timeout: TIMEOUT }, async () => {
+    const out = await run('buffer', ADJACENT, undefined, { distance: 20_000, merge: 'separate' });
+    assert.equal(out.features.length, 3);
+    assert.deepEqual(out.features.map(f => f.properties?.name).sort(), ['a', 'b', 'c']);
+    // Each 1x1 square grows by roughly 0.2° on every side.
+    assert.ok(ringArea(out.features[0]) > 1.5, `expected a grown square, got ${ringArea(out.features[0])}`);
+});
+
+test('buffer merges overlapping zones into one feature', { timeout: TIMEOUT }, async () => {
+    // The two adjacent squares merge; the far-away one joins them in the same
+    // multipart feature, because merging is a single ST_Union over everything.
+    const out = await run('buffer', ADJACENT, undefined, { distance: 20_000, merge: 'merged' });
+    assert.equal(out.features.length, 1);
+    assert.equal(out.features[0].properties?.feature_count, 3);
+});
+
+test('a negative buffer shrinks polygons', { timeout: TIMEOUT }, async () => {
+    const out = await run('buffer', LEFT, undefined, { distance: -20_000, merge: 'separate' });
+    assert.equal(out.features.length, 1);
+    assert.ok(ringArea(out.features[0]) < 4, `expected a shrunken square, got ${ringArea(out.features[0])}`);
+});
+
+test('voronoi gives one cell per point, carrying that point’s attributes', { timeout: TIMEOUT }, async () => {
+    const out = await run('voronoi', POINTS);
+    assert.equal(out.features.length, 3);
+    assert.deepEqual(out.features.map(f => f.properties?.id).sort(), ['p1', 'p2', 'p3']);
+    // Cells tile their padded bounding box: no gaps, no overlaps, so the total
+    // area is that box exactly.
+    assert.ok(totalArea(out) > 100, `expected the cells to cover the area, got ${totalArea(out)}`);
+});
+
+test('each voronoi cell contains its own point and no other', { timeout: TIMEOUT }, async () => {
+    // The defining property of the diagram, and the one thing worth asserting:
+    // every point falls in exactly the cell that carries its attributes.
+    const out = await run('voronoi', POINTS);
+    for (const point of POINTS.features) {
+        const [x, y] = (point.geometry as GeoJSON.Point).coordinates;
+        const containing = out.features.filter(cell => contains(cell, x, y));
+        assert.equal(containing.length, 1, `${point.properties?.id} lies in one cell`);
+        assert.equal(containing[0].properties?.id, point.properties?.id);
+    }
+});
+
+/** Four points around the antimeridian, two either side of it. */
+const DATELINE_POINTS: FC = fc(
+    { type: 'Feature', properties: { id: 'w1' }, geometry: { type: 'Point', coordinates: [178, 0] } },
+    { type: 'Feature', properties: { id: 'w2' }, geometry: { type: 'Point', coordinates: [179, 2] } },
+    { type: 'Feature', properties: { id: 'e1' }, geometry: { type: 'Point', coordinates: [-179, 0] } },
+    { type: 'Feature', properties: { id: 'e2' }, geometry: { type: 'Point', coordinates: [-178, 2] } },
+);
+
+test('voronoi cells stay local when the points straddle the antimeridian', { timeout: TIMEOUT }, async () => {
+    const out = await run('voronoi', DATELINE_POINTS);
+    assert.equal(out.features.length, 4);
+
+    // Without unwrapping, the two groups look half a planet apart and their
+    // cells span the whole Pacific. Each cell must stay within a few degrees of
+    // the date line — measured per part, since a cell crossing ±180° is split
+    // into two pieces by -wrapdateline and each piece hugs its own edge.
+    for (const cell of out.features) {
+        const g = cell.geometry;
+        const polys = g.type === 'Polygon' ? [g.coordinates] : (g as GeoJSON.MultiPolygon).coordinates;
+        for (const poly of polys) {
+            const xs = poly[0].map(p => p[0]);
+            const width = Math.max(...xs) - Math.min(...xs);
+            assert.ok(width < 20, `${cell.properties?.id}: cell spans ${width}°, so it wrapped the wrong way`);
+        }
+    }
+});
+
+test('each point still lands in its own cell across the antimeridian', { timeout: TIMEOUT }, async () => {
+    const out = await run('voronoi', DATELINE_POINTS);
+    for (const point of DATELINE_POINTS.features) {
+        const [x, y] = (point.geometry as GeoJSON.Point).coordinates;
+        const containing = out.features.filter(cell => contains(cell, x, y));
+        assert.equal(containing.length, 1, `${point.properties?.id} lies in one cell`);
+        assert.equal(containing[0].properties?.id, point.properties?.id);
+    }
+});
+
+test('delaunay connects the right neighbours across the antimeridian', { timeout: TIMEOUT }, async () => {
+    // Geometry alone cannot show this: `-wrapdateline` makes even a wrong-way
+    // triangle come back looking local. What differs is *which* points are
+    // neighbours, so the test counts the triangles that join the two sides —
+    // 4 of the 5 in the correct frame, 3 when the sides look a planet apart.
+    const strip: FC = fc(
+        ...[[178, 0], [179, 3], [178, 6], [-179, 0], [-178, 3], [-179, 6]].map(([lon, lat], i) => ({
+            type: 'Feature' as const,
+            properties: { id: i + 1 },
+            geometry: { type: 'Point' as const, coordinates: [lon, lat] },
+        })),
+    );
+    const out = await run('delaunay', strip);
+    assert.equal(out.features.length, 5);
+
+    const crossing = out.features.filter(f => {
+        const corners = [f.properties?.point_1, f.properties?.point_2, f.properties?.point_3].map(Number);
+        // Points 1-3 are west of the line, 4-6 east of it.
+        return corners.some(c => c <= 3) && corners.some(c => c >= 4);
+    });
+    assert.equal(crossing.length, 4, 'the mesh must span the date line, not run around the globe');
+});
+
+/**
+ * Points right round the globe — the case unwrapping cannot help with, because
+ * there is no empty side to rotate the seam into. Three rows of twelve, offset
+ * by half a step so that the cells interlock rather than forming a grid.
+ *
+ * The two points flanking the date line sit at opposite latitudes on purpose:
+ * that makes the boundary between them a slanted bisector, which is what tells a
+ * diagram that treats the line as a join apart from one merely cut off at the
+ * edge of its box (the box edge is a straight vertical line in exactly the same
+ * place, so a symmetric fixture agrees with both and tests nothing).
+ */
+function worldRow(startLon: number, lat: number, special: Record<number, number> = {}): GeoJSON.Feature[] {
+    const row: GeoJSON.Feature[] = [];
+    for (let lon = startLon; lon < 180; lon += 30) {
+        const at = special[lon] ?? lat;
+        row.push({
+            type: 'Feature',
+            properties: { id: `${lon}/${at}` },
+            geometry: { type: 'Point', coordinates: [lon, at] },
+        });
+    }
+    return row;
+}
+
+const WORLDWIDE_POINTS: FC = fc(
+    ...worldRow(-180, 0, { 150: 50, [-180]: -50 }),
+    ...worldRow(-165, 45),
+    ...worldRow(-165, -45),
+);
+
+test('a worldwide voronoi tiles the map without overlaps or wrapped cells', { timeout: TIMEOUT }, async () => {
+    const out = await run('voronoi', WORLDWIDE_POINTS);
+    assert.equal(out.features.length, WORLDWIDE_POINTS.features.length);
+
+    for (const cell of out.features) {
+        const g = cell.geometry;
+        const polys = g.type === 'Polygon' ? [g.coordinates] : (g as GeoJSON.MultiPolygon).coordinates;
+        for (const poly of polys) {
+            const xs = poly[0].map(p => p[0]);
+            // A cell that reached past the date line and was folded back rather
+            // than cut comes out as a sliver spanning almost the whole world.
+            assert.ok(Math.max(...xs) <= 180.001 && Math.min(...xs) >= -180.001, 'cell stays inside the world');
+            assert.ok(Math.max(...xs) - Math.min(...xs) < 120, `cell spans ${Math.max(...xs) - Math.min(...xs)}°`);
+        }
+    }
+
+    // Cells must partition the area: every sample point belongs to exactly one.
+    for (let lon = -175; lon < 180; lon += 11) {
+        for (let lat = -35; lat <= 35; lat += 11) {
+            const hits = out.features.filter(cell => contains(cell, lon, lat));
+            assert.equal(hits.length, 1, `${lon},${lat} is covered by ${hits.length} cells`);
+        }
+    }
+});
+
+test('a worldwide voronoi makes neighbours of the points either side of the date line', { timeout: TIMEOUT }, async () => {
+    const out = await run('voronoi', WORLDWIDE_POINTS);
+    // 175°E, 20°N is nearest to the point at 165°E, 45°N — but it lies beyond
+    // the edge of the box, in the strip that has to be wrapped back into the
+    // world. Wrap it without joining the two sides first and the ground ends up
+    // filed under the point on the *other* side of the line, at 165°W.
+    const owners = out.features.filter(cell => contains(cell, 175, 20)).map(cell => cell.properties?.id);
+    assert.deepEqual(owners, ['165/45'], 'ground by the date line belongs to its true nearest point');
+});
+
+test('a worldwide delaunay closes the mesh across the date line', { timeout: TIMEOUT }, async () => {
+    const out = await run('delaunay', WORLDWIDE_POINTS);
+    // Each row starts just west of the date line and ends just east of it, so
+    // the first and last point of a row are 30° apart across the line and 330°
+    // apart on a plane with a seam in it. Those are the pairs that must be
+    // joined.
+    const westOfLine = new Set([1, 13, 25]);
+    const eastOfLine = new Set([12, 24, 36]);
+    const joined = out.features.filter(f => {
+        const corners = [f.properties?.point_1, f.properties?.point_2, f.properties?.point_3].map(Number);
+        return corners.some(c => westOfLine.has(c)) && corners.some(c => eastOfLine.has(c));
+    });
+    assert.ok(joined.length >= 2, `expected the mesh to close, got ${joined.length} triangles across the line`);
+
+    for (const triangle of out.features) {
+        const g = triangle.geometry;
+        const polys = g.type === 'Polygon' ? [g.coordinates] : (g as GeoJSON.MultiPolygon).coordinates;
+        for (const poly of polys) {
+            const xs = poly[0].map(p => p[0]);
+            // Wide triangles are legitimate here — three near-parallel rows of
+            // points have huge circumcircles — but a triangle taking the long
+            // way round the globe spans more than half the world, and none of
+            // the honest ones come close.
+            assert.ok(Math.max(...xs) - Math.min(...xs) < 200, 'no triangle runs the long way round');
+        }
+    }
+});
+
+test('voronoi uses the centre of non-point features', { timeout: TIMEOUT }, async () => {
+    const out = await run('voronoi', ADJACENT);
+    assert.equal(out.features.length, 3, 'polygons take part through their centre');
+});
+
+test('delaunay triangulates the points and records their corners', { timeout: TIMEOUT }, async () => {
+    const out = await run('delaunay', POINTS);
+    // Three points make exactly one triangle.
+    assert.equal(out.features.length, 1);
+    const props = out.features[0].properties ?? {};
+    assert.deepEqual([props.point_1, props.point_2, props.point_3].sort(), [1, 2, 3]);
+});
+
+test('delaunay refuses input it cannot triangulate', { timeout: TIMEOUT }, async () => {
+    const two = fc(POINTS.features[0], POINTS.features[1]);
+    await assert.rejects(() => run('delaunay', two), /at least three points/);
+
+    const collinear = fc(
+        { type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [0, 0] } },
+        { type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [1, 0] } },
+        { type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [2, 0] } },
+    );
+    await assert.rejects(() => run('delaunay', collinear), /one line/);
 });
 
 /**
