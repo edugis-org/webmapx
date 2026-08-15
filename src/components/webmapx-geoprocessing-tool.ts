@@ -24,7 +24,7 @@
  */
 
 import { html, css, nothing, type TemplateResult } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMapState } from '../store/IMapState';
 import {
@@ -83,9 +83,20 @@ interface SlotState {
 
 @customElement('webmapx-geoprocessing-tool')
 export class WebmapxGeoprocessingTool extends WebmapxModalTool {
-    readonly toolId = 'geoprocessing';
+    // Not narrowed to a literal: a subclass pins one operation and registers
+    // under its own id (see `webmapx-cartogram-tool`).
+    readonly toolId: string = 'geoprocessing';
 
     // ─── State ───────────────────────────────────────────────────────────
+
+    /**
+     * Locks the panel to one operation, so it can be a tool in its own right.
+     *
+     * `webmapx-cartogram-tool` is this panel with `cartogram` pinned: the same
+     * layer picking, attribute list, worker call, warnings and cancel, without a
+     * second implementation of any of it. Empty means the full Analysis panel.
+     */
+    @property({ type: String, attribute: 'operation' }) pinnedOperation = '';
 
     @state() private availableLayers: LayerOption[] = [];
     @state() private operationId = '';
@@ -364,6 +375,13 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
     // ─── Lifecycle ───────────────────────────────────────────────────────
 
     protected onActivate(): void {
+        // A pinned panel is one operation with its own place in the toolbar — the
+        // grid of every operation would be noise there, and "Change" would take
+        // the student somewhere the tool does not claim to go.
+        if (this.pinnedOperation && this.operationId !== this.pinnedOperation) {
+            this.handleOperationSelect(this.pinnedOperation);
+        }
+
         this.escHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') this.deactivate(); };
         document.addEventListener('keydown', this.escHandler);
 
@@ -808,7 +826,11 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
     protected render() {
         return html`
             <div class="tool-content">
-                ${this.operation ? this.renderChosenOperation(this.operation) : this.renderOperationGrid()}
+                ${this.operation
+                    ? this.renderChosenOperation(this.operation)
+                    // A pinned panel whose operation has not been applied yet shows
+                    // nothing rather than the full grid — it is one operation's tool.
+                    : (this.pinnedOperation ? nothing : this.renderOperationGrid())}
                 ${this.operation ? this.renderForm(this.operation) : nothing}
                 ${this.table ? this.renderTable(this.table) : nothing}
                 ${this.summary ? html`<div class="summary">${this.summary}</div>` : nothing}
@@ -847,12 +869,14 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
                 <div class="chosen-head">
                     ${operationDiagram(op.id)}
                     <div class="name">${op.label}</div>
-                    <sl-button
-                        size="small"
-                        variant="text"
-                        ?disabled=${this.busy}
-                        @click=${() => { this.operationId = ""; this.error = null; this.notice = null; this.summary = null; this.table = null; }}
-                    >Change</sl-button>
+                    ${this.pinnedOperation ? nothing : html`
+                        <sl-button
+                            size="small"
+                            variant="text"
+                            ?disabled=${this.busy}
+                            @click=${() => { this.operationId = ""; this.error = null; this.notice = null; this.summary = null; this.table = null; }}
+                        >Change</sl-button>
+                    `}
                 </div>
                 <div class="description">${op.description}</div>
             </div>
@@ -984,7 +1008,10 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
 
         if (param.kind === 'aggregations') return this.renderAggregations(param);
 
-        const names = this.fieldNames[param.from];
+        // A numeric-only field list is offered whole, not filtered as you type:
+        // a cartogram sized by a text column is not an error anywhere in the
+        // pipeline, it just produces nothing.
+        const names = param.numericOnly ? this.numericFieldNames[param.from] : this.fieldNames[param.from];
         return html`
             <div>
                 <sl-select

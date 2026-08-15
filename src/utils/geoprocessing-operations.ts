@@ -17,6 +17,7 @@
 
 import polylabel from 'polylabel';
 import { Delaunay } from 'd3-delaunay';
+import { cartogram, mapGeometry } from './cartogram';
 import { topology } from 'topojson-server';
 import { presimplify } from 'topojson-simplify';
 import { feature as topoFeature } from 'topojson-client';
@@ -28,6 +29,7 @@ export type GeoOperationId =
     | 'buffer'
     | 'voronoi'
     | 'delaunay'
+    | 'cartogram'
     | 'statistics'
     | 'clip'
     | 'erase'
@@ -90,6 +92,12 @@ type GeoParamSpecBase =
           from: 'a' | 'b';
           /** Allow "(none)" — dissolve everything into one feature. */
           optional?: boolean;
+          /**
+           * Offer only fields observed to hold numbers. Same rule the
+           * aggregations list uses for `total`/`average`: a field that is a
+           * number in some features and text in others does not count.
+           */
+          numericOnly?: boolean;
           hint?: string;
       }
     | {
@@ -488,6 +496,50 @@ function labelPoints(input: GeoJSON.FeatureCollection, params: GeoParamValues): 
     }
 
     return { type: 'FeatureCollection', features };
+}
+
+// ─── Web Mercator ⇄ lon/lat ──────────────────────────────────────────────────
+
+/**
+ * The two halves of the Mercator round trip the cartogram undoes.
+ *
+ * Closed-form and exact (EPSG:3857 is defined on a sphere of exactly this
+ * radius), so converting out and back adds no error — only the cost of walking
+ * the coordinates, which is what the operation already does anyway.
+ */
+const WEB_MERCATOR_RADIUS = 6378137;
+
+function fromWebMercator(fc: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
+    return {
+        ...fc,
+        features: fc.features.map(feature => (feature.geometry ? {
+            ...feature,
+            geometry: mapGeometry(feature.geometry, ([x, y]) => [
+                (x / WEB_MERCATOR_RADIUS) * (180 / Math.PI),
+                (2 * Math.atan(Math.exp(y / WEB_MERCATOR_RADIUS)) - Math.PI / 2) * (180 / Math.PI),
+            ]),
+        } : feature)),
+    };
+}
+
+function toWebMercator(fc: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
+    const limit = 89.9999;
+    return {
+        ...fc,
+        features: fc.features.map(feature => (feature.geometry ? {
+            ...feature,
+            geometry: mapGeometry(feature.geometry, ([lon, lat]) => {
+                // Mercator sends the poles to infinity; a cartogram circle can
+                // legitimately reach one, and an infinite coordinate would take
+                // the whole feature with it.
+                const clamped = Math.min(Math.max(lat, -limit), limit) * (Math.PI / 180);
+                return [
+                    (lon * Math.PI) / 180 * WEB_MERCATOR_RADIUS,
+                    WEB_MERCATOR_RADIUS * Math.log(Math.tan(Math.PI / 4 + clamped / 2)),
+                ];
+            }),
+        } : feature)),
+    };
 }
 
 // ─── Voronoi / Delaunay ──────────────────────────────────────────────────────
@@ -1431,6 +1483,64 @@ export const GEO_OPERATIONS: GeoOperation[] = [
             SELECT ${selectList(cols('a', fieldsA), `ST_Buffer(a.geometry, ${distance}) AS geometry`)}
             FROM ${q(layerA)} a`;
         },
+    },
+    {
+        id: 'cartogram',
+        label: 'Cartogram',
+        category: 'transform',
+        description: 'Resizes every polygon so that its area shows a number — population, production, votes — instead of showing ground area. The map keeps its total size, so only the distribution changes.',
+        inputs: [{ key: 'a', label: 'Input layer', hint: 'Polygons with a number to size them by' }],
+        params: [
+            {
+                kind: 'field',
+                key: 'field',
+                label: 'Size by',
+                from: 'a',
+                numericOnly: true,
+                hint: 'Features without a positive number in this attribute are left out',
+            },
+            {
+                kind: 'select',
+                key: 'method',
+                label: 'Shape',
+                default: 'scaled',
+                options: [
+                    { value: 'scaled', label: 'keep the shapes, resize them' },
+                    { value: 'dorling', label: 'replace each by a circle (Dorling)' },
+                ],
+                hint: 'Scaled shapes stay recognisable; circles are easier to compare when values differ hugely.',
+            },
+            {
+                kind: 'number',
+                key: 'iterations',
+                label: 'Separation rounds',
+                default: 60,
+                min: 0,
+                max: 500,
+                step: 10,
+                showWhen: params => params.method === 'dorling',
+                hint: 'How hard overlapping circles are pushed apart',
+            },
+        ],
+        outputGeometry: 'polygon',
+        outputName: a => `${a} cartogram`,
+        // Non-contiguous by construction: shapes are resized where they stand and
+        // the map comes apart at the seams. That is the honest kind to compute
+        // per feature — a contiguous, rubber-sheet cartogram warps the whole
+        // plane at once and needs the input to tile the region with no gaps.
+        //
+        // The runner hands every `compute` operation EPSG:3857 and wants it back,
+        // but a cartogram is about *ground area* and Mercator inflates that by
+        // 1/cos²(latitude) — sizing Greenland in Mercator would start from an
+        // area four times too big. `cartogram()` measures on the sphere from
+        // lon/lat, so the round trip through Mercator is undone here and redone
+        // afterwards; it is closed-form and exact, and keeps the change local to
+        // this operation instead of teaching the pipeline about projections.
+        compute: (input, params) => toWebMercator(cartogram(fromWebMercator(input), {
+            field: String(params.field ?? ''),
+            method: params.method === 'dorling' ? 'dorling' : 'scaled',
+            iterations: Number(params.iterations) || undefined,
+        }).features),
     },
     {
         id: 'voronoi',

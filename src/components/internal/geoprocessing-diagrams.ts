@@ -192,6 +192,20 @@ const DIAGRAMS: Record<GeoOperationId, TemplateResult> = {
         <path class="gp-a" d="M22 40 Q34 8 50 26 Q64 42 78 14"
               fill="none" stroke=${A} stroke-width="1.5" stroke-dasharray="3 2" />`),
 
+    // Four equal input squares become four different sizes: the diagram has to
+    // show that the *areas* carry the value, not the positions.
+    cartogram: frame(svg`
+        <g class="gp-a">
+            <path d="M14 12 H36 V34 H14 Z" fill="none" stroke=${A} stroke-width="1.5" stroke-dasharray="3 2" />
+            <path d="M42 12 H64 V34 H42 Z" fill="none" stroke=${A} stroke-width="1.5" stroke-dasharray="3 2" />
+            <path d="M70 12 H92 V34 H70 Z" fill="none" stroke=${A} stroke-width="1.5" stroke-dasharray="3 2" />
+        </g>
+        <g class="gp-result">
+            <path d="M20 18 H30 V28 H20 Z" fill=${RESULT} fill-opacity="0.55" stroke=${RESULT} stroke-width="2" />
+            <path d="M40 10 H66 V36 H40 Z" fill=${RESULT} fill-opacity="0.55" stroke=${RESULT} stroke-width="2" />
+            <path d="M74 15 H88 V31 H74 Z" fill=${RESULT} fill-opacity="0.55" stroke=${RESULT} stroke-width="2" />
+        </g>`),
+
     // Voronoi and Delaunay share the same six points on purpose: they are the
     // two sides of one construction, and the diagrams should make that obvious.
     voronoi: frame(svg`

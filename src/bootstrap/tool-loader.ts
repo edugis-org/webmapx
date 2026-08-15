@@ -22,6 +22,7 @@ const TOOL_MAP: Record<string, () => Promise<unknown>> = {
   truearea:           () => import('../components/webmapx-truearea-tool.js'),
   'view-mode':        () => import('../components/webmapx-view-mode-tool.js'),
   projection:         () => import('../components/webmapx-projection-tool.js'),
+  cartogram:          () => import('../components/webmapx-cartogram-tool.js'),
   coordinates:        () => import('../components/webmapx-coordinates-tool.js'),
   settings:           () => import('../components/webmapx-settings.js'),
   routing:            () => import('../components/webmapx-routing-tool.js'),

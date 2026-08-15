@@ -652,6 +652,39 @@ test('convex hull per feature keeps the feature count', { timeout: TIMEOUT }, as
     assert.equal(out.features.length, 3);
 });
 
+test('cartogram resizes features by an attribute, end to end', { timeout: TIMEOUT }, async () => {
+    // Through the real pipeline rather than the pure function (tests/cartogram.test.ts
+    // covers the maths): what this proves is that the result survives the GeoJSON
+    // round trip and comes back as usable polygons with their attributes.
+    const input = fc(
+        square(0, 0, 1, { name: 'small', pop: 100 }),
+        square(3, 0, 1, { name: 'large', pop: 400 }),
+    );
+    const out = await run('cartogram', input, undefined, { field: 'pop', method: 'scaled' });
+    assert.equal(out.features.length, 2);
+
+    const areaOf = (name: string) => ringArea(out.features.find(f => f.properties?.name === name)!);
+    // Four times the value, four times the area — measured after the projection
+    // round trip, so a few percent of slack for the reprojection.
+    const ratio = areaOf('large') / areaOf('small');
+    assert.ok(Math.abs(ratio - 4) < 0.1, `expected ~4, got ${ratio}`);
+    assert.equal(out.features[0].properties?.pop, 100);
+});
+
+test('cartogram in circle mode returns one circle per feature', { timeout: TIMEOUT }, async () => {
+    const input = fc(
+        square(0, 0, 1, { name: 'a', pop: 100 }),
+        square(2, 0, 1, { name: 'b', pop: 400 }),
+    );
+    const out = await run('cartogram', input, undefined, { field: 'pop', method: 'dorling', iterations: 100 });
+    assert.equal(out.features.length, 2);
+    for (const feature of out.features) {
+        assert.ok(Number(feature.properties?.cartogram_radius_m) > 0, 'each circle reports its radius in metres');
+        const ring = (feature.geometry as GeoJSON.Polygon).coordinates[0];
+        assert.ok(ring.length > 30, `expected a circle, got ${ring.length} points`);
+    }
+});
+
 test('buffer grows every feature and keeps its attributes', { timeout: TIMEOUT }, async () => {
     const out = await run('buffer', ADJACENT, undefined, { distance: 20_000, merge: 'separate' });
     assert.equal(out.features.length, 3);

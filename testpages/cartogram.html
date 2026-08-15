@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>webmapx — cartogram tool</title>
+  <style>
+    html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+    webmapx-map { display: block; width: 100%; height: 100%; }
+    webmapx-cartogram-tool {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 320px;
+      max-height: calc(100% - 20px);
+      overflow: auto;
+      z-index: 10;
+      background: var(--color-surface, #fff);
+      border: 1px solid #ddd;
+      border-radius: 6px;
+    }
+  </style>
+  <link rel="stylesheet" href="../node_modules/@shoelace-style/shoelace/dist/themes/light.css">
+  <link rel="stylesheet" href="../src/theme/webmapx-style-core.css">
+  <script type="module" src="../src/app.js"></script>
+</head>
+<body>
+  <!-- The tool has to be inside the map element: that is how it finds its host
+       (webmapx-base-tool resolves `closest('webmapx-map')`) and therefore how it
+       adds the result as a layer. -->
+  <webmapx-map id="map-container" adapter="maplibre" src="../config/demo.json">
+    <webmapx-cartogram-tool tool-id="cartogram" label="Cartogram" active></webmapx-cartogram-tool>
+  </webmapx-map>
+  <script type="module">
+    import '../src/components/webmapx-cartogram-tool.ts';
+  </script>
+</body>
+</html>
