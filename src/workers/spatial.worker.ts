@@ -17,6 +17,7 @@
 
 import initGdalJs from 'gdal3.js';
 import { runGeoprocess, type GdalLike, type GeoprocessRequest } from './geoprocessing-runner';
+import { parseGdalGeoJSON } from '../utils/geojson-crs';
 import wasmUrl from 'gdal3.js/dist/package/gdal3WebAssembly.wasm?url';
 import dataUrl from 'gdal3.js/dist/package/gdal3WebAssembly.data?url';
 import workerJsUrl from 'gdal3.js/dist/package/gdal3.js?url';
@@ -96,7 +97,10 @@ async function featureCollectionToFile(fc: GeoJSON.FeatureCollection, name: stri
 async function filePathToFeatureCollection(gdal: GdalInstance, filePath: string | { local: string; real: string }): Promise<GeoJSON.FeatureCollection> {
     const bytes = await gdal.getFileBytes(filePath as string | Parameters<GdalInstance['getFileBytes']>[0]);
     const text = new TextDecoder().decode(bytes);
-    return JSON.parse(text) as GeoJSON.FeatureCollection;
+    // Not a plain JSON.parse: GDAL writes a legacy `crs` member that stops the
+    // layer being added to a map in any projection but Web Mercator. See
+    // `utils/geojson-crs.ts`.
+    return parseGdalGeoJSON(text);
 }
 
 // ─── Operations ──────────────────────────────────────────────────────────────

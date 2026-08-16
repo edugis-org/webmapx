@@ -19,6 +19,7 @@
  * into projection units.
  */
 
+import { parseGdalGeoJSON } from '../utils/geojson-crs';
 import {
     METRIC_PARAMS,
     getOperation,
@@ -145,18 +146,10 @@ function dropEmptyGeometries(fc: GeoJSON.FeatureCollection, warnings: string[]):
 
 async function readFeatureCollection(gdal: GdalLike, path: string): Promise<GeoJSON.FeatureCollection> {
     const bytes = await gdal.getFileBytes(path);
-    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as GeoJSON.FeatureCollection & { crs?: unknown };
-
-    // GDAL writes the legacy `crs` member RFC 7946 removed — for a WGS84 result
-    // it is `urn:ogc:def:crs:OGC:1.3:CRS84`, which says exactly what the spec
-    // already guarantees. It is not harmless: OpenLayers honours it as the data
-    // projection when reading the layer, and cannot then build a transform from
-    // that spelling into a proj4-registered view projection, so adding the
-    // result to a map in an equal-area projection died with "transformFn is not
-    // a function" — a failure in the *map*, several steps away from here, and
-    // only ever on a non-Mercator view.
-    delete parsed.crs;
-    return parsed;
+    // Not a plain JSON.parse: GDAL writes a legacy `crs` member that stops the
+    // result being added to a map in any projection but Web Mercator. See
+    // `utils/geojson-crs.ts`.
+    return parseGdalGeoJSON(new TextDecoder().decode(bytes));
 }
 
 /**
