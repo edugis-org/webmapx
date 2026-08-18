@@ -1,4 +1,4 @@
-import { css, html } from 'lit';
+import { css, html, type PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
@@ -220,6 +220,16 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       color: var(--webmapx-legend-color, var(--color-text-primary, #16202a));
     }
 
+    /* Shoelace's own tooltip body is pointer-events: none, but its arrow
+       and the popup's own outer wrapper aren't — confirmed either one can
+       sit directly over a neighboring icon (e.g. the eye icon right next
+       to the drag-handle) and silently eat a click meant for that icon
+       while the tooltip is still open. */
+    sl-tooltip::part(base__arrow),
+    sl-tooltip::part(base__popup) {
+      pointer-events: none;
+    }
+
     /* No overflow/max-height here: the real scrollport is the ancestor
        reached through slot assignment (webmapx-tool-panel's
        .panel-content) — see findScrollableAncestor below. Making this
@@ -250,6 +260,17 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       letter-spacing: var(--webmapx-label-spacing, 0.06em);
       text-transform: var(--webmapx-label-transform, uppercase);
       color: var(--webmapx-legend-title-color, var(--color-text-muted, #6b7681));
+      /* Truncates instead of wrapping/pushing the action buttons off when a
+         section has both a title and buttons (Active layers) and the two
+         don't both fit — the buttons must never shrink or lose their click
+         target. Equally harmless when a section's row has no buttons to
+         protect (Base map): with only one flex child, there's nothing for
+         truncation to make room for. */
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .layer-list {
@@ -624,15 +645,34 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       margin: 0;
     }
 
-    .save-layers-row {
+    .section-header-row {
       display: flex;
-      justify-content: flex-end;
-      gap: var(--webmapx-space-xs, 0.4rem);
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--webmapx-space-sm, 0.5rem);
+      background: var(--webmapx-legend-bg, var(--color-background, #fff));
+      padding-bottom: var(--webmapx-space-xs, 0.25rem);
+    }
+
+    /* Only the Active layers header carries buttons worth keeping visible
+       while its layer list scrolls underneath — Base map's header was never
+       sticky before this merge and still isn't. */
+    .section-header-row.sticky {
       position: sticky;
       top: 0;
       z-index: 1;
-      background: var(--webmapx-legend-bg, var(--color-background, #fff));
-      padding-bottom: var(--webmapx-space-xs, 0.25rem);
+    }
+
+    /* Its own flex group (rather than letting the buttons sit as direct
+       flex children of .section-header-row) so justify-content: space-between
+       above pushes the title and the whole button cluster to opposite
+       ends, instead of spacing every item apart individually. Never
+       shrinks — see .section-title. */
+    .section-actions {
+      display: flex;
+      align-items: center;
+      flex: 0 0 auto;
+      gap: var(--webmapx-space-xs, 0.4rem);
     }
 
     .layer-meta {
@@ -689,6 +729,31 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     this.unsubscribeLayerRemove = null;
   }
 
+  protected updated(changed: PropertyValues): void {
+    super.updated(changed);
+    this.disableTooltipHoverBridges();
+  }
+
+  // sl-tooltip unconditionally turns on its internal sl-popup's
+  // "hover-bridge" — an invisible polygon connecting the anchor to the
+  // tooltip so the pointer can travel into tooltips with interactive
+  // content without them closing. It isn't pointer-events: none, though,
+  // and our tooltips are plain text with nothing to travel into — so for a
+  // small, densely-packed control like the drag-handle, that polygon can
+  // overlap an adjacent icon (confirmed: it reaches into the eye icon
+  // right next to it) and silently swallow a click meant for either one.
+  // Shoelace doesn't expose hoverBridge through sl-tooltip's own API, so
+  // it has to be switched off directly on each tooltip's internal
+  // sl-popup once it's rendered.
+  private disableTooltipHoverBridges(): void {
+    this.shadowRoot?.querySelectorAll('sl-tooltip').forEach((tooltip) => {
+      void tooltip.updateComplete.then(() => {
+        const popup = tooltip.shadowRoot?.querySelector('sl-popup') as (HTMLElement & { hoverBridge: boolean }) | null;
+        if (popup) popup.hoverBridge = false;
+      });
+    });
+  }
+
   render() {
     return html`
       <div class="panel">
@@ -706,52 +771,54 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   private renderSection(title: string, items: LayerPanelItem[], emptyText: string, isOverviewSection = false) {
     return html`
       <section class="section">
-        <h3 class="section-title">${title}</h3>
-        ${isOverviewSection
-          ? html`
-              <div class="save-layers-row">
-                ${items.length > 0 ? html`
-                  <sl-tooltip content="Show all layers">
+        <div class="section-header-row ${isOverviewSection ? 'sticky' : ''}">
+          <h3 class="section-title" title=${title}>${title}</h3>
+          ${isOverviewSection
+            ? html`
+                <div class="section-actions">
+                  ${items.length > 0 ? html`
+                    <sl-tooltip content="Show all layers">
+                      <sl-icon-button
+                        name="eye"
+                        label="Show all layers"
+                        @click=${() => this.handleShowAllLayers()}
+                      ></sl-icon-button>
+                    </sl-tooltip>
+                    <sl-tooltip content="Hide all layers">
+                      <sl-icon-button
+                        name="eye-slash"
+                        label="Hide all layers"
+                        @click=${() => this.handleHideAllLayers()}
+                      ></sl-icon-button>
+                    </sl-tooltip>
+                    <sl-tooltip content="Clear all layers">
+                      <sl-icon-button
+                        name="trash"
+                        label="Clear all layers"
+                        @click=${() => this.handleClearAllLayers()}
+                      ></sl-icon-button>
+                    </sl-tooltip>
+                  ` : null}
+                  <sl-tooltip content="Permalink">
                     <sl-icon-button
-                      name="eye"
-                      label="Show all layers"
-                      @click=${() => this.handleShowAllLayers()}
+                      name="link-45deg"
+                      label="Permalink"
+                      @click=${() => this.handlePermalink()}
                     ></sl-icon-button>
                   </sl-tooltip>
-                  <sl-tooltip content="Hide all layers">
-                    <sl-icon-button
-                      name="eye-slash"
-                      label="Hide all layers"
-                      @click=${() => this.handleHideAllLayers()}
-                    ></sl-icon-button>
-                  </sl-tooltip>
-                  <sl-tooltip content="Clear all layers">
-                    <sl-icon-button
-                      name="trash"
-                      label="Clear all layers"
-                      @click=${() => this.handleClearAllLayers()}
-                    ></sl-icon-button>
-                  </sl-tooltip>
-                ` : null}
-                <sl-tooltip content="Permalink">
-                  <sl-icon-button
-                    name="link-45deg"
-                    label="Permalink"
-                    @click=${() => this.handlePermalink()}
-                  ></sl-icon-button>
-                </sl-tooltip>
-                ${items.length > 0 ? html`
-                  <sl-tooltip content="Save layer(s)…">
-                    <sl-icon-button
-                      name="download"
-                      label="Save layer(s)…"
-                      @click=${() => this.handleSaveLayers()}
-                    ></sl-icon-button>
-                  </sl-tooltip>
-                ` : null}
-              </div>
-            `
-          : null}
+                  ${items.length > 0 ? html`
+                    <sl-tooltip content="Save layer(s)…">
+                      <sl-icon-button
+                        name="download"
+                        label="Save layer(s)…"
+                        @click=${() => this.handleSaveLayers()}
+                      ></sl-icon-button>
+                    </sl-tooltip>
+                  ` : null}
+                </div>
+              `
+            : null}
+        </div>
         ${items.length > 0
           ? html`
               <div class="layer-list">
@@ -824,6 +891,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                                         @input=${(e: Event) => this.handleTransparencyChange(item.layerId, e)}
                                         @mouseenter=${() => { this.hoveredTransparencySliderLayerId = item.layerId; }}
                                         @mouseleave=${() => { this.hoveredTransparencySliderLayerId = null; }}
+                                        @pointerdown=${(e: PointerEvent) => (e.currentTarget as HTMLElement).closest('sl-tooltip')?.hide()}
+                                        @focus=${(e: FocusEvent) => (e.currentTarget as HTMLElement).closest('sl-tooltip')?.hide()}
                                       />
                                     </sl-tooltip>
                                     ${this.editingTransparencyLayerId === item.layerId
@@ -912,6 +981,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
 
     e.preventDefault();
     handle.setPointerCapture(e.pointerId);
+    // Pointer capture keeps the drag-handle "hovered" for the rest of the
+    // drag regardless of where the cursor actually moves, so the tooltip
+    // would otherwise sit open the whole time instead of just before the
+    // grab. Hide it explicitly the moment the drag starts.
+    void handle.closest('sl-tooltip')?.hide();
 
     const cardRect = card.getBoundingClientRect();
     const listRect = list.getBoundingClientRect();

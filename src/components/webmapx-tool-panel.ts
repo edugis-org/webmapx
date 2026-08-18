@@ -268,7 +268,7 @@ export class WebmapxToolPanel extends LitElement {
     }
 
     :host([active]) {
-      display: flex;      
+      display: flex;
     }
 
     .panel-header {
