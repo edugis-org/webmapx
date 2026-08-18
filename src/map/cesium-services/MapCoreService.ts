@@ -484,13 +484,13 @@ export class MapCoreService implements IMapCore {
             const north = bbox[3];
             const rectangle = Cesium.Rectangle.fromDegrees(west, south, east, north);
             const camera = this.viewer.camera;
-            camera.flyTo({ destination: rectangle, duration: 0.7 });
+            camera.flyTo({ destination: rectangle, duration: 3 });
         } catch (_e) {
             // fallback: center
             const lon = (bbox[0] + bbox[2]) / 2;
             const lat = (bbox[1] + bbox[3]) / 2;
             const height = this.zoomToCameraHeightMeters(this.getViewportState().zoom, lat);
-            this.viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(lon, lat, height), duration: 0.7 });
+            this.viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(lon, lat, height), duration: 3 });
         }
     }
 

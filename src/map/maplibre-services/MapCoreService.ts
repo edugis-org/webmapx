@@ -584,7 +584,10 @@ export class MapCoreService implements IMapCore {
         // MapLibre expects [[west, south], [east, north]]
         try {
             // fitBounds expects [[west, south], [east, north]] as [lng, lat]
-            this.mapInstance.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 40, animate: true });
+            // essential: true - without it, MapLibre silently zeroes the duration whenever
+            // the OS/browser has "reduce motion" on. This flight is a direct button click,
+            // not decorative motion, so it should still play.
+            this.mapInstance.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 40, animate: true, duration: 3000, essential: true });
         } catch (_e) {
             // fallback: set center + approximate zoom
             const lon = (bbox[0] + bbox[2]) / 2;
