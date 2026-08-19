@@ -13,7 +13,7 @@ import VectorTileLayer from 'ol/layer/VectorTile';
 import XYZ from 'ol/source/XYZ';
 import VectorSource from 'ol/source/Vector';
 import VectorTileSource from 'ol/source/VectorTile';
-import GeoJSON from 'ol/format/GeoJSON';
+import { WebmapxGeoJSON as GeoJSON } from './geojson-format';
 import MVT from 'ol/format/MVT';
 import RenderFeature, { toFeature } from 'ol/render/Feature';
 import ImageWMS from 'ol/source/ImageWMS';

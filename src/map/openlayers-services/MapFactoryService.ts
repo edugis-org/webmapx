@@ -7,7 +7,7 @@ import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import OSM from 'ol/source/OSM';
 import XYZ from 'ol/source/XYZ';
-import GeoJSON from 'ol/format/GeoJSON';
+import { WebmapxGeoJSON as GeoJSON } from './geojson-format';
 import { Fill, Stroke, Style } from 'ol/style';
 import { fromLonLat } from 'ol/proj';
 import { ISubMapFactory, ISubMap, ILayer, ISource, MapCreateOptions, LayerSpec } from '../IMapInterfaces';
