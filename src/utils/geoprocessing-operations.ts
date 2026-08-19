@@ -17,7 +17,7 @@
 
 import polylabel from 'polylabel';
 import { Delaunay } from 'd3-delaunay';
-import { cartogram, mapGeometry } from './cartogram';
+import { cartogram } from './cartogram';
 import { topology } from 'topojson-server';
 import { presimplify } from 'topojson-simplify';
 import { feature as topoFeature } from 'topojson-client';
@@ -170,7 +170,34 @@ export interface GeoSqlContext {
 export type GeoCompute = (
     input: GeoJSON.FeatureCollection,
     params: GeoParamValues,
-) => GeoJSON.FeatureCollection;
+    context: GeoComputeContext,
+) => ComputedCollection | Promise<ComputedCollection>;
+
+/**
+ * A `compute` result, optionally saying what the caller should be told about it.
+ *
+ * The runner already reports what it can see from outside — features dropped,
+ * counts in and out — but only the operation knows whether its own answer is any
+ * good. An approximate method that quietly returns a bad approximation is worse
+ * than one that fails, so it says so here and the runner passes it on.
+ */
+export interface ComputedCollection extends GeoJSON.FeatureCollection {
+    warnings?: string[];
+}
+
+/**
+ * What a `compute` operation needs from its host and cannot import itself.
+ *
+ * Only asset URLs so far: a WASM binary is renamed by the bundler, so the file
+ * that owns the `?url` import (the worker) has to hand the address down. The
+ * runner stays free of bundler syntax that way, which is what lets the tests run
+ * it under plain Node — where the package resolves its own binary and this is
+ * left empty.
+ */
+export interface GeoComputeContext {
+    /** Address of go-cart's `cart.wasm`, used by the diffusion cartogram. */
+    goCartWasmUrl?: string;
+}
 
 /** Same contract as `GeoCompute`, but applied to a result rather than an input. */
 export type GeoPostProcess = GeoCompute;
@@ -199,6 +226,18 @@ export interface GeoOperation {
      */
     buildSql?: (ctx: GeoSqlContext) => string;
     compute?: GeoCompute;
+    /**
+     * Which coordinates `compute` wants. The default is EPSG:3857, because a
+     * planar algorithm needs metres and most of these do.
+     *
+     * `'lonlat'` hands the operation the input untouched and takes its output as
+     * the result, skipping both reprojections. It is for an operation that
+     * measures on the *sphere* and would otherwise have to undo the projection
+     * itself — the cartogram, which sizes shapes by ground area and for which
+     * Mercator's 1/cos²(lat) inflation is the whole problem. Metric parameters
+     * are not scaled in this mode, since there is no projection to scale into.
+     */
+    computeSpace?: 'metric' | 'lonlat';
     /**
      * Cleanup applied to the *result*, in EPSG:3857, before it is reprojected
      * back. Not a third computation branch: `buildSql`/`compute` answer the
@@ -330,6 +369,17 @@ function unionBranch(
  * 8833 of the 8906 go and the lake stays.
  */
 const AUTO_HOLE_FRACTION = 1e-3;
+
+/**
+ * Median area error above which a cartogram is reported as not having worked.
+ *
+ * 10% is the point where reading the map gives the wrong answer: a region shown
+ * a tenth too large is no longer comparable with its neighbour. The contiguous
+ * method's own promise is a few percent at the median, so this does not fire on
+ * a normal run.
+ */
+const MISLEADING_AREA_ERROR = 0.1;
+
 
 function ringSignedArea(ring: GeoJSON.Position[]): number {
     let sum = 0;
@@ -496,50 +546,6 @@ function labelPoints(input: GeoJSON.FeatureCollection, params: GeoParamValues): 
     }
 
     return { type: 'FeatureCollection', features };
-}
-
-// ─── Web Mercator ⇄ lon/lat ──────────────────────────────────────────────────
-
-/**
- * The two halves of the Mercator round trip the cartogram undoes.
- *
- * Closed-form and exact (EPSG:3857 is defined on a sphere of exactly this
- * radius), so converting out and back adds no error — only the cost of walking
- * the coordinates, which is what the operation already does anyway.
- */
-const WEB_MERCATOR_RADIUS = 6378137;
-
-function fromWebMercator(fc: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
-    return {
-        ...fc,
-        features: fc.features.map(feature => (feature.geometry ? {
-            ...feature,
-            geometry: mapGeometry(feature.geometry, ([x, y]) => [
-                (x / WEB_MERCATOR_RADIUS) * (180 / Math.PI),
-                (2 * Math.atan(Math.exp(y / WEB_MERCATOR_RADIUS)) - Math.PI / 2) * (180 / Math.PI),
-            ]),
-        } : feature)),
-    };
-}
-
-function toWebMercator(fc: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
-    const limit = 89.9999;
-    return {
-        ...fc,
-        features: fc.features.map(feature => (feature.geometry ? {
-            ...feature,
-            geometry: mapGeometry(feature.geometry, ([lon, lat]) => {
-                // Mercator sends the poles to infinity; a cartogram circle can
-                // legitimately reach one, and an infinite coordinate would take
-                // the whole feature with it.
-                const clamped = Math.min(Math.max(lat, -limit), limit) * (Math.PI / 180);
-                return [
-                    (lon * Math.PI) / 180 * WEB_MERCATOR_RADIUS,
-                    WEB_MERCATOR_RADIUS * Math.log(Math.tan(Math.PI / 4 + clamped / 2)),
-                ];
-            }),
-        } : feature)),
-    };
 }
 
 // ─── Voronoi / Delaunay ──────────────────────────────────────────────────────
@@ -1502,14 +1508,16 @@ export const GEO_OPERATIONS: GeoOperation[] = [
             {
                 kind: 'select',
                 key: 'method',
-                label: 'Shape',
-                default: 'contiguous',
+                label: 'Cartogram type',
+                default: 'flow',
                 options: [
-                    { value: 'contiguous', label: 'keep the map joined up (classic)' },
+                    { value: 'flow', label: 'keep the map joined up, exact areas' },
+                    { value: 'contiguous', label: 'keep the map joined up (classic, faster)' },
+                    { value: 'diffusion', label: 'keep the map joined up, exact areas (go-cart WASM)' },
                     { value: 'scaled', label: 'resize each shape on the spot' },
                     { value: 'dorling', label: 'replace each by a circle (Dorling)' },
                 ],
-                hint: 'The classic cartogram stretches one sheet, so countries still touch. The other two leave gaps but keep every shape exactly.',
+                hint: 'The joined-up types stretch one sheet, so countries still touch. The default solves the flow that equalises the areas, and matches the numbers to a percent or two; the classic one pushes boundaries around instead — quicker, and rougher. The last two leave gaps but keep every shape exactly.',
             },
             {
                 kind: 'number',
@@ -1519,8 +1527,19 @@ export const GEO_OPERATIONS: GeoOperation[] = [
                 min: 1,
                 max: 40,
                 step: 1,
-                showWhen: params => (params.method ?? 'contiguous') === 'contiguous',
+                showWhen: params => (params.method ?? 'flow') === 'contiguous',
                 hint: 'More passes fit the areas better and take longer',
+            },
+            {
+                kind: 'number',
+                key: 'minValuePercent',
+                label: 'Leave out anything below',
+                default: 0,
+                min: 0,
+                max: 5,
+                step: 0.001,
+                unit: '%',
+                hint: 'Share of the layer total. A region asked to shrink ten-thousandfold cannot get there, and it drags the rest of the map with it. 0 keeps every feature.',
             },
             {
                 kind: 'number',
@@ -1542,21 +1561,47 @@ export const GEO_OPERATIONS: GeoOperation[] = [
         // look wrong. The other two remain because they keep every shape exactly,
         // which the rubber sheet does not.
         //
-        // The runner hands every `compute` operation EPSG:3857 and wants it back,
-        // but a cartogram is about *ground area* and Mercator inflates that by
-        // 1/cos²(latitude) — sizing Greenland in Mercator would start from an
-        // area four times too big. `cartogram()` measures on the sphere from
-        // lon/lat, so the round trip through Mercator is undone here and redone
-        // afterwards; it is closed-form and exact, and keeps the change local to
-        // this operation instead of teaching the pipeline about projections.
-        compute: (input, params) => toWebMercator(cartogram(fromWebMercator(input), {
+        // A cartogram is about *ground area*, and Mercator inflates that by
+        // 1/cos²(latitude) — sizing Greenland from a Mercator area would start
+        // four times too big — so this measures on the sphere from lon/lat and
+        // asks the runner for the input untouched. It used to undo the pipeline's
+        // Mercator round trip itself, which was correct but paid for two full
+        // GDAL reprojections of the layer to arrive back where it started: 16 of
+        // the 26 seconds a 562 000-vertex world layer took end to end.
+        computeSpace: 'lonlat',
+        compute: async (input, params, context) => {
+            const result = await cartogram(input, {
             field: String(params.field ?? ''),
             method: params.method === 'dorling' ? 'dorling'
                 : params.method === 'scaled' ? 'scaled'
-                : 'contiguous',
+                : params.method === 'diffusion' ? 'diffusion'
+                : params.method === 'contiguous' ? 'contiguous'
+                : 'flow',
             iterations: Number(params.iterations) || undefined,
             passes: Number(params.passes) || undefined,
-        }).features),
+                minValuePercent: Number(params.minValuePercent) || 0,
+                // The plane the flow method warps in is fixed inside
+                // `cartogram.ts` and deliberately not the map's own projection:
+                // a cartogram is a statement about *ground* area, so the same
+                // layer and the same attribute must give the same map whatever
+                // the reader happens to be looking at.
+                wasmUrl: context.goCartWasmUrl,
+            });
+
+            // Both joined-up methods only approximate, and both can return a map
+            // that looks right and is not: the rubber sheet may need more passes
+            // than it was given, and diffusion may have hit its own iteration cap
+            // — measured at a median error of 87% on a world layer whose values
+            // spanned five orders of magnitude, with nothing said about it.
+            const error = result.medianAreaError;
+            const warnings = error > MISLEADING_AREA_ERROR
+                ? [`The areas are still about ${(error * 100).toFixed(0)}% away from the values. ${params.method !== 'contiguous'
+                    ? 'This method struggles when a layer mixes very large values with very small ones — try the classic method, or leave the smallest features out.'
+                    : 'Raise "Detail" for more rounds, or leave the smallest features out.'}`]
+                : undefined;
+
+            return { ...result.features, warnings };
+        },
     },
     {
         id: 'voronoi',

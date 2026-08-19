@@ -21,6 +21,10 @@ import { parseGdalGeoJSON } from '../utils/geojson-crs';
 import wasmUrl from 'gdal3.js/dist/package/gdal3WebAssembly.wasm?url';
 import dataUrl from 'gdal3.js/dist/package/gdal3WebAssembly.data?url';
 import workerJsUrl from 'gdal3.js/dist/package/gdal3.js?url';
+// The diffusion cartogram's WASM. Imported for its address only — the module
+// itself is loaded lazily, inside `cartogram()`, so a session that never builds
+// one never fetches it.
+import goCartWasmUrl from 'go-cart-wasm/dist/cart.wasm?url';
 
 // ─── Message types (re-exported so the manager can import them) ───────────────
 
@@ -383,7 +387,7 @@ self.onmessage = async (e: MessageEvent<SpatialRequest>) => {
                 result = await buffer(gdal, operation.input, operation.distanceMeters, operation.segments, operation.centerLat);
                 break;
             case 'geoprocess':
-                result = await runGeoprocess(gdal as unknown as GdalLike, operation);
+                result = await runGeoprocess(gdal as unknown as GdalLike, operation, { goCartWasmUrl });
                 break;
             case 'convertToGeoJSON':
                 result = await convertToGeoJSON(gdal, operation.data, operation.filename);

@@ -23,6 +23,7 @@ import { parseGdalGeoJSON } from '../utils/geojson-crs';
 import {
     METRIC_PARAMS,
     getOperation,
+    type GeoComputeContext,
     type GeoParamValues,
 } from '../utils/geoprocessing-operations';
 
@@ -313,6 +314,9 @@ function scaleMetricParams(params: GeoParamValues, centerLat: number): GeoParamV
 export async function runGeoprocess(
     gdal: GdalLike,
     request: GeoprocessRequest,
+    // Asset addresses a `compute` operation cannot resolve for itself; the
+    // worker owns the `?url` imports so this file stays plain TypeScript.
+    context: GeoComputeContext = {},
 ): Promise<GeoprocessResult> {
     const operation = getOperation(request.operationId);
     if (!operation) throw new Error(`Unknown geoprocessing operation: ${request.operationId}`);
@@ -321,6 +325,27 @@ export async function runGeoprocess(
     if (needsB && !request.inputB) throw new Error(`"${operation.label}" needs two input layers.`);
     if (!request.inputA.features.length) throw new Error('The input layer has no features.');
     if (needsB && !request.inputB!.features.length) throw new Error('The second layer has no features.');
+
+    // An operation that works in lon/lat skips the metric round trip entirely.
+    // Not a saving worth having on a small layer, but the trip is two full GDAL
+    // reprojections plus two JSON round trips of the whole dataset: measured on
+    // 253 dissolved countries (562 000 vertices) it was 16 of the 26 seconds,
+    // and the cartogram then spent part of the remainder undoing it.
+    if (operation.compute && operation.computeSpace === 'lonlat') {
+        const warnings: string[] = [];
+        const computed = await operation.compute(
+            flattenTo2D(request.inputA),
+            request.params,
+            context,
+        );
+        const skipped = request.inputA.features.length - computed.features.length;
+        if (skipped > 0) {
+            warnings.push(`${skipped} ${skipped === 1 ? 'feature' : 'features'} were skipped by ${operation.label} — their geometry is not of a type it can use.`);
+        }
+        // Only the operation knows whether its own answer is a good one.
+        warnings.push(...(computed.warnings ?? []));
+        return withWarnings(dropEmptyGeometries(computed, warnings), warnings);
+    }
 
     const metricA = await toMetric(gdal, request.inputA, LAYER_A);
     const metricB = needsB ? await toMetric(gdal, request.inputB!, LAYER_B) : null;
@@ -345,11 +370,12 @@ export async function runGeoprocess(
     // is the same, so a JS operation is not a second pipeline.
     if (operation.compute) {
         const metric = await readFeatureCollection(gdal, pathA);
-        const computed = operation.compute(metric, params);
+        const computed = await operation.compute(metric, params, context);
         const skipped = metric.features.length - computed.features.length;
         if (skipped > 0) {
             warnings.push(`${skipped} ${skipped === 1 ? 'feature' : 'features'} were skipped by ${operation.label} — their geometry is not of a type it can use.`);
         }
+        warnings.push(...(computed.warnings ?? []));
         return withWarnings(await backToWgs84(gdal, computed, warnings), warnings);
     }
 
@@ -391,7 +417,7 @@ export async function runGeoprocess(
         // the same thing in both. It costs a parse of the whole result, hence
         // the `postProcessNeeded` gate rather than running it unconditionally.
         if (operation.postProcess && operation.postProcessNeeded?.(params) !== false) {
-            const cleaned = operation.postProcess(await readFeatureCollection(gdal, pathOf(computed)), params);
+            const cleaned = await operation.postProcess(await readFeatureCollection(gdal, pathOf(computed)), params, context);
             return withWarnings(await backToWgs84(gdal, cleaned, warnings), warnings);
         }
 

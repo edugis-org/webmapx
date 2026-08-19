@@ -1228,6 +1228,16 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
         return nothing;
     }
 
+    /** A required `field` param with nothing chosen makes the SQL/compute meaningless, so Calculate stays off. */
+    private hasMissingRequiredField(): boolean {
+        const op = this.operation;
+        if (!op) return false;
+        return op.params.some(param =>
+            param.kind === 'field'
+            && !param.optional
+            && !String(this.params[param.key] ?? '').trim());
+    }
+
     private renderActions(): TemplateResult {
         const op = this.operation;
         return html`
@@ -1251,7 +1261,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
                         <sl-button
                             size="small"
                             variant="primary"
-                            ?disabled=${!op || !this.availableLayers.length}
+                            ?disabled=${!op || !this.availableLayers.length || this.hasMissingRequiredField()}
                             @click=${this.handleRun}
                         >Calculate</sl-button>`}
             </div>`;

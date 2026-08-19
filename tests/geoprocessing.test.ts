@@ -681,6 +681,42 @@ test('cartogram resizes features by an attribute, end to end', { timeout: TIMEOU
     assert.equal(out.features[0].properties?.pop, 100);
 });
 
+test('cartogram keeps lon/lat coordinates and honours the minimum value', { timeout: TIMEOUT }, async () => {
+    // The cartogram skips the pipeline's metric round trip (`computeSpace`), so
+    // this is what proves its output is still lon/lat rather than 3857 metres —
+    // a mistake that would put every result in the Gulf of Guinea.
+    const input = fc(
+        square(10, 40, 1, { name: 'big', pop: 900 }),
+        square(13, 40, 1, { name: 'medium', pop: 96 }),
+        square(16, 40, 1, { name: 'tiny', pop: 4 }),
+    );
+
+    const out = await run('cartogram', input, undefined, { field: 'pop', method: 'scaled', minValuePercent: 0.5 });
+    assert.deepEqual(out.features.map(f => f.properties?.name), ['big', 'medium']);
+
+    const [lon, lat] = (out.features[0].geometry as GeoJSON.Polygon).coordinates[0][0];
+    assert.ok(Math.abs(lon - 10) < 1 && Math.abs(lat - 40) < 1, `expected lon/lat near 10,40 — got ${lon}, ${lat}`);
+});
+
+test('a cartogram that did not converge says so', { timeout: TIMEOUT }, async () => {
+    // Called directly rather than through GDAL: this is about the operation's own
+    // report, and a warning is the only thing standing between a student and a
+    // map whose areas mean nothing.
+    const op = getOperation('cartogram')!;
+    const input = fc(
+        square(0, 0, 1, { name: 'a', pop: 1 }),
+        square(3, 0, 1, { name: 'b', pop: 1 }),
+        square(6, 0, 1, { name: 'c', pop: 400 }),
+    );
+
+    const barely = await op.compute!(input, { field: 'pop', method: 'contiguous', passes: 1 }, {});
+    assert.ok(barely.warnings?.length, 'one pass cannot size these and must say so');
+    assert.match(barely.warnings![0], /away from the values/);
+
+    const exact = await op.compute!(input, { field: 'pop', method: 'scaled' }, {});
+    assert.equal(exact.warnings, undefined, 'an exact method warns about nothing');
+});
+
 test('cartogram in circle mode returns one circle per feature', { timeout: TIMEOUT }, async () => {
     const input = fc(
         square(0, 0, 1, { name: 'a', pop: 100 }),
@@ -1075,7 +1111,7 @@ test('simplify repairs the crossings a large tolerance creates', { timeout: TIME
     // Degrees here (calling compute directly), so these stand in for the metre
     // tolerances the app passes after reprojection.
     for (const tolerance of [0.1, 0.5, 0.9]) {
-        const out: FC = op!.compute!(countries, { tolerance });
+        const out = await op!.compute!(countries, { tolerance }, {}) as FC;
         assert.equal(countCrossings(out), 0, `tolerance ${tolerance} left self-intersections`);
     }
 });
@@ -1085,7 +1121,7 @@ test('simplify still removes most points despite repair', { timeout: TIMEOUT }, 
     const op = getOperation('simplify');
     const points = (c: FC) => c.features.reduce((sum, f) => sum + ringsOf(f).reduce((s, r) => s + r.length, 0), 0);
 
-    const out = op!.compute!(countries, { tolerance: 0.5 });
+    const out = await op!.compute!(countries, { tolerance: 0.5 }, {}) as FC;
     const kept = points(out) / points(countries);
     // Repair gives detail back only to the guilty arcs; if it ever starts
     // restoring everything, simplification silently stops doing anything.

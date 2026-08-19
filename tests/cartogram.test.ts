@@ -9,7 +9,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import path from 'node:path';
+
 import { cartogram, featureArea, featureCentroid } from '../src/utils/cartogram';
+
+// Taken from the repository rather than resolved: the tests are bundled into a
+// temp directory, so neither `import.meta.url` nor `require.resolve` can find
+// node_modules from where this code ends up running. `npm test` runs with the
+// repository as its working directory.
+const GO_CART_WASM = path.join(process.cwd(), 'node_modules/go-cart-wasm/dist/cart.wasm');
 
 type FC = GeoJSON.FeatureCollection;
 
@@ -41,7 +49,7 @@ const EQUAL_SQUARES: FC = fc(
     square(6, 0, 1, { name: 'c', pop: 200 }),
 );
 
-test('square degrees are not an area: the same box is smaller further north', () => {
+test('square degrees are not an area: the same box is smaller further north', async () => {
     // The reason this module measures on the sphere at all. GeoJSON is lon/lat
     // (RFC 7946), and a 10x10-degree box at 60°N covers about half the ground of
     // one on the equator — measuring in degrees would hand the northern one twice
@@ -56,7 +64,7 @@ test('square degrees are not an area: the same box is smaller further north', ()
     assert.ok(equator > 1.1e12 && equator < 1.4e12, `${equator.toExponential(2)} m²`);
 });
 
-test('featureArea excludes holes and handles multipart geometry', () => {
+test('featureArea excludes holes and handles multipart geometry', async () => {
     const withHole: GeoJSON.Geometry = {
         type: 'Polygon',
         coordinates: [
@@ -79,7 +87,7 @@ test('featureArea excludes holes and handles multipart geometry', () => {
     assert.ok(Math.abs(featureArea(multi) - parts) < 1, 'parts are summed');
 });
 
-test('featureCentroid weights parts by area, not by vertex count', () => {
+test('featureCentroid weights parts by area, not by vertex count', async () => {
     // A big plain square and a tiny but finely drawn one: a vertex mean would be
     // dragged towards the detailed part.
     const detailed: GeoJSON.Position[] = [];
@@ -95,8 +103,8 @@ test('featureCentroid weights parts by area, not by vertex count', () => {
     assert.ok(centre[0] < 15, `expected the centroid near the large part, got ${centre[0]}`);
 });
 
-test('scaled cartogram makes area proportional to the value', () => {
-    const out = cartogram(EQUAL_SQUARES, { field: 'pop', method: 'scaled' }).features;
+test('scaled cartogram makes area proportional to the value', async () => {
+    const out = (await cartogram(EQUAL_SQUARES, { field: 'pop', method: 'scaled' })).features;
     assert.equal(out.features.length, 3);
 
     const areaOf = (name: string) => featureArea(out.features.find(f => f.properties?.name === name)!.geometry);
@@ -106,7 +114,7 @@ test('scaled cartogram makes area proportional to the value', () => {
     assert.ok(Math.abs(c / a - 2) < 1e-3, `c/a = ${c / a}`);
 });
 
-test('a continent-sized shape keeps its area to within a rounding error', () => {
+test('a continent-sized shape keeps its area to within a rounding error', async () => {
     // The one approximation in the module, measured rather than hand-waved: a
     // ring's edges are straight lines in lon/lat (the GeoJSON convention), and
     // scaling in an equal-area plane bends them slightly differently, so the area
@@ -117,23 +125,23 @@ test('a continent-sized shape keeps its area to within a rounding error', () => 
         square(0, 0, 10, { name: 'a', pop: 100 }),
         square(30, 0, 10, { name: 'b', pop: 300 }),
     );
-    const out = cartogram(huge, { field: 'pop', method: 'scaled' }).features;
+    const out = (await cartogram(huge, { field: 'pop', method: 'scaled' })).features;
     const areaOf = (name: string) => featureArea(out.features.find(f => f.properties?.name === name)!.geometry);
     const ratio = areaOf('b') / areaOf('a');
     assert.ok(Math.abs(ratio - 3) < 0.01, `b/a = ${ratio}`);
 });
 
-test('a cartogram keeps the total area of the layer', () => {
+test('a cartogram keeps the total area of the layer', async () => {
     // Only the distribution of area changes, so two cartograms of one layer are
     // comparable and a layer measured in millions does not produce continents.
     const before = EQUAL_SQUARES.features.reduce((sum, f) => sum + featureArea(f.geometry), 0);
-    const after = cartogram(EQUAL_SQUARES, { field: 'pop', method: 'scaled' }).features
+    const after = (await cartogram(EQUAL_SQUARES, { field: 'pop', method: 'scaled' })).features
         .features.reduce((sum, f) => sum + featureArea(f.geometry), 0);
     assert.ok(Math.abs(after / before - 1) < 1e-4, `total area changed by ${(after / before - 1) * 100}%`);
 });
 
-test('scaled features stay where they were and keep their attributes', () => {
-    const out = cartogram(EQUAL_SQUARES, { field: 'pop', method: 'scaled' }).features;
+test('scaled features stay where they were and keep their attributes', async () => {
+    const out = (await cartogram(EQUAL_SQUARES, { field: 'pop', method: 'scaled' })).features;
     for (const feature of out.features) {
         const original = EQUAL_SQUARES.features.find(f => f.properties?.name === feature.properties?.name)!;
         const before = featureCentroid(original.geometry)!;
@@ -144,8 +152,8 @@ test('scaled features stay where they were and keep their attributes', () => {
     }
 });
 
-test('dorling draws circles of proportional area that do not overlap', () => {
-    const out = cartogram(EQUAL_SQUARES, { field: 'pop', method: 'dorling', iterations: 200 }).features;
+test('dorling draws circles of proportional area that do not overlap', async () => {
+    const out = (await cartogram(EQUAL_SQUARES, { field: 'pop', method: 'dorling', iterations: 200 })).features;
     assert.equal(out.features.length, 3);
 
     // Compared by area rather than by the reported radius: what the reader judges
@@ -181,13 +189,13 @@ function groundDistance([lon1, lat1]: GeoJSON.Position, [lon2, lat2]: GeoJSON.Po
     return 2 * R * Math.asin(Math.min(Math.sqrt(a), 1));
 }
 
-test('coincident centres are separated rather than turned into NaN', () => {
+test('coincident centres are separated rather than turned into NaN', async () => {
     // Two features with the same centroid have no direction to move apart along.
     const stacked = fc(
         square(0, 0, 10, { name: 'a', v: 1 }),
         square(0, 0, 10, { name: 'b', v: 1 }),
     );
-    const out = cartogram(stacked, { field: 'v', method: 'dorling', iterations: 50 }).features;
+    const out = (await cartogram(stacked, { field: 'v', method: 'dorling', iterations: 50 })).features;
     for (const feature of out.features) {
         const centre = featureCentroid(feature.geometry)!;
         assert.ok(Number.isFinite(centre[0]) && Number.isFinite(centre[1]), `centre is ${centre}`);
@@ -215,13 +223,13 @@ function vertexKeys(feature: GeoJSON.Feature): Set<string> {
     return new Set(polys.flat(2).map(p => `${p[0].toFixed(9)},${p[1].toFixed(9)}`));
 }
 
-test('a contiguous cartogram keeps neighbours joined along their shared border', () => {
+test('a contiguous cartogram keeps neighbours joined along their shared border', async () => {
     // The property that separates this from the other two methods, and the whole
     // reason it exists: the shapes are not resized one by one, every boundary
     // point moves under the forces of all regions at once. Two features sharing a
     // border share those coordinates, so both copies move identically.
     const input = grid([1, 5, 1, 5, 20, 5, 1, 5, 1]);
-    const out = cartogram(input, { field: 'v', method: 'contiguous', passes: 8 }).features;
+    const out = (await cartogram(input, { field: 'v', method: 'contiguous', passes: 8 })).features;
 
     const sharedBefore = (a: string, b: string) => {
         const ka = vertexKeys(input.features.find(f => f.properties?.name === a)!);
@@ -240,7 +248,7 @@ test('a contiguous cartogram keeps neighbours joined along their shared border',
     }
 });
 
-test('a contiguous cartogram moves area towards the value', () => {
+test('a contiguous cartogram moves area towards the value', async () => {
     // Not "matches the value": a rubber sheet trades exactness for staying joined
     // up, and every region is pulling against its neighbours. What must be true is
     // that the big value ends up much bigger than the small ones, and that more
@@ -252,8 +260,8 @@ test('a contiguous cartogram moves area towards the value', () => {
     const before = areaOf(input, 'c4') / areaOf(input, 'c0');
     assert.ok(Math.abs(before - 1) < 0.05, 'the input squares start out the same size');
 
-    const coarse = cartogram(input, { field: 'v', method: 'contiguous', passes: 3 }).features;
-    const fine = cartogram(input, { field: 'v', method: 'contiguous', passes: 15 }).features;
+    const coarse = (await cartogram(input, { field: 'v', method: 'contiguous', passes: 3 })).features;
+    const fine = (await cartogram(input, { field: 'v', method: 'contiguous', passes: 15 })).features;
 
     const ratio = (out: FC) => areaOf(out, 'c4') / areaOf(out, 'c0');
     assert.ok(ratio(coarse) > 2, `expected the middle square to grow, got ${ratio(coarse).toFixed(1)}x`);
@@ -262,9 +270,51 @@ test('a contiguous cartogram moves area towards the value', () => {
         `15 passes (${ratio(fine).toFixed(1)}x) should beat 3 passes (${ratio(coarse).toFixed(1)}x)`);
 });
 
-test('a contiguous cartogram keeps every feature and its attributes', () => {
+test('a diffusion cartogram hits the target areas, not just the direction', async () => {
+    // The reason this method exists. Where the rubber sheet above is asserted on
+    // *convergence*, the flow-based one solves the density-equalising problem
+    // itself, so the areas it produces can be checked against the values
+    // outright. Same grid, same 20:1 value, and no tolerance beyond a percent.
+    const input = grid([1, 1, 1, 1, 20, 1, 1, 1, 1]);
+    // The tests are bundled into a temp directory, so the WASM binary cannot be
+    // found next to the bundle — the same reason the browser has to be told, and
+    // why the option exists at all.
+    const out = (await cartogram(input, { field: 'v', method: 'diffusion', wasmUrl: GO_CART_WASM })).features;
+
+    const areaOf = (name: string) =>
+        featureArea(out.features.find(f => f.properties?.name === name)!.geometry);
+    const ratio = areaOf('c4') / areaOf('c0');
+    assert.ok(Math.abs(ratio - 20) / 20 < 0.05, `expected 20x by area, got ${ratio.toFixed(2)}x`);
+
+    // Every corner carries the same value, so they must come out the same size.
+    const corners = ['c0', 'c2', 'c6', 'c8'].map(areaOf);
+    const spread = Math.max(...corners) / Math.min(...corners);
+    assert.ok(spread < 1.05, `equal values must give equal areas, spread was ${spread.toFixed(2)}`);
+    assert.equal(out.features.length, input.features.length);
+});
+
+test('the @edugis/cartogram flow method hits the same target areas', async () => {
+    // Same assertion as the go-cart test above, on the same grid: the two are
+    // implementations of one algorithm, so a difference here is a bug in one of
+    // them rather than a property of the method. No wasmUrl — this one is
+    // TypeScript and needs no binary.
+    const input = grid([1, 1, 1, 1, 20, 1, 1, 1, 1]);
+    const out = (await cartogram(input, { field: 'v', method: 'flow' })).features;
+
+    const areaOf = (name: string) =>
+        featureArea(out.features.find(f => f.properties?.name === name)!.geometry);
+    const ratio = areaOf('c4') / areaOf('c0');
+    assert.ok(Math.abs(ratio - 20) / 20 < 0.05, `expected 20x by area, got ${ratio.toFixed(2)}x`);
+
+    const corners = ['c0', 'c2', 'c6', 'c8'].map(areaOf);
+    const spread = Math.max(...corners) / Math.min(...corners);
+    assert.ok(spread < 1.05, `equal values must give equal areas, spread was ${spread.toFixed(2)}`);
+    assert.equal(out.features.length, input.features.length);
+});
+
+test('a contiguous cartogram keeps every feature and its attributes', async () => {
     const input = grid([3, 1, 4, 1, 5, 9, 2, 6, 5]);
-    const out = cartogram(input, { field: 'v', method: 'contiguous', passes: 6 }).features;
+    const out = (await cartogram(input, { field: 'v', method: 'contiguous', passes: 6 })).features;
     assert.equal(out.features.length, 9);
     assert.deepEqual(
         out.features.map(f => f.properties?.name).sort(),
@@ -276,7 +326,7 @@ test('a contiguous cartogram keeps every feature and its attributes', () => {
     }
 });
 
-test('a scattered archipelago grows in place instead of flying apart', () => {
+test('a scattered archipelago grows in place instead of flying apart', async () => {
     // Scaling a multipart feature about one centroid multiplies the distance
     // between its parts as well as their size. On world countries sized to equal
     // area this ruined the islands: Tuvalu's nine islets have a centroid in open
@@ -292,7 +342,7 @@ test('a scattered archipelago grows in place instead of flying apart', () => {
         square(150, -8, 5, { name: 'mainland', pop: 100 }),
     );
 
-    const out = cartogram(archipelago, { field: 'pop', method: 'scaled' }).features;
+    const out = (await cartogram(archipelago, { field: 'pop', method: 'scaled' })).features;
     const islands = out.features.find(f => f.properties?.name === 'islands')!;
     const mainland = out.features.find(f => f.properties?.name === 'mainland')!;
     // Equal values, equal ground area.
@@ -305,7 +355,7 @@ test('a scattered archipelago grows in place instead of flying apart', () => {
         `the islands spread over ${(Math.max(...lons) - Math.min(...lons)).toFixed(0)}° of longitude`);
 });
 
-test('a feature straddling the date line is measured and placed correctly', () => {
+test('a feature straddling the date line is measured and placed correctly', async () => {
     // Half the coordinates near +180 and half near -180: the mean of those is 0,
     // which put Fiji's centre in Africa, and a longitude step read the long way
     // round inverted the area.
@@ -323,7 +373,7 @@ test('a feature straddling the date line is measured and placed correctly', () =
     const centre = featureCentroid(straddling.features[0].geometry)!;
     assert.ok(Math.abs(centre[0]) > 170, `centre longitude ${centre[0]} is not in the Pacific`);
 
-    const out = cartogram(straddling, { field: 'pop', method: 'scaled' }).features;
+    const out = (await cartogram(straddling, { field: 'pop', method: 'scaled' })).features;
     const area = featureArea(out.features[0].geometry);
     assert.ok(Number.isFinite(area) && area > 0, `area came out as ${area}`);
     // Sizing one feature by anything gives it the whole layer's area back.
@@ -331,7 +381,67 @@ test('a feature straddling the date line is measured and placed correctly', () =
     assert.ok(Math.abs(area / before - 1) < 0.01, `area changed by ${((area / before - 1) * 100).toFixed(1)}%`);
 });
 
-test('a ring that encircles a pole is measured, not misread', () => {
+test('a shape grown past the date line is cut at it, not folded across the map', async () => {
+    // Every method works in a metric plane and can push a shape past the edge of
+    // it. Folding each coordinate back into range on its own — what the inverse
+    // projections used to do — leaves half a ring at each edge of the map, and
+    // the renderer joins them straight through the middle: on 257 world
+    // countries that smeared the USA (-197°..199°), Russia, New Zealand, Fiji
+    // and Kiribati right across the globe.
+    const nearTheLine = fc(
+        square(176, -2, 4, { name: 'pacific', v: 9 }),
+        square(0, 0, 4, { name: 'elsewhere', v: 1 }),
+    );
+    const out = (await cartogram(nearTheLine, { field: 'v', method: 'scaled' })).features;
+    const grown = out.features.find(f => f.properties?.name === 'pacific')!;
+
+    const lons = (grown.geometry as GeoJSON.MultiPolygon | GeoJSON.Polygon).coordinates
+        .flat(2).map(p => (Array.isArray(p) ? p[0] : p)) as number[];
+    assert.ok(Math.max(...lons) <= 180 + 1e-9 && Math.min(...lons) >= -180 - 1e-9,
+        `longitudes ran to ${Math.min(...lons).toFixed(1)}..${Math.max(...lons).toFixed(1)}`);
+
+    // Cut in two, one piece each side of the line — not one piece spanning the
+    // whole world the wrong way round.
+    assert.equal(grown.geometry.type, 'MultiPolygon');
+    const parts = (grown.geometry as GeoJSON.MultiPolygon).coordinates;
+    assert.equal(parts.length, 2, 'the shape should be cut into two pieces');
+    for (const part of parts) {
+        const partLons = part[0].map(p => p[0]);
+        assert.ok(Math.max(...partLons) - Math.min(...partLons) < 180,
+            `a piece spans ${(Math.max(...partLons) - Math.min(...partLons)).toFixed(0)}° of longitude`);
+    }
+
+    // And cutting must not lose or duplicate ground: the pieces together are the
+    // area the value asked for.
+    const before = featureArea(nearTheLine.features[0].geometry);
+    const after = featureArea(grown.geometry);
+    const total = nearTheLine.features.reduce((sum, f) => sum + featureArea(f.geometry), 0);
+    const target = (total * 9) / 10;
+    assert.ok(Math.abs(after / target - 1) < 0.01,
+        `area is ${(after / target).toFixed(3)}x the target (was ${(before / 1e9).toFixed(0)} Mm²)`);
+});
+
+test('a ring that goes round a pole is kept in one piece', async () => {
+    // There is no meridian to cut it at, so it is pressed onto the world instead
+    // of being split. Antarctica is the case that matters — cutting it would
+    // replace one correct outline with two wrong ones.
+    const ring: GeoJSON.Position[] = [];
+    // A wavy coastline rather than a parallel: a ring of constant latitude has no
+    // area in lon/lat at all, and no centroid to go with it.
+    for (let lon = 180; lon >= -180; lon -= 10) ring.push([lon, -70 + 4 * Math.sin(lon * Math.PI / 180)]);
+    for (let lon = -180; lon <= 180; lon += 10) ring.push([lon, -85]);
+    ring.push(ring[0]);
+    const polar = fc({ type: 'Feature', properties: { name: 'antarctica-ish', v: 1 }, geometry: { type: 'Polygon', coordinates: [ring] } });
+
+    const out = (await cartogram(polar, { field: 'v', method: 'scaled' })).features;
+    const shape = out.features[0];
+    assert.equal(shape.geometry.type, 'Polygon', 'a polar ring must not be cut in two');
+    const lons = (shape.geometry as GeoJSON.Polygon).coordinates.flat().map(p => p[0]);
+    assert.ok(Math.max(...lons) <= 180 + 1e-9 && Math.min(...lons) >= -180 - 1e-9,
+        `longitudes ran to ${Math.min(...lons).toFixed(1)}..${Math.max(...lons).toFixed(1)}`);
+});
+
+test('a ring that encircles a pole is measured, not misread', async () => {
     // Dorling circles pushed towards a crowded pole can wrap right round it. The
     // spherical-excess formula measures the region between the ring and the
     // equator and misses the cap, which reported areas hundreds of times too big.
@@ -342,7 +452,7 @@ test('a ring that encircles a pole is measured, not misread', () => {
     assert.ok(area > 3.5e12 && area < 4.3e12, `${(area / 1e12).toFixed(2)} Mkm² is not a polar cap`);
 });
 
-test('features without a usable value are counted, not silently dropped', () => {
+test('features without a usable value are counted, not silently dropped', async () => {
     const mixed = fc(
         square(0, 0, 10, { name: 'ok', v: 5 }),
         square(20, 0, 10, { name: 'missing' }),
@@ -351,7 +461,7 @@ test('features without a usable value are counted, not silently dropped', () => 
         square(80, 0, 10, { name: 'negative', v: -3 }),
         { type: 'Feature', properties: { name: 'point', v: 9 }, geometry: { type: 'Point', coordinates: [0, 0] } },
     );
-    const result = cartogram(mixed, { field: 'v', method: 'scaled' });
+    const result = await cartogram(mixed, { field: 'v', method: 'scaled' });
     assert.equal(result.features.features.length, 1);
     // The three reasons are kept apart: they mean different things to whoever
     // picked the field.
@@ -360,8 +470,48 @@ test('features without a usable value are counted, not silently dropped', () => 
     assert.equal(result.skipped.noArea, 1, 'the point');
 });
 
-test('a field with nothing usable in it is an error, not an empty map', () => {
-    assert.throws(
+test('the minimum value is a share of the total, and drops are counted', async () => {
+    // A share rather than an absolute number, so the same setting means the same
+    // thing for people, euros and votes. Total here is 1000: 0.5% is 5.
+    const layer = fc(
+        square(0, 0, 10, { name: 'big', v: 900 }),
+        square(20, 0, 10, { name: 'medium', v: 96 }),
+        square(40, 0, 10, { name: 'tiny', v: 4 }),
+    );
+
+    const all = await cartogram(layer, { field: 'v', method: 'scaled' });
+    assert.equal(all.features.features.length, 3, 'nothing is dropped by default');
+    assert.equal(all.skipped.belowMinimum, 0);
+
+    const filtered = await cartogram(layer, { field: 'v', method: 'scaled', minValuePercent: 0.5 });
+    assert.deepEqual(filtered.features.features.map(f => f.properties?.name), ['big', 'medium']);
+    assert.equal(filtered.skipped.belowMinimum, 1);
+
+    // The kept features share out the kept area, so dropping one does not
+    // silently rescale the layer.
+    const keptArea = layer.features.slice(0, 2).reduce((sum, f) => sum + featureArea(f.geometry), 0);
+    const outArea = filtered.features.features.reduce((sum, f) => sum + featureArea(f.geometry), 0);
+    assert.ok(Math.abs(outArea / keptArea - 1) < 1e-3, `area changed by ${((outArea / keptArea - 1) * 100).toFixed(2)}%`);
+});
+
+test('a cartogram reports how far its areas ended up from the values', async () => {
+    // The approximate methods can return a map that looks like a cartogram and
+    // is not — one pass of the rubber sheet barely moves anything. Measuring that
+    // is what lets the tool say so instead of drawing a confident lie.
+    const input = grid([1, 1, 1, 1, 20, 1, 1, 1, 1]);
+
+    const exact = await cartogram(input, { field: 'v', method: 'scaled' });
+    assert.ok(exact.medianAreaError < 0.01, `scaled is exact, got ${exact.medianAreaError}`);
+
+    const barely = await cartogram(input, { field: 'v', method: 'contiguous', passes: 1 });
+    assert.ok(barely.medianAreaError > 0.1, `one pass cannot be good, got ${barely.medianAreaError}`);
+
+    const settled = await cartogram(input, { field: 'v', method: 'contiguous', passes: 20 });
+    assert.ok(settled.medianAreaError < barely.medianAreaError, 'more passes must report a smaller error');
+});
+
+test('a field with nothing usable in it is an error, not an empty map', async () => {
+    await assert.rejects(
         () => cartogram(EQUAL_SQUARES, { field: 'nonexistent', method: 'scaled' }),
         /No features have a usable number/,
     );

@@ -11,23 +11,34 @@
  * is resized in an equal-area projection centred on that shape, so the factor
  * applied is a factor of real ground area.
  *
- * Three methods:
+ * Four methods, two of which keep the map joined up:
  *
- * - `contiguous` (Dougenik rubber sheet, the default) stretches one sheet, so
- *   neighbours stay joined and the result still reads as a map. This is what
- *   people picture when they ask for a cartogram.
+ * - `contiguous` (Dougenik rubber sheet, the default) stretches one sheet by
+ *   hand, in a hundred lines and with no dependency. It converges towards the
+ *   target areas rather than reaching them, and on a layer with extreme values
+ *   it leaves a long tail.
+ * - `flow` (Gastner–Seguy–More again, through `@edugis/cartogram`) is the same
+ *   algorithm reimplemented in TypeScript, with its own equal-area projection,
+ *   topology-preserving densification and total-area correction. It exists
+ *   beside `diffusion` so the two can be compared on the same layer: the WASM
+ *   reference returns an empty or self-crossing geometry on some real layers
+ *   (worldpop country polygons), which is what this comparison is for.
+ * - `diffusion` (Gastner–Seguy–More, through `go-cart-wasm`) solves the
+ *   density-equalising flow itself. Essentially exact where it converges, and
+ *   the method Worldmapper uses, but it is slower and a layer whose values span
+ *   five orders of magnitude can stop it converging at all — see
+ *   `minValuePercent`.
  * - `scaled` (Olson) resizes each shape on the spot, keeping every outline
  *   exactly and leaving gaps between them.
  * - `dorling` throws the shape away and draws circles, which is easier to
  *   compare by eye when the values differ by orders of magnitude.
- *
- * Not implemented: Gastner–Newman diffusion, the smoother contiguous method
- * Worldmapper uses. It needs an FFT over a grid and belongs in a WASM library
- * (`go-cart-wasm`); Dougenik gets the same kind of map in a hundred lines and
- * no dependency.
  */
 
-export type CartogramMethod = 'contiguous' | 'scaled' | 'dorling';
+import proj4 from 'proj4';
+import { cartogram as edugisCartogram } from '@edugis/cartogram';
+import { getViewProjectionDef } from './view-projections';
+
+export type CartogramMethod = 'diffusion' | 'flow' | 'contiguous' | 'scaled' | 'dorling';
 
 export interface CartogramOptions {
     /** Attribute holding the value to size features by. */
@@ -37,12 +48,49 @@ export interface CartogramOptions {
     iterations?: number;
     /** `contiguous` only: how many rounds of rubber-sheeting. */
     passes?: number;
+    /**
+     * Leave out any feature whose value is below this share of the layer's
+     * total, as a percentage. 0 keeps everything.
+     */
+    minValuePercent?: number;
+    /**
+     * `flow` only: the projection to warp the map in, as a view-projection id.
+     *
+     * Defaults to Equal Earth, and callers have no reason to change it — it is a
+     * parameter so the choice can be tested, not so the app can vary it.
+     *
+     * A cartogram makes *area* carry a value, so the warp has to happen in a
+     * plane where area means ground area: any equal-area projection. It is
+     * emphatically **not** the projection the map is being displayed in. Warping
+     * in the view's plane would make the same layer and the same attribute
+     * produce a different map depending on a view setting, and a saved result
+     * would quietly become wrong the moment someone switched projection.
+     */
+    plane?: string;
+    /**
+     * `diffusion` only: where the go-cart WASM binary lives. The browser needs
+     * telling (the bundler hashes the file name); Node resolves it from the
+     * package itself, so tests leave this out.
+     */
+    wasmUrl?: string;
 }
 
 export interface CartogramResult {
     features: GeoJSON.FeatureCollection;
+    /**
+     * How far the typical feature's area ended up from what its value asked for,
+     * as a fraction (0.03 = 3%).
+     *
+     * Reported rather than asserted because the two joined-up methods can only
+     * approximate: the rubber sheet converges, and diffusion can hit its own
+     * iteration cap and stop. Both then return a map that *looks* like a
+     * cartogram and is not one — measured on 253 world countries sized by
+     * population, diffusion came back with a median error of 87% and no
+     * complaint. The caller turns this into a warning.
+     */
+    medianAreaError: number;
     /** Features left out, and why — the caller decides whether to surface it. */
-    skipped: { missingValue: number; nonPositive: number; noArea: number };
+    skipped: { missingValue: number; nonPositive: number; noArea: number; belowMinimum: number };
 }
 
 /** How many points a Dorling circle is drawn with. */
@@ -101,10 +149,12 @@ function sphericalRingArea(ring: GeoJSON.Position[]): number {
 
 /** The signed longitude difference, taken the short way round the globe. */
 function shortestLongitudeStep(from: number, to: number): number {
-    let delta = to - from;
-    while (delta > 180) delta -= 360;
-    while (delta < -180) delta += 360;
-    return delta;
+    const delta = to - from;
+    // Arithmetic rather than a loop: this is called per coordinate pair on every
+    // ring, and a single non-finite input used to hang the whole calculation
+    // rather than produce a wrong number.
+    if (!Number.isFinite(delta)) return 0;
+    return delta - 360 * Math.round(delta / 360);
 }
 
 /** How far a ring travels in longitude overall: ±360 means it went round a pole. */
@@ -274,6 +324,207 @@ function equalAreaPlaneAt([lon0, lat0]: GeoJSON.Position): EqualAreaPlane {
     };
 }
 
+// ─── Back into the world ─────────────────────────────────────────────────────
+
+/** Half the world, in degrees — the meridian a ring has to be cut at. */
+const HALF_WORLD = 180;
+
+/**
+ * Brings a result geometry back inside [-180, 180], cutting rings at the date
+ * line rather than folding their points.
+ *
+ * Every method here works in a metric plane and comes back through an inverse
+ * projection, and every one of them can push a shape past the edge of that
+ * plane: measured on 257 world countries, a diffusion cartogram returned the
+ * USA spanning -197°..199° and Russia -213°..200°, with New Zealand, Fiji and
+ * Kiribati alongside them. Folding each point on its own (which is what the
+ * inverse projections used to do) puts half a ring at each edge of the map, and
+ * the renderer joins them straight through the middle — the shapes smeared
+ * across the whole globe.
+ *
+ * So the ring is made continuous first, shifted into the world by whole turns,
+ * and only then cut — Sutherland–Hodgman against the two meridians, once per
+ * world offset, which is exactly what the Voronoi code does in EPSG:3857.
+ *
+ * A geometry already inside the world is returned untouched, object identity
+ * and all: this must not perturb the shared boundary coordinates that make the
+ * contiguous method contiguous.
+ */
+function wrapToWorld(geometry: GeoJSON.Geometry): GeoJSON.Geometry {
+    if (geometry.type === 'Polygon') {
+        const parts = wrapPolygon(geometry.coordinates);
+        if (!parts) return geometry;
+        return parts.length === 1
+            ? { type: 'Polygon', coordinates: parts[0] }
+            : { type: 'MultiPolygon', coordinates: parts };
+    }
+    if (geometry.type === 'MultiPolygon') {
+        const parts: GeoJSON.Position[][][] = [];
+        let changed = false;
+        for (const polygon of geometry.coordinates) {
+            const wrapped = wrapPolygon(polygon);
+            if (wrapped) {
+                changed = true;
+                parts.push(...wrapped);
+            } else {
+                parts.push(polygon);
+            }
+        }
+        return changed ? { type: 'MultiPolygon', coordinates: parts } : geometry;
+    }
+    return geometry;
+}
+
+/**
+ * One polygon (a shell and its holes), or `null` when it is already in the world
+ * and needs nothing done to it.
+ *
+ * Holes travel with their shell: each is cut with the same offset, so a hole
+ * that belongs to the piece on the far side of the line ends up in that piece
+ * and nowhere else.
+ */
+function wrapPolygon(rings: GeoJSON.Position[][]): GeoJSON.Position[][][] | null {
+    if (!rings.length) return null;
+    const shell = unwrapRing(rings[0]);
+    // A ring that goes round a pole has no meridian it can be cut at, and one
+    // pushed past the edge of the map still has to end up on it: its longitudes
+    // are pressed against the date line instead. Antarctica is the case that
+    // matters, and it is a band, so pressing the overhang onto the meridian
+    // costs a sliver of area and keeps the outline in one piece.
+    if (!shell) return clampRings(rings);
+
+    const holes: GeoJSON.Position[][] = [];
+    for (const ring of rings.slice(1)) {
+        const hole = unwrapRing(ring, meanLongitude(shell));
+        // A hole that cannot be made continuous is dropped rather than left in a
+        // frame of its own, where it would cut a hole out of open sea.
+        if (hole) holes.push(hole);
+    }
+
+    const parts: GeoJSON.Position[][][] = [];
+    for (const shift of [-2 * HALF_WORLD, 0, 2 * HALF_WORLD]) {
+        const cut = clipToWorld(shell, shift);
+        if (!cut) continue;
+        const part = [cut];
+        for (const hole of holes) {
+            const cutHole = clipToWorld(hole, shift);
+            if (cutHole) part.push(cutHole);
+        }
+        parts.push(part);
+    }
+    return parts.length ? parts : null;
+}
+
+/**
+ * Presses a polygon's longitudes onto the world, or `null` when every one of
+ * them is already inside it. The last resort, for a ring that cannot be cut.
+ */
+function clampRings(rings: GeoJSON.Position[][]): GeoJSON.Position[][][] | null {
+    let outside = false;
+    const clamped = rings.map(ring => ring.map(([lon, lat]) => {
+        if (lon > HALF_WORLD || lon < -HALF_WORLD) outside = true;
+        return [Math.min(Math.max(lon, -HALF_WORLD), HALF_WORLD), lat] as GeoJSON.Position;
+    }));
+    return outside ? [clamped] : null;
+}
+
+/**
+ * Makes a ring's longitudes continuous and shifts it so it sits over the world,
+ * or returns `null` when there is nothing to do or nothing safe to do.
+ *
+ * `null` covers two cases deliberately: a ring that is already inside the world
+ * (the fast path — the great majority, and the one that must not be disturbed),
+ * and a ring that travels a whole turn in longitude. The second is a ring
+ * encircling a pole, which has no meridian to be cut at; Antarctica is one, and
+ * cutting it would replace a correct outline with two wrong ones.
+ */
+function unwrapRing(ring: GeoJSON.Position[], nearLongitude?: number): GeoJSON.Position[] | null {
+    if (ring.length < 4) return null;
+
+    const continuous: GeoJSON.Position[] = [ring[0]];
+    let outside = Math.abs(ring[0][0]) > HALF_WORLD;
+    for (let i = 1; i < ring.length; i++) {
+        const previous = continuous[i - 1][0];
+        const lon = previous + shortestLongitudeStep(previous, ring[i][0]);
+        outside ||= Math.abs(lon) > HALF_WORLD;
+        continuous.push([lon, ring[i][1]]);
+    }
+
+    // A ring that ends close to a full turn from where it started goes round a
+    // pole. The threshold is three quarters of a turn rather than a half, so a
+    // merely very wide shape — a cartogram can stretch one right across the map
+    // — is still cut at the date line rather than treated as polar.
+    if (Math.abs(continuous[continuous.length - 1][0] - continuous[0][0]) > 1.5 * HALF_WORLD) return null;
+
+    // Whole turns are taken out relative to where the ring should sit: the world
+    // for a shell, its own shell for a hole, so a hole cannot be left one turn
+    // away from the shape it belongs to.
+    const turns = Math.round((meanLongitude(continuous) - (nearLongitude ?? 0)) / (2 * HALF_WORLD));
+    if (!turns && !outside) return null;
+    if (!turns) return continuous;
+    return continuous.map(([lon, lat]) => [lon - turns * 2 * HALF_WORLD, lat] as GeoJSON.Position);
+}
+
+/** The mean longitude of a continuous ring — where it sits, in whole-turn terms. */
+function meanLongitude(ring: GeoJSON.Position[]): number {
+    let sum = 0;
+    for (const [lon] of ring) sum += lon;
+    return sum / ring.length;
+}
+
+/**
+ * Cuts a ring to [-180, 180] after moving it `shift` degrees, returning `null`
+ * when nothing of it lands there.
+ *
+ * Sutherland–Hodgman against two meridians. The clip region is convex, so the
+ * cut is exact for any ring; a concave ring can come back with a zero-width
+ * sliver along the meridian, which is the usual artefact of the algorithm and
+ * invisible on a map.
+ */
+function clipToWorld(ring: GeoJSON.Position[], shift: number): GeoJSON.Position[] | null {
+    const open = ring.length > 1
+        && ring[0][0] === ring[ring.length - 1][0]
+        && ring[0][1] === ring[ring.length - 1][1]
+        ? ring.slice(0, -1)
+        : ring;
+
+    let clipped = shift ? open.map(([lon, lat]) => [lon + shift, lat] as GeoJSON.Position) : open;
+    clipped = clipMeridian(clipped, -HALF_WORLD, true);
+    clipped = clipMeridian(clipped, HALF_WORLD, false);
+    if (clipped.length < 3) return null;
+
+    const closed = [...clipped, clipped[0]];
+    // A piece that survives only as a line on the cut is floating-point residue.
+    if (Math.abs(ringSignedArea(closed)) < 1e-9) return null;
+    return closed;
+}
+
+/** One Sutherland–Hodgman pass: keep what is east (`keepEast`) or west of `lon`. */
+function clipMeridian(ring: GeoJSON.Position[], lon: number, keepEast: boolean): GeoJSON.Position[] {
+    const inside = (p: GeoJSON.Position) => (keepEast ? p[0] >= lon : p[0] <= lon);
+    const out: GeoJSON.Position[] = [];
+
+    for (let i = 0; i < ring.length; i++) {
+        const current = ring[i];
+        const previous = ring[(i + ring.length - 1) % ring.length];
+        if (inside(current) !== inside(previous)) {
+            const t = (lon - previous[0]) / (current[0] - previous[0]);
+            out.push([lon, previous[1] + t * (current[1] - previous[1])]);
+        }
+        if (inside(current)) out.push(current);
+    }
+    return out;
+}
+
+/** Signed shoelace area of a ring, in whatever units its coordinates are in. */
+function ringSignedArea(ring: GeoJSON.Position[]): number {
+    let sum = 0;
+    for (let i = 0; i < ring.length - 1; i++) {
+        sum += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+    }
+    return sum / 2;
+}
+
 /** Keeps a longitude in [-180, 180] after the inverse projection. */
 function normaliseLongitude(lon: number): number {
     if (lon > 180) return lon - 360 * Math.ceil((lon - 180) / 360);
@@ -373,9 +624,13 @@ interface Unit {
  * has no way to show a negative area), and no area to scale (a point or line
  * layer, or a collapsed polygon).
  */
-function unitsOf(input: GeoJSON.FeatureCollection, field: string): { units: Unit[]; skipped: CartogramResult['skipped'] } {
+function unitsOf(
+    input: GeoJSON.FeatureCollection,
+    field: string,
+    minValuePercent = 0,
+): { units: Unit[]; skipped: CartogramResult['skipped'] } {
     const units: Unit[] = [];
-    const skipped = { missingValue: 0, nonPositive: 0, noArea: 0 };
+    const skipped = { missingValue: 0, nonPositive: 0, noArea: 0, belowMinimum: 0 };
 
     for (const feature of input.features) {
         const raw = feature.properties?.[field];
@@ -396,6 +651,18 @@ function unitsOf(input: GeoJSON.FeatureCollection, field: string): { units: Unit
         }
         units.push({ feature, value, area, centre });
     }
+
+    // The minimum is a share of the total rather than an absolute number, so it
+    // means the same thing for a layer of people, of euros and of votes, and so
+    // it survives a change of units. Applied after collecting, because the total
+    // is not known until then.
+    if (minValuePercent > 0 && units.length) {
+        const floor = (units.reduce((sum, u) => sum + u.value, 0) * minValuePercent) / 100;
+        const kept = units.filter(u => u.value >= floor);
+        skipped.belowMinimum = units.length - kept.length;
+        return { units: kept, skipped };
+    }
+
     return { units, skipped };
 }
 
@@ -408,8 +675,8 @@ function unitsOf(input: GeoJSON.FeatureCollection, field: string): { units: Unit
  * same layer comparable, and what stops a layer measured in millions from
  * producing shapes the size of a continent.
  */
-export function cartogram(input: GeoJSON.FeatureCollection, options: CartogramOptions): CartogramResult {
-    const { units, skipped } = unitsOf(input, options.field);
+export async function cartogram(input: GeoJSON.FeatureCollection, options: CartogramOptions): Promise<CartogramResult> {
+    const { units, skipped } = unitsOf(input, options.field, options.minValuePercent ?? 0);
     if (!units.length) {
         throw new Error(`No features have a usable number in "${options.field}".`);
     }
@@ -418,13 +685,377 @@ export function cartogram(input: GeoJSON.FeatureCollection, options: CartogramOp
     const totalValue = units.reduce((sum, u) => sum + u.value, 0);
     const areaPerValue = totalArea / totalValue;
 
+    // `flow` reports its own error, because it is the one method that does not
+    // equalise areas on the sphere: it equalises them in the plane the map is
+    // drawn in, which is the whole point of it, and measuring that result
+    // against spherical areas would report a 96% error on a map that is exactly
+    // right — as it did, on Web Mercator, before this existed.
+    let planeError: number | null = null;
+
     const features = options.method === 'dorling'
         ? dorling(units, areaPerValue, options.iterations ?? DEFAULT_ITERATIONS)
         : options.method === 'scaled'
             ? scaled(units, areaPerValue)
-            : contiguous(units, areaPerValue, options.passes ?? DEFAULT_PASSES);
+            : options.method === 'contiguous'
+                ? contiguous(units, areaPerValue, options.passes ?? DEFAULT_PASSES)
+                : options.method === 'flow'
+                    ? (() => {
+                        const flow = edugisFlow(units, options.plane ?? EQUAL_AREA_PLANE);
+                        planeError = flow.medianAreaError;
+                        return flow.features;
+                    })()
+                    : await diffusion(units, options.wasmUrl);
 
-    return { features: { type: 'FeatureCollection', features }, skipped };
+    // Every method works in a metric plane and can push a shape past the edge of
+    // it, so the date line is dealt with once, here, rather than in each of them.
+    // Measured before the error is: a ring folded across the seam has an area
+    // that means nothing, and it was that, not the algorithm, that made the
+    // reported error on a world layer four times what it really was.
+    const wrapped = features.map(feature => (feature.geometry
+        ? { ...feature, geometry: wrapToWorld(feature.geometry) }
+        : feature));
+
+    return {
+        features: { type: 'FeatureCollection', features: wrapped },
+        skipped,
+        medianAreaError: planeError ?? medianAreaError(wrapped, units, areaPerValue),
+    };
+}
+
+/**
+ * The flow-based (diffusion) cartogram — Gastner, Seguy and More (2018), the
+ * algorithm behind Worldmapper, run through `go-cart-wasm` (the authors' own
+ * reference implementation compiled to WASM).
+ *
+ * It is the method to use when the numbers matter. Where the Dougenik rubber
+ * sheet below converges towards the target areas and leaves a tail — measured on
+ * 265 countries sized by population, a tenth of them still 15% out and the
+ * extremes far worse — diffusion solves the density-equalising flow itself and
+ * hits every target essentially exactly. It is also smoother, because the whole
+ * plane is transported rather than boundary points being pushed about.
+ *
+ * The library requires input in an **equal-area projection** (its own README
+ * says so): it measures area in the plane it is given, so degrees, or Mercator,
+ * would hand it the wrong numbers to equalise. It gets the same shared plane the
+ * rubber sheet uses.
+ */
+async function diffusion(units: Unit[], wasmUrl?: string): Promise<GeoJSON.Feature[]> {
+    const GoCart = await loadGoCart(wasmUrl);
+    const plane = sharedPlaneFor(units);
+
+    // The value goes in as a plain property under a name of our choosing, so a
+    // layer whose own attributes happen to collide with it cannot confuse the
+    // library, and the original properties are put back afterwards by index.
+    const input: GeoJSON.FeatureCollection = {
+        type: 'FeatureCollection',
+        features: units.map((unit, index) => ({
+            type: 'Feature',
+            properties: { [VALUE_FIELD]: unit.value, [INDEX_FIELD]: index },
+            geometry: rewindForGoCart(mapGeometry(unit.feature.geometry!, p => plane.forward(p))),
+        })),
+    };
+
+    const output = GoCart.makeCartogram(input, VALUE_FIELD) as GeoJSON.FeatureCollection;
+
+    return output.features.map((feature, position) => {
+        const index = Number(feature.properties?.[INDEX_FIELD] ?? position);
+        // go-cart reports a polygon it could not place by writing `{}` rather
+        // than by failing, so an unchecked run turns into an empty layer with no
+        // explanation. Rewinding above is what prevents it; this is the alarm.
+        if (!feature.geometry || !('coordinates' in feature.geometry)) {
+            throw new Error('The diffusion cartogram could not use this layer\'s geometry. Try the classic method, or repair the polygons first.');
+        }
+        return {
+            type: 'Feature' as const,
+            properties: { ...(units[index]?.feature.properties ?? {}) },
+            geometry: mapGeometry(feature.geometry, p => plane.inverse(p)),
+        };
+    });
+}
+
+/**
+ * The same flow-based cartogram, computed by `@edugis/cartogram` instead of by
+ * the go-cart WASM binary — and, unlike every other method here, computed in the
+ * plane the map is actually drawn in.
+ *
+ * Kept as a separate method rather than replacing `diffusion` because which of
+ * the two survives a given layer is exactly the question: go-cart is a C
+ * implementation reached through WASM that reports failure by writing back an
+ * empty geometry, and on some real inputs it returns a tangle of crossing lines
+ * instead of a map.
+ *
+ * **Why the plane is a parameter, and why it is not the library's own choice.**
+ * Left to itself the library projects to an equal-area plane and unprojects the
+ * result back to lon/lat (`projection: 'auto'`), which is right for a regional
+ * map and wrong for a world one — measured on 253 countries sized by population,
+ * 0.45% of the output points came back with no valid latitude at all and the
+ * worst plane→lon/lat→plane round trip was 1600 km. That is not a bug in the
+ * library: a cartogram deliberately moves regions off the graticule they came
+ * from, so the finished map no longer fits inside lon/lat's ±90 wall, and a
+ * cylindrical equal-area plane has that wall. Antarctica came back sliced into
+ * slabs lying across southern Africa.
+ *
+ * Warping in the *view's* plane fixes both halves at once. Rendering is exact,
+ * because the result is already in the coordinates the map draws with; and the
+ * areas the reader sees are the areas the algorithm equalised, which is the only
+ * definition of a cartogram that means anything. The plane's own distortion is
+ * absorbed by the warp rather than applied on top of it — the opposite of
+ * computing in one projection and displaying in another.
+ *
+ * The output is still lon/lat, so a result layer is ordinary GeoJSON on every
+ * engine. That works because the way back from Web Mercator has no domain limit:
+ * y is finite for every latitude and any finite y inverts to a latitude below
+ * 90°, asymptotically, never clamped. An equal-area plane is used instead when
+ * the view is in one (the areas are then right for that view too), and points
+ * that leave its valid strip are the price — hence `plane` is chosen by the
+ * caller, which knows what the map is showing.
+ *
+ * Values arrive already filtered to positive numbers by `unitsOf`, hence
+ * `missing: 'error'`: a gap here would be a bug in this file, not in the data.
+ */
+function edugisFlow(units: Unit[], planeId: string): { features: GeoJSON.Feature[]; medianAreaError: number } {
+    const plane = planeTransform(planeId);
+
+    const input: GeoJSON.FeatureCollection = {
+        type: 'FeatureCollection',
+        features: units.map(unit => ({
+            type: 'Feature',
+            properties: { [VALUE_FIELD]: unit.value },
+            geometry: mapGeometry(unit.feature.geometry!, p => plane.forward(p)),
+        })),
+    };
+
+    const result = edugisCartogram(input, {
+        method: 'flow',
+        value: VALUE_FIELD,
+        missing: 'error',
+        // The input is already planar and the library must not touch it: 'none'
+        // is what stops it projecting, and `unproject: false` what stops it
+        // undoing a projection it never applied.
+        projection: 'none',
+        unproject: false,
+        // Measured, not skipped: this is the only honest reading of how well the
+        // warp did, since it is the only one taken in the plane the warp worked
+        // in. The caller turns it into a warning.
+        metrics: true,
+    });
+
+    // Every output coordinate has to have a longitude and a latitude, and a warp
+    // is free to push part of the map past the edge of the plane it worked in —
+    // an equal-area plane covers a finite shape, and outside it there is no
+    // lon/lat to return. The whole map is therefore shrunk about the plane's
+    // centre until it fits, rather than the stray points being clamped: one
+    // factor applied to everything leaves every shape and every *relative* area
+    // exactly as the warp made them, which is what a cartogram is read for.
+    // Clamping instead pressed thousands of points onto the ±90 line.
+    const fit = fitFactor(result.featureCollection, plane);
+
+    // Feature order and count are preserved by the library, so the original
+    // properties go back on by position.
+    const features = result.featureCollection.features.map((feature, index) => ({
+        type: 'Feature' as const,
+        properties: { ...(units[index]?.feature.properties ?? {}) },
+        geometry: mapGeometry(feature.geometry!, p => plane.inverse([p[0] * fit, p[1] * fit])),
+    }));
+
+    return { features, medianAreaError: result.metrics?.areaError.median ?? 0 };
+}
+
+/**
+ * The largest factor ≤ 1 that brings every coordinate inside the plane's domain.
+ *
+ * Only points that are outside can constrain it, so only those are measured: for
+ * each, the fraction of the way back to the centre at which it re-enters is
+ * found by bisection, and the smallest such fraction is the factor for the whole
+ * map. A plane with no edge (Web Mercator) returns 1 and nothing is touched.
+ */
+function fitFactor(collection: GeoJSON.FeatureCollection, plane: PlaneTransform): number {
+    let factor = 1;
+    for (const feature of collection.features) {
+        for (const point of coordinatesOf(feature.geometry)) {
+            if (plane.isInside([point[0] * factor, point[1] * factor])) continue;
+            factor = Math.min(factor, plane.insideFraction(point));
+        }
+    }
+    return factor;
+}
+
+/** Every coordinate in a geometry, flat. */
+function coordinatesOf(geometry: GeoJSON.Geometry | null): GeoJSON.Position[] {
+    const out: GeoJSON.Position[] = [];
+    const walk = (value: unknown): void => {
+        if (!Array.isArray(value)) return;
+        if (typeof value[0] === 'number') out.push(value as GeoJSON.Position);
+        else value.forEach(walk);
+    };
+    if (geometry && 'coordinates' in geometry) walk(geometry.coordinates);
+    return out;
+}
+
+/**
+ * The plane a flow cartogram is warped in: Equal Earth.
+ *
+ * Equal-area, so the areas the warp equalises are ground areas; global, so it
+ * suits a world layer; and the projection webmapx already offers as the sensible
+ * default for thematic maps, so a result looks right on the map most likely to
+ * be showing it.
+ */
+const EQUAL_AREA_PLANE = 'EPSG:8857';
+
+/** Fallback when a plane id has no definition — defined and invertible everywhere. */
+const WEB_MERCATOR = 'EPSG:3857';
+
+interface PlaneTransform {
+    forward(p: GeoJSON.Position): GeoJSON.Position;
+    inverse(p: GeoJSON.Position): GeoJSON.Position;
+    /** True when a plane coordinate lands on the world map. */
+    isInside(p: GeoJSON.Position): boolean;
+    /**
+     * The largest fraction of the way from the plane's centre to this point that
+     * is still inside the domain. Bisected, because the distance to the edge is
+     * not known in closed form and the plane is not a rectangle.
+     */
+    insideFraction(p: GeoJSON.Position): number;
+}
+
+/**
+ * lon/lat ↔ a projection's plane, by projection id.
+ *
+ * proj4 rather than a closed-form pair, because the plane is now whatever the
+ * map's view is using, and the catalog in `utils/view-projections.ts` already
+ * holds the definition for each of them. An id with no definition falls back to
+ * Web Mercator rather than throwing: a cartogram in the wrong plane is a poor
+ * map, while a crash is no map.
+ */
+function planeTransform(id: string): PlaneTransform {
+    const converter = converterFor(id) ?? converterFor(WEB_MERCATOR)!;
+    const inverse = (p: GeoJSON.Position) => converter.inverse([p[0], p[1]]) as GeoJSON.Position;
+    // Not merely "does proj4 return a number": the result has to sit on the
+    // world map. An equal-area plane covers a finite shape and answers NaN
+    // outside it, but Web Mercator has no edge at all — y runs to infinity at
+    // the poles — so a warp in that plane happily produces latitudes of 89.999
+    // and the map ends up smeared along the top and bottom of the world.
+    // Measured on 253 countries: 30 480 points past 89.9°, which is exactly what
+    // "everything is at the poles" looks like. The world rectangle is the test,
+    // and the map is shrunk to fit inside it.
+    const isInside = (p: GeoJSON.Position) => {
+        const [lon, lat] = inverse(p);
+        return Number.isFinite(lon) && Number.isFinite(lat)
+            && Math.abs(lat) <= MAX_LATITUDE && Math.abs(lon) <= 180;
+    };
+    return {
+        forward: p => converter.forward([p[0], p[1]]) as GeoJSON.Position,
+        inverse,
+        isInside,
+        insideFraction: point => {
+            let outside = 1;
+            let inside = 0;
+            for (let i = 0; i < DOMAIN_BISECTIONS; i++) {
+                const t = (outside + inside) / 2;
+                if (isInside([point[0] * t, point[1] * t])) inside = t;
+                else outside = t;
+            }
+            return inside;
+        },
+    };
+}
+
+/** Enough to land within a metre of the boundary on a plane 40 000 km across. */
+const DOMAIN_BISECTIONS = 32;
+
+/**
+ * How close to a pole a cartogram may reach.
+ *
+ * Not 90: a shape whose vertices sit at 89.99° is drawn as a smear along the top
+ * of every map, and the pole is a point, so there is nothing there to see. This
+ * leaves the last degree alone.
+ */
+const MAX_LATITUDE = 89;
+
+function converterFor(id: string): proj4.Converter | null {
+    try {
+        const def = getViewProjectionDef(id);
+        // proj4 ships EPSG:4326 and EPSG:3857; everything else comes from the
+        // catalog, and is registered under its own id the first time it is used.
+        if (def?.proj4 && !(id in (proj4.defs as unknown as Record<string, unknown>))) proj4.defs(id, def.proj4);
+        return proj4('EPSG:4326', id);
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Winds every outer ring clockwise and every hole counter-clockwise, which is
+ * what go-cart expects.
+ *
+ * Not cosmetic, and not optional: given a counter-clockwise outer ring the
+ * library decides the polygon is a hole, prints `n_polyinreg[i] = 1 while
+ * n_holes = 1` to stdout and writes the feature back with an **empty geometry
+ * object** — no exception, no missing feature, just a layer of blanks. RFC 7946
+ * asks for the opposite winding to this, so correct GeoJSON is precisely the
+ * input that fails; the world-countries fixture happens to be clockwise, which
+ * is why this only showed up on a hand-built test grid.
+ */
+function rewindForGoCart(geometry: GeoJSON.Geometry): GeoJSON.Geometry {
+    const wind = (ring: GeoJSON.Position[], clockwise: boolean): GeoJSON.Position[] => {
+        let sum = 0;
+        for (let i = 0; i < ring.length - 1; i++) {
+            sum += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+        }
+        // Positive shoelace area means counter-clockwise in a y-up plane.
+        return (sum > 0) === clockwise ? [...ring].reverse() : ring;
+    };
+    const polygon = (rings: GeoJSON.Position[][]) => rings.map((ring, index) => wind(ring, index === 0));
+
+    if (geometry.type === 'Polygon') return { ...geometry, coordinates: polygon(geometry.coordinates) };
+    if (geometry.type === 'MultiPolygon') return { ...geometry, coordinates: geometry.coordinates.map(polygon) };
+    return geometry;
+}
+
+/** The typical gap between the area a feature got and the area its value asked for. */
+function medianAreaError(features: GeoJSON.Feature[], units: Unit[], areaPerValue: number): number {
+    if (!features.length) return 0;
+    const errors = features
+        .map((feature, index) => {
+            const target = (units[index]?.value ?? 0) * areaPerValue;
+            if (!target) return null;
+            return Math.abs(featureArea(feature.geometry) - target) / target;
+        })
+        .filter((value): value is number => value !== null)
+        .sort((a, b) => a - b);
+    return errors.length ? errors[errors.length >> 1] : 0;
+}
+
+/** Property names handed to go-cart, kept out of the way of the layer's own. */
+const VALUE_FIELD = '__webmapx_value';
+const INDEX_FIELD = '__webmapx_index';
+
+interface GoCartModule {
+    makeCartogram(input: GeoJSON.FeatureCollection, field: string): GeoJSON.FeatureCollection;
+}
+
+let goCartLoading: Promise<GoCartModule> | null = null;
+
+/**
+ * Loads the WASM module once and keeps it — it costs a fetch and a compile, and
+ * a cartogram is usually built more than once while a student tries fields.
+ *
+ * Imported dynamically so nothing pays for a megabyte of WASM until a diffusion
+ * cartogram is actually asked for, and so this module stays importable from
+ * plain Node (tests, scripts) where a bundler-resolved URL does not exist.
+ */
+function loadGoCart(wasmUrl?: string): Promise<GoCartModule> {
+    if (!goCartLoading) {
+        goCartLoading = import('go-cart-wasm')
+            .then(module => module.default(wasmUrl ? { locateFile: () => wasmUrl } : undefined))
+            .catch(error => {
+                // Left unset so a transient failure (a dropped network, a stale
+                // cache) can be retried rather than poisoning every later run.
+                goCartLoading = null;
+                throw error;
+            });
+    }
+    return goCartLoading;
 }
 
 /** How close the achieved area has to be to the target before scaling stops. */
@@ -474,6 +1105,17 @@ function contiguous(units: Unit[], areaPerValue: number, passes: number): GeoJSO
     const sheet = flattenToSheet(units, plane, areaPerValue);
     const { xs, ys, ringStart, ringEnd, shapes } = sheet;
 
+    // One circle per *feature*, at its centroid — Dougenik's model, kept despite
+    // its known weakness: a country whose islands are scattered across an ocean
+    // has no meaningful centroid, and the disc drawn at it pushes its neighbours
+    // around. Dropping such islands from the input takes the 90th-percentile area
+    // error on 253 world countries from 71% to 12%, so the weakness is real and
+    // measurable. Making each *part* a source of its own is the obvious fix and
+    // does not work: `mass` goes as the square root of the area, so splitting a
+    // feature into k parts multiplies the layer's total force by about √k and the
+    // sheet runs away — measured, the median error went from 2.5% to 100%. A
+    // correct fix has to renormalise the force, which is a change to the method
+    // rather than to this loop.
     const centreX = new Float64Array(shapes.length);
     const centreY = new Float64Array(shapes.length);
     const radius = new Float64Array(shapes.length);
@@ -489,7 +1131,7 @@ function contiguous(units: Unit[], areaPerValue: number, passes: number): GeoJSO
             centreY[s] = centre[1];
             radius[s] = Math.sqrt(Math.abs(area) / Math.PI);
             mass[s] = Math.sqrt(shape.target / Math.PI) - radius[s];
-            totalError += Math.abs(shape.target - area) / Math.max(shape.target, 1);
+            totalError += Math.abs(shape.target - area) / Math.max(shape.target, area, 1);
         }
 
         const meanError = totalError / shapes.length;
@@ -832,8 +1474,15 @@ function equalEarthPlane(lon0: number): EqualAreaPlane {
             // keeps a point that has been pushed too far on the map instead of
             // turning it into NaN.
             const sinLat = Math.min(Math.max(Math.sin(theta) / M, -1), 1);
-            const lambda = (M * x * polyDerivative(theta)) / (EARTH_RADIUS * Math.cos(theta));
-            return [normaliseLongitude(lon0 + lambda * DEG), Math.asin(sinLat) * DEG];
+            // cos(theta) reaches zero at the poles, where a longitude no longer
+            // exists: a point pushed that far would come back as Infinity and
+            // take every later step with it. The floor keeps it a number.
+            const lambda = (M * x * polyDerivative(theta)) / (EARTH_RADIUS * Math.max(Math.cos(theta), 1e-6));
+            // Deliberately *not* folded back into [-180, 180]: a cartogram pushes
+            // coordinates past the edge of the plane, and folding each point on
+            // its own tears the ring in half — the two pieces then join up the
+            // wrong way round the globe. `wrapToWorld` cuts the ring instead.
+            return [lon0 + lambda * DEG, Math.asin(sinLat) * DEG];
         },
     };
 }
@@ -857,8 +1506,11 @@ function cylindricalEqualAreaPlane(lon0: number, standardParallel: number): Equa
         },
         inverse([x, y]) {
             const sinLat = Math.min(Math.max((y * cosParallel) / EARTH_RADIUS, -1), 1);
+            // Continuous, for the same reason as Equal Earth above: a Dorling
+            // circle laid out next to the date line reaches past it, and folding
+            // its points one by one turns the circle into a band across the map.
             return [
-                normaliseLongitude(lon0 + (x / (EARTH_RADIUS * cosParallel)) * DEG),
+                lon0 + (x / (EARTH_RADIUS * cosParallel)) * DEG,
                 Math.asin(sinLat) * DEG,
             ];
         },
