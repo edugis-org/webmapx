@@ -618,7 +618,11 @@ function unitsOf(
 
     for (const feature of input.features) {
         const raw = feature.properties?.[field];
-        const value = typeof raw === 'number' ? raw : Number(raw);
+        // `Number` is only trusted on things that are meant to be read as
+        // numbers. A boolean would otherwise arrive as 1 and take part in the
+        // cartogram as if it were a count, which is not a value the field holds
+        // — it is the wrong field, and saying so is the useful answer.
+        const value = typeof raw === 'number' || typeof raw === 'string' ? Number(raw) : NaN;
         if (raw === null || raw === undefined || raw === '' || !Number.isFinite(value)) {
             skipped.missingValue++;
             continue;
@@ -791,9 +795,9 @@ function edugisFlow(units: Unit[]): { features: GeoJSON.Feature[]; medianAreaErr
     // library, and the original properties are put back afterwards by index.
     const input: GeoJSON.FeatureCollection = {
         type: 'FeatureCollection',
-        features: units.map(unit => ({
+        features: units.map((unit, index) => ({
             type: 'Feature',
-            properties: { [VALUE_FIELD]: unit.value },
+            properties: { [VALUE_FIELD]: unit.value, [INDEX_FIELD]: index },
             geometry: unit.feature.geometry!,
         })),
     };
@@ -805,13 +809,20 @@ function edugisFlow(units: Unit[]): { features: GeoJSON.Feature[]; medianAreaErr
         metrics: true,
     });
 
-    // Feature order and count are preserved by the library, so the original
-    // properties go back on by position.
-    const features = result.featureCollection.features.map((feature, index) => ({
-        type: 'Feature' as const,
-        properties: { ...(units[index]?.feature.properties ?? {}) },
-        geometry: feature.geometry!,
-    }));
+    // The index goes in and comes back rather than the order being trusted, the
+    // same way `diffusion` does it. Position happens to be preserved today, and
+    // if it ever stops being — a feature dropped, a collection re-ordered — every
+    // region would silently inherit its neighbour's attributes, which renders
+    // perfectly and is wrong everywhere. The fallback to `position` covers a
+    // library that strips unknown properties: no worse than before.
+    const features = result.featureCollection.features.map((feature, position) => {
+        const index = Number(feature.properties?.[INDEX_FIELD] ?? position);
+        return {
+            type: 'Feature' as const,
+            properties: { ...(units[index]?.feature.properties ?? {}) },
+            geometry: feature.geometry!,
+        };
+    });
 
     return { features, medianAreaError: result.metrics?.areaError.median ?? 0 };
 }
@@ -831,8 +842,16 @@ function edugisFlow(units: Unit[]): { features: GeoJSON.Feature[]; medianAreaErr
 function rewindForGoCart(geometry: GeoJSON.Geometry): GeoJSON.Geometry {
     const wind = (ring: GeoJSON.Position[], clockwise: boolean): GeoJSON.Position[] => {
         let sum = 0;
-        for (let i = 0; i < ring.length - 1; i++) {
-            sum += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+        // Wraps to the first point rather than stopping one short, so an unclosed
+        // ring is measured over the edge that closes it too. A ring that is
+        // closed contributes nothing extra (the final term is the degenerate
+        // point-to-itself edge); one that is not would otherwise lose a whole
+        // edge from the shoelace sum, and a thin ring can lose its sign that way
+        // — which here means go-cart takes the outer ring for a hole and hands
+        // the feature back with an empty geometry and no error.
+        for (let i = 0; i < ring.length; i++) {
+            const next = ring[(i + 1) % ring.length];
+            sum += ring[i][0] * next[1] - next[0] * ring[i][1];
         }
         // Positive shoelace area means counter-clockwise in a y-up plane.
         return (sum > 0) === clockwise ? [...ring].reverse() : ring;
@@ -866,28 +885,42 @@ interface GoCartModule {
     makeCartogram(input: GeoJSON.FeatureCollection, field: string): GeoJSON.FeatureCollection;
 }
 
-let goCartLoading: Promise<GoCartModule> | null = null;
+/**
+ * Loaded modules, keyed by the wasm url they were built from.
+ *
+ * Keyed rather than a single slot because the url is the one thing that decides
+ * *which* binary this is: caching the first answer under no key would hand a
+ * later caller a module loaded from somewhere else, silently and with no way to
+ * tell from the result. One entry is the normal case (the worker passes one
+ * bundler-resolved url for the life of the page); the map only matters when
+ * that assumption stops holding.
+ */
+const goCartLoading = new Map<string, Promise<GoCartModule>>();
 
 /**
- * Loads the WASM module once and keeps it — it costs a fetch and a compile, and
- * a cartogram is usually built more than once while a student tries fields.
+ * Loads the WASM module once per url and keeps it — it costs a fetch and a
+ * compile, and a cartogram is usually built more than once while a student
+ * tries fields.
  *
  * Imported dynamically so nothing pays for a megabyte of WASM until a diffusion
  * cartogram is actually asked for, and so this module stays importable from
  * plain Node (tests, scripts) where a bundler-resolved URL does not exist.
  */
 function loadGoCart(wasmUrl?: string): Promise<GoCartModule> {
-    if (!goCartLoading) {
-        goCartLoading = import('go-cart-wasm')
-            .then(module => module.default(wasmUrl ? { locateFile: () => wasmUrl } : undefined))
-            .catch(error => {
-                // Left unset so a transient failure (a dropped network, a stale
-                // cache) can be retried rather than poisoning every later run.
-                goCartLoading = null;
-                throw error;
-            });
-    }
-    return goCartLoading;
+    const key = wasmUrl ?? '';
+    const loaded = goCartLoading.get(key);
+    if (loaded) return loaded;
+
+    const loading = import('go-cart-wasm')
+        .then(module => module.default(wasmUrl ? { locateFile: () => wasmUrl } : undefined))
+        .catch(error => {
+            // Dropped so a transient failure (a lost network, a stale cache) can
+            // be retried rather than poisoning every later run.
+            goCartLoading.delete(key);
+            throw error;
+        });
+    goCartLoading.set(key, loading);
+    return loading;
 }
 
 /** How close the achieved area has to be to the target before scaling stops. */
