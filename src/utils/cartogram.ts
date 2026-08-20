@@ -796,9 +796,9 @@ function edugisFlow(units: Unit[]): { features: GeoJSON.Feature[]; medianAreaErr
     const input: GeoJSON.FeatureCollection = {
         type: 'FeatureCollection',
         features: units.map((unit, index) => ({
-            type: 'Feature' as const,
+            type: 'Feature',
             properties: { [VALUE_FIELD]: unit.value, [INDEX_FIELD]: index },
-            geometry: acrossDateline(unit.feature.geometry!),
+            geometry: unit.feature.geometry!,
         })),
     };
 
@@ -825,32 +825,6 @@ function edugisFlow(units: Unit[]): { features: GeoJSON.Feature[]; medianAreaErr
     });
 
     return { features, medianAreaError: result.metrics?.areaError.median ?? 0 };
-}
-
-/**
- * Puts a feature that straddles the date line into one continuous frame, by
- * carrying its western parts a whole turn east.
- *
- * The library projects each coordinate on its own, and -179.9 and +180.0 are the
- * same meridian but opposite edges of an equal-area plane. Fiji — 21 islands,
- * some either side of the line — therefore entered the warp as two groups a
- * third of a planet apart, was pushed about by whatever flow each neighbourhood
- * had, and came back with its halves at 167°E and 167°W: an island group drawn
- * across the Pacific, over Australia and southern Africa in the view. Measured
- * on world-50m by population, before and after: a spread of 335° of longitude,
- * against 3°.
- *
- * `wrapToWorld` cannot undo it afterwards, because by then every part is inside
- * ±180 and merely in the wrong place. Longitudes past 180 handed to the library
- * are fine — it projects them — and the result is folded back on the way out.
- *
- * This is what `contiguous` gets for free from `flattenToSheet`, which unwraps
- * into one shared plane before any force is applied.
- */
-export function acrossDateline(geometry: GeoJSON.Geometry): GeoJSON.Geometry {
-    const shift = datelineShift(polygonsOf(geometry));
-    if (!shift) return geometry;
-    return mapGeometry(geometry, ([lon, lat]) => [lon < 0 ? lon + shift : lon, lat]);
 }
 
 /**
