@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 
 import path from 'node:path';
 
-import { cartogram, featureArea, featureCentroid } from '../src/utils/cartogram';
+import { acrossDateline, cartogram, featureArea, featureCentroid } from '../src/utils/cartogram';
 
 // Taken from the repository rather than resolved: the tests are bundled into a
 // temp directory, so neither `import.meta.url` nor `require.resolve` can find
@@ -379,6 +379,40 @@ test('a feature straddling the date line is measured and placed correctly', asyn
     // Sizing one feature by anything gives it the whole layer's area back.
     const before = featureArea(straddling.features[0].geometry);
     assert.ok(Math.abs(area / before - 1) < 0.01, `area changed by ${((area / before - 1) * 100).toFixed(1)}%`);
+});
+
+test('a date-line island group is made continuous before the flow method sees it', () => {
+    // Measured on world-50m: handed Fiji as it comes — 21 islands, some at +177
+    // and some at -179 — `@edugis/cartogram` returns them at 167°E *and* 167°W,
+    // 335° apart, because it projects each coordinate on its own and those two
+    // longitudes are opposite edges of its plane. The result is an island group
+    // drawn across the Pacific, over Australia and southern Africa.
+    //
+    // This is asserted on the input preparation rather than end to end on
+    // purpose: the split only appears once the layer is big enough for the
+    // library to reach for a world projection, and a fixture small enough to
+    // keep in a test file gets a plane centred on itself, with no seam anywhere
+    // near it — so an end-to-end test would pass whether or not this ran.
+    const straddling: GeoJSON.MultiPolygon = {
+        type: 'MultiPolygon',
+        coordinates: [
+            [[[178, -17], [180, -17], [180, -16], [178, -16], [178, -17]]],
+            [[[-180, -18], [-179, -18], [-179, -17], [-180, -17], [-180, -18]]],
+        ],
+    };
+
+    const lons = (acrossDateline(straddling) as GeoJSON.MultiPolygon).coordinates
+        .flat(2).map(p => p[0]);
+    assert.ok(Math.max(...lons) - Math.min(...lons) < 10,
+        `the parts are still ${(Math.max(...lons) - Math.min(...lons)).toFixed(0)}° apart`);
+
+    // A layer that does not straddle is left exactly alone — the great majority,
+    // and shifting one would move it a whole world east.
+    const ordinary: GeoJSON.Polygon = {
+        type: 'Polygon',
+        coordinates: [[[4, 52], [5, 52], [5, 53], [4, 53], [4, 52]]],
+    };
+    assert.equal(acrossDateline(ordinary), ordinary);
 });
 
 test('a shape grown past the date line is cut at it, not folded across the map', async () => {
