@@ -514,26 +514,66 @@ export class MapCoreService implements IMapCore {
         // turns a resolution into ground metres per pixel and multiplying turns
         // it back. Getting this the wrong way round costs a factor of cos²(lat)
         // — 2.6x in the Netherlands, and it looks like the map merely jumped.
-        const groundResolution = resolution / resolutionScaleAt(current.getCode(), centerLonLat[1]);
-        const nextResolution = groundResolution * resolutionScaleAt(id, centerLonLat[1]);
+        const toGround = (value: number) => value / resolutionScaleAt(current.getCode(), centerLonLat[1]);
+        const fromGround = (value: number) => value * resolutionScaleAt(id, centerLonLat[1]);
+        const nextResolution = fromGround(toGround(resolution));
 
-        // Geometry first, and only proceed if it worked: a half-moved map is
-        // worse than one that stayed where it was.
+        // The zoom *limits* need the same treatment, and for the same reason the
+        // centre resolution does. Passing `minZoom`/`maxZoom` straight through
+        // would look like it worked: a view derives its resolutions from its
+        // projection's extent, so zoom 18 in Equal Earth is a different scale
+        // from zoom 18 in Mercator, and a configured limit would quietly become
+        // a limit on something else. Expressed as resolutions instead, they mean
+        // the same number of ground metres per pixel in every projection.
+        // minZoom is the coarsest view, hence maxResolution, and vice versa.
+        const limitResolution = (logicalZoom: number) =>
+            fromGround(toGround(view.getResolutionForZoom(this.toOLZoom(logicalZoom))));
+        const maxResolution = this.minZoom !== undefined ? limitResolution(this.minZoom) : undefined;
+        const minResolution = this.maxZoom !== undefined ? limitResolution(this.maxZoom) : undefined;
+
+        // Everything that can fail happens before anything is changed, because
+        // the one state this must never reach is a half-switched map: geometry
+        // converted to a projection the view is not in is not a visible error,
+        // it is a map quietly drawn in two coordinate systems at once, and there
+        // is no way back from it short of a reload. Constructing the View also
+        // transforms the centre and the extent, either of which can throw on a
+        // projection whose definition does not reach this far.
+        let nextView: View;
+        try {
+            nextView = new View({
+                projection: target,
+                center: transform(centerLonLat, 'EPSG:4326', id),
+                resolution: nextResolution,
+                rotation: view.getRotation(),
+                ...(maxResolution !== undefined ? { maxResolution } : {}),
+                ...(minResolution !== undefined ? { minResolution } : {}),
+                ...(this.maxBounds
+                    ? { extent: transformExtent(this.maxBounds, 'EPSG:4326', id) as [number, number, number, number] }
+                    : {}),
+            });
+        } catch (error) {
+            console.error(`[projection] could not build a view in ${id}; the map was left unchanged.`, error);
+            return false;
+        }
+
+        // Only now is anything mutated. `reprojectRenderedGeometry` still reports
+        // failure rather than throwing, and it is the last thing that can say no.
         if (!this.reprojectRenderedGeometry(current.getCode(), id)) return false;
 
-        const nextView = new View({
-            projection: target,
-            center: transform(centerLonLat, 'EPSG:4326', id),
-            resolution: nextResolution,
-            rotation: view.getRotation(),
-            ...(this.minZoom !== undefined ? { minZoom: this.toOLZoom(this.minZoom) } : {}),
-            ...(this.maxZoom !== undefined ? { maxZoom: this.toOLZoom(this.maxZoom) } : {}),
-            ...(this.maxBounds
-                ? { extent: transformExtent(this.maxBounds, 'EPSG:4326', id) as [number, number, number, number] }
-                : {}),
-        });
         this.mapInstance.setView(nextView);
         this.attachViewEvents(nextView);
+
+        // `clampZoom` and `setViewport` speak in this view's zoom numbers, so the
+        // remembered limits are re-read as zoom numbers of the new view. Without
+        // this the resolution limits above would be right and the clamp applied
+        // before them wrong, which is worse than either alone.
+        const zoomForResolution = (value: number | undefined): number | undefined => {
+            if (value === undefined) return undefined;
+            const zoom = nextView.getZoomForResolution(value);
+            return zoom === undefined ? undefined : this.fromOLZoom(zoom);
+        };
+        this.minZoom = zoomForResolution(maxResolution) ?? this.minZoom;
+        this.maxZoom = zoomForResolution(minResolution) ?? this.maxZoom;
 
         // Zoom levels mean different things in different projections (a view's
         // resolutions derive from its projection extent), so the store's zoom is
