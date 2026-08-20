@@ -811,7 +811,7 @@ export class MapCoreService implements IMapCore {
         const sw = this.toMapCoord([bbox[0], bbox[1]]);
         const ne = this.toMapCoord([bbox[2], bbox[3]]);
         const extent = [sw[0], sw[1], ne[0], ne[1]] as [number, number, number, number];
-        this.mapInstance.getView().fit(extent, { size: this.mapInstance.getSize(), padding: [40, 40, 40, 40], duration: 300 });
+        this.mapInstance.getView().fit(extent, { size: this.mapInstance.getSize(), padding: [40, 40, 40, 40], duration: 3000 });
     }
 
     public setCursor(cursor: string): void {

@@ -1,4 +1,4 @@
-import { css, html } from 'lit';
+import { css, html, type PropertyValues } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
@@ -9,18 +9,17 @@ import './webmapx-layer-info-dialog';
 import './webmapx-layer-style-dialog';
 import './webmapx-save-layers-dialog';
 import './webmapx-permalink-dialog';
+import './webmapx-clear-layers-dialog';
 import type { WebmapxLayerInfoDialog } from './webmapx-layer-info-dialog';
 import type { LayerStyleTarget, SourceAttributeInfo, SourceStyleGroup, WebmapxLayerStyleDialog } from './webmapx-layer-style-dialog';
 import type { WebmapxSaveLayersDialog, SaveLayerCandidate } from './webmapx-save-layers-dialog';
 import type { WebmapxPermalinkDialog } from './webmapx-permalink-dialog';
+import type { WebmapxClearLayersDialog } from './webmapx-clear-layers-dialog';
 import { buildPermalinkUrl, getMapDomIndex, getConfigUrlForIndex } from '../utils/permalink';
 import { Webmapx3dTool } from './webmapx-3d-tool';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
-import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
-import '@shoelace-style/shoelace/dist/components/button/button.js';
-import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import { splitLayerTitle } from '../utils/layer-swatch';
 
 /** Computes [west, south, east, north] from a GeoJSON FeatureCollection's coordinates. */
@@ -160,6 +159,15 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   @state() private overviewLayers: LayerPanelItem[] = [];
   // legendExpanded is now stored in store.mapLayers[id].legendExpanded (defaults to true)
   @state() private layerTransparency: Map<string, number> = new Map();
+  // Which layer's transparency percentage is currently shown as an editable
+  // number input instead of plain text (at most one at a time).
+  @state() private editingTransparencyLayerId: string | null = null;
+  // Which layer's transparency slider is currently hovered — tracked as
+  // reactive state (not a direct style.setProperty on the input) because the
+  // slider's `style` attribute is re-rendered from a single template string
+  // on every value change (e.g. clicking the track to jump), which would
+  // otherwise silently wipe out an imperatively-set custom property.
+  @state() private hoveredTransparencySliderLayerId: string | null = null;
   @state() private dropTargetLayerId: string | null = null;
   @state() private dropTargetPosition: 'above' | 'below' | null = null;
   // Lazily-computed and cached extents — geojsonExtent() walks every coordinate, so it's
@@ -176,7 +184,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   // cache: true — see the comment on infoDialog/styleDialog above; same reason.
   @query('webmapx-save-layers-dialog', true) private saveLayersDialog!: WebmapxSaveLayersDialog;
   @query('webmapx-permalink-dialog', true) private permalinkDialog!: WebmapxPermalinkDialog;
-  @query('#clear-all-layers-dialog') private clearAllLayersDialog!: SlDialog;
+  // cache: true — see the comment on infoDialog/styleDialog above; same reason.
+  @query('webmapx-clear-layers-dialog', true) private clearLayersDialog!: WebmapxClearLayersDialog;
   private unsubscribeLayerAdd: (() => void) | null = null;
   private unsubscribeLayerRemove: (() => void) | null = null;
 
@@ -211,12 +220,25 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       color: var(--webmapx-legend-color, var(--color-text-primary, #16202a));
     }
 
+    /* Shoelace's own tooltip body is pointer-events: none, but its arrow
+       and the popup's own outer wrapper aren't — confirmed either one can
+       sit directly over a neighboring icon (e.g. the eye icon right next
+       to the drag-handle) and silently eat a click meant for that icon
+       while the tooltip is still open. */
+    sl-tooltip::part(base__arrow),
+    sl-tooltip::part(base__popup) {
+      pointer-events: none;
+    }
+
+    /* No overflow/max-height here: the real scrollport is the ancestor
+       reached through slot assignment (webmapx-tool-panel's
+       .panel-content) — see findScrollableAncestor below. Making this
+       element its own scroll container too would give sticky headers and
+       drag auto-scroll the wrong ancestor to stick/scroll against. */
     .panel {
       display: flex;
       flex-direction: column;
       gap: var(--webmapx-space-lg, 1rem);
-      max-height: min(32rem, 100%);
-      overflow-y: auto;
       padding: var(--webmapx-space-sm, 0.5rem);
       box-sizing: border-box;
     }
@@ -238,6 +260,17 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       letter-spacing: var(--webmapx-label-spacing, 0.06em);
       text-transform: var(--webmapx-label-transform, uppercase);
       color: var(--webmapx-legend-title-color, var(--color-text-muted, #6b7681));
+      /* Truncates instead of wrapping/pushing the action buttons off when a
+         section has both a title and buttons (Active layers) and the two
+         don't both fit — the buttons must never shrink or lose their click
+         target. Equally harmless when a section's row has no buttons to
+         protect (Base map): with only one flex child, there's nothing for
+         truncation to make room for. */
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .layer-list {
@@ -274,6 +307,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       background: var(--color-background, #fff);
       box-shadow: var(--webmapx-shadow-sm, 0 1px 3px rgba(15, 23, 42, 0.08));
       box-sizing: border-box;
+      /* drag-handle width (1em, i.e. its own font-size) plus the .layer-row
+         gap that sits between it and the eye icon — the indent everything
+         in .layer-details lines up with, except .layer-details-actions,
+         which breaks back out of it (see below). */
+      --details-indent: calc(var(--webmapx-font-size-md, 0.95rem) + var(--webmapx-space-xs, 0.25rem));
     }
 
     .layer-row {
@@ -284,53 +322,66 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       touch-action: none;
     }
 
-    /* Visual cue only — sits centered over the title, revealed on hover/focus */
     /* Reordering must stay within .layer-list, vertical-only (matches EduGIS):
        implement via pointer-based drag that translateY's the row, clamped to
        the list's bounding box and ignoring horizontal pointer movement —
        not native HTML5 DnD, whose drag image floats freely with the cursor. */
-    .layer-label-drag {
-      flex: 1;
-      min-width: 0;
+    /* Hidden until the card is hovered — mirrors legend3D's drag-handle, which
+       stays visible mid-drag even if the pointer drifts off the card. */
+    .drag-handle {
+      flex: 0 0 auto;
+      font-size: var(--webmapx-font-size-md, 0.95rem);
+      color: var(--color-text-muted, #6b7681);
       cursor: grab;
       touch-action: none;
-      position: relative;
-    }
-
-    .layer-label-drag:active {
-      cursor: grabbing;
-    }
-
-    .layer-label-drag::after {
-      content: 'Drag to change layer order';
-      position: absolute;
-      bottom: calc(100% + 5px);
-      left: 0;
-      background: var(--sl-tooltip-background-color, #1e293b);
-      color: var(--sl-tooltip-color, #fff);
-      font-size: var(--webmapx-font-size-sm, 0.72rem);
-      line-height: 1.4;
-      padding: 3px 8px;
-      border-radius: var(--webmapx-radius-sm, 4px);
-      white-space: nowrap;
-      pointer-events: none;
       opacity: 0;
-      z-index: 100;
+      transition: opacity var(--webmapx-motion-fast, 120ms) ease, color var(--webmapx-motion-fast, 120ms) ease;
     }
 
-    .layer-label-drag:hover::after {
-      animation: drag-tip var(--webmapx-motion-hint, 1400ms) ease forwards;
+    /* Hidden the same way as .drag-handle — visible only on card hover, and
+       disappears on mouse-out even if the button still holds focus from a
+       click, matching the drag icon's hover-only behavior exactly. */
+    .delete-layer,
+    .layer-details-actions {
+      opacity: 0;
+      transition: opacity var(--webmapx-motion-fast, 120ms) ease;
     }
 
-    @keyframes drag-tip {
-      0%   { opacity: 0; }
-      15%  { opacity: 1; }
-      70%  { opacity: 1; }
-      100% { opacity: 0; }
+    .layer-card:hover .drag-handle,
+    .layer-card.dragging .drag-handle,
+    .layer-card:hover .delete-layer,
+    .layer-card:hover .layer-details-actions {
+      opacity: 1;
+    }
+
+    /* Single-layer lists render the same icon (never draggable, so no
+       pointer handlers are attached — see the template) purely to reserve
+       its layout width, so .layer-details' padding-left still lines up with
+       the eye icon below it. Higher specificity than the hover-reveal rule
+       above, so it always wins regardless of source order. */
+    .layer-card:hover .drag-handle.drag-handle-disabled,
+    .layer-card.dragging .drag-handle.drag-handle-disabled {
+      opacity: 0;
+    }
+
+    .drag-handle-disabled {
+      cursor: default;
+      pointer-events: none;
+    }
+
+    /* Matches sl-icon-button's own hover/active colors (--sl-color-primary-600/700)
+       so a plain sl-icon reads consistently with the real icon-buttons around it. */
+    .drag-handle:hover {
+      color: var(--sl-color-primary-600, var(--color-primary, #2b6c8f));
+    }
+
+    .drag-handle:active {
+      cursor: grabbing;
+      color: var(--sl-color-primary-700, var(--color-primary, #2b6c8f));
     }
 
     .visibility-toggle::part(base),
-    .collapse-toggle::part(base),
+    .delete-layer::part(base),
     .layer-details-actions sl-icon-button::part(base) {
       font-size: var(--webmapx-font-size-md, 0.95rem);
       padding: 0;
@@ -338,18 +389,24 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
 
     .layer-legend-wrap {
       width: 100%;
+      padding-left: var(--details-indent);
+      box-sizing: border-box;
     }
 
     .layer-label {
+      flex: 1 1 auto;
+      min-width: 0;
+      cursor: pointer;
       font-size: var(--webmapx-font-size-md, 0.95rem);
       line-height: 1.3;
       white-space: normal;
       word-break: break-word;
+      transition: color var(--webmapx-motion-fast, 120ms) ease;
     }
-    /* When not draggable (single layer), label still fills row */
-    .layer-row > .layer-label {
-      flex: 1 1 auto;
-      min-width: 0;
+
+    .layer-label:focus-visible {
+      outline: var(--webmapx-focus-ring, 2px solid var(--color-primary, #2b6c8f));
+      outline-offset: var(--webmapx-focus-offset, 2px);
     }
 
     .layer-label.out-of-zoom {
@@ -357,11 +414,25 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       opacity: 0.6;
     }
 
+    /* After .out-of-zoom so hover/focus feedback wins even on a dimmed label
+       (equal specificity to .layer-label.out-of-zoom — source order decides). */
+    .layer-label:hover,
+    .layer-label:focus-visible {
+      color: var(--sl-color-primary-600, var(--color-primary, #2b6c8f));
+    }
+
+    /* No padding here (unlike before): .layer-details-inner below has
+       overflow:hidden for the collapse animation, so a parent-level indent
+       that .layer-details-actions then tried to break back out of via a
+       negative margin got clipped by that overflow — the info icon (the
+       piece pushed furthest left) disappeared entirely. Each row that needs
+       the eye-aligned indent (.layer-legend-wrap, .opacity-row, .layer-meta)
+       applies --details-indent itself instead; .layer-details-actions is
+       simply never indented, so it uses the full width with no clipping. */
     .layer-details {
       display: grid;
       grid-template-rows: 1fr;
       width: 100%;
-      padding-left: 1.5rem;
       box-sizing: border-box;
       transition: grid-template-rows var(--webmapx-motion-fast, 120ms) ease-in-out;
     }
@@ -388,23 +459,45 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     .opacity-row {
       display: flex;
       align-items: center;
-      gap: var(--webmapx-space-sm, 0.5rem);
+      gap: 0.2rem;
       font-size: var(--webmapx-font-size-sm, 0.8rem);
       color: var(--color-text-secondary, #5a6773);
+      padding-left: var(--details-indent);
+      padding-right: 2.5rem;
+      box-sizing: border-box;
     }
 
-    .opacity-row sl-icon {
-      flex: 0 0 auto;
-    }
-
+    /* --slider-pct (set inline per-row from the current transparency value)
+       splits the track at the thumb: lower values (left, already "used") in
+       the lighter tone, higher values (right, remaining) in the darker
+       tone — so the whole line reads dark at 0% and light at 100%. Resting
+       state uses greys; hovering or dragging swaps in the blue pair. */
     .opacity-row input[type="range"] {
+      --slider-track-grey: linear-gradient(to right,
+        var(--color-border, #d5dce3) 0%,
+        var(--color-border, #d5dce3) var(--slider-pct, 0%),
+        var(--color-text-muted, #6b7681) var(--slider-pct, 0%),
+        var(--color-text-muted, #6b7681) 100%
+      );
+      --slider-track-blue: linear-gradient(to right,
+        var(--sl-color-primary-200, #bcdcf5) 0%,
+        var(--sl-color-primary-200, #bcdcf5) var(--slider-pct, 0%),
+        var(--sl-color-primary-600, var(--color-primary, #2b6c8f)) var(--slider-pct, 0%),
+        var(--sl-color-primary-600, var(--color-primary, #2b6c8f)) 100%
+      );
       flex: 1 1 auto;
       -webkit-appearance: none;
       appearance: none;
-      height: 3px;
-      background: var(--color-background-tertiary, #e9edf1);
+      height: 2px;
+      background: var(--slider-track-grey);
       border-radius: var(--webmapx-radius-xs, 2px);
       outline: none;
+      transition: background var(--webmapx-motion-fast, 120ms) ease;
+    }
+
+    .opacity-row input[type="range"]:hover,
+    .opacity-row input[type="range"]:active {
+      background: var(--slider-track-blue);
     }
 
     /* The rule above removes the UA focus ring from a keyboard-operable
@@ -414,41 +507,171 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       outline-offset: var(--webmapx-focus-offset, 2px);
     }
 
+    /* The thumb doubles as the "drag to change transparency" affordance, so
+       it always shows the same circle-half glyph, in white — sized close to
+       the thumb's own diameter so the grey fill reads as a thin ring around
+       the glyph rather than a separate dot behind it. Default diameter
+       matches the info-layer button's icon (~0.95rem). Hover/grab tint it
+       blue like every other control here; grabbing additionally enlarges.
+       --thumb-fill (rather than a :hover selector on the pseudo-element) is
+       set from the input's own style attribute, driven by
+       hoveredTransparencySliderLayerId: Chromium/Firefox have a long-standing
+       bug where a :hover selector match on ::-webkit-slider-thumb/
+       ::-moz-range-thumb doesn't reliably repaint the thumb (:active works
+       only because dragging already forces continuous repaints as the thumb
+       moves). Changing a custom property's resolved value doesn't have that
+       problem — it's the same invalidation path --slider-pct already relies
+       on for the track gradient above. This has to be reactive state rather
+       than an imperative style.setProperty() on mouseenter/mouseleave too:
+       clicking the track to jump the value re-renders the whole style
+       string from the template on every input event, which would otherwise
+       silently wipe out a property set outside that render. */
     .opacity-row input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 12px;
-      height: 12px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
-      background: var(--color-text-muted, #6b7681);
+      background-color: var(--thumb-fill, var(--color-text-muted, #6b7681));
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M8 15A7 7 0 1 0 8 1zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 80%;
       cursor: pointer;
+      transition: width var(--webmapx-motion-fast, 120ms) ease,
+                  height var(--webmapx-motion-fast, 120ms) ease,
+                  background-color var(--webmapx-motion-fast, 120ms) ease;
     }
 
     .opacity-row input[type="range"]::-moz-range-thumb {
-      width: 12px;
-      height: 12px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
       border: none;
-      background: var(--color-text-muted, #6b7681);
+      background-color: var(--thumb-fill, var(--color-text-muted, #6b7681));
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M8 15A7 7 0 1 0 8 1zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 80%;
       cursor: pointer;
+      transition: width var(--webmapx-motion-fast, 120ms) ease,
+                  height var(--webmapx-motion-fast, 120ms) ease,
+                  background-color var(--webmapx-motion-fast, 120ms) ease;
+    }
+
+    /* Grabbed: enlarge, and switch to the active shade (matches .drag-handle:active elsewhere). */
+    .opacity-row input[type="range"]:active::-webkit-slider-thumb {
+      width: 24px;
+      height: 24px;
+      background-color: var(--sl-color-primary-700, var(--color-primary, #2b6c8f));
+    }
+
+    .opacity-row input[type="range"]:active::-moz-range-thumb {
+      width: 24px;
+      height: 24px;
+      background-color: var(--sl-color-primary-700, var(--color-primary, #2b6c8f));
     }
 
     .opacity-row input[type="range"]::-moz-range-track {
-      height: 3px;
-      background: var(--color-background-tertiary, #e9edf1);
+      height: 2px;
+      background: var(--slider-track-grey);
       border-radius: var(--webmapx-radius-xs, 2px);
+      transition: background var(--webmapx-motion-fast, 120ms) ease;
+    }
+
+    .opacity-row input[type="range"]:hover::-moz-range-track,
+    .opacity-row input[type="range"]:active::-moz-range-track {
+      background: var(--slider-track-blue);
     }
 
     .opacity-value {
       flex: 0 0 auto;
-      min-width: 2.6em;
-      text-align: right;
+      min-width: 1.5em;
+      text-align: left;
       font-variant-numeric: tabular-nums;
+      cursor: pointer;
+      border-radius: var(--webmapx-radius-xs, 2px);
+      /* Dotted underline (not solid) is the recognized "click to edit"
+         convention (spreadsheets, Notion-style inline properties) — it
+         reads as a hint, not a hyperlink. No explicit text-decoration-color:
+         it defaults to currentColor, so the underline automatically follows
+         the same hover/focus color change as the text itself, below. */
+      text-decoration: underline dotted;
+      text-underline-offset: 2px;
+      transition: color var(--webmapx-motion-fast, 120ms) ease;
     }
 
-    .save-layers-row {
+    .opacity-value:hover,
+    .opacity-value:focus-visible {
+      color: var(--sl-color-primary-600, var(--color-primary, #2b6c8f));
+    }
+
+    .opacity-value:focus-visible {
+      outline: var(--webmapx-focus-ring, 2px solid var(--color-primary, #2b6c8f));
+      outline-offset: var(--webmapx-focus-offset, 2px);
+    }
+
+    .opacity-value-input {
+      flex: 0 0 auto;
+      width: 2.6em;
+      text-align: right;
+      font: inherit;
+      font-variant-numeric: tabular-nums;
+      color: inherit;
+      background: var(--color-background, #fff);
+      /* Neutral border matching every other plain input in the project
+         (e.g. webmapx-isochrone-tool.ts, webmapx-config-edit-tool.ts). This
+         input is only ever on screen while actively focused (it appears
+         already-focused the instant you click the percentage), so a
+         separate offset outline on top of the border read as two nested
+         boxes — recolor the same single border on focus instead of adding
+         a second box. */
+      border: 1px solid var(--color-border, #d5dce3);
+      border-radius: var(--webmapx-radius-xs, 2px);
+      padding: 0 2px;
+      outline: none;
+      -moz-appearance: textfield;
+      appearance: textfield;
+      transition: border-color var(--webmapx-motion-fast, 120ms) ease;
+    }
+
+    .opacity-value-input:focus-visible {
+      border-color: var(--sl-color-primary-600, var(--color-primary, #2b6c8f));
+    }
+
+    .opacity-value-input::-webkit-outer-spin-button,
+    .opacity-value-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .section-header-row {
       display: flex;
-      justify-content: flex-end;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--webmapx-space-sm, 0.5rem);
+      background: var(--webmapx-legend-bg, var(--color-background, #fff));
+      padding-bottom: var(--webmapx-space-xs, 0.25rem);
+    }
+
+    /* Only the Active layers header carries buttons worth keeping visible
+       while its layer list scrolls underneath — Base map's header was never
+       sticky before this merge and still isn't. */
+    .section-header-row.sticky {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    /* Its own flex group (rather than letting the buttons sit as direct
+       flex children of .section-header-row) so justify-content: space-between
+       above pushes the title and the whole button cluster to opposite
+       ends, instead of spacing every item apart individually. Never
+       shrinks — see .section-title. */
+    .section-actions {
+      display: flex;
+      align-items: center;
+      flex: 0 0 auto;
       gap: var(--webmapx-space-xs, 0.4rem);
     }
 
@@ -456,7 +679,10 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       font-size: var(--webmapx-font-size-sm, 0.75rem);
       color: var(--color-text-secondary, #5a6773);
       white-space: nowrap;
-      margin-left: 0.75rem;
+      /* --details-indent (eye-alignment) plus its own original extra
+         sub-indent, unchanged from before .layer-details stopped providing
+         the base indent itself. */
+      margin-left: calc(var(--details-indent) + 0.75rem);
     }
 
     .layer-editing-notice {
@@ -503,6 +729,31 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     this.unsubscribeLayerRemove = null;
   }
 
+  protected updated(changed: PropertyValues): void {
+    super.updated(changed);
+    this.disableTooltipHoverBridges();
+  }
+
+  // sl-tooltip unconditionally turns on its internal sl-popup's
+  // "hover-bridge" — an invisible polygon connecting the anchor to the
+  // tooltip so the pointer can travel into tooltips with interactive
+  // content without them closing. It isn't pointer-events: none, though,
+  // and our tooltips are plain text with nothing to travel into — so for a
+  // small, densely-packed control like the drag-handle, that polygon can
+  // overlap an adjacent icon (confirmed: it reaches into the eye icon
+  // right next to it) and silently swallow a click meant for either one.
+  // Shoelace doesn't expose hoverBridge through sl-tooltip's own API, so
+  // it has to be switched off directly on each tooltip's internal
+  // sl-popup once it's rendered.
+  private disableTooltipHoverBridges(): void {
+    this.shadowRoot?.querySelectorAll('sl-tooltip').forEach((tooltip) => {
+      void tooltip.updateComplete.then(() => {
+        const popup = tooltip.shadowRoot?.querySelector('sl-popup') as (HTMLElement & { hoverBridge: boolean }) | null;
+        if (popup) popup.hoverBridge = false;
+      });
+    });
+  }
+
   render() {
     return html`
       <div class="panel">
@@ -513,93 +764,110 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       <webmapx-layer-style-dialog></webmapx-layer-style-dialog>
       <webmapx-save-layers-dialog></webmapx-save-layers-dialog>
       <webmapx-permalink-dialog></webmapx-permalink-dialog>
-      <sl-dialog id="clear-all-layers-dialog" label="Alle kaartlagen wissen">
-        <p>Dit wist alle kaartlagen uit 'actieve lagen'. Sla zelfgemaakte lagen eerst op. Je kunt bestaande lagen weer openen via de kaartlagen knop.</p>
-        <sl-button slot="footer" variant="default" @click=${() => this.clearAllLayersDialog.hide()}>Annuleren</sl-button>
-        <sl-button slot="footer" variant="danger" @click=${() => this.handleConfirmClearAllLayers()}>Wissen</sl-button>
-      </sl-dialog>
+      <webmapx-clear-layers-dialog @webmapx-clear-layers-confirm=${() => this.handleConfirmClearAllLayers()}></webmapx-clear-layers-dialog>
     `;
   }
 
   private renderSection(title: string, items: LayerPanelItem[], emptyText: string, isOverviewSection = false) {
     return html`
       <section class="section">
-        <h3 class="section-title">${title}</h3>
-        ${isOverviewSection
-          ? html`
-              <div class="save-layers-row">
-                ${items.length > 0 ? html`
-                  <sl-tooltip content="Show all layers">
+        <div class="section-header-row ${isOverviewSection ? 'sticky' : ''}">
+          <h3 class="section-title" title=${title}>${title}</h3>
+          ${isOverviewSection
+            ? html`
+                <div class="section-actions">
+                  ${items.length > 0 ? html`
+                    <sl-tooltip content="Show all layers">
+                      <sl-icon-button
+                        name="eye"
+                        label="Show all layers"
+                        @click=${() => this.handleShowAllLayers()}
+                      ></sl-icon-button>
+                    </sl-tooltip>
+                    <sl-tooltip content="Hide all layers">
+                      <sl-icon-button
+                        name="eye-slash"
+                        label="Hide all layers"
+                        @click=${() => this.handleHideAllLayers()}
+                      ></sl-icon-button>
+                    </sl-tooltip>
+                    <sl-tooltip content="Clear all layers">
+                      <sl-icon-button
+                        name="trash"
+                        label="Clear all layers"
+                        @click=${() => this.handleClearAllLayers()}
+                      ></sl-icon-button>
+                    </sl-tooltip>
+                  ` : null}
+                  <sl-tooltip content="Permalink">
                     <sl-icon-button
-                      name="eye"
-                      label="Show all layers"
-                      @click=${() => this.handleShowAllLayers()}
+                      name="link-45deg"
+                      label="Permalink"
+                      @click=${() => this.handlePermalink()}
                     ></sl-icon-button>
                   </sl-tooltip>
-                  <sl-tooltip content="Hide all layers">
-                    <sl-icon-button
-                      name="eye-slash"
-                      label="Hide all layers"
-                      @click=${() => this.handleHideAllLayers()}
-                    ></sl-icon-button>
-                  </sl-tooltip>
-                  <sl-tooltip content="Clear all layers">
-                    <sl-icon-button
-                      name="trash"
-                      label="Clear all layers"
-                      @click=${() => this.handleClearAllLayers()}
-                    ></sl-icon-button>
-                  </sl-tooltip>
-                ` : null}
-                <sl-tooltip content="Permalink">
-                  <sl-icon-button
-                    name="link-45deg"
-                    label="Permalink"
-                    @click=${() => this.handlePermalink()}
-                  ></sl-icon-button>
-                </sl-tooltip>
-                ${items.length > 0 ? html`
-                  <sl-tooltip content="Save layer(s)…">
-                    <sl-icon-button
-                      name="download"
-                      label="Save layer(s)…"
-                      @click=${() => this.handleSaveLayers()}
-                    ></sl-icon-button>
-                  </sl-tooltip>
-                ` : null}
-              </div>
-            `
-          : null}
+                  ${items.length > 0 ? html`
+                    <sl-tooltip content="Save layer(s)…">
+                      <sl-icon-button
+                        name="download"
+                        label="Save layer(s)…"
+                        @click=${() => this.handleSaveLayers()}
+                      ></sl-icon-button>
+                    </sl-tooltip>
+                  ` : null}
+                </div>
+              `
+            : null}
+        </div>
         ${items.length > 0
           ? html`
               <div class="layer-list">
-                ${items.map((item) => html`
+                ${items.map((item, index) => html`
                   ${this.dropTargetLayerId === item.layerId && this.dropTargetPosition === 'above'
                     ? html`<div class="drop-indicator"></div>`
                     : null}
                   <div class="layer-card" data-layer-id=${item.layerId}>
                     <div class="layer-row">
-                      <sl-icon-button
-                        class="visibility-toggle"
-                        name=${item.visible ? 'eye' : 'eye-slash'}
-                        label=${item.visible ? 'Hide layer' : 'Show layer'}
-                        @click=${() => this.handleVisibilityToggle(item.layerId)}
-                      ></sl-icon-button>
-                      ${items.length > 1 ? html`
-                        <span
-                          class="layer-label-drag"
-                          @pointerdown=${(e: PointerEvent) => this.onDragHandlePointerDown(e)}
-                          @pointermove=${(e: PointerEvent) => this.onDragHandlePointerMove(e)}
-                          @pointerup=${(e: PointerEvent) => this.onDragHandlePointerUp(e)}
-                          @pointercancel=${(e: PointerEvent) => this.onDragHandlePointerUp(e)}
-                        ><span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}">${splitLayerTitle(item.label).name}${item.beingEdited ? html`&nbsp;<sl-icon name="pencil" title="Layer is currently being edited"></sl-icon>` : null}</span></span>
-                      ` : html`<span class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}">${splitLayerTitle(item.label).name}${item.beingEdited ? html`&nbsp;<sl-icon name="pencil" title="Layer is currently being edited"></sl-icon>` : null}</span>`}
-                      <sl-icon-button
-                        class="collapse-toggle"
-                        name=${this.isLegendCollapsed(item.layerId) ? 'chevron-right' : 'chevron-down'}
-                        label=${this.isLegendCollapsed(item.layerId) ? 'Show layer details' : 'Hide layer details'}
+                      <sl-tooltip content="Drag to change layer order" ?disabled=${items.length <= 1}>
+                        <sl-icon
+                          class="drag-handle${items.length <= 1 ? ' drag-handle-disabled' : ''}"
+                          name=${index === 0 ? 'arrow-down' : index === items.length - 1 ? 'arrow-up' : 'arrow-down-up'}
+                          @pointerdown=${items.length > 1 ? (e: PointerEvent) => this.onDragHandlePointerDown(e) : undefined}
+                          @pointermove=${items.length > 1 ? (e: PointerEvent) => this.onDragHandlePointerMove(e) : undefined}
+                          @pointerup=${items.length > 1 ? (e: PointerEvent) => this.onDragHandlePointerUp(e) : undefined}
+                          @pointercancel=${items.length > 1 ? (e: PointerEvent) => this.onDragHandlePointerUp(e) : undefined}
+                        ></sl-icon>
+                      </sl-tooltip>
+                      <sl-tooltip content=${item.visible ? 'Hide layer' : 'Show layer'}>
+                        <sl-icon-button
+                          class="visibility-toggle"
+                          name=${item.visible ? 'eye' : 'eye-slash'}
+                          label=${item.visible ? 'Hide layer' : 'Show layer'}
+                          @click=${() => this.handleVisibilityToggle(item.layerId)}
+                        ></sl-icon-button>
+                      </sl-tooltip>
+                      <span
+                        class="layer-label ${item.outOfZoom ? 'out-of-zoom' : ''}"
+                        role="button"
+                        tabindex="0"
+                        aria-expanded=${this.isLegendCollapsed(item.layerId) ? 'false' : 'true'}
                         @click=${() => this.handleCollapseToggle(item.layerId)}
-                      ></sl-icon-button>
+                        @keydown=${(e: KeyboardEvent) => {
+                          if (e.key !== 'Enter' && e.key !== ' ') return;
+                          e.preventDefault();
+                          this.handleCollapseToggle(item.layerId);
+                        }}
+                      >${splitLayerTitle(item.label).name}${item.beingEdited ? html`&nbsp;<sl-icon name="pencil" title="Layer is currently being edited"></sl-icon>` : null}</span>
+                      ${isOverviewSection ? html`
+                        <sl-tooltip content="Remove layer">
+                          <sl-icon-button
+                            class="delete-layer"
+                            name="x-circle"
+                            label="Remove layer"
+                            @click=${() => this.handleDeleteLayer(item.layerId)}
+                          ></sl-icon-button>
+                        </sl-tooltip>
+                      ` : null}
                     </div>
                     <div class="layer-details ${this.isLegendCollapsed(item.layerId) ? 'collapsed' : ''}">
                       <div class="layer-details-inner">
@@ -608,20 +876,50 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                           : html`
                             ${item.visible
                               ? html`
-                                  <div class="opacity-row">
-                                    <sl-icon name="circle-half"></sl-icon>
-                                    <input
-                                      type="range"
-                                      aria-label=${`Transparency of ${item.label}`}
-                                      min="0"
-                                      max="100"
-                                      .value=${String(this.layerTransparency.get(item.layerId) ?? 0)}
-                                      @input=${(e: Event) => this.handleTransparencyChange(item.layerId, e)}
-                                    />
-                                    <span class="opacity-value">${this.layerTransparency.get(item.layerId) ?? 0}%</span>
-                                  </div>
                                   <div class="layer-legend-wrap" style=${item.layerType === 'hillshade' ? '' : `opacity: ${(100 - (this.layerTransparency.get(item.layerId) ?? 0)) / 100}`}>
                                     <webmapx-layer-legend layer-id=${item.layerId}></webmapx-layer-legend>
+                                  </div>
+                                  <div class="opacity-row">
+                                    <sl-tooltip content="Transparency">
+                                      <input
+                                        type="range"
+                                        aria-label=${`Transparency of ${item.label}`}
+                                        min="0"
+                                        max="100"
+                                        style="--slider-pct: ${this.layerTransparency.get(item.layerId) ?? 0}%${this.hoveredTransparencySliderLayerId === item.layerId ? '; --thumb-fill: var(--sl-color-primary-600, var(--color-primary, #2b6c8f))' : ''}"
+                                        .value=${String(this.layerTransparency.get(item.layerId) ?? 0)}
+                                        @input=${(e: Event) => this.handleTransparencyChange(item.layerId, e)}
+                                        @mouseenter=${() => { this.hoveredTransparencySliderLayerId = item.layerId; }}
+                                        @mouseleave=${() => { this.hoveredTransparencySliderLayerId = null; }}
+                                        @pointerdown=${(e: PointerEvent) => (e.currentTarget as HTMLElement).closest('sl-tooltip')?.hide()}
+                                        @focus=${(e: FocusEvent) => (e.currentTarget as HTMLElement).closest('sl-tooltip')?.hide()}
+                                      />
+                                    </sl-tooltip>
+                                    ${this.editingTransparencyLayerId === item.layerId
+                                      ? html`<input
+                                          class="opacity-value-input"
+                                          type="number"
+                                          min="0"
+                                          max="100"
+                                          inputmode="numeric"
+                                          aria-label=${`Transparency of ${item.label}, percent`}
+                                          .value=${String(this.layerTransparency.get(item.layerId) ?? 0)}
+                                          @blur=${(e: Event) => this.commitTransparencyInput(item.layerId, e)}
+                                          @keydown=${(e: KeyboardEvent) => this.handleTransparencyInputKeydown(e)}
+                                        />`
+                                      : html`<sl-tooltip content="Fill in">
+                                          <span
+                                            class="opacity-value"
+                                            role="button"
+                                            tabindex="0"
+                                            @click=${() => this.beginEditTransparency(item.layerId)}
+                                            @keydown=${(e: KeyboardEvent) => {
+                                              if (e.key !== 'Enter' && e.key !== ' ') return;
+                                              e.preventDefault();
+                                              this.beginEditTransparency(item.layerId);
+                                            }}
+                                          >${this.layerTransparency.get(item.layerId) ?? 0}%</span>
+                                        </sl-tooltip>`}
                                   </div>
                                 `
                               : null}
@@ -653,18 +951,9 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                               ${item.hasExtent
                                 ? html`<sl-tooltip content="Zoom to layer">
                                     <sl-icon-button
-                                      name="zoom-in"
+                                      name="arrows-fullscreen"
                                       label="Zoom to layer"
                                       @click=${() => this.handleZoomToLayer(item.layerId)}
-                                    ></sl-icon-button>
-                                  </sl-tooltip>`
-                                : null}
-                              ${isOverviewSection
-                                ? html`<sl-tooltip content="Remove layer">
-                                    <sl-icon-button
-                                      name="x-circle"
-                                      label="Remove layer"
-                                      @click=${() => this.handleDeleteLayer(item.layerId)}
                                     ></sl-icon-button>
                                   </sl-tooltip>`
                                 : null}
@@ -692,6 +981,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
 
     e.preventDefault();
     handle.setPointerCapture(e.pointerId);
+    // Pointer capture keeps the drag-handle "hovered" for the rest of the
+    // drag regardless of where the cursor actually moves, so the tooltip
+    // would otherwise sit open the whole time instead of just before the
+    // grab. Hide it explicitly the moment the drag starts.
+    void handle.closest('sl-tooltip')?.hide();
 
     const cardRect = card.getBoundingClientRect();
     const listRect = list.getBoundingClientRect();
@@ -996,8 +1290,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   }
 
   private handleTransparencyChange(layerId: string, e: Event): void {
+    this.applyTransparency(layerId, Number((e.target as HTMLInputElement).value));
+  }
+
+  private applyTransparency(layerId: string, transparency: number): void {
     if (!this.adapter) return;
-    const transparency = Number((e.target as HTMLInputElement).value);
     const current = this.adapter.store.getState().mapLayers;
     const entry = current[layerId];
     const meta = entry as Record<string, unknown> | undefined;
@@ -1013,6 +1310,37 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       this.adapter.updateLayerStyle(layerId, subLayerId, { 'hillshade-exaggeration': (100 - transparency) / 100 });
     } else {
       this.adapter.setLayerOpacity(layerId, (100 - transparency) / 100);
+    }
+  }
+
+  private beginEditTransparency(layerId: string): void {
+    this.editingTransparencyLayerId = layerId;
+    void this.updateComplete.then(() => {
+      const input = this.shadowRoot?.querySelector<HTMLInputElement>('.opacity-value-input');
+      input?.focus();
+      input?.select();
+    });
+  }
+
+  // Routed through here for both Enter (via the keydown handler below, which
+  // just blurs) and a plain click-away blur, so editingTransparencyLayerId is
+  // only ever cleared from this one place. Deliberately no Escape-to-cancel:
+  // webmapx-tool-panel owns Escape via a document-level capture listener (see
+  // its handleKeydown) and closes the whole panel before a local handler here
+  // would ever see the key, so trying to special-case it here would silently
+  // never fire — Escape falls through to the panel-close behavior instead,
+  // which blurs this input via display:none and commits it like any blur.
+  private commitTransparencyInput(layerId: string, e: Event): void {
+    this.editingTransparencyLayerId = null;
+    const raw = Number((e.target as HTMLInputElement).value);
+    const fallback = this.layerTransparency.get(layerId) ?? 0;
+    const clamped = Number.isFinite(raw) ? Math.min(100, Math.max(0, Math.round(raw))) : fallback;
+    this.applyTransparency(layerId, clamped);
+  }
+
+  private handleTransparencyInputKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Enter') {
+      (e.target as HTMLInputElement).blur();
     }
   }
 
@@ -1353,11 +1681,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   }
 
   private handleClearAllLayers(): void {
-    this.clearAllLayersDialog?.show();
+    this.clearLayersDialog?.open();
   }
 
   private handleConfirmClearAllLayers(): void {
-    this.clearAllLayersDialog?.hide();
+    this.clearLayersDialog?.hide();
     if (!this.adapter) return;
     for (const item of this.overviewLayers) {
       this.adapter.removeLayer(item.layerId);

@@ -300,7 +300,10 @@ export class MapCoreService implements IMapCore {
         const southWest = L.latLng(bbox[1], bbox[0]);
         const northEast = L.latLng(bbox[3], bbox[2]);
         const bounds = L.latLngBounds(southWest, northEast);
-        this.mapInstance.fitBounds(bounds, { padding: [40, 40], animate: true });
+        // fitBounds() only honors a custom duration for a pure pan; any zoom change
+        // (the common case here) rides Leaflet's fixed ~0.25s CSS zoom transition instead.
+        // flyToBounds() drives pan+zoom together via JS easing, so duration always applies.
+        this.mapInstance.flyToBounds(bounds, { padding: [40, 40], duration: 3 });
     }
 
     public setCursor(cursor: string): void {

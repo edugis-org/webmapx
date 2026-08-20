@@ -487,3 +487,19 @@ webmapx-toolbar sl-button::part(label) {
     align-items: center;
     justify-content: center;
 }
+
+/* Legend 3D's perspective slabs are meant to float directly over the map,
+   unlike every other tool panel, so the panel hosting it drops the shared
+   surface fill/blur to a 60%-opaque tint instead of the usual near-solid
+   one. Scoped with :has() to just this one panel instance (not a
+   [data-style] block: the fallback `--webmapx-panel-bg`/`--webmapx-surface-
+   blur` in webmapx-tool-panel.ts inherit into its shadow root regardless of
+   the active style/theme, and every other panel — search, catalog, info,
+   measure, ... — keeps its normal chrome). `:host(:has(...))` is invalid CSS
+   per spec/Chromium (the whole rule is dropped silently), so this has to
+   live out here as a light-DOM selector instead of inside the component's
+   own shadow styles. */
+webmapx-tool-panel:has(webmapx-layer-legend3d) {
+    --webmapx-panel-bg: rgb(var(--color-surface-rgb, 255 255 255) / 0.6);
+    --webmapx-surface-blur: none;
+}
