@@ -18,8 +18,8 @@
  *   target areas rather than reaching them, and on a layer with extreme values
  *   it leaves a long tail.
  * - `flow` (Gastner–Seguy–More again, through `@edugis/cartogram`) is the same
- *   algorithm reimplemented in TypeScript, with its own equal-area projection,
- *   topology-preserving densification and total-area correction. It exists
+ *   algorithm reimplemented in TypeScript, projecting, warping and unprojecting
+ *   internally, with topology-preserving densification and total-area correction. It exists
  *   beside `diffusion` so the two can be compared on the same layer: the WASM
  *   reference returns an empty or self-crossing geometry on some real layers
  *   (worldpop country polygons), which is what this comparison is for.
@@ -34,9 +34,7 @@
  *   compare by eye when the values differ by orders of magnitude.
  */
 
-import proj4 from 'proj4';
 import { cartogram as edugisCartogram } from '@edugis/cartogram';
-import { getViewProjectionDef } from './view-projections';
 
 export type CartogramMethod = 'diffusion' | 'flow' | 'contiguous' | 'scaled' | 'dorling';
 
@@ -53,20 +51,6 @@ export interface CartogramOptions {
      * total, as a percentage. 0 keeps everything.
      */
     minValuePercent?: number;
-    /**
-     * `flow` only: the projection to warp the map in, as a view-projection id.
-     *
-     * Defaults to Equal Earth, and callers have no reason to change it — it is a
-     * parameter so the choice can be tested, not so the app can vary it.
-     *
-     * A cartogram makes *area* carry a value, so the warp has to happen in a
-     * plane where area means ground area: any equal-area projection. It is
-     * emphatically **not** the projection the map is being displayed in. Warping
-     * in the view's plane would make the same layer and the same attribute
-     * produce a different map depending on a view setting, and a saved result
-     * would quietly become wrong the moment someone switched projection.
-     */
-    plane?: string;
     /**
      * `diffusion` only: where the go-cart WASM binary lives. The browser needs
      * telling (the bundler hashes the file name); Node resolves it from the
@@ -700,7 +684,7 @@ export async function cartogram(input: GeoJSON.FeatureCollection, options: Carto
                 ? contiguous(units, areaPerValue, options.passes ?? DEFAULT_PASSES)
                 : options.method === 'flow'
                     ? (() => {
-                        const flow = edugisFlow(units, options.plane ?? EQUAL_AREA_PLANE);
+                        const flow = edugisFlow(units);
                         planeError = flow.medianAreaError;
                         return flow.features;
                     })()
@@ -775,8 +759,7 @@ async function diffusion(units: Unit[], wasmUrl?: string): Promise<GeoJSON.Featu
 
 /**
  * The same flow-based cartogram, computed by `@edugis/cartogram` instead of by
- * the go-cart WASM binary — and, unlike every other method here, computed in the
- * plane the map is actually drawn in.
+ * the go-cart WASM binary.
  *
  * Kept as a separate method rather than replacing `diffusion` because which of
  * the two survives a given layer is exactly the question: go-cart is a C
@@ -784,44 +767,34 @@ async function diffusion(units: Unit[], wasmUrl?: string): Promise<GeoJSON.Featu
  * empty geometry, and on some real inputs it returns a tangle of crossing lines
  * instead of a map.
  *
- * **Why the plane is a parameter, and why it is not the library's own choice.**
- * Left to itself the library projects to an equal-area plane and unprojects the
- * result back to lon/lat (`projection: 'auto'`), which is right for a regional
- * map and wrong for a world one — measured on 253 countries sized by population,
- * 0.45% of the output points came back with no valid latitude at all and the
- * worst plane→lon/lat→plane round trip was 1600 km. That is not a bug in the
- * library: a cartogram deliberately moves regions off the graticule they came
- * from, so the finished map no longer fits inside lon/lat's ±90 wall, and a
- * cylindrical equal-area plane has that wall. Antarctica came back sliced into
- * slabs lying across southern Africa.
+ * **Nothing is projected here.** GeoJSON goes in and GeoJSON comes back: the
+ * library projects to an equal-area plane, warps, and unprojects, all of it
+ * inside. This file used to do that work itself — project to Equal Earth with
+ * proj4, run the library on the plane with `projection: 'none'`, shrink the
+ * whole map until every point had a latitude again, and unproject — because
+ * before `@edugis/cartogram@0.1.3` the library returned coordinates past ±90 on
+ * a world layer and clamping them pressed thousands of points onto the pole
+ * line. It now bounds its own output (`fitLatitude`) and picks Equal Earth for
+ * world-scale data itself, so all of that came out: two hundred lines, and this
+ * file's only use of proj4.
  *
- * Warping in the *view's* plane fixes both halves at once. Rendering is exact,
- * because the result is already in the coordinates the map draws with; and the
- * areas the reader sees are the areas the algorithm equalised, which is the only
- * definition of a cartogram that means anything. The plane's own distortion is
- * absorbed by the warp rather than applied on top of it — the opposite of
- * computing in one projection and displaying in another.
- *
- * The output is still lon/lat, so a result layer is ordinary GeoJSON on every
- * engine. That works because the way back from Web Mercator has no domain limit:
- * y is finite for every latitude and any finite y inverts to a latitude below
- * 90°, asymptotically, never clamped. An equal-area plane is used instead when
- * the view is in one (the areas are then right for that view too), and points
- * that leave its valid strip are the price — hence `plane` is chosen by the
- * caller, which knows what the map is showing.
+ * The accuracy did not suffer for it. Measured on 177 world countries by
+ * population, ground-area error against value: 0.440% median through the library
+ * on its own against 0.447% through the old hand-rolled route.
  *
  * Values arrive already filtered to positive numbers by `unitsOf`, hence
  * `missing: 'error'`: a gap here would be a bug in this file, not in the data.
  */
-function edugisFlow(units: Unit[], planeId: string): { features: GeoJSON.Feature[]; medianAreaError: number } {
-    const plane = planeTransform(planeId);
-
+function edugisFlow(units: Unit[]): { features: GeoJSON.Feature[]; medianAreaError: number } {
+    // The value goes in as a plain property under a name of our choosing, so a
+    // layer whose own attributes happen to collide with it cannot confuse the
+    // library, and the original properties are put back afterwards by index.
     const input: GeoJSON.FeatureCollection = {
         type: 'FeatureCollection',
         features: units.map(unit => ({
             type: 'Feature',
             properties: { [VALUE_FIELD]: unit.value },
-            geometry: mapGeometry(unit.feature.geometry!, p => plane.forward(p)),
+            geometry: unit.feature.geometry!,
         })),
     };
 
@@ -829,159 +802,18 @@ function edugisFlow(units: Unit[], planeId: string): { features: GeoJSON.Feature
         method: 'flow',
         value: VALUE_FIELD,
         missing: 'error',
-        // The input is already planar and the library must not touch it: 'none'
-        // is what stops it projecting, and `unproject: false` what stops it
-        // undoing a projection it never applied.
-        projection: 'none',
-        unproject: false,
-        // Measured, not skipped: this is the only honest reading of how well the
-        // warp did, since it is the only one taken in the plane the warp worked
-        // in. The caller turns it into a warning.
         metrics: true,
     });
-
-    // Every output coordinate has to have a longitude and a latitude, and a warp
-    // is free to push part of the map past the edge of the plane it worked in —
-    // an equal-area plane covers a finite shape, and outside it there is no
-    // lon/lat to return. The whole map is therefore shrunk about the plane's
-    // centre until it fits, rather than the stray points being clamped: one
-    // factor applied to everything leaves every shape and every *relative* area
-    // exactly as the warp made them, which is what a cartogram is read for.
-    // Clamping instead pressed thousands of points onto the ±90 line.
-    const fit = fitFactor(result.featureCollection, plane);
 
     // Feature order and count are preserved by the library, so the original
     // properties go back on by position.
     const features = result.featureCollection.features.map((feature, index) => ({
         type: 'Feature' as const,
         properties: { ...(units[index]?.feature.properties ?? {}) },
-        geometry: mapGeometry(feature.geometry!, p => plane.inverse([p[0] * fit, p[1] * fit])),
+        geometry: feature.geometry!,
     }));
 
     return { features, medianAreaError: result.metrics?.areaError.median ?? 0 };
-}
-
-/**
- * The largest factor ≤ 1 that brings every coordinate inside the plane's domain.
- *
- * Only points that are outside can constrain it, so only those are measured: for
- * each, the fraction of the way back to the centre at which it re-enters is
- * found by bisection, and the smallest such fraction is the factor for the whole
- * map. A plane with no edge (Web Mercator) returns 1 and nothing is touched.
- */
-function fitFactor(collection: GeoJSON.FeatureCollection, plane: PlaneTransform): number {
-    let factor = 1;
-    for (const feature of collection.features) {
-        for (const point of coordinatesOf(feature.geometry)) {
-            if (plane.isInside([point[0] * factor, point[1] * factor])) continue;
-            factor = Math.min(factor, plane.insideFraction(point));
-        }
-    }
-    return factor;
-}
-
-/** Every coordinate in a geometry, flat. */
-function coordinatesOf(geometry: GeoJSON.Geometry | null): GeoJSON.Position[] {
-    const out: GeoJSON.Position[] = [];
-    const walk = (value: unknown): void => {
-        if (!Array.isArray(value)) return;
-        if (typeof value[0] === 'number') out.push(value as GeoJSON.Position);
-        else value.forEach(walk);
-    };
-    if (geometry && 'coordinates' in geometry) walk(geometry.coordinates);
-    return out;
-}
-
-/**
- * The plane a flow cartogram is warped in: Equal Earth.
- *
- * Equal-area, so the areas the warp equalises are ground areas; global, so it
- * suits a world layer; and the projection webmapx already offers as the sensible
- * default for thematic maps, so a result looks right on the map most likely to
- * be showing it.
- */
-const EQUAL_AREA_PLANE = 'EPSG:8857';
-
-/** Fallback when a plane id has no definition — defined and invertible everywhere. */
-const WEB_MERCATOR = 'EPSG:3857';
-
-interface PlaneTransform {
-    forward(p: GeoJSON.Position): GeoJSON.Position;
-    inverse(p: GeoJSON.Position): GeoJSON.Position;
-    /** True when a plane coordinate lands on the world map. */
-    isInside(p: GeoJSON.Position): boolean;
-    /**
-     * The largest fraction of the way from the plane's centre to this point that
-     * is still inside the domain. Bisected, because the distance to the edge is
-     * not known in closed form and the plane is not a rectangle.
-     */
-    insideFraction(p: GeoJSON.Position): number;
-}
-
-/**
- * lon/lat ↔ a projection's plane, by projection id.
- *
- * proj4 rather than a closed-form pair, because the plane is now whatever the
- * map's view is using, and the catalog in `utils/view-projections.ts` already
- * holds the definition for each of them. An id with no definition falls back to
- * Web Mercator rather than throwing: a cartogram in the wrong plane is a poor
- * map, while a crash is no map.
- */
-function planeTransform(id: string): PlaneTransform {
-    const converter = converterFor(id) ?? converterFor(WEB_MERCATOR)!;
-    const inverse = (p: GeoJSON.Position) => converter.inverse([p[0], p[1]]) as GeoJSON.Position;
-    // Not merely "does proj4 return a number": the result has to sit on the
-    // world map. An equal-area plane covers a finite shape and answers NaN
-    // outside it, but Web Mercator has no edge at all — y runs to infinity at
-    // the poles — so a warp in that plane happily produces latitudes of 89.999
-    // and the map ends up smeared along the top and bottom of the world.
-    // Measured on 253 countries: 30 480 points past 89.9°, which is exactly what
-    // "everything is at the poles" looks like. The world rectangle is the test,
-    // and the map is shrunk to fit inside it.
-    const isInside = (p: GeoJSON.Position) => {
-        const [lon, lat] = inverse(p);
-        return Number.isFinite(lon) && Number.isFinite(lat)
-            && Math.abs(lat) <= MAX_LATITUDE && Math.abs(lon) <= 180;
-    };
-    return {
-        forward: p => converter.forward([p[0], p[1]]) as GeoJSON.Position,
-        inverse,
-        isInside,
-        insideFraction: point => {
-            let outside = 1;
-            let inside = 0;
-            for (let i = 0; i < DOMAIN_BISECTIONS; i++) {
-                const t = (outside + inside) / 2;
-                if (isInside([point[0] * t, point[1] * t])) inside = t;
-                else outside = t;
-            }
-            return inside;
-        },
-    };
-}
-
-/** Enough to land within a metre of the boundary on a plane 40 000 km across. */
-const DOMAIN_BISECTIONS = 32;
-
-/**
- * How close to a pole a cartogram may reach.
- *
- * Not 90: a shape whose vertices sit at 89.99° is drawn as a smear along the top
- * of every map, and the pole is a point, so there is nothing there to see. This
- * leaves the last degree alone.
- */
-const MAX_LATITUDE = 89;
-
-function converterFor(id: string): proj4.Converter | null {
-    try {
-        const def = getViewProjectionDef(id);
-        // proj4 ships EPSG:4326 and EPSG:3857; everything else comes from the
-        // catalog, and is registered under its own id the first time it is used.
-        if (def?.proj4 && !(id in (proj4.defs as unknown as Record<string, unknown>))) proj4.defs(id, def.proj4);
-        return proj4('EPSG:4326', id);
-    } catch {
-        return null;
-    }
 }
 
 /**

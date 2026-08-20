@@ -10,6 +10,9 @@ All notable changes to this project will be documented here.
 - Sub-tool containers nested inside another container are no longer dropped when building the layout — `dynamic-layout.ts` now builds sub-tools recursively.
 - Modal tools nested in a container (draw, measure, info, …) no longer register with the global `ToolManager`, which previously deactivated them behind the container's back.
 
+### Changed
+- **The `flow` cartogram method no longer projects anything itself.** `@edugis/cartogram@0.1.3` bounds its own output and picks Equal Earth for world-scale data, so the projection to Equal Earth, the shrink-to-fit and the unprojection this file used to do around it all came out — with them the `plane` option and this file's only use of proj4. Measured on 177 world countries by population, ground-area error against value is 0.440% through the library on its own against 0.447% through the old route, so nothing was given up for it.
+
 ---
 
 ## [2026 Q1–Q2] - Marker API, Info Tool, Layer Order Fixes
