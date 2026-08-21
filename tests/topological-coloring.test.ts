@@ -244,3 +244,26 @@ test('the colours are spread evenly, without adding one', () => {
     const spread = Math.max(...counts) - Math.min(...counts);
     assert.ok(spread <= 1, `colour counts ${counts.join('/')} differ by ${spread}`);
 });
+
+test('a bigger palette is used, and still nobody clashes', () => {
+    // Four colours is what a map of areas generally needs; asking for more is a
+    // matter of taste, and the extra colours must actually be used rather than
+    // sitting unused at the end of the palette.
+    const features = grid(8, 8);
+
+    const four = colorByAdjacency(features, { paletteSize: 4 });
+    const twelve = colorByAdjacency(features, { paletteSize: 12 });
+
+    noNeighbourShares(four);
+    noNeighbourShares(twelve);
+    assert.ok(twelve.colorCount > four.colorCount, `${twelve.colorCount} vs ${four.colorCount}`);
+    assert.ok(twelve.colorCount <= 12);
+});
+
+test('asking for more colours than the map can place is not an error', () => {
+    // Three squares in a row cannot use twelve colours: a region may only take a
+    // colour none of its neighbours holds. It gets what it can.
+    const result = colorByAdjacency([cell(0, 0), cell(1, 0), cell(2, 0)], { paletteSize: 12 });
+    noNeighbourShares(result);
+    assert.ok(result.colorCount >= 2 && result.colorCount <= 3, `used ${result.colorCount}`);
+});

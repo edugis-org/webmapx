@@ -31,13 +31,12 @@ import {
     type ClassificationMethod,
     type NumericClassification,
 } from '../utils/classification';
-import { colorSchemesFor, type ColorScheme, type SchemeType } from '../utils/color-schemes';
+import { colorSchemesFor, maxClassesFor, type ColorScheme, type SchemeType } from '../utils/color-schemes';
 import {
     buildCategoricalStyle,
     buildKeyedColorStyle,
     buildNumericStyle,
     buildSingleStyle,
-    ROLE_OPACITY_KEY,
     type StyleRole,
 } from '../utils/style-builder';
 import { colorByAdjacency, coloringKeyFor } from '../utils/topological-coloring';
@@ -134,6 +133,14 @@ const ROLE_LABELS: Record<StyleRole, string> = {
 const DEFAULT_CLASS_COUNT = 5;
 const DEFAULT_MAX_CATEGORIES = 8;
 
+/**
+ * Colours a neighbour colouring may be spread over. Four is the floor because
+ * that is what a map of areas generally needs; more is a matter of taste, and a
+ * twelve-colour map of municipalities reads as variety rather than as a scheme.
+ */
+const MIN_NEIGHBOUR_COLORS = 4;
+const MAX_NEIGHBOUR_COLORS = 12;
+
 @customElement('webmapx-layer-style-dialog')
 export class WebmapxLayerStyleDialog extends LitElement {
     @state() private dialogTitle = 'Layer style';
@@ -146,15 +153,17 @@ export class WebmapxLayerStyleDialog extends LitElement {
     @state() private method: ClassificationMethod = 'naturalBreaks';
     @state() private classCount = DEFAULT_CLASS_COUNT;
     @state() private maxCategories = DEFAULT_MAX_CATEGORIES;
+    @state() private neighbourColors = MIN_NEIGHBOUR_COLORS;
     @state() private schemeName: string | null = null;
     @state() private reversed = false;
     @state() private blindSafe = false;
     @state() private singleColor = DATA_START;
     /**
-     * Kept as an answer of its own rather than inherited silently. The layer's
-     * authored opacity (world-countries is drawn at 0.2) otherwise applies to
-     * every colour ramp chosen afterwards, and the ramp then looks nothing like
-     * the swatches that were picked from.
+     * Always starts at full strength, and returns there whenever the kind of
+     * colouring changes. Inheriting the layer's authored opacity — world
+     * countries is drawn at 0.2 — meant every ramp chosen afterwards was drawn
+     * at a fifth of the colours it was picked from, which reads as the ramp
+     * being wrong rather than as the layer being faint.
      */
     @state() private opacity = 1;
     @state() private showTable = false;
@@ -334,7 +343,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         // One styleable sublayer is not a decision worth asking about.
         const targets = this.allTargets();
         this.targetId = targets.length === 1 ? targets[0].id : null;
-        this.opacity = this.authoredOpacity(this.targetId);
+        this.opacity = 1;
         this.mode = null;
         this.field = null;
         this.schemeName = null;
@@ -370,14 +379,6 @@ export class WebmapxLayerStyleDialog extends LitElement {
         return this.groups.find((group) => group.layers.some((layer) => layer.id === this.targetId)) ?? null;
     }
 
-    /** The opacity the target was drawn with before the panel touched it. */
-    private authoredOpacity(targetId: string | null): number {
-        const target = this.allTargets().find((candidate) => candidate.id === targetId);
-        const role = ROLE_OF_TYPE[target?.type ?? 'fill'] ?? 'fill';
-        const value = target?.paint?.[ROLE_OPACITY_KEY[role]];
-        return typeof value === 'number' ? value : 1;
-    }
-
     private currentRole(): StyleRole {
         const type = this.currentTarget()?.type ?? 'fill';
         return ROLE_OF_TYPE[type] ?? 'fill';
@@ -406,7 +407,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
 
     /** How many colours the current answer needs — what the scheme list is filtered by. */
     private neededColors(): number {
-        if (this.mode === 'neighbours') return Math.max(3, this.coloring()?.colorCount ?? 4);
+        if (this.mode === 'neighbours') return Math.max(3, this.coloring()?.colorCount ?? this.neighbourColors);
         const numeric = this.numericClassification();
         if (numeric) return numeric.classes.length;
         const categorical = this.categoricalClassification();
@@ -433,15 +434,18 @@ export class WebmapxLayerStyleDialog extends LitElement {
         return schemes.find((scheme) => scheme.name === this.schemeName) ?? schemes[0] ?? null;
     }
 
-    private coloringCache: { features: GeoJSON.Feature[]; result: ReturnType<typeof colorByAdjacency> } | null = null;
+    private coloringCache: { features: GeoJSON.Feature[]; palette: number; result: ReturnType<typeof colorByAdjacency> } | null = null;
 
     /** Cached: colouring 4000 regions is not something to redo on every render. */
     private coloring(): ReturnType<typeof colorByAdjacency> | null {
         const features = this.features();
         if (features.length === 0) return null;
-        if (this.coloringCache?.features === features) return this.coloringCache.result;
-        const result = colorByAdjacency(features);
-        this.coloringCache = { features, result };
+        const palette = this.neighbourColors;
+        if (this.coloringCache?.features === features && this.coloringCache.palette === palette) {
+            return this.coloringCache.result;
+        }
+        const result = colorByAdjacency(features, { paletteSize: palette });
+        this.coloringCache = { features, palette, result };
         return result;
     }
 
@@ -505,12 +509,20 @@ export class WebmapxLayerStyleDialog extends LitElement {
         this.field = null;
         this.schemeName = null;
         this.message = null;
-        this.opacity = this.authoredOpacity(this.targetId);
+        this.opacity = 1;
+        this.neighbourColors = MIN_NEIGHBOUR_COLORS;
+        this.classCount = DEFAULT_CLASS_COUNT;
     }
 
     /** Records an answer, then rebuilds and re-applies the style. */
     private answer(change: () => void): void {
+        const modeBefore = this.mode;
         change();
+        // A new kind of colouring starts at full strength. Carrying the previous
+        // opacity over is how a ramp ended up drawn at the 20% the layer
+        // happened to be authored with, looking nothing like the swatches it was
+        // chosen from. The slider is right there to dim it again.
+        if (this.mode !== modeBefore) this.opacity = 1;
         // Answering a question can invalidate a later one: a new attribute
         // cannot keep the previous field's scheme choice if the class count
         // changed. Only the scheme is reset, since it is the only answer whose
@@ -585,7 +597,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
                     ${targets.map((target) => html`
                         <button class="choice" type="button"
                                 aria-pressed=${String(target.id === this.targetId)}
-                                @click=${() => { this.targetId = target.id; this.coloringCache = null; this.opacity = this.authoredOpacity(target.id); }}>
+                                @click=${() => { this.targetId = target.id; this.coloringCache = null; this.opacity = 1; }}>
                             <span>${ROLE_LABELS[ROLE_OF_TYPE[target.type] ?? 'fill']}</span>
                             <small>${target.id}</small>
                         </button>
@@ -682,8 +694,16 @@ export class WebmapxLayerStyleDialog extends LitElement {
         return html`
             <div class="question">
                 <h3>Neighbours differ</h3>
+                <div class="row">
+                    <label for="neighbour-colors">Colours</label>
+                    <input id="neighbour-colors" type="range"
+                           min=${MIN_NEIGHBOUR_COLORS} max=${MAX_NEIGHBOUR_COLORS}
+                           .value=${String(this.neighbourColors)}
+                           @input=${(e: Event) => this.answer(() => { this.neighbourColors = Number((e.target as HTMLInputElement).value); })}>
+                    <span>${coloring.colorCount}</span>
+                </div>
                 <div class="muted">
-                    ${coloring.colorCount} colours, no two touching areas alike.
+                    No two touching areas alike.
                     ${coloring.isolatedRegions > 0 ? html`${coloring.isolatedRegions} areas touch nothing.` : nothing}
                 </div>
                 ${everythingIsolated ? html`<div class="warning">
@@ -777,7 +797,8 @@ export class WebmapxLayerStyleDialog extends LitElement {
                 </div>
                 <div class="row">
                     <label for="class-count">Classes</label>
-                    <input id="class-count" type="range" min="2" max="9" .value=${String(this.classCount)}
+                    <input id="class-count" type="range" min="2" max=${maxClassesFor(this.schemeType())}
+                           .value=${String(this.classCount)}
                            @input=${(e: Event) => this.answer(() => { this.classCount = Number((e.target as HTMLInputElement).value); })}>
                     <span>${classification?.classes.length ?? this.classCount}</span>
                 </div>
@@ -799,7 +820,8 @@ export class WebmapxLayerStyleDialog extends LitElement {
                 <h3>Categories</h3>
                 <div class="row">
                     <label for="max-categories">Show at most</label>
-                    <input id="max-categories" type="range" min="2" max="12" .value=${String(this.maxCategories)}
+                    <input id="max-categories" type="range" min="2" max=${maxClassesFor('qual')}
+                           .value=${String(this.maxCategories)}
                            @input=${(e: Event) => this.answer(() => { this.maxCategories = Number((e.target as HTMLInputElement).value); })}>
                     <span>${this.maxCategories}</span>
                 </div>

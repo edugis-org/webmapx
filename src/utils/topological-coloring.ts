@@ -33,6 +33,13 @@ const SHARED_VERTICES_FOR_BORDER = 2;
 
 export interface ColoringOptions {
     /**
+     * How many colours to spread the map over. The minimum a map *needs* is
+     * usually four; asking for more is a legitimate taste: a twelve-colour map
+     * of municipalities reads as variety rather than as a scheme. Fewer than the
+     * map needs is capped by `maxColors` instead, which allows a clash.
+     */
+    paletteSize?: number;
+    /**
      * Snap distance for matching vertices, in degrees (the units of GeoJSON).
      * The default is about a centimetre — tight enough that unrelated vertices
      * do not merge, loose enough to absorb rounding.
@@ -72,7 +79,7 @@ export function colorByAdjacency(
     const tolerance = options.tolerance ?? DEFAULT_TOLERANCE;
     const adjacency = buildAdjacency(features, tolerance);
     const skipped = features.filter((feature) => !hasPolygon(feature.geometry)).length;
-    const colors = dsatur(adjacency, options.maxColors ?? Infinity);
+    const colors = dsatur(adjacency, options.maxColors ?? Infinity, options.paletteSize);
 
     return {
         colors,
@@ -148,7 +155,7 @@ export function buildAdjacency(features: readonly GeoJSON.Feature[], tolerance =
  * varied and the caller is told (by `colorCount` reaching the cap) that some
  * neighbours match.
  */
-export function dsatur(adjacency: readonly (readonly number[])[], maxColors = Infinity): number[] {
+export function dsatur(adjacency: readonly (readonly number[])[], maxColors = Infinity, paletteSize?: number): number[] {
     const n = adjacency.length;
     const colors = new Array<number>(n).fill(-1);
     const saturation = adjacency.map(() => new Set<number>());
@@ -182,7 +189,7 @@ export function dsatur(adjacency: readonly (readonly number[])[], maxColors = In
         for (const neighbour of adjacency[best]) saturation[neighbour].add(color);
     }
 
-    return rebalance(adjacency, colors);
+    return rebalance(adjacency, colors, paletteSize);
 }
 
 /**
@@ -198,8 +205,13 @@ export function dsatur(adjacency: readonly (readonly number[])[], maxColors = In
  * a region only ever moves to a colour none of its neighbours holds, so the
  * result stays valid and the palette cannot grow.
  */
-function rebalance(adjacency: readonly (readonly number[])[], colors: number[]): number[] {
-    const colorCount = colors.length === 0 ? 0 : Math.max(...colors) + 1;
+function rebalance(adjacency: readonly (readonly number[])[], colors: number[], paletteSize?: number): number[] {
+    const needed = colors.length === 0 ? 0 : Math.max(...colors) + 1;
+    // A caller asking for more colours than the map needs gets them here: the
+    // spare colours are simply candidates the balancing pass can move regions
+    // into, so the extra colours are used evenly instead of sitting unused at
+    // the end of the palette.
+    const colorCount = Math.max(needed, Math.min(paletteSize ?? 0, colors.length));
     if (colorCount < 2) return colors;
 
     const counts = new Array<number>(colorCount).fill(0);

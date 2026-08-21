@@ -482,11 +482,66 @@ export async function run({ page, engine, baseUrl }) {
         }
     });
 
-    await step('the panel reports how many colours it needed', async () => {
-        const text = await page.evaluate(() => window.__stylePanel.shadowRoot.textContent);
-        if (!/\d+ colours, no two touching areas alike/.test(text)) {
-            fail('the panel does not say how many colours the colouring used');
+    await step('the number of colours can be chosen', async () => {
+        const spread = await page.evaluate(async () => {
+            const root = window.__stylePanel.shadowRoot;
+            const slider = root.querySelector('#neighbour-colors');
+            if (!slider) return { error: 'no colour-count control' };
+            const read = () => root.querySelector('#neighbour-colors').parentElement.textContent.trim();
+            const before = read();
+            slider.value = '8';
+            slider.dispatchEvent(new Event('input'));
+            await new Promise(resolve => setTimeout(resolve, 400));
+            return {
+                before,
+                after: read(),
+                swatches: [...root.querySelectorAll('.as-drawn .preview-swatch')].length,
+                min: slider.min,
+                max: slider.max,
+            };
+        });
+        if (spread.error) fail(spread.error);
+        if (spread.min !== '4' || spread.max !== '12') {
+            fail(`the colour count runs ${spread.min}..${spread.max}, not 4..12`);
         }
+        // The number shown is what the map actually uses, which can be less
+        // than what was asked for: a region can only take a colour none of its
+        // neighbours holds, so nine squares cannot always fill eight colours.
+        const used = Number(spread.after.replace(/\D+/g, ''));
+        const usedBefore = Number(spread.before.replace(/\D+/g, ''));
+        if (!(used > usedBefore)) {
+            fail(`asking for more colours changed the map from ${usedBefore} to ${used}`);
+        }
+    });
+
+    await step('the panel says what the colouring guarantees', async () => {
+        const text = await page.evaluate(() => window.__stylePanel.shadowRoot.textContent);
+        if (!/No two touching areas alike/.test(text)) {
+            fail('the panel does not say what the colouring guarantees');
+        }
+    });
+
+    await step('a new kind of colouring starts at full opacity', async () => {
+        // Carrying the previous opacity over is how a ramp ended up drawn at the
+        // 20% the layer happened to be authored with.
+        const opacity = await page.evaluate(async () => {
+            const root = window.__stylePanel.shadowRoot;
+            const slider = [...root.querySelectorAll('input[type="range"]')].find(input => input.max === '1');
+            slider.value = '0.2';
+            slider.dispatchEvent(new Event('input'));
+            await new Promise(resolve => setTimeout(resolve, 250));
+
+            [...root.querySelectorAll('.done-row button')]
+                .find(b => b.parentElement.textContent.includes('Colour')).click();
+            await new Promise(resolve => setTimeout(resolve, 250));
+            [...root.querySelectorAll('button.choice')]
+                .find(b => b.textContent.trim().startsWith('One colour')).click();
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            const after = [...root.querySelectorAll('input[type="range"]')].find(input => input.max === '1');
+            return Number(after.value);
+        });
+        if (opacity !== 1) fail(`switching colouring kept the opacity at ${opacity}`);
     });
 
     // ── Reset ────────────────────────────────────────────────────────────────
@@ -523,26 +578,25 @@ export async function run({ page, engine, baseUrl }) {
         }
     });
 
-    await step('opacity is an answer, not something inherited silently', async () => {
+    await step('opacity starts at full strength, whatever the layer was authored at', async () => {
+        // The test layer is drawn at 0.6; inheriting that would draw every ramp
+        // chosen afterwards at 60% of the colours it was picked from.
         const shown = await page.evaluate(() => {
-            const root = window.__stylePanel.shadowRoot;
-            const slider = [...root.querySelectorAll('input[type="range"]')]
+            const slider = [...window.__stylePanel.shadowRoot.querySelectorAll('input[type="range"]')]
                 .find(input => input.max === '1');
             return slider ? Number(slider.value) : null;
         });
-        // The test layer is authored at 0.6, and the panel must start there
-        // rather than at full strength.
-        if (shown !== 0.6) fail(`the opacity control shows ${shown}, not the layer's own 0.6`);
+        if (shown !== 1) fail(`the opacity control starts at ${shown}, not at full strength`);
 
         const applied = await page.evaluate(async () => {
             const root = window.__stylePanel.shadowRoot;
             const slider = [...root.querySelectorAll('input[type="range"]')].find(input => input.max === '1');
-            slider.value = '1';
+            slider.value = '0.5';
             slider.dispatchEvent(new Event('input'));
             await new Promise(resolve => setTimeout(resolve, 250));
             return window.__lastPaint;
         });
-        if (applied['fill-opacity'] !== 1) {
+        if (applied['fill-opacity'] !== 0.5) {
             fail(`moving the opacity control produced ${JSON.stringify(applied)}`);
         }
     });
