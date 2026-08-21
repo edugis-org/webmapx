@@ -22,6 +22,19 @@ export interface SaveLayerCandidate {
     sourceConfig?: Record<string, unknown>;
 }
 
+/**
+ * Feature data is written compact: indentation is not content, and on a real
+ * layer it is most of the file — a world cartogram came out at 22.9 MB of which
+ * ~13 MB was whitespace. Style documents stay indented: they are small, and they
+ * are the file a person opens and edits by hand.
+ */
+function writeGeoJSON(data: GeoJSON.FeatureCollection | string): string {
+    return typeof data === 'string' ? data : JSON.stringify(data);
+}
+
+/** Used whenever no single selected layer can name the download. */
+const DEFAULT_FILENAME = 'map-layers';
+
 interface SaveLayerItem extends SaveLayerCandidate {
     checked: boolean;
     data: GeoJSON.FeatureCollection | string | null;
@@ -31,9 +44,12 @@ interface SaveLayerItem extends SaveLayerCandidate {
 export class WebmapxSaveLayersDialog extends LitElement {
 
     @state() private items: SaveLayerItem[] = [];
-    @state() private filename = 'map-layers';
+    @state() private filename = DEFAULT_FILENAME;
     @state() private includeStyle = true;
     @state() private zip = true;
+    /** Set once the user types in the filename field: the name then stops
+     *  following the selection, since it is theirs and not ours any more. */
+    private filenameEdited = false;
 
     @query('sl-dialog') private dialog!: SlDialog;
     @query('.filename-input') private filenameInput!: SlInput;
@@ -99,7 +115,8 @@ export class WebmapxSaveLayersDialog extends LitElement {
             const saveable = data !== null || candidate.sourceConfig != null;
             return { ...candidate, data, checked: saveable };
         });
-        this.filename = 'map-layers';
+        this.filenameEdited = false;
+        this.syncFilenameToSelection();
         this.includeStyle = true;
         this.zip = true;
         this.dialog?.show();
@@ -122,6 +139,18 @@ export class WebmapxSaveLayersDialog extends LitElement {
 
     private toggleItem(layerId: string, checked: boolean): void {
         this.items = this.items.map((item) => item.layerId === layerId ? { ...item, checked } : item);
+        this.syncFilenameToSelection();
+    }
+
+    /** One selected layer names the file after itself; any other number keeps the
+     *  generic name, since no single layer can speak for the download. Skipped
+     *  once the user has typed a name of their own. */
+    private syncFilenameToSelection(): void {
+        if (this.filenameEdited) return;
+        const selected = this.selectedItems;
+        this.filename = selected.length === 1
+            ? WebmapxSaveLayersDialog.sanitizeFileBase(selected[0].label ?? selected[0].layerId)
+            : DEFAULT_FILENAME;
     }
 
     /** Filename-safe version of a layer id (which may contain ':' from a prior
@@ -201,11 +230,11 @@ export class WebmapxSaveLayersDialog extends LitElement {
     private async handleDownload(): Promise<void> {
         const selected = this.selectedItems;
         if (selected.length === 0) return;
-        const filename = (this.filenameInput?.value ?? this.filename).trim() || 'map-layers';
+        const filename = (this.filenameInput?.value ?? this.filename).trim() || DEFAULT_FILENAME;
 
         if (this.singleFileEligible && !this.zip) {
             const item = selected[0];
-            const content = typeof item.data === 'string' ? item.data : JSON.stringify(item.data, null, 2);
+            const content = writeGeoJSON(item.data!);
             this.downloadBlob(new Blob([content], { type: 'application/geo+json' }), `${filename}.geojson`);
             this.close();
             return;
@@ -221,7 +250,7 @@ export class WebmapxSaveLayersDialog extends LitElement {
         for (const item of orderedForSave) {
             const isExternal = item.data === null && item.sourceConfig != null;
             if (!isExternal) {
-                const content = typeof item.data === 'string' ? item.data : JSON.stringify(item.data, null, 2);
+                const content = writeGeoJSON(item.data!);
                 await zipWriter.add(`${fileBases.get(item.layerId)}.geojson`, new TextReader(content));
             }
             if (this.includeStyle || isExternal) {
@@ -266,7 +295,7 @@ export class WebmapxSaveLayersDialog extends LitElement {
                 </div>
 
                 <sl-input class="filename-input" label="Filename" .value=${this.filename}
-                          @sl-input=${(e: Event) => { this.filename = (e.target as SlInput).value; }}>
+                          @sl-input=${(e: Event) => { this.filename = (e.target as SlInput).value; this.filenameEdited = true; }}>
                 </sl-input>
 
                 <div class="options">
