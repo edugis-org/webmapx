@@ -514,22 +514,8 @@ export class MapCoreService implements IMapCore {
         // turns a resolution into ground metres per pixel and multiplying turns
         // it back. Getting this the wrong way round costs a factor of cos²(lat)
         // — 2.6x in the Netherlands, and it looks like the map merely jumped.
-        const toGround = (value: number) => value / resolutionScaleAt(current.getCode(), centerLonLat[1]);
-        const fromGround = (value: number) => value * resolutionScaleAt(id, centerLonLat[1]);
-        const nextResolution = fromGround(toGround(resolution));
-
-        // The zoom *limits* need the same treatment, and for the same reason the
-        // centre resolution does. Passing `minZoom`/`maxZoom` straight through
-        // would look like it worked: a view derives its resolutions from its
-        // projection's extent, so zoom 18 in Equal Earth is a different scale
-        // from zoom 18 in Mercator, and a configured limit would quietly become
-        // a limit on something else. Expressed as resolutions instead, they mean
-        // the same number of ground metres per pixel in every projection.
-        // minZoom is the coarsest view, hence maxResolution, and vice versa.
-        const limitResolution = (logicalZoom: number) =>
-            fromGround(toGround(view.getResolutionForZoom(this.toOLZoom(logicalZoom))));
-        const maxResolution = this.minZoom !== undefined ? limitResolution(this.minZoom) : undefined;
-        const minResolution = this.maxZoom !== undefined ? limitResolution(this.maxZoom) : undefined;
+        const groundResolution = resolution / resolutionScaleAt(current.getCode(), centerLonLat[1]);
+        const nextResolution = groundResolution * resolutionScaleAt(id, centerLonLat[1]);
 
         // Everything that can fail happens before anything is changed, because
         // the one state this must never reach is a half-switched map: geometry
@@ -545,8 +531,20 @@ export class MapCoreService implements IMapCore {
                 center: transform(centerLonLat, 'EPSG:4326', id),
                 resolution: nextResolution,
                 rotation: view.getRotation(),
-                ...(maxResolution !== undefined ? { maxResolution } : {}),
-                ...(minResolution !== undefined ? { minResolution } : {}),
+                // The zoom *limits* travel as zoom numbers, not as a ground
+                // scale. Converting them the way the centre resolution is
+                // converted reads as more correct and is worse in every way that
+                // matters: a view derives its resolutions from its projection's
+                // extent, so zoom 0 means "the whole world" in each of them, and
+                // that is the promise a config makes with `minZoom: 0`.
+                // Preserving the ground scale instead ties the floor to the
+                // latitude the camera happened to be at, and — since the numbers
+                // then have to be written back for `clampZoom` — lets the
+                // configured limits drift further on every switch. Measured: one
+                // round trip through Equal Earth moved a configured minZoom of 0
+                // to -1, and it never came back.
+                ...(this.minZoom !== undefined ? { minZoom: this.toOLZoom(this.minZoom) } : {}),
+                ...(this.maxZoom !== undefined ? { maxZoom: this.toOLZoom(this.maxZoom) } : {}),
                 ...(this.maxBounds
                     ? { extent: transformExtent(this.maxBounds, 'EPSG:4326', id) as [number, number, number, number] }
                     : {}),
@@ -562,18 +560,6 @@ export class MapCoreService implements IMapCore {
 
         this.mapInstance.setView(nextView);
         this.attachViewEvents(nextView);
-
-        // `clampZoom` and `setViewport` speak in this view's zoom numbers, so the
-        // remembered limits are re-read as zoom numbers of the new view. Without
-        // this the resolution limits above would be right and the clamp applied
-        // before them wrong, which is worse than either alone.
-        const zoomForResolution = (value: number | undefined): number | undefined => {
-            if (value === undefined) return undefined;
-            const zoom = nextView.getZoomForResolution(value);
-            return zoom === undefined ? undefined : this.fromOLZoom(zoom);
-        };
-        this.minZoom = zoomForResolution(maxResolution) ?? this.minZoom;
-        this.maxZoom = zoomForResolution(minResolution) ?? this.maxZoom;
 
         // Zoom levels mean different things in different projections (a view's
         // resolutions derive from its projection extent), so the store's zoom is
