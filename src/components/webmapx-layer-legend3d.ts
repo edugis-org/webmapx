@@ -1589,7 +1589,18 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
   private handleShowLayerStyle(layerId: string, fallbackLabel: string): void {
     const runtimeMetadata = this.adapter?.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined;
     const title = (runtimeMetadata?.label as string | undefined) ?? fallbackLabel;
-    this.styleDialog?.open(title, this.getLayerStyleGroups(layerId, runtimeMetadata));
+    this.styleDialog?.open({
+      title,
+      layerId,
+      groups: this.getLayerStyleGroups(layerId, runtimeMetadata),
+      // The panel builds a paint spec; putting it on the map is the adapter's
+      // job, and `updateLayerStyle` is the one path that mirrors into every
+      // engine. A sublayer id equal to the layer id addresses a standard
+      // (non-composite) layer.
+      apply: (subLayerId, paint) => {
+        this.adapter?.updateLayerStyle(layerId, subLayerId || layerId, paint);
+      },
+    });
   }
 
   /** For geojson-backed layers, returns one feature-count/geometry-type summary per
@@ -1636,7 +1647,8 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
       // Without the source layer a vector-tile source samples zero features.
       const sourceLayer = typeof metadata?.sourceLayer === 'string' ? metadata.sourceLayer : undefined;
       if (layerType && STYLE_DIALOG_LAYER_TYPES.has(layerType)) {
-        targets.push({ id: layerId, type: layerType, sourceId, ...(sourceLayer ? { sourceLayer } : {}) });
+        const paint = (metadata?.paint && typeof metadata.paint === 'object') ? metadata.paint as Record<string, unknown> : undefined;
+        targets.push({ id: layerId, type: layerType, sourceId, ...(paint ? { paint } : {}), ...(sourceLayer ? { sourceLayer } : {}) });
       }
     }
     return targets;
@@ -1653,7 +1665,8 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
       const sourceId = sourceKey ? `${layerId}:${sourceKey}` : '';
       const sourceLayer = typeof sub['source-layer'] === 'string' ? sub['source-layer'] : undefined;
       if (type && id && STYLE_DIALOG_LAYER_TYPES.has(type)) {
-        targets.push({ id, type, sourceId, ...(sourceLayer ? { sourceLayer } : {}) });
+        const paint = (sub.paint && typeof sub.paint === 'object') ? sub.paint as Record<string, unknown> : undefined;
+        targets.push({ id, type, sourceId, ...(paint ? { paint } : {}), ...(sourceLayer ? { sourceLayer } : {}) });
       }
       this.collectStyleTargetsFromSublayers(layerId, sub.sublayers, targets);
     }
@@ -1689,6 +1702,10 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
         sourceId,
         featureCountLabel: this.featureCountLabel(features, completeSourceData),
         featureCount: features?.length ?? null,
+        // The panel classifies these; `completeData: false` is what makes it
+        // warn that only what the map has drawn is being classified.
+        features,
+        completeData: completeSourceData,
         geometryTypes: this.geometryTypeLabels(features),
         attributes,
         featureRows: this.featureRows(features),

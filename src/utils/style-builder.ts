@@ -208,6 +208,49 @@ export function buildCategoricalStyle(options: CategoricalStyleOptions): BuiltSt
     };
 }
 
+export interface KeyedColorOptions {
+    role: StyleRole;
+    /** How the expression names a feature: its GeoJSON id, or a unique property. */
+    key: { kind: 'id' } | { kind: 'property'; name: string };
+    /** One entry per feature: the key value, and which scheme colour it takes. */
+    entries: readonly { key: string | number; colorIndex: number }[];
+    scheme: ColorScheme;
+    /** Colour for a feature the list does not mention. */
+    fallbackColor?: string;
+    opacity?: number;
+}
+
+/**
+ * A colour per feature, addressed by key — what a topological colouring needs.
+ *
+ * The legend is deliberately empty: the colours mean nothing individually, so a
+ * legend listing them would be a list of noise. That is the existing convention
+ * (a class labelled `''` is hidden) applied to a whole style.
+ *
+ * A layer of thousands of regions produces a `match` with thousands of branches.
+ * That is fine for MapLibre (the expression is compiled once) but it is a large
+ * style document, so the caller should think twice before saving one to a config
+ * for a layer of that size.
+ */
+export function buildKeyedColorStyle(options: KeyedColorOptions): BuiltStyle {
+    const { role, key, entries, scheme } = options;
+    if (entries.length === 0) {
+        throw new Error('Nothing to colour: no features were given a colour index.');
+    }
+    const fallback = options.fallbackColor ?? NO_DATA_COLOR;
+    const input = key.kind === 'id' ? ['to-string', ['id']] : ['to-string', ['get', key.name]];
+
+    const colorExpression: unknown = ['match', input,
+        ...entries.flatMap((entry) => [String(entry.key), scheme.colors[entry.colorIndex % scheme.colors.length]]),
+        fallback];
+
+    return {
+        type: ROLE_LAYER_TYPE[role],
+        paint: withOpacity({ [ROLE_COLOR_KEY[role]]: colorExpression }, role, options.opacity),
+        legend: [],
+    };
+}
+
 /** One colour for the whole layer — the simple tier, and every engine can draw it. */
 export function buildSingleStyle(role: StyleRole, color: string, opacity?: number): BuiltStyle {
     return {
