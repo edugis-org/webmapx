@@ -37,6 +37,7 @@ import {
     buildKeyedColorStyle,
     buildNumericStyle,
     buildSingleStyle,
+    ROLE_SIZE,
     type StyleRole,
 } from '../utils/style-builder';
 import { colorByAdjacency, coloringKeyFor } from '../utils/topological-coloring';
@@ -154,6 +155,13 @@ export class WebmapxLayerStyleDialog extends LitElement {
     @state() private classCount = DEFAULT_CLASS_COUNT;
     @state() private maxCategories = DEFAULT_MAX_CATEGORIES;
     @state() private neighbourColors = MIN_NEIGHBOUR_COLORS;
+    /**
+     * Line width, circle radius or text size, depending on the role — null until
+     * the panel has read the layer's own. Unlike colour and opacity this one is
+     * *inherited*: a 1px border and a 6px one are different maps, and starting
+     * every line at some default would silently rewrite the layer's design.
+     */
+    @state() private size: number | null = null;
     @state() private schemeName: string | null = null;
     @state() private reversed = false;
     @state() private blindSafe = false;
@@ -172,8 +180,13 @@ export class WebmapxLayerStyleDialog extends LitElement {
     private applyStyle: StyleApply | null = null;
     /** Paint each sublayer had when the panel opened, for "reset". */
     private originalPaint = new Map<string, Record<string, unknown>>();
-    /** The shared Pickr, created on first use and torn down with the panel. */
-    private picker: Pickr | null = null;
+    /**
+     * The Pickr and the button it is anchored to. Pickr positions its popup
+     * against that element, so an instance kept across a re-render ends up
+     * measuring a node that is no longer in the document — and a detached node
+     * has no position, which is why the popup appeared in the top-left corner.
+     */
+    private picker: { instance: Pickr; button: HTMLElement } | null = null;
 
     @query('sl-dialog') private dialog!: SlDialog;
 
@@ -344,6 +357,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         const targets = this.allTargets();
         this.targetId = targets.length === 1 ? targets[0].id : null;
         this.opacity = 1;
+        this.size = this.authoredSize(this.targetId);
         this.mode = null;
         this.field = null;
         this.schemeName = null;
@@ -361,7 +375,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         super.disconnectedCallback();
         // Pickr lives in document.body, so it outlives this element unless it is
         // told otherwise.
-        this.picker?.destroyAndRemove();
+        this.picker?.instance.destroyAndRemove();
         this.picker = null;
     }
 
@@ -377,6 +391,18 @@ export class WebmapxLayerStyleDialog extends LitElement {
 
     private currentGroup(): SourceStyleGroup | null {
         return this.groups.find((group) => group.layers.some((layer) => layer.id === this.targetId)) ?? null;
+    }
+
+    /** The width/radius/text size the target is drawn with today. */
+    private authoredSize(targetId: string | null): number | null {
+        const target = this.allTargets().find((candidate) => candidate.id === targetId);
+        const role = ROLE_OF_TYPE[target?.type ?? 'fill'] ?? 'fill';
+        const spec = ROLE_SIZE[role];
+        if (!spec) return null;
+        const value = target?.paint?.[spec.key];
+        // An authored expression (width by zoom, say) is not a number this
+        // control can represent; leaving it alone is better than flattening it.
+        return typeof value === 'number' ? value : spec.min;
     }
 
     private currentRole(): StyleRole {
@@ -452,6 +478,15 @@ export class WebmapxLayerStyleDialog extends LitElement {
     // ── Applying ─────────────────────────────────────────────────────────────
 
     private built(): { paint: Record<string, unknown>; legend: { color: string; label: string }[] } | null {
+        const style = this.buildColors();
+        if (!style) return null;
+        const spec = ROLE_SIZE[this.currentRole()];
+        return spec && this.size !== null
+            ? { ...style, paint: { ...style.paint, [spec.key]: this.size } }
+            : style;
+    }
+
+    private buildColors(): { paint: Record<string, unknown>; legend: { color: string; label: string }[] } | null {
         const role = this.currentRole();
         const scheme = this.currentScheme();
 
@@ -512,6 +547,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         this.opacity = 1;
         this.neighbourColors = MIN_NEIGHBOUR_COLORS;
         this.classCount = DEFAULT_CLASS_COUNT;
+        this.size = this.authoredSize(this.targetId);
     }
 
     /** Records an answer, then rebuilds and re-applies the style. */
@@ -554,6 +590,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
                             ${this.renderModeDetail()}
                             ${this.renderSchemeStep()}
                             ${this.mode ? this.renderOpacity() : nothing}
+                            ${this.mode ? this.renderSize() : nothing}
                             ${this.renderPreview()}
                             ${group && group.completeData === false ? html`
                                 <div class="warning">
@@ -597,7 +634,12 @@ export class WebmapxLayerStyleDialog extends LitElement {
                     ${targets.map((target) => html`
                         <button class="choice" type="button"
                                 aria-pressed=${String(target.id === this.targetId)}
-                                @click=${() => { this.targetId = target.id; this.coloringCache = null; this.opacity = 1; }}>
+                                @click=${() => {
+                                    this.targetId = target.id;
+                                    this.coloringCache = null;
+                                    this.opacity = 1;
+                                    this.size = this.authoredSize(target.id);
+                                }}>
                             <span>${ROLE_LABELS[ROLE_OF_TYPE[target.type] ?? 'fill']}</span>
                             <small>${target.id}</small>
                         </button>
@@ -666,18 +708,25 @@ export class WebmapxLayerStyleDialog extends LitElement {
      * transparent, which a native `<input type="color">` cannot offer at all.
      */
     private openColorPicker(button: HTMLElement): void {
+        if (this.picker && this.picker.button !== button) {
+            this.picker.instance.destroyAndRemove();
+            this.picker = null;
+        }
         if (!this.picker) {
-            this.picker = createColorPicker({
+            this.picker = {
                 button,
-                value: this.singleColor,
-                onChange: (rgba) => this.answer(() => { this.singleColor = rgba; }),
-                onCancel: (original) => this.answer(() => { this.singleColor = original; }),
-            });
-            this.picker.show();
+                instance: createColorPicker({
+                    button,
+                    value: this.singleColor,
+                    onChange: (rgba) => this.answer(() => { this.singleColor = rgba; }),
+                    onCancel: (original) => this.answer(() => { this.singleColor = original; }),
+                }),
+            };
+            this.picker.instance.show();
             return;
         }
-        this.picker.setColor(this.singleColor);
-        this.picker.show();
+        this.picker.instance.setColor(this.singleColor);
+        this.picker.instance.show();
     }
 
     private renderNeighbourNote(): TemplateResult {
@@ -937,6 +986,22 @@ export class WebmapxLayerStyleDialog extends LitElement {
                 </div>
                 ${this.mode === 'single' ? nothing : html`
                     <div class="muted">The scheme list above stays at full strength, so the colours can be told apart.</div>`}
+            </div>
+        `;
+    }
+
+    private renderSize(): TemplateResult | typeof nothing {
+        const spec = ROLE_SIZE[this.currentRole()];
+        if (!spec || this.size === null) return nothing;
+        return html`
+            <div class="question">
+                <h3>${spec.label}</h3>
+                <div class="row">
+                    <input type="range" min=${spec.min} max=${spec.max} step=${spec.step}
+                           .value=${String(this.size)}
+                           @input=${(e: Event) => this.answer(() => { this.size = Number((e.target as HTMLInputElement).value); })}>
+                    <span>${this.size}${spec.unit}</span>
+                </div>
             </div>
         `;
     }

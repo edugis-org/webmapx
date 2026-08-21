@@ -59,6 +59,17 @@ export const ROLE_OPACITY_KEY: Record<StyleRole, string> = {
 };
 
 /**
+ * The paint property that sets each role's *size*, and the range a UI should
+ * offer for it. Fill has none: an area's size is its geometry.
+ */
+export const ROLE_SIZE: Partial<Record<StyleRole, { key: string; min: number; max: number; step: number; label: string; unit: string }>> = {
+    outline: { key: 'line-width', min: 0.5, max: 12, step: 0.5, label: 'Width', unit: ' px' },
+    line: { key: 'line-width', min: 0.5, max: 12, step: 0.5, label: 'Width', unit: ' px' },
+    circle: { key: 'circle-radius', min: 1, max: 30, step: 1, label: 'Size', unit: ' px' },
+    label: { key: 'text-size', min: 8, max: 40, step: 1, label: 'Text size', unit: ' px' },
+};
+
+/**
  * Colour for features the classification says nothing about: a missing value, a
  * category not in the list, or — on a tiled layer — a value that arrived after
  * the classes were made. Deliberately a light grey rather than a scheme colour,

@@ -640,6 +640,83 @@ export async function run({ page, engine, baseUrl }) {
         }
     });
 
+    await step('line width is editable, and starts at the layer\'s own', async () => {
+        // Unlike colour and opacity this one is inherited: a 1px border and a
+        // 6px one are different maps, so starting every line at a default would
+        // silently rewrite the layer's design.
+        const state = await page.evaluate(async () => {
+            const root = window.__stylePanel.shadowRoot;
+            const heading = [...root.querySelectorAll('.question h3')].find(h => h.textContent.trim() === 'Width');
+            if (!heading) return { error: `no width control; headings: ${[...root.querySelectorAll('.question h3')].map(h => h.textContent.trim()).join(', ')}` };
+            const slider = heading.parentElement.querySelector('input[type="range"]');
+            const started = Number(slider.value);
+            slider.value = '6';
+            slider.dispatchEvent(new Event('input'));
+            await new Promise(resolve => setTimeout(resolve, 250));
+            return { started, applied: window.__lastPaint };
+        });
+        if (state.error) fail(state.error);
+        // The composite test layer authors its line at 2px.
+        if (state.started !== 2) fail(`the width control started at ${state.started}, not the layer's own 2`);
+        if (state.applied['line-width'] !== 6) {
+            fail(`moving the width control produced ${JSON.stringify(state.applied)}`);
+        }
+    });
+
+    await step('the picker opens next to the swatch, not in the corner', async () => {
+        // Reached the way it broke: a second target chosen, so the colour button
+        // is a different element from the one any earlier picker was anchored
+        // to. Pickr measures its anchor to place the popup, and a detached node
+        // has no position — the popup then lands at 0,0.
+        const placement = await page.evaluate(async () => {
+            const root = window.__stylePanel.shadowRoot;
+            [...root.querySelectorAll('.done-row button')]
+                .find(b => b.parentElement.textContent.includes('Colour'))?.click();
+            await new Promise(resolve => setTimeout(resolve, 250));
+            [...root.querySelectorAll('button.choice')]
+                .find(b => b.textContent.trim().startsWith('One colour')).click();
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // Open it once here, then switch to the other sublayer and open it
+            // again: the second button is a different element, and that is the
+            // sequence the corner-placement happened in.
+            root.querySelector('button.color-button').click();
+            await new Promise(resolve => setTimeout(resolve, 300));
+            document.body.click();
+            await new Promise(resolve => setTimeout(resolve, 200));
+
+            [...root.querySelectorAll('.done-row button')]
+                .find(b => b.parentElement.textContent.includes('Style'))?.click();
+            await new Promise(resolve => setTimeout(resolve, 250));
+            [...root.querySelectorAll('button.choice')]
+                .find(b => b.textContent.trim().startsWith('Areas'))?.click();
+            await new Promise(resolve => setTimeout(resolve, 300));
+            [...root.querySelectorAll('button.choice')]
+                .find(b => b.textContent.trim().startsWith('One colour'))?.click();
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            const swatch = root.querySelector('button.color-button');
+            swatch.click();
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            const popup = document.querySelector('.webmapx-pickr')
+                ?? document.querySelector('.pcr-app')
+                ?? document.querySelector('.pickr .pcr-app');
+            const a = swatch.getBoundingClientRect();
+            const b = popup?.getBoundingClientRect();
+            document.body.click();
+            return b ? { distance: Math.hypot(a.left - b.left, a.top - b.top), popup: { x: b.left, y: b.top } } : null;
+        });
+        if (!placement) {
+            const found = await page.evaluate(() => [...document.querySelectorAll('[class*="pcr"]')].map(el => el.className).slice(0, 5));
+            fail(`the picker did not open (elements: ${found.join(' | ') || 'none'})`);
+        }
+        // Anywhere near the swatch is fine; the corner is not.
+        if (placement.distance > 400) {
+            fail(`the picker opened ${Math.round(placement.distance)}px from the swatch, at ${JSON.stringify(placement.popup)}`);
+        }
+    });
+
     await step('a column with one value per feature cannot be grouped by', async () => {
         // world-countries carries only NAME and ISO_A3: 257 different values in
         // 257 features. Classified into eight categories that put 249 countries
