@@ -119,6 +119,7 @@ Legend: ✅ exists · 🟡 partly there · ❌ missing.
 | Print/photocopy-safe filter | ❌ | same source |
 | Contrast check against basemap | ❌ | worth prototyping; hard to do honestly |
 | Random/distinct palette for many categories | ❌ | needed when categories > 12 |
+| Topological colouring (no attribute at all) | ❌ | "just make the neighbours differ" — see below |
 
 ### 2.4 Attributes and data
 
@@ -244,6 +245,43 @@ Recommendation:
 Do not take `d3-scale-chromatic` as the primary source: it would cost us the
 accessibility metadata that is the most valuable part of ColorBrewer for a
 teaching product.
+
+### The random colourizer, and the four-colour theorem
+
+Colouring a polygon layer so that **no two neighbours share a colour**, with no
+attribute involved. It is the fastest way to make an administrative layer
+readable, and it is what a printed atlas does.
+
+The four-colour theorem (Appel & Haken 1976, machine-checked by Gonthier 2005)
+says four colours always suffice — but the conditions matter, and real map data
+breaks them:
+
+- **Each region must be one connected piece.** A country with islands or an
+  exclave (Alaska, Kaliningrad, Nakhchivan) is two regions that must share a
+  colour, and that is exactly the case the theorem excludes. Multipart features
+  are the norm in a countries layer.
+- **Neighbours are regions sharing a boundary *segment*.** Regions meeting at a
+  single point may share a colour.
+- The proof is not a practical algorithm. The known four-colour procedure
+  (Robertson–Sanders–Seymour–Thomas, O(n²)) is hundreds of lines. **Greedy
+  DSATUR is a few dozen** and colours real country and municipality layers in
+  four or five; the extra colour is invisible to a user who was not counting.
+
+So the honest feature is: *"colour so neighbours differ, using as few colours as
+possible"* — not *"four colours"*. Implementation shape:
+
+1. Build adjacency. `flatbush` (already a dependency) indexes bounding boxes,
+   then a shared-vertex test on candidate pairs — the same exact-coordinate
+   caveat as topology-aware simplification: layers whose shared borders differ by
+   a millimetre have no shared vertices, and every region comes out an island.
+   A tolerance-based segment test is the fallback.
+2. Colour with DSATUR (most-constrained region first).
+3. Emit a `match` on the feature id, or write a `__color` property — the former
+   keeps the data untouched, which is the rule for this tool (§7).
+
+Costs one traversal of the layer, works with any qualitative scheme, and needs
+no attribute at all — which makes it the one styling option that is useful on a
+layer with no usable columns.
 
 ---
 
