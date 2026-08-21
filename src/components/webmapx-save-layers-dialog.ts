@@ -23,13 +23,58 @@ export interface SaveLayerCandidate {
 }
 
 /**
+ * Decimal places kept when coordinates are rounded on export: 1e-7 degrees is
+ * about 1.1 cm at the equator, well inside any accuracy a web map's data has.
+ */
+const EXPORT_DECIMALS = 7;
+const EXPORT_FACTOR = 10 ** EXPORT_DECIMALS;
+
+/**
+ * Rounds every coordinate of a geometry, leaving properties untouched.
+ *
+ * Only geometry is rounded, never the whole document through a JSON replacer: a
+ * replacer cannot tell a coordinate from an attribute, and silently rounding
+ * someone's measurements to seven decimals would be a data change rather than a
+ * saving. Arrays are walked rather than typed on, which covers every geometry
+ * kind (including GeometryCollection) without a switch per type.
+ */
+function roundCoordinates<T>(value: T): T {
+    if (typeof value === 'number') return (Math.round(value * EXPORT_FACTOR) / EXPORT_FACTOR) as unknown as T;
+    if (Array.isArray(value)) return value.map(roundCoordinates) as unknown as T;
+    return value;
+}
+
+export function roundGeometryForExport(geometry: GeoJSON.Geometry): GeoJSON.Geometry {
+    if (geometry.type === 'GeometryCollection') {
+        return { ...geometry, geometries: geometry.geometries.map(roundGeometryForExport) };
+    }
+    // The cast is the price of one function covering every geometry kind: the
+    // nesting depth of `coordinates` differs per type, and the rounding does not
+    // change its shape.
+    return { ...geometry, coordinates: roundCoordinates<unknown>(geometry.coordinates) } as GeoJSON.Geometry;
+}
+
+/**
  * Feature data is written compact: indentation is not content, and on a real
  * layer it is most of the file — a world cartogram came out at 22.9 MB of which
  * ~13 MB was whitespace. Style documents stay indented: they are small, and they
  * are the file a person opens and edits by hand.
+ *
+ * Anything computed in JS (a cartogram, a reprojection) carries full double
+ * precision — 12 to 16 decimals, nanometres of a coordinate known to metres —
+ * so rounding is offered too, and is on by default. A layer read straight from
+ * its source file keeps whatever precision that file had; rounding never adds
+ * digits.
  */
-function writeGeoJSON(data: GeoJSON.FeatureCollection | string): string {
-    return typeof data === 'string' ? data : JSON.stringify(data);
+export function writeGeoJSONForExport(data: GeoJSON.FeatureCollection | string, round: boolean): string {
+    if (typeof data === 'string') return data;
+    if (!round) return JSON.stringify(data);
+    return JSON.stringify({
+        ...data,
+        features: data.features.map(feature => (feature.geometry
+            ? { ...feature, geometry: roundGeometryForExport(feature.geometry) }
+            : feature)),
+    });
 }
 
 /** Used whenever no single selected layer can name the download. */
@@ -47,6 +92,7 @@ export class WebmapxSaveLayersDialog extends LitElement {
     @state() private filename = DEFAULT_FILENAME;
     @state() private includeStyle = true;
     @state() private zip = true;
+    @state() private roundCoordinates = true;
     /** Set once the user types in the filename field: the name then stops
      *  following the selection, since it is theirs and not ours any more. */
     private filenameEdited = false;
@@ -119,6 +165,7 @@ export class WebmapxSaveLayersDialog extends LitElement {
         this.syncFilenameToSelection();
         this.includeStyle = true;
         this.zip = true;
+        this.roundCoordinates = true;
         this.dialog?.show();
     }
 
@@ -234,7 +281,7 @@ export class WebmapxSaveLayersDialog extends LitElement {
 
         if (this.singleFileEligible && !this.zip) {
             const item = selected[0];
-            const content = writeGeoJSON(item.data!);
+            const content = writeGeoJSONForExport(item.data!, this.roundCoordinates);
             this.downloadBlob(new Blob([content], { type: 'application/geo+json' }), `${filename}.geojson`);
             this.close();
             return;
@@ -250,7 +297,7 @@ export class WebmapxSaveLayersDialog extends LitElement {
         for (const item of orderedForSave) {
             const isExternal = item.data === null && item.sourceConfig != null;
             if (!isExternal) {
-                const content = writeGeoJSON(item.data!);
+                const content = writeGeoJSONForExport(item.data!, this.roundCoordinates);
                 await zipWriter.add(`${fileBases.get(item.layerId)}.geojson`, new TextReader(content));
             }
             if (this.includeStyle || isExternal) {
@@ -302,6 +349,10 @@ export class WebmapxSaveLayersDialog extends LitElement {
                     <sl-checkbox ?checked=${this.includeStyle}
                                   @sl-change=${(e: Event) => { this.includeStyle = (e.target as HTMLInputElement).checked; }}>
                         Include style
+                    </sl-checkbox>
+                    <sl-checkbox ?checked=${this.roundCoordinates}
+                                  @sl-change=${(e: Event) => { this.roundCoordinates = (e.target as HTMLInputElement).checked; }}>
+                        Round coordinates to ${EXPORT_DECIMALS} decimals (about 5 cm)
                     </sl-checkbox>
                     ${showZipOption ? html`
                         <sl-checkbox ?checked=${this.zip}
