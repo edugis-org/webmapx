@@ -73,8 +73,22 @@ export interface CartogramResult {
      * complaint. The caller turns this into a warning.
      */
     medianAreaError: number;
-    /** Features left out, and why — the caller decides whether to surface it. */
-    skipped: { missingValue: number; nonPositive: number; noArea: number; belowMinimum: number };
+    /**
+     * Features left out, and why — the caller decides whether to surface it.
+     *
+     * `zeroValue` is counted apart from `negativeValue` because they are left
+     * out for different reasons: a cartogram sizes a shape by its value, so a
+     * region worth zero is asked for zero area — there is nothing to draw, and
+     * it is left out deliberately rather than by a falsy test that would also
+     * swallow a missing value. A negative value is not a size at all.
+     */
+    skipped: {
+        missingValue: number;
+        zeroValue: number;
+        negativeValue: number;
+        noArea: number;
+        belowMinimum: number;
+    };
 }
 
 /** How many points a Dorling circle is drawn with. */
@@ -614,7 +628,7 @@ function unitsOf(
     minValuePercent = 0,
 ): { units: Unit[]; skipped: CartogramResult['skipped'] } {
     const units: Unit[] = [];
-    const skipped = { missingValue: 0, nonPositive: 0, noArea: 0, belowMinimum: 0 };
+    const skipped = { missingValue: 0, zeroValue: 0, negativeValue: 0, noArea: 0, belowMinimum: 0 };
 
     for (const feature of input.features) {
         const raw = feature.properties?.[field];
@@ -627,8 +641,15 @@ function unitsOf(
             skipped.missingValue++;
             continue;
         }
-        if (value <= 0) {
-            skipped.nonPositive++;
+        // Zero and negative are told apart on the *number*, never on falsiness:
+        // `!value` would count a real zero as a missing value and report the
+        // layer as broken when it is merely uninhabited.
+        if (value === 0) {
+            skipped.zeroValue++;
+            continue;
+        }
+        if (value < 0) {
+            skipped.negativeValue++;
             continue;
         }
         const area = featureArea(feature.geometry);

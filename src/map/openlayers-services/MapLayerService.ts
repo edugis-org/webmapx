@@ -241,6 +241,10 @@ export class MapLayerService implements ILayerService {
                 (layer as any).__mapLayerId = layerId;
                 this.addMapLayerAtIndex(layer, insertIndex);
                 this.nativeLayerInstances.set(nativeLayerId, layer);
+                // Cached for the same reason a composite sublayer is: rebuilding
+                // the layer for a style edit needs the spec and the source it was
+                // built from, and nothing else keeps them.
+                this.compositeSubLayerCache.set(nativeLayerId, { spec: stdLayer as SubLayerSpec, sourceConfig });
             }
         }
         nativeLayerIds.push(nativeLayerId);
@@ -344,11 +348,55 @@ export class MapLayerService implements ILayerService {
 
     updateLayerStyle(styleId: string, subLayerId: string, partialPaint: Record<string, unknown>): boolean {
         const nativeLayerId = `${styleId}-${subLayerId}`;
+        if (this.rebuildWithPaint(nativeLayerId, partialPaint)) return true;
+
+        // A standard (non-composite) layer is registered under
+        // `${layerId}-${sourceId}-${type}`, not under `${styleId}-${subLayerId}`,
+        // so the lookup above cannot find it. The legend addresses such a layer
+        // with subLayerId === layerId (it has no sublayers), and without this
+        // branch every colour and opacity edit on one — a geoprocessing result,
+        // for instance — was silently dropped. MapLibre has had the same branch
+        // all along.
+        if (styleId === subLayerId && this.updateStandardLayerStyle(styleId, partialPaint)) return true;
+
+        return this.updateStyleBackedSubLayer(styleId, subLayerId, partialPaint);
+    }
+
+    /** Which native layer of a multi-type standard layer a paint key belongs to.
+     *  Mirrors the MapLibre service's rule, since both name their native layers
+     *  after the sublayer type. */
+    private static layerTypeForKey(key: string): string {
+        if (key.startsWith('fill-extrusion')) return 'fill-extrusion';
+        if (key.startsWith('text-') || key.startsWith('icon-')) return 'symbol';
+        return key.split('-')[0];
+    }
+
+    private updateStandardLayerStyle(layerId: string, partialPaint: Record<string, unknown>): boolean {
+        let updated = false;
+        for (const nativeId of this.logicalToNative.get(layerId) ?? []) {
+            // Each key goes only to the native layer of its own type, so setting
+            // 'line-color' on a layer drawn as fill + line does not rebuild the
+            // fill with a paint property it cannot use.
+            const forThisLayer = Object.fromEntries(
+                Object.entries(partialPaint).filter(([key]) =>
+                    nativeId.endsWith(`-${MapLayerService.layerTypeForKey(key)}`)),
+            );
+            if (Object.keys(forThisLayer).length === 0) continue;
+            if (this.rebuildWithPaint(nativeId, forThisLayer)) updated = true;
+        }
+        return updated;
+    }
+
+    /**
+     * Re-creates one native layer with `partialPaint` merged into its spec, in
+     * place in the layer stack. OpenLayers has no `setPaintProperty`: a GL paint
+     * spec becomes an OL style function at construction, so changing one means
+     * building the layer again.
+     */
+    private rebuildWithPaint(nativeLayerId: string, partialPaint: Record<string, unknown>): boolean {
         const cached = this.compositeSubLayerCache.get(nativeLayerId);
         const oldLayer = this.nativeLayerInstances.get(nativeLayerId);
-        if (!cached || !oldLayer) {
-            return this.updateStyleBackedSubLayer(styleId, subLayerId, partialPaint);
-        }
+        if (!cached || !oldLayer) return false;
 
         const mergedSpec: SubLayerSpec = { ...cached.spec, paint: { ...(cached.spec.paint ?? {}), ...partialPaint } };
         const index = this.findLayerIndexByInstance(oldLayer);
@@ -1142,6 +1190,14 @@ export class MapLayerService implements ILayerService {
         const format = new GeoJSON();
         const allFeatures: GeoJSON.Feature[] = [];
         const tileRecords: TileFeatureRecord[] = [];
+        // One logical layer is drawn by one native layer per sublayer, and
+        // `createGeoJSONLayer` gives each of those its own `VectorSource` holding
+        // its own copy of the data. Reading every one of them returns each
+        // feature once per sublayer — a fill+outline layer answers twice, which
+        // is invisible on the map (the copies draw on top of each other) but
+        // doubles anything built from the answer. Features belong to the source,
+        // so each source contributes once.
+        const seenSourceIds = new Set<string>();
 
         for (const nativeLayerId of nativeLayerIds) {
             const layer = this.nativeLayerInstances.get(nativeLayerId) as any;
@@ -1150,6 +1206,12 @@ export class MapLayerService implements ILayerService {
             if (!source) continue;
 
             if (typeof source.getFeatures === 'function' && !(source instanceof VectorTileSource)) {
+                // Keyed by native source id, falling back to the native layer id
+                // for a layer that has no source registered: unknown provenance
+                // must not silently collapse two different layers into one.
+                const sourceKey = this.nativeLayerToSource.get(nativeLayerId) ?? `layer:${nativeLayerId}`;
+                if (seenSourceIds.has(sourceKey)) continue;
+                seenSourceIds.add(sourceKey);
                 const olFeatures: any[] = source.getFeatures();
                 for (const f of olFeatures) {
                     try {

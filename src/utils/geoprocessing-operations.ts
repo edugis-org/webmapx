@@ -1594,13 +1594,38 @@ export const GEO_OPERATIONS: GeoOperation[] = [
             // — measured at a median error of 87% on a world layer whose values
             // spanned five orders of magnitude, with nothing said about it.
             const error = result.medianAreaError;
-            const warnings = error > MISLEADING_AREA_ERROR
-                ? [`The areas are still about ${(error * 100).toFixed(0)}% away from the values. ${params.method !== 'contiguous'
+            const warnings: string[] = [];
+            if (error > MISLEADING_AREA_ERROR) {
+                warnings.push(`The areas are still about ${(error * 100).toFixed(0)}% away from the values. ${params.method !== 'contiguous'
                     ? 'This method struggles when a layer mixes very large values with very small ones — try the classic method, or leave the smallest features out.'
-                    : 'Raise "Detail" for more rounds, or leave the smallest features out.'}`]
-                : undefined;
+                    : 'Raise "Detail" for more rounds, or leave the smallest features out.'}`);
+            }
 
-            return { ...result.features, warnings };
+            // A cartogram that quietly returns fewer features than it was given
+            // reads as a bug in the data ("where did those countries go?"), so
+            // every reason a feature was left out is named. Zero is reported
+            // separately from a missing value: it is a real number that asks for
+            // an area of nothing, which is a fact about the layer worth knowing.
+            const { skipped } = result;
+            const left = (n: number, reason: string) =>
+                `${n} ${n === 1 ? 'feature' : 'features'} ${n === 1 ? 'was' : 'were'} left out: ${reason}`;
+            if (skipped.zeroValue > 0) {
+                warnings.push(left(skipped.zeroValue, 'a value of 0. A cartogram sizes a shape by its value, so there is nothing left to draw.'));
+            }
+            if (skipped.negativeValue > 0) {
+                warnings.push(left(skipped.negativeValue, 'a negative value, and an area cannot be negative.'));
+            }
+            if (skipped.missingValue > 0) {
+                warnings.push(left(skipped.missingValue, 'no number in this field.'));
+            }
+            if (skipped.noArea > 0) {
+                warnings.push(left(skipped.noArea, 'no area to resize (a point or a line).'));
+            }
+            if (skipped.belowMinimum > 0) {
+                warnings.push(left(skipped.belowMinimum, 'a value below the minimum share.'));
+            }
+
+            return { ...result.features, warnings: warnings.length ? warnings : undefined };
         },
     },
     {

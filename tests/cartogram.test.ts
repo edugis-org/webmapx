@@ -466,7 +466,10 @@ test('features without a usable value are counted, not silently dropped', async 
     // The three reasons are kept apart: they mean different things to whoever
     // picked the field.
     assert.equal(result.skipped.missingValue, 2, 'no value, and a value that is not a number');
-    assert.equal(result.skipped.nonPositive, 2, 'zero and negative');
+    // Zero is its own reason: a region worth nothing has no area to draw, which
+    // is not the same thing as a region whose value is missing.
+    assert.equal(result.skipped.zeroValue, 1, 'zero');
+    assert.equal(result.skipped.negativeValue, 1, 'negative');
     assert.equal(result.skipped.noArea, 1, 'the point');
 });
 
@@ -515,4 +518,25 @@ test('a field with nothing usable in it is an error, not an empty map', async ()
         () => cartogram(EQUAL_SQUARES, { field: 'nonexistent', method: 'scaled' }),
         /No features have a usable number/,
     );
+});
+
+test('the cartogram operation says which features it left out, and why', async () => {
+    // The counts exist so they can be shown. A cartogram that quietly returns
+    // fewer features than it was given reads as lost data; naming zero as its
+    // own reason is the point, since 0 is a real value and not a missing one.
+    const { GEO_OPERATIONS } = await import('../src/utils/geoprocessing-operations');
+    const operation = GEO_OPERATIONS.find(op => op.id === 'cartogram')!;
+
+    const input = fc(
+        square(0, 0, 10, { name: 'kept', v: 5 }),
+        square(20, 0, 10, { name: 'zero', v: 0 }),
+        square(40, 0, 10, { name: 'missing' }),
+    );
+
+    const result = await operation.compute!(input, { field: 'v', method: 'scaled' }, {});
+
+    assert.deepEqual(result.features.map(f => String(f.properties?.name)), ['kept']);
+    const warnings = (result.warnings ?? []).join(' ');
+    assert.match(warnings, /1 feature was left out: a value of 0\./);
+    assert.match(warnings, /1 feature was left out: no number in this field\./);
 });

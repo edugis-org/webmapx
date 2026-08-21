@@ -339,10 +339,12 @@ export async function runGeoprocess(
             context,
         );
         const skipped = request.inputA.features.length - computed.features.length;
-        if (skipped > 0) {
+        // Only the operation knows whether its own answer is a good one — and an
+        // operation that already said why it left features out (the cartogram
+        // names each reason) must not also be given this generic guess.
+        if (skipped > 0 && !computed.warnings?.length) {
             warnings.push(`${skipped} ${skipped === 1 ? 'feature' : 'features'} were skipped by ${operation.label} — their geometry is not of a type it can use.`);
         }
-        // Only the operation knows whether its own answer is a good one.
         warnings.push(...(computed.warnings ?? []));
         return withWarnings(dropEmptyGeometries(computed, warnings), warnings);
     }

@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 
 import type Projection from 'ol/proj/Projection';
 import type { TileCoord } from 'ol/tilecoord';
+import GeoJSON from 'ol/format/GeoJSON';
+import VectorSource from 'ol/source/Vector';
 import { MapLayerService } from '../src/map/openlayers-services/MapLayerService';
 import { MapStateStore } from '../src/store/map-state-store';
 import type { AnyLayerConfig, CompositeStyleLayerConfig, SourceConfig } from '../src/config/types';
@@ -10,6 +12,7 @@ import type { AnyLayerConfig, CompositeStyleLayerConfig, SourceConfig } from '..
 type TestMapStub = {
   addLayer(): void;
   removeLayer(): void;
+  getLayers(): { removeAt(): void; insertAt(): void; getLength(): number };
 };
 
 type TestVectorTileLayer = {
@@ -24,6 +27,7 @@ function createTestMap(): TestMapStub {
   return {
     addLayer() {},
     removeLayer() {},
+    getLayers: () => ({ removeAt() {}, insertAt() {}, getLength: () => 0 }),
   };
 }
 
@@ -254,4 +258,140 @@ test('MapLayerService expands {bbox-epsg-3857} XYZ url templates into EPSG:3857 
   assert.ok(url, 'expected a url to be produced');
   assert.match(url!, /^https:\/\/t[12]\.example\.com\/tilecache\.py\?\.\.\.&bbox=-?[\d.]+,-?[\d.]+,-?[\d.]+,-?[\d.]+$/);
   assert.ok(!url!.includes('{bbox-epsg-3857}'), 'placeholder must be substituted');
+});
+
+test('queryLayerFeatures reads each source once, however many sublayers draw it', async () => {
+  // A fill+outline layer is two native layers, and `createGeoJSONLayer` gives
+  // each its own VectorSource holding its own copy of the data. Reading both
+  // returned every feature twice — invisible on the map, since the copies draw
+  // on top of each other, but it doubled every export and every analysis built
+  // from the answer.
+  const service = createService();
+  const internal = accessServiceInternals<{
+    logicalToNative: Map<string, string[]>;
+    nativeLayerToSource: Map<string, string>;
+    nativeLayerInstances: Map<string, unknown>;
+  }>(service);
+
+  const data: GeoJSON.FeatureCollection = {
+    type: 'FeatureCollection',
+    features: ['a', 'b', 'c'].map((name, i) => ({
+      type: 'Feature',
+      properties: { name },
+      geometry: { type: 'Point', coordinates: [i, i] },
+    })),
+  };
+
+  const layerFor = () => ({
+    getSource: () => new VectorSource({ features: new GeoJSON().readFeatures(data) }),
+  });
+
+  internal.logicalToNative.set('world', ['world:fill', 'world:outline']);
+  internal.nativeLayerToSource.set('world:fill', 'source:world');
+  internal.nativeLayerToSource.set('world:outline', 'source:world');
+  internal.nativeLayerInstances.set('world:fill', layerFor());
+  internal.nativeLayerInstances.set('world:outline', layerFor());
+
+  const result = await service.queryLayerFeatures('world');
+
+  assert.equal(result.features.length, data.features.length);
+  const names = result.features.map(f => String(f.properties?.name));
+  assert.deepEqual([...new Set(names)].sort(), ['a', 'b', 'c']);
+});
+
+test('queryLayerFeatures keeps both layers when a logical layer really has two sources', async () => {
+  const service = createService();
+  const internal = accessServiceInternals<{
+    logicalToNative: Map<string, string[]>;
+    nativeLayerToSource: Map<string, string>;
+    nativeLayerInstances: Map<string, unknown>;
+  }>(service);
+
+  const pointNamed = (name: string): GeoJSON.FeatureCollection => ({
+    type: 'FeatureCollection',
+    features: [{ type: 'Feature', properties: { name }, geometry: { type: 'Point', coordinates: [0, 0] } }],
+  });
+  const layerFor = (fc: GeoJSON.FeatureCollection) => ({
+    getSource: () => new VectorSource({ features: new GeoJSON().readFeatures(fc) }),
+  });
+
+  internal.logicalToNative.set('combined', ['combined:one', 'combined:two']);
+  internal.nativeLayerToSource.set('combined:one', 'source:one');
+  internal.nativeLayerToSource.set('combined:two', 'source:two');
+  internal.nativeLayerInstances.set('combined:one', layerFor(pointNamed('one')));
+  internal.nativeLayerInstances.set('combined:two', layerFor(pointNamed('two')));
+
+  const result = await service.queryLayerFeatures('combined');
+
+  assert.deepEqual(result.features.map(f => String(f.properties?.name)).sort(), ['one', 'two']);
+});
+
+test('updateLayerStyle repaints a standard layer, not just composite sublayers', async () => {
+  // The legend addresses a layer with no sublayers as (layerId, layerId), while
+  // a standard layer is registered as `${layerId}-${sourceId}-${type}`. Without
+  // the standard-layer branch every colour and opacity edit on a geoprocessing
+  // result was accepted by the UI and dropped by the engine.
+  const service = createService();
+  const internal = accessServiceInternals<{
+    logicalToNative: Map<string, string[]>;
+    compositeSubLayerCache: Map<string, { spec: Record<string, unknown>; sourceConfig: unknown }>;
+    nativeLayerInstances: Map<string, unknown>;
+    createLayer: (nativeLayerId: string, spec: Record<string, unknown>) => Promise<unknown>;
+    findLayerIndexByInstance: () => number;
+  }>(service);
+
+  const built: Array<Record<string, unknown>> = [];
+  internal.createLayer = async (_nativeLayerId, spec) => {
+    built.push(spec);
+    return { __layerId: _nativeLayerId };
+  };
+  internal.findLayerIndexByInstance = () => -1;
+
+  const nativeId = 'gp:cartogram:world-source:gp:cartogram:world-fill';
+  internal.logicalToNative.set('gp:cartogram:world', [nativeId]);
+  internal.nativeLayerInstances.set(nativeId, { __layerId: nativeId });
+  internal.compositeSubLayerCache.set(nativeId, {
+    spec: { id: 'gp:cartogram:world', type: 'fill', paint: { 'fill-color': '#ff0000', 'fill-opacity': 0.35 } },
+    sourceConfig: { id: 'source', type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+  });
+
+  const applied = service.updateLayerStyle('gp:cartogram:world', 'gp:cartogram:world', { 'fill-color': '#00ff00' });
+  await Promise.resolve();
+
+  assert.equal(applied, true);
+  assert.equal(built.length, 1);
+  assert.deepEqual(built[0].paint, { 'fill-color': '#00ff00', 'fill-opacity': 0.35 });
+});
+
+test('updateLayerStyle sends each paint key to the native layer of its own type', async () => {
+  const service = createService();
+  const internal = accessServiceInternals<{
+    logicalToNative: Map<string, string[]>;
+    compositeSubLayerCache: Map<string, { spec: Record<string, unknown>; sourceConfig: unknown }>;
+    nativeLayerInstances: Map<string, unknown>;
+    createLayer: (nativeLayerId: string, spec: Record<string, unknown>) => Promise<unknown>;
+    findLayerIndexByInstance: () => number;
+  }>(service);
+
+  const built: Array<{ nativeId: string; spec: Record<string, unknown> }> = [];
+  internal.createLayer = async (nativeId, spec) => {
+    built.push({ nativeId, spec });
+    return { __layerId: nativeId };
+  };
+  internal.findLayerIndexByInstance = () => -1;
+
+  for (const type of ['fill', 'line']) {
+    const nativeId = `roads-source-${type}`;
+    internal.logicalToNative.set('roads', [...(internal.logicalToNative.get('roads') ?? []), nativeId]);
+    internal.nativeLayerInstances.set(nativeId, { __layerId: nativeId });
+    internal.compositeSubLayerCache.set(nativeId, {
+      spec: { id: 'roads', type, paint: {} },
+      sourceConfig: { id: 'source', type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+    });
+  }
+
+  service.updateLayerStyle('roads', 'roads', { 'line-color': '#0000ff' });
+  await Promise.resolve();
+
+  assert.deepEqual(built.map(b => b.nativeId), ['roads-source-line']);
 });
