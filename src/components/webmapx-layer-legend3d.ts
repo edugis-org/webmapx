@@ -1599,6 +1599,14 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
       // (non-composite) layer.
       apply: (subLayerId, paint) =>
         this.adapter?.updateLayerStyle(layerId, subLayerId || layerId, paint) ?? false,
+      // Labels go on as a layer of their own, so they show up in the legend and
+      // can be switched off there like anything else.
+      layers: {
+        add: (config) => this.adapter?.addLayer(config as never) ?? false,
+        remove: (id) => {
+          if (this.adapter?.hasLayer?.(id)) this.adapter.removeLayer(id);
+        },
+      },
     });
   }
 

@@ -35,6 +35,12 @@ export function registerMapLayer(store: MapStateStore, layer: any): void {
     if (layer?.paint && typeof layer.paint === 'object' && !metadata.paint) {
         metadata.paint = layer.paint;
     }
+    // Alongside paint, because a symbol layer keeps what it *says* in layout:
+    // without this a labels layer reaches the legend with a colour and no text,
+    // and the legend cannot draw a row for it.
+    if (layer?.layout && typeof layer.layout === 'object' && !metadata.layout) {
+        metadata.layout = layer.layout;
+    }
     if (typeof layer?.minzoom === 'number' && typeof metadata.minzoom !== 'number') {
         metadata.minzoom = layer.minzoom;
     }

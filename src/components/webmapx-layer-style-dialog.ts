@@ -44,7 +44,7 @@ import {
 import { colorByAdjacency, coloringKeyFor } from '../utils/topological-coloring';
 import { createColorPicker } from './internal/color-picker';
 import type Pickr from '@simonwep/pickr';
-import { DATA_START } from '../theme/data-colors';
+import { DATA_OUTLINE, DATA_START } from '../theme/data-colors';
 
 export interface LayerStyleTarget {
     id: string;
@@ -87,12 +87,28 @@ export interface SourceStyleGroup {
  */
 export type StyleApply = (subLayerId: string, paint: Record<string, unknown>) => boolean | void;
 
+/**
+ * Adding and removing a layer of its own — what labels need.
+ *
+ * Labels are a second sublayer over the same features, and the shortest honest
+ * way to get one on every engine is a small layer alongside the styled one: it
+ * appears in the legend, can be switched off, and is removed with the same
+ * button. Attaching a sublayer to an existing logical layer instead would need
+ * engine-specific plumbing in all four adapters.
+ */
+export interface LayerHost {
+    add: (config: Record<string, unknown>) => Promise<boolean> | boolean;
+    remove: (layerId: string) => void;
+}
+
 export interface StyleDialogContext {
     title: string;
-    /** Only for the caller's own bookkeeping — the panel addresses sublayers. */
+    /** Names the labels layer, and is the caller's own bookkeeping otherwise. */
     layerId: string;
     groups: SourceStyleGroup[];
     apply?: StyleApply;
+    /** Lets the panel put a labels layer on the map. Omitted: no labels step. */
+    layers?: LayerHost;
 }
 
 /** How a layer is coloured. The three answers to "colour by what?". */
@@ -132,6 +148,9 @@ const ROLE_LABELS: Record<StyleRole, string> = {
     label: 'Labels',
 };
 
+/** Text size a label starts at, in pixels. */
+const DEFAULT_LABEL_SIZE = 12;
+
 const DEFAULT_CLASS_COUNT = 5;
 const DEFAULT_MAX_CATEGORIES = 8;
 
@@ -163,6 +182,9 @@ export class WebmapxLayerStyleDialog extends LitElement {
      * every line at some default would silently rewrite the layer's design.
      */
     @state() private size: number | null = null;
+    @state() private labelField: string | null = null;
+    @state() private labelSize = DEFAULT_LABEL_SIZE;
+    @state() private labelColor = DATA_OUTLINE;
     @state() private schemeName: string | null = null;
     @state() private reversed = false;
     @state() private blindSafe = false;
@@ -184,6 +206,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
     @state() private message: string | null = null;
 
     private applyStyle: StyleApply | null = null;
+    private layerHost: LayerHost | null = null;
     /** Paint each sublayer had when the panel opened, for "reset". */
     private originalPaint = new Map<string, Record<string, unknown>>();
     /**
@@ -193,6 +216,9 @@ export class WebmapxLayerStyleDialog extends LitElement {
      * has no position, which is why the popup appeared in the top-left corner.
      */
     private picker: { instance: Pickr; button: HTMLElement } | null = null;
+    private labelPicker: { instance: Pickr; button: HTMLElement } | null = null;
+    private labelsAdded = false;
+    private styledLayerId = '';
 
     @query('sl-dialog') private dialog!: SlDialog;
 
@@ -347,8 +373,10 @@ export class WebmapxLayerStyleDialog extends LitElement {
             document.body.appendChild(this);
         }
         this.dialogTitle = context.title;
+        this.styledLayerId = context.layerId;
         this.groups = context.groups;
         this.applyStyle = context.apply ?? null;
+        this.layerHost = context.layers ?? null;
         this.message = null;
         this.showTable = false;
 
@@ -365,6 +393,8 @@ export class WebmapxLayerStyleDialog extends LitElement {
         this.opacity = 1;
         this.size = this.authoredSize(this.targetId);
         this.singleColor = this.authoredColor(this.targetId);
+        this.labelField = null;
+        this.labelSize = DEFAULT_LABEL_SIZE;
         this.mode = null;
         this.field = null;
         this.schemeName = null;
@@ -384,6 +414,8 @@ export class WebmapxLayerStyleDialog extends LitElement {
         // told otherwise.
         this.picker?.instance.destroyAndRemove();
         this.picker = null;
+        this.labelPicker?.instance.destroyAndRemove();
+        this.labelPicker = null;
     }
 
     // ── The state, read back as questions ────────────────────────────────────
@@ -571,6 +603,9 @@ export class WebmapxLayerStyleDialog extends LitElement {
         this.classCount = DEFAULT_CLASS_COUNT;
         this.size = this.authoredSize(this.targetId);
         this.singleColor = this.authoredColor(this.targetId);
+        // Reset means the layer as it was found, and it was found without them.
+        this.labelField = null;
+        void this.applyLabels();
     }
 
     /** Records an answer, then rebuilds and re-applies the style. */
@@ -614,6 +649,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
                             ${this.renderSchemeStep()}
                             ${this.mode ? this.renderOpacity() : nothing}
                             ${this.mode ? this.renderSize() : nothing}
+                            ${this.renderLabels()}
                             ${this.renderPreview()}
                             ${group && group.completeData === false ? html`
                                 <div class="warning">
@@ -1063,6 +1099,137 @@ export class WebmapxLayerStyleDialog extends LitElement {
                 `)}
             </div>
         `;
+    }
+
+    /** The id the labels layer is registered under, derived from the styled one. */
+    private labelLayerId(): string {
+        return `${this.styledLayerId}:labels`;
+    }
+
+    /**
+     * Labels are offered only where the whole dataset is in hand. A tiled source
+     * answers with what the map has drawn, and a labels layer built from that
+     * would be a snapshot: pan, and the labels stay behind while the features
+     * move on.
+     */
+    private renderLabels(): TemplateResult | typeof nothing {
+        const group = this.currentGroup();
+        if (!this.layerHost || !group || !this.mode) return nothing;
+        if (group.completeData === false || (group.features?.length ?? 0) === 0) return nothing;
+
+        const attributes = group.attributes;
+        if (attributes.length === 0) return nothing;
+
+        if (!this.labelField) {
+            return html`
+                <div class="question">
+                    <h3>Labels</h3>
+                    <div class="muted">Write a value from the data next to each feature.</div>
+                    <div class="choices">
+                        ${attributes.map((attribute) => html`
+                            <button class="choice" type="button"
+                                    @click=${() => this.setLabelField(attribute.name)}>
+                                <span>${attribute.name}</span>
+                            </button>
+                        `)}
+                    </div>
+                </div>
+            `;
+        }
+
+        return html`
+            ${this.renderDone('Labels', this.labelField, () => this.setLabelField(null))}
+            <div class="question">
+                <h3>Label text</h3>
+                <div class="row">
+                    <button class="color-button" type="button" title="Pick a text colour"
+                            style="background:${this.labelColor}"
+                            @click=${(e: Event) => this.openLabelColorPicker(e.currentTarget as HTMLElement)}></button>
+                    <input type="range" min="8" max="40" step="1" .value=${String(this.labelSize)}
+                           @input=${(e: Event) => {
+                               this.labelSize = Number((e.target as HTMLInputElement).value);
+                               void this.applyLabels();
+                           }}>
+                    <span>${this.labelSize} px</span>
+                </div>
+                <div class="muted">Labels are a layer of their own, so they can be switched off in the legend.</div>
+            </div>
+        `;
+    }
+
+    private setLabelField(field: string | null): void {
+        this.labelField = field;
+        void this.applyLabels();
+    }
+
+    private openLabelColorPicker(button: HTMLElement): void {
+        if (this.labelPicker && this.labelPicker.button !== button) {
+            this.labelPicker.instance.destroyAndRemove();
+            this.labelPicker = null;
+        }
+        if (!this.labelPicker) {
+            this.labelPicker = {
+                button,
+                instance: createColorPicker({
+                    button,
+                    value: this.labelColor,
+                    onChange: (rgba) => { this.labelColor = rgba; void this.applyLabels(); },
+                    onCancel: (original) => { this.labelColor = original; void this.applyLabels(); },
+                }),
+            };
+            this.labelPicker.instance.show();
+            return;
+        }
+        this.labelPicker.instance.setColor(this.labelColor);
+        this.labelPicker.instance.show();
+    }
+
+    /**
+     * Puts the labels layer on the map, or takes it off.
+     *
+     * Re-added rather than patched on every change: a labels layer is one symbol
+     * sublayer over a copy of the features, and rebuilding it is both simpler
+     * and the only path that works identically on all four engines.
+     */
+    private async applyLabels(): Promise<void> {
+        if (!this.layerHost) return;
+        const id = this.labelLayerId();
+        this.layerHost.remove(id);
+        this.labelsAdded = false;
+        if (!this.labelField) return;
+
+        const features = this.features();
+        if (features.length === 0) return;
+
+        const sourceId = `${id}-source`;
+        const ok = await this.layerHost.add({
+            id,
+            type: 'symbol',
+            source: sourceId,
+            sources: {
+                [sourceId]: { id: sourceId, type: 'geojson', data: { type: 'FeatureCollection', features } },
+            },
+            layout: {
+                'text-field': ['to-string', ['get', this.labelField]],
+                'text-size': this.labelSize,
+                'text-anchor': 'top',
+                'text-offset': [0, 0.6],
+                'text-allow-overlap': false,
+            },
+            paint: {
+                'text-color': this.labelColor,
+                // A halo is not decoration: without it a label over a dark fill
+                // or a satellite basemap is unreadable, and this tool has no way
+                // to know what it will be drawn over.
+                'text-halo-color': '#ffffff',
+                'text-halo-width': 1.4,
+            },
+            metadata: { label: `${this.dialogTitle} labels`, dynamic: true, legendRole: 'overlay' },
+        });
+        this.labelsAdded = ok !== false;
+        if (!this.labelsAdded) {
+            this.message = 'The map could not add the labels layer.';
+        }
     }
 
     /** The read-only data view the panel had before: kept, but out of the way. */

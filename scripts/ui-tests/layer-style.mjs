@@ -123,6 +123,31 @@ async function addCompositeLayer(page) {
     }, undefined, { timeout: 15_000 });
 }
 
+/** A handful of points with a name, which is what labels are for. */
+async function addPointLayer(page) {
+    await page.evaluate(async ([lon, lat]) => {
+        const features = ['Alpha', 'Bravo', 'Charlie', 'Delta'].map((name, i) => ({
+            type: 'Feature',
+            id: `pt-${i}`,
+            properties: { name, rank: i + 1 },
+            geometry: { type: 'Point', coordinates: [lon + i * 0.4, lat + i * 0.2] },
+        }));
+        await document.querySelector('webmapx-map').addLayerRequest({
+            id: 'style-points',
+            type: 'circle',
+            source: 'style-points-src',
+            sources: { 'style-points-src': { id: 'style-points-src', type: 'geojson', data: { type: 'FeatureCollection', features } } },
+            paint: { 'circle-color': '#e63946', 'circle-radius': 6 },
+            metadata: { label: 'Points', dynamic: true },
+        });
+    }, ORIGIN);
+
+    await page.waitForFunction(async () => {
+        const adapter = await document.querySelector('webmapx-map')?.getAdapterAsync?.();
+        return Boolean(adapter?.store?.getState?.().mapLayers?.['style-points']);
+    }, undefined, { timeout: 15_000 });
+}
+
 /** A layer whose only columns are a name and a code, like world-countries. */
 async function addKeyOnlyLayer(page) {
     await page.evaluate(async ([lon, lat]) => {
@@ -167,11 +192,12 @@ async function openStylePanel(page, options = {}) {
         const dialog = document.createElement('webmapx-layer-style-dialog');
         document.body.appendChild(dialog);
 
+        const points = composite === 'points';
         // A composite layer's sources are registered under the ids its own
         // sublayers name, which is not always the id they were declared with —
         // read it back rather than guessing.
         const entry = adapter.store.getState().mapLayers[layerId];
-        const declared = composite === true
+        const declared = points ? 'style-points-src' : composite === true
             ? (entry?.sublayers ?? []).map(sub => sub.source).find(Boolean)
             : `${layerId}-src`;
         const sourceId = declared ?? `${layerId}-src`;
@@ -179,7 +205,9 @@ async function openStylePanel(page, options = {}) {
             ?? adapter.getSourceData(`${layerId}:${sourceId}`);
         if (!source) throw new Error(`no source data for ${sourceId} (layer ${layerId})`);
         const keysOnly = composite === 'keys';
-        const layers = composite === true
+        const layers = points
+            ? [{ id: layerId, type: 'circle', paint: { 'circle-color': '#e63946', 'circle-radius': 6 } }]
+            : composite === true
             ? [
                 { id: 'style-composite-fill', type: 'fill', paint: { 'fill-color': '#4a90d9', 'fill-opacity': 0.2 } },
                 { id: 'style-composite-line', type: 'line', paint: { 'line-color': '#2c6fad', 'line-width': 2 } },
@@ -192,8 +220,11 @@ async function openStylePanel(page, options = {}) {
                 sourceId,
                 featureCountLabel: `${source.features.length} features`,
                 featureCount: source.features.length,
-                geometryTypes: ['Polygon'],
-                attributes: keysOnly ? [
+                geometryTypes: [points ? 'Point' : 'Polygon'],
+                attributes: points ? [
+                    { name: 'name', type: 'string', values: source.features.map(f => f.properties.name), presentCount: source.features.length, missingCount: 0 },
+                    { name: 'rank', type: 'number', values: source.features.map(f => f.properties.rank), presentCount: source.features.length, missingCount: 0 },
+                ] : keysOnly ? [
                     { name: 'NAME', type: 'string', values: source.features.map(f => f.properties.NAME), presentCount: source.features.length, missingCount: 0 },
                     { name: 'ISO_A3', type: 'string', values: source.features.map(f => f.properties.ISO_A3), presentCount: source.features.length, missingCount: 0 },
                 ] : [
@@ -207,9 +238,18 @@ async function openStylePanel(page, options = {}) {
                 completeData: true,
             }],
             apply: (subLayerId, paint) => adapter.updateLayerStyle(layerId, subLayerId || layerId, paint),
+            layers: {
+                add: (config) => adapter.addLayer(config),
+                remove: (id) => { if (adapter.hasLayer?.(id)) adapter.removeLayer(id); },
+            },
         });
         window.__stylePanel = dialog;
-    }, [options.layerId ?? LAYER_ID, options.targetType === 'line' ? true : options.targetType === 'keys' ? 'keys' : false]);
+    }, [
+        options.layerId ?? LAYER_ID,
+        options.targetType === 'line' ? true
+            : options.targetType === 'keys' ? 'keys'
+                : options.targetType === 'points' ? 'points' : false,
+    ]);
 
     await page.waitForFunction(() => Boolean(window.__stylePanel?.shadowRoot?.querySelector('sl-dialog')), undefined, { timeout: 10_000 });
 }
@@ -633,6 +673,48 @@ export async function run({ page, engine, baseUrl }) {
         if (swatches.length === 0 || !swatches.every(value => value === '0.3')) {
             fail(`preview swatches show opacity ${swatches.join(', ') || '(none)'} instead of the 0.3 being applied`);
         }
+    });
+
+    await step('labels can be put on a point layer', async () => {
+        await addPointLayer(page);
+        await openStylePanel(page, { layerId: 'style-points', targetType: 'points' });
+        await choose(page, 'One colour');
+
+        const result = await page.evaluate(async () => {
+            const root = window.__stylePanel.shadowRoot;
+            const heading = [...root.querySelectorAll('.question h3')].find(h => h.textContent.trim() === 'Labels');
+            if (!heading) return { error: `no labels step; steps: ${[...root.querySelectorAll('.question h3')].map(h => h.textContent.trim()).join(', ')}` };
+
+            [...heading.parentElement.querySelectorAll('button.choice')]
+                .find(b => b.textContent.trim().startsWith('name')).click();
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
+            const entry = adapter.store.getState().mapLayers['style-points:labels'];
+            return {
+                added: Boolean(entry),
+                type: entry?.layerType ?? entry?.type ?? null,
+                textField: JSON.stringify(entry?.layout?.['text-field'] ?? null),
+                label: entry?.label ?? null,
+            };
+        });
+        if (result.error) fail(result.error);
+        if (!result.added) fail('no labels layer was added');
+        await screenshot(page, `layer-style-${engine}-labels`);
+        if (!/name/.test(result.textField)) fail(`the labels layer writes ${result.textField}`);
+        if (result.type !== 'symbol') fail(`the labels layer is a ${result.type}, not a symbol layer`);
+    });
+
+    await step('turning labels off takes the layer away again', async () => {
+        const gone = await page.evaluate(async () => {
+            const root = window.__stylePanel.shadowRoot;
+            [...root.querySelectorAll('.done-row button')]
+                .find(b => b.parentElement.textContent.includes('Labels')).click();
+            await new Promise(resolve => setTimeout(resolve, 600));
+            const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
+            return !adapter.store.getState().mapLayers['style-points:labels'];
+        });
+        if (!gone) fail('the labels layer stayed on the map');
     });
 
     // ── A layer drawn as fill *and* line ─────────────────────────────────────
