@@ -242,8 +242,44 @@ export abstract class BaseAdapter {
         this.events.emit({ type: 'layer-reorder', layerId, activeLayers });
     }
 
+    /**
+     * Repaints one sublayer, and mirrors the new paint into `store.mapLayers` so
+     * everything reading the style from the store — the legend, and a save that
+     * writes the layer back out — reflects it.
+     *
+     * The mirror lives here for the same reason `setLayerVisibility`'s does: two
+     * callers keeping their own copy in step is exactly how engine and store
+     * drifted apart before. A style edit that only reached the engine left the
+     * legend showing the colours the layer used to have.
+     */
     updateLayerStyle(layerId: string, subLayerId: string, partialPaint: Record<string, unknown>): boolean {
-        return this.getLogicalLayerExecutor().updateLayerStyle(layerId, subLayerId, partialPaint);
+        const applied = this.getLogicalLayerExecutor().updateLayerStyle(layerId, subLayerId, partialPaint);
+        if (applied) this.mirrorPaintToStore(layerId, subLayerId, partialPaint);
+        return applied;
+    }
+
+    private mirrorPaintToStore(layerId: string, subLayerId: string, partialPaint: Record<string, unknown>): void {
+        const current = this.store.getState().mapLayers ?? {};
+        const entry = current[layerId] as Record<string, unknown> | undefined;
+        if (!entry) return;
+
+        const merge = (existing: unknown): Record<string, unknown> => ({
+            ...(existing && typeof existing === 'object' ? existing as Record<string, unknown> : {}),
+            ...partialPaint,
+        });
+
+        // A composite layer keeps its paint per sublayer; a standard layer keeps
+        // it at the top level and is addressed with subLayerId === layerId.
+        const sublayers = Array.isArray(entry.sublayers) ? entry.sublayers as Record<string, unknown>[] : null;
+        const updated = sublayers
+            ? {
+                ...entry,
+                sublayers: sublayers.map((sub) =>
+                    String(sub.id ?? '') === subLayerId ? { ...sub, paint: merge(sub.paint) } : sub),
+            }
+            : { ...entry, paint: merge(entry.paint) };
+
+        this.store.dispatch({ mapLayers: { ...current, [layerId]: updated } }, 'UI');
     }
 
     /** Engine-agnostic: delegates the actual rendering to whichever executor the concrete

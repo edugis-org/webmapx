@@ -1058,32 +1058,9 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         }
         if (this.isConnected) this.editOverrides = overrides;
 
-        // Persist paint changes to the store so saved layers include the updated style.
-        if (!this.adapter) return;
-        const state = this.adapter.store.getState();
-        const current = state.mapLayers;
-        const entry = current?.[this.layerId] as Record<string, unknown> | undefined;
-        if (!entry) return;
-
-        // For standard layers (subLayerId === layerId), update top-level paint.
-        // For composite/style layers, update the matching sublayer's paint.
-        const sublayers = Array.isArray(entry.sublayers) ? entry.sublayers as Record<string, unknown>[] : null;
-        if (sublayers) {
-            const updatedSublayers = sublayers.map(sub => {
-                const subId = String(sub.id ?? '');
-                if (!subLayerIds.includes(subId)) return sub;
-                const existingPaint = (sub.paint && typeof sub.paint === 'object') ? sub.paint as Record<string, unknown> : {};
-                return { ...sub, paint: { ...existingPaint, [key]: value } };
-            });
-            this.adapter.store.dispatch({
-                mapLayers: { ...current, [this.layerId]: { ...entry, sublayers: updatedSublayers } }
-            }, 'UI');
-        } else {
-            const existingPaint = (entry.paint && typeof entry.paint === 'object') ? entry.paint as Record<string, unknown> : {};
-            this.adapter.store.dispatch({
-                mapLayers: { ...current, [this.layerId]: { ...entry, paint: { ...existingPaint, [key]: value } } }
-            }, 'UI');
-        }
+        // The store mirror is BaseAdapter.updateLayerStyle's job — it dispatches
+        // the same paint it just applied. Keeping a second copy here is the
+        // duplicate-writer pattern that let engine and store drift apart.
     }
 
     private renderRangeRow(subLayerIds: string[], label: string, key: string, value: number, min: number, max: number, step: number, unit = ''): TemplateResult {

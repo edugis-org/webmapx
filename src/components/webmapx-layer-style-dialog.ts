@@ -37,6 +37,7 @@ import {
     buildKeyedColorStyle,
     buildNumericStyle,
     buildSingleStyle,
+    ROLE_OPACITY_KEY,
     type StyleRole,
 } from '../utils/style-builder';
 import { colorByAdjacency, coloringKeyFor } from '../utils/topological-coloring';
@@ -142,6 +143,13 @@ export class WebmapxLayerStyleDialog extends LitElement {
     @state() private reversed = false;
     @state() private blindSafe = false;
     @state() private singleColor = DATA_START;
+    /**
+     * Kept as an answer of its own rather than inherited silently. The layer's
+     * authored opacity (world-countries is drawn at 0.2) otherwise applies to
+     * every colour ramp chosen afterwards, and the ramp then looks nothing like
+     * the swatches that were picked from.
+     */
+    @state() private opacity = 1;
     @state() private showTable = false;
     @state() private message: string | null = null;
 
@@ -246,7 +254,21 @@ export class WebmapxLayerStyleDialog extends LitElement {
 
         .preview { display: flex; flex-direction: column; gap: 0.15rem; }
         .preview-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; }
-        .preview-swatch { width: 18px; height: 12px; border: 1px solid rgba(0,0,0,0.2); flex: 0 0 auto; }
+        .preview-swatch-wrap {
+            width: 32px;
+            height: 18px;
+            flex: 0 0 auto;
+            border: 1px solid rgba(0,0,0,0.2);
+            /* A chequerboard behind the swatch: at 20% opacity a colour over
+               white is just a paler colour, which is a different thing and the
+               one that confuses. Over a chequer it reads as see-through. */
+            background-image:
+                linear-gradient(45deg, rgba(0,0,0,0.16) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.16) 75%),
+                linear-gradient(45deg, rgba(0,0,0,0.16) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.16) 75%);
+            background-size: 8px 8px;
+            background-position: 0 0, 4px 4px;
+        }
+        .preview-swatch { width: 100%; height: 100%; display: block; }
         .preview-count { color: var(--color-text-secondary, #5a6773); }
 
         .hist { display: flex; align-items: flex-end; gap: 1px; height: 48px; }
@@ -293,6 +315,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         // One styleable sublayer is not a decision worth asking about.
         const targets = this.allTargets();
         this.targetId = targets.length === 1 ? targets[0].id : null;
+        this.opacity = this.authoredOpacity(this.targetId);
         this.mode = null;
         this.field = null;
         this.schemeName = null;
@@ -318,6 +341,14 @@ export class WebmapxLayerStyleDialog extends LitElement {
 
     private currentGroup(): SourceStyleGroup | null {
         return this.groups.find((group) => group.layers.some((layer) => layer.id === this.targetId)) ?? null;
+    }
+
+    /** The opacity the target was drawn with before the panel touched it. */
+    private authoredOpacity(targetId: string | null): number {
+        const target = this.allTargets().find((candidate) => candidate.id === targetId);
+        const role = ROLE_OF_TYPE[target?.type ?? 'fill'] ?? 'fill';
+        const value = target?.paint?.[ROLE_OPACITY_KEY[role]];
+        return typeof value === 'number' ? value : 1;
     }
 
     private currentRole(): StyleRole {
@@ -394,7 +425,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         const scheme = this.currentScheme();
 
         if (this.mode === 'single') {
-            return buildSingleStyle(role, this.singleColor);
+            return buildSingleStyle(role, this.singleColor, this.opacity);
         }
         if (this.mode === 'neighbours') {
             const coloring = this.coloring();
@@ -405,16 +436,16 @@ export class WebmapxLayerStyleDialog extends LitElement {
                 if (value === null || value === undefined) return [];
                 return [{ key: String(value), colorIndex: coloring.colors[index] }];
             });
-            return entries.length === 0 ? null : buildKeyedColorStyle({ role, key, entries, scheme });
+            return entries.length === 0 ? null : buildKeyedColorStyle({ role, key, entries, scheme, opacity: this.opacity });
         }
         if (this.mode === 'attribute' && this.field && scheme) {
             const numeric = this.numericClassification();
             if (numeric) {
-                return buildNumericStyle({ role, field: this.field, classification: numeric, scheme });
+                return buildNumericStyle({ role, field: this.field, classification: numeric, scheme, opacity: this.opacity });
             }
             const categorical = this.categoricalClassification();
             if (categorical && categorical.categories.length > 0) {
-                return buildCategoricalStyle({ role, field: this.field, classification: categorical, scheme });
+                return buildCategoricalStyle({ role, field: this.field, classification: categorical, scheme, opacity: this.opacity });
             }
         }
         return null;
@@ -445,6 +476,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         this.field = null;
         this.schemeName = null;
         this.message = null;
+        this.opacity = this.authoredOpacity(this.targetId);
     }
 
     /** Records an answer, then rebuilds and re-applies the style. */
@@ -480,6 +512,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
                             ${this.targetId ? this.renderModeStep() : nothing}
                             ${this.renderModeDetail()}
                             ${this.renderSchemeStep()}
+                            ${this.mode ? this.renderOpacity() : nothing}
                             ${this.renderPreview()}
                             ${group && group.completeData === false ? html`
                                 <div class="warning">
@@ -523,7 +556,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
                     ${targets.map((target) => html`
                         <button class="choice" type="button"
                                 aria-pressed=${String(target.id === this.targetId)}
-                                @click=${() => { this.targetId = target.id; this.coloringCache = null; }}>
+                                @click=${() => { this.targetId = target.id; this.coloringCache = null; this.opacity = this.authoredOpacity(target.id); }}>
                             <span>${ROLE_LABELS[ROLE_OF_TYPE[target.type] ?? 'fill']}</span>
                             <small>${target.id}</small>
                         </button>
@@ -581,6 +614,10 @@ export class WebmapxLayerStyleDialog extends LitElement {
                     <input type="color" .value=${this.singleColor}
                            @input=${(e: Event) => this.answer(() => { this.singleColor = (e.target as HTMLInputElement).value; })}>
                     <span class="muted">${this.singleColor}</span>
+                    <span class="preview-swatch-wrap" title="How it will be drawn">
+                        <span class="preview-swatch" style="background:${this.singleColor};opacity:${this.opacity}"></span>
+                    </span>
+                    <span class="muted">as drawn</span>
                 </div>
             </div>
         `;
@@ -617,20 +654,39 @@ export class WebmapxLayerStyleDialog extends LitElement {
         if (!group) return html`<div class="muted">No data.</div>`;
 
         if (!this.field) {
+            const groupable = this.sortedAttributes(group).filter((attribute) => {
+                const unique = new Set(attribute.values.map(String)).size;
+                return attribute.type === 'number' || unique < attribute.presentCount || unique <= this.maxCategories;
+            });
             return html`
                 <div class="question">
                     <h3>Which attribute?</h3>
+                    ${groupable.length === 0 ? html`<div class="warning">
+                        This layer carries only names or codes — one different value per feature — so there is nothing
+                        to group by. "Neighbours differ" colours it without an attribute.
+                    </div>` : nothing}
                     <div class="attribute-list">
-                        ${this.sortedAttributes(group).map((attribute) => html`
-                            <button class="choice" type="button" @click=${() => { this.coloringCache = null; this.answer(() => { this.field = attribute.name; }); }}>
-                                <span>${attribute.name}</span>
-                                <span class="attr-meta">
-                                    ${attribute.type}
-                                    · ${attribute.presentCount} values
-                                    ${attribute.missingCount > 0 ? html`· ${attribute.missingCount} missing` : nothing}
-                                </span>
-                            </button>
-                        `)}
+                        ${this.sortedAttributes(group).map((attribute) => {
+                            const unique = new Set(attribute.values.map(String)).size;
+                            // A column with a different value for every feature is
+                            // a name or a code, not a grouping: classifying it puts
+                            // a handful of features in colours and everything else
+                            // in "other", which reads as a one-colour map. That is
+                            // what the neighbours option is for.
+                            const isKey = attribute.type !== 'number' && unique >= attribute.presentCount && unique > this.maxCategories;
+                            return html`
+                                <button class="choice" type="button" ?disabled=${isKey}
+                                        @click=${() => { if (!isKey) { this.coloringCache = null; this.answer(() => { this.field = attribute.name; }); } }}>
+                                    <span>${attribute.name}</span>
+                                    <span class="attr-meta">
+                                        ${attribute.type}
+                                        · ${unique} different ${unique === 1 ? 'value' : 'values'}
+                                        ${attribute.missingCount > 0 ? html`· ${attribute.missingCount} missing` : nothing}
+                                        ${isKey ? html`· every value is different, so there is nothing to group — try "Neighbours differ"` : nothing}
+                                    </span>
+                                </button>
+                            `;
+                        })}
                     </div>
                 </div>
             `;
@@ -787,15 +843,36 @@ export class WebmapxLayerStyleDialog extends LitElement {
         `;
     }
 
+    private renderOpacity(): TemplateResult {
+        return html`
+            <div class="question">
+                <h3>Opacity</h3>
+                <div class="row">
+                    <input type="range" min="0" max="1" step="0.05" .value=${String(this.opacity)}
+                           @input=${(e: Event) => this.answer(() => { this.opacity = Number((e.target as HTMLInputElement).value); })}>
+                    <span>${Math.round(this.opacity * 100)}%</span>
+                    ${this.mode === 'single' ? nothing : html`
+                        <span class="muted">The scheme list stays at full strength, so the colours can be told apart.</span>`}
+                </div>
+            </div>
+        `;
+    }
+
     private renderPreview(): TemplateResult | typeof nothing {
         const style = this.built();
-        if (!style || style.legend.length === 0) return nothing;
+        // An entry labelled '' is hidden, the same convention the legend uses —
+        // which is what keeps a one-colour style from showing a nameless swatch
+        // under the colour it was just chosen with.
+        const entries = (style?.legend ?? []).filter((entry) => entry.label !== '');
+        if (!style || entries.length === 0) return nothing;
         const numeric = this.numericClassification();
         return html`
             <div class="preview">
-                ${style.legend.map((entry, index) => html`
+                ${entries.map((entry, index) => html`
                     <div class="preview-row">
-                        <span class="preview-swatch" style="background:${entry.color}"></span>
+                        <span class="preview-swatch-wrap">
+                            <span class="preview-swatch" style="background:${entry.color};opacity:${this.opacity}"></span>
+                        </span>
                         <span>${entry.label}</span>
                         ${numeric?.classes[index]
                             ? html`<span class="preview-count">${numeric.classes[index].count} features</span>`
