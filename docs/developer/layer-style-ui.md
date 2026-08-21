@@ -76,7 +76,7 @@ Legend: ✅ exists · 🟡 partly there · ❌ missing.
 | Function | State | Notes |
 |---|---|---|
 | Point → circle | ✅ | `circle` sublayer |
-| Point → icon/symbol | 🟡 | `symbol` layers render; no sprite picker, no icon set shipped |
+| Point → icon/symbol | 🟡 | `symbol` layers render; no picker. **No icon set needs shipping** — icons can be added at runtime, see §7 |
 | Point → label | 🟡 | `text-field` works; nothing in the UI writes one |
 | Point → chart/diagram (pie, bar) | ❌ | QGIS "Diagrams". Would need a runtime symbol generator |
 | Line → stroke, dashed, width | ✅ | dash array editable only as raw config |
@@ -149,13 +149,13 @@ Legend: ✅ exists · 🟡 partly there · ❌ missing.
 
 ### 2.6 Structure operations (styling-adjacent)
 
-| Function | State |
-|---|---|
-| Explode multipart → parts | ❌ |
-| Join/aggregate by attribute | 🟡 (`dissolve` does geometry + aggregation) |
-| Polygons → lines | ❌ |
-| Lines → polygons | ❌ |
-| Add centroids / label points as a new layer | ✅ (`centroid`, `labelPoint`) |
+| Function | State | Notes |
+|---|---|---|
+| Explode multipart → parts | ❌ | Analysis, not styling |
+| Join/aggregate by attribute | 🟡 | `dissolve` does geometry + aggregation |
+| Polygons → lines | 🟡 | as *rendering* (a `line` sublayer on the same source) this is a styling step and belongs in the UI; as a new dataset it is an Analysis operation and does not exist |
+| Lines → polygons | ❌ | only meaningful as data (closing rings) — Analysis, not styling |
+| Add centroids / label points as a new layer | ✅ | `centroid`, `labelPoint` |
 
 ### 2.7 Whole-layer
 
@@ -187,9 +187,10 @@ Things QGIS has that are not in the list above and are worth a decision:
 - **Masks** — hide symbol parts under labels. No GL equivalent.
 - **Layer rendering**: blend mode, feature blending, simplification, "refresh at
   interval", scale-dependent visibility, opacity — we have opacity + zoom range.
-- **Joins** — attach a CSV/table to a layer by key field. **This is a real gap
-  for teaching**: "colour the municipalities by this spreadsheet column" is a
-  classic school exercise. Nothing in webmapx does it today.
+- **Joins** — attach a CSV/table to a layer by key field. A real gap for
+  teaching ("colour the municipalities by this spreadsheet column"), and
+  **deliberately deferred**: matching keys is the hard part, not joining them.
+  See §7.
 - **Diagrams** — pie/bar chart per feature, sized by a value. This is the "show
   data graphs" idea; it is a renderer, not a chart panel.
 - **Temporal** — animate features by a date field.
@@ -199,7 +200,7 @@ Things QGIS has that are not in the list above and are worth a decision:
   empty-label convention covers hide/rename already.
 
 Nothing in the original brainstorm is redundant; the additions worth adding to
-it are **joins**, **rule-based styling**, **symbol levels**, **diagrams**,
+it are **rule-based styling**, **symbol levels**, **diagrams**,
 **cluster/heatmap**, **layer filter**, **copy/paste style**, and **undo/reset**.
 
 ---
@@ -302,6 +303,9 @@ Properties of this shape:
 
 ### Suggested step sequence
 
+The options offered at every step are filtered by the engine's tier (§7): on
+Leaflet and Cesium the flow ends after step 2 with one colour, and says why.
+
 1. **What do you want to show?** — driven by the layer's actual geometry types
    (already computed): areas / outlines / points / labels / heat / clusters. A
    polygon layer offers "areas" and "outlines"; a point layer offers "circles",
@@ -315,7 +319,8 @@ Properties of this shape:
 4. **How to divide it?** — categories (if few unique values) or ranges. For
    ranges: method (equal interval / equal count / natural breaks / manual) +
    class count, with a **histogram showing the breaks**, which is where a
-   student actually learns what the method did.
+   student actually learns what the method did. On a tiled layer this is the
+   place to say that only the data on screen is being classified (§7).
 5. **Colours** — schemes filtered to the class count and the chosen type
    (sequential for ranges, qualitative for categories, diverging when the data
    straddles a meaningful midpoint — offer it automatically when min < 0 < max).
@@ -347,26 +352,122 @@ requirement is met without ever explaining the word "sublayer".
 3. Categories, labels, "add another style".
 4. Accessibility: CVD filtering (data already there), optional CVD preview.
 5. Undo/reset, copy style to another layer.
-6. Later, in rough value order: layer filter builder, table joins, rule-based,
-   cluster/heatmap, diagrams.
+6. Icons: MapLibre `addImage` service first (SVG + raster, inlined into the
+   saved style), OpenLayers sprite-sheet compositing after.
+7. Later, in rough value order: layer filter builder, rule-based, cluster/
+   heatmap, diagrams. **Joins are a separate project** — see §7.
 
 ---
 
-## 7. Open questions
+## 7. Decisions
 
-- **Where does the styled result live?** A style edit today is a runtime
-  override. Does it survive a permalink? A saved config? Stories? (Permalink
-  carries visibility + opacity only — a whole paint spec is far bigger.)
-- **Does the UI edit the layer, or produce a new layer?** QGIS edits in place;
-  our geoprocessing tools produce new layers. Mixing both is confusing.
-- **How much data may be inspected?** Classification needs all values.
-  `queryLayerFeatures` gives the full dataset for GeoJSON but only the viewport
-  for tiled sources — classifying a tiled layer would classify what is on
-  screen, which changes as you pan. Either refuse, or say so loudly (the
-  Analysis tool's `isViewportLimited` warning is the precedent).
-- **Which engines must support it?** Full support is MapLibre + OpenLayers;
-  Leaflet and Cesium will lag. What does the UI show there?
-- **Sprites/icons**: shipping an icon set is a licensing and size decision that
-  blocks the "symbol" branch of step 1.
-- **Is a join in scope?** It is the single biggest missing capability for
-  teaching, and it is not styling — it might belong in the Analysis tool.
+Answered. These are constraints on the design, not open choices.
+
+### The UI edits style, never data
+
+Geometry and attributes are the Analysis tool's business; this tool only ever
+writes a paint/layout spec. A style edit therefore never produces a new dataset —
+it changes how the existing one is drawn. (Steps that *look* geometric, such as
+"draw these polygons as outlines", are a rendering choice: a `line` sublayer over
+the same source, not a converted layer.)
+
+### How a style travels: save → import into a config → publish → permalink
+
+There is a chain, and every link matters:
+
+1. **Save to disk**, with or without the data. A style-only save is a small JSON
+   document; style + data is the zip the save dialog already writes.
+2. **Review by dragging the zip back onto the map.** That is the round trip a
+   user can do alone, and it is what makes saving trustworthy.
+3. **A permalink cannot carry a custom style.** Permalinks address things a
+   configuration already contains; a style that exists only in someone's browser
+   has no address. This is not a gap to fix in the permalink — it is what
+   configurations are for.
+4. To make a style shareable, it must be **imported into a configuration as a
+   layer**, and the configuration (with its data) **published**. Only then does a
+   permalink to it work.
+
+The UI must make this visible rather than letting a user discover it when a link
+they sent turns out blank. After saving, say plainly: *"Saved. To share this with
+a link, add it to a configuration and publish it."*
+
+### Tiled layers: only what is drawn counts
+
+Same convention as the Analysis tool (`isViewportLimited`): a tiled source
+answers with what the map has drawn, so a classification built at one zoom is
+built from that sample. Zooming out brings in more data, and values then fall
+**outside the classes** — legitimately, not as a bug.
+
+Consequences for the UI:
+
+- Say so on a tiled layer, once, where the classification is made: *"Only the
+  data on screen is used. Move to a part of the map that represents the whole
+  before classifying."*
+- Classes must **not** silently re-fit as the user pans; a legend that changes
+  under you is worse than one that is slightly out of date. Offer an explicit
+  "recalculate from what is on screen now".
+- The renderer must handle out-of-range values honestly: a `case`/`step`
+  expression needs a fallback class, and the legend's empty-label convention
+  decides whether that fallback is shown (give it a label such as "outside
+  range" to show it).
+- Full-dataset sources (GeoJSON, and anything the geoprocessing tools produce)
+  have none of this problem, and the UI should not nag about it there.
+
+### Two tiers of capability, by engine
+
+| Tier | Works on | Contains |
+|---|---|---|
+| **Simple** | **All four engines** (MapLibre, OpenLayers, Leaflet, Cesium) | One colour for a whole layer; polygons drawn as outlines; opacity; line width; circle size; show/hide |
+| **Full** | **MapLibre + OpenLayers only** | Classification (categories/ranges), colour schemes, labels, multiple styles per layer, icons, heatmap, cluster, expressions |
+
+Leaflet and Cesium render GL paint specs through
+`utils/maplibre-expression-evaluator.ts`, which is why the simple tier works
+there at all. The UI must **hide what an engine cannot do rather than offer it
+and fail** — the failure mode is silent, which is the worst kind (see the
+OpenLayers `updateLayerStyle` bug: the UI accepted every edit and the engine
+dropped it).
+
+### Icons can be added at runtime — no shipped icon set needed
+
+EduGIS already does this (`edugis-viewer/src/components/web-map-search-result-manager.js`,
+`addMapIcon`): an **SVG** is loaded through `new Image()` and handed to
+`map.addImage(name, img)`; a **raster** goes through `map.loadImage` and the same
+`addImage`. `map.hasImage(name)` guards against adding twice. So a user-supplied
+icon file becomes usable as `icon-image` immediately, and the layer's style
+document just refers to it by name.
+
+This removes the licensing/size blocker: **we do not have to ship a sprite
+sheet**. What is needed instead:
+
+- A place to keep the icons a style depends on, so the style survives being
+  saved and re-imported. The obvious answer is to inline them in the style
+  document as `data:` URLs, exactly as `metadata.swatch` already does for layer
+  swatches, and re-add them on load.
+- `webmapx` has **no `addImage` path today** — MapLibre needs a thin service.
+- OpenLayers is harder: `ol-mapbox-style`'s `stylefunction` takes
+  `spriteData` + `spriteImageUrl` (already plumbed through
+  `resolveStyleSpriteResources`), so a runtime icon means **compositing our own
+  sprite sheet** (canvas → data URL) and re-running `stylefunction`. Feasible,
+  but it is real work and belongs in the "icons" milestone, not before it.
+- SVG loaded via `Image` rasterises at one size; for crisp icons at several
+  sizes, rasterise at device pixel ratio, or at 2× and let it scale down.
+
+### Joins are a future feature
+
+Deliberately out of scope. The hard part is not the join, it is that **keys do
+not match**: different spellings of the same name, and codes that change over
+time (municipality codes are re-issued after mergers), so a naive join silently
+drops or mismatches rows. Doing it properly means fuzzy matching and a
+vintage-aware code table, plus a UI for resolving the leftovers — a project of
+its own. Revisit after the styling UI ships; it likely belongs in the Analysis
+tool rather than here.
+
+---
+
+## 8. Still open
+
+- Does a style edit survive a **story step** or a page reload (session storage),
+  given it cannot go in a permalink?
+- Should "save style" and "save layer" be one dialog or two? The save dialog
+  already writes styles; a style-only export is a checkbox away.
+- Rasterisation size for user SVG icons (fixed 2×, or a size control?).
