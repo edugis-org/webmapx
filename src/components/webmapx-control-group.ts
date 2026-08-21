@@ -25,6 +25,9 @@ export class WebmapxControlGroup extends LitElement {
       max-height: var(--webmapx-panel-max-height, 90%);
       max-width: 100%;
       align-items: stretch; /* Stretch children to full available cross-size */
+      /* The flex direction is reversed (see below), so main-end is where the
+         group used to start: pack there to keep the group on the same edge. */
+      justify-content: flex-end;
       position: relative;
       z-index: var(--webmapx-control-group-z-index, auto);
     }
@@ -37,20 +40,24 @@ export class WebmapxControlGroup extends LitElement {
     :host([alignment="end"]) { align-items: flex-end; }
     :host([alignment="center"]) { align-items: center; }
 
+    /* The panel is the FIRST child in the DOM (so the toolbar paints over it,
+       which is what lets the toolbar tooltips overlap an open panel), so the
+       reversed direction is the one that puts the panel *after* the toolbar. */
+
     /* Vertical Toolbar -> Group is Row */
     :host([orientation="vertical"]) {
-      flex-direction: row;
+      flex-direction: row-reverse;
     }
     :host([orientation="vertical"][panel-position="before"]) {
-      flex-direction: row-reverse;
+      flex-direction: row;
     }
 
     /* Horizontal Toolbar -> Group is Column */
     :host([orientation="horizontal"]) {
-      flex-direction: column;
+      flex-direction: column-reverse;
     }
     :host([orientation="horizontal"][panel-position="before"]) {
-      flex-direction: column-reverse;
+      flex-direction: column;
     }
     
     /* Each slotted child manages its own pointer-events */

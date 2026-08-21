@@ -30,7 +30,6 @@ export class WebmapxToolbar extends LitElement {
       gap: 0;
       pointer-events: none;
       box-shadow: var(--webmapx-surface-shadow, 0 1px 2px rgba(16, 24, 40, 0.07));
-      overflow: hidden; /* clip slotted buttons to the rail's rounded corners */
     }
 
     ::slotted(*) {
@@ -122,11 +121,14 @@ export class WebmapxToolbar extends LitElement {
   handleSlotChange() {
     // Re-bind click listeners when slot content changes
     const slottedButtons = this.buttons.filter((btn) => btn.tagName.toLowerCase() === 'sl-button');
-    slottedButtons.forEach((btn) => btn.removeAttribute('data-toolbar-last'));
-    const lastButton = slottedButtons[slottedButtons.length - 1];
-    if (lastButton) {
-      lastButton.setAttribute('data-toolbar-last', 'true');
-    }
+    slottedButtons.forEach((btn) => {
+      btn.removeAttribute('data-toolbar-first');
+      btn.removeAttribute('data-toolbar-last');
+    });
+    // The rail no longer clips its children (that would cut off the CSS
+    // tooltips), so the end buttons round their own outer corners instead.
+    slottedButtons[0]?.setAttribute('data-toolbar-first', 'true');
+    slottedButtons[slottedButtons.length - 1]?.setAttribute('data-toolbar-last', 'true');
 
     this.buttons.forEach(btn => {
       // Remove old listener to avoid duplicates if slot changes multiple times

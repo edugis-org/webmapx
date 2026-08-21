@@ -420,6 +420,35 @@
     }
 }
 
+/* ─── Toolbar corner rounding ─────────────────────────────────────────────── */
+/* The toolbar must not clip its children (that would cut off the tooltips
+   below), so the end buttons round their own outer corners to follow the
+   rail's rounded border instead of `overflow: hidden` on the host. */
+
+webmapx-toolbar sl-button::part(base) {
+    border-radius: 0;
+}
+
+webmapx-toolbar:not([orientation="horizontal"]) sl-button[data-toolbar-first]::part(base) {
+    border-start-start-radius: var(--webmapx-toolbar-radius, var(--webmapx-surface-radius, 6px));
+    border-start-end-radius: var(--webmapx-toolbar-radius, var(--webmapx-surface-radius, 6px));
+}
+
+webmapx-toolbar:not([orientation="horizontal"]) sl-button[data-toolbar-last]::part(base) {
+    border-end-start-radius: var(--webmapx-toolbar-radius, var(--webmapx-surface-radius, 6px));
+    border-end-end-radius: var(--webmapx-toolbar-radius, var(--webmapx-surface-radius, 6px));
+}
+
+webmapx-toolbar[orientation="horizontal"] sl-button[data-toolbar-first]::part(base) {
+    border-start-start-radius: var(--webmapx-toolbar-radius, var(--webmapx-surface-radius, 6px));
+    border-end-start-radius: var(--webmapx-toolbar-radius, var(--webmapx-surface-radius, 6px));
+}
+
+webmapx-toolbar[orientation="horizontal"] sl-button[data-toolbar-last]::part(base) {
+    border-start-end-radius: var(--webmapx-toolbar-radius, var(--webmapx-surface-radius, 6px));
+    border-end-end-radius: var(--webmapx-toolbar-radius, var(--webmapx-surface-radius, 6px));
+}
+
 /* ─── Toolbar button tooltips ─────────────────────────────────────────────── */
 /* CSS-based tooltips driven by data-tooltip attribute on sl-button elements. */
 

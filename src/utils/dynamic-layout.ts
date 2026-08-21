@@ -351,8 +351,11 @@ function buildToolbarGroup(config: Record<string, unknown>): HTMLElement {
     }
   }
 
-  group.appendChild(toolbar);
+  // Panel first in DOM so the toolbar (and its CSS tooltips) paints on top of
+  // it; webmapx-control-group reverses the flex direction to keep the panel
+  // visually on the side panel-position asks for.
   group.appendChild(panel);
+  group.appendChild(toolbar);
   return group;
 }
 
