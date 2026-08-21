@@ -134,9 +134,19 @@ export class MapCoreService implements IMapCore {
         const container = this.resolveContainer(containerId);
 
         // Start with empty layers, add style layers after
-        const viewOptions: { center: number[]; zoom: number; minZoom?: number; maxZoom?: number; extent?: [number, number, number, number] } = {
+        const viewOptions: { center: number[]; zoom: number; minZoom?: number; maxZoom?: number; extent?: [number, number, number, number]; multiWorld: boolean } = {
             center: this.toMapCoord(center),
-            zoom: olZoom
+            zoom: olZoom,
+            // Without this OL refuses to let the world be smaller than the
+            // viewport in *either* direction, so zooming out stops as soon as the
+            // world covers the window and a configured `minZoom` is silently
+            // unreachable. Measured at 1480x1000: the view clamped at zoom 2.53
+            // with the world exactly 1480px wide and only 76°S..76°N visible —
+            // Antarctica and northern Norway cropped, on a map asked to show the
+            // world. MapLibre only requires *vertical* coverage, because it
+            // repeats horizontally, which is why the same map reaches zoom ~1.1
+            // there and shows both poles. `multiWorld` buys the same freedom.
+            multiWorld: true,
         };
         if (minZoom !== undefined) {
             viewOptions.minZoom = this.toOLZoom(minZoom);
@@ -528,6 +538,9 @@ export class MapCoreService implements IMapCore {
         try {
             nextView = new View({
                 projection: target,
+                // Same reason as in `initialize`: without it the zoom-out stops
+                // once the world covers the window, poles still cropped.
+                multiWorld: true,
                 center: transform(centerLonLat, 'EPSG:4326', id),
                 resolution: nextResolution,
                 rotation: view.getRotation(),
