@@ -1597,9 +1597,8 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
       // job, and `updateLayerStyle` is the one path that mirrors into every
       // engine. A sublayer id equal to the layer id addresses a standard
       // (non-composite) layer.
-      apply: (subLayerId, paint) => {
-        this.adapter?.updateLayerStyle(layerId, subLayerId || layerId, paint);
-      },
+      apply: (subLayerId, paint) =>
+        this.adapter?.updateLayerStyle(layerId, subLayerId || layerId, paint) ?? false,
     });
   }
 

@@ -49,14 +49,22 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
             const bindLogicalLayers = () => {
                 const layerService = new MapLayerService(map, this.store);
                 this.layerService = layerService;
-                this.logicalLayerExecutor.bind(layerService);
-                this.queryExecutor.bind(new MapQueryService(map, layerService, this.store));
-                this.markerService = new MapMarkerService(map);
 
+                // Sources first, and *before* binding the executor: binding
+                // flushes every layer add that was queued while unbound, and a
+                // sublayer whose source is not registered yet is refused
+                // outright (`addLayer` returns false). That is how a composite
+                // layer requested during startup lost its first sublayer —
+                // world-countries came up with its outlines and no fill, and
+                // nothing said so.
                 for (const { id, config } of this.pendingCompositeSources) {
                     layerService.registerCompositeSource(id, config as any);
                 }
                 this.pendingCompositeSources = [];
+
+                this.logicalLayerExecutor.bind(layerService);
+                this.queryExecutor.bind(new MapQueryService(map, layerService, this.store));
+                this.markerService = new MapMarkerService(map);
             };
 
             if (typeof map?.once === 'function') {

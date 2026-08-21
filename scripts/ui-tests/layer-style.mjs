@@ -282,6 +282,35 @@ export async function run({ page, engine, baseUrl }) {
         await waitForMapReady(page);
     });
 
+    await step('every sublayer of a catalog layer is actually on the map', async () => {
+        // world-countries is a style layer with a fill and a line over one
+        // source. Its fill used to be refused at startup — the executor flushed
+        // the queued sublayer adds before its source was registered — so the
+        // layer came up as outlines only and styling the areas silently did
+        // nothing. Asking the engine to repaint each sublayer is the
+        // engine-agnostic way to see it: a sublayer that is not on the map
+        // cannot be repainted.
+        const refused = await page.evaluate(async () => {
+            const map = document.querySelector('webmapx-map');
+            const adapter = await map.getAdapterAsync();
+            await map.addLayerRequest({ layerId: 'world-countries' });
+            await new Promise(resolve => setTimeout(resolve, 3000));
+
+            const entry = adapter.store.getState().mapLayers['world-countries'];
+            const sublayers = entry?.sublayers ?? [];
+            return sublayers
+                .map(sub => ({
+                    id: sub.id,
+                    ok: adapter.updateLayerStyle('world-countries', sub.id, { ...(sub.paint ?? {}) }),
+                }))
+                .filter(result => !result.ok)
+                .map(result => result.id);
+        });
+        if (refused.length > 0) {
+            fail(`these sublayers are in the legend but not on the map: ${refused.join(', ')}`);
+        }
+    });
+
     await step('add a 3x3 test layer', () => addTestLayer(page));
     await step('open the styling panel', () => openStylePanel(page));
     await step('record what the panel applies', () => recordApplies(page));

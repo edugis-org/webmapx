@@ -76,8 +76,13 @@ export interface SourceStyleGroup {
     completeData?: boolean;
 }
 
-/** Applies a paint change to one sublayer of the layer being styled. */
-export type StyleApply = (subLayerId: string, paint: Record<string, unknown>) => void;
+/**
+ * Applies a paint change to one sublayer of the layer being styled, and says
+ * whether the engine took it. `false` means the sublayer is described in the
+ * store but is not on the map — a style that silently does nothing is the worst
+ * outcome, since the user blames their own choices.
+ */
+export type StyleApply = (subLayerId: string, paint: Record<string, unknown>) => boolean | void;
 
 export interface StyleDialogContext {
     title: string;
@@ -457,8 +462,10 @@ export class WebmapxLayerStyleDialog extends LitElement {
         try {
             const style = this.built();
             if (!style) return;
-            this.applyStyle(this.targetId, style.paint);
-            this.message = null;
+            const applied = this.applyStyle(this.targetId, style.paint);
+            this.message = applied === false
+                ? 'The map did not accept this change: this part of the layer is described in the legend but is not drawn on the map.'
+                : null;
         } catch (error) {
             // A scheme that cannot serve the class count, a field with nothing
             // usable in it: say so rather than leaving the map unchanged and
