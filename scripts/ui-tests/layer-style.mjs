@@ -440,6 +440,25 @@ export async function run({ page, engine, baseUrl }) {
         }
     });
 
+    await step('neighbour colouring shows the opacity too, though it has no legend', async () => {
+        // Its colours mean nothing individually, so there is no class list to
+        // carry the swatches — and without the strip beside the slider nothing
+        // on screen answered the control at all.
+        const swatches = await page.evaluate(async () => {
+            const root = window.__stylePanel.shadowRoot;
+            const slider = [...root.querySelectorAll('input[type="range"]')].find(input => input.max === '1');
+            slider.value = '0.3';
+            slider.dispatchEvent(new Event('input'));
+            await new Promise(resolve => setTimeout(resolve, 250));
+            return [...root.querySelectorAll('.as-drawn .preview-swatch')].map(el => el.style.opacity);
+        });
+        await screenshot(page, `layer-style-${engine}-neighbours`);
+        if (swatches.length === 0) fail('the opacity control has nothing beside it showing the result');
+        if (!swatches.every(value => value === '0.3')) {
+            fail(`the "as drawn" swatches show ${swatches.join(', ')} instead of 0.3`);
+        }
+    });
+
     await step('the panel reports how many colours it needed', async () => {
         const text = await page.evaluate(() => window.__stylePanel.shadowRoot.textContent);
         if (!/\d+ colours, no two touching areas alike/.test(text)) {

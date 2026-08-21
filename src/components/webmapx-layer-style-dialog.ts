@@ -258,6 +258,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         .flag.no { background: #fdecea; color: #611a15; }
 
         .preview { display: flex; flex-direction: column; gap: 0.15rem; }
+        .as-drawn { display: flex; gap: 2px; }
         .preview-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; }
         .preview-swatch-wrap {
             width: 32px;
@@ -851,6 +852,12 @@ export class WebmapxLayerStyleDialog extends LitElement {
     }
 
     private renderOpacity(): TemplateResult {
+        // The strip belongs *here*, next to the control, and not only in the
+        // class preview: a colouring by neighbours has no legend at all (its
+        // individual colours mean nothing), so there was nothing on screen that
+        // answered the slider, and the note about the scheme list read as a
+        // claim that opacity was being ignored.
+        const asDrawn = this.appliedColors();
         return html`
             <div class="question">
                 <h3>Opacity</h3>
@@ -858,11 +865,31 @@ export class WebmapxLayerStyleDialog extends LitElement {
                     <input type="range" min="0" max="1" step="0.05" .value=${String(this.opacity)}
                            @input=${(e: Event) => this.answer(() => { this.opacity = Number((e.target as HTMLInputElement).value); })}>
                     <span>${Math.round(this.opacity * 100)}%</span>
-                    ${this.mode === 'single' ? nothing : html`
-                        <span class="muted">The scheme list stays at full strength, so the colours can be told apart.</span>`}
+                    ${asDrawn.length > 0 ? html`
+                        <span class="muted">as drawn</span>
+                        <span class="as-drawn">
+                            ${asDrawn.map((color) => html`
+                                <span class="preview-swatch-wrap">
+                                    <span class="preview-swatch" style="background:${color};opacity:${this.opacity}"></span>
+                                </span>
+                            `)}
+                        </span>
+                    ` : nothing}
                 </div>
+                ${this.mode === 'single' ? nothing : html`
+                    <div class="muted">The scheme list above stays at full strength, so the colours can be told apart.</div>`}
             </div>
         `;
+    }
+
+    /** The colours this style will actually paint with, in order. */
+    private appliedColors(): string[] {
+        if (this.mode === 'single') return [this.singleColor];
+        const scheme = this.currentScheme();
+        if (!scheme) return [];
+        if (this.mode === 'neighbours') return [...scheme.colors];
+        const built = this.built();
+        return built ? built.legend.map((entry) => entry.color) : [...scheme.colors];
     }
 
     private renderPreview(): TemplateResult | typeof nothing {
