@@ -317,6 +317,15 @@ export async function run({ page, engine, baseUrl }) {
 
     // ── One colour ───────────────────────────────────────────────────────────
     await step('choose one colour', () => choose(page, 'One colour'));
+    await step('one colour starts at the colour the layer is already drawn with', async () => {
+        // Opening the panel must not be a change. The test layer is #888888.
+        const shown = await page.evaluate(() =>
+            window.__stylePanel.shadowRoot.querySelector('button.color-button')?.style.background ?? null);
+        if (!shown || !/136|#888888/.test(shown)) {
+            fail(`the colour button shows ${shown}, not the layer's own #888888`);
+        }
+    });
+
     await step('one colour uses the same picker as the legend, palette and all', async () => {
         // A native <input type="color"> cannot express transparent, which is a
         // real cartographic choice ("outline only"), and looked nothing like the
@@ -560,27 +569,37 @@ export async function run({ page, engine, baseUrl }) {
     await step('the legend sees the new style, not the old one', async () => {
         // The store mirror is what the legend reads. Without it the map showed
         // the new colours and the legend went on showing the authored ones.
-        const stored = await page.evaluate(async ([layerId]) => {
-            const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
-            return adapter.store.getState().mapLayers[layerId]?.paint?.['fill-color'] ?? null;
-        }, [LAYER_ID]);
-        if (stored !== '#888888') {
-            fail(`after reset the store holds ${JSON.stringify(stored)}`);
-        }
-
+        // Opening the panel is not itself a change — one colour starts at the
+        // layer's own — so this drives a control and watches the store follow.
         await choose(page, 'One colour');
-        const afterChange = await page.evaluate(async ([layerId]) => {
+        const changed = await page.evaluate(async ([layerId]) => {
             const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
-            return adapter.store.getState().mapLayers[layerId]?.paint?.['fill-color'] ?? null;
+            const root = window.__stylePanel.shadowRoot;
+            const before = adapter.store.getState().mapLayers[layerId]?.paint?.['fill-opacity'] ?? null;
+
+            const slider = [...root.querySelectorAll('input[type="range"]')].find(input => input.max === '1');
+            slider.value = '0.45';
+            slider.dispatchEvent(new Event('input'));
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            return { before, after: adapter.store.getState().mapLayers[layerId]?.paint?.['fill-opacity'] ?? null };
         }, [LAYER_ID]);
-        if (afterChange === '#888888' || afterChange === null) {
-            fail(`the store still holds ${JSON.stringify(afterChange)} after a style change`);
+        if (changed.after !== 0.45) {
+            fail(`the store holds ${JSON.stringify(changed.after)} after the change (was ${JSON.stringify(changed.before)})`);
         }
     });
 
     await step('opacity starts at full strength, whatever the layer was authored at', async () => {
         // The test layer is drawn at 0.6; inheriting that would draw every ramp
-        // chosen afterwards at 60% of the colours it was picked from.
+        // chosen afterwards at 60% of the colours it was picked from. Re-entering
+        // the colour question is what resets it — the previous step moved it.
+        await page.evaluate(() => {
+            const root = window.__stylePanel.shadowRoot;
+            [...root.querySelectorAll('.done-row button')]
+                .find(b => b.parentElement.textContent.includes('Colour')).click();
+        });
+        await page.waitForTimeout(200);
+        await choose(page, 'One colour');
         const shown = await page.evaluate(() => {
             const slider = [...window.__stylePanel.shadowRoot.querySelectorAll('input[type="range"]')]
                 .find(input => input.max === '1');
@@ -658,6 +677,11 @@ export async function run({ page, engine, baseUrl }) {
         if (state.error) fail(state.error);
         // The composite test layer authors its line at 2px.
         if (state.started !== 2) fail(`the width control started at ${state.started}, not the layer's own 2`);
+        const swatch = await page.evaluate(() =>
+            window.__stylePanel.shadowRoot.querySelector('button.color-button')?.style.background ?? null);
+        if (swatch !== null && !/44, 111, 173|#2c6fad/.test(swatch)) {
+            fail(`switching to the line sublayer left the colour at ${swatch}, not its own #2c6fad`);
+        }
         if (state.applied['line-width'] !== 6) {
             fail(`moving the width control produced ${JSON.stringify(state.applied)}`);
         }

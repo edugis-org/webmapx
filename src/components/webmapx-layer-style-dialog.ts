@@ -37,6 +37,7 @@ import {
     buildKeyedColorStyle,
     buildNumericStyle,
     buildSingleStyle,
+    ROLE_COLOR_KEY,
     ROLE_SIZE,
     type StyleRole,
 } from '../utils/style-builder';
@@ -165,6 +166,11 @@ export class WebmapxLayerStyleDialog extends LitElement {
     @state() private schemeName: string | null = null;
     @state() private reversed = false;
     @state() private blindSafe = false;
+    /**
+     * Starts at the colour the layer is drawn with, not at a default: opening
+     * the panel must not be a change. Only a layer whose colour cannot be read
+     * at all falls back to the data-colour constant.
+     */
     @state() private singleColor = DATA_START;
     /**
      * Always starts at full strength, and returns there whenever the kind of
@@ -358,6 +364,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         this.targetId = targets.length === 1 ? targets[0].id : null;
         this.opacity = 1;
         this.size = this.authoredSize(this.targetId);
+        this.singleColor = this.authoredColor(this.targetId);
         this.mode = null;
         this.field = null;
         this.schemeName = null;
@@ -391,6 +398,21 @@ export class WebmapxLayerStyleDialog extends LitElement {
 
     private currentGroup(): SourceStyleGroup | null {
         return this.groups.find((group) => group.layers.some((layer) => layer.id === this.targetId)) ?? null;
+    }
+
+    /**
+     * The colour the target is drawn with today, when that is a colour at all.
+     *
+     * A layer already carrying a classification has an expression here, not a
+     * colour, and no single value represents it — picking one out would be a
+     * guess presented as the layer's own. Those start from the data colour
+     * instead.
+     */
+    private authoredColor(targetId: string | null): string {
+        const target = this.allTargets().find((candidate) => candidate.id === targetId);
+        const role = ROLE_OF_TYPE[target?.type ?? 'fill'] ?? 'fill';
+        const value = target?.paint?.[ROLE_COLOR_KEY[role]];
+        return typeof value === 'string' ? value : DATA_START;
     }
 
     /** The width/radius/text size the target is drawn with today. */
@@ -548,6 +570,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         this.neighbourColors = MIN_NEIGHBOUR_COLORS;
         this.classCount = DEFAULT_CLASS_COUNT;
         this.size = this.authoredSize(this.targetId);
+        this.singleColor = this.authoredColor(this.targetId);
     }
 
     /** Records an answer, then rebuilds and re-applies the style. */
@@ -639,6 +662,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
                                     this.coloringCache = null;
                                     this.opacity = 1;
                                     this.size = this.authoredSize(target.id);
+                                    this.singleColor = this.authoredColor(target.id);
                                 }}>
                             <span>${ROLE_LABELS[ROLE_OF_TYPE[target.type] ?? 'fill']}</span>
                             <small>${target.id}</small>
