@@ -41,6 +41,8 @@ import {
     type StyleRole,
 } from '../utils/style-builder';
 import { colorByAdjacency, coloringKeyFor } from '../utils/topological-coloring';
+import { createColorPicker } from './internal/color-picker';
+import type Pickr from '@simonwep/pickr';
 import { DATA_START } from '../theme/data-colors';
 
 export interface LayerStyleTarget {
@@ -161,6 +163,8 @@ export class WebmapxLayerStyleDialog extends LitElement {
     private applyStyle: StyleApply | null = null;
     /** Paint each sublayer had when the panel opened, for "reset". */
     private originalPaint = new Map<string, Record<string, unknown>>();
+    /** The shared Pickr, created on first use and torn down with the panel. */
+    private picker: Pickr | null = null;
 
     @query('sl-dialog') private dialog!: SlDialog;
 
@@ -282,6 +286,15 @@ export class WebmapxLayerStyleDialog extends LitElement {
         .hist span.in-break { opacity: 0.9; }
 
         .row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+        .color-button {
+            width: 2.2rem;
+            height: 1.6rem;
+            padding: 0;
+            border: 1px solid var(--color-border, #cbd5df);
+            border-radius: var(--webmapx-radius-sm, 0.35rem);
+            cursor: pointer;
+        }
         .warning {
             padding: 0.4rem 0.55rem;
             border-left: 3px solid var(--color-warning, #b26a00);
@@ -333,6 +346,14 @@ export class WebmapxLayerStyleDialog extends LitElement {
 
     close(): void {
         this.dialog?.hide();
+    }
+
+    disconnectedCallback(): void {
+        super.disconnectedCallback();
+        // Pickr lives in document.body, so it outlives this element unless it is
+        // told otherwise.
+        this.picker?.destroyAndRemove();
+        this.picker = null;
     }
 
     // ── The state, read back as questions ────────────────────────────────────
@@ -619,16 +640,32 @@ export class WebmapxLayerStyleDialog extends LitElement {
             <div class="question">
                 <h3>Colour</h3>
                 <div class="row">
-                    <input type="color" .value=${this.singleColor}
-                           @input=${(e: Event) => this.answer(() => { this.singleColor = (e.target as HTMLInputElement).value; })}>
+                    <button class="color-button" type="button" title="Pick a colour"
+                            style="background:${this.singleColor}"
+                            @click=${(e: Event) => this.openColorPicker(e.currentTarget as HTMLElement)}></button>
                     <span class="muted">${this.singleColor}</span>
-                    <span class="preview-swatch-wrap" title="How it will be drawn">
-                        <span class="preview-swatch" style="background:${this.singleColor};opacity:${this.opacity}"></span>
-                    </span>
-                    <span class="muted">as drawn</span>
                 </div>
             </div>
         `;
+    }
+
+    /**
+     * The same picker the legend uses — palette with black, white and
+     * transparent, which a native `<input type="color">` cannot offer at all.
+     */
+    private openColorPicker(button: HTMLElement): void {
+        if (!this.picker) {
+            this.picker = createColorPicker({
+                button,
+                value: this.singleColor,
+                onChange: (rgba) => this.answer(() => { this.singleColor = rgba; }),
+                onCancel: (original) => this.answer(() => { this.singleColor = original; }),
+            });
+            this.picker.show();
+            return;
+        }
+        this.picker.setColor(this.singleColor);
+        this.picker.show();
     }
 
     private renderNeighbourNote(): TemplateResult {

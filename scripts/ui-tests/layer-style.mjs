@@ -317,6 +317,29 @@ export async function run({ page, engine, baseUrl }) {
 
     // ── One colour ───────────────────────────────────────────────────────────
     await step('choose one colour', () => choose(page, 'One colour'));
+    await step('one colour uses the same picker as the legend, palette and all', async () => {
+        // A native <input type="color"> cannot express transparent, which is a
+        // real cartographic choice ("outline only"), and looked nothing like the
+        // picker the legend already had.
+        await page.evaluate(() => {
+            window.__stylePanel.shadowRoot.querySelector('button.color-button').click();
+        });
+        await page.waitForTimeout(300);
+        const palette = await page.evaluate(() =>
+            [...document.querySelectorAll('.webmapx-pickr .pcr-swatches button')]
+                .map(button => getComputedStyle(button).getPropertyValue('--pcr-color').trim()));
+        if (palette.length === 0) fail('no palette: the shared picker did not open');
+        await screenshot(page, `layer-style-${engine}-picker`);
+        const has = (needle) => palette.some(color => color.replace(/\s/g, '').includes(needle));
+        if (!has('rgba(0,0,0,0)')) fail(`the palette has no transparent entry: ${palette.join(' | ')}`);
+        if (!has('rgba(255,255,255') || !has('rgba(0,0,0,1')) {
+            fail(`the palette is missing black or white: ${palette.join(' | ')}`);
+        }
+        // Not Escape: sl-dialog listens for it too and would close the panel.
+        await page.evaluate(() => document.body.click());
+        await page.waitForTimeout(150);
+    });
+
     await step('a single colour reaches the engine', async () => {
         const paint = await page.evaluate(() => window.__lastPaint);
         if (!paint || typeof paint['fill-color'] !== 'string') {

@@ -3,7 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
 import Pickr from '@simonwep/pickr';
-import '@simonwep/pickr/dist/themes/nano.min.css';
+import { COLOR_PALETTE } from './internal/color-picker';
 
 @customElement('webmapx-layer-legend')
 export class WebmapxLayerLegend extends WebmapxBaseTool {
@@ -963,12 +963,6 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     private pickrOriginal = new Map<string, string>();
 
     /** Fixed palette of common colors plus transparent, edugis-style. */
-    private static readonly COLOR_PALETTE = [
-        '#000000', '#ffffff', '#7f7f7f', '#ff0000', '#ff8000', '#ffff00',
-        '#00ff00', '#008000', '#00ffff', '#0000ff', '#8000ff', '#ff00ff',
-        'rgba(0,0,0,0)',
-    ];
-
     private destroyPickrs(): void {
         for (const p of this.pickrInstances.values()) p.destroyAndRemove();
         this.pickrInstances.clear();
@@ -1016,7 +1010,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 useAsButton: true,
                 comparison: false,
                 appClass: 'webmapx-pickr',
-                swatches: WebmapxLayerLegend.COLOR_PALETTE,
+                swatches: COLOR_PALETTE,
                 components: {
                     preview: true,
                     opacity: true,
