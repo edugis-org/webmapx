@@ -217,8 +217,15 @@
     --webmapx-radius-md: 11px;
     --webmapx-radius-lg: 14px;
 
-    --webmapx-surface-alpha: .86;
-    --webmapx-surface-blur: blur(18px) saturate(1.5);
+    /* Opaque, deliberately. A translucent surface takes its colour from
+       whatever is behind it, so the same panel read light blue over a Mercator
+       basemap and dark grey over a globe — where the backdrop is the empty
+       space around the sphere rather than a map. The panel is chrome: it must
+       look the same wherever it is and whatever engine is drawing, and nothing
+       is gained by seeing 14% of the map through it. Atlas stays distinct
+       through its radii, borders, shadows and density. */
+    --webmapx-surface-alpha: 1;
+    --webmapx-surface-blur: none;
     --webmapx-surface-border: 1px solid rgb(var(--color-edge) / var(--color-edge-alpha));
     --webmapx-surface-radius: var(--webmapx-radius-lg);
     --webmapx-surface-shadow: var(--shadow-sm), var(--shadow-lg);
@@ -282,7 +289,7 @@
     --webmapx-font-size-md: 0.8rem;
     --webmapx-font-size-lg: 0.9rem;
 
-    --webmapx-surface-alpha: .97;
+    --webmapx-surface-alpha: 1;
     --webmapx-surface-blur: none;
     --webmapx-surface-border: 1px solid var(--color-border-light);
     --webmapx-surface-radius: var(--webmapx-radius-md);
@@ -340,8 +347,9 @@
     --webmapx-radius-sm: 0.5rem;
     --webmapx-radius-md: 0.75rem;
     --webmapx-radius-lg: 1rem;
-    --webmapx-surface-alpha: .86;
-    --webmapx-surface-blur: blur(18px) saturate(1.5);
+    /* Alias of atlas, and opaque for the same reason. */
+    --webmapx-surface-alpha: 1;
+    --webmapx-surface-blur: none;
     --webmapx-surface-border: 1px solid rgb(var(--color-edge) / var(--color-edge-alpha));
     --webmapx-surface-radius: var(--webmapx-radius-lg);
     --webmapx-surface-shadow: var(--shadow-sm), var(--shadow-lg);
@@ -529,6 +537,6 @@ webmapx-toolbar sl-button::part(label) {
    live out here as a light-DOM selector instead of inside the component's
    own shadow styles. */
 webmapx-tool-panel:has(webmapx-layer-legend3d) {
-    --webmapx-panel-bg: rgb(var(--color-surface-rgb, 255 255 255) / 0.6);
+    --webmapx-panel-bg: rgb(var(--color-surface-rgb, 255 255 255));
     --webmapx-surface-blur: none;
 }
