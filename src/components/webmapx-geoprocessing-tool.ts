@@ -60,6 +60,7 @@ import '@shoelace-style/shoelace/dist/components/input/input.js';
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import '@shoelace-style/shoelace/dist/components/alert/alert.js';
+import { isViewportLimitedSource } from '../utils/layer-features';
 
 const OUTPUT_LAYER_PREFIX = 'webmapx-geoprocessing-out:';
 const OUTPUT_SOURCE_PREFIX = 'webmapx-geoprocessing-src:';
@@ -471,10 +472,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
      */
     private isViewportLimited(layerId: string): boolean {
         const sourceId = (this.lastMapLayers ?? {})[layerId]?.sourceId as string | undefined;
-        if (!sourceId || !this.adapter) return false;
-        const type = this.adapter.getSourceConfig(sourceId)?.type;
-        // Unknown source config: say nothing rather than cry wolf.
-        return typeof type === 'string' && type !== 'geojson';
+        return isViewportLimitedSource(this.adapter, sourceId);
     }
 
     private get mapElement(): (WebmapxMapElement & {

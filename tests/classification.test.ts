@@ -99,12 +99,71 @@ test('natural breaks on a big column agree with the full solve', () => {
     }
 });
 
-test('pretty breaks are numbers a person would say out loud', () => {
-    const result = classifyNumeric([0, 37, 61, 94, 98.7], { method: 'pretty', classCount: 5 });
+test('rounding gives numbers a person would say out loud', () => {
+    const result = classifyNumeric([0, 37, 61, 94, 98.7], { method: 'equalInterval', classCount: 5, rounded: true });
     for (const value of result.breaks) {
         assert.equal(value, Number(value.toFixed(6)), `${value} is not a tidy number`);
     }
     assert.deepEqual(result.breaks, [20, 40, 60, 80]);
+});
+
+/**
+ * Rounding used to be a method of its own ("pretty"), which meant asking for a
+ * readable legend also meant giving up on choosing how the data was divided.
+ */
+test('rounding applies to every method, not only to equal intervals', () => {
+    const values = [1, 3, 4, 7, 12, 19, 31, 44, 78, 96, 103, 187, 219, 402, 987];
+    const raw = classifyNumeric(values, { method: 'quantile', classCount: 4 });
+    const rounded = classifyNumeric(values, { method: 'quantile', classCount: 4, rounded: true });
+    assert.notDeepEqual(rounded.breaks, raw.breaks);
+    for (const value of rounded.breaks) {
+        // Tidy means "a number a person would say": a multiple of half its own
+        // magnitude — 20, 70, 250, 1500 — not necessarily 1/2/5 × a power of ten,
+        // which on unevenly spaced breaks would have to move them much too far.
+        const magnitude = 10 ** Math.floor(Math.log10(Math.abs(value)));
+        const steps = value / (magnitude / 10);
+        assert.ok(Math.abs(steps - Math.round(steps)) < 1e-9, `${value} is not a tidy number`);
+    }
+    // Every class must still hold something: a break rounded onto its neighbour
+    // is dropped rather than shipped as an empty class.
+    assert.ok(rounded.classes.every((entry) => entry.count > 0), JSON.stringify(rounded.classes));
+});
+
+/**
+ * Real numbers from the demo's "Population density | Countries" layer: a median
+ * of 99 and a maximum of 4298. Width-based methods put nearly every country in
+ * the first class, and so does natural breaks, which gives the outliers classes
+ * of their own. Geometric intervals are the ones that survive that shape.
+ */
+test('geometric intervals spread a long-tailed column that defeats the others', () => {
+    const values = [
+        0, 2, 3, 3, 4, 8, 9, 14, 16, 18, 21, 23, 25, 30, 33, 36, 40, 44, 52, 57,
+        63, 68, 72, 77, 82, 88, 94, 99, 104, 110, 115, 120, 128, 135, 143, 150,
+        160, 172, 185, 199, 216, 235, 260, 290, 330, 380, 429, 520, 660, 900,
+        1300, 2100, 4298,
+    ];
+    const crowded = (method: 'naturalBreaks' | 'equalInterval' | 'geometric') => {
+        const result = classifyNumeric(values, { method, classCount: 5 });
+        const total = result.classes.reduce((sum, entry) => sum + entry.count, 0);
+        return Math.max(...result.classes.map((entry) => entry.count)) / total;
+    };
+    assert.ok(crowded('naturalBreaks') > 0.75, `natural breaks: ${crowded('naturalBreaks')}`);
+    assert.ok(crowded('equalInterval') > 0.75, `equal intervals: ${crowded('equalInterval')}`);
+    assert.ok(crowded('geometric') < 0.6, `geometric: ${crowded('geometric')}`);
+    // The point is not just a smaller biggest class but that every class is on
+    // the map: equal intervals leave one empty here.
+    const geometric = classifyNumeric(values, { method: 'geometric', classCount: 5 });
+    assert.ok(geometric.classes.every((entry) => entry.count > 0), JSON.stringify(geometric.classes));
+});
+
+test('geometric intervals fall back rather than take the log of a negative', () => {
+    const withNegatives = classifyNumeric([-40, -10, 0, 5, 60], { method: 'geometric', classCount: 4 });
+    assert.equal(withNegatives.breaks.length, 3);
+    assert.ok(withNegatives.breaks.every(Number.isFinite), `${withNegatives.breaks}`);
+    // Zeros are not a reason to fall back: they belong in the opening class.
+    const withZeros = classifyNumeric([0, 0, 1, 10, 100, 1000], { method: 'geometric', classCount: 4 });
+    assert.ok(withZeros.breaks.every((value) => value > 0), `${withZeros.breaks}`);
+    assert.equal(withZeros.classes[0].min, 0);
 });
 
 test('standard deviation classes are centred on the mean', () => {

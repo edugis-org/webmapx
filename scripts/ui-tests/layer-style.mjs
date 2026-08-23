@@ -178,7 +178,7 @@ async function addKeyOnlyLayer(page) {
 
 /** Opens the styling panel the way the legend does. */
 async function openStylePanel(page, options = {}) {
-    await page.evaluate(async ([layerId, composite]) => {
+    await page.evaluate(async ([layerId, composite, tiled]) => {
         const map = document.querySelector('webmapx-map');
         const adapter = await map.getAdapterAsync();
         const overview = document.querySelector('webmapx-layer-overview')
@@ -235,12 +235,16 @@ async function openStylePanel(page, options = {}) {
                 featureRows: source.features.map(f => f.properties),
                 layers,
                 features: source.features,
-                completeData: true,
+                // A tiled group knows only what is drawn, but can hand the panel
+                // the source itself — which is what labels over tiles need.
+                completeData: !tiled,
+                ...(tiled ? { sourceLayer: 'places', sourceConfig: { type: 'vector', tiles: ['https://example.invalid/{z}/{x}/{y}.pbf'] } } : {}),
             }],
             apply: (subLayerId, paint) => adapter.updateLayerStyle(layerId, subLayerId || layerId, paint),
             layers: {
                 add: (config) => adapter.addLayer(config),
                 remove: (id) => { if (adapter.hasLayer?.(id)) adapter.removeLayer(id); },
+                setExtraSubLayer: (id, sublayer) => adapter.setExtraSubLayer(id, sublayer),
             },
         });
         window.__stylePanel = dialog;
@@ -249,9 +253,10 @@ async function openStylePanel(page, options = {}) {
         options.targetType === 'line' ? true
             : options.targetType === 'keys' ? 'keys'
                 : options.targetType === 'points' ? 'points' : false,
+        options.tiled === true,
     ]);
 
-    await page.waitForFunction(() => Boolean(window.__stylePanel?.shadowRoot?.querySelector('sl-dialog')), undefined, { timeout: 10_000 });
+    await page.waitForFunction(() => Boolean(window.__stylePanel?.shadowRoot?.querySelector('.panel')), undefined, { timeout: 10_000 });
 }
 
 /** Clicks a choice button by its visible text. */
@@ -384,7 +389,7 @@ export async function run({ page, engine, baseUrl }) {
         if (!has('rgba(255,255,255') || !has('rgba(0,0,0,1')) {
             fail(`the palette is missing black or white: ${palette.join(' | ')}`);
         }
-        // Not Escape: sl-dialog listens for it too and would close the panel.
+        // Not Escape: the panel listens for it too and would close.
         await page.evaluate(() => document.body.click());
         await page.waitForTimeout(150);
     });
@@ -406,16 +411,51 @@ export async function run({ page, engine, baseUrl }) {
 
     await step('the panel is actually on screen', async () => {
         const state = await page.evaluate(() => {
-            const dialog = window.__stylePanel.shadowRoot.querySelector('sl-dialog');
-            // sl-dialog's own host box is empty; what is on screen is its
-            // internal panel part.
-            const box = dialog?.shadowRoot?.querySelector('[part~="panel"]')?.getBoundingClientRect();
-            return { open: Boolean(dialog?.open), width: box?.width ?? 0, height: box?.height ?? 0 };
+            const panel = window.__stylePanel.shadowRoot.querySelector('.panel');
+            const box = panel?.getBoundingClientRect();
+            return { open: window.__stylePanel.visible, width: box?.width ?? 0, height: box?.height ?? 0 };
         });
         if (!state.open || state.height <= 0) {
             fail(`the styling panel never became visible: ${JSON.stringify(state)}`);
         }
         await screenshot(page, `layer-style-${engine}-panel`);
+    });
+
+    await step('the panel can be dragged off the map, and does not block it', async () => {
+        // Styling is judged by looking at the map, so the map has to stay
+        // visible *and* usable while the panel is open — a modal dialog's
+        // overlay swallows every pan and zoom, and the panel covers exactly the
+        // part of the map being restyled.
+        const head = await page.evaluate(() => {
+            const box = window.__stylePanel.shadowRoot.querySelector('.panel-head').getBoundingClientRect();
+            return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) };
+        });
+        const before = await page.evaluate(() =>
+            Math.round(window.__stylePanel.shadowRoot.querySelector('.panel').getBoundingClientRect().left));
+
+        await page.mouse.move(head.x, head.y);
+        await page.mouse.down();
+        await page.mouse.move(head.x + 180, head.y + 120, { steps: 10 });
+        await page.mouse.up();
+
+        const after = await page.evaluate(() => {
+            const box = window.__stylePanel.shadowRoot.querySelector('.panel').getBoundingClientRect();
+            return { left: Math.round(box.left), right: Math.round(box.right) };
+        });
+        if (after.left <= before) fail(`the panel did not move: ${before} → ${after.left}`);
+        // Clamped: something of it must stay on screen to grab again.
+        const width = await page.evaluate(() => window.innerWidth);
+        if (after.left > width - 100) fail(`the panel was dragged off screen (left ${after.left} of ${width})`);
+
+        // Nothing of this component may cover the map beyond the panel itself:
+        // a full-screen overlay is what a modal adds, and it is invisible.
+        const overMap = await page.evaluate(() => {
+            const el = document.elementFromPoint(60, window.innerHeight - 60);
+            return el?.tagName ?? null;
+        });
+        if (overMap === 'WEBMAPX-LAYER-STYLE-DIALOG') {
+            fail('the styling panel covers the map away from its own box — it is still modal');
+        }
     });
 
     const classified = await step('a classified expression reaches the engine', async () => {
@@ -424,6 +464,39 @@ export async function run({ page, engine, baseUrl }) {
             fail(`expected an expression, got ${JSON.stringify(paint)}`);
         }
         return paint;
+    });
+
+    await step('the legend can read the classification the panel wrote', async () => {
+        // The panel guards its classes against missing values and puts the
+        // `step` in the fallback, so a legend that reads only the outer `case`
+        // finds two identical grey branches and one "colour" that is a whole
+        // expression — which is how a layer styled here reached the legend with
+        // no classes at all. Driven through the legend component itself rather
+        // than by inspecting the expression, since it is the rows that were
+        // missing.
+        const rows = await page.evaluate(async (paint) => {
+            await import('/src/components/webmapx-layer-legend.ts');
+            const legend = document.createElement('webmapx-layer-legend');
+            document.body.appendChild(legend);
+            await legend.updateComplete;
+            const classes = legend.extractColorClasses(paint['fill-color'], legend.getAttrTranslations());
+            legend.remove();
+            return (classes ?? []).map((entry) => entry.label);
+        }, classified);
+        if (rows.length < 3) {
+            fail(`the legend made ${rows.length} row(s) of a classification: ${JSON.stringify(rows)}`);
+        }
+        // Ranges, and no unlabelled duplicate of the no-data colour.
+        if (!rows.some((row) => /–/.test(row))) {
+            fail(`the legend labels no class as a range: ${JSON.stringify(rows)}`);
+        }
+        // The classification guards itself against missing values twice, both
+        // painting the same grey. They are unlabelled — the convention for a
+        // row the legend hides — but there must be only one of them left, not
+        // one per guard.
+        if (rows.filter((row) => row === '').length > 1) {
+            fail(`the legend repeats the no-data row: ${JSON.stringify(rows)}`);
+        }
     });
 
     await step('different values are painted different colours', async () => {
@@ -456,7 +529,51 @@ export async function run({ page, engine, baseUrl }) {
         }
     });
 
+    await step('each method shows what it would do, and choosing one collapses the step', async () => {
+        // The method cannot be judged without seeing its result, which is why
+        // this step used to stay open and push the legend off the bottom of the
+        // panel. Each method now carries a bar per class, so the comparison is
+        // made without clicking, and the step can collapse like the others.
+        const result = await page.evaluate(async () => {
+            const root = window.__stylePanel.shadowRoot;
+            const open = () => [...root.querySelectorAll('.done-row')]
+                .find(r => r.textContent.includes('Divided by'));
+            // Reopen it if an earlier step left it collapsed.
+            open()?.querySelector('button')?.click();
+            await new Promise(resolve => setTimeout(resolve, 250));
+
+            const methods = [...root.querySelectorAll('.choice.method')].map(button => ({
+                label: button.querySelector('span')?.textContent.trim(),
+                bars: button.querySelectorAll('.class-bars span').length,
+            }));
+            const equalInterval = [...root.querySelectorAll('.choice.method')]
+                .find(b => b.textContent.includes('Equal intervals'));
+            equalInterval?.click();
+            await new Promise(resolve => setTimeout(resolve, 400));
+            return {
+                methods,
+                stillOpen: Boolean(root.querySelector('.choice.method')),
+                summary: open()?.textContent.replace(/\s+/g, ' ').trim() ?? null,
+            };
+        });
+        if (result.methods.length < 4) fail(`only ${result.methods.length} methods offered`);
+        const withoutBars = result.methods.filter(method => method.bars === 0).map(method => method.label);
+        if (withoutBars.length > 0) fail(`no class bars on: ${withoutBars.join(', ')}`);
+        if (result.stillOpen) fail('choosing a method left the whole list on the panel');
+        if (!/Equal intervals/.test(result.summary ?? '')) {
+            fail(`the collapsed row does not name the method: ${result.summary}`);
+        }
+    });
+
     await step('the panel says when every scheme is already colour-blind safe', async () => {
+        // The scheme list collapses on choosing too, so reopen it first.
+        await page.evaluate(async () => {
+            const root = window.__stylePanel.shadowRoot;
+            [...root.querySelectorAll('.done-row')]
+                .find(r => r.textContent.includes('Colours'))
+                ?.querySelector('button')?.click();
+            await new Promise(resolve => setTimeout(resolve, 250));
+        });
         // Every ColorBrewer sequential scheme is safe, so the filter removes
         // nothing here — and a checkbox that appears to do nothing is worse
         // than one that explains itself.
@@ -675,8 +792,120 @@ export async function run({ page, engine, baseUrl }) {
         }
     });
 
-    await step('labels can be put on a point layer', async () => {
+    await step('the panel paints its spinner before the layer is read, not after', async () => {
+        // Two failures hide here, and only the frame-by-frame view separates
+        // them. The panel must open before the read (a button that does nothing
+        // for seconds reads as broken) *and* the read must not run before the
+        // browser has painted: reading a layer blocks the main thread —
+        // `queryRenderedFeatures` plus a walk over every feature — so a panel
+        // that reads straight away has a spinner nobody ever sees.
+        const result = await page.evaluate(async () => {
+            await import('/src/components/webmapx-layer-style-dialog.ts');
+            const dialog = document.createElement('webmapx-layer-style-dialog');
+            document.body.appendChild(dialog);
+
+            const started = performance.now();
+            let readStartedAt = null;
+            dialog.open({
+                title: 'Slow layer',
+                layerId: 'slow-layer',
+                groups: [],
+                // Blocking, like the real thing: a promise that merely resolves
+                // late would leave the browser free to paint and prove nothing.
+                resample: async () => {
+                    if (readStartedAt === null) readStartedAt = performance.now() - started;
+                    const until = performance.now() + 250;
+                    while (performance.now() < until) { /* hold the main thread */ }
+                    return [];
+                },
+            });
+
+            let firstFrame = null;
+            let spinnerAt = null;
+            for (let i = 0; i < 30 && spinnerAt === null; i++) {
+                await new Promise((resolve) => requestAnimationFrame(resolve));
+                const now = performance.now() - started;
+                if (firstFrame === null) firstFrame = now;
+                if (dialog.shadowRoot.querySelector('sl-spinner')) spinnerAt = now;
+            }
+            // The spinner is painted first, so the loop above exits before the
+            // read has begun — give it its turn.
+            for (let i = 0; i < 20 && readStartedAt === null; i++) {
+                await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+            const state = {
+                open: dialog.visible,
+                spinnerAt: spinnerAt === null ? null : Math.round(spinnerAt),
+                readStartedAt: readStartedAt === null ? null : Math.round(readStartedAt),
+                heading: dialog.shadowRoot.querySelector('.question h3')?.textContent.trim() ?? null,
+            };
+            dialog.close();
+            dialog.remove();
+            return state;
+        });
+        if (!result.open) fail('the panel did not open while the layer was still being read');
+        if (result.spinnerAt === null) fail(`no spinner while waiting; the panel showed "${result.heading}"`);
+        if (result.readStartedAt === null) fail('the panel never read the layer');
+        if (result.spinnerAt > result.readStartedAt) {
+            fail(`the read started at ${result.readStartedAt}ms but the spinner was only painted at ${result.spinnerAt}ms`);
+        }
+    });
+
+    await step('a circle layer is asked whether to show the value as colour, size or both', async () => {
         await addPointLayer(page);
+        await openStylePanel(page, { layerId: 'style-points', targetType: 'points' });
+        await choose(page, 'By attribute');
+        await choose(page, 'rank');
+
+        const result = await page.evaluate(async () => {
+            const root = window.__stylePanel.shadowRoot;
+            const steps = () => [...root.querySelectorAll('.question h3')].map((h) => h.textContent.trim());
+            const asked = steps().includes('Show it by…');
+            [...root.querySelectorAll('button.choice')]
+                .find((b) => b.textContent.trim().startsWith('Circle size'))?.click();
+            await new Promise((resolve) => setTimeout(resolve, 900));
+            const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
+            const paint = adapter.store.getState().mapLayers['style-points']?.paint ?? {};
+            return { asked, steps: steps(), radius: paint['circle-radius'], color: paint['circle-color'] };
+        });
+        if (!result.asked) fail(`a circle layer was not asked how to show the value: ${result.steps.join(', ')}`);
+        // Sized from the value itself: no classes, and area — not radius —
+        // proportional, or a large value looks several times larger than it is.
+        if (!Array.isArray(result.radius) || result.radius[0] !== '*') {
+            fail(`the radius is ${JSON.stringify(result.radius)}, not a formula on the value`);
+        }
+        const formula = JSON.stringify(result.radius);
+        if (!/sqrt/.test(formula) || !/rank/.test(formula)) fail(`the radius formula is ${formula}`);
+        if (typeof result.color !== 'string') {
+            fail(`sizing by value left a colour ramp as well: ${JSON.stringify(result.color)}`);
+        }
+        // The steps that would contradict it are gone.
+        if (result.steps.includes('Colours')) fail('a colour ramp is still offered for a size-only map');
+        if (result.steps.includes('Size')) fail('a fixed radius is still offered while the value sizes the circles');
+    });
+
+    await step('a single-coloured circle layer can set its outline', async () => {
+        await openStylePanel(page, { layerId: 'style-points', targetType: 'points' });
+        await choose(page, 'One colour');
+        const result = await page.evaluate(async () => {
+            const root = window.__stylePanel.shadowRoot;
+            const outline = [...root.querySelectorAll('.question')]
+                .find((q) => q.querySelector('h3')?.textContent.trim() === 'Outline');
+            if (!outline) return { error: [...root.querySelectorAll('.question h3')].map((h) => h.textContent.trim()) };
+            const slider = outline.querySelector('input[type="range"]');
+            slider.value = '2.5';
+            slider.dispatchEvent(new Event('input'));
+            await new Promise((resolve) => setTimeout(resolve, 400));
+            const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
+            const paint = adapter.store.getState().mapLayers['style-points']?.paint ?? {};
+            return { width: paint['circle-stroke-width'], color: paint['circle-stroke-color'] };
+        });
+        if (result.error) fail(`no outline step; steps: ${result.error.join(', ')}`);
+        if (result.width !== 2.5) fail(`the outline width reached the map as ${JSON.stringify(result.width)}`);
+        if (typeof result.color !== 'string') fail('the outline has no colour');
+    });
+
+    await step('labels can be put on a point layer', async () => {
         await openStylePanel(page, { layerId: 'style-points', targetType: 'points' });
         await choose(page, 'One colour');
 
@@ -690,31 +919,71 @@ export async function run({ page, engine, baseUrl }) {
             await new Promise(resolve => setTimeout(resolve, 800));
 
             const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
-            const entry = adapter.store.getState().mapLayers['style-points:labels'];
+            const entry = adapter.store.getState().mapLayers['style-points'];
+            const labels = (entry?.sublayers ?? []).find((sub) => sub.type === 'symbol');
+            const legend = document.querySelector('webmapx-layer-overview')
+                ?? document.querySelector('webmapx-layer-legend3d');
             return {
-                added: Boolean(entry),
-                type: entry?.layerType ?? entry?.type ?? null,
-                textField: JSON.stringify(entry?.layout?.['text-field'] ?? null),
-                label: entry?.label ?? null,
+                labels: labels ? { type: labels.type, textField: JSON.stringify(labels.layout?.['text-field'] ?? null) } : null,
+                // A sublayer, so the layer keeps drawing what it drew before.
+                siblings: (entry?.sublayers ?? []).map((sub) => sub.type),
+                rows: (legend.overviewLayers ?? []).map((item) => item.layerId),
             };
         });
         if (result.error) fail(result.error);
-        if (!result.added) fail('no labels layer was added');
+        // Labels are part of the layer, not a layer beside it: a layer of their
+        // own took a legend row that hid the classes, a palette button that
+        // restyled the labels while looking like the layer's, a delete button
+        // of its own, and outlived the layer it was made from.
+        if (!result.labels) fail(`no labels sublayer; the layer draws ${result.siblings.join(', ') || 'nothing'}`);
+        if (result.rows.filter((id) => id.startsWith('style-points')).length !== 1) {
+            fail(`the labels took a row of their own: ${result.rows.join(', ')}`);
+        }
+        if (result.siblings.length < 2) fail(`the layer lost its own drawing: ${result.siblings.join(', ')}`);
         await screenshot(page, `layer-style-${engine}-labels`);
-        if (!/name/.test(result.textField)) fail(`the labels layer writes ${result.textField}`);
-        if (result.type !== 'symbol') fail(`the labels layer is a ${result.type}, not a symbol layer`);
+        if (!/name/.test(result.labels.textField)) fail(`the labels write ${result.labels.textField}`);
     });
 
-    await step('turning labels off takes the layer away again', async () => {
+    await step('turning labels off takes them away again', async () => {
         const gone = await page.evaluate(async () => {
             const root = window.__stylePanel.shadowRoot;
             [...root.querySelectorAll('.done-row button')]
                 .find(b => b.parentElement.textContent.includes('Labels')).click();
-            await new Promise(resolve => setTimeout(resolve, 600));
+            await new Promise(resolve => setTimeout(resolve, 900));
             const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
-            return !adapter.store.getState().mapLayers['style-points:labels'];
+            const entry = adapter.store.getState().mapLayers['style-points'];
+            return !(entry?.sublayers ?? []).some((sub) => sub.type === 'symbol');
         });
-        if (!gone) fail('the labels layer stayed on the map');
+        if (!gone) fail('the labels stayed on the map');
+    });
+
+    await step('labels over a tiled source read the tiles, not a copy', async () => {
+        await openStylePanel(page, { layerId: 'style-points', targetType: 'points', tiled: true });
+        await choose(page, 'One colour');
+
+        const result = await page.evaluate(async () => {
+            const root = window.__stylePanel.shadowRoot;
+            const heading = [...root.querySelectorAll('.question h3')].find(h => h.textContent.trim() === 'Labels');
+            if (!heading) return { error: 'a tiled source was offered no labels step' };
+
+            [...heading.parentElement.querySelectorAll('button.choice')]
+                .find(b => b.textContent.trim().startsWith('name')).click();
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
+            const entry = adapter.store.getState().mapLayers['style-points'];
+            const labels = (entry?.sublayers ?? []).find((sub) => sub.type === 'symbol');
+            return {
+                added: Boolean(labels),
+                sourceLayer: labels?.['source-layer'] ?? null,
+            };
+        });
+        if (result.error) fail(result.error);
+        if (!result.added) fail('no labels over the tiled source');
+        // The labels read the layer's own source, tile sublayer and all —
+        // nothing is copied, so they are there at any pan or zoom rather than
+        // being a snapshot of one screen.
+        if (result.sourceLayer !== 'places') fail(`the labels read source-layer ${result.sourceLayer}`);
     });
 
     // ── A layer drawn as fill *and* line ─────────────────────────────────────

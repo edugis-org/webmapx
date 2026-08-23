@@ -101,10 +101,22 @@ Legend: ✅ exists · 🟡 partly there · ❌ missing.
 | Quantile (equal count) | ❌ | trivial |
 | Natural breaks (Jenks) | ❌ | use `simple-statistics` `ckmeans` — exact, and faster than classic Jenks |
 | Standard deviation | ❌ | |
-| Pretty/rounded breaks | ❌ | worth having: "0–20, 20–40" reads better than "0–19.7381" |
+| Geometric (each class a multiple of the last) | ✅ | the one that survives a skewed column — see below |
+| Pretty/rounded breaks | ✅ | an **option on every method**, not a method of its own: "0–20, 20–40" reads better than "0–19.7381", and that is as true of natural breaks as of equal intervals |
 | Manual breaks | ❌ | must exist — the others are starting points |
 | Rule-based (arbitrary filters) | ❌ | QGIS's most powerful renderer; maps onto `filter` per sublayer |
-| Class count + preview histogram | ❌ | a histogram is the single most useful widget here |
+| Class count + preview histogram | ✅ | a histogram is the single most useful widget here |
+
+**Skew is the normal case, and most methods fail on it.** Measured on the demo's
+"Population density | Countries" (73 countries in view, median 99, max 4298):
+natural breaks puts 64 of them in the first class, equal intervals 69, standard
+deviation 68. That is not a bug — ckmeans minimises within-class variance, so a
+handful of city states each earn a class of their own — but the result is a map
+of one colour, and a student cannot tell a bad method from bad data. Two things
+follow: **geometric intervals** (each class a fixed multiple of the one below —
+38/24/7/0/4 on the same column) sit alongside the classics, and the panel *says*
+when one class holds more than 80% of the layer, offering the two methods that
+survive skew.
 
 ### 2.3 Colour
 

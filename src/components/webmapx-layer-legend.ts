@@ -265,21 +265,77 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             // Check if input is a property (not zoom)
             const input = expr[1];
             if (!Array.isArray(input) || input[0] === 'zoom') return null;
-            const cases: Array<{label: string, paint: unknown}> = [{ label: `< ${expr[3]}`, paint: expr[2] }];
-            for (let i = 3; i + 1 < expr.length; i += 2)
-                cases.push({ label: `≥ ${expr[i]}`, paint: expr[i + 1] });
+            const stepProp = this.getPropName(input);
+            const unit = (stepProp ? attrTr?.get(stepProp) : undefined)?.unit ?? '';
+            // Ranges, not one-sided comparisons: a class *is* the span between
+            // two breaks, and "≥ 200" beside "≥ 300" reads as overlapping bands
+            // when they are neighbours.
+            const breaks: number[] = [];
+            for (let i = 3; i + 1 < expr.length; i += 2) {
+                if (typeof expr[i] === 'number') breaks.push(expr[i] as number);
+            }
+            const bound = (value: number) => `${this.formatNumber(value)}${unit}`;
+            const cases: Array<{label: string, paint: unknown}> = [{
+                label: breaks.length > 0 ? `< ${bound(breaks[0])}` : '',
+                paint: expr[2],
+            }];
+            for (let i = 3, b = 0; i + 1 < expr.length; i += 2, b += 1) {
+                const from = breaks[b];
+                const to = breaks[b + 1];
+                cases.push({
+                    label: to === undefined ? `≥ ${bound(from)}` : `${bound(from)} – ${bound(to)}`,
+                    paint: expr[i + 1],
+                });
+            }
             return cases;
         }
         if (op === 'case' && expr.length >= 3) {
             const cases: Array<{label: string, paint: unknown}> = [];
             for (let i = 1; i + 1 < expr.length; i += 2) {
-                const label = this.conditionLabel(expr[i]) ?? `class ${Math.floor(i / 2) + 1}`;
+                const label = this.conditionLabel(expr[i], attrTr) ?? `class ${Math.floor(i / 2) + 1}`;
                 cases.push({ label, paint: expr[i + 1] });
             }
             cases.push({ label: '', paint: expr[expr.length - 1] });
-            return cases.length > 1 ? cases : null;
+            if (cases.length <= 1) return null;
+            return this.expandNestedCases(cases, attrTr);
         }
         return null;
+    }
+
+    /**
+     * Expands a class expression hiding inside another one.
+     *
+     * The style panel writes `case(missing → grey, null → grey, step(...))`:
+     * the classes are in the fallback, so reading only the outer `case` gives
+     * two identical grey rows and one row whose "colour" is a whole `step`
+     * array — which is why a layer styled by the panel arrived in the legend
+     * with no classes at all. The nested expression is expanded in place, and
+     * the tests that guard the classes against missing values collapse into the
+     * single "no data" row they mean between them.
+     */
+    private expandNestedCases(
+        cases: Array<{label: string, paint: unknown}>,
+        attrTr?: Map<string, {label: string; unit: string; valuemap?: Array<{value: unknown; label: string; operator?: string}>}>,
+    ): Array<{label: string, paint: unknown}> {
+        const expanded: Array<{label: string, paint: unknown}> = [];
+        for (const entry of cases) {
+            const nested = Array.isArray(entry.paint) ? this.extractDataCases(entry.paint, attrTr) : null;
+            if (nested) {
+                expanded.push(...nested);
+            } else {
+                expanded.push(entry);
+            }
+        }
+        // A no-data guard has no label of its own and paints the same colour
+        // twice; one row saying so is the whole of what it means.
+        const noData: Array<{label: string, paint: unknown}> = [];
+        const classes: Array<{label: string, paint: unknown}> = [];
+        for (const entry of expanded) {
+            const isGuard = entry.label === '' && typeof entry.paint === 'string'
+                && expanded.some((other) => other !== entry && other.label === '' && other.paint === entry.paint);
+            (isGuard ? noData : classes).push(entry);
+        }
+        return noData.length > 0 ? [...classes, noData[0]] : classes;
     }
 
     private isDataDriven(expr: unknown): boolean {
@@ -708,6 +764,12 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             return idx;
         }
         if (op === 'case') {
+            // A branch that is itself a class expression contributes several
+            // rows, so positions here no longer line up with the rows on
+            // screen. No picker is better than one that recolours the wrong
+            // class — the panel is where such a layer is restyled anyway.
+            if (expr.slice(1).some((value, index) => index % 2 === 1 && typeof value !== 'string')) return null;
+            if (typeof expr[expr.length - 1] !== 'string') return null;
             const idx: number[] = [];
             for (let i = 1; i + 1 < expr.length; i += 2) idx.push(i + 1);
             return idx;
@@ -817,21 +879,80 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         return `${Math.round(v)}${suffix}`;
     }
 
+    /**
+     * One "no data" row instead of one per guard.
+     *
+     * A classification guards itself against missing values twice — the
+     * property absent, and the property null — both painting the same grey.
+     * Both are unlabelled, so without this the legend shows two identical rows
+     * that say nothing.
+     */
+    private mergeNoDataRows(items: Array<{label: string, color: string}>): Array<{label: string, color: string}> {
+        const seen = new Set<string>();
+        return items.filter((item) => {
+            if (item.label !== '') return true;
+            if (seen.has(item.color)) return false;
+            seen.add(item.color);
+            return true;
+        });
+    }
+
     /** Extract class legend from case/match/step expressions — returns [{label, color}] or null. */
     private extractColorClasses(expr: unknown, attrTr?: Map<string, {label: string; unit: string; valuemap?: Array<{value: unknown; label: string; operator?: string}>}>): Array<{label: string, color: string}> | null {
         if (!Array.isArray(expr)) return null;
         const op = expr[0];
+        // Classes by range. The style panel writes one of these, and without a
+        // branch here a classified layer reached the legend with no rows at all.
+        if (op === 'step' && expr.length >= 5) {
+            const input = expr[1];
+            if (!Array.isArray(input) || input[0] === 'zoom') return null;
+            const stepProp = this.getPropName(input);
+            const unit = (stepProp ? attrTr?.get(stepProp) : undefined)?.unit ?? '';
+            const breaks: number[] = [];
+            for (let i = 3; i + 1 < expr.length; i += 2) {
+                if (typeof expr[i] === 'number') breaks.push(expr[i] as number);
+            }
+            const items: Array<{label: string, color: string}> = [];
+            const bound = (value: number) => this.formatNumber(value, unit);
+            if (typeof expr[2] === 'string' && breaks.length > 0) {
+                items.push({ label: `< ${bound(breaks[0])}`, color: expr[2] });
+            }
+            for (let i = 3, b = 0; i + 1 < expr.length; i += 2, b += 1) {
+                const color = expr[i + 1];
+                if (typeof color !== 'string') continue;
+                const to = breaks[b + 1];
+                // A range, not "≥ 200" next to "≥ 300": neighbouring one-sided
+                // labels read as bands that overlap, which these do not.
+                items.push({
+                    label: to === undefined ? `≥ ${bound(breaks[b])}` : `${bound(breaks[b])} – ${bound(to)}`,
+                    color,
+                });
+            }
+            return items.length > 1 ? items : null;
+        }
         if (op === 'case') {
             const items: Array<{label: string, color: string}> = [];
             for (let i = 1; i + 1 < expr.length; i += 2) {
                 const label = this.conditionLabel(expr[i], attrTr);
                 if (label === null) continue;
-                const color = typeof expr[i + 1] === 'string' ? expr[i + 1] : '';
-                if (color) items.push({ label: label || '', color });
+                const value = expr[i + 1];
+                // A branch may itself be a class expression: the style panel
+                // guards its classes with two missing-value tests and puts the
+                // `step` in the fallback, so reading only string colours here
+                // found nothing to show.
+                if (typeof value === 'string') {
+                    items.push({ label: label || '', color: value });
+                } else {
+                    items.push(...(this.extractColorClasses(value, attrTr) ?? []));
+                }
             }
             const def = expr[expr.length - 1];
-            if (typeof def === 'string') items.push({ label: '', color: def });
-            return items.length > 1 ? items : null;
+            if (typeof def === 'string') {
+                items.push({ label: '', color: def });
+            } else {
+                items.push(...(this.extractColorClasses(def, attrTr) ?? []));
+            }
+            return items.length > 1 ? this.mergeNoDataRows(items) : null;
         }
         if (op === 'match') {
             const matchProp = this.getPropName(expr[1]);
@@ -850,6 +971,22 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const def = expr[expr.length - 1];
             if (typeof def === 'string') items.push({ label: '', color: def });
             return items.length > 1 ? items : null;
+        }
+        return null;
+    }
+
+    /** The property a `text-field` writes, if it is a plain read of one. */
+    private textFieldName(expr: unknown): string | null {
+        if (typeof expr === 'string') {
+            const match = expr.match(/^\{([^}]+)\}$/);
+            return match ? match[1] : null;
+        }
+        if (!Array.isArray(expr)) return null;
+        if (expr[0] === 'get' && typeof expr[1] === 'string') return expr[1];
+        // `["to-string", ["get", "name"]]` and the like: look one level in.
+        for (const part of expr.slice(1)) {
+            const nested = this.textFieldName(part);
+            if (nested) return nested;
         }
         return null;
     }
@@ -895,6 +1032,10 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     }
 
     private extractProportionalRadius(radiusExpr: unknown, zoom: number): {coeff: number, base: number, prop: string, isSqrt: boolean} | null {
+        // A radius that is the formula itself, with no zoom interpolation around
+        // it — what the style panel writes when circles are sized by the value.
+        const bare = this.parseRadiusFormula(radiusExpr);
+        if (bare) return bare;
         if (!Array.isArray(radiusExpr) || radiusExpr[0] !== 'interpolate') return null;
         // Collect all zoom stops: [zoomVal, stopExpr] pairs
         const interpType = radiusExpr[1]; // ["linear"] or ["exponential", base]
@@ -1212,7 +1353,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         return !Array.isArray(paint[colorKey]);
     }
 
-    private renderLegendItems(subLayerIds: string[], layerType: string, paint: Record<string, unknown>): TemplateResult[] {
+    private renderLegendItems(subLayerIds: string[], layerType: string, paint: Record<string, unknown>, layout?: Record<string, unknown>): TemplateResult[] {
         const attrTr = this.getAttrTranslations();
 
         if (layerType === 'circle') {
@@ -1337,12 +1478,16 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         // symbol, raster, background — single swatch
         if (layerType === 'symbol') {
             const textColor = String((paint as Record<string, unknown>)['text-color'] ?? '#1f2937');
+            // Which column the labels come from, so the row says something. A
+            // bare "A" is the same for every labels layer on the map.
+            const field = this.textFieldName(layout?.['text-field']);
             return [html`
                 <div class="legend-row">
                     ${svg`<svg width="24" height="14" style="flex-shrink:0">
                         <text x="12" y="11" text-anchor="middle" font-size="11"
                             fill="${textColor}" font-family="sans-serif">A</text>
                     </svg>`}
+                    ${field ? html`<span class="legend-label">${field}</span>` : ''}
                 </div>`];
         }
 
@@ -1369,6 +1514,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         const meta = this.meta;
         const layerType = typeof meta?.layerType === 'string' ? meta.layerType : null;
         const paint = (meta?.paint && typeof meta.paint === 'object') ? meta.paint as Record<string, unknown> : {};
+        const layout = (meta?.layout && typeof meta.layout === 'object') ? meta.layout as Record<string, unknown> : undefined;
         const legendUrl = typeof meta?.legendurl === 'string' && meta.legendurl.length > 0 ? meta.legendurl : null;
         const label = typeof meta?.label === 'string' ? meta.label : this.layerId;
         const sublayers = Array.isArray(meta?.sublayers) ? meta!.sublayers as unknown[] : null;
@@ -1416,9 +1562,9 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                     ${editable
                         ? html`<button type="button" class="editable legend-row" aria-expanded=${isOpen} aria-label=${`Edit style of ${label}`}
                             @click=${() => { this.editorOpenKey = isOpen ? null : this.layerId; }}>
-                            ${this.renderLegendItems(stdSubLayerIds, layerType!, effectivePaint)}
+                            ${this.renderLegendItems(stdSubLayerIds, layerType!, effectivePaint, layout)}
                         </button>`
-                        : html`<div>${this.renderLegendItems(stdSubLayerIds, layerType!, effectivePaint)}</div>`}
+                        : html`<div>${this.renderLegendItems(stdSubLayerIds, layerType!, effectivePaint, layout)}</div>`}
                     ${layerType === 'hillshade' ? this.renderHillshadeTerrainCheckbox() : ''}
                     ${editable && isOpen ? this.renderStyleEditor(stdSubLayerIds, layerType!, effectivePaint) : ''}
                 ` : ''}

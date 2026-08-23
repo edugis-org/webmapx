@@ -16,6 +16,7 @@ import type { WebmapxSaveLayersDialog, SaveLayerCandidate } from './webmapx-save
 import type { WebmapxPermalinkDialog } from './webmapx-permalink-dialog';
 import type { WebmapxClearLayersDialog } from './webmapx-clear-layers-dialog';
 import { buildPermalinkUrl, getMapDomIndex, getConfigUrlForIndex } from '../utils/permalink';
+import { sampleLayerFeatures } from '../utils/layer-features';
 import { Webmapx3dTool } from './webmapx-3d-tool';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
@@ -1572,7 +1573,7 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
     }
   }
 
-  private handleShowLayerInfo(layerId: string, fallbackLabel: string): void {
+  private async handleShowLayerInfo(layerId: string, fallbackLabel: string): Promise<void> {
     // Per webmapx's architecture contract, everything shown here comes from
     // store.mapLayers[layerId] — populated entirely from the `layer` object
     // passed to adapter.addLayer() by registerMapLayer(). No static config
@@ -1582,7 +1583,7 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
     const title = (runtimeMetadata?.label as string | undefined) ?? fallbackLabel;
     const attribution = runtimeMetadata?.attribution as string | undefined;
     const abstract = runtimeMetadata?.abstract as string | undefined;
-    const featureSummary = this.getLayerFeatureSummary(layerId, runtimeMetadata);
+    const featureSummary = await this.getLayerFeatureSummary(layerId, runtimeMetadata);
     this.infoDialog?.open(title, abstract, attribution, featureSummary);
   }
 
@@ -1592,13 +1593,19 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
     this.styleDialog?.open({
       title,
       layerId,
-      groups: this.getLayerStyleGroups(layerId, runtimeMetadata),
+      groups: [],
       // The panel builds a paint spec; putting it on the map is the adapter's
       // job, and `updateLayerStyle` is the one path that mirrors into every
       // engine. A sublayer id equal to the layer id addresses a standard
       // (non-composite) layer.
       apply: (subLayerId, paint) =>
         this.adapter?.updateLayerStyle(layerId, subLayerId || layerId, paint) ?? false,
+      // A tiled layer usually has no features yet when the panel opens; this
+      // lets the panel look again until its tiles have arrived.
+      resample: () => this.getLayerStyleGroups(
+        layerId,
+        this.adapter?.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined,
+      ),
       // Labels go on as a layer of their own, so they show up in the legend and
       // can be switched off there like anything else.
       layers: {
@@ -1606,31 +1613,54 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
         remove: (id) => {
           if (this.adapter?.hasLayer?.(id)) this.adapter.removeLayer(id);
         },
+        // Labels go on as a sublayer of the layer itself, so it keeps one
+        // legend row, one delete button and one style panel.
+        setExtraSubLayer: (id, sublayer) => this.adapter?.setExtraSubLayer(id, sublayer) ?? Promise.resolve(false),
+      },
+      // What the layer is made of decides which questions the panel can ask; a
+      // raster has no features and no paint, so it gets its own branch.
+      ...(typeof runtimeMetadata?.sourceId === 'string' && runtimeMetadata?.layerType === 'raster'
+        ? {
+          raster: {
+            sourceId: runtimeMetadata.sourceId,
+            sourceConfig: this.adapter?.getSourceConfig(runtimeMetadata.sourceId) ?? null,
+          },
+        }
+        : {}),
+      // A labels layer made here inherits the extent, so "zoom to layer" means
+      // the same on its row as on the layer it came from.
+      ...(Array.isArray(runtimeMetadata?.bounds) ? { bounds: runtimeMetadata.bounds as number[] } : {}),
+      sourceControl: {
+        setTiles: (sourceId, tiles) => this.adapter?.setSourceTiles(sourceId, tiles) ?? false,
+        getTiles: (sourceId) => this.adapter?.getSourceTiles(sourceId) ?? null,
+        setLayerOpacity: (opacity) => this.adapter?.setLayerOpacity(layerId, opacity),
       },
     });
   }
 
-  /** For geojson-backed layers, returns one feature-count/geometry-type summary per
-   *  distinct geojson source (composite layers may reference several), if data is loaded. */
-  private getLayerFeatureSummary(layerId: string, runtimeMetadata: Record<string, unknown> | undefined): string | undefined {
-    const refs = getLayerSourceRefs(layerId, runtimeMetadata);
-    const summaries: string[] = [];
-    for (const candidates of refs) {
-      for (const sourceId of candidates) {
-        const data = this.adapter?.getSourceData(sourceId) ?? null;
-        if (data && typeof data === 'object') {
-          summaries.push(summarizeGeoJSON(data as GeoJSON.FeatureCollection));
-          break;
-        }
-      }
-    }
-    // Inline/discovered layers without sublayers/sourceId metadata (e.g. WFS
-    // layers added via "Add layer from URL") stash their resolved geojson
-    // directly in metadata.sourceData.
-    if (summaries.length === 0 && runtimeMetadata?.sourceData && typeof runtimeMetadata.sourceData === 'object') {
-      summaries.push(summarizeGeoJSON(runtimeMetadata.sourceData as GeoJSON.FeatureCollection));
-    }
-    return summaries.length > 0 ? summaries.join('; ') : undefined;
+  /**
+   * A feature-count/geometry-type summary of what the layer holds.
+   *
+   * Reads through the same helper as the style panel, so a vector-tile layer
+   * gets a summary too — it used to be offered only for a source the engine
+   * could hand over whole, which meant every tiled layer reported nothing at
+   * all. A tiled read is what the map has drawn, and the summary says so rather
+   * than passing it off as the whole dataset.
+   */
+  private async getLayerFeatureSummary(
+    layerId: string,
+    runtimeMetadata: Record<string, unknown> | undefined,
+  ): Promise<string | undefined> {
+    const sourceId = typeof runtimeMetadata?.sourceId === 'string' ? runtimeMetadata.sourceId : undefined;
+    const sourceLayer = typeof runtimeMetadata?.sourceLayer === 'string' ? runtimeMetadata.sourceLayer : undefined;
+    const { features, complete } = await sampleLayerFeatures(this.adapter, layerId, {
+      sourceId,
+      sourceLayer,
+      sourceData: runtimeMetadata?.sourceData,
+    });
+    if (!features || features.length === 0) return undefined;
+    const summary = summarizeGeoJSON({ type: 'FeatureCollection', features });
+    return complete ? summary : `${summary} — loaded and visible on the map now`;
   }
 
   /** Cheap existence check (no coordinate walking) for whether "zoom to layer" should show. */
@@ -1640,8 +1670,15 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
       candidates.some((sourceId) => this.adapter?.getSourceData(sourceId) !== null));
   }
 
+  /**
+   * A raster layer has no styleable sublayer, but it is not beyond styling: a
+   * WMS draws its pictures on request and offers named styles, and every raster
+   * has an opacity. The panel says which of those apply, so the button is
+   * offered rather than the layer looking like it has no style at all.
+   */
   private layerHasStyleDialog(metadata: Record<string, unknown> | undefined): boolean {
-    return this.getLayerStyleTargets('', metadata).length > 0;
+    if (this.getLayerStyleTargets('', metadata).length > 0) return true;
+    return metadata?.layerType === 'raster';
   }
 
   private getLayerStyleTargets(layerId: string, metadata: Record<string, unknown> | undefined): SourceLayerTarget[] {
@@ -1679,7 +1716,7 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
     }
   }
 
-  private getLayerStyleGroups(layerId: string, metadata: Record<string, unknown> | undefined): SourceStyleGroup[] {
+  private async getLayerStyleGroups(layerId: string, metadata: Record<string, unknown> | undefined): Promise<SourceStyleGroup[]> {
     const targets = this.getLayerStyleTargets(layerId, metadata);
     const bySource = new Map<string, SourceLayerTarget[]>();
     for (const target of targets) {
@@ -1695,9 +1732,16 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
     const allowed = Array.isArray(attrs.allowedAttributes) ? new Set<string>(attrs.allowedAttributes) : null;
     const denied = Array.isArray(attrs.deniedAttributes) ? new Set<string>(attrs.deniedAttributes) : null;
 
-    return [...bySource.entries()].map(([sourceId, layers]) => {
-      const features = this.sampleSourceFeatures(sourceId, layers, metadata);
-      const completeSourceData = this.hasCompleteSourceData(sourceId, metadata);
+    return Promise.all([...bySource.entries()].map(async ([sourceId, layers]) => {
+      // One read path for every source type — the same `queryLayerFeatures` the
+      // Analysis tool uses. See `utils/layer-features.ts` for why sampling by
+      // source id was not it.
+      const sourceLayer = layers.find((layer) => !!layer.sourceLayer)?.sourceLayer;
+      const { features, complete: completeSourceData } = await sampleLayerFeatures(this.adapter, layerId, {
+        sourceId,
+        sourceLayer,
+        sourceData: metadata?.sourceData,
+      });
       let attributes = this.attributeInfo(features);
       if (allowed || denied) {
         attributes = attributes.filter(a =>
@@ -1715,42 +1759,14 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
         completeData: completeSourceData,
         geometryTypes: this.geometryTypeLabels(features),
         attributes,
+        // Both let the panel put labels on a tiled source: the source is
+        // re-declared for the labels layer rather than its features copied.
+        sourceLayer,
+        sourceConfig: this.adapter?.getSourceConfig?.(sourceId) ?? null,
         featureRows: this.featureRows(features),
         layers: layers.map(({ sourceId: _sourceId, sourceLayer: _sourceLayer, ...layer }) => layer),
       };
-    });
-  }
-
-  private sampleSourceFeatures(
-    sourceId: string,
-    layers: SourceLayerTarget[],
-    metadata: Record<string, unknown> | undefined,
-  ): GeoJSON.Feature[] | null {
-    const sourceData = this.adapter?.getSourceData(sourceId);
-    if (sourceData && typeof sourceData === 'object' && Array.isArray((sourceData as GeoJSON.FeatureCollection).features)) {
-      return (sourceData as GeoJSON.FeatureCollection).features ?? [];
-    }
-    if (metadata?.sourceData && typeof metadata.sourceData === 'object' && sourceId !== 'unknown source') {
-      return (metadata.sourceData as GeoJSON.FeatureCollection).features ?? [];
-    }
-
-    const sourceLayers = [...new Set(layers.map((layer) => layer.sourceLayer).filter((value): value is string => !!value))];
-    if (sourceLayers.length > 0) {
-      const features: GeoJSON.Feature[] = [];
-      for (const sourceLayer of sourceLayers) {
-        features.push(...(this.adapter?.querySourceFeatures?.(sourceId, { sourceLayer })?.features ?? []));
-      }
-      return features.length > 0 ? this.dedupeFeatures(features) : null;
-    }
-    return this.adapter?.querySourceFeatures?.(sourceId)?.features ?? null;
-  }
-
-  private hasCompleteSourceData(sourceId: string, metadata: Record<string, unknown> | undefined): boolean {
-    const sourceData = this.adapter?.getSourceData(sourceId);
-    if (sourceData && typeof sourceData === 'object' && Array.isArray((sourceData as GeoJSON.FeatureCollection).features)) {
-      return true;
-    }
-    return !!(metadata?.sourceData && typeof metadata.sourceData === 'object');
+    }));
   }
 
   private dedupeFeatures(features: GeoJSON.Feature[]): GeoJSON.Feature[] {

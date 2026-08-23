@@ -286,3 +286,51 @@ function defaultFormat(value: number): string {
     const decimals = magnitude >= 100 ? 0 : magnitude >= 1 ? 1 : 3;
     return Number(value.toFixed(decimals)).toLocaleString('en-US');
 }
+
+/**
+ * Circle radius straight from a value, with no classes at all.
+ *
+ * A quantity drawn as a circle does not want breaks: the whole point of a
+ * proportional symbol is that a country twice the size draws twice the *area*,
+ * and any class boundary throws that reading away. So the radius is the square
+ * root of the value times one coefficient — square root, because area grows
+ * with the square of the radius, and sizing by radius directly makes a large
+ * value look several times larger than it is (Flannery's objection, and the
+ * reason a bubble map of population is usually wrong).
+ *
+ * Zero and negative values collapse to no circle rather than to `NaN`, which
+ * MapLibre draws as the default radius — a feature with no data would otherwise
+ * be indistinguishable from a small one.
+ */
+export function buildProportionalRadius(options: {
+    field: string;
+    /** The largest value in the data; the circle drawn for it. */
+    maxValue: number;
+    maxRadius: number;
+}): { expression: unknown[]; coefficient: number } {
+    const { field, maxValue, maxRadius } = options;
+    const largest = Math.sqrt(Math.max(maxValue, Number.EPSILON));
+    const coefficient = Number((maxRadius / largest).toPrecision(6));
+    return {
+        coefficient,
+        // Deliberately the shape the legend already reads and the demo configs
+        // already use (`countrypopest`): coefficient × √value. A guard against
+        // nulls wrapped around the `get` would be more careful and would stop
+        // the legend recognising a proportional circle at all.
+        expression: ['*', coefficient, ['sqrt', ['get', field]]],
+    };
+}
+
+/**
+ * The values a proportional-circle legend shows: the largest, and two smaller
+ * circles at a quarter and a sixteenth of its *area* — which is where the eye
+ * can still tell the sizes apart.
+ */
+export function proportionalRadiusLegend(maxValue: number, coefficient: number): Array<{ value: number; radius: number }> {
+    return [1, 0.25, 0.0625]
+        .map((share) => {
+            const value = maxValue * share;
+            return { value, radius: coefficient * Math.sqrt(Math.max(value, 0)) };
+        })
+        .filter((entry) => entry.radius >= 1);
+}

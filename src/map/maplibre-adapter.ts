@@ -115,6 +115,19 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
         return this.layerService?.getSourceConfig(sourceId) ?? super.getSourceConfig(sourceId);
     }
 
+    /**
+     * MapLibre repoints a raster/vector tile source in place (`setTiles`), which
+     * refetches the tiles and leaves every layer drawing it untouched — no
+     * remove/re-add, so nothing about the layer's place in the stack changes.
+     */
+    protected engineSetSourceTiles(sourceId: string, tiles: string[]): boolean {
+        return this.layerService?.setSourceTiles(sourceId, tiles) ?? false;
+    }
+
+    override getSourceTiles(sourceId: string): string[] | null {
+        return this.layerService?.getSourceTiles(sourceId) ?? null;
+    }
+
     getSource(sourceId: string): ISource | undefined {
         const direct = this.core.getSource(sourceId);
         if (direct) return direct;

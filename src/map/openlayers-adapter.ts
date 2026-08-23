@@ -29,6 +29,7 @@ export class OpenLayersAdapter extends BaseAdapter implements IMap {
     private readonly logicalLayerExecutor: DeferredLogicalLayerExecutor;
     private readonly queryExecutor: DeferredQueryService;
     private markerService: MapMarkerService | null = null;
+    private layerService: MapLayerService | null = null;
 
     constructor() {
         super();
@@ -41,6 +42,7 @@ export class OpenLayersAdapter extends BaseAdapter implements IMap {
         // Wait for mapInstance to be ready, then initialize layerService
         (this.core as any).onMapReady?.((map: any) => {
             const layerService = new MapLayerService(map, this.store);
+            this.layerService = layerService;
             (this.core as MapCoreService).setLayerOrderRegistry(layerService);
             this.logicalLayerExecutor.bind(layerService);
             this.queryExecutor.bind(new MapQueryService(map, layerService, this.store));
@@ -66,6 +68,15 @@ export class OpenLayersAdapter extends BaseAdapter implements IMap {
 
     getProjection(): MapProjectionState | null {
         return this.core.getProjection();
+    }
+
+    /** OpenLayers builds a source per layer, so the service does the walking. */
+    protected override engineSetSourceTiles(sourceId: string, tiles: string[]): boolean {
+        return this.layerService?.setSourceTiles(sourceId, tiles) ?? false;
+    }
+
+    override getSourceTiles(sourceId: string): string[] | null {
+        return this.layerService?.getSourceTiles(sourceId) ?? null;
     }
 
     protected getCore(): IMapCore {

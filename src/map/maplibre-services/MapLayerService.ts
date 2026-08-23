@@ -524,6 +524,32 @@ export class MapLayerService implements ILayerService {
         return null;
     }
 
+    /**
+     * Repoints a tile source at different urls, in place.
+     *
+     * `setTiles` refetches without touching the layers that draw the source, so
+     * a WMS style change keeps the layer's place in the stack, its visibility
+     * and its opacity. Only tile sources have it; a geojson source says no.
+     */
+    setSourceTiles(sourceId: string, tiles: string[]): boolean {
+        const nativeSourceId = this.logicalSourceToNative.get(sourceId) ?? sourceId;
+        const source = this.map.getSource(nativeSourceId) as { setTiles?: (tiles: string[]) => void } | undefined;
+        if (typeof source?.setTiles !== 'function') return false;
+        source.setTiles(tiles);
+        return true;
+    }
+
+    /** Where the live source currently points, which the config may not say. */
+    getSourceTiles(sourceId: string): string[] | null {
+        const nativeSourceId = this.logicalSourceToNative.get(sourceId) ?? sourceId;
+        const source = this.map.getSource(nativeSourceId) as
+            { tiles?: string[]; serialize?: () => { tiles?: string[]; url?: string } } | undefined;
+        if (Array.isArray(source?.tiles) && source.tiles.length > 0) return [...source.tiles];
+        const serialized = source?.serialize?.();
+        if (Array.isArray(serialized?.tiles) && serialized.tiles.length > 0) return [...serialized.tiles];
+        return typeof serialized?.url === "string" ? [serialized.url] : null;
+    }
+
     querySourceFeatures(sourceId: string, options: SourceFeatureQueryOptions = {}): SourceFeatureSample | null {
         const nativeSourceId = this.logicalSourceToNative.get(sourceId);
         if (!nativeSourceId || !this.map.getSource(nativeSourceId)) return null;

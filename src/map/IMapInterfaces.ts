@@ -274,6 +274,13 @@ export interface IMap {
     /** Returns the original layer config for every currently active layer, keyed by logical layer id. */
     getLayerConfigs(): Map<string, unknown>;
 
+    /**
+     * Adds a sublayer to a layer (or removes it again with `null`), rebuilding
+     * the layer as a composite so it keeps one legend row, one delete button
+     * and one style panel. Used for the style panel's labels.
+     */
+    setExtraSubLayer(layerId: string, sublayer: Record<string, unknown> | null): Promise<boolean>;
+
     // ===== Viewport / Camera =====
     /** Gets the current viewport state (center, zoom, bearing, pitch). */
     getViewportState(): { center: [number, number], zoom: number, bearing: number, pitch: number };
@@ -347,6 +354,24 @@ export interface IMap {
 
     /** Returns the serialized source config (type, tiles, url, etc.) for any source, or null if unavailable. */
     getSourceConfig(sourceId: string): Record<string, unknown> | null;
+
+    /**
+     * Points an existing tile source at different urls, keeping the layers that
+     * draw it. This is what a WMS `styles=` change is: the same layer asking the
+     * same service for a differently drawn picture.
+     *
+     * Returns false when the engine cannot do it, which the UI must respect
+     * rather than reporting a change it did not make.
+     */
+    setSourceTiles(sourceId: string, tiles: string[]): boolean;
+
+    /**
+     * The request urls a live tile source is actually using, which is not always
+     * what the config declared: a WMS given as a bare endpoint plus parameters
+     * has its GetMap url assembled by the engine, and that assembled url is the
+     * only place its `STYLES` can be changed. Null when the engine cannot say.
+     */
+    getSourceTiles(sourceId: string): string[] | null;
 
     /**
      * Returns features currently loaded for a source, when the engine can expose

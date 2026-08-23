@@ -26,6 +26,9 @@ import type { DeferredLogicalLayerExecutor } from './logical-layer-executor';
 import { ensureApiKeysLoaded, substituteApiKeysDeep } from '../config/apikeys';
 import { normalizeCompositeLayer, findNormalizedSource } from './composite-layer-utils';
 
+/** Marks a sublayer added by a tool rather than by the layer's author. */
+export const EXTRA_SUBLAYER_SUFFIX = '--extra';
+
 /** Options accepted by every adapter's `initialize` (mirrors IMap.initialize). */
 export interface MapInitOptions {
     center?: [number, number];
@@ -94,6 +97,30 @@ export abstract class BaseAdapter {
 
     getSourceConfig(sourceId: string): Record<string, unknown> | null {
         return this.sourceConfigs.get(sourceId) ?? null;
+    }
+
+    /**
+     * Unsupported by default: an engine that cannot repoint a live source must
+     * say so, so the UI can hide the option instead of appearing to apply it.
+     * Engines that can override `engineSetSourceTiles`; the tracked config is
+     * updated here only when the engine reports the change applied.
+     */
+    setSourceTiles(sourceId: string, tiles: string[]): boolean {
+        if (!this.engineSetSourceTiles(sourceId, tiles)) return false;
+        const config = this.sourceConfigs.get(sourceId);
+        if (config) {
+            this.sourceConfigs.set(sourceId, { ...config, tiles, ...(config.url ? { url: tiles } : {}) });
+        }
+        return true;
+    }
+
+    protected engineSetSourceTiles(_sourceId: string, _tiles: string[]): boolean {
+        return false;
+    }
+
+    /** Engines that can repoint a source can also say where it currently points. */
+    getSourceTiles(_sourceId: string): string[] | null {
+        return null;
     }
 
     addSource(id: string, config: any): void {
@@ -206,12 +233,107 @@ export abstract class BaseAdapter {
         return anySuccess;
     }
 
+    /**
+     * Gives a layer an extra sublayer of its own, or takes it away again.
+     *
+     * Labels are the case this exists for. They are part of the layer, not a
+     * layer beside it: one row in the legend, one delete button, one style
+     * panel — and a legend that shows the classes *and* what the labels say.
+     * A layer beside it got all four wrong.
+     *
+     * Every engine already draws a composite (`type: 'style'`) layer, so rather
+     * than teaching four adapters to attach a sublayer to a live layer, the
+     * layer is rebuilt from the config it was added with — which `addLayer`
+     * keeps for exactly this kind of thing — as a composite carrying both. Its
+     * place in the stack is preserved by re-adding it before whatever sat above.
+     */
+    async setExtraSubLayer(layerId: string, sublayer: Record<string, unknown> | null): Promise<boolean> {
+        const stored = this.layerConfigStore.get(layerId);
+        const config = stored?.config as Record<string, unknown> | undefined;
+        if (!config) return false;
+
+        const original = this.originalSubLayers(config, layerId);
+        const kept = original.filter((entry) => (entry as { id?: string }).id !== sublayer?.id
+            && !String((entry as { id?: string }).id ?? '').endsWith(EXTRA_SUBLAYER_SUFFIX));
+        const layers = sublayer ? [...kept, sublayer] : kept;
+
+        const composite: Record<string, unknown> = {
+            ...config,
+            type: 'style',
+            version: 8,
+            sources: (config.sources && typeof config.sources === 'object') ? config.sources : {},
+            layers,
+        };
+        delete composite.paint;
+        delete composite.layout;
+        delete composite['source-layer'];
+
+        // Whatever sat directly above it, so the rebuilt layer lands back in the
+        // same place rather than on top of everything.
+        const ids = Object.keys(this.store.getState().mapLayers ?? {});
+        const above = ids[ids.indexOf(layerId) + 1];
+
+        this.removeLayer(layerId);
+        return this.addLayer(composite, above ? { beforeLayerId: above } : stored?.options);
+    }
+
+    /**
+     * The sublayers a layer draws with *today*.
+     *
+     * The paint comes from the store, not from the config it was added with:
+     * the style panel has usually just recoloured the layer, and rebuilding it
+     * from the original config would throw that away — choosing labels would
+     * undo the colouring they were chosen to go with.
+     */
+    private originalSubLayers(config: Record<string, unknown>, layerId: string): Array<Record<string, unknown>> {
+        const entry = (this.store.getState().mapLayers ?? {})[layerId] as Record<string, unknown> | undefined;
+        const live = Array.isArray(entry?.sublayers) ? entry!.sublayers as Array<Record<string, unknown>> : null;
+        const paintOf = (id: unknown): Record<string, unknown> | undefined => {
+            const match = live?.find((sub) => sub.id === id);
+            const paint = match?.paint ?? (live ? undefined : entry?.paint);
+            return paint && typeof paint === 'object' ? paint as Record<string, unknown> : undefined;
+        };
+
+        if (Array.isArray(config.layers)) {
+            return (config.layers as Array<Record<string, unknown>>).map((sub) => {
+                const paint = paintOf(sub.id);
+                return paint ? { ...sub, paint } : sub;
+            });
+        }
+        // A plain layer becomes the first sublayer of the composite it is about
+        // to be; its own id is kept so paint edits keep addressing it.
+        const { metadata: _metadata, ...rest } = config;
+        const id = typeof config.id === 'string' ? config.id : layerId;
+        const paint = paintOf(id) ?? (entry?.paint as Record<string, unknown> | undefined);
+        return [{ ...rest, id, ...(paint ? { paint } : {}) }];
+    }
+
     removeLayer(id: string): void {
         this.layerConfigStore.delete(id);
         this.engineRemoveLayer(id);
         unregisterMapLayer(this.store, id);
         const activeLayers = Object.keys(this.store.getState().mapLayers ?? {});
         this.events.emit({ type: 'layer-remove', layerId: id, activeLayers });
+        this.removeOwnedLayers(id);
+    }
+
+    /**
+     * Takes away the layers that only exist to accompany another one.
+     *
+     * The style panel's labels are a layer of their own — that is what makes
+     * them work on every engine and switchable in the legend — but they are not
+     * a dataset anybody asked for: leaving them behind when their layer goes
+     * left country names floating over an empty map, with no row left to
+     * switch them off by. A layer says who it belongs to with
+     * `metadata.ownerLayerId`.
+     */
+    private removeOwnedLayers(ownerId: string): void {
+        const layers = this.store.getState().mapLayers ?? {};
+        for (const [layerId, entry] of Object.entries(layers)) {
+            if ((entry as { ownerLayerId?: string })?.ownerLayerId === ownerId) {
+                this.removeLayer(layerId);
+            }
+        }
     }
 
     /** Returns the layer config for every currently active layer, keyed by logical layer id. */

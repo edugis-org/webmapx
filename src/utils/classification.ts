@@ -17,10 +17,19 @@
  *   fall in the gaps the data actually has. The default worth having.
  * - **standard deviation** — classes measured in σ from the mean. Only
  *   meaningful for roughly symmetric data.
- * - **pretty** — equal interval rounded to numbers a person would say out loud.
- *   "0–20, 20–40" beats "0–19.7381" on a legend a child has to read.
+ * - **geometric** — equal intervals in *ratio* rather than in width, so each
+ *   class is the same multiple of the one below it. This is the answer for the
+ *   skewed columns a thematic map is usually made of: population density runs
+ *   0–100 for most regions and to several thousand for a city state, and every
+ *   width-based method then files 90% of the map in one class.
  * - **manual** — the breaks the author chose. Every other method is a starting
  *   point for this one.
+ *
+ * Rounding is **not** a method but an option on all of them (`rounded`): "0–20,
+ * 20–40" beats "0–19.7381" on a legend a child has to read, and that is just as
+ * true of natural breaks as of equal intervals. It used to be a method of its
+ * own ("pretty"), which meant asking for readable numbers also meant giving up
+ * on choosing how the data was divided.
  */
 
 export type ClassificationMethod =
@@ -28,7 +37,7 @@ export type ClassificationMethod =
     | 'quantile'
     | 'naturalBreaks'
     | 'standardDeviation'
-    | 'pretty'
+    | 'geometric'
     | 'manual';
 
 export interface NumericClass {
@@ -107,7 +116,14 @@ export function numericValues(
  */
 export function classifyNumeric(
     values: readonly number[],
-    options: { method: ClassificationMethod; classCount?: number; breaks?: readonly number[]; missing?: number },
+    options: {
+        method: ClassificationMethod;
+        classCount?: number;
+        breaks?: readonly number[];
+        missing?: number;
+        /** Snap the breaks to numbers a person would say out loud. */
+        rounded?: boolean;
+    },
 ): NumericClassification {
     const sorted = [...values].filter(Number.isFinite).sort((a, b) => a - b);
     const missing = options.missing ?? 0;
@@ -123,9 +139,13 @@ export function classifyNumeric(
     // contain anything — a legend with entries no feature will ever match.
     const classCount = options.method === 'manual' ? (options.breaks?.length ?? 0) + 1 : Math.min(requested, distinct);
 
-    const breaks = options.method === 'manual'
+    const raw = options.method === 'manual'
         ? [...(options.breaks ?? [])].map(Number).filter(Number.isFinite).sort((a, b) => a - b)
         : innerBreaks(sorted, classCount, options.method, min, max);
+    // Rounding applies to whatever method produced the breaks: a legend is read
+    // by a person whichever way the data was divided. Manual breaks are the
+    // author's own numbers and are left alone.
+    const breaks = options.rounded && options.method !== 'manual' ? roundBreaks(raw, min, max) : raw;
 
     return {
         method: options.method,
@@ -148,8 +168,8 @@ function innerBreaks(
     switch (method) {
         case 'equalInterval':
             return equalIntervalBreaks(min, max, classCount);
-        case 'pretty':
-            return prettyBreaks(min, max, classCount);
+        case 'geometric':
+            return geometricBreaks(sorted, classCount, min, max);
         case 'quantile':
             return quantileBreaks(sorted, classCount);
         case 'standardDeviation':
@@ -166,21 +186,59 @@ function equalIntervalBreaks(min: number, max: number, classCount: number): numb
 }
 
 /**
- * Equal interval, snapped to a step a person would say out loud (1, 2, 2.5 or 5
- * times a power of ten), the same family of steps an axis uses.
+ * Equal intervals in *ratio*: each class spans the same multiple of the one
+ * below it, so a column that runs 0–100 for most of its features and to several
+ * thousand for a handful still divides into classes that all hold something.
+ *
+ * Zero and negative values have no logarithm, so the scale starts at the
+ * smallest value above zero (or a hundredth of the maximum, whichever is
+ * larger, so one absurdly small value cannot stretch the scale over ten
+ * decades); anything at or below that lands in the opening class, which is
+ * where "no people at all" belongs anyway. A column with negatives in it is not
+ * a ratio scale at all, and falls back to equal intervals rather than pretending.
  */
-function prettyBreaks(min: number, max: number, classCount: number): number[] {
-    const rough = (max - min) / classCount;
-    const magnitude = 10 ** Math.floor(Math.log10(rough));
-    const step = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((candidate) => candidate >= rough) ?? magnitude * 10;
-    const first = Math.ceil(min / step) * step;
+function geometricBreaks(sorted: readonly number[], classCount: number, min: number, max: number): number[] {
+    if (min < 0 || max <= 0) return equalIntervalBreaks(min, max, classCount);
+    const smallestPositive = sorted.find((value) => value > 0) ?? max;
+    const start = Math.max(smallestPositive, max / 100);
+    if (start >= max) return equalIntervalBreaks(min, max, classCount);
+
+    const ratio = (max / start) ** (1 / classCount);
     const breaks: number[] = [];
-    for (let value = first; value < max; value += step) {
-        // The rounding can put the first step exactly on the minimum, which
-        // would open with an empty class.
-        if (value > min) breaks.push(round(value, step));
+    for (let i = 1; i < classCount; i++) {
+        breaks.push(start * ratio ** i);
     }
-    return breaks;
+    return dedupe(breaks.map((value) => Number(value.toFixed(6)))).filter((value) => value > min && value < max);
+}
+
+/**
+ * The breaks, snapped to numbers a person would say out loud — 1, 2, 2.5 or 5
+ * times a power of ten, the same family of steps an axis uses.
+ *
+ * Each break is rounded on its own scale rather than to one shared step, since
+ * the methods worth rounding produce unevenly spaced breaks: rounding 30, 82,
+ * 106, 216 to a single step of 50 would throw away what quantile just worked
+ * out. A break that rounds onto its neighbour, or out of the data's range, is
+ * dropped — an empty class is a worse legend than an unrounded number.
+ */
+function roundBreaks(breaks: readonly number[], min: number, max: number): number[] {
+    const edges = [min, ...breaks, max];
+    const snapped = breaks.map((value, index) => {
+        if (!Number.isFinite(value) || value === 0) return value;
+        // Rounded on the scale of the break itself — 108 to 100, 1711 to 1500 —
+        // not on the scale of the gap beside it. A gap-sized step is what a
+        // ruler uses, and it is far too coarse where the breaks are unevenly
+        // spaced: on geometric intervals it moved the first break by most of
+        // its own value and rounded the second onto it, which is one class
+        // fewer than the student asked for.
+        const magnitude = 10 ** Math.floor(Math.log10(Math.abs(value)));
+        const gap = Math.min(value - edges[index], edges[index + 2] - value);
+        // Never round by more than the room the break has: a fine step keeps
+        // tightly packed breaks apart, a coarse one reads better.
+        const step = gap > 0 && magnitude / 2 > gap ? magnitude / 10 : magnitude / 2;
+        return round(Math.round(value / step) * step, step);
+    });
+    return dedupe(snapped).filter((value) => value > min && value < max);
 }
 
 /** Guards against 0.30000000000000004 appearing on a legend. */

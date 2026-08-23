@@ -136,6 +136,73 @@ export class MapLayerService implements ILayerService {
         return clamped + 1;
     }
 
+    /**
+     * Repoints the layers drawing one logical source at different urls.
+     *
+     * OpenLayers builds a source per layer rather than sharing one by id, and it
+     * has two shapes for the same WMS: `XYZ` when the GetMap query is already
+     * baked into the url, `TileWMS`/`ImageWMS` when the request is assembled
+     * from `params`. The first takes the url as given; the second must be told
+     * in its own terms, so the new url's query is folded into its params —
+     * otherwise the layer would keep asking for the old style.
+     */
+    setSourceTiles(sourceId: string, tiles: string[]): boolean {
+        const [url] = tiles;
+        if (!url) return false;
+        let changed = false;
+        for (const [nativeLayerId, layerSourceId] of this.nativeLayerToSource.entries()) {
+            if (layerSourceId !== sourceId) continue;
+            const layer = this.nativeLayerInstances.get(nativeLayerId) as
+                { getSource?: () => unknown } | undefined;
+            const source = layer?.getSource?.() as {
+                setUrl?: (url: string) => void;
+                updateParams?: (params: Record<string, string>) => void;
+            } | undefined;
+            if (!source) continue;
+            if (typeof source.updateParams === 'function') {
+                const { params } = this.parseUrlParams(url);
+                // Uppercased, because a WMS source's params are matched by the
+                // exact key it was built with.
+                const upper: Record<string, string> = {};
+                for (const [key, value] of Object.entries(params)) upper[key.toUpperCase()] = value;
+                source.updateParams(upper);
+                changed = true;
+            } else if (typeof source.setUrl === 'function') {
+                source.setUrl(url);
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    /**
+     * The request url the live source uses. A `TileWMS`/`ImageWMS` keeps its
+     * query in `params` rather than in the url, so it is put back together here
+     * — that assembled url is what a caller rewrites and hands to setSourceTiles.
+     */
+    getSourceTiles(sourceId: string): string[] | null {
+        for (const [nativeLayerId, layerSourceId] of this.nativeLayerToSource.entries()) {
+            if (layerSourceId !== sourceId) continue;
+            const layer = this.nativeLayerInstances.get(nativeLayerId) as { getSource?: () => unknown } | undefined;
+            const source = layer?.getSource?.() as {
+                getUrls?: () => string[];
+                getUrl?: () => string | undefined;
+                getParams?: () => Record<string, unknown>;
+            } | undefined;
+            if (!source) continue;
+            const base = source.getUrls?.()?.[0] ?? source.getUrl?.();
+            if (typeof base !== "string") continue;
+            const params = source.getParams?.();
+            if (!params) return [base];
+            const url = new URL(base, window.location.href);
+            for (const [key, value] of Object.entries(params)) {
+                if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
+            }
+            return [decodeURIComponent(url.href)];
+        }
+        return null;
+    }
+
     private getOrCreateNativeSourceId(sourceConfig: SourceConfig): string {
         if (this.logicalSourceToNative.has(sourceConfig.id)) {
             return this.logicalSourceToNative.get(sourceConfig.id)!;
