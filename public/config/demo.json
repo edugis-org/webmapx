@@ -907,6 +907,78 @@
         "attribution": "Esri Day Night Terminator"
       },
       {
+        "id": "daynight-computed-source",
+        "type": "geojson",
+        "data": "internalfunc://day-night?refresh=auto",
+        "attribution": "Computed in the browser"
+      },
+      {
+        "id": "sunposition-computed-source",
+        "type": "geojson",
+        "data": "internalfunc://sun-position?refresh=auto",
+        "attribution": "Computed in the browser"
+      },
+      {
+        "id": "graticule-source",
+        "type": "geojson",
+        "data": "internalfunc://graticule?spacing=15",
+        "attribution": "Computed in the browser"
+      },
+      {
+        "id": "reference-circles-source",
+        "type": "geojson",
+        "data": "internalfunc://reference-circles",
+        "attribution": "Computed in the browser"
+      },
+      {
+        "id": "tissot-source",
+        "type": "geojson",
+        "data": "internalfunc://tissot?spacing=30&radius=500",
+        "attribution": "Computed in the browser"
+      },
+      {
+        "id": "day-length-source",
+        "type": "geojson",
+        "data": "internalfunc://day-length?refresh=auto",
+        "attribution": "Computed in the browser"
+      },
+      {
+        "id": "solar-time-source",
+        "type": "geojson",
+        "data": "internalfunc://solar-time?refresh=auto",
+        "attribution": "Computed in the browser"
+      },
+      {
+        "id": "analemma-source",
+        "type": "geojson",
+        "data": "internalfunc://analemma",
+        "attribution": "Computed in the browser"
+      },
+      {
+        "id": "moon-position-source",
+        "type": "geojson",
+        "data": "internalfunc://moon-position?refresh=auto",
+        "attribution": "Computed in the browser"
+      },
+      {
+        "id": "moon-visibility-source",
+        "type": "geojson",
+        "data": "internalfunc://moon-visibility?refresh=auto",
+        "attribution": "Computed in the browser"
+      },
+      {
+        "id": "utm-zones-source",
+        "type": "geojson",
+        "data": "internalfunc://utm-zones",
+        "attribution": "Computed in the browser"
+      },
+      {
+        "id": "sunpath-computed-source",
+        "type": "geojson",
+        "data": "internalfunc://sun-path",
+        "attribution": "Computed in the browser"
+      },
+      {
         "id": "pdok-ahn-source",
         "type": "raster",
         "service": "xyz",
@@ -2652,6 +2724,329 @@
           "title": "Sun position (real-time)",
           "abstract": "Current position of the sun (perpendicular solar radiation point)."
         }
+      },
+      {
+        "id": "daynight-computed",
+        "type": "fill",
+        "title": "Day, twilight and night (computed)",
+        "source": "daynight-computed-source",
+        "paint": {
+          "fill-color": [
+            "match",
+            [
+              "get",
+              "id"
+            ],
+            "night",
+            "#0b0f2b",
+            "astronomical",
+            "#1a237e",
+            "nautical",
+            "#3949ab",
+            "civil",
+            "#90caf9",
+            "#cccccc"
+          ],
+          "fill-opacity": 0.45,
+          "fill-outline-color": "#000000"
+        },
+        "metadata": {
+          "title": "Day, twilight and night (computed)",
+          "abstract": "Night and the three twilights, right now. Computed from the date and time rather than fetched, and redrawn continuously as the Earth turns: the whole picture slides west at 464 metres a second on the equator, gliding at street zoom and barely stirring at world zoom. Where the bands lie north to south is a matter of the date — in June the night side does not reach the Arctic at all — and where they lie east to west is a matter of the time. The bands are set by how far the sun is below the horizon. Civil twilight, down to 6 degrees below, is still bright enough to read outdoors and to make out the horizon at sea. Nautical twilight, 6 to 12 degrees, brings out the brighter stars while the horizon can just be seen — the two together are what a sextant needs, and where the name comes from. Astronomical twilight, 12 to 18 degrees, looks dark but still washes out the faintest stars. Below 18 degrees is full night.",
+          "attributes": {
+            "translations": [
+              {
+                "name": "description",
+                "translation": "zone",
+                "unit": ""
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "sunposition-computed",
+        "type": "circle",
+        "title": "Sun position (computed)",
+        "source": "sunposition-computed-source",
+        "paint": {
+          "circle-color": "#FFD700",
+          "circle-radius": 14,
+          "circle-blur": 0.4,
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#FF8C00"
+        },
+        "metadata": {
+          "title": "Sun position (computed)",
+          "abstract": "The point the sun is directly overhead, right now, moving west at 464 metres a second as the Earth turns. Computed from the date and time rather than fetched, and redrawn continuously — at street zoom it glides across the screen, at world zoom it barely stirs. How far north or south the sun stands is a matter of the date — that is the seasons. How far east or west is a matter of the time: the Earth turns fifteen degrees an hour, so the sun crosses one degree of longitude every four minutes. But the clock is not quite the sun's: because the Earth's orbit is an ellipse and its axis is tilted, the sun reaches its highest point up to a quarter of an hour before or after twelve o'clock, depending on the month. That is taken into account here. Leaving it out shifts the sun up to four degrees of longitude — a quarter of an hour of turning, which measures about 450 km on the equator and less towards the poles."
+        }
+      },
+      {
+        "id": "graticule",
+        "type": "line",
+        "title": "Graticule",
+        "source": "graticule-source",
+        "paint": {
+            "line-color": "#6b7785",
+            "line-width": [
+                      "case",
+                      [
+                                "==",
+                                [
+                                          "get",
+                                          "degrees"
+                                ],
+                                0
+                      ],
+                      1.4,
+                      0.5
+            ],
+            "line-opacity": 0.7
+  },
+        "metadata": {
+          "title": "Graticule",
+          "abstract": "Meridians and parallels, sampled so they curve as the projection curves rather than cutting corners."
+        }
+      },
+      {
+        "id": "reference-circles",
+        "type": "line",
+        "title": "Equator, tropics and polar circles",
+        "source": "reference-circles-source",
+        "paint": {
+            "line-color": [
+                      "match",
+                      [
+                                "get",
+                                "id"
+                      ],
+                      "equator",
+                      "#d62728",
+                      "cancer",
+                      "#ff7f0e",
+                      "capricorn",
+                      "#ff7f0e",
+                      "#1f77b4"
+            ],
+            "line-width": 1.6,
+            "line-dasharray": [
+                      3,
+                      2
+            ]
+  },
+        "metadata": {
+          "title": "Equator, tropics and polar circles",
+          "abstract": "Computed from the tilt of the Earth on this date. The tilt drifts, so the tropics and polar circles move about ten metres a year — an atlas from 1926 has them half a kilometre out."
+        }
+      },
+      {
+        "id": "tissot",
+        "type": "fill",
+        "title": "Tissot indicatrix",
+        "source": "tissot-source",
+        "paint": {
+            "fill-color": "#e377c2",
+            "fill-opacity": 0.35,
+            "fill-outline-color": "#7b3f6b"
+  },
+        "metadata": {
+          "title": "Tissot indicatrix",
+          "abstract": "Circles of 500 km ground radius. Whatever the projection does to them is what it does to every shape and area on the map: on Mercator they swell towards the poles, on an equal-area map they squash but keep their size."
+        }
+      },
+      {
+        "id": "day-length",
+        "type": "line",
+        "title": "Hours of daylight",
+        "source": "day-length-source",
+        "paint": {
+            "line-color": [
+                      "interpolate",
+                      [
+                                "linear"
+                      ],
+                      [
+                                "get",
+                                "hours"
+                      ],
+                      0,
+                      "#08306b",
+                      12,
+                      "#6a51a3",
+                      24,
+                      "#d94801"
+            ],
+            "line-width": [
+                      "case",
+                      ["==", ["get", "hours"], 12],
+                      2,
+                      1.2
+            ],
+            "line-opacity": 0.9
+  },
+        "metadata": {
+          "title": "Hours of daylight",
+          "abstract": "Latitudes that get 0, 2, 4 … 24 hours of daylight today. The 0 and 24 hour lines exist only when there is polar night or midnight sun somewhere."
+        }
+      },
+      {
+        "id": "solar-time",
+        "type": "line",
+        "title": "Solar time",
+        "source": "solar-time-source",
+        "paint": {
+            "line-color": [
+                      "case",
+                      [
+                                "get",
+                                "noon"
+                      ],
+                      "#d95f02",
+                      "#7570b3"
+            ],
+            "line-width": [
+                      "case",
+                      [
+                                "get",
+                                "noon"
+                      ],
+                      2,
+                      0.8
+            ],
+            "line-opacity": 0.8
+  },
+        "metadata": {
+          "title": "Solar time",
+          "abstract": "Where it is solar noon, and every hour of solar time either side. The gap against the clock is why the sun is overhead at half past one in western Spain."
+        }
+      },
+      {
+        "id": "analemma",
+        "type": "line",
+        "title": "Analemma",
+        "source": "analemma-source",
+        "paint": {
+            "line-color": "#b8860b",
+            "line-width": 2
+  },
+        "metadata": {
+          "title": "Analemma",
+          "abstract": "Where the sun stands at 12:00 UTC on every day of the year: the figure of eight made by the tilt of the axis and the eccentricity of the orbit."
+        }
+      },
+      {
+        "id": "moon-visibility",
+        "type": "fill",
+        "title": "Moon above the horizon",
+        "source": "moon-visibility-source",
+        "paint": {
+            "fill-color": "#c7c9d9",
+            "fill-opacity": 0.25,
+            "fill-outline-color": "#8c8fa8"
+  },
+        "metadata": {
+          "title": "Moon above the horizon",
+          "abstract": "The half of the Earth the moon is above the horizon for. Where this overlaps the night side is where it can actually be seen."
+        }
+      },
+      {
+        "id": "moon-position",
+        "type": "circle",
+        "title": "Moon position",
+        "source": "moon-position-source",
+        "paint": {
+            "circle-color": "#e8e8ef",
+            "circle-radius": 9,
+            "circle-stroke-color": "#5a5f7a",
+            "circle-stroke-width": 2
+  },
+        "metadata": {
+          "title": "Moon position",
+          "abstract": "The point the moon stands over, with its phase, illumination and distance. It shifts about twelve degrees east a day, which is why moonrise is fifty minutes later each night."
+        }
+      },
+      {
+        "id": "utm-zones",
+        "type": "line",
+        "title": "UTM grid zones",
+        "source": "utm-zones-source",
+        "paint": {
+            "line-color": [
+                      "case",
+                      [
+                                "!=",
+                                [
+                                          "get",
+                                          "exception"
+                                ],
+                                null
+                      ],
+                      "#d62728",
+                      "#4a90d9"
+            ],
+            "line-width": [
+                      "case",
+                      [
+                                "!=",
+                                [
+                                          "get",
+                                          "exception"
+                                ],
+                                null
+                      ],
+                      1.6,
+                      0.6
+            ],
+            "line-opacity": 0.8
+  },
+        "metadata": {
+          "title": "UTM grid zones",
+          "abstract": "The sixty zones and twenty bands, from the rules — including the hand-made exceptions: 32V widened for Norway, three zones missing over Svalbard, and row X twelve degrees tall. The exceptions are drawn in red."
+        }
+      },
+      {
+        "id": "sunpath-computed",
+        "type": "line",
+        "title": "Sun paths | solstice to solstice",
+        "source": "sunpath-computed-source",
+        "paint": {
+          "line-color": [
+            "interpolate",
+            ["linear"],
+            ["get", "declination"],
+            -23.5,
+            "#2166ac",
+            0,
+            "#6a51a3",
+            23.5,
+            "#b2182b"
+          ],
+          "line-width": [
+            "case",
+            ["!=", ["get", "solstice"], null],
+            2.2,
+            0.7
+          ],
+          "line-opacity": 0.8
+        },
+        "metadata": {
+          "title": "Sun paths | solstice to solstice",
+          "abstract": "The track the overhead sun takes each day, one line per day from the June solstice on the Tropic of Cancer to the December solstice on the Tropic of Capricorn. The return half of the year retraces the same latitudes, so it is not drawn. The lines crowd at the solstices, where the sun turns, and spread at the equinox, where it crosses the equator fastest — the spacing is the seasons.",
+          "attributes": {
+            "translations": [
+              {
+                "name": "date",
+                "translation": "date",
+                "unit": ""
+              },
+              {
+                "name": "declination",
+                "translation": "declination",
+                "unit": "°"
+              }
+            ]
+          }
+        }
       }
     ]
   },
@@ -2795,7 +3190,43 @@
                       "layerId": "daynight"
                     },
                     {
+                      "layerId": "daynight-computed"
+                    },
+                    {
                       "layerId": "sunposition"
+                    },
+                    {
+                      "layerId": "sunposition-computed"
+                    },
+                    {
+                      "layerId": "sunpath-computed"
+                    },
+                    {
+                      "layerId": "graticule"
+                    },
+                    {
+                      "layerId": "reference-circles"
+                    },
+                    {
+                      "layerId": "tissot"
+                    },
+                    {
+                      "layerId": "day-length"
+                    },
+                    {
+                      "layerId": "solar-time"
+                    },
+                    {
+                      "layerId": "analemma"
+                    },
+                    {
+                      "layerId": "moon-visibility"
+                    },
+                    {
+                      "layerId": "moon-position"
+                    },
+                    {
+                      "layerId": "utm-zones"
                     },
                     {
                       "layerId": "worldlandcover"

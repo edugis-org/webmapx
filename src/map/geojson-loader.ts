@@ -1,4 +1,5 @@
 import * as topojson from 'topojson-client';
+import { isInternalFuncUrl, resolveInternalFuncUrl } from '../utils/internal-sources';
 
 /**
  * A paged source whose first page is already in `sources[id].data`. Call
@@ -33,6 +34,19 @@ export async function resolveGeoJSONSources(sources: Record<string, any>): Promi
         s => s && s.type === 'geojson' && typeof s.data === 'string'
     );
     await Promise.all(pending.map(async s => {
+        // Computed, not fetched: `internalfunc://day-night` and the like are
+        // answered by code here rather than being sent to the network, where
+        // they would fail as an unknown protocol.
+        if (isInternalFuncUrl(s.data)) {
+            const url = s.data;
+            s.data = resolveInternalFuncUrl(url);
+            // Where it came from, so a source that asked to keep itself current
+            // can be asked again: once the url is replaced by the data, nothing
+            // else says this source was computed.
+            s.internalFuncUrl = url;
+            return;
+        }
+
         if (s.service === 'wfs') {
             const continuation = await fetchWFSFeatures(s);
             if (continuation) continuations.push(continuation);

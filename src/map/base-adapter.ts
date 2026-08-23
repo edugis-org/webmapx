@@ -24,6 +24,8 @@ import type { MapProjectionState } from '../store/IMapState';
 import { MapEventBus } from '../store/map-events';
 import type { DeferredLogicalLayerExecutor } from './logical-layer-executor';
 import { ensureApiKeysLoaded, substituteApiKeysDeep } from '../config/apikeys';
+import { collectRefreshableSources, isInternalFuncUrl, resolveInternalSources } from '../utils/internal-sources';
+import { InternalSourceRefresher } from './internal-source-refresh';
 import { normalizeCompositeLayer, findNormalizedSource } from './composite-layer-utils';
 
 /** Marks a sublayer added by a tool rather than by the layer's author. */
@@ -64,6 +66,20 @@ export abstract class BaseAdapter {
     private sourceAttributions = new Map<string, string>();
     private sourceConfigs = new Map<string, Record<string, unknown>>();
     private layerConfigStore = new Map<string, { config: unknown; options?: LayerInsertOptions }>();
+    /**
+     * Keeps computed sources current while their layer is on the map. Created
+     * on first use and asked to stop in `removeLayer`, so a refresher can never
+     * outlive the layer that wanted it.
+     */
+    private refresher: InternalSourceRefresher | null = null;
+    /**
+     * Computed sources that asked to keep themselves current, by source id.
+     *
+     * A configuration usually declares its sources next to its layers rather
+     * than inside them, so by the time a layer arrives it names a source it does
+     * not carry — this is where that name is turned back into the url behind it.
+     */
+    private computedSources = new Map<string, string>();
 
     constructor() {
         this.store = new MapStateStore();
@@ -124,6 +140,12 @@ export abstract class BaseAdapter {
     }
 
     addSource(id: string, config: any): void {
+        // `internalFuncUrl` is left behind by whichever step resolved the data.
+        const url = config?.internalFuncUrl ?? config?.data ?? config?.url;
+        if (isInternalFuncUrl(url) && new URLSearchParams(url.split('?')[1] ?? '').get('refresh') === 'auto') {
+            this.computedSources.set(id, url);
+        }
+        config = resolveInternalSources(config);
         this.trackSourceAttribution(id, config);
         if (config && typeof config === 'object') {
             this.sourceConfigs.set(id, config as Record<string, unknown>);
@@ -148,6 +170,13 @@ export abstract class BaseAdapter {
     async addLayer(layer: any, options?: LayerInsertOptions): Promise<boolean> {
         await ensureApiKeysLoaded();
         layer = substituteApiKeysDeep(layer);
+        // Which sources asked to keep themselves current has to be read *before*
+        // the urls are replaced by the data they stand for: afterwards nothing
+        // says the source was computed at all.
+        const refreshable = collectRefreshableSources(layer, layer?.id ?? layer?.metadata?.mapLayerId ?? '');
+        // A source may be computed rather than fetched (`internalfunc://`).
+        // Resolved here, in generic code, so no engine ever sees the protocol.
+        layer = resolveInternalSources(layer);
 
         // Composite (type: 'style') with populated sources/layers — decompose generically
         // when the engine supports it (decomposeComposite = true).
@@ -157,7 +186,9 @@ export abstract class BaseAdapter {
             Array.isArray(layer.layers) && layer.layers.length > 0 &&
             layer.sources && typeof layer.sources === 'object'
         ) {
-            return this.addDecomposedComposite(layer as CompositeStyleLayerConfig, options);
+            const composite = await this.addDecomposedComposite(layer as CompositeStyleLayerConfig, options);
+            if (composite) this.startRefreshing(layer.id, refreshable);
+            return composite;
         }
 
         const added = await this.engineAddLayer(layer, options);
@@ -170,9 +201,44 @@ export abstract class BaseAdapter {
                 this.applyConfigTransparency(layerId, layer);
                 const activeLayers = Object.keys(this.store.getState().mapLayers ?? {});
                 this.events.emit({ type: 'layer-add', layerId, activeLayers });
+                this.startRefreshing(layerId, refreshable);
             }
         }
         return added;
+    }
+
+    /**
+     * Starts keeping a layer's computed sources current, if it asked.
+     *
+     * The engine registers a composite layer's sources under `layerId:key` and a
+     * plain layer's under the key alone, so both spellings were collected and
+     * whichever the engine actually knows is the one that gets refreshed.
+     */
+    private startRefreshing(layerId: string, declared: Array<{ sourceId: string; url: string }>): void {
+        const candidates = [...declared, ...this.referencedComputedSources(layerId)];
+        if (candidates.length === 0) return;
+        const live = candidates.filter((entry) => this.getSource(entry.sourceId));
+        if (live.length === 0) return;
+        this.refresher ??= new InternalSourceRefresher({
+            getSource: (sourceId) => this.getSource(sourceId),
+            getZoom: () => this.getZoom(),
+            getCentreLatitude: () => this.getCore().getViewportState().center[1],
+            store: this.store,
+        });
+        this.refresher.watch(layerId, live);
+    }
+
+    /** The computed sources a layer draws, named rather than carried. */
+    private referencedComputedSources(layerId: string): Array<{ sourceId: string; url: string }> {
+        const entry = (this.store.getState().mapLayers ?? {})[layerId] as Record<string, unknown> | undefined;
+        const ids = new Set<string>();
+        if (typeof entry?.sourceId === 'string') ids.add(entry.sourceId);
+        for (const sub of (Array.isArray(entry?.sublayers) ? entry.sublayers : []) as Array<Record<string, unknown>>) {
+            if (typeof sub?.source === 'string') ids.add(sub.source);
+        }
+        return [...ids]
+            .map((sourceId) => ({ sourceId, url: this.computedSources.get(sourceId) }))
+            .filter((entry2): entry2 is { sourceId: string; url: string } => typeof entry2.url === 'string');
     }
 
     /** registerMapLayer appends at the top of `mapLayers`; when the engine inserted the
@@ -309,6 +375,7 @@ export abstract class BaseAdapter {
     }
 
     removeLayer(id: string): void {
+        this.refresher?.unwatch(id);
         this.layerConfigStore.delete(id);
         this.engineRemoveLayer(id);
         unregisterMapLayer(this.store, id);
