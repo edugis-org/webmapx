@@ -482,31 +482,63 @@ export function axialTilt(date: Date = new Date()): number {
  * things that make solar time wander from clock time — the tilt of the axis
  * (which makes the loop) and the eccentricity of the orbit (which makes one lobe
  * bigger than the other). Drawn on a map it is a closed curve near one meridian.
+ *
+ * Emitted as one segment per day rather than one closed line, so that pointing
+ * at a piece of the curve answers the question the curve raises — which day is
+ * this? — instead of repeating the title of the layer.
  */
 export function analemma(
     year: number = new Date().getUTCFullYear(),
-    options: { hourUtc?: number } = {},
+    options: { hourUtc?: number; today?: Date } = {},
 ): GeoJSON.FeatureCollection {
     const hour = options.hourUtc ?? 12;
-    const coordinates: number[][] = [];
+    const today = options.today ?? new Date();
+    const label = `${String(hour).padStart(2, '0')}:00 UTC`;
     const days = (Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1)) / 86_400_000;
+    const positions: number[][] = [];
     for (let day = 0; day < days; day++) {
         const sun = subsolarPoint(new Date(Date.UTC(year, 0, 1) + day * 86_400_000 + hour * 3_600_000));
-        coordinates.push([Number(sun.lon.toFixed(5)), Number(sun.lat.toFixed(5))]);
+        positions.push([Number(sun.lon.toFixed(5)), Number(sun.lat.toFixed(5))]);
     }
-    coordinates.push(coordinates[0]);
-    return {
-        type: 'FeatureCollection',
-        features: [{
+    const features: GeoJSON.Feature[] = positions.map((from, day) => {
+        const date = new Date(Date.UTC(year, 0, 1) + day * 86_400_000);
+        const iso = date.toISOString().slice(0, 10);
+        return {
             type: 'Feature',
             properties: {
-                description: `Analemma at ${String(hour).padStart(2, '0')}:00 UTC`,
+                description: `The sun stands here at ${label} on ${iso}`,
+                date: iso,
+                dayOfYear: day + 1,
                 year,
                 hourUtc: hour,
+                longitude: from[0],
+                latitude: from[1],
+                /**
+                 * How far solar time runs ahead of clock time, in minutes: the
+                 * sun's offset from the meridian it would stand over at this
+                 * hour if the two agreed, four minutes to the degree.
+                 */
+                equationOfTimeMinutes: Number(((from[0] - (12 - hour) * 15) * 4).toFixed(2)),
             },
-            geometry: { type: 'LineString', coordinates },
-        } as GeoJSON.Feature],
-    };
+            geometry: {
+                type: 'LineString',
+                coordinates: [from, positions[(day + 1) % positions.length]],
+            },
+        } as GeoJSON.Feature;
+    });
+    const todayIso = today.toISOString().slice(0, 10);
+    const marker = features.find(feature => feature.properties?.date === todayIso);
+    if (marker) {
+        features.push({
+            type: 'Feature',
+            properties: { ...marker.properties, today: true },
+            geometry: {
+                type: 'Point',
+                coordinates: (marker.geometry as GeoJSON.LineString).coordinates[0],
+            },
+        } as GeoJSON.Feature);
+    }
+    return { type: 'FeatureCollection', features };
 }
 
 /**
@@ -573,7 +605,11 @@ export function dayLengthLines(
             },
             geometry: {
                 type: 'LineString',
-                coordinates: Array.from({ length: 73 }, (_, i) => [-180 + i * 5, Number(lat.toFixed(5))]),
+                // Sampled at the same two degrees as the graticule's parallels:
+                // a parallel is one straight row of collinear points, and a
+                // sparse one gets thinned to its two ends before the tiler
+                // clips it, which is what left these lines cut at a meridian.
+                coordinates: Array.from({ length: 181 }, (_, i) => [-180 + i * 2, Number(lat.toFixed(5))]),
             },
         } as GeoJSON.Feature);
     }

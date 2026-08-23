@@ -101,7 +101,10 @@ export const INTERNAL_SOURCES: Record<string, InternalSourceGenerator> = {
     'solar-time': ({ at }) => solarTimeMeridians(at),
     'analemma': ({ at, query }) => analemma(
         Number(query.get('year')) || at.getUTCFullYear(),
-        { hourUtc: query.get('hour') === null ? undefined : Number(query.get('hour')) },
+        {
+            hourUtc: query.get('hour') === null ? undefined : Number(query.get('hour')),
+            today: at,
+        },
     ),
 
     // ── Moon ──────────────────────────────────────────────────────────────

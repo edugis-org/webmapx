@@ -2854,16 +2854,48 @@
       },
       {
         "id": "analemma",
-        "type": "line",
+        "type": "style",
+        "version": 8,
         "title": "Analemma",
-        "source": "analemma-source",
-        "paint": {
-            "line-color": "#b8860b",
-            "line-width": 2
-  },
+        "layers": [
+          {
+            "id": "analemma-curve",
+            "type": "line",
+            "source": "analemma-source",
+            "filter": [
+              "==",
+              [
+                "geometry-type"
+              ],
+              "LineString"
+            ],
+            "paint": {
+              "line-color": "#b8860b",
+              "line-width": 2
+            }
+          },
+          {
+            "id": "analemma-today",
+            "type": "circle",
+            "source": "analemma-source",
+            "filter": [
+              "==",
+              [
+                "geometry-type"
+              ],
+              "Point"
+            ],
+            "paint": {
+              "circle-radius": 5,
+              "circle-color": "#ffe14d",
+              "circle-stroke-color": "#8a6d00",
+              "circle-stroke-width": 1.5
+            }
+          }
+        ],
         "metadata": {
           "title": "Analemma",
-          "abstract": "Where the sun stands at 12:00 UTC on every day of the year: the figure of eight made by the tilt of the axis and the eccentricity of the orbit."
+          "abstract": "Where the sun stands at 12:00 UTC on every day of the year: the figure of eight made by the tilt of the axis and the eccentricity of the orbit. Each day is its own segment, and the yellow dot is today."
         }
       },
       {
