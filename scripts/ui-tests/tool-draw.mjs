@@ -1,3 +1,5 @@
+import { installDeepQuery } from "./lib/deep-query.mjs";
+
 function fail(message) {
   throw new Error(message);
 }
@@ -47,7 +49,7 @@ async function setDrawModeAndCreateLayer(page, buttonName, layerName, activeLaye
     modeButton.click();
 
     const dialogRoot = await waitFor(
-      () => tool.shadowRoot?.querySelector('webmapx-draw-layer-dialog')?.shadowRoot,
+      () => window.__wmxDeepQuery('webmapx-draw-layer-dialog', { open: true })?.shadowRoot,
       10_000,
       'draw layer dialog root'
     );
@@ -103,7 +105,7 @@ async function setDrawModeAndCreateLayerByEvent(page, buttonName, layerName, geo
 
   await page.evaluate(({ name, type }) => {
     const tool = document.querySelector('webmapx-draw-tool');
-    const dialog = tool?.shadowRoot?.querySelector('webmapx-draw-layer-dialog');
+    const dialog = window.__wmxDeepQuery('webmapx-draw-layer-dialog', { open: true });
     if (!dialog) throw new Error('Draw layer dialog element not found');
 
     const detail = {
@@ -540,6 +542,7 @@ async function getDrawState(page) {
 }
 
 export async function run({ page, engine }) {
+  await installDeepQuery(page);
   const pointLayerName = 'points';
   const lineLayerName = 'lines';
   const polygonLayerName = 'polygons';

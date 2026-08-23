@@ -1,3 +1,5 @@
+import { installDeepQuery } from "./lib/deep-query.mjs";
+
 /**
  * UI Test: Permalink
  *
@@ -34,6 +36,7 @@ function encodePermalink(state) {
 }
 
 export async function run({ page, engine, baseUrl }) {
+  await installDeepQuery(page);
   console.log(`  Running permalink test for engine: ${engine}`);
 
   // ── Part 1: button exists and dialog opens ───────────────────────────────
@@ -70,7 +73,7 @@ export async function run({ page, engine, baseUrl }) {
       const map = document.querySelector('webmapx-map');
       const overview = map?.querySelector('webmapx-layer-overview');
       if (!overview?.shadowRoot) return false;
-      const dialog = overview.shadowRoot.querySelector('webmapx-permalink-dialog');
+      const dialog = window.__wmxDeepQuery('webmapx-permalink-dialog', { open: true });
       if (!dialog?.shadowRoot) return false;
       const urlBox = dialog.shadowRoot.querySelector('.url-box');
       return urlBox?.textContent?.includes('?s=') ?? false;
@@ -79,7 +82,7 @@ export async function run({ page, engine, baseUrl }) {
     const url = await page.evaluate(() => {
       const map = document.querySelector('webmapx-map');
       const overview = map?.querySelector('webmapx-layer-overview');
-      const dialog = overview?.shadowRoot?.querySelector('webmapx-permalink-dialog');
+      const dialog = window.__wmxDeepQuery('webmapx-permalink-dialog', { open: true });
       return dialog?.shadowRoot?.querySelector('.url-box')?.textContent?.trim() ?? '';
     });
 

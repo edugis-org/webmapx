@@ -1,3 +1,5 @@
+import { installDeepQuery } from "./lib/deep-query.mjs";
+
 /**
  * UI Test: Buffer tool
  *
@@ -77,13 +79,13 @@ async function drawPointFeature(page) {
 
   await page.waitForFunction(() => {
     const tool = document.querySelector('webmapx-draw-tool');
-    const dialogRoot = tool?.shadowRoot?.querySelector('webmapx-draw-layer-dialog')?.shadowRoot;
+    const dialogRoot = window.__wmxDeepQuery('webmapx-draw-layer-dialog', { open: true })?.shadowRoot;
     return Boolean(dialogRoot?.querySelector('.layer-option'));
   }, undefined, { timeout: 5_000 });
 
   await page.evaluate(() => {
     const tool = document.querySelector('webmapx-draw-tool');
-    const dialog = tool?.shadowRoot?.querySelector('webmapx-draw-layer-dialog');
+    const dialog = window.__wmxDeepQuery('webmapx-draw-layer-dialog', { open: true });
     if (!dialog) throw new Error('Draw layer dialog not found');
     dialog.dispatchEvent(new CustomEvent('webmapx-draw-layer-confirm', {
       detail: { id: 'buffer-test-layer', name: 'buffer-test', type: 'Point', color: '#0f62fe', properties: [] },
@@ -175,6 +177,7 @@ async function getBufferErrorText(page) {
 }
 
 export async function run({ page, engine, baseUrl }) {
+  await installDeepQuery(page);
   console.log(`  Running buffer tool test for engine: ${engine}`);
 
   const step = async (label, fn) => {

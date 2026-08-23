@@ -25,8 +25,14 @@ function fail(message) {
 async function openPanel(page, layerId) {
   return page.evaluate(async (id) => {
     const map = document.querySelector('webmapx-map');
-    if (!(await map.addLayerRequest({ layerId: id }))) return { error: `${id} was not added` };
     const adapter = await map.getAdapterAsync();
+    // A layer the config already shows is not added again, and addLayerRequest
+    // reports that as false. What this test needs is "the layer is on the map",
+    // so a refusal is only a failure when the layer is absent afterwards.
+    const added = await map.addLayerRequest({ layerId: id });
+    if (!added && !adapter.store.getState().mapLayers[id]) {
+      return { error: `${id} was not added` };
+    }
     const legend = document.querySelector('webmapx-layer-overview')
       ?? document.querySelector('webmapx-layer-legend3d');
     const entry = adapter.store.getState().mapLayers[id];

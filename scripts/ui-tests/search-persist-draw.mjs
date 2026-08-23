@@ -1,3 +1,5 @@
+import { installDeepQuery } from "./lib/deep-query.mjs";
+
 /**
  * UI Test: Search -> Persist -> Draw Tool integration
  *
@@ -202,7 +204,7 @@ async function clickPolygonModeAndSelectUtrechtLayer(page) {
 
     // Wait for layer dialog to open
     const dialogRoot = await waitFor(
-      () => tool.shadowRoot?.querySelector('webmapx-draw-layer-dialog')?.shadowRoot,
+      () => window.__wmxDeepQuery('webmapx-draw-layer-dialog', { open: true })?.shadowRoot,
       10_000,
       'draw layer dialog root'
     );
@@ -214,7 +216,7 @@ async function clickPolygonModeAndSelectUtrechtLayer(page) {
     // Wait for map layers to appear in the dialog
     await waitFor(
       () => {
-        const d = tool.shadowRoot.querySelector('webmapx-draw-layer-dialog');
+        const d = window.__wmxDeepQuery('webmapx-draw-layer-dialog', { open: true });
         return (d?.mapLayers || []).length > 0;
       },
       10_000,
@@ -222,7 +224,7 @@ async function clickPolygonModeAndSelectUtrechtLayer(page) {
     );
 
     // Get the dialog's mapLayers
-    const layerDialog = tool.shadowRoot.querySelector('webmapx-draw-layer-dialog');
+    const layerDialog = window.__wmxDeepQuery('webmapx-draw-layer-dialog', { open: true });
     const mapLayers = layerDialog?.mapLayers || [];
 
     // Find Utrecht layer in mapLayers
@@ -363,6 +365,7 @@ async function step(name, fn) {
 }
 
 export async function run({ page, engine }) {
+  await installDeepQuery(page);
   console.log(`  Running search-persist-draw test for engine: ${engine}`);
 
   await step('wait for map ready', async () => {
