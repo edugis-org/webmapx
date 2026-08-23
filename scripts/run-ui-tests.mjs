@@ -235,7 +235,10 @@ async function run() {
         const page = await context.newPage();
 
         await context.addInitScript((selectedEngine) => {
-          window.localStorage.setItem('webmapx-adapter:map-container', selectedEngine);
+          // The key is scoped by page and map id — `webmapx-adapter:{path}:{mapId}`
+          // (getMapScopedStorageKey). Without the scope the preference is never
+          // read, and every engine in the matrix quietly runs the default one.
+          window.localStorage.setItem(`webmapx-adapter:${location.pathname}:map-container`, selectedEngine);
         }, engine);
 
         try {
