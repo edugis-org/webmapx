@@ -895,18 +895,6 @@
         "attribution": "Natural Earth"
       },
       {
-        "id": "daynight-source",
-        "type": "geojson",
-        "data": "https://services9.arcgis.com/RHVPKKiFTONKtxq3/ArcGIS/rest/services/Day_Night_Terminator/FeatureServer/2/query?where=1%3D1&outFields=*&returnGeometry=true&f=geojson",
-        "attribution": "Esri Day Night Terminator"
-      },
-      {
-        "id": "sunposition-source",
-        "type": "geojson",
-        "data": "https://services9.arcgis.com/RHVPKKiFTONKtxq3/ArcGIS/rest/services/Day_Night_Terminator/FeatureServer/0/query?where=1%3D1&outFields=*&returnGeometry=true&f=geojson",
-        "attribution": "Esri Day Night Terminator"
-      },
-      {
         "id": "daynight-computed-source",
         "type": "geojson",
         "data": "internalfunc://day-night?refresh=auto",
@@ -2670,62 +2658,6 @@
         }
       },
       {
-        "id": "daynight",
-        "type": "fill",
-        "title": "Day, twilight and night",
-        "source": "daynight-source",
-        "paint": {
-          "fill-color": [
-            "match",
-            [
-              "get",
-              "description"
-            ],
-            "Nighttime",
-            "#0b0f2b",
-            "Astronomical Twilight",
-            "#1a237e",
-            "Nautical Twilight",
-            "#3949ab",
-            "Civil Twilight",
-            "#90caf9",
-            "#cccccc"
-          ],
-          "fill-opacity": 0.45,
-          "fill-outline-color": "#000000"
-        },
-        "metadata": {
-          "title": "Day, twilight and night",
-          "abstract": "Civil twilight, nautical twilight, astronomical twilight and night zones (real-time).",
-          "attributes": {
-            "translations": [
-              {
-                "name": "description",
-                "translation": "zone",
-                "unit": ""
-              }
-            ]
-          }
-        }
-      },
-      {
-        "id": "sunposition",
-        "type": "circle",
-        "title": "Sun position",
-        "source": "sunposition-source",
-        "paint": {
-          "circle-color": "#FFD700",
-          "circle-radius": 14,
-          "circle-blur": 0.4,
-          "circle-stroke-width": 2,
-          "circle-stroke-color": "#FF8C00"
-        },
-        "metadata": {
-          "title": "Sun position (real-time)",
-          "abstract": "Current position of the sun (perpendicular solar radiation point)."
-        }
-      },
-      {
         "id": "daynight-computed",
         "type": "fill",
         "title": "Day, twilight and night (computed)",
@@ -3187,13 +3119,7 @@
                   "label": "Geography",
                   "children": [
                     {
-                      "layerId": "daynight"
-                    },
-                    {
                       "layerId": "daynight-computed"
-                    },
-                    {
-                      "layerId": "sunposition"
                     },
                     {
                       "layerId": "sunposition-computed"
