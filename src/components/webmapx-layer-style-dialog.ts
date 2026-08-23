@@ -14,7 +14,7 @@
  * features, the map draws them differently, and the dataset is untouched.
  */
 import { LitElement, css, html, nothing, svg, type TemplateResult } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
@@ -2018,7 +2018,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         this.wmsLoading = true;
         try {
             this.wmsStyles = await fetchWmsStyles(wms);
-        } catch (error) {
+        } catch {
             // A capabilities document that cannot be read is not an error the
             // user caused, and the layer still draws: say what is missing.
             this.wmsStyles = [];

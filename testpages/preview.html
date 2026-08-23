@@ -44,6 +44,16 @@
       let config;
       if (raw) {
         // localStorage always wins — setup.html writes the fully-merged config here.
+        // Said out loud, because this page otherwise looks like it is showing the
+        // file you asked for: a stale snapshot here survives every reload (it is
+        // not an HTTP cache), so edits to the config on disk appear to do
+        // nothing at all until the key is cleared.
+        console.warn(
+          `[preview] using the config saved in localStorage ("${STORAGE_KEY}")`
+          + (configUrl ? `, ignoring ?config=${configUrl}` : '')
+          + `. Saved ${raw.length} characters. To load the file instead:`
+          + ` localStorage.removeItem('${STORAGE_KEY}') and reload.`,
+        );
         try { config = JSON.parse(raw); }
         catch { showError('Config in localStorage is invalid JSON.'); return; }
       } else if (configUrl) {

@@ -55,6 +55,41 @@ export class WebmapxScaleControl extends WebmapxBaseTool {
       color: var(--webmapx-scale-color, var(--color-text-primary, #16202a));
     }
 
+    /*
+     * The bar sits directly on the map, so it has no surface of its own to give
+     * it contrast — and over satellite imagery a dark bar on a dark sea is
+     * invisible. A halo rather than a background plate: a plate would hide the
+     * imagery it is measuring, while an outline keeps the map visible through
+     * the control and works over anything, light or dark.
+     *
+     * The text gets it from four offset shadows (there is no text-outline in
+     * CSS), the rules from a drop-shadow filter, which follows the border
+     * shape rather than the box.
+     */
+    .scale-shell {
+      filter:
+        drop-shadow(0 0 1px var(--webmapx-scale-halo, rgba(255, 255, 255, 0.9)))
+        drop-shadow(0 0 2px var(--webmapx-scale-halo, rgba(255, 255, 255, 0.9)));
+    }
+
+    .scale-label {
+      --halo: var(--webmapx-scale-halo, rgba(255, 255, 255, 0.9));
+      text-shadow:
+        -1px 0 var(--halo), 1px 0 var(--halo),
+        0 -1px var(--halo), 0 1px var(--halo),
+        -1px -1px var(--halo), 1px -1px var(--halo),
+        -1px 1px var(--halo), 1px 1px var(--halo);
+    }
+
+    /*
+     * In dark mode the map chrome is light on dark, so the halo turns dark to
+     * keep the same job: separating the bar from whatever is behind it.
+     */
+    :host-context([data-theme='dark']) .scale-shell,
+    :host-context([data-theme='dark']) .scale-label {
+      --webmapx-scale-halo: rgba(0, 0, 0, 0.75);
+    }
+
     .scale-shell {
       display: flex;
       align-items: center;

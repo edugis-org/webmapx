@@ -57,15 +57,18 @@ async function setupDrawLayer(page) {
         btn.click();
     });
 
+    // The dialog escapes to document.body when it opens (an ancestor's
+    // backdrop-filter would otherwise trap this position:fixed element), so it
+    // is no longer inside the tool's shadow root by the time it is showing.
     await page.waitForFunction(() => {
-        const tool = document.querySelector('webmapx-draw-tool');
-        const dialogRoot = tool?.shadowRoot?.querySelector('webmapx-draw-layer-dialog')?.shadowRoot;
+        const dialogRoot = document.querySelector('webmapx-draw-layer-dialog')?.shadowRoot;
         return Boolean(dialogRoot?.querySelector('.layer-option'));
     }, undefined, { timeout: 5_000 });
 
     await page.evaluate(() => {
         const tool = document.querySelector('webmapx-draw-tool');
-        const dialog = tool?.shadowRoot?.querySelector('webmapx-draw-layer-dialog');
+        const dialog = document.querySelector('webmapx-draw-layer-dialog')
+            ?? tool?.shadowRoot?.querySelector('webmapx-draw-layer-dialog');
         if (!dialog) throw new Error('Dialog not found');
         dialog.dispatchEvent(new CustomEvent('webmapx-draw-layer-confirm', {
             detail: {
