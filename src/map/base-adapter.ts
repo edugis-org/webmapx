@@ -253,6 +253,10 @@ export abstract class BaseAdapter {
             getSource: (sourceId) => this.getSource(sourceId),
             getZoom: () => this.getZoom(),
             getCentreLatitude: () => this.getCore().getViewportState().center[1],
+            setSourceSilent: (sourceId, silent) => {
+                if (silent) this.suppressBusySignalForSource(sourceId);
+                else this.unsuppressBusySignalForSource(sourceId);
+            },
             store: this.store,
         });
         this.refresher.watch(layerId, live);

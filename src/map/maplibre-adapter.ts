@@ -140,6 +140,24 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
         return super.getSource(sourceId);
     }
 
+    /**
+     * MapLibre names a source in its `dataloading` event by the *native* id it
+     * was added under, not the logical one the rest of webmapx uses, so
+     * suppressing only the logical id silences nothing.
+     */
+    override suppressBusySignalForSource(sourceId: string): void {
+        for (const id of this.busySignalIds(sourceId)) this.core.suppressBusySignalForSource(id);
+    }
+
+    override unsuppressBusySignalForSource(sourceId: string): void {
+        for (const id of this.busySignalIds(sourceId)) this.core.unsuppressBusySignalForSource(id);
+    }
+
+    private busySignalIds(sourceId: string): string[] {
+        const nativeId = this.layerService?.getNativeSourceId(sourceId);
+        return nativeId && nativeId !== sourceId ? [sourceId, nativeId] : [sourceId];
+    }
+
     querySourceFeatures(sourceId: string, options?: SourceFeatureQueryOptions): SourceFeatureSample | null {
         return this.logicalLayerExecutor.querySourceFeatures(sourceId, options);
     }

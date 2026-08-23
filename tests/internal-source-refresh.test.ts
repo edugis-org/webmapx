@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { refreshIntervalMs } from '../src/map/internal-source-refresh';
+import { InternalSourceRefresher, refreshIntervalMs } from '../src/map/internal-source-refresh';
 import { collectRefreshableSources } from '../src/utils/internal-sources';
 
 /**
@@ -46,4 +46,31 @@ test('only a source that asked to refresh is watched', () => {
     assert.deepEqual(urls, ['internalfunc://day-night?refresh=auto']);
     // Both spellings the engines use, so the caller can pick the live one.
     assert.deepEqual(found.map((entry) => entry.sourceId).sort(), ['daynight:moving', 'moving']);
+});
+
+/**
+ * An animated layer re-reads its source several times a second; every one of
+ * those is a load the engine reports, so without per-source suppression the
+ * busy spinner blinks for as long as the layer is on the map.
+ */
+test('a watched source is silenced for the spinner, and only until its last layer goes', () => {
+    const silenced: Array<[string, boolean]> = [];
+    const refresher = new InternalSourceRefresher({
+        getSource: () => undefined,
+        getZoom: () => 3,
+        getCentreLatitude: () => 0,
+        setSourceSilent: (sourceId, silent) => silenced.push([sourceId, silent]),
+        store: { getState: () => ({ mapLayers: {} }) } as never,
+    });
+
+    refresher.watch('a', [{ sourceId: 'sun', url: 'internalfunc://sun-position?refresh=auto' }]);
+    refresher.watch('b', [{ sourceId: 'sun', url: 'internalfunc://sun-position?refresh=auto' }]);
+    assert.deepEqual(silenced, [['sun', true], ['sun', true]]);
+
+    // The source is still driven by layer b, so the spinner stays out of it.
+    refresher.unwatch('a');
+    assert.equal(silenced.length, 2);
+
+    refresher.unwatch('b');
+    assert.deepEqual(silenced[silenced.length - 1], ['sun', false]);
 });
