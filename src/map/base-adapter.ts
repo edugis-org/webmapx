@@ -191,6 +191,7 @@ export abstract class BaseAdapter {
             return composite;
         }
 
+        this.trackInlineSources(layer);
         const added = await this.engineAddLayer(layer, options);
         if (added) {
             registerMapLayer(this.store, layer);
@@ -205,6 +206,35 @@ export abstract class BaseAdapter {
             }
         }
         return added;
+    }
+
+    /**
+     * Records the sources a layer carries with it, so `getSourceConfig` can
+     * answer for them.
+     *
+     * Only `addSource` used to register anything, and a layer added through
+     * `addLayerRequest` arrives with its sources inline — the engine's own layer
+     * service consumes them and the adapter never sees an `addSource` call. On
+     * MapLibre that went unnoticed, because its override reads the live style
+     * instead; on every other engine `getSourceConfig` returned null and the
+     * style panel concluded a WMS was a plain tile service, since what tells
+     * them apart is the source url.
+     *
+     * Registered under both spellings a caller may hold: the key as written, and
+     * the `${layerId}:${key}` a composite's sources are registered under.
+     */
+    private trackInlineSources(layer: any): void {
+        const sources = layer?.sources;
+        if (!sources || typeof sources !== 'object') return;
+        const layerId = layer?.id ?? layer?.metadata?.mapLayerId;
+        for (const [key, source] of Object.entries(sources)) {
+            if (!source || typeof source !== 'object') continue;
+            const config = source as Record<string, unknown>;
+            this.trackSourceAttribution(key, config);
+            if (!this.sourceConfigs.has(key)) this.sourceConfigs.set(key, config);
+            const scoped = typeof layerId === 'string' ? `${layerId}:${key}` : null;
+            if (scoped && !this.sourceConfigs.has(scoped)) this.sourceConfigs.set(scoped, config);
+        }
     }
 
     /**

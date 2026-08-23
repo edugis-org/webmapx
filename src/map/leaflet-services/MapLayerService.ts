@@ -291,6 +291,15 @@ export class MapLayerService implements ILayerService {
                     this.nativeLayerInstances.set(spec.id, spec.layer);
                     this.nativeLayerToSource.set(spec.id, sourceConfig.id);
                     nativeLayerIds.push(spec.id);
+                    // Cached for the same reason the composite branch caches:
+                    // `updateLayerStyle` merges into the spec it started from,
+                    // and without an entry here a plain (non-composite) layer
+                    // silently refused every restyle — the map kept its
+                    // authored colours and, because the adapter only mirrors a
+                    // change the engine reports applying, so did the legend.
+                    if (spec.id === `${layerId}-${stdLayer.id}`) {
+                        this.compositeSubLayerCache.set(spec.id, { spec: stdLayer, sourceConfig, data });
+                    }
                 }
             }
         } else if (sourceConfig.type === 'vector') {
