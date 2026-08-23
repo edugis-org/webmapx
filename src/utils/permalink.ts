@@ -44,7 +44,7 @@ export interface PermalinkState {
     v: [number, number, number, number, number];
     /** Per-layer transparency overrides (0–100 %). Only non-zero entries. */
     t?: Record<string, number>;
-    /** Projection name (e.g. 'globe', 'equalEarth'). Omitted when mercator (default). */
+    /** Projection name (e.g. 'globe', or an OpenLayers view projection like 'EPSG:8857'). Omitted when mercator (default). */
     p?: string;
     /** True when 3D terrain was enabled. Omitted when terrain is off. */
     terrain?: boolean;

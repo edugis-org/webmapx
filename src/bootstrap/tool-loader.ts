@@ -20,7 +20,7 @@ const TOOL_MAP: Record<string, () => Promise<unknown>> = {
   'language-osmvector': () => import('../components/webmapx-language-osmvector.js'),
   '3d':               () => import('../components/webmapx-3d-tool.js'),
   truearea:           () => import('../components/webmapx-truearea-tool.js'),
-  'view-mode':        () => import('../components/webmapx-view-mode-tool.js'),
+  'view-mode':        () => import('../components/webmapx-projection-tool.js'),
   projection:         () => import('../components/webmapx-projection-tool.js'),
   cartogram:          () => import('../components/webmapx-cartogram-tool.js'),
   coordinates:        () => import('../components/webmapx-coordinates-tool.js'),

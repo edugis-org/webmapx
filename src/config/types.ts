@@ -473,7 +473,7 @@ export interface StoryStepState {
   v: [number, number, number, number, number];
   /** Per-layer transparency overrides (0-100%). */
   t?: Record<string, number>;
-  /** Projection name (e.g. 'globe', 'equalEarth'). Omitted when mercator (default). */
+  /** Projection name (e.g. 'globe', or an OpenLayers view projection like 'EPSG:8857'). Omitted when mercator (default). */
   p?: string;
   /** Whether 3D terrain should be enabled for this step. */
   terrain?: boolean;
@@ -500,7 +500,7 @@ export interface StoryStepConfigState {
   view: StoryStepView;
   /** Per-layer transparency overrides (0-100%), keyed by layer id. */
   transparency?: Record<string, number>;
-  /** Projection name (e.g. 'globe', 'equalEarth'). Omitted or 'mercator' = default. */
+  /** Projection name (e.g. 'globe', or an OpenLayers view projection like 'EPSG:8857'). Omitted or 'mercator' = default. */
   projection?: string;
   /** Whether 3D terrain should be enabled for this step. */
   terrain?: boolean;

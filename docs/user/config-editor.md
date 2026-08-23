@@ -42,7 +42,7 @@ You do not need to start from scratch. The recommended workflow is:
 The downloaded config reflects the map state **at the moment of clicking Download**:
 
 - **Viewport** — current center, zoom, bearing, pitch
-- **Projection** — current view mode (globe, equalEarth, etc.; omitted for default mercator)
+- **Projection** — current view (`globe` on MapLibre, or an OpenLayers view projection such as `EPSG:8857`; omitted for default mercator)
 - **Engine** — current map engine (`map.type`)
 - **Active layers** — layers currently on the map (deletions reflected, dynamically-added layers included)
 - **Background** — currently active background layer

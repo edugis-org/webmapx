@@ -110,7 +110,7 @@ Human-readable step state — this is what you write in config. Internally it's 
 | `hiddenLayers` | `string[]?` | Subset of `layers` to hide for this step. Omit or empty = all visible. |
 | `view` | `{ center: [lng, lat], zoom: number, bearing?: number, pitch?: number }` | Camera position. `bearing`/`pitch` default to `0`. |
 | `transparency` | `Record<string, number>?` | Per-layer transparency overrides (0–100%), keyed by layer id. |
-| `projection` | `string?` | Projection name (e.g. `"globe"`, `"equalEarth"`). Omitted or `"mercator"` = default flat projection. |
+| `projection` | `string?` | Projection name: `"globe"` on MapLibre, or an OpenLayers view projection such as `"EPSG:8857"`. Omitted or `"mercator"` = default flat projection. |
 | `terrain` | `boolean?` | Whether 3D terrain should be enabled for this step. |
 
 A layer visible in an earlier step but not listed in a later step's `layers` is hidden again automatically when you land on that step — steps don't need to repeat "hide this" for every layer they don't use.

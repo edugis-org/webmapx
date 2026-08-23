@@ -1,6 +1,7 @@
 import { html, css, TemplateResult, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
+import { resolveMapElement } from './internal/map-context';
 import type { IMapState } from '../store/IMapState';
 import {
     DEFAULT_VIEW_PROJECTION,
@@ -9,6 +10,88 @@ import {
     isRegional,
     latitudeRangeOf,
 } from '../utils/view-projections';
+
+/**
+ * One control for "how is the world drawn here".
+ *
+ * There used to be two — a projection picker and a view-mode picker — on the
+ * grounds that a projection and a rendering are different things: MapLibre's
+ * globe is Web Mercator data drawn on a sphere, not a different coordinate
+ * system. True, and no help to anyone: both answered the same question, each
+ * was empty on the engines the other served, and a map showed two tools where
+ * one of them always said "not supported here".
+ *
+ * So: one tool, and what it offers is decided by the engine, because that is
+ * where the difference actually lives.
+ *
+ *   MapLibre     Mercator or globe — two renderings of one projection family.
+ *   OpenLayers   the projection catalogue; no globe, it has none.
+ *   Cesium       a globe, and nothing else to choose.
+ *   Leaflet      Mercator, and nothing else to choose.
+ *
+ * The reason any of it matters is area: Web Mercator inflates it by
+ * 1/cos²(latitude), so every world-scale thematic map drawn in it overstates
+ * high latitudes — and a globe has no such error at all, which is worth saying
+ * next to the choice rather than in a manual.
+ */
+
+/** A rendering rather than a coordinate system: same data, drawn on a sphere. */
+const GLOBE = 'globe';
+/** MapLibre's own name for its flat rendering; not the same as EPSG:3857. */
+const MERCATOR_VIEW = 'mercator';
+
+interface ViewOption {
+    id: string;
+    label: string;
+    description: string;
+    /** True when sizes on screen can be compared honestly. */
+    equalArea: boolean;
+    /**
+     * Rendering modes go through the map element, which can reinitialise the
+     * engine; catalogue projections are applied straight to the adapter.
+     */
+    rendering: boolean;
+}
+
+const GLOBE_OPTION: ViewOption = {
+    id: GLOBE,
+    label: 'Globe',
+    description: 'The Earth as a sphere. Nothing is distorted, because nothing is flattened — but only one side is visible at a time.',
+    equalArea: true,
+    rendering: true,
+};
+
+const MERCATOR_OPTION: ViewOption = {
+    id: MERCATOR_VIEW,
+    label: 'Mercator (flat)',
+    description: 'The usual web map. Shapes and angles are right everywhere, areas are inflated towards the poles.',
+    equalArea: false,
+    rendering: true,
+};
+
+/** What this engine can actually draw, in the order worth offering it. */
+export function viewOptionsFor(engineId: string): ViewOption[] {
+    switch (engineId) {
+        case 'maplibre':
+            return [MERCATOR_OPTION, GLOBE_OPTION];
+        case 'openlayers':
+            // The full catalogue, and no globe: OpenLayers has no sphere to
+            // draw on, so offering one would be a control that does nothing.
+            return VIEW_PROJECTIONS.map((projection) => ({
+                id: projection.id,
+                label: projection.label,
+                description: projection.description,
+                equalArea: projection.equalArea,
+                rendering: false,
+            }));
+        case 'cesium':
+            return [GLOBE_OPTION];
+        case 'leaflet':
+            return [MERCATOR_OPTION];
+        default:
+            return [];
+    }
+}
 
 /** "Covers latitudes south of 50°S" — a polar projection is not a world map. */
 function coverageLabel(id: string): string {
@@ -19,32 +102,21 @@ function coverageLabel(id: string): string {
     return `Covers ${format(south)} to ${format(north)}`;
 }
 
-/**
- * Picks the projection the 2D map is drawn in.
- *
- * Separate from `webmapx-view-mode-tool`, which switches MapLibre between
- * Mercator and its globe — two *renderings* of the same projection family. This
- * tool changes the coordinate system the map is computed in, which only
- * OpenLayers supports, so it says so plainly on the other engines rather than
- * offering a control that does nothing.
- *
- * The reason it exists is area: Web Mercator inflates it by 1/cos²(latitude), so
- * every world-scale thematic map drawn in it overstates high latitudes. The
- * equal-area entries are marked as such, because "which of these can I compare
- * sizes on?" is the only question a student needs answered here.
- */
 @customElement('webmapx-projection-tool')
 export class WebmapxProjectionTool extends WebmapxBaseTool {
-    @state() private projectionId = DEFAULT_VIEW_PROJECTION;
-    /** null once the engine has told us it has no runtime projection support. */
-    @state() private supported: boolean | null = null;
+    @state() private selectedId = DEFAULT_VIEW_PROJECTION;
     @state() private engineId = '';
+    /** null until the engine has said whether it can change anything at all. */
+    @state() private supported: boolean | null = null;
+    /** True while this tool is applying its own change — see `apply()`. */
+    private applyingOwnChange = false;
 
     static styles = css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         .unsupported { color: var(--color-text-muted, #6b7681); font-style: italic; }
         label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
         select { width: 100%; padding: 0.25rem; box-sizing: border-box; }
+        .fixed { font-weight: 600; }
         .description { margin-top: 0.5rem; color: var(--color-text-secondary, #5a6773); }
         .badge {
             display: inline-block;
@@ -64,6 +136,11 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
     }
 
     protected onStateChanged(state: IMapState): void {
+        // `store.mapProjection` is maintained by BaseAdapter and re-dispatched
+        // after every successful change — including ones this tool did not make
+        // (a story step, say). Its own changes echo back too, and following that
+        // echo would let an engine-normalised value fight the control.
+        if (this.applyingOwnChange) return;
         this.readProjection(state.mapProjection);
     }
 
@@ -74,46 +151,87 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
             this.supported = false;
             return;
         }
-        // MapLibre answers this channel too, with 'mercator'/'globe' — names that
-        // are not projections in this list. Treating those as unsupported keeps
-        // the two tools from fighting over the same control.
-        const known = getViewProjectionDef(projection.name);
-        this.supported = known !== undefined;
-        if (known) this.projectionId = known.id;
+        this.supported = true;
+        const name = projection.name;
+        const options = viewOptionsFor(this.engineId);
+        // MapLibre reports 'mercator'/'globe'; OpenLayers reports a projection
+        // id. Both arrive on the same channel, so match against this engine's
+        // own options rather than assuming which kind it is.
+        const known = options.find((option) => option.id === name)
+            ?? (getViewProjectionDef(name) ? options.find((o) => o.id === getViewProjectionDef(name)!.id) : undefined);
+        if (known) this.selectedId = known.id;
     }
 
     private apply(id: string): void {
-        this.projectionId = id;
-        if (!this.adapter?.setProjection(id)) {
-            // Rejected by the engine — snap back to what it is actually showing.
-            this.readProjection(this.adapter?.getProjection());
+        this.selectedId = id;
+        const option = viewOptionsFor(this.engineId).find((entry) => entry.id === id);
+        this.applyingOwnChange = true;
+        try {
+            if (option?.rendering) {
+                // Through the map element: switching MapLibre between flat and
+                // globe can need the engine reinitialised, and only the element
+                // knows how to save the view and bring it back.
+                const mapElement = resolveMapElement(this) as { setProjection?: (name: string) => void } | null;
+                if (mapElement?.setProjection) {
+                    mapElement.setProjection(id);
+                    return;
+                }
+            }
+            if (!this.adapter?.setProjection(id)) {
+                // Rejected — show what the map is actually drawing.
+                this.readProjection(this.adapter?.getProjection());
+            }
+        } finally {
+            this.applyingOwnChange = false;
         }
     }
 
     render(): TemplateResult {
-        if (this.supported === false) {
+        const options = viewOptionsFor(this.engineId);
+        if (options.length === 0) {
             return html`<div class="unsupported">
-                Map projections can only be changed on the OpenLayers engine${this.engineId ? html` (this map uses ${this.engineId})` : nothing}.
+                How this map is drawn cannot be changed${this.engineId ? html` on the ${this.engineId} engine` : nothing}.
             </div>`;
         }
+        // An engine with one way of drawing the world reports no runtime
+        // projection support at all, which is not the same as having nothing to
+        // say: Cesium is a globe and Leaflet is Mercator, and *that* is the
+        // answer to "how is this map drawn".
+        const fixed = options.length === 1;
 
-        const def = getViewProjectionDef(this.projectionId) ?? VIEW_PROJECTIONS[0];
+        const current = options.find((option) => option.id === this.selectedId) ?? options[0];
+        const catalogue = getViewProjectionDef(current.id);
+
         return html`
-            <label for="projection-select">Map projection</label>
-            <select id="projection-select"
-                    @change=${(e: Event) => this.apply((e.target as HTMLSelectElement).value)}>
-                ${VIEW_PROJECTIONS.map(p => html`
-                    <option value=${p.id} ?selected=${p.id === this.projectionId}>${p.label}</option>`)}
-            </select>
-            <div class="description">${def.description}</div>
-            <div class="badge ${def.equalArea ? 'equal-area' : ''}">
-                ${def.equalArea ? 'Equal area: sizes are comparable' : 'Areas are distorted'}
+            <label for="projection-select">How the world is drawn</label>
+            ${fixed
+                // Nothing to choose is a fact about the engine, not a disabled
+                // control: say what it draws and why that is all there is.
+                ? html`<div class="fixed">${current.label}</div>`
+                : html`<select id="projection-select"
+                                @change=${(e: Event) => this.apply((e.target as HTMLSelectElement).value)}>
+                    ${options.map((option) => html`
+                        <option value=${option.id} ?selected=${option.id === current.id}>${option.label}</option>`)}
+                  </select>`}
+            <div class="description">${current.description}</div>
+            <div class="badge ${current.equalArea ? 'equal-area' : ''}">
+                ${current.equalArea ? 'Areas are comparable' : 'Areas are distorted'}
             </div>
-            ${isRegional(def.id) ? html`<div class="badge">${coverageLabel(def.id)}</div>` : nothing}
-            <div class="note">
-                Raster and vector tiles are re-projected in the browser, so a background map
-                may look softer and labels less tidy than in Web Mercator.
-            </div>
+            ${catalogue && isRegional(current.id)
+                ? html`<div class="badge">${coverageLabel(current.id)}</div>`
+                : nothing}
+            ${fixed
+                ? html`<div class="note">
+                    The ${this.engineId} engine draws the world this way and no other, so there is
+                    nothing to change here. Switch engine to compare projections.
+                  </div>`
+                : nothing}
+            ${this.engineId === 'openlayers' && current.id !== DEFAULT_VIEW_PROJECTION
+                ? html`<div class="note">
+                    Raster and vector tiles are re-projected in the browser, so a background map
+                    may look softer and labels less tidy than in Web Mercator.
+                  </div>`
+                : nothing}
         `;
     }
 }

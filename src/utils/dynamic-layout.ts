@@ -32,7 +32,9 @@ export const TOOL_ELEMENT_TAGS: Record<string, string> = {
   geolocation: 'webmapx-geolocation-tool',
   info: 'webmapx-info-tool',
   draw: 'webmapx-draw-tool',
-  'view-mode': 'webmapx-view-mode-tool',
+  // One tool now: the projection picker decides what to offer from the engine.
+  // The old type keeps working so configurations do not have to be rewritten.
+  'view-mode': 'webmapx-projection-tool',
   projection: 'webmapx-projection-tool',
   cartogram: 'webmapx-cartogram-tool',
   '3d': 'webmapx-3d-tool',
@@ -62,7 +64,7 @@ const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = {
   draw: { label: 'Draw', icon: 'pencil' },
   geolocation: { label: 'Geolocation', icon: 'crosshair' },
   geolocate: { label: 'Geolocation', icon: 'crosshair' },
-  'view-mode': { label: 'View mode', icon: 'globe' },
+  'view-mode': { label: 'Projection', icon: 'globe-americas' },
   projection: { label: 'Projection', icon: 'globe-americas' },
   cartogram: { label: 'Cartogram', icon: 'pie-chart' },
   '3d': { label: '3D', icon: 'box' },
@@ -108,7 +110,6 @@ export const KNOWN_TOOLS: Array<{ id: string; label: string; icon?: string | Too
   { id: 'info',          label: 'Feature info',   icon: 'info-circle' },
   { id: 'draw',          label: 'Draw',           icon: 'pencil' },
   { id: 'geolocation',   label: 'Geolocation',    icon: 'crosshair' },
-  { id: 'view-mode',     label: 'View mode',      icon: 'globe' },
   { id: 'projection',    label: 'Projection',     icon: 'globe-americas' },
   { id: 'cartogram',     label: 'Cartogram',      icon: 'pie-chart' },
   { id: '3d',            label: '3D',             icon: 'box' },

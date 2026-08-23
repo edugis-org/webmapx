@@ -140,7 +140,9 @@ export interface IMapCore {
     /** Resets map bearing to north and pitch to top-down (when supported). */
     resetNorthPitch(): void;
 
-    /** Set map projection. Name is a MapLibre projection id (e.g. 'globe', 'mercator', 'equalEarth').
+    /** Set map projection. MapLibre takes 'mercator' or 'globe'; OpenLayers takes a view
+     *  projection id such as 'EPSG:8857'. (MapLibre 5 dropped the projection names
+     *  it briefly carried, so 'equalEarth' and the conics are no longer accepted.)
      *  Returns false if not supported by the active engine. */
     setProjection(projection: string | { name: string; center?: [number, number]; parallels?: [number, number] }): boolean;
     /** Get current projection. Returns null if not supported. */
