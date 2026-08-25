@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { axialTilt, dayLengthLines, daylightBands, solarAltitude, subsolarPoint } from '../src/utils/solar';
 import { graticule, referenceCircles } from '../src/utils/graticule';
 import { antipode, destination, greatCircleRoute, rangeRings, tissotIndicatrix } from '../src/utils/geodesy-features';
-import { moonPathLines, moonPhaseDisc, moonPosition, phaseName } from '../src/utils/moon';
+import { moonAlongMeridian, moonInSkyAt, moonPathLines, moonPhaseDisc, moonPosition, phaseName } from '../src/utils/moon';
 import { utmZoneBoxes, utmZones } from '../src/utils/utm-zones';
 
 const EARTH_RADIUS_M = 6_371_008.8;
@@ -510,4 +510,234 @@ test('the moon path is cut at the antimeridian and left open', () => {
         const last = line[line.length - 1];
         assert.ok(first[0] !== last[0] || first[1] !== last[1], 'the track should not be closed');
     }
+});
+
+/**
+ * The same crescent seen from different latitudes.
+ *
+ * The lit side always faces the sun, so what changes from place to place is
+ * where the sun sits relative to the observer's horizon. In the tropics the
+ * sun's path meets the horizon steeply and a young moon hangs with its horns
+ * straight up — the "boat moon"; at 52° north that path is shallow and the same
+ * crescent stands on its edge. It is a real difference of tens of degrees, and
+ * a map that draws the moon turned towards the sun as seen from the centre of
+ * the Earth cannot show it.
+ */
+test('the crescent hangs at a different angle in the tropics than in Europe', () => {
+    const at = new Date('2026-01-21T17:30:00Z'); // a young crescent, evening in Europe
+    const nairobi = moonInSkyAt(36.8, -1.3, at);
+    const amsterdam = moonInSkyAt(4.9, 52.4, at);
+
+    // 180° means the lit side points straight down and the horns are level.
+    assert.ok(Math.abs(nairobi.tilt - 180) < 30,
+        `near the equator the horns should point up, tilt ${nairobi.tilt.toFixed(0)}`);
+    assert.ok(Math.abs(amsterdam.tilt - 180) > 30,
+        `at 52°N the crescent should stand on its edge, tilt ${amsterdam.tilt.toFixed(0)}`);
+    assert.ok(Math.abs(amsterdam.tilt - nairobi.tilt) > 45,
+        'the two views should differ by tens of degrees');
+});
+
+test('the row of moons turns steadily with latitude, and skips what is below the horizon', () => {
+    const at = new Date('2026-01-21T17:30:00Z');
+    const features = moonAlongMeridian(at, { stepLat: 15 }).features;
+
+    const discs = features.filter((f) => (f.properties as any).id === 'disc');
+    const lits = features.filter((f) => (f.properties as any).id === 'lit');
+    assert.equal(discs.length, lits.length, 'every moon needs both its disc and its lit part');
+
+    for (const disc of discs) {
+        assert.ok((disc.properties as any).altitude > 0,
+            'a moon below the horizon is not a view anyone has');
+    }
+
+    // The tilt turns steadily as you go north — one way, with no jump. Which
+    // way round is not the claim: the angle is measured as the observer sees
+    // it, so it runs the opposite way to a compass bearing.
+    const byLatitude = discs
+        .map((f) => f.properties as any)
+        .sort((a, b) => a.latitude - b.latitude);
+    const steps = byLatitude.slice(1).map((entry, i) => {
+        const raw = entry.tilt - byLatitude[i].tilt;
+        return ((raw + 540) % 360) - 180;
+    });
+    assert.ok(steps.every((step) => Math.abs(step) < 45),
+        `the tilt jumps between neighbours: ${steps.map((s) => s.toFixed(0)).join(', ')}`);
+    assert.ok(steps.every((step) => Math.sign(step) === Math.sign(steps[0])),
+        `the tilt should turn one way, got ${steps.map((s) => s.toFixed(0)).join(', ')}`);
+    assert.ok(Math.abs(steps.reduce((total, step) => total + step, 0)) > 90,
+        'the whole row should cover a wide range of angles');
+});
+
+/**
+ * A row that is never empty.
+ *
+ * The row is drawn on the meridian where the sun has just set, which is when a
+ * crescent is looked at — but near new moon the moon sets with the sun and
+ * there is nothing up there to see. An empty layer is indistinguishable from a
+ * broken one, and that is exactly how it was reported: switched on while the
+ * clock was held still, nothing appeared; nudge the time and it came back.
+ */
+test('the row of moons is never empty, at any hour of a month', () => {
+    let fewest = { at: '', moons: Infinity };
+    for (let hours = 0; hours < 30 * 24; hours += 3) {
+        const at = new Date(Date.UTC(2026, 0, 1) + hours * 3_600_000);
+        const features = moonAlongMeridian(at).features;
+        // Three features per moon: the disc, the lit part and a horizon.
+        assert.equal(features.length % 3, 0);
+        const moons = features.length / 3;
+        if (moons < fewest.moons) fewest = { at: at.toISOString(), moons };
+    }
+    assert.ok(fewest.moons >= 3,
+        `only ${fewest.moons} moons at ${fewest.at}`);
+});
+
+/**
+ * The two ways of drawing the moon agree where they are about the same
+ * observer.
+ *
+ * The moon marker is a position, turned along the bearing to the sun over the
+ * ground; the row of little moons are views, turned from each observer's own
+ * zenith. They differ by the parallactic angle, which is large away from the
+ * moon's own meridian — and that difference is the point of the row. But for
+ * someone standing directly under the moon the two are the same question, so
+ * the answers have to match, and that is what makes the difference elsewhere a
+ * fact rather than a bug.
+ */
+test('at the point the moon stands over, view and position agree', () => {
+    const DEGREES = Math.PI / 180;
+    for (const iso of ['2026-08-26T09:00:00Z', '2026-01-21T17:30:00Z', '2026-05-05T03:00:00Z']) {
+        const at = new Date(iso);
+        const moon = moonPosition(at);
+        const sun = subsolarPoint(at);
+
+        const dLon = (sun.lon - moon.lon) * DEGREES;
+        const bearingToSun = ((Math.atan2(
+            Math.sin(dLon) * Math.cos(sun.lat * DEGREES),
+            Math.cos(moon.lat * DEGREES) * Math.sin(sun.lat * DEGREES)
+                - Math.sin(moon.lat * DEGREES) * Math.cos(sun.lat * DEGREES) * Math.cos(dLon),
+        ) / DEGREES) + 360) % 360;
+
+        const { tilt, altitude } = moonInSkyAt(moon.lon, moon.lat, at);
+        assert.ok(altitude > 89.9, `the moon should be overhead here, got ${altitude.toFixed(2)}`);
+        const difference = Math.abs(((tilt - bearingToSun + 540) % 360) - 180);
+        assert.ok(difference < 0.5,
+            `${iso}: view ${tilt.toFixed(1)} against position ${bearingToSun.toFixed(1)}`);
+    }
+});
+
+/**
+ * Horizons are cut at the seam like everything else.
+ *
+ * A horizon is two points a few degrees apart. Put the row on the antimeridian
+ * and those two points land either side of ±180, so a renderer draws the line
+ * the long way round: a stripe across the whole world under each moon.
+ */
+test('a horizon line never spans the world', () => {
+    // An explicit meridian is taken as given, so these are chosen where the
+    // moon is actually up at this moment — otherwise there is nothing to draw
+    // and nothing to assert.
+    for (const lon of [179, -179, 180]) {
+        const horizons = moonAlongMeridian(new Date('2026-08-26T09:00:00Z'), { lon })
+            .features.filter((f) => (f.properties as any).id === 'horizon');
+        assert.ok(horizons.length > 0, `no horizons drawn at ${lon}`);
+
+        for (const horizon of horizons) {
+            for (const line of (horizon.geometry as GeoJSON.MultiLineString).coordinates) {
+                const lons = line.map(([x]) => x);
+                assert.ok(Math.max(...lons) - Math.min(...lons) < 30,
+                    `a horizon at ${lon} spans ${(Math.max(...lons) - Math.min(...lons)).toFixed(0)}°`);
+            }
+        }
+    }
+});
+
+/**
+ * The row goes where the moon can actually be seen.
+ *
+ * It used to sit on the evening terminator and, when the moon was not up there,
+ * fall back to a meridian 60° from the moon — which near new moon is the middle
+ * of the day. Reported from the map: on 8 August 2026 at 01:52 UTC the row of
+ * moons stood in broad daylight, and it was never in the night.
+ */
+test('the row is drawn where the sky is dark, when there is such a place', () => {
+    const at = new Date('2026-08-08T01:52:00Z');
+    const discs = moonAlongMeridian(at).features.filter((f) => (f.properties as any).id === 'disc');
+    assert.ok(discs.length > 0, 'the row should not be empty');
+
+    const dark = discs.filter((f) => !(f.properties as any).daylight);
+    assert.ok(dark.length >= discs.length - 1,
+        `${dark.length} of ${discs.length} moons in a dark sky`);
+    for (const disc of dark) {
+        assert.ok((disc.properties as any).sunAltitude < 0);
+        assert.ok((disc.properties as any).altitude > 0);
+    }
+});
+
+test('a daytime row happens only around new moon', () => {
+    let daylightOnly = 0;
+    let sampled = 0;
+    for (let hours = 0; hours < 30 * 24; hours += 3) {
+        const at = new Date(Date.UTC(2026, 7, 1) + hours * 3_600_000);
+        const discs = moonAlongMeridian(at).features.filter((f) => (f.properties as any).id === 'disc');
+        sampled += 1;
+        if (discs.every((f) => (f.properties as any).daylight)) daylightOnly += 1;
+    }
+    // Near new moon the moon is only ever up in daylight, which is a fact about
+    // the month rather than a failure — but it should be rare.
+    assert.ok(daylightOnly / sampled < 0.05,
+        `the row was in daylight at ${daylightOnly} of ${sampled} moments`);
+});
+
+/**
+ * Overhead, the tilt is real but unstable.
+ *
+ * The zenith has no azimuth, so for an observer with the moon almost straight
+ * up, a step of a degree turns the crescent by up to 180°. The number drawn is
+ * right for that exact spot and says nothing about the next one — which is why
+ * a moon in the row can disagree sharply with the moon drawn at the point it
+ * stands over, a few degrees away.
+ */
+test('near the zenith a degree of latitude can turn the crescent right round', () => {
+    const at = new Date('2026-08-26T09:00:00Z');
+    const moon = moonPosition(at);
+
+    const north = moonInSkyAt(moon.lon, moon.lat + 1, at);
+    const south = moonInSkyAt(moon.lon, moon.lat - 1, at);
+    assert.ok(north.altitude > 88 && south.altitude > 88, 'both are all but overhead');
+
+    const apart = Math.abs(((north.tilt - south.tilt + 540) % 360) - 180);
+    assert.ok(apart > 150, `one degree apart, the tilts differ by ${apart.toFixed(0)}°`);
+
+    // And the row says so, rather than leaving it to be discovered.
+    const overhead = moonAlongMeridian(at, { lon: moon.lon, fromLat: moon.lat, toLat: moon.lat, stepLat: 1 })
+        .features.find((f) => (f.properties as any).id === 'disc');
+    assert.equal((overhead?.properties as any).nearZenith, true);
+});
+
+/**
+ * The sky is seen from the inside, the map from above.
+ *
+ * A position angle runs from north towards east on the sky, where east lies
+ * anticlockwise because the observer is inside the sphere looking up. A compass
+ * bearing runs from north towards east on the ground, where east lies
+ * clockwise. Same words, opposite handedness — so drawing a sky angle as a
+ * bearing renders the moon as its own mirror image, and no amount of checking
+ * the formulas finds it, because the formulas are right.
+ *
+ * Pinned against the real sky: on 26 August 2026 the moon was 96% lit and, from
+ * Amsterdam late in the evening, its dark sliver sat at the top *left*.
+ */
+test('the crescent is drawn as the observer sees it, not mirrored', () => {
+    const at = new Date('2026-08-25T23:40:00Z');
+    const { illumination } = moonPosition(at);
+    assert.ok(illumination > 0.9, `expected an almost full moon, got ${illumination.toFixed(2)}`);
+
+    const { tilt, altitude } = moonInSkyAt(4.9, 52.4, at);
+    assert.ok(altitude > 0, 'the moon was up over Amsterdam');
+
+    // The dark sliver lies opposite the lit side. Top left is between 270° and
+    // 360° measured clockwise from straight up.
+    const dark = (tilt + 180) % 360;
+    assert.ok(dark > 270 && dark < 360,
+        `the dark sliver should be at the top left, drawn at ${dark.toFixed(0)}° (lit side ${tilt.toFixed(0)}°)`);
 });

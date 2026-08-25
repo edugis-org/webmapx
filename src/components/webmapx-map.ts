@@ -25,6 +25,8 @@ import {
 } from './internal/single-group-policy';
 import { resolveLegendRoleForLayer } from './internal/legend-role-policy';
 import { resolveGeoJSONSources, type PagedSourceContinuation } from '../map/geojson-loader';
+import { timeOf } from '../utils/map-clock';
+import { applyMapState } from '../utils/internal-sources';
 import { inlineLayerSources } from '../map/layer-source-resolver';
 import { showToast } from '../utils/toast';
 
@@ -1367,7 +1369,11 @@ export class WebmapxMapElement extends HTMLElement {
     const enriched = inlineLayerSources(layerInformation.layer, this.layerDataConfig?.sources);
     let continuations: PagedSourceContinuation[] = [];
     if (enriched.sources && typeof enriched.sources === 'object') {
-      continuations = await resolveGeoJSONSources(enriched.sources);
+      continuations = await resolveGeoJSONSources(
+        enriched.sources,
+        timeOf(adapter.store.getState().mapTime),
+        (url) => applyMapState(url, adapter.store.getState().lastClickedCoordinates),
+      );
     }
     const layer = enriched;
 
@@ -1406,7 +1412,11 @@ export class WebmapxMapElement extends HTMLElement {
     // the catalog-layer path in addLogicalLayerInternal.
     let continuations: PagedSourceContinuation[] = [];
     if (nativeLayer.sources && typeof nativeLayer.sources === 'object') {
-      continuations = await resolveGeoJSONSources(nativeLayer.sources as Record<string, any>);
+      continuations = await resolveGeoJSONSources(
+        nativeLayer.sources as Record<string, any>,
+        timeOf(adapter.store.getState().mapTime),
+        (url) => applyMapState(url, adapter.store.getState().lastClickedCoordinates),
+      );
     }
     const metadata = (nativeLayer.metadata && typeof nativeLayer.metadata === 'object') ? nativeLayer.metadata as Record<string, unknown> : {};
     const role: LegendRole = metadata.legendRole === 'background' ? 'background' : 'overlay';

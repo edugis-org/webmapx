@@ -27,7 +27,12 @@ export interface PagedSourceContinuation {
  * returned `PagedSourceContinuation[]` lets the caller stream in further
  * pages via `setSourceData` after the source/layer has been added to the map.
  */
-export async function resolveGeoJSONSources(sources: Record<string, any>): Promise<PagedSourceContinuation[]> {
+export async function resolveGeoJSONSources(
+    sources: Record<string, any>,
+    now: Date = new Date(),
+    /** Fills in map-state placeholders such as `{click}`; see internal-sources. */
+    prepareUrl: (url: string) => string = (url) => url,
+): Promise<PagedSourceContinuation[]> {
     const continuations: PagedSourceContinuation[] = [];
 
     const pending = Object.values(sources).filter(
@@ -39,7 +44,12 @@ export async function resolveGeoJSONSources(sources: Record<string, any>): Promi
         // they would fail as an unknown protocol.
         if (isInternalFuncUrl(s.data)) {
             const url = s.data;
-            s.data = resolveInternalFuncUrl(url);
+            // Drawn for the map's own moment, not for the wall clock. A layer
+            // added while the time slider holds the map at some other moment
+            // would otherwise arrive showing now — the moon in the wrong place
+            // and the wrong phase — and only correct itself on the next move of
+            // the slider, which is the one thing nobody would think to try.
+            s.data = resolveInternalFuncUrl(prepareUrl(url), now);
             // Where it came from, so a source that asked to keep itself current
             // can be asked again: once the url is replaced by the data, nothing
             // else says this source was computed.

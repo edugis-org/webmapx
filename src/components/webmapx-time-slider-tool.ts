@@ -105,6 +105,13 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
      * drift while the tool is open.
      */
     @state() private origin = Date.now();
+    /**
+     * The year the picker is centred on, fixed while the panel is open.
+     *
+     * Separate from `origin`, which moves with every jump so the date slider
+     * stays usable — a list that moved with it would slide under the selection.
+     */
+    @state() private anchorYear = new Date().getUTCFullYear();
     /** Ticks once a second while live, so the disabled sliders show time passing. */
     @state() private liveTick = Date.now();
     @state() private speedIndex = 2;
@@ -180,6 +187,7 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
     connectedCallback(): void {
         super.connectedCallback();
         this.origin = Date.now();
+        this.anchorYear = new Date().getUTCFullYear();
         if (isLive(this.mapTime)) this.startLiveTicking();
     }
 
@@ -348,10 +356,14 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
             timeStyle: 'short',
         });
         const shownYear = new Date(at).getUTCFullYear();
-        // Centred on the year showing rather than on this year, so stepping ten
-        // years out and then ten more is possible without leaving the picker.
+        // Centred on the year the panel opened at, and left there. Recentring on
+        // the year *showing* moves the list under the selection: pick ten years
+        // back and the list slides ten years with it, so the option now under
+        // the cursor is twenty years back and the control disagrees with the map.
         const years: number[] = [];
-        for (let year = shownYear - YEAR_RANGE; year <= shownYear + YEAR_RANGE; year++) years.push(year);
+        const from = Math.min(this.anchorYear - YEAR_RANGE, shownYear);
+        const to = Math.max(this.anchorYear + YEAR_RANGE, shownYear);
+        for (let year = from; year <= to; year++) years.push(year);
 
         return html`
             <div class="now">
@@ -369,7 +381,7 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
                 <label for="time-year">
                     <span>Year</span>
                 </label>
-                <select id="time-year" ?disabled=${live}
+                <select id="time-year" ?disabled=${live} .value=${String(shownYear)}
                     @change=${(e: Event) => this.setYear(Number((e.target as HTMLSelectElement).value))}>
                     ${years.map((year) => html`
                         <option value=${year} ?selected=${year === shownYear}>${year}</option>`)}

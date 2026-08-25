@@ -29,7 +29,7 @@ import {
 } from './solar';
 import { graticule, referenceCircles } from './graticule';
 import { antipode, greatCircleRoute, rangeRings, tissotIndicatrix } from './geodesy-features';
-import { moonPathLines, moonPhaseDisc, moonPositionFeature, moonVisibilityBand } from './moon';
+import { moonAlongMeridian, moonPathLines, moonPhaseDisc, moonPositionFeature, moonVisibilityBand } from './moon';
 import { equilibriumTide } from './tides';
 import { utmZones } from './utm-zones';
 
@@ -55,6 +55,50 @@ function numbers(query: URLSearchParams, key: string): number[] | undefined {
 function place(query: URLSearchParams, key: string, fallback: [number, number]): [number, number] {
     const raw = numbers(query, key);
     return raw?.length === 2 ? [raw[0], raw[1]] : fallback;
+}
+
+/**
+ * Placeholders a computed source may use, filled in from the map's own state.
+ *
+ * A generator is a pure function of a moment and a query string — it cannot see
+ * the map, and should not. But some of what it draws is about the map: the
+ * crescent's angle depends on who is looking, and "who is looking" is wherever
+ * the user last clicked.
+ *
+ * So the config writes `?observer={click}` and the adapter fills that in before
+ * the url is resolved, redrawing the source whenever the value changes. It
+ * needs no tool of its own: every engine records a click in `lastClickedCoordinates`
+ * whatever tool is active, so the info tool's click, or any other, moves the
+ * view along with it.
+ */
+export const MAP_STATE_PLACEHOLDERS = {
+    /** The last place clicked, as `lon,lat`. */
+    click: '{click}',
+} as const;
+
+/** True when a url waits on something only the map can tell it. */
+export function usesMapState(url: string): boolean {
+    return url.includes(MAP_STATE_PLACEHOLDERS.click);
+}
+
+/**
+ * The same url with its placeholders filled in.
+ *
+ * An unfilled placeholder is removed along with its parameter rather than left
+ * in place: `observer={click}` with nothing clicked yet means "no observer",
+ * which is exactly the marker's own default, and a generator asked to parse
+ * "{click}" as a coordinate would get NaN and draw nonsense.
+ */
+export function applyMapState(url: string, click: [number, number] | null | undefined): string {
+    if (!usesMapState(url)) return url;
+    if (click) {
+        return url.replace(MAP_STATE_PLACEHOLDERS.click, `${click[0]},${click[1]}`);
+    }
+    const [name, query = ''] = url.split('?');
+    const kept = query
+        .split('&')
+        .filter((pair) => pair.length > 0 && !pair.includes(MAP_STATE_PLACEHOLDERS.click));
+    return kept.length > 0 ? `${name}?${kept.join('&')}` : name;
 }
 
 export const INTERNAL_FUNC_PROTOCOL = 'internalfunc:';
@@ -124,10 +168,25 @@ export const INTERNAL_SOURCES: Record<string, InternalSourceGenerator> = {
     // point it stands over, turned so the lit side faces the sun.
     'moon-phase': ({ at, query }) => moonPhaseDisc(at, {
         radiusDegrees: Number(query.get('radius')) || undefined,
+        // `?observer={click}` turns the marker from a position into a view: how
+        // the crescent hangs over the place last clicked on the map.
+        observer: numbers(query, 'observer')?.length === 2
+            ? [numbers(query, 'observer')![0], numbers(query, 'observer')![1]]
+            : undefined,
     }),
     'moon-visibility': ({ at }) => moonVisibilityBand(at),
     // `?days=27.32&step=1` — the track of the sublunar point, which is where the
     // moon's north-south swing becomes one picture instead of a moving dot.
+    // `?lon=5&from=-60&to=60&step=15` — the same moon at a row of latitudes, each
+    // turned the way an observer there sees it. Defaults to the meridian where
+    // the sun has just set.
+    'moon-in-sky': ({ at, query }) => moonAlongMeridian(at, {
+        lon: query.get('lon') === null ? undefined : Number(query.get('lon')),
+        fromLat: query.get('from') === null ? undefined : Number(query.get('from')),
+        toLat: query.get('to') === null ? undefined : Number(query.get('to')),
+        stepLat: Number(query.get('step')) || undefined,
+        radiusDegrees: Number(query.get('radius')) || undefined,
+    }),
     'moon-path': ({ at, query }) => moonPathLines(at, {
         days: Number(query.get('days')) || undefined,
         stepHours: Number(query.get('step')) || undefined,
@@ -242,15 +301,26 @@ export function resolveInternalFuncUrl(url: string, now: Date = new Date()): Geo
  * source and `url` for one declared the way a raster source is — because a
  * configuration author will reasonably write either.
  */
-export function resolveInternalSources<T>(layer: T, now: Date = new Date()): T {
+export function resolveInternalSources<T>(
+    layer: T,
+    now: Date = new Date(),
+    /**
+     * A last chance to rewrite the url before it is answered — how map-state
+     * placeholders such as `{click}` get filled in. The url *remembered* on the
+     * source is the original, so a later click can fill it in differently.
+     */
+    prepareUrl: (url: string) => string = (url) => url,
+): T {
     if (!layer || typeof layer !== 'object') return layer;
-    if (Array.isArray(layer)) return layer.map((entry) => resolveInternalSources(entry, now)) as unknown as T;
+    if (Array.isArray(layer)) {
+        return layer.map((entry) => resolveInternalSources(entry, now, prepareUrl)) as unknown as T;
+    }
 
     let changed = false;
     const out: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(layer as Record<string, unknown>)) {
         if ((key === 'data' || key === 'url') && isInternalFuncUrl(value)) {
-            out.data = resolveInternalFuncUrl(value, now);
+            out.data = resolveInternalFuncUrl(prepareUrl(value), now);
             // A resolved source is a geojson source whatever it called itself,
             // and it remembers the url it came from so it can be asked again.
             out.type = 'geojson';
@@ -258,7 +328,7 @@ export function resolveInternalSources<T>(layer: T, now: Date = new Date()): T {
             changed = true;
             continue;
         }
-        const resolved = resolveInternalSources(value, now);
+        const resolved = resolveInternalSources(value, now, prepareUrl);
         if (resolved !== value) changed = true;
         out[key] = resolved;
     }

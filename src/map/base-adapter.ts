@@ -25,12 +25,14 @@ import { MapEventBus } from '../store/map-events';
 import type { DeferredLogicalLayerExecutor } from './logical-layer-executor';
 import { ensureApiKeysLoaded, substituteApiKeysDeep } from '../config/apikeys';
 import {
+    applyMapState,
     collectComputedSources,
     collectRefreshableSources,
     followsMapClock,
     isInternalFuncUrl,
     resolveInternalFuncUrl,
     resolveInternalSources,
+    usesMapState,
 } from '../utils/internal-sources';
 import { isLive, isSamePinnedTime, timeOf } from '../utils/map-clock';
 import { InternalSourceRefresher } from './internal-source-refresh';
@@ -94,6 +96,8 @@ export abstract class BaseAdapter {
     private computedSources = new Map<string, string>();
     /** What the clock said last time, so an unrelated store update costs nothing. */
     private lastSeenMapTime: MapTimeState | undefined;
+    /** Likewise for the last click, which some computed sources follow. */
+    private lastSeenClick: [number, number] | null | undefined;
 
     /**
      * The moment this map's computed layers are drawn for.
@@ -154,6 +158,27 @@ export abstract class BaseAdapter {
         }
     }
 
+    /**
+     * Redraws the computed sources that follow the map's own state.
+     *
+     * Only those: a click is not a clock, and a source that does not mention
+     * `{click}` has no reason to be recomputed because someone tapped the map.
+     */
+    private onClickedCoordinateChanged(click: [number, number] | null): void {
+        const previous = this.lastSeenClick;
+        if (previous?.[0] === click?.[0] && previous?.[1] === click?.[1]) return;
+        this.lastSeenClick = click;
+
+        const now = this.clockNow();
+        for (const [sourceId, url] of this.computedSources) {
+            if (!usesMapState(url)) continue;
+            const source = this.getSource(sourceId);
+            if (!source?.setData) continue;
+            this.silenceComputedSource(sourceId);
+            source.setData(resolveInternalFuncUrl(applyMapState(url, click), now));
+        }
+    }
+
     /** Draws every computed source again for the moment the map now stands at. */
     private redrawComputedSources(): void {
         const now = this.clockNow();
@@ -166,8 +191,13 @@ export abstract class BaseAdapter {
             // spinner back for the sources it was driving when its layer goes,
             // which would otherwise un-silence a source this still redraws.
             this.silenceComputedSource(sourceId);
-            source.setData(resolveInternalFuncUrl(url, now));
+            source.setData(resolveInternalFuncUrl(this.withMapState(url), now));
         }
+    }
+
+    /** A computed url with its map-state placeholders filled in. */
+    private withMapState(url: string): string {
+        return applyMapState(url, this.store.getState().lastClickedCoordinates);
     }
 
     constructor() {
@@ -186,6 +216,7 @@ export abstract class BaseAdapter {
             this.store.dispatch({ mapProjection: this.getProjection() }, 'MAP');
         });
         this.store.subscribe((state) => this.onMapTimeChanged(state.mapTime));
+        this.store.subscribe((state) => this.onClickedCoordinateChanged(state.lastClickedCoordinates));
     }
 
     /** Records the `attribution` from a source config (style-spec field) for later lookup. */
@@ -236,7 +267,7 @@ export abstract class BaseAdapter {
             this.computedSources.set(id, url);
             this.silenceComputedSource(id);
         }
-        config = resolveInternalSources(config, this.clockNow());
+        config = resolveInternalSources(config, this.clockNow(), (url) => this.withMapState(url));
         this.trackSourceAttribution(id, config);
         if (config && typeof config === 'object') {
             this.sourceConfigs.set(id, config as Record<string, unknown>);
@@ -274,7 +305,7 @@ export abstract class BaseAdapter {
         }
         // A source may be computed rather than fetched (`internalfunc://`).
         // Resolved here, in generic code, so no engine ever sees the protocol.
-        layer = resolveInternalSources(layer, this.clockNow());
+        layer = resolveInternalSources(layer, this.clockNow(), (url) => this.withMapState(url));
 
         // Composite (type: 'style') with populated sources/layers — decompose generically
         // when the engine supports it (decomposeComposite = true).
@@ -349,6 +380,7 @@ export abstract class BaseAdapter {
         if (live.length === 0) return;
         this.refresher ??= new InternalSourceRefresher({
             getSource: (sourceId) => this.getSource(sourceId),
+            prepareUrl: (url) => this.withMapState(url),
             getZoom: () => this.getZoom(),
             getCentreLatitude: () => this.getCore().getViewportState().center[1],
             setSourceSilent: (sourceId, silent) => {

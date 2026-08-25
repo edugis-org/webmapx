@@ -60,6 +60,7 @@ test('a watched source is silenced for the spinner, and only until its last laye
         getZoom: () => 3,
         getCentreLatitude: () => 0,
         setSourceSilent: (sourceId, silent) => silenced.push([sourceId, silent]),
+        prepareUrl: (url: string) => url,
         store: { getState: () => ({ mapLayers: {} }) } as never,
     });
 
@@ -97,6 +98,7 @@ test('the refresh loop stops while the map clock is pinned', () => {
             getZoom: () => 3,
             getCentreLatitude: () => 0,
             setSourceSilent: () => {},
+            prepareUrl: (url: string) => url,
             store: { getState: () => ({ mapLayers: {} }) } as never,
         });
 
@@ -118,5 +120,54 @@ test('the refresh loop stops while the map clock is pinned', () => {
     } finally {
         globalThis.requestAnimationFrame = originalRaf;
         globalThis.cancelAnimationFrame = originalCaf;
+    }
+});
+
+/**
+ * The refresh loop must not undo a map-state placeholder.
+ *
+ * A source may follow the map — `?observer={click}` turns the moon marker into
+ * a view from wherever was last clicked. The loop holds the url as written, so
+ * unless it fills the placeholder in the same way the adapter does, it redraws
+ * every frame with a literal "{click}" that reads as a coordinate of NaN. The
+ * chosen viewpoint then vanishes within a frame of being chosen, which from the
+ * outside looks exactly like clicking having no effect at all.
+ */
+test('a refreshed source is redrawn with its placeholders filled in', () => {
+    const frames: Array<() => void> = [];
+    const originalRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = ((fn: () => void) => {
+        frames.push(fn);
+        return frames.length;
+    }) as never;
+
+    const asked: string[] = [];
+    try {
+        const refresher = new InternalSourceRefresher({
+            getSource: () => ({ setData: () => {} }) as never,
+            getZoom: () => 3,
+            getCentreLatitude: () => 0,
+            setSourceSilent: () => {},
+            prepareUrl: (url: string) => {
+                asked.push(url);
+                return url.replace('{click}', '4.9,52.4');
+            },
+            store: {
+                getState: () => ({ mapLayers: { a: { visible: true } }, mapTime: { mode: 'live' } }),
+            } as never,
+        });
+
+        refresher.watch('a', [{
+            sourceId: 'moon',
+            url: 'internalfunc://moon-phase?refresh=auto&observer={click}',
+        }]);
+        // Run one tick of the loop.
+        frames[frames.length - 1]?.();
+
+        assert.ok(asked.length > 0, 'the loop should ask for the url to be prepared');
+        assert.ok(asked.every((url) => url.includes('{click}')),
+            'it hands over the url as written, and takes back the filled-in one');
+    } finally {
+        globalThis.requestAnimationFrame = originalRaf;
     }
 });
