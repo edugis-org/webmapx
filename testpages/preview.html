@@ -41,6 +41,10 @@
       const params = new URLSearchParams(window.location.search);
       const configUrl = params.get('config');
       const raw = localStorage.getItem(STORAGE_KEY);
+      // Base for relative resource paths inside the config. Without it a config
+      // fetched from another origin in setup.html would resolve its sibling data
+      // files against this page instead of against the config's own location.
+      let baseUrl = null;
       let config;
       if (raw) {
         // localStorage always wins — setup.html writes the fully-merged config here.
@@ -56,12 +60,15 @@
         );
         try { config = JSON.parse(raw); }
         catch { showError('Config in localStorage is invalid JSON.'); return; }
+        // Written by setup.html beside the config itself (see storeConfig there).
+        baseUrl = localStorage.getItem(STORAGE_KEY + '-url');
       } else if (configUrl) {
         // No localStorage override — load the base config from URL param.
         try {
           const res = await fetch(configUrl);
           if (!res.ok) throw new Error(res.statusText);
           config = await res.json();
+          baseUrl = res.url;
         } catch (e) {
           showError('Failed to load config from URL: ' + e.message);
           return;
@@ -72,13 +79,14 @@
           const res = await fetch('../config/demo.json');
           if (!res.ok) throw new Error(res.statusText);
           config = await res.json();
+          baseUrl = res.url;
         } catch (e) {
           showError('No config in localStorage and failed to load demo.json: ' + e.message);
           return;
         }
       }
       try {
-        await WebMapX.mount('#map', { config });
+        await WebMapX.mount('#map', { config, configUrl: baseUrl ?? undefined });
       } catch (e) {
         showError('Mount failed: ' + e.message);
       }

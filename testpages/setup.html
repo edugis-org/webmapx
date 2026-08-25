@@ -514,6 +514,16 @@
 
     const STORAGE_KEY = 'webmapx-setup-config';
 
+    // preview.html mounts the stored config as an object, which has no URL of its own to
+    // resolve relative resource paths (source data/url/tiles, story htmlUrl) against — it
+    // would fall back to preview.html's own location. Store the config's origin URL beside
+    // it under "<key>-url" so the preview can pass it to WebMapX.mount as configUrl. Kept
+    // as a separate key so the stored config stays byte-for-byte publishable.
+    function storeConfig(key, config) {
+      localStorage.setItem(key, JSON.stringify(config));
+      localStorage.setItem(key + '-url', new URL(activeConfigUrl, window.location.href).href);
+    }
+
     // Derive toolbar keys dynamically from config instead of hardcoding names.
     function getToolbarKeys(config) {
       return Object.entries(config.tools ?? {})
@@ -1776,7 +1786,7 @@
     // (separate key from the main "Update preview" flow, so this tab doesn't clobber it).
     function refreshMapPreviewFrame(config) {
       const finalConfig = applyOverrides(config, getSaved());
-      localStorage.setItem(PREVIEW_STORAGE_KEY, JSON.stringify(finalConfig));
+      storeConfig(PREVIEW_STORAGE_KEY, finalConfig);
       // webmapx-map remembers a manually-picked adapter per map id and that preference
       // wins over the config's engine entirely (see resolveAdapterSelection) — both this
       // iframe and the main "Update preview" popup mount at #map, so they share the id
@@ -2300,7 +2310,7 @@
       if (!baseConfig) return;
       const overrides = getSaved();
       const finalConfig = applyOverrides(baseConfig, overrides);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(finalConfig));
+      storeConfig(STORAGE_KEY, finalConfig);
       // Reset engine to config value so any user override in preview is cleared.
       const engine = finalConfig.engine ?? finalConfig.map?.type ?? 'maplibre';
       localStorage.setItem('webmapx-adapter:map-webmapx', engine);
@@ -2321,7 +2331,7 @@
       buildStoriesUI(baseConfig);
       refreshStoriesPreviewFrame(baseConfig);
       updateSelectAll();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(baseConfig));
+      storeConfig(STORAGE_KEY, baseConfig);
       document.getElementById('status').textContent = 'Reset to defaults — preview updated.';
     });
 
@@ -2718,7 +2728,7 @@
 
     function refreshStoriesPreviewFrame(config) {
       const finalConfig = applyOverrides(config, getSaved());
-      localStorage.setItem('webmapx-setup-stories-preview-config', JSON.stringify(finalConfig));
+      storeConfig('webmapx-setup-stories-preview-config', finalConfig);
       const engine = finalConfig.engine ?? finalConfig.map?.type ?? 'maplibre';
       localStorage.setItem('webmapx-adapter:map-webmapx', engine);
       const frame = document.getElementById('stories-preview-frame');

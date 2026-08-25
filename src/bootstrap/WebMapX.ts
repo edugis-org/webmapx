@@ -27,12 +27,20 @@ function toolArrayToConfig(tools: string[]): ToolsConfig {
 
 export class WebMapX {
   static async mount(selector: string, options: WebMapXMountOptions): Promise<void> {
-    const config: WebMapXConfig = typeof options.config === 'string'
-      ? await fetch(options.config).then(r => {
-          if (!r.ok) throw new Error(`[webmapx] Failed to load config: ${options.config}`);
-          return r.json();
-        })
-      : options.config;
+    // Base for resolving relative resource paths inside the config. For a URL
+    // string that is the fetch response URL (final, absolute, post-redirect);
+    // for a config object it is whatever the caller says it came from, falling
+    // back to the page URL for inline configs with no file of their own.
+    let configUrl = options.configUrl;
+    let config: WebMapXConfig;
+    if (typeof options.config === 'string') {
+      const response = await fetch(options.config);
+      if (!response.ok) throw new Error(`[webmapx] Failed to load config: ${options.config}`);
+      config = await response.json();
+      configUrl = response.url;
+    } else {
+      config = options.config;
+    }
 
     setBasePath(SHOELACE_CDN);
     await initI18n();
@@ -72,7 +80,7 @@ export class WebMapX {
       ...appRaw,
       map: { type: engine, center: [0, 0], zoom: 2, ...mapConfig },
       ...(toolsConfig ? { tools: toolsConfig } : {}),
-    }, 'WebMapX.mount');
+    }, 'WebMapX.mount', configUrl);
 
     mapEl.setConfig(appConfig as AppConfig);
 
