@@ -29,7 +29,8 @@ import {
 } from './solar';
 import { graticule, referenceCircles } from './graticule';
 import { antipode, greatCircleRoute, rangeRings, tissotIndicatrix } from './geodesy-features';
-import { moonPositionFeature, moonVisibilityBand } from './moon';
+import { moonPathLines, moonPhaseDisc, moonPositionFeature, moonVisibilityBand } from './moon';
+import { equilibriumTide } from './tides';
 import { utmZones } from './utm-zones';
 
 /**
@@ -107,9 +108,30 @@ export const INTERNAL_SOURCES: Record<string, InternalSourceGenerator> = {
         },
     ),
 
+    // ── Tides ─────────────────────────────────────────────────────────────
+    // `?levels=-0.2,0,0.3&step=2&extremes=no` — the shape the ocean would take
+    // if it could keep up with the moon and the sun. Not a tide table: see
+    // utils/tides.ts for why the two are different questions.
+    'equilibrium-tide': ({ at, query }) => equilibriumTide(at, {
+        levels: numbers(query, 'levels'),
+        stepDegrees: Number(query.get('step')) || undefined,
+        extremes: query.get('extremes') !== 'no',
+    }),
+
     // ── Moon ──────────────────────────────────────────────────────────────
     'moon-position': ({ at }) => moonPositionFeature(at),
+    // `?radius=7` — the moon drawn as a disc with its lit part shaded, at the
+    // point it stands over, turned so the lit side faces the sun.
+    'moon-phase': ({ at, query }) => moonPhaseDisc(at, {
+        radiusDegrees: Number(query.get('radius')) || undefined,
+    }),
     'moon-visibility': ({ at }) => moonVisibilityBand(at),
+    // `?days=27.32&step=1` — the track of the sublunar point, which is where the
+    // moon's north-south swing becomes one picture instead of a moving dot.
+    'moon-path': ({ at, query }) => moonPathLines(at, {
+        days: Number(query.get('days')) || undefined,
+        stepHours: Number(query.get('step')) || undefined,
+    }),
 
     // ── Spherical geometry, about a place ─────────────────────────────────
     'range-rings': ({ query }) => {

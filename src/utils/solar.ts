@@ -43,7 +43,18 @@ export interface SubsolarPoint {
     declination: number;
     /** Minutes by which apparent solar time runs ahead of mean solar time. */
     equationOfTime: number;
+    /**
+     * Distance to the sun in kilometres.
+     *
+     * Varies by 3.3% over the year, which is nothing to look at and a great deal
+     * to a tide: the tide-raising force falls off with the cube of distance, so
+     * the same alignment pulls a tenth harder in January than in July.
+     */
+    distanceKm: number;
 }
+
+/** One astronomical unit, in kilometres. */
+export const ASTRONOMICAL_UNIT_KM = 149_597_870.7;
 
 /** Days since the J2000.0 epoch, the zero point the formulas below are written for. */
 function julianCenturies(date: Date): number {
@@ -95,7 +106,18 @@ export function subsolarPoint(date: Date = new Date()): SubsolarPoint {
     // quarter degree of longitude.
     const lon = normaliseLon(-(utcMinutes + equationOfTime - 720) / 4);
 
-    return { lon, lat: declination, declination, equationOfTime };
+    // The radius vector, from the true anomaly and the orbit's eccentricity.
+    const trueAnomaly = meanAnomaly + centre;
+    const distanceAu = (1.000001018 * (1 - eccentricity * eccentricity))
+        / (1 + eccentricity * Math.cos(trueAnomaly * DEG));
+
+    return {
+        lon,
+        lat: declination,
+        declination,
+        equationOfTime,
+        distanceKm: distanceAu * ASTRONOMICAL_UNIT_KM,
+    };
 }
 
 /** The sun's altitude, in degrees, at one place and moment. */
@@ -194,11 +216,15 @@ function unwrapLongitudes(points: Array<[number, number]>): Array<[number, numbe
 /**
  * A ring cut where it crosses ±180.
  *
+ * Exported because anything drawn as a closed shape on a world map needs it,
+ * not only the daylight caps: a polygon whose points jump from 179 to -179 is
+ * drawn straight across the map instead of round the back.
+ *
  * Cutting rather than leaving it whole: a polygon whose points jump from 179
  * to -179 is drawn straight across the map, which is the stripe that appears
  * over the Pacific in the service's own data.
  */
-function splitAtAntimeridian(raw: Array<[number, number]>): number[][][] {
+export function splitAtAntimeridian(raw: Array<[number, number]>): number[][][] {
     // Normalised first: the generator walks longitudes continuously, so a ring
     // around the antimeridian runs 160 → 200 and never appears to cross
     // anything until it is folded back into range.

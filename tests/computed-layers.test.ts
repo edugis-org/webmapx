@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { axialTilt, dayLengthLines, daylightBands, solarAltitude, subsolarPoint } from '../src/utils/solar';
 import { graticule, referenceCircles } from '../src/utils/graticule';
 import { antipode, destination, greatCircleRoute, rangeRings, tissotIndicatrix } from '../src/utils/geodesy-features';
-import { moonPosition, phaseName } from '../src/utils/moon';
+import { moonPathLines, moonPhaseDisc, moonPosition, phaseName } from '../src/utils/moon';
 import { utmZoneBoxes, utmZones } from '../src/utils/utm-zones';
 
 const EARTH_RADIUS_M = 6_371_008.8;
@@ -366,5 +366,148 @@ test('the sunset band is centred on the polar circle at a solstice', () => {
         );
         // And it really is a band around the horizon, not one below it.
         assert.ok(Math.abs(Math.abs(outer - inner) - 2 * 0.833) < 0.01, `${iso}: band width`);
+    }
+});
+
+/**
+ * The moon drawn as a shape rather than picked from a set of icons.
+ *
+ * Two claims worth testing, because both look plausible when wrong: the lit
+ * area really is the illuminated fraction, and the lit side faces the sun. An
+ * icon set gets the first wrong by rounding to eighths and the second wrong
+ * always, since an icon cannot know where the sun is.
+ */
+function ringArea(geometry: GeoJSON.Geometry): number {
+    const polygons = geometry.type === 'Polygon'
+        ? [(geometry as GeoJSON.Polygon).coordinates]
+        : (geometry as GeoJSON.MultiPolygon).coordinates;
+    let total = 0;
+    for (const polygon of polygons) {
+        const ring = polygon[0];
+        let twiceArea = 0;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            twiceArea += ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1];
+        }
+        total += Math.abs(twiceArea / 2);
+    }
+    return total;
+}
+
+test('the lit area of the drawn moon is the illuminated fraction', () => {
+    for (const iso of [
+        '2026-01-18T12:00:00Z', // new
+        '2026-01-26T12:00:00Z', // first quarter
+        '2026-02-01T12:00:00Z', // waxing gibbous
+        '2026-01-03T12:00:00Z', // full
+        '2026-01-10T12:00:00Z', // last quarter
+    ]) {
+        const at = new Date(iso);
+        const { illumination } = moonPosition(at);
+        const [disc, lit] = moonPhaseDisc(at).features;
+        const drawn = ringArea(lit.geometry) / ringArea(disc.geometry);
+        assert.ok(Math.abs(drawn - illumination) < 0.05,
+            `${iso}: drew ${(drawn * 100).toFixed(1)}% lit for an illumination of ${(illumination * 100).toFixed(1)}%`);
+    }
+});
+
+/**
+ * Where the lit shape sits, not just how big it is.
+ *
+ * Area alone cannot catch an orientation bug: a lit half turned 90° from the
+ * sun has exactly the same area as the right one, and looks like a moon split
+ * down the middle rather than a crescent. Measured along the moon-to-sun axis,
+ * a crescent reaches all the way to the sun-facing rim and barely past the
+ * middle, while a gibbous moon reaches nearly to the far rim.
+ */
+test('the lit shape lies on the sun side, and is a crescent when it should be', () => {
+    const DEGREES = Math.PI / 180;
+    const RADIUS = 7;
+
+    /** How far a point lies towards the sun, in disc radii: 1 is the near rim, -1 the far one. */
+    const towardsSun = (lon: number, lat: number, moonLon: number, moonLat: number, sunBearing: number) => {
+        const dLon = (lon - moonLon) * DEGREES;
+        const y = Math.sin(dLon) * Math.cos(lat * DEGREES);
+        const x = Math.cos(moonLat * DEGREES) * Math.sin(lat * DEGREES)
+            - Math.sin(moonLat * DEGREES) * Math.cos(lat * DEGREES) * Math.cos(dLon);
+        const bearing = Math.atan2(y, x) / DEGREES;
+        const cos = Math.sin(moonLat * DEGREES) * Math.sin(lat * DEGREES)
+            + Math.cos(moonLat * DEGREES) * Math.cos(lat * DEGREES) * Math.cos(dLon);
+        const distance = Math.acos(Math.min(1, Math.max(-1, cos))) / DEGREES;
+        return (distance / RADIUS) * Math.cos((bearing - sunBearing) * DEGREES);
+    };
+
+    const reach = (iso: string) => {
+        const at = new Date(iso);
+        const moon = moonPosition(at);
+        const sun = subsolarPoint(at);
+        const dLon = (sun.lon - moon.lon) * DEGREES;
+        const sunBearing = Math.atan2(
+            Math.sin(dLon) * Math.cos(sun.lat * DEGREES),
+            Math.cos(moon.lat * DEGREES) * Math.sin(sun.lat * DEGREES)
+                - Math.sin(moon.lat * DEGREES) * Math.cos(sun.lat * DEGREES) * Math.cos(dLon),
+        ) / DEGREES;
+
+        const geometry = moonPhaseDisc(at).features[1].geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon;
+        const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates;
+        const values = polygons.flatMap((polygon) => polygon[0]
+            .map(([lon, lat]) => towardsSun(lon, lat, moon.lon, moon.lat, sunBearing)));
+        return { near: Math.max(...values), far: Math.min(...values), illumination: moon.illumination };
+    };
+
+    const crescent = reach('2026-01-20T12:00:00Z');
+    assert.ok(crescent.illumination < 0.1, `expected a thin crescent, got ${crescent.illumination}`);
+    assert.ok(crescent.near > 0.9, `a crescent should touch the sun-facing rim, reached ${crescent.near.toFixed(2)}`);
+    assert.ok(crescent.far > -0.2, `a crescent should not reach the far side, reached ${crescent.far.toFixed(2)}`);
+
+    const gibbous = reach('2026-01-29T12:00:00Z');
+    assert.ok(gibbous.illumination > 0.8, `expected a gibbous moon, got ${gibbous.illumination}`);
+    assert.ok(gibbous.far < -0.5, `a gibbous moon should reach past the middle, reached ${gibbous.far.toFixed(2)}`);
+});
+
+test('a new moon draws nothing lit, a full moon draws the whole disc', () => {
+    const newMoon = moonPhaseDisc(new Date('2026-01-18T12:00:00Z')).features[1];
+    assert.ok(ringArea(newMoon.geometry) < 0.01, 'a new moon should be dark');
+
+    const [disc, lit] = moonPhaseDisc(new Date('2026-01-03T12:00:00Z')).features;
+    assert.ok(ringArea(lit.geometry) / ringArea(disc.geometry) > 0.95, 'a full moon should be lit all over');
+});
+
+/**
+ * The moon's track over a month, which is where its north-south swing becomes
+ * one picture rather than a dot that has to be watched.
+ *
+ * The swing itself is the assertion worth making: 5.1° of orbital tilt against
+ * 23.4° of the Earth's, adding or partly cancelling as the orbit's nodes turn
+ * round over 18.6 years. 2024 is a major standstill and 2034 a minor one, so
+ * the same month drawn ten years apart reaches ten degrees further.
+ */
+test('the moon path swings from tropic to tropic, by an amount that depends on the decade', () => {
+    const wide = moonPathLines(new Date('2024-06-01T00:00:00Z')).features[0];
+    const narrow = moonPathLines(new Date('2034-06-01T00:00:00Z')).features[0];
+
+    const north = (feature: GeoJSON.Feature) => (feature.properties as any).northernmost as number;
+    const south = (feature: GeoJSON.Feature) => (feature.properties as any).southernmost as number;
+
+    assert.ok(north(wide) > 28 && north(wide) < 29, `major standstill reached ${north(wide)}`);
+    assert.ok(north(narrow) > 18 && north(narrow) < 19, `minor standstill reached ${north(narrow)}`);
+    // Symmetric about the equator, because the tilt is about the orbit, not the Earth.
+    assert.ok(Math.abs(north(wide) + south(wide)) < 0.5, 'the swing should be symmetric');
+});
+
+test('the moon path is cut at the antimeridian and left open', () => {
+    const track = moonPathLines(new Date('2026-01-01T00:00:00Z')).features[0];
+    const lines = (track.geometry as GeoJSON.MultiLineString).coordinates;
+    // A month is about 28 westward laps, so about that many pieces.
+    assert.ok(lines.length > 20 && lines.length < 35, `${lines.length} pieces`);
+
+    for (const line of lines) {
+        for (let i = 1; i < line.length; i++) {
+            assert.ok(Math.abs(line[i][0] - line[i - 1][0]) < 180,
+                `a segment spans the seam: ${line[i - 1][0]} to ${line[i][0]}`);
+        }
+        // Open, not closed: a track has ends, and closing it would draw lenses.
+        const [first] = line;
+        const last = line[line.length - 1];
+        assert.ok(first[0] !== last[0] || first[1] !== last[1], 'the track should not be closed');
     }
 });

@@ -45,6 +45,15 @@ import {
 
 /** How far either side of today the date slider reaches. */
 const DATE_RANGE_DAYS = 183;
+/**
+ * How far the year picker reaches either way.
+ *
+ * The sliders cover a year between them, which is the right grain for a day and
+ * a season but no use for anything that plays out over longer — the moon's
+ * north-south swing runs on an 18.6-year cycle, so 2024 and 2034 look quite
+ * different. Twenty years covers one of those, which is the point of having it.
+ */
+const YEAR_RANGE = 10;
 
 /**
  * How fast play moves the map, and whether it does so smoothly.
@@ -133,7 +142,7 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
             margin-bottom: 0.25rem;
         }
         .row .value { font-variant-numeric: tabular-nums; }
-        input[type="range"] { width: 100%; box-sizing: border-box; }
+        input[type="range"], select { width: 100%; box-sizing: border-box; }
         .controls { display: flex; align-items: center; gap: 0.5rem; }
         .controls .play {
             display: inline-flex;
@@ -144,7 +153,7 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
             line-height: 0;
         }
         .controls .per { color: var(--color-text-secondary, #5a6773); white-space: nowrap; }
-        .controls select { flex: 1; min-width: 0; }
+        .controls select { flex: 1; min-width: 0; width: auto; }
         .hint {
             margin-top: 0.75rem;
             font-size: 0.8125rem;
@@ -222,6 +231,19 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
 
     private pinTo(at: number): void {
         this.setMapTime({ mode: 'pinned', at });
+    }
+
+    /**
+     * Jumps to the same date and time in another year.
+     *
+     * The date slider is measured from `origin`, so that moves with it —
+     * otherwise picking a year ten back would leave the thumb pinned against an
+     * end it can never come away from.
+     */
+    private setYear(year: number): void {
+        const at = shiftYears(this.shownAt, year - new Date(this.shownAt).getUTCFullYear());
+        this.origin = at;
+        this.pinTo(at);
     }
 
     private togglePlay(): void {
@@ -325,6 +347,11 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
             dateStyle: 'medium',
             timeStyle: 'short',
         });
+        const shownYear = new Date(at).getUTCFullYear();
+        // Centred on the year showing rather than on this year, so stepping ten
+        // years out and then ten more is possible without leaving the picker.
+        const years: number[] = [];
+        for (let year = shownYear - YEAR_RANGE; year <= shownYear + YEAR_RANGE; year++) years.push(year);
 
         return html`
             <div class="now">
@@ -336,6 +363,17 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
             <div class="moment">
                 ${formatUtcDate(at)} ${formatMinute(minute)} UTC
                 <span class="local">${local} local</span>
+            </div>
+
+            <div class="row ${live ? 'disabled' : ''}">
+                <label for="time-year">
+                    <span>Year</span>
+                </label>
+                <select id="time-year" ?disabled=${live}
+                    @change=${(e: Event) => this.setYear(Number((e.target as HTMLSelectElement).value))}>
+                    ${years.map((year) => html`
+                        <option value=${year} ?selected=${year === shownYear}>${year}</option>`)}
+                </select>
             </div>
 
             <div class="row ${live ? 'disabled' : ''}">
