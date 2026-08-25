@@ -74,3 +74,49 @@ test('a watched source is silenced for the spinner, and only until its last laye
     refresher.unwatch('b');
     assert.deepEqual(silenced[silenced.length - 1], ['sun', false]);
 });
+
+/**
+ * A pinned map has no wall clock, so `?refresh=auto` has nothing to keep up
+ * with. The loop stops outright rather than redrawing the same instant forever;
+ * the adapter redraws those sources once when the slider moves.
+ */
+test('the refresh loop stops while the map clock is pinned', () => {
+    const frames: Array<() => void> = [];
+    const originalRaf = globalThis.requestAnimationFrame;
+    const originalCaf = globalThis.cancelAnimationFrame;
+    let cancelled = 0;
+    globalThis.requestAnimationFrame = ((fn: () => void) => {
+        frames.push(fn);
+        return frames.length;
+    }) as never;
+    globalThis.cancelAnimationFrame = (() => { cancelled += 1; }) as never;
+
+    try {
+        const refresher = new InternalSourceRefresher({
+            getSource: () => undefined,
+            getZoom: () => 3,
+            getCentreLatitude: () => 0,
+            setSourceSilent: () => {},
+            store: { getState: () => ({ mapLayers: {} }) } as never,
+        });
+
+        refresher.watch('a', [{ sourceId: 'sun', url: 'internalfunc://sun-position?refresh=auto' }]);
+        assert.equal(frames.length, 1, 'a live map runs the loop');
+
+        refresher.setLive(false);
+        assert.equal(cancelled, 1, 'pinning stops the loop');
+
+        // A layer added while pinned must not restart it.
+        refresher.watch('b', [{ sourceId: 'moon', url: 'internalfunc://moon-position?refresh=auto' }]);
+        assert.equal(frames.length, 1, 'watching while pinned does not start the loop');
+
+        refresher.setLive(true);
+        assert.equal(frames.length, 2, 'going live starts it again');
+        // Setting the same state twice is not a second start.
+        refresher.setLive(true);
+        assert.equal(frames.length, 2);
+    } finally {
+        globalThis.requestAnimationFrame = originalRaf;
+        globalThis.cancelAnimationFrame = originalCaf;
+    }
+});

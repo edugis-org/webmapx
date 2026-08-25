@@ -122,10 +122,11 @@ for (const when of [
                 const altitude = solarAltitude(lon, lat, when);
                 // Points within a tenth of a degree of a boundary are the ring
                 // itself; which side they fall on is not a fact worth asserting.
-                const boundaries = [-0.833, -6, -12, -18];
+                const boundaries = [0.833, -0.833, -6, -12, -18];
                 if (boundaries.some((edge) => Math.abs(altitude - edge) < 0.15)) continue;
 
-                const expected = altitude > -0.833 ? null
+                const expected = altitude > 0.833 ? null
+                    : altitude > -0.833 ? 'sunset'
                     : altitude > -6 ? 'civil'
                     : altitude > -12 ? 'nautical'
                     : altitude > -18 ? 'astronomical'

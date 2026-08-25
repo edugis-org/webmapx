@@ -30,6 +30,7 @@ export class MapStateStore {
         attributeMetadata: {},
         activeTool: null,
         terrainEnabled: false,
+        mapTime: { mode: 'live' },
     };
     private listeners: Listener[] = [];
 

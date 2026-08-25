@@ -8,7 +8,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { axialTilt, dayLengthLines, solarAltitude, subsolarPoint } from '../src/utils/solar';
+import { axialTilt, dayLengthLines, daylightBands, solarAltitude, subsolarPoint } from '../src/utils/solar';
 import { graticule, referenceCircles } from '../src/utils/graticule';
 import { antipode, destination, greatCircleRoute, rangeRings, tissotIndicatrix } from '../src/utils/geodesy-features';
 import { moonPosition, phaseName } from '../src/utils/moon';
@@ -216,4 +216,155 @@ test('the subsolar point and the graticule agree about the equator', () => {
     assert.ok(Math.abs(subsolarPoint(equinox).lat) < 0.02);
     const equator = referenceCircles(equinox).features.find((f) => f.properties?.id === 'equator');
     assert.equal(equator?.properties?.latitude, 0);
+});
+
+/**
+ * The seam is a line, not a wedge.
+ *
+ * A cap ring is walked as a cycle, so one of its antimeridian crossings can
+ * fall on the step from the last sampled point back to the first. Treating the
+ * ring as a line loses that crossing's two seam points: the piece is closed
+ * straight across instead, and a strip along ±180 drops out of the band. It is
+ * most visible near an equinox, when the antisolar point passes close to the
+ * antimeridian — 22 September 2026 11:20 UTC is such a moment.
+ *
+ * Checked by asking the polygon the question the polygon exists to answer —
+ * is this point in darkness — and comparing with the angular distance from the
+ * antisolar point, which is what darkness *is*. Before the fix this reported
+ * hundreds of points along the seam as lit when they were not.
+ */
+test('a daylight band has no gap along the antimeridian', () => {
+    const at = new Date('2026-09-22T11:20:00Z');
+    const sun = subsolarPoint(at);
+    const antiLon = ((sun.lon + 180 + 540) % 360) - 180;
+    const antiLat = -sun.lat;
+    const night = daylightBands(at).features.find((f) => (f.properties as any).id === 'night')!;
+    // `night` runs from an 18° depression down, so its edge is 90 + 18 from the
+    // antisolar point.
+    const radius = 108 - 36;
+
+    const inRing = (ring: number[][], x: number, y: number): boolean => {
+        let inside = false;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const [xi, yi] = ring[i];
+            const [xj, yj] = ring[j];
+            if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+        }
+        return inside;
+    };
+    const covers = (x: number, y: number): boolean => {
+        const geometry = night.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon;
+        const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates;
+        return polygons.some((poly) => inRing(poly[0], x, y)
+            && !poly.slice(1).some((hole) => inRing(hole, x, y)));
+    };
+    const DEG = Math.PI / 180;
+    const distance = (lon: number, lat: number): number => {
+        const cos = Math.sin(antiLat * DEG) * Math.sin(lat * DEG)
+            + Math.cos(antiLat * DEG) * Math.cos(lat * DEG) * Math.cos((lon - antiLon) * DEG);
+        return Math.acos(Math.min(1, Math.max(-1, cos))) / DEG;
+    };
+
+    // A dense line of samples either side of the seam, which is where the wedge was.
+    const wrong: string[] = [];
+    for (let lat = -85; lat <= 85; lat += 0.5) {
+        for (const lon of [-179.99, -179.9, -179.5, -179, 179, 179.5, 179.9, 179.99]) {
+            const d = distance(lon, lat);
+            // Skip the edge itself: which side of it a sampled ring falls on is
+            // a matter of the sampling step, not of the seam.
+            if (Math.abs(d - radius) < 0.5) continue;
+            if (covers(lon, lat) !== (d < radius)) wrong.push(`${lon},${lat.toFixed(1)}`);
+        }
+    }
+    assert.deepEqual(wrong, [], `points misreported along the antimeridian: ${wrong.slice(0, 5).join(' ')}`);
+});
+
+/**
+ * The twilight bands are rings, and a ring cut at the seam keeps its hole.
+ *
+ * Each band is an outer cap with the next band's cap as a hole. Cutting both at
+ * the antimeridian gives two outer pieces and two holes, and the hole was
+ * matched to its piece by testing the hole's *first* vertex — which, for a cut
+ * ring, sits exactly on ±180 and so lies on the boundary of the very piece it
+ * is being tested against. Ray casting answers that either way: one side kept
+ * its hole, the other lost it and drew its whole cap, so night, astronomical
+ * and nautical twilight were painted on top of each other down one side.
+ */
+test('daylight bands do not overlap where they cross the antimeridian', () => {
+    const at = new Date('2026-09-22T11:20:00Z');
+    const bands = daylightBands(at).features;
+
+    const inRing = (ring: number[][], x: number, y: number): boolean => {
+        let inside = false;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const [xi, yi] = ring[i];
+            const [xj, yj] = ring[j];
+            if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+        }
+        return inside;
+    };
+    const covers = (feature: GeoJSON.Feature, x: number, y: number): boolean => {
+        const geometry = feature.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon;
+        const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates;
+        return polygons.some((poly) => inRing(poly[0], x, y)
+            && !poly.slice(1).some((hole) => inRing(hole, x, y)));
+    };
+
+    // Both sides of the seam, since only one of them lost its hole.
+    const overlaps: string[] = [];
+    for (let lat = -85; lat <= 85; lat += 2.5) {
+        for (let lon = -180; lon <= 180; lon += 2.5) {
+            const hit = bands.filter((band) => covers(band, lon, lat));
+            if (hit.length > 1) {
+                overlaps.push(`${lon},${lat}: ${hit.map((b) => (b.properties as any).id).join('+')}`);
+            }
+        }
+    }
+    assert.deepEqual(overlaps, [], `bands overlap: ${overlaps.slice(0, 5).join(' ')}`);
+});
+
+/**
+ * The sunset band is the disagreement between two definitions of sunset.
+ *
+ * The polar circles are geometric: at a solstice they are exactly where the
+ * sun's centre grazes the horizon at local midnight. Sunset as everyone
+ * observes it is the sun's upper limb going, refraction included, which is
+ * 0.833° further on — and that gap is why the day side reaches past the circles
+ * and the picture looks wrong to anyone who knows where the Arctic Circle is.
+ *
+ * So the band straddles the geometric horizon rather than sitting under it, and
+ * its middle *is* the polar circle at a solstice. That is the claim under test,
+ * and it is worth testing because it only holds if the band stays symmetric
+ * about altitude zero.
+ */
+test('the sunset band is centred on the polar circle at a solstice', () => {
+    for (const iso of ['2026-06-21T12:00:00Z', '2026-12-21T12:00:00Z']) {
+        const at = new Date(iso);
+        const circle = 90 - axialTilt(at);
+        const northern = subsolarPoint(at).lat > 0;
+        const band = daylightBands(at).features.find((f) => (f.properties as any).id === 'sunset')!;
+        const geometry = band.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon;
+        const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates;
+
+        // The band's two edges at the extreme the lit pole is on: the outer ring
+        // and the hole, at their furthest reach.
+        const pick = (ring: number[][]) => (northern
+            ? Math.max(...ring.map(([, lat]) => lat))
+            : Math.min(...ring.map(([, lat]) => lat)));
+        const outer = northern
+            ? Math.max(...polygons.map((poly) => pick(poly[0])))
+            : Math.min(...polygons.map((poly) => pick(poly[0])));
+        const inner = northern
+            ? Math.max(...polygons.filter((poly) => poly[1]).map((poly) => pick(poly[1])))
+            : Math.min(...polygons.filter((poly) => poly[1]).map((poly) => pick(poly[1])));
+
+        const middle = (outer + inner) / 2;
+        const expected = northern ? circle : -circle;
+        assert.ok(
+            Math.abs(middle - expected) < 0.01,
+            `${iso}: band middle ${middle.toFixed(4)} against the polar circle ${expected.toFixed(4)}`,
+        );
+        // And it really is a band around the horizon, not one below it.
+        assert.ok(Math.abs(Math.abs(outer - inner) - 2 * 0.833) < 0.01, `${iso}: band width`);
+    }
 });

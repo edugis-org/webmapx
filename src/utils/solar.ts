@@ -19,6 +19,16 @@ const DEG = Math.PI / 180;
 export const SOLAR_ALTITUDES = {
     /** The sun's upper limb at the horizon, refraction included. */
     sunset: -0.833,
+    /**
+     * The sun's centre on the horizon, refraction ignored.
+     *
+     * The geometric definition, and the one the polar circles are drawn from:
+     * at a solstice the Arctic and Antarctic Circles are exactly where the sun's
+     * centre grazes the horizon at local midnight. `sunset` differs from it by
+     * the sun's own radius plus atmospheric refraction, which is why the day
+     * side reaches about 0.83° past the circles.
+     */
+    horizon: 0,
     civil: -6,
     nautical: -12,
     astronomical: -18,
@@ -193,43 +203,75 @@ function splitAtAntimeridian(raw: Array<[number, number]>): number[][][] {
     // around the antimeridian runs 160 → 200 and never appears to cross
     // anything until it is folded back into range.
     const normalised: Array<[number, number]> = raw.map(([lon, lat]) => [normaliseLon(lon), lat]);
-    // Rotated to begin just after a crossing. A ring that starts in the middle
-    // of a piece leaves its first and last stretches as two fragments of one
-    // piece — three parts where there are two.
     const closed = normalised.length > 1
         && normalised[0][0] === normalised[normalised.length - 1][0]
         && normalised[0][1] === normalised[normalised.length - 1][1];
     const loop = closed ? normalised.slice(0, -1) : normalised;
-    let start = 0;
-    for (let i = 1; i < loop.length; i++) {
-        if (Math.abs(loop[i][0] - loop[i - 1][0]) > 180) { start = i; break; }
-    }
-    const points = start === 0 ? loop : [...loop.slice(start), ...loop.slice(0, start)];
-    const parts: number[][][] = [];
-    let current: number[][] = [];
-    for (let i = 0; i < points.length; i++) {
-        const [lon, lat] = points[i];
-        if (i > 0) {
-            const previous = points[i - 1];
-            if (Math.abs(lon - previous[0]) > 180) {
-                // Meet the edge on both sides, interpolating the latitude so the
-                // two halves join at the same point on the seam.
-                const edge = previous[0] > 0 ? 180 : -180;
-                const span = Math.abs(lon - previous[0]);
-                const share = Math.abs(edge - previous[0]) / (360 - span);
-                const seamLat = previous[1] + (lat - previous[1]) * share;
-                current.push([edge, seamLat]);
-                parts.push(closeRing(current));
-                current = [[-edge, seamLat]];
-            }
-        }
-        current.push([normaliseLon(lon), lat]);
-    }
-    if (current.length > 2) parts.push(closeRing(current));
+    const n = loop.length;
+    if (n < 2) return [closeRing(loop.map(([lon, lat]) => [lon, lat]))];
 
-    // Two halves of one ring are still one ring where they were cut: joining
-    // them back up along the seam is what keeps each half a closed polygon.
-    return parts.length > 0 ? parts : [closeRing(points.map(([lon, lat]) => [normaliseLon(lon), lat]))];
+    // Where the walk jumps the seam, counted round the ring as a *cycle* — the
+    // step from the last point back to the first is an edge like any other.
+    // Treating the ring as a line instead loses the crossing that happens to
+    // fall at the join: its two seam points are never inserted, the piece is
+    // closed straight across open water, and the seam shows as a wedge several
+    // degrees wide rather than as a line. Near an equinox, with the antisolar
+    // point close to the antimeridian, that wedge is exactly where the eye is.
+    const crossings: number[] = [];
+    for (let i = 0; i < n; i++) {
+        const previous = loop[(i - 1 + n) % n];
+        if (Math.abs(loop[i][0] - previous[0]) > 180) crossings.push(i);
+    }
+    if (crossings.length === 0) return [closeRing(loop.map(([lon, lat]) => [lon, lat]))];
+
+    /** The seam this crossing meets, and the latitude both sides meet it at. */
+    const seamAt = (i: number): { edge: number; lat: number } => {
+        const previous = loop[(i - 1 + n) % n];
+        const [lon, lat] = loop[i];
+        const edge = previous[0] > 0 ? 180 : -180;
+        const span = Math.abs(lon - previous[0]);
+        const share = Math.abs(edge - previous[0]) / (360 - span);
+        return { edge, lat: previous[1] + (lat - previous[1]) * share };
+    };
+
+    // One piece per stretch between consecutive crossings, each one closed on
+    // the seam at both ends: it enters on one side and leaves on the other.
+    const parts: number[][][] = [];
+    for (let k = 0; k < crossings.length; k++) {
+        const from = crossings[k];
+        const to = crossings[(k + 1) % crossings.length];
+        const entry = seamAt(from);
+        const exit = seamAt(to);
+        const piece: number[][] = [[-entry.edge, entry.lat]];
+        for (let step = 0; step < n; step++) {
+            const index = (from + step) % n;
+            if (step > 0 && index === to) break;
+            piece.push([loop[index][0], loop[index][1]]);
+        }
+        piece.push([exit.edge, exit.lat]);
+        parts.push(closeRing(piece));
+    }
+    return parts;
+}
+
+/**
+ * A point on a ring that says which side of the seam the ring is on.
+ *
+ * The vertex furthest from ±180 in longitude: every cut ring has its first and
+ * last points exactly on the seam, and those are the ones no containment test
+ * can answer reliably.
+ */
+function insidePoint(ring: number[][]): number[] {
+    let best = ring[0];
+    let bestDistance = -1;
+    for (const point of ring) {
+        const distance = 180 - Math.abs(point[0]);
+        if (distance > bestDistance) {
+            bestDistance = distance;
+            best = point;
+        }
+    }
+    return best;
 }
 
 /** Ray casting, for deciding which piece of a cut ring a hole belongs to. */
@@ -261,11 +303,53 @@ export interface DaylightBand {
 }
 
 export const DAYLIGHT_BANDS: DaylightBand[] = [
+    // Sunset straddles the geometric horizon rather than sitting under it, so
+    // its middle is the line where the sun's centre is level with the horizon —
+    // and at a solstice that line *is* the polar circle. The band is the width
+    // of the disagreement between the two definitions of sunset: the sun's own
+    // radius plus refraction either side, so its lower edge is the moment the
+    // upper limb goes, its upper edge the moment it starts to touch.
+    {
+        id: 'sunset',
+        description: 'Sunrise and sunset',
+        from: -SOLAR_ALTITUDES.sunset,
+        to: SOLAR_ALTITUDES.sunset,
+    },
     { id: 'civil', description: 'Civil twilight', from: SOLAR_ALTITUDES.sunset, to: SOLAR_ALTITUDES.civil },
     { id: 'nautical', description: 'Nautical twilight', from: SOLAR_ALTITUDES.civil, to: SOLAR_ALTITUDES.nautical },
     { id: 'astronomical', description: 'Astronomical twilight', from: SOLAR_ALTITUDES.nautical, to: SOLAR_ALTITUDES.astronomical },
     { id: 'night', description: 'Night', from: SOLAR_ALTITUDES.astronomical, to: -90 },
 ];
+
+/**
+ * The ring between two caps about one centre, as polygons with holes.
+ *
+ * A hole only belongs to the piece that contains it: when either cap has been
+ * cut at the seam they are separate polygons, and the hole is carried by
+ * whichever outer ring encloses it. Which piece that is has to be decided from
+ * a vertex *away* from the seam — a cut ring starts and ends exactly on ±180,
+ * and a point on the boundary of the piece it is tested against answers ray
+ * casting either way. Testing the hole's first vertex matched one side and not
+ * the other, the unmatched hole was dropped, and that half of the band covered
+ * its whole cap: nautical, astronomical and night drawn on top of each other
+ * down one side of the antimeridian.
+ */
+function annulusPolygons(
+    centreLon: number,
+    centreLat: number,
+    outer: number,
+    inner: number,
+): number[][][][] {
+    const polygons: number[][][][] = sphericalCapRings(centreLon, centreLat, Math.max(outer, 0))
+        .map((ring) => [ring]);
+    if (inner <= 0) return polygons;
+
+    for (const hole of sphericalCapRings(centreLon, centreLat, inner)) {
+        const owner = polygons.find((rings) => ringContains(rings[0], insidePoint(hole)));
+        if (owner) owner.push(hole.slice().reverse());
+    }
+    return polygons;
+}
 
 /**
  * The night and twilight bands for a moment, as GeoJSON.
@@ -289,20 +373,25 @@ export function daylightBands(date: Date = new Date()): GeoJSON.FeatureCollectio
         // 90 + to — the first of which is the larger, the outer one.
         const outer = 90 + band.from;
         const inner = 90 + band.to;
-        const rings = sphericalCapRings(antiLon, antiLat, Math.max(outer, 0));
-        const holes = inner <= 0 ? [] : sphericalCapRings(antiLon, antiLat, inner);
 
-        // Rings and holes are both simple caps here, so a band is the outer cap
-        // with the inner one as a hole — except night, which has no hole.
-        const polygons: number[][][][] = rings.map((ring) => [ring]);
-        // A hole only belongs to the piece that contains it; when either side
-        // has been cut at the seam they are separate polygons and the hole is
-        // carried by whichever outer ring encloses it.
-        for (const hole of holes) {
-            const owner = polygons.find((rings2) => ringContains(rings2[0], hole[0]));
-            if (owner) owner.push(hole.slice().reverse());
-        }
-
+        // A cap wider than a hemisphere holds one pole, and a ring can be closed
+        // over one pole. It holds *both* only while the antisolar point is
+        // within `outer - 90` of the equator — for the sunset band that is 0.83°
+        // of declination, so about two days around each equinox — and then a
+        // ring closed over one pole describes the wrong region entirely.
+        const straddlesBothPoles = outer > 90 && Math.abs(antiLat) < outer - 90;
+        const polygons: number[][][][] = straddlesBothPoles
+            // Only for those days: the band is symmetric — a point is in it when
+            // it is further than `inner` from the antisolar point *and* further
+            // than `inner` from the sun — so it can be measured from each end in
+            // turn, giving two halves that meet along the terminator and neither
+            // of which is wider than a hemisphere. The halves are one feature and
+            // the layer draws no outline on this band, so the join is invisible.
+            ? [
+                ...annulusPolygons(antiLon, antiLat, 90, inner),
+                ...annulusPolygons(normaliseLon(antiLon + 180), -antiLat, 90, 180 - outer),
+            ]
+            : annulusPolygons(antiLon, antiLat, outer, inner);
         return {
             type: 'Feature',
             properties: {

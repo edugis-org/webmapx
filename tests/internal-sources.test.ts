@@ -6,11 +6,12 @@ import {
     resolveInternalFuncUrl,
     resolveInternalSources,
 } from '../src/utils/internal-sources';
+import { DAYLIGHT_BANDS } from '../src/utils/solar';
 
 test('an internalfunc url resolves to the data it stands for', () => {
     const bands = resolveInternalFuncUrl('internalfunc://day-night?at=2024-06-21T12:00:00Z');
     assert.equal(bands.type, 'FeatureCollection');
-    assert.equal(bands.features.length, 4);
+    assert.equal(bands.features.length, DAYLIGHT_BANDS.length);
     assert.equal(bands.features[0].properties?.timestamp, '2024-06-21T12:00:00.000Z');
 });
 
@@ -44,7 +45,7 @@ test('a layer config has its computed sources replaced, at any depth', () => {
     };
 
     assert.equal(typeof resolved.sources.daynight.data, 'object');
-    assert.equal(resolved.sources.daynight.data.features.length, 4);
+    assert.equal(resolved.sources.daynight.data.features.length, DAYLIGHT_BANDS.length);
     // Everything else is left exactly as it was.
     assert.equal(resolved.sources.static.data, 'https://example.org/x.geojson');
     assert.deepEqual(resolved.layers, layer.layers);

@@ -2677,12 +2677,21 @@
             "#3949ab",
             "civil",
             "#90caf9",
+            "sunset",
+            "#E9A97A",
             "#cccccc"
           ],
-          "fill-opacity": 0.45,
-          "fill-outline-color": "#000000"
+          "fill-opacity": 1,
+          "fill-outline-color": [
+            "match",
+            ["get", "id"],
+            "sunset",
+            "#E9A97A",
+            "#000000"
+          ]
         },
         "metadata": {
+          "transparency": 45,
           "title": "Day, twilight and night (computed)",
           "abstract": "Night and the three twilights, right now. Computed from the date and time rather than fetched, and redrawn continuously as the Earth turns: the whole picture slides west at 464 metres a second on the equator, gliding at street zoom and barely stirring at world zoom. Where the bands lie north to south is a matter of the date — in June the night side does not reach the Arctic at all — and where they lie east to west is a matter of the time. The bands are set by how far the sun is below the horizon. Civil twilight, down to 6 degrees below, is still bright enough to read outdoors and to make out the horizon at sea. Nautical twilight, 6 to 12 degrees, brings out the brighter stars while the horizon can just be seen — the two together are what a sextant needs, and where the name comes from. Astronomical twilight, 12 to 18 degrees, looks dark but still washes out the faintest stars. Below 18 degrees is full night.",
           "attributes": {
@@ -2691,6 +2700,18 @@
                 "name": "description",
                 "translation": "zone",
                 "unit": ""
+              },
+              {
+                "name": "id",
+                "translation": "zone",
+                "unit": "",
+                "valuemap": [
+                  { "value": "sunset", "label": "Sunrise and sunset" },
+                  { "value": "civil", "label": "Civil twilight" },
+                  { "value": "nautical", "label": "Nautical twilight" },
+                  { "value": "astronomical", "label": "Astronomical twilight" },
+                  { "value": "night", "label": "Night" }
+                ]
               }
             ]
           }
@@ -3330,6 +3351,14 @@
               ]
             }
           ]
+        },
+        {
+          "id": "timeSlider",
+          "type": "timeSlider",
+          "enabled": true,
+          "title": "Time",
+          "icon": "clock",
+          "keywords": ["time", "date", "clock", "sun", "moon", "season", "daylight"]
         },
         {
           "type": "spacer",

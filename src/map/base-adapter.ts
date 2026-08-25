@@ -20,11 +20,19 @@ import type {
 } from './IMapInterfaces';
 import type { CompositeStyleLayerConfig, MapStyle } from '../config/types';
 import type { LngLat, Pixel } from '../store/map-events';
-import type { MapProjectionState } from '../store/IMapState';
+import type { MapProjectionState, MapTimeState } from '../store/IMapState';
 import { MapEventBus } from '../store/map-events';
 import type { DeferredLogicalLayerExecutor } from './logical-layer-executor';
 import { ensureApiKeysLoaded, substituteApiKeysDeep } from '../config/apikeys';
-import { collectRefreshableSources, isInternalFuncUrl, resolveInternalSources } from '../utils/internal-sources';
+import {
+    collectComputedSources,
+    collectRefreshableSources,
+    followsMapClock,
+    isInternalFuncUrl,
+    resolveInternalFuncUrl,
+    resolveInternalSources,
+} from '../utils/internal-sources';
+import { isLive, isSamePinnedTime, timeOf } from '../utils/map-clock';
 import { InternalSourceRefresher } from './internal-source-refresh';
 import { normalizeCompositeLayer, findNormalizedSource } from './composite-layer-utils';
 
@@ -73,13 +81,94 @@ export abstract class BaseAdapter {
      */
     private refresher: InternalSourceRefresher | null = null;
     /**
-     * Computed sources that asked to keep themselves current, by source id.
+     * Every computed source on this map, by source id.
      *
      * A configuration usually declares its sources next to its layers rather
      * than inside them, so by the time a layer arrives it names a source it does
      * not carry — this is where that name is turned back into the url behind it.
+     *
+     * Holds *all* of them, not only the `?refresh=auto` ones: a source that
+     * never refreshes itself still has to be recomputed when the map's clock
+     * moves to another moment.
      */
     private computedSources = new Map<string, string>();
+    /** What the clock said last time, so an unrelated store update costs nothing. */
+    private lastSeenMapTime: MapTimeState | undefined;
+
+    /**
+     * The moment this map's computed layers are drawn for.
+     *
+     * Read from the store on every use rather than cached: a time slider moves
+     * it, and a cached clock would keep serving the moment a layer happened to
+     * be added at.
+     */
+    protected clockNow(): Date {
+        return timeOf(this.store.getState().mapTime);
+    }
+
+    /**
+     * Reacts to the map's clock being moved.
+     *
+     * Two things follow from a clock change, and they are separate: pinned time
+     * silences the refresh loop entirely (`?refresh=auto` is a wall-clock idea,
+     * and a frozen map has no wall clock), and every computed source is redrawn
+     * once for the new moment — including the ones that never refresh on their
+     * own, which is the whole reason a slider can move a `sun-path` layer.
+     *
+     * Any store update runs this, so unchanged clocks are filtered out here
+     * rather than at every dispatch site. `live` never compares equal to
+     * `live`, so the first update after going live still restarts the loop.
+     */
+    private onMapTimeChanged(next: MapTimeState | undefined): void {
+        const previous = this.lastSeenMapTime;
+        if (previous !== undefined && isSamePinnedTime(previous, next)) return;
+        this.lastSeenMapTime = next;
+        this.refresher?.setLive(isLive(next));
+        // Both directions redraw. Going live is not "the loop will handle it":
+        // the loop only touches `?refresh=auto` sources, so a sun-path layer
+        // would otherwise sit at the moment the slider was let go of while the
+        // map claims to be showing now.
+        this.redrawComputedSources();
+    }
+
+    /**
+     * Keeps a computed source out of the busy spinner, for as long as it exists.
+     *
+     * Nothing is fetched for one of these: the data is worked out locally in a
+     * millisecond, so the "loading" the engine reports is not a wait anyone is
+     * having. Reporting it anyway turns the spinner on with every redraw — and
+     * since the engine only turns it off when the map goes idle, a source
+     * redrawn every frame (an animation) or several times a second (a live
+     * day/night layer) leaves the spinner on and apparently stuck.
+     *
+     * The refresher silenced the sources it drives for exactly this reason;
+     * this widens it to every computed source, because a time slider redraws
+     * the ones that never refresh themselves too.
+     */
+    private silenceComputedSource(sourceId: string): void {
+        try {
+            this.suppressBusySignalForSource(sourceId);
+        } catch {
+            // No core yet (a layer added before the engine is up). The redraw
+            // path asserts it again, so nothing is lost.
+        }
+    }
+
+    /** Draws every computed source again for the moment the map now stands at. */
+    private redrawComputedSources(): void {
+        const now = this.clockNow();
+        for (const [sourceId, url] of this.computedSources) {
+            // A url naming its own moment is not ours to move.
+            if (!followsMapClock(url)) continue;
+            const source = this.getSource(sourceId);
+            if (!source?.setData) continue;
+            // Asserted again here rather than trusted: the refresher hands the
+            // spinner back for the sources it was driving when its layer goes,
+            // which would otherwise un-silence a source this still redraws.
+            this.silenceComputedSource(sourceId);
+            source.setData(resolveInternalFuncUrl(url, now));
+        }
+    }
 
     constructor() {
         this.store = new MapStateStore();
@@ -96,6 +185,7 @@ export abstract class BaseAdapter {
             unsubscribe();
             this.store.dispatch({ mapProjection: this.getProjection() }, 'MAP');
         });
+        this.store.subscribe((state) => this.onMapTimeChanged(state.mapTime));
     }
 
     /** Records the `attribution` from a source config (style-spec field) for later lookup. */
@@ -142,10 +232,11 @@ export abstract class BaseAdapter {
     addSource(id: string, config: any): void {
         // `internalFuncUrl` is left behind by whichever step resolved the data.
         const url = config?.internalFuncUrl ?? config?.data ?? config?.url;
-        if (isInternalFuncUrl(url) && new URLSearchParams(url.split('?')[1] ?? '').get('refresh') === 'auto') {
+        if (isInternalFuncUrl(url)) {
             this.computedSources.set(id, url);
+            this.silenceComputedSource(id);
         }
-        config = resolveInternalSources(config);
+        config = resolveInternalSources(config, this.clockNow());
         this.trackSourceAttribution(id, config);
         if (config && typeof config === 'object') {
             this.sourceConfigs.set(id, config as Record<string, unknown>);
@@ -173,10 +264,17 @@ export abstract class BaseAdapter {
         // Which sources asked to keep themselves current has to be read *before*
         // the urls are replaced by the data they stand for: afterwards nothing
         // says the source was computed at all.
-        const refreshable = collectRefreshableSources(layer, layer?.id ?? layer?.metadata?.mapLayerId ?? '');
+        const ownLayerId = layer?.id ?? layer?.metadata?.mapLayerId ?? '';
+        const refreshable = collectRefreshableSources(layer, ownLayerId);
+        // Every computed source the layer carries is remembered, refreshing or
+        // not, so a clock change can recompute the lot.
+        for (const entry of collectComputedSources(layer, ownLayerId)) {
+            this.computedSources.set(entry.sourceId, entry.url);
+            this.silenceComputedSource(entry.sourceId);
+        }
         // A source may be computed rather than fetched (`internalfunc://`).
         // Resolved here, in generic code, so no engine ever sees the protocol.
-        layer = resolveInternalSources(layer);
+        layer = resolveInternalSources(layer, this.clockNow());
 
         // Composite (type: 'style') with populated sources/layers — decompose generically
         // when the engine supports it (decomposeComposite = true).
@@ -585,6 +683,8 @@ export abstract class BaseAdapter {
 
     /** Engine-specific source remove. */
     protected engineRemoveSource(id: string): void {
+        this.computedSources.delete(id);
+        this.unsuppressBusySignalForSource(id);
         this.getCore().removeSource(id);
     }
 

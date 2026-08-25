@@ -40,7 +40,22 @@ export interface IMapState {
      * has no runtime projection support (same tri-state as IMap.getProjection()).
      */
     mapProjection?: MapProjectionState | null;
+    /**
+     * The moment computed layers are drawn for, per map.
+     *
+     * `live` is the default and the behaviour every map had before there was a
+     * time slider: computed sources that asked for it (`?refresh=auto`) keep
+     * themselves current against the wall clock. `pinned` freezes the map on one
+     * instant — the refresh loop stops, `refresh=auto` is ignored, and the only
+     * thing that moves the data is a new `at`.
+     */
+    mapTime: MapTimeState;
 }
+
+export type MapTimeState =
+    | { mode: 'live' }
+    /** `at` is epoch milliseconds — a plain number so the state stays serialisable. */
+    | { mode: 'pinned'; at: number };
 
 export interface MapProjectionState {
     name: string;

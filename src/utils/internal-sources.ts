@@ -62,7 +62,7 @@ export const INTERNAL_FUNC_PROTOCOL = 'internalfunc:';
 export interface InternalSourceParams {
     /** Every parameter as written, so a generator can read its own. */
     query: URLSearchParams;
-    /** `?at=<iso>` if given, otherwise the moment the layer was added. */
+    /** `?at=<iso>` if given, otherwise the moment the map's clock stands at. */
     at: Date;
 }
 
@@ -129,15 +129,35 @@ export const INTERNAL_SOURCES: Record<string, InternalSourceGenerator> = {
     'utm-zones': () => utmZones(),
 };
 
+/** Whether an `internalfunc://` url asked to keep itself current. */
+export function isAutoRefreshing(url: string): boolean {
+    return new URLSearchParams(url.split('?')[1] ?? '').get('refresh') === 'auto';
+}
+
 /**
- * Which of a layer's sources are computed *and* asked to keep themselves
- * current (`?refresh=auto`).
+ * Whether the data behind an `internalfunc://` url depends on the map's clock.
+ *
+ * A url that names its own moment (`?at=`) does not: it means that instant, and
+ * moving a time slider must leave it exactly where it is.
+ */
+export function followsMapClock(url: string): boolean {
+    return !new URLSearchParams(url.split('?')[1] ?? '').get('at');
+}
+
+/**
+ * Every computed source a layer carries, whether or not it refreshes itself.
  *
  * Collected from the layer as written, before the urls are replaced by the data
  * they stand for — afterwards there is nothing left to say a source was
  * computed at all.
+ *
+ * Both halves matter, and for different reasons: `?refresh=auto` decides who
+ * keeps themselves current while the wall clock runs, while *every* computed
+ * source has to be recomputed when the map's clock jumps to another moment. A
+ * `sun-path` layer never refreshes — it is the same picture all day — and still
+ * has to be redrawn when the slider moves six months.
  */
-export function collectRefreshableSources(layer: unknown, layerId: string): Array<{ sourceId: string; url: string }> {
+export function collectComputedSources(layer: unknown, layerId: string): Array<{ sourceId: string; url: string }> {
     const found: Array<{ sourceId: string; url: string }> = [];
     if (!layer || typeof layer !== 'object') return found;
     const sources = (layer as { sources?: Record<string, unknown> }).sources;
@@ -150,7 +170,6 @@ export function collectRefreshableSources(layer: unknown, layerId: string): Arra
         const record = source as { internalFuncUrl?: unknown; data?: unknown; url?: unknown } | null;
         const url = record?.internalFuncUrl ?? record?.data ?? record?.url;
         if (!isInternalFuncUrl(url)) continue;
-        if (new URLSearchParams(url.split('?')[1] ?? '').get('refresh') !== 'auto') continue;
         // Composite layers register their sources under `layerId:key`; a plain
         // one keeps the key it was given. Both spellings are offered, and the
         // caller uses whichever the engine actually knows.
@@ -158,6 +177,11 @@ export function collectRefreshableSources(layer: unknown, layerId: string): Arra
         found.push({ sourceId: key, url });
     }
     return found;
+}
+
+/** The subset of {@link collectComputedSources} that asked for `?refresh=auto`. */
+export function collectRefreshableSources(layer: unknown, layerId: string): Array<{ sourceId: string; url: string }> {
+    return collectComputedSources(layer, layerId).filter((entry) => isAutoRefreshing(entry.url));
 }
 
 export function isInternalFuncUrl(value: unknown): value is string {
@@ -171,7 +195,7 @@ export function isInternalFuncUrl(value: unknown): value is string {
  * one mistyped layer in a configuration should not stop the map from loading,
  * and an empty layer is visible in the legend as the thing to go and fix.
  */
-export function resolveInternalFuncUrl(url: string): GeoJSON.FeatureCollection {
+export function resolveInternalFuncUrl(url: string, now: Date = new Date()): GeoJSON.FeatureCollection {
     const withoutProtocol = url.slice(`${INTERNAL_FUNC_PROTOCOL}//`.length);
     const [name, queryString = ''] = withoutProtocol.split('?');
     const generator = INTERNAL_SOURCES[name];
@@ -180,9 +204,12 @@ export function resolveInternalFuncUrl(url: string): GeoJSON.FeatureCollection {
         return { type: 'FeatureCollection', features: [] };
     }
     const query = new URLSearchParams(queryString);
+    // An explicit `?at=` outranks the map's clock: a config or a story that
+    // names a moment means that moment, and must not drift when a time slider
+    // moves. Everything else is drawn for whenever the map says it is.
     const rawAt = query.get('at');
-    const at = rawAt ? new Date(rawAt) : new Date();
-    return generator({ query, at: Number.isNaN(at.getTime()) ? new Date() : at });
+    const at = rawAt ? new Date(rawAt) : now;
+    return generator({ query, at: Number.isNaN(at.getTime()) ? now : at });
 }
 
 /**
@@ -193,15 +220,15 @@ export function resolveInternalFuncUrl(url: string): GeoJSON.FeatureCollection {
  * source and `url` for one declared the way a raster source is — because a
  * configuration author will reasonably write either.
  */
-export function resolveInternalSources<T>(layer: T): T {
+export function resolveInternalSources<T>(layer: T, now: Date = new Date()): T {
     if (!layer || typeof layer !== 'object') return layer;
-    if (Array.isArray(layer)) return layer.map((entry) => resolveInternalSources(entry)) as unknown as T;
+    if (Array.isArray(layer)) return layer.map((entry) => resolveInternalSources(entry, now)) as unknown as T;
 
     let changed = false;
     const out: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(layer as Record<string, unknown>)) {
         if ((key === 'data' || key === 'url') && isInternalFuncUrl(value)) {
-            out.data = resolveInternalFuncUrl(value);
+            out.data = resolveInternalFuncUrl(value, now);
             // A resolved source is a geojson source whatever it called itself,
             // and it remembers the url it came from so it can be asked again.
             out.type = 'geojson';
@@ -209,7 +236,7 @@ export function resolveInternalSources<T>(layer: T): T {
             changed = true;
             continue;
         }
-        const resolved = resolveInternalSources(value);
+        const resolved = resolveInternalSources(value, now);
         if (resolved !== value) changed = true;
         out[key] = resolved;
     }

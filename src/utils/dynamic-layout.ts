@@ -35,6 +35,8 @@ export const TOOL_ELEMENT_TAGS: Record<string, string> = {
   // One tool now: the projection picker decides what to offer from the engine.
   // The old type keeps working so configurations do not have to be rewritten.
   'view-mode': 'webmapx-projection-tool',
+  timeSlider: 'webmapx-time-slider-tool',
+  'time-slider': 'webmapx-time-slider-tool',
   projection: 'webmapx-projection-tool',
   cartogram: 'webmapx-cartogram-tool',
   '3d': 'webmapx-3d-tool',
@@ -66,6 +68,8 @@ const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = {
   geolocate: { label: 'Geolocation', icon: 'crosshair' },
   'view-mode': { label: 'Projection', icon: 'globe-americas' },
   projection: { label: 'Projection', icon: 'globe-americas' },
+  timeSlider: { label: 'Time', icon: 'clock' },
+  'time-slider': { label: 'Time', icon: 'clock' },
   cartogram: { label: 'Cartogram', icon: 'pie-chart' },
   '3d': { label: '3D', icon: 'box' },
   'import-layer': { label: 'Import layer', icon: 'file-earmark-arrow-up' },
@@ -111,6 +115,7 @@ export const KNOWN_TOOLS: Array<{ id: string; label: string; icon?: string | Too
   { id: 'draw',          label: 'Draw',           icon: 'pencil' },
   { id: 'geolocation',   label: 'Geolocation',    icon: 'crosshair' },
   { id: 'projection',    label: 'Projection',     icon: 'globe-americas' },
+  { id: 'timeSlider',    label: 'Time',           icon: 'clock' },
   { id: 'cartogram',     label: 'Cartogram',      icon: 'pie-chart' },
   { id: '3d',            label: '3D',             icon: 'box' },
   { id: 'import-layer',  label: 'Import layer',   icon: 'file-earmark-arrow-up' },
