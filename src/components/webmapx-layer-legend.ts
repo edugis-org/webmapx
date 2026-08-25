@@ -81,6 +81,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         .sub-group-title { font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary, #5a6773); margin-top: 4px; }
         .sub-row { padding-left: 8px; }
         .editable { cursor: pointer; }
+        output.expression { font-style: italic; opacity: 0.7; }
         .editable:hover { background: var(--color-background-secondary, #f4f6f8); }
         .style-editor {
             display: flex;
@@ -1199,21 +1200,31 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     }
 
     private renderRangeRow(subLayerIds: string[], label: string, key: string, value: number, min: number, max: number, step: number, unit = ''): TemplateResult {
+        // A data-driven paint value (e.g. ["case", ["==", ["get", "hours"], 12], 2, 1.2])
+        // is not a number, so there is no slider position that represents it — callers
+        // hand us NaN for those. Show "expression" instead of "NaNpx" and park the thumb
+        // mid-range; moving it replaces the whole expression with the picked number.
+        const isExpression = !Number.isFinite(value);
+        const sliderValue = isExpression ? (min + max) / 2 : value;
         return html`
             <div class="style-editor-row">
                 <label>${label}
-                    <input type="range" min=${min} max=${max} step=${step} .value=${String(value)}
+                    <input type="range" min=${min} max=${max} step=${step} .value=${String(sliderValue)}
+                        title=${isExpression ? 'Data-driven value — moving this slider replaces the expression with a fixed number' : ''}
                         @input=${(e: Event) => {
                             // Live visual update only — no state change so Lit doesn't re-render and break drag
                             const v = Number((e.target as HTMLInputElement).value);
                             for (const sid of subLayerIds) this.adapter?.updateLayerStyle(this.layerId, sid || this.layerId, { [key]: v });
                             const row = (e.target as HTMLElement).closest('.style-editor-row');
                             const out = row?.querySelector('output');
-                            if (out) out.textContent = `${v}${unit}`;
+                            if (out) {
+                                out.textContent = `${v}${unit}`;
+                                out.classList.remove('expression');
+                            }
                         }}
                         @change=${(e: Event) => this.setPaintOverride(subLayerIds, key, Number((e.target as HTMLInputElement).value))}>
                 </label>
-                <output>${value}${unit}</output>
+                <output class=${isExpression ? 'expression' : ''}>${isExpression ? 'expression' : html`${value}${unit}`}</output>
             </div>`;
     }
 
