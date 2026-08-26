@@ -38,7 +38,9 @@ import path from 'node:path';
 import { chromium, type Browser } from 'playwright';
 
 import {
+    TERRAIN_SWATCH,
     backgroundColorFromStyle,
+    isTerrainLayer,
     resolveRasterPreviewUrls,
     resolveWmsPreviewUrls,
 } from './lib/layer-preview';
@@ -445,9 +447,16 @@ async function main(): Promise<void> {
             let swatch: string | null = null;
             let detail = '';
 
-            const isTiled = resolveRasterPreviewUrls(layer, source ?? null, 1).length > 0;
+            // Checked before the tile path: a raster-dem source resolves to a
+            // perfectly fetchable tile template, and fetching it is the wrong
+            // thing to do — see TERRAIN_SWATCH.
+            const isTerrain = isTerrainLayer(layer, source ?? null);
+            const isTiled = !isTerrain && resolveRasterPreviewUrls(layer, source ?? null, 1).length > 0;
             const isWms = !isTiled && resolveWmsPreviewUrls(layer, source ?? null, REQUEST_SIZE, 1).length > 0;
-            if (isTiled || isWms) {
+            if (isTerrain) {
+                swatch = TERRAIN_SWATCH;
+                detail = 'terrain symbol';
+            } else if (isTiled || isWms) {
                 const kind = isTiled ? 'tile' : 'wms';
                 let best: { dataUrl: string; coverage: number; flat: boolean; spread: number } | null = null;
                 let lastError = 'no candidate tile';

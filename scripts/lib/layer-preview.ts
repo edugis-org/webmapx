@@ -459,3 +459,51 @@ export function backgroundColorFromStyle(style: unknown): string | null {
     }
     return null;
 }
+
+/**
+ * Terrain layers are the one case where fetching a real tile is worse than
+ * drawing one.
+ *
+ * A `raster-dem` source serves ELEVATION ENCODED AS RGB (terrarium/mapbox):
+ * the bytes are a number, not a picture. Downscaling such a tile bakes the
+ * average of an encoding — a flat olive-grey that looks like a bug and tells
+ * the reader nothing. The hillshade the user actually sees is computed by the
+ * engine from those numbers, at a light angle and exaggeration the swatch has
+ * no way to reproduce faithfully at 18px anyway.
+ *
+ * So a terrain layer gets a drawn symbol instead of a sample: mountains on a
+ * pale ground. It is SVG rather than an 8px raster because a symbol has to
+ * stay crisp — the whole reason the tile path stores 8px is that a *texture*
+ * survives being smoothed, and a glyph does not.
+ */
+export const TERRAIN_SWATCH = 'data:image/svg+xml,'
+    + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">'
+        + '<rect width="16" height="16" fill="#eaf0f5"/>'
+        + '<path d="M0 14 6 5.5 10 14Z" fill="#b6c2cd"/>'
+        + '<path d="M6 5.5 8 9.5 4 9.5Z" fill="#fbfdff"/>'
+        + '<path d="M7 14 11.5 7 16 14Z" fill="#8b98a5"/>'
+        + '<path d="M11.5 7 13.2 9.7 9.8 9.7Z" fill="#fbfdff"/>'
+        + '</svg>',
+    );
+
+/**
+ * True for a layer whose picture is computed from elevation data: a
+ * `hillshade` layer, a `raster-dem` source, or a style container holding
+ * either. The container case is the common one — webmapx catalog entries wrap
+ * their sources and layers in a `type: 'style'` object.
+ */
+export function isTerrainLayer(layer: unknown, source: unknown): boolean {
+    const l = (layer ?? {}) as LayerLike & { sources?: unknown; layers?: unknown };
+
+    if (l.type === 'hillshade' || l.type === 'raster-dem') return true;
+    if (((source ?? {}) as SourceLike).type === 'raster-dem') return true;
+
+    const inlineSources = l.sources && typeof l.sources === 'object'
+        ? Object.values(l.sources as Record<string, unknown>)
+        : [];
+    if (inlineSources.some(s => (s as SourceLike | null)?.type === 'raster-dem')) return true;
+
+    const sublayers = Array.isArray(l.layers) ? l.layers : [];
+    return sublayers.some(s => (s as LayerLike | null)?.type === 'hillshade');
+}
