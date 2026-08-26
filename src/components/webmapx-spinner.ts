@@ -59,8 +59,25 @@ export class WebmapxSpinner extends WebmapxBaseTool {
         }
     `;
 
+    /**
+     * Busy, except while the map's clock is playing.
+     *
+     * The engines report busy on `dataloading` and clear it on `idle`. An
+     * animation never reaches idle — every frame pins a new moment, every
+     * computed source is rebuilt, and the map is drawing again before it can
+     * settle — so whatever was loading when play started latches the spinner on
+     * for as long as play lasts, which reads as a map stuck loading rather than
+     * a map running.
+     *
+     * Suppressing it here rather than at the engines keeps `mapBusy` an honest
+     * report of what the engine said, and follows the same reasoning as
+     * `BaseAdapter.silenceComputedSource`: a redraw that fetches nothing is not
+     * a wait anyone is having, and a spinner that is always on is worse than no
+     * spinner. Tiles genuinely loading mid-animation go unreported for the
+     * duration; the moving picture already shows the map is working.
+     */
     protected onStateChanged(state: IMapState): void {
-        this.busy = state.mapBusy;
+        this.busy = state.mapBusy && !state.mapTimePlay;
     }
 
     render() {

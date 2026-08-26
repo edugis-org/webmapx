@@ -1434,6 +1434,12 @@ export class WebmapxMapElement extends HTMLElement {
   }
 
   private async applyInitialStateLayers(adapter: IMap, _layerData: LayerDataConfig): Promise<void> {
+    // Before the layers, not with the rest of the permalink restore below: a
+    // computed layer is generated for whatever moment the store holds when it
+    // is added, so setting the clock afterwards would build every one of them
+    // for now and then immediately rebuild it for the pinned moment.
+    this.applyPermalinkTime(adapter);
+
     const activeLayerRefs = this.collectInitialActiveLayerRefs();
     for (const layerId of activeLayerRefs) {
       const success = await this.tryAddLayerRequest(adapter, { layerId });
@@ -1460,6 +1466,25 @@ export class WebmapxMapElement extends HTMLElement {
     if (getPermalinkStateForIndex(getMapDomIndex(this))) return;
     if (this.configInstance?.state?.terrainEnabled === true) {
       adapter.store.dispatch({ terrainEnabled: true }, 'UI');
+    }
+  }
+
+  /**
+   * Restores the map's clock from the permalink.
+   *
+   * `tm` absent means the map runs live, which is also the default — so there
+   * is nothing to do for it, and a link shared today still says "now" when it
+   * is opened next year. `tp` is only honoured alongside a pinned moment;
+   * playing needs a moment to move, and the time tool is what actually runs the
+   * loop, so a map configured without one restores the moment and stands still.
+   */
+  private applyPermalinkTime(adapter: IMap): void {
+    const state = getPermalinkStateForIndex(getMapDomIndex(this));
+    if (typeof state?.tm !== 'number' || !Number.isFinite(state.tm)) return;
+
+    adapter.store.dispatch({ mapTime: { mode: 'pinned', at: state.tm * 1000 } }, 'INIT');
+    if (typeof state.tp === 'number' && state.tp > 0) {
+      adapter.store.dispatch({ mapTimePlay: state.tp * 1000 }, 'INIT');
     }
   }
 

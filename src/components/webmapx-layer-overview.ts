@@ -1193,7 +1193,15 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     // Detect layers added from file drops (marked dynamic:true in metadata) — can't restore from permalink
     const dynamicLayerIds = allLayerIds.filter(id => mapLayers[id]?.dynamic === true);
 
-    const url = buildPermalinkUrl(mapIndex, permalinkLayerIds, permalinkHiddenIds, viewport, transparencyOverrides, projection, configUrl, terrainEnabled);
+    // The map's clock travels with the link: a pinned moment, and the speed it
+    // is playing at. A live map contributes nothing — "now" is not a value.
+    const storeState = this.adapter.store.getState();
+    const mapTime = storeState.mapTime;
+    const time = mapTime?.mode === 'pinned'
+      ? { at: mapTime.at, play: storeState.mapTimePlay ?? null }
+      : null;
+
+    const url = buildPermalinkUrl(mapIndex, permalinkLayerIds, permalinkHiddenIds, viewport, transparencyOverrides, projection, configUrl, terrainEnabled, time);
     this.permalinkDialog?.open(url, !!configUrl, dynamicLayerIds);
   }
 

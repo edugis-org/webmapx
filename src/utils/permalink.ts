@@ -48,6 +48,33 @@ export interface PermalinkState {
     p?: string;
     /** True when 3D terrain was enabled. Omitted when terrain is off. */
     terrain?: boolean;
+    /**
+     * The pinned moment, in whole epoch SECONDS. Omitted when the map runs live.
+     *
+     * Its absence is what "now" means — a link to a live map must keep saying
+     * *now* when it is opened next year, so there is nothing to store. Seconds
+     * rather than milliseconds because that is the finest grain any of this is
+     * read at (the sliders step in minutes, the computed layers in seconds) and
+     * it is three characters shorter in a URL people paste into chat.
+     */
+    tm?: number;
+    /**
+     * Play speed, in map-seconds per real second. Omitted when paused.
+     *
+     * One field for both questions: playing at all, and how fast. A paused
+     * speed is not stored — it is a preference of the control, not a state of
+     * the map, and restoring a map that is *not* playing at a speed you cannot
+     * see is state nobody can verify from the picture.
+     */
+    tp?: number;
+}
+
+/** The clock half of a permalink, as `buildPermalinkUrl` takes it. */
+export interface PermalinkTimeState {
+    /** Pinned moment in epoch milliseconds, or null/undefined when live. */
+    at?: number | null;
+    /** Map-milliseconds per real second while playing, or null when paused. */
+    play?: number | null;
 }
 
 export function encodePermalink(state: PermalinkState): string {
@@ -83,6 +110,7 @@ export function buildPermalinkUrl(
     projection?: string | null,
     configUrl?: string | null,
     terrainEnabled?: boolean,
+    time?: PermalinkTimeState | null,
 ): string {
     const t: Record<string, number> = {};
     for (const [id, val] of transparencyOverrides) {
@@ -103,6 +131,12 @@ export function buildPermalinkUrl(
     if (Object.keys(t).length > 0) state.t = t;
     if (projection && projection !== 'mercator') state.p = projection;
     if (terrainEnabled) state.terrain = true;
+    // A pinned moment travels; "now" does not, and a play speed only means
+    // something while there is a pinned moment for it to move.
+    if (typeof time?.at === 'number' && Number.isFinite(time.at)) {
+        state.tm = Math.round(time.at / 1000);
+        if (typeof time.play === 'number' && time.play > 0) state.tp = time.play / 1000;
+    }
 
     const url = new URL(window.location.href);
 

@@ -86,6 +86,30 @@ const SPEEDS: Speed[] = [
     { label: '1 day', perSecond: MINUTES_PER_DAY * MS_PER_MINUTE, discrete: true },
 ];
 
+/**
+ * The listed speed a raw rate is, or the nearest one below it.
+ *
+ * A speed arriving from the store (a permalink, another window on the same map)
+ * need not be one of the four in the menu, and the only thing the loop actually
+ * needs from the list is the *cadence*: whether to step whole days or run with
+ * the frames. Falls back to the slowest entry, which is smooth — an unlisted
+ * rate is far likelier to be a fine one than a day at a time.
+ */
+function speedFor(perSecond: number): Speed {
+    const exact = SPEEDS.find(s => s.perSecond === perSecond);
+    if (exact) return exact;
+    return { label: `${perSecond} ms`, perSecond, discrete: perSecond >= SPEEDS[3].perSecond };
+}
+
+/** The menu entry closest to a rate, so a restored speed shows in the control. */
+function speedIndexFor(perSecond: number): number {
+    let best = 0;
+    for (let i = 1; i < SPEEDS.length; i++) {
+        if (Math.abs(SPEEDS[i].perSecond - perSecond) < Math.abs(SPEEDS[best].perSecond - perSecond)) best = i;
+    }
+    return best;
+}
+
 /** ▶ and ❚❚, drawn rather than spelled: the two most universally read buttons there are. */
 const PLAY_ICON = svg`<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
     <path d="M4 2.5v11l9-5.5z" fill="currentColor"/>
@@ -116,6 +140,8 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
     @state() private liveTick = Date.now();
     @state() private speedIndex = 2;
     @state() private playing = false;
+    /** The store's play speed as this component last acted on it. */
+    private playSpeedMs: number | null = null;
 
     private liveTimer: ReturnType<typeof setInterval> | null = null;
     private playTimer: ReturnType<typeof setInterval> | null = null;
@@ -171,17 +197,41 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
     `;
 
     protected onMapAttached(): void {
-        this.readTime(this.adapter?.store.getState().mapTime);
+        const state = this.adapter?.store.getState();
+        this.readTime(state?.mapTime, state?.mapTimePlay);
     }
 
     protected onStateChanged(state: IMapState): void {
-        this.readTime(state.mapTime);
+        this.readTime(state.mapTime, state.mapTimePlay);
     }
 
-    private readTime(mapTime: MapTimeState | undefined): void {
+    /**
+     * Follows the map's clock, playback included.
+     *
+     * The store is the single source of truth for *whether* the moment is
+     * moving: the buttons dispatch and this reacts, so a permalink that opens a
+     * map already playing goes down exactly the same path as pressing play, and
+     * there is no second copy of "am I playing" to fall out of step.
+     */
+    private readTime(mapTime: MapTimeState | undefined, play: number | null | undefined): void {
         this.mapTime = mapTime ?? { mode: 'live' };
         if (this.mapTime.mode === 'pinned') this.stopLiveTicking();
         else this.startLiveTicking();
+        this.readPlay(this.mapTime.mode === 'pinned' ? play ?? null : null);
+    }
+
+    private readPlay(play: number | null): void {
+        // Every step of playing dispatches a new `at`, which lands back here —
+        // so an unchanged speed must do nothing at all, or the loop would tear
+        // itself down and rebuild on every frame.
+        if (play === this.playSpeedMs) return;
+        this.playSpeedMs = play;
+        this.stopPlaying();
+        if (play === null || play <= 0) return;
+        // A speed set from elsewhere (a permalink, a second panel) has to show
+        // in the menu, or the control would disagree with what the map is doing.
+        this.speedIndex = speedIndexFor(play);
+        this.startPlaying(play);
     }
 
     connectedCallback(): void {
@@ -193,8 +243,12 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
 
     disconnectedCallback(): void {
         // The clock stays where the user put it — only this window on it closes.
+        // The store keeps the play speed, so `playSpeedMs` is cleared too:
+        // otherwise a reconnected element would see the same value it last
+        // acted on, take it for no change, and never restart the loop.
         this.stopLiveTicking();
         this.stopPlaying();
+        this.playSpeedMs = null;
         super.disconnectedCallback();
     }
 
@@ -226,7 +280,9 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
     }
 
     private toggleNow(now: boolean): void {
-        this.stopPlaying();
+        // Going live ends playback for good — the wall clock is already moving,
+        // so there is nothing left for a speed to mean.
+        this.setPlaySpeed(null);
         if (now) {
             this.setMapTime({ mode: 'live' });
             return;
@@ -254,9 +310,13 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
         this.pinTo(at);
     }
 
+    /** Asks the map to start or stop moving; the loop follows from the store. */
     private togglePlay(): void {
-        if (this.playing) this.stopPlaying();
-        else this.startPlaying();
+        this.setPlaySpeed(this.playing ? null : SPEEDS[this.speedIndex].perSecond);
+    }
+
+    private setPlaySpeed(perSecond: number | null): void {
+        this.adapter?.store.dispatch({ mapTimePlay: perSecond }, 'UI');
     }
 
     /**
@@ -267,13 +327,13 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
      * than two, and no second animation loop can race the refresh loop that
      * keeps a live map current.
      */
-    private startPlaying(): void {
+    private startPlaying(perSecond: number): void {
         if (this.mapTime.mode !== 'pinned') return;
-        const speed = SPEEDS[this.speedIndex];
+        const speed = speedFor(perSecond);
         this.playing = true;
         this.playLastFrame = Date.now();
         if (speed.discrete) this.startDiscretePlay(speed);
-        else this.startSmoothPlay();
+        else this.startSmoothPlay(speed);
     }
 
     /** One whole step a second: a day at a time, legible instead of a flicker. */
@@ -290,11 +350,11 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
      * fewer, larger steps — and an hour per second stays an hour per second on
      * every display refresh rate.
      */
-    private startSmoothPlay(): void {
+    private startSmoothPlay(speed: Speed): void {
         if (typeof requestAnimationFrame !== 'function') {
             // No frames to hang it on (a test, a headless run): fall back to the
             // discrete cadence rather than not playing at all.
-            this.startDiscretePlay(SPEEDS[this.speedIndex]);
+            this.startDiscretePlay(speed);
             return;
         }
         const frame = () => {
@@ -302,7 +362,7 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
             const wall = Date.now();
             const elapsed = wall - this.playLastFrame;
             this.playLastFrame = wall;
-            if (!this.advance((elapsed / 1000) * SPEEDS[this.speedIndex].perSecond)) return;
+            if (!this.advance((elapsed / 1000) * speed.perSecond)) return;
             this.playFrame = requestAnimationFrame(frame);
         };
         this.playFrame = requestAnimationFrame(frame);
@@ -311,7 +371,7 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
     /** Moves the pinned moment on, and stops at the end of the slider. */
     private advance(byMs: number): boolean {
         if (this.mapTime.mode !== 'pinned') {
-            this.stopPlaying();
+            this.setPlaySpeed(null);
             return false;
         }
         let next = this.mapTime.at + byMs;
@@ -340,10 +400,8 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
 
     /** Switching speed mid-play swaps the cadence the new speed needs. */
     private setSpeed(index: number): void {
-        const wasPlaying = this.playing;
-        if (wasPlaying) this.stopPlaying();
         this.speedIndex = index;
-        if (wasPlaying) this.startPlaying();
+        if (this.playing) this.setPlaySpeed(SPEEDS[index].perSecond);
     }
 
     render(): TemplateResult {

@@ -50,6 +50,21 @@ export interface IMapState {
      * thing that moves the data is a new `at`.
      */
     mapTime: MapTimeState;
+    /**
+     * How fast the pinned moment is advancing on its own, in map-milliseconds
+     * per real second; `null` when it is not moving.
+     *
+     * Playback lives here rather than inside the time tool for the same reason
+     * `mapTime` does: it is a property of the map, so it survives closing the
+     * panel, two maps on a page can run at two speeds, and a permalink can ask
+     * for a map that is already playing. The tool owns the *loop* — nothing
+     * animates on a map with no time tool — but not the answer to whether it
+     * should be running.
+     *
+     * Only meaningful while `mapTime.mode === 'pinned'`: a live map already
+     * moves with the wall clock, so playing it means nothing.
+     */
+    mapTimePlay?: number | null;
 }
 
 export type MapTimeState =

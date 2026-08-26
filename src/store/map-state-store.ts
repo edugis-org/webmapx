@@ -31,6 +31,7 @@ export class MapStateStore {
         activeTool: null,
         terrainEnabled: false,
         mapTime: { mode: 'live' },
+        mapTimePlay: null,
     };
     private listeners: Listener[] = [];
 
