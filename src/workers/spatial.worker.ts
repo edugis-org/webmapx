@@ -359,7 +359,15 @@ self.onmessage = async (e: MessageEvent<SpatialRequest>) => {
     const { opId, operation } = e.data;
 
     if (operation.op === 'ping') {
+        // Answer first: the caller only wants to know the worker is alive.
         reply({ opId, status: 'ready' });
+        // Then start loading GDAL, which is the whole point of a prewarm. The
+        // wasm is ~27 MB and takes seconds to fetch and instantiate; a ping that
+        // merely replied left that cost to the first real operation, i.e. to the
+        // moment the user presses Calculate — exactly the wait prewarming was
+        // meant to hide behind reading and filling in the form.
+        // Failures are ignored here: an operation that needs GDAL reports them.
+        void getGdal().catch(() => undefined);
         return;
     }
 

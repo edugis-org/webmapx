@@ -93,6 +93,15 @@ WebMapX.mount('#map', { config: './mymap.json' })
 
 → [npm quickstart](https://github.com/edugis-org/webmapx/blob/main/docs/developer/npm-quickstart.md)
 
+**On package size.** The published package is large because it carries GDAL
+compiled to WebAssembly — the engine behind buffering, overlay analysis and
+file import. **Visitors never download it unless they use those tools.** The
+spatial worker, and the ~38 MB of wasm with it, is fetched the first time an
+analysis panel is opened; a map that only pans, zooms and switches layers
+fetches none of it. The weight is on your build server's disk, not on your
+users' connections.
+
+
 ---
 
 ### Clone and run locally
