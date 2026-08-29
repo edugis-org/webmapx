@@ -907,6 +907,12 @@
         "attribution": "Computed in the browser"
       },
       {
+        "id": "paleo-coastlines-source",
+        "type": "geojson",
+        "data": "internalfunc://paleo-coastlines?data=../data/paleo/merdith2021&ma={ma}",
+        "attribution": "Merdith et al. 2021 plate model (CC-BY-4.0), reconstructed in the browser"
+      },
+      {
         "id": "graticule-source",
         "type": "geojson",
         "data": "internalfunc://graticule?spacing=15",
@@ -2735,6 +2741,32 @@
         }
       },
       {
+        "id": "paleo-coastlines",
+        "type": "fill",
+        "title": "Palaeo-coastlines",
+        "source": "paleo-coastlines-source",
+        "paint": {
+          "fill-color": [
+            "match",
+            ["get", "continent"],
+            "Africa", "#c98a3f",
+            "Asia", "#c2596f",
+            "Europe", "#7a9e5c",
+            "North America", "#4f86a8",
+            "South America", "#b5674c",
+            "Oceania", "#a87bb0",
+            "Antarctica", "#8fa3ad",
+            "#96907f"
+          ],
+          "fill-opacity": 1,
+          "fill-outline-color": "#33302b"
+        },
+        "metadata": {
+          "title": "Palaeo-coastlines",
+          "abstract": "Where the land was, at the age the Deep time tool is set to. Each polygon is coloured by the continent it belongs to *today*, so a single mass splitting into Africa and South America is legible as exactly that. Not a stack of stored maps: the coastlines are held once, at present day, together with the rotation carrying each tectonic plate back through time, and the position at any age is worked out in the browser — which is why the slider is continuous rather than stepped, and why the whole billion-year model is about three megabytes instead of three hundred. Land that had not formed yet is absent rather than adrift: the Galapagos are four million years old and simply do not appear before that. Coastlines are meaningful for roughly the last 400 million years; the plate motions themselves go back a billion."
+        }
+      },
+      {
         "id": "graticule",
         "type": "line",
         "title": "Graticule",
@@ -3069,6 +3101,11 @@
       "provider": "nominatim",
       "attribution": "&copy; OpenStreetMap contributors | &copy; Nominatim"
     },
+    "paleotime": {
+      "enabled": true,
+      "data": "../data/paleo/merdith2021",
+      "to": 1000
+    },
     "mainToolbar": {
       "type": "toolbar",
       "enabled": true,
@@ -3171,6 +3208,9 @@
                 {
                   "label": "Geography",
                   "children": [
+                    {
+                      "layerId": "paleo-coastlines"
+                    },
                     {
                       "layerId": "daynight-computed"
                     },
@@ -3359,6 +3399,14 @@
           "title": "Time",
           "icon": "clock",
           "keywords": ["time", "date", "clock", "sun", "moon", "season", "daylight"]
+        },
+        {
+          "id": "paleotime",
+          "type": "paleotime",
+          "enabled": true,
+          "title": "Deep time",
+          "icon": "globe2",
+          "keywords": ["plate", "tectonics", "continent", "pangaea", "geology", "palaeo", "coastline", "drift"]
         },
         {
           "type": "spacer",

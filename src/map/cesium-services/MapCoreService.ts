@@ -107,12 +107,26 @@ function buildCircleOutlineLonLat(lon: number, lat: number, radiusMeters: number
 type CesiumRuntimeLayerState = {
     spec: any;
     dataSource: any | null;
+    /**
+     * Whether a reload of this layer is already under way, and whether newer
+     * data arrived while it was.
+     *
+     * Cesium is the one engine that cannot simply be handed new data: every
+     * update builds a whole new `GeoJsonDataSource` and swaps it into the
+     * viewer. A computed source refreshing itself asks for that up to sixty
+     * times a second, and the loads then queue faster than they finish — which
+     * is not a slow map but a dead tab, with no error to show for it. So only
+     * one load runs at a time and anything asked for meanwhile collapses into a
+     * single repeat with the newest data, which is the most Cesium can actually
+     * display anyway.
+     */
+    loading?: boolean;
+    pending?: boolean;
 };
 
 type CesiumRuntimeSourceState = {
     data: GeoJSON.FeatureCollection | null;
     layers: CesiumRuntimeLayerState[];
-    updateToken: number;
 };
 
 export class MapCoreService implements IMapCore {
@@ -419,7 +433,7 @@ export class MapCoreService implements IMapCore {
 
         if (config?.type !== 'geojson' || !config.data) return;
 
-        this.sourceState.set(id, { data: config.data, layers: [], updateToken: 0 });
+        this.sourceState.set(id, { data: config.data, layers: [] });
 
         const setData = (data: GeoJSON.FeatureCollection) => {
             const state = this.sourceState.get(id);
@@ -1240,34 +1254,54 @@ export class MapCoreService implements IMapCore {
         const state = this.sourceState.get(sourceId);
         if (!state || !state.data) return;
 
-        const token = ++state.updateToken;
         for (const layerState of state.layers) {
-            this.loadLayerDataSource(sourceId, layerState, token);
+            this.loadLayerDataSource(sourceId, layerState);
         }
     }
 
-    private async loadLayerDataSource(sourceId: string, layerState: CesiumRuntimeLayerState, token: number): Promise<void> {
+    private async loadLayerDataSource(sourceId: string, layerState: CesiumRuntimeLayerState): Promise<void> {
         const Cesium = getCesium();
         if (!Cesium || !this.viewer) return;
 
-        const state = this.sourceState.get(sourceId);
-        if (!state?.data) return;
-
-        const nextDataSource = await Cesium.GeoJsonDataSource.load(state.data, { clampToGround: false });
-        forceGeodesicArcType(nextDataSource, Cesium);
-        const currentState = this.sourceState.get(sourceId);
-        const stillPresent = currentState?.layers.includes(layerState) ?? false;
-        if (!currentState || currentState.updateToken !== token || !stillPresent) {
+        // Already loading: leave a note rather than starting a second one. The
+        // in-flight load will pick up whatever the newest data is when it ends,
+        // so nothing is lost by not starting now.
+        if (layerState.loading) {
+            layerState.pending = true;
             return;
         }
+        layerState.loading = true;
 
-        const previousDataSource = layerState.dataSource;
-        // Remove previous before adding new to prevent multiple datasources visible simultaneously
-        this.removeLayerDataSource({ dataSource: previousDataSource });
-        layerState.dataSource = nextDataSource;
-        this.viewer.dataSources.add(nextDataSource);
-        this.applyLayerStyle(layerState);
-        setTimeout(() => this.reapplyDataSourceOrder(), 0);
+        try {
+            for (;;) {
+                layerState.pending = false;
+                const state = this.sourceState.get(sourceId);
+                if (!state?.data) return;
+
+                const nextDataSource = await Cesium.GeoJsonDataSource.load(state.data, { clampToGround: false });
+                forceGeodesicArcType(nextDataSource, Cesium);
+
+                // The source or the layer may have gone while the load ran.
+                const currentState = this.sourceState.get(sourceId);
+                if (!currentState?.layers.includes(layerState)) return;
+
+                const previousDataSource = layerState.dataSource;
+                // Remove previous before adding new to prevent multiple datasources visible simultaneously
+                this.removeLayerDataSource({ dataSource: previousDataSource });
+                layerState.dataSource = nextDataSource;
+                this.viewer.dataSources.add(nextDataSource);
+                this.applyLayerStyle(layerState);
+                setTimeout(() => this.reapplyDataSourceOrder(), 0);
+
+                // Anything asked for while that ran is served by going round
+                // again with the newest data, so there is nothing to discard and
+                // no need for a staleness token: the last loop always draws what
+                // the source holds now.
+                if (!layerState.pending) return;
+            }
+        } finally {
+            layerState.loading = false;
+        }
     }
 
     private reapplyDataSourceOrder(): void {

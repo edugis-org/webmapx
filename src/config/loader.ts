@@ -72,6 +72,35 @@ function resolveConfigRelativeUrl(value: string, baseUrl: string): string {
   }
 }
 
+/**
+ * Resolves a directory named inside an `internalfunc://` url.
+ *
+ * A computed source has a scheme, so the ordinary rule leaves it alone — but
+ * some generators are answered from files, and the directory holding them is
+ * written relative to the configuration, like every other path in it. Moving a
+ * config must move what it points at, and a config served from a subdirectory
+ * must keep working, so the directory is resolved here rather than being left
+ * to whatever page happens to be doing the asking.
+ *
+ * Only `data` is touched: the rest of the query belongs to the generator.
+ */
+function resolveInternalFuncPaths(value: string, baseUrl: string): string {
+  if (!value.startsWith('internalfunc://')) return value;
+  const [name, query] = value.split('?');
+  if (!query) return value;
+  const params = new URLSearchParams(query);
+  const dir = params.get('data');
+  if (!dir) return value;
+  params.set('data', resolveConfigRelativeUrl(dir, baseUrl));
+  // Rebuilt rather than string-replaced so a directory containing a character
+  // that needs escaping cannot break the rest of the query — but the braces of a
+  // map-state placeholder must survive it. `toString` escapes them to `%7B`/`%7D`,
+  // and `{ma}` spelled that way matches nothing: the source is then never
+  // recognised as following the map's clock, so it is never redrawn. It draws
+  // once, at whatever the placeholder falls back to, and sits there.
+  return `${name}?${params.toString().replace(/%7B/gi, '{').replace(/%7D/gi, '}')}`;
+}
+
 function normalizeSourceDefinition(id: string, value: unknown, baseUrl: string): Record<string, unknown> {
   if (!isObject(value)) {
     return { id, type: 'geojson', data: value };
@@ -86,7 +115,9 @@ function normalizeSourceDefinition(id: string, value: unknown, baseUrl: string):
   }
 
   if (typeof normalized.data === 'string') {
-    normalized.data = resolveConfigRelativeUrl(normalized.data, baseUrl);
+    normalized.data = normalized.data.startsWith('internalfunc://')
+      ? resolveInternalFuncPaths(normalized.data, baseUrl)
+      : resolveConfigRelativeUrl(normalized.data, baseUrl);
   }
   if (typeof normalized.url === 'string') {
     normalized.url = resolveConfigRelativeUrl(normalized.url, baseUrl);

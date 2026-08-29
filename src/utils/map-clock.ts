@@ -53,3 +53,21 @@ export function isLive(state: MapTimeState | undefined): boolean {
 export function isSamePinnedTime(a: MapTimeState | undefined, b: MapTimeState | undefined): boolean {
     return a?.mode === 'pinned' && b?.mode === 'pinned' && a.at === b.at;
 }
+
+/**
+ * Whether two clock states are the same clock, live included.
+ *
+ * Distinct from {@link isSamePinnedTime}, which answers "is this the same
+ * pinned instant" and is deliberately false for two live clocks — a live clock
+ * is never the same *moment* twice.
+ *
+ * Reacting to a clock *change* needs the other question: two live states are
+ * the same clock, because nothing about the clock changed. Confusing the two
+ * turns "the clock moved" into "any store update at all", which on a live map
+ * is every dispatch — and if redrawing then touches the store, the two feed
+ * each other and the tab locks up with no error to show for it.
+ */
+export function isSameClock(a: MapTimeState | undefined, b: MapTimeState | undefined): boolean {
+    if (a?.mode !== b?.mode) return false;
+    return a?.mode !== 'pinned' || a.at === (b as { at?: number }).at;
+}

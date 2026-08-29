@@ -24,6 +24,7 @@ const TOOL_MAP: Record<string, () => Promise<unknown>> = {
   projection:         () => import('../components/webmapx-projection-tool.js'),
   timeSlider:         () => import('../components/webmapx-time-slider-tool.js'),
   'time-slider':      () => import('../components/webmapx-time-slider-tool.js'),
+  paleotime:            () => import('../components/webmapx-paleotime-tool.js'),
   cartogram:          () => import('../components/webmapx-cartogram-tool.js'),
   coordinates:        () => import('../components/webmapx-coordinates-tool.js'),
   settings:           () => import('../components/webmapx-settings.js'),

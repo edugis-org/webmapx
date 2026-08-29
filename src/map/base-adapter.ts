@@ -32,9 +32,11 @@ import {
     isInternalFuncUrl,
     resolveInternalFuncUrl,
     resolveInternalSources,
-    usesMapState,
+    usesPlaceholder,
+    MAP_STATE_PLACEHOLDERS,
 } from '../utils/internal-sources';
-import { isLive, isSamePinnedTime, timeOf } from '../utils/map-clock';
+import { onComputedDataReady } from '../utils/computed-source-ready';
+import { isLive, isSameClock, timeOf } from '../utils/map-clock';
 import { InternalSourceRefresher } from './internal-source-refresh';
 import { normalizeCompositeLayer, findNormalizedSource } from './composite-layer-utils';
 
@@ -98,6 +100,7 @@ export abstract class BaseAdapter {
     private lastSeenMapTime: MapTimeState | undefined;
     /** Likewise for the last click, which some computed sources follow. */
     private lastSeenClick: [number, number] | null | undefined;
+    private lastSeenPaleoTimeMa: number | null | undefined;
 
     /**
      * The moment this map's computed layers are drawn for.
@@ -120,12 +123,18 @@ export abstract class BaseAdapter {
      * own, which is the whole reason a slider can move a `sun-path` layer.
      *
      * Any store update runs this, so unchanged clocks are filtered out here
-     * rather than at every dispatch site. `live` never compares equal to
-     * `live`, so the first update after going live still restarts the loop.
+     * rather than at every dispatch site — and "unchanged" has to include two
+     * live clocks. Treating live as always-changed redrew every computed source
+     * on every dispatch, which MapLibre absorbs because its `setData` is cheap
+     * and silent, but which locks Cesium up completely: rebuilding a
+     * `GeoJsonDataSource` touches the store, that dispatch lands back here, and
+     * the two feed each other until the tab stops responding. A change of mode
+     * in either direction still counts as a change, so going live still
+     * restarts the refresh loop and redraws.
      */
     private onMapTimeChanged(next: MapTimeState | undefined): void {
         const previous = this.lastSeenMapTime;
-        if (previous !== undefined && isSamePinnedTime(previous, next)) return;
+        if (previous !== undefined && isSameClock(previous, next)) return;
         this.lastSeenMapTime = next;
         this.refresher?.setLive(isLive(next));
         // Both directions redraw. Going live is not "the loop will handle it":
@@ -168,14 +177,37 @@ export abstract class BaseAdapter {
         const previous = this.lastSeenClick;
         if (previous?.[0] === click?.[0] && previous?.[1] === click?.[1]) return;
         this.lastSeenClick = click;
+        this.redrawSourcesUsing(MAP_STATE_PLACEHOLDERS.click);
+    }
 
+    /**
+     * Redraws the computed sources that follow the map's geological clock.
+     *
+     * Its own subscription rather than a branch of the one above, because the
+     * two clocks are unrelated: a plate-tectonics slider must not redraw the
+     * day/night layer, and a click must not move the continents.
+     */
+    private onPaleoTimeChanged(ma: number | null): void {
+        if (this.lastSeenPaleoTimeMa === ma) return;
+        this.lastSeenPaleoTimeMa = ma;
+        this.redrawSourcesUsing(MAP_STATE_PLACEHOLDERS.ma);
+    }
+
+    /**
+     * Redraws every computed source whose url names one particular piece of map
+     * state.
+     *
+     * Only those: a source that does not mention the placeholder has no reason
+     * to be recomputed because the value behind it moved.
+     */
+    private redrawSourcesUsing(token: string): void {
         const now = this.clockNow();
         for (const [sourceId, url] of this.computedSources) {
-            if (!usesMapState(url)) continue;
+            if (!usesPlaceholder(url, token)) continue;
             const source = this.getSource(sourceId);
             if (!source?.setData) continue;
             this.silenceComputedSource(sourceId);
-            source.setData(resolveInternalFuncUrl(applyMapState(url, click), now));
+            source.setData(resolveInternalFuncUrl(this.withMapState(url), now));
         }
     }
 
@@ -195,9 +227,39 @@ export abstract class BaseAdapter {
         }
     }
 
+    /**
+     * Resolves a newly added layer's computed sources once more, now that the
+     * engine actually has them.
+     *
+     * Most computed sources are worked out in a millisecond, but not all: one
+     * that stands in front of a few megabytes of data has to answer the first
+     * call with an empty collection and fetch in the background. It then asks
+     * for a redraw when the data lands — and if that happens *during* the add,
+     * the redraw looks for a source the engine has not created yet, finds
+     * nothing, and there is no second chance. The layer stays empty until
+     * something else moves, which is why switching it off and on again appeared
+     * to fix it.
+     *
+     * Re-resolving here removes the race rather than narrowing it: by this point
+     * the source exists, so whatever the generator can answer now is drawn, no
+     * matter which of the two finished first. A generator that was ready all
+     * along simply produces the same data twice, which costs a millisecond.
+     */
+    private settleComputedSources(entries: Array<{ sourceId: string; url: string }>): void {
+        if (entries.length === 0) return;
+        const now = this.clockNow();
+        for (const entry of entries) {
+            const source = this.getSource(entry.sourceId);
+            if (!source?.setData) continue;
+            this.silenceComputedSource(entry.sourceId);
+            source.setData(resolveInternalFuncUrl(this.withMapState(entry.url), now));
+        }
+    }
+
     /** A computed url with its map-state placeholders filled in. */
     private withMapState(url: string): string {
-        return applyMapState(url, this.store.getState().lastClickedCoordinates);
+        const state = this.store.getState();
+        return applyMapState(url, { click: state.lastClickedCoordinates, ma: state.paleoTimeMa });
     }
 
     constructor() {
@@ -217,6 +279,13 @@ export abstract class BaseAdapter {
         });
         this.store.subscribe((state) => this.onMapTimeChanged(state.mapTime));
         this.store.subscribe((state) => this.onClickedCoordinateChanged(state.lastClickedCoordinates));
+        this.store.subscribe((state) => this.onPaleoTimeChanged(state.paleoTimeMa));
+        // A computed source can stand in front of data that has to be fetched.
+        // Its first resolve necessarily draws nothing, so the map asks again
+        // once the data has arrived — otherwise a layer that came from a
+        // configuration, with no tool driving it, would stay empty until
+        // something else happened to move.
+        onComputedDataReady(() => this.redrawComputedSources());
     }
 
     /** Records the `attribution` from a source config (style-spec field) for later lookup. */
@@ -299,7 +368,8 @@ export abstract class BaseAdapter {
         const refreshable = collectRefreshableSources(layer, ownLayerId);
         // Every computed source the layer carries is remembered, refreshing or
         // not, so a clock change can recompute the lot.
-        for (const entry of collectComputedSources(layer, ownLayerId)) {
+        const computed = collectComputedSources(layer, ownLayerId);
+        for (const entry of computed) {
             this.computedSources.set(entry.sourceId, entry.url);
             this.silenceComputedSource(entry.sourceId);
         }
@@ -316,13 +386,17 @@ export abstract class BaseAdapter {
             layer.sources && typeof layer.sources === 'object'
         ) {
             const composite = await this.addDecomposedComposite(layer as CompositeStyleLayerConfig, options);
-            if (composite) this.startRefreshing(layer.id, refreshable);
+            if (composite) {
+                this.settleComputedSources(computed);
+                this.startRefreshing(layer.id, refreshable);
+            }
             return composite;
         }
 
         this.trackInlineSources(layer);
         const added = await this.engineAddLayer(layer, options);
         if (added) {
+            this.settleComputedSources(computed);
             registerMapLayer(this.store, layer);
             const layerId = layer?.id ?? layer?.metadata?.mapLayerId;
             if (typeof layerId === 'string') {

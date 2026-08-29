@@ -53,6 +53,7 @@ export const TOOL_ELEMENT_TAGS: Record<string, string> = {
   buffer: 'webmapx-buffer-tool',
   geoprocessing: 'webmapx-geoprocessing-tool',
   stories: 'webmapx-stories-tool',
+  paleotime: 'webmapx-paleotime-tool',
 };
 
 const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = {
@@ -71,6 +72,7 @@ const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = {
   timeSlider: { label: 'Time', icon: 'clock' },
   'time-slider': { label: 'Time', icon: 'clock' },
   cartogram: { label: 'Cartogram', icon: 'pie-chart' },
+  paleotime: { label: 'Deep time', icon: 'globe2' },
   '3d': { label: '3D', icon: 'box' },
   'import-layer': { label: 'Import layer', icon: 'file-earmark-arrow-up' },
   layerOverview: { label: 'Legend', icon: 'card-list' },
@@ -132,6 +134,7 @@ export const KNOWN_TOOLS: Array<{ id: string; label: string; icon?: string | Too
   { id: 'buffer',        label: 'Buffer',         icon: { src: bufferIconUrl } },
   { id: 'geoprocessing', label: 'Analysis',       icon: 'intersect' },
   { id: 'stories',       label: 'Stories',        icon: 'book' },
+  { id: 'paleotime',       label: 'Deep time',      icon: 'globe2' },
   { id: 'navigation',    label: 'Navigation',     icon: 'compass',     standalone: true },
   { id: 'scale',         label: 'Scale bar',      icon: 'rulers',      standalone: true },
   { id: 'coordinates',   label: 'Coordinates',    icon: 'crosshair2',  standalone: true },

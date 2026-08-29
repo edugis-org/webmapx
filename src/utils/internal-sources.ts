@@ -32,6 +32,7 @@ import { antipode, greatCircleRoute, rangeRings, tissotIndicatrix } from './geod
 import { moonAlongMeridian, moonPathLines, moonPhaseDisc, moonPositionFeature, moonVisibilityBand } from './moon';
 import { equilibriumTide } from './tides';
 import { utmZones } from './utm-zones';
+import { paleoCoastlines } from './paleo-coastlines';
 
 /**
  * A comma-separated list of numbers from the query, or nothing.
@@ -74,11 +75,30 @@ function place(query: URLSearchParams, key: string, fallback: [number, number]):
 export const MAP_STATE_PLACEHOLDERS = {
     /** The last place clicked, as `lon,lat`. */
     click: '{click}',
+    /**
+     * The age the map's geological clock stands at, in millions of years.
+     *
+     * Deliberately not the map's ordinary clock, which is a `Date`: the useful
+     * range here is hundreds of millions of years, and a `Date` cannot hold
+     * more than about a quarter of a million.
+     */
+    ma: '{ma}',
 } as const;
+
+/** What the map can fill into a computed url. */
+export interface MapStateValues {
+    click?: [number, number] | null;
+    ma?: number | null;
+}
 
 /** True when a url waits on something only the map can tell it. */
 export function usesMapState(url: string): boolean {
-    return url.includes(MAP_STATE_PLACEHOLDERS.click);
+    return Object.values(MAP_STATE_PLACEHOLDERS).some((token) => url.includes(token));
+}
+
+/** True when a url waits on this one piece of map state. */
+export function usesPlaceholder(url: string, token: string): boolean {
+    return url.includes(token);
 }
 
 /**
@@ -89,15 +109,25 @@ export function usesMapState(url: string): boolean {
  * which is exactly the marker's own default, and a generator asked to parse
  * "{click}" as a coordinate would get NaN and draw nonsense.
  */
-export function applyMapState(url: string, click: [number, number] | null | undefined): string {
+export function applyMapState(url: string, state: MapStateValues | [number, number] | null | undefined): string {
     if (!usesMapState(url)) return url;
-    if (click) {
-        return url.replace(MAP_STATE_PLACEHOLDERS.click, `${click[0]},${click[1]}`);
-    }
-    const [name, query = ''] = url.split('?');
+    // Callers used to pass the click alone, and a coordinate pair is still the
+    // most common thing to hand over.
+    const values: MapStateValues = Array.isArray(state) ? { click: state } : (state ?? {});
+
+    let out = url;
+    if (values.click) out = out.split(MAP_STATE_PLACEHOLDERS.click).join(`${values.click[0]},${values.click[1]}`);
+    if (values.ma !== null && values.ma !== undefined) out = out.split(MAP_STATE_PLACEHOLDERS.ma).join(String(values.ma));
+    if (!usesMapState(out)) return out;
+
+    // Whatever is still unfilled has no value yet, and its parameter is dropped
+    // rather than left in place: a generator handed the literal "{ma}" would
+    // read NaN and draw nonsense, while a missing parameter is simply its own
+    // default.
+    const [name, query = ''] = out.split('?');
     const kept = query
         .split('&')
-        .filter((pair) => pair.length > 0 && !pair.includes(MAP_STATE_PLACEHOLDERS.click));
+        .filter((pair) => pair.length > 0 && !Object.values(MAP_STATE_PLACEHOLDERS).some((token) => pair.includes(token)));
     return kept.length > 0 ? `${name}?${kept.join('&')}` : name;
 }
 
@@ -208,6 +238,11 @@ export const INTERNAL_SOURCES: Record<string, InternalSourceGenerator> = {
 
     // ── Grids defined by rules ────────────────────────────────────────────
     'utm-zones': () => utmZones(),
+
+    // ── Deep time ─────────────────────────────────────────────────────────
+    // `?data=data/paleo/merdith2021&ma={ma}` — where the coastlines were at an
+    // age, reconstructed from plate rotations rather than fetched per step.
+    'paleo-coastlines': ({ query }) => paleoCoastlines(query),
 };
 
 /** Whether an `internalfunc://` url asked to keep itself current. */

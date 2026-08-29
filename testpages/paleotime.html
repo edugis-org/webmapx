@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>webmapx — paleotime tool</title>
+  <style>
+    html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+    webmapx-map { display: block; width: 100%; height: 100%; }
+    webmapx-paleotime-tool {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 320px;
+      max-height: calc(100% - 20px);
+      overflow: auto;
+      z-index: 10;
+      padding: 12px;
+      background: var(--color-surface, #fff);
+      border: 1px solid #ddd;
+      border-radius: 6px;
+    }
+  </style>
+  <link rel="stylesheet" href="../node_modules/@shoelace-style/shoelace/dist/themes/light.css">
+  <link rel="stylesheet" href="../src/theme/webmapx-style-core.css">
+  <script type="module" src="../src/app.js"></script>
+</head>
+<body>
+  <!-- Inside the map element, like every other tool: that is how it finds its
+       host and therefore how it adds its coastline layer. -->
+  <webmapx-map id="map-container" adapter="maplibre" src="../config/demo.json">
+    <!-- No `data` attribute: it comes from `tools.paleotime` in the config, and
+         is resolved against the config's own location, so this page and the app
+         at the root both find the same directory. -->
+    <webmapx-paleotime-tool tool-id="paleotime" label="Deep time" active></webmapx-paleotime-tool>
+  </webmapx-map>
+  <script>
+    // ?adapter=openlayers|leaflet|cesium switches engine. A classic script,
+    // deliberately: the engine is read once at start-up, so setting the
+    // attribute from a module would come too late to have any effect.
+    const requested = new URLSearchParams(location.search).get('adapter');
+    if (requested) document.getElementById('map-container').setAttribute('adapter', requested);
+  </script>
+  <script type="module">
+    import '../src/components/webmapx-paleotime-tool.ts';
+  </script>
+</body>
+</html>

@@ -19,6 +19,21 @@ export interface IMapState {
     pointerResolution: { lng: number; lat: number } | null;
     lastClickedResolution: { lng: number; lat: number } | null;
 
+    /**
+     * The age the map's geological clock stands at, in millions of years, or
+     * null when nothing has set one.
+     *
+     * Separate from `mapTime` rather than folded into it because the two are
+     * different clocks: `mapTime` is a `Date`, which cannot express an age of
+     * hundreds of millions of years, and a layer that follows the seasons has
+     * no business moving when a plate-tectonics slider does.
+     *
+     * Computed sources read it through the `{ma}` placeholder, so a layer opts
+     * in by naming it in its url and the paleotime tool needs to know nothing
+     * about which layers exist.
+     */
+    paleoTimeMa: number | null;
+
     /** IDs of currently visible logical layers, in map order. */
 
     /** Engine-neutral registry for all layers currently known to the map. */
