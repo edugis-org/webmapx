@@ -204,8 +204,6 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
      */
     private wanted = false;
     private started = false;
-    /** Whether the coastline layer on the map is this tool's to remove. */
-    private ownsLayer = false;
 
     static styles = css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
@@ -253,7 +251,6 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
 
     private get mapElement(): (WebmapxMapElement & {
         addLayerRequest: (config: Record<string, unknown>) => Promise<boolean>;
-        removeInlineLayer: (layerId: string) => void;
     }) | null {
         return this.mapHost as never;
     }
@@ -271,18 +268,14 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
         this.wanted = false;
         this.started = false;
         this.stopPlaying();
-        if (this.ownsLayer) {
-            try {
-                this.mapElement?.removeInlineLayer(LAYER_ID);
-            } catch { /* already gone */ }
-        }
-        this.ownsLayer = false;
-        // The age deliberately outlives the panel. Closing the tool is how you
-        // get the map to yourself — to click a coastline with the info tool, or
-        // to look at something without a panel over it — and resetting to the
-        // present would undo the very thing you had come to look at. The age is
-        // map state, like the centre and the zoom, not a property of the panel
-        // that last set it.
+        // The layer and the age both outlive the panel, the way the 3D tool's
+        // terrain does. Closing the tool is how you get the map to itself — to
+        // measure the sea between two continents, ask the info tool what a
+        // polygon is, or print what is on screen — and taking the coastlines
+        // away at that moment removes the very thing you closed the panel to
+        // work with. A layer the tool added is an ordinary layer from then on:
+        // it sits in the legend, and the user turns it off there if they want
+        // it gone.
     }
 
     /**
@@ -376,17 +369,13 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
         this.ma = Math.min(Math.max(this.ma, this.from), this.to);
         this.publish();
 
-        // Only if nothing is drawing these coastlines already. The layer is an
-        // ordinary catalog entry — any config can name the same computed source
-        // — and the tool's own copy is a convenience for the case where the
-        // panel is opened on a map that has none, not a claim to own the data.
-        // Adding a second identical layer would draw every coastline twice and
-        // leave the user a legend entry they cannot get rid of from here.
-        if (this.mapHasPaleoLayer()) {
-            this.ownsLayer = false;
-            return;
-        }
-        this.ownsLayer = true;
+        // Adopt whatever is already drawing these coastlines, and otherwise add
+        // one. The layer is an ordinary catalog entry either way — any config
+        // can name the same computed source — so a second identical layer would
+        // just draw every coastline twice. Both kinds follow the map's clock
+        // through the `{ma}` in their source url, which is why an adopted layer
+        // needs nothing further from the tool.
+        if (this.mapHasPaleoLayer()) return;
         await this.mapElement?.addLayerRequest(this.layerConfig());
     }
 

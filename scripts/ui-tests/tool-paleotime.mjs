@@ -170,7 +170,7 @@ export async function run({ page, engine, baseUrl }) {
         }
     });
 
-    await step('closing the tool takes its layer but leaves the age standing', async () => {
+    await step('closing the tool leaves both its layer and the age standing', async () => {
         await setAge(page, 180);
         await page.evaluate(() => {
             document.querySelector('webmapx-paleotime-tool').deactivate();
@@ -183,10 +183,13 @@ export async function run({ page, engine, baseUrl }) {
                 ma: adapter.store.getState().paleoTimeMa,
             };
         });
-        if (left.layer) fail('the coastline layer outlived the tool');
-        // Closing the panel is how you get the map to yourself — to click a
-        // coastline with the info tool. Snapping back to the present would undo
-        // the thing you closed the panel to look at.
+        // Closing the panel is how you get the map to itself — to measure the
+        // sea between two continents, ask the info tool about a polygon, or
+        // print what is on screen. Taking the coastlines away at that moment
+        // removes the very thing the panel was closed to work with, so the
+        // layer stays, exactly as the 3D tool's terrain does. It is an ordinary
+        // layer from then on: the legend is where it gets turned off.
+        if (!left.layer) fail('the coastline layer was removed when the tool closed');
         if (left.ma !== 180) fail(`the age was reset to ${left.ma} when the tool closed`);
     });
 
@@ -211,6 +214,13 @@ export async function run({ page, engine, baseUrl }) {
     // well as at the application root because the directory is resolved against
     // the *config*, not the page.
     await step('the catalog layer draws coastlines with no tool involved', async () => {
+        // The tool's own layer outlives the panel now, so it is taken off the
+        // map first — what a user does in the legend. This scenario is about a
+        // map that has the catalog layer and nothing else.
+        await page.evaluate(() => {
+            document.querySelector('webmapx-map').removeInlineLayer('paleotime-coastlines');
+        });
+        await new Promise((resolve) => setTimeout(resolve, 500));
         await page.evaluate(async () => {
             const map = document.querySelector('webmapx-map');
             const adapter = await map.getAdapterAsync();
