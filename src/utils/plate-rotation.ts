@@ -24,6 +24,8 @@
  * Built by `scripts/build-paleorotations.ts`, which also describes the files.
  */
 
+import { clipToSphere, needsSphericalClip } from './spherical-geojson';
+
 /** What the build script writes, and this reads. */
 export interface PlateRotationFile {
     model: string;
@@ -192,6 +194,24 @@ function rotateCoordinates(node: unknown, q: Quaternion): unknown {
 }
 
 /** The world at `age`, as GeoJSON. */
+function ringsOf(geometry: GeoJSON.Geometry): GeoJSON.Position[][] {
+    if (geometry.type === 'Polygon') return geometry.coordinates;
+    if (geometry.type === 'MultiPolygon') return geometry.coordinates.flat();
+    return [];
+}
+
+/**
+ * Reconstructs the coastlines at an age, in ordinary lon/lat.
+ *
+ * Rotation moves rings anywhere on the globe, so some end up crossing the
+ * antimeridian or wrapped around a pole. Those are cut and closed on the sphere
+ * before they leave here, because everything downstream reads coordinates flat:
+ * an engine draws the smear across the map, a projection folds it somewhere
+ * absurd, and the feature has no way to know it was ever spherical.
+ *
+ * Only the few rings that need it pay for it — a handful out of two or three
+ * thousand at any age.
+ */
 export function reconstruct(model: PlateModel, age: number): GeoJSON.FeatureCollection {
     const features: GeoJSON.Feature[] = [];
 
@@ -208,16 +228,25 @@ export function reconstruct(model: PlateModel, age: number): GeoJSON.FeatureColl
         const plateId = Number(properties.plateId);
         const q = Number.isFinite(plateId) ? rotationAt(model, plateId, age) : IDENTITY;
 
+        const rotated = {
+            type: feature.geometry.type,
+            coordinates: rotateCoordinates(
+                (feature.geometry as { coordinates: unknown }).coordinates,
+                q,
+            ),
+        } as GeoJSON.Geometry;
+
+        const geometry = ringsOf(rotated).some(needsSphericalClip)
+            ? clipToSphere(rotated)
+            : rotated;
+        // A ring may be dropped outright: one enclosing no area describes
+        // nothing, and keeping it risks a clipper reading it as the complement.
+        if (!geometry) continue;
+
         features.push({
             type: 'Feature',
             properties: { ...properties, ma: age },
-            geometry: {
-                type: feature.geometry.type,
-                coordinates: rotateCoordinates(
-                    (feature.geometry as { coordinates: unknown }).coordinates,
-                    q,
-                ),
-            } as GeoJSON.Geometry,
+            geometry,
         });
     }
 
