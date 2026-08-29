@@ -3405,7 +3405,6 @@
           "type": "paleotime",
           "enabled": true,
           "title": "Deep time",
-          "icon": "globe2",
           "keywords": ["plate", "tectonics", "continent", "pangaea", "geology", "palaeo", "coastline", "drift"]
         },
         {
