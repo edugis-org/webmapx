@@ -88,62 +88,6 @@ test('a ring carried across the antimeridian stays a small ring', () => {
     assert.ok(width < 5, `ring spans ${width} degrees of longitude`);
 });
 
-function ringsOf(feature: GeoJSON.Feature): GeoJSON.Position[][] {
-    const out: GeoJSON.Position[][] = [];
-    const walk = (node: unknown): void => {
-        if (!Array.isArray(node) || node.length === 0) return;
-        if (typeof (node[0] as number[])[0] === 'number') { out.push(node as GeoJSON.Position[]); return; }
-        for (const child of node) walk(child);
-    };
-    walk((feature.geometry as { coordinates?: unknown }).coordinates);
-    return out;
-}
-
-test('nothing is emitted outside the world', () => {
-    // Longitudes past ±180 are harmless on Mercator and on a globe, which wrap
-    // them. On an equal-area projection such as Equal Earth, ±180 is the curved
-    // outer edge of the map, and anything beyond it lands outside the world or
-    // folded into the wrong hemisphere — which looked like the projection was
-    // not equal-area near the poles, when the geometry was simply off the map.
-    const m = model([point(178.5, 60, { plateId: 1 })], { 1: [IDENTITY, quaternion(0, 90, 3), quaternion(0, 90, 6)] });
-    for (const age of [0, 25, 50, 75, 100]) {
-        for (const feature of reconstruct(m, age).features) {
-            for (const ring of ringsOf(feature)) {
-                for (const [lon] of ring) {
-                    assert.ok(lon >= -180.001 && lon <= 180.001, `longitude ${lon} at ${age} Ma is outside the world`);
-                }
-            }
-        }
-    }
-});
-
-test('a ring crossing the antimeridian comes back as two pieces', () => {
-    const m = model([point(179.5, 10, { plateId: 1 })], { 1: [IDENTITY, IDENTITY, IDENTITY] });
-    const feature = reconstruct(m, 0).features[0];
-    assert.equal(feature.geometry.type, 'MultiPolygon', 'a straddling ring should be split, not left whole');
-    // And the pieces sit on opposite sides.
-    const sides = new Set(ringsOf(feature).map(ring => (ring[0][0] > 0 ? 'east' : 'west')));
-    assert.equal(sides.size, 2, 'both pieces ended up on the same side');
-});
-
-test('no edge is long enough to cut a chord across a curved meridian', () => {
-    // A GeoJSON edge is drawn straight in whatever plane the engine projects
-    // into. Antarctica's ring closes with a single 180-degree step, which on
-    // Equal Earth or Mollweide cuts visibly across the curve near the pole.
-    const wide: GeoJSON.Feature = {
-        type: 'Feature',
-        properties: { plateId: 1 },
-        geometry: { type: 'Polygon', coordinates: [[[-170, 80], [170, 80], [170, 84], [-170, 84], [-170, 80]]] },
-    };
-    const m = model([wide], { 1: [IDENTITY, IDENTITY, IDENTITY] });
-    for (const ring of ringsOf(reconstruct(m, 30).features[0])) {
-        for (let i = 1; i < ring.length; i++) {
-            const step = Math.max(Math.abs(ring[i][0] - ring[i - 1][0]), Math.abs(ring[i][1] - ring[i - 1][1]));
-            assert.ok(step <= 2.001, `a ${step.toFixed(1)} degree edge survived densification`);
-        }
-    }
-});
-
 test('land that has not formed yet is absent, not frozen', () => {
     const m = model(
         [point(0, 0, { plateId: 1, fromAge: 20 }), point(30, 0, { plateId: 1 })],
