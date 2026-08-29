@@ -71,7 +71,14 @@ interface Sink {
  */
 export function needsSphericalClip(ring: GeoJSON.Position[]): boolean {
     for (let i = 0; i < ring.length; i++) {
+        // Past the edge of the world. Rotation does not wrap its output, so a
+        // ring that has drifted over the antimeridian keeps counting — 204°,
+        // -201° — with no jump between neighbouring points to give it away, and
+        // at any latitude at all. Missing these was what left bands stretched
+        // across the map at 382 Ma after the rest of this was working.
+        if (Math.abs(ring[i][0]) > 180) return true;
         if (Math.abs(ring[i][1]) > 80) return true;
+        // Already wrapped, and crossing: consecutive points on opposite edges.
         if (i > 0 && Math.abs(ring[i][0] - ring[i - 1][0]) > 180) return true;
     }
     return false;

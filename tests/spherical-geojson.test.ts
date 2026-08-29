@@ -102,3 +102,19 @@ test('rings that need the clipper are recognised', () => {
     assert.equal(needsSphericalClip([[170, 0], [-170, 0], [-170, 5], [170, 0]]), true, 'antimeridian');
     assert.equal(needsSphericalClip([[0, -88], [10, -88], [10, -85], [0, -88]]), true, 'near the pole');
 });
+
+test('a ring carried past the edge of the world is recognised at any latitude', () => {
+    // Rotation does not wrap what it produces, so a piece that has drifted over
+    // the antimeridian keeps counting: 204°, -201°. There is no jump between
+    // neighbouring points to give it away, and it need not be anywhere near a
+    // pole — the rings that left bands across the map at 382 Ma sat between 60°S
+    // and 79°S, under the latitude test and with steps of a few degrees.
+    const drifted: GeoJSON.Position[] = [[195, -65], [201, -66], [204, -63], [198, -62], [195, -65]];
+    assert.equal(needsSphericalClip(drifted), true);
+
+    const clipped = clipToSphere(polygon(drifted));
+    assert.ok(clipped, 'the ring should survive being brought back');
+    for (const lon of longitudes(clipped as GeoJSON.Geometry)) {
+        assert.ok(lon >= -180.0001 && lon <= 180.0001, `longitude ${lon} is still outside the world`);
+    }
+});
