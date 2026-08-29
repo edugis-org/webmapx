@@ -118,28 +118,51 @@ function rotationAt(model: PlateModel, plateId: number, age: number): Quaternion
     return slerp(list[low], list[high], span > 0 ? (age - ages[low]) / span : 0);
 }
 
-/** One lon/lat pair, rotated. */
-function rotatePoint(q: Quaternion, lon: number, lat: number): GeoJSON.Position {
-    const [w, qx, qy, qz] = q;
+type Vector = [number, number, number];
+
+function toVector(lon: number, lat: number): Vector {
     const la = lat * RAD;
     const lo = lon * RAD;
     const cos = Math.cos(la);
-    const px = cos * Math.cos(lo);
-    const py = cos * Math.sin(lo);
-    const pz = Math.sin(la);
+    return [cos * Math.cos(lo), cos * Math.sin(lo), Math.sin(la)];
+}
 
-    // v + 2q_w(q_v × v) + 2q_v × (q_v × v), written out.
+function toLonLat(v: Vector): GeoJSON.Position {
+    return [
+        Math.atan2(v[1], v[0]) * DEG,
+        Math.asin(v[2] < -1 ? -1 : v[2] > 1 ? 1 : v[2]) * DEG,
+    ];
+}
+
+/** Rotates a unit vector by a quaternion: v + 2q_w(q_v × v) + 2q_v × (q_v × v). */
+function rotateVector(q: Quaternion, v: Vector): Vector {
+    const [w, qx, qy, qz] = q;
+    const [px, py, pz] = v;
     const tx = 2 * (qy * pz - qz * py);
     const ty = 2 * (qz * px - qx * pz);
     const tz = 2 * (qx * py - qy * px);
-    const rx = px + w * tx + (qy * tz - qz * ty);
-    const ry = py + w * ty + (qz * tx - qx * tz);
-    const rz = pz + w * tz + (qx * ty - qy * tx);
-
     return [
-        Math.atan2(ry, rx) * DEG,
-        Math.asin(rz < -1 ? -1 : rz > 1 ? 1 : rz) * DEG,
+        px + w * tx + (qy * tz - qz * ty),
+        py + w * ty + (qz * tx - qx * tz),
+        pz + w * tz + (qx * ty - qy * tx),
     ];
+}
+
+/** One lon/lat pair, rotated. */
+function rotatePoint(q: Quaternion, lon: number, lat: number): GeoJSON.Position {
+    return toLonLat(rotateVector(q, toVector(lon, lat)));
+}
+
+/** A point on the great circle between two unit vectors. */
+function slerpVector(a: Vector, b: Vector, t: number): Vector {
+    let dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    dot = dot < -1 ? -1 : dot > 1 ? 1 : dot;
+    const theta = Math.acos(dot);
+    if (theta < 1e-9) return a;
+    const sin = Math.sin(theta);
+    const sa = Math.sin((1 - t) * theta) / sin;
+    const sb = Math.sin(t * theta) / sin;
+    return [a[0] * sa + b[0] * sb, a[1] * sa + b[1] * sb, a[2] * sa + b[2] * sb];
 }
 
 /**
@@ -224,6 +247,19 @@ function clipToMeridian(ring: GeoJSON.Position[], bound: number, keepGreater: bo
  *
  * The ring is clipped three times, shifted one world east and west, so a shape
  * straddling the line contributes a piece on each side.
+ *
+ * KNOWN LIMIT: a ring that winds right round a pole is still wrong. Its
+ * longitudes run through a full turn, so it ends 360° from where it began and
+ * is, read literally, an open curve; an engine closes it with a straight line
+ * back across the map, and a continent that has drifted onto a pole becomes a
+ * band of land stretching horizontally across the world. Africa does this at
+ * 500 Ma. Running the ring along the pole to close it was tried and made
+ * matters worse rather than better: it fixed the band in Equal Earth and, in
+ * equirectangular, inverted the fill so that a single polygon coloured the
+ * whole world. Doing this properly is spherical polygon clipping — deciding
+ * which side of the closed curve is inside, on a sphere, which is what
+ * `d3-geo`'s clipping module exists for — and not a heuristic worth guessing
+ * at.
  */
 function splitAtAntimeridian(ring: GeoJSON.Position[]): GeoJSON.Position[][] {
     let outside = false;
@@ -295,9 +331,41 @@ function rotateCoordinates(node: unknown, q: Quaternion): unknown {
     return list.map((child) => rotateCoordinates(child, q));
 }
 
-/** One ring, rotated and made continuous across the antimeridian. */
+/**
+ * One ring, rotated, densified along the sphere, and made continuous across the
+ * antimeridian.
+ *
+ * The densification has to happen *on the sphere*, between the rotated
+ * endpoints, and this is the whole reason the vectors are kept. Interpolating
+ * the same edge in lon/lat instead follows a parallel, and near a pole that is
+ * catastrophically wrong: rotation preserves angular distance but not
+ * longitudinal density, so a coastline that used to sit on the equator can land
+ * beside a pole where two vertices a quarter of a degree apart are half a world
+ * apart in longitude. Drawn along the parallel, that edge becomes a horizontal
+ * band clean across the map — the smear that appears at the top and bottom of
+ * an equal-area projection. Drawn along the great circle it passes over the
+ * pole, which is where the coastline actually goes.
+ */
 function rotateRing(ring: number[][], q: Quaternion): GeoJSON.Position[] {
-    return unwrapRing(ring.map((point) => rotatePoint(q, point[0], point[1])));
+    const vectors = ring.map((point) => rotateVector(q, toVector(point[0], point[1])));
+    const out: GeoJSON.Position[] = [toLonLat(vectors[0])];
+
+    for (let i = 1; i < vectors.length; i++) {
+        const from = toLonLat(vectors[i - 1]);
+        const to = toLonLat(vectors[i]);
+        // Measured the short way round, so an edge stepping over the date line
+        // is not mistaken for one spanning the globe.
+        let dLon = to[0] - from[0];
+        if (dLon > 180) dLon -= 360;
+        else if (dLon < -180) dLon += 360;
+        const steps = Math.ceil(Math.max(Math.abs(dLon), Math.abs(to[1] - from[1])) / MAX_EDGE_DEGREES);
+
+        for (let s = 1; s < steps; s++) {
+            out.push(toLonLat(slerpVector(vectors[i - 1], vectors[i], s / steps)));
+        }
+        out.push(to);
+    }
+    return unwrapRing(out);
 }
 
 /** The world at `age`, as GeoJSON. */
