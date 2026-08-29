@@ -24,20 +24,11 @@ export default defineConfig({
           src: 'node_modules/cesium/Build/Cesium/**',
           dest: 'cesium'
         },
-        {
-          // gdal3.js WASM runtime — lazy-loaded by the spatial worker on first use.
-          // The ?url imports in spatial.worker.ts resolve these at build time.
-          src: 'node_modules/gdal3.js/dist/package/gdal3WebAssembly.wasm',
-          dest: 'gdal3'
-        },
-        {
-          src: 'node_modules/gdal3.js/dist/package/gdal3WebAssembly.data',
-          dest: 'gdal3'
-        },
-        {
-          src: 'node_modules/gdal3.js/dist/package/gdal3.js',
-          dest: 'gdal3'
-        }
+        // gdal3.js's WASM runtime is NOT copied here. The `?url` imports in
+        // spatial.worker.ts already make Vite emit those three files as hashed
+        // assets beside the worker, and the worker addresses them there — so
+        // copying them to /gdal3 as well shipped 38 MB twice, with the second
+        // copy referenced by nothing.
       ]
     })
   ],
