@@ -317,22 +317,35 @@ Tools can be declared in `config/demo.json` (or any config JSON) under `tools`:
 
 To make the config loader instantiate your tool automatically:
 
-1. **Register the element tag** in `src/utils/dynamic-layout.ts`:
+1. **Add one entry to `TOOL_REGISTRY`** in `src/tools/tool-registry.ts`:
 
 ```typescript
-// In TOOL_ELEMENT_TAGS:
-'my-tool': 'webmapx-my-tool',
-
-// In DEFAULT_TOOL_METADATA:
-'my-tool': { label: 'My Tool', icon: 'map' },
-
-// In KNOWN_TOOLS (makes it appear in setup.html):
-{ id: 'my-tool', label: 'My Tool', icon: 'map' },
+{ id: 'my-tool', tag: 'webmapx-my-tool', placement: 'toolbar', label: 'My Tool', icon: 'map' },
 ```
 
-2. **Import your component** wherever the app entry point imports tools (check `src/components/index.ts` or the main entry).
+That single entry is what builds the element from a config, gives the toolbar
+button its label and icon, and puts the tool in setup.html's list — those maps
+(`TOOL_ELEMENT_TAGS`, `STANDALONE_TAGS`, `DEFAULT_TOOL_METADATA`, `KNOWN_TOOLS`)
+are derived from the registry, not written by hand.
 
-Standalone / non-toolbar tools (controls, displays) go in `STANDALONE_TAGS` instead of `TOOL_ELEMENT_TAGS`.
+Standalone map furniture (controls, displays, placed by its own config section
+rather than a toolbar button) uses `placement: 'standalone'`.
+
+2. **Add the lazy loader** in `src/bootstrap/tool-loader.ts`:
+
+```typescript
+'my-tool': () => import('../components/webmapx-my-tool.js'),
+```
+
+This stays hand-written because only a literal `import()` specifier is
+statically analysable by the bundler. A tool the core bundle already imports
+sets `bundled: true` in its registry entry instead and needs no loader.
+`tests/tool-registration.test.ts` fails if the two disagree — without a loader
+the custom element never upgrades, and the toolbar button does nothing at all
+when clicked.
+
+An older spelling of a tool type that configs in the wild still use goes in the
+same entry's `aliases`, not in a second row anywhere.
 
 ---
 
@@ -399,7 +412,7 @@ Register in `src/utils/dynamic-layout.ts` and import in `src/components/index.ts
 - [ ] Subscribe to map events in `onMapAttached` / `onActivate`; unsubscribe in `onMapDetached` / `onDeactivate`
 - [ ] Wrap rendered content in `<div class="tool-content">` (modal tools, for portal support)
 - [ ] Add `aria-label`, keyboard access, and Escape to close
-- [ ] Register in `dynamic-layout.ts` (`TOOL_ELEMENT_TAGS`, `DEFAULT_TOOL_METADATA`, `KNOWN_TOOLS`)
+- [ ] Add one `TOOL_REGISTRY` entry in `tool-registry.ts`, plus a loader in `tool-loader.ts` (unless bundled)
 - [ ] Declare in config JSON under `tools`
 - [ ] Test in `testpages/setup.html` — tool should appear in the tool list
 
@@ -424,7 +437,7 @@ The dev workflow for testing a new tool interactively:
 
 ### Making your tool appear in setup.html
 
-setup.html builds its tool list from `KNOWN_TOOLS` exported by `src/utils/dynamic-layout.ts`. Your tool MUST be registered there (see "Config wiring" above). Without that registration setup.html will not know the tool exists.
+setup.html builds its tool list from `KNOWN_TOOLS`, which is derived from `TOOL_REGISTRY` in `src/tools/tool-registry.ts`. A tool with a registry entry appears there automatically; one without an entry cannot be added in setup.html at all (see "Config wiring" above). Set `offered: false` on the entry to keep a type out of that list deliberately.
 
 Toolbar tools appear in the **"Toolbar"** section with drag-to-reorder handles. Standalone/control tools appear in the **"Map controls"** section.
 

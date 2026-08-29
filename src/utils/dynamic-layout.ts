@@ -3,8 +3,17 @@
 // panels and standalone tools) from a config's `tools` section.
 
 import type { ToolIconConfig, ToolsConfig } from '../config/types.js';
-import bufferIconUrl from '../icons/buffer.svg?url';
-import dinosaurIconUrl from '../icons/dinosaur.svg?url';
+import {
+  DEFAULT_TOOL_METADATA,
+  STANDALONE_TAGS,
+  TOOL_ELEMENT_TAGS,
+  type ToolMetadata,
+} from '../tools/tool-registry.js';
+
+// The registry is the single place a tool is declared; these are re-exported
+// because dynamic-layout has always been where callers (the config editor, the
+// setup page, the lazy loader) import them from.
+export { KNOWN_TOOLS, STANDALONE_TAGS, TOOL_ELEMENT_TAGS } from '../tools/tool-registry.js';
 
 interface ToolbarItemConfig {
   id?: string;
@@ -18,134 +27,7 @@ interface ToolbarItemConfig {
   [key: string]: unknown;
 }
 
-interface ToolMetadata {
-  label: string;
-  icon?: ToolIconConfig;
-}
-
 type NormalizedToolIconConfig = Exclude<ToolIconConfig, string>;
-
-export const TOOL_ELEMENT_TAGS: Record<string, string> = {
-  layerTree: 'webmapx-layer-tree',
-  search: 'webmapx-search-tool',
-  measure: 'webmapx-measure-tool',
-  settings: 'webmapx-settings',
-  geolocation: 'webmapx-geolocation-tool',
-  info: 'webmapx-info-tool',
-  draw: 'webmapx-draw-tool',
-  // One tool now: the projection picker decides what to offer from the engine.
-  // The old type keeps working so configurations do not have to be rewritten.
-  'view-mode': 'webmapx-projection-tool',
-  timeSlider: 'webmapx-time-slider-tool',
-  'time-slider': 'webmapx-time-slider-tool',
-  projection: 'webmapx-projection-tool',
-  cartogram: 'webmapx-cartogram-tool',
-  '3d': 'webmapx-3d-tool',
-  'import-layer': 'webmapx-import-layer-tool',
-  layerOverview: 'webmapx-layer-overview',
-  layerLegend3d: 'webmapx-layer-legend3d',
-  maplanguage: 'webmapx-language-osmvector',
-  print: 'webmapx-print-tool',
-  truearea: 'webmapx-truearea-tool',
-  routing: 'webmapx-routing-tool',
-  isochrone: 'webmapx-isochrone-tool',
-  toolbox: 'webmapx-toolbox-tool',
-  menu: 'webmapx-menu-tool',
-  buffer: 'webmapx-buffer-tool',
-  geoprocessing: 'webmapx-geoprocessing-tool',
-  stories: 'webmapx-stories-tool',
-  paleotime: 'webmapx-paleotime-tool',
-};
-
-const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = {
-  search: { label: 'Search', icon: 'search' },
-  layerTree: { label: 'Catalog', icon: 'layers' },
-  layers: { label: 'Catalog', icon: 'layers' },
-  catalog: { label: 'Catalog', icon: 'layers' },
-  datacatalog: { label: 'Catalog', icon: 'layers' },
-  measure: { label: 'Measure', icon: 'rulers' },
-  info: { label: 'Feature info', icon: 'info-circle' },
-  draw: { label: 'Draw', icon: 'pencil' },
-  geolocation: { label: 'Geolocation', icon: 'crosshair' },
-  geolocate: { label: 'Geolocation', icon: 'crosshair' },
-  'view-mode': { label: 'Projection', icon: 'globe-americas' },
-  projection: { label: 'Projection', icon: 'globe-americas' },
-  timeSlider: { label: 'Time', icon: 'clock' },
-  'time-slider': { label: 'Time', icon: 'clock' },
-  cartogram: { label: 'Cartogram', icon: 'pie-chart' },
-  paleotime: { label: 'Deep time', icon: { src: dinosaurIconUrl } },
-  '3d': { label: '3D', icon: 'box' },
-  'import-layer': { label: 'Import layer', icon: 'file-earmark-arrow-up' },
-  layerOverview: { label: 'Legend', icon: 'card-list' },
-  legend: { label: 'Legend', icon: 'card-list' },
-  layerLegend3d: { label: 'Legend 3D', icon: 'stack' },
-  settings: { label: 'Settings', icon: 'gear' },
-  maplanguage: { label: 'Map language', icon: 'translate' },
-  print: { label: 'Print', icon: 'printer' },
-  truearea: { label: 'True Area', icon: 'bounding-box-circles' },
-  routing: { label: 'Routing', icon: 'signpost-split' },
-  isochrone: { label: 'Isochrone', icon: 'broadcast' },
-  toolbox: { label: 'Toolbox', icon: 'grid' },
-  menu: { label: 'Tools', icon: 'list' },
-  buffer: { label: 'Buffer', icon: { src: bufferIconUrl } },
-  geoprocessing: { label: 'Analysis', icon: 'intersect' },
-  stories: { label: 'Stories', icon: 'book' },
-};
-
-export const STANDALONE_TAGS: Record<string, string> = {
-  scale: 'webmapx-scale-control',
-  attribution: 'webmapx-attribution-control',
-  coordinates: 'webmapx-coordinates-tool',
-  navigation: 'webmapx-navigation-control',
-  fullscreen: 'webmapx-fullscreen-control',
-  zoomLevel: 'webmapx-zoom-level',
-  spinner: 'webmapx-spinner',
-  insetMap: 'webmapx-inset-map',
-  maplanguage: 'webmapx-language-osmvector',
-  activeAdapter: 'webmapx-active-adapter',
-  'active-adapter': 'webmapx-active-adapter',
-};
-
-/**
- * Canonical tool list for the config editor — one entry per unique tool,
- * aliases excluded. Automatically stays in sync when tools are added/renamed here.
- */
-export const KNOWN_TOOLS: Array<{ id: string; label: string; icon?: string | ToolIconConfig; standalone?: boolean }> = [
-  { id: 'search',        label: 'Search',        icon: 'search' },
-  { id: 'layerTree',     label: 'Catalog',        icon: 'layers' },
-  { id: 'measure',       label: 'Measure',        icon: 'rulers' },
-  { id: 'info',          label: 'Feature info',   icon: 'info-circle' },
-  { id: 'draw',          label: 'Draw',           icon: 'pencil' },
-  { id: 'geolocation',   label: 'Geolocation',    icon: 'crosshair' },
-  { id: 'projection',    label: 'Projection',     icon: 'globe-americas' },
-  { id: 'timeSlider',    label: 'Time',           icon: 'clock' },
-  { id: 'cartogram',     label: 'Cartogram',      icon: 'pie-chart' },
-  { id: '3d',            label: '3D',             icon: 'box' },
-  { id: 'import-layer',  label: 'Import layer',   icon: 'file-earmark-arrow-up' },
-  { id: 'layerOverview', label: 'Legend',         icon: 'card-list' },
-  { id: 'layerLegend3d', label: 'Legend 3D',      icon: 'stack' },
-  { id: 'maplanguage',   label: 'Map language',   icon: 'translate' },
-  { id: 'print',         label: 'Print',          icon: 'printer' },
-  { id: 'truearea',      label: 'True Area',      icon: 'bounding-box-circles' },
-  { id: 'routing',       label: 'Routing',        icon: 'signpost-split' },
-  { id: 'isochrone',    label: 'Isochrone',      icon: 'broadcast' },
-  { id: 'settings',      label: 'Settings',       icon: 'gear' },
-  { id: 'toolbox',       label: 'Toolbox',        icon: 'grid' },
-  { id: 'menu',          label: 'Menu',           icon: 'list' },
-  { id: 'buffer',        label: 'Buffer',         icon: { src: bufferIconUrl } },
-  { id: 'geoprocessing', label: 'Analysis',       icon: 'intersect' },
-  { id: 'stories',       label: 'Stories',        icon: 'book' },
-  { id: 'paleotime',       label: 'Deep time',      icon: { src: dinosaurIconUrl } },
-  { id: 'navigation',    label: 'Navigation',     icon: 'compass',     standalone: true },
-  { id: 'scale',         label: 'Scale bar',      icon: 'rulers',      standalone: true },
-  { id: 'coordinates',   label: 'Coordinates',    icon: 'crosshair2',  standalone: true },
-  { id: 'fullscreen',    label: 'Fullscreen',     icon: 'fullscreen',  standalone: true },
-  { id: 'zoomLevel',     label: 'Zoom level',     icon: 'zoom-in',     standalone: true },
-  { id: 'attribution',   label: 'Attribution',    icon: 'info-circle', standalone: true },
-  { id: 'insetMap',      label: 'Inset map',      icon: 'map',         standalone: true },
-  { id: 'activeAdapter', label: 'Engine label',   icon: 'cpu',         standalone: true },
-  { id: 'spinner',       label: 'Spinner',        icon: 'arrow-repeat',standalone: true },
-];
 
 function humanizeToolId(value: string | undefined): string {
   if (!value) return 'Tool';

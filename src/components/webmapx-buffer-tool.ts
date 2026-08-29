@@ -5,10 +5,8 @@
  * Input:  all features from GeoJSON layers; rendered viewport features from vector tile layers.
  * Output: new GeoJSON fill layer added to the map. Previous output can be overwritten.
  *
- * Registration:
- *   dynamic-layout.ts → TOOL_ELEMENT_TAGS['buffer'] = 'webmapx-buffer-tool'
- *   dynamic-layout.ts → DEFAULT_TOOL_METADATA['buffer'] = { label: 'Buffer', icon: { src: bufferIconUrl } }
- *   dynamic-layout.ts → KNOWN_TOOLS: { id: 'buffer', label: 'Buffer', icon: { src: bufferIconUrl } }
+ * Registration: one entry in tool-registry.ts (id 'buffer'), plus its loader
+ * in tool-loader.ts.
  */
 
 import { html, css, nothing } from 'lit';

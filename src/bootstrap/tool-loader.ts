@@ -1,50 +1,47 @@
-// Types already included in webmapx-core-bundle — no separate import needed. Includes both
-// the toolbar-item "type" spelling (scaleControl, attributionControl) and the standalone
-// config-section spelling (scale, attribution) — dynamic-layout.ts's STANDALONE_TAGS keys
-// standalone tools by their config section name, which doesn't always match the type string.
-const BUNDLED_TOOL_TYPES = new Set([
-  'layerTree', 'layerOverview', 'toolbox', 'menu', 'spacer',
-  'navigation', 'fullscreen', 'scaleControl', 'scale', 'zoomLevel',
-  'attributionControl', 'attribution', 'spinner', 'insetMap', 'active-adapter', 'activeAdapter',
-]);
+// The set of tools, their spellings and which of them the core bundle already
+// carries all come from `tools/tool-registry.ts`. What stays here is the one
+// thing a registry cannot express: a literal `import()` per tool, since only a
+// literal specifier is statically analysable by the bundler. `canonicalToolId`
+// means an alias needs no second row.
+import { BUNDLED_TOOL_IDS, canonicalToolId, TAGLESS_TOOL_IDS } from '../tools/tool-registry.js';
 
 const TOOL_MAP: Record<string, () => Promise<unknown>> = {
-  draw:               () => import('../components/webmapx-draw-tool.js'),
-  measure:            () => import('../components/webmapx-measure-tool.js'),
-  print:              () => import('../components/webmapx-print-tool.js'),
-  'import-layer':     () => import('../components/webmapx-import-layer-tool.js'),
-  search:             () => import('../components/webmapx-search-tool.js'),
-  geolocation:        () => import('../components/webmapx-geolocation-tool.js'),
-  info:               () => import('../components/webmapx-info-tool.js'),
-  maplanguage:          () => import('../components/webmapx-language-osmvector.js'),
-  'language-osmvector': () => import('../components/webmapx-language-osmvector.js'),
-  '3d':               () => import('../components/webmapx-3d-tool.js'),
-  truearea:           () => import('../components/webmapx-truearea-tool.js'),
-  'view-mode':        () => import('../components/webmapx-projection-tool.js'),
-  projection:         () => import('../components/webmapx-projection-tool.js'),
-  timeSlider:         () => import('../components/webmapx-time-slider-tool.js'),
-  'time-slider':      () => import('../components/webmapx-time-slider-tool.js'),
-  paleotime:            () => import('../components/webmapx-paleotime-tool.js'),
-  cartogram:          () => import('../components/webmapx-cartogram-tool.js'),
-  coordinates:        () => import('../components/webmapx-coordinates-tool.js'),
-  settings:           () => import('../components/webmapx-settings.js'),
-  routing:            () => import('../components/webmapx-routing-tool.js'),
-  isochrone:          () => import('../components/webmapx-isochrone-tool.js'),
-  buffer:             () => import('../components/webmapx-buffer-tool.js'),
-  geoprocessing:      () => import('../components/webmapx-geoprocessing-tool.js'),
-  'config-edit':      () => import('../components/webmapx-config-edit-tool.js'),
-  stories:            () => import('../components/webmapx-stories-tool.js'),
-  layerLegend3d:      () => import('../components/webmapx-layer-legend3d.js'),
-  'active-adapter':   () => import('../components/webmapx-active-adapter.js'),
-  activeAdapter:      () => import('../components/webmapx-active-adapter.js'),
+  draw:            () => import('../components/webmapx-draw-tool.js'),
+  measure:         () => import('../components/webmapx-measure-tool.js'),
+  print:           () => import('../components/webmapx-print-tool.js'),
+  'import-layer':  () => import('../components/webmapx-import-layer-tool.js'),
+  search:          () => import('../components/webmapx-search-tool.js'),
+  geolocation:     () => import('../components/webmapx-geolocation-tool.js'),
+  info:            () => import('../components/webmapx-info-tool.js'),
+  maplanguage:     () => import('../components/webmapx-language-osmvector.js'),
+  '3d':            () => import('../components/webmapx-3d-tool.js'),
+  truearea:        () => import('../components/webmapx-truearea-tool.js'),
+  projection:      () => import('../components/webmapx-projection-tool.js'),
+  timeSlider:      () => import('../components/webmapx-time-slider-tool.js'),
+  paleotime:       () => import('../components/webmapx-paleotime-tool.js'),
+  cartogram:       () => import('../components/webmapx-cartogram-tool.js'),
+  coordinates:     () => import('../components/webmapx-coordinates-tool.js'),
+  settings:        () => import('../components/webmapx-settings.js'),
+  routing:         () => import('../components/webmapx-routing-tool.js'),
+  isochrone:       () => import('../components/webmapx-isochrone-tool.js'),
+  buffer:          () => import('../components/webmapx-buffer-tool.js'),
+  geoprocessing:   () => import('../components/webmapx-geoprocessing-tool.js'),
+  'config-edit':   () => import('../components/webmapx-config-edit-tool.js'),
+  stories:         () => import('../components/webmapx-stories-tool.js'),
+  layerLegend3d:   () => import('../components/webmapx-layer-legend3d.js'),
 };
 
 export async function loadTools(tools: string[]): Promise<void> {
   await import('./webmapx-core-bundle.js');
   await Promise.all(tools.map(name => {
-    const loader = TOOL_MAP[name];
+    const id = canonicalToolId(name);
+    const loader = TOOL_MAP[id];
     if (!loader) {
-      if (!BUNDLED_TOOL_TYPES.has(name)) {
+      // A tool the core bundle already carries needs no loader, and neither
+      // does a type that builds no element. Anything else reaching here is
+      // either a config typo or a tool registered without a loader — the bug
+      // that renders a toolbar button doing nothing at all when clicked.
+      if (!BUNDLED_TOOL_IDS.has(id) && !TAGLESS_TOOL_IDS.has(id)) {
         console.warn(`[webmapx] Unknown tool: "${name}" — skipped`);
       }
       return Promise.resolve();
@@ -53,13 +50,13 @@ export async function loadTools(tools: string[]): Promise<void> {
   }));
 }
 
-// Reverse lookup (custom element tag name -> tool id) built from dynamic-layout's tag
-// registries, so this stays in sync with what buildLayoutFromConfig actually creates
+// Reverse lookup (custom element tag name -> tool id), derived from the registry's
+// tag maps so it stays in sync with what buildLayoutFromConfig actually creates
 // instead of hand-duplicating the tag list here.
 let tagToToolId: Record<string, string> | null = null;
 async function getTagToToolId(): Promise<Record<string, string>> {
   if (!tagToToolId) {
-    const { TOOL_ELEMENT_TAGS, STANDALONE_TAGS } = await import('../utils/dynamic-layout.js');
+    const { TOOL_ELEMENT_TAGS, STANDALONE_TAGS } = await import('../tools/tool-registry.js');
     tagToToolId = {};
     for (const [id, tag] of Object.entries({ ...TOOL_ELEMENT_TAGS, ...STANDALONE_TAGS })) {
       tagToToolId[tag] = id;

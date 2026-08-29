@@ -17,10 +17,8 @@
  *         vector tile layers (same limitation as the buffer tool).
  * Output: a new GeoJSON layer, styled to match the result's geometry type.
  *
- * Registration:
- *   dynamic-layout.ts → TOOL_ELEMENT_TAGS['geoprocessing'] = 'webmapx-geoprocessing-tool'
- *   dynamic-layout.ts → DEFAULT_TOOL_METADATA['geoprocessing']
- *   dynamic-layout.ts → KNOWN_TOOLS: { id: 'geoprocessing', ... }
+ * Registration: one entry in tool-registry.ts (id 'geoprocessing'), plus its
+ * loader in tool-loader.ts.
  */
 
 import { html, css, nothing, type TemplateResult } from 'lit';

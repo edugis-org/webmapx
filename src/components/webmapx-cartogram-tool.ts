@@ -15,11 +15,8 @@
  * The maths lives in `utils/cartogram.ts`; the operation (inputs, parameters,
  * diagram) is a registry entry in `utils/geoprocessing-operations.ts`.
  *
- * Registration:
- *   dynamic-layout.ts → TOOL_ELEMENT_TAGS['cartogram'] = 'webmapx-cartogram-tool'
- *   dynamic-layout.ts → DEFAULT_TOOL_METADATA['cartogram']
- *   dynamic-layout.ts → KNOWN_TOOLS: { id: 'cartogram', ... }
- *   bootstrap/tool-loader.ts → cartogram
+ * Registration: one entry in tool-registry.ts (id 'cartogram'), plus its loader
+ * in tool-loader.ts.
  */
 
 import { customElement } from 'lit/decorators.js';

@@ -14,17 +14,17 @@ import { resolveMapElement } from './internal/map-context';
 import type { WebmapxMapElement } from './webmapx-map';
 import type { AppConfig } from '../config/types';
 import { KNOWN_TOOLS } from '../utils/dynamic-layout';
+import { canonicalToolId } from '../tools/tool-registry';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const AUTHORING_IDS = new Set(['configedit', 'config-edit', 'settings']);
 const SKIP_PROPS = new Set(['id', 'type', 'enabled', 'items', 'tree']);
 
-const ALIAS_TO_CANONICAL: Record<string, string> = {
-    layers: 'layerTree', catalog: 'layerTree', datacatalog: 'layerTree',
-    legend: 'layerOverview', geolocate: 'geolocation',
-};
-function canon(id: string): string { return ALIAS_TO_CANONICAL[id] ?? id; }
+// Alias spellings (`layers` for the catalog, `legend` for the overview) come
+// from the tool registry, which is where they are declared for every other
+// consumer too.
+const canon = canonicalToolId;
 
 const PROP_OPTIONS: Record<string, string[]> = {
     defaultFormat:    ['geographic-en', 'geographic-local', 'lonlat', 'latlon'],
