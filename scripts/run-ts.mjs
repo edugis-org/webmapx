@@ -14,6 +14,7 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { viteUrlImportPlugin } from './lib/vite-url-import.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
@@ -46,6 +47,7 @@ try {
     // modules (playwright) resolve from node_modules as usual.
     packages: 'external',
     logLevel: 'warning',
+    plugins: [viteUrlImportPlugin()],
   });
 
   const exitCode = await new Promise((resolve) => {

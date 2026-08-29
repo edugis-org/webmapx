@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { viteUrlImportPlugin } from './lib/vite-url-import.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,26 +54,7 @@ try {
       sourcemap: 'inline',
       target: 'node22',
       logLevel: 'silent',
-      plugins: [
-        {
-          // Vite-style `?url` imports: resolve to a data URI of the file contents.
-          name: 'vite-url-import',
-          setup(b) {
-            b.onResolve({ filter: /\?url$/ }, (args) => ({
-              path: args.path.replace(/\?url$/, ''),
-              namespace: 'url-import',
-              pluginData: { resolveDir: args.resolveDir },
-            }));
-            b.onLoad({ filter: /.*/, namespace: 'url-import' }, async (args) => {
-              const abs = path.resolve(args.pluginData.resolveDir, args.path);
-              const contents = await readFile(abs);
-              const mime = abs.endsWith('.svg') ? 'image/svg+xml' : 'application/octet-stream';
-              const dataUrl = `data:${mime};base64,${contents.toString('base64')}`;
-              return { contents: `export default ${JSON.stringify(dataUrl)};`, loader: 'js' };
-            });
-          },
-        },
-      ],
+      plugins: [viteUrlImportPlugin()],
     });
     compiledFiles.push(outfile);
   }

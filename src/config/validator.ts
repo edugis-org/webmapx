@@ -1,6 +1,7 @@
 // src/config/validator.ts
 // Runtime validator for WebMapX configuration files
 
+import { CONFIG_SCHEMA_VERSION, configVersionStatus } from './schema-version.js';
 import {
   STANDALONE_TAGS,
   SUBTOOL_CONTAINER_TYPES,
@@ -30,7 +31,7 @@ const KNOWN_KEYS = {
   root: ['version', 'project', 'map', 'runtimeMap', 'layerData', 'catalog', 'library', 'state', 'ui', 'tools', 'stories', '_devTools'],
   map: ['label', 'center', 'zoom', 'minZoom', 'maxZoom', 'minPitch', 'maxPitch', 'type', 'style', 'styleUrl', 'bearing', 'pitch', 'projection'],
   runtimeMap: ['minZoom', 'maxZoom', 'minPitch', 'maxPitch', 'maxBounds'],
-  layerData: ['sources', 'layers'],
+  layerData: ['sources', 'layers', 'attributeMetadata'],
   catalog: ['label', 'tree', 'sources', 'layers'],
   treeNode: ['label', 'layerId', 'selectionMode', 'selectionGroup', 'allowNone', 'stackOrder', 'checked', 'expanded', 'children', 'separator'],
   state: ['activeBackground', 'activeLayers', 'activeExclusiveLayers', 'terrainEnabled'],
@@ -70,6 +71,8 @@ export function validateConfig(config: unknown): ValidationResult {
 
   // Check for unknown root keys
   checkUnknownKeys(cfg, KNOWN_KEYS.root, '', warnings);
+
+  validateSchemaVersion(cfg.version, warnings);
 
   // Validate map section
   validateMapSection(cfg.map, errors, warnings);
@@ -640,7 +643,17 @@ function validateLayers(
       }
     } else if (layerType === 'style') {
       if (Array.isArray(l.layers) && l.layers.length > 0) {
-        validateLayerset(l.layers, `${path}.layers`, sourceIds, errors, warnings);
+        // A composite layer carries its own `sources` map, and its sublayers
+        // name those, not only the config's top-level sources — that is the
+        // whole point of the container (inlineLayerSources resolves them into
+        // the spec before an engine sees it). Checking sublayers against the
+        // top-level sources alone reports every self-contained composite layer
+        // as broken: 122 such errors on nl.json, all of them wrong.
+        const localSources = isObject(l.sources) ? Object.keys(l.sources as Record<string, unknown>) : [];
+        const visibleSources = localSources.length > 0
+          ? new Set([...sourceIds, ...localSources])
+          : sourceIds;
+        validateLayerset(l.layers, `${path}.layers`, visibleSources, errors, warnings);
       }
     } else if (typeof layerType === 'string' && VALID_LAYER_TYPES.includes(layerType)) {
       if (typeof l.source !== 'string') {
@@ -984,6 +997,33 @@ function validateToolsSection(
  * These are warnings, never errors: a config naming a tool this build does not
  * have should still produce a working map.
  */
+/**
+ * Reports a config written against a schema this build does not know.
+ *
+ * Only `newer` and `invalid` say anything. A missing version is silent —
+ * versioning starts at 0, so a file written before it is simply current — and
+ * so is an older one, since 0 is the floor and there is nothing below it to
+ * migrate from yet.
+ */
+function validateSchemaVersion(version: unknown, warnings: ValidationMessage[]): void {
+  const status = configVersionStatus(version);
+
+  if (status === 'invalid') {
+    warnings.push({
+      severity: 'warning', path: 'version',
+      message: `"version" should be a number; found ${typeof version}`,
+    });
+    return;
+  }
+
+  if (status === 'newer') {
+    warnings.push({
+      severity: 'warning', path: 'version',
+      message: `This config declares schema version ${String(version)}, but this build of webmapx reads version ${CONFIG_SCHEMA_VERSION} — anything newer will be ignored, and the map may be missing features the config asks for`,
+    });
+  }
+}
+
 function validateToolName(
   name: string,
   path: string,

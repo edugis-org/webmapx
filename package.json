@@ -10,7 +10,13 @@
   "exports": {
     ".": {
       "import": "./dist-lib/webmapx.js"
+    },
+    "./config": {
+      "import": "./dist-lib/webmapx-config.js"
     }
+  },
+  "bin": {
+    "webmapx-validate": "dist-lib/webmapx-validate.js"
   },
   "files": [
     "dist-lib",
@@ -45,6 +51,7 @@
     "ui-test:search-persist-draw:leaflet": "node ./scripts/run-ui-tests.mjs --suite search-persist-draw --engines leaflet",
     "ui-test:search-persist-draw:cesium": "node ./scripts/run-ui-tests.mjs --suite search-persist-draw --engines cesium",
     "check:architecture": "node ./scripts/check-architecture.mjs",
+    "validate:config": "node ./scripts/run-ts.mjs src/cli/validate-config.ts",
     "generate:swatches": "node ./scripts/run-ts.mjs scripts/generate-layer-swatches.ts",
     "generate:daynight": "node ./scripts/run-ts.mjs scripts/generate-daynight.ts",
     "generate:eclipse": "node ./scripts/run-ts.mjs scripts/generate-eclipse-geojson.ts",
