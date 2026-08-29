@@ -1,6 +1,14 @@
 // src/config/validator.ts
 // Runtime validator for WebMapX configuration files
 
+import {
+  STANDALONE_TAGS,
+  SUBTOOL_CONTAINER_TYPES,
+  TAGLESS_TOOL_IDS,
+  TOOL_ELEMENT_TAGS,
+  canonicalToolId,
+} from '../tools/tool-registry.js';
+
 export type ValidationSeverity = 'error' | 'warning';
 
 export interface ValidationMessage {
@@ -854,6 +862,12 @@ function validateToolsSection(
 
     validateToolMetadata(tc, toolPath, warnings);
 
+    if (tc.type === 'toolbar') {
+      validateToolItems(tc.items, `${toolPath}.items`, warnings);
+    } else {
+      validateToolName(toolName, toolPath, 'section', warnings);
+    }
+
     if (Array.isArray(tc.items)) {
       tc.items.forEach((item, index) => {
         if (!isObject(item)) {
@@ -950,6 +964,91 @@ function validateToolsSection(
         }
       }
     }
+  });
+}
+
+/**
+ * Checks that a tool name is one this build knows.
+ *
+ * An unrecognised name is dropped without a word: `appendSubTools` skips a
+ * toolbar item whose `type` has no element, and `buildStandalone` skips a
+ * section with no standalone tag. The map still loads, just without the tool —
+ * indistinguishable from a typo, and exactly what a config written for a newer
+ * or older build looks like.
+ *
+ * A top-level section is accepted for *any* known tool, not just a standalone
+ * one: a section is also where a toolbar tool's own parameters live (demo.json
+ * configures `tools.search`'s provider while the button itself comes from a
+ * toolbar's items), and tools read it back at runtime via `config.tools[id]`.
+ *
+ * These are warnings, never errors: a config naming a tool this build does not
+ * have should still produce a working map.
+ */
+function validateToolName(
+  name: string,
+  path: string,
+  position: 'section' | 'item',
+  warnings: ValidationMessage[]
+): void {
+  const id = canonicalToolId(name);
+  const isToolbarTool = TOOL_ELEMENT_TAGS[id] !== undefined;
+  const isStandalone = STANDALONE_TAGS[id] !== undefined;
+  // A registered type that builds no element of its own — `spacer`, which the
+  // toolbar builder turns into flexible space rather than a tool.
+  const isTagless = !isToolbarTool && !isStandalone && TAGLESS_TOOL_IDS.has(id);
+
+  if (isToolbarTool || isTagless) return;
+  if (position === 'section' && isStandalone) return;
+
+  if (position === 'item' && isStandalone) {
+    warnings.push({
+      severity: 'warning', path,
+      message: `"${name}" is a standalone map control, so it needs its own "tools" section rather than a toolbar item — it will not appear`,
+    });
+    return;
+  }
+
+  warnings.push({
+    severity: 'warning', path,
+    message: `Unknown tool "${name}" — either a typo, or a tool this version of webmapx does not have; it will be skipped`,
+  });
+}
+
+/**
+ * Walks a toolbar's items, and the items of any toolbox or menu nested inside
+ * them, to any depth — the same tree `appendSubTools` builds from.
+ */
+function validateToolItems(
+  items: unknown,
+  path: string,
+  warnings: ValidationMessage[]
+): void {
+  if (!Array.isArray(items)) return;
+
+  items.forEach((item, index) => {
+    if (!isObject(item)) return;
+    const itemPath = `${path}[${index}]`;
+    const record = item as Record<string, unknown>;
+    const type = record.type;
+
+    if (type === undefined) {
+      warnings.push({
+        severity: 'warning', path: `${itemPath}.type`,
+        message: 'Toolbar item is missing "type", which is what decides the tool it builds — it will be skipped',
+      });
+      return;
+    }
+    if (typeof type !== 'string') {
+      warnings.push({ severity: 'warning', path: `${itemPath}.type`, message: '"type" should be a string' });
+      return;
+    }
+
+    if (SUBTOOL_CONTAINER_TYPES.has(canonicalToolId(type))) {
+      validateToolItems(record.items, `${itemPath}.items`, warnings);
+      return;
+    }
+
+    validateToolName(type, `${itemPath}.type`, 'item', warnings);
   });
 }
 

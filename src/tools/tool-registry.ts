@@ -58,6 +58,11 @@ export interface ToolRegistryEntry {
     loaderAliases?: string[];
     /** Imported by webmapx-core-bundle, so it needs no lazy loader. */
     bundled?: boolean;
+    /**
+     * Holds other tools inside its own panel (the toolbox and the menu), so its
+     * config `items` are tools rather than parameters.
+     */
+    container?: boolean;
     /** Offered in the setup page's "add a tool" list. Default true. */
     offered?: boolean;
 }
@@ -107,8 +112,8 @@ export const TOOL_REGISTRY: readonly ToolRegistryEntry[] = [
     { id: 'routing', tag: 'webmapx-routing-tool', placement: 'toolbar', label: 'Routing', icon: 'signpost-split' },
     { id: 'isochrone', tag: 'webmapx-isochrone-tool', placement: 'toolbar', label: 'Isochrone', icon: 'broadcast' },
     { id: 'settings', tag: 'webmapx-settings', placement: 'toolbar', label: 'Settings', icon: 'gear' },
-    { id: 'toolbox', tag: 'webmapx-toolbox-tool', placement: 'toolbar', label: 'Toolbox', icon: 'grid', bundled: true },
-    { id: 'menu', tag: 'webmapx-menu-tool', placement: 'toolbar', label: 'Tools', icon: 'list', bundled: true },
+    { id: 'toolbox', tag: 'webmapx-toolbox-tool', placement: 'toolbar', label: 'Toolbox', icon: 'grid', bundled: true, container: true },
+    { id: 'menu', tag: 'webmapx-menu-tool', placement: 'toolbar', label: 'Tools', icon: 'list', bundled: true, container: true },
     { id: 'buffer', tag: 'webmapx-buffer-tool', placement: 'toolbar', label: 'Buffer', icon: { src: bufferIconUrl } },
     { id: 'geoprocessing', tag: 'webmapx-geoprocessing-tool', placement: 'toolbar', label: 'Analysis', icon: 'intersect' },
     { id: 'stories', tag: 'webmapx-stories-tool', placement: 'toolbar', label: 'Stories', icon: 'book' },
@@ -219,6 +224,11 @@ export const BUNDLED_TOOL_IDS: ReadonlySet<string> = new Set(
     TOOL_REGISTRY
         .filter((entry) => entry.bundled)
         .flatMap((entry) => [...spellings(entry), ...(entry.loaderAliases ?? [])]),
+);
+
+/** Tool types whose `items` are other tools: the toolbox and the menu. */
+export const SUBTOOL_CONTAINER_TYPES: ReadonlySet<string> = new Set(
+    TOOL_REGISTRY.filter((entry) => entry.container).flatMap((entry) => spellings(entry)),
 );
 
 /**

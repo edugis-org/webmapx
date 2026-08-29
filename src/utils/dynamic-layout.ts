@@ -6,6 +6,7 @@ import type { ToolIconConfig, ToolsConfig } from '../config/types.js';
 import {
   DEFAULT_TOOL_METADATA,
   STANDALONE_TAGS,
+  SUBTOOL_CONTAINER_TYPES,
   TOOL_ELEMENT_TAGS,
   type ToolMetadata,
 } from '../tools/tool-registry.js';
@@ -13,7 +14,7 @@ import {
 // The registry is the single place a tool is declared; these are re-exported
 // because dynamic-layout has always been where callers (the config editor, the
 // setup page, the lazy loader) import them from.
-export { KNOWN_TOOLS, STANDALONE_TAGS, TOOL_ELEMENT_TAGS } from '../tools/tool-registry.js';
+export { KNOWN_TOOLS, STANDALONE_TAGS, SUBTOOL_CONTAINER_TYPES, TOOL_ELEMENT_TAGS } from '../tools/tool-registry.js';
 
 interface ToolbarItemConfig {
   id?: string;
@@ -105,7 +106,6 @@ function setAttrs(el: HTMLElement, attrs: Record<string, unknown>): void {
  * Item types that hold sub-tools rather than being a tool themselves.
  * `toolbox` renders them as a flat icon row, `menu` as a drill-in list.
  */
-export const SUBTOOL_CONTAINER_TYPES = new Set(['toolbox', 'menu']);
 
 interface SubToolGroup {
   path: string;
