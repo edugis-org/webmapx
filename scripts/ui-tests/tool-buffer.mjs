@@ -1,4 +1,5 @@
 import { installDeepQuery } from "./lib/deep-query.mjs";
+import { appUrl, FIXTURE_CONFIG } from './lib/fixture-config.mjs';
 
 /**
  * UI Test: Buffer tool
@@ -30,11 +31,13 @@ async function waitForMapReady(page) {
 
 /** Stages a demo.json copy with "buffer" added to the main toolbar — mirrors what the
  *  config-edit tool produces — via the same drop-a-config flow a real user goes through. */
-async function stageBufferToolConfig(page) {
-  const demoConfig = await page.evaluate(async () => {
-    const res = await fetch('/config/demo.json');
+async function stageBufferToolConfig(page, baseUrl) {
+  // The path is passed in: page.evaluate runs in the browser, where the Node
+  // import of FIXTURE_CONFIG does not exist.
+  const demoConfig = await page.evaluate(async (configPath) => {
+    const res = await fetch(configPath);
     return res.json();
-  });
+  }, FIXTURE_CONFIG);
   demoConfig.tools.mainToolbar.items.push({
     id: 'buffer',
     type: 'buffer',
@@ -48,7 +51,10 @@ async function stageBufferToolConfig(page) {
     await mod.storeDroppedConfig(JSON.stringify(cfg));
   }, demoConfig);
 
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  // Navigated rather than reloaded, and deliberately without the ?config=
+  // parameter the other steps use: the staged config *is* the config under
+  // test, and an explicit ?config= would outrank it.
+  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
   await waitForMapReady(page);
 }
 
@@ -190,11 +196,11 @@ export async function run({ page, engine, baseUrl }) {
   };
 
   await step('load default page', async () => {
-    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+    await page.goto(appUrl(baseUrl), { waitUntil: 'domcontentloaded' });
     await waitForMapReady(page);
   });
 
-  await step('drop config with buffer added to toolbar', () => stageBufferToolConfig(page));
+  await step('drop config with buffer added to toolbar', () => stageBufferToolConfig(page, baseUrl));
 
   await step('activate draw tool', () => activateDrawTool(page));
 

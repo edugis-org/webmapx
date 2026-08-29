@@ -9,6 +9,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdir } from 'node:fs/promises';
+import { appUrl } from './lib/fixture-config.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../temp/screenshots');
@@ -323,7 +324,7 @@ export async function run({ page, engine, baseUrl }) {
     };
 
     await step('load page', async () => {
-        await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+        await page.goto(appUrl(baseUrl), { waitUntil: 'domcontentloaded' });
         await waitForMapReady(page);
     });
 

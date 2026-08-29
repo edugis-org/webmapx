@@ -8,6 +8,7 @@
  * and that the ticking stops when the layer is removed — a refresher that
  * outlives its layer is invisible until the battery is gone.
  */
+import { appUrl } from './lib/fixture-config.mjs';
 const LAYER = 'sunposition-computed';
 
 export const engines = ['maplibre', 'openlayers'];
@@ -28,7 +29,7 @@ async function sunLongitude(page) {
 export async function run({ page, engine, baseUrl }) {
     console.log(`  Running computed-layer refresh test for engine: ${engine}`);
 
-    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+    await page.goto(appUrl(baseUrl), { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(async () => {
         const map = document.querySelector('webmapx-map');
         if (!map || typeof map.getAdapterAsync !== 'function') return false;

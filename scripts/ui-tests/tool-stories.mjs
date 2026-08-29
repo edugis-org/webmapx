@@ -43,6 +43,7 @@
  * straight from the store, so a step that hides a layer via adapter.setLayerVisibility alone
  * left the legend showing it as active/eye-open even though it wasn't rendered.
  */
+import { appUrl } from './lib/fixture-config.mjs';
 
 function fail(message) {
   throw new Error(message);
@@ -213,7 +214,7 @@ export async function run({ page, engine, baseUrl }) {
   let startCenter;
 
   await step('load default page', async () => {
-    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+    await page.goto(appUrl(baseUrl), { waitUntil: 'domcontentloaded' });
     await waitForMapReady(page);
   });
 

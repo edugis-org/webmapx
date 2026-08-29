@@ -12,6 +12,7 @@
  * service answers at all and skips rather than failing when it does not — a
  * broken network must not read as a broken adapter.
  */
+import { appUrl } from './lib/fixture-config.mjs';
 
 const LAYER_ID = 'populationdensity';
 /**
@@ -44,7 +45,7 @@ async function waitForMapReady(page) {
 export async function run({ page, engine, baseUrl }) {
   console.log(`  Running vector tile query test for engine: ${engine}`);
 
-  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+  await page.goto(appUrl(baseUrl), { waitUntil: 'domcontentloaded' });
   await waitForMapReady(page);
 
   const reachable = await page.evaluate(async (url) => {

@@ -1,3 +1,4 @@
+import { FIXTURE_CONFIG } from './lib/fixture-config.mjs';
 /**
  * UI Test: the paleotime tool
  *
@@ -61,7 +62,7 @@ async function setAge(page, ma) {
 export async function run({ page, engine, baseUrl }) {
     console.log(`  Running paleotime tool test for engine: ${engine}`);
 
-    await page.goto(`${baseUrl}/${PAGE}?adapter=${engine}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${baseUrl}/${PAGE}?adapter=${engine}&config=${encodeURIComponent(FIXTURE_CONFIG)}`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(async () => {
         const map = document.querySelector('webmapx-map');
         if (!map || typeof map.getAdapterAsync !== 'function') return false;

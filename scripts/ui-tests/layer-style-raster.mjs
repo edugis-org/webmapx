@@ -11,6 +11,7 @@
  * The WMS is a real remote service (PDOK), so the style-switching part is
  * skipped rather than failed when it cannot be reached.
  */
+import { appUrl } from './lib/fixture-config.mjs';
 
 const BAKED_GETMAP = 'bevolking2015';   // GetMap query baked into the source url
 const BARE_ENDPOINT = 'pdok-bag-raster'; // endpoint + `layers` sibling key
@@ -52,7 +53,7 @@ async function openPanel(page, layerId) {
 export async function run({ page, engine, baseUrl }) {
   console.log(`  Running raster style panel test for engine: ${engine}`);
 
-  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+  await page.goto(appUrl(baseUrl), { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(async () => {
     const map = document.querySelector('webmapx-map');
     if (!map || typeof map.getAdapterAsync !== 'function') return false;

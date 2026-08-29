@@ -5,6 +5,7 @@
  * Also checks that icon assets (buffer.svg, mercator-view.png, globe-view.png) are inlined
  * as data URLs in the built lib — if they appear as bare filename paths they'll 404 on CDN.
  */
+import { appUrl } from './lib/fixture-config.mjs';
 
 const ASSET_EXTENSIONS = /\.(svg|png|geojson|topojson)(\?|#|$)/i;
 
@@ -138,7 +139,7 @@ export async function run({ page, baseUrl }) {
 
     // ── 4. Icon data-URL checks (main page) ───────────────────────────────
     await step('root: view-mode images load', async () => {
-        await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+        await page.goto(appUrl(baseUrl), { waitUntil: 'domcontentloaded' });
         await waitForPreviewLoaded(page);
         await checkViewModeImagesLoad(page, 'root');
     });

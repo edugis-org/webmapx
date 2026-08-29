@@ -11,6 +11,7 @@
  * 4. A one-input operation (centroid) runs on that result, proving the arity branch
  *    and that a tool output can feed the next operation.
  */
+import { appUrl, FIXTURE_CONFIG } from './lib/fixture-config.mjs';
 
 function fail(message) {
   throw new Error(message);
@@ -45,11 +46,13 @@ async function waitForMapReady(page) {
 }
 
 /** Adds the geoprocessing tool to the main toolbar the same way the config-edit tool would. */
-async function stageGeoprocessingConfig(page) {
-  const demoConfig = await page.evaluate(async () => {
-    const res = await fetch('/config/demo.json');
+async function stageGeoprocessingConfig(page, baseUrl) {
+  // The path is passed in: page.evaluate runs in the browser, where the Node
+  // import of FIXTURE_CONFIG does not exist.
+  const demoConfig = await page.evaluate(async (configPath) => {
+    const res = await fetch(configPath);
     return res.json();
-  });
+  }, FIXTURE_CONFIG);
   demoConfig.tools.mainToolbar.items.push({
     id: 'geoprocessing',
     type: 'geoprocessing',
@@ -63,7 +66,10 @@ async function stageGeoprocessingConfig(page) {
     await mod.storeDroppedConfig(JSON.stringify(cfg));
   }, demoConfig);
 
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  // Navigated rather than reloaded, and deliberately without the ?config=
+  // parameter the other steps use: the staged config *is* the config under
+  // test, and an explicit ?config= would outrank it.
+  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
   await waitForMapReady(page);
 }
 
@@ -319,11 +325,11 @@ export async function run({ page, engine, baseUrl }) {
   };
 
   await step('load default page', async () => {
-    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+    await page.goto(appUrl(baseUrl), { waitUntil: 'domcontentloaded' });
     await waitForMapReady(page);
   });
 
-  await step('drop config with the analysis tool on the toolbar', () => stageGeoprocessingConfig(page));
+  await step('drop config with the analysis tool on the toolbar', () => stageGeoprocessingConfig(page, baseUrl));
   await step('add two overlapping test layers', () => addTestLayers(page));
   await step('activate analysis tool (lazily-loaded custom element)', () => activateTool(page));
   await step('label point diagram places its dots inside the polygons', () => checkLabelPointDiagram(page));

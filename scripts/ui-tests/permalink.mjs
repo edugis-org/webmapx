@@ -1,4 +1,5 @@
 import { installDeepQuery } from "./lib/deep-query.mjs";
+import { appUrl } from './lib/fixture-config.mjs';
 
 /**
  * UI Test: Permalink
@@ -42,7 +43,7 @@ export async function run({ page, engine, baseUrl }) {
   // ── Part 1: button exists and dialog opens ───────────────────────────────
 
   await step('load default page and wait for map', async () => {
-    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+    await page.goto(appUrl(baseUrl), { waitUntil: 'domcontentloaded' });
     await waitForMapLoaded(page);
   });
 
@@ -76,7 +77,11 @@ export async function run({ page, engine, baseUrl }) {
       const dialog = window.__wmxDeepQuery('webmapx-permalink-dialog', { open: true });
       if (!dialog?.shadowRoot) return false;
       const urlBox = dialog.shadowRoot.querySelector('.url-box');
-      return urlBox?.textContent?.includes('?s=') ?? false;
+      const text = urlBox?.textContent?.trim();
+      // `s` may not be the first parameter — the tests pass ?config= to pin the
+      // fixture — so look for the parameter rather than for "?s=".
+      if (!text) return false;
+      try { return new URL(text).searchParams.has('s'); } catch { return false; }
     }, undefined, { timeout: 10_000 });
 
     const url = await page.evaluate(() => {
@@ -86,7 +91,7 @@ export async function run({ page, engine, baseUrl }) {
       return dialog?.shadowRoot?.querySelector('.url-box')?.textContent?.trim() ?? '';
     });
 
-    if (!url.includes('?s=')) fail(`Dialog URL missing ?s= param: ${url}`);
+    if (!new URL(url).searchParams.has('s')) fail(`Dialog URL missing "s" param: ${url}`);
     console.log(`    Dialog URL generated (${url.length} chars)`);
   });
 
@@ -97,7 +102,7 @@ export async function run({ page, engine, baseUrl }) {
   // l = all layers bottom-to-top (osm is the only layer in demo.json default)
   const permalinkState = { l: ['osm'], v: [4.9, 52.3, 5, 0, 0] };
   const encoded = encodePermalink(permalinkState);
-  const permalinkUrl = `${baseUrl}?s=${encodeURIComponent(encoded)}`;
+  const permalinkUrl = appUrl(baseUrl, { s: encoded });
 
   await step('navigate to constructed permalink URL', async () => {
     await page.goto(permalinkUrl, { waitUntil: 'domcontentloaded' });
@@ -151,7 +156,7 @@ export async function run({ page, engine, baseUrl }) {
 
   // ── Part 3: explicit .0 suffix is equivalent to short form ───────────────
 
-  const permalinkUrl0 = `${baseUrl}?s.0=${encodeURIComponent(encoded)}`;
+  const permalinkUrl0 = appUrl(baseUrl, { 's.0': encoded });
 
   await step('navigate to ?s.0= URL (explicit index 0)', async () => {
     await page.goto(permalinkUrl0, { waitUntil: 'domcontentloaded' });
