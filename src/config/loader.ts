@@ -379,6 +379,43 @@ function normalizeCatalogTree(catalogs: unknown, fallbackLayers: unknown[]): unk
     .filter(Boolean) as Array<{ label: string; layerId: string }>;
 }
 
+/**
+ * A tool's `data` path is relative to the config, like every other path in it.
+ *
+ * The paleotime tool reads `tools.paleotime.data` and fetches the plate model
+ * from it at runtime, which resolves against the *page* — so the same value
+ * meant different directories depending on where the app's HTML sat, and a
+ * config loaded from another origin looked for its data on the app's host. The
+ * source-level spelling of the same thing (`internalfunc://…?data=…` in
+ * layerData) has always been config-relative; this makes the tool section agree.
+ *
+ * That is what lets a dataset belong to the configuration that uses it rather
+ * than to the code: the data can sit beside the config, in a config repository,
+ * and travel with it.
+ */
+function normalizeToolsSection(tools: unknown, configUrl: string): Record<string, unknown> | undefined {
+  if (!isObject(tools)) return undefined;
+
+  // Cloned rather than mutated: the raw config object is cached and may be
+  // normalised again against a different base.
+  const cloned = JSON.parse(JSON.stringify(tools)) as Record<string, unknown>;
+
+  const visit = (entry: Record<string, unknown>): void => {
+    if (typeof entry.data === 'string' && entry.data.length > 0) {
+      entry.data = resolveConfigRelativeUrl(entry.data, configUrl);
+    }
+    if (Array.isArray(entry.items)) {
+      for (const item of entry.items) if (isObject(item)) visit(item as Record<string, unknown>);
+    }
+  };
+
+  for (const entry of Object.values(cloned)) {
+    if (isObject(entry)) visit(entry as Record<string, unknown>);
+  }
+
+  return cloned;
+}
+
 function injectLayerTreeIntoTools(tools: unknown, tree: unknown[]): Record<string, unknown> | undefined {
   if (!isObject(tools)) {
     return undefined;
@@ -497,10 +534,17 @@ function normalizeAppConfig(rawConfig: unknown, configUrl: string): AppConfig {
   const raw = rawConfig as Record<string, unknown>;
   const stories = raw.stories !== undefined ? normalizeStoriesSection(raw.stories, configUrl) : undefined;
 
+  const tools = normalizeToolsSection(raw.tools, configUrl);
+  // Handed to tools so one can resolve an asset path of its own — a default
+  // that never appears in the config file, and so is never normalised here.
+  const baseUrl = configUrl;
+
   if (isObject(raw.layerData)) {
     return {
       ...(raw as unknown as AppConfig),
       layerData: normalizeLayerDataSection(raw.layerData, configUrl) as any,
+      baseUrl,
+      ...(tools !== undefined ? { tools: tools as any } : {}),
       ...(stories !== undefined ? { stories: stories as any } : {}),
     };
   }
@@ -514,6 +558,8 @@ function normalizeAppConfig(rawConfig: unknown, configUrl: string): AppConfig {
         layers: Array.isArray(catalog.layers) ? (catalog.layers as any) : [],
       },
       catalog: raw.catalog as any,
+      baseUrl,
+      ...(tools !== undefined ? { tools: tools as any } : {}),
       ...(stories !== undefined ? { stories: stories as any } : {}),
     };
     return normalizedFromCatalog;
@@ -528,6 +574,8 @@ function normalizeAppConfig(rawConfig: unknown, configUrl: string): AppConfig {
   const layers = normalizeLayerMap(library.layers, sources, configUrl);
   const tree = normalizeCatalogTree(library.catalogs, layers);
 
+  const resolvedTools = injectLayerTreeIntoTools(tools ?? raw.tools, tree);
+
   const normalized: AppConfig = {
     map: raw.map as MapConfig,
     runtimeMap: isObject(raw.runtimeMap) ? (raw.runtimeMap as RuntimeMapConfig) : undefined,
@@ -535,7 +583,8 @@ function normalizeAppConfig(rawConfig: unknown, configUrl: string): AppConfig {
       sources: sources as any,
       layers: layers as any,
     },
-    tools: injectLayerTreeIntoTools(raw.tools, tree) as any,
+    tools: resolvedTools as any,
+    baseUrl,
     state: isObject(raw.state) ? (raw.state as any) : undefined,
     version: typeof raw.version === 'number' ? raw.version : undefined,
     project: isObject(raw.project) ? (raw.project as Record<string, unknown>) : undefined,

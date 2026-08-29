@@ -909,7 +909,7 @@
       {
         "id": "paleo-coastlines-source",
         "type": "geojson",
-        "data": "internalfunc://paleo-coastlines?data=../data/paleo/merdith2021&ma={ma}",
+        "data": "internalfunc://paleo-coastlines?data=data/paleo/merdith2021&ma={ma}",
         "attribution": "Merdith et al. 2021 plate model (CC-BY-4.0), reconstructed in the browser"
       },
       {
@@ -3103,7 +3103,7 @@
     },
     "paleotime": {
       "enabled": true,
-      "data": "../data/paleo/merdith2021",
+      "data": "data/paleo/merdith2021",
       "to": 1000
     },
     "mainToolbar": {

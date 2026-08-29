@@ -539,6 +539,16 @@ export interface StoriesConfig {
 
 export interface AppConfig {
   version?: number;
+  /**
+   * Absolute URL the config was loaded from, injected by the loader.
+   *
+   * Every path in a config is relative to the config file, and most are
+   * resolved during normalisation. A tool that falls back to a *default* asset
+   * path has nothing to resolve at that point — the default lives in the
+   * component, not in the config — so it needs the base itself. Not written by
+   * hand; a value in a config file is overwritten.
+   */
+  baseUrl?: string;
   project?: Record<string, unknown>;
   map: MapConfig;
   runtimeMap?: RuntimeMapConfig;

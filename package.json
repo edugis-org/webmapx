@@ -21,7 +21,8 @@
   "files": [
     "dist-lib",
     "src/locales",
-    "public/data"
+    "public/data/country-epsg-codes.json",
+    "public/data/world-countries-simplified.topojson"
   ],
   "directories": {
     "doc": "docs"

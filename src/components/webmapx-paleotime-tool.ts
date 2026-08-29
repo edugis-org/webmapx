@@ -22,7 +22,14 @@ import { WebmapxModalTool } from './webmapx-modal-tool';
 import { loadPlateModelFrom } from '../utils/paleo-coastlines';
 import type { WebmapxMapElement } from './webmapx-map';
 
-/** Where the built plate model lives, relative to the page. */
+/**
+ * Where the built plate model lives, relative to the *config*.
+ *
+ * It is a config asset — 4.4 MB of coastlines and rotations that belong to the
+ * map being described, not to webmapx — so it sits under the config directory
+ * and is shipped with the config. A config naming no `data` gets this, resolved
+ * against the config's own location by `resolveConfigAsset`.
+ */
 const DEFAULT_DATA = 'data/paleo/merdith2021';
 
 const LAYER_ID = 'paleotime-coastlines';
@@ -221,8 +228,18 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
         // The instance's own id first, so two instances can be pointed at two
         // models; the tool type second, which is where a single one is configured.
         const section = (tools?.[this.instanceId] ?? tools?.[this.toolId]) as Record<string, unknown> | undefined;
+
+        // The loader resolves a `data` written in the config; the default never
+        // appears there, so it is resolved here against the same base — and
+        // that has to happen whether or not the tool has a config section at
+        // all, since a tool placed directly in HTML has none.
+        if (!this.hasAttribute('data')) {
+            this.data = typeof section?.data === 'string'
+                ? section.data
+                : this.resolveConfigAsset(DEFAULT_DATA);
+        }
+
         if (!section) return;
-        if (!this.hasAttribute('data') && typeof section.data === 'string') this.data = section.data;
         if (!this.hasAttribute('from') && Number.isFinite(Number(section.from))) this.from = Number(section.from);
         if (!this.hasAttribute('to') && Number.isFinite(Number(section.to))) this.to = Number(section.to);
         if (!this.hasAttribute('step') && Number.isFinite(Number(section.step))) this.step = Number(section.step);

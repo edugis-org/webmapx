@@ -181,6 +181,30 @@ export abstract class WebmapxBaseTool extends LitElement {
     }
 
     /**
+     * Resolves a path against the config the map was loaded from.
+     *
+     * Every path in a config is relative to the config file, and the loader
+     * resolves the ones that appear *in* it. A default that lives in a
+     * component — the dataset a tool falls back to when the config names none —
+     * never passes through that, so it has to be resolved here instead. Without
+     * it the browser resolves the fetch against the page, which means the same
+     * default points at a different directory depending on where the app's HTML
+     * sits, and at the app's host rather than the config's when the two differ.
+     *
+     * Tool data is a config asset: it belongs under the config directory and
+     * travels with the config.
+     */
+    protected resolveConfigAsset(path: string): string {
+        const base = this.config?.baseUrl;
+        if (!base) return path;
+        try {
+            return new URL(path, base).toString();
+        } catch {
+            return path;
+        }
+    }
+
+    /**
      * Subscribes to config-ready events from the parent map.
      * Call this in connectedCallback if your tool needs to react to config loading.
      * Override onConfigReady to handle the config.
