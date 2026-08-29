@@ -1,20 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" height="16" width="16" fill="currentColor">
-<!-- A sauropod: at 16 pixels the long neck and long tail are the only dinosaur
-     anyone reads instantly, so everything else is sacrificed to them. The tail
-     is thinner than the neck and sweeps lower — given the same weight and angle
-     it reads as a second neck and the animal becomes a two-headed blob.
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" height="16" width="16"
+     fill="none" stroke="currentColor" stroke-width="1.05" stroke-linejoin="round" stroke-linecap="round">
+<!-- A sauropod, traced as one continuous outline: snout, head, neck, back, tail,
+     then back along the belly over four stubby legs.
+     Outline rather than solid, because the toolbar's other icons are outlines
+     and a filled silhouette reads far heavier than its neighbours.
 
-     One <path> per body part rather than one path of many subpaths. Subpaths of
-     a single path interact through the fill rule, so a leg or a neck wound
-     against the body cuts a hole in it instead of joining it — which came out
-     as white notches at exactly the joints that most need to look solid.
-     Separate elements simply paint over one another. -->
-<ellipse cx="8" cy="8.8" rx="3.1" ry="1.9"/>
-<path d="M2.6 3.1 Q3.0 7.5 6.0 8.8 L6.9 7.7 Q4.3 6.7 3.9 3.0 Z"/>
-<ellipse cx="3.1" cy="2.55" rx="1.05" ry="0.8"/>
-<path d="M2.2 2.2 L0.7 2.6 L2.2 3.15 Z"/>
-<path d="M10.3 8.0 Q12.9 8.1 15.5 6.0 Q13.2 9.1 10.6 9.1 Z"/>
-<rect x="5.9" y="9.2" width="1.5" height="4.1"/>
-<rect x="7.9" y="9.4" width="1.4" height="3.9"/>
-<rect x="9.7" y="9.4" width="1.4" height="3.9"/>
+     Proportions matter more than detail at this size. The body is deep — over
+     four units between back and belly — and the neck and tail are thick where
+     they leave it, tapering only towards the ends. Drawn thin, the same animal
+     reads as a bird: a long neck on two spindly legs is a chicken, which is
+     technically a dinosaur and not the one anyone pictures. -->
+<path d="M1.5 3.5
+         Q1.8 1.9 3.3 2.1
+         Q4.7 2.4 5.2 5.2
+         Q5.6 6.5 7.2 6.4
+         Q9.4 6.2 10.6 7.3
+         Q13.2 7.4 15.4 9.5
+         Q13.8 10.4 11.4 10.6
+         L11.4 12.9 L10.5 12.9 L10.4 10.8
+         L9.6 10.9 L9.5 12.7 L8.6 12.7 L8.5 10.9
+         L7.2 10.9 L7.1 12.9 L6.2 12.9 L6.1 10.8
+         L5.4 10.6 L5.3 12.7 L4.5 12.7 L4.5 10.2
+         Q4.6 9.6 4.6 9.1
+         Q4.1 6.5 3.4 4.4
+         Q3.0 3.5 1.5 3.5
+         Z"/>
 </svg>
