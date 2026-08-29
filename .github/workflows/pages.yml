@@ -27,6 +27,14 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      # public/config is a checkout of the config repository, not content of
+      # this one. `sync` takes the commit configs.lock names, so the deployed
+      # site serves the configs that were tested rather than whatever that
+      # repository's main branch happens to be at build time.
+      - name: Fetch the pinned configs
+        run: npm run configs:sync
+
       - run: echo '${{ secrets.APIKEYS_JSON }}' > public/config/apikeys.json
       - run: npm run build
 
