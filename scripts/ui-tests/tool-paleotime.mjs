@@ -11,7 +11,9 @@ import { FIXTURE_CONFIG } from './lib/fixture-config.mjs';
  * source actually holds: that it moves when the age moves, that it moves *back*
  * to where it started, and that the layer is gone when the tool closes.
  */
-const PAGE = 'testpages/paleotime.html';
+// A host page the suite owns. testpages/paleotime.html is for working on the
+// tool by hand and may change or go; a test should not be what stops it.
+const PAGE = 'scripts/ui-tests/pages/paleotime.html';
 const SOURCE = 'paleotime-coastlines-source';
 
 // Cesium passes but is excluded from the routine run: it is much slower here

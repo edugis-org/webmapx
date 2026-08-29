@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ui-test host — paleotime</title>
+  <!--
+    A host page owned by the UI suite, not by testpages/.
+
+    tool-paleotime.mjs used to drive testpages/paleotime.html, which exists for
+    working on the tool by hand: it can be restyled, repointed or thrown away
+    without anyone thinking about the test that quietly depended on it. Same
+    coupling the suites used to have to config/demo.json, and the same fix —
+    tests own what they run against.
+
+    Deliberately minimal: a map, the tool inside it (that is how the tool finds
+    its host, and therefore how it adds its coastline layer), and the fixture
+    config. Nothing here is a design; it is a fixture.
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+    webmapx-map { display: block; width: 100%; height: 100%; }
+    /*
+      The panel is placed after the map in the DOM, so it paints over it without
+      a stacking number to outbid later.
+    */
+    webmapx-paleotime-tool {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 320px;
+      max-height: calc(100% - 20px);
+      overflow: auto;
+      padding: 12px;
+      background: var(--color-surface, #fff);
+      border: 1px solid #ddd;
+      border-radius: 6px;
+    }
+  </style>
+  <link rel="stylesheet" href="../../../node_modules/@shoelace-style/shoelace/dist/themes/light.css">
+  <link rel="stylesheet" href="../../../src/theme/webmapx-style-core.css">
+  <script type="module" src="../../../src/app.js"></script>
+</head>
+<body>
+  <webmapx-map id="map-container" adapter="maplibre" src="/tests/fixtures/demo.json">
+    <!-- No `data` attribute: it comes from `tools.paleotime` in the config and
+         resolves against the config's own location. -->
+    <webmapx-paleotime-tool tool-id="paleotime" label="Deep time" active></webmapx-paleotime-tool>
+  </webmapx-map>
+  <script>
+    // ?adapter=openlayers|leaflet|cesium switches engine, and ?config= repoints
+    // the map. A classic script, deliberately: the engine is read once at
+    // start-up, so setting the attribute from a module would come too late.
+    const params = new URLSearchParams(location.search);
+    const mapElement = document.getElementById('map-container');
+    const requestedAdapter = params.get('adapter');
+    if (requestedAdapter) mapElement.setAttribute('adapter', requestedAdapter);
+    const requestedConfig = params.get('config');
+    if (requestedConfig) mapElement.setAttribute('src', requestedConfig);
+  </script>
+  <script type="module">
+    import '../../../src/components/webmapx-paleotime-tool.ts';
+  </script>
+</body>
+</html>
