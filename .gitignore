@@ -11,8 +11,8 @@ public/styles/
 public/data/world-countries-simplified.geojson
 scripts/temp/
 openfreemap-amsterdam-z14-8415-5384-geojson-lonlat-corrected/
-public/config/layers.json
-public/config/world.json
-public/config/world.converted.json
-public/config/apikeys.json
 dist-lib/
+
+# A checkout of the config repository, not content of this one.
+# `npm run configs` creates it; see scripts/configs.ts.
+public/config

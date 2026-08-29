@@ -420,6 +420,13 @@ Register in `src/utils/dynamic-layout.ts` and import in `src/components/index.ts
 
 ## Testing with setup.html / preview.html
 
+> Configs live in a separate repository, mounted at `public/config` by
+> `npm run configs` (a symlink to `../webmapx-configs` if you have that clone).
+> Editing a config in setup.html therefore edits the config repository, and you
+> commit it there. `npm run configs:status` shows which commit you are on and
+> whether it matches the `configs.lock` a deployment would ship.
+
+
 The dev workflow for testing a new tool interactively:
 
 ### Setup

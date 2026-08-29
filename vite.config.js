@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import { readFileSync } from 'fs';
@@ -5,10 +8,36 @@ import { readFileSync } from 'fs';
 const _mlVersion = JSON.parse(readFileSync('./node_modules/maplibre-gl/package.json', 'utf8')).version;
 const _mlMajor = parseInt(_mlVersion.split('.')[0]);
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Keeps the config repository's own plumbing out of the built site.
+ *
+ * public/config is a checkout of webmapx-configs, and Vite copies publicDir
+ * verbatim — which would put its .git (2.8 MB of history), CI workflow,
+ * validation script and package.json on the deployed server. Only the configs
+ * and their assets belong there.
+ */
+function pruneConfigCheckout() {
+  const INTERNALS = ['.git', '.github', '.gitignore', 'scripts', 'package.json', 'package-lock.json', 'node_modules'];
+  return {
+    name: 'webmapx-prune-config-checkout',
+    apply: 'build',
+    closeBundle() {
+      const configDir = path.resolve(__dirname, 'dist', 'config');
+      if (!fs.existsSync(configDir)) return;
+      for (const entry of INTERNALS) {
+        fs.rmSync(path.join(configDir, entry), { recursive: true, force: true });
+      }
+    },
+  };
+}
+
 export default defineConfig({
   base: './', // Set base to relative path for correct asset loading
   optimizeDeps: _mlMajor >= 6 ? { exclude: ['maplibre-gl'] } : {},
   plugins: [
+    pruneConfigCheckout(),
     // Configure the plugin to copy Shoelace assets
     viteStaticCopy({
       targets: [

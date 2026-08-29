@@ -99,8 +99,14 @@ WebMapX.mount('#map', { config: './mymap.json' })
 
 ```bash
 git clone https://github.com/edugis-org/webmapx.git
-cd webmapx && npm install && npm run dev
+cd webmapx && npm install && npm run configs && npm run dev
 ```
+
+`npm run configs` puts the [config repository](https://github.com/edugis-org/webmapx-configs)
+at `public/config` — the maps webmapx serves are content of their own, on their own
+release cadence. It links a sibling `../webmapx-configs` clone if you have one (a
+junction on Windows) and clones otherwise; `npm run configs:status` shows which
+commit you are on and whether it matches the `configs.lock` a deployment ships.
 
 → [GitHub / contributor quickstart](https://github.com/edugis-org/webmapx/blob/main/docs/developer/github-quickstart.md)
 
