@@ -71,7 +71,6 @@ export class MapCoreService implements IMapCore {
     }
 
     public initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; bearing?: number; pitch?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; maxBounds?: [number, number, number, number]; styleUrl?: string; style?: MapStyle; projection?: string }): void {
-        console.log(`[CORE SERVICE] Initializing MapLibre instance in #${containerId}`);
         this.lastContainerId = containerId;
         this.lastInitOptions = options;
 

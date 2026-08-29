@@ -723,7 +723,6 @@ export async function resolveMapConfig(
 
   // Priority 1: App-level config overrides everything for this map
   if (appConfig?.map) {
-    console.log('[config] Using app-level config for map');
     const mapWithRuntime = mergeMapConfigs(appConfig.map, toRuntimeMapOverrides(appConfig.runtimeMap));
     return attrConfig.type ? mergeMapConfigs(mapWithRuntime, { type: attrConfig.type }) : mapWithRuntime;
   }
@@ -733,7 +732,6 @@ export async function resolveMapConfig(
   if (srcPath) {
     try {
       const config = await fetchConfig(srcPath);
-      console.log(`[config] Loaded map config from src="${srcPath}"`);
       const mapWithRuntime = mergeMapConfigs(config.map, toRuntimeMapOverrides(config.runtimeMap));
       return attrConfig.type ? mergeMapConfigs(mapWithRuntime, { type: attrConfig.type }) : mapWithRuntime;
     } catch (error) {
@@ -746,12 +744,10 @@ export async function resolveMapConfig(
   const hasAttributes = Object.keys(attrConfig).length > 0;
 
   if (hasAttributes) {
-    console.log('[config] Using attribute-based map config');
     return mergeMapConfigs(attrConfig);
   }
 
   // Priority 4: Defaults
-  console.log('[config] Using default map config');
   return { ...DEFAULT_MAP_CONFIG };
 }
 

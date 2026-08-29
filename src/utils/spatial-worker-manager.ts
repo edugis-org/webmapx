@@ -200,11 +200,6 @@ export class SpatialOperationCancelled extends Error {
     }
 }
 
-/** How many operations are currently in flight. */
-export function pendingSpatialOpCount(): number {
-    return pending.size;
-}
-
 /**
  * Abort everything currently running.
  *
@@ -215,8 +210,7 @@ export function pendingSpatialOpCount(): number {
  * a computation that would otherwise freeze the panel indefinitely.
  *
  * The worker is shared, so this also cancels unrelated spatial work (a file
- * import, say). Callers should therefore only cancel on an explicit user action,
- * and `pendingSpatialOpCount` lets them see what they would be interrupting.
+ * import, say). Callers should therefore only cancel on an explicit user action.
  *
  * @returns the number of operations that were cancelled.
  */

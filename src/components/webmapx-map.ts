@@ -505,7 +505,6 @@ export class WebmapxMapElement extends HTMLElement {
       bubbles: true,
       composed: true,
     }));
-    console.log(`[webmapx-map] Config set for "${this.id || 'unnamed'}":`, config);
   }
 
   private getScopedStorageKey(kind: 'adapter' | 'viewport'): string | null {

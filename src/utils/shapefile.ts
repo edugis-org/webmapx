@@ -50,16 +50,12 @@ export function shapefileToGeoJSONInWorker(shpBuffer: ArrayBuffer, dbfBuffer: Ar
 }
 
 export function shapefileToGeoJSON(shpBuffer: ArrayBuffer, dbfBuffer: ArrayBuffer | null, prjText: string | null): GeoJSON.FeatureCollection {
-  console.log('reading shp data');
   const geometries = parseShp(shpBuffer) as (GeoJSON.Geometry | null)[];
   const records = dbfBuffer ? parseDbf(dbfBuffer, undefined as unknown as ArrayBuffer) as Record<string, unknown>[] : [];
 
   const needsReproject = !!(prjText && !isWgs84(prjText));
   const converter = needsReproject ? proj4(prjText as string, 'EPSG:4326') : null;
   const project = converter ? (xy: [number, number]) => converter.forward(xy) as [number, number] : null;
-
-  if (project) console.log('projecting...');
-  console.log('converting to geojson');
   const features: GeoJSON.Feature[] = new Array(geometries.length);
   let count = 0;
   for (let i = 0; i < geometries.length; i++) {

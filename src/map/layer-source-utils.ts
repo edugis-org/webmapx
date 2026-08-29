@@ -1,8 +1,5 @@
-import type { SourceConfig, XYZSourceConfig, WMSSourceConfig, GeoJSONSourceConfig, VectorSourceConfig, LayerDataConfig } from '../config/types';
+import type { SourceConfig, XYZSourceConfig, WMSSourceConfig, GeoJSONSourceConfig, VectorSourceConfig } from '../config/types';
 
-export function resolveSource(catalog: LayerDataConfig | null | undefined, sourceId: string): SourceConfig | null {
-    return catalog?.sources?.find((s) => s.id === sourceId) ?? null;
-}
 
 export function normalizeRawSource(logicalId: string, rawDef: unknown): SourceConfig | null {
     if (typeof rawDef !== 'object' || rawDef === null) return null;

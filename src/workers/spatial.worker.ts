@@ -227,7 +227,6 @@ async function convertToGeoJSON(
             '-skipfailures',
         ], 'converted_output');
         const fc = await filePathToFeatureCollection(gdal, outputPath);
-        console.log(`[convertToGeoJSON] "${filename}" → ${fc.features.length} features`);
         return fc;
     } finally {
         await gdal.close(inputDs);
@@ -287,7 +286,6 @@ async function inspectFile(
         .filter((l) => !METADATA_TABLES.has(l.name.toLowerCase()))
         .map((l) => ({ name: l.name, featureCount: l.featureCount }));
 
-    console.log(`[inspectFile] "${filename}" → layers:`, layers.map(l => `${l.name}(${l.featureCount})`).join(', ') || '(none)');
 
     const sessionKey = `fs-${++sessionCounter}`;
     fileSessions.set(sessionKey, { data, filename: gdalName, totalLayers: layers.length });
@@ -314,7 +312,6 @@ async function convertFileLayer(
     // first 32 KB for any srsName and pass it as -s_srs explicitly.
     const isGml = /\.gml$/i.test(session.filename);
     const detectedSrs = isGml ? detectGmlSrs(session.data) : null;
-    if (isGml) console.log(`[convertFileLayer] GML detected SRS: ${detectedSrs ?? '(none)'}`);
 
     const sSrsArgs: string[] = detectedSrs ? ['-s_srs', detectedSrs] : [];
 
@@ -342,7 +339,6 @@ async function convertFileLayer(
             ], `converted_${safeName}`);
         }
         const fc = await filePathToFeatureCollection(gdal, outputPath);
-        console.log(`[convertFileLayer] "${layerName}" → ${fc.features.length} features`);
         return fc;
     } finally {
         await gdal.close(ds);

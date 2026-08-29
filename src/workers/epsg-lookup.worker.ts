@@ -111,7 +111,6 @@ async function loadData(url: string): Promise<void> {
     // We need to decode the arcs and convert to GeoJSON features
     geoJsonData = convertTopoJsonToGeoJson(topoData);
     
-    console.log(`Loaded ${geoJsonData.features.length} countries`);
     
     isDataLoaded = true;
   } catch (error) {
@@ -211,12 +210,6 @@ function convertTopoJsonToGeoJson(topology: any): GeoJSONData {
         }
       });
     }
-  }
-  
-  console.log(`Converted ${features.length} features from TopoJSON`);
-  if (features.length > 0) {
-    const sample = features[0];
-    console.log(`Sample feature: ${sample.properties.NAME}, type: ${sample.geometry.type}, rings: ${sample.geometry.type === 'Polygon' ? sample.geometry.coordinates.length : 'N/A'}`);
   }
   
   return {
@@ -319,11 +312,6 @@ function findCountries(lng: number, lat: number): GeoJSONFeature[] {
   
   // Sort by area (smallest first - likely most accurate for border areas)
   matches.sort((a, b) => a.area - b.area);
-  
-  if (matches.length > 0) {
-    const countryList = matches.map(m => `${m.feature.properties.NAME} (${m.feature.properties.ISO_A3})`).join(', ');
-    console.log(`Matched countries: ${countryList}`);
-  }
   
   return matches.map(m => m.feature);
 }
@@ -467,5 +455,4 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 };
 
 // Signal that the worker is ready to receive initialization
-console.log('EPSG Lookup Worker v2 initialized');
 self.postMessage({ type: 'worker-initialized' });

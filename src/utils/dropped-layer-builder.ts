@@ -424,9 +424,7 @@ export async function buildLayerConfigsFromGroup(group: NamedBlob[], layerPicker
         console.error(`[dropped-layer-builder] failed to convert "${item.name}" via GDAL`, error);
       }
     } else if (sniff.kind === 'qml') {
-      console.log('parsing qml style');
       qmlStyle = parseQmlStyle(await item.blob.text());
-      console.log('style result:', JSON.stringify(qmlStyle));
     }
   }
 

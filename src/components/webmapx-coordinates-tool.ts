@@ -723,7 +723,6 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
 
         // Add alternative countries (border areas)
         if (lookupResult.alternativeMatches && lookupResult.alternativeMatches.length > 0) {
-          console.log(`Border area detected: ${lookupResult.alternativeMatches.length} additional countries`);
           for (const alt of lookupResult.alternativeMatches) {
             epsgCodesMap.set(alt.countryCode, {
               name: alt.countryName,
@@ -731,9 +730,6 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
             });
           }
         }
-
-        const countryNames = Array.from(epsgCodesMap.values()).map(c => c.name).join(', ');
-        console.log(`Found EPSG codes for ${countryNames}`);
       }
     } catch (error) {
       console.warn('EPSG lookup worker failed, falling back to regional bounds:', error);

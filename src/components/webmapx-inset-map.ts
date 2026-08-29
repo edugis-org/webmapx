@@ -69,9 +69,6 @@ export class WebmapxInsetMap extends LitElement {
     }
   }, 150);
 
-  private throttledRenderLog = throttle((_label: string) => {
-    //console.log('[inset-debug]', label);
-  }, 50);
 
   private get insetContainer(): HTMLElement | null {
     return this.renderRoot.querySelector('.inset-map');
@@ -564,38 +561,20 @@ export class WebmapxInsetMap extends LitElement {
       return;
     }
 
-    this.throttledRenderLog('start calc');
     const densified = this.densifyViewportBounds(bounds);
     if (!densified) {
-      this.throttledRenderLog('end calc (skipped - no bounds)');
       return;
     }
-    this.throttledRenderLog('end calc');
     const nextKey = this.computeBoundsKey(densified);
     if (nextKey === this.lastBoundsKey) {
       return;
     }
     this.lastBoundsKey = nextKey;
 
-    // Debug ring size to monitor CPU load
     const densifiedRing = densified ? this.coerceRing(densified.geometry.coordinates?.[0]) : undefined;
     const ringSpan = densifiedRing && densifiedRing.length ? this.computeSpan(densifiedRing) : null;
-    const _maxLat = densifiedRing && densifiedRing.length ? Math.max(...densifiedRing.map(([, lat]) => lat)) : null;
-    const _minLat = densifiedRing && densifiedRing.length ? Math.min(...densifiedRing.map(([, lat]) => lat)) : null;
 
     const hasIntersection = densifiedRing ? this.hasSelfIntersection(densifiedRing) : false;
-    /*console.log('[inset-debug] ring sizes', {
-      densifiedLength: densifiedRing?.length ?? 0,
-      densifiedKey: nextKey,
-      maxLat,
-      minLat,
-      latExceeded: maxLat !== null && Math.abs(maxLat) > 90 || minLat !== null && Math.abs(minLat) > 90,
-      span: ringSpan,
-      selfIntersection: hasIntersection,
-    });
-    if (hasIntersection && densifiedRing) {
-      console.log('[inset-debug] self-intersection ring', densifiedRing);
-    }*/
 
     const badSpan = ringSpan && ringSpan.lon >= 359.5;
 
@@ -614,9 +593,7 @@ export class WebmapxInsetMap extends LitElement {
       features: featureToRender ? [featureToRender] : [],
     };
 
-    this.throttledRenderLog('start render');
     this.viewportSource.setData(data);
-    this.throttledRenderLog('end render');
   }
 
   private hasRelevantStateChange(state: IMapState): boolean {
