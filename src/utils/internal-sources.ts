@@ -33,6 +33,7 @@ import { moonAlongMeridian, moonPathLines, moonPhaseDisc, moonPositionFeature, m
 import { equilibriumTide } from './tides';
 import { utmZones } from './utm-zones';
 import { paleoCoastlines } from './paleo-coastlines';
+import { paleoPlates } from './paleo-plates';
 
 /**
  * A comma-separated list of numbers from the query, or nothing.
@@ -243,6 +244,10 @@ export const INTERNAL_SOURCES: Record<string, InternalSourceGenerator> = {
     // `?data=data/paleo/merdith2021&ma={ma}` — where the coastlines were at an
     // age, reconstructed from plate rotations rather than fetched per step.
     'paleo-coastlines': ({ query }) => paleoCoastlines(query),
+    // `?data=data/paleo/muller2019/plates&ma={ma}` — the plate boundaries at an
+    // age, snapshot per step rather than reconstructed: boundaries are born and
+    // die, so there is nothing to interpolate between two ages.
+    'paleo-plates': ({ query }) => paleoPlates(query),
 };
 
 /** Whether an `internalfunc://` url asked to keep itself current. */

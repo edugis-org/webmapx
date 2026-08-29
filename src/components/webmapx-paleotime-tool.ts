@@ -149,6 +149,24 @@ function sceneAt(scenes: PeriodScenes | null, ma: number): PeriodScene | null {
         ?? null;
 }
 
+/**
+ * One plate model the tool can show.
+ *
+ * Models disagree, and that is the point of offering more than one: Africa at
+ * 100 Ma sits at 20°E,10°S in Merdith 2021 and at 6°E,17°S in Müller 2019.
+ * Each carries its own coastlines as well as its own rotations, because a
+ * coastline is tagged with the plate it rides on and plate numbering is the
+ * model's own.
+ */
+interface ModelChoice {
+    id: string;
+    label: string;
+    /** Directory holding `coastlines-present.geojson` and `rotations-<id>.json`. */
+    data: string;
+    /** Oldest age the model reconstructs, in Ma. */
+    to: number;
+}
+
 @customElement('webmapx-paleotime-tool')
 export class WebmapxPaleotimeTool extends WebmapxModalTool {
     readonly toolId = 'paleotime';
@@ -184,6 +202,11 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
     @state() private speedIndex = 1;
     @state() private loading = false;
     @state() private error: string | null = null;
+    @state() private models: ModelChoice[] = [];
+    /** Set once the user picks from the dropdown; the config no longer decides. */
+    private chosenModelId: string | null = null;
+    /** The directory the config named, so returning to it can be recognised. */
+    private configuredData: string | null = null;
     @state() private periodScenes: PeriodScenes | null = null;
     /** Absolute url of the sprite, resolved against the scenes file that names it. */
     @state() private spriteUrl: string | null = null;
@@ -211,6 +234,9 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
         .period { color: var(--color-text-muted, #666); margin-bottom: 0.75rem; }
         input[type="range"] { width: 100%; }
         .controls { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+        .models { margin-top: 0.5rem; font-size: 0.8125rem; color: var(--color-text-secondary, #5a6773); }
+        .models label { display: flex; align-items: center; gap: 0.4rem; }
+        .models select { flex: 1; min-width: 0; }
         .controls .play {
             display: inline-flex; align-items: center; justify-content: center;
             width: 2rem; height: 2rem; cursor: pointer;
@@ -251,6 +277,9 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
 
     private get mapElement(): (WebmapxMapElement & {
         addLayerRequest: (config: Record<string, unknown>) => Promise<boolean>;
+        // Used only when switching models: the layer's source url names the
+        // model's directory, so a different model means a different layer.
+        removeInlineLayer: (layerId: string) => void;
     }) | null {
         return this.mapHost as never;
     }
@@ -330,9 +359,14 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
         // that has to happen whether or not the tool has a config section at
         // all, since a tool placed directly in HTML has none.
         if (!this.hasAttribute('data')) {
-            this.data = typeof section?.data === 'string'
+            const configured = typeof section?.data === 'string'
                 ? section.data
                 : this.resolveConfigAsset(DEFAULT_DATA);
+            this.configuredData ??= configured;
+            // A model chosen in the dropdown outlives a re-read of the config,
+            // which happens on every begin(): without this the tool would snap
+            // back to the configured model the moment it reloaded.
+            if (!this.chosenModelId) this.data = configured;
         }
 
         // Same treatment as `data`: the loader resolves what the config wrote,
@@ -340,12 +374,103 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
         if (!this.hasAttribute('scenes') && typeof section?.scenes === 'string') {
             this.scenes = section.scenes;
         }
+
+        if (Array.isArray(section?.models) && this.models.length === 0) {
+            this.models = (section.models as Record<string, unknown>[])
+                .filter((entry) => typeof entry?.data === 'string' && typeof entry?.id === 'string')
+                .map((entry) => ({
+                    id: String(entry.id),
+                    label: String(entry.label ?? entry.id),
+                    data: String(entry.data),
+                    to: Number.isFinite(Number(entry.to)) ? Number(entry.to) : this.to,
+                }));
+            // The configured `data` decides which one starts selected, so a
+            // config that already named a directory keeps showing that model.
+            const current = this.models.find((m) => m.data === this.data) ?? this.models[0];
+            if (current && !this.hasAttribute('data') && !this.chosenModelId) {
+                this.data = current.data;
+                this.to = current.to;
+            }
+        }
         void this.loadScenes();
 
         if (!section) return;
         if (!this.hasAttribute('from') && Number.isFinite(Number(section.from))) this.from = Number(section.from);
         if (!this.hasAttribute('to') && Number.isFinite(Number(section.to))) this.to = Number(section.to);
         if (!this.hasAttribute('step') && Number.isFinite(Number(section.step))) this.step = Number(section.step);
+    }
+
+    /**
+     * Switches to another plate model.
+     *
+     * The layer's source url names the model's directory, so the coastlines
+     * cannot simply be recomputed — the layer is replaced. A layer the tool did
+     * not add is a config's own, still pointing at whichever model that config
+     * chose: it is hidden rather than removed while a different model is
+     * showing, and comes back when the original is selected again, since two
+     * models drawn at once is just two coastlines on top of each other.
+     */
+    private async switchModel(id: string): Promise<void> {
+        const choice = this.models.find((model) => model.id === id);
+        if (!choice || choice.data === this.data) return;
+
+        this.stopPlaying();
+
+        // Fetch the new model *before* taking the old one off the map. Its two
+        // files are a couple of megabytes, and swapping first left the map
+        // empty for as long as they took to arrive — a second or two of blank
+        // world, and worse on a slow line. Loading first makes the change look
+        // instant, and the second visit is free because the model is cached.
+        this.loading = true;
+        this.error = null;
+        const loaded = await loadPlateModelFrom(choice.data);
+        this.loading = false;
+        if (!loaded) {
+            // Say so and stay where we are: a model that will not load is no
+            // reason to leave the map without coastlines.
+            this.error = `Could not load ${choice.label}; still showing the previous model.`;
+            return;
+        }
+
+        this.chosenModelId = choice.id;
+        this.data = choice.data;
+        this.to = choice.to;
+        // A model that does not reach as far back as the age on the slider
+        // cannot show it: 300 Ma means nothing to a model that stops at 250.
+        this.ma = Math.min(Math.max(this.ma, this.from), this.to);
+        this.publish();
+
+        try {
+            this.mapElement?.removeInlineLayer(LAYER_ID);
+        } catch { /* the tool had not added one */ }
+
+        // Back to the model the config chose: its own layer can draw again, and
+        // the tool goes back to adopting it rather than keeping a copy.
+        const backToConfigured = choice.data === this.configuredData;
+        this.setForeignLayersVisible(backToConfigured);
+
+        this.started = false;
+        await this.begin();
+    }
+
+    /**
+     * Shows or hides coastline layers the tool did not add.
+     *
+     * Only used while another model is selected; the layer belongs to the
+     * config, so it is turned off rather than taken away.
+     */
+    private setForeignLayersVisible(visible: boolean): void {
+        const layers = this.store?.getState().mapLayers ?? {};
+        for (const [layerId, entry] of Object.entries(layers)) {
+            if (layerId === LAYER_ID) continue;
+            const sourceId = (entry as { sourceId?: string })?.sourceId;
+            if (!sourceId) continue;
+            const config = this.adapter?.getSourceConfig?.(sourceId) as { internalFuncUrl?: unknown } | undefined;
+            const url = config?.internalFuncUrl;
+            if (typeof url === 'string' && url.includes('paleo-coastlines')) {
+                this.adapter?.setLayerVisibility(layerId, visible);
+            }
+        }
     }
 
     private async begin(): Promise<void> {
@@ -389,6 +514,11 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
     private mapHasPaleoLayer(): boolean {
         const layers = this.store?.getState().mapLayers ?? {};
         for (const entry of Object.values(layers)) {
+            // A hidden layer draws nothing, so it is not "already drawing
+            // these coastlines" — this is how choosing another model works:
+            // the config's own layer is turned off and the tool supplies one
+            // for the model that was asked for.
+            if (entry?.visible === false) continue;
             const sourceId = entry?.sourceId;
             if (!sourceId) continue;
             const config = this.adapter?.getSourceConfig?.(sourceId) as { internalFuncUrl?: unknown } | undefined;
@@ -530,6 +660,20 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
                 min=${-this.to} max=${-this.from} step=${this.step}
                 .value=${String(-this.ma)}
                 @input=${(e: Event) => this.setAge(-Number((e.target as HTMLInputElement).value))}>
+
+            ${this.models.length > 1 ? html`
+                <div class="models">
+                    <label>
+                        Model
+                        <select aria-label="Plate model"
+                            @change=${(e: Event) => void this.switchModel((e.target as HTMLSelectElement).value)}>
+                            ${this.models.map((model) => html`
+                                <option value=${model.id} ?selected=${model.data === this.data}>
+                                    ${model.label}
+                                </option>`)}
+                        </select>
+                    </label>
+                </div>` : ''}
 
             <div class="controls">
                 <button type="button" class="play"

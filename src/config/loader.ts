@@ -404,8 +404,13 @@ function normalizeToolsSection(tools: unknown, configUrl: string): Record<string
     if (typeof entry.data === 'string' && entry.data.length > 0) {
       entry.data = resolveConfigRelativeUrl(entry.data, configUrl);
     }
-    if (Array.isArray(entry.items)) {
-      for (const item of entry.items) if (isObject(item)) visit(item as Record<string, unknown>);
+    // Every nested list, not only `items`: a tool inside a toolbar, toolbox or
+    // menu carries its own section, and a tool offering a choice carries one
+    // `data` per option — `tools.paleotime.models[]` is a list of plate models,
+    // each with its own directory.
+    for (const value of Object.values(entry)) {
+      if (!Array.isArray(value)) continue;
+      for (const item of value) if (isObject(item)) visit(item as Record<string, unknown>);
     }
   };
 
