@@ -1,22 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1920">
-    <!-- A sauropod in outline, matching the toolbar's other icons.
-         `currentColor` because sl-icon inlines the file into its shadow root,
-         so the stroke follows the theme instead of being a fixed near-black.
-         Stroke 70 of a 1920 box is ~0.6px at the rail's 16px: lighter than the
-         clock and gear beside it, which suits an illustration among symbols,
-         and heavy enough not to grey out. -->
-    <style>
-        .st1{fill:none;stroke:currentColor;stroke-width:70;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10}
-    </style>
-    <g id="Layer_4">
-    </g>
-    <g id="STROKES">
-        <path class="st1" d="M1702.9 1394c-1.1.2-9.8 1.7-25.2 4-78.2 11.6-278.2 59.2-581.5 34.3l-26 56.5s39.5 26.6 39.5 191.4h-98.6"/>
-        <path class="st1" d="M953.1 1463.2c-6.7-40.2-38.3-172.4 17.6-256.2"/>
-        <path class="st1" d="M1703.1 1394s-.1 0 0 0h-.1c-8.2 1.7-16.6 3-25.2 4-222.2 25.6-497.7-162.9-497.7-162.9s-278-211-502.3-204.6c-224.4 6.4-246.7-214-224-479.7 22.8-265.7-134.4-288-134.4-288-5.6-27.9-33.9-22.5-33.9-22.5s-23.1 3.8-27.3 36.3c0 0-57.7 11.5-36.7 52.4s88.1-43 136.3 96.5C406 565 200 1034.4 546.2 1242.1c0 0 8.5 158.2 46.6 196.4 0 0-14.1 227.5-38.2 241.6h103.2s1.4-7.7 3.7-20.3c9-49.8 31-176.5 28.8-211.5-.8-12.8-2.1-31.5-4-52.4-4.6-50.7-12.6-114.3-25.6-138.3"/>
-        <path class="st1" d="M1096.2 1432.3s54.8-94.3 57.5-123"/>
-        <path class="st1" d="M686.4 1396c19 15.1 45.1 32.7 77.3 47 30.4 13.4 66.4 23.8 107 26.3"/>
-        <path class="st1" d="M1011.2 1680.2H905.6s38.3-32.8 7.4-87.1c-20.4-35.9-34.9-90.8-42.3-123.8 25.7 1.6 53.2 0 82.4-6.1.2 1.1.4 2.2.5 3.2 5.4 35.9 70 108.6 74.5 150.8 4.5 42.1-16.9 63-16.9 63z"/>
-        <path class="st1" d="M763.7 1443c.7 56.2 1.3 190.8-9.6 216.9h-92.5"/>
-    </g>
+<!-- A sauropod for the Deep time tool.
+
+     Traced artwork, reduced to the four parts that survive 16px — body
+     outline, neck, tail and legs; the finer details mushed into a smudge at
+     rail size and are gone.
+
+     The viewBox is cropped to the drawing's own bounds rather than the
+     original 1920 square, which was 23% empty margin: at 16px that margin is
+     what made the animal too small to recognise. Stroke 95 of a ~1580 box is
+     about 1px there, matching the clock and gear beside it.
+
+     No fill: an outline like every other icon in the rail, and `currentColor`
+     so it follows the theme — sl-icon inlines this file into its shadow root,
+     which is what makes that work. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="170.9 193.9 1578.2 1532.3" fill="none"
+     stroke="currentColor" stroke-width="95" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M1702.9 1394c-1.1.2-9.8 1.7-25.2 4-78.2 11.6-278.2 59.2-581.5 34.3l-26 56.5s39.5 26.6 39.5 191.4h-98.6"/>
+  <path d="M1703.1 1394s-.1 0 0 0h-.1c-8.2 1.7-16.6 3-25.2 4-222.2 25.6-497.7-162.9-497.7-162.9s-278-211-502.3-204.6c-224.4 6.4-246.7-214-224-479.7 22.8-265.7-134.4-288-134.4-288-5.6-27.9-33.9-22.5-33.9-22.5s-23.1 3.8-27.3 36.3c0 0-57.7 11.5-36.7 52.4s88.1-43 136.3 96.5C406 565 200 1034.4 546.2 1242.1c0 0 8.5 158.2 46.6 196.4 0 0-14.1 227.5-38.2 241.6h103.2s1.4-7.7 3.7-20.3c9-49.8 31-176.5 28.8-211.5-.8-12.8-2.1-31.5-4-52.4-4.6-50.7-12.6-114.3-25.6-138.3"/>
+  <path d="M686.4 1396c19 15.1 45.1 32.7 77.3 47 30.4 13.4 66.4 23.8 107 26.3"/>
+  <path d="M1011.2 1680.2H905.6s38.3-32.8 7.4-87.1c-20.4-35.9-34.9-90.8-42.3-123.8 25.7 1.6 53.2 0 82.4-6.1.2 1.1.4 2.2.5 3.2 5.4 35.9 70 108.6 74.5 150.8 4.5 42.1-16.9 63-16.9 63z"/>
 </svg>
