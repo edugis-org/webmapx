@@ -134,6 +134,39 @@ export function validateConfig(config: unknown): ValidationResult {
   };
 }
 
+/**
+ * Accepts both shapes a config file may use for `sources` and `layers`.
+ *
+ * The loader takes an object keyed by id ("Old format: object keyed by id" in
+ * `normalizeLayerMap`) and turns it into the array the rest of the code expects,
+ * injecting each key as the entry's `id` — and it does that *before* calling
+ * this validator, so the app has always accepted both. A validator run over the
+ * raw file, which is what a CI gate does, sees the original shape and must too;
+ * otherwise a config the app loads happily reports 37 errors.
+ *
+ * The keys are returned alongside so a message can say `layers.osm` rather than
+ * `layers[3]`, which for an object-keyed file would mean counting.
+ */
+function asEntryList(value: unknown): { entries: unknown[]; keys?: string[] } | null {
+  if (Array.isArray(value)) return { entries: value };
+  if (!isObject(value)) return null;
+
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record);
+  return {
+    entries: keys.map((key) => {
+      const entry = record[key];
+      return isObject(entry) ? { id: key, ...(entry as Record<string, unknown>) } : entry;
+    }),
+    keys,
+  };
+}
+
+/** Path of one entry, by key for the object form and by index for an array. */
+function entryPath(basePath: string, index: number, keys?: string[]): string {
+  return keys ? `${basePath}.${keys[index]}` : `${basePath}[${index}]`;
+}
+
 function validateLayerDataSection(
   layerData: unknown,
   errors: ValidationMessage[],
@@ -151,27 +184,29 @@ function validateLayerDataSection(
   const c = layerData as Record<string, unknown>;
   checkUnknownKeys(c, KNOWN_KEYS.layerData, path, warnings);
 
+  const sourceList = asEntryList(c.sources);
   if (c.sources === undefined) {
     errors.push({ severity: 'error', path: `${path}.sources`, message: 'Missing required "sources" array' });
-  } else if (!Array.isArray(c.sources)) {
-    errors.push({ severity: 'error', path: `${path}.sources`, message: '"sources" must be an array' });
+  } else if (!sourceList) {
+    errors.push({ severity: 'error', path: `${path}.sources`, message: '"sources" must be an array, or an object keyed by source id' });
   } else {
-    validateSources(c.sources, `${path}.sources`, sourceIds, errors, warnings);
+    validateSources(sourceList.entries, `${path}.sources`, sourceIds, errors, warnings, sourceList.keys);
   }
 
+  const layerList = asEntryList(c.layers);
   if (c.layers === undefined) {
     errors.push({ severity: 'error', path: `${path}.layers`, message: 'Missing required "layers" array' });
-  } else if (!Array.isArray(c.layers)) {
-    errors.push({ severity: 'error', path: `${path}.layers`, message: '"layers" must be an array' });
+  } else if (!layerList) {
+    errors.push({ severity: 'error', path: `${path}.layers`, message: '"layers" must be an array, or an object keyed by layer id' });
   } else {
-    validateLayers(c.layers, `${path}.layers`, sourceIds, layerIds, errors, warnings);
-    c.layers.forEach((layer, index) => {
+    validateLayers(layerList.entries, `${path}.layers`, sourceIds, layerIds, errors, warnings, layerList.keys);
+    layerList.entries.forEach((layer, index) => {
       if (!isObject(layer)) {
         return;
       }
 
       const l = layer as Record<string, unknown>;
-      const layerPath = `${path}.layers[${index}]`;
+      const layerPath = entryPath(`${path}.layers`, index, layerList.keys);
       if (l.fallbackLayerId !== undefined && typeof l.fallbackLayerId !== 'string') {
         errors.push({ severity: 'error', path: `${layerPath}.fallbackLayerId`, message: '"fallbackLayerId" must be a string' });
         return;
@@ -502,10 +537,11 @@ function validateSources(
   basePath: string,
   sourceIds: Set<string>,
   errors: ValidationMessage[],
-  warnings: ValidationMessage[]
+  warnings: ValidationMessage[],
+  keys?: string[]
 ): void {
   sources.forEach((source, index) => {
-    const path = `${basePath}[${index}]`;
+    const path = entryPath(basePath, index, keys);
 
     if (!isObject(source)) {
       errors.push({ severity: 'error', path, message: 'Source must be an object' });
@@ -540,11 +576,17 @@ function validateSources(
     if (s.type === 'raster') {
       knownKeys.push(...KNOWN_KEYS.sourceRaster);
       const hasStringUrl = typeof s.url === 'string' && s.url.length > 0;
-      const hasUrlArray = Array.isArray(s.url)
-        && s.url.length > 0
-        && s.url.every((entry) => typeof entry === 'string' && entry.length > 0);
-      if (!hasStringUrl && !hasUrlArray) {
-        errors.push({ severity: 'error', path: `${path}.url`, message: 'Raster source requires a non-empty string "url" or string array' });
+      const nonEmptyStrings = (value: unknown): boolean => Array.isArray(value)
+        && value.length > 0
+        && value.every((entry) => typeof entry === 'string' && entry.length > 0);
+      const hasUrlArray = nonEmptyStrings(s.url);
+      // A raw config file spells tile templates `tiles` (the MapLibre spelling);
+      // the loader rewrites that to `url` before handing sources to components.
+      // Both are therefore valid input, and demanding `url` fails a config the
+      // app loads perfectly well.
+      const hasTiles = nonEmptyStrings(s.tiles);
+      if (!hasStringUrl && !hasUrlArray && !hasTiles) {
+        errors.push({ severity: 'error', path: `${path}.url`, message: 'Raster source requires a non-empty "url" (string or string array) or "tiles" array' });
       }
       if (s.service !== undefined && !VALID_RASTER_SERVICES.includes(s.service as string)) {
         errors.push({
@@ -611,10 +653,11 @@ function validateLayers(
   sourceIds: Set<string>,
   layerIds: Set<string>,
   errors: ValidationMessage[],
-  warnings: ValidationMessage[]
+  warnings: ValidationMessage[],
+  keys?: string[]
 ): void {
   layers.forEach((layer, index) => {
-    const path = `${basePath}[${index}]`;
+    const path = entryPath(basePath, index, keys);
 
     if (!isObject(layer)) {
       errors.push({ severity: 'error', path, message: 'Layer must be an object' });
