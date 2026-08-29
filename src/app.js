@@ -244,6 +244,7 @@ async function initializeMap(mapElement, appConfig, mapIndex = 0) {
             maxBounds: mapConfig.maxBounds,
             style: styleConfig,
             projection: mapConfig.projection,
+            backgroundColor: mapConfig.backgroundColor,
         },
         permalinkState,
         fallbackViewport,

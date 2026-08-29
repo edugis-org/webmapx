@@ -12,6 +12,7 @@ export interface InitOptionsMapConfig {
     maxBounds?: [number, number, number, number];
     style?: unknown;
     projection?: string | null;
+    backgroundColor?: string;
 }
 
 export interface ResolveInitOptionsParams {
@@ -45,6 +46,7 @@ export async function resolveInitOptions(params: ResolveInitOptionsParams): Prom
         ...(mapConfig.minPitch != null ? { minPitch: mapConfig.minPitch } : {}),
         ...(mapConfig.maxPitch != null ? { maxPitch: mapConfig.maxPitch } : {}),
         ...(mapConfig.maxBounds != null ? { maxBounds: mapConfig.maxBounds } : {}),
+        ...(mapConfig.backgroundColor != null ? { backgroundColor: mapConfig.backgroundColor } : {}),
         ...(isStyleUrl ? { styleUrl: styleConfig } : { style: styleConfig }),
     };
 

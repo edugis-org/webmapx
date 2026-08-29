@@ -55,6 +55,8 @@ export interface MapInitOptions {
     maxBounds?: [number, number, number, number];
     styleUrl?: string;
     style?: MapStyle;
+    /** CSS colour painted behind everything the map draws. */
+    backgroundColor?: string;
 }
 
 interface MarkerService {
@@ -856,6 +858,40 @@ export abstract class BaseAdapter {
 
     initialize(containerId: string, options?: MapInitOptions): void {
         this.getCore().initialize(containerId, options);
+        if (options?.backgroundColor) {
+            this.setBackgroundColor(options.backgroundColor);
+        }
+    }
+
+    /**
+     * Paints a colour behind everything the map draws.
+     *
+     * A map with no background layer otherwise shows the engine's own default,
+     * and those defaults disagree: black for a Cesium globe and the space
+     * around it, the page's background through a transparent canvas elsewhere.
+     * A palaeogeography map has no basemap by definition, so this is what "the
+     * sea" is made of.
+     *
+     * Remembered rather than applied once, because the engine can be replaced
+     * under the same map element — switching to Cesium must not lose the
+     * colour — and because a colour set before the engine is ready has to be
+     * applied when it is.
+     */
+    setBackgroundColor(color: string | null): boolean {
+        this.backgroundColor = color;
+        return this.engineSetBackgroundColor(color);
+    }
+
+    /** The colour last asked for, whether or not the engine could apply it. */
+    getBackgroundColor(): string | null {
+        return this.backgroundColor;
+    }
+
+    protected backgroundColor: string | null = null;
+
+    /** Engine-specific background paint. Default: engine cannot paint one. */
+    protected engineSetBackgroundColor(_color: string | null): boolean {
+        return false;
     }
 
     getViewportState() {

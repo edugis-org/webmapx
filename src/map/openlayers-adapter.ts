@@ -91,4 +91,17 @@ export class OpenLayersAdapter extends BaseAdapter implements IMap {
         return this.markerService;
     }
 
+
+    /**
+     * OpenLayers renders onto a transparent canvas, so the colour belongs on
+     * the target element behind it.
+     */
+    protected engineSetBackgroundColor(color: string | null): boolean {
+        (this.core as any).onMapReady?.((map: any) => {
+            const target = map?.getTargetElement?.();
+            if (target) target.style.backgroundColor = color ?? '';
+        });
+        return true;
+    }
+
 }

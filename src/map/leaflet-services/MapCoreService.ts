@@ -55,6 +55,16 @@ export class MapCoreService implements IMapCore {
         container.style.position = 'relative';
     }
 
+    /**
+     * Leaflet ships its own `.leaflet-container { background: #ddd }`; these
+     * rules replace it with webmapx's paper colour.
+     *
+     * The colour is a custom property rather than a fixed value so a configured
+     * `map.backgroundColor` can override it by setting the property on the
+     * container — cascading normally, instead of the `!important` this used to
+     * carry, which forced anything wanting a different colour to shout louder
+     * still.
+     */
     private injectLeafletCSSFixes(): void {
         const styleId = 'webmapx-leaflet-fixes';
         if (document.getElementById(styleId)) return;
@@ -62,8 +72,8 @@ export class MapCoreService implements IMapCore {
         const style = document.createElement('style');
         style.id = styleId;
         style.textContent = `
-            .leaflet-container { background: #f2efe9 !important; }
-            .leaflet-tile-pane { background: #f2efe9 !important; }
+            .leaflet-container { background: var(--webmapx-map-background, #f2efe9); }
+            .leaflet-tile-pane { background: var(--webmapx-map-background, #f2efe9); }
             .leaflet-container img.leaflet-tile { mix-blend-mode: normal; }
         `;
         document.head.appendChild(style);

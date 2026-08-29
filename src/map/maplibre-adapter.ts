@@ -14,6 +14,9 @@ import { DeferredLogicalLayerExecutor } from './logical-layer-executor';
 import { DeferredQueryService } from './deferred-query-service';
 import type { IQueryService } from './IQueryService';
 
+/** Style layer that paints the map surface itself when a background colour is configured. */
+const BACKGROUND_LAYER_ID = 'webmapx-background-color';
+
 /**
  * The concrete Map implementation for MapLibre.
  * Implements the unified IMap interface by delegating to specialized services.
@@ -198,5 +201,58 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
     protected getMarkerService(): MapMarkerService | null {
         return this.markerService;
     }
+
+
+    /**
+     * Two surfaces, two mechanisms, because MapLibre paints them separately.
+     *
+     * The *map* — the globe's sphere, or the plane in mercator — is painted by
+     * a `background` style layer, kept beneath everything else. The *space*
+     * around a globe is not drawn by any layer: it is whatever the canvas was
+     * cleared to, so the colour goes on the container and the canvas is asked
+     * for an alpha channel at construction (see MapCoreService) to let it
+     * through. Without the alpha the canvas clears to opaque black and no
+     * container colour can ever show.
+     *
+     * Reapplied on `styledata` because switching basemap replaces the style,
+     * and with it the background layer.
+     */
+    protected engineSetBackgroundColor(color: string | null): boolean {
+        // The core owns the canvas background and the sky, both of which it
+        // rewrites whenever the projection changes.
+        (this.core as any).setBackgroundColor?.(color);
+
+        (this.core as any).onMapReady?.((map: any) => {
+            const container = map?.getContainer?.();
+            if (container) container.style.backgroundColor = color ?? '';
+
+            const apply = () => {
+                if (typeof map.getStyle !== 'function' || !map.getStyle()) return;
+                const existing = map.getLayer?.(BACKGROUND_LAYER_ID);
+                if (!color) {
+                    if (existing) map.removeLayer(BACKGROUND_LAYER_ID);
+                    return;
+                }
+                if (existing) {
+                    map.setPaintProperty(BACKGROUND_LAYER_ID, 'background-color', color);
+                    return;
+                }
+                const firstLayerId = map.getStyle().layers?.[0]?.id;
+                map.addLayer(
+                    { id: BACKGROUND_LAYER_ID, type: 'background', paint: { 'background-color': color } },
+                    firstLayerId,
+                );
+            };
+
+            apply();
+            if (!this.backgroundListenerAttached) {
+                this.backgroundListenerAttached = true;
+                map.on('styledata', apply);
+            }
+        });
+        return true;
+    }
+
+    private backgroundListenerAttached = false;
 
 }

@@ -61,4 +61,32 @@ export class LeafletAdapter extends BaseAdapter implements IMap {
         return this.markerService;
     }
 
+
+    /**
+     * Leaflet's panes are transparent, so the colour belongs on the container.
+     *
+     * Set as `--webmapx-map-background`, which `injectLeafletCSSFixes` reads for
+     * both the container and the tile pane: the pane would otherwise paint its
+     * own paper colour over the container when no tiles are loaded, which is
+     * precisely the case a map with no basemap is in.
+     */
+    protected engineSetBackgroundColor(color: string | null): boolean {
+        (this.core as any).onMapReady?.((map: any) => {
+            const container = map?.getContainer?.();
+            if (!container) return;
+            if (color) {
+                // The property feeds the tile pane's rule; the inline colour
+                // paints the container itself, which the pane does not cover
+                // when no tile layer is loaded. A plain inline declaration is
+                // enough now that the stylesheet no longer shouts !important.
+                container.style.setProperty('--webmapx-map-background', color);
+                container.style.backgroundColor = color;
+            } else {
+                container.style.removeProperty('--webmapx-map-background');
+                container.style.removeProperty('background-color');
+            }
+        });
+        return true;
+    }
+
 }

@@ -150,6 +150,7 @@ export interface IMapCore {
 
     /** Enables/disables 3D terrain (elevation exaggeration). Returns false if not supported by the engine. */
     setTerrainEnabled(enabled: boolean, terrainSource?: unknown): boolean;
+
     /** Returns whether 3D terrain is currently enabled, or null if not supported by the engine. */
     isTerrainEnabled(): boolean | null;
     /** Returns terrain elevation in metres at the given coordinate, or null if terrain is inactive or unavailable. */
@@ -324,6 +325,16 @@ export interface IMap {
 
     /** Enables/disables 3D terrain (elevation exaggeration). Returns false if not supported by the engine. */
     setTerrainEnabled(enabled: boolean, terrainSource?: unknown): boolean;
+
+    /**
+     * Paints a CSS colour behind everything the map draws — the sea under a map
+     * with no basemap, and the space around a globe. `null` restores the
+     * engine's default. Returns false if the engine cannot paint one.
+     */
+    setBackgroundColor(color: string | null): boolean;
+
+    /** The background colour last asked for, or null if none was. */
+    getBackgroundColor(): string | null;
     /** Returns whether 3D terrain is currently enabled, or null if not supported by the engine. */
     isTerrainEnabled(): boolean | null;
     /** Returns elevation in metres at the given coordinate if a terrain/DEM layer is active, otherwise null. */

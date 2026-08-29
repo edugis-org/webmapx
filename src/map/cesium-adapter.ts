@@ -123,6 +123,41 @@ export class CesiumAdapter extends BaseAdapter implements IMap {
         return this.markerService;
     }
 
+    /**
+     * Cesium paints two different blacks: `scene.backgroundColor` for the space
+     * around the globe, and `globe.baseColor` for the sphere itself wherever no
+     * imagery covers it. A map with no basemap shows both, so both are set —
+     * otherwise "no background layer" looks like a bug rather than an ocean.
+     *
+     * The star box has to go with them: it is drawn over the background colour,
+     * so leaving it on would hide the very thing being set.
+     */
+    protected engineSetBackgroundColor(color: string | null): boolean {
+        // Cesium is loaded at runtime, not imported — the same accessor the
+        // other Cesium services use.
+        const Cesium = (globalThis as any).Cesium;
+        if (!Cesium) return false;
+
+        (this.core as any).onMapReady?.((viewer: any) => {
+            const scene = viewer?.scene;
+            if (!scene) return;
+
+            if (!color) {
+                scene.backgroundColor = Cesium.Color.BLACK.clone();
+                scene.globe.baseColor = Cesium.Color.BLACK.clone();
+                if (scene.skyBox) scene.skyBox.show = true;
+                return;
+            }
+
+            const parsed = Cesium.Color.fromCssColorString(color);
+            if (!parsed) return;
+            scene.backgroundColor = parsed;
+            scene.globe.baseColor = parsed;
+            if (scene.skyBox) scene.skyBox.show = false;
+        });
+        return true;
+    }
+
 }
 
 export async function createCesiumAdapter(): Promise<CesiumAdapter> {

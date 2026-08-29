@@ -28,6 +28,8 @@ export class MapCoreService implements IMapCore {
     ) {}
 
     private mapInstance: maplibregl.Map | null = null;
+    /** Configured colour for the space around the globe and the canvas behind the map. */
+    private backgroundColor: string | null = null;
     private mapReadyCallbacks: Array<(map: maplibregl.Map) => void> = [];
     private lastContainerId: string | null = null;
     private lastInitOptions: Parameters<MapCoreService['initialize']>[1] = undefined;
@@ -70,9 +72,10 @@ export class MapCoreService implements IMapCore {
         }
     }
 
-    public initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; bearing?: number; pitch?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; maxBounds?: [number, number, number, number]; styleUrl?: string; style?: MapStyle; projection?: string }): void {
+    public initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; bearing?: number; pitch?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; maxBounds?: [number, number, number, number]; styleUrl?: string; style?: MapStyle; projection?: string; backgroundColor?: string }): void {
         this.lastContainerId = containerId;
         this.lastInitOptions = options;
+        this.backgroundColor = options?.backgroundColor ?? null;
 
         const center = options?.center ?? this.initialConfig.center;
         const zoom = options?.zoom ?? this.initialConfig.zoom;
@@ -113,6 +116,12 @@ export class MapCoreService implements IMapCore {
             pitch: options?.pitch ?? this.initialConfig.pitch,
             bearing: options?.bearing ?? this.initialConfig.bearing,
             attributionControl: false,
+            // Without an alpha channel the canvas is cleared to opaque black,
+            // which is what makes the space around a globe black however the
+            // container behind it is painted. Only requested when a background
+            // colour is configured: an alpha canvas composites on every frame,
+            // and a map with a basemap has nothing to show through it.
+            ...(options?.backgroundColor ? { canvasContextAttributes: { alpha: true } } : {}),
             style: constructorStyle
         });
 
@@ -682,19 +691,37 @@ export class MapCoreService implements IMapCore {
         this.mapInstance?.resetNorthPitch();
     }
 
+    /**
+     * Colour for the canvas behind the map and the space around the globe.
+     *
+     * Held here rather than only on the container because `applyGlobeFog` sets
+     * the canvas's own background on every projection change, and would
+     * otherwise paint over it.
+     */
+    public setBackgroundColor(color: string | null): void {
+        this.backgroundColor = color;
+        this.applyGlobeFog();
+    }
+
     private applyGlobeFog(): void {
         if (!this.mapInstance) return;
         const projectionType = (this.mapInstance as any).getProjection?.()?.type;
         const isGlobe = projectionType === 'globe';
         const canvas = (this.mapInstance as any).getCanvas?.() as HTMLCanvasElement | undefined;
         if (canvas) {
-            // Globe: near-black space behind the globe. Mercator: regular theme background
-            // (visible through transparent basemaps), so it follows light/dark mode.
-            canvas.style.background = isGlobe ? '#000008' : 'var(--color-background-secondary, #f4f4f4)';
+            // A configured background colour wins: it is the sea of a map with no
+            // basemap, and the space around its globe. Otherwise the defaults —
+            // globe: near-black space behind the globe; mercator: regular theme
+            // background (visible through transparent basemaps), following
+            // light/dark mode.
+            canvas.style.background = this.backgroundColor
+                ?? (isGlobe ? '#000008' : 'var(--color-background-secondary, #f4f4f4)');
         }
         // MapLibre v5 sky layer: only meaningful in globe projection
         try {
-            (this.mapInstance as any).setSky(isGlobe ? { 'sky-color': '#000000' } : undefined);
+            (this.mapInstance as any).setSky(
+                isGlobe ? { 'sky-color': this.backgroundColor ?? '#000000' } : undefined,
+            );
         } catch { /* setSky not available */ }
     }
 

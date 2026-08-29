@@ -52,6 +52,15 @@ export interface MapConfig {
   maxBounds?: [number, number, number, number];
   type: MapAdapterType;
   style?: MapStyle | string;
+  /**
+   * Colour behind everything the map draws — any CSS colour.
+   *
+   * A map with no background layer shows this instead of the engine's default,
+   * which is black on a Cesium globe and in the space around it, and the page's
+   * own background elsewhere. A palaeogeography map has no basemap by
+   * definition, so "the sea" is exactly this colour.
+   */
+  backgroundColor?: string;
 }
 
 export interface RuntimeMapConfig {
