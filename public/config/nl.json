@@ -2742,7 +2742,7 @@
         "id": "osmbright",
         "title": "Helder (OSM)",
         "type": "style",
-        "url": "styles/openmaptiles/osmbright.json",
+        "url": "../styles/openmaptiles/osmbright.json",
         "metadata": {
           "swatch": "#f8f4f0",
           "reference": true,
@@ -2765,7 +2765,7 @@
         "id": "darkmatter",
         "title": "Donker (OSM)",
         "type": "style",
-        "url": "styles/openmaptiles/dark-matter.json",
+        "url": "../styles/openmaptiles/dark-matter.json",
         "metadata": {
           "swatch": "rgb(12,12,12)",
           "reference": true,
@@ -2777,7 +2777,7 @@
         "id": "klokantechbasic",
         "title": "Eenvoudig (OSM)",
         "type": "style",
-        "url": "styles/openmaptiles/klokantech-basic.json",
+        "url": "../styles/openmaptiles/klokantech-basic.json",
         "metadata": {
           "swatch": "hsl(47, 26%, 88%)",
           "reference": true,
@@ -2789,7 +2789,7 @@
         "id": "positron",
         "title": "Eenvoudig grijs (OSM)",
         "type": "style",
-        "url": "styles/openmaptiles/positron.json",
+        "url": "../styles/openmaptiles/positron.json",
         "metadata": {
           "swatch": "rgb(242,243,240)",
           "reference": true,
@@ -14562,7 +14562,7 @@
         "id": "bgtpdok",
         "title": "Basiskaart Grootschalige Topografie",
         "type": "style",
-        "url": "styles/bgt_standaardvisualisatie.json",
+        "url": "../styles/bgt_standaardvisualisatie.json",
         "metadata": {
           "swatch": "#C9EB70",
           "abstract": "De Basisregistratie Grootschalige Topografie (BGT) is een digitale kaart van Nederland waarop gebouwen, wegen, waterlopen, terreinen en spoorlijnen eenduidig zijn vastgelegd. De kaart is op 20 centimeter nauwkeurig en bevat veel details, zoals je die in de werkelijkheid ook ziet. Denk aan bomen, wegen en gebouwen. Kortom: de inrichting van de fysieke omgeving.",

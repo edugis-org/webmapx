@@ -227,7 +227,20 @@ function normalizeLayerEntry(value: Record<string, unknown>, extraSources: Recor
     const layers = Array.isArray(value.layers)
       ? value.layers.filter(isObject).map((l) => normalizeSubLayerSpec(l, sourceAliases))
       : [];
-    return { ...base, type: 'style', sources: value.sources ?? {}, layers };
+    // A remote style document is a relative resource like any other, and is
+    // fetched later with `fetch(styleUrl)` — which resolves against the *page*,
+    // not the config. Left unresolved, `styles/osmbright.json` in a config
+    // served from /config/ is requested from whatever directory the app's HTML
+    // happens to sit in, and quietly 404s: the background simply never appears.
+    // Resolving here is also what lets a config be loaded cross-origin
+    // (?config=https://…/world.json) and still find the styles beside it.
+    return {
+      ...base,
+      type: 'style',
+      ...(typeof value.url === 'string' ? { url: resolveConfigRelativeUrl(value.url, configUrl) } : {}),
+      sources: value.sources ?? {},
+      layers,
+    };
   }
 
   // New format: StandardLayerConfig (has type + source as strings, no layerset/style)
@@ -267,7 +280,7 @@ function normalizeLayerEntry(value: Record<string, unknown>, extraSources: Recor
     const layers = Array.isArray(style.layers)
       ? style.layers.filter(isObject).map((l) => normalizeSubLayerSpec(l, sourceAliases))
       : [];
-    const styleUrl = typeof style.url === 'string' ? style.url : undefined;
+    const styleUrl = typeof style.url === 'string' ? resolveConfigRelativeUrl(style.url, configUrl) : undefined;
     return {
       ...base,
       type: 'style',
