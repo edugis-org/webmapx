@@ -15,7 +15,7 @@
  *
  *   { "type": "paleotime", "data": "data/paleo/merdith2021", "to": 400 }
  */
-import { html, css, svg, type TemplateResult } from 'lit';
+import { html, css, svg, nothing, type TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
 import { WebmapxModalTool } from './webmapx-modal-tool';
@@ -106,12 +106,63 @@ function periodAt(ma: number): string {
     return 'Precambrian';
 }
 
+/** One period's entry in `deeptime-periods.json`. */
+interface PeriodScene {
+    id: string;
+    name: string;
+    fromMa: number;
+    toMa: number;
+    caption: string;
+    sprite: { x: number; y: number; w: number; h: number };
+}
+
+interface PeriodScenes {
+    sprite: string;
+    spriteWidth: number;
+    spriteHeight: number;
+    periods: PeriodScene[];
+}
+
+/** File the `scenes` directory is expected to hold. */
+const SCENES_FILE = 'deeptime-periods.json';
+
+/** Height the scene is drawn at; its width follows the tile's own proportions. */
+const SCENE_HEIGHT = 132;
+
+/**
+ * The scene for an age.
+ *
+ * Ranges run oldest-first and touch at their boundaries, so the search takes
+ * the first whose span contains the age — and 0 Ma is "now" rather than the end
+ * of the Pleistocene, which is why the youngest entry is allowed to be zero
+ * wide.
+ */
+function sceneAt(scenes: PeriodScenes | null, ma: number): PeriodScene | null {
+    if (!scenes) return null;
+    for (const period of scenes.periods) {
+        if (period.fromMa === 0 && period.toMa === 0) continue;
+        if (ma <= period.fromMa && ma > period.toMa) return period;
+    }
+    // Younger than every range: the present.
+    return scenes.periods.find((period) => period.fromMa === 0 && period.toMa === 0)
+        ?? scenes.periods[scenes.periods.length - 1]
+        ?? null;
+}
+
 @customElement('webmapx-paleotime-tool')
 export class WebmapxPaleotimeTool extends WebmapxModalTool {
     readonly toolId = 'paleotime';
 
     /** Directory holding `coastlines-present.geojson` and `rotations-*.json`. */
     @property({ type: String }) data = DEFAULT_DATA;
+    /**
+     * Directory holding `deeptime-periods.json` and the sprite it names, both
+     * config assets: a path relative to the config, like `data`.
+     *
+     * Unset, the tool shows the period name alone — the scenes are an
+     * illustration of the age on the slider, not something it needs to work.
+     */
+    @property({ type: String }) scenes: string | null = null;
     /** Youngest age the slider reaches, in Ma. */
     @property({ type: Number }) from = 0;
     /**
@@ -133,6 +184,10 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
     @state() private speedIndex = 1;
     @state() private loading = false;
     @state() private error: string | null = null;
+    @state() private periodScenes: PeriodScenes | null = null;
+    /** Absolute url of the sprite, resolved against the scenes file that names it. */
+    @state() private spriteUrl: string | null = null;
+    private scenesRequested: string | null = null;
 
     private frame: number | null = null;
     private lastFrameAt = 0;
@@ -172,7 +227,29 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
         .legend i { width: 0.75rem; height: 0.75rem; border-radius: 2px; display: inline-block; }
         .status { color: var(--color-text-muted, #666); margin-top: 0.5rem; }
         .error { color: var(--color-danger, #b3261e); margin-top: 0.5rem; }
-    `;
+    
+        /* The scene sits between the period name and the slider; it is an
+           illustration, so it never grows the panel — the image keeps its own
+           proportions and the caption wraps under it. */
+        .scene {
+            margin: 6px 0 2px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+        .scene-image {
+            border-radius: 4px;
+            background-repeat: no-repeat;
+            max-width: 100%;
+        }
+        .scene figcaption {
+            font-size: 12px;
+            line-height: 1.3;
+            text-align: center;
+            color: var(--color-text-secondary, #5a6773);
+        }
+`;
 
     private get mapElement(): (WebmapxMapElement & {
         addLayerRequest: (config: Record<string, unknown>) => Promise<boolean>;
@@ -223,6 +300,32 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
      * Everything else comes from the config section, which is where a tool's
      * settings live in this project (`tools.search`, `tools.buffer`).
      */
+    /**
+     * Fetches the scene descriptions once per configured directory.
+     *
+     * Failure is silent on purpose: the scenes illustrate the age, and a map
+     * that reconstructs coastlines for a billion years should not report an
+     * error, or stop, because a picture is missing.
+     */
+    private async loadScenes(): Promise<void> {
+        const dir = this.scenes;
+        if (!dir || this.scenesRequested === dir) return;
+        this.scenesRequested = dir;
+
+        const base = this.resolveConfigAsset(dir.endsWith('/') ? dir : `${dir}/`);
+        try {
+            const response = await fetch(new URL(SCENES_FILE, base).toString());
+            if (!response.ok) return;
+            const scenes = await response.json() as PeriodScenes;
+            if (!Array.isArray(scenes?.periods) || typeof scenes.sprite !== 'string') return;
+            // The sprite is named relative to the file naming it, not to the page.
+            this.spriteUrl = new URL(scenes.sprite, new URL(SCENES_FILE, base)).toString();
+            this.periodScenes = scenes;
+        } catch {
+            // Left without scenes; the period name still shows.
+        }
+    }
+
     private readConfig(): void {
         const tools = this.toolsConfig as Record<string, unknown> | undefined;
         // The instance's own id first, so two instances can be pointed at two
@@ -238,6 +341,13 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
                 ? section.data
                 : this.resolveConfigAsset(DEFAULT_DATA);
         }
+
+        // Same treatment as `data`: the loader resolves what the config wrote,
+        // and an attribute on the element wins over both.
+        if (!this.hasAttribute('scenes') && typeof section?.scenes === 'string') {
+            this.scenes = section.scenes;
+        }
+        void this.loadScenes();
 
         if (!section) return;
         if (!this.hasAttribute('from') && Number.isFinite(Number(section.from))) this.from = Number(section.from);
@@ -384,11 +494,43 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
         this.frame = null;
     }
 
+    /**
+     * The scene for the age on the slider, drawn straight out of the sprite.
+     *
+     * A background-position crop rather than 15 separate files: one request,
+     * and no flicker when the slider crosses a boundary, because the image is
+     * already there. Sizes are computed from the tile's own rectangle, since
+     * the tiles are not a uniform grid — the source chart's panels are 142 to
+     * 231 px wide.
+     */
+    private renderScene(scene: PeriodScene | null): TemplateResult | typeof nothing {
+        if (!scene || !this.spriteUrl || !this.periodScenes) return nothing;
+
+        const scale = SCENE_HEIGHT / scene.sprite.h;
+        const style = [
+            `width:${Math.round(scene.sprite.w * scale)}px`,
+            `height:${SCENE_HEIGHT}px`,
+            `background-image:url("${this.spriteUrl}")`,
+            `background-size:${Math.round(this.periodScenes.spriteWidth * scale)}px ${Math.round(this.periodScenes.spriteHeight * scale)}px`,
+            `background-position:-${Math.round(scene.sprite.x * scale)}px -${Math.round(scene.sprite.y * scale)}px`,
+        ].join(';');
+
+        return html`
+            <figure class="scene">
+                <div class="scene-image" role="img" style=${style}
+                     aria-label=${`${scene.name}: ${scene.caption}`}></div>
+                <figcaption>${scene.caption}</figcaption>
+            </figure>
+        `;
+    }
+
     render(): TemplateResult {
+        const scene = sceneAt(this.periodScenes, this.ma);
         return html`
             <!-- "0.0 Ma" is a true but graceless way to say "now". -->
             <div class="age">${this.ma < 0.05 ? 'Present day' : `${this.ma.toFixed(1)} Ma ago`}</div>
-            <div class="period">${periodAt(this.ma)}</div>
+            <div class="period">${scene?.name ?? periodAt(this.ma)}</div>
+            ${this.renderScene(scene)}
 
             <!-- Runs from -1000 to 0, so the thumb moves the way time does:
                  right is towards the present, and the far left is the deep past.
