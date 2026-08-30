@@ -29,11 +29,11 @@ jobs:
       - run: npm ci
 
       # public/config is a checkout of the config repository, not content of
-      # this one. `sync` takes the commit configs.lock names, so the deployed
-      # site serves the configs that were tested rather than whatever that
-      # repository's main branch happens to be at build time.
-      - name: Fetch the pinned configs
-        run: npm run configs:sync
+      # this one. This deploy is a preview of the build, not the published site
+      # (that is edugis-org/webmapx-demo, which pins a config commit), so it
+      # follows the config repository's main branch.
+      - name: Fetch the configs
+        run: npm run configs
 
       - run: echo '${{ secrets.APIKEYS_JSON }}' > public/config/apikeys.json
       - run: npm run build

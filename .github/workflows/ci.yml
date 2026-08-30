@@ -75,8 +75,8 @@ jobs:
       # The suites drive their own fixture config (tests/fixtures/demo.json),
       # but the pages they exercise — index.html, setup.html, preview.html —
       # fall back to config/demo.json, so the checkout has to exist.
-      - name: Fetch the pinned configs
-        run: npm run configs:sync
+      - name: Fetch the configs
+        run: npm run configs
 
       # The suites need no network: they run against the local dev server and
       # tolerate the external tile requests failing, which they do on a runner.

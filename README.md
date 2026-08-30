@@ -115,7 +115,10 @@ cd webmapx && npm install && npm run configs && npm run dev
 at `public/config` — the maps webmapx serves are content of their own, on their own
 release cadence. It links a sibling `../webmapx-configs` clone if you have one (a
 junction on Windows) and clones otherwise; `npm run configs:status` shows which
-commit you are on and whether it matches the `configs.lock` a deployment ships.
+commit you are on. This repository pins nothing: a pin is a publication decision,
+and it is recorded by whatever publishes a site (for webmapx.com, the `site.lock`
+in [edugis-org/webmapx-demo](https://github.com/edugis-org/webmapx-demo)). Point
+`WEBMAPX_CONFIGS_LOCK` at such a lock to check out exactly what it names.
 
 → [GitHub / contributor quickstart](https://github.com/edugis-org/webmapx/blob/main/docs/developer/github-quickstart.md)
 

@@ -15,10 +15,17 @@
  * So both are provided, and they are different commands. `init` gives you a
  * live checkout at public/config (a symlink to a sibling clone if you have one,
  * so setup.html edits the real repository and you commit there). `pin` records
- * the commit you have been testing into configs.lock. `sync` checks out exactly
- * what configs.lock names, which is what a deployment build runs — so what
- * shipped is what was tested, and updating configs in production is a deliberate
- * commit to that file rather than something that happens on its own.
+ * the commit you have been testing into a lock file. `sync` checks out exactly
+ * what that lock names, which is what a deployment build runs — so what shipped
+ * is what was tested, and updating configs in production is a deliberate commit
+ * to that file rather than something that happens on its own.
+ *
+ * **The lock does not live here.** A pin is a publication decision, and this
+ * repository does not publish: it is where webmapx is built and worked on, and
+ * its own Pages deploy is a preview that should follow the configs as they are.
+ * The published site is assembled by edugis-org/webmapx-demo, so the lock lives
+ * there, and that build points this script at it with WEBMAPX_CONFIGS_LOCK.
+ * Anyone deploying webmapx elsewhere does the same, from their own repository.
  *
  * public/config is gitignored in webmapx: it is a checkout, not content.
  */
@@ -31,12 +38,27 @@ import process from 'node:process';
 const REPO_URL = 'https://github.com/edugis-org/webmapx-configs.git';
 const SIBLING = path.resolve(process.cwd(), '..', 'webmapx-configs');
 const TARGET = path.resolve(process.cwd(), 'public', 'config');
-const LOCK = path.resolve(process.cwd(), 'configs.lock');
+// The lock belongs to whichever repository publishes a site; this one does not
+// have one of its own, so `pin`/`sync` are only meaningful with the env var set.
+const LOCK = process.env.WEBMAPX_CONFIGS_LOCK
+    ? path.resolve(process.env.WEBMAPX_CONFIGS_LOCK)
+    : path.resolve(process.cwd(), 'configs.lock');
 
 interface Lock {
     repository: string;
     commit: string;
     pinnedAt: string;
+}
+
+/**
+ * The publishing repository's lock names more than the configs — it is the
+ * record of a whole published site, code included — so the config pin may sit
+ * under a `configs` key. Both shapes are read: a lock written by `pin` here is
+ * flat, one written by a publisher nests.
+ */
+interface LockFile extends Partial<Lock> {
+    configs?: { repository: string; commit: string };
+    publishedAt?: string;
 }
 
 function git(args: string[], cwd = TARGET): string {
@@ -52,7 +74,10 @@ function describeTarget(): { kind: 'missing' | 'symlink' | 'clone'; realPath: st
 
 function readLock(): Lock | null {
     if (!existsSync(LOCK)) return null;
-    return JSON.parse(readFileSync(LOCK, 'utf8')) as Lock;
+    const raw = JSON.parse(readFileSync(LOCK, 'utf8')) as LockFile;
+    const configs = raw.configs ?? (raw.commit ? { repository: raw.repository ?? REPO_URL, commit: raw.commit } : null);
+    if (!configs) return null;
+    return { ...configs, pinnedAt: raw.pinnedAt ?? raw.publishedAt ?? '' };
 }
 
 function init(): void {
@@ -106,12 +131,14 @@ function status(): void {
     console.log(`checkout       ${head} on ${branch}${dirty ? ' (uncommitted changes)' : ''}`);
 
     if (!lock) {
-        console.log('configs.lock   absent — nothing pinned for deployment yet.');
+        console.log(`lock           absent at ${LOCK} — nothing pinned.`);
+        console.log('               Pins live in the repository that publishes a site; point');
+        console.log('               WEBMAPX_CONFIGS_LOCK at its lock file to see or set one.');
         return;
     }
 
     const pinned = lock.commit.slice(0, 9);
-    console.log(`configs.lock   ${pinned} (pinned ${lock.pinnedAt.slice(0, 10)})`);
+    console.log(`lock           ${pinned}${lock.pinnedAt ? ` (pinned ${lock.pinnedAt.slice(0, 10)})` : ''}, ${LOCK}`);
     if (pinned !== head) {
         console.log('               ⚠ your checkout is NOT what a deployment would ship.');
         console.log('               `npm run configs:pin` to ship what you are testing,');
@@ -141,24 +168,44 @@ function pin(): void {
         pinnedAt: new Date().toISOString(),
     };
     writeFileSync(LOCK, `${JSON.stringify(lock, null, 2)}\n`);
-    console.log(`Pinned ${lock.commit.slice(0, 9)} in configs.lock — commit that file to ship it.`);
+    console.log(`Pinned ${lock.commit.slice(0, 9)} in ${path.relative(process.cwd(), LOCK) || LOCK} — commit that file to ship it.`);
 }
 
 /** Checks out exactly what configs.lock names. This is what a deployment build runs. */
 function sync(): void {
     const lock = readLock();
     if (!lock) {
-        console.error('No configs.lock — run `npm run configs:pin` after testing a config version.');
+        console.error(`No lock file at ${LOCK}.`);
+        console.error('This repository does not pin configs — a pin is a publication decision, and');
+        console.error('publishing happens from edugis-org/webmapx-demo. Set WEBMAPX_CONFIGS_LOCK to');
+        console.error('that repository\'s configs.lock, or use `npm run configs` for a live checkout.');
         process.exitCode = 1;
         return;
     }
 
     const target = describeTarget();
     if (target.kind === 'symlink') {
-        // Moving a shared clone to a detached commit would silently rewrite the
-        // working copy someone is editing.
+        // A link means the checkout is someone's working copy, so moving it to a
+        // detached commit would rewrite what they are editing. But the common
+        // case is that it is *already* at the pinned commit — a dev checking
+        // what a deployment would ship — and there is nothing to move then, so
+        // say so and succeed rather than making a no-op look like a failure.
+        const head = git(['rev-parse', 'HEAD']);
+        const dirty = git(['status', '--porcelain']).length > 0;
+        if (head === lock.commit && !dirty) {
+            console.log(`public/config is already at ${lock.commit.slice(0, 9)}, as configs.lock names.`);
+            console.log(`(A link to ${target.realPath}, so nothing was moved.)`);
+            return;
+        }
+
         console.error('public/config is a link to your own clone; refusing to move it to the pinned');
-        console.error(`commit. Remove the symlink and re-run, or check out ${lock.commit.slice(0, 9)} there yourself.`);
+        console.error(`commit, which would rewrite the working copy you edit from. It is at ${head.slice(0, 9)}${dirty ? ' with uncommitted changes' : ''}.`);
+        console.error('');
+        console.error('A deployment build should not be running against a link at all: check out the');
+        console.error('config repository as its own directory there, so `sync` can move it freely.');
+        console.error('To see what a deployment ships from here, do it in the clone yourself:');
+        console.error(`  git -C ${target.realPath} fetch origin ${lock.commit.slice(0, 9)}`);
+        console.error(`  git -C ${target.realPath} checkout --detach ${lock.commit.slice(0, 9)}`);
         process.exitCode = 1;
         return;
     }
@@ -180,8 +227,11 @@ if (!commands[command]) {
         [
             'init    create public/config — a symlink to ../webmapx-configs if you have one, else a clone',
             'status  show which commit is checked out and whether it matches configs.lock',
-            'pin     record the checked-out commit in configs.lock, for deployments to ship',
-            'sync    check out exactly what configs.lock names (what a deployment build runs)',
+            'pin     record the checked-out commit in the lock file, for deployments to ship',
+            'sync    check out exactly what the lock file names (what a deployment build runs)',
+            '',
+            'The lock lives in the repository that publishes a site, not here:',
+            'set WEBMAPX_CONFIGS_LOCK=<path> for pin and sync.',
         ].join('\n')
     }`);
     process.exitCode = 2;
