@@ -33,6 +33,9 @@ import type { WebmapxMapElement } from './webmapx-map';
 const DEFAULT_DATA = 'data/paleo/merdith2021';
 
 const LAYER_ID = 'paleotime-coastlines';
+const PLATES_SOURCE_ID = 'paleotime-plates-source';
+const BOUNDARY_LAYER_ID = 'paleotime-plate-boundaries';
+const DEFORMING_LAYER_ID = 'paleotime-deforming';
 const SOURCE_ID = 'paleotime-coastlines-source';
 
 /**
@@ -165,6 +168,13 @@ interface ModelChoice {
     data: string;
     /** Oldest age the model reconstructs, in Ma. */
     to: number;
+    /**
+     * Directory of plate-boundary snapshots, if the model has them.
+     *
+     * Only Müller 2019 does here: its topologies carry the deforming networks —
+     * the crust that is now Tibet — where Merdith offers boundaries alone.
+     */
+    plates?: string;
 }
 
 @customElement('webmapx-paleotime-tool')
@@ -203,6 +213,8 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
     @state() private loading = false;
     @state() private error: string | null = null;
     @state() private models: ModelChoice[] = [];
+    /** Whether the plate boundaries are on. Only offered by a model that has them. */
+    @state() private showPlates = true;
     /** Set once the user picks from the dropdown; the config no longer decides. */
     private chosenModelId: string | null = null;
     /** The directory the config named, so returning to it can be recognised. */
@@ -383,6 +395,11 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
                     label: String(entry.label ?? entry.id),
                     data: String(entry.data),
                     to: Number.isFinite(Number(entry.to)) ? Number(entry.to) : this.to,
+                    // Resolved here, not by the loader: it rewrites paths under a
+                    // key called `data`, and this one is called `plates`.
+                    ...(typeof entry.plates === 'string'
+                        ? { plates: this.resolveConfigAsset(entry.plates) }
+                        : {}),
                 }));
             // The configured `data` decides which one starts selected, so a
             // config that already named a directory keeps showing that model.
@@ -398,6 +415,74 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
         if (!this.hasAttribute('from') && Number.isFinite(Number(section.from))) this.from = Number(section.from);
         if (!this.hasAttribute('to') && Number.isFinite(Number(section.to))) this.to = Number(section.to);
         if (!this.hasAttribute('step') && Number.isFinite(Number(section.step))) this.step = Number(section.step);
+    }
+
+    /** The model on show, when the config offered a choice. */
+    private get currentModel(): ModelChoice | undefined {
+        return this.models.find((model) => model.data === this.data);
+    }
+
+    /**
+     * Adds or removes the plate-boundary layers for the current model.
+     *
+     * They are the reason to look at a second model at all: reconstructed
+     * coastlines put the India–Asia collision in the last few million years,
+     * which is out by some 45 Ma, because the crust that closed the gap is now
+     * Tibet and no longer has a coastline. The deforming networks are that
+     * crust, so they show the collision when it happened.
+     *
+     * Added by the tool rather than left to the config, because a layer nobody
+     * knows to switch on is a layer nobody sees.
+     */
+    private async applyPlateLayers(): Promise<void> {
+        const plates = this.currentModel?.plates;
+        const wanted = Boolean(plates) && this.showPlates;
+
+        if (!wanted) {
+            for (const id of [DEFORMING_LAYER_ID, BOUNDARY_LAYER_ID]) {
+                try { this.mapElement?.removeInlineLayer(id); } catch { /* not there */ }
+            }
+            return;
+        }
+        // A config may already draw these; a second copy would only thicken
+        // every line.
+        if (this.mapHasPlateLayer()) return;
+
+        const url = `internalfunc://paleo-plates?data=${encodeURIComponent(plates as string)}&ma={ma}`;
+        const sources = { [PLATES_SOURCE_ID]: { id: PLATES_SOURCE_ID, type: 'geojson', data: url } };
+
+        await this.mapElement?.addLayerRequest({
+            id: DEFORMING_LAYER_ID,
+            type: 'fill',
+            title: 'Deforming zones',
+            source: PLATES_SOURCE_ID,
+            sources,
+            filter: ['==', ['get', 'deforming'], true],
+            paint: { 'fill-color': '#e63946', 'fill-opacity': 0.3, 'fill-outline-color': '#7a1420' },
+        });
+        await this.mapElement?.addLayerRequest({
+            id: BOUNDARY_LAYER_ID,
+            type: 'line',
+            title: 'Plate boundaries',
+            source: PLATES_SOURCE_ID,
+            sources,
+            paint: { 'line-color': '#33302b', 'line-width': 1.1, 'line-opacity': 0.85 },
+        });
+    }
+
+    /** Whether something on the map is already drawing plate boundaries. */
+    private mapHasPlateLayer(): boolean {
+        const layers = this.store?.getState().mapLayers ?? {};
+        for (const [layerId, entry] of Object.entries(layers)) {
+            if (layerId === BOUNDARY_LAYER_ID || layerId === DEFORMING_LAYER_ID) return true;
+            if (entry?.visible === false) continue;
+            const sourceId = (entry as { sourceId?: string })?.sourceId;
+            if (!sourceId) continue;
+            const config = this.adapter?.getSourceConfig?.(sourceId) as { internalFuncUrl?: unknown } | undefined;
+            const url = config?.internalFuncUrl;
+            if (typeof url === 'string' && url.includes('paleo-plates')) return true;
+        }
+        return false;
     }
 
     /**
@@ -443,6 +528,11 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
         try {
             this.mapElement?.removeInlineLayer(LAYER_ID);
         } catch { /* the tool had not added one */ }
+        // The boundaries belong to the model that was showing, and the next one
+        // may have none at all.
+        for (const id of [DEFORMING_LAYER_ID, BOUNDARY_LAYER_ID]) {
+            try { this.mapElement?.removeInlineLayer(id); } catch { /* not there */ }
+        }
 
         // Back to the model the config chose: its own layer can draw again, and
         // the tool goes back to adopting it rather than keeping a copy.
@@ -500,6 +590,8 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
         // just draw every coastline twice. Both kinds follow the map's clock
         // through the `{ma}` in their source url, which is why an adopted layer
         // needs nothing further from the tool.
+        await this.applyPlateLayers();
+
         if (this.mapHasPaleoLayer()) return;
         await this.mapElement?.addLayerRequest(this.layerConfig());
     }
@@ -660,6 +752,18 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
                 min=${-this.to} max=${-this.from} step=${this.step}
                 .value=${String(-this.ma)}
                 @input=${(e: Event) => this.setAge(-Number((e.target as HTMLInputElement).value))}>
+
+            ${this.currentModel?.plates ? html`
+                <div class="models">
+                    <label>
+                        <input type="checkbox" .checked=${this.showPlates}
+                            @change=${(e: Event) => {
+                                this.showPlates = (e.target as HTMLInputElement).checked;
+                                void this.applyPlateLayers();
+                            }}>
+                        Plate boundaries
+                    </label>
+                </div>` : ''}
 
             ${this.models.length > 1 ? html`
                 <div class="models">
