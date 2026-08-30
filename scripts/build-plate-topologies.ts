@@ -10,10 +10,15 @@
  * and a snapshot per step is the honest representation.
  *
  * The step is therefore a real resolution limit here, unlike for the
- * coastlines, and 10 Ma is the compromise this data supports: the collision
- * that builds the Himalaya plays out over ~50 Ma, so 10 Ma steps show it
- * beginning, deforming and locking, at 4.6 MB for the whole 250 Ma. Halving the
- * step doubles the bytes for motion that is still a jump.
+ * coastlines. 5 Ma is what this data supports, at 8.4 MB for the whole 250 Ma —
+ * a cost only a config that actually uses the deep-time tool pays, since the
+ * data lives in the config repository rather than in the code.
+ *
+ * Halving the step from 10 Ma buys less than it looks. The median boundary
+ * movement per step does halve (276 km -> 142 km), but the topology is
+ * re-meshed at every age, so features appear and disappear *more* often per
+ * million years (3.1 -> 3.7): smaller jumps, more of them. Going finer still
+ * trades bytes for more of that flicker, not for smoothness.
  *
  * MULLER2019 is the model worth fetching. Its topologies carry the deforming
  * networks — `Greater_India_East_Mesh`, `Alpine_Deforming_Mesh` — where
@@ -21,7 +26,7 @@
  * present, and the difference is exactly the deformation.
  */
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { access, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -47,6 +52,7 @@ interface Options {
     out: string;
     timeout: number;
     retries: number;
+    skipExisting: boolean;
 }
 
 function usage(): void {
@@ -61,6 +67,7 @@ function usage(): void {
   --out <dir>      output directory            (default public/config/data/paleo/<model>/plates)
   --timeout <ms>   per request                 (default 120000)
   --retries <n>    per request                 (default 3)
+  --skip-existing  leave ages already downloaded alone
 
 MULLER2019 is the only model here that carries deforming networks; the others
 return plate boundaries alone.`);
@@ -69,7 +76,7 @@ return plate boundaries alone.`);
 function parseArgs(argv: string[]): Options | null {
     const options: Options = {
         model: 'MULLER2019', from: 0, to: 250, step: 10,
-        out: '', timeout: 120_000, retries: 3,
+        out: '', timeout: 180_000, retries: 3, skipExisting: false,
     };
     for (let i = 0; i < argv.length; i += 1) {
         const arg = argv[i];
@@ -82,6 +89,7 @@ function parseArgs(argv: string[]): Options | null {
         else if (arg === '--out') { options.out = value; i += 1; }
         else if (arg === '--timeout') { options.timeout = Number(value); i += 1; }
         else if (arg === '--retries') { options.retries = Number(value); i += 1; }
+        else if (arg === '--skip-existing') { options.skipExisting = true; }
         else { console.error(`Unknown option: ${arg}`); return null; }
     }
     options.out ||= path.join('public', 'config', 'data', 'paleo', options.model.toLowerCase(), 'plates');
@@ -151,10 +159,22 @@ if (!options) {
 
     let total = 0;
     for (const age of ages) {
+        const file = path.join(options.out, `plates-${String(age).padStart(4, '0')}.geojson`);
+        if (options.skipExisting) {
+            // Halving the step means most ages are already on disk, and the
+            // service is one academic server: asking it again for what we have
+            // is rude, slow, and — as 0 Ma proved by answering 500 after 74 s —
+            // a way to fail a run over a file that was already fine.
+            try {
+                await access(file);
+                console.log(`  ${String(age).padStart(4)} Ma  already downloaded`);
+                continue;
+            } catch { /* not there yet: fetch it */ }
+        }
         const raw = await fetchAge(options, age);
         const doc = slim(raw, age);
         const body = JSON.stringify(doc);
-        await writeFile(path.join(options.out, `plates-${String(age).padStart(4, '0')}.geojson`), body);
+        await writeFile(file, body);
         total += body.length;
         const deforming = doc.features.filter((f) => (f.properties as Record<string, unknown>)?.deforming).length;
         console.log(`  ${String(age).padStart(4)} Ma  ${String(doc.features.length).padStart(3)} features`
