@@ -1,5 +1,7 @@
 import { html, css, svg, TemplateResult } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
+import { controlSurfaceStyles } from './internal/control-surface-styles';
+import { STEP_BACK_ICON, STEP_FORWARD_ICON, StepRepeater, renderStepButton } from './step-button';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState, MapTimeState } from '../store/IMapState';
 import { isLive } from '../utils/map-clock';
@@ -144,11 +146,12 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
     private playSpeedMs: number | null = null;
 
     private liveTimer: ReturnType<typeof setInterval> | null = null;
+    private readonly stepper = new StepRepeater();
     private playTimer: ReturnType<typeof setInterval> | null = null;
     private playFrame: number | null = null;
     private playLastFrame = 0;
 
-    static styles = css`
+    static styles = [controlSurfaceStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         .now {
             display: flex;
@@ -177,6 +180,12 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
         .row .value { font-variant-numeric: tabular-nums; }
         input[type="range"], select { width: 100%; box-sizing: border-box; }
         .controls { display: flex; align-items: center; gap: 0.5rem; }
+        /* Play and the two step buttons are one control at different jobs, so
+           they are one rule: the house button (webmapx-control, so it picks up
+           the active style preset) at the compact size the time slider's play
+           button always had — a drawn 2rem box beside it read as heavier than
+           the job deserves. */
+        .controls .step,
         .controls .play {
             display: inline-flex;
             align-items: center;
@@ -184,7 +193,17 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
             min-width: 2rem;
             padding: 0.25rem 0.4rem;
             line-height: 0;
+            cursor: pointer;
+            color: inherit;
+            border: 1px solid var(--color-border, #d5dce3);
+            border-radius: var(--webmapx-radius-sm, 4px);
+            background-color: var(--color-background, #fff);
+            /* A held button must not also select text or scroll the panel. */
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
         }
+        .controls .step[disabled], .controls .play[disabled] { opacity: 0.4; cursor: default; }
         .controls .per { color: var(--color-text-secondary, #5a6773); white-space: nowrap; }
         .controls select { flex: 1; min-width: 0; width: auto; }
         .hint {
@@ -194,7 +213,7 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
         }
         :host([disabled-controls]) .row,
         .disabled { color: var(--color-text-muted, #6b7681); }
-    `;
+    `];
 
     protected onMapAttached(): void {
         const state = this.adapter?.store.getState();
@@ -248,6 +267,8 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
         // acted on, take it for no change, and never restart the loop.
         this.stopLiveTicking();
         this.stopPlaying();
+        // A button held while the panel closes would otherwise keep stepping.
+        this.stepper.stop();
         this.playSpeedMs = null;
         super.disconnectedCallback();
     }
@@ -398,6 +419,33 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
         this.playFrame = null;
     }
 
+    /**
+     * Moves the pinned moment one listed step, using the interval the speed menu
+     * already names — so "1 hour" means an hour a second under play and an hour
+     * a press here. That is also what makes one pair of buttons enough for two
+     * sliders: without it, a step would have to say which of date or time of day
+     * it moved.
+     *
+     * Stepping stops playback, since a step swallowed by the animation half a
+     * frame later looks like the button is broken.
+     */
+    private nudge(direction: -1 | 1): void {
+        if (this.playing) this.setPlaySpeed(null);
+        // `advance` carries the wrap at the ends of the date slider, so a step
+        // off the end comes round exactly where playing off the end does.
+        this.advance(direction * SPEEDS[this.speedIndex].perSecond);
+    }
+
+    private renderStep(direction: -1 | 1, icon: TemplateResult<2>, sense: 'earlier' | 'later'): TemplateResult {
+        return renderStepButton({
+            icon,
+            label: `${SPEEDS[this.speedIndex].label} ${sense}`,
+            disabled: isLive(this.mapTime),
+            step: () => this.nudge(direction),
+            repeater: this.stepper,
+        });
+    }
+
     /** Switching speed mid-play swaps the cadence the new speed needs. */
     private setSpeed(index: number): void {
         this.speedIndex = index;
@@ -472,13 +520,16 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
                     )}>
             </div>
 
+            <!-- Step, play, step: the transport row of a media player. -->
             <div class="controls">
-                <button type="button" class="play" ?disabled=${live}
+                ${this.renderStep(-1, STEP_BACK_ICON, 'earlier')}
+                <button type="button" class="play webmapx-control" ?disabled=${live}
                     aria-label=${this.playing ? 'Pause' : 'Play'}
                     title=${this.playing ? 'Pause' : 'Play'}
                     @click=${() => this.togglePlay()}>
                     ${this.playing ? PAUSE_ICON : PLAY_ICON}
                 </button>
+                ${this.renderStep(1, STEP_FORWARD_ICON, 'later')}
                 <select aria-label="Step per second" ?disabled=${live}
                     @change=${(e: Event) => this.setSpeed(Number((e.target as HTMLSelectElement).value))}>
                     ${SPEEDS.map((speed, index) => html`

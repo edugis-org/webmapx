@@ -19,6 +19,8 @@ import { html, css, svg, nothing, type TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
 import { WebmapxModalTool } from './webmapx-modal-tool';
+import { controlSurfaceStyles } from './internal/control-surface-styles';
+import { STEP_BACK_ICON, STEP_FORWARD_ICON, StepRepeater, renderStepButton } from './step-button';
 import { loadPlateModelFrom } from '../utils/paleo-coastlines';
 import type { WebmapxMapElement } from './webmapx-map';
 
@@ -94,6 +96,7 @@ const PAUSE_ICON = svg`<svg viewBox="0 0 16 16" width="14" height="14" aria-hidd
     <rect x="4" y="2.5" width="3" height="11" fill="currentColor"/>
     <rect x="9" y="2.5" width="3" height="11" fill="currentColor"/>
 </svg>`;
+
 
 /**
  * The periods a reader can navigate by.
@@ -261,7 +264,9 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
     private wanted = false;
     private started = false;
 
-    static styles = css`
+    private readonly stepper = new StepRepeater();
+
+    static styles = [controlSurfaceStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         .age { font-size: 1.5rem; font-weight: 600; line-height: 1.1; }
         .period { color: var(--color-text-muted, #666); margin-bottom: 0.75rem; }
@@ -270,14 +275,30 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
         .models { margin-top: 0.5rem; font-size: 0.8125rem; color: var(--color-text-secondary, #5a6773); }
         .models label { display: flex; align-items: center; gap: 0.4rem; }
         .models select { flex: 1; min-width: 0; }
+        /* Play and the two step buttons are one control at different jobs, so
+           they are one rule: the house button (webmapx-control, so it picks up
+           the active style preset) at the compact size the time slider's play
+           button always had — a drawn 2rem box beside it read as heavier than
+           the job deserves. */
+        .controls .step,
         .controls .play {
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 2rem; height: 2rem; cursor: pointer;
-            border: 1px solid var(--color-border, #ccc);
-            border-radius: var(--webmapx-radius, 4px);
-            background: var(--color-surface, #fff);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2rem;
+            padding: 0.25rem 0.4rem;
+            line-height: 0;
+            cursor: pointer;
             color: inherit;
+            border: 1px solid var(--color-border, #d5dce3);
+            border-radius: var(--webmapx-radius-sm, 4px);
+            background-color: var(--color-background, #fff);
+            /* A held button must not also select text or scroll the panel. */
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
         }
+        .controls .step[disabled], .controls .play[disabled] { opacity: 0.4; cursor: default; }
         .per { color: var(--color-text-muted, #666); }
         .legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; margin-top: 0.75rem; }
         .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
@@ -306,7 +327,7 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
             text-align: center;
             color: var(--color-text-secondary, #5a6773);
         }
-`;
+`];
 
     private get mapElement(): (WebmapxMapElement & {
         addLayerRequest: (config: Record<string, unknown>) => Promise<boolean>;
@@ -330,6 +351,8 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
         this.wanted = false;
         this.started = false;
         this.stopPlaying();
+        // A button held while the panel closes would otherwise keep stepping.
+        this.stepper.stop();
         // The layer and the age both outlive the panel, the way the 3D tool's
         // terrain does. Closing the tool is how you get the map to itself — to
         // measure the sea between two continents, ask the info tool what a
@@ -734,6 +757,24 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
         this.store?.dispatch({ paleoTimeMa: this.ma }, 'UI');
     }
 
+    /**
+     * One step of the slider's own interval, older or younger.
+     *
+     * The slider already does this from the arrow keys, but only once it has
+     * focus — and on touch there are no arrow keys, while tapping the track to
+     * focus it jumps the age to wherever the tap landed. So the step is offered
+     * as a control of its own, which is also the only way to reach an exact age
+     * with a finger.
+     *
+     * Stepping stops playback: the two are the same instruction at different
+     * speeds, and a step swallowed by the animation half a frame later looks
+     * like the button is broken.
+     */
+    private nudge(direction: -1 | 1): void {
+        if (this.playing) this.togglePlay();
+        this.setAge(this.ma + direction * this.step);
+    }
+
     private setAge(ma: number): void {
         const clamped = Math.min(Math.max(ma, this.from), this.to);
         if (clamped === this.ma) return;
@@ -806,6 +847,20 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
         `;
     }
 
+    /**
+     * A step button. `direction` is in millions of years, so +1 is *older* —
+     * the opposite of the slider's own axis, which counts towards the present.
+     */
+    private renderStep(direction: -1 | 1, icon: TemplateResult<2>, sense: 'earlier' | 'later'): TemplateResult {
+        return renderStepButton({
+            icon,
+            label: `${this.step} million years ${sense}`,
+            disabled: direction === 1 ? this.ma >= this.to : this.ma <= this.from,
+            step: () => this.nudge(direction),
+            repeater: this.stepper,
+        });
+    }
+
     render(): TemplateResult {
         const scene = sceneAt(this.periodScenes, this.ma);
         return html`
@@ -850,13 +905,18 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
                     </label>
                 </div>` : ''}
 
+            <!-- Step, play, step: the transport row of a media player, and it
+                 reads the same way here — back is towards the deep past, which
+                 is also leftwards on the slider above. -->
             <div class="controls">
-                <button type="button" class="play"
+                ${this.renderStep(1, STEP_BACK_ICON, 'earlier')}
+                <button type="button" class="play webmapx-control"
                     aria-label=${this.playing ? 'Pause' : 'Play'}
                     title=${this.playing ? 'Pause' : 'Play'}
                     @click=${() => this.togglePlay()}>
                     ${this.playing ? PAUSE_ICON : PLAY_ICON}
                 </button>
+                ${this.renderStep(-1, STEP_FORWARD_ICON, 'later')}
                 <select aria-label="Millions of years per second"
                     @change=${(e: Event) => { this.speedIndex = Number((e.target as HTMLSelectElement).value); }}>
                     ${SPEEDS.map((speed, index) => html`
