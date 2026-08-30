@@ -32,6 +32,20 @@ import type { WebmapxMapElement } from './webmapx-map';
  */
 const DEFAULT_DATA = 'data/paleo/merdith2021';
 
+/**
+ * Who to credit when no config said.
+ *
+ * Attribution belongs on the *source*, not the layer — that is the rule for
+ * every layer type bar a remote style, and it is what the attribution control
+ * reads (`getSourceAttribution`). A model named in a config carries its own
+ * citation; this covers the tool falling back to `DEFAULT_DATA`, which is
+ * Merdith by definition.
+ */
+const DEFAULT_CREDIT = {
+    attribution: 'Coastlines: <a href="https://doi.org/10.1016/j.earscirev.2020.103477" target="_blank" rel="noopener">Merdith et al. 2021</a>, via <a href="https://gwsdoc.gplates.org/" target="_blank" rel="noopener">GPlates Web Service</a> (CC BY 4.0)',
+    abstract: 'Present-day coastlines carried back to the chosen age on the plates they ride, using the Merdith et al. (2021) rotation model (1000–0 Ma). The shapes are today\u2019s outlines rotated as rigid blocks: crust that has since been shortened or stretched is not shown, so continents meet later here than the rocks say. Longitude in deep time is far less certain than latitude.',
+};
+
 const LAYER_ID = 'paleotime-coastlines';
 const PLATES_SOURCE_ID = 'paleotime-plates-source';
 const BOUNDARY_LAYER_ID = 'paleotime-plate-boundaries';
@@ -175,6 +189,13 @@ interface ModelChoice {
      * the crust that is now Tibet — where Merdith offers boundaries alone.
      */
     plates?: string;
+    /** Credit for the model's data, put on the source it feeds. */
+    attribution?: string;
+    /** What the model is and what it does not show, for the layer info dialog. */
+    abstract?: string;
+    /** The same two, for the plate-boundary layers, which are a separate dataset. */
+    platesAttribution?: string;
+    platesAbstract?: string;
 }
 
 @customElement('webmapx-paleotime-tool')
@@ -400,6 +421,11 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
                     ...(typeof entry.plates === 'string'
                         ? { plates: this.resolveConfigAsset(entry.plates) }
                         : {}),
+                    ...Object.fromEntries(
+                        (['attribution', 'abstract', 'platesAttribution', 'platesAbstract'] as const)
+                            .filter((key) => typeof entry[key] === 'string')
+                            .map((key) => [key, String(entry[key])]),
+                    ),
                 }));
             // The configured `data` decides which one starts selected, so a
             // config that already named a directory keeps showing that model.
@@ -420,6 +446,19 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
     /** The model on show, when the config offered a choice. */
     private get currentModel(): ModelChoice | undefined {
         return this.models.find((model) => model.data === this.data);
+    }
+
+    /**
+     * Credit and description for what is being drawn.
+     *
+     * A config that lists models carries the citation for each, since it also
+     * carries the data. With no such list the tool is showing `DEFAULT_DATA`,
+     * and credits that.
+     */
+    private get credit(): { attribution?: string; abstract?: string } {
+        const model = this.currentModel;
+        if (!model) return DEFAULT_CREDIT;
+        return { attribution: model.attribution, abstract: model.abstract };
     }
 
     /**
@@ -449,7 +488,18 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
         if (this.mapHasPlateLayer()) return;
 
         const url = `internalfunc://paleo-plates?data=${encodeURIComponent(plates as string)}&ma={ma}`;
-        const sources = { [PLATES_SOURCE_ID]: { id: PLATES_SOURCE_ID, type: 'geojson', data: url } };
+        const model = this.currentModel;
+        const sources = {
+            [PLATES_SOURCE_ID]: {
+                id: PLATES_SOURCE_ID,
+                type: 'geojson',
+                data: url,
+                ...(model?.platesAttribution ? { attribution: model.platesAttribution } : {}),
+            },
+        };
+        // Both layers read one source, so both are the same dataset; the
+        // abstract differs because the two answer different questions.
+        const deformingAbstract = model?.platesAbstract;
 
         await this.mapElement?.addLayerRequest({
             id: DEFORMING_LAYER_ID,
@@ -459,6 +509,12 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
             sources,
             filter: ['==', ['get', 'deforming'], true],
             paint: { 'fill-color': '#e63946', 'fill-opacity': 0.3, 'fill-outline-color': '#7a1420' },
+            metadata: {
+                label: 'Deforming zones',
+                dynamic: true,
+                legendRole: 'overlay',
+                ...(deformingAbstract ? { abstract: deformingAbstract } : {}),
+            },
         });
         await this.mapElement?.addLayerRequest({
             id: BOUNDARY_LAYER_ID,
@@ -467,6 +523,12 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
             source: PLATES_SOURCE_ID,
             sources,
             paint: { 'line-color': '#33302b', 'line-width': 1.1, 'line-opacity': 0.85 },
+            metadata: {
+                label: 'Plate boundaries',
+                dynamic: true,
+                legendRole: 'overlay',
+                ...(deformingAbstract ? { abstract: deformingAbstract } : {}),
+            },
         });
     }
 
@@ -634,7 +696,15 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
             type: 'fill',
             source: SOURCE_ID,
             sources: {
-                [SOURCE_ID]: { id: SOURCE_ID, type: 'geojson', data: url },
+                [SOURCE_ID]: {
+                    id: SOURCE_ID,
+                    type: 'geojson',
+                    data: url,
+                    // On the source, not the layer: that is where every layer
+                    // type bar a remote style keeps it, and where the
+                    // attribution control looks.
+                    ...(this.credit.attribution ? { attribution: this.credit.attribution } : {}),
+                },
             },
             paint: {
                 // Land is drawn opaque and the sea is left as whatever the map
@@ -654,6 +724,7 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
                 label: 'Palaeo-coastlines',
                 dynamic: true,
                 legendRole: 'overlay',
+                ...(this.credit.abstract ? { abstract: this.credit.abstract } : {}),
             },
         };
     }
