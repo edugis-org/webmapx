@@ -123,8 +123,73 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     protected onStateChanged(state: IMapState): void {
         const entry = (state.mapLayers ?? {})[this.layerId] as Record<string, unknown> | undefined;
         this.meta = entry ?? null;
+        this.dropSupersededOverrides();
         if (typeof state.zoomLevel === 'number') this.zoom = state.zoomLevel;
         this.terrainEnabled = this.adapter?.isTerrainEnabled() === true;
+    }
+
+    /**
+     * Forget a swatch edit once the layer's paint has been changed by something
+     * else.
+     *
+     * `editOverrides` is a local echo of a value the store owns: the legend
+     * writes it *and* calls `updateLayerStyle`, which mirrors the same paint
+     * back into `store.mapLayers`. Nothing retired the echo, so it kept winning
+     * over everything that came later — recolour one class by hand, then restyle
+     * the layer to a single colour in the panel, and the legend went on drawing
+     * the old classes with the hand-picked colour among them, describing a map
+     * that no longer existed.
+     *
+     * The test is agreement rather than authorship: while an edit stands, the
+     * store reports exactly what was written and the echo is kept; the moment it
+     * reports something different, that value came from elsewhere and the echo
+     * is stale. This also covers an edit the engine refused — no mirror, no
+     * agreement, so the legend stops claiming a change the map never made.
+     */
+    private dropSupersededOverrides(): void {
+        const entries = Object.entries(this.editOverrides);
+        if (entries.length === 0) return;
+
+        let changed = false;
+        const kept: Record<string, Record<string, unknown>> = {};
+        for (const [subLayerId, overrides] of entries) {
+            const current = this.paintOfSublayer(subLayerId);
+            const survivors: Record<string, unknown> = {};
+            for (const [key, value] of Object.entries(overrides)) {
+                if (current && JSON.stringify(current[key]) === JSON.stringify(value)) survivors[key] = value;
+                else changed = true;
+            }
+            if (Object.keys(survivors).length > 0) kept[subLayerId] = survivors;
+        }
+        if (changed) this.editOverrides = kept;
+    }
+
+    /**
+     * The paint the store holds for one sublayer, with layout folded in —
+     * `text-size` is overridden here but lives in layout, and the two are one
+     * thing as far as a stale edit is concerned.
+     */
+    private paintOfSublayer(subLayerId: string): Record<string, unknown> | null {
+        const meta = this.meta;
+        if (!meta) return null;
+        const asRecord = (value: unknown): Record<string, unknown> =>
+            (value && typeof value === 'object' ? value as Record<string, unknown> : {});
+
+        if (!subLayerId || subLayerId === this.layerId) {
+            const own = { ...asRecord(meta.paint), ...asRecord(meta.layout) };
+            if (Object.keys(own).length > 0 || !Array.isArray(meta.sublayers)) return own;
+        }
+        const find = (items: unknown): Record<string, unknown> | null => {
+            if (!Array.isArray(items)) return null;
+            for (const item of items) {
+                const sub = asRecord(item);
+                if (String(sub.id ?? '') === subLayerId) return { ...asRecord(sub.paint), ...asRecord(sub.layout) };
+                const nested = find(sub.sublayers);
+                if (nested) return nested;
+            }
+            return null;
+        };
+        return find(meta.sublayers);
     }
 
     private observeLegendContent(): void {
@@ -243,7 +308,18 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     }
 
     /** Returns match cases if expr is data-driven match/step, otherwise null. */
-    private extractDataCases(expr: unknown, attrTr?: Map<string, {label: string; unit: string; valuemap?: Array<{value: unknown; label: string; operator?: string}>}>): Array<{label: string, paint: unknown}> | null {
+    /**
+     * The legend rows a colour expression produces, each carrying the path to
+     * the colour it came from.
+     *
+     * The path is built here, in the same walk that builds the rows, because
+     * these two must agree and any second calculation of "which element is this
+     * row's colour" will eventually disagree — nested branches expand into
+     * several rows, and `expandNestedCases` then drops and reorders some. That
+     * disagreement is why per-class editing used to be refused outright for any
+     * expression with a branch that was not a flat colour.
+     */
+    private extractDataCases(expr: unknown, attrTr?: Map<string, {label: string; unit: string; valuemap?: Array<{value: unknown; label: string; operator?: string}>}>): Array<{label: string, paint: unknown, path: number[]}> | null {
         if (!Array.isArray(expr)) return null;
         const op = expr[0];
         if (op === 'match' && expr.length >= 5) {
@@ -251,15 +327,15 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const attrEntry = matchProp ? attrTr?.get(matchProp) : undefined;
             const unit = attrEntry?.unit ?? '';
             const valuemap = attrEntry?.valuemap;
-            const cases: Array<{label: string, paint: unknown}> = [];
+            const cases: Array<{label: string, paint: unknown, path: number[]}> = [];
             for (let i = 2; i + 1 < expr.length - 1; i += 2) {
                 const rawKey = expr[i];
                 const rawStr = Array.isArray(rawKey) ? rawKey.join(', ') : String(rawKey);
                 const mapped = valuemap?.find(m => String(m.value) === String(rawKey));
                 const label = mapped ? mapped.label : (unit ? `${rawStr}${unit}` : rawStr);
-                cases.push({ label, paint: expr[i + 1] });
+                cases.push({ label, paint: expr[i + 1], path: [i + 1] });
             }
-            cases.push({ label: '', paint: expr[expr.length - 1] });
+            cases.push({ label: '', paint: expr[expr.length - 1], path: [expr.length - 1] });
             return cases.length > 1 ? cases : null;
         }
         if (op === 'step' && expr.length >= 5) {
@@ -276,9 +352,10 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 if (typeof expr[i] === 'number') breaks.push(expr[i] as number);
             }
             const bound = (value: number) => `${this.formatNumber(value)}${unit}`;
-            const cases: Array<{label: string, paint: unknown}> = [{
+            const cases: Array<{label: string, paint: unknown, path: number[]}> = [{
                 label: breaks.length > 0 ? `< ${bound(breaks[0])}` : '',
                 paint: expr[2],
+                path: [2],
             }];
             for (let i = 3, b = 0; i + 1 < expr.length; i += 2, b += 1) {
                 const from = breaks[b];
@@ -286,17 +363,18 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 cases.push({
                     label: to === undefined ? `≥ ${bound(from)}` : `${bound(from)} – ${bound(to)}`,
                     paint: expr[i + 1],
+                    path: [i + 1],
                 });
             }
             return cases;
         }
         if (op === 'case' && expr.length >= 3) {
-            const cases: Array<{label: string, paint: unknown}> = [];
+            const cases: Array<{label: string, paint: unknown, path: number[]}> = [];
             for (let i = 1; i + 1 < expr.length; i += 2) {
                 const label = this.conditionLabel(expr[i], attrTr) ?? `class ${Math.floor(i / 2) + 1}`;
-                cases.push({ label, paint: expr[i + 1] });
+                cases.push({ label, paint: expr[i + 1], path: [i + 1] });
             }
-            cases.push({ label: '', paint: expr[expr.length - 1] });
+            cases.push({ label: '', paint: expr[expr.length - 1], path: [expr.length - 1] });
             if (cases.length <= 1) return null;
             return this.expandNestedCases(cases, attrTr);
         }
@@ -315,22 +393,25 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
      * single "no data" row they mean between them.
      */
     private expandNestedCases(
-        cases: Array<{label: string, paint: unknown}>,
+        cases: Array<{label: string, paint: unknown, path: number[]}>,
         attrTr?: Map<string, {label: string; unit: string; valuemap?: Array<{value: unknown; label: string; operator?: string}>}>,
-    ): Array<{label: string, paint: unknown}> {
-        const expanded: Array<{label: string, paint: unknown}> = [];
+    ): Array<{label: string, paint: unknown, path: number[]}> {
+        const expanded: Array<{label: string, paint: unknown, path: number[]}> = [];
         for (const entry of cases) {
             const nested = Array.isArray(entry.paint) ? this.extractDataCases(entry.paint, attrTr) : null;
             if (nested) {
-                expanded.push(...nested);
+                // A nested expression's paths are relative to itself, so they are
+                // prefixed with the way in. This is what keeps a row's path valid
+                // however deeply its colour is buried.
+                expanded.push(...nested.map(child => ({ ...child, path: [...entry.path, ...child.path] })));
             } else {
                 expanded.push(entry);
             }
         }
         // A no-data guard has no label of its own and paints the same colour
         // twice; one row saying so is the whole of what it means.
-        const noData: Array<{label: string, paint: unknown}> = [];
-        const classes: Array<{label: string, paint: unknown}> = [];
+        const noData: Array<{label: string, paint: unknown, path: number[]}> = [];
+        const classes: Array<{label: string, paint: unknown, path: number[]}> = [];
         for (const entry of expanded) {
             const isGuard = entry.label === '' && typeof entry.paint === 'string'
                 && expanded.some((other) => other !== entry && other.label === '' && other.paint === entry.paint);
@@ -454,9 +535,8 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
 
                 if (!singleSublayer) rows.push(html`<div class="sub-group-title">${label}</div>`);
                 const colorExpr = Array.isArray(rawColorExpr) ? rawColorExpr : null;
-                const stopIndices = colorExpr ? this.colorExprStopIndices(colorExpr) : null;
                 for (let ci = 0; ci < dataCases.length; ci++) {
-                    const { label: caseLabel, paint: casePaint } = dataCases[ci];
+                    const { label: caseLabel, paint: casePaint, path: casePath } = dataCases[ci];
                     if (caseLabel === '') continue;
                     const casePaintObj = { ...evalPaint, [colorKey!]: casePaint };
                     const swatch = this.renderSwatch(type, casePaintObj, zoom, evalLayout);
@@ -464,11 +544,12 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                     const caseKey = `${type}|${String(casePaint)}`;
                     if (seen.has(caseKey)) continue;
                     seen.add(caseKey);
-                    const stopIdx = stopIndices?.[ci] ?? null;
-                    const caseColor = typeof casePaint === 'string' ? casePaint : '#000';
-                    const clickableSwatch = stopIdx !== null && colorExpr
+                    // Only a literal colour can be recoloured: a branch that is
+                    // still an expression has no single value to replace.
+                    const editableCase = colorExpr && typeof casePaint === 'string' && casePath.length > 0;
+                    const clickableSwatch = editableCase
                         ? html`<button type="button" style="background:none;border:none;padding:0;cursor:pointer;display:flex;align-items:center"
-                            @click=${(e: Event) => { e.stopPropagation(); this.openStopColorPicker(e.currentTarget as HTMLElement, [rawId], colorKey!, colorExpr, stopIdx, caseColor); }}>
+                            @click=${(e: Event) => { e.stopPropagation(); this.openStopColorPicker(e.currentTarget as HTMLElement, [rawId], colorKey!, colorExpr, casePath, casePaint as string); }}>
                             ${swatch}</button>`
                         : swatch;
                     rows.push(html`
@@ -476,6 +557,15 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                             ${clickableSwatch}
                             <span class="legend-label">${caseLabel}</span>
                         </div>`);
+                }
+                // The outline belongs to the layer, not to a class: MapLibre's
+                // `fill-outline-color` is one colour for the whole fill. A
+                // classed layer had no way to reach it at all — `renderStyleEditor`,
+                // which carries this row for a plain fill, is only rendered for a
+                // layer with a single colour.
+                if (type === 'fill') {
+                    const outline = this.toCssColor(evalPaint['fill-outline-color'], '#000000');
+                    rows.push(this.renderOutlineRow([rawId], outline));
                 }
             } else if (type === 'circle') {
                 // Circle layers may have proportional/data-driven radius — delegate to
@@ -753,9 +843,14 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     }
 
     /**
-     * For a `match`/`case`/`step` color expression, returns the array index of each
-     * stop's color value, in the same order as `extractLegendStops` returns stops
-     * (excluding the trailing fallback/default). Returns `null` for unsupported ops.
+     * For a `match`/`case`/`step` colour expression, the array index of each
+     * stop's colour, in the order `extractLegendStops`/`extractColorClasses`
+     * return them.
+     *
+     * Only for those two, which flatten an expression without recording where
+     * anything came from. `extractDataCases` carries a path per row instead and
+     * needs none of this; a nested branch is refused here, because an index
+     * cannot describe a colour inside one.
      */
     private colorExprStopIndices(expr: unknown[]): number[] | null {
         const op = expr[0];
@@ -765,10 +860,6 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             return idx;
         }
         if (op === 'case') {
-            // A branch that is itself a class expression contributes several
-            // rows, so positions here no longer line up with the rows on
-            // screen. No picker is better than one that recolours the wrong
-            // class — the panel is where such a layer is restyled anyway.
             if (expr.slice(1).some((value, index) => index % 2 === 1 && typeof value !== 'string')) return null;
             if (typeof expr[expr.length - 1] !== 'string') return null;
             const idx: number[] = [];
@@ -783,13 +874,26 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         return null;
     }
 
-    /** Opens a color picker that patches a single stop (`expr[colorIndex]`) of a match/case/step expression. */
-    private openStopColorPicker(button: HTMLElement, subLayerIds: string[], colorKey: string, expr: unknown[], colorIndex: number, currentColor: string): void {
-        const id = `${subLayerIds.join(',')}::${colorKey}::${colorIndex}`;
+    /**
+     * Opens a colour picker that patches one colour of a match/case/step
+     * expression, addressed by the path the legend row was built with.
+     *
+     * A path rather than an index because a class expression nests: this
+     * layer's colours live in a `step` sitting in the fallback of a `case`, and
+     * the class the reader clicked is three levels down. Every array on the way
+     * is copied rather than written through, so the change is one new value on
+     * a new expression and nothing else on the map shares the old one.
+     */
+    private openStopColorPicker(button: HTMLElement, subLayerIds: string[], colorKey: string, expr: unknown[], path: number[], currentColor: string): void {
+        const id = `${subLayerIds.join(',')}::${colorKey}::${path.join('.')}`;
         this.openColorPicker(button, subLayerIds, id, currentColor, (rgba) => {
-            const newExpr = [...expr];
-            newExpr[colorIndex] = rgba;
-            this.setPaintOverride(subLayerIds, colorKey, newExpr);
+            const patch = (node: unknown[], depth: number): unknown[] => {
+                const copy = [...node];
+                const at = path[depth];
+                copy[at] = depth === path.length - 1 ? rgba : patch(node[at] as unknown[], depth + 1);
+                return copy;
+            };
+            this.setPaintOverride(subLayerIds, colorKey, patch(expr, 0));
         }, false);
     }
 
@@ -807,12 +911,12 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     }
 
     /** Like `renderLineRow`, but the swatch is a clickable color-picker button patching one stop of `colorExpr`. */
-    private renderEditableLineRow(subLayerIds: string[], lineColor: string, lineWidth: number, dasharray: string, label: string, colorExpr: unknown[], colorIndex: number): TemplateResult {
+    private renderEditableLineRow(subLayerIds: string[], lineColor: string, lineWidth: number, dasharray: string, label: string, colorExpr: unknown[], colorPath: number[]): TemplateResult {
         const w = Math.min(lineWidth, 4);
         return html`
             <div class="legend-row">
                 <button type="button" class="color-swatch" style="background:transparent; border:none; padding:0; width:24px; height:14px; flex-shrink:0; cursor:pointer;"
-                    @click=${(e: Event) => { e.stopPropagation(); this.openStopColorPicker(e.currentTarget as HTMLElement, subLayerIds, 'line-color', colorExpr, colorIndex, lineColor); }}>
+                    @click=${(e: Event) => { e.stopPropagation(); this.openStopColorPicker(e.currentTarget as HTMLElement, subLayerIds, 'line-color', colorExpr, colorPath, lineColor); }}>
                     ${svg`<svg width="24" height="14">
                         <line x1="2" y1="7" x2="22" y2="7"
                             stroke="${lineColor}" stroke-width="${w}"
@@ -1228,6 +1332,27 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             </div>`;
     }
 
+    /**
+     * The layer-wide fill outline, drawn as what it is.
+     *
+     * A line swatch rather than a filled square, laid out swatch-then-label like
+     * the class rows above it: the outline is one more thing this layer draws,
+     * not a form field about it.
+     */
+    private renderOutlineRow(subLayerIds: string[], color: string): TemplateResult {
+        return html`
+            <div class="legend-row sub-row">
+                <button type="button" style="background:none;border:none;padding:0;cursor:pointer;display:flex;align-items:center"
+                    aria-label="Edit outline colour"
+                    @click=${(e: Event) => { e.stopPropagation(); this.openColorPicker(e.currentTarget as HTMLElement, subLayerIds, 'fill-outline-color', color, undefined, false); }}>
+                    ${svg`<svg width="24" height="14" style="flex-shrink:0">
+                        <line x1="2" y1="7" x2="22" y2="7" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
+                    </svg>`}
+                </button>
+                <span class="legend-label">outline</span>
+            </div>`;
+    }
+
     private renderColorRow(subLayerIds: string[], label: string, key: string, value: string): TemplateResult {
         return html`
             <div class="style-editor-row">
@@ -1456,7 +1581,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 return classes.filter(c => c.label !== '').map((c, i) => {
                     const stopIdx = stopIndices?.[i] ?? null;
                     const onClick = stopIdx !== null && Array.isArray(colorExpr)
-                        ? (e: Event) => { e.stopPropagation(); this.openStopColorPicker(e.currentTarget as HTMLElement, subLayerIds, colorKey, colorExpr, stopIdx, c.color); }
+                        ? (e: Event) => { e.stopPropagation(); this.openStopColorPicker(e.currentTarget as HTMLElement, subLayerIds, colorKey, colorExpr, [stopIdx], c.color); }
                         : undefined;
                     return this.renderFillRow(c.color, outlineColor, opacity, c.label, onClick);
                 });
@@ -1480,7 +1605,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 const label = s.value !== null ? String(s.value) : '';
                 const color = String(s.paint ?? '#3388ff');
                 if (stopIndices && stopIndices.length === colorStops.length) {
-                    return this.renderEditableLineRow(subLayerIds, color, lineWidth, dasharray, label, colorExpr as unknown[], stopIndices[i]);
+                    return this.renderEditableLineRow(subLayerIds, color, lineWidth, dasharray, label, colorExpr as unknown[], [stopIndices[i]]);
                 }
                 return this.renderLineRow(color, lineWidth, dasharray, label);
             });

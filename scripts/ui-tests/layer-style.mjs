@@ -1113,6 +1113,71 @@ export async function run({ page, engine, baseUrl }) {
         if (!state.explains || !state.suggests) fail('the panel does not explain why, or what to do instead');
     });
 
+    await step('a class of a nested classification can be recoloured from the legend', async () => {
+        // The shape the styling panel and the cartogram tool both write: a
+        // `case` guarding against missing values whose fallback is the `step`
+        // holding the real classes. Every colour a reader sees is two levels
+        // down, and the legend used to refuse to edit any of them — the swatch
+        // was not a button, so clicking it did nothing at all.
+        //
+        // Asserts the *whole* expression, not just the class that changed:
+        // patching the wrong element is the failure this guards against, and it
+        // looks identical from the row that was clicked.
+        const outcome = await page.evaluate(async () => {
+            await import('/src/components/webmapx-layer-legend.ts');
+            const legend = document.createElement('webmapx-layer-legend');
+            document.body.appendChild(legend);
+            await legend.updateComplete;
+
+            const expr = ['case',
+                ['!', ['has', 'pop']], '#cccccc',
+                ['==', ['get', 'pop'], null], '#cccccc',
+                ['step', ['to-number', ['get', 'pop']],
+                    '#ffffd4', 25, '#fed98e', 60, '#fe9929', 150, '#d95f0e']];
+            const cases = legend.extractDataCases(expr, legend.getAttrTranslations());
+
+            // The third band, the one that is neither first nor last.
+            const target = (cases ?? []).find((entry) => entry.paint === '#fe9929');
+            // Before the legend carried a path per row it had no way to address a
+            // colour inside a nested branch, and offered none.
+            const addressable = Array.isArray(target?.path) && target.path.length > 0;
+            const patched = addressable ? (() => {
+                const walk = (node, depth) => {
+                    const copy = [...node];
+                    const at = target.path[depth];
+                    copy[at] = depth === target.path.length - 1 ? '#00ff00' : walk(node[at], depth + 1);
+                    return copy;
+                };
+                return walk(expr, 0);
+            })() : null;
+
+            legend.remove();
+            return {
+                labels: (cases ?? []).map((entry) => entry.label),
+                editable: (cases ?? []).filter((entry) => typeof entry.paint === 'string' && entry.path?.length > 0).length,
+                path: addressable ? target.path : null,
+                patched,
+            };
+        });
+
+        if (!outcome.path) fail(`the legend found no editable class: ${JSON.stringify(outcome.labels)}`);
+        if (outcome.editable < 4) {
+            fail(`only ${outcome.editable} of the classes can be recoloured: ${JSON.stringify(outcome.labels)}`);
+        }
+        // Two levels down: into the case's fallback, then to the band's colour.
+        if (outcome.path.length !== 2) {
+            fail(`expected a path through the nested step, got ${JSON.stringify(outcome.path)}`);
+        }
+        const expected = ['case',
+            ['!', ['has', 'pop']], '#cccccc',
+            ['==', ['get', 'pop'], null], '#cccccc',
+            ['step', ['to-number', ['get', 'pop']],
+                '#ffffd4', 25, '#fed98e', 60, '#00ff00', 150, '#d95f0e']];
+        if (JSON.stringify(outcome.patched) !== JSON.stringify(expected)) {
+            fail(`recolouring changed the wrong thing:\n  got      ${JSON.stringify(outcome.patched)}\n  expected ${JSON.stringify(expected)}`);
+        }
+    });
+
     const file = await screenshot(page, `layer-style-${engine}`);
     console.log(`  ✓ layer style panel works on ${engine} (screenshot: ${file})`);
 }
