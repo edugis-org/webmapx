@@ -129,6 +129,14 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
     @state() private fieldsLoading = false;
 
     private lastMapLayers: IMapState['mapLayers'] | null = null;
+    /**
+     * Whether the map was still fetching at the previous store update.
+     *
+     * A tile-backed layer is registered in the store the moment it is added and
+     * carries no features until its tiles arrive, so the attribute list has to be
+     * read again once they have. `mapBusy` going false is that moment.
+     */
+    private lastMapBusy = false;
     private escHandler: ((e: KeyboardEvent) => void) | null = null;
     /** Guards against a stale field-name load overwriting a newer selection. */
     private fieldLoadToken = 0;
@@ -416,6 +424,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
             const slot = this.slots[key];
             if (slot.layerId && !this.availableLayers.some(l => l.id === slot.layerId)) {
                 this.setSlot(key, { layerId: '', sourceLayer: '' });
+                this.clearFieldNames(key);
             }
         }
 
@@ -424,6 +433,66 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
         }
 
         this.autoSelectLayers();
+
+        // A layer added a moment ago is in the store before a single tile of it
+        // is, and `queryLayerFeatures` can only answer from what the map has
+        // drawn: asking then returns nothing, and an empty attribute list used to
+        // stand for the rest of the session. Re-read when the map falls idle,
+        // which is when the tiles that were missing have arrived. Only for a slot
+        // whose list is still empty, so this costs one query on the transition
+        // and nothing at all once a layer has answered.
+        const busy = state.mapBusy === true;
+        const settled = this.lastMapBusy && !busy;
+        this.lastMapBusy = busy;
+        if (settled) {
+            for (const key of ['a', 'b'] as SlotKey[]) {
+                if (this.slots[key].layerId && !this.fieldNames[key].length) {
+                    void this.loadFieldNames(key);
+                }
+            }
+        }
+    }
+
+    /**
+     * Drop any chosen attribute the new input does not have.
+     *
+     * A parameter naming a field outlives the layer it was chosen from: size a
+     * cartogram by `population`, swap the input for a layer whose count is called
+     * `pop_sum`, and the select is left holding a value that is not among its
+     * options — which renders as *nothing chosen* while the tool still believes a
+     * field is set. Running then fails on a field the layer never had.
+     */
+    private dropUnknownFieldParams(key: SlotKey): void {
+        const op = this.operation;
+        if (!op) return;
+        let params = this.params;
+        for (const param of op.params) {
+            if (param.kind !== 'field' && param.kind !== 'aggregations') continue;
+            if (param.from !== key) continue;
+            if (param.kind === 'field') {
+                const offered = param.numericOnly ? this.numericFieldNames[key] : this.fieldNames[key];
+                const chosen = String(params[param.key] ?? '');
+                if (chosen && !offered.includes(chosen)) {
+                    params = { ...params, [param.key]: '' };
+                }
+            } else if (param.kind === 'aggregations') {
+                const rows = this.aggregationsFor(param.key);
+                const kept = rows.filter(row => this.fieldNames[key].includes(row.field));
+                if (kept.length !== rows.length) {
+                    params = { ...params, [param.key]: kept };
+                }
+            }
+        }
+        if (params !== this.params) {
+            this.params = params;
+            this.syncOutputName();
+        }
+    }
+
+    /** Forget a slot's attribute lists, both of them. */
+    private clearFieldNames(key: SlotKey): void {
+        this.fieldNames = { ...this.fieldNames, [key]: [] };
+        this.numericFieldNames = { ...this.numericFieldNames, [key]: [] };
     }
 
     // ─── Derived state ───────────────────────────────────────────────────
@@ -502,7 +571,9 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
     private selectLayer(key: SlotKey, layerId: string, resetOutput = true): void {
         const sources = this.sourceLayers(layerId);
         this.setSlot(key, { layerId, sourceLayer: sources[0] ?? '' });
-        this.fieldNames = { ...this.fieldNames, [key]: [] };
+        // Both lists, or the previous layer's numeric fields stay on offer while
+        // the new layer's are still being read.
+        this.clearFieldNames(key);
         this.error = null;
         if (resetOutput) {
             // The previous result belongs to a different input; offering to replace
@@ -584,6 +655,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
 
             this.fieldNames = { ...this.fieldNames, [key]: [...names] };
             this.numericFieldNames = { ...this.numericFieldNames, [key]: [...numeric] };
+            this.dropUnknownFieldParams(key);
         } catch {
             // Attribute list is a convenience; a failure here must not block the run.
             if (token === this.fieldLoadToken) {
