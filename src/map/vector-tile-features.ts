@@ -15,6 +15,9 @@ import Flatbush from 'flatbush';
 import turfUnion from '@turf/union';
 import turfBbox from '@turf/bbox';
 
+/** How far apart two tile-border pieces may sit and still count as touching, in degrees. */
+const EDGE_EPSILON = 1e-6;
+
 /**
  * One feature as read from an engine, in lon/lat.
  *
@@ -117,6 +120,139 @@ export function normalizeGeometryWrap(geom: GeoJSON.Geometry): GeoJSON.Geometry 
     return { ...geom, coordinates: shiftCoords((geom as any).coordinates, -worlds * 360) } as GeoJSON.Geometry;
 }
 
+/** One feature as it arrived from one tile, with what is known about its identity. */
+interface TilePiece {
+    index: number;
+    tileKey: string;
+    id?: string | number;
+    touchesBorder: boolean;
+}
+
+/**
+ * Re-join the pieces a tile grid cut a feature into.
+ *
+ * The pieces are grouped first and unioned once per group, rather than being
+ * merged a pair at a time, because a feature crossing more than two tiles is
+ * the normal case and not an exotic one: Russia arrives from an eight-tile
+ * world in five pieces, the United States in four, Canada in three. Pairwise
+ * merging cannot assemble those. It merges the first pair, and then looks for
+ * the third piece using the bounding box the *first* piece had before it grew,
+ * so a piece two tiles along is never found, and every survivor keeps the whole
+ * feature's attributes. Measured against the demo layer's own tiles, the
+ * cartogram tool was handed a world of 9.88 billion people, Russia's 144
+ * million counted five times over, and drew a Russia 360 degrees wide.
+ *
+ * Grouping runs on two signals, because neither covers the other:
+ *
+ * 1. **Touching.** Two pieces that meet along a tile edge are the same feature
+ *    cut in half. Strict: same source layer, identical properties, boxes that
+ *    meet, and both touching an edge — a feature lying wholly inside its tile
+ *    was never cut. Transitive, through a union-find, so pieces arriving in any
+ *    order still end up in one group.
+ * 2. **Identity.** Alaska, Hawaii and the mainland touch nothing, but they are
+ *    one feature all the same, and a tile server hands them over once per tile
+ *    with the population of the United States on each. A feature id settles it
+ *    outright where one exists. Where it does not — and this layer's server
+ *    sends none — identical properties stand in, guarded by the one signal that
+ *    tells "one feature, cut up" from "two features that look alike": pieces of
+ *    one feature appear *once per tile*, so a signature with two pieces in the
+ *    same tile is two features and is left alone. That guard is what keeps a
+ *    layer of same-attribute buildings from fusing into one shape.
+ */
+function mergeTilePieces(
+    features: (GeoJSON.Feature | null)[],
+    pieces: TilePiece[],
+    sourceLayerOf: string[],
+): void {
+    // Union-find over the pieces, by position within `pieces`.
+    const parent = pieces.map((_, i) => i);
+    const find = (i: number): number => {
+        while (parent[i] !== i) {
+            parent[i] = parent[parent[i]];
+            i = parent[i];
+        }
+        return i;
+    };
+    const join = (a: number, b: number): void => {
+        const ra = find(a), rb = find(b);
+        if (ra !== rb) parent[Math.max(ra, rb)] = Math.min(ra, rb);
+    };
+
+    // --- 1. pieces that touch along a tile edge -----------------------------
+    const border = pieces.map((p, i) => (p.touchesBorder ? i : -1)).filter(i => i >= 0);
+    if (border.length > 1) {
+        const bboxes = border.map(i => turfBbox(features[pieces[i].index]!));
+        const index = new Flatbush(bboxes.length);
+        for (const [w, s, e, n] of bboxes) index.add(w, s, e, n);
+        index.finish();
+
+        for (let a = 0; a < border.length; a++) {
+            const ai = pieces[border[a]].index;
+            const [w, s, e, n] = bboxes[a];
+            // Pieces meet along a shared tile edge, so their boxes touch rather
+            // than overlap; the search is widened by a hair so that counts.
+            for (const b of index.search(w - EDGE_EPSILON, s - EDGE_EPSILON, e + EDGE_EPSILON, n + EDGE_EPSILON)) {
+                if (b <= a) continue;
+                const bi = pieces[border[b]].index;
+                if (sourceLayerOf[ai] !== sourceLayerOf[bi]) continue;
+                if (!propertiesEqual(features[ai]!.properties, features[bi]!.properties)) continue;
+                join(border[a], border[b]);
+            }
+        }
+    }
+
+    // --- 2. pieces that share an identity, wherever they lie ----------------
+    const byIdentity = new Map<string, number[]>();
+    for (let i = 0; i < pieces.length; i++) {
+        const feature = features[pieces[i].index]!;
+        const identity = pieces[i].id !== undefined
+            ? `#${String(pieces[i].id)}`
+            : `=${JSON.stringify(feature.properties ?? null)}`;
+        // Properties standing in for an id are only trusted when they say
+        // something; an empty property bag describes every feature in the layer.
+        if (identity === '={}' || identity === '=null') continue;
+        const key = `${sourceLayerOf[pieces[i].index]}|${identity}`;
+        const group = byIdentity.get(key);
+        if (group) group.push(i); else byIdentity.set(key, [i]);
+    }
+
+    for (const group of byIdentity.values()) {
+        if (group.length < 2) continue;
+        // An id is authoritative. Properties are not, and are only believed
+        // when no tile holds two pieces carrying them.
+        if (pieces[group[0]].id === undefined) {
+            const tiles = new Set(group.map(i => pieces[i].tileKey));
+            if (tiles.size !== group.length) continue;
+        }
+        for (let i = 1; i < group.length; i++) join(group[0], group[i]);
+    }
+
+    // --- union each group into one feature ----------------------------------
+    const groups = new Map<number, number[]>();
+    for (let i = 0; i < pieces.length; i++) {
+        const root = find(i);
+        const group = groups.get(root);
+        if (group) group.push(i); else groups.set(root, [i]);
+    }
+
+    for (const group of groups.values()) {
+        if (group.length < 2) continue;
+        const parts = group.map(i => features[pieces[i].index] as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>);
+        // One union over the whole group. Pieces that do not actually touch stay
+        // separate parts of a MultiPolygon, which is what a country in several
+        // pieces is; what matters is that they become *one feature* carrying one
+        // copy of the attributes.
+        const merged: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null =
+            turfUnion({ type: 'FeatureCollection', features: parts }) ?? null;
+        if (!merged) continue;
+        const keep = pieces[group[0]].index;
+        merged.properties = features[keep]!.properties;
+        merged.id = features[keep]!.id;
+        features[keep] = merged;
+        for (const i of group.slice(1)) features[pieces[i].index] = null; // absorbed
+    }
+}
+
 /** Round a bbox so two copies of one feature hash identically despite float noise. */
 function bboxKey(feature: GeoJSON.Feature): string {
     return turfBbox(feature).map(v => v.toFixed(7)).join(',');
@@ -143,7 +279,7 @@ export function assembleTileFeatures(records: TileFeatureRecord[]): GeoJSON.Feat
 
     const tileCache = new Map<string, [number, number, number, number]>();
     const seen = new Set<string>();
-    const tileBorderIdx: number[] = [];
+    const pieces: TilePiece[] = [];
     const features: (GeoJSON.Feature | null)[] = [];
     const sourceLayerOf: string[] = [];
 
@@ -176,45 +312,19 @@ export function assembleTileFeatures(records: TileFeatureRecord[]): GeoJSON.Feat
         if (record.tile) {
             const [tw, ts, te, tn] = tileCache.get(tileKey)!;
             const [fw, fs, fe, fn] = turfBbox(json);
-            // Touching a tile edge means the feature may continue in the neighbour.
-            if (fw <= tw + 1e-6 || fe >= te - 1e-6 || fs <= ts + 1e-6 || fn >= tn - 1e-6) {
-                tileBorderIdx.push(index);
-            }
+            pieces.push({
+                index,
+                tileKey,
+                id: record.id ?? json.id,
+                // Touching a tile edge means the feature may continue in the neighbour.
+                touchesBorder: fw <= tw + EDGE_EPSILON || fe >= te - EDGE_EPSILON
+                    || fs <= ts + EDGE_EPSILON || fn >= tn - EDGE_EPSILON,
+            });
         }
     }
 
-    if (tileBorderIdx.length > 1) {
-        const bboxes = tileBorderIdx.map(i => turfBbox(features[i]!));
-        const index = new Flatbush(bboxes.length);
-        for (const [w, s, e, n] of bboxes) index.add(w, s, e, n);
-        index.finish();
-
-        for (let a = 0; a < tileBorderIdx.length; a++) {
-            const ai = tileBorderIdx[a];
-            if (!features[ai]) continue;
-            const candidates = index.search(bboxes[a][0], bboxes[a][1], bboxes[a][2], bboxes[a][3]);
-            for (const b of candidates) {
-                if (b <= a) continue;
-                const bi = tileBorderIdx[b];
-                if (!features[bi]) continue;
-                if (sourceLayerOf[ai] !== sourceLayerOf[bi]) continue;
-                if (!propertiesEqual(features[ai]!.properties, features[bi]!.properties)) continue;
-                const merged: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null = turfUnion(
-                    {
-                        type: 'FeatureCollection', features: [
-                            features[ai] as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
-                            features[bi] as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
-                        ]
-                    }
-                ) ?? null;
-                if (merged) {
-                    merged.properties = features[ai]!.properties;
-                    merged.id = features[ai]!.id;
-                    features[ai] = merged;
-                    features[bi] = null; // absorbed
-                }
-            }
-        }
+    if (pieces.length > 1) {
+        mergeTilePieces(features, pieces, sourceLayerOf);
     }
 
     return { type: 'FeatureCollection', features: features.filter((f): f is GeoJSON.Feature => f !== null) };

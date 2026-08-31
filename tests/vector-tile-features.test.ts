@@ -118,3 +118,51 @@ test('geometry crossing the antimeridian is shifted whole, never torn', () => {
 test('an empty input yields an empty collection', () => {
     assert.deepEqual(assembleTileFeatures([]), { type: 'FeatureCollection', features: [] });
 });
+
+test('a feature spanning more than two tiles is assembled whole, not in pieces', () => {
+    // The case pairwise merging cannot do, and the reason it matters: every
+    // surviving piece carries the *whole* feature's attributes, so a country
+    // left in five pieces has its population counted five times by anything
+    // that reads this collection.
+    //
+    // Four z=2 tiles in a row across the northern hemisphere; the feature runs
+    // through all of them.
+    const tiles = [0, 1, 2, 3].map(x => ({ z: 2, x, y: 1 }));
+    const out = assembleTileFeatures(tiles.map((tile, i) =>
+        record(square(-180 + i * 90, 10, -90 + i * 90, 20), tile, { name: 'wide', pop: 100 }, 42),
+    ));
+
+    assert.equal(out.features.length, 1);
+    const lons: number[] = [];
+    const walk = (c: unknown): void => {
+        if (typeof (c as number[])[0] === 'number') { lons.push((c as number[])[0]); return; }
+        for (const part of c as unknown[]) walk(part);
+    };
+    walk((out.features[0].geometry as GeoJSON.Polygon).coordinates);
+    assert.equal(Math.min(...lons), -180);
+    assert.equal(Math.max(...lons), 180);
+    assert.equal(out.features[0].properties?.pop, 100);
+});
+
+test('pieces are grouped whatever order they arrive in', () => {
+    // Union-find, not a single forward pass: the middle piece arriving last
+    // must still pull the two ends into one group.
+    const tiles = [0, 1, 2].map(x => ({ z: 2, x, y: 1 }));
+    const parts = [0, 2, 1].map(i =>
+        record(square(-180 + i * 90, 10, -90 + i * 90, 20), tiles[i], { name: 'wide' }, 9),
+    );
+    const out = assembleTileFeatures(parts);
+    assert.equal(out.features.length, 1);
+});
+
+test('separate features that merely share a tile edge are not fused', () => {
+    // Same properties, but neither touches the other: grouping is transitive
+    // over *touching* pieces only, never over everything that looks alike.
+    const west = { z: 1, x: 0, y: 0 };
+    const east = { z: 1, x: 1, y: 0 };
+    const out = assembleTileFeatures([
+        record(square(-40, 10, -30, 20), west, { name: 'same' }, 1),
+        record(square(30, 10, 40, 20), east, { name: 'same' }, 2),
+    ]);
+    assert.equal(out.features.length, 2);
+});
