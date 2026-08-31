@@ -34,6 +34,8 @@ import { colorSchemesFor, maxClassesFor, type ColorScheme, type SchemeType } fro
 import {
     buildCategoricalStyle,
     buildKeyedColorStyle,
+    buildIndexedColorStyle,
+    buildCyclicCategoricalStyle,
     buildNumericStyle,
     buildProportionalRadius,
     buildSingleStyle,
@@ -42,7 +44,7 @@ import {
     ROLE_SIZE,
     type StyleRole,
 } from '../utils/style-builder';
-import { colorByAdjacency, coloringKeyFor } from '../utils/topological-coloring';
+import { colorByAdjacency, coloringKeyFor, coloringKeyValue } from '../utils/topological-coloring';
 import { createColorPicker } from './internal/color-picker';
 import type Pickr from '@simonwep/pickr';
 import { DATA_OUTLINE, DATA_START } from '../theme/data-colors';
@@ -154,6 +156,14 @@ export interface StyleDialogContext {
     sourceControl?: SourceControl;
     /** The styled layer's extent, inherited by a labels layer made from it. */
     bounds?: number[];
+    /**
+     * Rewrites a source's features, for a colouring the data has to carry.
+     *
+     * Only a source the app holds whole — a `geojson` one — can be rewritten;
+     * a tiled source's properties live on a server. Absent, or returning false,
+     * means the panel falls back to keying on a column the data already has.
+     */
+    writeFeatures?: (sourceId: string, features: GeoJSON.Feature[]) => boolean;
 }
 
 export interface RasterStyleTarget {
@@ -168,6 +178,15 @@ export interface SourceControl {
     getTiles?: (sourceId: string) => string[] | null;
     setLayerOpacity: (opacity: number) => void;
 }
+
+/**
+ * Property the neighbour colouring writes its class index into.
+ *
+ * Named to be recognisable as machinery rather than data if it is ever seen in
+ * an info popup or an export: it is not a fact about the region, it is which of
+ * six colours this run of the algorithm gave it.
+ */
+const NEIGHBOUR_COLOR_FIELD = '__webmapx_neighbour_class';
 
 /** What a circle layer shows an attribute with. */
 type CircleShow = 'color' | 'size' | 'both';
@@ -276,6 +295,11 @@ export class WebmapxLayerStyleDialog extends LitElement {
      */
     @state() private schemeOpen = true;
     @state() private maxCategories = DEFAULT_MAX_CATEGORIES;
+    /**
+     * Give every value a colour, repeating them, rather than lumping the tail
+     * into "other". `null` is "nobody has said", which is decided by the data.
+     */
+    @state() private cycleCategories: boolean | null = null;
     @state() private neighbourColors = MIN_NEIGHBOUR_COLORS;
     /**
      * Line width, circle radius or text size, depending on the role — null until
@@ -323,6 +347,9 @@ export class WebmapxLayerStyleDialog extends LitElement {
     private methodPreviewCache: { key: string; results: Map<ClassificationMethod, NumericClassification | null> } | null = null;
     private statsCache = new WeakMap<SourceAttributeInfo, AttributeStats | null>();
     private raster: RasterStyleTarget | null = null;
+    private writeFeatures: ((sourceId: string, features: GeoJSON.Feature[]) => boolean) | null = null;
+    /** Set once a neighbour colouring has been written into the data. */
+    private neighbourField: string | null = null;
     private styledLayerBounds: number[] | null = null;
     private sourceControl: SourceControl | null = null;
     private resampleTimer: ReturnType<typeof setInterval> | null = null;
@@ -609,6 +636,8 @@ export class WebmapxLayerStyleDialog extends LitElement {
         this.raster = context.raster ?? null;
         this.styledLayerBounds = context.bounds ?? null;
         this.sourceControl = context.sourceControl ?? null;
+        this.writeFeatures = context.writeFeatures ?? null;
+        this.neighbourField = null;
         this.wmsStyles = null;
         this.wmsLoading = false;
         this.rasterOpacity = 1;
@@ -626,6 +655,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         this.methodOpen = true;
         this.schemeOpen = true;
         this.circleShow = 'color';
+        this.cycleCategories = null;
         this.methodPreviewCache = null;
         // The spinner has to be part of the very first render, decided here and
         // not after any await: everything below yields, and whatever the browser
@@ -904,6 +934,40 @@ export class WebmapxLayerStyleDialog extends LitElement {
         return classifyCategorical(this.features(), this.field, { maxCategories: this.maxCategories });
     }
 
+    /**
+     * Whether colours repeat over every value, rather than the tail sharing one.
+     *
+     * Answered by the data until the user answers it: repeat when "other" would
+     * cover more of the map than the classes do. That is not a preference, it is
+     * the point at which the map stops showing what it was asked to show —
+     * `admin` over 4363 cartogram regions puts 2985 of them, 68%, in one grey,
+     * and a map two thirds grey is not a map of its 238 countries.
+     *
+     * Above that line the classes are the map and the tail is a remainder, which
+     * is what "other" is for; the checkbox is there either way.
+     */
+    private cyclesCategories(): boolean {
+        if (this.cycleCategories !== null) return this.cycleCategories;
+        const classification = this.categoricalClassification();
+        if (!classification || classification.otherValues === 0) return false;
+        const inClasses = classification.categories.reduce((sum, category) => sum + category.count, 0);
+        return classification.otherCount > inClasses;
+    }
+
+    /**
+     * Every distinct value of the chosen field, biggest category first.
+     *
+     * `categoricalClassification` stops at the class count on purpose — that is
+     * what makes a legend readable. Colour cycling wants the whole list, so it
+     * asks for it separately rather than by widening the classification, which
+     * would take the legend with it.
+     */
+    private everyCategory(): (string | number | boolean)[] {
+        if (!this.field || this.isNumericField(this.field)) return [];
+        const all = classifyCategorical(this.features(), this.field, { maxCategories: Number.MAX_SAFE_INTEGER });
+        return all.categories.map((category) => category.value);
+    }
+
     /** How many colours the current answer needs — what the scheme list is filtered by. */
     private neededColors(): number {
         if (this.mode === 'neighbours') return Math.max(3, this.coloring()?.colorCount ?? this.neighbourColors);
@@ -946,6 +1010,54 @@ export class WebmapxLayerStyleDialog extends LitElement {
         const result = colorByAdjacency(features, { paletteSize: palette });
         this.coloringCache = { features, palette, result };
         return result;
+    }
+
+    /**
+     * True when this layer's features can be given a colouring the map can read.
+     *
+     * Only for a source held whole and locally: a `geojson` one, whose features
+     * the app owns. Tiled properties come from a server and cannot be added to,
+     * which is why the keyed fallback still exists.
+     */
+    private canWriteFeatures(): boolean {
+        const group = this.currentGroup();
+        if (!group || !this.writeFeatures) return false;
+        if (group.completeData === false) return false;
+        const type = (group.sourceConfig as Record<string, unknown> | null | undefined)?.type;
+        return type === 'geojson' && (group.features?.length ?? 0) > 0;
+    }
+
+    /**
+     * Puts the current neighbour colouring into the data, so the paint can name
+     * it.
+     *
+     * A computed colouring has no attribute of its own, and the map can only
+     * paint what an expression can address. Writing the class index makes one:
+     * six `match` entries instead of one per feature, and no dependence on the
+     * layer having a unique column — which the layers this option exists for
+     * frequently do not.
+     *
+     * Called from `applyNow`, never from `buildColors`: the panel builds a style
+     * while rendering (for the preview and the palette row), and rewriting a map
+     * source as a side effect of rendering is how a render loop starts.
+     */
+    private syncNeighbourColoring(): void {
+        this.neighbourField = null;
+        if (this.mode !== 'neighbours' || !this.canWriteFeatures()) return;
+
+        const coloring = this.coloring();
+        const group = this.currentGroup();
+        const features = group?.features;
+        if (!coloring || !group || !features) return;
+
+        features.forEach((feature, index) => {
+            const value = coloring.colors[index];
+            if (value === undefined) return;
+            feature.properties = { ...(feature.properties ?? {}), [NEIGHBOUR_COLOR_FIELD]: value };
+        });
+
+        const written = this.writeFeatures!(group.sourceId, features);
+        if (written) this.neighbourField = NEIGHBOUR_COLOR_FIELD;
     }
 
     // ── Applying ─────────────────────────────────────────────────────────────
@@ -1010,12 +1122,24 @@ export class WebmapxLayerStyleDialog extends LitElement {
         }
         if (this.mode === 'neighbours') {
             const coloring = this.coloring();
+            if (!coloring || !scheme) return null;
+            // Written into the data where that was possible; otherwise keyed on
+            // a column that happens to be unique.
+            if (this.neighbourField) {
+                return buildIndexedColorStyle({
+                    role,
+                    field: this.neighbourField,
+                    colorCount: coloring.colorCount,
+                    scheme,
+                    opacity: this.opacity,
+                });
+            }
             const key = coloringKeyFor(this.features());
-            if (!coloring || !key || !scheme) return null;
+            if (!key) return null;
             const entries = this.features().flatMap((feature, index) => {
-                const value = key.kind === 'id' ? feature.id : feature.properties?.[key.name];
-                if (value === null || value === undefined) return [];
-                return [{ key: String(value), colorIndex: coloring.colors[index] }];
+                const value = coloringKeyValue(key, feature);
+                if (value === null) return [];
+                return [{ key: value, colorIndex: coloring.colors[index] }];
             });
             return entries.length === 0 ? null : buildKeyedColorStyle({ role, key, entries, scheme, opacity: this.opacity });
         }
@@ -1026,6 +1150,18 @@ export class WebmapxLayerStyleDialog extends LitElement {
             }
             const categorical = this.categoricalClassification();
             if (categorical && categorical.categories.length > 0) {
+                if (this.cyclesCategories()) {
+                    const every = this.everyCategory();
+                    if (every.length > 0) {
+                        return buildCyclicCategoricalStyle({
+                            role,
+                            field: this.field,
+                            values: every,
+                            scheme,
+                            opacity: this.opacity,
+                        });
+                    }
+                }
                 return buildCategoricalStyle({ role, field: this.field, classification: categorical, scheme, opacity: this.opacity });
             }
         }
@@ -1036,8 +1172,22 @@ export class WebmapxLayerStyleDialog extends LitElement {
     private applyNow(): void {
         if (!this.targetId || !this.applyStyle) return;
         try {
+            // The colouring has to be in the data before a paint can name it,
+            // and it is recomputed here rather than cached: the number of
+            // colours is a question the user can still be answering.
+            this.syncNeighbourColoring();
             const style = this.built();
-            if (!style) return;
+            if (!style) {
+                // Never nothing. A style that cannot be built leaves the map as
+                // it was, and a panel that says nothing about it reads as a dead
+                // button — which is exactly how this arrived: choosing
+                // "Neighbours differ" on a tiled layer with no unique column
+                // applied no paint and gave no reason.
+                this.message = this.mode === 'neighbours'
+                    ? 'Colouring by neighbours needs something to tell the areas apart, and this layer has no id, no unique column and no combination of columns that is unique.'
+                    : 'There is not enough here to build a style from.';
+                return;
+            }
             const applied = this.applyStyle(this.targetId, style.paint);
             this.message = applied === false
                 ? 'The map did not accept this change: this part of the layer is described in the legend but is not drawn on the map.'
@@ -1062,6 +1212,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         this.opacity = 1;
         this.neighbourColors = MIN_NEIGHBOUR_COLORS;
         this.classCount = DEFAULT_CLASS_COUNT;
+        this.cycleCategories = null;
         this.roundedBreaks = true;
         this.methodOpen = true;
         this.schemeOpen = true;
@@ -1316,11 +1467,14 @@ export class WebmapxLayerStyleDialog extends LitElement {
 
     private renderNeighbourNote(): TemplateResult {
         const coloring = this.coloring();
-        const key = coloringKeyFor(this.features());
-        if (!key) {
+        // Two ways to address the result, and only the second needs the data to
+        // already distinguish its own features: the colouring can be written
+        // into a source the app holds whole.
+        const addressable = this.canWriteFeatures() || coloringKeyFor(this.features()) !== null;
+        if (!addressable) {
             return html`<div class="warning">
-                This layer has no id and no column whose values are unique, so its areas cannot be told apart well
-                enough to colour them separately.
+                This layer is drawn from tiles and has no id and no column whose values are unique, so there is no way
+                to tell its areas apart in a style. Colouring by neighbours needs one or the other.
             </div>`;
         }
         if (!coloring) return html`<div class="muted">No areas to colour.</div>`;
@@ -1701,10 +1855,24 @@ export class WebmapxLayerStyleDialog extends LitElement {
                     <span>${this.maxCategories}</span>
                 </div>
                 ${classification && classification.otherValues > 0
-                    ? html`<div class="muted">
-                        ${classification.otherValues} more values share one colour, covering
-                        ${classification.otherCount} features.
-                      </div>`
+                    ? html`
+                        <label class="row">
+                            <input type="checkbox" .checked=${this.cyclesCategories()}
+                                   @change=${(e: Event) => this.answer(() => {
+                                       this.cycleCategories = (e.target as HTMLInputElement).checked;
+                                   })}>
+                            <span>Give every value a colour, repeating the ${this.maxCategories}</span>
+                        </label>
+                        ${this.cyclesCategories()
+                            ? html`<div class="muted">
+                                All ${classification.otherValues + classification.categories.length} values are drawn,
+                                so the map shows every area — but a colour no longer names one value, and there is no
+                                legend for the same reason.
+                              </div>`
+                            : html`<div class="muted">
+                                ${classification.otherValues} more values share one colour, covering
+                                ${classification.otherCount} features.
+                              </div>`}`
                     : nothing}
             </div>
         `;
@@ -1855,7 +2023,10 @@ export class WebmapxLayerStyleDialog extends LitElement {
         if (this.mode === 'single') return [this.singleColor];
         const scheme = this.currentScheme();
         if (!scheme) return [];
+        // Both colourings that hand colours out rather than assigning them a
+        // meaning have no legend to read the palette back from.
         if (this.mode === 'neighbours') return [...scheme.colors];
+        if (this.cyclesCategories()) return [...scheme.colors];
         const built = this.built();
         return built ? built.legend.map((entry) => entry.color) : [...scheme.colors];
     }

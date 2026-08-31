@@ -1414,6 +1414,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       // A labels layer made here inherits the extent, so "zoom to layer" means
       // the same on its row as on the layer it came from.
       ...(Array.isArray(runtimeMetadata?.bounds) ? { bounds: runtimeMetadata.bounds as number[] } : {}),
+      // A colouring the panel computes has no attribute of its own; for a source
+      // held whole, it can be given one. `setSourceData` refuses anything that is
+      // not a geojson source, which is exactly the right line.
+      writeFeatures: (sourceId, features) =>
+        this.adapter?.setSourceData(sourceId, { type: 'FeatureCollection', features }) ?? false,
       sourceControl: {
         setTiles: (sourceId, tiles) => this.adapter?.setSourceTiles(sourceId, tiles) ?? false,
         getTiles: (sourceId) => this.adapter?.getSourceTiles(sourceId) ?? null,

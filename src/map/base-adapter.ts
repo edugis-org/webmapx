@@ -1009,6 +1009,10 @@ export abstract class BaseAdapter {
         return this.getCore().getSourceData(sourceId) ?? this.getLogicalLayerExecutor().getSourceData(sourceId);
     }
 
+    setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean {
+        return this.getLogicalLayerExecutor().setSourceData(sourceId, data);
+    }
+
     queryLayerFeatures(layerId: string, options?: QueryLayerFeaturesOptions): Promise<GeoJSON.FeatureCollection> {
         return this.getLogicalLayerExecutor().queryLayerFeatures(layerId, options);
     }

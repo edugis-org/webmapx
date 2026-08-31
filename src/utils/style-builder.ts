@@ -23,6 +23,7 @@
  */
 import type { CategoricalClassification, NumericClassification } from './classification';
 import type { ColorScheme } from './color-schemes';
+import { COMPOSITE_KEY_SEPARATOR, type ColoringKey } from './topological-coloring';
 
 /**
  * What a layer is being drawn as. Not the same thing as the geometry: one
@@ -221,8 +222,11 @@ export function buildCategoricalStyle(options: CategoricalStyleOptions): BuiltSt
 
 export interface KeyedColorOptions {
     role: StyleRole;
-    /** How the expression names a feature: its GeoJSON id, or a unique property. */
-    key: { kind: 'id' } | { kind: 'property'; name: string };
+    /**
+     * How the expression names a feature: its GeoJSON id, a unique property, or
+     * a combination of properties that is unique where no single one is.
+     */
+    key: ColoringKey;
     /** One entry per feature: the key value, and which scheme colour it takes. */
     entries: readonly { key: string | number; colorIndex: number }[];
     scheme: ColorScheme;
@@ -243,17 +247,122 @@ export interface KeyedColorOptions {
  * style document, so the caller should think twice before saving one to a config
  * for a layer of that size.
  */
+export interface IndexedColorOptions {
+    role: StyleRole;
+    /** Property holding a 0-based class index. */
+    field: string;
+    /** How many classes the colouring used. */
+    colorCount: number;
+    scheme: ColorScheme;
+    opacity?: number;
+    fallbackColor?: string;
+}
+
 export function buildKeyedColorStyle(options: KeyedColorOptions): BuiltStyle {
     const { role, key, entries, scheme } = options;
     if (entries.length === 0) {
         throw new Error('Nothing to colour: no features were given a colour index.');
     }
     const fallback = options.fallbackColor ?? NO_DATA_COLOR;
-    const input = key.kind === 'id' ? ['to-string', ['id']] : ['to-string', ['get', key.name]];
+    // A composite key is joined in the expression exactly as `coloringKeyValue`
+    // joins it, separator and all, so the two cannot drift.
+    const input = key.kind === 'id'
+        ? ['to-string', ['id']]
+        : key.kind === 'property'
+            ? ['to-string', ['get', key.name]]
+            : ['concat', ...key.names.flatMap((name, index) =>
+                (index === 0 ? [] : [COMPOSITE_KEY_SEPARATOR]).concat([['to-string', ['get', name]] as unknown as string]))];
 
     const colorExpression: unknown = ['match', input,
         ...entries.flatMap((entry) => [String(entry.key), scheme.colors[entry.colorIndex % scheme.colors.length]]),
         fallback];
+
+    return {
+        type: ROLE_LAYER_TYPE[role],
+        paint: withOpacity({ [ROLE_COLOR_KEY[role]]: colorExpression }, role, options.opacity),
+        legend: [],
+    };
+}
+
+/**
+ * Colours read straight from a class index the data carries.
+ *
+ * The counterpart to `buildKeyedColorStyle` for a colouring that was *computed*
+ * rather than read — neighbour colouring, whose answer is a small number per
+ * feature and which has no attribute of its own to key on.
+ *
+ * Two reasons this is preferred wherever the data can be written. It needs no
+ * unique column, which real layers often lack: 4363 cartogram regions carry no
+ * feature id and no distinct column at all, so a keyed `match` cannot be built
+ * for them and the option silently did nothing. And it is a handful of entries
+ * instead of one per feature — the keyed form emits the whole layer into the
+ * expression, which on that layer is 4363 entries re-evaluated per tile, per
+ * frame.
+ */
+export function buildIndexedColorStyle(options: IndexedColorOptions): BuiltStyle {
+    const { role, field, colorCount, scheme } = options;
+    if (colorCount <= 0) {
+        throw new Error('Nothing to colour: the colouring produced no classes.');
+    }
+    const entries = Array.from({ length: colorCount }, (_, index) => [
+        index,
+        scheme.colors[index % scheme.colors.length],
+    ]).flat();
+
+    return {
+        type: ROLE_LAYER_TYPE[role],
+        paint: withOpacity(
+            // `['get']` and not `['to-number', ['get', …], -1]`: `to-number` of a
+            // missing property is 0 in MapLibre rather than a failure, so that
+            // spelling quietly painted an unclassed feature as class 0 instead
+            // of falling back. A missing property is null, which matches nothing.
+            { [ROLE_COLOR_KEY[role]]: ['match', ['get', field], ...entries, options.fallbackColor ?? NO_DATA_COLOR] },
+            role,
+            options.opacity,
+        ),
+        legend: [],
+    };
+}
+
+export interface CyclicCategoricalOptions {
+    role: StyleRole;
+    field: string;
+    /** Every distinct value, in the order colours should be handed out. */
+    values: readonly (string | number | boolean)[];
+    scheme: ColorScheme;
+    opacity?: number;
+    fallbackColor?: string;
+}
+
+/**
+ * Every value gets a colour, and the colours repeat.
+ *
+ * The alternative to "the eight biggest categories, and grey for the other
+ * 242". Which is the right map depends on the question: a reader comparing
+ * *named* categories needs each colour to mean one thing, and that is
+ * `buildCategoricalStyle`. A reader looking at 250 administrative areas wants to
+ * see the areas — where they are, how big, where the boundaries run — and a map
+ * that greys out 96% of them shows none of that.
+ *
+ * Repeating colours is honest about itself as long as nothing claims the colour
+ * is a key, which is why this returns no legend: with more values than colours a
+ * colour no longer identifies a value, and a legend saying otherwise would be
+ * the lie. Two regions sharing a colour say only "not the same colour as their
+ * neighbours, most of the time" — the same reading a printed atlas asks for.
+ *
+ * Values are taken in the order given, which the caller sorts by frequency, so
+ * the largest categories land on different colours and the repeats fall among
+ * the long tail where a clash is least likely to be noticed.
+ */
+export function buildCyclicCategoricalStyle(options: CyclicCategoricalOptions): BuiltStyle {
+    const { role, field, values, scheme } = options;
+    if (values.length === 0) {
+        throw new Error('Nothing to classify: the field has no usable values.');
+    }
+    const colors = scheme.colors;
+    const colorExpression: unknown = ['match', ['to-string', ['get', field]],
+        ...values.flatMap((value, index) => [String(value), colors[index % colors.length]]),
+        options.fallbackColor ?? NO_DATA_COLOR];
 
     return {
         type: ROLE_LAYER_TYPE[role],

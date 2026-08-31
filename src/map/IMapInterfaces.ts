@@ -362,6 +362,12 @@ export interface IMap {
     /** Returns current GeoJSON data of a source, or null if unavailable / not a GeoJSON source. */
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null;
 
+    /**
+     * Replaces a logical GeoJSON source's data. False for a source the app does
+     * not hold whole — a tiled one — whose features live on a server.
+     */
+    setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean;
+
     /** Returns the `attribution` configured on a source via addSource, if any. */
     getSourceAttribution(sourceId: string): string | undefined;
 

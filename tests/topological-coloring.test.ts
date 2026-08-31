@@ -8,9 +8,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildAdjacency, colorByAdjacency, coloringKeyFor, dsatur } from '../src/utils/topological-coloring';
+import { buildAdjacency, colorByAdjacency, coloringKeyFor, coloringKeyValue, dsatur } from '../src/utils/topological-coloring';
 import { colorSchemesFor } from '../src/utils/color-schemes';
-import { buildKeyedColorStyle } from '../src/utils/style-builder';
+import { buildKeyedColorStyle, buildIndexedColorStyle } from '../src/utils/style-builder';
 import { evaluateColor } from '../src/utils/maplibre-expression-evaluator';
 
 /** One square cell of a unit grid, as a closed ring. */
@@ -183,6 +183,55 @@ test('a layer with nothing to tell its features apart returns no key', () => {
     assert.equal(coloringKeyFor(features), null);
 });
 
+test('columns that are not unique on their own can be unique together', () => {
+    // The normal case for administrative data, and what a tiled layer of 4013
+    // regions actually looks like: provinces sharing a name across countries,
+    // and every other column repeating too. No single column identifies a
+    // feature; name plus country does.
+    const features = [
+        cell(0, 0, { name: 'Central', admin: 'A' }),
+        cell(1, 0, { name: 'Central', admin: 'B' }),
+        cell(2, 0, { name: 'North', admin: 'A' }),
+        cell(3, 0, { name: 'North', admin: 'B' }),
+    ];
+    const key = coloringKeyFor(features);
+    assert.deepEqual(key && key.kind, 'properties');
+    assert.deepEqual(new Set((key as { names: string[] }).names), new Set(['name', 'admin']));
+});
+
+test('a composite key paints what it addresses, separator and all', () => {
+    // The expression joins the parts itself, so this is really a test that the
+    // two spellings agree: get one separator wrong, or spell a missing value
+    // differently from MapLibre's `to-string` of null, and every key misses and
+    // the whole layer falls back to one colour.
+    const features = [
+        cell(0, 0, { name: 'Central', admin: 'A' }),
+        cell(1, 0, { name: 'Central', admin: 'B' }),
+        cell(2, 0, { name: 'North', admin: 'A' }),
+        // No `name` at all, which a tile server that omits nulls really does.
+        cell(3, 0, { admin: 'B' }),
+    ];
+    const key = coloringKeyFor(features)!;
+    const result = colorByAdjacency(features);
+    const scheme = colorSchemesFor(Math.max(3, result.colorCount), 'qual')[0];
+    const style = buildKeyedColorStyle({
+        role: 'fill',
+        key,
+        entries: features.map((feature, i) => ({
+            key: coloringKeyValue(key, feature)!,
+            colorIndex: result.colors[i],
+        })),
+        scheme,
+        fallbackColor: '#ff00ff',
+    });
+
+    features.forEach((feature, i) => {
+        const painted = normalise(evaluateColor(style.paint['fill-color'], feature, 6, '#000000'));
+        assert.notEqual(painted, '#ff00ff', `feature ${i} fell back instead of matching its key`);
+        assert.equal(painted, scheme.colors[result.colors[i]], `feature ${i}`);
+    });
+});
+
 test('the built style paints each region the colour it was given', () => {
     const features = grid(4, 4);
     const result = colorByAdjacency(features);
@@ -201,6 +250,55 @@ test('the built style paints each region the colour it was given', () => {
 
     // The colours mean nothing individually, so there is nothing to list.
     assert.deepEqual(style.legend, []);
+});
+
+test('a colouring written into the data paints without any unique column', () => {
+    // The case the keyed style cannot serve, and the reason this exists: real
+    // layers often have nothing unique to key on -- a cartogram of 4363 regions
+    // carries no feature id and no distinct column, so `coloringKeyFor` returns
+    // null and the option used to do nothing at all. Writing the class index
+    // into the data makes an attribute where there was none.
+    const features = grid(4, 4).map((feature) => ({
+        ...feature,
+        id: undefined,
+        properties: { region: 'same for every one of them' },
+    })) as GeoJSON.Feature[];
+    assert.equal(coloringKeyFor(features), null, 'this fixture must have nothing to key on');
+
+    const result = colorByAdjacency(features);
+    const scheme = colorSchemesFor(Math.max(3, result.colorCount), 'qual')[0];
+    const painted = features.map((feature, i) => ({
+        ...feature,
+        properties: { ...feature.properties, cls: result.colors[i] },
+    }));
+
+    const style = buildIndexedColorStyle({ role: 'fill', field: 'cls', colorCount: result.colorCount, scheme });
+
+    painted.forEach((feature, i) => {
+        const color = evaluateColor(style.paint['fill-color'], feature, 6, '#000000');
+        assert.equal(normalise(color), scheme.colors[result.colors[i]], `feature ${i}`);
+    });
+    // Neighbours differ, which is the whole promise.
+    result.adjacency.forEach((neighbours, i) => {
+        for (const j of neighbours) {
+            assert.notEqual(result.colors[i], result.colors[j], `${i} and ${j} share a colour`);
+        }
+    });
+    // One entry per colour, not one per feature: `match`, its input, a label and
+    // a colour per class, and the fallback. The keyed form would emit 16 pairs
+    // here, and one per region on a real layer.
+    assert.equal((style.paint['fill-color'] as unknown[]).length, 3 + result.colorCount * 2);
+});
+
+test('a feature with no class index falls back rather than vanishing', () => {
+    const style = buildIndexedColorStyle({
+        role: 'fill',
+        field: 'cls',
+        colorCount: 3,
+        scheme: colorSchemesFor(3, 'qual')[0],
+        fallbackColor: '#ff00ff',
+    });
+    assert.equal(normalise(evaluateColor(style.paint['fill-color'], cell(0, 0, {}), 6, '#000')), '#ff00ff');
 });
 
 test('a feature the colouring never saw falls back rather than vanishing', () => {
