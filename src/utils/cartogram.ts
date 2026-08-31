@@ -613,6 +613,45 @@ interface Unit {
 }
 
 /**
+ * Puts a geometry's coordinates back inside the world, or returns it untouched
+ * when they already are.
+ *
+ * This is arithmetic, not a fit: nothing is scaled and nothing is clipped. A
+ * longitude outside [-180, 180] has whole turns taken out of it — 657.5 and
+ * -62.5 name the same meridian — and a latitude past a pole is pressed onto it.
+ * Everything already legal is returned as the very same object, which matters
+ * because the contiguous method is contiguous only while two neighbours' shared
+ * boundary coordinates stay bit-identical.
+ *
+ * It exists because one bad coordinate anywhere in a layer silently changes what
+ * the whole cartogram is. `@edugis/cartogram` decides whether its input is
+ * geographic by testing the layer's *bounding box* against ±180.5/±90.5, and on
+ * failure treats the data as an already-projected plane: it then warps raw
+ * degrees, where area is not area, and skips its date-line unwrap, its
+ * Equal Earth projection and the ±85 bound on its output. The result reaches the
+ * renderer with latitudes past ±90 and the shapes at the corners of that plane —
+ * Chile in the south-west, Chukotka in the north-east — are drawn as spikes to
+ * the poles.
+ *
+ * Measured on the shipped `world-countries-simplified` layer, whose Antarctic
+ * mainland ring closes along the pole line with a 1315-degree sweep (twenty
+ * coordinates out to ±657.5 longitude, all of them at latitude -90, where a
+ * longitude means nothing): median area error 58.4% and 111 of 265 countries
+ * reaching past 89 degrees, against 12.8% and none once the layer is inside the
+ * world.
+ */
+export function normaliseToWorld(geometry: GeoJSON.Geometry): GeoJSON.Geometry {
+    let changed = false;
+    const fixed = mapGeometry(geometry, ([lon, lat, ...rest]) => {
+        const nLon = normaliseLongitude(lon);
+        const nLat = Math.min(Math.max(lat, -90), 90);
+        if (nLon !== lon || nLat !== lat) changed = true;
+        return [nLon, nLat, ...rest];
+    });
+    return changed ? fixed : geometry;
+}
+
+/**
  * Collects the features a cartogram can be built from, and counts what it
  * cannot use.
  *
@@ -630,7 +669,12 @@ function unitsOf(
     const units: Unit[] = [];
     const skipped = { missingValue: 0, zeroValue: 0, negativeValue: 0, noArea: 0, belowMinimum: 0 };
 
-    for (const feature of input.features) {
+    for (const rawFeature of input.features) {
+        // Normalised before anything measures it, so the area, the centroid and
+        // every method downstream all see the same, legal, geometry.
+        const feature = rawFeature.geometry
+            ? { ...rawFeature, geometry: normaliseToWorld(rawFeature.geometry) }
+            : rawFeature;
         const raw = feature.properties?.[field];
         // `Number` is only trusted on things that are meant to be read as
         // numbers. A boolean would otherwise arrive as 1 and take part in the

@@ -540,3 +540,49 @@ test('the cartogram operation says which features it left out, and why', async (
     assert.match(warnings, /1 feature was left out: a value of 0\./);
     assert.match(warnings, /1 feature was left out: no number in this field\./);
 });
+
+test('one out-of-world coordinate does not change what the whole cartogram is', async () => {
+    // `@edugis/cartogram` decides whether its input is geographic by testing the
+    // layer's *bounding box* against ±180.5/±90.5, and treats a failure as an
+    // already-projected plane: it then warps raw degrees, where area is not
+    // area, and skips its date-line unwrap, its Equal Earth projection and the
+    // ±85 bound on its output — so shapes come back at latitudes past ±90 and
+    // are drawn as spikes to the pole.
+    //
+    // The trigger is a single feature. The shipped world-countries layer closes
+    // its Antarctic ring along the pole line with a 1315-degree sweep, twenty
+    // coordinates out to ±657.5 longitude, every one of them at latitude -90
+    // where a longitude means nothing at all. Normalising costs those points
+    // nothing and keeps the other 264 countries on the map.
+    const world = fc(
+        square(-100, -10, 10, { name: 'west', pop: 100 }),
+        square(100, 10, 10, { name: 'east', pop: 400 }),
+        // The pole traverse, spelled the long way round, as the real data does.
+        {
+            type: 'Feature',
+            properties: { name: 'pole', pop: 200 },
+            geometry: {
+                type: 'Polygon',
+                coordinates: [[[-60, -80], [-60, -90], [300, -90], [657.5, -90], [-60, -80]]],
+            },
+        },
+    );
+
+    const result = await cartogram(world, { field: 'pop', method: 'flow' });
+
+    for (const feature of result.features.features) {
+        let worstLat = 0;
+        const walk = (coords: unknown): void => {
+            if (typeof (coords as number[])[0] === 'number') {
+                worstLat = Math.max(worstLat, Math.abs((coords as number[])[1]));
+                return;
+            }
+            for (const part of coords as unknown[]) walk(part);
+        };
+        walk((feature.geometry as GeoJSON.Polygon).coordinates);
+        assert.ok(
+            worstLat <= 90,
+            `${String(feature.properties?.name)} came back at latitude ${worstLat.toFixed(2)}`,
+        );
+    }
+});
