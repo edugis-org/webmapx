@@ -20,6 +20,8 @@
  * country rather than to nothing.
  */
 import { readFile } from 'node:fs/promises';
+import { feature as topoFeature } from 'topojson-client';
+import type { Topology, GeometryCollection } from 'topojson-specification';
 
 export const CONTINENTS = [
     'Africa',
@@ -131,10 +133,51 @@ export interface ContinentLookup {
     readonly unmapped: string[];
 }
 
+type CountryFeature = { properties: Record<string, unknown>; geometry: { type: string; coordinates: unknown } };
+
+/**
+ * The countries, from either spelling of the file.
+ *
+ * TopoJSON is what `scripts/prepare-country-data.sh` writes and what the
+ * repository carries; the GeoJSON is an artefact of an older run of that script
+ * which is no longer produced and is not committed. Both are read, so a
+ * `--countries` pointing at an old local copy still works.
+ */
+async function readCountries(countriesFile: string): Promise<CountryFeature[]> {
+    const parsed = JSON.parse(await readFile(countriesFile, 'utf8')) as Record<string, unknown>;
+    if (parsed.type === 'Topology') {
+        const topology = parsed as unknown as Topology;
+        const key = Object.keys(topology.objects)[0];
+        const collection = topoFeature(topology, topology.objects[key] as GeometryCollection);
+        return (collection as { features: CountryFeature[] }).features;
+    }
+    return (parsed as unknown as { features: CountryFeature[] }).features;
+}
+
+/**
+ * A coordinate that is on the map.
+ *
+ * A guard, not a repair of a wrong answer. The old GeoJSON closes its Antarctic
+ * ring along the pole with a 1315-degree sweep -- twenty vertices out to
+ * +-657.5 longitude, all of them at latitude -90, where a longitude means
+ * nothing -- which gives that ring a bounding box spanning every longitude on
+ * Earth. Measured, it changes none of this lookup's answers: the same box is
+ * bounded to latitudes below -63, and every probe in that band agrees with and
+ * without this. It is here because a ring whose box covers the planet defeats
+ * the pre-filter that makes the search cheap, and because a coordinate off the
+ * map should not reach a planar ray cast at all.
+ *
+ * Clamping rather than folding by whole turns, which is the right rule
+ * anywhere else: every offending vertex is at |latitude| >= 89.3, where a
+ * degree of longitude is under a kilometre, and clamping keeps the pole sweep
+ * monotone where folding would zig-zag it across the map.
+ */
+function onTheMap([lon, lat]: [number, number]): [number, number] {
+    return [Math.min(Math.max(lon, -180), 180), Math.min(Math.max(lat, -90), 90)];
+}
+
 export async function loadContinentLookup(countriesFile: string): Promise<ContinentLookup> {
-    const parsed = JSON.parse(await readFile(countriesFile, 'utf8')) as {
-        features: Array<{ properties: Record<string, unknown>; geometry: { type: string; coordinates: unknown } }>;
-    };
+    const parsed = { features: await readCountries(countriesFile) };
 
     const countries: Country[] = [];
     const unmapped = new Set<string>();
@@ -147,8 +190,9 @@ export async function loadContinentLookup(countriesFile: string): Promise<Contin
             if (iso && iso !== '-99') unmapped.add(iso);
             continue;
         }
-        for (const ring of ringsOf(feature.geometry)) {
-            if (!ring || ring.length < 4) continue;
+        for (const raw of ringsOf(feature.geometry)) {
+            if (!raw || raw.length < 4) continue;
+            const ring = raw.map(onTheMap);
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             let sumX = 0, sumY = 0;
             for (const [x, y] of ring) {

@@ -279,8 +279,17 @@ function validTo(quaternions: Quaternion[], ages: number[]): number {
  * Continents
  * ------------------------------------------------------------------ */
 
-/** Present-day country outlines, used only to name a continent. */
-const DEFAULT_COUNTRIES = 'public/data/world-countries-simplified.geojson';
+/**
+ * Present-day country outlines, used only to name a continent.
+ *
+ * The TopoJSON, not the GeoJSON of the same name: it is what
+ * `scripts/prepare-country-data.sh` writes today, it is committed, and it is
+ * clean. The GeoJSON is an uncommitted leftover of an earlier run of that
+ * script whose Antarctic ring reaches +-657 degrees of longitude -- which made
+ * its bounding box cover the planet and had the continent lookup answering
+ * "Antarctica" a long way from it.
+ */
+const DEFAULT_COUNTRIES = 'public/data/world-countries-simplified.topojson';
 
 /**
  * A point that stands for a whole coastline feature.

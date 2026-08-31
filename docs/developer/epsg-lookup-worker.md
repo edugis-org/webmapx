@@ -18,7 +18,7 @@ The EPSG Lookup Worker is a lazy-loaded web worker that determines appropriate E
 
 1. **Data Files** (in `/public/data/`):
    - `country-epsg-codes.json` - Maps country codes to EPSG codes
-   - `world-countries-simplified.geojson` - Simplified world boundaries for point-in-polygon detection
+   - `world-countries-simplified.topojson` - Simplified world boundaries for point-in-polygon detection
 
 2. **Web Worker** (`/src/workers/epsg-lookup.worker.ts`):
    - Loads data files
@@ -149,8 +149,8 @@ Boolean property indicating if the worker is initialized and ready.
 
 - **Data Size**: 
   - `country-epsg-codes.json`: ~15 KB
-  - `world-countries-simplified.geojson`: ~50 KB
-  - Total: ~65 KB loaded only on first use
+  - `world-countries-simplified.topojson`: ~1 MB
+  - Total: ~1.1 MB loaded only on first use
 
 - **Memory**: Worker and data are freed after 1 minute of inactivity
 
@@ -184,7 +184,8 @@ Edit `/public/data/country-epsg-codes.json`:
 }
 ```
 
-Edit `/public/data/world-countries-simplified.geojson`:
+Edit `/public/data/world-countries-simplified.topojson` (or re-run
+`scripts/prepare-country-data.sh` against newer Natural Earth data):
 
 ```json
 {

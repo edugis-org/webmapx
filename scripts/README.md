@@ -50,11 +50,8 @@ chmod +x scripts/prepare-country-data.sh
 3. Uses mapshaper to:
    - Filter to keep only `ISO_A3_EH` and `NAME` fields
    - Rename `ISO_A3_EH` to `ISO_A3` (this keeps territories separate from their parent countries)
-   - Remove invalid entries (`ISO_A3 = "-99"`)
-   - Add 0.1 degree buffer for coastal/border accuracy
-   - Simplify geometry to 10% of original detail
-   - Clean topology
-4. Outputs to `public/data/world-countries-simplified.geojson`
+   - Buffer by 1000 metres, so a coastal point falls inside its own country
+4. Outputs to `public/data/world-countries-simplified.topojson`
 5. Cleans up temporary files
 
 **Requirements:**
@@ -69,7 +66,13 @@ chmod +x scripts/prepare-country-data.sh
 - When changing buffer size or simplification settings
 
 **Output:**
-- `public/data/world-countries-simplified.geojson` - Used by the EPSG lookup worker
+- `public/data/world-countries-simplified.topojson` - Used by the EPSG lookup worker and,
+  for naming continents, by `build-paleorotations.ts`
+
+An earlier version of this script wrote a GeoJSON of the same name. That file is
+git-ignored, is no longer produced, and its Antarctic ring is not valid GeoJSON —
+it closes along the pole with a 1315-degree sweep reaching ±657.5 longitude. If a
+copy is still lying around from before, it can be deleted.
 
 ## Notes
 
