@@ -163,6 +163,11 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
 
     private features: GeoJSON.Feature[] = [];
     private colorIdx = 0;
+    // Pan is switched off while the cursor merely *hovers* a draggable polygon,
+    // never on mousedown: a touchpad reports motion in the same event batch as
+    // the button press, so MapLibre would already have begun a pan and
+    // disabling dragPan mid-gesture leaves it without its end event.
+    private hoverPanSuspended = false;
 
     private unsubEvents: (() => void)[] = [];
 
@@ -186,7 +191,9 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         if (this.adapter) {
             this.adapter.setPanEnabled(true);
             this.adapter.setTouchCaptureEnabled(true);
+            this.adapter.setCursor('');
         }
+        this.hoverPanSuspended = false;
         this.dragState = null;
         this.dragging = false;
         this.clearGhost();
@@ -393,13 +400,47 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         return entry ? { sourceId: entry.sourceId, label: entry.label } : null;
     }
 
+    /** The placed copy under `pt`, if any. */
+    private findCopyAt(pt: LngLat): GeoJSON.Feature | undefined {
+        return this.features.find(f => f.geometry && hitTestFeature(pt, f.geometry));
+    }
+
+    /** The source-layer polygon under `pt`, if any. */
+    private findSourceFeatureAt(pt: LngLat): GeoJSON.Feature | undefined {
+        if (!this.adapter) return undefined;
+        const sel = this.getSelectedSource();
+        if (!sel) return undefined;
+        const mapLayers = this.adapter.store.getState().mapLayers ?? {};
+        const fc = (mapLayers[sel.sourceId] as any)?.sourceData as GeoJSON.FeatureCollection | undefined;
+        if (!fc) return undefined;
+        return fc.features.find(f => f.geometry && hitTestFeature(pt, f.geometry));
+    }
+
+    /**
+     * Suspend map panning while the pointer rests on something draggable, and
+     * hand it back the moment it leaves. Doing this on hover rather than on
+     * mousedown is what keeps a press from ever starting a pan we would then
+     * have to cancel half-way.
+     */
+    private updateHoverState(pt: LngLat): void {
+        if (!this.adapter) return;
+        const overDraggable = !!(this.findCopyAt(pt) ?? this.findSourceFeatureAt(pt));
+        if (overDraggable === this.hoverPanSuspended) return;
+        this.hoverPanSuspended = overDraggable;
+        this.adapter.setPanEnabled(!overDraggable);
+        this.adapter.setCursor(overDraggable ? 'grab' : '');
+    }
+
     private async onPointerDown(e: { coords: LngLat }): Promise<void> {
         if (!this.adapter) return;
-        await this.setupLayers();
         const pt = e.coords;
+        // A touch press gets no hover beforehand, so settle pan state here too.
+        // Synchronous, before any await: the pan handler must be off already.
+        this.updateHoverState(pt);
+        await this.setupLayers();
 
         // Check existing copies first
-        const hitCopy = this.features.find(f => f.geometry && hitTestFeature(pt, f.geometry));
+        const hitCopy = this.findCopyAt(pt);
         if (hitCopy) {
             const copyId = hitCopy.properties?.copyId as string;
             const copyMeta = this.copies.find(c => c.id === copyId);
@@ -418,31 +459,31 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
                 const meta = this.copyMeta.get(copyId);
                 if (meta) this.geodesic = meta.geodesic;
             }
-            this.adapter.setPanEnabled(false);
+            this.adapter.setCursor('grabbing');
             this.updateGhost(pt);
             return;
         }
 
         // Otherwise pick from source layer
+        const hit = this.findSourceFeatureAt(pt);
+        if (!hit) return;
         const sel = this.getSelectedSource();
         if (!sel) return;
-        const mapLayers = this.adapter.store.getState().mapLayers ?? {};
-        const fc = (mapLayers[sel.sourceId] as any)?.sourceData as GeoJSON.FeatureCollection | undefined;
-        if (!fc) return;
-        const hit = fc.features.find(f => f.geometry && hitTestFeature(pt, f.geometry));
-        if (!hit) return;
         const centroid = hitSubPolygonCentroid(pt, hit.geometry!);
         const bearingDistances = computeBearingDistances(hit.geometry!, centroid);
         const color = COLORS[this.colorIdx % COLORS.length];
         const label = String(hit.properties?.name ?? hit.properties?.label ?? hit.properties?.id ?? `Copy ${this.copies.length + 1}`);
         this.dragState = { feature: hit, centroid, startCoords: pt, color, label, bearingDistances };
         this.dragging = true;
-        this.adapter.setPanEnabled(false);
+        this.adapter.setCursor('grabbing');
         this.updateGhost(pt);
     }
 
     private onDrag(e: { coords: LngLat }): void {
-        if (!this.dragState) return;
+        if (!this.dragState) {
+            this.updateHoverState(e.coords);
+            return;
+        }
         this.updateGhost(e.coords);
     }
 
@@ -465,7 +506,9 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
 
     private onDragCancel(): void {
         if (!this.adapter) return;
+        this.hoverPanSuspended = false;
         this.adapter.setPanEnabled(true);
+        this.adapter.setCursor('');
         if (this.dragState?.existingCopyId) {
             this.features = [...this.features, this.dragState.feature];
             this.updateTrueAreaSource();
@@ -481,8 +524,10 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
             this.dragging = false;
             return;
         }
-        this.adapter.setPanEnabled(true);
-        if (!this.dragState) return;
+        if (!this.dragState) {
+            this.updateHoverState(e.coords);
+            return;
+        }
         const { feature, centroid, startCoords, color, label, bearingDistances } = this.dragState;
         const dLng = e.coords[0] - startCoords[0];
         const dLat = e.coords[1] - startCoords[1];
@@ -496,6 +541,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
             this.dragState = null;
             this.dragging = false;
             this.clearGhost();
+            this.refreshHoverAfterDrag(e.coords);
             return;
         }
         const newCentroid: LngLat = [centroid[0] + dLng, centroid[1] + dLat];
@@ -536,6 +582,19 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         this.dragState = null;
         this.dragging = false;
         this.clearGhost();
+        this.refreshHoverAfterDrag(e.coords);
+    }
+
+    /**
+     * After a drop, pan is still suspended and the cursor still says 'grabbing';
+     * re-decide both from where the pointer actually ended up.
+     */
+    private refreshHoverAfterDrag(pt: LngLat): void {
+        if (!this.adapter) return;
+        this.hoverPanSuspended = false;
+        this.adapter.setPanEnabled(true);
+        this.adapter.setCursor('');
+        this.updateHoverState(pt);
     }
 
     private clearGhost(): void {

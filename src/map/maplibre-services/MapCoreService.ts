@@ -615,6 +615,10 @@ export class MapCoreService implements IMapCore {
             this.mapInstance.dragPan.enable();
         } else {
             this.mapInstance.dragPan.disable();
+            // Disabling mid-gesture tears the handler down without it ever
+            // firing `moveend`, so `isMoving` would stay true for the life of
+            // the page and silently swallow every later pointer-move.
+            this.isMoving = false;
         }
     }
 
