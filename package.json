@@ -94,7 +94,7 @@
     "@allmaps/maplibre": "^1.0.0-beta.41",
     "@allmaps/openlayers": "^1.0.0-beta.84",
     "@camptocamp/ogc-client": "^1.3.0",
-    "@edugis/cartogram": "^0.1.4",
+    "@edugis/cartogram": "^0.1.5",
     "@simonwep/pickr": "^1.9.1",
     "@tmcw/togeojson": "^7.1.2",
     "@turf/bbox": "^7.3.5",
