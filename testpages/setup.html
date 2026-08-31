@@ -1783,20 +1783,40 @@
       return document.getElementById('map-preview-frame');
     }
 
+    /**
+     * Tell a preview page which engine to mount with.
+     *
+     * `webmapx-map` remembers a manually-picked adapter and that saved preference
+     * outranks the config's engine entirely (`resolveAdapterSelection` takes it
+     * first), so a preview that was once switched to OpenLayers stays on
+     * OpenLayers however this form is filled in — including, and most
+     * confusingly, when the Engine dropdown is left at its default and never
+     * fires a change event.
+     *
+     * The key is scoped to the *page the map is on*
+     * (`webmapx-adapter:<pathname><search>:<map id>`, see
+     * `getMapScopedStorageKey`), which is what this page used to get wrong: it
+     * wrote the unscoped `webmapx-adapter:map-webmapx`, a key nothing reads. The
+     * scope has to be the preview URL's own path and query, not this page's, and
+     * each preview here has a different one — the two iframes carry a
+     * `storageKey`, the popup carries a `config`.
+     */
+    function setPreviewEngine(previewUrl, engine) {
+      const url = new URL(previewUrl, location.href);
+      localStorage.setItem(`webmapx-adapter:${url.pathname}${url.search}:map-webmapx`, engine);
+      // Written by earlier versions of this page, read by nothing.
+      localStorage.removeItem('webmapx-adapter:map-webmapx');
+    }
+
     // Pushes the current merged config into the iframe's own localStorage-backed preview
     // (separate key from the main "Update preview" flow, so this tab doesn't clobber it).
     function refreshMapPreviewFrame(config) {
       const finalConfig = applyOverrides(config, getSaved());
       storeConfig(PREVIEW_STORAGE_KEY, finalConfig);
-      // webmapx-map remembers a manually-picked adapter per map id and that preference
-      // wins over the config's engine entirely (see resolveAdapterSelection) — both this
-      // iframe and the main "Update preview" popup mount at #map, so they share the id
-      // "map-webmapx" and thus this same storage key. Reset it or engine switches here
-      // are silently ignored.
       const engine = finalConfig.engine ?? finalConfig.map?.type ?? 'maplibre';
-      localStorage.setItem('webmapx-adapter:map-webmapx', engine);
       const frame = mapPreviewFrame();
       if (!frame) return;
+      setPreviewEngine(frame.getAttribute('src'), engine);
       previewViewListenerAttached = false;
       frame.contentWindow.location.reload();
     }
@@ -2312,10 +2332,10 @@
       const overrides = getSaved();
       const finalConfig = applyOverrides(baseConfig, overrides);
       storeConfig(STORAGE_KEY, finalConfig);
+      const previewUrl = `preview.html?config=${encodeURIComponent(activeConfigUrl)}`;
       // Reset engine to config value so any user override in preview is cleared.
       const engine = finalConfig.engine ?? finalConfig.map?.type ?? 'maplibre';
-      localStorage.setItem('webmapx-adapter:map-webmapx', engine);
-      const previewUrl = `preview.html?config=${encodeURIComponent(activeConfigUrl)}`;
+      setPreviewEngine(previewUrl, engine);
       window.open(previewUrl, 'webmapx-preview');
       document.getElementById('status').textContent = 'Config saved — preview updated.';
     });
@@ -2731,9 +2751,10 @@
       const finalConfig = applyOverrides(config, getSaved());
       storeConfig('webmapx-setup-stories-preview-config', finalConfig);
       const engine = finalConfig.engine ?? finalConfig.map?.type ?? 'maplibre';
-      localStorage.setItem('webmapx-adapter:map-webmapx', engine);
       const frame = document.getElementById('stories-preview-frame');
-      if (frame) frame.contentWindow.location.reload();
+      if (!frame) return;
+      setPreviewEngine(frame.getAttribute('src'), engine);
+      frame.contentWindow.location.reload();
     }
 
     document.getElementById('btn-story-add').addEventListener('click', () => {
