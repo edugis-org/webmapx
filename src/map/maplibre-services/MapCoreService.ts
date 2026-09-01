@@ -486,6 +486,37 @@ export class MapCoreService implements IMapCore {
         attribution: 'NextZen',
     };
 
+    /**
+     * The source terrain is computed from — always its own, never one a hillshade
+     * layer is already drawing.
+     *
+     * Terrain takes over the tile manager of whatever source it is given:
+     * `Terrain` sets `usedForTerrain` and doubles the manager's `tileSize`
+     * (deltaZoom 1), and `TileManager.update` then picks covering tiles with that
+     * doubled size and `roundZoom: false`. A hillshade layer reading from the same
+     * manager therefore gets DEM tiles one zoom level coarser — a quarter of the
+     * elevation samples per pixel — which is what MapLibre's "consider using two
+     * separate sources" warning is about.
+     *
+     * The copy costs a second tile cache and a second DEM decode, not a second
+     * download: the tile URLs are identical, so the browser's HTTP cache serves
+     * them. When the map already carries a DEM source the copy is made from its
+     * live config, so the two stay in step without the caller passing anything.
+     */
+    private ensureTerrainSource(sourceConfig?: any, nativeSourceId?: string): string | null {
+        if (!this.mapInstance) return null;
+        const terrainSrcId = MapCoreService.TERRAIN_SOURCE_ID;
+
+        if (!this.mapInstance.getSource(terrainSrcId)) {
+            const existing = nativeSourceId
+                ? (this.mapInstance.getSource(nativeSourceId) as any)?.serialize?.()
+                : undefined;
+            const config = sourceConfig ?? existing ?? MapCoreService.TERRAIN_SOURCE_CONFIG;
+            this.mapInstance.addSource(terrainSrcId, config as any);
+        }
+        return terrainSrcId;
+    }
+
     public setTerrainEnabled(enabled: boolean, sourceConfig?: any, nativeSourceId?: string): boolean {
         if (!this.mapInstance) return false;
         // Raster-dem terrain combined with the globe projection (or DEM tiles
@@ -497,10 +528,8 @@ export class MapCoreService implements IMapCore {
         }
         try {
             if (enabled) {
-                const terrainSrcId = nativeSourceId ?? MapCoreService.TERRAIN_SOURCE_ID;
-                if (!this.mapInstance.getSource(terrainSrcId)) {
-                    this.mapInstance.addSource(terrainSrcId, (sourceConfig ?? MapCoreService.TERRAIN_SOURCE_CONFIG) as any);
-                }
+                const terrainSrcId = this.ensureTerrainSource(sourceConfig, nativeSourceId);
+                if (!terrainSrcId) return false;
                 this.mapInstance.setTerrain({ source: terrainSrcId, exaggeration: 1 });
                 // Only add a raw hillshade layer when no proper addLayer-managed one exists.
                 if (!nativeSourceId && !this.mapInstance.getLayer(MapCoreService.TERRAIN_HILLSHADE_LAYER_ID)) {
@@ -515,6 +544,13 @@ export class MapCoreService implements IMapCore {
                 this.mapInstance.setTerrain(null as any);
                 if (this.mapInstance.getLayer(MapCoreService.TERRAIN_HILLSHADE_LAYER_ID)) {
                     this.mapInstance.removeLayer(MapCoreService.TERRAIN_HILLSHADE_LAYER_ID);
+                }
+                // The private copy exists only to keep terrain off the hillshade's
+                // source; with terrain off it is a DEM cache nothing reads.
+                const stillDrawn = (this.mapInstance.getStyle()?.layers ?? [])
+                    .some((layer: any) => layer.source === MapCoreService.TERRAIN_SOURCE_ID);
+                if (!stillDrawn && this.mapInstance.getSource(MapCoreService.TERRAIN_SOURCE_ID)) {
+                    this.mapInstance.removeSource(MapCoreService.TERRAIN_SOURCE_ID);
                 }
             }
         } catch (e) {
@@ -729,8 +765,34 @@ export class MapCoreService implements IMapCore {
         } catch { /* setSky not available */ }
     }
 
+    /**
+     * The projections MapLibre can be *in*. Not a style choice: a name it does
+     * not know is a hard failure at construction, so a config written for
+     * another engine — OpenLayers draws in any proj4 projection — must not be
+     * able to take the map down with it.
+     */
+    private static readonly SUPPORTED_PROJECTIONS = ['mercator', 'globe', 'vertical-perspective'];
+
+    /**
+     * The `projection` member to merge into the initial style, if any.
+     *
+     * It goes into the style rather than being set afterwards because v4 only
+     * applies a projection during the first renderer setup, and because a map
+     * that starts in Mercator and switches a frame later shows the switch.
+     */
+    private projectionSpecFor(projection: string | undefined): { projection?: { type: 'mercator' | 'globe' } } {
+        if (!projection) return {};
+        if (!MapCoreService.SUPPORTED_PROJECTIONS.includes(projection)) {
+            console.warn(`[projection] MapLibre cannot draw in "${projection}" — it offers ${MapCoreService.SUPPORTED_PROJECTIONS.join(', ')}. The map is drawn in Web Mercator; OpenLayers is the engine that draws arbitrary projections.`);
+            return {};
+        }
+        return { projection: { type: projection as 'mercator' | 'globe' } };
+    }
+
     public setProjection(projection: string | { name: string; center?: [number, number]; parallels?: [number, number] }): boolean {
         if (!this.mapInstance) return false;
+        const requested = typeof projection === 'string' ? projection : projection.name;
+        if (!MapCoreService.SUPPORTED_PROJECTIONS.includes(requested)) return false;
         try {
             // MapLibre v5 uses {type} not {name}
             const mlProj = typeof projection === 'string'
@@ -766,33 +828,7 @@ export class MapCoreService implements IMapCore {
     }
 
     /**
-     * The projections MapLibre can be *in*. Not a style choice: a name it does
-     * not know is a hard failure at construction, so a config written for
-     * another engine — OpenLayers draws in any proj4 projection — must not be
-     * able to take the map down with it.
-     */
-    private static readonly SUPPORTED_PROJECTIONS = ['mercator', 'globe', 'vertical-perspective'];
-
-    /**
-     * The `projection` member to merge into the initial style, if any.
-     *
-     * It goes into the style rather than being set afterwards because v4 only
-     * applies a projection during the first renderer setup, and because a map
-     * that starts in Mercator and switches a frame later shows the switch.
-     */
-    private projectionSpecFor(projection: string | undefined): { projection?: { type: 'mercator' | 'globe' } } {
-        if (!projection) return {};
-        if (!MapCoreService.SUPPORTED_PROJECTIONS.includes(projection)) {
-            console.warn(`[projection] MapLibre cannot draw in "${projection}" — it offers ${MapCoreService.SUPPORTED_PROJECTIONS.join(', ')}. The map is drawn in Web Mercator; OpenLayers is the engine that draws arbitrary projections.`);
-            return {};
-        }
-        return { projection: { type: projection as 'mercator' | 'globe' } };
-    }
-
-    /**
      * Compute viewport ground corners analytically via frustum projection onto the flat
-        const requested = typeof projection === 'string' ? projection : projection.name;
-        if (!MapCoreService.SUPPORTED_PROJECTIONS.includes(requested)) return false;
      * Mercator ground plane. Stable at any pitch — no unproject() calls needed.
      * Returns [BL, BR, TR, TL] in lng/lat, or null if the map is not initialised.
      */
