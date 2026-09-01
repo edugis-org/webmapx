@@ -508,13 +508,34 @@ export class MapCoreService implements IMapCore {
         const terrainSrcId = MapCoreService.TERRAIN_SOURCE_ID;
 
         if (!this.mapInstance.getSource(terrainSrcId)) {
-            const existing = nativeSourceId
-                ? (this.mapInstance.getSource(nativeSourceId) as any)?.serialize?.()
+            // The live source first, and a caller's config only if it can actually
+            // address tiles. `webmapx-3d-tool` legitimately hands over a bare
+            // `{ id, type }` for a source it found on the map rather than in the
+            // config — enough to name it while terrain reused it, and not enough to
+            // build one from: MapLibre then asks an undefined `tiles` for its
+            // length on the first render and throws every frame.
+            // Callers name the map's own DEM in one of two ways: as an explicit
+            // nativeSourceId, or as a `{ id, type }` stub in sourceConfig (which
+            // is what the legend's "Show terrain in 3D" builds). Either way the
+            // definition worth copying is the live source's own.
+            const referencedId = nativeSourceId
+                ?? (typeof (sourceConfig as any)?.id === 'string' ? (sourceConfig as any).id : undefined);
+            const existing = referencedId
+                ? (this.mapInstance.getSource(referencedId) as any)?.serialize?.()
                 : undefined;
-            const config = sourceConfig ?? existing ?? MapCoreService.TERRAIN_SOURCE_CONFIG;
+            const config = [existing, sourceConfig, MapCoreService.TERRAIN_SOURCE_CONFIG]
+                .find(candidate => MapCoreService.canAddressTiles(candidate));
+            if (!config) return null;
             this.mapInstance.addSource(terrainSrcId, config as any);
         }
         return terrainSrcId;
+    }
+
+    /** A source definition MapLibre can fetch from: tile urls, or a TileJSON url. */
+    private static canAddressTiles(config: any): boolean {
+        if (!config || typeof config !== 'object') return false;
+        if (Array.isArray(config.tiles) && config.tiles.length > 0) return true;
+        return typeof config.url === 'string' && config.url.length > 0;
     }
 
     public setTerrainEnabled(enabled: boolean, sourceConfig?: any, nativeSourceId?: string): boolean {
