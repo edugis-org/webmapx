@@ -105,47 +105,86 @@ export function circlePolygonRing(center: LngLat, radiusM: number, steps = 64): 
 }
 
 /**
- * Format distance for display with metric units.
- * - Below 1000m: show meters (e.g., "523 m")
- * - Above 1000m: show km with 3 significant digits
- *   - 1.001 km, 10.01 km, 100.6 km, 1006 km
+ * The two systems a measurement can be read in.
  *
- * @param distanceCm Distance in centimeters
+ * Metric is the default everywhere, including in the imperial-using world: the
+ * data is metric, and a reader who wants feet asks for them.
  */
-export function formatDistance(distanceCm: number): string {
-    const meters = distanceCm / 100;
+export type UnitSystem = 'metric' | 'imperial';
 
-    if (meters < 1000) {
-        return `${Math.round(meters)} m`;
-    }
+/** Exact by definition (international foot/mile), not an approximation. */
+const CM_PER_FOOT = 30.48;
+const FEET_PER_MILE = 5280;
+const M2_PER_ACRE = 4046.8564224;
+const ACRES_PER_SQUARE_MILE = 640;
 
-    const km = meters / 1000;
-
-    // 3 significant digits based on magnitude
-    if (km < 10) {
-        // 1.001 km to 9.999 km -> 3 decimal places
-        return `${km.toFixed(3)} km`;
-    } else if (km < 100) {
-        // 10.01 km to 99.99 km -> 2 decimal places
-        return `${km.toFixed(2)} km`;
-    } else if (km < 1000) {
-        // 100.6 km to 999.9 km -> 1 decimal place
-        return `${km.toFixed(1)} km`;
-    } else {
-        // 1006 km and above -> no decimals
-        return `${Math.round(km)} km`;
-    }
+/**
+ * Rounds to three significant digits *within a unit*, the way a measurement is
+ * read aloud: 1.001 km, 10.01 km, 100.6 km, 1006 km.
+ *
+ * Shared by both systems because the rule is about how many digits a reader can
+ * use, not about which unit they are in — writing it twice is how the imperial
+ * ladder ends up one decimal out from the metric one.
+ */
+function threeSignificant(value: number, unit: string): string {
+    if (value < 10) return `${value.toFixed(3)} ${unit}`;
+    if (value < 100) return `${value.toFixed(2)} ${unit}`;
+    if (value < 1000) return `${value.toFixed(1)} ${unit}`;
+    return `${Math.round(value)} ${unit}`;
 }
 
 /**
- * Format area for display with metric units.
- * - Below 10,000 m²: show square meters
- * - Below 1,000,000 m² (100 ha): show hectares
- * - Above: show square kilometers
+ * Format distance for display.
+ *
+ * Metric — below 1000 m: metres; above: km with 3 significant digits.
+ * Imperial — below a mile: whole feet; above: miles on the same ladder.
+ *
+ * The unit switches at the point where the smaller one stops being readable,
+ * which is a different number in each system (1000 m, 5280 ft) and is why this
+ * is not a conversion applied to a metric string.
+ *
+ * @param distanceCm Distance in centimeters
+ * @param system Unit system to read it in; metric unless asked otherwise
+ */
+export function formatDistance(distanceCm: number, system: UnitSystem = 'metric'): string {
+    if (system === 'imperial') {
+        const feet = distanceCm / CM_PER_FOOT;
+        if (feet < FEET_PER_MILE) return `${Math.round(feet)} ft`;
+        return threeSignificant(feet / FEET_PER_MILE, 'mi');
+    }
+
+    const meters = distanceCm / 100;
+    if (meters < 1000) {
+        return `${Math.round(meters)} m`;
+    }
+    return threeSignificant(meters / 1000, 'km');
+}
+
+/**
+ * Format area for display.
+ *
+ * Metric — m² below a hectare's worth of detail, hectares up to 100, then km².
+ * Imperial — square feet below an acre, acres below a square mile, then mi².
+ *
+ * Hectares and acres both exist for the same reason: a garden in m² and a
+ * country in km² are both unreadable at field scale.
  *
  * @param areaM2 Area in square meters
+ * @param system Unit system to read it in; metric unless asked otherwise
  */
-export function formatArea(areaM2: number): string {
+export function formatArea(areaM2: number, system: UnitSystem = 'metric'): string {
+    if (system === 'imperial') {
+        const acres = areaM2 / M2_PER_ACRE;
+        if (acres < 0.1) {
+            const squareFeet = areaM2 / (CM_PER_FOOT / 100) ** 2;
+            return `${Math.round(squareFeet)} sq ft`;
+        }
+        if (acres < ACRES_PER_SQUARE_MILE) {
+            return acres < 100 ? `${acres.toFixed(2)} acres` : `${Math.round(acres)} acres`;
+        }
+        return threeSignificant(acres / ACRES_PER_SQUARE_MILE, 'sq mi');
+    }
+
     if (areaM2 < 10000) {
         return `${Math.round(areaM2)} m²`;
     }
@@ -155,12 +194,5 @@ export function formatArea(areaM2: number): string {
         return `${hectares.toFixed(2)} ha`;
     }
 
-    const km2 = areaM2 / 1000000;
-    if (km2 < 10) {
-        return `${km2.toFixed(3)} km²`;
-    } else if (km2 < 100) {
-        return `${km2.toFixed(2)} km²`;
-    } else {
-        return `${km2.toFixed(1)} km²`;
-    }
+    return threeSignificant(areaM2 / 1000000, 'km²');
 }
