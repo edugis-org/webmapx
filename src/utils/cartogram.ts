@@ -11,9 +11,9 @@
  * is resized in an equal-area projection centred on that shape, so the factor
  * applied is a factor of real ground area.
  *
- * Four methods, two of which keep the map joined up:
+ * Five methods, three of which keep the map joined up. `flow` is the default.
  *
- * - `contiguous` (Dougenik rubber sheet, the default) stretches one sheet by
+ * - `contiguous` (Dougenik rubber sheet) stretches one sheet by
  *   hand, in a hundred lines and with no dependency. It converges towards the
  *   target areas rather than reaching them, and on a layer with extreme values
  *   it leaves a long tail.
