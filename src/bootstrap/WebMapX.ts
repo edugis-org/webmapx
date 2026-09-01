@@ -45,7 +45,14 @@ export class WebMapX {
     setBasePath(SHOELACE_CDN);
     await initI18n();
 
-    const engine = config.engine ?? 'maplibre';
+    // `map.type` is the engine a config declares (the validator requires it), and
+    // it is what every other entry point honours. Reading only a top-level
+    // `engine` key meant a config saying `"type": "openlayers"` was mounted in
+    // MapLibre by this API alone — silently, and with every projection the
+    // config asked for dropped on the way, since MapLibre draws only Mercator
+    // and its globe.
+    const mapEngine = (config.map as { type?: string } | undefined)?.type;
+    const engine = config.engine ?? mapEngine ?? 'maplibre';
     const toolsList = Array.isArray(config.tools) ? config.tools as string[] : [];
     const toolsToLoad = toolsList.length > 0
       ? toolsList

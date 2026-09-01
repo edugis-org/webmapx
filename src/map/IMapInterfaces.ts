@@ -109,6 +109,8 @@ export interface IMapCore {
             styleUrl?: string;
             /** Inline style object (takes precedence over styleUrl) */
             style?: MapStyle;
+            /** Projection to draw in; ignored, with a warning, by an engine that cannot. */
+            projection?: string;
         }
     ): void;
 
@@ -464,6 +466,8 @@ export interface IMap {
             maxBounds?: [number, number, number, number];
             styleUrl?: string;
             style?: MapStyle;
+            /** Projection to draw in; ignored, with a warning, by an engine that cannot. */
+            projection?: string;
         }
     ): void;
 

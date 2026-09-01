@@ -57,6 +57,14 @@ export interface MapInitOptions {
     style?: MapStyle;
     /** CSS colour painted behind everything the map draws. */
     backgroundColor?: string;
+    /**
+     * The projection to draw in, resolved by `resolveInitOptions` from permalink,
+     * session or config. Engines differ in what they can honour: OpenLayers draws
+     * in any projection from `view-projections.ts`, MapLibre in mercator/globe/
+     * vertical-perspective, Leaflet only in Web Mercator, and Cesium is a globe.
+     * An engine that cannot honour it says so once and draws its default.
+     */
+    projection?: string;
 }
 
 interface MarkerService {
@@ -860,6 +868,13 @@ export abstract class BaseAdapter {
         this.getCore().initialize(containerId, options);
         if (options?.backgroundColor) {
             this.setBackgroundColor(options.backgroundColor);
+        }
+        // A configured projection an engine cannot draw in is otherwise silent:
+        // the map comes up in Web Mercator and looks like the config was ignored,
+        // which is exactly what happened. Engines that support one report it from
+        // `getProjection()`; the others answer null.
+        if (options?.projection && this.getProjection() === null) {
+            console.warn(`[projection] this engine has no runtime projection support, so "${options.projection}" was not applied. Use the OpenLayers adapter for a map in a chosen projection.`);
         }
     }
 

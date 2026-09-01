@@ -82,7 +82,7 @@ export class MapCoreService implements IMapCore {
         const containerTarget = this.resolveContainer(containerId);
 
         // Determine which style to use (inline style takes precedence)
-        const projectionSpec = options?.projection ? { projection: { type: options.projection as 'mercator' | 'globe' } } : {};
+        const projectionSpec = this.projectionSpecFor(options?.projection);
 
         let constructorStyle: maplibregl.StyleSpecification | string | undefined;
         if (options?.style) {
@@ -766,7 +766,33 @@ export class MapCoreService implements IMapCore {
     }
 
     /**
+     * The projections MapLibre can be *in*. Not a style choice: a name it does
+     * not know is a hard failure at construction, so a config written for
+     * another engine — OpenLayers draws in any proj4 projection — must not be
+     * able to take the map down with it.
+     */
+    private static readonly SUPPORTED_PROJECTIONS = ['mercator', 'globe', 'vertical-perspective'];
+
+    /**
+     * The `projection` member to merge into the initial style, if any.
+     *
+     * It goes into the style rather than being set afterwards because v4 only
+     * applies a projection during the first renderer setup, and because a map
+     * that starts in Mercator and switches a frame later shows the switch.
+     */
+    private projectionSpecFor(projection: string | undefined): { projection?: { type: 'mercator' | 'globe' } } {
+        if (!projection) return {};
+        if (!MapCoreService.SUPPORTED_PROJECTIONS.includes(projection)) {
+            console.warn(`[projection] MapLibre cannot draw in "${projection}" — it offers ${MapCoreService.SUPPORTED_PROJECTIONS.join(', ')}. The map is drawn in Web Mercator; OpenLayers is the engine that draws arbitrary projections.`);
+            return {};
+        }
+        return { projection: { type: projection as 'mercator' | 'globe' } };
+    }
+
+    /**
      * Compute viewport ground corners analytically via frustum projection onto the flat
+        const requested = typeof projection === 'string' ? projection : projection.name;
+        if (!MapCoreService.SUPPORTED_PROJECTIONS.includes(requested)) return false;
      * Mercator ground plane. Stable at any pitch — no unproject() calls needed.
      * Returns [BL, BR, TR, TL] in lng/lat, or null if the map is not initialised.
      */

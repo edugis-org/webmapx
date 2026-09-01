@@ -3,15 +3,15 @@
 import OLMap from 'ol/Map';
 import View from 'ol/View';
 import { equivalent, getTransform, transform, transformExtent } from 'ol/proj';
+import type Projection from 'ol/proj/Projection';
 import {
     ensureViewProjection,
     featureProjectionOf,
     toLonLatCoord,
     toMapCoord,
-    toMapExtent,
     viewProjectionOf,
 } from './projection-support';
-import { centreWithinProjection, getViewProjectionDef, resolutionScaleAt } from '../../utils/view-projections';
+import { DEFAULT_VIEW_PROJECTION, centreWithinProjection, getViewProjectionDef, resolutionScaleAt } from '../../utils/view-projections';
 import type { MapProjectionState } from '../../store/IMapState';
 import { apply, stylefunction } from 'ol-mapbox-style';
 import { IMapCore, ISource, NavigationCapabilities } from '../IMapInterfaces';
@@ -120,9 +120,36 @@ export class MapCoreService implements IMapCore {
         }
     }
 
+    /**
+     * The projection to build the initial View in.
+     *
+     * A View's projection is fixed at construction, so a configured projection
+     * has to be resolved *here*: calling `setProjection` afterwards would build a
+     * second View and reproject geometry, and until it ran the map would draw one
+     * frame in Web Mercator. Nothing is on the map yet at this point, which is
+     * what makes this the cheap path — no reprojection, no scale conversion.
+     *
+     * Anything this build cannot draw in falls back to Web Mercator with a
+     * warning rather than an error: a config naming a projection a newer webmapx
+     * knows, or MapLibre's `globe`, must still produce a working map.
+     */
+    private resolveInitialProjection(id: string | null | undefined): Projection | null {
+        if (!id || id === 'mercator' || id === 'EPSG:3857') return null;
+        if (!getViewProjectionDef(id)) {
+            console.warn(`[projection] "${id}" is not a view projection this build offers; the map is drawn in Web Mercator.`);
+            return null;
+        }
+        const projection = ensureViewProjection(id);
+        if (!projection) {
+            console.warn(`[projection] "${id}" could not be registered; the map is drawn in Web Mercator.`);
+            return null;
+        }
+        return projection;
+    }
+
     public initialize(
         containerId: string,
-        options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; maxBounds?: [number, number, number, number]; styleUrl?: string; style?: MapStyle }
+        options?: { center?: [number, number]; zoom?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; maxBounds?: [number, number, number, number]; styleUrl?: string; style?: MapStyle; projection?: string }
     ): void {
         const center = options?.center ?? this.initialConfig.center;
         const logicalZoom = options?.zoom ?? this.initialConfig.zoom;
@@ -133,9 +160,18 @@ export class MapCoreService implements IMapCore {
         const maxZoom = options?.maxZoom;
         const container = this.resolveContainer(containerId);
 
+        // Resolved before the View is built, and used instead of `toMapCoord`:
+        // that helper reads the projection off the map, which does not exist yet,
+        // so it would answer Web Mercator and put the centre in the wrong place.
+        const viewProjection = this.resolveInitialProjection(options?.projection);
+        const projectionCode = viewProjection?.getCode() ?? DEFAULT_VIEW_PROJECTION;
+        // A regional projection cannot draw where the config happens to point:
+        // the same clamp `setProjection` applies, for the same reason.
+        const initialCentre = centreWithinProjection(projectionCode, center);
+
         // Start with empty layers, add style layers after
-        const viewOptions: { center: number[]; zoom: number; minZoom?: number; maxZoom?: number; extent?: [number, number, number, number]; multiWorld: boolean } = {
-            center: this.toMapCoord(center),
+        const viewOptions: { center: number[]; zoom: number; minZoom?: number; maxZoom?: number; extent?: [number, number, number, number]; multiWorld: boolean; projection?: Projection } = {
+            center: transform(initialCentre, 'EPSG:4326', projectionCode),
             zoom: olZoom,
             // Without this OL refuses to let the world be smaller than the
             // viewport in *either* direction, so zooming out stops as soon as the
@@ -160,7 +196,10 @@ export class MapCoreService implements IMapCore {
             // Kept in lon/lat as well, because switching projection rebuilds the
             // view and has to express the same bounds in the new coordinates.
             this.maxBounds = options.maxBounds;
-            viewOptions.extent = toMapExtent(null, options.maxBounds);
+            viewOptions.extent = transformExtent(options.maxBounds, 'EPSG:4326', projectionCode) as [number, number, number, number];
+        }
+        if (viewProjection) {
+            viewOptions.projection = viewProjection;
         }
 
         this.mapInstance = new OLMap({
