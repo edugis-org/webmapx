@@ -26,8 +26,84 @@ const RUBBER_LINE_ID   = 'webmapx-draw-rubber-line';
 const VERTEX_SOURCE_ID = 'webmapx-draw-vertex-source';
 const VERTEX_LAYER_ID  = 'webmapx-draw-vertex-layer';
 
-function drawSourceId(layerId: string)   { return `webmapx-draw-src-${layerId}`; }
+/**
+ * The source a draw layer's geometry lives in.
+ *
+ * A draw layer is one composite (`type: 'style'`) layer carrying its own
+ * source, so the id follows the `${layerId}:${key}` convention
+ * `composite-layer-utils` gives every composite source — which is what keeps it
+ * addressable for the updates this tool makes on every edit.
+ */
+const DRAW_SOURCE_KEY = 'geom';
+
+/**
+ * The source a draw layer's geometry lives in.
+ *
+ * A polygon layer is a composite, because it needs two paint aspects, and a
+ * composite carries its own source under the `${layerId}:${key}` id
+ * `composite-layer-utils` gives it. A point or line layer needs one sublayer
+ * and stays a plain layer over a standalone source — a composite for a single
+ * paint aspect buys nothing and costs the engines' composite paths.
+ */
+function drawSourceId(layerId: string, type: GeometryType): string {
+    return type === 'Polygon' ? `${layerId}:${DRAW_SOURCE_KEY}` : `webmapx-draw-src-${layerId}`;
+}
 function drawMapLayerId(layerId: string) { return `${layerId}-map`; }
+
+/**
+ * One draw layer, as one composite layer.
+ *
+ * A filled polygon needs two paint aspects — a fill and an outline — and they
+ * used to be dispatched as two independent layers off one source. That made
+ * them two rows in the store, and everything that addresses "the layer"
+ * reached only half of it: hiding a polygon layer hid its fill and left the
+ * outline drawn, opacity changed one of them, and reordering could slide
+ * another layer between a polygon and its own outline.
+ *
+ * A composite is how the rest of the app expresses this — a config's
+ * `world-countries` is a `type: 'style'` layer holding its fill and its line,
+ * and so is every layer the isochrone and routing tools persist. One entry in
+ * the store, one legend row, one visibility, one opacity, one delete.
+ */
+function drawLayerSpec(
+    id: string,
+    cfg: DrawLayerConfig,
+    color: string,
+    metadata: Record<string, unknown>,
+): Record<string, unknown> {
+    if (cfg.type === 'Polygon') {
+        return {
+            id, type: 'style', version: 8, title: cfg.name, metadata,
+            sources: {
+                [DRAW_SOURCE_KEY]: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+            },
+            // Each sublayer names itself. Without a label the legend falls back
+            // to the sublayer id, and a generated id read as
+            // "layer 1788374721345 xyzs map fill" — the machinery, where the
+            // reader wanted the word "fill".
+            layers: [
+                {
+                    id: `${id}-fill`, type: 'fill', source: DRAW_SOURCE_KEY,
+                    metadata: { label: 'Fill' },
+                    paint: { 'fill-color': color, 'fill-opacity': 0.35 },
+                },
+                {
+                    id: `${id}-line`, type: 'line', source: DRAW_SOURCE_KEY,
+                    metadata: { label: 'Line' },
+                    paint: { 'line-color': color, 'line-width': 2 },
+                },
+            ],
+        };
+    }
+
+    const source = drawSourceId(id, cfg.type);
+    return cfg.type === 'LineString'
+        ? { id, type: 'line', source, title: cfg.name, metadata, paint: { 'line-color': color, 'line-width': 2 } }
+        : {
+            id, type: 'circle', source, title: cfg.name, metadata,
+            paint: { 'circle-radius': 6, 'circle-color': color, 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' },
+        };
+}
 
 const MAP_LAYER_COLOR = '#888888';
 const SELECTED_VERTEX_COLOR = '#ff3b30';
@@ -492,53 +568,24 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     private addMapLayersForDrawLayer(cfg: DrawLayerConfig): void {
         if (this.createdDrawLayerIds.has(cfg.id)) return;
-        const src = drawSourceId(cfg.id);
-
-        this.dispatch('webmapx-add-source', {
-            id: src,
-            config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } }
-        });
-
-        if (cfg.type === 'Polygon') {
-            this.dispatch('webmapx-add-layer', {
-                id: cfg.id, type: 'fill', source: src,
-                title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay', hideFromLegend: true },
-                paint: { 'fill-color': cfg.color, 'fill-opacity': 0.35 }
-            });
-            this.dispatch('webmapx-add-layer', {
-                id: `${cfg.id}-outline`, type: 'line', source: src,
-                title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay', hideFromLegend: true },
-                paint: { 'line-color': cfg.color, 'line-width': 2 }
-            });
-        } else if (cfg.type === 'LineString') {
-            this.dispatch('webmapx-add-layer', {
-                id: cfg.id, type: 'line', source: src,
-                title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay', hideFromLegend: true },
-                paint: { 'line-color': cfg.color, 'line-width': 2 }
-            });
-        } else {
-            this.dispatch('webmapx-add-layer', {
-                id: cfg.id, type: 'circle', source: src,
-                title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay', hideFromLegend: true },
-                paint: { 'circle-radius': 6, 'circle-color': cfg.color, 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }
+        // A composite carries its own source; a plain layer needs one first.
+        if (cfg.type !== 'Polygon') {
+            this.dispatch('webmapx-add-source', {
+                id: drawSourceId(cfg.id, cfg.type),
+                config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
             });
         }
-
+        this.dispatch('webmapx-add-layer', drawLayerSpec(cfg.id, cfg, cfg.color, {
+            label: cfg.name, legendRole: 'overlay', hideFromLegend: true,
+        }));
         this.createdDrawLayerIds.add(cfg.id);
-        if (cfg.type === 'Polygon') this.createdDrawLayerIds.add(`${cfg.id}-outline`);
     }
 
     private removeMapLayersForDrawLayer(cfg: DrawLayerConfig): void {
-        if (cfg.type === 'Polygon') this.dispatch('webmapx-remove-layer', `${cfg.id}-outline`);
         this.dispatch('webmapx-remove-layer', cfg.id);
-        this.dispatch('webmapx-remove-source', drawSourceId(cfg.id));
+        this.dispatch('webmapx-remove-source', drawSourceId(cfg.id, cfg.type));
         if (this.adapter?.store) unregisterMapLayer(this.adapter.store, cfg.id);
         this.createdDrawLayerIds.delete(cfg.id);
-        if (cfg.type === 'Polygon') this.createdDrawLayerIds.delete(`${cfg.id}-outline`);
     }
 
     private removeSharedLayers(): void {
@@ -579,8 +626,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 geometry: { type: f.type, coordinates: f.coordinates } as GeoJSON.Geometry,
                 properties: f.properties
             }));
+        const layerType = this.drawLayers.find(l => l.id === layerId)?.type ?? 'Polygon';
         this.dispatch('webmapx-set-source-data', {
-            id: drawSourceId(layerId),
+            id: drawSourceId(layerId, layerType),
             data: { type: 'FeatureCollection', features }
         });
         // Keep sourceData in the borrowed layer's store metadata up-to-date so
@@ -998,37 +1046,20 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private createPermLayer(cfg: DrawLayerConfig): string {
-        const srcId = `webmapx-perm-src-${cfg.id}`;
-        this.dispatch('webmapx-add-source', {
-            id: srcId,
-            config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } }
-        });
         const mapLayerId = drawMapLayerId(cfg.id);
-        if (cfg.type === 'Polygon') {
-            this.dispatch('webmapx-add-layer', {
-                id: mapLayerId, type: 'fill', source: srcId, title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay', properties: cfg.properties, borrowedByDrawTool: true },
-                paint: { 'fill-color': MAP_LAYER_COLOR, 'fill-opacity': 0.35 }
-            });
-            this.dispatch('webmapx-add-layer', {
-                id: `${mapLayerId}-outline`, type: 'line', source: srcId, title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay', hideFromLegend: true, properties: cfg.properties },
-                paint: { 'line-color': MAP_LAYER_COLOR, 'line-width': 2 }
-            });
-        } else if (cfg.type === 'LineString') {
-            this.dispatch('webmapx-add-layer', {
-                id: mapLayerId, type: 'line', source: srcId, title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay', properties: cfg.properties, borrowedByDrawTool: true },
-                paint: { 'line-color': MAP_LAYER_COLOR, 'line-width': 2 }
-            });
-        } else {
-            this.dispatch('webmapx-add-layer', {
-                id: mapLayerId, type: 'circle', source: srcId, title: cfg.name,
-                metadata: { label: cfg.name, legendRole: 'overlay', properties: cfg.properties, borrowedByDrawTool: true },
-                paint: { 'circle-radius': 5, 'circle-color': MAP_LAYER_COLOR, 'circle-stroke-width': 1, 'circle-stroke-color': '#555' }
+        if (cfg.type !== 'Polygon') {
+            this.dispatch('webmapx-add-source', {
+                id: drawSourceId(mapLayerId, cfg.type),
+                config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
             });
         }
-        return srcId;
+        this.dispatch('webmapx-add-layer', drawLayerSpec(mapLayerId, cfg, MAP_LAYER_COLOR, {
+            label: cfg.name,
+            legendRole: 'overlay',
+            properties: cfg.properties,
+            borrowedByDrawTool: true,
+        }));
+        return drawSourceId(mapLayerId, cfg.type);
     }
 
     private releaseBorrowedLayer(cfg: DrawLayerConfig): void {
@@ -1043,12 +1074,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private suspendDrawLayerFromMap(cfg: DrawLayerConfig): void {
-        if (cfg.type === 'Polygon') this.dispatch('webmapx-remove-layer', `${cfg.id}-outline`);
         this.dispatch('webmapx-remove-layer', cfg.id);
-        this.dispatch('webmapx-remove-source', drawSourceId(cfg.id));
+        this.dispatch('webmapx-remove-source', drawSourceId(cfg.id, cfg.type));
         if (this.adapter?.store) unregisterMapLayer(this.adapter.store, cfg.id);
         this.createdDrawLayerIds.delete(cfg.id);
-        if (cfg.type === 'Polygon') this.createdDrawLayerIds.delete(`${cfg.id}-outline`);
     }
 
     private releaseLayer(cfg: DrawLayerConfig): void {

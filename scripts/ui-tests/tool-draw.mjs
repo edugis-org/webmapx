@@ -711,27 +711,60 @@ export async function run({ page, engine, baseUrl }) {
     await waitForLayerFeatureName(page, polygonLayerName, polygonName2);
   });
 
-  await step('polygon layer has outline layer in map state', async () => {
+  await step('a polygon layer is one layer that draws both its fill and its outline', async () => {
+    // It used to be two: `<id>` for the fill and `<id>-outline` for the line,
+    // off one source. That made everything addressing "the layer" reach half of
+    // it — hiding the layer left the outline drawn on the map, which is how the
+    // split was found. A polygon layer is now one composite, so the assertion is
+    // about behaviour rather than about how many entries it takes.
     const result = await page.evaluate(async ({ polyName }) => {
       const map = document.querySelector('webmapx-map');
       const tool = map?.querySelector('webmapx-draw-tool');
       const adapter = await map?.getAdapterAsync?.();
       if (!adapter) return { ok: false, reason: 'no adapter' };
 
-      const layers = Array.isArray(tool?.drawLayers) ? tool.drawLayers : [];
-      const polyLayer = layers.find(l => l.name === polyName);
+      const polyLayer = (Array.isArray(tool?.drawLayers) ? tool.drawLayers : [])
+        .find(l => l.name === polyName);
       if (!polyLayer) return { ok: false, reason: `draw layer "${polyName}" not found` };
 
-      const state = adapter.store.getState();
-      const mapLayers = state.mapLayers ?? {};
+      const mapLayers = adapter.store.getState().mapLayers ?? {};
+      if (mapLayers[`${polyLayer.id}-outline`]) {
+        return { ok: false, reason: 'the outline is still a layer of its own' };
+      }
+      if (!mapLayers[polyLayer.id]) {
+        return { ok: false, reason: `polygon layer "${polyLayer.id}" not in mapLayers` };
+      }
 
-      const outlineId = `${polyLayer.id}-outline`;
-      const outlineEntry = mapLayers[outlineId];
-      if (!outlineEntry) return { ok: false, reason: `outline layer "${outlineId}" not in mapLayers` };
+      // Both paint aspects are there, as sublayers of the one layer.
+      const config = adapter.layerConfigStore?.get?.(polyLayer.id)?.config
+        ?? adapter.getLayerConfig?.(polyLayer.id)
+        ?? null;
+      const subTypes = Array.isArray(config?.layers) ? config.layers.map(l => l.type).sort() : null;
+      if (!subTypes) return { ok: false, reason: 'polygon layer is not a composite (no sublayers)' };
+      if (subTypes.join(',') !== 'fill,line') {
+        return { ok: false, reason: `expected fill+line sublayers, got [${subTypes.join(', ')}]` };
+      }
+
+      // Each sublayer names itself. Without a label the legend falls back to the
+      // sublayer id, and a generated id reads as "layer 1788374721345 xyzs map
+      // fill" where the reader wanted the word "fill".
+      const labels = config.layers.map(l => l?.metadata?.label ?? null);
+      if (labels.some(l => typeof l !== 'string' || l.length === 0)) {
+        return { ok: false, reason: `sublayers must carry a label, got [${labels.join(', ')}]` };
+      }
+      if (labels.some(l => l.includes(polyLayer.id))) {
+        return { ok: false, reason: `a sublayer label still contains the generated id: [${labels.join(', ')}]` };
+      }
+
+      // And hiding the layer hides all of it — the bug this shape prevents.
+      adapter.setLayerVisibility(polyLayer.id, false);
+      const hidden = adapter.store.getState().mapLayers?.[polyLayer.id]?.visible;
+      adapter.setLayerVisibility(polyLayer.id, true);
+      if (hidden !== false) return { ok: false, reason: 'hiding the polygon layer did not take' };
 
       return { ok: true };
     }, { polyName: polygonLayerName });
-    if (!result.ok) fail(`Polygon outline check: ${result.reason}`);
+    if (!result.ok) fail(`Polygon composite check: ${result.reason}`);
   });
 
   await step('close draw tool after second session', async () => {
