@@ -1,9 +1,40 @@
 let keys: Record<string, string> | null = null;
 let loadPromise: Promise<void> | null = null;
+let keysUrl: string | null = null;
+
+/**
+ * Where the keys are looked for when no config has said.
+ *
+ * Resolved against the *page*, which is the whole problem this fallback is a
+ * remnant of: the same code then looks in a different place depending on where
+ * the HTML sits, so a map embedded at /testpages/ wanted its own copy of the
+ * file. A config names the location instead — see `setApiKeysUrl`.
+ */
+const FALLBACK_URL = 'config/apikeys.json';
+
+/**
+ * Points the loader at the keys file this config asked for.
+ *
+ * Called by the config loader with `apiKeysFile` already resolved against the
+ * config's own URL, so the file is found relative to the config rather than to
+ * whatever page happens to be showing it — which is what lets one keys file
+ * serve every config in a directory, and lets a config in a subdirectory reach
+ * it with `../apikeys.json`.
+ *
+ * A change of location discards anything already loaded: two configs on one
+ * page may legitimately carry different keys, and answering the second from
+ * the first one's file would be worse than not answering at all.
+ */
+export function setApiKeysUrl(url: string): void {
+  if (url === keysUrl) return;
+  keysUrl = url;
+  keys = null;
+  loadPromise = null;
+}
 
 async function load(): Promise<void> {
   try {
-    const response = await fetch('config/apikeys.json');
+    const response = await fetch(keysUrl ?? FALLBACK_URL);
     if (response.ok) {
       keys = await response.json();
     }

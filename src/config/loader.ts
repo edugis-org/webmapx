@@ -3,6 +3,7 @@
 
 import type { AppConfig, MapAdapterType, MapConfig, RuntimeMapConfig } from './types.js';
 import { validateConfig } from './validator.js';
+import { setApiKeysUrl } from './apikeys';
 
 const CONFIG_URL_PARAM = 'config';
 const MAP_ADAPTER_ALIASES: Record<string, MapAdapterType> = {
@@ -544,11 +545,22 @@ function normalizeAppConfig(rawConfig: unknown, configUrl: string): AppConfig {
   // that never appears in the config file, and so is never normalised here.
   const baseUrl = configUrl;
 
+  // Where this config's keys live, resolved like every other path in it: against
+  // the config, not against the page showing it. The default puts the file
+  // beside the config, so one apikeys.json serves a directory of configs and a
+  // config one level down asks for `../apikeys.json`.
+  const apiKeysFile = resolveConfigRelativeUrl(
+    typeof raw.apiKeysFile === 'string' && raw.apiKeysFile.trim() ? raw.apiKeysFile.trim() : './apikeys.json',
+    configUrl,
+  );
+  setApiKeysUrl(apiKeysFile);
+
   if (isObject(raw.layerData)) {
     return {
       ...(raw as unknown as AppConfig),
       layerData: normalizeLayerDataSection(raw.layerData, configUrl) as any,
       baseUrl,
+      apiKeysFile,
       ...(tools !== undefined ? { tools: tools as any } : {}),
       ...(stories !== undefined ? { stories: stories as any } : {}),
     };
@@ -564,6 +576,7 @@ function normalizeAppConfig(rawConfig: unknown, configUrl: string): AppConfig {
       },
       catalog: raw.catalog as any,
       baseUrl,
+      apiKeysFile,
       ...(tools !== undefined ? { tools: tools as any } : {}),
       ...(stories !== undefined ? { stories: stories as any } : {}),
     };
@@ -571,7 +584,7 @@ function normalizeAppConfig(rawConfig: unknown, configUrl: string): AppConfig {
   }
 
   if (!isObject(raw.library)) {
-    return { ...(raw as unknown as AppConfig), ...(stories !== undefined ? { stories: stories as any } : {}) };
+    return { ...(raw as unknown as AppConfig), baseUrl, apiKeysFile, ...(stories !== undefined ? { stories: stories as any } : {}) };
   }
 
   const library = raw.library as Record<string, unknown>;
@@ -590,6 +603,7 @@ function normalizeAppConfig(rawConfig: unknown, configUrl: string): AppConfig {
     },
     tools: resolvedTools as any,
     baseUrl,
+    apiKeysFile,
     state: isObject(raw.state) ? (raw.state as any) : undefined,
     version: typeof raw.version === 'number' ? raw.version : undefined,
     project: isObject(raw.project) ? (raw.project as Record<string, unknown>) : undefined,

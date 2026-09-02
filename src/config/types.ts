@@ -558,6 +558,21 @@ export interface AppConfig {
    * hand; a value in a config file is overwritten.
    */
   baseUrl?: string;
+  /**
+   * Where this config's API keys live, relative to the config file itself.
+   *
+   * Defaults to `./apikeys.json`, so a keys file beside the config serves every
+   * config next to it; a config in a subdirectory reaches it with
+   * `../apikeys.json`. An absolute URL is used as given.
+   *
+   * Keys are substituted into any `{key-<name>}` placeholder anywhere in the
+   * config — a tile url, a WMS query, a tool option. The file is optional: with
+   * no file the placeholders are left as they are.
+   *
+   * Config-relative rather than page-relative because a config is the thing
+   * that knows which keys it needs, and one config is shown by several pages.
+   */
+  apiKeysFile?: string;
   project?: Record<string, unknown>;
   map: MapConfig;
   runtimeMap?: RuntimeMapConfig;

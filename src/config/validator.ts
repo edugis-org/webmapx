@@ -28,7 +28,7 @@ export interface ValidationResult {
 const KNOWN_SEARCH_PROVIDERS = new Set(['nominatim']);
 
 const KNOWN_KEYS = {
-  root: ['version', 'baseUrl', 'project', 'map', 'runtimeMap', 'layerData', 'catalog', 'library', 'state', 'ui', 'tools', 'stories', '_devTools'],
+  root: ['version', 'baseUrl', 'apiKeysFile', 'project', 'map', 'runtimeMap', 'layerData', 'catalog', 'library', 'state', 'ui', 'tools', 'stories', '_devTools'],
   map: ['label', 'center', 'zoom', 'minZoom', 'maxZoom', 'minPitch', 'maxPitch', 'type', 'style', 'styleUrl', 'bearing', 'pitch', 'projection', 'backgroundColor'],
   runtimeMap: ['minZoom', 'maxZoom', 'minPitch', 'maxPitch', 'maxBounds'],
   layerData: ['sources', 'layers', 'attributeMetadata'],
