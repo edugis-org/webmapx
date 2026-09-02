@@ -75,41 +75,6 @@ const ORS_MODES: IsoMode[] = [
 
 const ISO_SERVICES: IsoServiceDef[] = [
     {
-        id: 'valhalla',
-        label: 'Valhalla (free)',
-        modes: VALHALLA_MODES,
-        keyPlaceholder: null,
-        keyAttr: null,
-        async calculate(center, ranges, rangeType, mode) {
-            const contours = ranges.map(r =>
-                rangeType === 'time' ? { time: r } : { distance: r }
-            );
-            const resp = await fetch('https://valhalla1.openstreetmap.de/isochrone', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    locations: [{ lon: center[0], lat: center[1] }],
-                    costing: mode,
-                    contours,
-                    polygons: true,
-                }),
-            });
-            if (!resp.ok) {
-                const err = await resp.json().catch(() => ({}));
-                throw new Error((err as any)?.error ?? `Valhalla ${resp.status}`);
-            }
-            const fc: GeoJSON.FeatureCollection = await resp.json();
-            // Sort outermost first (largest contour value) so inner polygons render on top
-            const sorted = [...fc.features].sort((a, b) => {
-                const av = (a.properties as any)?.contour ?? 0;
-                const bv = (b.properties as any)?.contour ?? 0;
-                return bv - av;
-            });
-            // contour property already set by Valhalla (minutes or km)
-            return { ...fc, features: sorted };
-        },
-    },
-    {
         id: 'openrouteservice',
         label: 'OpenRouteService',
         modes: ORS_MODES,
@@ -146,7 +111,54 @@ const ISO_SERVICES: IsoServiceDef[] = [
             return { ...fc, features: sorted };
         },
     },
+    {
+        id: 'valhalla',
+        label: 'Valhalla (free)',
+        modes: VALHALLA_MODES,
+        keyPlaceholder: null,
+        keyAttr: null,
+        async calculate(center, ranges, rangeType, mode) {
+            const contours = ranges.map(r =>
+                rangeType === 'time' ? { time: r } : { distance: r }
+            );
+            const resp = await fetch('https://valhalla1.openstreetmap.de/isochrone', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    locations: [{ lon: center[0], lat: center[1] }],
+                    costing: mode,
+                    contours,
+                    polygons: true,
+                }),
+            });
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                throw new Error((err as any)?.error ?? `Valhalla ${resp.status}`);
+            }
+            const fc: GeoJSON.FeatureCollection = await resp.json();
+            // Sort outermost first (largest contour value) so inner polygons render on top
+            const sorted = [...fc.features].sort((a, b) => {
+                const av = (a.properties as any)?.contour ?? 0;
+                const bv = (b.properties as any)?.contour ?? 0;
+                return bv - av;
+            });
+            // contour property already set by Valhalla (minutes or km)
+            return { ...fc, features: sorted };
+        },
+    },
 ];
+
+/**
+ * A detached copy of a GeoJSON collection.
+ *
+ * `structuredClone` where the browser has it, a JSON round trip otherwise —
+ * GeoJSON is plain data, so the round trip loses nothing it carries.
+ */
+function deepCopy<T>(value: T): T {
+    return typeof structuredClone === 'function'
+        ? structuredClone(value)
+        : JSON.parse(JSON.stringify(value)) as T;
+}
 
 const SERVICE_MAP = new Map(ISO_SERVICES.map(s => [s.id, s]));
 
@@ -157,7 +169,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
     readonly toolId = 'isochrone';
 
     @state() private center: LngLat | null = null;
-    @state() private serviceId = 'valhalla';
+    @state() private serviceId = 'openrouteservice';
     @state() private mode = 'auto';
     @state() private rangeType: RangeType = 'time';
     @state() private rangesInput = '10, 20, 30';
@@ -175,6 +187,15 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
         .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
         select, input[type="text"] { flex: 1; padding: 0.3rem 0.5rem; border: 1px solid var(--color-border, #d5dce3); border-radius: 4px; font-size: 0.875rem; background: var(--color-background, #fff); color: var(--color-text-primary, #16202a); }
         button { padding: 0.35rem 0.75rem; border: 1px solid var(--color-border, #d5dce3); border-radius: 4px; background: var(--color-background, #fff); cursor: pointer; font-size: 0.875rem; color: var(--color-text-primary, #16202a); }
+        button.calculate {
+            flex: 1;
+            border-color: var(--color-primary, #2b6c8f);
+            background: var(--color-primary, #2b6c8f);
+            color: var(--color-on-primary, #fff);
+        }
+        /* Disabled rather than hidden: the button is where the reader looks for
+           what to do next, and a missing one reads as a broken panel. */
+        button.calculate[disabled] { opacity: 0.5; cursor: not-allowed; }
         button:disabled { opacity: 0.5; cursor: default; }
         .field-label { font-size: 0.78rem; color: var(--color-text-secondary, #5a6773); margin-bottom: 0.15rem; font-weight: 600; }
         .field { margin-bottom: 0.5rem; }
@@ -229,6 +250,20 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
         const svc = SERVICE_MAP.get(id);
         if (svc && this.serviceHasKey(svc)) return svc;
         return this.availableServices[0] ?? ISO_SERVICES[0];
+    }
+
+    /**
+     * The travel mode actually used.
+     *
+     * Services do not share a mode vocabulary — OpenRouteService says
+     * `driving-car` where Valhalla says `auto` — and the active service can
+     * change without the reader touching the dropdown, because a service whose
+     * key is missing falls back to one that has none. Reading the stored value
+     * blindly would then send a mode the service has never heard of.
+     */
+    private get effectiveMode(): string {
+        const modes = this.activeService.modes;
+        return modes.some(m => m.value === this.mode) ? this.mode : modes[0].value;
     }
 
     private get showServiceDropdown(): boolean {
@@ -338,11 +373,18 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
             `<b>Created:</b> ${created}`,
         ].join('<br>');
 
-        const polygonFc: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: this.currentFc.features };
-        const pointFc:   GeoJSON.FeatureCollection = {
+        // A full copy, not the live arrays. The persisted layer is meant to
+        // outlive the panel that made it: sharing `currentFc.features` means the
+        // next Calculate — which empties and refills that collection — reaches
+        // into a layer the reader already saved, and the same holds for the
+        // centre coordinate, which the marker's drag handler replaces in place.
+        // Saving something that changes afterwards is worse than not saving it,
+        // because nothing says it happened.
+        const polygonFc: GeoJSON.FeatureCollection = deepCopy({ type: 'FeatureCollection', features: this.currentFc.features });
+        const pointFc:   GeoJSON.FeatureCollection = deepCopy({
             type: 'FeatureCollection',
             features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: this.center }, properties: { point_color: DATA_ROUTE } }],
-        };
+        });
         const isoLabel = this.rangeType === 'time' ? 'Isochrones' : 'Isodistances';
 
         this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
@@ -385,9 +427,8 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
         this.center = e.coords;
         this.adapter?.addMarker('webmapx-isochrone-center', e.coords, {
             color: DATA_ROUTE, draggable: true,
-            onDragEnd: (ll) => { this.center = ll; void this.calculate(); },
+            onDragEnd: (ll) => { this.center = ll; },
         });
-        void this.calculate();
     }
 
     // ─── Service / mode switching ─────────────────────────────────────────────
@@ -401,18 +442,15 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
         const match = currentCategory ? newSvc.modes.find(m => m.category === currentCategory) : undefined;
         this.mode = match?.value ?? newSvc.modes[0].value;
         this.error = null;
-        if (this.center) void this.calculate();
     }
 
     private onModeChange(e: Event): void {
         this.mode = (e.target as HTMLSelectElement).value;
-        if (this.center) void this.calculate();
     }
 
     private onRangeTypeChange(e: Event): void {
         this.rangeType = (e.target as HTMLSelectElement).value as RangeType;
         this.rangesInput = this.rangeType === 'time' ? '10, 20, 30' : '1, 5, 10';
-        if (this.center) void this.calculate();
     }
 
     // ─── Calculation ──────────────────────────────────────────────────────────
@@ -423,7 +461,22 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
         return [...new Set(parts)].sort((a, b) => a - b);
     }
 
+    /**
+     * Asks the service, once, for the isochrone the form describes.
+     *
+     * Only ever reached from the Calculate button. The tool used to recalculate
+     * whenever a field changed, which meant a service call for every keystroke
+     * in the ranges box and for every mode a reader tried on the way to the one
+     * they wanted — against a service that is either metered or a free server
+     * with no quota anyone is accounting for. An isochrone is expensive enough
+     * to be worth asking for on purpose.
+     *
+     * A request in flight blocks another: these calls take seconds, and two
+     * answers arriving out of order would leave the map showing the older one
+     * with no way to tell.
+     */
     private async calculate(): Promise<void> {
+        if (this.loading) return;
         if (!this.center) return;
         const ranges = this.parseRanges();
         if (!ranges) { this.error = 'Enter at least one valid range value.'; return; }
@@ -433,9 +486,13 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
 
         this.loading = true;
         this.error = null;
+        // The previous answer goes before the new question is asked. Leaving it
+        // up would show a shape belonging to a mode or a range that is no longer
+        // what the form says, for however long the service takes.
+        this.setData({ type: 'FeatureCollection', features: [] });
 
         try {
-            const fc = await svc.calculate(this.center, ranges, this.rangeType, this.mode, key);
+            const fc = await svc.calculate(this.center, ranges, this.rangeType, this.effectiveMode, key);
             this.setData(fc, ranges);
         } catch (err) {
             this.error = err instanceof Error ? err.message : 'Calculation failed';
@@ -460,7 +517,9 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
 
         return html`
             <label>Isochrone</label>
-            <p class="hint">${this.center ? 'Click map to move center point.' : 'Click the map to set the center point.'}</p>
+            <p class="hint">${this.center
+                ? 'Click the map to move the centre, then press Calculate.'
+                : 'Click the map to set the centre point.'}</p>
 
             ${this.center ? html`
                 <div class="center-row">
@@ -482,7 +541,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
                 <div class="field" style="flex:1">
                     <div class="field-label">Mode</div>
                     <select aria-label="Travel mode" @change=${(e: Event) => this.onModeChange(e)}>
-                        ${svc.modes.map(m => html`<option value=${m.value} ?selected=${m.value === this.mode}>${m.label}</option>`)}
+                        ${svc.modes.map(m => html`<option value=${m.value} ?selected=${m.value === this.effectiveMode}>${m.label}</option>`)}
                     </select>
                 </div>
                 <div class="field" style="flex:1">
@@ -499,10 +558,18 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
                 <div class="row">
                     <input type="text" aria-label="Ranges, comma-separated" .value=${this.rangesInput}
                         @input=${(e: Event) => { this.rangesInput = (e.target as HTMLInputElement).value; }}
-                        @change=${() => { if (this.center) void this.calculate(); }}
                         placeholder="e.g. 10, 20, 30">
                     <button @click=${() => this.clearIsochrone()}>Clear</button>
                 </div>
+            </div>
+
+            <div class="row" style="margin-top:0.5rem;">
+                <button
+                    class="calculate"
+                    ?disabled=${!this.center || this.loading}
+                    title=${this.center ? 'Ask the service for this isochrone' : 'Click the map to set a centre point first'}
+                    @click=${() => void this.calculate()}
+                >${this.loading ? 'Calculating…' : 'Calculate'}</button>
             </div>
 
             ${this.loading ? html`<div class="row"><span class="spinner"></span> Calculating…</div>` : nothing}
