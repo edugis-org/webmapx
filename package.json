@@ -58,6 +58,7 @@
     "configs:sync": "node ./scripts/run-ts.mjs scripts/configs.ts sync",
     "validate:config": "node ./scripts/run-ts.mjs src/cli/validate-config.ts",
     "generate:swatches": "node ./scripts/run-ts.mjs scripts/generate-layer-swatches.ts",
+    "build:analysis-examples": "node ./scripts/run-ts.mjs scripts/build-analysis-examples.ts",
     "generate:daynight": "node ./scripts/run-ts.mjs scripts/generate-daynight.ts",
     "generate:eclipse": "node ./scripts/run-ts.mjs scripts/generate-eclipse-geojson.ts",
     "allmaps:bounds": "node ./scripts/run-ts.mjs scripts/allmaps-bounds.ts",
