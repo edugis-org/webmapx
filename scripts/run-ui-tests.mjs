@@ -235,10 +235,22 @@ async function run() {
         const page = await context.newPage();
 
         await context.addInitScript((selectedEngine) => {
-          // The key is scoped by page and map id — `webmapx-adapter:{path}:{mapId}`
+          // The key is scoped by page and map id — `webmapx-adapter:{scope}:{mapId}`
           // (getMapScopedStorageKey). Without the scope the preference is never
           // read, and every engine in the matrix quietly runs the default one.
-          window.localStorage.setItem(`webmapx-adapter:${location.pathname}:map-container`, selectedEngine);
+          //
+          // The scope is `location.pathname + location.search`, and the search
+          // half is not optional: every suite navigates to `appUrl(baseUrl)`,
+          // which appends `?config=/tests/fixtures/demo.json`, so a key written
+          // from the path alone is never the key the component reads. It failed
+          // exactly the way the scope was added to prevent — silently, with the
+          // matrix reporting PASS for openlayers, leaflet and cesium while all
+          // four engine runs drove MapLibre. The init script runs on every
+          // navigation, so `location` here is the page being loaded.
+          window.localStorage.setItem(
+            `webmapx-adapter:${location.pathname}${location.search}:map-container`,
+            selectedEngine,
+          );
         }, engine);
 
         try {
