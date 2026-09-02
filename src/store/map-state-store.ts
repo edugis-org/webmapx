@@ -26,7 +26,7 @@ export class MapStateStore {
         lastClickedCoordinates: null,
         pointerResolution: null,
         lastClickedResolution: null,
-        paleoTimeMa: null,
+        deepTimeMa: null,
         mapLayers: {},
         attributeMetadata: {},
         activeTool: null,

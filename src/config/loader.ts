@@ -382,7 +382,7 @@ function normalizeCatalogTree(catalogs: unknown, fallbackLayers: unknown[]): unk
 /**
  * A tool's `data` path is relative to the config, like every other path in it.
  *
- * The paleotime tool reads `tools.paleotime.data` and fetches the plate model
+ * The deeptime tool reads `tools.deeptime.data` and fetches the plate model
  * from it at runtime, which resolves against the *page* — so the same value
  * meant different directories depending on where the app's HTML sat, and a
  * config loaded from another origin looked for its data on the app's host. The
@@ -406,7 +406,7 @@ function normalizeToolsSection(tools: unknown, configUrl: string): Record<string
     }
     // Every nested list, not only `items`: a tool inside a toolbar, toolbox or
     // menu carries its own section, and a tool offering a choice carries one
-    // `data` per option — `tools.paleotime.models[]` is a list of plate models,
+    // `data` per option — `tools.deeptime.models[]` is a list of plate models,
     // each with its own directory.
     for (const value of Object.values(entry)) {
       if (!Array.isArray(value)) continue;

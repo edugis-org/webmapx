@@ -110,7 +110,7 @@ export abstract class BaseAdapter {
     private lastSeenMapTime: MapTimeState | undefined;
     /** Likewise for the last click, which some computed sources follow. */
     private lastSeenClick: [number, number] | null | undefined;
-    private lastSeenPaleoTimeMa: number | null | undefined;
+    private lastSeenDeepTimeMa: number | null | undefined;
 
     /**
      * The moment this map's computed layers are drawn for.
@@ -197,9 +197,9 @@ export abstract class BaseAdapter {
      * two clocks are unrelated: a plate-tectonics slider must not redraw the
      * day/night layer, and a click must not move the continents.
      */
-    private onPaleoTimeChanged(ma: number | null): void {
-        if (this.lastSeenPaleoTimeMa === ma) return;
-        this.lastSeenPaleoTimeMa = ma;
+    private onDeepTimeChanged(ma: number | null): void {
+        if (this.lastSeenDeepTimeMa === ma) return;
+        this.lastSeenDeepTimeMa = ma;
         this.redrawSourcesUsing(MAP_STATE_PLACEHOLDERS.ma);
     }
 
@@ -269,7 +269,7 @@ export abstract class BaseAdapter {
     /** A computed url with its map-state placeholders filled in. */
     private withMapState(url: string): string {
         const state = this.store.getState();
-        return applyMapState(url, { click: state.lastClickedCoordinates, ma: state.paleoTimeMa });
+        return applyMapState(url, { click: state.lastClickedCoordinates, ma: state.deepTimeMa });
     }
 
     constructor() {
@@ -289,7 +289,7 @@ export abstract class BaseAdapter {
         });
         this.store.subscribe((state) => this.onMapTimeChanged(state.mapTime));
         this.store.subscribe((state) => this.onClickedCoordinateChanged(state.lastClickedCoordinates));
-        this.store.subscribe((state) => this.onPaleoTimeChanged(state.paleoTimeMa));
+        this.store.subscribe((state) => this.onDeepTimeChanged(state.deepTimeMa));
         // A computed source can stand in front of data that has to be fetched.
         // Its first resolve necessarily draws nothing, so the map asks again
         // once the data has arrived — otherwise a layer that came from a

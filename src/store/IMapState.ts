@@ -29,10 +29,10 @@ export interface IMapState {
      * no business moving when a plate-tectonics slider does.
      *
      * Computed sources read it through the `{ma}` placeholder, so a layer opts
-     * in by naming it in its url and the paleotime tool needs to know nothing
+     * in by naming it in its url and the deeptime tool needs to know nothing
      * about which layers exist.
      */
-    paleoTimeMa: number | null;
+    deepTimeMa: number | null;
 
     /** IDs of currently visible logical layers, in map order. */
 

@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>webmapx — paleotime tool</title>
+  <title>webmapx — deeptime tool</title>
   <style>
     html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
     webmapx-map { display: block; width: 100%; height: 100%; }
-    webmapx-paleotime-tool {
+    webmapx-deeptime-tool {
       position: absolute;
       top: 10px;
       right: 10px;
@@ -29,10 +29,10 @@
   <!-- Inside the map element, like every other tool: that is how it finds its
        host and therefore how it adds its coastline layer. -->
   <webmapx-map id="map-container" adapter="maplibre" src="../config/demo.json">
-    <!-- No `data` attribute: it comes from `tools.paleotime` in the config, and
+    <!-- No `data` attribute: it comes from `tools.deeptime` in the config, and
          is resolved against the config's own location, so this page and the app
          at the root both find the same directory. -->
-    <webmapx-paleotime-tool tool-id="paleotime" label="Deep time" active></webmapx-paleotime-tool>
+    <webmapx-deeptime-tool tool-id="deeptime" label="Deep time" active></webmapx-deeptime-tool>
   </webmapx-map>
   <script>
     // ?adapter=openlayers|leaflet|cesium switches engine. A classic script,
@@ -42,7 +42,7 @@
     if (requested) document.getElementById('map-container').setAttribute('adapter', requested);
   </script>
   <script type="module">
-    import '../src/components/webmapx-paleotime-tool.ts';
+    import '../src/components/webmapx-deeptime-tool.ts';
   </script>
 </body>
 </html>

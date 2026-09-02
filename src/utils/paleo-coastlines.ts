@@ -7,7 +7,7 @@
  *
  * Written as a computed source rather than owned by a tool so that the data is
  * addressable by anything: a story step can pin the Cretaceous, a second layer
- * can draw the same age differently, and the paleotime tool becomes nothing more
+ * can draw the same age differently, and the deeptime tool becomes nothing more
  * than a slider that moves `{ma}`. A tool that owned its own layer could do
  * none of that.
  *

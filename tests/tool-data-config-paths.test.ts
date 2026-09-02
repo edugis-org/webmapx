@@ -2,7 +2,7 @@
  * A tool's `data` path is config-relative, which is what lets a dataset belong
  * to the configuration that uses it rather than to webmapx itself.
  *
- * The paleotime tool reads `tools.paleotime.data` and fetches the plate model
+ * The deeptime tool reads `tools.deeptime.data` and fetches the plate model
  * from it at runtime. Unresolved, that fetch goes through the browser's own
  * resolution — against the *page* — so the same value meant different
  * directories depending on where the app's HTML sat, and a config loaded from
@@ -33,35 +33,35 @@ function toolData(tools: Record<string, unknown>, configUrl = CONFIG_URL): unkno
 }
 
 test("a tool's data directory resolves against the config", () => {
-    const tools = toolData({ paleotime: { enabled: true, data: 'data/paleo/merdith2021', to: 1000 } }) as
+    const tools = toolData({ deeptime: { enabled: true, data: 'data/paleo/merdith2021', to: 1000 } }) as
         Record<string, { data: string; to: number }>;
-    assert.equal(tools.paleotime.data, 'http://example.org/configs/data/paleo/merdith2021');
+    assert.equal(tools.deeptime.data, 'http://example.org/configs/data/paleo/merdith2021');
     // Everything else in the section is left exactly as it was.
-    assert.equal(tools.paleotime.to, 1000);
+    assert.equal(tools.deeptime.to, 1000);
 });
 
 test('the data travels with a config loaded from another origin', () => {
     const tools = toolData(
-        { paleotime: { enabled: true, data: 'data/paleo/merdith2021' } },
+        { deeptime: { enabled: true, data: 'data/paleo/merdith2021' } },
         'https://raw.githubusercontent.com/edugis-org/webmapx-configs/main/configs/deeptime.json',
     ) as Record<string, { data: string }>;
     assert.equal(
-        tools.paleotime.data,
+        tools.deeptime.data,
         'https://raw.githubusercontent.com/edugis-org/webmapx-configs/main/configs/data/paleo/merdith2021',
     );
 });
 
 test('an absolute data url is left alone', () => {
-    const tools = toolData({ paleotime: { enabled: true, data: 'https://cdn.example.net/paleo' } }) as
+    const tools = toolData({ deeptime: { enabled: true, data: 'https://cdn.example.net/paleo' } }) as
         Record<string, { data: string }>;
-    assert.equal(tools.paleotime.data, 'https://cdn.example.net/paleo');
+    assert.equal(tools.deeptime.data, 'https://cdn.example.net/paleo');
 });
 
 test('a tool nested in a toolbar item resolves its own data', () => {
     const tools = toolData({
         mainToolbar: {
             type: 'toolbar', enabled: true,
-            items: [{ type: 'paleotime', id: 'paleotime', enabled: true, data: 'data/paleo/merdith2021' }],
+            items: [{ type: 'deeptime', id: 'deeptime', enabled: true, data: 'data/paleo/merdith2021' }],
         },
     }) as Record<string, { items: Array<{ data: string }> }>;
     assert.equal(tools.mainToolbar.items[0].data, 'http://example.org/configs/data/paleo/merdith2021');

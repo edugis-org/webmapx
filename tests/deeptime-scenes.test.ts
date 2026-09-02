@@ -46,7 +46,7 @@ function loadScenes(): Scenes | null {
     }
 }
 
-/** Mirrors `sceneAt` in webmapx-paleotime-tool.ts. */
+/** Mirrors `sceneAt` in webmapx-deeptime-tool.ts. */
 function sceneAt(scenes: Scenes, ma: number): Scene | null {
     for (const period of scenes.periods) {
         if (period.fromMa === 0 && period.toMa === 0) continue;

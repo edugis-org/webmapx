@@ -2,7 +2,7 @@
  * The geological clock: a slider through hundreds of millions of years.
  *
  * The tool owns the *time*, not the data. Everything it does is to move
- * `store.paleoTimeMa`, and any layer whose source url mentions `{ma}` redraws
+ * `store.deepTimeMa`, and any layer whose source url mentions `{ma}` redraws
  * itself — the same arrangement `{click}` already uses. So a story step can pin
  * an age without this tool being open, a second layer can draw the same age in
  * another way, and the panel stays a slider and a play button.
@@ -13,7 +13,7 @@
  *
  * Configured with the directory the plate model was built into:
  *
- *   { "type": "paleotime", "data": "data/paleo/merdith2021", "to": 400 }
+ *   { "type": "deeptime", "data": "data/paleo/merdith2021", "to": 400 }
  */
 import { html, css, svg, nothing, type TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -48,11 +48,11 @@ const DEFAULT_CREDIT = {
     abstract: 'Present-day coastlines carried back to the chosen age on the plates they ride, using the Merdith et al. (2021) rotation model (1000–0 Ma). The shapes are today\u2019s outlines rotated as rigid blocks: crust that has since been shortened or stretched is not shown, so continents meet later here than the rocks say. Longitude in deep time is far less certain than latitude.',
 };
 
-const LAYER_ID = 'paleotime-coastlines';
-const PLATES_SOURCE_ID = 'paleotime-plates-source';
-const BOUNDARY_LAYER_ID = 'paleotime-plate-boundaries';
-const DEFORMING_LAYER_ID = 'paleotime-deforming';
-const SOURCE_ID = 'paleotime-coastlines-source';
+const LAYER_ID = 'deeptime-coastlines';
+const PLATES_SOURCE_ID = 'deeptime-plates-source';
+const BOUNDARY_LAYER_ID = 'deeptime-plate-boundaries';
+const DEFORMING_LAYER_ID = 'deeptime-deforming';
+const SOURCE_ID = 'deeptime-coastlines-source';
 
 /**
  * How fast play runs, in millions of years per second of real time.
@@ -201,9 +201,9 @@ interface ModelChoice {
     platesAbstract?: string;
 }
 
-@customElement('webmapx-paleotime-tool')
-export class WebmapxPaleotimeTool extends WebmapxModalTool {
-    readonly toolId = 'paleotime';
+@customElement('webmapx-deeptime-tool')
+export class WebmapxDeeptimeTool extends WebmapxModalTool {
+    readonly toolId = 'deeptime';
 
     /** Directory holding `coastlines-present.geojson` and `rotations-*.json`. */
     @property({ type: String }) data = DEFAULT_DATA;
@@ -371,7 +371,7 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
      * data is here means the map never flashes an empty globe.
      */
     /**
-     * Reads `tools.paleotime` from the configuration.
+     * Reads `tools.deeptime` from the configuration.
      *
      * An attribute written on the element wins, so a test page or an embedding
      * host can point one instance somewhere else without editing the config.
@@ -664,7 +664,7 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
         // Reopening picks up the age the map already stands at, since closing
         // the panel leaves it alone. Only when nothing has set one does this
         // fall back to the tool's own starting age.
-        const standing = this.store.getState().paleoTimeMa;
+        const standing = this.store.getState().deepTimeMa;
         if (standing !== null && standing !== undefined) this.ma = standing;
         this.ma = Math.min(Math.max(this.ma, this.from), this.to);
         this.publish();
@@ -754,7 +754,7 @@ export class WebmapxPaleotimeTool extends WebmapxModalTool {
 
     /** Hands the age to the store, which is what actually redraws anything. */
     private publish(): void {
-        this.store?.dispatch({ paleoTimeMa: this.ma }, 'UI');
+        this.store?.dispatch({ deepTimeMa: this.ma }, 'UI');
     }
 
     /**

@@ -2,11 +2,11 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>ui-test host — paleotime</title>
+  <title>ui-test host — deeptime</title>
   <!--
     A host page owned by the UI suite, not by testpages/.
 
-    tool-paleotime.mjs used to drive testpages/paleotime.html, which exists for
+    tool-deeptime.mjs used to drive testpages/deeptime.html, which exists for
     working on the tool by hand: it can be restyled, repointed or thrown away
     without anyone thinking about the test that quietly depended on it. Same
     coupling the suites used to have to config/demo.json, and the same fix —
@@ -23,7 +23,7 @@
       The panel is placed after the map in the DOM, so it paints over it without
       a stacking number to outbid later.
     */
-    webmapx-paleotime-tool {
+    webmapx-deeptime-tool {
       position: absolute;
       top: 10px;
       right: 10px;
@@ -42,9 +42,9 @@
 </head>
 <body>
   <webmapx-map id="map-container" adapter="maplibre" src="/tests/fixtures/demo.json">
-    <!-- No `data` attribute: it comes from `tools.paleotime` in the config and
+    <!-- No `data` attribute: it comes from `tools.deeptime` in the config and
          resolves against the config's own location. -->
-    <webmapx-paleotime-tool tool-id="paleotime" label="Deep time" active></webmapx-paleotime-tool>
+    <webmapx-deeptime-tool tool-id="deeptime" label="Deep time" active></webmapx-deeptime-tool>
   </webmapx-map>
   <script>
     // ?adapter=openlayers|leaflet|cesium switches engine, and ?config= repoints
@@ -58,7 +58,7 @@
     if (requestedConfig) mapElement.setAttribute('src', requestedConfig);
   </script>
   <script type="module">
-    import '../../../src/components/webmapx-paleotime-tool.ts';
+    import '../../../src/components/webmapx-deeptime-tool.ts';
   </script>
 </body>
 </html>

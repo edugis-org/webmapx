@@ -117,7 +117,7 @@ export const TOOL_REGISTRY: readonly ToolRegistryEntry[] = [
     { id: 'buffer', tag: 'webmapx-buffer-tool', placement: 'toolbar', label: 'Buffer', icon: { src: bufferIconUrl } },
     { id: 'geoprocessing', tag: 'webmapx-geoprocessing-tool', placement: 'toolbar', label: 'Analysis', icon: 'intersect' },
     { id: 'stories', tag: 'webmapx-stories-tool', placement: 'toolbar', label: 'Stories', icon: 'book' },
-    { id: 'paleotime', tag: 'webmapx-paleotime-tool', placement: 'toolbar', label: 'Deep time', icon: { src: dinosaurIconUrl } },
+    { id: 'deeptime', tag: 'webmapx-deeptime-tool', placement: 'toolbar', label: 'Deep time', icon: { src: dinosaurIconUrl } },
 
     // --- standalone map furniture, in the order the setup page offers them ---
     { id: 'navigation', tag: 'webmapx-navigation-control', placement: 'standalone', label: 'Navigation', icon: 'compass', bundled: true },

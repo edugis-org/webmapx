@@ -18,7 +18,7 @@ const TOOL_MAP: Record<string, () => Promise<unknown>> = {
   truearea:        () => import('../components/webmapx-truearea-tool.js'),
   projection:      () => import('../components/webmapx-projection-tool.js'),
   timeSlider:      () => import('../components/webmapx-time-slider-tool.js'),
-  paleotime:       () => import('../components/webmapx-paleotime-tool.js'),
+  deeptime:       () => import('../components/webmapx-deeptime-tool.js'),
   cartogram:       () => import('../components/webmapx-cartogram-tool.js'),
   coordinates:     () => import('../components/webmapx-coordinates-tool.js'),
   settings:        () => import('../components/webmapx-settings.js'),

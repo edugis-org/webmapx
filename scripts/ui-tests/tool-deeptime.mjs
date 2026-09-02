@@ -1,8 +1,8 @@
 import { FIXTURE_CONFIG } from './lib/fixture-config.mjs';
 /**
- * UI Test: the paleotime tool
+ * UI Test: the deeptime tool
  *
- * The whole design rests on one indirection — the tool moves `store.paleoTimeMa`,
+ * The whole design rests on one indirection — the tool moves `store.deepTimeMa`,
  * and the layer redraws because its url mentions `{ma}` — and that indirection
  * is exactly what a screenshot cannot check. Broken, the map simply shows
  * today's coastlines whatever the slider says, which looks like a working tool.
@@ -11,10 +11,10 @@ import { FIXTURE_CONFIG } from './lib/fixture-config.mjs';
  * source actually holds: that it moves when the age moves, that it moves *back*
  * to where it started, and that the layer is gone when the tool closes.
  */
-// A host page the suite owns. testpages/paleotime.html is for working on the
+// A host page the suite owns. testpages/deeptime.html is for working on the
 // tool by hand and may change or go; a test should not be what stops it.
-const PAGE = 'scripts/ui-tests/pages/paleotime.html';
-const SOURCE = 'paleotime-coastlines-source';
+const PAGE = 'scripts/ui-tests/pages/deeptime.html';
+const SOURCE = 'deeptime-coastlines-source';
 
 // Cesium passes but is excluded from the routine run: it is much slower here
 // and its remaining quirks are tracked separately. Run it explicitly with
@@ -40,7 +40,7 @@ async function worldCentre(page, sourceId) {
     return page.evaluate(async (source) => {
         const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
         const data = adapter.getSourceData(source)
-            ?? adapter.getSourceData(`paleotime-coastlines:${source}`);
+            ?? adapter.getSourceData(`deeptime-coastlines:${source}`);
         if (!data?.features?.length) return null;
         let sx = 0, sy = 0, n = 0;
         const walk = (node) => {
@@ -56,13 +56,13 @@ async function worldCentre(page, sourceId) {
 async function setAge(page, ma) {
     await page.evaluate(async (value) => {
         const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
-        adapter.store.dispatch({ paleoTimeMa: value }, 'UI');
+        adapter.store.dispatch({ deepTimeMa: value }, 'UI');
     }, ma);
     await new Promise((resolve) => setTimeout(resolve, 400));
 }
 
 export async function run({ page, engine, baseUrl }) {
-    console.log(`  Running paleotime tool test for engine: ${engine}`);
+    console.log(`  Running deeptime tool test for engine: ${engine}`);
 
     await page.goto(`${baseUrl}/${PAGE}?adapter=${engine}&config=${encodeURIComponent(FIXTURE_CONFIG)}`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(async () => {
@@ -91,7 +91,7 @@ export async function run({ page, engine, baseUrl }) {
     // drawn correctly half a second later.
     await waitFor(page, 60_000, async () => {
         const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
-        const data = adapter.getSourceData('paleotime-coastlines-source');
+        const data = adapter.getSourceData('deeptime-coastlines-source');
         return Boolean(data?.features?.length);
     }, 'the coastline layer to appear');
 
@@ -106,7 +106,7 @@ export async function run({ page, engine, baseUrl }) {
         const named = await page.evaluate(async (source) => {
             const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
             const data = adapter.getSourceData(source)
-                ?? adapter.getSourceData(`paleotime-coastlines:${source}`);
+                ?? adapter.getSourceData(`deeptime-coastlines:${source}`);
             return [...new Set(data.features.map((f) => f.properties?.continent))].filter(Boolean).sort();
         }, SOURCE);
         // Colour by landmass is the point of the layer; without this property
@@ -142,15 +142,15 @@ export async function run({ page, engine, baseUrl }) {
         // we know. Running it the other way is a rewind and reads as one.
         const seen = await page.evaluate(async () => {
             const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
-            const tool = document.querySelector('webmapx-paleotime-tool');
-            adapter.store.dispatch({ paleoTimeMa: 0 }, 'UI');
+            const tool = document.querySelector('webmapx-deeptime-tool');
+            adapter.store.dispatch({ deepTimeMa: 0 }, 'UI');
             await new Promise((r) => setTimeout(r, 300));
             tool.shadowRoot.querySelector('button.play').click();
             // Pressing play at the present must jump to the far end and start.
             await new Promise((r) => setTimeout(r, 400));
-            const started = adapter.store.getState().paleoTimeMa;
+            const started = adapter.store.getState().deepTimeMa;
             await new Promise((r) => setTimeout(r, 1200));
-            const later = adapter.store.getState().paleoTimeMa;
+            const later = adapter.store.getState().deepTimeMa;
             tool.shadowRoot.querySelector('button.play').click();
             return { started, later };
         });
@@ -173,14 +173,14 @@ export async function run({ page, engine, baseUrl }) {
     await step('closing the tool leaves both its layer and the age standing', async () => {
         await setAge(page, 180);
         await page.evaluate(() => {
-            document.querySelector('webmapx-paleotime-tool').deactivate();
+            document.querySelector('webmapx-deeptime-tool').deactivate();
         });
         await new Promise((resolve) => setTimeout(resolve, 500));
         const left = await page.evaluate(async () => {
             const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
             return {
-                layer: Boolean(adapter.store.getState().mapLayers['paleotime-coastlines']),
-                ma: adapter.store.getState().paleoTimeMa,
+                layer: Boolean(adapter.store.getState().mapLayers['deeptime-coastlines']),
+                ma: adapter.store.getState().deepTimeMa,
             };
         });
         // Closing the panel is how you get the map to itself — to measure the
@@ -195,14 +195,14 @@ export async function run({ page, engine, baseUrl }) {
 
     await step('reopening it resumes at the age the map stands at', async () => {
         const resumed = await page.evaluate(async () => {
-            const tool = document.querySelector('webmapx-paleotime-tool');
+            const tool = document.querySelector('webmapx-deeptime-tool');
             tool.active = true;
             await new Promise((r) => setTimeout(r, 3000));
             const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
-            return adapter.store.getState().paleoTimeMa;
+            return adapter.store.getState().deepTimeMa;
         });
         if (resumed !== 180) fail(`reopening moved the age to ${resumed}`);
-        await page.evaluate(() => document.querySelector('webmapx-paleotime-tool').deactivate());
+        await page.evaluate(() => document.querySelector('webmapx-deeptime-tool').deactivate());
         await new Promise((resolve) => setTimeout(resolve, 500));
     });
 
@@ -218,13 +218,13 @@ export async function run({ page, engine, baseUrl }) {
         // map first — what a user does in the legend. This scenario is about a
         // map that has the catalog layer and nothing else.
         await page.evaluate(() => {
-            document.querySelector('webmapx-map').removeInlineLayer('paleotime-coastlines');
+            document.querySelector('webmapx-map').removeInlineLayer('deeptime-coastlines');
         });
         await new Promise((resolve) => setTimeout(resolve, 500));
         await page.evaluate(async () => {
             const map = document.querySelector('webmapx-map');
             const adapter = await map.getAdapterAsync();
-            adapter.store.dispatch({ paleoTimeMa: 150 }, 'UI');
+            adapter.store.dispatch({ deepTimeMa: 150 }, 'UI');
             await map.addLayerRequest({ layerId: 'paleo-coastlines' });
         });
         await waitFor(page, 60_000, async () => {
@@ -236,10 +236,10 @@ export async function run({ page, engine, baseUrl }) {
     await step('the tool draws no second copy over it', async () => {
         const own = await page.evaluate(async () => {
             const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
-            const tool = document.querySelector('webmapx-paleotime-tool');
+            const tool = document.querySelector('webmapx-deeptime-tool');
             tool.active = true;
             await new Promise((r) => setTimeout(r, 4000));
-            return Boolean(adapter.store.getState().mapLayers['paleotime-coastlines']);
+            return Boolean(adapter.store.getState().mapLayers['deeptime-coastlines']);
         });
         if (own) fail('the tool added its own layer on top of the catalog one');
     });
@@ -247,7 +247,7 @@ export async function run({ page, engine, baseUrl }) {
     await step('and closing it leaves the catalog layer alone', async () => {
         const kept = await page.evaluate(async () => {
             const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
-            document.querySelector('webmapx-paleotime-tool').deactivate();
+            document.querySelector('webmapx-deeptime-tool').deactivate();
             await new Promise((r) => setTimeout(r, 800));
             return Boolean(adapter.store.getState().mapLayers['paleo-coastlines']);
         });

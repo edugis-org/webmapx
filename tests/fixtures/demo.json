@@ -3101,7 +3101,7 @@
       "provider": "nominatim",
       "attribution": "&copy; OpenStreetMap contributors | &copy; Nominatim"
     },
-    "paleotime": {
+    "deeptime": {
       "enabled": true,
       "data": "../../public/config/data/paleo/merdith2021",
       "to": 1000
@@ -3401,8 +3401,8 @@
           "keywords": ["time", "date", "clock", "sun", "moon", "season", "daylight"]
         },
         {
-          "id": "paleotime",
-          "type": "paleotime",
+          "id": "deeptime",
+          "type": "deeptime",
           "enabled": true,
           "title": "Deep time",
           "keywords": ["plate", "tectonics", "continent", "pangaea", "geology", "palaeo", "coastline", "drift"]
