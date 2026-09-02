@@ -8,6 +8,7 @@ import { MapStateStore } from '../../store/map-state-store';
 import OLMap from 'ol/Map';
 import { featureProjectionOf } from './projection-support';
 import { transformExtent } from 'ol/proj';
+import { intersects } from 'ol/extent';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import VectorTileLayer from 'ol/layer/VectorTile';
@@ -35,6 +36,12 @@ import Style from 'ol/style/Style';
 import Fill from 'ol/style/Fill';
 
 const WARPEDMAP_PROTOCOL = 'warpedmap://';
+
+/**
+ * A box big enough to hold any projected world, used only to ask a vector-tile
+ * layer for everything it currently holds. See queryLayerFeatures.
+ */
+const WORLD_EXTENT: [number, number, number, number] = [-2e7, -2e7, 2e7, 2e7];
 
 export class MapLayerService implements ILayerService {
     private map: OLMap;
@@ -1323,15 +1330,38 @@ export class MapLayerService implements ILayerService {
             // Iceland and Finland with nothing said.
             const sourceProjection = source.getProjection?.()?.getCode() ?? 'EPSG:3857';
             const viewExtent = view.calculateExtent(mapSize as [number, number]);
-            const extent = sourceProjection === viewProjection
+            const sameProjection = sourceProjection === viewProjection;
+            // What the view covers, in the frame the features are actually in.
+            const wantedExtent = sameProjection
                 ? viewExtent
                 : transformExtent(viewExtent, viewProjection, sourceProjection);
 
+            // On a reprojected view, `getFeaturesInExtent` only answers for a
+            // world-sized box: asked for the view's own extent it returns
+            // nothing, in either frame, while the features are loaded and drawn.
+            // Measured over the Netherlands at 927 m/pixel in EPSG:6933 — the
+            // same tiles fetched as in Mercator, the same ground scale — the
+            // view extent found 0 features and the whole world found 258.
+            //
+            // So the extent lookup is not asked to be precise here. The layer is
+            // asked for everything it holds and the view extent is applied
+            // below, against each feature's own extent, which keeps the
+            // "whatever the map has drawn" contract without depending on how OL
+            // indexes tiles for a projection the source was not published in.
+            const queryExtent = sameProjection ? viewExtent : WORLD_EXTENT;
+
             let tileFeatures: any[];
             try {
-                tileFeatures = (layer.getFeaturesInExtent?.(extent) as any[]) ?? [];
+                tileFeatures = (layer.getFeaturesInExtent?.(queryExtent) as any[]) ?? [];
             } catch (_) {
                 tileFeatures = [];
+            }
+
+            if (!sameProjection) {
+                tileFeatures = tileFeatures.filter((f) => {
+                    const featureExtent = f.getExtent?.() ?? f.getGeometry?.()?.getExtent?.();
+                    return featureExtent ? intersects(featureExtent, wantedExtent) : true;
+                });
             }
 
             for (const f of tileFeatures) {
