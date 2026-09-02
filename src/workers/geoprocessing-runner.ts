@@ -434,7 +434,18 @@ export async function runGeoprocess(
             '-skipfailures',
         ], 'gp_output');
 
-        return withWarnings(dropEmptyGeometries(await readFeatureCollection(gdal, pathOf(back)), warnings), warnings);
+        const output = dropEmptyGeometries(await readFeatureCollection(gdal, pathOf(back)), warnings);
+        // An empty answer is a real answer, and worth saying out loud: erasing a
+        // shape with itself, or selecting by a location nothing is near, leaves
+        // a layer with nothing in it, and a silently empty layer reads as a
+        // failure. Operations that cut geometry now discard their empty rows in
+        // SQL — they have to, or GDAL drops every feature behind the first empty
+        // one — so `dropEmptyGeometries` no longer sees them and cannot report
+        // it. This says the same thing about the result as a whole.
+        if (output.features.length === 0) {
+            warnings.push(`${operation.label} returned nothing: no geometry left after the operation.`);
+        }
+        return withWarnings(output, warnings);
     } finally {
         if (resultDataset) await gdal.close(resultDataset);
         await db.close();

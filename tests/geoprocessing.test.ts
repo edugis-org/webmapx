@@ -309,6 +309,102 @@ test('spatial join copies attributes and keeps every input feature', { timeout: 
     assert.equal(byId.get('p3')?.name ?? null, null, 'unmatched feature must have no joined value');
 });
 
+/**
+ * `contains` and `within` are opposites, and the argument order is the whole
+ * difference between them.
+ *
+ * `ST_Within(A, B)` and `ST_Contains(B, A)` are the same statement, so writing
+ * the `contains` predicate as `ST_Contains(b, a)` made the two menu options run
+ * an identical query: both answered "the first layer's feature lies inside the
+ * second", and the option labelled *contains* could never say anything the one
+ * labelled *lies inside* had not already said.
+ *
+ * Found by generating the documentation from real runs — the worked example put
+ * the two side by side and they came out identical, on data where they must
+ * differ. The fixture below is deliberately asymmetric: BIG contains SMALL, and
+ * SMALL does not contain BIG, so a predicate pointing the wrong way is a
+ * different answer rather than the same one.
+ */
+const BIG: FC = fc(square(0, 0, 10, { name: 'big' }));
+const SMALL: FC = fc(square(4, 4, 2, { name: 'small' }));
+
+test('spatial join: contains and within are opposites, not synonyms', { timeout: TIMEOUT }, async () => {
+    // The big square contains the small one, so joining big→small on `contains`
+    // matches, and on `within` does not.
+    const bigContainsSmall = await run('spatialJoin', BIG, SMALL, { relation: 'contains' });
+    assert.equal(bigContainsSmall.features[0].properties?.name_2, 'small',
+        'BIG contains SMALL, so `contains` must match');
+
+    const bigWithinSmall = await run('spatialJoin', BIG, SMALL, { relation: 'within' });
+    assert.equal(bigWithinSmall.features[0].properties?.name_2 ?? null, null,
+        'BIG is not inside SMALL, so `within` must not match');
+
+    // And the mirror image, so neither direction is right by accident.
+    const smallWithinBig = await run('spatialJoin', SMALL, BIG, { relation: 'within' });
+    assert.equal(smallWithinBig.features[0].properties?.name_2, 'big',
+        'SMALL is inside BIG, so `within` must match');
+
+    const smallContainsBig = await run('spatialJoin', SMALL, BIG, { relation: 'contains' });
+    assert.equal(smallContainsBig.features[0].properties?.name_2 ?? null, null,
+        'SMALL does not contain BIG, so `contains` must not match');
+});
+
+test('spatial join keeps every feature whatever the relation matches', { timeout: TIMEOUT }, async () => {
+    // A left join: a feature that matches nothing still comes back, with the
+    // second layer's columns empty. Otherwise "no match" and "lost feature"
+    // would look the same in the output.
+    for (const relation of ['intersects', 'within', 'contains']) {
+        const out = await run('spatialJoin', SMALL, BIG, { relation });
+        assert.equal(out.features.length, 1, `${relation} must keep the input feature`);
+        assert.equal(out.features[0].properties?.name, 'small');
+    }
+});
+
+/**
+ * A layer's contents must not depend on the order its features sit in.
+ *
+ * Erase leaves nothing behind for a feature the erase layer covers completely,
+ * and clip leaves nothing for one the clip layer never touches. That row's
+ * geometry is empty — and GDAL derives the output layer's geometry type from
+ * the first feature it writes, so an empty one gave it nothing to go on and
+ * **every later feature was dropped with it**. Erasing two points with a box
+ * over the first returned nothing at all; the same two points in the other
+ * order returned the survivor.
+ *
+ * `dropEmptyGeometries` in the runner cannot catch this: by the time it sees
+ * the collection, the rows were never written. The empties have to be filtered
+ * in SQL, before the file exists.
+ */
+const COVERED_FIRST: FC = fc(
+    { type: 'Feature', properties: { id: 'covered' }, geometry: { type: 'Point', coordinates: [0.5, 0.5] } },
+    { type: 'Feature', properties: { id: 'survivor' }, geometry: { type: 'Point', coordinates: [8, 8] } },
+);
+const COVERED_LAST: FC = fc(
+    { type: 'Feature', properties: { id: 'survivor' }, geometry: { type: 'Point', coordinates: [8, 8] } },
+    { type: 'Feature', properties: { id: 'covered' }, geometry: { type: 'Point', coordinates: [0.5, 0.5] } },
+);
+
+test('erase keeps the survivors whichever order they arrive in', { timeout: TIMEOUT }, async () => {
+    for (const [label, input] of [['covered first', COVERED_FIRST], ['covered last', COVERED_LAST]] as const) {
+        const out = await run('erase', input, LEFT);
+        assert.equal(out.features.length, 1, `${label}: the point outside the erase shape must survive`);
+        assert.equal(out.features[0].properties?.id, 'survivor', label);
+    }
+});
+
+test('clip keeps the overlapping features whichever order they arrive in', { timeout: TIMEOUT }, async () => {
+    // The mirror image: for clip it is the feature *outside* that comes back
+    // empty, so a layer whose first feature misses the clip shape used to lose
+    // the ones that hit it.
+    const missFirst: FC = fc(
+        { type: 'Feature', properties: { id: 'miss' }, geometry: { type: 'Point', coordinates: [8, 8] } },
+        { type: 'Feature', properties: { id: 'hit' }, geometry: { type: 'Point', coordinates: [0.5, 0.5] } },
+    );
+    const out = await run('clip', missFirst, LEFT);
+    assert.equal(out.features.length, 1, 'the point inside the clip shape must survive');
+    assert.equal(out.features[0].properties?.id, 'hit');
+});
+
 // ─── Single-input operations ─────────────────────────────────────────────────
 
 test('dissolve without a group merges everything into one feature', { timeout: TIMEOUT }, async () => {
@@ -610,7 +706,9 @@ test('dissolve keeps a group whose parts are invalid', { timeout: TIMEOUT }, asy
 });
 
 test('a result that loses its geometry is reported, not silently missing', { timeout: TIMEOUT }, async () => {
-    // Erasing a shape with itself leaves nothing at all.
+    // Erasing a shape with itself leaves nothing at all. The empty row is
+    // filtered in SQL now — it has to be, or GDAL drops everything behind it —
+    // so the report is about the result as a whole rather than about the row.
     const out = await run('erase', LEFT, LEFT);
     assert.equal(out.features.length, 0);
     assert.match((out as { warnings?: string[] }).warnings?.join(' ') ?? '', /no geometry left/);

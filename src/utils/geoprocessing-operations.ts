@@ -994,6 +994,29 @@ function unionValid(expression: string): string {
     return `ST_Union(ST_MakeValid(${expression}))`;
 }
 
+/**
+ * Drops rows whose geometry came out empty, in SQL rather than afterwards.
+ *
+ * An operation that cuts one layer by another leaves nothing behind for a
+ * feature the other layer covers completely (erase) or never touches (clip).
+ * That row's geometry is empty, and an empty geometry is not merely useless —
+ * GDAL derives the output layer's geometry type from what it writes first, and
+ * an empty one gives it nothing to go on, so **every later feature is dropped
+ * too**. Measured: erasing two points with a box over the first returned
+ * nothing at all, while putting the same two points in the other order returned
+ * the survivor. A layer's contents are not supposed to depend on the order its
+ * features happen to sit in.
+ *
+ * `dropEmptyGeometries` in the runner cannot fix this — by the time it sees the
+ * collection, GDAL has already declined to write the rows. The empty ones have
+ * to be gone before the file is written.
+ */
+function withoutEmptyGeometry(inner: string, fields: string[]): string {
+    const carried = fields.map(f => q(f)).join(', ');
+    return `SELECT ${selectList(carried, 'geometry')} FROM (${inner})`
+        + ` WHERE geometry IS NOT NULL AND NOT ST_IsEmpty(geometry)`;
+}
+
 function differenceFromAll(target: string, table: string | null): string {
     return `ST_Difference(${target}, (SELECT ${unionValid('geometry')} FROM ${table}))`;
 }
@@ -1164,9 +1187,22 @@ function simplifyShared(input: GeoJSON.FeatureCollection, params: GeoParamValues
         : { type: 'FeatureCollection', features: [result] };
 }
 
+/**
+ * The spatial tests a join can match on, as SQL.
+ *
+ * `contains` and `within` are opposites and the argument order is the whole
+ * difference between them: `ST_Within(A, B)` and `ST_Contains(B, A)` are the
+ * same statement, so writing `contains` as `ST_Contains(b, a)` made the two menu
+ * options run an identical query. Both then answered "the first layer's feature
+ * lies inside the second", and the option labelled *contains* could never say
+ * anything the one labelled *lies inside* had not already said.
+ *
+ * The label is what settles the direction: "Match when the first layer's feature
+ * contains" means A contains B.
+ */
 const PREDICATES: Record<string, (a: string, b: string) => string> = {
     intersects: (a, b) => `ST_Intersects(${a}, ${b})`,
-    contains: (a, b) => `ST_Contains(${b}, ${a})`,
+    contains: (a, b) => `ST_Contains(${a}, ${b})`,
     within: (a, b) => `ST_Within(${a}, ${b})`,
 };
 
@@ -1195,9 +1231,9 @@ export const GEO_OPERATIONS: GeoOperation[] = [
         // overlapping pair, turning one input feature into several. That
         // per-pair behaviour is what `intersect` is for; clip must preserve the
         // input's feature count.
-        buildSql: ({ layerA, refB, fieldsA }) => `
+        buildSql: ({ layerA, refB, fieldsA }) => withoutEmptyGeometry(`
             SELECT ${selectList(cols('a', fieldsA), `ST_Intersection(a.geometry, (SELECT ${unionValid('geometry')} FROM ${refB})) AS geometry`)}
-            FROM ${q(layerA)} a`,
+            FROM ${q(layerA)} a`, fieldsA),
     },
     {
         id: 'erase',
@@ -1213,9 +1249,9 @@ export const GEO_OPERATIONS: GeoOperation[] = [
         outputName: (a, b) => `${a} minus ${b}`,
         // ST_Union over b collapses all erase features first: erasing against each
         // b feature separately would multiply a's features instead of subtracting.
-        buildSql: ({ layerA, refB, fieldsA }) => `
+        buildSql: ({ layerA, refB, fieldsA }) => withoutEmptyGeometry(`
             SELECT ${selectList(cols('a', fieldsA), `${differenceFromAll('a.geometry', refB)} AS geometry`)}
-            FROM ${q(layerA)} a`,
+            FROM ${q(layerA)} a`, fieldsA),
     },
     {
         id: 'intersect',
