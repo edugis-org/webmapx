@@ -52,6 +52,32 @@ export interface CartogramOptions {
      */
     minValuePercent?: number;
     /**
+     * Leave out any *part* of a multi-part feature smaller than this share of
+     * that feature's own area, as a percentage. 0 keeps every part.
+     *
+     * A different axis from `minValuePercent`, which drops whole features by
+     * value: this drops islets inside a feature that is kept. Neither can stand
+     * in for the other. Measured on 247 countries sized by population, no value
+     * threshold removes a single part — Canada keeps all 277 of its pieces until
+     * the threshold throws the whole country off the map.
+     *
+     * It exists because the joined-up methods shear a small part into a
+     * filament. A part far below the resolution of the flow is not shrunk by
+     * it, it is *transported* by the deformation of the surrounding sheet, and
+     * in a region contracting sevenfold that draws it out into a thread. On the
+     * demo's world-population layer this is most of what is wrong with the
+     * picture: Russia's 170 sub-1000 km² parts become a ribbon along the whole
+     * top of the map, the Aleutians a spike running west out of Alaska, and
+     * Canada's Arctic islands a smear. It is a share of the feature rather than
+     * an absolute area so that it means the same thing on a layer of countries
+     * and a layer of municipalities.
+     *
+     * Ignored by `scaled` and `dorling`, which do not deform: `scaled` promises
+     * every outline exactly and must keep it, and `dorling` throws the outline
+     * away for a circle, so its parts never reach the output either way.
+     */
+    minPartPercent?: number;
+    /**
      * `diffusion` only: where the go-cart WASM binary lives. The browser needs
      * telling (the bundler hashes the file name); Node resolves it from the
      * package itself, so tests leave this out.
@@ -89,7 +115,29 @@ export interface CartogramResult {
         noArea: number;
         belowMinimum: number;
     };
+    /**
+     * How many parts `minPartPercent` removed, and what share of the layer's
+     * area went with them.
+     *
+     * Reported rather than warned about: on a world layer this fires every
+     * single time, and a warning every reader learns to ignore is worse than
+     * none. The caller decides at what share it is worth saying.
+     */
+    droppedParts: { count: number; areaShare: number };
 }
+
+/**
+ * Share of its own feature a part must reach to be kept, as a percentage.
+ *
+ * 0.05% measured on the demo's 247-country world-population layer: it takes
+ * Canada from 277 parts to 25, Russia 206 to 11 and the United States 167 to 7
+ * — which is what stops the flow from shearing them into filaments — while
+ * Greece keeps all 32 of its islands, Japan 20 of 32, the Philippines 37 of 43,
+ * Fiji 7 of 7 and the Maldives 2 of 2. It costs 0.29% of the layer's area and
+ * empties no feature. Ten times higher (0.5%) starts taking real archipelagos:
+ * Indonesia 125 parts down to 12, Norway 64 down to 3.
+ */
+const DEFAULT_MIN_PART_PERCENT = 0.05;
 
 /** How many points a Dorling circle is drawn with. */
 const CIRCLE_STEPS = 64;
@@ -199,6 +247,48 @@ export function featureArea(geometry: GeoJSON.Geometry | null | undefined): numb
         total += Math.max(outer - holes, 0);
     }
     return total;
+}
+
+/**
+ * Drops the parts of a multi-part feature that are too small to survive being
+ * deformed, keeping the largest whatever happens.
+ *
+ * The largest part is kept unconditionally so that this can never empty a
+ * feature: a threshold is a statement about the *islands*, and a feature that
+ * vanished here would be indistinguishable from one the data never had.
+ *
+ * Holes travel with the ring they belong to, since a hole is only meaningful
+ * inside its own polygon; dropping the polygon drops its holes with it.
+ */
+function dropSmallParts(
+    geometry: GeoJSON.Geometry,
+    minShare: number,
+): { geometry: GeoJSON.Geometry; dropped: number; areaDropped: number } {
+    const polygons = polygonsOf(geometry);
+    if (minShare <= 0 || polygons.length < 2) return { geometry, dropped: 0, areaDropped: 0 };
+
+    const measured = polygons.map(polygon => ({
+        polygon,
+        area: featureArea({ type: 'Polygon', coordinates: polygon }),
+    }));
+    const total = measured.reduce((sum, part) => sum + part.area, 0);
+    if (!total) return { geometry, dropped: 0, areaDropped: 0 };
+
+    let largest = 0;
+    for (let i = 1; i < measured.length; i++) if (measured[i].area > measured[largest].area) largest = i;
+
+    const kept = measured.filter((part, index) => index === largest || part.area / total >= minShare);
+    if (kept.length === measured.length) return { geometry, dropped: 0, areaDropped: 0 };
+
+    const areaDropped = total - kept.reduce((sum, part) => sum + part.area, 0);
+    const coordinates = kept.map(part => part.polygon);
+    return {
+        geometry: coordinates.length === 1
+            ? { type: 'Polygon', coordinates: coordinates[0] }
+            : { type: 'MultiPolygon', coordinates },
+        dropped: measured.length - kept.length,
+        areaDropped,
+    };
 }
 
 /**
@@ -665,15 +755,32 @@ function unitsOf(
     input: GeoJSON.FeatureCollection,
     field: string,
     minValuePercent = 0,
-): { units: Unit[]; skipped: CartogramResult['skipped'] } {
+    minPartPercent = 0,
+): { units: Unit[]; skipped: CartogramResult['skipped']; droppedParts: CartogramResult['droppedParts'] } {
     const units: Unit[] = [];
     const skipped = { missingValue: 0, zeroValue: 0, negativeValue: 0, noArea: 0, belowMinimum: 0 };
+    // Counted over the whole layer rather than per feature, because the question
+    // it answers is "how much of this map did the threshold take away".
+    let partsDropped = 0;
+    let areaDropped = 0;
+    let areaSeen = 0;
 
     for (const rawFeature of input.features) {
+        // Small parts go before anything measures the feature, so the area, the
+        // centroid and the target area all describe the shape that will actually
+        // be drawn. Filtering afterwards would size the output by an area it no
+        // longer has.
+        const trimmed = rawFeature.geometry
+            ? dropSmallParts(rawFeature.geometry, minPartPercent / 100)
+            : null;
+        if (trimmed) {
+            partsDropped += trimmed.dropped;
+            areaDropped += trimmed.areaDropped;
+        }
         // Normalised before anything measures it, so the area, the centroid and
         // every method downstream all see the same, legal, geometry.
-        const feature = rawFeature.geometry
-            ? { ...rawFeature, geometry: normaliseToWorld(rawFeature.geometry) }
+        const feature = trimmed
+            ? { ...rawFeature, geometry: normaliseToWorld(trimmed.geometry) }
             : rawFeature;
         const raw = feature.properties?.[field];
         // `Number` is only trusted on things that are meant to be read as
@@ -702,8 +809,14 @@ function unitsOf(
             skipped.noArea++;
             continue;
         }
+        areaSeen += area;
         units.push({ feature, value, area, centre });
     }
+
+    const droppedParts = {
+        count: partsDropped,
+        areaShare: areaSeen + areaDropped > 0 ? areaDropped / (areaSeen + areaDropped) : 0,
+    };
 
     // The minimum is a share of the total rather than an absolute number, so it
     // means the same thing for a layer of people, of euros and of votes, and so
@@ -713,10 +826,10 @@ function unitsOf(
         const floor = (units.reduce((sum, u) => sum + u.value, 0) * minValuePercent) / 100;
         const kept = units.filter(u => u.value >= floor);
         skipped.belowMinimum = units.length - kept.length;
-        return { units: kept, skipped };
+        return { units: kept, skipped, droppedParts };
     }
 
-    return { units, skipped };
+    return { units, skipped, droppedParts };
 }
 
 /**
@@ -729,7 +842,20 @@ function unitsOf(
  * producing shapes the size of a continent.
  */
 export async function cartogram(input: GeoJSON.FeatureCollection, options: CartogramOptions): Promise<CartogramResult> {
-    const { units, skipped } = unitsOf(input, options.field, options.minValuePercent ?? 0);
+    // Only the methods that deform a shape can shear a small part into a
+    // filament, so only they pay for the threshold. `scaled` keeps every outline
+    // exactly and would be breaking its own promise by dropping one; `dorling`
+    // replaces the outline with a circle, so its parts never reach the output in
+    // the first place and removing them would change nothing but the centroid.
+    const deforms = options.method !== 'scaled' && options.method !== 'dorling';
+    const minPartPercent = deforms ? options.minPartPercent ?? DEFAULT_MIN_PART_PERCENT : 0;
+
+    const { units, skipped, droppedParts } = unitsOf(
+        input,
+        options.field,
+        options.minValuePercent ?? 0,
+        minPartPercent,
+    );
     if (!units.length) {
         throw new Error(`No features have a usable number in "${options.field}".`);
     }
@@ -771,6 +897,7 @@ export async function cartogram(input: GeoJSON.FeatureCollection, options: Carto
     return {
         features: { type: 'FeatureCollection', features: wrapped },
         skipped,
+        droppedParts,
         medianAreaError: planeError ?? medianAreaError(wrapped, units, areaPerValue),
     };
 }

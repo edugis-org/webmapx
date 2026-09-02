@@ -380,6 +380,16 @@ const AUTO_HOLE_FRACTION = 1e-3;
  */
 const MISLEADING_AREA_ERROR = 0.1;
 
+/**
+ * Share of a layer's area that has to go into dropped islands before the
+ * cartogram says so.
+ *
+ * The default threshold costs 0.29% on the demo's world-population layer, well
+ * under this, so a normal run stays quiet; 2% means the reader has lost
+ * something they would notice was missing.
+ */
+const NOTABLE_DROPPED_AREA = 0.02;
+
 
 function ringSignedArea(ring: GeoJSON.Position[]): number {
     let sum = 0;
@@ -1543,6 +1553,18 @@ export const GEO_OPERATIONS: GeoOperation[] = [
             },
             {
                 kind: 'number',
+                key: 'minPartPercent',
+                label: 'Leave out islands smaller than',
+                default: 0.05,
+                min: 0,
+                max: 5,
+                step: 0.01,
+                unit: '%',
+                showWhen: params => (params.method ?? 'flow') !== 'scaled' && params.method !== 'dorling',
+                hint: 'Share of the country (or region) the island belongs to. The joined-up types stretch a small island into a thread instead of shrinking it, which is what draws lines across the map. 0 keeps every island.',
+            },
+            {
+                kind: 'number',
                 key: 'iterations',
                 label: 'Separation rounds',
                 default: 60,
@@ -1580,6 +1602,12 @@ export const GEO_OPERATIONS: GeoOperation[] = [
             iterations: Number(params.iterations) || undefined,
             passes: Number(params.passes) || undefined,
                 minValuePercent: Number(params.minValuePercent) || 0,
+                // `?? undefined` rather than `|| undefined`: 0 is a real answer
+                // here — "keep every island" — and `||` would read it as unset
+                // and hand back the default, so the box could not be turned off.
+                minPartPercent: Number.isFinite(Number(params.minPartPercent))
+                    ? Number(params.minPartPercent)
+                    : undefined,
                 // The plane the flow method warps in is fixed inside
                 // `cartogram.ts` and deliberately not the map's own projection:
                 // a cartogram is a statement about *ground* area, so the same
@@ -1623,6 +1651,12 @@ export const GEO_OPERATIONS: GeoOperation[] = [
             }
             if (skipped.belowMinimum > 0) {
                 warnings.push(left(skipped.belowMinimum, 'a value below the minimum share.'));
+            }
+            // Islands are dropped on every world layer, so saying so every time
+            // would be a warning nobody reads. It is only worth a line when the
+            // threshold has taken enough of the map to change what it shows.
+            if (result.droppedParts.count > 0 && result.droppedParts.areaShare > NOTABLE_DROPPED_AREA) {
+                warnings.push(`${result.droppedParts.count} small islands were left out, ${(result.droppedParts.areaShare * 100).toFixed(0)}% of the layer's area. Lower "Leave out islands smaller than" to keep more of them.`);
             }
 
             return { ...result.features, warnings: warnings.length ? warnings : undefined };

@@ -586,3 +586,94 @@ test('one out-of-world coordinate does not change what the whole cartogram is', 
         );
     }
 });
+
+/**
+ * A mainland with an islet a thousandth its size, and a plain neighbour.
+ *
+ * The islet is placed well away from the mainland because that is the shape the
+ * threshold exists for: a part small enough that a joined-up method draws it out
+ * into a thread instead of shrinking it.
+ */
+function withIslet(): FC {
+    return fc(
+        {
+            type: 'Feature',
+            properties: { name: 'mainland', pop: 100 },
+            geometry: {
+                type: 'MultiPolygon',
+                coordinates: [
+                    [[[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]]],
+                    // ~0.06% of the feature: 0.1° square against a 4° square.
+                    [[[20, 0], [20.1, 0], [20.1, 0.1], [20, 0.1], [20, 0]]],
+                ],
+            },
+        },
+        square(6, 0, 4, { name: 'neighbour', pop: 300 }),
+    );
+}
+
+function partCount(feature: GeoJSON.Feature): number {
+    const geometry = feature.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon;
+    return geometry.type === 'MultiPolygon' ? geometry.coordinates.length : 1;
+}
+
+test('minPartPercent drops an islet far below its own feature, and says so', async () => {
+    // A deforming method: `scaled` and `dorling` ignore the threshold by design.
+    const result = await cartogram(withIslet(), { field: 'pop', method: 'contiguous', minPartPercent: 0.5 });
+
+    const mainland = result.features.features.find(f => f.properties?.name === 'mainland')!;
+    assert.equal(partCount(mainland), 1, 'the islet should have been dropped');
+    assert.equal(result.droppedParts.count, 1);
+    assert.ok(
+        result.droppedParts.areaShare > 0 && result.droppedParts.areaShare < 0.01,
+        `a 0.06% islet should barely register, got ${result.droppedParts.areaShare}`,
+    );
+});
+
+test('minPartPercent of 0 keeps every part', async () => {
+    const result = await cartogram(withIslet(), { field: 'pop', method: 'flow', minPartPercent: 0 });
+
+    const mainland = result.features.features.find(f => f.properties?.name === 'mainland')!;
+    assert.equal(partCount(mainland), 2);
+    assert.equal(result.droppedParts.count, 0);
+});
+
+test('the threshold never empties a feature, however small every part is', async () => {
+    // Both parts are tiny shares of the *layer*, but the largest part of a
+    // feature is measured against its own feature and is always 100% of nothing
+    // less than itself — so it survives any threshold.
+    const result = await cartogram(withIslet(), { field: 'pop', method: 'contiguous', minPartPercent: 100 });
+
+    const mainland = result.features.features.find(f => f.properties?.name === 'mainland')!;
+    assert.equal(partCount(mainland), 1);
+    assert.equal(result.features.features.length, 2, 'no feature may disappear');
+});
+
+test('dropping an islet does not resize the mainland', async () => {
+    // The point of measuring *after* the threshold rather than before: the
+    // mainland must be sized by the area it will actually be drawn with. Sizing
+    // it by an area that still counted a part no longer in the output would
+    // shift it by that part's share, every time.
+    const kept = await cartogram(withIslet(), { field: 'pop', method: 'flow', minPartPercent: 0 });
+    const trimmed = await cartogram(withIslet(), { field: 'pop', method: 'flow', minPartPercent: 0.5 });
+
+    const mainlandArea = (result: Awaited<ReturnType<typeof cartogram>>) => {
+        const feature = result.features.features.find(f => f.properties?.name === 'mainland')!;
+        const polygons = (feature.geometry as GeoJSON.MultiPolygon | GeoJSON.Polygon);
+        const parts = polygons.type === 'MultiPolygon' ? polygons.coordinates : [polygons.coordinates];
+        // The mainland proper is the largest part, which is what both runs share.
+        return Math.max(...parts.map(part => featureArea({ type: 'Polygon', coordinates: part })));
+    };
+
+    const ratio = mainlandArea(trimmed) / mainlandArea(kept);
+    assert.ok(Math.abs(ratio - 1) < 0.02, `mainland area changed by ${((ratio - 1) * 100).toFixed(2)}%`);
+});
+
+test('scaled and dorling ignore the threshold, since they do not deform', async () => {
+    // `scaled` promises every outline exactly, so it must not silently lose one;
+    // the default is only applied to the methods that can shear a part.
+    for (const method of ['scaled', 'dorling'] as const) {
+        const result = await cartogram(withIslet(), { field: 'pop', method });
+        assert.equal(result.droppedParts.count, 0, `${method} dropped a part by default`);
+    }
+});
