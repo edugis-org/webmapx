@@ -1,4 +1,5 @@
 import { installDeepQuery } from "./lib/deep-query.mjs";
+import { appUrl } from './lib/fixture-config.mjs';
 
 /**
  * UI Test: Search -> Persist -> Draw Tool integration
@@ -364,9 +365,19 @@ async function step(name, fn) {
   }
 }
 
-export async function run({ page, engine }) {
+export async function run({ page, engine, baseUrl }) {
   await installDeepQuery(page);
   console.log(`  Running search-persist-draw test for engine: ${engine}`);
+
+  // The suite owns its config. Without this it ran against whatever
+  // index.html loads — `config/demo.json`, a checkout of the configs
+  // repository — and CLAUDE.md's promise that "editing a real config cannot
+  // redden the suite" was not true here: the day that config's toolbar lost
+  // its draw button, this suite started failing on every engine with
+  // "Draw toolbar button not found", pointing at the app rather than at the
+  // config it happened to be reading.
+  await page.goto(appUrl(baseUrl), { waitUntil: 'domcontentloaded' });
+
 
   await step('wait for map ready', async () => {
     await waitForMapReady(page);

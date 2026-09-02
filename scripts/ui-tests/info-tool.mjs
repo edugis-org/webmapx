@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdir } from 'node:fs/promises';
+import { appUrl } from './lib/fixture-config.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../temp/screenshots');
@@ -188,7 +189,7 @@ async function assertInfoRendering(page) {
     });
 }
 
-export async function run({ page, engine }) {
+export async function run({ page, engine, baseUrl }) {
     const step = async (label, fn) => {
         try {
             await fn();
@@ -197,6 +198,13 @@ export async function run({ page, engine }) {
             throw new Error(`${label}: ${msg}`, { cause: error });
         }
     };
+
+    // The suite owns its config. Without this it ran against whatever
+    // index.html loads — `config/demo.json`, a checkout of the configs
+    // repository — and CLAUDE.md's promise that "editing a real config cannot
+    // redden the suite" was not true here: the day that config's toolbar lost
+    // its draw button, this suite's "setup draw layer" step began timing out.
+    await page.goto(appUrl(baseUrl), { waitUntil: 'domcontentloaded' });
 
     await step('wait map ready', () => waitForMapReady(page));
 

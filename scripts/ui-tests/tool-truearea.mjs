@@ -1,3 +1,4 @@
+import { appUrl } from './lib/fixture-config.mjs';
 function fail(message) {
   throw new Error(message);
 }
@@ -134,7 +135,7 @@ async function setViewCenter(page, lngLat, zoom) {
   await new Promise(r => setTimeout(r, 500));
 }
 
-export async function run({ page }) {
+export async function run({ page, baseUrl }) {
   const step = async (label, fn) => {
     try {
       await fn();
@@ -143,6 +144,10 @@ export async function run({ page }) {
       throw new Error(`${label}: ${message}`, { cause: error });
     }
   };
+
+  // The suite owns its config — see the note in tool-draw.mjs. Reading the
+  // configs-repository checkout instead is what left three sibling suites red.
+  await page.goto(appUrl(baseUrl), { waitUntil: 'domcontentloaded' });
 
   await step('wait map ready', () => waitForMapReady(page));
 

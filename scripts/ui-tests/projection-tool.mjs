@@ -1,3 +1,4 @@
+import { appUrl } from './lib/fixture-config.mjs';
 /**
  * UI Test: one control for how the world is drawn
  *
@@ -21,11 +22,16 @@ function fail(message) {
     throw new Error(message);
 }
 
-export async function run({ page, engine }) {
+export async function run({ page, engine, baseUrl }) {
     console.log(`  Running projection tool test for engine: ${engine}`);
 
-    // The harness has already navigated with this engine selected; navigating
-    // again here would drop that selection.
+    // The suite owns its config. Reading whatever index.html loads means a
+    // change in the configs repository can redden this suite, which is exactly
+    // what CLAUDE.md says must not happen; three sibling suites were failing
+    // that way. Navigating does not lose the engine: the harness writes the
+    // adapter preference from an init script, which runs on every navigation.
+    await page.goto(appUrl(baseUrl), { waitUntil: 'domcontentloaded' });
+
     await page.waitForFunction(async () => {
         const map = document.querySelector('webmapx-map');
         if (!map || typeof map.getAdapterAsync !== 'function') return false;
