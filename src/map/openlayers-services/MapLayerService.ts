@@ -7,6 +7,7 @@ import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, So
 import { MapStateStore } from '../../store/map-state-store';
 import OLMap from 'ol/Map';
 import { featureProjectionOf } from './projection-support';
+import { transformExtent } from 'ol/proj';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import VectorTileLayer from 'ol/layer/VectorTile';
@@ -1306,8 +1307,25 @@ export class MapLayerService implements ILayerService {
             // serialisation.
             const view = this.map.getView();
             const mapSize = this.map.getSize() ?? [0, 0];
-            const extent = view.calculateExtent(mapSize as [number, number]);
             const viewProjection = view.getProjection().getCode();
+            // The features a vector-tile layer holds are in the *tile source's*
+            // projection, not the view's: OL 10 reprojects vector tiles in the
+            // canvas renderer, which clones each feature and transforms the
+            // clone, leaving the stored ones as they came out of the tile. So
+            // both the extent asked for and the projection the coordinates are
+            // read as have to be the source's.
+            //
+            // Reading them as the view's is silent on a Mercator map, where the
+            // two are the same, and wrong everywhere else: in EPSG:6933 a
+            // Mercator y of 11.4 million metres at 71°N is past the top of the
+            // projection, so Scandinavia came back clamped to 88.1° or dropped
+            // altogether, and a cartogram built on it was missing Norway,
+            // Iceland and Finland with nothing said.
+            const sourceProjection = source.getProjection?.()?.getCode() ?? 'EPSG:3857';
+            const viewExtent = view.calculateExtent(mapSize as [number, number]);
+            const extent = sourceProjection === viewProjection
+                ? viewExtent
+                : transformExtent(viewExtent, viewProjection, sourceProjection);
 
             let tileFeatures: any[];
             try {
@@ -1327,7 +1345,7 @@ export class MapLayerService implements ILayerService {
                         : f;
                     const geojson = JSON.parse(format.writeFeature(olFeature, {
                         dataProjection: 'EPSG:4326',
-                        featureProjection: viewProjection,
+                        featureProjection: sourceProjection,
                     }));
                     // Deduplication (world copies) and border merging are shared
                     // with the other engines; the renderer does not hand out the

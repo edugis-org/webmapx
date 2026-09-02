@@ -105,4 +105,77 @@ export async function run({ page, engine, baseUrl }) {
   }
 
   console.log(`    ${result.count} features with attributes ${result.fields.join(', ')}`);
+
+  await checkNonMercatorView(page, engine);
+}
+
+/**
+ * The same query again, with the view in an equal-area projection.
+ *
+ * OpenLayers only: the projection tool is OL's, and this is where the answer
+ * used to go wrong. A vector-tile layer's features are stored in the *tile
+ * source's* projection — OL 10 reprojects vector tiles in the canvas renderer,
+ * on clones — so reading them as the *view's* projection is correct on a
+ * Mercator map, where the two are the same, and wrong on every other one. In
+ * EPSG:6933 a Mercator y of 11.4 million metres at 71°N lands past the top of
+ * the projection: Scandinavia came back squashed onto latitude 88.1 and Norway,
+ * Iceland and Finland did not come back at all. Nothing errored — a cartogram
+ * built on it was simply missing countries.
+ *
+ * Checked by latitude rather than by feature count: a count is a weak signal
+ * here (the viewport decides it), while a province at 88° is unambiguous.
+ */
+async function checkNonMercatorView(page, engine) {
+  if (engine !== 'openlayers') return;
+
+  const applied = await page.evaluate(async ([layerId, lonLat, zoom]) => {
+    const map = document.querySelector('webmapx-map');
+    const adapter = await map.getAdapterAsync();
+    const ok = adapter.setProjection('EPSG:6933');
+    if (!ok) return { ok, adapter: adapter.constructor?.name };
+    // Zoom numbers are projection-relative — a view's resolutions come from its
+    // projection's extent — so the view is re-set after the switch rather than
+    // left on a number that meant something else a moment ago. A world view,
+    // because this layer draws no tiles at street zoom in EPSG:6933 (the source
+    // zoom is chosen through a metersPerUnit ratio), which is a separate matter
+    // from the coordinates the features come back in.
+    adapter.setViewport(lonLat, zoom);
+    adapter.removeLayer(layerId);
+    await map.addLayerRequest({ layerId });
+    return { ok, projection: adapter.getProjection?.()?.name ?? null, adapter: adapter.constructor?.name };
+  }, [LAYER_ID, [10, 40], 2.5]);
+  if (!applied.ok) fail(`Could not switch the view to EPSG:6933 (${JSON.stringify(applied)})`);
+
+  const deadline = Date.now() + 60_000;
+  let result;
+  for (;;) {
+    result = await page.evaluate(async (layerId) => {
+      const map = document.querySelector('webmapx-map');
+      const adapter = await map.getAdapterAsync();
+      const fc = await adapter.queryLayerFeatures(layerId);
+      let north = -90;
+      let south = 90;
+      const walk = (coords) => {
+        if (typeof coords[0] === 'number') {
+          if (coords[1] > north) north = coords[1];
+          if (coords[1] < south) south = coords[1];
+          return;
+        }
+        for (const part of coords) walk(part);
+      };
+      for (const feature of fc.features) if (feature.geometry) walk(feature.geometry.coordinates);
+      return { count: fc.features.length, north, south };
+    }, LAYER_ID);
+    if (result.count > 0 || Date.now() > deadline) break;
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+
+  if (!result.count) fail('An equal-area view returned no vector-tile features at all');
+  // The layer is provinces of the world; nothing in it reaches 85 degrees, and
+  // the bug parked everything above the view at 88.1.
+  if (result.north > 85 || result.south < -85) {
+    fail(`Features came back at latitude ${result.south.toFixed(1)}..${result.north.toFixed(1)} in EPSG:6933 — the view projection was used to read tile coordinates`);
+  }
+
+  console.log(`    ${result.count} features in EPSG:6933, latitudes ${result.south.toFixed(1)}..${result.north.toFixed(1)}`);
 }
