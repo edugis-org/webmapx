@@ -403,7 +403,11 @@ export class WebmapxLayerStyleDialog extends LitElement {
             border: 1px solid var(--color-border, #d5dbe1);
             border-radius: var(--webmapx-radius-md, 0.5rem);
             background: var(--color-surface, #fff);
-            color: var(--color-text, #1a2027);
+            /* --color-text does not exist; the token is --color-text-primary.
+               The misspelling fell back to this literal, which is a dark grey,
+               so the panel's title and its close button were dark-on-dark and
+               effectively invisible in dark mode. */
+            color: var(--color-text-primary, #16202a);
             box-shadow: 0 10px 30px rgb(0 0 0 / 0.25);
         }
         .panel-head {
@@ -412,10 +416,31 @@ export class WebmapxLayerStyleDialog extends LitElement {
             gap: 0.5rem;
             padding: 0.5rem 0.6rem;
             border-bottom: 1px solid var(--color-border-light, #e2e7ec);
+            /* Tinted so the handle reads as a bar to take hold of rather than as
+               the first line of the panel. The panel can be dragged, and a
+               cursor that only appears once you are already over it tells you
+               nothing while you are deciding whether to try. */
+            background: var(--color-surface-raised, #f4f6f8);
+            border-radius: var(--webmapx-radius-md, 0.5rem) var(--webmapx-radius-md, 0.5rem) 0 0;
             /* The whole header is the handle, so there is no small target to hit. */
             cursor: move;
             touch-action: none;
             user-select: none;
+        }
+        /* The grip is the visible half of that promise. Decorative, and hidden
+           from assistive technology: the panel is moved by dragging, which this
+           icon does not make any more available to a keyboard, so announcing it
+           would only add noise. */
+        .drag-grip {
+            flex: 0 0 auto;
+            font-size: 1rem;
+            color: var(--color-text-secondary, #5a6773);
+            opacity: 0.55;
+            transition: opacity 0.15s ease;
+        }
+        .panel-head:hover .drag-grip { opacity: 1; }
+        @media (prefers-reduced-motion: reduce) {
+            .drag-grip { transition: none; }
         }
         .panel-title { flex: 1 1 auto; font-weight: 600; }
         .panel-close {
@@ -426,7 +451,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
             color: var(--color-text-secondary, #5a6773);
             cursor: pointer;
         }
-        .panel-close:hover { color: var(--color-text, #1a2027); }
+        .panel-close:hover { color: var(--color-text-primary, #16202a); }
         .panel-body {
             overflow: auto;
             padding: 0.75rem;
@@ -1292,7 +1317,9 @@ export class WebmapxLayerStyleDialog extends LitElement {
         return html`
             <div class="panel" role="dialog" aria-modal="false" aria-label=${this.dialogTitle}
                  style=${this.position ? `left:${this.position.x}px; top:${this.position.y}px; transform:none` : ''}>
-                <header class="panel-head" @pointerdown=${(e: PointerEvent) => this.startDrag(e)}>
+                <header class="panel-head" title="Drag to move"
+                        @pointerdown=${(e: PointerEvent) => this.startDrag(e)}>
+                    <sl-icon class="drag-grip" name="grip-vertical" aria-hidden="true"></sl-icon>
                     <span class="panel-title">${this.dialogTitle}</span>
                     <button class="panel-close" type="button" aria-label="Close" @click=${() => this.close()}>✕</button>
                 </header>
