@@ -387,6 +387,13 @@ export class WebmapxLayerStyleDialog extends LitElement {
         .panel {
             position: fixed;
             left: 50%;
+            /* left:50% puts the panel's *left edge* on the centre line, not
+               its middle, so without this the panel hangs off the right of the
+               map by half its width — 147px of a 562px panel in an 830px frame,
+               with the buttons on that side unreachable. The drag handler
+               replaces this with an explicit left/top and turns the transform
+               off, so the two never both apply. */
+            transform: translateX(-50%);
             top: 3rem;
             z-index: 1000;
             display: flex;
@@ -664,6 +671,9 @@ export class WebmapxLayerStyleDialog extends LitElement {
 
         this.visible = true;
         document.addEventListener('keydown', this.onKeydown);
+        // After the panel has been laid out, so its size is known: a remembered
+        // position is only kept while it still lands on screen.
+        void this.updateComplete.then(() => this.ensureOnScreen());
         this.startResampling();
     }
 
@@ -718,8 +728,15 @@ export class WebmapxLayerStyleDialog extends LitElement {
         if ((event.target as HTMLElement).closest('.panel-close')) return;
 
         const box = panel.getBoundingClientRect();
+        // The offsets come from the box as drawn, so switching from the CSS
+        // centring to an explicit left/top on the first move does not shift it.
+        //
+        // The position is deliberately *not* committed here: pressing on the
+        // header is not moving the panel, and committing on pointerdown meant a
+        // single click pinned the panel for the rest of the session — after
+        // which it never re-centred, and a later resize left it hanging off the
+        // edge. Only `onDrag` commits, and only once the pointer has moved.
         this.drag = { pointerId: event.pointerId, dx: event.clientX - box.left, dy: event.clientY - box.top };
-        this.position = { x: box.left, y: box.top };
         head.setPointerCapture(event.pointerId);
         head.addEventListener('pointermove', this.onDrag);
         head.addEventListener('pointerup', this.endDrag);
@@ -742,6 +759,26 @@ export class WebmapxLayerStyleDialog extends LitElement {
         this.drag = null;
         this.clampPosition();
     };
+
+    /**
+     * Brings a remembered position back inside the window when the panel opens.
+     *
+     * Where the reader last dragged it is worth keeping, but only while it is
+     * still somewhere they can use. The window may have been resized — or the
+     * panel narrowed with it — since, and a panel that opens half outside the
+     * map with its buttons unreachable is worse than one that has forgotten
+     * where it was. The panel is never wider than 96vw, so there is always a
+     * position that fits.
+     */
+    private ensureOnScreen(): void {
+        if (!this.position) return;
+        const panel = this.renderRoot?.querySelector('.panel') as HTMLElement | null;
+        if (!panel) return;
+        const box = panel.getBoundingClientRect();
+        const x = Math.min(Math.max(this.position.x, 0), Math.max(window.innerWidth - box.width, 0));
+        const y = Math.min(Math.max(this.position.y, 0), Math.max(window.innerHeight - box.height, 0));
+        if (x !== this.position.x || y !== this.position.y) this.position = { x, y };
+    }
 
     /** Keeps at least the header on screen, whatever the drag or a resize did. */
     private clampPosition(): void {
@@ -1254,7 +1291,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
 
         return html`
             <div class="panel" role="dialog" aria-modal="false" aria-label=${this.dialogTitle}
-                 style=${this.position ? `left:${this.position.x}px; top:${this.position.y}px` : ''}>
+                 style=${this.position ? `left:${this.position.x}px; top:${this.position.y}px; transform:none` : ''}>
                 <header class="panel-head" @pointerdown=${(e: PointerEvent) => this.startDrag(e)}>
                     <span class="panel-title">${this.dialogTitle}</span>
                     <button class="panel-close" type="button" aria-label="Close" @click=${() => this.close()}>✕</button>
