@@ -24,6 +24,21 @@ interface IsoServiceDef {
     id: string;
     label: string;
     modes: IsoMode[];
+    /**
+     * Who computed the isochrone, and on whose data.
+     *
+     * A result layer outlives the panel that made it — it is saved, exported and
+     * shared — and by then nothing else on the map says where the shape came
+     * from. Both services here require the credit as a condition of use, and
+     * both route over OpenStreetMap, so the data behind them is credited too.
+     * The `|` separates the two, and the second half is spelled *exactly* as a
+     * basemap spells it — the attribution control de-duplicates its parts by
+     * text, so `Data: &copy; …` would sit under an OSM basemap's own credit as
+     * a second, near-identical line, while this merges into it. No prefix
+     * naming the result either: the layer beside it is already called
+     * Isochrones.
+     */
+    attribution: string;
     keyPlaceholder: string | null;
     keyAttr: string | null;
     calculate(center: LngLat, ranges: number[], rangeType: RangeType, mode: string, key: string | null): Promise<GeoJSON.FeatureCollection>;
@@ -78,6 +93,7 @@ const ISO_SERVICES: IsoServiceDef[] = [
         id: 'openrouteservice',
         label: 'OpenRouteService',
         modes: ORS_MODES,
+        attribution: '<a href="https://openrouteservice.org/" target="_blank" rel="noopener">openrouteservice.org</a> by HeiGIT | &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>',
         keyPlaceholder: '{key-openrouteservice}',
         keyAttr: 'ors-api-key',
         async calculate(center, ranges, rangeType, mode, key) {
@@ -115,6 +131,7 @@ const ISO_SERVICES: IsoServiceDef[] = [
         id: 'valhalla',
         label: 'Valhalla (free)',
         modes: VALHALLA_MODES,
+        attribution: '<a href="https://valhalla.github.io/valhalla/" target="_blank" rel="noopener">Valhalla</a>, hosted by <a href="https://www.fossgis.de/" target="_blank" rel="noopener">FOSSGIS e.V.</a> | &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>',
         keyPlaceholder: null,
         keyAttr: null,
         async calculate(center, ranges, rangeType, mode) {
@@ -177,6 +194,8 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
     @state() private error: string | null = null;
 
     private currentFc: GeoJSON.FeatureCollection | null = null;
+    /** Whose credit the preview layers currently carry, so it is rebuilt only when it changes. */
+    private previewAttribution: string | null = null;
     private unsubClick: (() => void) | null = null;
     private layersCreated = false;
 
@@ -307,11 +326,25 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
 
     // ─── Layers ───────────────────────────────────────────────────────────────
 
-    private createLayers(): void {
+    /**
+     * The live preview layers, credited to whoever computed what they show.
+     *
+     * A source's attribution is read when the source is added and MapLibre
+     * refuses a second source of the same id, so the credit cannot be edited in
+     * place: the preview is rebuilt when — and only when — the credit changes,
+     * which in practice is the first calculation and any change of service. It
+     * follows the *drawn shape*, not the dropdown, since switching service
+     * leaves the previous answer on the map until it is recalculated.
+     */
+    private createLayers(attribution: string | null = this.previewAttribution): void {
         if (this.layersCreated) return;
+        this.previewAttribution = attribution;
         const emptyFc: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
         this.dispatchEvent(new CustomEvent('webmapx-add-source', {
-            detail: { id: ISO_SOURCE_ID, config: { type: 'geojson', data: emptyFc } },
+            detail: {
+                id: ISO_SOURCE_ID,
+                config: { type: 'geojson', data: emptyFc, ...(attribution ? { attribution } : {}) },
+            },
             bubbles: true, composed: true,
         }));
         this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
@@ -394,8 +427,15 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
                 version: 8,
                 beforeLayerId: ISO_FILL_ID,
                 metadata: { label, abstract, legendRole: 'overlay' },
+                attribution: svc.attribution,
                 sources: {
-                    polygons: { type: 'geojson', data: polygonFc },
+                    // The credit rides on the polygons, which are the part the
+                    // service produced — the centre is the user's own click.
+                    // `registerMapLayer` records the first geojson source as the
+                    // layer's `sourceId`, and that is what the attribution
+                    // control looks up for a layer the catalog has never heard
+                    // of, so declaring it here is what makes it appear.
+                    polygons: { type: 'geojson', data: polygonFc, attribution: svc.attribution },
                     center:   { type: 'geojson', data: pointFc },
                 },
                 layers: [
@@ -493,6 +533,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
 
         try {
             const fc = await svc.calculate(this.center, ranges, this.rangeType, this.effectiveMode, key);
+            this.creditPreviewTo(svc.attribution);
             this.setData(fc, ranges);
         } catch (err) {
             this.error = err instanceof Error ? err.message : 'Calculation failed';
@@ -500,6 +541,13 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
         } finally {
             this.loading = false;
         }
+    }
+
+    /** Rebuilds the preview layers when the credit they carry is no longer the right one. */
+    private creditPreviewTo(attribution: string): void {
+        if (this.previewAttribution === attribution) return;
+        this.removeLayers();
+        this.createLayers(attribution);
     }
 
     private clearIsochrone(): void {
