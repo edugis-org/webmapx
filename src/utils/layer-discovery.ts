@@ -266,6 +266,45 @@ function arcgisCatalogEntries(baseUrl: string, info: Record<string, unknown>): C
   return entries;
 }
 
+/**
+ * The credit a WMS declares for one of its layers.
+ *
+ * WMS 1.3.0 has an `<Attribution>` element saying who the data belongs to, with
+ * an optional link — which is precisely the credit a map is supposed to show,
+ * and it was being discarded in favour of the service's own *title*. A title
+ * names the endpoint ("PDOK BRT Achtergrondkaart WMS"); the attribution names
+ * the body whose data it is. The title stays as the fallback, since a service
+ * that declares nothing is better credited by name than not at all.
+ *
+ * `<Attribution>` is inheritable in the capabilities tree — a child layer that
+ * declares none takes its parent's — and the parser resolves that for us.
+ */
+export function wmsLayerAttribution(
+    declared: { title?: string; url?: string } | undefined,
+    serviceTitle: string | undefined,
+): string | undefined {
+    const title = declared?.title?.trim();
+    const url = declared?.url?.trim();
+    if (title && url) return `<a href="${escapeAttribute(url)}" target="_blank" rel="noopener">${escapeText(title)}</a>`;
+    if (title) return escapeText(title);
+    // A bare url is still worth showing: the host says who it is.
+    if (url) return `<a href="${escapeAttribute(url)}" target="_blank" rel="noopener">${escapeText(hostOf(url) ?? url)}</a>`;
+    return serviceTitle;
+}
+
+/** Capabilities are someone else's XML, so what goes into markup is escaped. */
+function escapeText(value: string): string {
+    return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function escapeAttribute(value: string): string {
+    return escapeText(value).replace(/"/g, '&quot;');
+}
+
+function hostOf(url: string): string | null {
+    try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return null; }
+}
+
 export async function discoverWms(baseUrl: string): Promise<DiscoveredLayer[]> {
   try {
     const endpoint = await new WmsEndpoint(baseUrl).isReady();
@@ -280,7 +319,7 @@ export async function discoverWms(baseUrl: string): Promise<DiscoveredLayer[]> {
 
       // getFlattenedLayers() returns summaries (name/title/abstract only); fetch
       // the full layer for bounds/scale limits where available.
-      let full: { boundingBoxes?: Record<string, [number, number, number, number]>; minScaleDenominator?: number; maxScaleDenominator?: number; styles?: { legendUrl?: string }[]; queryable?: boolean } | null = null;
+      let full: { boundingBoxes?: Record<string, [number, number, number, number]>; minScaleDenominator?: number; maxScaleDenominator?: number; styles?: { legendUrl?: string }[]; queryable?: boolean; attribution?: { title?: string; url?: string } } | null = null;
       try {
         full = endpoint.getLayerByName(layer.name);
       } catch {
@@ -312,7 +351,9 @@ export async function discoverWms(baseUrl: string): Promise<DiscoveredLayer[]> {
           // so without this it stretches every 256px tile to 512px (blurry/thicker-looking
           // lines, plus wasted GPU upscale work).
           tileSize: 256,
-          ...(info?.title ? { attribution: info.title } : {}),
+          ...(wmsLayerAttribution(full?.attribution, info?.title)
+              ? { attribution: wmsLayerAttribution(full?.attribution, info?.title) as string }
+              : {}),
           ...(bounds ? { bounds } : {}),
           // GetFeatureInfo support: identified via service==='wms' by getVisibleWMSLayers,
           // and used by fetchWMSFeatureInfo to build the query URL independent of `tiles`.

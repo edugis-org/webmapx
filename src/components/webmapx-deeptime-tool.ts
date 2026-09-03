@@ -43,8 +43,30 @@ const DEFAULT_DATA = 'data/paleo/merdith2021';
  * citation; this covers the tool falling back to `DEFAULT_DATA`, which is
  * Merdith by definition.
  */
+/**
+ * A citation for one GPlates-served model, written once.
+ *
+ * Every layer this tool draws is a published rotation model served through the
+ * same gateway under the same licence, so the citation differs only in paper
+ * and in which part of the model it credits. Spelling it out at each use is how
+ * the same credit ends up in four places and drifts in three of them — and a
+ * citation that no longer matches its paper is worse than none, since it names
+ * the wrong people.
+ */
+function gplatesCitation(what: string, authors: string, doi: string): string {
+    return `${what}: <a href="${doi}" target="_blank" rel="noopener">${authors}</a>, `
+        + 'via <a href="https://gwsdoc.gplates.org/" target="_blank" rel="noopener">GPlates Web Service</a> (CC BY 4.0)';
+}
+
+const MERDITH_2021 = { authors: 'Merdith et al. 2021', doi: 'https://doi.org/10.1016/j.earscirev.2020.103477' };
+const MULLER_2019 = { authors: 'M\u00fcller et al. 2019', doi: 'https://doi.org/10.1029/2018TC005462' };
+
+const MERDITH_COASTLINES = gplatesCitation('Coastlines', MERDITH_2021.authors, MERDITH_2021.doi);
+const MULLER_COASTLINES = gplatesCitation('Coastlines', MULLER_2019.authors, MULLER_2019.doi);
+const MULLER_PLATES = gplatesCitation('Plate boundaries and deforming networks', MULLER_2019.authors, MULLER_2019.doi);
+
 const DEFAULT_CREDIT = {
-    attribution: 'Coastlines: <a href="https://doi.org/10.1016/j.earscirev.2020.103477" target="_blank" rel="noopener">Merdith et al. 2021</a>, via <a href="https://gwsdoc.gplates.org/" target="_blank" rel="noopener">GPlates Web Service</a> (CC BY 4.0)',
+    attribution: MERDITH_COASTLINES,
     abstract: 'Present-day coastlines carried back to the chosen age on the plates they ride, using the Merdith et al. (2021) rotation model (1000–0 Ma). The shapes are today\u2019s outlines rotated as rigid blocks: crust that has since been shortened or stretched is not shown, so continents meet later here than the rocks say. Longitude in deep time is far less certain than latitude.',
 };
 
@@ -80,7 +102,7 @@ const DEFAULT_MODELS: ReadonlyArray<Record<string, unknown>> = [
       label: "Merdith 2021 — 1000 Ma",
       data: "data/paleo/merdith2021",
       to: 1000,
-      attribution: "Coastlines: <a href=\"https://doi.org/10.1016/j.earscirev.2020.103477\" target=\"_blank\" rel=\"noopener\">Merdith et al. 2021</a>, via <a href=\"https://gwsdoc.gplates.org/\" target=\"_blank\" rel=\"noopener\">GPlates Web Service</a> (CC BY 4.0)",
+      attribution: MERDITH_COASTLINES,
       abstract: "Present-day coastlines carried back to the chosen age on the plates they ride, using the Merdith et al. (2021) rotation model, which reaches 1000 Ma. The shapes are today’s outlines rotated as rigid blocks: crust that has since been shortened or stretched is not shown, so continents meet later here than the rocks say. Latitude is well constrained by palaeomagnetism; longitude in deep time is far less certain.",
   },
   {
@@ -89,9 +111,9 @@ const DEFAULT_MODELS: ReadonlyArray<Record<string, unknown>> = [
       data: "data/paleo/muller2019",
       to: 250,
       plates: "data/paleo/muller2019/plates",
-      attribution: "Coastlines: <a href=\"https://doi.org/10.1029/2018TC005462\" target=\"_blank\" rel=\"noopener\">Müller et al. 2019</a>, via <a href=\"https://gwsdoc.gplates.org/\" target=\"_blank\" rel=\"noopener\">GPlates Web Service</a> (CC BY 4.0)",
+      attribution: MULLER_COASTLINES,
       abstract: "Present-day coastlines rotated to the chosen age using the Müller et al. (2019) model, which reaches 250 Ma and carries deforming plate boundaries. As with any rigid rotation, crust that has since been shortened is missing from the outlines — the deforming zones layer is where that crust is shown.",
-      platesAttribution: "Plate boundaries and deforming networks: <a href=\"https://doi.org/10.1029/2018TC005462\" target=\"_blank\" rel=\"noopener\">Müller et al. 2019</a>, via <a href=\"https://gwsdoc.gplates.org/\" target=\"_blank\" rel=\"noopener\">GPlates Web Service</a> (CC BY 4.0)",
+      platesAttribution: MULLER_PLATES,
       platesAbstract: "Plate boundaries sampled every 5 Ma, with the deforming networks drawn separately. A boundary has no continuity through time — boundaries are born, die and change in number — so these are snapshots that snap to the nearest step rather than moving smoothly like the coastlines. The deforming zones are continental crust being squeezed: the Greater India mesh is the ~3 million km² now folded into Tibet and the Himalaya, which is why the collision begins here some 45 Ma earlier than reconstructed coastlines suggest.",
   },
 ];
