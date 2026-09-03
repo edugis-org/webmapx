@@ -4,7 +4,7 @@ import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMap } from '../map/IMapInterfaces';
 import type { IMapState } from '../store/IMapState';
 import type { AppConfig, AnyLayerConfig, LayerDataConfig, SourceConfig } from '../config/types';
-import { attributionMeaning, renderAttributionText, resolveLayerAttribution } from '../utils/attribution-format';
+import { collectAttributions, renderAttributionText } from '../utils/attribution-format';
 
 @customElement('webmapx-attribution-control')
 export class WebmapxAttributionControl extends WebmapxBaseTool {
@@ -88,67 +88,18 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
             }
         }
 
-        // Two layers crediting the same body are one credit, however each of them
-        // happens to spell it. `&copy; OpenStreetMap contributors` from a search
-        // result and the linked form a basemap declares are the same sentence to
-        // a reader, and showing both is the bug this avoids — so parts are
-        // compared by what they *say*, with markup, entities and spacing taken
-        // out, rather than character by character.
-        const indexByMeaning = new Map<string, number>();
-        const collected: string[] = [];
-
-        const addText = (text: string) => {
-            for (const part of text.split('|')) {
-                const trimmed = part.trim();
-                if (!trimmed) continue;
-                const meaning = attributionMeaning(trimmed);
-                if (!meaning) continue;
-                const existing = indexByMeaning.get(meaning);
-                if (existing === undefined) {
-                    indexByMeaning.set(meaning, collected.length);
-                    collected.push(trimmed);
-                    continue;
-                }
-                // Same credit, better written: a spelling that links to the
-                // licence is worth more to the reader than a bare one, and which
-                // of the two arrives first is an accident of layer order.
-                if (trimmed.includes('<a') && !collected[existing].includes('<a')) {
-                    collected[existing] = trimmed;
-                }
-            }
-        };
-
-        for (const layerId of this.visibleLayerIds) {
-            const dynamicEntry = this.mapLayersState[layerId];
-            const layer = layersById.get(layerId);
-
-            if (!layer) {
-                // Runtime-added layer (a tool's output, a layer added from a
-                // URL): `registerMapLayer` already lifts the attribution off
-                // whichever inline source declares one, so the store answers
-                // without the engine being asked. That is the only route for a
-                // composite layer, whose sources the engine registers under a
-                // scoped `${layerId}:${key}` id it alone knows — every isochrone,
-                // buffer and search result showed no credit at all because this
-                // asked the engine instead of the store.
-                const own = typeof dynamicEntry?.attribution === 'string' ? dynamicEntry.attribution : null;
-                if (own) {
-                    addText(own);
-                    continue;
-                }
-                const sourceId = typeof dynamicEntry?.sourceId === 'string' ? dynamicEntry.sourceId : null;
-                const attribution = sourceId ? this.adapter?.getSourceAttribution(sourceId) : undefined;
-                if (attribution) addText(attribution);
-                continue;
-            }
-
-            const attribution = resolveLayerAttribution(layer, sourcesById);
-            if (attribution) {
-                addText(attribution);
-            }
-        }
-
-        this.attributions = collected;
+        this.attributions = collectAttributions(
+            this.visibleLayerIds.map(layerId => {
+                const entry = this.mapLayersState[layerId];
+                return {
+                    catalogLayer: layersById.get(layerId),
+                    entryAttribution: typeof entry?.attribution === 'string' ? entry.attribution : undefined,
+                    sourceId: typeof entry?.sourceId === 'string' ? entry.sourceId : undefined,
+                };
+            }),
+            sourcesById,
+            (sourceId) => this.adapter?.getSourceAttribution(sourceId),
+        );
         // Recalculate overflow after next render
         this.updateComplete.then(() => this._updateOverflow());
     }

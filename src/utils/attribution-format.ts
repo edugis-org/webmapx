@@ -138,3 +138,74 @@ export function renderAttributionText(text: string): TemplateResult {
         )}
     </span>`;
 }
+
+/** One visible layer, as the two attribution surfaces can each describe it. */
+export interface AttributionLayer {
+    /** The catalog's config for this layer, where it has one. */
+    catalogLayer?: AnyLayerConfig;
+    /** `store.mapLayers[id].attribution` — what `registerMapLayer` lifted off an inline source. */
+    entryAttribution?: string;
+    /** `store.mapLayers[id].sourceId`, for asking the engine as a last resort. */
+    sourceId?: string;
+}
+
+/**
+ * The credits a map is showing, in order, each body once.
+ *
+ * Shared by the on-screen control and the print tool, because they were two
+ * implementations of one rule and drifted apart exactly as you would expect:
+ * the printed map went on asking the engine for a runtime layer's credit long
+ * after the screen had learnt to read the store, so an isochrone, a route or a
+ * search result was credited on screen and silently missing from the print.
+ *
+ * Where a layer's credit is found is a three-step fallback, and the order
+ * matters. The catalog config is the richest answer where it exists. A runtime
+ * layer has none, so the store's entry is next — it is the *only* place a
+ * composite layer's credit can be read, since its sources reach the engine
+ * under a scoped id the engine alone knows. Asking the engine comes last, for a
+ * plain runtime layer whose source was registered by id.
+ */
+export function collectAttributions(
+    layers: AttributionLayer[],
+    sourcesById: Map<string, SourceConfig>,
+    engineAttribution?: (sourceId: string) => string | undefined,
+): string[] {
+    const indexByMeaning = new Map<string, number>();
+    const collected: string[] = [];
+
+    const add = (text: string | undefined): void => {
+        if (!text) return;
+        for (const part of text.split('|')) {
+            const trimmed = part.trim();
+            if (!trimmed) continue;
+            const meaning = attributionMeaning(trimmed);
+            if (!meaning) continue;
+            const existing = indexByMeaning.get(meaning);
+            if (existing === undefined) {
+                indexByMeaning.set(meaning, collected.length);
+                collected.push(trimmed);
+                continue;
+            }
+            // Same credit, better written: a spelling that links to the licence
+            // is worth more to the reader than a bare one, and which of the two
+            // arrives first is an accident of layer order.
+            if (trimmed.includes('<a') && !collected[existing].includes('<a')) {
+                collected[existing] = trimmed;
+            }
+        }
+    };
+
+    for (const layer of layers) {
+        if (layer.catalogLayer) {
+            add(resolveLayerAttribution(layer.catalogLayer, sourcesById));
+            continue;
+        }
+        if (layer.entryAttribution) {
+            add(layer.entryAttribution);
+            continue;
+        }
+        if (layer.sourceId) add(engineAttribution?.(layer.sourceId));
+    }
+
+    return collected;
+}

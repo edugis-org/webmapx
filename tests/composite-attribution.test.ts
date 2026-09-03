@@ -24,7 +24,7 @@ import path from 'node:path';
 
 import { registerMapLayer } from '../src/map/map-layer-registry';
 import { MapStateStore } from '../src/store/map-state-store';
-import { attributionMeaning, resolveLayerAttribution } from '../src/utils/attribution-format';
+import { attributionMeaning, collectAttributions, resolveLayerAttribution } from '../src/utils/attribution-format';
 import type { AnyLayerConfig, SourceConfig } from '../src/config/types';
 
 const ATTRIBUTION = 'openrouteservice.org by HeiGIT | &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>';
@@ -135,4 +135,40 @@ test('one credit, however each layer spells it', () => {
     // Different bodies stay different — this must not merge everything.
     assert.notEqual(attributionMeaning(fromSearch), attributionMeaning('&copy; Nominatim'));
     assert.notEqual(attributionMeaning('&copy; TomTom'), attributionMeaning('&copy; GraphHopper'));
+});
+
+test('collectAttributions finds a credit wherever the layer keeps it', () => {
+    const catalogSource = { id: 'osm-source', type: 'raster', attribution: 'Catalog credit' } as unknown as SourceConfig;
+    const parts = collectAttributions(
+        [
+            // A catalog layer naming a catalog source.
+            { catalogLayer: { id: 'osm', type: 'raster', source: 'osm-source' } as unknown as AnyLayerConfig },
+            // A tool's composite layer: only the store entry can answer.
+            { entryAttribution: ATTRIBUTION, sourceId: 'webmapx-iso-1:polygons' },
+            // A plain runtime layer, whose source the engine knows by id.
+            { sourceId: 'dropped-file' },
+        ],
+        new Map([['osm-source', catalogSource]]),
+        (sourceId) => (sourceId === 'dropped-file' ? 'Someone else' : undefined),
+    );
+    assert.deepEqual(parts, [
+        'Catalog credit',
+        'openrouteservice.org by HeiGIT',
+        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>',
+        'Someone else',
+    ]);
+});
+
+test('collectAttributions keeps the linked spelling whichever layer arrives first', () => {
+    const plain = '&copy; OpenStreetMap contributors';
+    const linked = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>';
+
+    for (const order of [[plain, linked], [linked, plain]]) {
+        const parts = collectAttributions(
+            order.map(attribution => ({ entryAttribution: attribution })),
+            new Map<string, SourceConfig>(),
+        );
+        assert.equal(parts.length, 1, `one credit, got ${parts.length}`);
+        assert.equal(parts[0], linked, 'the spelling that links to the licence is the one kept');
+    }
 });

@@ -10,7 +10,7 @@ import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
-import { resolveLayerAttribution, stripTags, decodeEntities } from '../utils/attribution-format';
+import { collectAttributions, stripTags, decodeEntities } from '../utils/attribution-format';
 
 type PrintFormat = 'portrait' | 'landscape' | 'portrait_with_legend' | 'landscape_with_legend';
 
@@ -489,27 +489,22 @@ export class WebmapxPrintTool extends WebmapxModalTool {
             for (const lyr of (ld as any).layers ?? []) layersById.set(lyr.id, lyr);
         }
 
-        const seen = new Set<string>();
-        const parts: string[] = [];
-        const add = (raw: string | undefined) => {
-            if (!raw) return;
-            for (const part of raw.split('|')) {
-                const text = decodeEntities(stripTags(part)).trim();
-                if (text && !seen.has(text)) { seen.add(text); parts.push(text); }
-            }
-        };
+        // The same collector the on-screen control uses, so a printed map can
+        // never credit differently from the map it is a picture of. Print is
+        // plain text, so the markup comes off afterwards rather than being a
+        // second set of rules.
+        const parts = collectAttributions(
+            Object.entries(mapLayers)
+                .filter(([, entry]) => entry.visible !== false)
+                .map(([layerId, entry]) => ({
+                    catalogLayer: layersById.get(layerId),
+                    entryAttribution: typeof entry.attribution === 'string' ? entry.attribution : undefined,
+                    sourceId: typeof entry.sourceId === 'string' ? entry.sourceId : undefined,
+                })),
+            sourcesById,
+            (sourceId) => this.adapter?.getSourceAttribution?.(sourceId),
+        ).map(part => decodeEntities(stripTags(part)).trim());
 
-        for (const [layerId, entry] of Object.entries(mapLayers)) {
-            if (entry.visible === false) continue;
-            const catalogLayer = layersById.get(layerId);
-            if (catalogLayer) {
-                add(resolveLayerAttribution(catalogLayer, sourcesById));
-            } else {
-                // Runtime layer — read from engine source
-                const sourceId = typeof entry.sourceId === 'string' ? entry.sourceId : null;
-                if (sourceId) add(this.adapter?.getSourceAttribution?.(sourceId));
-            }
-        }
         return parts.join(' • ');
     }
 
