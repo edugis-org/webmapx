@@ -33,6 +33,16 @@ export {
 } from './tools/tool-registry.js';
 export type { ToolPlacement, ToolRegistryEntry } from './tools/tool-registry.js';
 
+/**
+ * The computed layers a config may name in an `internalfunc://` url, described
+ * rather than executed. The documentation build reads this to render its
+ * reference, so the list can be checked against a version the same way the tool
+ * registry is — and the generators themselves, with their astronomy and their
+ * plate data, stay out of a config checker.
+ */
+export { INTERNAL_SOURCE_DOCS, INTERNAL_SOURCE_CATEGORIES } from './utils/internal-source-catalog.js';
+export type { InternalSourceDoc, InternalSourceParamDoc } from './utils/internal-source-catalog.js';
+
 export { CONFIG_SCHEMA_VERSION, configVersionStatus } from './config/schema-version.js';
 export type { ConfigVersionStatus } from './config/schema-version.js';
 
