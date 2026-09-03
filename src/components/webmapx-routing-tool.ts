@@ -33,6 +33,17 @@ interface RoutingServiceDef {
     id: string;
     label: string;
     modes: ServiceMode[];
+    /**
+     * Who computed the route, and on whose data.
+     *
+     * A saved route outlives the panel that made it, and by then nothing else on
+     * the map says which service drew it — every service here requires the
+     * credit as a condition of use. The `|` separates provider from data: the
+     * attribution control splits on it and de-duplicates by text, so the
+     * OpenStreetMap half is spelled exactly as the configs spell it and merges
+     * into an OSM basemap's own credit instead of repeating it.
+     */
+    attribution: string;
     keyPlaceholder: string | null;
     keyAttr: string | null;
     calculate(start: LngLat, end: LngLat, mode: string, key: string | null, truck: TruckParams): Promise<RouteResult>;
@@ -101,6 +112,7 @@ const ROUTING_SERVICES: RoutingServiceDef[] = [
     {
         id: 'osrm',
         label: 'OSRM (free)',
+        attribution: '<a href="https://project-osrm.org/" target="_blank" rel="noopener">OSRM</a>, hosted by <a href="https://www.fossgis.de/" target="_blank" rel="noopener">FOSSGIS e.V.</a> | &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>',
         modes: OSRM_MODES,
         keyPlaceholder: null,
         keyAttr: null,
@@ -124,6 +136,7 @@ const ROUTING_SERVICES: RoutingServiceDef[] = [
     {
         id: 'openrouteservice',
         label: 'OpenRouteService',
+        attribution: '<a href="https://openrouteservice.org/" target="_blank" rel="noopener">openrouteservice.org</a> by HeiGIT | &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>',
         modes: ORS_MODES,
         keyPlaceholder: '{key-openrouteservice}',
         keyAttr: 'ors-api-key',
@@ -169,6 +182,7 @@ const ROUTING_SERVICES: RoutingServiceDef[] = [
     {
         id: 'tomtom',
         label: 'TomTom',
+        attribution: '&copy; <a href="https://www.tomtom.com/" target="_blank" rel="noopener">TomTom</a>',
         modes: TOMTOM_MODES,
         keyPlaceholder: '{key-tomtom}',
         keyAttr: 'tomtom-api-key',
@@ -200,6 +214,7 @@ const ROUTING_SERVICES: RoutingServiceDef[] = [
     {
         id: 'valhalla',
         label: 'Valhalla (free)',
+        attribution: '<a href="https://valhalla.github.io/valhalla/" target="_blank" rel="noopener">Valhalla</a>, hosted by <a href="https://www.fossgis.de/" target="_blank" rel="noopener">FOSSGIS e.V.</a> | &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>',
         modes: VALHALLA_MODES,
         keyPlaceholder: null,
         keyAttr: null,
@@ -246,6 +261,7 @@ const ROUTING_SERVICES: RoutingServiceDef[] = [
     {
         id: 'graphhopper',
         label: 'GraphHopper',
+        attribution: '<a href="https://www.graphhopper.com/" target="_blank" rel="noopener">GraphHopper</a> | &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>',
         modes: [
             { value: 'car',        label: 'Car',        category: 'car' as ModeCategory },
             { value: 'truck',      label: 'Truck',      category: 'truck' as ModeCategory,      isTruck: true },
@@ -298,6 +314,8 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
     @state() private truckWidth      = 2.5;
     @state() private truckHeight     = 3.7;
 
+    /** Whose credit the route layer currently carries, so it is rebuilt only when it changes. */
+    private previewAttribution: string | null = null;
     private routeCoords: number[][] = [];
     private unsubClick: (() => void) | null = null;
     private layersCreated = false;
@@ -436,10 +454,28 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
 
     // ─── Layer management ─────────────────────────────────────────────────────
 
-    private createLayers(): void {
+    /**
+     * The live route layer, credited to whoever computed the line it shows.
+     *
+     * A source's attribution is read when the source is added and MapLibre
+     * refuses a second source of the same id, so the credit cannot be edited in
+     * place: the layer is rebuilt when — and only when — the credit changes,
+     * which is the first route and any change of service. It follows the *drawn
+     * route*, not the dropdown, since switching service leaves the previous
+     * answer on the map until it is recalculated.
+     */
+    private createLayers(attribution: string | null = this.previewAttribution): void {
         if (this.layersCreated) return;
+        this.previewAttribution = attribution;
         this.dispatchEvent(new CustomEvent('webmapx-add-source', {
-            detail: { id: ROUTE_SOURCE_ID, config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } } },
+            detail: {
+                id: ROUTE_SOURCE_ID,
+                config: {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [] },
+                    ...(attribution ? { attribution } : {}),
+                },
+            },
             bubbles: true, composed: true,
         }));
         this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
@@ -452,6 +488,13 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
             bubbles: true, composed: true,
         }));
         this.layersCreated = true;
+    }
+
+    /** Rebuilds the route layer when the credit it carries is no longer the right one. */
+    private creditPreviewTo(attribution: string): void {
+        if (this.previewAttribution === attribution) return;
+        this.removeLayers();
+        this.createLayers(attribution);
     }
 
     private removeLayers(): void {
@@ -516,8 +559,18 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
                 version: 8,
                 beforeLayerId: ROUTE_LAYER_ID,
                 metadata: { label, abstract, legendRole: 'overlay' },
+                // What drew the shape, which is not necessarily what the
+                // dropdown now says: switching service leaves the previous
+                // answer on the map, and crediting the newly-selected service
+                // for it would be a false statement about where it came from.
+                attribution: this.previewAttribution ?? svc.attribution,
                 sources: {
-                    route:     { type: 'geojson', data: routeFc },
+                    // The credit rides on the route, which is what the service
+                    // produced — the waypoints are the user's own clicks.
+                    // `registerMapLayer` records the first geojson source as the
+                    // layer's `sourceId`, so declaring it here is also what makes
+                    // it findable for a layer no catalog knows.
+                    route:     { type: 'geojson', data: routeFc, attribution: this.previewAttribution ?? svc.attribution },
                     waypoints: { type: 'geojson', data: waypointFc },
                 },
                 layers: [
@@ -599,6 +652,7 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
 
         try {
             const result = await svc.calculate(this.start, this.end, this.travelMode, key, this.truckParams);
+            this.creditPreviewTo(svc.attribution);
             this.setRouteData(result.coordinates);
             this.distanceM = result.distanceM;
             this.durationS = result.durationS;

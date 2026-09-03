@@ -427,7 +427,11 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
                 version: 8,
                 beforeLayerId: ISO_FILL_ID,
                 metadata: { label, abstract, legendRole: 'overlay' },
-                attribution: svc.attribution,
+                // What drew the shape, which is not necessarily what the
+                // dropdown now says: switching service leaves the previous
+                // answer on the map, and crediting the newly-selected service
+                // for it would be a false statement about where it came from.
+                attribution: this.previewAttribution ?? svc.attribution,
                 sources: {
                     // The credit rides on the polygons, which are the part the
                     // service produced — the centre is the user's own click.
@@ -435,7 +439,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
                     // layer's `sourceId`, and that is what the attribution
                     // control looks up for a layer the catalog has never heard
                     // of, so declaring it here is what makes it appear.
-                    polygons: { type: 'geojson', data: polygonFc, attribution: svc.attribution },
+                    polygons: { type: 'geojson', data: polygonFc, attribution: this.previewAttribution ?? svc.attribution },
                     center:   { type: 'geojson', data: pointFc },
                 },
                 layers: [
