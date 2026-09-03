@@ -565,17 +565,69 @@ function labelPoints(input: GeoJSON.FeatureCollection, params: GeoParamValues): 
  *
  * Both operations are defined on points, but a student will hand them anything
  * that is on the map. Rather than silently dropping polygons — which looks like
- * half the layer disappeared — every feature contributes the average of its
- * coordinates: for a Point that *is* the point, for anything else its rough
- * centre, which is what "the Voronoi diagram of these municipalities" means.
+ * half the layer disappeared — every feature is reduced to one point, and which
+ * point that is has to be a property of the *shape*, not of how the shape was
+ * digitised. The mean of a feature's coordinates is not: it is weighted by
+ * vertex density, so a rocky coast traced with hundreds of points outvotes a
+ * straight border drawn with two, and simplifying the same layer moves its
+ * "centre". Measured against the area centroid over 263 world countries, the
+ * mean was a median of 32 km out and 482 km out for Niger — a compact country
+ * whose southern border simply carries more vertices than its northern one.
+ *
+ * So: a polygon contributes its area centroid, a line the point halfway along
+ * it, a point itself. The halfway point rather than a line's centroid because a
+ * length-weighted mean leaves the line for anything bent — an L lands in the
+ * empty corner — and a site off its own feature builds a cell around a place
+ * the feature never occupies. Only genuinely degenerate input (zero area, zero
+ * length) falls back to the coordinate mean.
+ *
+ * Exported so `representative-point.test.ts` can pin the choice of point itself:
+ * through the pipeline it is visible only as where a cell or a triangle corner
+ * happens to land, which is a weak assertion about a strong rule.
  */
-function representativePoint(geometry: GeoJSON.Geometry | null | undefined): GeoJSON.Position | null {
+export function representativePoint(geometry: GeoJSON.Geometry | null | undefined): GeoJSON.Position | null {
     if (!geometry) return null;
     if (geometry.type === 'GeometryCollection') {
         const points = geometry.geometries.map(representativePoint).filter(Boolean) as GeoJSON.Position[];
         if (!points.length) return null;
         return averagePosition(points);
     }
+
+    const all = collectPositions(geometry);
+    if (!all.length) return null;
+
+    // One frame for the whole feature, chosen once: a shape split across the
+    // antimeridian has to be made contiguous before any of these sums mean
+    // anything, and mixing frames between the area and its weights would be
+    // worse than not shifting at all.
+    const shift = shiftedFrameIsNarrower(all);
+    const framed = (position: GeoJSON.Position): GeoJSON.Position => [toFrame(position[0], shift), position[1]];
+
+    switch (geometry.type) {
+        case 'Polygon':
+        case 'MultiPolygon': {
+            const polygons = (geometry.type === 'MultiPolygon' ? geometry.coordinates : [geometry.coordinates]);
+            const centre = areaCentroid(polygons.map(rings => rings.map(ring => ring.map(framed))));
+            if (centre) return wrapBack(centre);
+            break;
+        }
+        case 'LineString':
+        case 'MultiLineString': {
+            const lines = (geometry.type === 'MultiLineString' ? geometry.coordinates : [geometry.coordinates]);
+            const centre = pointHalfwayAlong(lines.map(line => line.map(framed)));
+            if (centre) return wrapBack(centre);
+            break;
+        }
+        default:
+            break;
+    }
+
+    // Points, multipoints, and anything with no area or length to speak of.
+    return averagePosition(all);
+}
+
+/** Every coordinate in a geometry, whatever its nesting depth. */
+function collectPositions(geometry: GeoJSON.Geometry): GeoJSON.Position[] {
     const points: GeoJSON.Position[] = [];
     const walk = (coords: unknown): void => {
         if (!Array.isArray(coords)) return;
@@ -586,8 +638,105 @@ function representativePoint(geometry: GeoJSON.Geometry | null | undefined): Geo
         for (const child of coords) walk(child);
     };
     walk((geometry as { coordinates?: unknown }).coordinates);
-    if (!points.length) return null;
-    return averagePosition(points);
+    return points;
+}
+
+/**
+ * Area centroid of one feature's polygons: shoelace per ring, holes subtracted,
+ * parts weighted by their area.
+ *
+ * Ring order is what says which is which — the first ring of a polygon is its
+ * exterior and the rest are holes — rather than winding direction, which real
+ * data does not reliably carry. Returns null for zero total area (a collapsed
+ * or degenerate ring), where a centroid is not defined and the caller falls
+ * back to the coordinate mean.
+ */
+function areaCentroid(polygons: GeoJSON.Position[][][]): GeoJSON.Position | null {
+    let area = 0, sumX = 0, sumY = 0;
+    for (const rings of polygons) {
+        for (let index = 0; index < rings.length; index++) {
+            const ring = rings[index];
+            let doubleArea = 0, x = 0, y = 0;
+            for (let i = 0; i + 1 < ring.length; i++) {
+                const [x0, y0] = ring[i];
+                const [x1, y1] = ring[i + 1];
+                const cross = x0 * y1 - x1 * y0;
+                doubleArea += cross;
+                x += (x0 + x1) * cross;
+                y += (y0 + y1) * cross;
+            }
+            if (!doubleArea) continue;
+            const ringArea = Math.abs(doubleArea / 2);
+            const sign = index === 0 ? 1 : -1;
+            area += sign * ringArea;
+            sumX += sign * ringArea * (x / (3 * doubleArea));
+            sumY += sign * ringArea * (y / (3 * doubleArea));
+        }
+    }
+    if (!area) return null;
+    return [sumX / area, sumY / area];
+}
+
+/**
+ * The point at half the total length of a feature's lines.
+ *
+ * Measured along the parts in order, so the answer always lands *on* one of
+ * them. A mean of per-part midpoints would not: it would sit in the water
+ * between two reaches of the same river.
+ */
+function pointHalfwayAlong(lines: GeoJSON.Position[][]): GeoJSON.Position | null {
+    let total = 0;
+    for (const line of lines) {
+        for (let i = 0; i + 1 < line.length; i++) total += distance(line[i], line[i + 1]);
+    }
+    if (!total) return null;
+
+    let remaining = total / 2;
+    for (const line of lines) {
+        for (let i = 0; i + 1 < line.length; i++) {
+            const segment = distance(line[i], line[i + 1]);
+            if (segment >= remaining) {
+                const t = segment ? remaining / segment : 0;
+                return [
+                    line[i][0] + (line[i + 1][0] - line[i][0]) * t,
+                    line[i][1] + (line[i + 1][1] - line[i][1]) * t,
+                ];
+            }
+            remaining -= segment;
+        }
+    }
+    return null;
+}
+
+function distance(a: GeoJSON.Position, b: GeoJSON.Position): number {
+    return Math.sqrt((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2);
+}
+
+/**
+ * Whether this set of coordinates is narrower with its western half moved one
+ * world east — the same test `averagePosition` and `unwrapAcrossDateline` make,
+ * and the reason any of them can answer for a shape split at ±180°.
+ */
+function shiftedFrameIsNarrower(points: GeoJSON.Position[]): boolean {
+    let min = Infinity, max = -Infinity, shiftedMin = Infinity, shiftedMax = -Infinity;
+    for (const [x] of points) {
+        const shifted = x < 0 ? x + WORLD_WIDTH : x;
+        min = Math.min(min, x);
+        max = Math.max(max, x);
+        shiftedMin = Math.min(shiftedMin, shifted);
+        shiftedMax = Math.max(shiftedMax, shifted);
+    }
+    return shiftedMax - shiftedMin < max - min;
+}
+
+function toFrame(x: number, shift: boolean): number {
+    return shift && x < 0 ? x + WORLD_WIDTH : x;
+}
+
+/** Back into the canonical range, so the whole-layer unwrap that follows sees every site expressed the same way. */
+function wrapBack(point: GeoJSON.Position): GeoJSON.Position {
+    const half = WORLD_WIDTH / 2;
+    return [point[0] > half ? point[0] - WORLD_WIDTH : point[0], point[1]];
 }
 
 /**

@@ -422,9 +422,9 @@ const SINGLE_EXAMPLES: Example[] = [
     { id: 'cartogram', operation: 'cartogram', title: 'Cartogram', twoInput: false, params: { field: 'pop_est' },
       note: 'Each country resized so its *area* shows its population rather than its ground area: Ireland shrinks, the United Kingdom and France grow. The default method stretches one sheet, so neighbours stay attached — Belgium and the Netherlands do not come apart, and no gaps open along the borders.' },
     { id: 'voronoi', operation: 'voronoi', title: 'Voronoi', twoInput: false,
-      note: 'One cell per feature, covering everything closer to it than to any other. A non-point feature takes part through its centre.' },
+      note: 'Defined on points: one cell per point, covering everything closer to it than to any other. Hand it polygons or lines and each feature is first reduced to one point — a polygon’s area centroid, or the point halfway along a line — and the cells are built from those, so a layer of countries gives one cell per country.' },
     { id: 'delaunay', operation: 'delaunay', title: 'Delaunay', twoInput: false,
-      note: 'The mirror image of Voronoi: triangles joining the features that are neighbours.' },
+      note: 'The mirror image of Voronoi, and defined on points in the same way: triangles joining the points that are neighbours. A polygon or line input is reduced to one point per feature first — a polygon’s area centroid, or the point halfway along a line — and the triangles join those. Every input point ends up a corner of at least one triangle, which is why the distinct corners number exactly as many as the inputs. It is not merely a step towards Voronoi: a triangulation is the usual way to turn spot heights into a terrain surface (a TIN, and the contours and slopes read off it), to interpolate between measurements, and to ask which points are neighbours without choosing a distance — the neighbour graph spatial statistics builds its weights from. What comes back here is only the triangles and the indices of the points at their corners, with no attributes carried over and no height, so in this tool it answers the neighbour-and-spacing question rather than the surface one.' },
 ];
 
 void main();
