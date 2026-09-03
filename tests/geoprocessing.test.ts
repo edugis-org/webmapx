@@ -1245,6 +1245,51 @@ test('simplify tolerance is interpreted in metres', { timeout: TIMEOUT }, async 
     assert.ok(count(fine) > count(coarse), `fine=${count(fine)} coarse=${count(coarse)}`);
 });
 
+test('simplify drops a small island rather than shrinking it to a point', { timeout: TIMEOUT }, async () => {
+    // A mainland far larger than the tolerance, plus one small detached island
+    // — small enough that Visvalingam collapses its ring onto a single vertex
+    // well before the mainland's own outline is touched.
+    const mainland: GeoJSON.Feature = {
+        type: 'Feature', properties: { name: 'mainland' },
+        geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] },
+    };
+    const island: GeoJSON.Feature = {
+        type: 'Feature', properties: { name: 'island' },
+        geometry: {
+            type: 'Polygon',
+            coordinates: [[[10, 10], [10.001, 10], [10.0015, 10.0005], [10.001, 10.001], [10, 10.001], [10, 10]]],
+        },
+    };
+    const out = await run('simplify', fc(mainland, island), undefined, { tolerance: 20000 });
+
+    assert.equal(out.features.length, 1, 'the degenerated island must be dropped, not kept as a zero-area shape');
+    assert.equal(out.features[0].properties?.name, 'mainland');
+    assert.ok(
+        out.warnings?.some(w => /no geometry left/.test(w)),
+        `expected a dropped-geometry warning, got ${JSON.stringify(out.warnings)}`,
+    );
+});
+
+test('simplify drops a lake that collapses, keeping the rest of the polygon', { timeout: TIMEOUT }, async () => {
+    // A large outer ring with one small hole (a lake) far smaller than the
+    // tolerance being applied — the hole should disappear, the polygon should not.
+    const withLake: GeoJSON.Feature = {
+        type: 'Feature', properties: { name: 'country' },
+        geometry: {
+            type: 'Polygon',
+            coordinates: [
+                [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]],
+                [[0.5, 0.5], [0.5001, 0.5], [0.50015, 0.50005], [0.5001, 0.5001], [0.5, 0.5001], [0.5, 0.5]],
+            ],
+        },
+    };
+    const out = await run('simplify', fc(withLake), undefined, { tolerance: 20000 });
+
+    assert.equal(out.features.length, 1, 'the outer shape must survive even though its lake collapsed');
+    const rings = (out.features[0].geometry as GeoJSON.Polygon).coordinates;
+    assert.equal(rings.length, 1, `expected the collapsed lake to be dropped, kept ${rings.length - 1} hole(s)`);
+});
+
 // ─── Robustness ──────────────────────────────────────────────────────────────
 
 test('an empty input is rejected with a readable message', { timeout: TIMEOUT }, async () => {

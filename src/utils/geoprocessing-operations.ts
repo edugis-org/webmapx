@@ -1264,6 +1264,66 @@ function selfIntersects(ring: GeoJSON.Position[]): boolean {
 }
 
 /**
+ * Whether a ring's points, once its exact duplicates are counted once, still
+ * form a real shape.
+ *
+ * Visvalingam never removes a ring's first or last point, so a ring can never
+ * be filtered down to nothing — but every point *between* those two can go,
+ * and enough tolerance collapses a small ring onto its own start point. A
+ * "polygon" of four identical coordinates is exactly the failure this catches:
+ * valid GeoJSON syntax, zero area, not a shape.
+ */
+function ringHasArea(ring: GeoJSON.Position[]): boolean {
+    const distinct = new Set(ring.slice(0, -1).map(([x, y]) => `${x},${y}`));
+    if (distinct.size < 3) return false;
+    let doubleArea = 0;
+    for (let i = 0; i + 1 < ring.length; i++) {
+        doubleArea += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+    }
+    return Math.abs(doubleArea) > 1e-9;
+}
+
+function lineHasLength(line: GeoJSON.Position[]): boolean {
+    return new Set(line.map(([x, y]) => `${x},${y}`)).size >= 2;
+}
+
+/**
+ * Drops whatever simplification collapsed to nothing, rather than shipping it.
+ *
+ * A hole that disappears is not a data loss — it is what "simplify" was asked
+ * to do — so only a *hole* ring is dropped quietly. An exterior ring or a whole
+ * line collapsing takes the feature's geometry with it, set to `null` so the
+ * runner's own `dropEmptyGeometries` removes the feature and reports it exactly
+ * as it already reports any other operation that erased something: "results had
+ * no geometry left and were dropped."
+ */
+function dropDegenerateGeometry(geometry: GeoJSON.Geometry | null): GeoJSON.Geometry | null {
+    if (!geometry) return null;
+    switch (geometry.type) {
+        case 'Polygon': {
+            const [outer, ...holes] = geometry.coordinates;
+            if (!outer || !ringHasArea(outer)) return null;
+            const kept = holes.filter(ringHasArea);
+            return { type: 'Polygon', coordinates: [outer, ...kept] };
+        }
+        case 'MultiPolygon': {
+            const polygons = geometry.coordinates
+                .filter(([outer]) => outer && ringHasArea(outer))
+                .map(([outer, ...holes]) => [outer, ...holes.filter(ringHasArea)]);
+            return polygons.length ? { type: 'MultiPolygon', coordinates: polygons } : null;
+        }
+        case 'LineString':
+            return lineHasLength(geometry.coordinates) ? geometry : null;
+        case 'MultiLineString': {
+            const lines = geometry.coordinates.filter(lineHasLength);
+            return lines.length ? { type: 'MultiLineString', coordinates: lines } : null;
+        }
+        default:
+            return geometry;
+    }
+}
+
+/**
  * Simplify every feature while keeping shared borders identical.
  *
  * `ST_Simplify`/`ST_SimplifyPreserveTopology` are the obvious tools and are wrong
@@ -1330,10 +1390,19 @@ function simplifyShared(input: GeoJSON.FeatureCollection, params: GeoParamValues
     // cannot know that.
     const result: GeoJSON.Feature | GeoJSON.FeatureCollection =
         topoFeature({ ...weighted, arcs } as never, weighted.objects.layer) as GeoJSON.Feature | GeoJSON.FeatureCollection;
+    const features = result.type === 'FeatureCollection' ? result.features : [result];
 
-    return result.type === 'FeatureCollection'
-        ? result
-        : { type: 'FeatureCollection', features: [result] };
+    // A small ring can survive every repair pass and still collapse to nothing
+    // once the requested tolerance is bigger than the shape itself — a small
+    // island under a country-scale tolerance, say. Left alone that comes back
+    // as a "polygon" whose points are all the same coordinate: valid GeoJSON,
+    // zero area, not a shape. Nulling it here hands it to the runner's own
+    // dropped-geometry accounting, the same net every other operation's erased
+    // features fall through.
+    return {
+        type: 'FeatureCollection',
+        features: features.map(feature => ({ ...feature, geometry: dropDegenerateGeometry(feature.geometry) } as GeoJSON.Feature)),
+    };
 }
 
 /**
