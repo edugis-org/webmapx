@@ -48,13 +48,21 @@ test('documented attributes are the attributes the generators actually write', (
     const at = new Date('2026-03-21T12:00:00Z');
     for (const doc of INTERNAL_SOURCE_DOCS) {
         if (doc.category === 'deep-time') continue;
-        const fc = INTERNAL_SOURCES[doc.id]({ at, query: new URLSearchParams() } as never);
         const produced = new Set<string>();
-        for (const feature of fc.features) {
-            for (const key of Object.keys(feature.properties ?? {})) produced.add(key);
-        }
-        const documented = new Set(doc.attributes.map(a => a.name));
+        const collect = (query: string) => {
+            const fc = INTERNAL_SOURCES[doc.id]({ at, query: new URLSearchParams(query) } as never);
+            for (const feature of fc.features) {
+                for (const key of Object.keys(feature.properties ?? {})) produced.add(key);
+            }
+        };
+        collect('');
+        // A layer with an `observer` param — moon-phase, at present — writes a
+        // second set of attributes only once one is given, and the no-observer
+        // run above never sees them. Run it a second time with one, or the
+        // check only ever covers half the layer's actual output.
+        if (doc.params.some(p => p.name === 'observer')) collect('observer=5,52');
 
+        const documented = new Set(doc.attributes.map(a => a.name));
         for (const key of produced) {
             assert.ok(documented.has(key), `${doc.id} returns an undocumented attribute: ${key}`);
         }
