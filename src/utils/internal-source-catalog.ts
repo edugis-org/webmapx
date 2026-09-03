@@ -389,7 +389,7 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         ],
         params: [
             { name: 'days', summary: 'How many days to trace.', fallback: 'one orbit, 27.32 days' },
-            { name: 'step', summary: 'Hours between points.' },
+            { name: 'step', summary: 'Hours between points.', fallback: '1 hour' },
             AT,
         ],
         example: 'internalfunc://moon-path?days=27.32&step=1',
