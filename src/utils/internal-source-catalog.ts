@@ -22,6 +22,16 @@ export interface InternalSourceParamDoc {
     fallback?: string;
 }
 
+/** One property a generator writes onto every feature it returns. */
+export interface InternalSourceAttributeDoc {
+    /** Property name, as it arrives in `feature.properties`. */
+    name: string;
+    /** What it holds, in one line. */
+    summary: string;
+    /** Unit or shape of the value, where a number alone would be ambiguous. */
+    unit?: string;
+}
+
 export interface InternalSourceDoc {
     /** The name after `internalfunc://`. */
     id: string;
@@ -33,6 +43,18 @@ export interface InternalSourceDoc {
     summary: string;
     /** The geometry a reader should expect to style. */
     geometry: string;
+    /**
+     * The geometry types actually returned, so a demo can style what is there
+     * rather than everything, and a reader knows which paint applies.
+     */
+    geometryKinds: Array<'point' | 'line' | 'polygon'>;
+    /**
+     * What each feature carries. This is where most of these layers keep their
+     * answer — the shape only says where it applies, and the number that makes
+     * it interesting (the hours of daylight, the EPSG code, the distance) is a
+     * property, readable with the info tool.
+     */
+    attributes: InternalSourceAttributeDoc[];
     /**
      * Whether the picture changes with the map's clock.
      *
@@ -60,6 +82,14 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'The bands of daylight, the three twilights and night, as they stand at the moment shown. The terminator is the edge between the first two.',
         geometry: 'Polygons, one band per light level',
         clock: 'always',
+        geometryKinds: ['polygon'],
+        attributes: [
+            { name: 'id', summary: 'Which band this is: `sunset`, `civil`, `nautical`, `astronomical` or `night`.' },
+            { name: 'description', summary: 'The band\u2019s name, ready to show.' },
+            { name: 'from', summary: 'Sun altitude at the band\u2019s bright edge.', unit: 'degrees' },
+            { name: 'to', summary: 'Sun altitude at its dark edge.', unit: 'degrees' },
+            { name: 'timestamp', summary: 'The moment the layer was computed for.', unit: 'ISO 8601' },
+        ],
         params: [AT],
         example: 'internalfunc://day-night?refresh=auto',
     },
@@ -70,6 +100,13 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'The subsolar point: the one place on Earth with the sun straight overhead.',
         geometry: 'A single point',
         clock: 'always',
+        geometryKinds: ['point'],
+        attributes: [
+            { name: 'description', summary: 'What the point is.' },
+            { name: 'declination', summary: 'How far the sun stands north or south of the equator today.', unit: 'degrees' },
+            { name: 'equationOfTime', summary: 'How far a sundial runs ahead of or behind the clock.', unit: 'minutes' },
+            { name: 'timestamp', summary: 'The moment the layer was computed for.', unit: 'ISO 8601' },
+        ],
         params: [AT],
         example: 'internalfunc://sun-position?refresh=auto',
     },
@@ -80,6 +117,13 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'The track the subsolar point takes, a line per day — the figure that makes the sun’s yearly north–south swing one picture instead of a moving dot.',
         geometry: 'Lines, one per day drawn',
         clock: 'never',
+        geometryKinds: ['line'],
+        attributes: [
+            { name: 'date', summary: 'The day this line is the sun\u2019s track for.', unit: 'YYYY-MM-DD' },
+            { name: 'month', summary: 'Its month, for colouring by season.', unit: '1\u201312' },
+            { name: 'declination', summary: 'The sun\u2019s declination that day.', unit: 'degrees' },
+            { name: 'solstice', summary: '`june` or `december` on the two extreme days, otherwise absent.' },
+        ],
         params: [
             { name: 'year', summary: 'Draw a whole calendar year.', fallback: 'the half-cycle around the current moment' },
             { name: 'step', summary: 'Degrees between points along each line.' },
@@ -95,6 +139,12 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'Where the day is a given number of hours long today — the polar-night and midnight-sun lines are the 0 and 24 hour cases.',
         geometry: 'Lines, one per hour value',
         clock: 'always',
+        geometryKinds: ['line'],
+        attributes: [
+            { name: 'hours', summary: 'How long the day is anywhere on this line.', unit: 'hours' },
+            { name: 'description', summary: 'The same, in words.' },
+            { name: 'date', summary: 'The day it applies to \u2014 these lines move all year.', unit: 'YYYY-MM-DD' },
+        ],
         params: [
             { name: 'hours', summary: 'Comma-separated hour values to draw.', fallback: 'a standard spread' },
             AT,
@@ -108,6 +158,12 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'The meridians where the sun stands at each whole hour of local solar time — noon is the one under the sun.',
         geometry: 'Lines, one per hour',
         clock: 'always',
+        geometryKinds: ['line'],
+        attributes: [
+            { name: 'solarHour', summary: 'The local solar hour along this meridian.', unit: '0\u201323' },
+            { name: 'noon', summary: 'True for the meridian directly under the sun.' },
+            { name: 'timestamp', summary: 'The moment the layer was computed for.', unit: 'ISO 8601' },
+        ],
         params: [AT],
         example: 'internalfunc://solar-time?refresh=auto',
     },
@@ -118,6 +174,18 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'The figure-of-eight the sun traces when seen at the same clock time all year — the shape that shows a clock and the sun keep different time.',
         geometry: 'A line, with points for the days',
         clock: 'never',
+        geometryKinds: ['line', 'point'],
+        attributes: [
+            { name: 'description', summary: 'What this point is: the sun\u2019s place at that clock time on that date.' },
+            { name: 'date', summary: 'The day.', unit: 'YYYY-MM-DD' },
+            { name: 'dayOfYear', summary: 'Its number in the year, for animating along the figure.', unit: '1\u2013366' },
+            { name: 'year', summary: 'The year traced.' },
+            { name: 'hourUtc', summary: 'The clock hour the sun was sampled at.', unit: 'UTC hour' },
+            { name: 'longitude', summary: 'Where the sun stood.', unit: 'degrees' },
+            { name: 'latitude', summary: 'Where the sun stood.', unit: 'degrees' },
+            { name: 'equationOfTimeMinutes', summary: 'The east\u2013west half of the figure, which is what the equation of time measures.', unit: 'minutes' },
+            { name: 'today', summary: 'True on the day the map is showing.' },
+        ],
         params: [
             { name: 'year', summary: 'Which year to trace.', fallback: 'the year of the current moment' },
             { name: 'hour', summary: 'The UTC hour to sample each day at.' },
@@ -132,6 +200,12 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'Meridians and parallels: the grid a projection is drawn against, and the quickest way to see what a projection does to it.',
         geometry: 'Lines',
         clock: 'never',
+        geometryKinds: ['line'],
+        attributes: [
+            { name: 'kind', summary: '`meridian` or `parallel`.' },
+            { name: 'degrees', summary: 'Its longitude or latitude.', unit: 'degrees' },
+            { name: 'label', summary: 'Ready to draw: `180\u00b0 W`, `45\u00b0 N`.' },
+        ],
         params: [{ name: 'spacing', summary: 'Degrees between lines.', fallback: '10' }],
         example: 'internalfunc://graticule?spacing=15',
     },
@@ -142,6 +216,14 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'Equator, tropics and polar circles. The tropics and polar circles move with the Earth’s tilt, so they are computed for the moment shown rather than fixed at 23.5°.',
         geometry: 'Lines',
         clock: 'always',
+        geometryKinds: ['line'],
+        attributes: [
+            { name: 'id', summary: '`equator`, `tropic-cancer`, `tropic-capricorn`, `arctic` or `antarctic`.' },
+            { name: 'description', summary: 'Its name.' },
+            { name: 'latitude', summary: 'Where it lies today \u2014 the tropics and polar circles move with the tilt.', unit: 'degrees' },
+            { name: 'axialTilt', summary: 'The Earth\u2019s tilt on this date, which is what puts them there.', unit: 'degrees' },
+            { name: 'date', summary: 'The date that tilt is for.', unit: 'YYYY-MM-DD' },
+        ],
         params: [AT],
         example: 'internalfunc://reference-circles',
     },
@@ -152,6 +234,12 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'Circles of equal ground radius, placed on a grid. Every one is a circle on the globe, so whatever the projection does to them is what it does to shape and area everywhere.',
         geometry: 'Polygons',
         clock: 'never',
+        geometryKinds: ['polygon'],
+        attributes: [
+            { name: 'centre', summary: 'Where the circle sits.', unit: '[lon, lat]' },
+            { name: 'radiusKm', summary: 'Its true radius on the ground \u2014 every circle has the same one.', unit: 'km' },
+            { name: 'description', summary: 'Radius and position in words.' },
+        ],
         params: [
             { name: 'spacing', summary: 'Degrees between circles.' },
             { name: 'radius', summary: 'Ground radius of each circle, in kilometres.' },
@@ -165,6 +253,18 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'The shape the ocean would take if water could keep up with the moon and the sun — two bulges, one under the moon and one opposite. It is the *forcing*, not a tide table: real tides lag it by hours and are shaped by coastlines.',
         geometry: 'Lines at each level, and points at the extremes',
         clock: 'always',
+        geometryKinds: ['line', 'point'],
+        attributes: [
+            { name: 'id', summary: '`low`, `high`, or the level for a contour.' },
+            { name: 'description', summary: 'The level in words.' },
+            { name: 'metres', summary: 'The height of this contour above mean level.', unit: 'm' },
+            { name: 'springFactor', summary: 'How close this moment is to spring tide: 1 at full alignment.', unit: '0\u20131' },
+            { name: 'phase', summary: 'The moon\u2019s phase now.', unit: '0\u20131' },
+            { name: 'phaseName', summary: 'That phase in words.' },
+            { name: 'lunarAmplitude', summary: 'The moon\u2019s share of the bulge.', unit: 'm' },
+            { name: 'solarAmplitude', summary: 'The sun\u2019s share, about half the moon\u2019s.', unit: 'm' },
+            { name: 'timestamp', summary: 'The moment the layer was computed for.', unit: 'ISO 8601' },
+        ],
         params: [
             { name: 'levels', summary: 'Comma-separated metre levels to contour.' },
             { name: 'step', summary: 'Degrees between sample points.' },
@@ -180,6 +280,15 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'The sublunar point: where the moon stands directly overhead.',
         geometry: 'A single point',
         clock: 'always',
+        geometryKinds: ['point'],
+        attributes: [
+            { name: 'description', summary: 'What the point is.' },
+            { name: 'phase', summary: 'Where the moon is in its cycle.', unit: '0\u20131' },
+            { name: 'phaseName', summary: 'That phase in words.' },
+            { name: 'illumination', summary: 'How much of the disc is lit.', unit: '0\u20131' },
+            { name: 'distanceKm', summary: 'How far away the moon is now \u2014 it varies by some 40 000 km.', unit: 'km' },
+            { name: 'timestamp', summary: 'The moment the layer was computed for.', unit: 'ISO 8601' },
+        ],
         params: [AT],
         example: 'internalfunc://moon-position?refresh=auto',
     },
@@ -190,6 +299,15 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'The moon drawn as a disc at the point it stands over, with its lit part shaded and turned so the light faces the sun.',
         geometry: 'Polygons — the disc and its lit part',
         clock: 'always',
+        geometryKinds: ['polygon'],
+        attributes: [
+            { name: 'id', summary: '`disc` for the whole moon, `lit` for the sunlit part.' },
+            { name: 'description', summary: 'What the shape is.' },
+            { name: 'phase', summary: 'Where the moon is in its cycle.', unit: '0\u20131' },
+            { name: 'phaseName', summary: 'That phase in words.' },
+            { name: 'illumination', summary: 'How much of the disc is lit.', unit: '0\u20131' },
+            { name: 'timestamp', summary: 'The moment the layer was computed for.', unit: 'ISO 8601' },
+        ],
         params: [
             { name: 'radius', summary: 'Radius of the disc, in degrees.' },
             { name: 'observer', summary: 'A `lon,lat` to draw the phase as seen from there — `{click}` follows the last click.', fallback: 'drawn as seen from the sublunar point' },
@@ -204,6 +322,13 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'The half of the world with the moon above the horizon at this moment.',
         geometry: 'A polygon',
         clock: 'always',
+        geometryKinds: ['polygon'],
+        attributes: [
+            { name: 'description', summary: 'What the band is.' },
+            { name: 'phaseName', summary: 'The phase those people can see.' },
+            { name: 'illumination', summary: 'How much of it is lit.', unit: '0\u20131' },
+            { name: 'timestamp', summary: 'The moment the layer was computed for.', unit: 'ISO 8601' },
+        ],
         params: [AT],
         example: 'internalfunc://moon-visibility?refresh=auto',
     },
@@ -214,6 +339,21 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'The same moon at a row of latitudes, each disc turned the way an observer standing there sees it — which is how the crescent comes to lie on its back at the equator and stand upright in the north.',
         geometry: 'Polygons, one moon per latitude',
         clock: 'always',
+        geometryKinds: ['polygon', 'line'],
+        attributes: [
+            { name: 'latitude', summary: 'The latitude this moon is drawn for.', unit: 'degrees' },
+            { name: 'longitude', summary: 'The meridian the row stands on.', unit: 'degrees' },
+            { name: 'tilt', summary: 'How far the lit side is turned from up, as seen from there \u2014 the reason the crescent lies on its back at the equator.', unit: 'degrees' },
+            { name: 'altitude', summary: 'How high the moon stands above the horizon there.', unit: 'degrees' },
+            { name: 'sunAltitude', summary: 'How high the sun stands, which decides whether the moon is visible.', unit: 'degrees' },
+            { name: 'daylight', summary: 'True where the sun is up.' },
+            { name: 'nearZenith', summary: 'True where the moon is nearly overhead, where "turned" stops meaning much.' },
+            { name: 'illumination', summary: 'How much of the disc is lit.', unit: '0\u20131' },
+            { name: 'phaseName', summary: 'The phase in words.' },
+            { name: 'id', summary: '`disc`, `lit` or the horizon marker.' },
+            { name: 'description', summary: 'What the shape is.' },
+            { name: 'timestamp', summary: 'The moment the layer was computed for.', unit: 'ISO 8601' },
+        ],
         params: [
             { name: 'lon', summary: 'Meridian to place the row on.', fallback: 'the meridian where the sun has just set' },
             { name: 'from', summary: 'Southernmost latitude.' },
@@ -231,6 +371,14 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'The track of the sublunar point over a month, which turns the moon’s north–south swing into one picture.',
         geometry: 'Lines',
         clock: 'always',
+        geometryKinds: ['line'],
+        attributes: [
+            { name: 'description', summary: 'What the track is.' },
+            { name: 'days', summary: 'How many days it covers.', unit: 'days' },
+            { name: 'northernmost', summary: 'The furthest north the moon gets in this stretch.', unit: 'degrees' },
+            { name: 'southernmost', summary: 'The furthest south.', unit: 'degrees' },
+            { name: 'timestamp', summary: 'The moment the layer was computed for.', unit: 'ISO 8601' },
+        ],
         params: [
             { name: 'days', summary: 'How many days to trace.', fallback: 'one orbit, 27.32 days' },
             { name: 'step', summary: 'Hours between points.' },
@@ -245,6 +393,12 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'Circles of equal ground distance around a place — true circles on the globe, so a projection bends them exactly as much as it distorts.',
         geometry: 'Polygons',
         clock: 'never',
+        geometryKinds: ['line'],
+        attributes: [
+            { name: 'radiusKm', summary: 'How far from the centre this ring is.', unit: 'km' },
+            { name: 'centre', summary: 'The place the rings are drawn about.', unit: '[lon, lat]' },
+            { name: 'description', summary: 'The radius in words.' },
+        ],
         params: [
             { name: 'at', summary: 'Centre, as `lon,lat`.', fallback: '5,52' },
             { name: 'radii', summary: 'Comma-separated radii in kilometres.' },
@@ -258,6 +412,13 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'The shortest path between two places on the globe — the line that looks bent on a Mercator map and is not.',
         geometry: 'A line',
         clock: 'never',
+        geometryKinds: ['line'],
+        attributes: [
+            { name: 'description', summary: 'What the line is.' },
+            { name: 'distanceKm', summary: 'The distance along it \u2014 the number the picture cannot show.', unit: 'km' },
+            { name: 'from', summary: 'Start.', unit: '[lon, lat]' },
+            { name: 'to', summary: 'End.', unit: '[lon, lat]' },
+        ],
         params: [
             { name: 'from', summary: 'Start, as `lon,lat`.', fallback: '4.9,52.4' },
             { name: 'to', summary: 'End, as `lon,lat`.', fallback: '139.7,35.7' },
@@ -271,6 +432,11 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'The point on the exact other side of the Earth from a place.',
         geometry: 'A single point',
         clock: 'never',
+        geometryKinds: ['point'],
+        attributes: [
+            { name: 'description', summary: '`Here` or the antipode.' },
+            { name: 'role', summary: '`origin` or `antipode`, for styling the pair differently.' },
+        ],
         params: [{ name: 'at', summary: 'The place, as `lon,lat`.', fallback: '5,52' }],
         example: 'internalfunc://antipode?at=5,52',
     },
@@ -281,6 +447,15 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'The 60 UTM zones, including the widened and split ones off Norway and Svalbard that the rule alone does not give you.',
         geometry: 'Polygons',
         clock: 'never',
+        geometryKinds: ['polygon'],
+        attributes: [
+            { name: 'designation', summary: 'Zone and latitude band, as a grid reference gives it: `31U`.' },
+            { name: 'zone', summary: 'The zone number.', unit: '1\u201360' },
+            { name: 'band', summary: 'The latitude band letter.', unit: 'C\u2013X' },
+            { name: 'epsg', summary: 'The EPSG code to project this zone in \u2014 the practical answer, invisible on the map.' },
+            { name: 'centralMeridian', summary: 'The meridian the zone is measured from.', unit: 'degrees' },
+            { name: 'exception', summary: 'Names the widened or split zones off Norway and Svalbard; null elsewhere.' },
+        ],
         params: [],
         example: 'internalfunc://utm-zones',
     },
@@ -291,6 +466,13 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'Today’s coastlines carried back to a chosen age on the plates they ride. Rigid rotation: crust since shortened or stretched is not shown, so continents meet later here than the rocks say.',
         geometry: 'Polygons',
         clock: 'always',
+        geometryKinds: ['polygon'],
+        attributes: [
+            { name: 'plateId', summary: 'Which plate this piece rides on, in the model\u2019s numbering.' },
+            { name: 'continent', summary: 'The continent it belongs to today.' },
+            { name: 'fromAge', summary: 'The oldest age the model reconstructs this piece for.', unit: 'Ma' },
+            { name: 'ma', summary: 'The age it is drawn at.', unit: 'Ma' },
+        ],
         params: [
             { name: 'data', summary: 'Directory of the rotation model, resolved against the config.' },
             { name: 'ma', summary: 'Millions of years ago — `{ma}` follows the map’s clock.' },
@@ -304,6 +486,14 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
         summary: 'Plate boundaries and deforming networks at a chosen age. Snapshots rather than a reconstruction: boundaries are born, die and change in number, so there is nothing to interpolate between two ages.',
         geometry: 'Lines and polygons',
         clock: 'always',
+        geometryKinds: ['polygon'],
+        attributes: [
+            { name: 'ma', summary: 'The age this snapshot is for.', unit: 'Ma' },
+            { name: 'type', summary: 'The GPlates feature type, e.g. a topological closed plate boundary.' },
+            { name: 'name', summary: 'The plate or network\u2019s name.' },
+            { name: 'pid', summary: 'Its plate id in the model.' },
+            { name: 'deforming', summary: 'True for a deforming network \u2014 crust being squeezed rather than a rigid plate.' },
+        ],
         params: [
             { name: 'data', summary: 'Directory of the plate snapshots, resolved against the config.' },
             { name: 'ma', summary: 'Millions of years ago — `{ma}` follows the map’s clock.' },

@@ -34,6 +34,54 @@ test('each entry says enough to be worth reading', () => {
     }
 });
 
+/**
+ * The attributes are the part a reader cannot check for themselves: most of
+ * these layers keep their answer in a property rather than in the shape, so a
+ * documented name that no longer exists sends someone hunting for a number the
+ * feature does not carry. Running the generator is the only way to know.
+ *
+ * The two deep-time layers are left out: they fetch a rotation model over the
+ * network, which a unit test has no business doing — `tests/spherical-geojson`
+ * and the deep-time UI test cover that side.
+ */
+test('documented attributes are the attributes the generators actually write', () => {
+    const at = new Date('2026-03-21T12:00:00Z');
+    for (const doc of INTERNAL_SOURCE_DOCS) {
+        if (doc.category === 'deep-time') continue;
+        const fc = INTERNAL_SOURCES[doc.id]({ at, query: new URLSearchParams() } as never);
+        const produced = new Set<string>();
+        for (const feature of fc.features) {
+            for (const key of Object.keys(feature.properties ?? {})) produced.add(key);
+        }
+        const documented = new Set(doc.attributes.map(a => a.name));
+
+        for (const key of produced) {
+            assert.ok(documented.has(key), `${doc.id} returns an undocumented attribute: ${key}`);
+        }
+        // The other direction catches a rename: a documented attribute nothing
+        // writes is a reader looking for a value that will never be there.
+        for (const name of documented) {
+            assert.ok(produced.has(name), `${doc.id} documents an attribute it never writes: ${name}`);
+        }
+    }
+});
+
+test('documented geometry kinds are the kinds the generators return', () => {
+    const at = new Date('2026-03-21T12:00:00Z');
+    const kindOf = (type: string) =>
+        type.includes('Point') ? 'point' : type.includes('LineString') ? 'line' : 'polygon';
+    for (const doc of INTERNAL_SOURCE_DOCS) {
+        if (doc.category === 'deep-time') continue;
+        const fc = INTERNAL_SOURCES[doc.id]({ at, query: new URLSearchParams() } as never);
+        const produced = new Set(fc.features.map(f => kindOf(f.geometry?.type ?? '')));
+        assert.deepEqual(
+            [...produced].sort(),
+            [...doc.geometryKinds].sort(),
+            `${doc.id} draws ${[...produced].join('+')}, documented as ${doc.geometryKinds.join('+')}`,
+        );
+    }
+});
+
 test('every entry belongs to a listed category', () => {
     const known = new Set(INTERNAL_SOURCE_CATEGORIES.map(c => c.id));
     for (const doc of INTERNAL_SOURCE_DOCS) {
