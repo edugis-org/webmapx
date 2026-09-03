@@ -24,7 +24,7 @@ import path from 'node:path';
 
 import { registerMapLayer } from '../src/map/map-layer-registry';
 import { MapStateStore } from '../src/store/map-state-store';
-import { resolveLayerAttribution } from '../src/utils/attribution-format';
+import { attributionMeaning, resolveLayerAttribution } from '../src/utils/attribution-format';
 import type { AnyLayerConfig, SourceConfig } from '../src/config/types';
 
 const ATTRIBUTION = 'openrouteservice.org by HeiGIT | &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>';
@@ -119,4 +119,20 @@ test('the data half is spelled exactly as a basemap spells it, so the two merge'
         readFileSync(path.join(process.cwd(), 'public/config/docs/tools/isochrone.json'), 'utf8'),
     ).layerData.sources.find((source: { id: string }) => source.id === 'osm-source').attribution;
     assert.equal(parts[1], basemapCredit);
+});
+
+test('one credit, however each layer spells it', () => {
+    // The exact strings that produced two OpenStreetMap lines on a map with a
+    // search result over an OSM basemap: the search tool credits it in plain
+    // text, a config credits it with a link to the licence.
+    const fromSearch = '&copy; OpenStreetMap contributors';
+    const fromBasemap = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>';
+    assert.equal(attributionMeaning(fromSearch), attributionMeaning(fromBasemap));
+
+    // © and &copy;, and any amount of space, are the same sentence too.
+    assert.equal(attributionMeaning('©  OpenStreetMap  contributors'), attributionMeaning(fromSearch));
+
+    // Different bodies stay different — this must not merge everything.
+    assert.notEqual(attributionMeaning(fromSearch), attributionMeaning('&copy; Nominatim'));
+    assert.notEqual(attributionMeaning('&copy; TomTom'), attributionMeaning('&copy; GraphHopper'));
 });

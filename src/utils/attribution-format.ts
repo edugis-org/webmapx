@@ -49,6 +49,22 @@ export function resolveLayerAttribution(
     return undefined;
 }
 
+/**
+ * What a credit says, with how it is written taken out.
+ *
+ * The same body is credited in as many spellings as there are configs — linked
+ * or plain, `&copy;` or `©`, one space or two — and a reader sees one sentence
+ * either way. Comparing the rendered words is what lets two layers crediting
+ * OpenStreetMap produce one line instead of two.
+ */
+export function attributionMeaning(text: string): string {
+    return stripTags(decodeEntities(text))
+        .toLowerCase()
+        .replace(/[\s\u00a0]+/g, ' ')
+        .replace(/[.,;:]+$/, '')
+        .trim();
+}
+
 export function stripTags(text: string): string {
     return text.replace(/<[^>]+>/g, '');
 }

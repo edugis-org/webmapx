@@ -4,7 +4,7 @@ import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMap } from '../map/IMapInterfaces';
 import type { IMapState } from '../store/IMapState';
 import type { AppConfig, AnyLayerConfig, LayerDataConfig, SourceConfig } from '../config/types';
-import { renderAttributionText, resolveLayerAttribution } from '../utils/attribution-format';
+import { attributionMeaning, renderAttributionText, resolveLayerAttribution } from '../utils/attribution-format';
 
 @customElement('webmapx-attribution-control')
 export class WebmapxAttributionControl extends WebmapxBaseTool {
@@ -88,15 +88,33 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
             }
         }
 
-        const unique = new Set<string>();
+        // Two layers crediting the same body are one credit, however each of them
+        // happens to spell it. `&copy; OpenStreetMap contributors` from a search
+        // result and the linked form a basemap declares are the same sentence to
+        // a reader, and showing both is the bug this avoids — so parts are
+        // compared by what they *say*, with markup, entities and spacing taken
+        // out, rather than character by character.
+        const indexByMeaning = new Map<string, number>();
         const collected: string[] = [];
 
         const addText = (text: string) => {
             for (const part of text.split('|')) {
                 const trimmed = part.trim();
-                if (!trimmed || unique.has(trimmed)) continue;
-                unique.add(trimmed);
-                collected.push(trimmed);
+                if (!trimmed) continue;
+                const meaning = attributionMeaning(trimmed);
+                if (!meaning) continue;
+                const existing = indexByMeaning.get(meaning);
+                if (existing === undefined) {
+                    indexByMeaning.set(meaning, collected.length);
+                    collected.push(trimmed);
+                    continue;
+                }
+                // Same credit, better written: a spelling that links to the
+                // licence is worth more to the reader than a bare one, and which
+                // of the two arrives first is an accident of layer order.
+                if (trimmed.includes('<a') && !collected[existing].includes('<a')) {
+                    collected[existing] = trimmed;
+                }
             }
         };
 
