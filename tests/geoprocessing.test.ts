@@ -1264,9 +1264,10 @@ test('simplify drops a small island rather than shrinking it to a point', { time
 
     assert.equal(out.features.length, 1, 'the degenerated island must be dropped, not kept as a zero-area shape');
     assert.equal(out.features[0].properties?.name, 'mainland');
+    const warnings = (out as GeoJSON.FeatureCollection & { warnings?: string[] }).warnings;
     assert.ok(
-        out.warnings?.some(w => /no geometry left/.test(w)),
-        `expected a dropped-geometry warning, got ${JSON.stringify(out.warnings)}`,
+        warnings?.some((w: string) => /no geometry left/.test(w)),
+        `expected a dropped-geometry warning, got ${JSON.stringify(warnings)}`,
     );
 });
 
@@ -1288,6 +1289,65 @@ test('simplify drops a lake that collapses, keeping the rest of the polygon', { 
     assert.equal(out.features.length, 1, 'the outer shape must survive even though its lake collapsed');
     const rings = (out.features[0].geometry as GeoJSON.Polygon).coordinates;
     assert.equal(rings.length, 1, `expected the collapsed lake to be dropped, kept ${rings.length - 1} hole(s)`);
+});
+
+test('simplify snap merges a border that only nearly matches, into one shared arc', { timeout: TIMEOUT }, async () => {
+    // The same zigzag border as `neighbours()`, but the east side's copy is off
+    // by 0.3 m in EPSG:3857 (about 3e-6 degrees) at every vertex — the way two
+    // layers pulled from different sources trace "the same" border differently.
+    const border: GeoJSON.Position[] = [];
+    for (let i = 0; i <= 20; i++) border.push([1 + (i % 2 === 0 ? 0 : 0.01), i * 0.1]);
+    const jitter = 0.000003; // ~0.3 m at this latitude
+    const borderFromTheOtherSource = border.map(([x, y]) => [x + jitter, y - jitter]);
+    const input = fc(
+        {
+            type: 'Feature', properties: { name: 'west' },
+            geometry: { type: 'Polygon', coordinates: [[[0, 0], ...border, [0, 2], [0, 0]]] },
+        },
+        {
+            type: 'Feature', properties: { name: 'east' },
+            geometry: { type: 'Polygon', coordinates: [[[3, 0], [3, 2], ...[...borderFromTheOtherSource].reverse(), [3, 0]]] },
+        },
+    );
+
+    const unsnapped = await run('simplify', input, undefined, { tolerance: 20000, snap: 0 });
+    const westUnsnapped = borderPoints(unsnapped.features.find(f => f.properties?.name === 'west')!);
+    const eastUnsnapped = borderPoints(unsnapped.features.find(f => f.properties?.name === 'east')!);
+    assert.notDeepEqual(westUnsnapped, eastUnsnapped, 'the fixture must not already agree, or snap proves nothing');
+
+    // 1 m is comfortably wider than the 0.3 m jitter and far narrower than the
+    // ~11 km the 0.01°-deep zigzag stands on, so it cannot be mistaken for the
+    // simplification tolerance doing this on its own.
+    const snapped = await run('simplify', input, undefined, { tolerance: 20000, snap: 1 });
+    const westSnapped = borderPoints(snapped.features.find(f => f.properties?.name === 'west')!);
+    const eastSnapped = borderPoints(snapped.features.find(f => f.properties?.name === 'east')!);
+    assert.deepEqual(westSnapped, eastSnapped, 'a 1 m snap should have merged the two traces into one shared border');
+});
+
+test('a snap distance wider than a real gap pinches the ring, and is reported', { timeout: TIMEOUT }, async () => {
+    // An hourglass: a narrow 40 m neck within one ring, where the two sides
+    // never touch. A snap wider than that gap pulls both sides onto the same
+    // grid point, before topology is even built — a defect no repair pass can
+    // undo, since it can only restore points the snap did not already merge.
+    const hourglass: GeoJSON.Feature = {
+        type: 'Feature', properties: { name: 'peninsula' },
+        geometry: {
+            type: 'Polygon',
+            coordinates: [[
+                [0, 0], [1000, 0], [1000, 1000], [520, 1000], [520, 1100], [1000, 1100], [1000, 2000],
+                [0, 2000], [0, 1100], [480, 1100], [480, 1000], [0, 1000], [0, 0],
+            ]],
+        },
+    };
+    const input = fc(hourglass);
+    const op = getOperation('simplify')!;
+
+    const narrow = await op.compute!(input, { tolerance: 1, snap: 30 }, {}) as GeoJSON.FeatureCollection & { warnings?: string[] };
+    assert.equal(narrow.warnings, undefined, 'a snap narrower than the neck must not warn');
+
+    const wide = await op.compute!(input, { tolerance: 1, snap: 100 }, {}) as GeoJSON.FeatureCollection & { warnings?: string[] };
+    assert.ok(wide.warnings?.length, 'a snap wider than the neck must be reported, not shipped silently');
+    assert.match(wide.warnings![0], /self-intersect/);
 });
 
 // ─── Robustness ──────────────────────────────────────────────────────────────

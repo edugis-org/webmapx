@@ -1264,6 +1264,30 @@ function selfIntersects(ring: GeoJSON.Position[]): boolean {
 }
 
 /**
+ * Whether two points of a ring that are not neighbours ended up identical.
+ *
+ * `selfIntersects` deliberately does not count this: two segments merely
+ * touching at a point, rather than crossing through each other, are excluded
+ * on purpose there, so a border that legitimately doubles back is not chased
+ * forever. But a snap distance wider than a real gap in the data — two shapes
+ * close together, or a narrow neck within one shape — merges two originally
+ * distinct vertices into one *before* that check ever runs, and the pinch it
+ * leaves behind is exactly this: not a crossing, a point the ring visits twice.
+ */
+function hasCoincidentVertex(ring: GeoJSON.Position[]): boolean {
+    const n = ring.length - 1;
+    if (n < 4 || ring.length > MAX_INTERSECTION_CHECK_POINTS) return false;
+    const seen = new Map<string, number>();
+    for (let i = 0; i < n; i++) {
+        const key = `${ring[i][0]},${ring[i][1]}`;
+        const earlier = seen.get(key);
+        if (earlier !== undefined && Math.min(i - earlier, n - (i - earlier)) > 1) return true;
+        seen.set(key, i);
+    }
+    return false;
+}
+
+/**
  * Whether a ring's points, once its exact duplicates are counted once, still
  * form a real shape.
  *
@@ -1324,6 +1348,38 @@ function dropDegenerateGeometry(geometry: GeoJSON.Geometry | null): GeoJSON.Geom
 }
 
 /**
+ * Rounds every coordinate onto a grid, so two rings that were meant to share a
+ * border but do not — traced separately, or cut by a different tool — become
+ * exactly equal where the grid puts them within half a cell of each other.
+ *
+ * `topology()` matches points exactly, with no tolerance of its own: this is
+ * what a caller runs first when the data cannot promise that. It is real
+ * simplification in its own right — a grid this coarse is itself a kind of
+ * generalisation — which is why `simplifyShared` only calls it when the panel
+ * asked for a snap distance greater than zero, never as a hidden default.
+ */
+function snapToGrid<T extends GeoJSON.FeatureCollection>(fc: T, size: number): T {
+    const snap = (n: number): number => Math.round(n / size) * size;
+    const walk = (coords: unknown): unknown => {
+        if (!Array.isArray(coords)) return coords;
+        if (typeof coords[0] === 'number') {
+            return [snap(coords[0] as number), snap(coords[1] as number), ...coords.slice(2)];
+        }
+        return coords.map(walk);
+    };
+    return {
+        ...fc,
+        features: fc.features.map(feature => ({
+            ...feature,
+            geometry: feature.geometry && {
+                ...feature.geometry,
+                coordinates: walk((feature.geometry as { coordinates: unknown }).coordinates),
+            } as GeoJSON.Geometry,
+        })),
+    } as T;
+}
+
+/**
  * Simplify every feature while keeping shared borders identical.
  *
  * `ST_Simplify`/`ST_SimplifyPreserveTopology` are the obvious tools and are wrong
@@ -1341,7 +1397,7 @@ function dropDegenerateGeometry(geometry: GeoJSON.Geometry | null): GeoJSON.Geom
  * Coordinates are EPSG:3857 metres here, so `planarTriangleArea` is the right
  * weight and the tolerance can be read as a real-world distance.
  */
-function simplifyShared(input: GeoJSON.FeatureCollection, params: GeoParamValues): GeoJSON.FeatureCollection {
+function simplifyShared(input: GeoJSON.FeatureCollection, params: GeoParamValues): ComputedCollection {
     const tolerance = Math.max(Number(params.tolerance) || 0, 0);
     if (!tolerance) return input;
 
@@ -1350,9 +1406,15 @@ function simplifyShared(input: GeoJSON.FeatureCollection, params: GeoParamValues
     // becomes that distance squared: a wiggle t wide and t deep has area ~t².
     const minArea = tolerance * tolerance;
 
-    // No quantization: quantizing would snap coordinates to a grid, which is a
-    // second, invisible kind of simplification on top of the requested one.
-    const topo = topology({ layer: input });
+    // No quantization by default: quantizing would snap coordinates to a grid,
+    // which is a second, invisible kind of simplification on top of the
+    // requested one. Snapping only happens when the panel asks for it — for
+    // data whose shared borders were traced twice (separately exported layers,
+    // tile-clipped geometry) and so do not already share exact coordinates,
+    // which is the one thing `topology()` requires to find a shared arc at all.
+    const snapDistance = Math.max(Number(params.snap) || 0, 0);
+    const snapped = snapDistance > 0 ? snapToGrid(input, snapDistance) : input;
+    const topo = topology({ layer: snapped });
     const weighted = presimplify(topo);
 
     // One threshold per arc rather than one for the whole topology, so repair can
@@ -1385,6 +1447,27 @@ function simplifyShared(input: GeoJSON.FeatureCollection, params: GeoParamValues
         suspect = broken;
     }
 
+    // A ring the repair loop never cleared — every pass restored more detail
+    // and it stayed self-crossing regardless — cannot be fixed by restoring
+    // *more* detail, because restoring only gives back points that Visvalingam
+    // removed. A snap distance wider than a real gap in the data (two shapes
+    // close together, or a narrow neck within one shape) merges two originally
+    // distinct coordinates into one before the topology is even built, and no
+    // amount of "keep every point" gives back a coordinate that no longer
+    // exists in two different places. Reported rather than shipped silently:
+    // this was always a possible failure for input that was already
+    // self-crossing at full detail, and `snap` makes it a great deal easier to
+    // reach with otherwise-ordinary data.
+    const stillBroken = rings.filter((ring) => {
+        const stitched = stitchRing(ring, arcs);
+        return selfIntersects(stitched) || hasCoincidentVertex(stitched);
+    });
+    const warnings = stillBroken.length
+        ? [`${stillBroken.length} ${stillBroken.length === 1 ? 'shape still self-intersects' : 'shapes still self-intersect'} after simplifying${
+            snapDistance > 0 ? ' — the snap distance may be merging points that were meant to stay apart; try a smaller value' : ''
+        }.`]
+        : undefined;
+
     // A GeometryCollection object comes back as a FeatureCollection; anything
     // else as a single Feature. The input is always a collection, but the typing
     // cannot know that.
@@ -1402,6 +1485,7 @@ function simplifyShared(input: GeoJSON.FeatureCollection, params: GeoParamValues
     return {
         type: 'FeatureCollection',
         features: features.map(feature => ({ ...feature, geometry: dropDegenerateGeometry(feature.geometry) } as GeoJSON.Feature)),
+        ...(warnings ? { warnings } : {}),
     };
 }
 
@@ -1998,6 +2082,25 @@ export const GEO_OPERATIONS: GeoOperation[] = [
                 // shallow curve of the same depth stays.
                 hint: 'Bends smaller than this disappear',
             },
+            {
+                kind: 'number',
+                key: 'snap',
+                label: 'Snap distance',
+                default: 0,
+                min: 0,
+                step: 1,
+                unit: 'm',
+                // Off by default: rounding every coordinate is itself a form of
+                // simplification, and applying it invisibly, always, would be a
+                // second thing happening under the "tolerance" number that
+                // nothing on the panel says is happening. This is here for a
+                // specific, visible symptom — two neighbours drawn from
+                // different sources, whose shared border only *looks* shared —
+                // and should stay at 0 for data that already shares real
+                // topology (one layer, one source), where it can only round
+                // coordinates that were already exact.
+                hint: 'Snap coordinates this close together before simplifying, so a border traced twice by different sources is treated as one shared line. Too wide a value can pinch a narrow neck or pull two nearby shapes together instead — a warning appears if that happens. Leave at 0 for data from a single source.',
+            },
         ],
         outputGeometry: 'same',
         // No "fast vs. topology-preserving" choice any more: the fast option was
@@ -2015,7 +2118,7 @@ export function getOperation(id: string): GeoOperation | undefined {
 }
 
 /** Parameters whose value is a length in metres, and so must be scaled for EPSG:3857. */
-export const METRIC_PARAMS = new Set(['tolerance', 'precision', 'holeSize', 'distance', 'padding']);
+export const METRIC_PARAMS = new Set(['tolerance', 'precision', 'holeSize', 'distance', 'padding', 'snap']);
 
 export function defaultParams(op: GeoOperation): GeoParamValues {
     const values: GeoParamValues = {};
