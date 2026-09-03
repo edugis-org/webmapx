@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Deep time — tool outside the map</title>
+<!--
+  The deep-time tool placed *below* the map rather than over it: on a small map
+  an in-map panel covers the very thing it is describing. The button stays in
+  the map's toolbar; this second instance renders the panel outside, bound to
+  the same map through its `map` attribute.
+-->
+<style>
+  body { margin: 0; font: 14px system-ui, sans-serif; }
+  #map-container { display: block; height: 60vh; }
+  #outside { padding: 12px; border-top: 1px solid #ccc; }
+</style>
+<script type="module" src="../src/app.js"></script>
+</head>
+<body>
+  <webmapx-map id="map-container" adapter="maplibre" src="../config/docs/tools/deeptime.json">
+    <webmapx-layout></webmapx-layout>
+  </webmapx-map>
+  <section id="outside">
+    <h2>Deep time (outside the map)</h2>
+    <webmapx-deeptime-tool map="#map-container"></webmapx-deeptime-tool>
+  </section>
+</body>
+</html>

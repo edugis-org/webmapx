@@ -139,10 +139,18 @@ export abstract class WebmapxBaseTool extends LitElement {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Returns the parent webmapx-map element, if any.
+     * Returns the map element this tool belongs to.
+     *
+     * Resolved exactly the way the adapter and store already are, rather than
+     * by `closest('webmapx-map')`: a tool placed *outside* the map — an
+     * external panel under it, say — binds to the map fine through its `map`
+     * attribute, but used to get `null` here and so lost the config with it.
+     * That is what made an outside-the-map analysis tool report success while
+     * adding no layer: `addLayerRequest` and `resolveConfigAsset` both hang off
+     * this, and both quietly did nothing.
      */
     protected get mapHost(): WebmapxMapElement | null {
-        return this.closest('webmapx-map') as WebmapxMapElement | null;
+        return resolveMapElement(this);
     }
 
     /**
