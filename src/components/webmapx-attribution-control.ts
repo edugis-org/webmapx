@@ -105,7 +105,19 @@ export class WebmapxAttributionControl extends WebmapxBaseTool {
             const layer = layersById.get(layerId);
 
             if (!layer) {
-                // Runtime-added layer (e.g. search persist) — attribution lives on its source.
+                // Runtime-added layer (a tool's output, a layer added from a
+                // URL): `registerMapLayer` already lifts the attribution off
+                // whichever inline source declares one, so the store answers
+                // without the engine being asked. That is the only route for a
+                // composite layer, whose sources the engine registers under a
+                // scoped `${layerId}:${key}` id it alone knows — every isochrone,
+                // buffer and search result showed no credit at all because this
+                // asked the engine instead of the store.
+                const own = typeof dynamicEntry?.attribution === 'string' ? dynamicEntry.attribution : null;
+                if (own) {
+                    addText(own);
+                    continue;
+                }
                 const sourceId = typeof dynamicEntry?.sourceId === 'string' ? dynamicEntry.sourceId : null;
                 const attribution = sourceId ? this.adapter?.getSourceAttribution(sourceId) : undefined;
                 if (attribution) addText(attribution);

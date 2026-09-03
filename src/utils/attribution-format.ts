@@ -23,6 +23,19 @@ export function resolveLayerAttribution(
     const subLayers = layer.type === 'style'
         ? ((layer as CompositeStyleLayerConfig).layers ?? [])
         : [layer];
+    // A composite layer may bring its own sources rather than name catalog ones
+    // — that is what makes it self-contained, and it is the shape a tool-made
+    // layer always has. Those ids are not in the map of top-level sources, so
+    // looking only there found nothing and the layer's credit went unshown.
+    const ownSources = (layer as { sources?: unknown }).sources;
+    const ownSourceAttribution = (sourceId: string): string | undefined => {
+        if (!ownSources || typeof ownSources !== 'object') return undefined;
+        const source = Array.isArray(ownSources)
+            ? (ownSources as Array<{ id?: string; attribution?: unknown }>).find(entry => entry?.id === sourceId)
+            : (ownSources as Record<string, { attribution?: unknown }>)[sourceId];
+        return typeof source?.attribution === 'string' ? source.attribution : undefined;
+    };
+
     for (const sub of subLayers) {
         const sourceId = (sub as any).source;
         if (!sourceId) continue;
@@ -30,6 +43,8 @@ export function resolveLayerAttribution(
         if (source && typeof source.attribution === 'string') {
             return source.attribution;
         }
+        const own = ownSourceAttribution(sourceId);
+        if (own) return own;
     }
     return undefined;
 }
