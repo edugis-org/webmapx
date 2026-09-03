@@ -48,6 +48,54 @@ const DEFAULT_CREDIT = {
     abstract: 'Present-day coastlines carried back to the chosen age on the plates they ride, using the Merdith et al. (2021) rotation model (1000–0 Ma). The shapes are today\u2019s outlines rotated as rigid blocks: crust that has since been shortened or stretched is not shown, so continents meet later here than the rocks say. Longitude in deep time is far less certain than latitude.',
 };
 
+/**
+ * The model directory an `internalfunc://paleo-…` url is drawing.
+ *
+ * A config's own paleo layer names its model in the url's `data` parameter, and
+ * that is the only thing that says which model the layer belongs to. Comparing
+ * it with the model on show is what keeps one model's plate boundaries from
+ * being left over another model's coastlines.
+ */
+function directoryOf(internalFuncUrl: string): string | null {
+    const match = /[?&]data=([^&]*)/.exec(internalFuncUrl);
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
+/**
+ * The models the tool offers when no config lists any.
+ *
+ * `models` used to come only from a config, so a tool added through the setup
+ * page — which writes `{ enabled: true }` and nothing else — offered exactly one
+ * model and no way to reach the other, even though both sets of data sit beside
+ * the config it is reading. The paths are config assets, resolved against the
+ * config's own url exactly as `DEFAULT_DATA` already is, so a configuration
+ * that ships the standard plate directories gets both without saying so.
+ *
+ * A config that lists its own `models` still wins outright: this is a default,
+ * not a floor.
+ */
+const DEFAULT_MODELS: ReadonlyArray<Record<string, unknown>> = [
+  {
+      id: "merdith2021",
+      label: "Merdith 2021 — 1000 Ma",
+      data: "data/paleo/merdith2021",
+      to: 1000,
+      attribution: "Coastlines: <a href=\"https://doi.org/10.1016/j.earscirev.2020.103477\" target=\"_blank\" rel=\"noopener\">Merdith et al. 2021</a>, via <a href=\"https://gwsdoc.gplates.org/\" target=\"_blank\" rel=\"noopener\">GPlates Web Service</a> (CC BY 4.0)",
+      abstract: "Present-day coastlines carried back to the chosen age on the plates they ride, using the Merdith et al. (2021) rotation model, which reaches 1000 Ma. The shapes are today’s outlines rotated as rigid blocks: crust that has since been shortened or stretched is not shown, so continents meet later here than the rocks say. Latitude is well constrained by palaeomagnetism; longitude in deep time is far less certain.",
+  },
+  {
+      id: "muller2019",
+      label: "Müller 2019 — 250 Ma",
+      data: "data/paleo/muller2019",
+      to: 250,
+      plates: "data/paleo/muller2019/plates",
+      attribution: "Coastlines: <a href=\"https://doi.org/10.1029/2018TC005462\" target=\"_blank\" rel=\"noopener\">Müller et al. 2019</a>, via <a href=\"https://gwsdoc.gplates.org/\" target=\"_blank\" rel=\"noopener\">GPlates Web Service</a> (CC BY 4.0)",
+      abstract: "Present-day coastlines rotated to the chosen age using the Müller et al. (2019) model, which reaches 250 Ma and carries deforming plate boundaries. As with any rigid rotation, crust that has since been shortened is missing from the outlines — the deforming zones layer is where that crust is shown.",
+      platesAttribution: "Plate boundaries and deforming networks: <a href=\"https://doi.org/10.1029/2018TC005462\" target=\"_blank\" rel=\"noopener\">Müller et al. 2019</a>, via <a href=\"https://gwsdoc.gplates.org/\" target=\"_blank\" rel=\"noopener\">GPlates Web Service</a> (CC BY 4.0)",
+      platesAbstract: "Plate boundaries sampled every 5 Ma, with the deforming networks drawn separately. A boundary has no continuity through time — boundaries are born, die and change in number — so these are snapshots that snap to the nearest step rather than moving smoothly like the coastlines. The deforming zones are continental crust being squeezed: the Greater India mesh is the ~3 million km² now folded into Tibet and the Himalaya, which is why the collision begins here some 45 Ma earlier than reconstructed coastlines suggest.",
+  },
+];
+
 const LAYER_ID = 'deeptime-coastlines';
 const PLATES_SOURCE_ID = 'deeptime-plates-source';
 const BOUNDARY_LAYER_ID = 'deeptime-plate-boundaries';
@@ -431,8 +479,16 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
             this.scenes = section.scenes;
         }
 
-        if (Array.isArray(section?.models) && this.models.length === 0) {
-            this.models = (section.models as Record<string, unknown>[])
+        // A config's own list wins; otherwise the built-in one, whose paths are
+        // resolved against the config just like `DEFAULT_DATA`.
+        const declared: Record<string, unknown>[] = Array.isArray(section?.models)
+            ? section.models as Record<string, unknown>[]
+            : DEFAULT_MODELS.map((model) => ({
+                ...model,
+                data: this.resolveConfigAsset(String(model.data)),
+            }));
+        if (this.models.length === 0) {
+            this.models = declared
                 .filter((entry) => typeof entry?.data === 'string' && typeof entry?.id === 'string')
                 .map((entry) => ({
                     id: String(entry.id),
@@ -619,32 +675,50 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
             try { this.mapElement?.removeInlineLayer(id); } catch { /* not there */ }
         }
 
-        // Back to the model the config chose: its own layer can draw again, and
-        // the tool goes back to adopting it rather than keeping a copy.
-        const backToConfigured = choice.data === this.configuredData;
-        this.setForeignLayersVisible(backToConfigured);
+        // The config's own paleo layers belong to whichever model the config
+        // named. Each is shown only while that model is the one on show, so
+        // going back to it lets its layer draw again — and, just as important,
+        // leaving it takes its plate boundaries off with it.
+        this.syncForeignLayers();
 
         this.started = false;
         await this.begin();
     }
 
     /**
-     * Shows or hides coastline layers the tool did not add.
+     * Points the config's own paleo layers at the model on show.
      *
-     * Only used while another model is selected; the layer belongs to the
-     * config, so it is turned off rather than taken away.
+     * A layer the tool did not add belongs to the config, so it is hidden
+     * rather than removed — and which one should be showing is decided by the
+     * model directory in its source url, not by whether the *coastlines*
+     * happen to match. Matching only the coastlines is what left Müller's
+     * plate boundaries and deforming zones drawn over Merdith's coastlines:
+     * their source is `paleo-plates`, so nothing ever touched them, and the
+     * map showed one model's crust moving under another model's continents.
+     *
+     * A model with no plates of its own therefore hides every plate layer,
+     * which is the honest answer — Merdith 2021 ships no boundaries here.
      */
-    private setForeignLayersVisible(visible: boolean): void {
+    private syncForeignLayers(): void {
         const layers = this.store?.getState().mapLayers ?? {};
+        const wantedCoastlines = this.data;
+        const wantedPlates = this.currentModel?.plates ?? null;
+
         for (const [layerId, entry] of Object.entries(layers)) {
-            if (layerId === LAYER_ID) continue;
+            if (layerId === LAYER_ID || layerId === BOUNDARY_LAYER_ID || layerId === DEFORMING_LAYER_ID) continue;
             const sourceId = (entry as { sourceId?: string })?.sourceId;
             if (!sourceId) continue;
             const config = this.adapter?.getSourceConfig?.(sourceId) as { internalFuncUrl?: unknown } | undefined;
             const url = config?.internalFuncUrl;
-            if (typeof url === 'string' && url.includes('paleo-coastlines')) {
-                this.adapter?.setLayerVisibility(layerId, visible);
-            }
+            if (typeof url !== 'string') continue;
+
+            const kind = url.includes('paleo-coastlines') ? 'coastlines'
+                : url.includes('paleo-plates') ? 'plates'
+                : null;
+            if (!kind) continue;
+
+            const wanted = kind === 'coastlines' ? wantedCoastlines : wantedPlates;
+            this.adapter?.setLayerVisibility(layerId, wanted !== null && directoryOf(url) === wanted);
         }
     }
 
@@ -675,6 +749,17 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
         // just draw every coastline twice. Both kinds follow the map's clock
         // through the `{ma}` in their source url, which is why an adopted layer
         // needs nothing further from the tool.
+        // A config's paleo layers are declared visible whatever model is on
+        // show, so they are reconciled at the start as well as on a switch:
+        // deeptime.json turns its plate boundaries on and names Merdith as the
+        // starting model, and Merdith has no boundaries — the map opened with
+        // one model's crust under another model's continents.
+        //
+        // Only when the config offered a choice of models. With no choice there
+        // is nothing to be out of step with, and a config that draws plates
+        // without naming models means to draw them.
+        if (this.models.length > 0) this.syncForeignLayers();
+
         await this.applyPlateLayers();
 
         if (this.mapHasPaleoLayer()) return;
