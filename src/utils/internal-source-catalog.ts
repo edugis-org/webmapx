@@ -130,7 +130,7 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
             { name: 'span', summary: '`year` for the full year; otherwise solstice to solstice.' },
             AT,
         ],
-        example: 'internalfunc://sun-path?year=2026&step=2',
+        example: 'internalfunc://sun-path',
     },
     {
         id: 'day-length',
