@@ -30,7 +30,7 @@ import { COMPOSITE_KEY_SEPARATOR, type ColoringKey } from './topological-colorin
  * polygon source can be drawn as areas *and* as outlines, which is two roles
  * over one source and the reason a layer can hold several sublayers.
  */
-export type StyleRole = 'fill' | 'outline' | 'line' | 'circle' | 'label';
+export type StyleRole = 'fill' | 'outline' | 'line' | 'circle' | 'label' | 'background';
 
 /** The GL layer type each role becomes. */
 export const ROLE_LAYER_TYPE: Record<StyleRole, string> = {
@@ -39,6 +39,11 @@ export const ROLE_LAYER_TYPE: Record<StyleRole, string> = {
     line: 'line',
     circle: 'circle',
     label: 'symbol',
+    // A background layer draws no features at all — it is a flat colour behind
+    // the map, which is what a map with no basemap uses for its sea. It is a
+    // role here so the legend can offer the same colour picker it offers every
+    // other layer, not so it can be classified: there is nothing to classify.
+    background: 'background',
 };
 
 /** The paint property each role colours. */
@@ -48,6 +53,7 @@ export const ROLE_COLOR_KEY: Record<StyleRole, string> = {
     line: 'line-color',
     circle: 'circle-color',
     label: 'text-color',
+    background: 'background-color',
 };
 
 /** The paint property each role fades. */
@@ -57,11 +63,13 @@ export const ROLE_OPACITY_KEY: Record<StyleRole, string> = {
     line: 'line-opacity',
     circle: 'circle-opacity',
     label: 'text-opacity',
+    background: 'background-opacity',
 };
 
 /**
  * The paint property that sets each role's *size*, and the range a UI should
- * offer for it. Fill has none: an area's size is its geometry.
+ * offer for it. Fill has none: an area's size is its geometry, and neither has
+ * background: it is the whole map.
  */
 export const ROLE_SIZE: Partial<Record<StyleRole, { key: string; min: number; max: number; step: number; label: string; unit: string }>> = {
     outline: { key: 'line-width', min: 0.5, max: 12, step: 0.5, label: 'Width', unit: ' px' },

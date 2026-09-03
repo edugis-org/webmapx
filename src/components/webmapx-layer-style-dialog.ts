@@ -227,6 +227,7 @@ const ROLE_OF_TYPE: Record<string, StyleRole> = {
     line: 'line',
     circle: 'circle',
     symbol: 'label',
+    background: 'background',
 };
 
 const ROLE_LABELS: Record<StyleRole, string> = {
@@ -235,6 +236,7 @@ const ROLE_LABELS: Record<StyleRole, string> = {
     line: 'Lines',
     circle: 'Points',
     label: 'Labels',
+    background: 'Background',
 };
 
 /** How often, and for how long, the panel looks again for a tiled source's features. */

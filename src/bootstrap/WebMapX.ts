@@ -119,6 +119,13 @@ export class WebMapX {
         maxBounds: runtimeMap?.maxBounds,
         style: styleConfig,
         projection: mapConfig?.projection as string | undefined,
+        // The sea under palaeo-coastlines and the space around the globe. This
+        // list is written out field by field, so a key missing from it is
+        // dropped in silence: `map.backgroundColor` reached `src/app.js` and
+        // not this path, and the same config came up blue on the app and black
+        // on every page that mounts through here — the tool documentation, the
+        // demo host, and anything else embedding a map.
+        backgroundColor: mapConfig?.backgroundColor as string | undefined,
       },
       permalinkState,
     });

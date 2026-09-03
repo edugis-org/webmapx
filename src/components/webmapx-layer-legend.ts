@@ -521,6 +521,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 : type === 'line' ? 'line-color'
                 : type === 'circle' ? 'circle-color'
                 : type === 'symbol' ? 'text-color'
+                : type === 'background' ? 'background-color'
                 : null;
 
             const rawColorExpr = colorKey ? (evalPaint[colorKey] ?? paint[colorKey]) : null;
@@ -1417,6 +1418,15 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             </div>`;
         }
 
+        if (layerType === 'background') {
+            const color = this.toCssColor(paint['background-color'], '#ffffff');
+            const opacity = Number(paint['background-opacity'] ?? 1);
+            return html`<div class="style-editor">
+                ${this.renderColorRow(subLayerIds, 'color', 'background-color', color)}
+                ${this.renderRangeRow(subLayerIds, 'opacity', 'background-opacity', opacity, 0, 1, 0.05)}
+            </div>`;
+        }
+
         if (layerType === 'raster') {
             const rawOpacity = paint['raster-opacity'];
             const resolved = Array.isArray(rawOpacity) ? this.evalAtZoom(rawOpacity, this.zoom) : rawOpacity;
@@ -1484,6 +1494,11 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             : layerType === 'line' ? 'line-color'
             : layerType === 'circle' ? 'circle-color'
             : layerType === 'symbol' ? 'text-color'
+            // A background layer is a flat colour behind the whole map — the sea
+            // of a map with no basemap — so it is the one thing in the legend a
+            // user most obviously wants to recolour, and it was the one type
+            // with no picker.
+            : layerType === 'background' ? 'background-color'
             : null;
         if (!colorKey) return false;
         return !Array.isArray(paint[colorKey]);
@@ -1627,7 +1642,18 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 </div>`];
         }
 
-        if (layerType === 'raster' || layerType === 'background' || layerType === 'hillshade') {
+        // A background layer paints a flat colour behind the whole map — a map
+        // with no basemap uses it for its sea — so it gets that colour as its
+        // swatch. It used to be lumped in with raster and hillshade and drawn
+        // as the "this is imagery" checkerboard, which says nothing about it
+        // and hid the one property it has.
+        if (layerType === 'background') {
+            const color = this.resolveSwatchColor(paint['background-color'], '#ffffff');
+            const opacity = Number(paint['background-opacity'] ?? 1);
+            return [this.renderFillRow(color, color, opacity, '')];
+        }
+
+        if (layerType === 'raster' || layerType === 'hillshade') {
             return [html`
                 <div class="legend-row">
                     ${svg`<svg width="24" height="14" style="flex-shrink:0">

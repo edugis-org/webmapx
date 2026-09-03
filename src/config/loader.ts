@@ -244,8 +244,15 @@ function normalizeLayerEntry(value: Record<string, unknown>, extraSources: Recor
     };
   }
 
-  // New format: StandardLayerConfig (has type + source as strings, no layerset/style)
-  if (typeof value.type === 'string' && typeof value.source === 'string' && !value.layerset && !value.style) {
+  // New format: StandardLayerConfig (has type + source as strings, no layerset/style).
+  // A `background` layer is the one render type with nothing behind it — it
+  // paints a flat colour — so it is admitted without a source. Without this it
+  // matched no branch at all and normalization returned null, which then sat in
+  // the layers array as a hole and surfaced as the useless "Layer must be an
+  // object" from the validator, blaming the config for a loader gap.
+  const sourceless = value.type === 'background';
+  if (typeof value.type === 'string' && (typeof value.source === 'string' || sourceless)
+      && !value.layerset && !value.style) {
     const sourceLayer = value['source-layer'] ?? value.sourceLayer;
     const minzoom = value.minzoom ?? value.minZoom;
     const maxzoom = value.maxzoom ?? value.maxZoom;

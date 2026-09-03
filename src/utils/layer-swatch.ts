@@ -302,6 +302,15 @@ export function deriveLayerSwatch(layer: unknown): LayerSwatch {
         return { background: NEUTRAL, kind: 'raster' };
     }
 
+    // A background layer is a flat colour and nothing else — it is how a map
+    // gives its sea a colour of its own. Without this it fell through to the
+    // neutral "nothing derivable" swatch and read as a raster in the legend,
+    // which is the one thing it certainly is not.
+    if (type === 'background') {
+        const { stops, smooth } = pick('background-color');
+        return { background: stopsToBackground(stops, smooth), kind: 'fill' };
+    }
+
     if (type === 'fill' || type === 'fill-extrusion') {
         const { stops, smooth } = pick(type === 'fill' ? 'fill-color' : 'fill-extrusion-color');
         const background = stopsToBackground(stops, smooth);

@@ -699,7 +699,10 @@ function validateLayers(
         validateLayerset(l.layers, `${path}.layers`, visibleSources, errors, warnings);
       }
     } else if (typeof layerType === 'string' && VALID_LAYER_TYPES.includes(layerType)) {
-      if (typeof l.source !== 'string') {
+      // A background layer paints a flat colour and has no data behind it, so
+      // asking for a source is wrong here — as it already is for a background
+      // sublayer inside a composite layer.
+      if (typeof l.source !== 'string' && layerType !== 'background') {
         warnings.push({ severity: 'warning', path: `${path}.source`, message: 'Standard layer should have a "source"' });
       }
     } else if (layerType !== undefined) {
