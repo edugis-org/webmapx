@@ -515,18 +515,26 @@ function surroundingSolstices(at: Date): { start: number; end: number } {
 }
 
 /**
- * The sun's daily tracks, one line per day, from one tropic to the other.
+ * The sun's daily tracks, one line per day, across the window `span` names.
  *
- * Half a year is the whole picture: between two solstices the sun works its way
- * from one tropic to the other, and the following half retraces exactly the same
- * latitudes on the way back. Drawing all 365 doubles the size and the ink for
- * nothing — every line lands on top of one already there.
+ * `at` is always the anchor — the day the window is placed around, or on, or
+ * within — and defaults to today; `span` alone decides how wide the window is:
  *
- * The half drawn is the one being travelled *now*, so today's track is always
- * among the lines and the sweep runs the way the sun is actually going: from
- * the December solstice it climbs to the Tropic of Cancer, from the June
- * solstice it falls back to Capricorn. That window straddles New Year for half
- * the year, which is why nothing here is scoped to a calendar year.
+ * - `day` — just `at`'s own day, one line.
+ * - `solstice-to-solstice` (default) — the half-cycle `at` currently sits in.
+ *   Half a year is the whole picture a sweep has to offer: between two
+ *   solstices the sun works its way from one tropic to the other, and the
+ *   following half retraces exactly the same latitudes on the way back, so
+ *   drawing all 365 doubles the size and the ink for lines that land on ones
+ *   already there. The half is the one being travelled *now* — from the
+ *   December solstice it climbs to the Tropic of Cancer, from the June
+ *   solstice it falls back to Capricorn — so today's track is always among the
+ *   lines and the sweep runs the way the sun is actually going. That window
+ *   straddles New Year for half the year, which is why it is not calendar-scoped.
+ * - `half-year` — 91 days either side of `at`, centred rather than snapped to
+ *   a solstice: unlike `solstice-to-solstice`, moving `at` slides the window
+ *   with it instead of jumping to the next half only at the solstice itself.
+ * - `year` — the calendar year `at` falls in, January to December.
  *
  * The lines crowd together at the solstices, where the declination turns and
  * barely moves for weeks, and spread furthest at the equinox, when the sun
@@ -534,7 +542,7 @@ function surroundingSolstices(at: Date): { start: number; end: number } {
  */
 export function sunPathLines(
     at: Date = new Date(),
-    options: { stepDegrees?: number; span?: 'solstice-to-solstice' | 'year' } = {},
+    options: { stepDegrees?: number; span?: 'day' | 'solstice-to-solstice' | 'half-year' | 'year' } = {},
 ): GeoJSON.FeatureCollection {
     // Two degrees of longitude is eight minutes of the sun's travel: finer than
     // that adds points a map cannot show, coarser starts to cut the corners of
@@ -542,11 +550,23 @@ export function sunPathLines(
     const step = Math.min(30, Math.max(0.5, options.stepDegrees ?? 2));
     const features: GeoJSON.Feature[] = [];
     const year = at.getUTCFullYear();
+    // Midnight of `at`'s own day — every window below is built from this, and
+    // the loop that walks it adds noon back on per day (`dayStart + 43_200_000`).
+    const midnight = Math.floor(at.getTime() / 86_400_000) * 86_400_000;
     const solstices = surroundingSolstices(at);
-    const firstMs = options.span === 'year' ? Date.UTC(year, 0, 1) : solstices.start - 43_200_000;
-    const lastMs = options.span === 'year'
-        ? Date.UTC(year + 1, 0, 1) - 86_400_000
-        : solstices.end - 43_200_000;
+
+    const window = (): { first: number; last: number } => {
+        switch (options.span) {
+            case 'day': return { first: midnight, last: midnight };
+            // ~91 days either side: half a year (365.25 / 4) split evenly around `at`.
+            case 'half-year': return { first: midnight - 91 * 86_400_000, last: midnight + 91 * 86_400_000 };
+            case 'year': return { first: Date.UTC(year, 0, 1), last: Date.UTC(year + 1, 0, 1) - 86_400_000 };
+            // solstices.start/end are noon-aligned (surroundingSolstices uses
+            // noonOf); back to midnight, matching every other case here.
+            default: return { first: solstices.start - 43_200_000, last: solstices.end - 43_200_000 };
+        }
+    };
+    const { first: firstMs, last: lastMs } = window();
     const dayCount = Math.round((lastMs - firstMs) / 86_400_000) + 1;
 
     for (let day = 0; day < dayCount; day++) {

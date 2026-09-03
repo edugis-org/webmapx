@@ -154,11 +154,18 @@ export const INTERNAL_SOURCES: Record<string, InternalSourceGenerator> = {
     // `?year=2026&step=2` — a line per day for a whole year. Never worth
     // refreshing: it is the same picture all year.
     'sun-path': ({ at, query }) => sunPathLines(
-        // `?year=` pins a calendar year; otherwise the half-cycle around `at`.
+        // `at` is the anchor; `?year=` only replaces its *year* (as 1 July,
+        // absent a real date), which of the four windows gets drawn around it
+        // is entirely `span`'s decision. The two are independent on purpose:
+        // `?year=2026&span=day` draws one day in 2026, `?year=2026` alone
+        // draws the solstice-to-solstice half around 1 July that year — asking
+        // for the whole calendar year needs `span=year` said outright, the same
+        // as it would with no year pinned at all.
         query.get('year') ? new Date(Date.UTC(Number(query.get('year')), 6, 1)) : at,
         {
             stepDegrees: Number(query.get('step')) || undefined,
-            span: query.get('span') === 'year' || query.get('year') ? 'year' : 'solstice-to-solstice',
+            span: (query.get('span') as 'day' | 'solstice-to-solstice' | 'half-year' | 'year' | null)
+                ?? 'solstice-to-solstice',
         },
     ),
 

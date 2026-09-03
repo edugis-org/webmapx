@@ -125,9 +125,9 @@ export const INTERNAL_SOURCE_DOCS: InternalSourceDoc[] = [
             { name: 'solstice', summary: '`june` or `december` on the two extreme days, otherwise absent.' },
         ],
         params: [
-            { name: 'year', summary: 'Draw a whole calendar year.', fallback: 'the half-cycle around the current moment' },
+            { name: 'span', summary: 'How wide a window to draw: `day` (just today), `half-year` (91 days either side of `at`), `solstice-to-solstice` (the half-cycle `at` sits in — snaps to the nearest solstices), or `year` (the calendar year `at` falls in).', fallback: 'solstice-to-solstice' },
             { name: 'step', summary: 'Degrees between points along each line.' },
-            { name: 'span', summary: '`year` for the full year; otherwise solstice to solstice.' },
+            { name: 'year', summary: 'Replaces `at`’s year (as 1 July), independent of `span` — pair with `span=year` for the whole calendar year.' },
             AT,
         ],
         example: 'internalfunc://sun-path',

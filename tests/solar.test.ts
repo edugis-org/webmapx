@@ -174,6 +174,30 @@ test('a sun path is one line per day, each crossing the whole world', () => {
     }
 });
 
+test('span decides the window width, independently of at', () => {
+    const at = new Date(Date.UTC(2026, 8, 15));
+
+    const day = sunPathLines(at, { span: 'day' });
+    assert.equal(day.features.length, 1);
+    assert.equal(day.features[0].properties?.date, '2026-09-15');
+
+    const half = sunPathLines(at, { span: 'half-year' });
+    // Centred on `at`, not snapped to a solstice: 91 days either side.
+    assert.equal(half.features.length, 183);
+    assert.equal(half.features[0].properties?.date, '2026-06-16');
+    assert.equal(half.features[half.features.length - 1].properties?.date, '2026-12-15');
+    const middle = half.features[Math.floor(half.features.length / 2)];
+    assert.equal(middle.properties?.date, '2026-09-15', 'at sits in the middle of a half-year window');
+
+    const solsticeToSolstice = sunPathLines(at, { span: 'solstice-to-solstice' });
+    assert.notEqual(solsticeToSolstice.features[0].properties?.date, half.features[0].properties?.date,
+        'solstice-to-solstice snaps to the nearest solstice, half-year does not');
+
+    const year = sunPathLines(at, { span: 'year' });
+    assert.equal(year.features[0].properties?.date, '2026-01-01');
+    assert.equal(year.features[year.features.length - 1].properties?.date, '2026-12-31');
+});
+
 test('the paths stay between the tropics and turn at the solstices', () => {
     const year = sunPathLines(new Date(Date.UTC(2026, 6, 1)), { stepDegrees: 10 });
     const lats = year.features.flatMap((f) => (f.geometry as GeoJSON.LineString).coordinates.map((c) => c[1]));
