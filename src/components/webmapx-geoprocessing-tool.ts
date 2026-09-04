@@ -880,6 +880,17 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
         return `${op.label} used ${parts.join(' and ')} → ${count(result.features.length)}.`;
     }
 
+    /** Describes how a result layer was produced, for the layer-info dialog. */
+    private resultAbstract(op: GeoOperation): string {
+        const from = [this.labelOf(this.slots.a.layerId), this.slots.b.layerId ? this.labelOf(this.slots.b.layerId) : null]
+            .filter((v): v is string => !!v)
+            .join(', ');
+        const params = Object.entries(this.params)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(', ');
+        return `Created with webmapx tool ${op.label}, parameters: {${params}} from layer: ${from}`;
+    }
+
     private async addResultLayer(op: GeoOperation, result: GeoJSON.FeatureCollection): Promise<void> {
         const suffix = this.overwrite ? '' : `-${Date.now()}`;
         const outputLayerId = `${OUTPUT_LAYER_PREFIX}${op.id}:${this.slots.a.layerId}${suffix}`;
@@ -897,6 +908,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
         }
 
         const label = this.outputName.trim() || op.outputName(this.labelOf(this.slots.a.layerId), this.labelOf(this.slots.b.layerId));
+        const abstract = this.resultAbstract(op);
 
         const layerConfig: Record<string, unknown> = {
             id: outputLayerId,
@@ -905,7 +917,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
                 [outputSourceId]: { id: outputSourceId, type: 'geojson', data: result },
             },
             ...this.styleFor(result),
-            metadata: { label, dynamic: true, legendRole: 'overlay' },
+            metadata: { label, abstract, dynamic: true, legendRole: 'overlay' },
         };
 
         await this.mapElement?.addLayerRequest(layerConfig);
