@@ -290,6 +290,9 @@ export class WebmapxLayerStyleDialog extends LitElement {
     /** Outline of a single-coloured circle: a fill alone reads as a blob. */
     @state() private strokeColor = DATA_OUTLINE;
     @state() private strokeWidth = 1;
+    /** A scheme-coloured polygon's own outline — on by default, since an unbroken fill hides where one area ends and the next begins. */
+    @state() private schemeOutline = true;
+    @state() private schemeOutlineColor = DATA_OUTLINE;
     /**
      * Whether the colour-scheme list is open. Like the method step it always
      * has an answer (a scheme is picked for you), and like it the list is long
@@ -366,6 +369,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
     private picker: { instance: Pickr; button: HTMLElement } | null = null;
     private labelPicker: { instance: Pickr; button: HTMLElement } | null = null;
     private strokePicker: { instance: Pickr; button: HTMLElement } | null = null;
+    private schemeOutlinePicker: { instance: Pickr; button: HTMLElement } | null = null;
     private labelsAdded = false;
     private styledLayerId = '';
 
@@ -631,6 +635,14 @@ export class WebmapxLayerStyleDialog extends LitElement {
             border: 1px solid var(--color-border, #cbd5df);
             border-radius: var(--webmapx-radius-sm, 0.35rem);
             cursor: pointer;
+        }
+        .outline-swatch {
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
         }
         .warning {
             padding: 0.4rem 0.55rem;
@@ -1149,6 +1161,11 @@ export class WebmapxLayerStyleDialog extends LitElement {
                 'circle-stroke-width': this.strokeWidth,
             };
         }
+        if (this.currentRole() === 'fill' && this.mode !== 'single') {
+            paint = this.schemeOutline
+                ? { ...paint, 'fill-outline-color': this.schemeOutlineColor }
+                : { ...paint, 'fill-outline-color': 'transparent' };
+        }
         return { ...style, paint };
     }
 
@@ -1481,6 +1498,36 @@ export class WebmapxLayerStyleDialog extends LitElement {
                 </div>
             </div>
         `;
+    }
+
+    private openSchemeOutlinePicker(button: HTMLElement): void {
+        if (this.schemeOutlinePicker && this.schemeOutlinePicker.button !== button) {
+            this.schemeOutlinePicker.instance.destroyAndRemove();
+            this.schemeOutlinePicker = null;
+        }
+        if (!this.schemeOutlinePicker) {
+            this.schemeOutlinePicker = {
+                button,
+                instance: createColorPicker({
+                    button,
+                    value: this.schemeOutlineColor,
+                    paintButton: false,
+                    onChange: (rgba) => this.answer(() => { this.schemeOutlineColor = rgba; }),
+                    onCancel: (original) => this.answer(() => { this.schemeOutlineColor = original; }),
+                }),
+            };
+            this.schemeOutlinePicker.instance.show();
+            return;
+        }
+        // No `show()` here, and that is the whole trick — the same one the
+        // legend's outline swatch uses. `useAsButton` gives Pickr its own
+        // click-to-toggle listener on this button, which was not yet listening
+        // during the click that created it (a listener added mid-dispatch does
+        // not run for that dispatch), so the first open has to be explicit.
+        // From the second click on it *is* listening and opens the popup by
+        // itself; calling `show()` as well toggles it straight back shut, which
+        // reads as a swatch that has stopped responding.
+        this.schemeOutlinePicker.instance.setColor(this.schemeOutlineColor);
     }
 
     private openStrokePicker(button: HTMLElement): void {
@@ -1993,6 +2040,21 @@ export class WebmapxLayerStyleDialog extends LitElement {
                                  @sl-change=${(e: Event) => this.answer(() => { this.reversed = (e.target as HTMLInputElement).checked; })}>
                         Reverse
                     </sl-checkbox>
+                    ${this.currentRole() === 'fill' ? html`
+                        <sl-checkbox size="small" ?checked=${this.schemeOutline}
+                                     @sl-change=${(e: Event) => this.answer(() => { this.schemeOutline = (e.target as HTMLInputElement).checked; })}>
+                            Outline
+                        </sl-checkbox>
+                        ${this.schemeOutline ? html`
+                            <button class="outline-swatch" type="button" title="Pick an outline colour"
+                                    aria-label="Pick an outline colour"
+                                    @click=${(e: Event) => { e.stopPropagation(); this.openSchemeOutlinePicker(e.currentTarget as HTMLElement); }}>
+                                ${svg`<svg width="24" height="14" style="flex-shrink:0">
+                                    <line x1="2" y1="7" x2="22" y2="7" stroke="${this.schemeOutlineColor}" stroke-width="2" stroke-linecap="round"/>
+                                </svg>`}
+                            </button>
+                        ` : nothing}
+                    ` : nothing}
                 </div>
                 ${filterChangesNothing
                     ? html`<div class="muted">Every one of these is colour-blind safe.</div>`
