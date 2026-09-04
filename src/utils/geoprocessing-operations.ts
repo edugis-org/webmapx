@@ -1967,6 +1967,13 @@ export const GEO_OPERATIONS: GeoOperation[] = [
                     : 'Raise "Detail" for more rounds, or leave the smallest features out.'}`);
             }
 
+            // What the method knows about its own answer and this code cannot
+            // measure: a region still smaller than one grid cell has its area
+            // quantized to that cell, so a dense city inside a sparse country —
+            // exactly the thing a cartogram is asked for — comes out barely
+            // grown, or shrunk, with the rest of the map looking perfect.
+            warnings.push(...result.methodWarnings);
+
             // A cartogram that quietly returns fewer features than it was given
             // reads as a bug in the data ("where did those countries go?"), so
             // every reason a feature was left out is named. Zero is reported

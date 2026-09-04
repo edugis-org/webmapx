@@ -124,6 +124,15 @@ export interface CartogramResult {
      * none. The caller decides at what share it is worth saying.
      */
     droppedParts: { count: number; areaShare: number };
+    /**
+     * What the method itself has to say — `flow` only, which is the one method
+     * that knows something about its own answer this file cannot measure: how
+     * many regions were still smaller than a grid cell and so had their areas
+     * quantized to it. Such a region is the *reason* someone reaches for a
+     * cartogram (a dense city against a sparse country) and the one it silently
+     * fails to grow, so it is passed on rather than dropped.
+     */
+    methodWarnings: string[];
 }
 
 /**
@@ -870,6 +879,7 @@ export async function cartogram(input: GeoJSON.FeatureCollection, options: Carto
     // against spherical areas would report a 96% error on a map that is exactly
     // right — as it did, on Web Mercator, before this existed.
     let planeError: number | null = null;
+    let methodWarnings: string[] = [];
 
     const features = options.method === 'dorling'
         ? dorling(units, areaPerValue, options.iterations ?? DEFAULT_ITERATIONS)
@@ -881,6 +891,7 @@ export async function cartogram(input: GeoJSON.FeatureCollection, options: Carto
                     ? (() => {
                         const flow = edugisFlow(units);
                         planeError = flow.medianAreaError;
+                        methodWarnings = flow.warnings;
                         return flow.features;
                     })()
                     : await diffusion(units, options.wasmUrl);
@@ -899,6 +910,7 @@ export async function cartogram(input: GeoJSON.FeatureCollection, options: Carto
         skipped,
         droppedParts,
         medianAreaError: planeError ?? medianAreaError(wrapped, units, areaPerValue),
+        methodWarnings,
     };
 }
 
@@ -981,7 +993,7 @@ async function diffusion(units: Unit[], wasmUrl?: string): Promise<GeoJSON.Featu
  * Values arrive already filtered to positive numbers by `unitsOf`, hence
  * `missing: 'error'`: a gap here would be a bug in this file, not in the data.
  */
-function edugisFlow(units: Unit[]): { features: GeoJSON.Feature[]; medianAreaError: number } {
+function edugisFlow(units: Unit[]): { features: GeoJSON.Feature[]; medianAreaError: number; warnings: string[] } {
     // The value goes in as a plain property under a name of our choosing, so a
     // layer whose own attributes happen to collide with it cannot confuse the
     // library, and the original properties are put back afterwards by index.
@@ -999,6 +1011,23 @@ function edugisFlow(units: Unit[]): { features: GeoJSON.Feature[]; medianAreaErr
         value: VALUE_FIELD,
         missing: 'error',
         metrics: true,
+        // A region smaller than one grid cell cannot be represented in the
+        // density field at all: it owns no cell, exerts no pressure, and is
+        // dragged along by its neighbours instead of growing. The library's
+        // fixed default of 512 is far too coarse for a world layer, where a cell
+        // is ~13 000 km² — measured on world countries plus a Greater-London-
+        // sized region and a Paris-sized one, at 512 London grew 39x and Paris
+        // *shrank to a tenth* of its size, which reads as the region having been
+        // ignored. `auto` sizes the grid so the smallest region carrying real
+        // value gets a cell (clamped to 1024, never below the 512 default): the
+        // same layer then grows London 57x and Paris 134x, and the median area
+        // error falls from 1.9% to 0.7%.
+        //
+        // It costs runtime — 11.5 s to 42 s on that layer — which is why the
+        // panel has a cancel button and an elapsed clock. A cartogram that
+        // quietly leaves out the densest places on the map is not worth the
+        // seconds it saves.
+        grid: 'auto',
     });
 
     // The index goes in and comes back rather than the order being trusted, the
@@ -1016,7 +1045,25 @@ function edugisFlow(units: Unit[]): { features: GeoJSON.Feature[]; medianAreaErr
         };
     });
 
-    return { features, medianAreaError: result.metrics?.areaError.median ?? 0 };
+    // The library's own warnings, which name the one failure this file cannot
+    // see from outside: features still under a grid cell even at `auto`'s
+    // ceiling, whose areas are therefore quantized to the grid. Dropping them
+    // was how a shrunken Paris looked like a correct result.
+    //
+    // All but the fit-to-world one, which fires on every world-scale layer —
+    // the flow always pushes something past 85° — and says in its own words
+    // that relative areas are unchanged. It reports a recentring the reader
+    // cannot act on and would not notice, and a warning shown every single run
+    // is one nobody reads by the time it matters. Matched on its text because
+    // the library has no warning codes; an unrecognised warning is passed on,
+    // so a new one is surfaced rather than swallowed.
+    const warnings = (result.warnings ?? []).filter(w => !w.includes('reached outside the world'));
+
+    return {
+        features,
+        medianAreaError: result.metrics?.areaError.median ?? 0,
+        warnings,
+    };
 }
 
 /**
