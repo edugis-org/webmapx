@@ -1676,7 +1676,7 @@ export const GEO_OPERATIONS: GeoOperation[] = [
         id: 'dissolve',
         label: 'Dissolve',
         category: 'aggregate',
-        description: 'Merges features into one shape, removing the boundaries between them. Group by an attribute to get one shape per value — municipalities into provinces, for example.',
+        description: 'Merges features into one shape, removing the boundaries between them. Group by an attribute to get one shape per value — municipalities into provinces, for example. Summarise attributes to carry them through: totals, averages, lowest, highest, a count, or the values listed.',
         inputs: [{ key: 'a', label: 'Layer to dissolve' }],
         params: [
             {

@@ -30,7 +30,7 @@ import Pbf from 'pbf';
 
 import { assembleTileFeatures, type TileFeatureRecord } from '../src/map/vector-tile-features';
 import { runGeoprocess, type GdalLike } from '../src/workers/geoprocessing-runner';
-import { GEO_OPERATIONS, defaultParams, getOperation } from '../src/utils/geoprocessing-operations';
+import { GEO_OPERATIONS, defaultParams, getOperation, type GeoParamValues } from '../src/utils/geoprocessing-operations';
 
 type FC = GeoJSON.FeatureCollection;
 
@@ -359,7 +359,7 @@ interface Example {
     operation: string;
     title: string;
     twoInput: boolean;
-    params?: Record<string, string | number>;
+    params?: GeoParamValues;
     /** What the reader should take from this one. */
     note: string;
 }
@@ -400,10 +400,12 @@ const EXAMPLES: Example[] = [
  * something at this scale.
  */
 const SINGLE_EXAMPLES: Example[] = [
-    { id: 'dissolve', operation: 'dissolve', title: 'Dissolve', twoInput: false, params: { groupBy: 'eu' },
-      note: 'Merges features that share a value and removes the boundaries between them — here the `eu` attribute, so the four members become one shape and the United Kingdom stays its own. The members are not all adjacent, so their shape is one feature in several pieces: Ireland is an island, and dissolving does not pretend otherwise. Leave the grouping empty to merge the whole layer into one.' },
-    { id: 'statistics', operation: 'statistics', title: 'Statistics', twoInput: false, params: { groupBy: 'eu' },
-      note: 'The same grouping as dissolve, without the geometry: a table rather than a layer. Nothing is drawn, which is the point — no expensive geometry work when the answer is a count.' },
+    { id: 'dissolve', operation: 'dissolve', title: 'Dissolve', twoInput: false,
+      params: { groupBy: 'eu', stats: [{ field: 'pop_est', fn: 'sum' }, { field: 'name', fn: 'list' }] },
+      note: 'Merges features that share a value and removes the boundaries between them — here the `eu` attribute, so the four members become one shape and the United Kingdom stays its own. The members are not all adjacent, so their shape is one feature in several pieces: Ireland is an island, and dissolving does not pretend otherwise. Leave the grouping empty to merge the whole layer into one.\n\nThe merged shape keeps more than the attribute it was grouped by. `feature_count` always comes along — how many things went into this shape — and any attribute can be carried through by summarising it: **total** and **average** for numbers, **lowest** and **highest**, **number of values**, or **list the values** (with your own separator, optionally deduplicated and sorted). Here the populations are added up and the names listed, so the EU row reports what four countries hold between them. Without a summary an attribute is simply dropped, because a merged shape has no single value for it.' },
+    { id: 'statistics', operation: 'statistics', title: 'Statistics', twoInput: false,
+      params: { groupBy: 'eu', stats: [{ field: 'pop_est', fn: 'sum' }, { field: 'pop_est', fn: 'mean' }] },
+      note: 'The same grouping and the same attribute summaries as dissolve, without the geometry: a table rather than a layer. Nothing is drawn, which is the point — no expensive geometry work when the answer is a number.' },
     { id: 'centroid', operation: 'centroid', title: 'Centroid', twoInput: false,
       note: 'One point per feature, at its centre of area. A centroid can fall outside its own shape — a crescent’s does — which is what the label point is for.' },
     { id: 'labelPoint', operation: 'labelPoint', title: 'Label point', twoInput: false,
