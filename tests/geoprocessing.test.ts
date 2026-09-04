@@ -779,6 +779,36 @@ test('cartogram resizes features by an attribute, end to end', { timeout: TIMEOU
     assert.equal(out.features[0].properties?.pop, 100);
 });
 
+test('the flow cartogram reports progress while it runs', { timeout: TIMEOUT }, async () => {
+    // The one operation that can run for minutes: sizing the grid from the data
+    // so a city gets a cell makes a world layer a two-minute wait, and a spinner
+    // with only an elapsed clock beside it is indistinguishable from a hang.
+    //
+    // Asserted through the runner rather than the library because the whole point
+    // is the chain — the library's per-iteration callback has to reach a caller
+    // that passed nothing but a `GeoComputeContext`. Every link in it is silent
+    // when broken: the panel simply shows no progress and still returns a map.
+    const input = fc(
+        square(0, 0, 1, { name: 'small', pop: 100 }),
+        square(3, 0, 1, { name: 'large', pop: 400 }),
+    );
+    const op = getOperation('cartogram');
+    const messages: string[] = [];
+    const gdal = await nodeGdal();
+    const out = await runGeoprocess(gdal, {
+        operationId: 'cartogram',
+        inputA: input,
+        params: { ...defaultParams(op!), field: 'pop', method: 'flow' },
+        centerLat: 1,
+    }, { onProgress: message => { messages.push(message); } });
+
+    assert.equal(out.features.length, 2);
+    assert.ok(messages.length > 0, 'the flow cartogram reported no progress at all');
+    // The text is what the panel puts on screen, so it has to say something a
+    // reader can act on: which pass the solver has reached.
+    assert.match(messages[0]!, /pass \d+/);
+});
+
 test('cartogram keeps lon/lat coordinates and honours the minimum value', { timeout: TIMEOUT }, async () => {
     // The cartogram skips the pipeline's metric round trip (`computeSpace`), so
     // this is what proves its output is still lon/lat rather than 3857 metres —

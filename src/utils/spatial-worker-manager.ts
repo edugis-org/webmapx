@@ -19,6 +19,8 @@ import type { GpkgLayerInfo, SpatialOp, SpatialRequest, SpatialResponse } from '
 type PendingOp = {
     resolve: (value: any) => void;
     reject: (err: Error) => void;
+    /** Told what the operation is doing, for a caller showing a status line. */
+    onProgress?: (message: string) => void;
 };
 
 let worker: Worker | null = null;
@@ -37,6 +39,14 @@ function createWorker(): Worker {
 
         const op = pending.get(msg.opId);
         if (!op) return;
+
+        // Progress is not an outcome: the operation is still running, so the
+        // pending entry has to stay or its result would arrive with nobody
+        // waiting for it.
+        if (msg.status === 'progress') {
+            op.onProgress?.(msg.message);
+            return;
+        }
 
         pending.delete(msg.opId);
 
@@ -81,11 +91,14 @@ function getWorker(): Worker {
  * GDAL WASM is loaded lazily on the first call (~3 s on first page load,
  * instant thereafter thanks to browser WASM compilation cache).
  */
-export function runSpatialOp(operation: SpatialOp): Promise<GeoJSON.FeatureCollection> {
+export function runSpatialOp(
+    operation: SpatialOp,
+    onProgress?: (message: string) => void,
+): Promise<GeoJSON.FeatureCollection> {
     const opId = `sop-${++opCounter}`;
 
     return new Promise<GeoJSON.FeatureCollection>((resolve, reject) => {
-        pending.set(opId, { resolve, reject });
+        pending.set(opId, { resolve, reject, onProgress });
         try {
             getWorker().postMessage({ opId, operation } satisfies SpatialRequest);
         } catch (err) {

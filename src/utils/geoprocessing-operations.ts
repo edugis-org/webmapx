@@ -197,6 +197,15 @@ export interface ComputedCollection extends GeoJSON.FeatureCollection {
 export interface GeoComputeContext {
     /** Address of go-cart's `cart.wasm`, used by the diffusion cartogram. */
     goCartWasmUrl?: string;
+    /**
+     * Something to say while a long operation runs, for the panel's status line.
+     *
+     * Only the flow cartogram uses it, and only because it is the one operation
+     * that can take minutes: sizing the grid from the data so a city gets a cell
+     * makes a world layer a two-minute wait, and a spinner with nothing but an
+     * elapsed clock beside it is indistinguishable from a hang.
+     */
+    onProgress?: (message: string) => void;
 }
 
 /** Same contract as `GeoCompute`, but applied to a result rather than an input. */
@@ -1952,6 +1961,22 @@ export const GEO_OPERATIONS: GeoOperation[] = [
                 // layer and the same attribute must give the same map whatever
                 // the reader happens to be looking at.
                 wasmUrl: context.goCartWasmUrl,
+                // A pass number rather than a percentage. The flow runs until
+                // the areas are close enough rather than for a known number of
+                // steps, and the convergence figure it reports per iteration is
+                // an unweighted mean over features: it reads 31% on a map that is
+                // 0.9% wrong where anyone can see it, because the regions too
+                // small to have a grid cell are both the worst measured and the
+                // least visible. Putting that beside a finished result that
+                // quotes the weighted figure would show two contradictory numbers
+                // for one quantity in one panel.
+                //
+                // A counter that climbs says the one thing a two-minute wait
+                // needs to say — it is still working — and claims no precision
+                // that nothing here has.
+                onProgress: context.onProgress
+                    ? (pass) => context.onProgress!(`pass ${pass}`)
+                    : undefined,
             });
 
             // Both joined-up methods only approximate, and both can return a map

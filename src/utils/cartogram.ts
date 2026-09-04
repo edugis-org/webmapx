@@ -83,13 +83,29 @@ export interface CartogramOptions {
      * package itself, so tests leave this out.
      */
     wasmUrl?: string;
+    /**
+     * `flow` only: called as the solver works, with the pass it has reached.
+     *
+     * A world layer at a data-sized grid takes two minutes, and there is nothing
+     * honest to put a percentage on: the flow runs until the areas are close
+     * enough rather than for a known number of steps, and each pass doubles the
+     * grid, so even a pass count is not linear in time.
+     *
+     * Deliberately *not* the convergence error the solver reports per iteration,
+     * which is an unweighted mean over features and so is dominated by the
+     * regions too small to see — it reads 31% on a map that is 0.9% wrong where
+     * anyone is looking (see `medianAreaError`). Showing it beside a finished
+     * result quoting the weighted figure would put two contradictory numbers for
+     * one quantity in one panel.
+     */
+    onProgress?: (pass: number) => void;
 }
 
 export interface CartogramResult {
     features: GeoJSON.FeatureCollection;
     /**
-     * How far the typical feature's area ended up from what its value asked for,
-     * as a fraction (0.03 = 3%).
+     * How far the map is from what the values asked for, as a fraction
+     * (0.03 = 3%), **weighted by each feature's share of the total value**.
      *
      * Reported rather than asserted because the two joined-up methods can only
      * approximate: the rubber sheet converges, and diffusion can hit its own
@@ -97,6 +113,18 @@ export interface CartogramResult {
      * cartogram and is not one — measured on 253 world countries sized by
      * population, diffusion came back with a median error of 87% and no
      * complaint. The caller turns this into a warning.
+     *
+     * Weighted, because an unweighted average of per-feature errors answers a
+     * question nobody asked. In a cartogram a feature's size *is* its value, so
+     * the regions with the smallest values are the ones too small to see — and
+     * they are also the ones the flow leaves worst, because a region at the
+     * resolution of the grid cannot be sized accurately at all. They then
+     * dominate a plain average. Measured on the 257-country world layer with
+     * values spread over two orders of magnitude: unweighted mean 31.5%, median
+     * 12.6%, while the value-weighted error was **0.92%** — the fifty worst
+     * regions averaged 86% error and held one thousandth of the value between
+     * them. The median would have fired this file's "the areas are still N%
+     * away" warning on a map that was essentially exact.
      */
     medianAreaError: number;
     /**
@@ -889,7 +917,7 @@ export async function cartogram(input: GeoJSON.FeatureCollection, options: Carto
                 ? contiguous(units, areaPerValue, options.passes ?? DEFAULT_PASSES)
                 : options.method === 'flow'
                     ? (() => {
-                        const flow = edugisFlow(units);
+                        const flow = edugisFlow(units, options.onProgress);
                         planeError = flow.medianAreaError;
                         methodWarnings = flow.warnings;
                         return flow.features;
@@ -993,7 +1021,10 @@ async function diffusion(units: Unit[], wasmUrl?: string): Promise<GeoJSON.Featu
  * Values arrive already filtered to positive numbers by `unitsOf`, hence
  * `missing: 'error'`: a gap here would be a bug in this file, not in the data.
  */
-function edugisFlow(units: Unit[]): { features: GeoJSON.Feature[]; medianAreaError: number; warnings: string[] } {
+function edugisFlow(
+    units: Unit[],
+    onProgress?: (areaError: number) => void,
+): { features: GeoJSON.Feature[]; medianAreaError: number; warnings: string[] } {
     // The value goes in as a plain property under a name of our choosing, so a
     // layer whose own attributes happen to collide with it cannot confuse the
     // library, and the original properties are put back afterwards by index.
@@ -1028,6 +1059,7 @@ function edugisFlow(units: Unit[]): { features: GeoJSON.Feature[]; medianAreaErr
         // quietly leaves out the densest places on the map is not worth the
         // seconds it saves.
         grid: 'auto',
+        ...(onProgress ? { onIteration: (iteration: number) => onProgress(iteration) } : {}),
     });
 
     // The index goes in and comes back rather than the order being trusted, the
@@ -1061,9 +1093,46 @@ function edugisFlow(units: Unit[]): { features: GeoJSON.Feature[]; medianAreaErr
 
     return {
         features,
-        medianAreaError: result.metrics?.areaError.median ?? 0,
+        medianAreaError: valueWeightedError(result.diagnostics),
         warnings,
     };
+}
+
+/**
+ * How wrong the map is where the reader can see it.
+ *
+ * Each feature's own error, weighted by its share of the total value — which in
+ * a cartogram is its share of the finished map, since sizing area by value is
+ * the whole exercise. So this is the error of the picture, not the average of
+ * the errors of its parts.
+ *
+ * The library reports mean, median and p90 over features, all unweighted, and
+ * on real data they say something quite different from what the map looks like:
+ * a region whose value is too small to give it a grid cell cannot be sized
+ * accurately, and a world layer has hundreds of them. They are simultaneously
+ * the worst-measured and the least visible, so they run away with any statistic
+ * that counts every feature once.
+ *
+ * `error` is Nusrat & Kobourov's |o - w| / max(o, w) on normalized areas, so it
+ * is already a fraction per feature and the weights sum to one: the result is on
+ * the same 0-1 scale as the numbers it replaces, and a caller's threshold still
+ * means what it meant.
+ */
+function valueWeightedError(diagnostics: Array<{ value: number; error: number }> | undefined): number {
+    if (!diagnostics || diagnostics.length === 0) return 0;
+    let valueSum = 0;
+    for (const d of diagnostics) if (Number.isFinite(d.value) && d.value > 0) valueSum += d.value;
+    // Nothing to weight with: fall back to counting every feature once, which is
+    // the best available answer rather than a silent zero.
+    if (!(valueSum > 0)) {
+        return diagnostics.reduce((sum, d) => sum + (Number.isFinite(d.error) ? d.error : 0), 0) / diagnostics.length;
+    }
+    let weighted = 0;
+    for (const d of diagnostics) {
+        if (!Number.isFinite(d.error) || !Number.isFinite(d.value) || d.value <= 0) continue;
+        weighted += d.error * (d.value / valueSum);
+    }
+    return weighted;
 }
 
 /**

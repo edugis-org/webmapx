@@ -513,6 +513,40 @@ test('a cartogram reports how far its areas ended up from the values', async () 
     assert.ok(settled.medianAreaError < barely.medianAreaError, 'more passes must report a smaller error');
 });
 
+test('the flow weights its error by value, so invisible regions cannot dominate it', async () => {
+    // A cartogram sizes area by value, so the regions with the smallest values
+    // are the ones too small to see — and also the ones the flow sizes worst,
+    // because a region below the resolution of its grid cannot be sized at all.
+    // Counting every feature once therefore reports a map as badly wrong when
+    // the part of it anyone can look at is very nearly right, and this file's
+    // caller turns that number into a "this cartogram is misleading" warning.
+    //
+    // One big region carrying almost all the value, surrounded by specks that
+    // carry almost none: an unweighted average is dominated by the specks.
+    const cells = [1, 1, 1, 1, 100000, 1, 1, 1, 1];
+    const input = grid(cells);
+
+    const result = await cartogram(input, { field: 'v', method: 'flow' });
+
+    const total = cells.reduce((sum, v) => sum + v, 0);
+    const areas = result.features.features.map(f => featureArea(f.geometry!));
+    const areaSum = areas.reduce((sum, a) => sum + a, 0);
+
+    // The error of the feature that *is* the map, measured the same way the
+    // library measures one: |achieved share - asked-for share| / the larger.
+    const biggest = cells.indexOf(Math.max(...cells));
+    const achieved = areas[biggest]! / areaSum;
+    const asked = cells[biggest]! / total;
+    const bigError = Math.abs(achieved - asked) / Math.max(achieved, asked);
+
+    // The reported figure has to answer for the map, so it cannot be wildly
+    // worse than the region holding 99.99% of the value.
+    assert.ok(
+        result.medianAreaError <= bigError + 0.05,
+        `reported ${(result.medianAreaError * 100).toFixed(1)}% for a map whose dominant region is ${(bigError * 100).toFixed(1)}% off`,
+    );
+});
+
 test('a field with nothing usable in it is an error, not an empty map', async () => {
     await assert.rejects(
         () => cartogram(EQUAL_SQUARES, { field: 'nonexistent', method: 'scaled' }),

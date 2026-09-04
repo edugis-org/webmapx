@@ -771,11 +771,15 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
             }
 
             // Feature counts are the honest predictor of how long this will take,
-            // and they are only known once both layers have been queried. Showing
-            // them beats a progress bar GDAL cannot provide.
-            this.busyDetail = inputB
+            // and they are only known once both layers have been queried. For
+            // everything that ends in one synchronous GDAL call they are also all
+            // there is: GDAL reports no progress, so the counts and the elapsed
+            // clock are the whole story. The flow cartogram is the exception and
+            // appends its own progress below.
+            const inputCounts = inputB
                 ? `${inputA.features.length} × ${inputB.features.length} features`
                 : `${inputA.features.length} features`;
+            this.busyDetail = inputCounts;
 
             const result = await runSpatialOp({
                 op: 'geoprocess',
@@ -784,7 +788,10 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
                 inputB,
                 params: this.params,
                 centerLat: this.adapter.getViewportState().center[1] ?? 0,
-            });
+            // Only the flow cartogram says anything, and only because it is the
+            // one operation that runs for minutes. The counts stay alongside it:
+            // they are why it is slow, and the progress is how far it has got.
+            }, message => { this.busyDetail = `${inputCounts} — ${message}`; });
 
             // Always report how many features actually went in. With a
             // viewport-limited layer the count is the only signal that the answer

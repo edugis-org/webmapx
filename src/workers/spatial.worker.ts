@@ -52,6 +52,7 @@ export type SpatialResponse =
     | { opId: string; status: 'inspected'; sessionKey: string; layers: GpkgLayerInfo[] }
     | { opId: string; status: 'closed' }
     | { opId: string; status: 'error'; message: string }
+    | { opId: string; status: 'progress'; message: string }
     | { opId: string; status: 'ready' };
 
 // ─── GDAL singleton ───────────────────────────────────────────────────────────
@@ -355,6 +356,27 @@ function reply(msg: SpatialResponse): void {
     (self as unknown as Worker).postMessage(msg);
 }
 
+/** How often a running operation may report progress. */
+const PROGRESS_INTERVAL_MS = 250;
+
+/**
+ * Lets a call through at most once per interval, dropping the rest.
+ *
+ * Leading-edge on purpose: the first callback arrives the moment the solver
+ * starts, so the status line changes as soon as there is anything to say rather
+ * than a quarter-second into a two-minute wait. Nothing is queued — a dropped
+ * progress message is one the next one supersedes.
+ */
+function throttle<T extends unknown[]>(fn: (...args: T) => void, intervalMs: number): (...args: T) => void {
+    let last = 0;
+    return (...args: T) => {
+        const now = Date.now();
+        if (now - last < intervalMs) return;
+        last = now;
+        fn(...args);
+    };
+}
+
 self.onmessage = async (e: MessageEvent<SpatialRequest>) => {
     const { opId, operation } = e.data;
 
@@ -391,7 +413,15 @@ self.onmessage = async (e: MessageEvent<SpatialRequest>) => {
                 result = await buffer(gdal, operation.input, operation.distanceMeters, operation.segments, operation.centerLat);
                 break;
             case 'geoprocess':
-                result = await runGeoprocess(gdal as unknown as GdalLike, operation, { goCartWasmUrl });
+                result = await runGeoprocess(gdal as unknown as GdalLike, operation, {
+                    goCartWasmUrl,
+                    // Throttled, because the flow calls back on every iteration
+                    // and there are hundreds of them: a postMessage each would
+                    // cost more than the solver and flood the panel with renders
+                    // nobody can read. A quarter-second is faster than the eye
+                    // needs and slow enough to be free.
+                    onProgress: throttle(message => reply({ opId, status: 'progress', message }), PROGRESS_INTERVAL_MS),
+                });
                 break;
             case 'convertToGeoJSON':
                 result = await convertToGeoJSON(gdal, operation.data, operation.filename);
