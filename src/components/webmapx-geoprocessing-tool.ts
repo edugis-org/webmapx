@@ -895,7 +895,16 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
         const params = Object.entries(this.params)
             .map(([key, value]) => `${key}: ${value}`)
             .join(', ');
-        return `Created with webmapx tool ${op.label}, parameters: {${params}} from layer: ${from}`;
+        const made = `Created with webmapx tool ${op.label}, parameters: {${params}} from layer: ${from}`;
+
+        // The one licence here that puts a condition on the *output* rather than
+        // on itself, appended to the record of how the layer was made. That is
+        // where it belongs: the abstract travels with the layer into whatever
+        // the map is exported or written up as, and it is the sentence someone
+        // reads when they ask where this layer came from — which is the same
+        // moment they need to know it has to be cited.
+        const citation = op.attribution?.(this.params);
+        return citation ? `${made}. ${citation}` : made;
     }
 
     private async addResultLayer(op: GeoOperation, result: GeoJSON.FeatureCollection): Promise<void> {

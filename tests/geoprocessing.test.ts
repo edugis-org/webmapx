@@ -779,6 +779,32 @@ test('cartogram resizes features by an attribute, end to end', { timeout: TIMEOU
     assert.equal(out.features[0].properties?.pop, 100);
 });
 
+test('only the diffusion cartogram demands a credit for its output', () => {
+    // go_cart's licence is "Adapted from the MIT License" and adds a condition
+    // almost no licence has — one on the *output*: "any images generated with
+    // the help of the Software shall be referenced to" the 2018 paper. A result
+    // that travels into a report or a newspaper has to carry it, so it is pinned
+    // here rather than left to whoever next edits the method list.
+    const op = getOperation('cartogram');
+    assert.ok(op?.attribution, 'the cartogram operation declares no attribution rule');
+
+    const cited = op!.attribution!({ method: 'diffusion' });
+    assert.match(cited ?? '', /Gastner/, 'diffusion output must credit the paper');
+    // The credit is only worth carrying if a reader can reach the source of it.
+    assert.match(cited ?? '', /doi\.org/i);
+    // It lands in the abstract, which is read as plain text: markup would show
+    // up as angle brackets in the middle of a sentence.
+    assert.doesNotMatch(cited ?? '', /<[a-z]/i, 'the abstract is plain text, not markup');
+
+    // The other four are unencumbered and must not claim otherwise: `flow` is
+    // an independent MIT implementation written from the published papers, and
+    // the rest are implemented in this repository. Crediting a paper whose code
+    // was never run would be its own kind of wrong.
+    for (const method of ['flow', 'contiguous', 'scaled', 'dorling']) {
+        assert.equal(op!.attribution!({ method }), undefined, `${method} must not carry go_cart's credit`);
+    }
+});
+
 test('the flow cartogram reports progress while it runs', { timeout: TIMEOUT }, async () => {
     // The one operation that can run for minutes: sizing the grid from the data
     // so a city gets a cell makes a world layer a two-minute wait, and a spinner

@@ -259,6 +259,32 @@ export interface GeoOperation {
      */
     postProcess?: GeoPostProcess;
     postProcessNeeded?: (params: GeoParamValues) => boolean;
+    /**
+     * A credit the *result* must carry, when the code that produced it demands
+     * one of its output rather than only of itself.
+     *
+     * Almost no licence does this, which is exactly why it needs somewhere to
+     * live: `go_cart`'s is "Adapted from the MIT License" and adds that "any
+     * images generated with the help of the Software shall be referenced to"
+     * its paper. That obligation follows the map out of the tool — into a
+     * report, a slide, a newspaper — long after anyone remembers which of five
+     * methods drew it, so it is written into the layer's abstract beside the
+     * record of how the layer was made, rather than shown once in a panel
+     * nobody screenshots.
+     *
+     * Not the source attribution, which answers a different question: that says
+     * whose *data* this is, and a result inherits it from its inputs. This says
+     * what a licence requires of anyone who publishes the picture.
+     *
+     * Plain text, because an abstract is read as text; the attribution control
+     * is the only place that renders markup.
+     *
+     * Takes the parameters because it is the *method* that carries the
+     * obligation here, not the operation: the same cartogram operation produces
+     * an encumbered result through `diffusion` and an unencumbered one through
+     * the other four.
+     */
+    attribution?: (params: GeoParamValues) => string | undefined;
 }
 
 // ─── SQL helpers ─────────────────────────────────────────────────────────────
@@ -1924,6 +1950,21 @@ export const GEO_OPERATIONS: GeoOperation[] = [
         ],
         outputGeometry: 'polygon',
         outputName: a => `${a} cartogram`,
+        // Only `diffusion` is encumbered. It runs the authors' own C through
+        // go-cart-wasm, whose upstream licence is "Adapted from the MIT License"
+        // and adds a condition almost no licence has — one on the *output*:
+        // "any images generated with the help of the Software shall be
+        // referenced to" the paper. That follows the map into a report or a
+        // newspaper, so it travels with the layer rather than being shown once
+        // in a panel. The other four methods are unencumbered: `flow` is
+        // `@edugis/cartogram`, MIT and written from the published papers rather
+        // than ported from their code, and the rest are implemented here.
+        attribution: params => (params.method === 'diffusion'
+            ? 'Any images generated with this method must be referenced to: '
+                + 'Gastner, M., Seguy, V., & More, P. (2018). Fast flow-based algorithm for creating '
+                + 'density-equalizing map projections. PNAS 115:E2156-E2164. '
+                + 'https://doi.org/10.1073/pnas.1712674115'
+            : undefined),
         // Three methods, and the default is the contiguous one: a cartogram that
         // still reads as a map is what people picture when they ask for one, and
         // the gaps a per-feature method leaves are what made the first version
