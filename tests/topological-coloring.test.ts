@@ -8,7 +8,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildAdjacency, colorByAdjacency, coloringKeyFor, coloringKeyValue, dsatur } from '../src/utils/topological-coloring';
+import { buildAdjacency, colorByAdjacency, colorGroupsByAdjacency, coloringKeyFor, coloringKeyValue, dsatur } from '../src/utils/topological-coloring';
 import { colorSchemesFor } from '../src/utils/color-schemes';
 import { buildKeyedColorStyle, buildIndexedColorStyle } from '../src/utils/style-builder';
 import { evaluateColor } from '../src/utils/maplibre-expression-evaluator';
@@ -364,4 +364,97 @@ test('asking for more colours than the map can place is not an error', () => {
     const result = colorByAdjacency([cell(0, 0), cell(1, 0), cell(2, 0)], { paletteSize: 12 });
     noNeighbourShares(result);
     assert.ok(result.colorCount >= 2 && result.colorCount <= 3, `used ${result.colorCount}`);
+});
+
+test('grouped regions: one colour per group, and touching groups differ', () => {
+    // Styling regions by the country they belong to. Regions of one country must
+    // match — that is why the attribute was chosen over a per-region one — and
+    // neighbouring countries must not, or the border between them disappears.
+    //
+    // The category order is *not* the spatial order, and that is the whole
+    // problem: the styling panel lists values by how many features carry them,
+    // which has nothing to do with geography. So five countries stand in a row
+    // A B C D E while the list runs A C D E B — putting the neighbours A and B
+    // four apart, which with four colours is exactly one full cycle. Position
+    // cycling gives them the same colour and erases the border between them.
+    const SPATIAL = ['A', 'B', 'C', 'D', 'E'];
+    const LISTED = ['A', 'C', 'D', 'E', 'B'];
+    const PALETTE = 4;
+
+    const features: GeoJSON.Feature[] = [];
+    SPATIAL.forEach((admin, column) => {
+        for (let i = 0; i < 4; i++) {
+            features.push(cell(column * 2 + (i % 2), Math.floor(i / 2), { admin }));
+        }
+    });
+
+    const position = new Map(LISTED.map((name, index) => [name, index]));
+    const indices = colorGroupsByAdjacency(
+        features,
+        (feature) => position.get(String(feature.properties?.admin)) ?? null,
+        LISTED.length,
+        PALETTE,
+    );
+
+    assert.ok(indices, 'a row of touching countries has adjacency and must be coloured');
+    assert.ok(Math.max(...indices!) < PALETTE, `used a colour outside the palette: ${indices}`);
+
+    const colourOf = (admin: string) => indices![position.get(admin)!];
+    // What cycling by position produced, and the reason this exists.
+    assert.equal(position.get('A')! % PALETTE, position.get('B')! % PALETTE);
+    assert.notEqual(colourOf('A'), colourOf('B'), 'A and B share a border and must differ');
+
+    for (let i = 0; i + 1 < SPATIAL.length; i++) {
+        assert.notEqual(colourOf(SPATIAL[i]), colourOf(SPATIAL[i + 1]),
+            `${SPATIAL[i]} and ${SPATIAL[i + 1]} share a colour across their border`);
+    }
+});
+
+test('grouped colouring declines when there is no geometry to be near', () => {
+    // Polygons that merely stand apart are *not* this case any more — they get
+    // linked to whatever is nearest, which is the whole point of the island
+    // handling. What has no answer is geometry with no area: points have no
+    // borders and no bounding box worth comparing, and colouring an edgeless
+    // graph would put every group on colour 0, one flat colour for the whole
+    // map. Null tells the caller to go on cycling by position.
+    const point = (x: number, admin: string): GeoJSON.Feature => ({
+        type: 'Feature',
+        properties: { admin },
+        geometry: { type: 'Point', coordinates: [x, 0] },
+    });
+    const groups = ['a', 'b', 'c'];
+    const position = new Map(groups.map((name, index) => [name, index]));
+
+    const indices = colorGroupsByAdjacency(
+        [point(0, 'a'), point(5, 'b'), point(10, 'c')],
+        (feature) => position.get(String(feature.properties?.admin)) ?? null,
+        groups.length,
+        4,
+    );
+    assert.equal(indices, null);
+});
+
+test('islands differ from the coast they sit beside, and from each other', () => {
+    // A third of the world layer borders nothing — 87 of 257 countries. With no
+    // edge in the graph nothing stops Taiwan taking mainland China's colour or
+    // Japan taking Korea's, and a strait is not a reason to look like the same
+    // country. Each island is therefore linked to the groups nearest it.
+    const mainland = cell(0, 0, { admin: 'mainland' });
+    // Two islands off the coast, close to it and to each other, touching nothing.
+    const near = cell(2, 0, { admin: 'near island' });
+    const far = cell(4, 0, { admin: 'far island' });
+
+    const groups = ['mainland', 'near island', 'far island'];
+    const position = new Map(groups.map((name, index) => [name, index]));
+    const indices = colorGroupsByAdjacency(
+        [mainland, near, far],
+        (feature) => position.get(String(feature.properties?.admin)) ?? null,
+        groups.length,
+        4,
+    );
+
+    assert.ok(indices, 'islands near each other must still be coloured');
+    const [land, a, b] = indices!;
+    assert.notEqual(a, land, 'an island must differ from the coast it sits beside');
+    assert.notEqual(a, b, 'two neighbouring islands must differ from each other');
 });

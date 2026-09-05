@@ -340,6 +340,20 @@ export interface CyclicCategoricalOptions {
     scheme: ColorScheme;
     opacity?: number;
     fallbackColor?: string;
+    /**
+     * Which palette colour each value takes, one index per entry of `values`.
+     *
+     * Without it the colours cycle by position, which on a map of regions
+     * grouped into countries puts the same colour either side of a border often
+     * enough to be the normal case — and a border that vanishes is the one thing
+     * the map exists to show. `colorGroupsByAdjacency` works these out by
+     * colouring the graph of which groups actually touch.
+     *
+     * Ignored unless it has exactly one entry per value, so a caller that could
+     * not work one out (a layer of points, borders that share no vertices) just
+     * leaves it off and gets the cycling it had before.
+     */
+    colorIndices?: readonly number[];
 }
 
 /**
@@ -368,8 +382,10 @@ export function buildCyclicCategoricalStyle(options: CyclicCategoricalOptions): 
         throw new Error('Nothing to classify: the field has no usable values.');
     }
     const colors = scheme.colors;
+    const indices = options.colorIndices?.length === values.length ? options.colorIndices : null;
+    const colorAt = (index: number): string => colors[(indices ? indices[index] : index) % colors.length];
     const colorExpression: unknown = ['match', ['to-string', ['get', field]],
-        ...values.flatMap((value, index) => [String(value), colors[index % colors.length]]),
+        ...values.flatMap((value, index) => [String(value), colorAt(index)]),
         options.fallbackColor ?? NO_DATA_COLOR];
 
     return {

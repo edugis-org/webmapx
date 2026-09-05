@@ -31,6 +31,17 @@ export const DEFAULT_TOLERANCE = 1e-7;
 /** Vertices two regions must share before they count as neighbours. */
 const SHARED_VERTICES_FOR_BORDER = 2;
 
+/**
+ * How many near neighbours an island is given, when it has no real ones.
+ *
+ * Three, because two is not enough to separate an island from a coastline it
+ * sits beside *and* from the other islands beside it — Taiwan wants to differ
+ * from mainland China, from Japan and from the Philippines — while more than
+ * three starts constraining a lone island against places nobody would compare
+ * it with, and every extra constraint costs a colour somewhere else.
+ */
+const NEAR_NEIGHBOURS_FOR_AN_ISLAND = 3;
+
 export interface ColoringOptions {
     /**
      * How many colours to spread the map over. The minimum a map *needs* is
@@ -88,6 +99,168 @@ export function colorByAdjacency(
         isolatedRegions: adjacency.filter((neighbours, i) => neighbours.length === 0 && hasPolygon(features[i]?.geometry)).length,
         skipped,
     };
+}
+
+/**
+ * Colours a *grouping* so that touching groups differ — the quotient graph.
+ *
+ * Colouring by an attribute cycles the scheme by position (`index % colors`),
+ * which is fine for a list of unrelated categories and wrong for a map. Style a
+ * layer of regions by the country they belong to and, with more countries than
+ * the scheme has colours, two countries sharing a border land on the same
+ * colour often enough to be the normal case rather than bad luck — and the
+ * border between them disappears, which is the one thing the map was drawn to
+ * show. Regions of one country must match; regions of *different* countries
+ * that touch must not, and only adjacency can say which those are.
+ *
+ * So the regions are collapsed into their groups and DSATUR is run on the graph
+ * of groups: an edge wherever a region of one group shares a border with a
+ * region of another. Within-group adjacency is ignored — that is the sharing
+ * the grouping asked for.
+ *
+ * Groups that border nothing — islands, and a third of the world layer is one —
+ * are linked to the groups nearest them instead, so a strait does not make two
+ * countries look like one. See `linkIsolated`.
+ *
+ * Returns one palette index per entry of `groups`, or **null** when nothing
+ * borders and nothing is near: a layer of points, or geometry with no polygons
+ * in it. DSATUR on an edgeless graph would put every group on colour 0 — one
+ * flat colour for the whole map, far worse than the position-cycling it
+ * replaced — so null tells the caller to keep doing what it did before.
+ */
+/** Bounding box of a feature's polygons: [minX, minY, maxX, maxY]. */
+function featureBounds(feature: GeoJSON.Feature): [number, number, number, number] | null {
+    if (!hasPolygon(feature.geometry)) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const ring of polygonRings(feature.geometry)) {
+        for (const [x, y] of ring) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+        }
+    }
+    return Number.isFinite(minX) ? [minX, minY, maxX, maxY] : null;
+}
+
+/** Gap between two boxes, zero where they overlap. */
+function boxGap(a: readonly number[], b: readonly number[]): number {
+    const dx = Math.max(0, Math.max(a[0] - b[2], b[0] - a[2]));
+    const dy = Math.max(0, Math.max(a[1] - b[3], b[1] - a[3]));
+    return Math.hypot(dx, dy);
+}
+
+/**
+ * Links each island to the few things nearest it.
+ *
+ * An island shares a border with nothing, so the colouring has nothing to say
+ * about it and it takes whatever colour is going — which is how Taiwan comes out
+ * the same colour as mainland China, or Japan the same as Korea. To a reader
+ * those are exactly the pairs the colour was supposed to tell apart: a strait is
+ * not a reason to look like the same country.
+ *
+ * "Near" is by the gap between bounding boxes, and the boxes are the point
+ * rather than a shortcoming — a box hugs an archipelago about as well as its
+ * outline does, and comparing 250 boxes is instant where comparing their
+ * hundreds of thousands of vertices is not.
+ *
+ * Only regions that have *no* real neighbour get these edges. A coastline that
+ * already borders someone is constrained by that border, and adding "things
+ * across the water" everywhere would pile constraints onto a graph that is
+ * already exactly as constrained as the map is.
+ */
+function linkIsolated(
+    bounds: readonly (readonly number[] | null)[],
+    neighbours: Set<number>[],
+    k = NEAR_NEIGHBOURS_FOR_AN_ISLAND,
+): number {
+    let added = 0;
+    for (let i = 0; i < neighbours.length; i++) {
+        if (neighbours[i].size > 0) continue;
+        const own = bounds[i];
+        if (!own) continue;
+
+        const near: Array<{ index: number; gap: number }> = [];
+        for (let j = 0; j < bounds.length; j++) {
+            if (j === i) continue;
+            const other = bounds[j];
+            if (!other) continue;
+            near.push({ index: j, gap: boxGap(own, other) });
+        }
+        near.sort((a, b) => a.gap - b.gap);
+
+        for (const { index } of near.slice(0, k)) {
+            if (neighbours[i].has(index)) continue;
+            neighbours[i].add(index);
+            neighbours[index].add(i);
+            added++;
+        }
+    }
+    return added;
+}
+
+export function colorGroupsByAdjacency(
+    features: readonly GeoJSON.Feature[],
+    groupIndexOf: (feature: GeoJSON.Feature) => number | null,
+    groupCount: number,
+    paletteSize: number,
+    tolerance = DEFAULT_TOLERANCE,
+): number[] | null {
+    if (groupCount === 0 || paletteSize <= 0) return null;
+
+    const featureAdjacency = buildAdjacency(features, tolerance);
+    const groupOf = features.map((feature) => {
+        const index = groupIndexOf(feature);
+        return index !== null && index >= 0 && index < groupCount ? index : -1;
+    });
+
+    // A set per group rather than a list: two countries share a border along
+    // hundreds of region pairs, and the graph wants the edge once.
+    const neighbours: Set<number>[] = Array.from({ length: groupCount }, () => new Set<number>());
+    let edges = 0;
+    featureAdjacency.forEach((list, i) => {
+        const a = groupOf[i];
+        if (a < 0) return;
+        for (const j of list) {
+            const b = groupOf[j];
+            if (b < 0 || b === a) continue;
+            if (!neighbours[a].has(b)) {
+                neighbours[a].add(b);
+                neighbours[b].add(a);
+                edges++;
+            }
+        }
+    });
+
+    // An island group borders nothing, so nothing above constrains it and it
+    // takes whatever colour is left — Taiwan the same as mainland China, Japan
+    // the same as Korea. Give each one the groups nearest it instead.
+    //
+    // Before the edge count is judged, not after: a layer that is *all* islands
+    // — the Caribbean, the Pacific states, the provinces of Indonesia — has no
+    // borders at all, and bailing out on that would leave the very map that
+    // needs this most with none of it.
+    const groupBounds: Array<[number, number, number, number] | null> = Array.from({ length: groupCount }, () => null);
+    features.forEach((feature, i) => {
+        const group = groupOf[i];
+        if (group < 0) return;
+        const box = featureBounds(feature);
+        if (!box) return;
+        const current = groupBounds[group];
+        groupBounds[group] = current
+            ? [Math.min(current[0], box[0]), Math.min(current[1], box[1]),
+               Math.max(current[2], box[2]), Math.max(current[3], box[3])]
+            : box;
+    });
+    edges += linkIsolated(groupBounds, neighbours);
+
+    // Nothing borders and nothing is near: a layer of points, or one whose
+    // geometry has no polygons at all. DSATUR on an edgeless graph puts every
+    // group on colour 0 — one flat colour for the whole map — so the caller is
+    // told to keep cycling by position, which is at least varied.
+    if (edges === 0) return null;
+
+    return dsatur(neighbours.map((set) => [...set]), paletteSize, paletteSize);
 }
 
 /**

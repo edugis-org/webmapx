@@ -44,7 +44,7 @@ import {
     ROLE_SIZE,
     type StyleRole,
 } from '../utils/style-builder';
-import { colorByAdjacency, coloringKeyFor, coloringKeyValue } from '../utils/topological-coloring';
+import { colorByAdjacency, colorGroupsByAdjacency, coloringKeyFor, coloringKeyValue } from '../utils/topological-coloring';
 import { createColorPicker } from './internal/color-picker';
 import type Pickr from '@simonwep/pickr';
 import { DATA_OUTLINE, DATA_START } from '../theme/data-colors';
@@ -1044,6 +1044,39 @@ export class WebmapxLayerStyleDialog extends LitElement {
         return all.categories.map((category) => category.value);
     }
 
+    /**
+     * Which palette colour each value should take, so that touching groups differ.
+     *
+     * Cycling by position is what makes this necessary: with more values than
+     * the scheme has colours, two regions either side of a border land on the
+     * same colour by arithmetic rather than by accident, and the border they
+     * share stops being visible. Grouping regions by the country they are in is
+     * exactly the case — regions of one country *should* match, which is why the
+     * attribute was chosen, and neighbouring countries must not.
+     *
+     * Islands are handled too — a group that borders nothing is linked to the
+     * groups nearest it, so a strait does not make two countries look like one.
+     *
+     * Null only when there is no geometry to be near at all (a layer of points),
+     * and the caller then keeps cycling by position.
+     */
+    private cycleColorIndices(values: readonly (string | number | boolean)[], paletteSize: number): number[] | null {
+        if (!this.field || values.length <= paletteSize) return null;
+
+        const field = this.field;
+        const position = new Map(values.map((value, index) => [String(value), index]));
+        return colorGroupsByAdjacency(
+            this.features(),
+            (feature) => {
+                const raw = feature.properties?.[field];
+                if (raw === null || raw === undefined) return null;
+                return position.get(String(raw)) ?? null;
+            },
+            values.length,
+            paletteSize,
+        );
+    }
+
     /** How many colours the current answer needs — what the scheme list is filtered by. */
     private neededColors(): number {
         if (this.mode === 'neighbours') return Math.max(3, this.coloring()?.colorCount ?? this.neighbourColors);
@@ -1240,6 +1273,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
                             values: every,
                             scheme,
                             opacity: this.opacity,
+                            colorIndices: this.cycleColorIndices(every, scheme.colors.length) ?? undefined,
                         });
                     }
                 }
