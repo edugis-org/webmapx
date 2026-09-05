@@ -1,6 +1,6 @@
 {
   "name": "@edugis-org/webmapx",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "A modular web map UI with built-in adapters for MapLibre, OpenLayers, Leaflet, and Cesium.",
   "license": "ISC",
   "author": "Anne Blankert",
