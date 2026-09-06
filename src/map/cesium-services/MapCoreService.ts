@@ -288,13 +288,13 @@ export class MapCoreService implements IMapCore {
         return { center, zoom, bearing, pitch };
     }
 
-    public setViewport(center: [number, number], zoom: number): void {
+    public setViewport(center: [number, number], zoom: number, options?: { animate?: boolean }): void {
         if (!this.viewer) return;
         const Cesium = getCesium();
         if (!Cesium) return;
         const clampedZoom = this.clampZoom(zoom);
         this.lastCenter = center;
-        this.setCameraView(center, clampedZoom, true);
+        this.setCameraView(center, clampedZoom, options?.animate !== false);
         this.applyZoomDistanceLimits(center[1]);
     }
 

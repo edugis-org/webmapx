@@ -66,10 +66,16 @@ export class MapCoreService implements IMapCore {
         return { center: [0, 0], zoom: 1, bearing: 0, pitch: 0 }; 
     }
     
-    public setViewport(center: [number, number], zoom: number): void {
-        if (this.mapInstance) {
-            this.mapInstance.flyTo({ center, zoom });
+    public setViewport(center: [number, number], zoom: number, options?: { animate?: boolean }): void {
+        if (!this.mapInstance) return;
+        // `jumpTo` rather than an animated move: a flight is cancelled by any later camera
+        // write, so a caller following the map frame by frame (the compare tool's frozen
+        // half, which also writes bearing and pitch) never arrives anywhere.
+        if (options?.animate === false) {
+            this.mapInstance.jumpTo({ center, zoom });
+            return;
         }
+        this.mapInstance.flyTo({ center, zoom });
     }
 
     public initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; bearing?: number; pitch?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; maxBounds?: [number, number, number, number]; styleUrl?: string; style?: MapStyle; projection?: string; backgroundColor?: string }): void {

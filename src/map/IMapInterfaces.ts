@@ -82,6 +82,12 @@ export interface LayerInsertOptions {
     afterLayerId?: string;
 }
 
+/** Options accepted by `setViewport`. */
+export interface ViewportChangeOptions {
+    /** False writes the camera instantly instead of animating towards it. Default true. */
+    animate?: boolean;
+}
+
 /**
  * Interface for core map capabilities (e.g., controlling position and state).
  * This is implemented by the concrete MapLibreAdapter, OpenLayersAdapter, etc.
@@ -91,7 +97,7 @@ export interface IMapCore {
     getViewportState(): { center: [number, number], zoom: number, bearing: number, pitch: number };
 
     /** Sets the map viewport, used by UI components like a 'Location Finder'. */
-    setViewport(center: [number, number], zoom: number): void;
+    setViewport(center: [number, number], zoom: number, options?: ViewportChangeOptions): void;
 
     /** Initializes the map in the target HTML element. Supports initial config. */
     initialize(
@@ -290,8 +296,15 @@ export interface IMap {
     /** Gets the current viewport state (center, zoom, bearing, pitch). */
     getViewportState(): { center: [number, number], zoom: number, bearing: number, pitch: number };
 
-    /** Sets the map viewport (center and zoom). */
-    setViewport(center: [number, number], zoom: number): void;
+    /**
+     * Sets the map viewport (center and zoom).
+     *
+     * `animate: false` asks for an instantaneous write. MapLibre otherwise flies to the
+     * target, and a caller that also sets bearing or pitch cancels its own flight — which is
+     * how the compare tool's frozen map stood still while the live map panned. The other
+     * engines move instantly either way and ignore the option.
+     */
+    setViewport(center: [number, number], zoom: number, options?: ViewportChangeOptions): void;
 
     /** Gets the current zoom level. */
     getZoom(): number;

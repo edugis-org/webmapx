@@ -106,17 +106,24 @@ export class MapCoreService implements IMapCore {
         return { center: [0, 0], zoom: 1, bearing: 0, pitch: 0 };
     }
 
-    public setViewport(center: [number, number], zoom: number): void {
-        if (this.mapInstance) {
-            const clampedZoom = this.clampZoom(zoom);
-            this.mapInstance.getView().animate({
+    public setViewport(center: [number, number], zoom: number, options?: { animate?: boolean }): void {
+        if (!this.mapInstance) return;
+        const clampedZoom = this.clampZoom(zoom);
+        const view = this.mapInstance.getView();
+        // An animated move is cancelled by any later camera write, so a caller following
+        // another map frame by frame (the compare tool's frozen half) never arrives.
+        if (options?.animate === false) {
+            view.setCenter(this.toMapCoord(center));
+            view.setZoom(this.toOLZoom(clampedZoom));
+        } else {
+            view.animate({
                 center: this.toMapCoord(center),
                 zoom: this.toOLZoom(clampedZoom),
                 duration: 500
             });
-            if (clampedZoom !== zoom) {
-                this.scheduleViewportSync();
-            }
+        }
+        if (clampedZoom !== zoom) {
+            this.scheduleViewportSync();
         }
     }
 

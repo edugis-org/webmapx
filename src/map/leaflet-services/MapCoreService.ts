@@ -93,11 +93,17 @@ export class MapCoreService implements IMapCore {
         return { center: [0, 0], zoom: 1, bearing: 0, pitch: 0 };
     }
 
-    public setViewport(center: [number, number], zoom: number): void {
+    public setViewport(center: [number, number], zoom: number, options?: { animate?: boolean }): void {
         if (this.mapInstance) {
             const clampedZoom = this.clampZoom(zoom);
             const leafletZoom = Math.round(clampedZoom) + ZOOM_OFFSET;
-            this.mapInstance.flyTo([center[1], center[0]], leafletZoom);
+            // See the MapLibre core: an animated move is abandoned by the next camera write,
+            // which is what a per-frame follower does.
+            if (options?.animate === false) {
+                this.mapInstance.setView([center[1], center[0]], leafletZoom, { animate: false });
+            } else {
+                this.mapInstance.flyTo([center[1], center[0]], leafletZoom);
+            }
             if (clampedZoom !== zoom) {
                 this.scheduleViewportSync();
             }

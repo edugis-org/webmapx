@@ -16,7 +16,7 @@ import { MapStateStore } from '../store/map-state-store';
 import { registerMapLayer, unregisterMapLayer, reorderMapLayers } from './map-layer-registry';
 import type {
     IMapCore, ISource, LayerInsertOptions, MarkerOptions,
-    NavigationCapabilities, QueryLayerFeaturesOptions,
+    NavigationCapabilities, QueryLayerFeaturesOptions, ViewportChangeOptions,
 } from './IMapInterfaces';
 import type { CompositeStyleLayerConfig, MapStyle } from '../config/types';
 import type { LngLat, Pixel } from '../store/map-events';
@@ -913,8 +913,8 @@ export abstract class BaseAdapter {
         return this.getCore().getViewportState();
     }
 
-    setViewport(center: [number, number], zoom: number): void {
-        this.getCore().setViewport(center, zoom);
+    setViewport(center: [number, number], zoom: number, options?: ViewportChangeOptions): void {
+        this.getCore().setViewport(center, zoom, options);
     }
 
     getZoom(): number {
