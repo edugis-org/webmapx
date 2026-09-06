@@ -120,6 +120,7 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 - [x] Projection tool (CRS switching)
 - [x] Globe view (MapLibre globe projection + sky layer)
 - [x] TrueArea tool (drag-to-compare polygon sizes)
+- [ ] Compare tool — vertical slider splitting the map into two configs. Enabling it freezes a copy of the current config on one side as the reference state; the other side stays the live config. Both sides share one camera. While the tool is active, every config-changing tool (legend, catalog, config edit, transparency) acts on the dynamic side only; the frozen side is read-only. Not permalinked — like draw, an active tool is not part of shareable map state.
 - [x] Zoom to layer extent
 - [x] 3D terrain + hillshade (MapLibre GL)
 - [x] Fullscreen toggle
