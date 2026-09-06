@@ -104,3 +104,67 @@ export function raiseToTopLayer(host: LitElement): void {
     if (host.hasUpdated) raise();
     else void host.updateComplete.then(raise);
 }
+
+/**
+ * The modeless variant, for a panel that must not take the map away.
+ *
+ * `showModal()` is the wrong primitive for `webmapx-layer-style-dialog`: it is a
+ * panel you drag aside and work next to, restyling a layer while panning the map
+ * underneath, and a modal makes everything outside it inert — including the map
+ * it is styling. `popover` is the same top layer without the modality: painted
+ * outside the normal paint order, free of an ancestor's `backdrop-filter`,
+ * `transform` or `overflow`, and leaving the rest of the page live.
+ *
+ * Inertness is scoped to the DOM tree, not to the top layer, so this only works
+ * while the panel stays where it is: a popover reparented to `document.body`
+ * while a host page's modal `<dialog>` is open sits outside that dialog's
+ * subtree and is inert, exactly as the old escape was. In place — inside the
+ * map, inside the host's dialog — it stays live.
+ *
+ * `manual` because the panel owns its own dismissal (its ✕, its Done button and
+ * its Escape handler); auto would light-dismiss it on the first click on the map,
+ * which is the one thing its user is trying to do.
+ *
+ * Popover is newer than `<dialog>` — Chrome/Edge 114, Safari 17 (and iOS 17),
+ * Firefox 125 — so a browser without it keeps the old behaviour: reparent to
+ * `document.body`, which works on every page that does not open a modal of its
+ * own.
+ */
+export function raiseModelessToTopLayer(host: LitElement): void {
+    reparentToMap(host);
+    if (typeof host.showPopover !== 'function') return; // pre-2023 browser: z-index does it
+    host.popover = 'manual';
+    // Showing one that is already showing throws rather than being a no-op.
+    if (!host.matches(':popover-open')) host.showPopover();
+}
+
+/**
+ * Moves the panel out of the tool panel it was opened from, to the map element.
+ *
+ * The top layer does not rescue a popover whose ancestor is `display: none`, and
+ * the legend that opens this panel hides itself readily — closing the legend
+ * left the panel open in its own state and invisible on screen. `document.body`
+ * was the old cure and is the one place it must not go: outside the host page's
+ * modal `<dialog>`, everything is inert. The map element is inside that dialog
+ * and outlives the tool panels, which is exactly the span this panel needs.
+ */
+function reparentToMap(host: LitElement): void {
+    const map = composedAncestors(host).find((node) => node.tagName === 'WEBMAPX-MAP');
+    if (map && host.parentNode !== map) map.appendChild(host);
+}
+
+function composedAncestors(node: Node): Element[] {
+    const found: Element[] = [];
+    let current: Node | null = node;
+    while (current) {
+        current = current.parentNode ?? (current as ShadowRoot).host ?? null;
+        if (current instanceof Element) found.push(current);
+    }
+    return found;
+}
+
+/** Takes the modeless panel back out of the top layer. */
+export function dropModelessFromTopLayer(host: LitElement): void {
+    if (typeof host.hidePopover !== 'function' || host.popover === null) return;
+    if (host.matches(':popover-open')) host.hidePopover();
+}

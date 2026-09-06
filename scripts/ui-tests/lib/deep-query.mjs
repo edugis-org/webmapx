@@ -4,8 +4,9 @@
  * Dialogs in this app have moved twice. They used to reparent themselves to
  * `document.body` on open, because an ancestor's backdrop-filter traps a
  * position:fixed element inside the panel; the modal ones now stay put and rise
- * into the top layer instead (src/components/internal/top-layer-dialog.ts),
- * while `webmapx-layer-style-dialog` still reparents. Four UI suites addressed
+ * into the top layer instead (src/components/internal/top-layer-dialog.ts) —
+ * the modal ones without moving at all, and `webmapx-layer-style-dialog` as a
+ * popover that moves as far as the map element. Four UI suites addressed
  * those dialogs by DOM location — `tool.shadowRoot.querySelector(...)` — and
  * every one of them broke the day the reparenting landed, on all four engines,
  * while the app itself worked perfectly. Suites written against a location

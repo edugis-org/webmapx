@@ -12,6 +12,7 @@
  * skipped rather than failed when it cannot be reached.
  */
 import { appUrl } from './lib/fixture-config.mjs';
+import { installDeepQuery } from './lib/deep-query.mjs';
 
 const BAKED_GETMAP = 'bevolking2015';   // GetMap query baked into the source url
 const BARE_ENDPOINT = 'pdok-bag-raster'; // endpoint + `layers` sibling key
@@ -40,7 +41,7 @@ async function openPanel(page, layerId) {
     await legend.handleShowLayerStyle(id, id);
     // The style list is read from the service's capabilities, so it arrives late.
     await new Promise((resolve) => setTimeout(resolve, 5000));
-    const dialog = document.querySelector('webmapx-layer-style-dialog');
+    const dialog = window.__wmxDeepQuery('webmapx-layer-style-dialog');
     return {
       hasStyleButton: legend.layerHasStyleDialog(entry),
       headings: [...dialog.shadowRoot.querySelectorAll('.question h3')].map((h) => h.textContent.trim()),
@@ -54,6 +55,9 @@ export async function run({ page, engine, baseUrl }) {
   console.log(`  Running raster style panel test for engine: ${engine}`);
 
   await page.goto(appUrl(baseUrl), { waitUntil: 'domcontentloaded' });
+  // The panel stays inside the legend's shadow root — it rises into the top
+  // layer as a popover rather than being reparented to document.body.
+  await installDeepQuery(page);
   await page.waitForFunction(async () => {
     const map = document.querySelector('webmapx-map');
     if (!map || typeof map.getAdapterAsync !== 'function') return false;
@@ -78,7 +82,7 @@ export async function run({ page, engine, baseUrl }) {
     }
     // Opacity is the one thing that is still true of any raster.
     if (!panel.headings.includes('Opacity')) fail('no opacity control on a raster layer');
-    await page.evaluate(() => document.querySelector('webmapx-layer-style-dialog').close());
+    await page.evaluate(() => window.__wmxDeepQuery('webmapx-layer-style-dialog').close());
   });
 
   await step('a WMS whose request is baked into its url is recognised', async () => {
@@ -92,7 +96,7 @@ export async function run({ page, engine, baseUrl }) {
     if (!panel.headings.some((h) => h === 'Which style?' || h === 'Drawn by the service' || h === 'Styles')) {
       fail(`no WMS step; steps: ${panel.headings.join(', ')}`);
     }
-    await page.evaluate(() => document.querySelector('webmapx-layer-style-dialog').close());
+    await page.evaluate(() => window.__wmxDeepQuery('webmapx-layer-style-dialog').close());
   });
 
   await step('a WMS given as an endpoint offers its named styles, and choosing one reaches the map', async () => {
@@ -100,13 +104,13 @@ export async function run({ page, engine, baseUrl }) {
     if (panel.error) fail(panel.error);
     if (!panel.headings.includes('Which style?')) {
       console.log(`    SKIP: the WMS did not answer with its styles (steps: ${panel.headings.join(', ')})`);
-      await page.evaluate(() => document.querySelector('webmapx-layer-style-dialog').close());
+      await page.evaluate(() => window.__wmxDeepQuery('webmapx-layer-style-dialog').close());
       return;
     }
     if (panel.choices.length < 2) fail(`only ${panel.choices.length} style offered`);
 
     const applied = await page.evaluate(async () => {
-      const dialog = document.querySelector('webmapx-layer-style-dialog');
+      const dialog = window.__wmxDeepQuery('webmapx-layer-style-dialog');
       [...dialog.shadowRoot.querySelectorAll('.choice')][1].click();
       await new Promise((resolve) => setTimeout(resolve, 1500));
       const adapter = await document.querySelector('webmapx-map').getAdapterAsync();

@@ -46,6 +46,7 @@ import {
 } from '../utils/style-builder';
 import { colorByAdjacency, colorGroupsByAdjacency, coloringKeyFor, coloringKeyValue } from '../utils/topological-coloring';
 import { createColorPicker } from './internal/color-picker';
+import { dropModelessFromTopLayer, raiseModelessToTopLayer } from './internal/top-layer-dialog';
 import type Pickr from '@simonwep/pickr';
 import { DATA_OUTLINE, DATA_START } from '../theme/data-colors';
 import { EXTRA_SUBLAYER_SUFFIX } from '../map/base-adapter';
@@ -390,6 +391,20 @@ export class WebmapxLayerStyleDialog extends LitElement {
         :host { display: none; }
         :host([visible]) { display: block; }
 
+        /* The host is a bare frame around .panel, so the box the UA gives a
+           popover — centred, bordered, padded, scrollable — has to come off. */
+        :host([popover]) {
+            position: static;
+            inset: auto;
+            width: auto;
+            height: auto;
+            margin: 0;
+            border: none;
+            padding: 0;
+            background: transparent;
+            overflow: visible;
+        }
+
         .panel {
             position: fixed;
             left: 50%;
@@ -667,18 +682,6 @@ export class WebmapxLayerStyleDialog extends LitElement {
     `];
 
     open(context: StyleDialogContext): void {
-        // Escape to document.body, because an ancestor's backdrop-filter otherwise
-        // traps this position:fixed panel inside the legend.
-        //
-        // The modal dialogs solve that by living in the top layer instead
-        // (internal/top-layer-dialog.ts), and this panel deliberately does not:
-        // it is modeless on purpose — you drag it aside and keep panning and
-        // restyling the map underneath — and showModal() would make the map
-        // inert. The cost is that a host page which opens its own modal dialog
-        // leaves this panel inert, the way all of them used to be.
-        if (this.parentNode !== document.body) {
-            document.body.appendChild(this);
-        }
         this.dialogTitle = context.title;
         this.styledLayerId = context.layerId;
         this.groups = context.groups;
@@ -715,6 +718,10 @@ export class WebmapxLayerStyleDialog extends LitElement {
         this.loadingGroups = !!this.resample && !this.raster;
 
         this.visible = true;
+        // Into the top layer, so an ancestor's backdrop-filter stops trapping
+        // this position:fixed panel inside the legend — as a popover, not a
+        // modal, because the map underneath has to stay usable.
+        raiseModelessToTopLayer(this);
         document.addEventListener('keydown', this.onKeydown);
         // After the panel has been laid out, so its size is known: a remembered
         // position is only kept while it still lands on screen.
@@ -748,6 +755,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
     close(): void {
         this.stopResampling();
         this.visible = false;
+        dropModelessFromTopLayer(this);
         document.removeEventListener('keydown', this.onKeydown);
     }
 
