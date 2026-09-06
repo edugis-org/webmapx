@@ -556,8 +556,18 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
             else byLayer.set(f.layerId, [f]);
         }
 
+        // Present layers in map stacking order, top (last drawn) first. store.mapLayers key
+        // order is bottom-to-top, so a layer's index there reversed is its display rank;
+        // anything not in the store (e.g. a runtime layer) keeps query order after them.
+        const stackOrder = Object.keys(this.adapter?.store.getState().mapLayers ?? {});
+        const rankOf = (layerId: string): number => {
+            const i = stackOrder.indexOf(layerId);
+            return i === -1 ? Number.POSITIVE_INFINITY : stackOrder.length - 1 - i;
+        };
+        const ordered = [...byLayer.entries()].sort((a, b) => rankOf(a[0]) - rankOf(b[0]));
+
         return html`
-            ${[...byLayer.entries()].map(([layerId, feats]) => {
+            ${ordered.map(([layerId, feats]) => {
                 const meta = this.adapter?.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined;
                 const isComposite = Array.isArray(meta?.sublayers) && (meta!.sublayers as unknown[]).length > 1;
                 const badge = isComposite ? 'composite' : feats[0].source;
