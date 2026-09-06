@@ -31,6 +31,8 @@ export interface PlateRotationFile {
     model: string;
     /** Sampled ages in Ma, ascending, starting at 0. */
     ages: number[];
+    /** Per plate, the oldest age it is reconstructed at, in Ma. */
+    validTo?: Record<string, number>;
     /** Per plate, one `[w, x, y, z]` per age. */
     rotations: Record<string, [number, number, number, number][]>;
 }
@@ -41,6 +43,8 @@ export interface PlateModel {
     /** The oldest age the model covers, in Ma. */
     maxAge: number;
     rotations: Map<number, Quaternion[]>;
+    /** Per plate, the oldest age it exists at; older than this it is absent. */
+    validTo: Map<number, number>;
     /** Present-day coastlines, tagged with `plateId`, `continent` and `fromAge`. */
     coastlines: GeoJSON.FeatureCollection;
 }
@@ -59,11 +63,15 @@ export function buildPlateModel(
     const table = new Map<number, Quaternion[]>();
     for (const [id, list] of Object.entries(rotations.rotations)) table.set(Number(id), list);
 
+    const validity = new Map<number, number>();
+    for (const [id, age] of Object.entries(rotations.validTo ?? {})) validity.set(Number(id), age);
+
     return {
         model: rotations.model,
         ages: rotations.ages,
         maxAge: rotations.ages[rotations.ages.length - 1] ?? 0,
         rotations: table,
+        validTo: validity,
         coastlines,
     };
 }
@@ -226,6 +234,14 @@ export function reconstruct(model: PlateModel, age: number): GeoJSON.FeatureColl
         if (Number.isFinite(fromAge) && age > fromAge) continue;
 
         const plateId = Number(properties.plateId);
+
+        // A plate that is no longer reconstructed gets the identity rotation
+        // from the rotation service, which would leave its land sitting at its
+        // present-day position — southern Central America and northern Colombia
+        // pinned to today's coastline before 140 Ma. Absent, not frozen.
+        const validTo = model.validTo.get(plateId);
+        if (validTo !== undefined && age > validTo) continue;
+
         const q = Number.isFinite(plateId) ? rotationAt(model, plateId, age) : IDENTITY;
 
         const rotated = {
