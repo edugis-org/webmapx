@@ -9,6 +9,7 @@ import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialo
 import type SlInput from '@shoelace-style/shoelace/dist/components/input/input.js';
 import type { IMap } from '../map/IMapInterfaces';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
+import { raiseToTopLayer, topLayerDialog, topLayerDialogStyles } from './internal/top-layer-dialog';
 
 export interface SaveLayerCandidate {
     layerId: string;
@@ -100,7 +101,7 @@ export class WebmapxSaveLayersDialog extends LitElement {
     @query('sl-dialog') private dialog!: SlDialog;
     @query('.filename-input') private filenameInput!: SlInput;
 
-    static styles = [controlSurfaceStyles, css`
+    static styles = [controlSurfaceStyles, topLayerDialogStyles, css`
         :host { display: block; }
 
         sl-dialog::part(panel) {
@@ -149,12 +150,7 @@ export class WebmapxSaveLayersDialog extends LitElement {
     `];
 
     open(candidates: SaveLayerCandidate[], adapter: IMap | null): void {
-        // Escape to document.body before showing — see webmapx-layer-info-dialog.ts's open()
-        // for why: an ancestor's backdrop-filter (webmapx-tool-panel under the "atlas"/
-        // "glossy" style) otherwise traps this position:fixed dialog inside the panel.
-        if (this.parentNode !== document.body) {
-            document.body.appendChild(this);
-        }
+        raiseToTopLayer(this);
         this.items = candidates.map((candidate) => {
             const data = candidate.sourceData
                 ?? (candidate.sourceId ? adapter?.getSourceData(candidate.sourceId) ?? null : null);
@@ -322,54 +318,54 @@ export class WebmapxSaveLayersDialog extends LitElement {
         const selectedCount = this.selectedItems.length;
         const showZipOption = this.singleFileEligible;
 
-        return html`
-            <sl-dialog label="Save layer(s)"
-                       @sl-request-close=${(e: Event) => { if ((e as CustomEvent).detail?.source === 'overlay') this.close(); }}>
-                <div class="layer-list">
-                    ${this.items.map((item) => html`
-                        <div class="layer-row">
-                            <sl-checkbox
-                                ?checked=${item.checked}
-                                ?disabled=${item.data === null && item.sourceConfig == null}
-                                @sl-change=${(e: Event) => this.toggleItem(item.layerId, (e.target as HTMLInputElement).checked)}
-                            >
-                                ${item.label}
-                                ${item.data === null && item.sourceConfig == null ? html`<span class="unsupported">(no exportable data)</span>` : null}
-                                ${item.data === null && item.sourceConfig != null ? html`<span class="external-hint">(style only)</span>` : null}
-                            </sl-checkbox>
-                        </div>
-                    `)}
-                </div>
+        return topLayerDialog(html`
+                <sl-dialog label="Save layer(s)"
+                           @sl-request-close=${(e: Event) => { if ((e as CustomEvent).detail?.source === 'overlay') this.close(); }}>
+                    <div class="layer-list">
+                        ${this.items.map((item) => html`
+                            <div class="layer-row">
+                                <sl-checkbox
+                                    ?checked=${item.checked}
+                                    ?disabled=${item.data === null && item.sourceConfig == null}
+                                    @sl-change=${(e: Event) => this.toggleItem(item.layerId, (e.target as HTMLInputElement).checked)}
+                                >
+                                    ${item.label}
+                                    ${item.data === null && item.sourceConfig == null ? html`<span class="unsupported">(no exportable data)</span>` : null}
+                                    ${item.data === null && item.sourceConfig != null ? html`<span class="external-hint">(style only)</span>` : null}
+                                </sl-checkbox>
+                            </div>
+                        `)}
+                    </div>
 
-                <sl-input class="filename-input" label="Filename" .value=${this.filename}
-                          @sl-input=${(e: Event) => { this.filename = (e.target as SlInput).value; this.filenameEdited = true; }}>
-                </sl-input>
+                    <sl-input class="filename-input" label="Filename" .value=${this.filename}
+                              @sl-input=${(e: Event) => { this.filename = (e.target as SlInput).value; this.filenameEdited = true; }}>
+                    </sl-input>
 
-                <div class="options">
-                    <sl-checkbox ?checked=${this.includeStyle}
-                                  @sl-change=${(e: Event) => { this.includeStyle = (e.target as HTMLInputElement).checked; }}>
-                        Include style
-                    </sl-checkbox>
-                    <sl-checkbox ?checked=${this.roundCoordinates}
-                                  @sl-change=${(e: Event) => { this.roundCoordinates = (e.target as HTMLInputElement).checked; }}>
-                        Round coordinates to ${EXPORT_DECIMALS} decimals (about 5 cm)
-                    </sl-checkbox>
-                    ${showZipOption ? html`
-                        <sl-checkbox ?checked=${this.zip}
-                                      @sl-change=${(e: Event) => { this.zip = (e.target as HTMLInputElement).checked; }}>
-                            Save as .zip
+                    <div class="options">
+                        <sl-checkbox ?checked=${this.includeStyle}
+                                      @sl-change=${(e: Event) => { this.includeStyle = (e.target as HTMLInputElement).checked; }}>
+                            Include style
                         </sl-checkbox>
-                    ` : null}
-                </div>
+                        <sl-checkbox ?checked=${this.roundCoordinates}
+                                      @sl-change=${(e: Event) => { this.roundCoordinates = (e.target as HTMLInputElement).checked; }}>
+                            Round coordinates to ${EXPORT_DECIMALS} decimals (about 5 cm)
+                        </sl-checkbox>
+                        ${showZipOption ? html`
+                            <sl-checkbox ?checked=${this.zip}
+                                          @sl-change=${(e: Event) => { this.zip = (e.target as HTMLInputElement).checked; }}>
+                                Save as .zip
+                            </sl-checkbox>
+                        ` : null}
+                    </div>
 
-                <div slot="footer" class="footer">
-                    <sl-button autofocus @click=${this.close}>Cancel</sl-button>
-                    <sl-button variant="primary" ?disabled=${selectedCount === 0} @click=${() => this.handleDownload()}>
-                        Download
-                    </sl-button>
-                </div>
-            </sl-dialog>
-        `;
+                    <div slot="footer" class="footer">
+                        <sl-button autofocus @click=${this.close}>Cancel</sl-button>
+                        <sl-button variant="primary" ?disabled=${selectedCount === 0} @click=${() => this.handleDownload()}>
+                            Download
+                        </sl-button>
+                    </div>
+                </sl-dialog>
+        `);
     }
 }
 

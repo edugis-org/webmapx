@@ -9,6 +9,7 @@ import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/color-picker/color-picker.js';
 import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
+import { raiseToTopLayer, topLayerDialog, topLayerDialogStyles } from './internal/top-layer-dialog';
 import { DATA_TOOL } from '../theme/data-colors';
 
 export type GeometryType = 'Point' | 'LineString' | 'Polygon';
@@ -95,7 +96,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
 
     @query('sl-dialog') private dialog!: SlDialog;
 
-    static styles = [controlSurfaceStyles, css`
+    static styles = [controlSurfaceStyles, topLayerDialogStyles, css`
         :host { display: block; }
 
         sl-dialog::part(panel) {
@@ -204,12 +205,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
     `];
 
     open(): void {
-        // Escape to document.body before showing — see webmapx-layer-info-dialog.ts's open()
-        // for why: an ancestor's backdrop-filter (webmapx-tool-panel under the "atlas"/
-        // "glossy" style) otherwise traps this position:fixed dialog inside the panel.
-        if (this.parentNode !== document.body) {
-            document.body.appendChild(this);
-        }
+        raiseToTopLayer(this);
         this.step = 'select';
         this.selectedId = this.existingLayers.length === 0 ? 'new' : this.existingLayers[0].id;
         this.layer = newLayerConfig(this.geometryType);
@@ -428,12 +424,12 @@ export class WebmapxDrawLayerDialog extends LitElement {
 
     render() {
         const label = this.geometryType === 'LineString' ? 'Line' : this.geometryType;
-        return html`
-            <sl-dialog label="${this.step === 'select' ? `Select ${label} layer` : `Configure ${label} layer`}"
-                       @sl-request-close=${(e: Event) => { if ((e as CustomEvent).detail?.source === 'overlay') this.cancel(); }}>
-                ${this.step === 'select' ? this.renderSelectStep() : this.renderDetailStep()}
-            </sl-dialog>
-        `;
+        return topLayerDialog(html`
+                <sl-dialog label="${this.step === 'select' ? `Select ${label} layer` : `Configure ${label} layer`}"
+                           @sl-request-close=${(e: Event) => { if ((e as CustomEvent).detail?.source === 'overlay') this.cancel(); }}>
+                    ${this.step === 'select' ? this.renderSelectStep() : this.renderDetailStep()}
+                </sl-dialog>
+        `);
     }
 }
 

@@ -8,6 +8,7 @@ import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialo
 import { sanitizeAbstractHtml } from '../utils/sanitize-html';
 import { renderAttributionText } from '../utils/attribution-format';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
+import { raiseToTopLayer, topLayerDialog, topLayerDialogStyles } from './internal/top-layer-dialog';
 
 const HTTPS_URL_ONLY = /^https:\/\/\S+$/i;
 
@@ -35,7 +36,7 @@ export class WebmapxLayerInfoDialog extends LitElement {
 
     private fetchToken = 0;
 
-    static styles = [controlSurfaceStyles, css`
+    static styles = [controlSurfaceStyles, topLayerDialogStyles, css`
         :host { display: block; }
 
         sl-dialog::part(panel) {
@@ -92,15 +93,7 @@ export class WebmapxLayerInfoDialog extends LitElement {
     `];
 
     open(title: string, abstract: string | undefined, attribution?: string, featureSummary?: string): void {
-        // Escape to document.body before showing: sl-dialog is position:fixed and expects
-        // to center over the viewport, but this element is normally nested inside
-        // webmapx-tool-panel, which applies backdrop-filter (the "atlas"/"glossy" style's
-        // blur) to its own :host — and backdrop-filter on an ancestor creates a new
-        // containing block for position:fixed descendants, trapping the dialog inside the
-        // panel's box instead of centering it on the viewport.
-        if (this.parentNode !== document.body) {
-            document.body.appendChild(this);
-        }
+        raiseToTopLayer(this);
         this.fetchToken += 1;
         this.dialogTitle = title;
         this.attribution = attribution?.trim() ?? '';
@@ -156,25 +149,25 @@ export class WebmapxLayerInfoDialog extends LitElement {
     }
 
     render() {
-        return html`
-            <sl-dialog label=${this.dialogTitle}
-                       @sl-request-close=${(e: Event) => { if ((e as CustomEvent).detail?.source === 'overlay') this.close(); }}>
-                ${this.renderContent()}
-                ${this.featureSummary || this.attribution
-                    ? html`<div class="layer-meta">
-                        ${this.featureSummary
-                            ? html`<div class="feature-summary">${this.featureSummary}</div>`
-                            : null}
-                        ${this.attribution
-                            ? html`<div class="attribution"><strong>Attribution:</strong> ${renderAttributionText(this.attribution)}</div>`
-                            : null}
-                    </div>`
-                    : null}
-                <div class="footer">
-                    <sl-button autofocus @click=${this.close}>Close</sl-button>
-                </div>
-            </sl-dialog>
-        `;
+        return topLayerDialog(html`
+                <sl-dialog label=${this.dialogTitle}
+                           @sl-request-close=${(e: Event) => { if ((e as CustomEvent).detail?.source === 'overlay') this.close(); }}>
+                    ${this.renderContent()}
+                    ${this.featureSummary || this.attribution
+                        ? html`<div class="layer-meta">
+                            ${this.featureSummary
+                                ? html`<div class="feature-summary">${this.featureSummary}</div>`
+                                : null}
+                            ${this.attribution
+                                ? html`<div class="attribution"><strong>Attribution:</strong> ${renderAttributionText(this.attribution)}</div>`
+                                : null}
+                        </div>`
+                        : null}
+                    <div class="footer">
+                        <sl-button autofocus @click=${this.close}>Close</sl-button>
+                    </div>
+                </sl-dialog>
+        `);
     }
 }
 

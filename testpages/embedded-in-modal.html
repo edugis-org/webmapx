@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WebMapX inside a host page's modal dialog</title>
+  <link rel="stylesheet" href="/node_modules/@shoelace-style/shoelace/dist/themes/light.css">
+  <link rel="stylesheet" href="/node_modules/maplibre-gl/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="/src/theme/webmapx-style-core.css">
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; }
+    #host { width: 820px; max-width: 90vw; padding: 0; border: 1px solid #ccc; border-radius: 6px; }
+    #host header { display: flex; justify-content: space-between; padding: 12px 16px; font-weight: 600; }
+    #map { width: 100%; height: 360px; }
+  </style>
+</head>
+<body>
+  <!--
+    The case a layer repository preview creates: the map lives inside the host
+    page's own modal <dialog>. Everything outside that dialog is inert, so a
+    webmapx dialog that escaped to document.body used to render behind it and
+    could not be clicked — not even its own close button.
+  -->
+  <p><button id="open">Open the map in a modal dialog</button></p>
+  <dialog id="host">
+    <header><span>Host page modal</span><button id="close-host">✕</button></header>
+    <div id="map"></div>
+  </dialog>
+
+  <script type="module">
+    import { WebMapX } from '/src/lib.ts';
+
+    document.getElementById('close-host').onclick = () => host.close();
+    document.getElementById('open').onclick = async () => {
+      host.showModal();
+      if (host.dataset.mounted) return;
+      host.dataset.mounted = '1';
+      await WebMapX.mount('#map', {
+        config: {
+          engine: 'maplibre',
+          tools: ['layerOverview', 'info'],
+          map: { center: [5, 52], zoom: 5 },
+          layerData: {
+            sources: {
+              osm: {
+                id: 'osm', type: 'raster', service: 'xyz',
+                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                tileSize: 256,
+                attribution: '&copy; OpenStreetMap contributors',
+              },
+              places: {
+                id: 'places', type: 'geojson',
+                data: { type: 'FeatureCollection', features: [
+                  { type: 'Feature', properties: { name: 'Amsterdam' }, geometry: { type: 'Point', coordinates: [4.9, 52.37] } },
+                  { type: 'Feature', properties: { name: 'Berlin' }, geometry: { type: 'Point', coordinates: [13.4, 52.52] } },
+                ] },
+              },
+            },
+            layers: {
+              osm: { id: 'osm', type: 'raster', source: 'osm', title: 'OpenStreetMap' },
+              places: {
+                id: 'places', type: 'circle', source: 'places', title: 'Places',
+                paint: { 'circle-radius': 6, 'circle-color': '#0f62fe' },
+                metadata: {
+                  legendRole: 'overlay',
+                  abstract: 'An overlay with an abstract, so the layer info dialog has something to show.',
+                },
+              },
+            },
+          },
+          state: { activeLayers: [{ ref: 'osm', visible: true }, { ref: 'places', visible: true }] },
+        },
+      });
+    };
+  </script>
+</body>
+</html>

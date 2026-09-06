@@ -1,13 +1,15 @@
 /**
  * Finding an element without caring where it lives.
  *
- * Dialogs in this app move: a panel-hosted dialog reparents itself to
- * `document.body` when it opens, because an ancestor's backdrop-filter
- * otherwise traps a position:fixed element inside the panel (see
- * webmapx-layer-info-dialog's open()). Four UI suites addressed those dialogs
- * by DOM location — `tool.shadowRoot.querySelector(...)` — and every one of
- * them broke the day that reparenting landed, on all four engines, while the
- * app itself worked perfectly.
+ * Dialogs in this app have moved twice. They used to reparent themselves to
+ * `document.body` on open, because an ancestor's backdrop-filter traps a
+ * position:fixed element inside the panel; the modal ones now stay put and rise
+ * into the top layer instead (src/components/internal/top-layer-dialog.ts),
+ * while `webmapx-layer-style-dialog` still reparents. Four UI suites addressed
+ * those dialogs by DOM location — `tool.shadowRoot.querySelector(...)` — and
+ * every one of them broke the day the reparenting landed, on all four engines,
+ * while the app itself worked perfectly. Suites written against a location
+ * broke again, in the other direction, when it was taken away.
  *
  * Sixteen red rows for one internal change is not a test suite doing its job;
  * it is a test suite asserting implementation details. A test should say what

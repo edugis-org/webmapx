@@ -5,6 +5,7 @@ import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import type SlDialog from '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
+import { raiseToTopLayer, topLayerDialog, topLayerDialogStyles } from './internal/top-layer-dialog';
 
 @customElement('webmapx-permalink-dialog')
 export class WebmapxPermalinkDialog extends LitElement {
@@ -15,7 +16,7 @@ export class WebmapxPermalinkDialog extends LitElement {
 
     @query('sl-dialog') private dialog!: SlDialog;
 
-    static styles = [controlSurfaceStyles, css`
+    static styles = [controlSurfaceStyles, topLayerDialogStyles, css`
         :host { display: block; }
 
         sl-dialog::part(panel) {
@@ -56,12 +57,7 @@ export class WebmapxPermalinkDialog extends LitElement {
     `];
 
     open(url: string, hasConfig: boolean, dynamicLayerIds: string[] = []): void {
-        // Escape to document.body before showing — see webmapx-layer-info-dialog.ts's open()
-        // for why: an ancestor's backdrop-filter (webmapx-tool-panel under the "atlas"/
-        // "glossy" style) otherwise traps this position:fixed dialog inside the panel.
-        if (this.parentNode !== document.body) {
-            document.body.appendChild(this);
-        }
+        raiseToTopLayer(this);
         this.url = url;
         this.hasConfig = hasConfig;
         this.dynamicLayerIds = dynamicLayerIds;
@@ -76,34 +72,34 @@ export class WebmapxPermalinkDialog extends LitElement {
     }
 
     render() {
-        return html`
-            <sl-dialog label="Permalink">
-                ${this.dynamicLayerIds.length > 0 ? html`
-                    <div class="warning">
-                        <sl-icon name="exclamation-triangle"></sl-icon>
-                        <span>
-                            <strong>${this.dynamicLayerIds.length} imported layer${this.dynamicLayerIds.length > 1 ? 's' : ''} will not restore</strong>
-                            — layers added from files (${this.dynamicLayerIds.join(', ')}) are not stored in the permalink.
-                            Recipients will see those layers missing.
-                        </span>
+        return topLayerDialog(html`
+                <sl-dialog label="Permalink">
+                    ${this.dynamicLayerIds.length > 0 ? html`
+                        <div class="warning">
+                            <sl-icon name="exclamation-triangle"></sl-icon>
+                            <span>
+                                <strong>${this.dynamicLayerIds.length} imported layer${this.dynamicLayerIds.length > 1 ? 's' : ''} will not restore</strong>
+                                — layers added from files (${this.dynamicLayerIds.join(', ')}) are not stored in the permalink.
+                                Recipients will see those layers missing.
+                            </span>
+                        </div>
+                    ` : null}
+                    ${!this.hasConfig ? html`
+                        <div class="warning">
+                            <sl-icon name="exclamation-triangle"></sl-icon>
+                            <span>Config was not loaded from a URL — layer state may not restore for recipients using a different config.</span>
+                        </div>
+                    ` : null}
+                    <div class="url-box">${this.url}</div>
+                    <div slot="footer" style="display:flex;gap:0.5rem;justify-content:flex-end">
+                        <sl-button @click=${() => this.dialog.hide()}>Close</sl-button>
+                        <sl-button variant="primary" @click=${this.handleCopy}>
+                            <sl-icon slot="prefix" name=${this.copied ? 'check2' : 'clipboard'}></sl-icon>
+                            ${this.copied ? 'Copied!' : 'Copy to clipboard'}
+                        </sl-button>
                     </div>
-                ` : null}
-                ${!this.hasConfig ? html`
-                    <div class="warning">
-                        <sl-icon name="exclamation-triangle"></sl-icon>
-                        <span>Config was not loaded from a URL — layer state may not restore for recipients using a different config.</span>
-                    </div>
-                ` : null}
-                <div class="url-box">${this.url}</div>
-                <div slot="footer" style="display:flex;gap:0.5rem;justify-content:flex-end">
-                    <sl-button @click=${() => this.dialog.hide()}>Close</sl-button>
-                    <sl-button variant="primary" @click=${this.handleCopy}>
-                        <sl-icon slot="prefix" name=${this.copied ? 'check2' : 'clipboard'}></sl-icon>
-                        ${this.copied ? 'Copied!' : 'Copy to clipboard'}
-                    </sl-button>
-                </div>
-            </sl-dialog>
-        `;
+                </sl-dialog>
+        `);
     }
 }
 

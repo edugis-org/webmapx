@@ -667,9 +667,15 @@ export class WebmapxLayerStyleDialog extends LitElement {
     `];
 
     open(context: StyleDialogContext): void {
-        // Escape to document.body — see webmapx-layer-info-dialog.ts's open()
-        // for why: an ancestor's backdrop-filter otherwise traps this
-        // position:fixed panel inside the legend.
+        // Escape to document.body, because an ancestor's backdrop-filter otherwise
+        // traps this position:fixed panel inside the legend.
+        //
+        // The modal dialogs solve that by living in the top layer instead
+        // (internal/top-layer-dialog.ts), and this panel deliberately does not:
+        // it is modeless on purpose — you drag it aside and keep panning and
+        // restyling the map underneath — and showModal() would make the map
+        // inert. The cost is that a host page which opens its own modal dialog
+        // leaves this panel inert, the way all of them used to be.
         if (this.parentNode !== document.body) {
             document.body.appendChild(this);
         }
