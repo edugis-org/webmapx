@@ -16,8 +16,8 @@ import type { WebmapxSaveLayersDialog, SaveLayerCandidate } from './webmapx-save
 import type { WebmapxPermalinkDialog } from './webmapx-permalink-dialog';
 import type { WebmapxClearLayersDialog } from './webmapx-clear-layers-dialog';
 import { buildPermalinkUrl, getMapDomIndex, getConfigUrlForIndex } from '../utils/permalink';
+import { snapshotMapForPermalink } from '../utils/permalink-state';
 import { sampleLayerFeatures } from '../utils/layer-features';
-import { Webmapx3dTool } from './webmapx-3d-tool';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
@@ -1395,42 +1395,17 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
 
   private handlePermalink(): void {
     if (!this.adapter) return;
-    const viewport = this.adapter.getViewportState();
-    const mapLayers = this.adapter.store.getState().mapLayers;
-    const allLayerIds = Object.keys(mapLayers); // bottom-to-top stack order
-    const hiddenLayerIds = allLayerIds.filter(id => mapLayers[id]?.visible === false);
-    const transparencyOverrides = new Map<string, number>();
-    for (const [id, entry] of Object.entries(mapLayers)) {
-      if (typeof entry.transparency === 'number' && entry.transparency !== 0) {
-        transparencyOverrides.set(id, entry.transparency);
-      }
-    }
+    const snapshot = snapshotMapForPermalink(this.adapter);
     const mapElement = this.closest('webmapx-map') ?? this.adapter as unknown as Element;
     const mapIndex = getMapDomIndex(mapElement as Element);
     const configUrl = getConfigUrlForIndex(mapIndex);
-    const projection = this.adapter.getProjection?.()?.name ?? null;
-    const terrainEnabled = this.adapter.isTerrainEnabled?.() === true;
 
-    // The auto-managed terrain hillshade layer is implied by terrain:true — exclude it from
-    // state.l so it isn't treated as a missing layer on restore.
-    const permalinkLayerIds = terrainEnabled
-      ? allLayerIds.filter(id => id !== Webmapx3dTool.TERRAIN_LAYER_ID)
-      : allLayerIds;
-    const permalinkHiddenIds = hiddenLayerIds.filter(id => id !== Webmapx3dTool.TERRAIN_LAYER_ID);
-
-    // Detect layers added from file drops (marked dynamic:true in metadata) — can't restore from permalink
-    const dynamicLayerIds = allLayerIds.filter(id => mapLayers[id]?.dynamic === true);
-
-    // The map's clock travels with the link: a pinned moment, and the speed it
-    // is playing at. A live map contributes nothing — "now" is not a value.
-    const storeState = this.adapter.store.getState();
-    const mapTime = storeState.mapTime;
-    const time = mapTime?.mode === 'pinned'
-      ? { at: mapTime.at, play: storeState.mapTimePlay ?? null }
-      : null;
-
-    const url = buildPermalinkUrl(mapIndex, permalinkLayerIds, permalinkHiddenIds, viewport, transparencyOverrides, projection, configUrl, terrainEnabled, time);
-    this.permalinkDialog?.open(url, !!configUrl, dynamicLayerIds);
+    const url = buildPermalinkUrl(
+      mapIndex, snapshot.layerIds, snapshot.hiddenLayerIds, snapshot.viewport,
+      snapshot.transparencyOverrides, snapshot.projection, configUrl, snapshot.terrainEnabled,
+      snapshot.time,
+    );
+    this.permalinkDialog?.open(url, !!configUrl, snapshot.dynamicLayerIds);
   }
 
   private handleSaveLayers(): void {

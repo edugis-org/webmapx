@@ -3,6 +3,7 @@ import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
+import { TERRAIN_LAYER_ID } from '../utils/permalink-state';
 
 const PITCH_PRESETS = [0, 30, 60];
 
@@ -98,7 +99,9 @@ export class Webmapx3dTool extends WebmapxBaseTool {
         return (layer as any)?.url ?? (layer as any)?.source?.url ?? this.getToolAttr('cesium-terrain-fallback-url');
     }
 
-    static readonly TERRAIN_LAYER_ID = 'webmapx-terrain-hillshade';
+    /** The layer this tool manages. Defined in `utils/permalink-state` because a permalink
+     *  has to leave it out, and that must not mean importing this component. */
+    static readonly TERRAIN_LAYER_ID = TERRAIN_LAYER_ID;
 
     private findActiveHillshadeSource(): unknown | undefined {
         const layers = this.store?.getState().mapLayers ?? {};
