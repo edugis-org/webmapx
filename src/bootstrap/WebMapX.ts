@@ -150,7 +150,7 @@ export class WebMapX {
    * Safe to call multiple times — idempotent.
    */
   static async enableConfigEditTool(selector: string): Promise<void> {
-    const mapEl = document.querySelector(`${selector} webmapx-map`) as HTMLElement | null
+    const mapEl = document.querySelector(`${selector} webmapx-map:not([data-webmapx-role])`) as HTMLElement | null
       ?? document.querySelector(selector) as HTMLElement | null;
     if (!mapEl) throw new Error(`[webmapx] enableConfigEditTool: no element found for "${selector}"`);
     await injectConfigEditTool(mapEl);

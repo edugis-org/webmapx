@@ -31,7 +31,9 @@ export function resolveMapElement(host: HTMLElement): WebmapxMapElement | null {
   }
 
   const root = host.ownerDocument ?? document;
-  const maps = root.querySelectorAll('webmapx-map');
+  // Maps carrying a role (the compare tool's frozen reference map) are not maps the user
+  // asked for, and must not make the single-map fallback ambiguous.
+  const maps = root.querySelectorAll('webmapx-map:not([data-webmapx-role])');
   if (maps.length === 1 && maps[0] instanceof WebmapxMapElement) {
     return maps[0];
   }
