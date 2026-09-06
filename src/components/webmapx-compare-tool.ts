@@ -3,7 +3,8 @@ import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMapState } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
-import { createFrozenMap, syncCamera, type FrozenMap } from '../utils/compare-replay';
+import { COMPARE_SPLIT_ATTRIBUTE, createFrozenMap, syncCamera, type FrozenMap } from '../utils/compare-replay';
+import { getComparePermalinkSplit } from '../utils/permalink';
 import type { WebmapxMapElement } from './webmapx-map';
 import type { CompareToolConfig } from '../config/types';
 
@@ -35,6 +36,7 @@ export class WebmapxCompareTool extends WebmapxModalTool {
     @state() private failed = false;
 
     private frozen: FrozenMap | null = null;
+    private restoredFromLink = false;
     private handleEl: HTMLElement | null = null;
     private viewChangeUnsubscribe: (() => void) | null = null;
     private dragPointerId: number | null = null;
@@ -92,7 +94,23 @@ export class WebmapxCompareTool extends WebmapxModalTool {
         };
     }
 
-    private async freeze(): Promise<void> {
+    /**
+     * Starts the comparison a link asked for.
+     *
+     * `cmp` is what says a comparison is open — a link carrying `s.1` without it would
+     * restore two stacked maps and no handle. The frozen map is then built from the link
+     * rather than from the live map: it is the page's second `<webmapx-map>`, so `s.1`
+     * reaches it through the same restore path every map uses.
+     */
+    protected onMapAttached(adapter: IMap): void {
+        super.onMapAttached(adapter);
+        const split = getComparePermalinkSplit();
+        if (split === null || this.frozen || this.restoredFromLink) return;
+        this.restoredFromLink = true;
+        void this.freeze({ split, fromPermalink: true });
+    }
+
+    private async freeze(restore?: { split: number; fromPermalink: boolean }): Promise<void> {
         const mapEl = this.mapHost;
         const adapter = this.adapter;
         if (!mapEl || !adapter || this.frozen) return;
@@ -109,11 +127,13 @@ export class WebmapxCompareTool extends WebmapxModalTool {
         }
 
         const config = this.toolsConfig?.['compare'] as CompareToolConfig | undefined;
-        this.split = clampSplit(config?.initialSplit ?? DEFAULT_SPLIT);
+        this.split = clampSplit(restore?.split ?? config?.initialSplit ?? DEFAULT_SPLIT);
         this.busy = true;
         this.failed = false;
 
-        this.frozen = await createFrozenMap(mapEl, adapter, mapEl);
+        this.frozen = await createFrozenMap(mapEl, adapter, mapEl, {
+            replayLiveMap: !restore?.fromPermalink,
+        });
         this.busy = false;
         if (!this.frozen) {
             this.failed = true;
@@ -174,6 +194,8 @@ export class WebmapxCompareTool extends WebmapxModalTool {
         const el = this.frozen?.element;
         if (!el) return;
         el.style.clipPath = `inset(0 ${100 - this.split}% 0 0)`;
+        // Kept on the element so a share link can read the split without importing this tool.
+        el.setAttribute(COMPARE_SPLIT_ATTRIBUTE, String(Math.round(this.split)));
     }
 
     private addHandle(mapEl: WebmapxMapElement): void {

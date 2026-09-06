@@ -1,7 +1,10 @@
 # Compare tool — proposal
 
-Status: proposal. Roadmap entry: "Compare tool — vertical slider splitting the
-map into two configs."
+Status: built. Phase one and the sharing half of phase two are implemented
+(`webmapx-compare-tool.ts`, `utils/compare-replay.ts`, `cmp` in
+`utils/permalink.ts`); `mode: "repeat"` is not. Kept for the reasoning behind
+the decisions — where the built tool departs from this text, CLAUDE.md's
+"Compare tool" entry is what is true.
 
 ## What it is
 

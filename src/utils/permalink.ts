@@ -1,5 +1,13 @@
 export const PERMALINK_PARAM = 's';
 export const CONFIG_URL_PARAM_BASE = 'config';
+/**
+ * The compare tool's split position, as a percentage of the map width.
+ *
+ * It also says *that* a comparison is open: a link carrying `s.1` and no `cmp` restores two
+ * stacked maps and no handle, which is a broken page rather than a missing feature. So this
+ * is what tells the tool to start on load.
+ */
+export const COMPARE_PARAM = 'cmp';
 
 /** Returns the URL param name for map at DOM index i. Index 0 → 's', 1 → 's.1', etc. */
 export function permalinkParamName(index: number): string {
@@ -101,24 +109,56 @@ export function getPermalinkStateForIndex(index: number): PermalinkState | null 
     return decodePermalink(param);
 }
 
-export function buildPermalinkUrl(
-    mapIndex: number,
-    allLayerIds: string[],
-    hiddenLayerIds: string[],
-    viewport: { center: [number, number]; zoom: number; bearing: number; pitch: number },
-    transparencyOverrides: Map<string, number>,
-    projection?: string | null,
-    configUrl?: string | null,
-    terrainEnabled?: boolean,
-    time?: PermalinkTimeState | null,
-): string {
+/** Reads the split percentage a link asks the compare tool to start at, or null. */
+export function getComparePermalinkSplit(): number | null {
+    const raw = new URLSearchParams(window.location.search).get(COMPARE_PARAM);
+    if (raw === null) return null;
+    const value = Number(raw);
+    if (!Number.isFinite(value)) return null;
+    return Math.min(100, Math.max(0, value));
+}
+
+/**
+ * The frozen half of a comparison, as `buildPermalinkUrl` takes it.
+ *
+ * It needs no encoding of its own: the frozen map is a second `<webmapx-map>`, so it is map
+ * index 1 and `s.1` already means exactly this. Only the handle position is new.
+ */
+export interface ComparePermalinkState {
+    /** Split position, percent of the map width. */
+    split: number;
+    /** The frozen map's state, in the same shape every map's is written in. */
+    state: PermalinkState;
+}
+
+/** What a permalink records about one map, before it is encoded. */
+export interface PermalinkStateInput {
+    layerIds: string[];
+    hiddenLayerIds: string[];
+    viewport: { center: [number, number]; zoom: number; bearing: number; pitch: number };
+    transparencyOverrides: Map<string, number>;
+    projection?: string | null;
+    terrainEnabled?: boolean;
+    time?: PermalinkTimeState | null;
+}
+
+/**
+ * Rounds and packs one map's state into the short-key shape a url carries.
+ *
+ * Separate from `buildPermalinkUrl` because a link can now describe two maps — the live one
+ * and the compare tool's frozen one — and they must be written by the same code, or the two
+ * halves of a shared comparison would round differently and drift apart.
+ */
+export function permalinkStateFrom(input: PermalinkStateInput): PermalinkState {
+    const { layerIds, hiddenLayerIds, viewport, transparencyOverrides, projection, terrainEnabled, time } = input;
+
     const t: Record<string, number> = {};
     for (const [id, val] of transparencyOverrides) {
         if (val !== 0) t[id] = val;
     }
 
     const state: PermalinkState = {
-        l: allLayerIds,
+        l: layerIds,
         v: [
             Math.round(viewport.center[0] * 1e6) / 1e6,
             Math.round(viewport.center[1] * 1e6) / 1e6,
@@ -137,6 +177,30 @@ export function buildPermalinkUrl(
         state.tm = Math.round(time.at / 1000);
         if (typeof time.play === 'number' && time.play > 0) state.tp = time.play / 1000;
     }
+    return state;
+}
+
+export function buildPermalinkUrl(
+    mapIndex: number,
+    allLayerIds: string[],
+    hiddenLayerIds: string[],
+    viewport: { center: [number, number]; zoom: number; bearing: number; pitch: number },
+    transparencyOverrides: Map<string, number>,
+    projection?: string | null,
+    configUrl?: string | null,
+    terrainEnabled?: boolean,
+    time?: PermalinkTimeState | null,
+    compare?: ComparePermalinkState | null,
+): string {
+    const state = permalinkStateFrom({
+        layerIds: allLayerIds,
+        hiddenLayerIds,
+        viewport,
+        transparencyOverrides,
+        projection,
+        terrainEnabled,
+        time,
+    });
 
     const url = new URL(window.location.href);
 
@@ -156,6 +220,19 @@ export function buildPermalinkUrl(
         } else {
             // Writing config.i= — more precise, leave config= alone (it applies to index 0)
         }
+    }
+
+    // The frozen half of an open comparison, written as the second map on the page — which
+    // is what it is. A shared comparison is a reconstruction, not the replayed frozen map:
+    // `s.1` carries layer order, visibility, opacity, projection, terrain and the clock, but
+    // no paint, and a layer that only exists in this browser has nothing behind its id on the
+    // other machine.
+    if (compare) {
+        url.searchParams.set(permalinkParamName(1), encodePermalink(compare.state));
+        url.searchParams.set(COMPARE_PARAM, String(Math.round(compare.split)));
+    } else {
+        url.searchParams.delete(permalinkParamName(1));
+        url.searchParams.delete(COMPARE_PARAM);
     }
 
     return url.toString();

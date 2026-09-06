@@ -15,7 +15,8 @@ import type { LayerStyleTarget, SourceAttributeInfo, SourceStyleGroup, WebmapxLa
 import type { WebmapxSaveLayersDialog, SaveLayerCandidate } from './webmapx-save-layers-dialog';
 import type { WebmapxPermalinkDialog } from './webmapx-permalink-dialog';
 import type { WebmapxClearLayersDialog } from './webmapx-clear-layers-dialog';
-import { buildPermalinkUrl, getMapDomIndex, getConfigUrlForIndex } from '../utils/permalink';
+import { buildPermalinkUrl, getMapDomIndex, getConfigUrlForIndex, permalinkStateFrom } from '../utils/permalink';
+import { findActiveComparison } from '../utils/compare-replay';
 import { snapshotMapForPermalink } from '../utils/permalink-state';
 import { sampleLayerFeatures } from '../utils/layer-features';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
@@ -1400,12 +1401,25 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
     const mapIndex = getMapDomIndex(mapElement as Element);
     const configUrl = getConfigUrlForIndex(mapIndex);
 
+    // An open comparison travels as the page's second map, which is what it is. Its own
+    // undoable layers are named in the dialog too: the frozen half is precisely where a user
+    // parks something they just computed, and that is the half a link cannot carry.
+    const comparison = mapIndex === 0 ? findActiveComparison(mapElement as Element) : null;
+    const frozenSnapshot = comparison ? snapshotMapForPermalink(comparison.adapter) : null;
+    const compare = comparison && frozenSnapshot
+      ? { split: comparison.split, state: permalinkStateFrom(frozenSnapshot) }
+      : null;
+
     const url = buildPermalinkUrl(
       mapIndex, snapshot.layerIds, snapshot.hiddenLayerIds, snapshot.viewport,
       snapshot.transparencyOverrides, snapshot.projection, configUrl, snapshot.terrainEnabled,
-      snapshot.time,
+      snapshot.time, compare,
     );
-    this.permalinkDialog?.open(url, !!configUrl, snapshot.dynamicLayerIds);
+    const dynamicLayerIds = [...new Set([
+      ...snapshot.dynamicLayerIds,
+      ...(frozenSnapshot?.dynamicLayerIds ?? []),
+    ])];
+    this.permalinkDialog?.open(url, !!configUrl, dynamicLayerIds);
   }
 
   private handleSaveLayers(): void {

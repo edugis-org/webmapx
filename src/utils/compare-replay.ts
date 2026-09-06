@@ -30,11 +30,49 @@ export interface FrozenMap {
   adapter: IMap;
 }
 
+/** The attribute the compare tool keeps the split position in, so a share link can read it
+ *  without importing the tool. */
+export const COMPARE_SPLIT_ATTRIBUTE = 'data-compare-split';
+
+/**
+ * The comparison running on this map, if any, read from the DOM.
+ *
+ * Read rather than asked for: the legend builds the share link and would otherwise have to
+ * import the compare tool to reach its state, which is a component importing a component for
+ * one number. The frozen map announces itself with its role and carries the split alongside.
+ */
+export function findActiveComparison(
+  liveMapEl: Element,
+): { element: WebmapxMapElement; adapter: IMap; split: number } | null {
+  const element = liveMapEl.querySelector<WebmapxMapElement>(
+    `:scope > webmapx-map[data-webmapx-role="${COMPARE_REFERENCE_ROLE}"]`,
+  );
+  const adapter = element?.adapter;
+  if (!element || !adapter) return null;
+  const split = Number(element.getAttribute(COMPARE_SPLIT_ATTRIBUTE));
+  return { element, adapter, split: Number.isFinite(split) ? split : 50 };
+}
+
+export interface FrozenMapOptions {
+  /**
+   * False builds the frozen map from the link instead of from the live map.
+   *
+   * A restored comparison is a *reconstruction*: the frozen map is the second `<webmapx-map>`
+   * on the page, so `webmapx-map` restores it from `s.1` by itself — layers, visibility,
+   * opacity, projection, terrain and the clock — exactly as it restores any other map. There
+   * is nothing to replay from the live map, and replaying it anyway would overwrite the very
+   * state the link asked for with a copy of the half the visitor can already see.
+   */
+  replayLiveMap?: boolean;
+}
+
 export async function createFrozenMap(
   liveMapEl: WebmapxMapElement,
   liveAdapter: IMap,
   container: HTMLElement,
+  options?: FrozenMapOptions,
 ): Promise<FrozenMap | null> {
+  const replayLiveMap = options?.replayLiveMap !== false;
   const config = liveMapEl.config;
   if (!config) return null;
 
@@ -65,21 +103,29 @@ export async function createFrozenMap(
   // afterwards would build every layer for now and then rebuild it — which is the same reason
   // `webmapx-map` applies a permalink's time before its layers. Frozen means frozen: the two
   // maps have separate stores, so the time and deep-time tools keep driving the live one only.
-  replayClocks(liveAdapter, adapter);
+  if (replayLiveMap) replayClocks(liveAdapter, adapter);
 
   element.setConfig(config as AppConfig);
   adapter.initialize(element.id, initOptionsFor(config as AppConfig, liveAdapter));
 
   await element.whenLayersReady();
-  const unresolved = await replayRuntimeLayers(liveMapEl, element);
-  // After the layers, never before them: a request that carries its source inline has
-  // already created it, and what is copied here is the data those sources now hold.
-  replaySourceData(liveAdapter, adapter);
-  for (const entry of unresolved) {
-    await element.addLayerRequest(entry.request, entry.fallback, entry.options);
+
+  if (replayLiveMap) {
+    const unresolved = await replayRuntimeLayers(liveMapEl, element);
+    // After the layers, never before them: a request that carries its source inline has
+    // already created it, and what is copied here is the data those sources now hold.
+    replaySourceData(liveAdapter, adapter);
+    for (const entry of unresolved) {
+      await element.addLayerRequest(entry.request, entry.fallback, entry.options);
+    }
+    replayLayerSettings(liveAdapter, adapter);
+    replayMapState(liveAdapter, adapter);
+  } else {
+    // `whenLayersReady` has already applied `s.1`; only the camera is ours, since the link's
+    // frozen viewport is written for every map but is overwritten by the live map's first
+    // view change anyway.
+    syncCamera(liveAdapter, adapter);
   }
-  replayLayerSettings(liveAdapter, adapter);
-  replayMapState(liveAdapter, adapter);
 
   return { element, adapter };
 }
