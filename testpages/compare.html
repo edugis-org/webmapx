@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>webmapx — compare tool</title>
+  <style>
+    html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+    webmapx-map { display: block; width: 100%; height: 100%; position: relative; }
+    webmapx-compare-tool {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 320px;
+      z-index: 10;
+      padding: 12px;
+      background: var(--color-surface, #fff);
+      border: 1px solid #ddd;
+      border-radius: 6px;
+    }
+  </style>
+  <link rel="stylesheet" href="../node_modules/@shoelace-style/shoelace/dist/themes/light.css">
+  <link rel="stylesheet" href="../src/theme/webmapx-style-core.css">
+  <script type="module" src="../src/app.js"></script>
+</head>
+<body>
+  <!-- Inside the map element: the tool freezes the map it is a child of, and
+       `mapHost` resolves through `closest('webmapx-map')`. -->
+  <webmapx-map id="map-container" adapter="maplibre" src="../config/demo.json">
+    <webmapx-compare-tool tool-id="compare" label="Compare" active></webmapx-compare-tool>
+    <webmapx-layer-overview tool-id="layerOverview" label="Legend"
+        style="position:absolute;bottom:10px;left:10px;width:300px;z-index:10;background:var(--color-surface,#fff);border:1px solid #ddd;border-radius:6px;padding:8px;"></webmapx-layer-overview>
+  </webmapx-map>
+  <script>
+    // ?adapter=openlayers|leaflet|cesium switches engine — read once at start-up,
+    // so a classic script rather than a module.
+    const requested = new URLSearchParams(location.search).get('adapter');
+    if (requested) document.getElementById('map-container').setAttribute('adapter', requested);
+  </script>
+  <script type="module">
+    import '../src/components/webmapx-compare-tool.ts';
+    import '../src/components/webmapx-layer-overview.ts';
+  </script>
+</body>
+</html>

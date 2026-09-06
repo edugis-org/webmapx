@@ -19,6 +19,7 @@ const TOOL_MAP: Record<string, () => Promise<unknown>> = {
   projection:      () => import('../components/webmapx-projection-tool.js'),
   timeSlider:      () => import('../components/webmapx-time-slider-tool.js'),
   deeptime:       () => import('../components/webmapx-deeptime-tool.js'),
+  compare:        () => import('../components/webmapx-compare-tool.js'),
   cartogram:       () => import('../components/webmapx-cartogram-tool.js'),
   coordinates:     () => import('../components/webmapx-coordinates-tool.js'),
   settings:        () => import('../components/webmapx-settings.js'),

@@ -454,15 +454,24 @@ export interface CoordinatesToolConfig extends ToolConfig {
   defaultFormat?: string;
 }
 
+/** `tools.compare` — the vertical compare slider. */
+export interface CompareToolConfig extends ToolConfig {
+  /** Names for the two halves, shown beside the handle. Defaults: "before" / "now". */
+  labels?: { reference?: string; live?: string };
+  /** Where the handle starts, as a percentage of the map width. Default 50. */
+  initialSplit?: number;
+}
+
 export interface ToolsConfig {
   coordinates?: CoordinatesToolConfig;
+  compare?: CompareToolConfig;
   layerTree?: ToolConfig;
   legend?: ToolConfig;
   measure?: MeasureToolConfig;
   insetMap?: InsetMapToolConfig;
   search?: SearchToolConfig;
   info?: InfoToolConfig;
-  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | InfoToolConfig | undefined;
+  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | InfoToolConfig | CompareToolConfig | undefined;
 }
 
 /**
