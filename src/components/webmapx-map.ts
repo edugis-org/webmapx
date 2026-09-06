@@ -312,6 +312,7 @@ export class WebmapxMapElement extends HTMLElement {
   private adapterInstance: IMap | null = null;
   private adapterPromise: Promise<IMap | null> | null = null;
   private configInstance: AppConfig | null = null;
+  private initialLayersPromise: Promise<void> | null = null;
   private toolManagerInstance: ToolManager | null = null;
 
   private upsertAndStyleSurface(): void {
@@ -405,6 +406,26 @@ export class WebmapxMapElement extends HTMLElement {
     return this.configInstance;
   }
 
+  /**
+   * Layer requests added at runtime (dropped file, geoprocessing result, search result, ...),
+   * in insertion order. Read-only copy; replaying these is how `saveState` carries runtime
+   * layers across an engine switch and how the compare tool builds its frozen map.
+   */
+  public get runtimeLayerRequests(): ReadonlyArray<{ request: LayerRequest; fallback?: LayerRequest | string; options?: LayerInsertOptions }> {
+    return [...this.dynamicLayerRequests.values()];
+  }
+
+  /**
+   * Resolves once the layers a config brings with it (`state.activeLayers`, the permalink
+   * and the session's runtime layers) have been added. Anything that has to act on the
+   * finished stack — the compare tool replaying settings onto its frozen map — waits here;
+   * without it the walk runs against an empty `mapLayers`.
+   */
+  public async whenLayersReady(): Promise<void> {
+    await this.getAdapterAsync();
+    await this.initialLayersPromise;
+  }
+
   /** Returns the map section of the config. */
   public get mapConfig(): MapConfig | undefined {
     return this.configInstance?.map;
@@ -439,8 +460,19 @@ export class WebmapxMapElement extends HTMLElement {
     const visitedLayerIds = new Set<string>();
     const primarySuccess = await this.tryAddLayerRequest(adapter, layerRequest, options, visitedLayerIds);
     if (primarySuccess) {
-      const afterIds = Object.keys(adapter.store.getState().mapLayers ?? {});
-      for (const id of afterIds) {
+      const mapLayers = adapter.store.getState().mapLayers ?? {};
+      // A request that names its own layer is filed under that name. Attributing by "which
+      // ids are new since we started" is only safe while one add is in flight, and the draw
+      // tool's are not: handing a drawn layer to the map adds `<id>-map` from inside the add
+      // of `<id>`, so the outer call claimed the inner call's layer and the collection ended
+      // up saying that the draw layer's request produces `<id>-map`. Anything replaying it —
+      // an engine switch, the compare tool — then rebuilt the wrong layer.
+      const declaredId = this.resolveRequestLayerId(layerRequest);
+      if (declaredId && mapLayers[declaredId]) {
+        this.dynamicLayerRequests.set(declaredId, { request: layerRequest, fallback: fallbackLayer, options });
+        return true;
+      }
+      for (const id of Object.keys(mapLayers)) {
         if (!beforeIds.has(id)) {
           this.dynamicLayerRequests.set(id, { request: layerRequest, fallback: fallbackLayer, options });
         }
@@ -457,6 +489,15 @@ export class WebmapxMapElement extends HTMLElement {
     }
 
     return this.tryAddLayerRequest(adapter, fallbackLayer, options, visitedLayerIds);
+  }
+
+  /** The layer id a request names for itself, if any: an inline layer spec carries `id`, a
+   *  catalog reference carries `layerId`. */
+  private resolveRequestLayerId(layerRequest: LayerRequest): string | null {
+    const request = layerRequest as unknown as Record<string, unknown>;
+    if (typeof request.id === 'string' && request.id.length > 0) return request.id;
+    if (typeof request.layerId === 'string' && request.layerId.length > 0) return request.layerId;
+    return null;
   }
 
   /**
@@ -614,7 +655,8 @@ export class WebmapxMapElement extends HTMLElement {
 
     if (!this.initialStateLayersApplied) {
       this.initialStateLayersApplied = true;
-      void this.applyInitialStateLayers(adapter, layerData);
+      this.initialLayersPromise = this.applyInitialStateLayers(adapter, layerData);
+      void this.initialLayersPromise;
     }
   }
 
