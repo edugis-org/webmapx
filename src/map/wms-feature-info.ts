@@ -148,6 +148,19 @@ function parseGMLResponse(xml: string, layerId: string, layerTitle?: string): Fe
 
     for (const featureEl of featureNodes) {
         const props: Record<string, unknown> = {};
+        // ESRI's FeatureInfoResponse carries the values as attributes of a
+        // self-closing <FIELDS .../> element, so there are no children to walk:
+        //   <FIELDS GEOID="47143" NAME="Rhea County" STATE="47" .../>
+        // ArcGIS Server ignores INFO_FORMAT=application/json and answers this
+        // for every format, so without it a queryable ArcGIS layer looks empty.
+        for (let i = 0; i < featureEl.attributes.length; i++) {
+            const attr = featureEl.attributes[i];
+            if (attr.name.startsWith('xmlns')) continue;
+            const val = attr.value.trim();
+            if (!val) continue;
+            const key = attr.name.replace(/^[^:]+:/, '');
+            props[key] = isNaN(Number(val)) || val === '' ? val : Number(val);
+        }
         for (let i = 0; i < featureEl.children.length; i++) {
             const child = featureEl.children[i];
             // Skip containers and gml namespace elements (boundedBy, name, etc.)
