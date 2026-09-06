@@ -85,8 +85,6 @@ export async function run({ page, engine, baseUrl }) {
     }, undefined, { timeout: 10_000 });
 
     const url = await page.evaluate(() => {
-      const map = document.querySelector('webmapx-map');
-      const overview = map?.querySelector('webmapx-layer-overview');
       const dialog = window.__wmxDeepQuery('webmapx-permalink-dialog', { open: true });
       return dialog?.shadowRoot?.querySelector('.url-box')?.textContent?.trim() ?? '';
     });

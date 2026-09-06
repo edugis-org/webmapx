@@ -105,7 +105,6 @@ async function setDrawModeAndCreateLayerByEvent(page, buttonName, layerName, geo
   }, { drawButtonName: buttonName });
 
   await page.evaluate(({ name, type }) => {
-    const tool = document.querySelector('webmapx-draw-tool');
     const dialog = window.__wmxDeepQuery('webmapx-draw-layer-dialog', { open: true });
     if (!dialog) throw new Error('Draw layer dialog element not found');
 

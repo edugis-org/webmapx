@@ -84,13 +84,11 @@ async function drawPointFeature(page) {
   });
 
   await page.waitForFunction(() => {
-    const tool = document.querySelector('webmapx-draw-tool');
     const dialogRoot = window.__wmxDeepQuery('webmapx-draw-layer-dialog', { open: true })?.shadowRoot;
     return Boolean(dialogRoot?.querySelector('.layer-option'));
   }, undefined, { timeout: 5_000 });
 
   await page.evaluate(() => {
-    const tool = document.querySelector('webmapx-draw-tool');
     const dialog = window.__wmxDeepQuery('webmapx-draw-layer-dialog', { open: true });
     if (!dialog) throw new Error('Draw layer dialog not found');
     dialog.dispatchEvent(new CustomEvent('webmapx-draw-layer-confirm', {
