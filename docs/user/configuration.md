@@ -275,6 +275,7 @@ There are three layer types. All share common base properties.
 | `singleGroup` | string | No | Exclusive group key — adding this layer removes any existing layer with the same key |
 | `fallbackLayerId` | string | No | Layer to use if this one fails to load |
 | `metadata` | object | No | Engine-specific or custom metadata |
+| `metadata.queryable` | boolean | No | `false` keeps this layer out of the info tool — see [Feature info](#feature-info-metadataqueryable) |
 
 ---
 
@@ -352,6 +353,41 @@ To load a full style from a URL (e.g. a vector basemap), set `metadata.styleUrl`
 | `metadata.styleUrl` | string | URL of a remote MapLibre style JSON to expand at runtime |
 
 Sub-layer properties follow the MapLibre spec (`source`, `source-layer`, `minzoom`, `maxzoom`, `paint`, `layout`, `filter`).
+
+### Feature info (`metadata.queryable`)
+
+Clicking with the info tool asks every visible layer what lies under the
+pointer. `metadata.queryable: false` takes one layer out of that; leaving the
+key out means yes, which is what nearly every layer wants.
+
+```json
+{
+  "id": "openfreemap-liberty",
+  "type": "style",
+  "title": "OpenFreeMap Liberty",
+  "metadata": {
+    "styleUrl": "https://tiles.openfreemap.org/styles/liberty",
+    "queryable": false
+  },
+  "layers": []
+}
+```
+
+Two reasons to set it:
+
+- **A basemap buries the answer.** A style layer is a whole map — landcover,
+  water, buildings, every label — so one click on it returns a dozen features
+  and the layer you were actually asking about is somewhere in the list.
+- **A service that cannot answer still costs a request.** A WMS layer is asked
+  over the network, once per click. When a WMS capabilities document says
+  `queryable="false"`, webmapx records that for you and sends nothing; setting
+  the key yourself does the same for a server that *is* willing to answer but
+  whose answer you do not want on this map.
+
+It works the same on all four engines and for every layer type — vector tiles,
+GeoJSON, WMS, composite styles — and it governs **feature info only**. Analysis
+tools still read the layer's data, so a basemap nobody may click is still a
+layer you can clip or intersect against.
 
 ---
 

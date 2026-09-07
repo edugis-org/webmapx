@@ -36,7 +36,7 @@ export class OpenLayersAdapter extends BaseAdapter implements IMap {
         this.core = new MapCoreService(this.store, this.events);
         this.toolService = new MapServiceTemplate();
         this.logicalLayerExecutor = new DeferredLogicalLayerExecutor();
-        this.queryExecutor = new DeferredQueryService();
+        this.queryExecutor = new DeferredQueryService(this.store);
         this.queryService = this.queryExecutor;
         this.mapFactory = new MapFactoryService();
         // Wait for mapInstance to be ready, then initialize layerService

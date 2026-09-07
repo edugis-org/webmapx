@@ -259,3 +259,68 @@ test('fetchWMSFeatureInfo returns empty array on fetch error', async () => {
         (globalThis as any).fetch = original;
     }
 });
+
+// ─── metadata.queryable ──────────────────────────────────────────────────────
+
+/** A store stub holding just the mapLayers the query path reads. */
+function storeWith(mapLayers: Record<string, unknown>) {
+    return { getState: () => ({ mapLayers }) } as never;
+}
+
+/** Records the options it was handed, so the filter can be asserted on. */
+function recordingService(seen: { options?: unknown }): IQueryService {
+    return {
+        async queryFeatures(_loc, opts) {
+            seen.options = opts;
+            return [];
+        },
+    };
+}
+
+const LOCATION: QueryLocation = { pixel: [10, 10], lngLat: [5, 52] };
+
+test('a layer marked queryable: false is left out of the query', async () => {
+    const seen: { options?: any } = {};
+    const deferred = new DeferredQueryService(storeWith({
+        basemap: { queryable: false },
+        parcels: {},
+    }));
+    deferred.bind(recordingService(seen));
+
+    await deferred.queryFeatures(LOCATION);
+    assert.deepEqual(seen.options.layerIds, ['parcels']);
+});
+
+test('no filter is passed when every layer may be queried', async () => {
+    const seen: { options?: any } = {};
+    const deferred = new DeferredQueryService(storeWith({ a: {}, b: { queryable: true } }));
+    deferred.bind(recordingService(seen));
+
+    await deferred.queryFeatures(LOCATION);
+    // An allowlist here would exclude anything the store has not registered.
+    assert.equal(seen.options, undefined);
+});
+
+test("a caller's own layerIds is narrowed, never widened", async () => {
+    const seen: { options?: any } = {};
+    const deferred = new DeferredQueryService(storeWith({
+        basemap: { queryable: false },
+        parcels: {},
+        roads: {},
+    }));
+    deferred.bind(recordingService(seen));
+
+    await deferred.queryFeatures(LOCATION, { layerIds: ['parcels', 'basemap'] });
+    assert.deepEqual(seen.options.layerIds, ['parcels']);
+});
+
+test('queryable is read as a plain flag, absent meaning yes', async () => {
+    const { isQueryableMetadata } = await import('../src/utils/layer-queryable');
+    assert.equal(isQueryableMetadata(undefined), true);
+    assert.equal(isQueryableMetadata({}), true);
+    assert.equal(isQueryableMetadata({ queryable: true }), true);
+    assert.equal(isQueryableMetadata({ queryable: false }), false);
+    // Falsy is falsy: a config written by hand may say 0 or "".
+    assert.equal(isQueryableMetadata({ queryable: 0 }), false);
+    assert.equal(isQueryableMetadata({ queryable: '' }), false);
+});

@@ -13,6 +13,7 @@ import type { FeatureInfo } from '../map/IQueryService';
 import type { LayerAttributeConfig, LayerAttributeTranslation, InfoToolConfig } from '../config/types';
 import { throttle } from '../utils/throttle';
 import { substituteApiKeys } from '../config/apikeys';
+import { isQueryableMetadata } from '../utils/layer-queryable';
 import { fetchWMSFeatureInfo } from '../map/wms-feature-info';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
@@ -448,6 +449,10 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
             const m = meta as Record<string, unknown>;
             const gfiUrl = typeof m?.getFeatureInfoUrl === 'string' ? m.getFeatureInfoUrl : null;
             if (!gfiUrl) return;
+            // The same switch the vector query honours: this path builds its own
+            // requests rather than going through the query service, so it has to
+            // read it too, or a layer turned off would still cost a round trip.
+            if (!isQueryableMetadata(m)) return;
             try {
                 const u = new URL(gfiUrl);
                 const getParamCI = (name: string): string | null => {

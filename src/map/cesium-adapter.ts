@@ -85,7 +85,7 @@ export class CesiumAdapter extends BaseAdapter implements IMap {
         this.core = new MapCoreService(this.store, this.events);
         this.toolService = new MapServiceTemplate();
         this.logicalLayerExecutor = new DeferredLogicalLayerExecutor();
-        this.queryExecutor = new DeferredQueryService();
+        this.queryExecutor = new DeferredQueryService(this.store);
         this.queryService = this.queryExecutor;
         this.mapFactory = new MapFactoryService();
         (this.core as any).onMapReady?.((viewer: any) => {

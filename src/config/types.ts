@@ -151,6 +151,14 @@ export interface LayerMetadata {
   legendRole?: 'background' | 'overlay';
   /** Hide this layer from the legend. */
   hideFromLegend?: boolean;
+  /**
+   * Whether the info tool may query this layer. Absent means yes; `false`
+   * skips it — for a basemap composite whose sublayers bury the answer, or a
+   * service whose capabilities say it cannot be queried (which
+   * `layer-discovery` records here, so no request is sent to find out again).
+   * Feature info only: analysis still reads the layer's data.
+   */
+  queryable?: boolean;
   /** Logical source id for single-source layers. */
   sourceId?: string;
   /** Resolved GeoJSON data (set by generic loader after fetch+convert). */

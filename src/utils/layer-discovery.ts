@@ -371,10 +371,15 @@ export async function discoverWms(baseUrl: string): Promise<DiscoveredLayer[]> {
           id, type: 'raster', source: id, title: layer.title || layer.name,
           ...(minzoom !== undefined ? { minzoom } : {}),
           ...(maxzoom !== undefined ? { maxzoom } : {}),
-          ...((layer.abstract || bounds || legendurl) ? { metadata: {
+          // `queryable: false` is recorded when the capabilities document says
+          // so, and only then: a queryable layer is the default and needs no
+          // key. It saves the info tool a GetFeatureInfo request per click that
+          // could only ever come back empty.
+          ...((layer.abstract || bounds || legendurl || full?.queryable === false) ? { metadata: {
             ...(layer.abstract ? { abstract: layer.abstract } : {}),
             ...(bounds ? { bounds } : {}),
             ...(legendurl ? { legendurl } : {}),
+            ...(full?.queryable === false ? { queryable: false } : {}),
           } } : {}),
         },
       });
