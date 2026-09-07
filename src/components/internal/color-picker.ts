@@ -115,6 +115,16 @@ export function raiseColorPickerPopup(pickr: Pickr, button: HTMLElement): void {
     if (!app || typeof app.showPopover !== 'function') return;
 
     app.popover = 'manual';
+    // The UA stylesheet dresses a popover as a dialog box: `border: solid`
+    // (medium — a 3px black frame), `padding: 0.25em`, `overflow: auto`. The
+    // nano theme sets none of those on .pcr-app, so the UA's win and the panel
+    // gains a black border it never had. Only those three are undone: the
+    // theme's own background and box-shadow are what should show, and setting
+    // either here would override the stylesheet that draws them.
+    app.style.border = '0';
+    app.style.padding = '0';
+    app.style.overflow = 'visible';
+
     pickr.on('show', () => {
         if (!app.matches(':popover-open')) app.showPopover();
         placeAtButton(app, button);
