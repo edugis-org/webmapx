@@ -10,6 +10,12 @@
  * Pickr renders its popup into `document.body`, which is what makes it work from
  * inside a shadow root — and inside `sl-dialog`, where an `<input type="color">`
  * would open a browser-chrome panel the page has no say over.
+ *
+ * `document.body` is also why the popup needs raising: the panels that open it
+ * are in the browser's top layer (the style panel is a popover, the dialogs are
+ * modal `<dialog>`s), and nothing painted by z-index can rise above the top
+ * layer. The popup appeared *under* the map. So it joins the top layer too —
+ * see raisePopup() below.
  */
 import Pickr from '@simonwep/pickr';
 import '@simonwep/pickr/dist/themes/nano.min.css';
@@ -52,6 +58,11 @@ export function createColorPicker(options: ColorPickerOptions): Pickr {
         useAsButton: true,
         comparison: false,
         appClass: 'webmapx-pickr',
+        // Pickr's own repositioning writes document coordinates into
+        // `position: absolute`. A top-layer popover is positioned against the
+        // viewport instead, so the placement here is ours to do — see
+        // placeAtButton() — and Pickr's must be off or the two fight on scroll.
+        autoReposition: false,
         swatches: COLOR_PALETTE,
         components: {
             preview: true,
@@ -60,6 +71,8 @@ export function createColorPicker(options: ColorPickerOptions): Pickr {
             interaction: { input: true, cancel: true, save: true, rgba: false, hsla: false, hsva: false, cmyk: false, hex: false },
         },
     });
+
+    raiseColorPickerPopup(pickr, button);
 
     let original = value;
     pickr.on('change', (color: Pickr.HSVaColor) => {
@@ -78,4 +91,61 @@ export function createColorPicker(options: ColorPickerOptions): Pickr {
     });
 
     return pickr;
+}
+
+/**
+ * Carries the popup into the top layer, above whatever opened it.
+ *
+ * The style panel is a popover and the layer dialogs are modal `<dialog>`s, so
+ * both paint in the top layer. Pickr's popup lives on `document.body` with a
+ * z-index, and z-index cannot reach past the top layer at all — the popup opened
+ * under the map, which is where this started.
+ *
+ * Making the popup a popover of its own puts it in the same layer, and top-layer
+ * elements stack in the order they were shown: opened from the panel, it comes
+ * after it, so it lands on top. `manual` because Pickr owns its own dismissal
+ * (Save, Cancel, click-outside); `auto` would light-dismiss the panel underneath
+ * along with it.
+ *
+ * A browser without popover support keeps what it had: `document.body` and a
+ * z-index, which is correct everywhere except above the top layer.
+ */
+export function raiseColorPickerPopup(pickr: Pickr, button: HTMLElement): void {
+    const app = (pickr.getRoot() as { app?: HTMLElement }).app;
+    if (!app || typeof app.showPopover !== 'function') return;
+
+    app.popover = 'manual';
+    pickr.on('show', () => {
+        if (!app.matches(':popover-open')) app.showPopover();
+        placeAtButton(app, button);
+    });
+    pickr.on('hide', () => {
+        if (app.matches(':popover-open')) app.hidePopover();
+    });
+}
+
+/**
+ * Puts the popup beside its swatch, in viewport coordinates.
+ *
+ * A popover is positioned against the viewport, not the document, so the button's
+ * `getBoundingClientRect()` is already in the right frame. Below the button by
+ * default, above it when there is no room below, and never off either edge —
+ * these open from a panel that can sit anywhere on the map.
+ */
+function placeAtButton(app: HTMLElement, button: HTMLElement): void {
+    const rect = button.getBoundingClientRect();
+    // Measured after showPopover(), so the popup has its size.
+    const { width, height } = app.getBoundingClientRect();
+    const gap = 6;
+
+    const below = rect.bottom + gap;
+    const top = below + height <= window.innerHeight ? below
+        : Math.max(gap, rect.top - gap - height);
+    const left = Math.min(Math.max(gap, rect.left), window.innerWidth - width - gap);
+
+    app.style.position = 'fixed';
+    app.style.margin = '0';
+    app.style.inset = 'auto';
+    app.style.left = `${left}px`;
+    app.style.top = `${top}px`;
 }

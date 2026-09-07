@@ -3,7 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
 import Pickr from '@simonwep/pickr';
-import { COLOR_PALETTE } from './internal/color-picker';
+import { COLOR_PALETTE, raiseColorPickerPopup } from './internal/color-picker';
 
 @customElement('webmapx-layer-legend')
 export class WebmapxLayerLegend extends WebmapxBaseTool {
@@ -1257,6 +1257,9 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 useAsButton: true,
                 comparison: false,
                 appClass: 'webmapx-pickr',
+                // Placement is raiseColorPickerPopup's, once the popup is in the
+                // top layer; Pickr's own would fight it on scroll.
+                autoReposition: false,
                 swatches: COLOR_PALETTE,
                 components: {
                     preview: true,
@@ -1282,6 +1285,9 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             if (!paintButtonBackground) {
                 pickr.on('hide', () => { button.style.background = 'transparent'; });
             }
+            // The legend's panel is in the top layer, and a popup on
+            // document.body cannot paint above it.
+            raiseColorPickerPopup(pickr, button);
             this.pickrInstances.set(id, pickr);
             this.pickrOriginal.set(id, value);
             pickr.show();
