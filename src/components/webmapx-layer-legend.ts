@@ -5,6 +5,18 @@ import type { IMapState } from '../store/IMapState';
 import Pickr from '@simonwep/pickr';
 import { COLOR_PALETTE, raiseColorPickerPopup } from './internal/color-picker';
 
+/**
+ * The background a colour swatch button carries.
+ *
+ * An area swatch is the colour itself. A line swatch draws it as a bar across
+ * the middle of the button, over the checkerboard the CSS provides, so an
+ * outline row reads as an outline rather than as a second fill.
+ */
+function swatchBackground(color: string, kind: 'area' | 'line'): string {
+    if (kind !== 'line') return color;
+    return `linear-gradient(to bottom, transparent 0 33%, ${color} 33% 67%, transparent 67% 100%)`;
+}
+
 @customElement('webmapx-layer-legend')
 export class WebmapxLayerLegend extends WebmapxBaseTool {
     @property({ type: String, attribute: 'layer-id' })
@@ -107,6 +119,13 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 linear-gradient(45deg, #bbb 25%, transparent 25%, transparent 75%, #bbb 75%);
             background-size: 6px 6px;
             background-position: 0 0, 3px 3px;
+        }
+        /* An outline is a line, so its swatch draws one rather than a filled
+           block — with a fill and an outline row side by side, two identical
+           blocks say nothing about which is which. */
+        .color-swatch.line {
+            background-image: none;
+            border-color: transparent;
         }
     `;
 
@@ -1360,12 +1379,22 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             </div>`;
     }
 
-    private renderColorRow(subLayerIds: string[], label: string, key: string, value: string): TemplateResult {
+    private renderColorRow(
+        subLayerIds: string[], label: string, key: string, value: string,
+        kind: 'area' | 'line' = 'area',
+    ): TemplateResult {
         return html`
             <div class="style-editor-row">
                 <label>${label}</label>
-                <button type="button" class="color-swatch" style="background:${value}"
-                    @click=${(e: Event) => this.openColorPicker(e.currentTarget as HTMLElement, subLayerIds, key, value)}></button>
+                <button type="button" class="color-swatch ${kind === 'line' ? 'line' : ''}"
+                    style="background:${swatchBackground(value, kind)}"
+                    @click=${(e: Event) => {
+                        const button = e.currentTarget as HTMLElement;
+                        this.openColorPicker(button, subLayerIds, key, value, (rgba: string) => {
+                            button.style.background = swatchBackground(rgba, kind);
+                            this.setPaintOverride(subLayerIds, key, rgba);
+                        }, false);
+                    }}></button>
             </div>`;
     }
 
@@ -1378,7 +1407,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const rows = [this.renderColorRow(subLayerIds, 'fill color', colorKey, color)];
             if (layerType === 'fill') {
                 const outline = this.toCssColor(paint['fill-outline-color'], color);
-                rows.push(this.renderColorRow(subLayerIds, 'outline color', 'fill-outline-color', outline));
+                rows.push(this.renderColorRow(subLayerIds, 'outline color', 'fill-outline-color', outline, 'line'));
             }
             rows.push(this.renderRangeRow(subLayerIds, 'opacity', opacityKey, opacity, 0, 1, 0.05));
             return html`<div class="style-editor">${rows}</div>`;
@@ -1406,7 +1435,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 ${this.renderColorRow(subLayerIds, 'fill color', 'circle-color', color)}
                 ${this.renderRangeRow(subLayerIds, 'opacity', 'circle-opacity', opacity, 0, 1, 0.05)}
                 ${this.renderRangeRow(subLayerIds, 'outline width', 'circle-stroke-width', strokeWidth, 0, 10, 0.5, 'px')}
-                ${this.renderColorRow(subLayerIds, 'outline color', 'circle-stroke-color', strokeColor)}
+                ${this.renderColorRow(subLayerIds, 'outline color', 'circle-stroke-color', strokeColor, 'line')}
             </div>`;
         }
 
