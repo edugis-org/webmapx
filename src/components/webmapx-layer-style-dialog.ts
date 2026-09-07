@@ -69,13 +69,8 @@ interface AttributeStats {
     whole: boolean;
 }
 
-export interface SourceAttributeInfo {
-    name: string;
-    type: string;
-    values: unknown[];
-    presentCount: number;
-    missingCount: number;
-}
+import type { SourceAttributeInfo } from '../utils/attribute-info';
+export type { SourceAttributeInfo };
 
 export interface SourceStyleGroup {
     sourceId: string;
@@ -1027,21 +1022,23 @@ export class WebmapxLayerStyleDialog extends LitElement {
     /**
      * Whether colours repeat over every value, rather than the tail sharing one.
      *
-     * Answered by the data until the user answers it: repeat when "other" would
-     * cover more of the map than the classes do. That is not a preference, it is
-     * the point at which the map stops showing what it was asked to show —
-     * `admin` over 4363 cartogram regions puts 2985 of them, 68%, in one grey,
-     * and a map two thirds grey is not a map of its 238 countries.
+     * On by default, until the user says otherwise: whenever there is a tail at
+     * all, showing every area beats showing a fraction of them. The map a
+     * dropped file is meant to produce is the whole file — 39 country codes
+     * over 1798 NUTS regions, not the 8 that fit the classes with the rest left
+     * grey, and `admin` over 4363 cartogram regions puts 2985 of them, 68%, in
+     * one grey, which is not a map of its 238 countries.
      *
-     * Above that line the classes are the map and the tail is a remainder, which
-     * is what "other" is for; the checkbox is there either way.
+     * The cost is real and stated under the checkbox: with colours repeating, a
+     * colour no longer names one value and there is no legend. That is a
+     * trade the user can reverse in one click, whereas a map that silently
+     * dropped most of its data does not announce itself at all.
      */
     private cyclesCategories(): boolean {
         if (this.cycleCategories !== null) return this.cycleCategories;
         const classification = this.categoricalClassification();
-        if (!classification || classification.otherValues === 0) return false;
-        const inClasses = classification.categories.reduce((sum, category) => sum + category.count, 0);
-        return classification.otherCount > inClasses;
+        // Nothing to cycle when every value already has a class of its own.
+        return !!classification && classification.otherValues > 0;
     }
 
     /**
@@ -1669,7 +1666,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
 
         if (!this.field) {
             const groupable = this.sortedAttributes(group).filter((attribute) => {
-                const unique = new Set(attribute.values.map(String)).size;
+                const unique = attribute.uniqueCount;
                 return attribute.type === 'number' || unique < attribute.presentCount || unique <= this.maxCategories;
             });
             return html`
@@ -1681,7 +1678,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
                     </div>` : nothing}
                     <div class="attribute-list">
                         ${this.sortedAttributes(group).map((attribute) => {
-                            const unique = new Set(attribute.values.map(String)).size;
+                            const unique = attribute.uniqueCount;
                             // A column with a different value for every feature is
                             // a name or a code, not a grouping: classifying it puts
                             // a handful of features in colours and everything else
@@ -1854,7 +1851,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
         const total = group.featureCount ?? 0;
         return [...group.attributes].sort((a, b) => {
             const score = (attribute: SourceAttributeInfo): number => {
-                const unique = new Set(attribute.values.map(String)).size;
+                const unique = attribute.uniqueCount;
                 const isKey = total > 0 && unique >= total;
                 return (attribute.type === 'number' ? 0 : 1) + (isKey ? 2 : 0) + attribute.missingCount / (total || 1);
             };

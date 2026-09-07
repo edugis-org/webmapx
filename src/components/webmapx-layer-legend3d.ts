@@ -1,4 +1,5 @@
 import { css, html, type PropertyValues } from 'lit';
+import { collectAttributeInfo } from '../utils/attribute-info';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
@@ -11,7 +12,7 @@ import './webmapx-save-layers-dialog';
 import './webmapx-permalink-dialog';
 import './webmapx-clear-layers-dialog';
 import type { WebmapxLayerInfoDialog } from './webmapx-layer-info-dialog';
-import type { LayerStyleTarget, SourceAttributeInfo, SourceStyleGroup, WebmapxLayerStyleDialog } from './webmapx-layer-style-dialog';
+import type { LayerStyleTarget, SourceStyleGroup, WebmapxLayerStyleDialog } from './webmapx-layer-style-dialog';
 import type { WebmapxSaveLayersDialog, SaveLayerCandidate } from './webmapx-save-layers-dialog';
 import type { WebmapxPermalinkDialog } from './webmapx-permalink-dialog';
 import type { WebmapxClearLayersDialog } from './webmapx-clear-layers-dialog';
@@ -1739,7 +1740,7 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
         sourceLayer,
         sourceData: metadata?.sourceData,
       });
-      let attributes = this.attributeInfo(features);
+      let attributes = collectAttributeInfo(features);
       if (allowed || denied) {
         attributes = attributes.filter(a =>
           (!denied || !denied.has(a.name)) &&
@@ -1794,34 +1795,6 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
     return types.size > 0 ? [...types].sort() : ['geometry unknown'];
   }
 
-  private attributeInfo(features: GeoJSON.Feature[] | null): SourceAttributeInfo[] {
-    if (!features) return [];
-    const attributes = new Map<string, { values: unknown[]; presentCount: number }>();
-    for (const feature of features.slice(0, 200)) {
-      const properties = feature.properties;
-      if (!properties || typeof properties !== 'object') continue;
-      for (const [key, value] of Object.entries(properties)) {
-        const entry = attributes.get(key) ?? { values: [], presentCount: 0 };
-        if (value !== null && value !== undefined) {
-          entry.values.push(value);
-          entry.presentCount += 1;
-        }
-        attributes.set(key, entry);
-      }
-    }
-
-    const inspectedFeatureCount = Math.min(features.length, 200);
-    return [...attributes.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([name, entry]) => ({
-        name,
-        type: this.inferAttributeType(entry.values),
-        values: entry.values,
-        presentCount: entry.presentCount,
-        missingCount: inspectedFeatureCount - entry.presentCount,
-      }));
-  }
-
   private featureRows(features: GeoJSON.Feature[] | null): Record<string, unknown>[] {
     if (!features) return [];
     return features.slice(0, 200).map((feature) =>
@@ -1830,28 +1803,6 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
         : {});
   }
 
-  private inferAttributeType(values: unknown[]): string {
-    if (values.length === 0) return 'unknown';
-    const types = new Set(values.map((value) => this.valueType(value)));
-    return types.size === 1 ? [...types][0] : 'mixed';
-  }
-
-  private valueType(value: unknown): string {
-    if (typeof value === 'number') return 'number';
-    if (typeof value === 'boolean') return 'boolean';
-    if (value instanceof Date) return 'date';
-    if (Array.isArray(value)) return 'array';
-    if (value && typeof value === 'object') return 'object';
-    if (typeof value === 'string') {
-      return this.looksLikeDate(value) ? 'date' : 'string';
-    }
-    return 'unknown';
-  }
-
-  private looksLikeDate(value: string): boolean {
-    if (!/^\d{4}-\d{2}-\d{2}(?:[T ][\d:.+-Z]*)?$/.test(value)) return false;
-    return !Number.isNaN(Date.parse(value));
-  }
 
   /** Lazily computes (and caches) the extent of a source's GeoJSON data, trying each
    *  candidate id in turn (cached under the first candidate). */
