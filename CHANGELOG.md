@@ -4,6 +4,7 @@ All notable changes to this project will be documented here.
 ## [Unreleased]
 
 ### Added
+- **Compare tool (`type: "compare"`)** — a vertical handle across the map: left of it the map as it was when the comparison started, right of it the map as you keep changing it. One camera, so every difference is a difference in content. Built as two overlaid `<webmapx-map>` elements with the upper one `clip-path`-clipped, which works on all four engines; the frozen half is reproduced by replaying the live map's clocks, layer requests, source data and `store.mapLayers` rather than by serialising a config, so paint survives. An open comparison is shareable through the permalink (`cmp=<percent>` plus the second map's ordinary `s.1` state).
 - **Menu tool (`type: "menu"`)** — container tool showing its sub-tools as a labelled, drill-in list with submenus, back button, breadcrumb and cross-level search. Keyboard navigable per the ARIA menu pattern (roving tabindex, arrows, Home/End, ←/→ to walk submenus). Alternative to the toolbox's icon row; configurable in the visual builder (`testpages/setup.html`). See [`webmapx-menu-tool`](docs/user/components/webmapx-menu-tool.md).
 
 ### Fixed
