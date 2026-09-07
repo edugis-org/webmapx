@@ -126,12 +126,65 @@ export function raiseColorPickerPopup(pickr: Pickr, button: HTMLElement): void {
     app.style.overflow = 'visible';
 
     pickr.on('show', () => {
+        moveIntoEnclosingModal(app, button);
         if (!app.matches(':popover-open')) app.showPopover();
         placeAtButton(app, button);
     });
     pickr.on('hide', () => {
         if (app.matches(':popover-open')) app.hidePopover();
     });
+}
+
+/**
+ * Moves the popup inside the modal `<dialog>` the map is embedded in, if there
+ * is one.
+ *
+ * A modal dialog makes the rest of the document inert, and the top layer does
+ * not exempt a popover from that — inertness follows the DOM, not the paint
+ * order. Pickr builds its popup on `document.body`, so a map inside a host
+ * page's own modal dialog (a layer repository's preview, `testpages/
+ * embedded-in-modal.html`) got a popup that was painted correctly and could not
+ * be clicked: the pointer fell straight through to the map canvas behind it, and
+ * Pickr's own outside-click handler then saw a path without the popup in it and
+ * closed. Clicking anywhere on the picker dismissed it.
+ *
+ * Re-parenting into the dialog makes it a descendant, so it is live again. Only
+ * a dialog in the light DOM will do: the nano theme is a document stylesheet,
+ * and inside a shadow root the popup would come out unstyled. Our own modal
+ * dialogs live in shadow roots, but none of them holds a colour picker — the
+ * style panel and the legend's inline editor are popovers, which make nothing
+ * inert.
+ */
+function moveIntoEnclosingModal(app: HTMLElement, button: HTMLElement): void {
+    const dialog = enclosingModalDialog(button);
+    const target = dialog ?? document.body;
+    if (app.parentElement === target) return;
+    // A popover cannot be moved while it is open: re-parenting removes it from
+    // the top layer, and the class Pickr paints `visible` with would remain.
+    if (app.matches(':popover-open')) app.hidePopover();
+    target.appendChild(app);
+}
+
+/**
+ * The nearest open modal `<dialog>` above `el`, crossing shadow boundaries, or
+ * null. Only a dialog in the document's own tree counts — see above.
+ */
+function enclosingModalDialog(el: Element): HTMLDialogElement | null {
+    let node: Node | null = el;
+    while (node) {
+        if (node instanceof ShadowRoot) { node = node.host; continue; }
+        if (!(node instanceof Element)) return null;
+        const dialog: HTMLDialogElement | null = node.closest('dialog');
+        if (!dialog) {
+            const root = node.getRootNode();
+            if (!(root instanceof ShadowRoot)) return null;
+            node = root;
+            continue;
+        }
+        if (dialog.matches(':modal') && dialog.getRootNode() === document) return dialog;
+        node = dialog.parentNode;
+    }
+    return null;
 }
 
 /**
