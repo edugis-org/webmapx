@@ -70,15 +70,55 @@ function extractInlinedAssets(minBase64Chars = 500_000): Plugin {
   };
 }
 
+/**
+ * Fails the build if a chunk asks for an asset by root-absolute path.
+ *
+ * Vite's default base ('/') emits `new Worker(new URL("/assets/…"))`, which
+ * resolves against the origin root and ignores where dist-lib is actually
+ * served from. On webmapx.com that made every worker a 404 — and a Worker built
+ * from a 404 page dies with an empty error event, so it surfaced as "the
+ * spatial worker crashed", nowhere near its cause. `base: './'` fixes it; this
+ * is here so a config change cannot quietly undo it again.
+ */
+function noAbsoluteAssetUrls(): Plugin {
+  return {
+    name: 'webmapx-no-absolute-asset-urls',
+    generateBundle(_options, bundle) {
+      const offenders: string[] = [];
+      for (const [fileName, chunk] of Object.entries(bundle)) {
+        if (chunk.type !== 'chunk') continue;
+        for (const match of chunk.code.matchAll(/"\/assets\/[^"]+"/g)) {
+          offenders.push(`${fileName}: ${match[0]}`);
+        }
+      }
+      if (offenders.length) {
+        throw new Error(
+          'Root-absolute asset URLs in the library build — dist-lib is not the site root:\n  ' +
+          offenders.join('\n  '),
+        );
+      }
+    },
+  };
+}
+
 export default defineConfig({
   publicDir: false,
-  plugins: [cliShebang(), extractInlinedAssets()],
+  // Relative, because a library is not the site root. With Vite's default base
+  // ('/') a worker is emitted as `new Worker(new URL("/assets/…", import.meta.url))`,
+  // and a root-absolute path ignores where dist-lib actually sits: on
+  // webmapx.com the file is served from /dist-lib/assets/ and the request went
+  // to /assets/, which is a 404 page. The browser then builds a Worker out of
+  // that HTML, which dies immediately with an empty error event — reported as
+  // "the spatial worker crashed", a mile from the real cause. Same for every
+  // CDN consumer, whose dist-lib is nowhere near the origin root.
+  base: './',
+  plugins: [cliShebang(), extractInlinedAssets(), noAbsoluteAssetUrls()],
   // Workers are built by a separate rollup pass with its own plugin list, so
   // the extraction has to be registered there too — that pass is the one that
   // produces the spatial worker, which is where all the weight is.
   worker: {
     format: 'es',
-    plugins: () => [extractInlinedAssets()],
+    plugins: () => [extractInlinedAssets(), noAbsoluteAssetUrls()],
   },
   build: {
     lib: {
