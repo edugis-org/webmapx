@@ -36,6 +36,7 @@ import {
     MAP_STATE_PLACEHOLDERS,
 } from '../utils/internal-sources';
 import { onComputedDataReady } from '../utils/computed-source-ready';
+import { withDefaultPaint } from './default-paint';
 import { isLive, isSameClock, timeOf } from '../utils/map-clock';
 import { InternalSourceRefresher } from './internal-source-refresh';
 import { normalizeCompositeLayer, findNormalizedSource } from './composite-layer-utils';
@@ -386,6 +387,10 @@ export abstract class BaseAdapter {
         // A source may be computed rather than fetched (`internalfunc://`).
         // Resolved here, in generic code, so no engine ever sees the protocol.
         layer = resolveInternalSources(layer, this.clockNow(), (url) => this.withMapState(url));
+        // A layer with no paint of its own gets webmapx's, so that every engine
+        // and the legend draw the same colour rather than each falling back to
+        // its own idea of one — see default-paint.ts.
+        layer = withDefaultPaint(layer);
 
         // Composite (type: 'style') with populated sources/layers — decompose generically
         // when the engine supports it (decomposeComposite = true).
