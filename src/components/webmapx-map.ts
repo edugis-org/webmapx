@@ -45,6 +45,7 @@ type LayerInformation = {
 };
 
 import type { LegendRole } from './internal/legend-role-policy';
+import { buildLayerDefinition, type LayerDefinitionResult } from '../utils/layer-definition';
 
 type LayerRequest = Record<string, unknown>;
 type ActiveLayerStateObject = Exclude<ActiveLayerStateEntry, string>;
@@ -439,6 +440,51 @@ export class WebmapxMapElement extends HTMLElement {
   /** Returns the catalog section of the config (legacy alias). */
   public get catalogConfig(): CatalogConfig | undefined {
     return this.configInstance?.catalog;
+  }
+
+  /**
+   * Returns a layer as it now stands, config-shaped — the definition it was
+   * added with, carrying whatever the user has since changed about it.
+   *
+   * A style edit reaches the engine and `store.mapLayers`, never the config the
+   * layer came from, so a caller handing the layer on — a "copy config" button,
+   * a config editor, an export — cannot read the config and be right. Reading
+   * the store instead is the same merge every time (composite layers keep paint
+   * per sublayer, a style edit may have *added* a label layer, a rename lives
+   * on the store entry), which is why it is one method rather than each caller's
+   * own guess at it.
+   *
+   * `visible` and `transparency` come back beside the layer rather than inside
+   * it: they are map state, which the permalink already carries, not part of
+   * what the layer is. Returns null for a layer this map does not have.
+   */
+  public getLayerDefinition(layerId: string): LayerDefinitionResult | null {
+    const entry = this.adapterInstance?.store.getState().mapLayers?.[layerId] as
+      Record<string, unknown> | undefined;
+    return buildLayerDefinition(layerId, entry, this.findConfiguredLayer(layerId));
+  }
+
+  /**
+   * The layer as it was declared, from the config or from the request that added
+   * it at runtime. `layerData.layers` is an array in a config file and a record
+   * keyed by id in a config built in code, so both are searched.
+   */
+  private findConfiguredLayer(layerId: string): Record<string, unknown> | undefined {
+    const configured = this.layerDataConfig?.layers as unknown;
+    if (Array.isArray(configured)) {
+      const match = configured.find((layer) => (layer as Record<string, unknown>)?.id === layerId);
+      if (match) return match as Record<string, unknown>;
+    } else if (configured && typeof configured === 'object') {
+      const match = (configured as Record<string, unknown>)[layerId];
+      if (match && typeof match === 'object') return match as Record<string, unknown>;
+    }
+
+    for (const { request } of this.runtimeLayerRequests) {
+      if (request?.id === layerId) return request as Record<string, unknown>;
+      const layer = request?.layer as Record<string, unknown> | undefined;
+      if (layer?.id === layerId) return layer;
+    }
+    return undefined;
   }
 
   /** Returns the tools section of the config. */
