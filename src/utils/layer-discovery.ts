@@ -9,6 +9,7 @@ import { EPSG_DEFS } from './epsg-definitions';
 import type { AnyLayerConfig, SourceConfig, StandardLayerConfig, SubLayerSpec } from '../config/types';
 import { buildWMSGetMapUrl } from './wms-url-builder';
 import { convertEsriDrawingInfo, type MaplibreGeometryKind } from './esri-drawing-info';
+import { DEFAULT_DATA_COLOR, DEFAULT_FILL_OPACITY, DEFAULT_OUTLINE_COLOR } from '../map/default-paint';
 
 // @camptocamp/ogc-client's WmtsEndpoint caches its capabilities-fetch promise
 // by URL and resolves it via a Web Worker postMessage; if the service doesn't
@@ -150,17 +151,17 @@ function detectMvtTile(url: string): DiscoveredLayer | null {
     {
       id: 'fill', type: 'fill', source: id, 'source-layer': sourceLayer,
       filter: ['==', ['geometry-type'], 'Polygon'],
-      paint: { 'fill-color': '#3388ff', 'fill-opacity': 0.4 },
+      paint: { 'fill-color': DEFAULT_DATA_COLOR, 'fill-opacity': DEFAULT_FILL_OPACITY, 'fill-outline-color': DEFAULT_OUTLINE_COLOR },
     },
     {
       id: 'line', type: 'line', source: id, 'source-layer': sourceLayer,
       filter: ['in', ['geometry-type'], ['literal', ['Polygon', 'LineString']]],
-      paint: { 'line-color': '#3388ff', 'line-width': 1 },
+      paint: { 'line-color': DEFAULT_DATA_COLOR, 'line-width': 1 },
     },
     {
       id: 'circle', type: 'circle', source: id, 'source-layer': sourceLayer,
       filter: ['==', ['geometry-type'], 'Point'],
-      paint: { 'circle-color': '#3388ff', 'circle-radius': 4 },
+      paint: { 'circle-color': DEFAULT_DATA_COLOR, 'circle-radius': 4 },
     },
   ] as unknown as SubLayerSpec[];
 
@@ -472,10 +473,10 @@ async function discoverWfs(baseUrl: string): Promise<DiscoveredLayer[]> {
         } as unknown as SourceConfig,
         layer: {
           id, type: 'fill', source: id, title: ft.title || ft.name,
-          // Matches the legend color editor's default ('#3388ff') — without an
+          // webmapx's unstyled look (see map/default-paint.ts) — without an
           // explicit paint, MapLibre's fill-color default ('#000000') would
-          // render black while the legend swatch shows the editor's default.
-          paint: { 'fill-color': '#3388ff', 'fill-opacity': 0.5 },
+          // render an opaque black layer over the map.
+          paint: { 'fill-color': DEFAULT_DATA_COLOR, 'fill-opacity': DEFAULT_FILL_OPACITY, 'fill-outline-color': DEFAULT_OUTLINE_COLOR },
           ...((ft.abstract || bounds) ? { metadata: {
             ...(ft.abstract ? { abstract: ft.abstract } : {}),
             ...(bounds ? { bounds } : {}),
@@ -554,10 +555,10 @@ async function buildEsriFeatureLayer(
   let symbology = convertEsriDrawingInfo(drawingInfo, layerType as MaplibreGeometryKind);
 
   // Esri picture-marker symbols (esriPMS) etc. don't convert to a MapLibre
-  // circle-color. Fall back to the legend's default ('#3388ff') so the
-  // legend swatch matches the layer's actual (otherwise black-default) render.
+  // circle-color. Fall back to webmapx's unstyled colour so the legend swatch
+  // matches the layer's actual (otherwise black-default) render.
   if (layerType === 'circle' && !symbology?.paint?.['circle-color']) {
-    symbology = { ...symbology, paint: { 'circle-color': '#3388ff', 'circle-radius': 5, ...symbology?.paint } };
+    symbology = { ...symbology, paint: { 'circle-color': DEFAULT_DATA_COLOR, 'circle-radius': 5, ...symbology?.paint } };
   }
 
   const title = String(layerInfo.name ?? `Layer ${layerId}`);

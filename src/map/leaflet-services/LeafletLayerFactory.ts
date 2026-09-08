@@ -4,6 +4,7 @@ import * as L from 'leaflet';
 import type { SourceConfig, WMSSourceConfig, SubLayerSpec } from '../../config/types';
 import { evaluateColor, evaluateNumber, evaluateString, matchesFilter } from '../../utils/maplibre-expression-evaluator';
 import { setupLabelCollision } from './label-collision';
+import { DEFAULT_DATA_COLOR } from '../default-paint';
 
 if (typeof document !== 'undefined' && typeof document.getElementById === 'function' && !document.getElementById('webmapx-symbol-label-style')) {
     const style = document.createElement('style');
@@ -196,14 +197,14 @@ export class LeafletLayerFactory {
         const style: L.PathOptions = {};
         switch (styleConfig.type) {
             case 'fill':
-                style.fillColor = evaluateColor(paint['fill-color'], f, 0, '#3388ff');
+                style.fillColor = evaluateColor(paint['fill-color'], f, 0, DEFAULT_DATA_COLOR);
                 style.fillOpacity = evaluateNumber(paint['fill-opacity'], f, 0, 0.5);
                 style.color = evaluateColor(paint['fill-outline-color'], f, 0, style.fillColor!);
                 style.weight = 1;
                 style.opacity = 1;
                 break;
             case 'line':
-                style.color = evaluateColor(paint['line-color'], f, 0, '#3388ff');
+                style.color = evaluateColor(paint['line-color'], f, 0, DEFAULT_DATA_COLOR);
                 style.weight = evaluateNumber(paint['line-width'], f, 0, 3);
                 style.opacity = evaluateNumber(paint['line-opacity'], f, 0, 1);
                 style.fill = false;
@@ -212,7 +213,7 @@ export class LeafletLayerFactory {
                 }
                 break;
             case 'circle':
-                style.fillColor = evaluateColor(paint['circle-color'], f, 0, '#3388ff');
+                style.fillColor = evaluateColor(paint['circle-color'], f, 0, DEFAULT_DATA_COLOR);
                 style.fillOpacity = evaluateNumber(paint['circle-opacity'], f, 0, 1);
                 style.color = evaluateColor(paint['circle-stroke-color'], f, 0, style.fillColor!);
                 style.weight = evaluateNumber(paint['circle-stroke-width'], f, 0, 1);

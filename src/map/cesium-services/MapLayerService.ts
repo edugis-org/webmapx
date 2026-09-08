@@ -9,6 +9,7 @@ import { throttle } from '../../utils/throttle';
 import { evaluateColor, evaluateNumber, evaluateString, matchesFilter } from '../../utils/maplibre-expression-evaluator';
 import { countFeatureCollectionVertices } from '../geojson-loader';
 import { setupLabelCollision, updateLabelCollision } from './label-collision';
+import { DEFAULT_DATA_COLOR } from '../default-paint';
 
 // Cesium's GeoJsonDataSource hardcodes arcType = ArcType.RHUMB for every polygon/
 // polyline it creates. Rhumb lines spiral without bound near the poles, so any
@@ -722,7 +723,7 @@ export class MapLayerService implements ILayerService {
         const linePaint = line?.paint ?? {};
         const fillPaint = fill?.paint ?? {};
 
-        const DEFAULT_LINE_COLOR = '#3388ff';
+        const DEFAULT_LINE_COLOR = DEFAULT_DATA_COLOR;
 
         const entities = dataSource.entities?.values ?? [];
         for (const entity of entities) {

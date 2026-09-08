@@ -4,6 +4,7 @@ import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
 import Pickr from '@simonwep/pickr';
 import { COLOR_PALETTE, raiseColorPickerPopup } from './internal/color-picker';
+import { DEFAULT_DATA_COLOR } from '../map/default-paint';
 
 /**
  * The background a colour swatch button carries.
@@ -1596,7 +1597,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const count = Math.max(colorStops.length, radiusStops.length || 1);
             let prevKey = '';
             for (let i = 0; i < count; i++) {
-                const c = String(colorStops[i]?.paint ?? colorStops[0]?.paint ?? '#3388ff');
+                const c = String(colorStops[i]?.paint ?? colorStops[0]?.paint ?? DEFAULT_DATA_COLOR);
                 const rawR = radiusStops.length > 0
                     ? (radiusStops[i]?.paint ?? radiusStops[0]?.paint ?? 6)
                     : (this.evalAtZoom(radiusExpr, this.zoom) ?? 6);
@@ -1640,7 +1641,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const colorStops = this.extractLegendStops(colorExpr);
             return colorStops
                 .filter((s, _, arr) => arr.length === 1 || s.value !== null)
-                .map(s => this.renderFillRow(String(s.paint ?? '#3388ff'), outlineColor, opacity,
+                .map(s => this.renderFillRow(String(s.paint ?? DEFAULT_DATA_COLOR), outlineColor, opacity,
                     s.value !== null ? String(s.value) : ''));
         }
 
@@ -1653,7 +1654,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             return colorStops.map((s, i) => {
                 const lineWidth = Number(widthStops[i]?.paint ?? widthStops[0]?.paint ?? 2);
                 const label = s.value !== null ? String(s.value) : '';
-                const color = String(s.paint ?? '#3388ff');
+                const color = String(s.paint ?? DEFAULT_DATA_COLOR);
                 if (stopIndices && stopIndices.length === colorStops.length) {
                     return this.renderEditableLineRow(subLayerIds, color, lineWidth, dasharray, label, colorExpr as unknown[], [stopIndices[i]]);
                 }

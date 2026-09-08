@@ -3,6 +3,7 @@ import { isZip, sniffBlob } from './file-sniff';
 import { parseQmlStyle, type QmlStyle } from './qml-style';
 import type { CompositeStyleLayerConfig, SubLayerSpec } from '../config/types';
 import type { GpkgLayerInfo } from '../workers/spatial.worker';
+import { DEFAULT_DATA_COLOR, DEFAULT_FILL_OPACITY } from '../map/default-paint';
 
 /** Called when importing a multi-layer file; returns the layer names the user selected, or null to cancel. */
 export type LayerPickerFn = (filename: string, layers: GpkgLayerInfo[]) => Promise<string[] | null>;
@@ -103,7 +104,8 @@ function splitZipEntriesByLayer(entries: NamedBlob[]): NamedBlob[][] {
   return groups.length > 0 ? groups : [entries];
 }
 
-const DEFAULT_COLOR = '#444444';
+/** The unstyled look, shared with every other layer that arrives without paint. */
+const DEFAULT_COLOR = DEFAULT_DATA_COLOR;
 
 /** Collect the set of GeoJSON geometry types present (recursing into GeometryCollections). */
 function collectGeometryTypes(data: GeoJSON.FeatureCollection): Set<string> {
@@ -133,7 +135,7 @@ function defaultLayersForSource(prefix: string, fileBase: string, sourceKey: str
       type: 'fill',
       source: sourceKey,
       filter: ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
-      paint: qmlStyle?.type === 'fill' ? qmlStyle.paint : { 'fill-color': DEFAULT_COLOR, 'fill-opacity': 0.3 },
+      paint: qmlStyle?.type === 'fill' ? qmlStyle.paint : { 'fill-color': DEFAULT_COLOR, 'fill-opacity': DEFAULT_FILL_OPACITY },
     });
   }
   const polygonFillHasOutline = hasPolygon && qmlStyle?.type === 'fill' && 'fill-outline-color' in qmlStyle.paint;

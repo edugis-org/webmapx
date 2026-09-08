@@ -3,6 +3,7 @@
 import type { ISubMapFactory, ISubMap, ISource, ILayer, LayerSpec, MapCreateOptions } from '../IMapInterfaces';
 import type { LngLat, Pixel } from '../../store/map-events';
 import { forceGeodesicArcType } from './MapLayerService';
+import { DEFAULT_DATA_COLOR } from '../default-paint';
 
 function getCesium(): any {
     return (globalThis as any).Cesium;
@@ -195,9 +196,9 @@ class CesiumMap implements ISubMap {
         const fill = fillLayers[fillLayers.length - 1];
         const line = lineLayers[lineLayers.length - 1];
 
-        const fillColor = (fill?.paint as any)?.['fill-color'] ?? '#3388ff';
+        const fillColor = (fill?.paint as any)?.['fill-color'] ?? DEFAULT_DATA_COLOR;
         const fillOpacity = (fill?.paint as any)?.['fill-opacity'] ?? 0.2;
-        const lineColor = (line?.paint as any)?.['line-color'] ?? '#3388ff';
+        const lineColor = (line?.paint as any)?.['line-color'] ?? DEFAULT_DATA_COLOR;
         const lineWidth = (line?.paint as any)?.['line-width'] ?? 2;
 
         const entities = dataSource.entities?.values ?? [];

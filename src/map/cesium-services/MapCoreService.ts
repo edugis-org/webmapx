@@ -8,6 +8,7 @@ import { throttle } from '../../utils/throttle';
 import { evaluateColor, evaluateNumber } from '../../utils/maplibre-expression-evaluator';
 import { isEventFromEditableElement } from '../../utils/dom-focus-utils';
 import { forceGeodesicArcType } from './MapLayerService';
+import { DEFAULT_DATA_COLOR } from '../default-paint';
 
 function getCesium(): any {
     return (globalThis as any).Cesium;
@@ -977,7 +978,7 @@ export class MapCoreService implements IMapCore {
             if (layer?.type === 'fill' && entity.polygon) {
                 const entityProps = this.getEntityProperties(entity);
                 const featureLike = { properties: entityProps, geometry: { type: 'Polygon' } };
-                const fillColor = evaluateColor(paint['fill-color'] ?? '#3388ff', featureLike, currentZoom, '#3388ff');
+                const fillColor = evaluateColor(paint['fill-color'] ?? DEFAULT_DATA_COLOR, featureLike, currentZoom, DEFAULT_DATA_COLOR);
                 const fillOpacity = evaluateNumber(paint['fill-opacity'] ?? 0.2, featureLike, currentZoom, 0.2);
                 setColorMaterial(entity.polygon, Cesium.Color.fromCssColorString(fillColor).withAlpha(fillOpacity));
                 setSafeProperty(entity.polygon, 'outline', false);
@@ -999,7 +1000,7 @@ export class MapCoreService implements IMapCore {
                     setSafeProperty(entity.polyline, 'show', true);
                     const entityProps = this.getEntityProperties(entity);
                     const featureLike = { properties: entityProps, geometry: { type: 'LineString' } };
-                    const lineColor = evaluateColor(paint['line-color'] ?? '#3388ff', featureLike, currentZoom, '#3388ff');
+                    const lineColor = evaluateColor(paint['line-color'] ?? DEFAULT_DATA_COLOR, featureLike, currentZoom, DEFAULT_DATA_COLOR);
                     const lineWidth = evaluateNumber(paint['line-width'] ?? 2, featureLike, currentZoom, 2);
                     setColorMaterial(entity.polyline, Cesium.Color.fromCssColorString(lineColor).withAlpha(1));
                     setSafeProperty(entity.polyline, 'width', lineWidth);
@@ -1031,10 +1032,10 @@ export class MapCoreService implements IMapCore {
             }
 
             if (layer?.type === 'circle' && (entity.position || entity.point || entity.billboard || entity.ellipse)) {
-                const circleColor = paint['circle-color'] ?? '#3388ff';
+                const circleColor = paint['circle-color'] ?? DEFAULT_DATA_COLOR;
                 const circleOpacity = paint['circle-opacity'] ?? 1.0;
                 const circleRadius = paint['circle-radius'] ?? 6;
-                const circleStrokeColor = paint['circle-stroke-color'] ?? '#3388ff';
+                const circleStrokeColor = paint['circle-stroke-color'] ?? DEFAULT_DATA_COLOR;
                 const circleStrokeWidth = paint['circle-stroke-width'] ?? 1;
 
                 const julian = Cesium.JulianDate.now();
