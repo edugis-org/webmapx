@@ -188,7 +188,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
             gap: 2px;
             padding: 6px 4px;
             border: 1px solid var(--color-border, #d5dbe1);
-            border-radius: var(--radius-medium, 6px);
+            border-radius: var(--webmapx-radius-md, 6px);
             background: none;
             color: inherit;
             font: inherit;
@@ -250,7 +250,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
             gap: 4px;
             padding: var(--sl-spacing-x-small);
             border: 1px solid var(--color-border, #d5dbe1);
-            border-radius: var(--radius-medium, 6px);
+            border-radius: var(--webmapx-radius-md, 6px);
         }
 
         .chosen-head {
@@ -363,7 +363,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
             max-height: 240px;
             overflow: auto;
             border: 1px solid var(--color-border, #d5dbe1);
-            border-radius: var(--radius-medium, 6px);
+            border-radius: var(--webmapx-radius-md, 6px);
         }
 
         table {

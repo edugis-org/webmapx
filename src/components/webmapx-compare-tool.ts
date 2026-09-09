@@ -267,7 +267,7 @@ export class WebmapxCompareTool extends WebmapxModalTool {
         line.style.cssText = [
             'position:absolute', 'top:0', 'bottom:0', 'left:50%', 'width:2px',
             'transform:translateX(-50%)', 'pointer-events:none',
-            'background:var(--webmapx-data-primary, #d64545)',
+            'background:var(--webmapx-data-seam, #d64545)',
         ].join(';');
         return line;
     }
@@ -301,7 +301,7 @@ export class WebmapxCompareTool extends WebmapxModalTool {
             // rather than inheriting the text padding, which made a wide lozenge.
             'display:flex', 'align-items:center', 'justify-content:center',
             'padding:2px', 'min-width:15px',
-            'color:var(--webmapx-data-primary, #d64545)', 'pointer-events:none',
+            'color:var(--webmapx-data-seam, #d64545)', 'pointer-events:none',
         ].join(';');
         grip.textContent = '↔';
         return grip;
@@ -312,7 +312,7 @@ export class WebmapxCompareTool extends WebmapxModalTool {
         label.textContent = text;
         label.style.cssText = [
             ...WebmapxCompareTool.CHIP_STYLE, position,
-            'color:var(--color-text, #1c2530)', 'pointer-events:none',
+            'color:var(--color-text-primary, #1c2530)', 'pointer-events:none',
         ].join(';');
         return label;
     }

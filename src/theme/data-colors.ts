@@ -36,6 +36,15 @@ export const DATA_END = '#e63946';
 export const DATA_HIGHLIGHT = '#ffdd00';
 
 /**
+ * The compare tool's seam — the line the split handle is drawn on.
+ *
+ * Red because it must read as a measuring line rather than as map content, on
+ * both halves at once and over any basemap: the two sides differ in colour by
+ * definition, so a hue borrowed from either would vanish on one of them.
+ */
+export const DATA_SEAM = '#d64545';
+
+/**
  * Outline for translucent result polygons.
  *
  * An outline in the fill's own colour is invisible against the fill, so a
