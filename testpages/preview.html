@@ -4,14 +4,43 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <link rel="icon" href="../favicon.png">
+  <!-- Before any stylesheet: this is the window Chrome's auto-dark heuristic
+       decides in, and an undeclared page gets its colours rewritten. -->
+  <meta name="color-scheme" content="light dark">
   <title>WebMapX Preview</title>
   <link rel="stylesheet" href="/node_modules/@shoelace-style/shoelace/dist/themes/light.css">
   <link rel="stylesheet" href="/node_modules/@shoelace-style/shoelace/dist/themes/dark.css">
   <script>
-    // Apply saved theme before first paint to avoid flash
-    const t = localStorage.getItem('webmapx-theme');
-    const dark = t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    if (dark) { document.documentElement.setAttribute('data-theme', 'dark'); document.documentElement.classList.add('sl-theme-dark'); }
+    // Apply the theme before first paint to avoid a flash, and keep applying it.
+    //
+    // Two things it has to get right, both found the hard way:
+    //
+    //  - 'auto' is what webmapx-settings stores for "match system", so it must be
+    //    resolved against the OS here exactly as its resolvedTheme() does. Treating
+    //    it as "not dark" made a stored 'auto' come up light on a dark machine.
+    //
+    //  - the media query is *followed*, not sampled once. A fresh Chrome renderer
+    //    (a new incognito window) answers prefers-color-scheme from its default
+    //    before the browser process has pushed the real OS preference, and corrects
+    //    itself a moment later; measured: dark on the first paint, false when read
+    //    from the console seconds later, and light on the reload's warm renderer.
+    //    Sampling once froze that stale answer for the life of the page.
+    (function () {
+      var query = window.matchMedia('(prefers-color-scheme: dark)');
+      function apply() {
+        var stored = localStorage.getItem('webmapx-theme');
+        var dark = stored === 'dark'
+          || ((!stored || stored === 'auto') && query.matches);
+        var html = document.documentElement;
+        html.classList.toggle('sl-theme-dark', dark);
+        if (dark) html.setAttribute('data-theme', 'dark');
+        else html.removeAttribute('data-theme');
+        // Stated inline as well as in the stylesheet: the stylesheet has not arrived yet.
+        html.style.colorScheme = dark ? 'dark' : 'light';
+      }
+      apply();
+      query.addEventListener('change', apply);
+    })();
   </script>
   <link rel="stylesheet" href="/node_modules/maplibre-gl/dist/maplibre-gl.css">
   <link rel="stylesheet" href="/src/theme/webmapx-style-core.css">

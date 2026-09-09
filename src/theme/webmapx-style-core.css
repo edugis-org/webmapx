@@ -19,6 +19,15 @@
    All values verified against WCAG 2.1 AA on their intended ground.
    ════════════════════════════════════════════════════════════════ */
 :root {
+    /* What the page's own colours are, stated rather than left for the browser
+       to infer. Undeclared, a page is a candidate for Chrome's "Auto Dark Mode
+       for Web Contents", and the UA picks the ground under a transparent body,
+       the scrollbars and the form controls on its own — so a dark theme came
+       with light scrollbars. It tracks data-theme instead of being a blanket
+       "light dark" because the theme in force is resolved by us, in JS, and is
+       not always what the OS asked for. */
+    color-scheme: light;
+
     /* Accent — UI chrome only. Never used for map geometry (see below).
        #2b6c8f on white = 5.76:1, white on #2b6c8f = 5.76:1 — AA for body text.
        (The previous #007bff was 3.98:1 and failed AA for text.) */
@@ -96,6 +105,8 @@
    COLOUR AXIS — dark
    ════════════════════════════════════════════════════════════════ */
 [data-theme="dark"] {
+    color-scheme: dark;
+
     --color-primary: #74b6d6;            /* 7.67:1 on --color-surface */
     --color-primary-hover: #9acbe3;      /* 9.80:1 */
     --color-primary-soft: #1e3946;
