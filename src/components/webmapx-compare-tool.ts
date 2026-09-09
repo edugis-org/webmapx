@@ -10,6 +10,18 @@ import type { CompareToolConfig } from '../config/types';
 
 const DEFAULT_SPLIT = 50;
 const KEY_STEP = 2;
+/**
+ * How wide the *grab* area around the seam is. The seam itself stays 2px — it is a
+ * measuring line and a thick one would hide the very difference it points at — so the
+ * hit area is a transparent strip centred on it.
+ *
+ * A fingertip is about 9mm and cannot be aimed at 2px: on a touch screen the handle was
+ * effectively immovable, and every miss landed on the map instead and panned it. 44px is
+ * the usual minimum touch target. A mouse does not need it and the strip does cost
+ * something — it swallows drags near the seam — so a fine pointer keeps a narrow one.
+ */
+const HANDLE_HIT_TOUCH = 44;
+const HANDLE_HIT_MOUSE = 16;
 
 /**
  * A vertical handle across the map: left of it the map as it was when the tool was opened,
@@ -207,17 +219,31 @@ export class WebmapxCompareTool extends WebmapxModalTool {
         handle.setAttribute('aria-label', 'Compare split position');
         handle.setAttribute('aria-valuemin', '0');
         handle.setAttribute('aria-valuemax', '100');
+        // Touch-capable rather than touch-only (`any-pointer`, not `pointer`): a laptop with a
+        // touch screen reports a fine primary pointer and would otherwise get the narrow strip
+        // for the finger it also has.
+        const coarse = window.matchMedia?.('(any-pointer: coarse)').matches ?? false;
+        const hit = coarse ? HANDLE_HIT_TOUCH : HANDLE_HIT_MOUSE;
         handle.style.cssText = [
-            'position:absolute', 'top:0', 'bottom:0', 'width:2px',
-            'background:var(--webmapx-data-primary, #d64545)',
-            'cursor:ew-resize', 'z-index:2', 'touch-action:none',
+            'position:absolute', 'top:0', 'bottom:0', `width:${hit}px`,
+            // The strip is centred on the split, so `left` stays the split percentage and the
+            // seam keeps pointing exactly where the clip-path cuts.
+            'transform:translateX(-50%)',
+            'background:transparent',
+            'cursor:ew-resize', 'touch-action:none',
         ].join(';');
+
+        handle.appendChild(this.seamLine());
+        // A transparent strip is invisible, so on touch there is nothing to aim at. The grip is
+        // the thing a finger goes for, and it is what makes the seam look draggable at all.
+        handle.appendChild(this.handleGrip());
 
         // Without labels a user returning to the tab cannot tell which half they are
         // changing, and will conclude a layer toggle is broken.
         const { reference, live } = this.labels;
-        handle.appendChild(this.handleLabel(reference, 'right:calc(100% + 8px)'));
-        handle.appendChild(this.handleLabel(live, 'left:calc(100% + 8px)'));
+        // Clear of the grip chip in the middle, not of the seam.
+        handle.appendChild(this.handleLabel(reference, 'right:calc(50% + 20px)'));
+        handle.appendChild(this.handleLabel(live, 'left:calc(50% + 20px)'));
 
         handle.addEventListener('pointerdown', this.onPointerDown);
         handle.addEventListener('pointermove', this.onPointerMove);
@@ -225,19 +251,68 @@ export class WebmapxCompareTool extends WebmapxModalTool {
         handle.addEventListener('pointercancel', this.onPointerUp);
         handle.addEventListener('keydown', this.onHandleKeyDown);
 
-        mapEl.appendChild(handle);
+        // Before the layout, exactly like the frozen map, and with no z-index of its own: order
+        // decides. Appended last it painted over the whole overlay — the seam ran across the
+        // attribution, and it only looked as though the toolbar were above it because the
+        // toolbar sits away from the seam. The layout's zones are `pointer-events: none`, so the
+        // handle is still draggable everywhere except directly over a control.
+        mapEl.insertBefore(handle, mapEl.querySelector(':scope > webmapx-layout'));
         this.handleEl = handle;
         this.positionHandle();
+    }
+
+    /** The visible seam: 2px down the middle of the grab strip. */
+    private seamLine(): HTMLElement {
+        const line = document.createElement('div');
+        line.style.cssText = [
+            'position:absolute', 'top:0', 'bottom:0', 'left:50%', 'width:2px',
+            'transform:translateX(-50%)', 'pointer-events:none',
+            'background:var(--webmapx-data-primary, #d64545)',
+        ].join(';');
+        return line;
+    }
+
+    /**
+     * What the grip and the two labels have in common. One list rather than two similar ones,
+     * because they sit in a row at the top of the seam and any drift between them shows as a
+     * misaligned chip.
+     */
+    private static readonly CHIP_STYLE = [
+        'position:absolute', 'top:8px', 'white-space:nowrap',
+        'padding:2px 6px', 'border-radius:var(--webmapx-radius-sm, 4px)',
+        'background:var(--color-surface, #fff)',
+        'font-size:var(--webmapx-font-size-sm, 0.8rem)',
+        // Explicit, so the grip's single glyph and the labels' text are the same height.
+        'line-height:1.25',
+    ];
+
+    /**
+     * The grip, drawn as a third chip between the two labels rather than as a knob halfway down
+     * the map: at the top it is next to the words that say what the seam separates, and it is
+     * out of the way of the map itself — a knob in the middle covers whatever is being compared,
+     * which on a phone is most of the screen.
+     */
+    private handleGrip(): HTMLElement {
+        const grip = document.createElement('div');
+        grip.style.cssText = [
+            ...WebmapxCompareTool.CHIP_STYLE,
+            'left:50%', 'transform:translateX(-50%)',
+            // Square-ish: the labels' height, and the horizontal padding trimmed to match it
+            // rather than inheriting the text padding, which made a wide lozenge.
+            'display:flex', 'align-items:center', 'justify-content:center',
+            'padding:2px', 'min-width:15px',
+            'color:var(--webmapx-data-primary, #d64545)', 'pointer-events:none',
+        ].join(';');
+        grip.textContent = '↔';
+        return grip;
     }
 
     private handleLabel(text: string, position: string): HTMLElement {
         const label = document.createElement('span');
         label.textContent = text;
         label.style.cssText = [
-            'position:absolute', 'top:8px', position, 'white-space:nowrap',
-            'padding:2px 6px', 'border-radius:var(--webmapx-radius-sm, 4px)',
-            'background:var(--color-surface, #fff)', 'color:var(--color-text, #1c2530)',
-            'font-size:var(--webmapx-font-size-sm, 0.8rem)', 'pointer-events:none',
+            ...WebmapxCompareTool.CHIP_STYLE, position,
+            'color:var(--color-text, #1c2530)', 'pointer-events:none',
         ].join(';');
         return label;
     }
@@ -266,6 +341,9 @@ export class WebmapxCompareTool extends WebmapxModalTool {
         this.dragPointerId = event.pointerId;
         (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
         event.preventDefault();
+        // A touch that starts on the handle is a drag of the handle and never a pan of the map
+        // underneath it, whatever the engine has bound higher up.
+        event.stopPropagation();
     };
 
     private onPointerMove = (event: PointerEvent): void => {
