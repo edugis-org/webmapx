@@ -8,12 +8,12 @@ Config-driven web map UI with adapters for MapLibre, OpenLayers, Leaflet, and Ce
 
 ## What it does
 
-- Drop a config file, get a full map UI — toolbar, layer tree, legend, tools
+- Drop a config file, get a full map UI: toolbar, layer tree, legend, tools
 - Switch map engines (MapLibre / OpenLayers / Leaflet / Cesium) without rewriting tools
 - 15+ built-in tools: draw, measure, search, print, import, geolocation, 3D, …
-- Lazy loading — only tools and engines the config requests download
+- Lazy loading: only download the tools used in the config
 - Plugin system for custom tools
-- i18n — English built-in, other locales lazy-loaded from CDN
+- i18n: English built-in, other locales are loaded when needed
 
 ---
 
@@ -21,7 +21,7 @@ Config-driven web map UI with adapters for MapLibre, OpenLayers, Leaflet, and Ce
 
 ### CDN (no build tools needed)
 
-Copy this HTML, save as `index.html`, open in a browser. You get a map with coordinates display, scale bar, fullscreen toggle, feature info, measure, and layer legend — all loaded from CDN.
+Copy this HTML, save as `index.html`, open in a browser. You get a map with coordinates display, scale bar, fullscreen toggle, feature info, measure, and layer legend, all loaded from CDN.
 
 ```html
 <!DOCTYPE html>
@@ -94,7 +94,7 @@ WebMapX.mount('#map', { config: './mymap.json' })
 → [npm quickstart](https://github.com/edugis-org/webmapx/blob/main/docs/developer/npm-quickstart.md)
 
 **On package size.** The published package is large because it carries GDAL
-compiled to WebAssembly — the engine behind buffering, overlay analysis and
+compiled to WebAssembly (wasm). GDAL is the engine behind buffering, overlay analysis and
 file import. **Visitors never download it unless they use those tools.** The
 spatial worker, and the ~38 MB of wasm with it, is fetched the first time an
 analysis panel is opened; a map that only pans, zooms and switches layers
@@ -111,14 +111,22 @@ git clone https://github.com/edugis-org/webmapx.git
 cd webmapx && npm install && npm run configs && npm run dev
 ```
 
-`npm run configs` puts the [config repository](https://github.com/edugis-org/webmapx-configs)
-at `public/config` — the maps webmapx serves are content of their own, on their own
-release cadence. It links a sibling `../webmapx-configs` clone if you have one (a
-junction on Windows) and clones otherwise; `npm run configs:status` shows which
-commit you are on. This repository pins nothing: a pin is a publication decision,
-and it is recorded by whatever publishes a site (for webmapx.com, the `site.lock`
-in [edugis-org/webmapx-demo](https://github.com/edugis-org/webmapx-demo)). Point
-`WEBMAPX_CONFIGS_LOCK` at such a lock to check out exactly what it names.
+`npm run configs` makes the [config repository](https://github.com/edugis-org/webmapx-configs)
+available at `public/config`.
+
+The map configurations are maintained separately from WebMapX and can be released
+independently. If a sibling `../webmapx-configs` clone exists, the command links to it
+(using a junction on Windows). Otherwise, it clones the repository.
+
+Use `npm run configs:status` to see which commit you are currently on.
+
+This repository does not select a fixed config version. The site that publishes
+WebMapX decides which config commit to use and records that choice in a lock file.
+For example, webmapx.com uses the `site.lock` file in
+https://github.com/edugis-org/webmapx-demo.
+
+Set `WEBMAPX_CONFIGS_LOCK` to such a lock file to check out exactly the commit
+specified by that file.
 
 → [GitHub / contributor quickstart](https://github.com/edugis-org/webmapx/blob/main/docs/developer/github-quickstart.md)
 

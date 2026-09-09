@@ -1,0 +1,6 @@
+extends: substitution
+message: "Use 'WebMapX' for the product name."
+level: error
+ignorecase: false
+swap:
+  'webmapx': 'WebMapX'

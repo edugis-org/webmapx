@@ -1,0 +1,7 @@
+# styles/WebMapX/EmDash.yml
+extends: existence
+message: "Consider replacing the em dash with a colon, comma, period, or parentheses."
+level: warning
+nonword: true
+tokens:
+  - '—'
