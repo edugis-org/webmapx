@@ -299,6 +299,16 @@ layer with no usable columns.
 
 ## 5. How the UI should ask
 
+> **Superseded by `layer-styler-specification.md`.** This section proposed a
+> sequence of questions, each collapsing to a ✓ summary row ("a stack of resolved
+> decisions"). That is what `renderDone` implements, and in use it turned out to be
+> the problem rather than the shape: a selection collapsing the control that was
+> just used stops the user trying a second palette, and the fixed sequence put
+> labels behind every colour question. The specification replaces it with a
+> persistent, random-access style list. Kept here for the reasoning, not as the
+> plan — where the two disagree, the specification wins.
+
+
 ### The tension in "wizard with back/forward"
 
 Stepwise is right — one decision per screen is far easier than a form of twenty
