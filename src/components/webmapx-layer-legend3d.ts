@@ -738,9 +738,24 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
 
     .slab-title-row {
       display: flex;
-      align-items: center;
+      /* flex-start (not center): a long title wraps to several lines, and
+         centering against the whole wrapped block drifted the drag/eye/delete
+         icons down to the label's vertical middle instead of its first line.
+         flex-start alone sits the icons flush with the row's top edge, above
+         where .slab-label's own line-height leading starts its first line of
+         glyphs — .row-icon below nudges them down to match that. */
+      align-items: flex-start;
       gap: 0.35rem;
       touch-action: none;
+    }
+
+    /* Half of .slab-label's line-height leading, minus half the icon's own
+       height — centers each icon on the label's first line instead of on
+       the row's top edge. Icon and label sizes differ here (0.8rem vs
+       0.68rem), unlike the default legend, so both are spelled out rather
+       than cancelling through a shared token. */
+    .row-icon {
+      margin-top: calc((0.68rem * 1.3 - var(--webmapx-font-size-sm, 0.8rem)) / 2);
     }
 
     .slab-title-row sl-icon-button::part(base) {
@@ -988,10 +1003,10 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
               <div class="slab-outline"></div>
               <div class="slab-face">
                 <div class="slab-title-row ${item.visible ? '' : 'layer-hidden'}">
-                  <sl-icon class="drag-handle drag-handle-disabled" name="arrow-down-up" aria-hidden="true"></sl-icon>
+                  <sl-icon class="drag-handle drag-handle-disabled row-icon" name="arrow-down-up" aria-hidden="true"></sl-icon>
                   <sl-tooltip hoist placement="right" content=${item.visible ? 'Hide layer' : 'Show layer'}>
                     <sl-icon-button
-                      class="visibility-toggle"
+                      class="visibility-toggle row-icon"
                       name=${item.visible ? 'eye' : 'eye-slash'}
                       label=${item.visible ? 'Hide layer' : 'Show layer'}
                       @click=${() => this.handleVisibilityToggle(item.layerId)}
@@ -1046,7 +1061,7 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
                     ${items.length > 1 ? html`
                       <sl-tooltip hoist placement="right" content="Drag to change layer order">
                         <sl-icon
-                          class="drag-handle"
+                          class="drag-handle row-icon"
                           name=${index === 0 ? 'arrow-down' : index === items.length - 1 ? 'arrow-up' : 'arrow-down-up'}
                           @pointerdown=${(e: PointerEvent) => this.onDragHandlePointerDown(e)}
                           @pointermove=${(e: PointerEvent) => this.onDragHandlePointerMove(e)}
@@ -1057,7 +1072,7 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
                     ` : null}
                     <sl-tooltip hoist placement="right" content=${item.visible ? 'Hide layer' : 'Show layer'}>
                       <sl-icon-button
-                        class="visibility-toggle"
+                        class="visibility-toggle row-icon"
                         name=${item.visible ? 'eye' : 'eye-slash'}
                         label=${item.visible ? 'Hide layer' : 'Show layer'}
                         @click=${() => this.handleVisibilityToggle(item.layerId)}
@@ -1069,7 +1084,7 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
                     >${item.label}${item.beingEdited ? html`&nbsp;<sl-icon name="pencil" title="Layer is currently being edited"></sl-icon>` : null}</span>
                     <sl-tooltip hoist placement="left" content="Remove layer">
                       <sl-icon-button
-                        class="delete-layer"
+                        class="delete-layer row-icon"
                         name="x-circle"
                         label="Remove layer"
                         @click=${() => this.handleDeleteLayer(item.layerId)}

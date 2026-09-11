@@ -319,10 +319,24 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
 
     .layer-row {
       display: flex;
-      align-items: center;
+      /* flex-start (not center): a long title wraps to several lines, and
+         centering against the whole wrapped block drifted the drag/eye/delete
+         icons down to the label's vertical middle instead of its first line.
+         flex-start alone sits the icons flush with the row's top edge, above
+         where the label's own line-height leading starts its first line of
+         glyphs — .row-icon below nudges them down to match that. */
+      align-items: flex-start;
       gap: var(--webmapx-space-xs, 0.25rem);
       width: 100%;
       touch-action: none;
+    }
+
+    /* Half the label's line-height leading, minus half the icon's own
+       height — centers each icon on the label's first line instead of on
+       the row's top edge. Both icons and the label read
+       --webmapx-font-size-md, so this stays correct if that token changes. */
+    .row-icon {
+      margin-top: calc((var(--webmapx-font-size-md, 0.95rem) * 1.3 - var(--webmapx-font-size-md, 0.95rem)) / 2);
     }
 
     /* Reordering must stay within .layer-list, vertical-only (matches EduGIS):
@@ -833,7 +847,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                     <div class="layer-row">
                       <sl-tooltip content="Drag to change layer order" ?disabled=${items.length <= 1}>
                         <sl-icon
-                          class="drag-handle${items.length <= 1 ? ' drag-handle-disabled' : ''}"
+                          class="drag-handle row-icon${items.length <= 1 ? ' drag-handle-disabled' : ''}"
                           name=${index === 0 ? 'arrow-down' : index === items.length - 1 ? 'arrow-up' : 'arrow-down-up'}
                           @pointerdown=${items.length > 1 ? (e: PointerEvent) => this.onDragHandlePointerDown(e) : undefined}
                           @pointermove=${items.length > 1 ? (e: PointerEvent) => this.onDragHandlePointerMove(e) : undefined}
@@ -843,7 +857,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                       </sl-tooltip>
                       <sl-tooltip content=${item.visible ? 'Hide layer' : 'Show layer'}>
                         <sl-icon-button
-                          class="visibility-toggle"
+                          class="visibility-toggle row-icon"
                           name=${item.visible ? 'eye' : 'eye-slash'}
                           label=${item.visible ? 'Hide layer' : 'Show layer'}
                           @click=${() => this.handleVisibilityToggle(item.layerId)}
@@ -864,7 +878,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                       ${isOverviewSection ? html`
                         <sl-tooltip content="Remove layer">
                           <sl-icon-button
-                            class="delete-layer"
+                            class="delete-layer row-icon"
                             name="x-circle"
                             label="Remove layer"
                             @click=${() => this.handleDeleteLayer(item.layerId)}
