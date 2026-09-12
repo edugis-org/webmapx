@@ -79,13 +79,92 @@ function decodeExpression(expression: unknown[]): ChannelState | undefined {
  * decoration, and recognising it is what recovers the no-data colour.
  */
 function decodeCase(expression: unknown[]): ChannelState | undefined {
-    if (expression.length !== 6) return undefined;
-    const [, hasTest, noData, nullTest, noDataAgain, step] = expression;
-    const field = fieldOfHasTest(hasTest);
-    if (!field || noData !== noDataAgain || typeof noData !== 'string') return undefined;
-    if (!isNullTest(nullTest, field)) return undefined;
-    if (!Array.isArray(step) || step[0] !== 'step') return undefined;
-    return decodeStep(step, noData);
+    if (expression.length === 6) {
+        const [, hasTest, noData, nullTest, noDataAgain, step] = expression;
+        const field = fieldOfHasTest(hasTest);
+        if (field && noData === noDataAgain && typeof noData === 'string'
+            && isNullTest(nullTest, field)
+            && Array.isArray(step) && step[0] === 'step') {
+            return decodeStep(step, noData);
+        }
+    }
+    return decodeComparisonLadder(expression);
+}
+
+/**
+ * Classes written as a ladder of comparisons rather than as a `step`.
+ *
+ * This is the shape real configs are full of — EduGIS wrote every choropleth
+ * this way — and not reading it is not a cosmetic loss: the panel showed
+ * `a custom expression`, which means no attribute, no class count, no palette
+ * and, the reason this was found, **no no-data colour to edit**. The layer in
+ * hand paints 49 of 409 neighbourhoods light grey for want of the column, and
+ * the only control that could have recoloured them was behind this decode.
+ *
+ * The ladder is `[guard…] (test, colour)… fallback`, where each test compares
+ * one field against an ascending number. It reads as N breaks and N+1 colours:
+ * the last colour is the fallback, which is what a `step` paints above its
+ * highest break. One difference survives on purpose — a `<=` test includes its
+ * own boundary and `step` does not, so a feature sitting exactly on the last
+ * boundary moves one class. Rewriting it as two nested expressions to keep that
+ * would cost every other control the shape they read.
+ */
+function decodeComparisonLadder(expression: unknown[]): ChannelState | undefined {
+    if (expression.length < 4 || expression.length % 2 !== 0) return undefined;
+
+    let index = 1;
+    let field: string | null = null;
+    let noDataColor: string | undefined;
+    // The guards come first and are about the absence of the value, so they
+    // name the field before any comparison does.
+    for (;;) {
+        const test = expression[index];
+        const color = expression[index + 1];
+        if (typeof color !== 'string') return undefined;
+        const guarded = fieldOfHasTest(test) ?? fieldOfNullTest(test);
+        if (!guarded) break;
+        if (field && guarded !== field) return undefined;
+        // Two guards painting different colours are two different statements,
+        // and the styler has one no-data colour: hand the whole thing back.
+        if (noDataColor !== undefined && noDataColor !== color) return undefined;
+        field = guarded;
+        noDataColor = color;
+        index += 2;
+    }
+
+    const breaks: number[] = [];
+    const colors: string[] = [];
+    for (; index < expression.length - 1; index += 2) {
+        const test = expression[index];
+        const color = expression[index + 1];
+        if (typeof color !== 'string') return undefined;
+        if (!Array.isArray(test) || (test[0] !== '<' && test[0] !== '<=')) return undefined;
+        const read = test[1];
+        const bound = test[2];
+        const name = fieldOfInput(read);
+        if (!name || typeof bound !== 'number') return undefined;
+        if (field && name !== field) return undefined;
+        // Ascending, because that is what makes the ladder a set of ranges at
+        // all: an unordered one paints something a `step` cannot express.
+        if (breaks.length > 0 && bound <= breaks[breaks.length - 1]) return undefined;
+        field = name;
+        breaks.push(bound);
+        colors.push(color);
+    }
+
+    const fallback = expression[expression.length - 1];
+    if (!field || colors.length === 0 || typeof fallback !== 'string') return undefined;
+    colors.push(fallback);
+    return attributeChannel(field, {
+        kind: 'ranges', breaks, colors,
+        ...(noDataColor === undefined ? {} : { noDataColor }),
+    });
+}
+
+function fieldOfNullTest(test: unknown): string | null {
+    if (!Array.isArray(test) || test[0] !== '==' || test[2] !== null) return null;
+    const read = test[1];
+    return Array.isArray(read) && read[0] === 'get' && typeof read[1] === 'string' ? read[1] : null;
 }
 
 function fieldOfHasTest(test: unknown): string | null {

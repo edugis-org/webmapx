@@ -516,6 +516,49 @@ export async function run({ page, engine, baseUrl }) {
         if (!paint.includes('#112233')) fail(`the chosen no-data colour was overwritten: ${paint}`);
     });
 
+    await step('a classification written as a ladder of comparisons is editable', async () => {
+        // The shape real configs carry. Read as `custom` it offered no level 4
+        // at all — and so no way to recolour the branch painting every feature
+        // that has no value, which is what this is really about.
+        await page.evaluate(async ([layerId]) => {
+            const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
+            const subs = adapter.getSubLayers(layerId);
+            const fill = subs.find((sub) => sub.type === 'fill');
+            fill.paint = { ...fill.paint, 'fill-color': ['case',
+                ['!', ['has', 'pop']], 'lightgray',
+                ['<', ['get', 'pop'], 10], '#fef0d9',
+                ['<', ['get', 'pop'], 100], '#fdcc8a',
+                '#d7301f'] };
+            await adapter.setSubLayers(layerId, subs);
+        }, [LAYER_ID]);
+        await page.waitForTimeout(600);
+
+        await page.evaluate(() => window.__styler.close());
+        await openStyler(page);
+        const lines = await summaries(page);
+        const fillRow = lines.find((line) => line.startsWith('Fill'));
+        if (!/by pop, 3 classes/.test(fillRow ?? '')) fail(`the ladder was not read as classes: ${fillRow}`);
+
+        await expandNamed(page, 'Fill');
+        const noData = await page.evaluate(() => {
+            const row = [...window.__styler.shadowRoot.querySelectorAll('.level4 .row')]
+                .find((candidate) => candidate.querySelector('input[type="text"]'));
+            return row ? row.querySelector('.color-button')?.getAttribute('aria-label') ?? null : null;
+        });
+        // Opened on the layer's own no-data colour, not on the styler's default.
+        if (!/lightgray/i.test(noData ?? '')) fail(`the no-data control did not open on the layer's colour: ${noData}`);
+
+        await page.evaluate(() => {
+            window.__styler.updateSettings(
+                window.__styler.list.find((item) => item.entry.role === 'fill'), 'color', { noDataColor: '#ff0000' });
+        });
+        await page.waitForTimeout(600);
+        const paint = JSON.stringify((await liveSubLayers(page)).find((sub) => sub.type === 'fill')?.paint?.['fill-color']);
+        // Both guards, because a feature with no value reaches the map two ways:
+        // the key absent (vector tiles drop an empty column) and the key null.
+        if ((paint.match(/#ff0000/g) ?? []).length !== 2) fail(`the no-data colour reached ${paint}`);
+    });
+
     await step('colouring by neighbours writes a class into the data and paints it', async () => {
         await expandNamed(page, 'Fill');
         await page.evaluate(() => {

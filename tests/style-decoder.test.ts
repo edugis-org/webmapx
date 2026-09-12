@@ -286,3 +286,61 @@ test('naming nothing changes nothing: invariant 4 holds for an unnamed entry', (
     const sublayer: StyleSubLayer = { id: 'areas', type: 'fill', paint: { 'fill-color': '#ff0000' } };
     assert.equal(JSON.stringify(encodeStyleEntry(decodeStyleEntry(sublayer))), JSON.stringify(sublayer));
 });
+
+test('classes written as a ladder of comparisons read as ranges, guard and all', () => {
+    // The shape real configs carry (EduGIS wrote every choropleth this way).
+    // Before this, the panel reported `a custom expression`: no attribute, no
+    // palette, and no no-data colour to edit — while 49 of 409 neighbourhoods
+    // were being painted by that very branch.
+    const field = 'percentage_personen_0_tot_15_jaar';
+    const paint = ['case',
+        ['!', ['has', field]], 'lightgray',
+        ['<', ['get', field], 10], '#fef0d9',
+        ['<', ['get', field], 20], '#fdcc8a',
+        ['<', ['get', field], 30], '#fc8d59',
+        ['<', ['get', field], 40], '#d7301f',
+        ['<=', ['get', field], 50], '#ac2618',
+        '#d7301f'];
+    const entry = decodeStyleEntry({ id: 'areas', type: 'fill', paint: { 'fill-color': paint } });
+    const color = entry.channels.color;
+    assert.equal(color?.driver, 'attribute');
+    if (color?.driver !== 'attribute') return;
+    assert.equal(color.attribute, field);
+    assert.equal(color.classification.kind, 'ranges');
+    if (color.classification.kind !== 'ranges') return;
+    assert.deepEqual(color.classification.breaks, [10, 20, 30, 40, 50]);
+    // N breaks, N+1 colours: the fallback is what a `step` paints above the top.
+    assert.deepEqual(color.classification.colors,
+        ['#fef0d9', '#fdcc8a', '#fc8d59', '#d7301f', '#ac2618', '#d7301f']);
+    assert.equal(color.classification.noDataColor, 'lightgray');
+});
+
+test('a ladder with both guards, and one with none, are both read', () => {
+    const noDataOf = (paint: unknown): string | undefined => {
+        const state = decodeStyleEntry({ id: 'a', type: 'fill', paint: { 'fill-color': paint } }).channels.color;
+        assert.equal(state?.driver, 'attribute');
+        if (state?.driver !== 'attribute' || state.classification.kind !== 'ranges') return undefined;
+        return state.classification.noDataColor;
+    };
+    assert.equal(noDataOf(['case',
+        ['!', ['has', 'x']], '#eee', ['==', ['get', 'x'], null], '#eee',
+        ['<', ['get', 'x'], 5], '#111', '#222']), '#eee');
+    assert.equal(noDataOf(['case', ['<', ['get', 'x'], 5], '#111', '#222']), undefined);
+});
+
+test('a ladder this panel cannot restate is handed back whole', () => {
+    // Descending bounds are not ranges; two guards of different colours are two
+    // statements; a condition on another column is a rule, not a class.
+    const shapes = [
+        ['case', ['<', ['get', 'x'], 50], '#111', ['<', ['get', 'x'], 10], '#222', '#333'],
+        ['case', ['!', ['has', 'x']], '#eee', ['==', ['get', 'x'], null], '#ddd',
+            ['<', ['get', 'x'], 5], '#111', '#222'],
+        ['case', ['<', ['get', 'x'], 5], '#111', ['<', ['get', 'y'], 9], '#222', '#333'],
+        ['case', ['>', ['get', 'x'], 5], '#111', '#222'],
+    ];
+    for (const paint of shapes) {
+        const entry = decodeStyleEntry({ id: 'a', type: 'fill', paint: { 'fill-color': paint } });
+        assert.equal(entry.channels.color?.driver, 'custom', JSON.stringify(paint));
+        assert.deepEqual(encodeStyleEntry(entry).paint?.['fill-color'], paint);
+    }
+});
