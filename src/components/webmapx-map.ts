@@ -975,6 +975,18 @@ export class WebmapxMapElement extends HTMLElement {
     })();
 
     this.styleLayerCache.set(cacheKey, promise);
+    // A style document that could not be read is a fact about this moment, not
+    // about the layer: the server was slow, the dev server was restarting, the
+    // network blinked. Remembering it made one hiccup permanent — the catalog
+    // reported the layer as "unsupported for current engine" (an expansion that
+    // answers null is indistinguishable from an engine that cannot draw it) and
+    // kept saying so for the rest of the session, however many times the user
+    // tried. Only a document that was actually read is worth keeping.
+    void promise.then((expanded) => {
+      if (!expanded && this.styleLayerCache.get(cacheKey) === promise) {
+        this.styleLayerCache.delete(cacheKey);
+      }
+    });
     return promise;
   }
 
