@@ -117,6 +117,7 @@ import {
     type StyleRole,
 } from '../utils/layer-style-model';
 import { legendSublayerLabel } from '../utils/layer-label';
+import { throttle } from '../utils/throttle';
 
 /**
  * The biggest circle a proportional-symbol map draws, and the biggest label.
@@ -125,6 +126,15 @@ import { legendSublayerLabel } from '../utils/layer-label';
  * and the coefficient is derived from whatever the largest value happens to be:
  * without a ceiling, one outlier decides the size of the whole map.
  */
+/**
+ * How long the map may lag the pointer while a control is being dragged.
+ *
+ * Long enough that a pointer move at screen rate cannot outrun it, short enough
+ * that the map still reads as live — which is the whole point of editing style
+ * against the map rather than against a form.
+ */
+const STYLE_APPLY_INTERVAL_MS = 80;
+
 const MAX_BUBBLE_RADIUS = 28;
 const MAX_LABEL_SIZE = 32;
 
@@ -516,6 +526,9 @@ export class WebmapxLayerStyler extends DraggablePanel {
     }
 
     close(): void {
+        // Whatever the pointer left behind goes to the map before the panel
+        // does: a throttle that drops the last edit is a lost edit.
+        this.flushPending();
         this.visible = false;
         this.destroyPickers();
         this.hidePanel();
@@ -634,7 +647,53 @@ export class WebmapxLayerStyler extends DraggablePanel {
      * touching the source, while a rebuild re-adds the layer.
      */
     private applyEntry(item: StyleListEntry, changed: ChannelId): void {
-        this.work = this.work.then(() => this.applyEntryNow(item, changed));
+        this.schedule(`${item.entry.id}:${changed}`, () => {
+            // Read the entry back rather than closing over the one that was
+            // current when the pointer moved: a throttled write lands after
+            // later edits to the same entry, and writing the older object would
+            // undo them.
+            const latest = this.list.find((candidate) => candidate.entry.id === item.entry.id) ?? item;
+            this.work = this.work.then(() => this.applyEntryNow(latest, changed));
+        });
+    }
+
+    /**
+     * Holds the newest write per channel and lets it out once per interval.
+     *
+     * A colour picker emits on every pointer move, and for a classified channel
+     * each of those rebuilt the whole classification — every feature read, the
+     * breaks recomputed, the expression rebuilt — where a single colour is one
+     * paint key. Cheap enough to go unnoticed on MapLibre and a few thousand
+     * features; not cheap on OpenLayers, which has no `setPaintProperty` and
+     * rebuilds the layer for every paint change.
+     *
+     * Keyed per entry and channel rather than one slot for everything: dragging
+     * a width and then a colour inside one interval is two different writes,
+     * and a single slot would drop the first. The map is one interval behind
+     * the pointer at worst, and `flushPending` closes that gap wherever the
+     * answer is about to be read — closing the panel, resetting it, rebuilding
+     * the layer.
+     */
+    private schedule(key: string, job: () => void): void {
+        this.pending.set(key, job);
+        this.releasePending();
+    }
+
+    private readonly pending = new Map<string, () => void>();
+
+    private readonly releasePending = throttle(() => {
+        const jobs = [...this.pending.values()];
+        this.pending.clear();
+        for (const job of jobs) job();
+    }, STYLE_APPLY_INTERVAL_MS);
+
+    /** Lets every waiting write out now. See `releasePending`. */
+    private flushPending(): void {
+        this.releasePending.flush();
+        if (this.pending.size === 0) return;
+        const jobs = [...this.pending.values()];
+        this.pending.clear();
+        for (const job of jobs) job();
     }
 
     private applyEntryNow(item: StyleListEntry, changed: ChannelId): void {
@@ -682,6 +741,9 @@ export class WebmapxLayerStyler extends DraggablePanel {
      * one operation guaranteed to land on byte-identical paint.
      */
     private async resetStyle(): Promise<void> {
+        // Dropped rather than flushed: putting the layer back and then writing
+        // one last edit over it is the one order that cannot be right.
+        this.pending.clear();
         if (this.openedWith.length === 0) {
             this.message = 'This panel has nothing to put back: it never read the layer as a whole.';
             return;
@@ -710,6 +772,9 @@ export class WebmapxLayerStyler extends DraggablePanel {
 
     /** Rewrites the layer from the style list — what adding, deleting and reordering need. */
     private rebuild(): void {
+        // A rebuild re-adds the layer from the whole list, so a paint write
+        // still waiting would be applied to a layer that no longer exists.
+        this.flushPending();
         this.work = this.work.then(() => this.rebuildNow());
     }
 
@@ -1610,6 +1675,17 @@ export class WebmapxLayerStyler extends DraggablePanel {
 
     /** Recomputes a classified channel and pushes it to the map. */
     private applyClassification(item: StyleListEntry, channel: ChannelId, settings: ClassifySettings): void {
+        // The classification itself is the expensive half — it reads every
+        // feature — so it is scheduled rather than run per pointer move. The
+        // write it ends in goes through `applyEntry`, which is scheduled under
+        // the same key, so the two share one interval instead of stacking.
+        this.schedule(`${item.entry.id}:${channel}:classify`, () => {
+            const latest = this.list.find((candidate) => candidate.entry.id === item.entry.id) ?? item;
+            this.classifyNow(latest, channel, settings);
+        });
+    }
+
+    private classifyNow(item: StyleListEntry, channel: ChannelId, settings: ClassifySettings): void {
         const features = this.featuresOf(item);
         if (!settings.attribute || features.length === 0) return;
 
