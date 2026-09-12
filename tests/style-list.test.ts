@@ -71,6 +71,24 @@ test('a source id is spelled as the engine registers it', () => {
     assert.equal(sourceIdOfSubLayer('gemeenten', {}), '');
 });
 
+test('a plain layer promoted to a sublayer keeps the source id it already carries', () => {
+    // `BaseAdapter.originalSubLayers` hands a non-composite layer over with the
+    // engine's own source id in `source`; prefixing that a second time named a
+    // source no group had, and the panel answered "No style matches that".
+    const known = ['countrypopdensity-source'];
+    assert.equal(
+        sourceIdOfSubLayer('countrypopdensity', { source: 'countrypopdensity-source' }, known),
+        'countrypopdensity-source',
+    );
+    assert.equal(sourceIdOfSubLayer('gemeenten', { source: 'data' }, ['gemeenten:data']), 'gemeenten:data');
+});
+
+test('a plain layer lists its style under the source the groups use', () => {
+    const plain = [{ id: 'countrypopdensity', type: 'fill', source: 'countrypopdensity-source' }];
+    const list = readStyleList('countrypopdensity', plain, [group('countrypopdensity-source', ['Polygon'])]);
+    assert.equal(list[0].sourceId, 'countrypopdensity-source');
+});
+
 test('reordering moves one entry and leaves the rest in place', () => {
     const list = readStyleList('layer', sublayers, [group('layer:data', ['Polygon'])]);
     assert.deepEqual(moveEntry(list, 'edges', -1).map((item) => item.entry.id), ['edges', 'areas', 'picture']);

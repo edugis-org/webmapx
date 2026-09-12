@@ -23,10 +23,29 @@ export interface StyleListEntry {
     styleable: boolean;
 }
 
-/** The source id a sublayer reads, spelled as the engine registers it: `<layerId>:<key>`. */
-export function sourceIdOfSubLayer(layerId: string, sublayer: StyleSubLayer): string {
+/**
+ * The source id a sublayer reads, in the spelling the map knows it by.
+ *
+ * Two spellings arrive here. A composite's sublayer names its source by the
+ * local key of the layer's own `sources` map, and the engine registers that as
+ * `<layerId>:<key>`. A *plain* layer promoted to the first sublayer of the
+ * composite it is about to be (`BaseAdapter.originalSubLayers`) already carries
+ * the engine's own source id, which must not be prefixed a second time — doing
+ * so made every entry of a plain layer name a source no group had, and the
+ * panel then answered "No style matches that" about a layer it was showing.
+ * `known` is the ids the groups use, so the spelling that exists wins.
+ */
+export function sourceIdOfSubLayer(
+    layerId: string,
+    sublayer: StyleSubLayer,
+    known: readonly string[] = [],
+): string {
     const key = typeof sublayer.source === 'string' ? sublayer.source : '';
-    return key ? `${layerId}:${key}` : '';
+    if (!key) return '';
+    const composite = `${layerId}:${key}`;
+    if (known.includes(composite)) return composite;
+    if (known.includes(key)) return key;
+    return composite;
 }
 
 const STYLEABLE_TYPES = new Set(['fill', 'line', 'circle', 'symbol', 'background']);
@@ -44,7 +63,8 @@ export function readStyleList(
     groups: readonly SourceStyleGroup[],
 ): StyleListEntry[] {
     return sublayers.map((sublayer, index) => {
-        const sourceId = sourceIdOfSubLayer(layerId, sublayer) || groups[0]?.sourceId || '';
+        const sourceId = sourceIdOfSubLayer(layerId, sublayer, groups.map((group) => group.sourceId))
+            || groups[0]?.sourceId || '';
         const geometry = groups.find((group) => group.sourceId === sourceId)?.geometryTypes?.join(' ');
         const styleable = STYLEABLE_TYPES.has(String(sublayer.type ?? ''));
         const entry = decodeStyleEntry(sublayer, geometry);

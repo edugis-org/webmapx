@@ -487,7 +487,11 @@ export class WebmapxLayerStyler extends DraggablePanel {
         // while the read was in flight.
         if (this.context !== context) return;
         this.groups = groups;
-        if (!this.sourceId) this.sourceId = this.sourceIds()[0] ?? null;
+        // Deliberately not narrowed to a source here. `adopt` sets this to
+        // null — every style, whatever it draws from — and picking the first
+        // group filters the list by a control the user cannot see (the source
+        // dropdown only appears past 12 entries), so a spelling mismatch
+        // emptied the panel with no way back.
 
         // Roles are decided partly by the *source's* geometry — a `line` over
         // polygons is that polygon's outline, and an outline is offered no dash
