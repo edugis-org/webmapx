@@ -651,7 +651,7 @@ layer opacity above level 0, or in the footer:
 
 ---
 
-## Where this stands — 12 September 2026
+## Where this stands — 13 September 2026
 
 Branch `feat/layer-styler-hierarchy` (not merged, not pushed). The new panel is
 `src/components/webmapx-layer-styler.ts` with helpers in `src/components/styler/`;
@@ -693,10 +693,35 @@ opens the old step dialog, which is untouched and still the shipped panel.
   author has said what it means.
 - **`decodePaint`** (`src/utils/style-decoder.ts`) and the object model
   (`src/utils/layer-style-model.ts`), with invariant 4 asserted.
+  - **Classes written as a ladder of comparisons are read as ranges**, not only
+    a `step`. `case(!has → grey, < b1 → c1, …, fallback)` is the shape real
+    configs are full of, and reading it as `custom` cost the whole of level 4 —
+    which is how it was found: on nl.json's "0-15 jaar", 49 of 409
+    neighbourhoods in view carry no such column at all (a vector tile drops an
+    empty one), and the only control that could recolour them was behind this
+    decode. N breaks, N+1 colours, the guards becoming the no-data colour. One
+    difference is kept on purpose: `<=` includes its own boundary and `step`
+    does not, so a feature sitting exactly on the last boundary moves one class
+    once the layer is edited. Anything that is not a set of ranges (descending
+    bounds, two guards of different colours, a condition on another column)
+    stays `custom` and is written back untouched.
 - **Reset**, restoring the sublayer list snapshotted at open.
+- **Writes are scheduled, state is not** (`STYLE_APPLY_INTERVAL_MS`, 80 ms). A
+  colour picker emits on every pointer move; for a classified channel each of
+  those rebuilt the whole classification and wrote it. The newest write per
+  *entry and channel* is held and let out once per interval — keyed per channel
+  because dragging a width and then a colour inside one interval is two writes
+  and one slot would drop the first. Measured over 60 pointer moves at ~120 Hz
+  on 4000 features: 14 classifications instead of 60, and the colour the pointer
+  stopped on is the colour on the map. The half that makes it safe is the flush
+  (`throttle` grew one): the panel flushes on close and before a rebuild — a
+  rebuild re-adds the layer, so a waiting paint write would land on a layer that
+  no longer exists — while **Reset drops** what is waiting, since putting the
+  layer back and then writing one last edit over it is the one order that cannot
+  be right.
 - Tests: `tests/style-decoder.test.ts`, `style-list.test.ts`,
-  `classify-channel.test.ts`, and `scripts/ui-tests/layer-styler.mjs` on **all
-  four engines**.
+  `classify-channel.test.ts`, `throttle.test.ts`, and
+  `scripts/ui-tests/layer-styler.mjs` on **all four engines**.
 
 ### Left to do, roughly in order
 
@@ -873,8 +898,8 @@ opens the old step dialog, which is untouched and still the shipped panel.
 5. **Whole-layer features**: undo, copy style to another layer, visible zoom
    range, blend mode. Also the legend's halo control, which hides itself when no
    halo exists.
-6. **Tiled layers**: explicit *recalculate from what is on screen now*, and the
-   fallback class.
+6. **Tiled layers**: explicit *recalculate from what is on screen now*. The
+   fallback class is built — see the no-data colour and wording above.
 7. **Roles not built**: `pattern`, `icon`/`symbol`, heatmap, cluster,
    `fill-extrusion`, line arrows, diagrams — all need an `addImage` path or are
    MapLibre-only.
@@ -887,6 +912,26 @@ opens the old step dialog, which is untouched and still the shipped panel.
    before: added now they would be dead, since nothing in that path reads them. Blocked on 1–2, since a raster
    layer and label styling must not regress. The panel's read-only data view and
    per-entry legend preview are not ported either and should be reviewed then.
+
+### Bugs found by using it, and fixed — 13 September 2026
+
+Each of these was reported from the app, not caught by a test, and each is now
+covered by one.
+
+- **"No style matches that." on a layer whose styles the panel was holding.**
+  `BaseAdapter.originalSubLayers` hands a *non-composite* layer over as the
+  first sublayer of the composite it is about to be, carrying the engine's own
+  source id in `source`; `sourceIdOfSubLayer` prefixed that a second time, so
+  every entry named a source no group had. `loadGroups` then narrowed the list
+  to the group's spelling and filtered every entry out — through a source
+  dropdown that is not even rendered below 13 entries. The id is now resolved
+  against the spellings the groups use, and the list is no longer narrowed to a
+  source the user did not choose.
+- **A white square over the map for as long as the panel was open.** The panel
+  is a popover, and the UA stylesheet gives every popover a centred, bordered,
+  padded box of its own. `webmapx-layer-style-dialog` has carried the reset
+  since it became a popover; the panel chrome the new styler was lifted onto
+  never got it.
 
 ### Corrections this work forced on the sections above
 
@@ -909,6 +954,22 @@ opens the old step dialog, which is untouched and still the shipped panel.
   an authored dash is preserved rather than stripped.
 - **Level 5 opens on the GL default, not on a slider minimum.** A channel the
   layer says nothing about was reported as 0, which reads as an invisible style.
+- **There is no shorter honest way to write the no-data branch**, and this was
+  measured against `@maplibre/maplibre-gl-style-spec` itself — the library
+  MapLibre, `ol-mapbox-style` and our own Leaflet/Cesium evaluator all use, so
+  one answer holds for four engines. `["case", ["==", ["get", f], null], grey,
+  step]` is exactly equivalent to the two-branch guard the builder writes, since
+  `get` on a missing key *is* null; the `!has` branch is kept because it is what
+  a config already in the wild spells, and both are written so either reads
+  back. What does **not** work: `["match", ["has", f], true, …]` (branch labels
+  must be numbers or strings), `["step", ["coalesce", ["get", f], -1], …]`
+  (`coalesce` types `get` as a number, so even `"25"` comes back null), and a
+  bare `step` (`to-number` turns missing, null *and* `""` into 0, which paints
+  them as the lowest class — the reason the guard exists). One gap survives in
+  every spelling, this one included: a non-numeric text value makes the
+  expression error, so the feature takes the spec default rather than the
+  no-data colour. `["to-number", ["get", f], -1]` is the only thing that catches
+  it, at the cost of a sentinel that must not occur in the data.
 - **Colour cycling assigns by adjacency** (`colorGroupsByAdjacency`), and whether
   it is on is decided from the data: on when values would otherwise be greyed
   out, off when they all fit, where it would only cost the legend.
