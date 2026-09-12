@@ -292,6 +292,24 @@ export interface IMap {
      */
     setExtraSubLayer(layerId: string, sublayer: Record<string, unknown> | null): Promise<boolean>;
 
+    /** The sublayers a layer draws with today, paint included. `null` if the adapter did not add it. */
+    getSubLayers(layerId: string): Array<Record<string, unknown>> | null;
+
+    /**
+     * Replaces a layer's whole sublayer list, rebuilding it as a composite in
+     * place. What the styler's style list writes through: adding, deleting and
+     * reordering styles all need the list itself to be writable, which
+     * `setExtraSubLayer` (one extra sublayer, for labels) cannot express.
+     */
+    setSubLayers(layerId: string, sublayers: Array<Record<string, unknown>>): Promise<boolean>;
+
+    /**
+     * Whether `setSubLayers` can rebuild this layer at all. False for a layer
+     * drawn from a remote style document, whose sublayers live in the fetched
+     * style rather than in the config it was added with.
+     */
+    canRebuildLayer(layerId: string): boolean;
+
     // ===== Viewport / Camera =====
     /** Gets the current viewport state (center, zoom, bearing, pitch). */
     getViewportState(): { center: [number, number], zoom: number, bearing: number, pitch: number };
