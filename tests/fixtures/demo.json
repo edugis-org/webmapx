@@ -3352,7 +3352,7 @@
           "id": "draw",
           "type": "draw",
           "enabled": true,
-          "title": "Draw",
+          "title": "Draw and edit layers",
           "icon": "pencil"
         },
         {

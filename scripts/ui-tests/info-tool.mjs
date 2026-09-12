@@ -46,55 +46,69 @@ async function setupDrawLayer(page) {
         return Boolean(tool?.active);
     }, undefined, { timeout: 10_000 });
 
-    // Dispatch layer-confirm directly with special attribute types
-    await page.evaluate(() => {
-        const tool = document.querySelector('webmapx-draw-tool');
-        const dialog = tool?.shadowRoot?.querySelector('webmapx-draw-layer-dialog');
-        if (!dialog) throw new Error('Draw layer dialog not found');
+    // The panel opens onto a type picker, not straight into point mode —
+    // pick "Points", then "Add new Point layer", which now drops straight
+    // into that layer's editing session (no dialog). The rich attribute
+    // schema this test needs is set directly on the layer's properties
+    // rather than by clicking through "Edit attributes" four times — that
+    // popup's own add/remove flow is covered elsewhere; this test is about
+    // the info tool's rendering of link/image/timestamp attributes.
+    await page.evaluate(async () => {
+        const waitFor = async (fn, timeoutMs, label) => {
+            const started = Date.now();
+            while (Date.now() - started < timeoutMs) {
+                const value = fn();
+                if (value) return value;
+                await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+            throw new Error(`Timed out waiting for ${label}`);
+        };
 
-        // Click draw-point button first to open dialog
-        const btn = tool.shadowRoot.querySelector('sl-icon-button[name="geo-fill"]');
-        if (!btn) throw new Error('Point draw button not found');
-        btn.click();
-    });
-
-    // The dialog stays inside the tool's shadow root: it is carried above the
-    // page by a native <dialog> in the top layer, not by being reparented to
-    // document.body (see src/components/internal/top-layer-dialog.ts).
-    await page.waitForFunction(() => {
         const tool = document.querySelector('webmapx-draw-tool');
-        const dialogRoot = tool?.shadowRoot
-            ?.querySelector('webmapx-draw-layer-dialog')?.shadowRoot;
-        return Boolean(dialogRoot?.querySelector('.layer-option'));
-    }, undefined, { timeout: 5_000 });
+        if (!tool?.shadowRoot) throw new Error('Draw tool shadow root unavailable');
 
-    await page.evaluate(() => {
-        const tool = document.querySelector('webmapx-draw-tool');
-        const dialog = tool?.shadowRoot?.querySelector('webmapx-draw-layer-dialog');
-        if (!dialog) throw new Error('Dialog not found');
-        dialog.dispatchEvent(new CustomEvent('webmapx-draw-layer-confirm', {
-            detail: {
-                id: 'info-test-layer',
-                name: 'info-test',
-                type: 'Point',
-                color: '#0f62fe',
-                properties: [
-                    { name: 'id',      type: 'number' },
-                    { name: 'link',    type: 'linkURL' },
-                    { name: 'image',   type: 'imageURL' },
-                    { name: 'created', type: 'create-time' },
-                    { name: 'updated', type: 'update-time' },
-                ],
+        const pointCard = await waitFor(
+            () => tool.shadowRoot.querySelector('.type-card[data-type="Point"]'),
+            5_000,
+            'point type card'
+        );
+        pointCard.click();
+        await waitFor(() => tool.panelView === 'layers' && tool.pickedType === 'Point', 5_000, 'point layer picker');
+
+        const addNewButton = await waitFor(
+            () => Array.from(tool.shadowRoot.querySelectorAll('sl-button'))
+                .find((button) => (button.textContent ?? '').includes('Add new')),
+            5_000,
+            'add new point layer button'
+        );
+        addNewButton.click();
+
+        await waitFor(() => tool.panelView === 'editing' && Boolean(tool.activeLayerIds?.Point), 10_000, 'point editing session');
+
+        const layerId = tool.activeLayerIds.Point;
+        tool.drawLayers = tool.drawLayers.map((l) => l.id === layerId ? {
+            ...l,
+            name: 'info-test',
+            properties: [
+                { name: 'id',      type: 'number' },
+                { name: 'link',    type: 'linkURL' },
+                { name: 'image',   type: 'imageURL' },
+                { name: 'created', type: 'create-time' },
+                { name: 'updated', type: 'update-time' },
+            ],
+        } : l);
+
+        const drawBtn = await waitFor(
+            () => {
+                const btn = tool.shadowRoot.querySelector('sl-icon-button[name="geo-fill"]');
+                return btn && !btn.hasAttribute('disabled') ? btn : null;
             },
-            bubbles: true,
-            composed: true,
-        }));
+            5_000,
+            'enabled point draw button'
+        );
+        drawBtn.click();
+        await waitFor(() => tool.mode === 'draw-point', 5_000, 'draw-point mode');
     });
-
-    await page.waitForFunction(() => {
-        const tool = document.querySelector('webmapx-draw-tool');
-        return Boolean(tool?.activeLayerIds?.Point);
-    }, undefined, { timeout: 10_000 });
 
     // Draw a point at map center
     await page.evaluate(async () => {

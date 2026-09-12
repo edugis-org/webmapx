@@ -76,7 +76,7 @@ export const TOOL_REGISTRY: readonly ToolRegistryEntry[] = [
     },
     { id: 'measure', tag: 'webmapx-measure-tool', placement: 'toolbar', label: 'Measure', icon: 'rulers' },
     { id: 'info', tag: 'webmapx-info-tool', placement: 'toolbar', label: 'Feature info', icon: 'info-circle' },
-    { id: 'draw', tag: 'webmapx-draw-tool', placement: 'toolbar', label: 'Draw', icon: 'pencil' },
+    { id: 'draw', tag: 'webmapx-draw-tool', placement: 'toolbar', label: 'Draw and edit layers', icon: 'pencil' },
     {
         id: 'geolocation', tag: 'webmapx-geolocation-tool', placement: 'toolbar', label: 'Geolocation',
         icon: 'crosshair', metadataAliases: ['geolocate'],

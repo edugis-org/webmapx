@@ -1,4 +1,3 @@
-import { installDeepQuery } from "./lib/deep-query.mjs";
 import { appUrl, FIXTURE_CONFIG } from './lib/fixture-config.mjs';
 
 /**
@@ -76,32 +75,58 @@ async function activateDrawTool(page) {
 
 /** Draws a single point feature into a fresh local draw layer. */
 async function drawPointFeature(page) {
-  await page.evaluate(() => {
+  // The panel opens onto a type picker, not straight into point mode — pick
+  // "Points", then "Add new Point layer", which now drops straight into that
+  // layer's editing session (no dialog). It starts unnamed, and the toolbar
+  // (including the draw button) stays hidden until it has a name, so that's
+  // set inline before switching to draw mode.
+  await page.evaluate(async () => {
+    const waitFor = async (fn, timeoutMs, label) => {
+      const started = Date.now();
+      while (Date.now() - started < timeoutMs) {
+        const value = fn();
+        if (value) return value;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      throw new Error(`Timed out waiting for ${label}`);
+    };
+
     const tool = document.querySelector('webmapx-draw-tool');
-    const btn = tool.shadowRoot.querySelector('sl-icon-button[name="geo-fill"]');
-    if (!btn) throw new Error('Point draw button not found');
-    btn.click();
+    if (!tool?.shadowRoot) throw new Error('Draw tool shadow root unavailable');
+
+    const pointCard = await waitFor(
+      () => tool.shadowRoot.querySelector('.type-card[data-type="Point"]'),
+      5_000,
+      'point type card'
+    );
+    pointCard.click();
+    await waitFor(() => tool.panelView === 'layers' && tool.pickedType === 'Point', 5_000, 'point layer picker');
+
+    const addNewButton = await waitFor(
+      () => Array.from(tool.shadowRoot.querySelectorAll('sl-button'))
+        .find((button) => (button.textContent ?? '').includes('Add new')),
+      5_000,
+      'add new point layer button'
+    );
+    addNewButton.click();
+
+    await waitFor(() => tool.panelView === 'editing' && Boolean(tool.activeLayerIds?.Point), 10_000, 'point editing session');
+
+    const nameInput = await waitFor(() => tool.shadowRoot.querySelector('.editing-layer-name'), 5_000, 'layer name input');
+    nameInput.value = 'buffer-test';
+    nameInput.dispatchEvent(new Event('sl-change', { bubbles: true, composed: true }));
+
+    const drawBtn = await waitFor(
+      () => {
+        const btn = tool.shadowRoot.querySelector('sl-icon-button[name="geo-fill"]');
+        return btn && !btn.hasAttribute('disabled') ? btn : null;
+      },
+      5_000,
+      'enabled point draw button'
+    );
+    drawBtn.click();
+    await waitFor(() => tool.mode === 'draw-point', 5_000, 'draw-point mode');
   });
-
-  await page.waitForFunction(() => {
-    const dialogRoot = window.__wmxDeepQuery('webmapx-draw-layer-dialog', { open: true })?.shadowRoot;
-    return Boolean(dialogRoot?.querySelector('.layer-option'));
-  }, undefined, { timeout: 5_000 });
-
-  await page.evaluate(() => {
-    const dialog = window.__wmxDeepQuery('webmapx-draw-layer-dialog', { open: true });
-    if (!dialog) throw new Error('Draw layer dialog not found');
-    dialog.dispatchEvent(new CustomEvent('webmapx-draw-layer-confirm', {
-      detail: { id: 'buffer-test-layer', name: 'buffer-test', type: 'Point', color: '#0f62fe', properties: [] },
-      bubbles: true,
-      composed: true,
-    }));
-  });
-
-  await page.waitForFunction(() => {
-    const tool = document.querySelector('webmapx-draw-tool');
-    return Boolean(tool?.activeLayerIds?.Point);
-  }, undefined, { timeout: 10_000 });
 
   await page.evaluate(async () => {
     const map = document.querySelector('webmapx-map');
@@ -181,7 +206,6 @@ async function getBufferErrorText(page) {
 }
 
 export async function run({ page, engine, baseUrl }) {
-  await installDeepQuery(page);
   console.log(`  Running buffer tool test for engine: ${engine}`);
 
   const step = async (label, fn) => {

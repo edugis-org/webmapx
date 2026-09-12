@@ -1,4 +1,3 @@
-import { installDeepQuery } from "./lib/deep-query.mjs";
 import { appUrl } from './lib/fixture-config.mjs';
 
 /**
@@ -198,81 +197,42 @@ async function clickPolygonModeAndSelectUtrechtLayer(page) {
     const tool = map?.querySelector('webmapx-draw-tool');
     if (!tool?.shadowRoot) throw new Error('Draw tool shadow root unavailable');
 
-    // Click polygon mode button
-    const polygonButton = tool.shadowRoot.querySelector('sl-icon-button[name="pentagon"]');
-    if (!polygonButton) throw new Error('Polygon mode button not found');
-    polygonButton.click();
-
-    // Wait for layer dialog to open
-    const dialogRoot = await waitFor(
-      () => window.__wmxDeepQuery('webmapx-draw-layer-dialog', { open: true })?.shadowRoot,
-      10_000,
-      'draw layer dialog root'
+    // The panel opens onto a type picker, not straight into polygon mode —
+    // pick "Polygons", where the persisted Utrecht layer shows up under
+    // "From the map" with its own "Start editing" button. No dialog: "Add
+    // new" is only for a genuinely new, empty layer now.
+    const polygonCard = await waitFor(
+      () => tool.shadowRoot.querySelector('.type-card[data-type="Polygon"]'),
+      5_000,
+      'polygon type card'
     );
+    polygonCard.click();
+    await waitFor(() => tool.panelView === 'layers' && tool.pickedType === 'Polygon', 5_000, 'polygon layer picker');
 
-    // Wait for dialog to be ready
-    await new Promise(r => setTimeout(r, 500));
-
-    // Get dialog's mapLayers to see what's available
-    // Wait for map layers to appear in the dialog
     await waitFor(
-      () => {
-        const d = window.__wmxDeepQuery('webmapx-draw-layer-dialog', { open: true });
-        return (d?.mapLayers || []).length > 0;
-      },
+      () => tool.catalogLayerOptions?.some(o => o.label?.toLowerCase().includes('utrecht')),
       10_000,
-      'Utrecht layer in dialog mapLayers'
+      'Utrecht layer in catalogLayerOptions'
     );
 
-    // Get the dialog's mapLayers
-    const layerDialog = window.__wmxDeepQuery('webmapx-draw-layer-dialog', { open: true });
-    const mapLayers = layerDialog?.mapLayers || [];
-
-    // Find Utrecht layer in mapLayers
-    const utrechtMapLayer = mapLayers.find(l => l.label?.toLowerCase().includes('utrecht'));
-    if (!utrechtMapLayer) {
-      throw new Error(`Utrecht layer not found in mapLayers. Available: ${JSON.stringify(mapLayers.map(l => l.label))}`);
-    }
-
-    // Click on the layer option in the dialog
-    const options = dialogRoot.querySelectorAll('.layer-option');
-    let utrechtOption = null;
-    for (const opt of options) {
-      const text = opt.textContent || '';
-      if (text.toLowerCase().includes('utrecht')) {
-        utrechtOption = opt;
-        break;
-      }
-    }
-
-    if (!utrechtOption) {
-      const allTexts = Array.from(options).map(o => o.textContent?.trim());
-      throw new Error(`Utrecht layer option not found in dialog. Available options: ${JSON.stringify(allTexts)}`);
-    }
-
-    utrechtOption.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
-
-    // Wait for Next button and click it
-    const nextButton = await waitFor(
-      () => Array.from(dialogRoot.querySelectorAll('sl-button'))
-        .find((button) => (button.textContent ?? '').includes('Next')),
+    const rows = await waitFor(
+      () => {
+        const list = Array.from(tool.shadowRoot.querySelectorAll('.layer-row'));
+        return list.length > 0 ? list : null;
+      },
       5_000,
-      'next button'
+      'layer rows'
     );
-    nextButton.click();
+    const utrechtRow = rows.find(r => r.querySelector('.layer-name')?.textContent?.toLowerCase().includes('utrecht'));
+    if (!utrechtRow) {
+      const allNames = rows.map(r => r.querySelector('.layer-name')?.textContent?.trim());
+      throw new Error(`Utrecht layer row not found. Available: ${JSON.stringify(allNames)}`);
+    }
 
-    // Wait for OK button (properties step) and click it
-    const okButton = await waitFor(
-      () => Array.from(dialogRoot.querySelectorAll('sl-button'))
-        .find((button) => (button.textContent ?? '').trim() === 'OK'),
-      5_000,
-      'ok button'
-    );
-
-    okButton.click();
-
-    // Wait for the confirm event to propagate
-    await new Promise(r => setTimeout(r, 1000));
+    const startBtn = Array.from(utrechtRow.querySelectorAll('sl-button'))
+      .find(b => (b.textContent ?? '').includes('Start editing'));
+    if (!startBtn) throw new Error('Start editing button not found on Utrecht row');
+    startBtn.click();
 
     return { success: true };
   });
@@ -280,9 +240,6 @@ async function clickPolygonModeAndSelectUtrechtLayer(page) {
   if (!result.success) {
     fail('Failed to select Utrecht layer in draw tool');
   }
-
-  // Wait for dialog to close
-  await page.waitForTimeout(500);
 
   // Wait for the layer to be active and features to be loaded
   await page.waitForFunction(() => {
@@ -366,7 +323,6 @@ async function step(name, fn) {
 }
 
 export async function run({ page, engine, baseUrl }) {
-  await installDeepQuery(page);
   console.log(`  Running search-persist-draw test for engine: ${engine}`);
 
   // The suite owns its config. Without this it ran against whatever

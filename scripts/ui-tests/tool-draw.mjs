@@ -1,4 +1,3 @@
-import { installDeepQuery } from "./lib/deep-query.mjs";
 import { appUrl } from './lib/fixture-config.mjs';
 
 function fail(message) {
@@ -29,8 +28,16 @@ async function toggleDrawTool(page) {
   });
 }
 
-async function setDrawModeAndCreateLayer(page, buttonName, layerName, activeLayerType) {
-  await page.evaluate(async ({ drawButtonName, name }) => {
+/**
+ * The panel opens onto a type picker, then a per-type layer list, then the
+ * scoped editing session for one layer — "Draw and edit layers" is a
+ * three-screen flow, not a flat toolbar. This walks from wherever the panel
+ * currently is back to the type picker, picks `geometryType`, and clicks
+ * the layer-picker's "Add new" button, which drops straight into a fresh
+ * layer's editing session (no dialog — see `createLayerDirect`).
+ */
+async function navigateToAddNewLayerScreen(page, geometryType) {
+  await page.evaluate(async ({ type }) => {
     const waitFor = async (fn, timeoutMs, label) => {
       const started = Date.now();
       while (Date.now() - started < timeoutMs) {
@@ -45,57 +52,119 @@ async function setDrawModeAndCreateLayer(page, buttonName, layerName, activeLaye
     const tool = map?.querySelector('webmapx-draw-tool');
     if (!tool?.shadowRoot) throw new Error('Draw tool shadow root unavailable');
 
-    const modeButton = tool.shadowRoot.querySelector(`sl-icon-button[name="${drawButtonName}"]`);
-    if (!modeButton) throw new Error(`Draw mode button not found: ${drawButtonName}`);
-    modeButton.click();
+    if (tool.panelView === 'editing') {
+      const stopBtn = await waitFor(
+        () => tool.shadowRoot.querySelector('sl-icon-button[label="Stop editing"]'),
+        5_000, 'stop editing button'
+      );
+      stopBtn.click();
+      await waitFor(() => tool.panelView === 'layers', 5_000, 'panel to leave editing view');
+    }
 
-    const dialogRoot = await waitFor(
-      () => window.__wmxDeepQuery('webmapx-draw-layer-dialog', { open: true })?.shadowRoot,
-      10_000,
-      'draw layer dialog root'
+    if (tool.panelView === 'layers') {
+      const backBtn = await waitFor(
+        () => tool.shadowRoot.querySelector('sl-icon-button[label="Back"]'),
+        5_000, 'back button'
+      );
+      backBtn.click();
+      await waitFor(() => tool.panelView === 'type', 5_000, 'panel to reach type picker');
+    }
+
+    const card = await waitFor(
+      () => tool.shadowRoot.querySelector(`.type-card[data-type="${type}"]`),
+      5_000, `type card for ${type}`
+    );
+    card.click();
+    await waitFor(
+      () => tool.panelView === 'layers' && tool.pickedType === type,
+      5_000, 'layer picker for type'
     );
 
-    const newOption = await waitFor(
-      () => dialogRoot.querySelector('.layer-option'),
-      5_000,
-      'new layer option'
+    const addBtn = await waitFor(
+      () => Array.from(tool.shadowRoot.querySelectorAll('sl-button'))
+        .find((button) => (button.textContent ?? '').includes('Add new')),
+      5_000, 'add new layer button'
     );
-    newOption.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    addBtn.click();
+  }, { type: geometryType });
+}
 
-    const nextButton = await waitFor(
-      () => Array.from(dialogRoot.querySelectorAll('sl-button'))
-        .find((button) => (button.textContent ?? '').includes('Next')),
-      5_000,
-      'next button'
-    );
-    nextButton.click();
+/**
+ * Mirrors `navigateToAddNewLayerScreen`, but ends on an existing layer's
+ * "Start editing" button instead of "Add new" — this is how a layer that
+ * isn't the one currently showing gets resumed (it may have been paused by
+ * a sibling layer of the same type taking over the editing session).
+ */
+async function navigateToStartEditingLayer(page, geometryType, layerName) {
+  await page.evaluate(async ({ type, name }) => {
+    const waitFor = async (fn, timeoutMs, label) => {
+      const started = Date.now();
+      while (Date.now() - started < timeoutMs) {
+        const value = fn();
+        if (value) return value;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      throw new Error(`Timed out waiting for ${label}`);
+    };
 
-    const layerNameInput = await waitFor(
-      () => dialogRoot.querySelector('sl-input[name="layername"]'),
-      5_000,
-      'layer name input'
-    );
-    layerNameInput.value = name;
-    layerNameInput.dispatchEvent(new Event('sl-input', { bubbles: true, composed: true }));
-    layerNameInput.dispatchEvent(new Event('sl-change', { bubbles: true, composed: true }));
+    const map = document.querySelector('webmapx-map');
+    const tool = map?.querySelector('webmapx-draw-tool');
+    if (!tool?.shadowRoot) throw new Error('Draw tool shadow root unavailable');
 
-    const okButton = await waitFor(
-      () => Array.from(dialogRoot.querySelectorAll('sl-button'))
-        .find((button) => (button.textContent ?? '').trim() === 'OK'),
-      5_000,
-      'ok button'
+    if (tool.panelView === 'editing') {
+      const stopBtn = await waitFor(
+        () => tool.shadowRoot.querySelector('sl-icon-button[label="Stop editing"]'),
+        5_000, 'stop editing button'
+      );
+      stopBtn.click();
+      await waitFor(() => tool.panelView === 'layers', 5_000, 'panel to leave editing view');
+    }
+
+    if (tool.panelView === 'layers' && tool.pickedType !== type) {
+      const backBtn = await waitFor(
+        () => tool.shadowRoot.querySelector('sl-icon-button[label="Back"]'),
+        5_000, 'back button'
+      );
+      backBtn.click();
+      await waitFor(() => tool.panelView === 'type', 5_000, 'panel to reach type picker');
+    }
+
+    if (tool.panelView === 'type') {
+      const card = await waitFor(
+        () => tool.shadowRoot.querySelector(`.type-card[data-type="${type}"]`),
+        5_000, `type card for ${type}`
+      );
+      card.click();
+      await waitFor(
+        () => tool.panelView === 'layers' && tool.pickedType === type,
+        5_000, 'layer picker for type'
+      );
+    }
+
+    const rows = await waitFor(
+      () => {
+        const list = Array.from(tool.shadowRoot.querySelectorAll('.layer-row'));
+        return list.length > 0 ? list : null;
+      },
+      5_000, 'layer rows'
     );
-    okButton.click();
-  }, { drawButtonName: buttonName, name: layerName });
+    const row = rows.find((r) => r.querySelector('.layer-name')?.textContent?.trim() === name);
+    if (!row) throw new Error(`Layer row not found: ${name}`);
+    const startBtn = Array.from(row.querySelectorAll('sl-button'))
+      .find((button) => (button.textContent ?? '').includes('Start editing'));
+    if (!startBtn) throw new Error('Start editing button not found');
+    startBtn.click();
+  }, { type: geometryType, name: layerName });
 
   await page.waitForFunction(({ expectedType }) => {
     const map = document.querySelector('webmapx-map');
     const tool = map?.querySelector('webmapx-draw-tool');
-    return Boolean(tool && tool.activeLayerIds?.[expectedType]);
-  }, { expectedType: activeLayerType }, { timeout: 10_000 });
+    return tool?.panelView === 'editing' && tool?.pickedType === expectedType;
+  }, { expectedType: geometryType }, { timeout: 10_000 });
 }
 
-async function setDrawModeAndCreateLayerByEvent(page, buttonName, layerName, geometryType, activeLayerType) {
+/** Click one of the editing session's own tool buttons (Select/Draw/Circle) and wait for the mode to take. */
+async function enterDrawMode(page, buttonName, expectedMode) {
   await page.evaluate(({ drawButtonName }) => {
     const map = document.querySelector('webmapx-map');
     const tool = map?.querySelector('webmapx-draw-tool');
@@ -104,42 +173,49 @@ async function setDrawModeAndCreateLayerByEvent(page, buttonName, layerName, geo
     button.click();
   }, { drawButtonName: buttonName });
 
-  await page.evaluate(({ name, type }) => {
-    const dialog = window.__wmxDeepQuery('webmapx-draw-layer-dialog', { open: true });
-    if (!dialog) throw new Error('Draw layer dialog element not found');
+  await page.waitForFunction(({ mode }) => {
+    const map = document.querySelector('webmapx-map');
+    const tool = map?.querySelector('webmapx-draw-tool');
+    return tool?.mode === mode;
+  }, { mode: expectedMode }, { timeout: 5_000 });
+}
 
-    const detail = {
-      id: `ui-layer-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      name,
-      type,
-      color: '#0f62fe',
-      properties: [
-        { name: 'id', type: 'number' },
-        { name: 'name', type: 'string' },
-      ],
-    };
-
-    dialog.dispatchEvent(new CustomEvent('webmapx-draw-layer-confirm', {
-      detail,
-      bubbles: true,
-      composed: true,
-    }));
-  }, { name: layerName, type: geometryType });
+/**
+ * Create a brand-new layer — "Add new" now goes straight to its editing
+ * session, no dialog. A fresh layer starts unnamed, and the whole toolbar
+ * (mode pill, snap/undo/redo/delete, help text, "Edit attributes") stays
+ * hidden until it has a name — only the name field itself shows, so this
+ * also exercises that gate (asserting the draw button doesn't exist yet)
+ * before naming the layer and switching into draw mode.
+ */
+async function createLayerDirect(page, geometryType, layerName, activeLayerType, drawButtonName, drawMode) {
+  await navigateToAddNewLayerScreen(page, geometryType);
 
   await page.waitForFunction(({ expectedType }) => {
     const map = document.querySelector('webmapx-map');
     const tool = map?.querySelector('webmapx-draw-tool');
-    return Boolean(tool && tool.activeLayerIds?.[expectedType]);
+    return tool?.panelView === 'editing' && Boolean(tool.activeLayerIds?.[expectedType]);
   }, { expectedType: activeLayerType }, { timeout: 10_000 });
 
-  // Ensure the tool is actually in this draw mode after layer activation.
-  await page.evaluate(({ drawButtonName }) => {
-    const map = document.querySelector('webmapx-map');
-    const tool = map?.querySelector('webmapx-draw-tool');
-    const button = tool?.shadowRoot?.querySelector(`sl-icon-button[name="${drawButtonName}"]`);
-    if (!button) throw new Error(`Draw mode button not found for mode activation: ${drawButtonName}`);
-    button.click();
-  }, { drawButtonName: buttonName });
+  const toolbarHiddenBeforeNaming = await page.evaluate(({ buttonName }) => {
+    const tool = document.querySelector('webmapx-map')?.querySelector('webmapx-draw-tool');
+    const btn = tool.shadowRoot.querySelector(`sl-icon-button[name="${buttonName}"]`);
+    const pill = tool.shadowRoot.querySelector('.pill');
+    return btn === null && pill === null;
+  }, { buttonName: drawButtonName });
+  if (!toolbarHiddenBeforeNaming) {
+    throw new Error('Expected the mode pill/draw button to be absent before the new layer has a name');
+  }
+
+  await page.evaluate(({ name }) => {
+    const tool = document.querySelector('webmapx-map')?.querySelector('webmapx-draw-tool');
+    const nameInput = tool.shadowRoot.querySelector('.editing-layer-name');
+    if (!nameInput) throw new Error('Layer name input not found');
+    nameInput.value = name;
+    nameInput.dispatchEvent(new Event('sl-change', { bubbles: true, composed: true }));
+  }, { name: layerName });
+
+  await enterDrawMode(page, drawButtonName, drawMode);
 }
 
 async function setSelectedFeatureName(page, featureName) {
@@ -325,22 +401,6 @@ async function getMapLayerAndSourceSummary(page, expectedLayerName) {
   }, { layerName: expectedLayerName });
 }
 
-async function setDrawModeWithoutCreatingLayer(page, buttonName, activeLayerType) {
-  await page.evaluate(({ drawButtonName }) => {
-    const map = document.querySelector('webmapx-map');
-    const tool = map?.querySelector('webmapx-draw-tool');
-    const button = tool?.shadowRoot?.querySelector(`sl-icon-button[name="${drawButtonName}"]`);
-    if (!button) throw new Error(`Draw mode button not found: ${drawButtonName}`);
-    button.click();
-  }, { drawButtonName: buttonName });
-
-  await page.waitForFunction(({ expectedType }) => {
-    const map = document.querySelector('webmapx-map');
-    const tool = map?.querySelector('webmapx-draw-tool');
-    return Boolean(tool && tool.activeLayerIds?.[expectedType]);
-  }, { expectedType: activeLayerType }, { timeout: 10_000 });
-}
-
 async function setBackgroundToGoogleSatelliteViaCatalogTool(page) {
   await page.evaluate(async () => {
     const waitFor = async (fn, timeoutMs, label) => {
@@ -520,29 +580,31 @@ async function emitMapDrawSequence(page, geometryKind) {
   }, { kind: geometryKind });
 }
 
+/** Snapshot of tool state read from the component's own properties — not the DOM, since which
+ * screen (type/layers/editing) is showing depends on `panelView`, not on what's being asserted. */
 async function getDrawState(page) {
   return page.evaluate(() => {
     const map = document.querySelector('webmapx-map');
     const tool = map?.querySelector('webmapx-draw-tool');
-    if (!tool?.shadowRoot) throw new Error('Draw tool shadow root missing');
+    if (!tool) throw new Error('Draw tool not found');
 
-    const layerRow = tool.shadowRoot.querySelector('.layer-row');
-    const layerName = layerRow?.querySelector('.layer-name')?.textContent?.trim() ?? null;
-    const layerFeatureCount = Number(layerRow?.querySelector('small')?.textContent ?? '0');
+    const layers = Array.isArray(tool.drawLayers) ? tool.drawLayers : [];
+    const features = Array.isArray(tool.features) ? tool.features : [];
+    const activeLayerId = tool.pickedType ? tool.activeLayerIds?.[tool.pickedType] : null;
+    const activeLayer = layers.find((layer) => layer.id === activeLayerId) ?? null;
 
     return {
       active: Boolean(tool.active),
-      drawLayerCount: Array.isArray(tool.drawLayers) ? tool.drawLayers.length : 0,
-      featureCount: Array.isArray(tool.features) ? tool.features.length : 0,
+      drawLayerCount: layers.length,
+      featureCount: features.length,
       selectedFeatureId: tool.selectedFeatureId ?? null,
-      layerName,
-      layerFeatureCount,
+      layerName: activeLayer?.name ?? null,
+      layerFeatureCount: activeLayer ? features.filter((f) => f.layerId === activeLayer.id).length : 0,
     };
   });
 }
 
 export async function run({ page, engine, baseUrl }) {
-  await installDeepQuery(page);
   // The suite owns its config. Without this it ran against whatever
   // index.html loads — `config/demo.json`, a checkout of the configs
   // repository — and CLAUDE.md's promise that "editing a real config cannot
@@ -586,8 +648,16 @@ export async function run({ page, engine, baseUrl }) {
     }, undefined, { timeout: 10_000 });
   });
 
-  await step('create point layer from popup', async () => {
-    await setDrawModeAndCreateLayer(page, 'geo-fill', pointLayerName, 'Point');
+  await step('opens onto the type picker', async () => {
+    await page.waitForFunction(() => {
+      const map = document.querySelector('webmapx-map');
+      const tool = map?.querySelector('webmapx-draw-tool');
+      return tool?.panelView === 'type';
+    }, undefined, { timeout: 10_000 });
+  });
+
+  await step('create point layer directly in its editing session', async () => {
+    await createLayerDirect(page, 'Point', pointLayerName, 'Point', 'geo-fill', 'draw-point');
   });
 
   await step('add point feature', async () => {
@@ -621,7 +691,7 @@ export async function run({ page, engine, baseUrl }) {
   });
 
   await step('create line layer and feature', async () => {
-    await setDrawModeAndCreateLayerByEvent(page, 'slash-lg', lineLayerName, 'LineString', 'LineString');
+    await createLayerDirect(page, 'LineString', lineLayerName, 'LineString', 'slash-lg', 'draw-line');
     await emitMapDrawSequence(page, 'line');
     await waitForFeatureCount(page, 2);
   });
@@ -633,7 +703,7 @@ export async function run({ page, engine, baseUrl }) {
   });
 
   await step('create polygon layer and feature', async () => {
-    await setDrawModeAndCreateLayerByEvent(page, 'pentagon', polygonLayerName, 'Polygon', 'Polygon');
+    await createLayerDirect(page, 'Polygon', polygonLayerName, 'Polygon', 'pentagon', 'draw-polygon');
     await emitMapDrawSequence(page, 'polygon');
     await waitForFeatureCount(page, 3);
   });
@@ -662,21 +732,48 @@ export async function run({ page, engine, baseUrl }) {
     }, undefined, { timeout: 10_000 });
   });
 
+  await step('reopening resumes the last editing session, not the type picker', async () => {
+    // The panel was left mid-edit on the polygon layer, and panelView/pickedType
+    // deliberately survive deactivate/activate — reopening the tool should not
+    // dump the user back at "what do you want to draw?".
+    await page.waitForFunction(() => {
+      const map = document.querySelector('webmapx-map');
+      const tool = map?.querySelector('webmapx-draw-tool');
+      return tool?.panelView === 'editing' && tool?.pickedType === 'Polygon';
+    }, undefined, { timeout: 10_000 });
+  });
+
   await step('add second point without dialog', async () => {
-    await setDrawModeWithoutCreatingLayer(page, 'geo-fill', 'Point');
+    // Navigating to the points layer pauses the still-active polygon layer
+    // rather than destroying it — resumed later via the same "Start editing" path.
+    await navigateToStartEditingLayer(page, 'Point', pointLayerName);
+    await enterDrawMode(page, 'geo-fill', 'draw-point');
     await emitMapClickAtCenter(page);
     await waitForFeatureCount(page, 4);
+  });
+
+  await step('drawn point is selected for its attribute panel, but not armed for dragging', async () => {
+    // Regression check, two parts: `selectedFeatureId` is set right after
+    // finishing so the attribute panel shows immediately (otherwise you'd
+    // have to switch to Select mode just to type in a value you could set
+    // right away) — but `editState` must stay 'none', not 'editing'/
+    // 'selected', or a drag handle gets armed while `mode` is still
+    // 'draw-point' (ready for the next one). That mode's own click handling
+    // claims every subsequent click for placing more points, so a click
+    // meant to move the just-drawn feature would instead add an unwanted
+    // extra one — arming a handle on top of that is what caused it.
+    const state = await page.evaluate(() => {
+      const tool = document.querySelector('webmapx-draw-tool');
+      return { selectedFeatureId: tool?.selectedFeatureId ?? null, editState: tool?.editState ?? null };
+    });
+    if (!state.selectedFeatureId) fail('Expected the drawn point to be selected (for its attribute panel)');
+    if (state.editState !== 'none') fail(`Expected editState 'none' right after drawing, got '${state.editState}'`);
+  });
+
+  await step('select and name the second point', async () => {
     await selectLatestFeatureInLayer(page, pointLayerName);
     await setSelectedFeatureName(page, pointName2);
     await waitForLayerFeatureName(page, pointLayerName, pointName2);
-  });
-
-  await step('point feature auto-selected after draw', async () => {
-    const selected = await page.evaluate(() => {
-      const tool = document.querySelector('webmapx-draw-tool');
-      return tool?.selectedFeatureId ?? null;
-    });
-    if (!selected) fail('Expected drawn point to be auto-selected');
   });
 
   await step('point feature has auto-computed special attributes', async () => {
@@ -693,7 +790,8 @@ export async function run({ page, engine, baseUrl }) {
   });
 
   await step('add second line without dialog', async () => {
-    await setDrawModeWithoutCreatingLayer(page, 'slash-lg', 'LineString');
+    await navigateToStartEditingLayer(page, 'LineString', lineLayerName);
+    await enterDrawMode(page, 'slash-lg', 'draw-line');
     await emitMapDrawSequence(page, 'line');
     await waitForFeatureCount(page, 5);
     await selectLatestFeatureInLayer(page, lineLayerName);
@@ -702,7 +800,10 @@ export async function run({ page, engine, baseUrl }) {
   });
 
   await step('add second polygon without dialog', async () => {
-    await setDrawModeWithoutCreatingLayer(page, 'pentagon', 'Polygon');
+    // The polygon layer was paused when we left it for points/lines above —
+    // this is the resume path, not a fresh "Add new".
+    await navigateToStartEditingLayer(page, 'Polygon', polygonLayerName);
+    await enterDrawMode(page, 'pentagon', 'draw-polygon');
     await emitMapDrawSequence(page, 'polygon');
     await waitForFeatureCount(page, 6);
     await selectLatestFeatureInLayer(page, polygonLayerName);
