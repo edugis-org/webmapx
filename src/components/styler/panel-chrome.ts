@@ -18,6 +18,21 @@ export const panelChromeStyles = css`
     :host { display: none; }
     :host([visible]) { display: block; }
 
+    /* The host is a bare frame around .panel, so the box the UA gives a popover
+       — centred, bordered, padded, scrollable — has to come off, or it draws a
+       small white square over the map for as long as the panel is open. */
+    :host([popover]) {
+        position: static;
+        inset: auto;
+        width: auto;
+        height: auto;
+        margin: 0;
+        border: none;
+        padding: 0;
+        background: transparent;
+        overflow: visible;
+    }
+
     .panel {
         position: fixed;
         top: 50%;
