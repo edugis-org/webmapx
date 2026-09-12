@@ -418,6 +418,27 @@ export interface IMap {
     setSourceTiles(sourceId: string, tiles: string[]): boolean;
 
     /**
+     * Changes request *parameters* of a live source, rather than its urls.
+     *
+     * This exists because a url is not a shape every engine holds. MapLibre
+     * keeps a raster source as a literal request template and hands back
+     * exactly what was written; OpenLayers keeps a `TileWMS` as a base url plus
+     * a `params` object and assembles `SERVICE`, `REQUEST`, `WIDTH`, `HEIGHT`
+     * and the bounding box itself at fetch time. Asking OpenLayers for "the
+     * url" therefore means *fabricating* one, and writing one back means taking
+     * it apart again — a round trip that loses whatever the engine adds itself
+     * and mangles what it does not expect (a `#` inside an SLD document being
+     * read as a fragment).
+     *
+     * So callers that want to change a parameter say so, and each engine
+     * applies it the way it holds requests: OpenLayers through `updateParams`,
+     * MapLibre by rewriting its template. A value of `null` removes the
+     * parameter. Returns false when the engine cannot do it.
+     */
+    setSourceParams(sourceId: string, params: Record<string, string | null>): boolean;
+
+
+    /**
      * The request urls a live tile source is actually using, which is not always
      * what the config declared: a WMS given as a bare endpoint plus parameters
      * has its GetMap url assembled by the engine, and that assembled url is the

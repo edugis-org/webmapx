@@ -43,6 +43,30 @@ const WARPEDMAP_PROTOCOL = 'warpedmap://';
  */
 const WORLD_EXTENT: [number, number, number, number] = [-2e7, -2e7, 2e7, 2e7];
 
+/**
+ * A url with some parameters set or removed, tile placeholders intact.
+ *
+ * Used only for a source that has no `params` of its own; a value may contain a
+ * `#` (a colour in an SLD document), which would otherwise truncate the query.
+ */
+function withQueryParams(raw: string, params: Record<string, string | null>): string {
+    const query = raw.indexOf('?');
+    const safe = query === -1 ? raw : raw.slice(0, query + 1) + raw.slice(query + 1).replace(/#/g, '%23');
+    let url: URL;
+    try {
+        url = new URL(safe, window.location.href);
+    } catch (_) {
+        return raw;
+    }
+    for (const [name, value] of Object.entries(params)) {
+        for (const key of [...url.searchParams.keys()]) {
+            if (key.toLowerCase() === name.toLowerCase()) url.searchParams.delete(key);
+        }
+        if (value !== null) url.searchParams.set(name, value);
+    }
+    return url.href.replace(/%7B/g, '{').replace(/%7D/g, '}');
+}
+
 export class MapLayerService implements ILayerService {
     private map: OLMap;
     private store: MapStateStore;
@@ -154,17 +178,39 @@ export class MapLayerService implements ILayerService {
      * in its own terms, so the new url's query is folded into its params —
      * otherwise the layer would keep asking for the old style.
      */
+    /**
+     * Every spelling of one source's id.
+     *
+     * `nativeLayerToSource` is keyed by the *native* source id this service
+     * invented (`src-<logical id>-<n>`), while every caller outside the engine
+     * — the style panel, the store — knows the logical one from the config. A
+     * straight comparison therefore matched nothing, and both `getSourceTiles`
+     * and `setSourceTiles` answered "this engine cannot repoint a live source"
+     * for sources it repoints perfectly well.
+     */
+    private sourceIdAliases(sourceId: string): Set<string> {
+        const aliases = new Set<string>([sourceId]);
+        const native = this.logicalSourceToNative.get(sourceId);
+        if (native) aliases.add(native);
+        for (const [logical, nativeId] of this.logicalSourceToNative.entries()) {
+            if (nativeId === sourceId) aliases.add(logical);
+        }
+        return aliases;
+    }
+
     setSourceTiles(sourceId: string, tiles: string[]): boolean {
         const [url] = tiles;
         if (!url) return false;
         let changed = false;
+        const wanted = this.sourceIdAliases(sourceId);
         for (const [nativeLayerId, layerSourceId] of this.nativeLayerToSource.entries()) {
-            if (layerSourceId !== sourceId) continue;
+            if (!wanted.has(layerSourceId)) continue;
             const layer = this.nativeLayerInstances.get(nativeLayerId) as
                 { getSource?: () => unknown } | undefined;
             const source = layer?.getSource?.() as {
                 setUrl?: (url: string) => void;
                 updateParams?: (params: Record<string, string>) => void;
+                getParams?: () => Record<string, unknown>;
             } | undefined;
             if (!source) continue;
             if (typeof source.updateParams === 'function') {
@@ -173,6 +219,17 @@ export class MapLayerService implements ILayerService {
                 // exact key it was built with.
                 const upper: Record<string, string> = {};
                 for (const [key, value] of Object.entries(params)) upper[key.toUpperCase()] = value;
+                // `updateParams` merges, so a parameter the new url *drops* —
+                // `SLD_BODY` when a style is handed back to the service — would
+                // survive forever and the layer would never go back to normal.
+                // The live params object is the source's own, so a key removed
+                // here is removed from the request.
+                const live = source.getParams?.();
+                if (live) {
+                    for (const key of Object.keys(live)) {
+                        if (!(key.toUpperCase() in upper)) delete live[key];
+                    }
+                }
                 source.updateParams(upper);
                 changed = true;
             } else if (typeof source.setUrl === 'function') {
@@ -184,13 +241,66 @@ export class MapLayerService implements ILayerService {
     }
 
     /**
+     * Changes request parameters on a live source — what OpenLayers is actually
+     * built for.
+     *
+     * A `TileWMS`/`ImageWMS` holds its query as `params` and assembles
+     * `SERVICE`, `REQUEST`, `WIDTH`, `HEIGHT` and the bounding box itself as it
+     * fetches. `updateParams` is therefore the *native* expression of "ask the
+     * same service for a differently drawn picture", where going through a url
+     * means fabricating one here and taking it apart again in `setSourceTiles`
+     * — a round trip that drops what the engine adds itself. A source with no
+     * params (an `XYZ` built from a baked GetMap url) is rewritten instead.
+     */
+    setSourceParams(sourceId: string, params: Record<string, string | null>): boolean {
+        const wanted = this.sourceIdAliases(sourceId);
+        let changed = false;
+        for (const [nativeLayerId, layerSourceId] of this.nativeLayerToSource.entries()) {
+            if (!wanted.has(layerSourceId)) continue;
+            const layer = this.nativeLayerInstances.get(nativeLayerId) as
+                { getSource?: () => unknown } | undefined;
+            const source = layer?.getSource?.() as {
+                updateParams?: (params: Record<string, string>) => void;
+                getParams?: () => Record<string, unknown>;
+                getUrls?: () => string[];
+                getUrl?: () => string | undefined;
+                setUrl?: (url: string) => void;
+            } | undefined;
+            if (!source) continue;
+            if (typeof source.updateParams === 'function') {
+                const live = source.getParams?.();
+                const next: Record<string, string> = {};
+                for (const [name, value] of Object.entries(params)) {
+                    // A parameter is removed from the source's own object:
+                    // `updateParams` merges, so it cannot take one away.
+                    if (live) {
+                        for (const key of Object.keys(live)) {
+                            if (key.toLowerCase() === name.toLowerCase()) delete live[key];
+                        }
+                    }
+                    if (value !== null) next[name.toUpperCase()] = value;
+                }
+                source.updateParams(next);
+                changed = true;
+                continue;
+            }
+            const base = source.getUrls?.()?.[0] ?? source.getUrl?.();
+            if (typeof base !== 'string' || typeof source.setUrl !== 'function') continue;
+            source.setUrl(withQueryParams(base, params));
+            changed = true;
+        }
+        return changed;
+    }
+
+    /**
      * The request url the live source uses. A `TileWMS`/`ImageWMS` keeps its
      * query in `params` rather than in the url, so it is put back together here
      * — that assembled url is what a caller rewrites and hands to setSourceTiles.
      */
     getSourceTiles(sourceId: string): string[] | null {
+        const wanted = this.sourceIdAliases(sourceId);
         for (const [nativeLayerId, layerSourceId] of this.nativeLayerToSource.entries()) {
-            if (layerSourceId !== sourceId) continue;
+            if (!wanted.has(layerSourceId)) continue;
             const layer = this.nativeLayerInstances.get(nativeLayerId) as { getSource?: () => unknown } | undefined;
             const source = layer?.getSource?.() as {
                 getUrls?: () => string[];
@@ -206,7 +316,12 @@ export class MapLayerService implements ILayerService {
             for (const [key, value] of Object.entries(params)) {
                 if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
             }
-            return [decodeURIComponent(url.href)];
+            // Only the tile placeholders are handed back decoded. Decoding the
+            // whole url looks tidier and is wrong: a parameter value may hold a
+            // `#` (a colour in an SLD document, say), and everything after it
+            // then parses as a fragment — truncating the query on the next
+            // rewrite and dragging the old value along behind it.
+            return [url.href.replace(/%7B/g, '{').replace(/%7D/g, '}')];
         }
         return null;
     }

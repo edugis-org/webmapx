@@ -74,6 +74,29 @@ interface MarkerService {
     remove(id: string): void;
 }
 
+/**
+ * The query a request url carries, upper-cased.
+ *
+ * Only so a source repointed by url reports the same thing as one repointed by
+ * parameter: everything downstream then reads one shape.
+ */
+function requestParamsOf(url: string | undefined): Record<string, string> {
+    if (!url) return {};
+    const params: Record<string, string> = {};
+    const query = url.indexOf('?');
+    if (query === -1) return params;
+    for (const pair of url.slice(query + 1).split('&')) {
+        const eq = pair.indexOf('=');
+        if (eq === -1) continue;
+        try {
+            params[pair.slice(0, eq).toUpperCase()] = decodeURIComponent(pair.slice(eq + 1).replace(/\+/g, ' '));
+        } catch (_) {
+            params[pair.slice(0, eq).toUpperCase()] = pair.slice(eq + 1);
+        }
+    }
+    return params;
+}
+
 export abstract class BaseAdapter {
     public readonly store: MapStateStore;
     public readonly events: MapEventBus;
@@ -328,7 +351,63 @@ export abstract class BaseAdapter {
         if (config) {
             this.sourceConfigs.set(sourceId, { ...config, tiles, ...(config.url ? { url: tiles } : {}) });
         }
+        // What the urls ask for, so a reader does not have to take them apart.
+        this.notifySourceChanged(sourceId, requestParamsOf(tiles[0]));
         return true;
+    }
+
+    /**
+     * Changes request parameters on a live source.
+     *
+     * The public entry, so the store notification happens once and in one
+     * place; engines implement `engineSetSourceParams`.
+     */
+    setSourceParams(sourceId: string, params: Record<string, string | null>): boolean {
+        if (!this.engineSetSourceParams(sourceId, params)) return false;
+        this.notifySourceChanged(sourceId, params);
+        return true;
+    }
+
+    protected engineSetSourceParams(_sourceId: string, _params: Record<string, string | null>): boolean {
+        return false;
+    }
+
+    /**
+     * Tells the store that a source is now asking for something different, and
+     * what it asked for.
+     *
+     * The request itself travels, rather than a hint to go and read it: an
+     * engine does not necessarily report a change the instant it accepts one —
+     * MapLibre reports a new `STYLES` about a second after `setTiles` returns —
+     * so anything that reacted by reading the engine back saw the *previous*
+     * request. That is exactly one step behind, which is how a legend came to
+     * show the style chosen before last.
+     */
+    protected notifySourceChanged(sourceId: string, params?: Record<string, string | null>): void {
+        const current = this.store.getState().mapLayers ?? {};
+        let changed = false;
+        const next = { ...current };
+        for (const [layerId, entry] of Object.entries(current)) {
+            const record = entry as unknown as Record<string, unknown>;
+            if (record?.sourceId !== sourceId) continue;
+            const merged: Record<string, string> = {
+                ...(record.sourceParams && typeof record.sourceParams === 'object'
+                    ? record.sourceParams as Record<string, string>
+                    : {}),
+            };
+            for (const [name, value] of Object.entries(params ?? {})) {
+                const key = name.toUpperCase();
+                if (value === null) delete merged[key];
+                else merged[key] = value;
+            }
+            next[layerId] = {
+                ...record,
+                sourceParams: merged,
+                sourceRevision: Number(record.sourceRevision ?? 0) + 1,
+            } as typeof entry;
+            changed = true;
+        }
+        if (changed) this.store.dispatch({ mapLayers: next }, 'UI');
     }
 
     protected engineSetSourceTiles(_sourceId: string, _tiles: string[]): boolean {

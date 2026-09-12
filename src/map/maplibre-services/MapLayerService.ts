@@ -21,6 +21,31 @@ const OPACITY_PAINT_PROPERTIES: Record<string, string[]> = {
     hillshade: ['hillshade-shadow-color', 'hillshade-highlight-color', 'hillshade-accent-color'],
 };
 
+/**
+ * A request template with some parameters set or removed, placeholders intact.
+ *
+ * `{bbox-epsg-3857}` and `{z}/{x}/{y}` must survive, and a value may itself
+ * contain a `#` (a colour in an SLD document), which would otherwise be read as
+ * the start of a fragment and truncate the query.
+ */
+function withQueryParams(raw: string, params: Record<string, string | null>): string {
+    const query = raw.indexOf('?');
+    const safe = query === -1 ? raw : raw.slice(0, query + 1) + raw.slice(query + 1).replace(/#/g, '%23');
+    let url: URL;
+    try {
+        url = new URL(safe, typeof window !== 'undefined' ? window.location.href : 'http://localhost/');
+    } catch (_) {
+        return raw;
+    }
+    for (const [name, value] of Object.entries(params)) {
+        for (const key of [...url.searchParams.keys()]) {
+            if (key.toLowerCase() === name.toLowerCase()) url.searchParams.delete(key);
+        }
+        if (value !== null) url.searchParams.set(name, value);
+    }
+    return url.href.replace(/%7B/g, '{').replace(/%7D/g, '}');
+}
+
 export class MapLayerService implements ILayerService {
     private map: maplibregl.Map;
     private store: MapStateStore;
@@ -537,6 +562,21 @@ export class MapLayerService implements ILayerService {
         if (typeof source?.setTiles !== 'function') return false;
         source.setTiles(tiles);
         return true;
+    }
+
+    /**
+     * Changes request parameters on a live source.
+     *
+     * MapLibre holds a raster source as a literal request template, so a
+     * parameter change is a rewrite of that template — but the rewrite happens
+     * *here*, in engine code that knows what shape the source is, rather than
+     * in a caller that would have to fabricate a url and hand it back.
+     */
+    setSourceParams(sourceId: string, params: Record<string, string | null>): boolean {
+        const current = this.getSourceTiles(sourceId);
+        if (!current || current.length === 0) return false;
+        const rewritten = current.map((raw) => withQueryParams(raw, params));
+        return this.setSourceTiles(sourceId, rewritten);
     }
 
     /** Where the live source currently points, which the config may not say. */
