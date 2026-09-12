@@ -46,7 +46,6 @@ import {
 import {
     defaultEntry,
     duplicateEntry,
-    entryName,
     nextEntryId,
     ROLE_LABELS,
     rolesForGeometry,
@@ -94,12 +93,12 @@ import {
 } from '../utils/wms-source';
 import type { StyleSubLayer } from '../utils/layer-style-model';
 import {
+    categoricalPaletteColorCount,
     classifyColorChannel,
     classifySizeChannel,
     defaultSettings,
     isNumericType,
     schemesFor,
-    cyclesCategories,
     METHOD_HINTS,
     METHOD_LABELS,
     OFFERED_METHODS,
@@ -117,6 +116,7 @@ import {
     type ChannelState,
     type StyleRole,
 } from '../utils/layer-style-model';
+import { legendSublayerLabel } from '../utils/layer-label';
 
 /**
  * The biggest circle a proportional-symbol map draws, and the biggest label.
@@ -564,9 +564,21 @@ export class WebmapxLayerStyler extends DraggablePanel {
     }
 
     private entryLabel(item: StyleListEntry): string {
+        const name = this.displayEntryName(item) ?? item.entry.id;
         return item.styleable
-            ? `${item.entry.id} ${summarizeEntry(item.entry)}`
-            : `${item.entry.id} ${item.entry.origin?.type ?? ''}`;
+            ? `${name} ${summarizeEntry(item.entry)}`
+            : `${name} ${item.entry.origin?.type ?? ''}`;
+    }
+
+    private displayEntryName(item: StyleListEntry): string | null {
+        const rawId = item.entry.id;
+        const label = legendSublayerLabel(
+            this.context?.layerMeta ?? null,
+            item.entry.origin as Record<string, unknown> | null | undefined,
+            rawId,
+            this.list.length === 1,
+        );
+        return label || null;
     }
 
     /**
@@ -1368,7 +1380,7 @@ export class WebmapxLayerStyler extends DraggablePanel {
         const expanded = this.expandedId === item.entry.id;
         const index = siblings.indexOf(item);
         const swatch = swatchColorsOf(item.entry.channels.color);
-        const name = entryName(item.entry, this.layerId);
+        const name = this.displayEntryName(item);
         // The rows are listed topmost first, so the row above is later in the
         // draw order — which is what makes an up arrow mean "draw this on top"
         // rather than the opposite. Under a filter the neighbour on screen is
@@ -1488,9 +1500,7 @@ export class WebmapxLayerStyler extends DraggablePanel {
         if (classification.kind === 'ranges') seeded.classCount = classification.colors.length;
         if (classification.kind === 'categories') {
             seeded.maxCategories = Math.max(classification.values.length, 1);
-            // More values than the palette has colours is what cycling *is*, and
-            // it is visible in the data: the colour list repeats.
-            seeded.cycle = new Set(classification.colors).size < classification.colors.length;
+            seeded.cycle = true;
         }
         return seeded;
     }
@@ -1785,46 +1795,29 @@ export class WebmapxLayerStyler extends DraggablePanel {
     }
 
     private renderCategoryLevel4(item: StyleListEntry, channel: ChannelId, settings: ClassifySettings): TemplateResult {
-        // The checkbox shows the *resolved* answer, so an untouched panel is
-        // never ticked differently from the map it is describing.
-        const cycling = cyclesCategories(this.featuresOf(item), settings);
         return html`
-            <div class="row check-row">
+            <div class="row">
                 <span class="name">Colours</span>
-                <label class="check">
-                    <input type="checkbox" .checked=${cycling}
-                           @change=${(event: Event) => this.updateSettings(item, channel, {
-                               cycle: (event.target as HTMLInputElement).checked,
-                           })}>
-                    Give every value a colour, repeating
-                </label>
+                <input type="range" min="2" max="12" step="1" aria-label="How many colours to use"
+                       .value=${String(settings.maxCategories)}
+                       @input=${(event: Event) => this.updateSettings(item, channel, {
+                           maxCategories: Number((event.target as HTMLInputElement).value),
+                       })}>
+                <span class="value">${settings.maxCategories}</span>
             </div>
-            ${cycling
-                ? html`<p class="muted">
-                        Every value is drawn, but a colour no longer names one value — so there is no legend.
-                        The alternative greys out everything past the limit below.
-                    </p>`
-                : html`
-                    <div class="row">
-                        <span class="name">At most</span>
-                        <input type="range" min="2" max="12" step="1" aria-label="How many categories get their own colour"
-                               .value=${String(settings.maxCategories)}
-                               @input=${(event: Event) => this.updateSettings(item, channel, {
-                                   maxCategories: Number((event.target as HTMLInputElement).value),
-                               })}>
-                        <span class="value">${settings.maxCategories}</span>
-                    </div>`}
         `;
     }
 
     private renderPalette(item: StyleListEntry, channel: ChannelId, settings: ClassifySettings): TemplateResult {
         const state = item.entry.channels[channel];
-        const colorCount = state?.driver === 'attribute' && state.classification.kind !== 'proportional'
-            ? state.classification.colors.length
-            : settings.classCount;
         const numeric = this.isNumeric(item, settings.attribute);
         const type = numeric ? 'seq' : 'qual';
-        const schemes = schemesFor(Math.min(colorCount, 9), type, settings);
+        const colorCount = numeric
+            ? state?.driver === 'attribute' && state.classification.kind !== 'proportional'
+                ? state.classification.colors.length
+                : settings.classCount
+            : categoricalPaletteColorCount(this.featuresOf(item), settings);
+        const schemes = schemesFor(colorCount, type, settings);
         const current = state?.driver === 'attribute' ? state.schemeName : settings.schemeName;
         return html`
             <div class="row check-row">

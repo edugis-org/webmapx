@@ -1590,6 +1590,7 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
     const title = (runtimeMetadata?.label as string | undefined) ?? fallbackLabel;
     this.styleDialog?.open({
       title,
+      layerMeta: runtimeMetadata ?? null,
       engine: this.adapter?.engineId,
       layerId,
       groups: [],

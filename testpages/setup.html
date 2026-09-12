@@ -198,7 +198,7 @@
     .prop-popup-footer button { padding: 0.3rem 0.7rem; font-size: 0.8rem; border-radius: 3px; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; }
     .prop-popup-footer .btn-apply { background: #0f62fe; color: #fff; border-color: #0f62fe; }
 
-    .actions { margin-top: 2rem; display: flex; gap: 1rem; }
+    .actions { margin-top: 2rem; display: flex; gap: 1rem; flex-wrap: wrap; }
     button { padding: 0.6rem 1.4rem; font-size: 1rem; cursor: pointer; border: none; border-radius: 4px; }
     #btn-launch { background: #0f62fe; color: #fff; }
     #btn-launch:hover { background: #0353e9; }
@@ -207,6 +207,23 @@
     #status { margin-top: 1rem; font-size: 0.875rem; color: #555; }
     #btn-publish { background: #e0e0e0; }
     #btn-publish:hover { background: #c6c6c6; }
+    #btn-upload { background: #e0e0e0; border: 1px dashed transparent; }
+    #btn-upload:hover, #btn-upload.drag-over { background: #dbe8ff; border-color: #0f62fe; color: #0f62fe; }
+    .upload-hint { flex-basis: 100%; margin: -0.4rem 0 0; font-size: 0.8rem; color: #777; }
+    .upload-path-row { flex-basis: 100%; display: flex; gap: 0.5rem; align-items: center; }
+    .upload-path-row input {
+      flex: 1; min-width: 260px; box-sizing: border-box;
+      padding: 0.45rem 0.6rem; font-size: 0.85rem; border: 1px solid #ccc; border-radius: 4px;
+    }
+    .upload-path-row button { padding: 0.45rem 0.9rem; font-size: 0.85rem; background: #e0e0e0; }
+    body.config-drag-over::before {
+      content: "Drop config file to upload";
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(15, 98, 254, 0.12); color: #0f3f9e;
+      border: 4px dashed #0f62fe; box-sizing: border-box;
+      font-size: 1.4rem; font-weight: 600; pointer-events: none;
+    }
     .publish-panel {
       border: 1px solid #ddd; border-radius: 6px; padding: 0.9rem; margin: 0.75rem 0 1.25rem;
       background: #fafbfc; max-width: 480px;
@@ -234,7 +251,14 @@
     <button id="btn-launch">Update preview</button>
     <button id="btn-reset">Reset to defaults</button>
     <button id="btn-download">Download config</button>
+    <button id="btn-upload" type="button">Upload config</button>
+    <input id="config-upload-input" type="file" accept=".json,application/json" hidden>
     <button id="btn-publish">Publish to GitHub…</button>
+    <div class="upload-path-row">
+      <input id="config-path-input" type="text" placeholder="Paste config path or URL, e.g. \\wsl$\Ubuntu-22.04\home\anneb\projects\webmapx-configs\nl.json">
+      <button id="btn-open-config-path" type="button">Open path</button>
+    </div>
+    <p class="upload-hint">Drop a JSON config or path anywhere on this page, use Upload config, or paste a local dev path above.</p>
   </div>
 
   <div id="publish-panel" class="publish-panel" hidden>
@@ -522,7 +546,8 @@
     // as a separate key so the stored config stays byte-for-byte publishable.
     function storeConfig(key, config) {
       localStorage.setItem(key, JSON.stringify(config));
-      localStorage.setItem(key + '-url', new URL(activeConfigUrl, window.location.href).href);
+      if (activeConfigUrl) localStorage.setItem(key + '-url', new URL(activeConfigUrl, window.location.href).href);
+      else localStorage.removeItem(key + '-url');
     }
 
     // Derive toolbar keys dynamically from config instead of hardcoding names.
@@ -2327,12 +2352,161 @@
       saveOverrides(ov);
     });
 
+    function reinitializeFromConfig(config, statusText) {
+      saveOverrides({});
+      closePopup();
+      buildUI(config, {});
+      buildLayersUI(config);
+      buildMapUI(config);
+      refreshMapPreviewFrame(config);
+      selStoryIdx = 0;
+      selChapterIdx = 0;
+      selStepIdx = 0;
+      buildStoriesUI(config);
+      refreshStoriesPreviewFrame(config);
+      updateSelectAll();
+      storeConfig(STORAGE_KEY, config);
+      document.getElementById('status').textContent = statusText;
+    }
+
+    async function uploadConfigFile(file) {
+      if (!file) return;
+      const status = document.getElementById('status');
+      status.textContent = `Loading "${file.name}"…`;
+      let parsed;
+      try {
+        parsed = JSON.parse(await file.text());
+      } catch (err) {
+        status.textContent = `Could not read "${file.name}" as JSON: ${err.message ?? String(err)}`;
+        return;
+      }
+      baseConfig = normalizeRawConfig(parsed);
+      // Browsers do not expose a picked file's local path. The config itself is
+      // transferred via localStorage; there is no honest URL to put in preview.
+      activeConfigUrl = null;
+      reinitializeFromConfig(baseConfig, `Uploaded "${file.name}" — setup reinitialized.`);
+    }
+
+    function devServerUrlForPath(rawPath) {
+      let value = String(rawPath ?? '').trim();
+      value = value.replace(/^["']|["']$/g, '');
+      value = value.replace(/^file:\s*/i, '').trim();
+      value = value.replace(/^file:\/\/\/?/i, '');
+
+      const wslMatch = value.match(/^\\\\wsl\$\\[^\\]+(\\.*)$/i);
+      if (wslMatch) {
+        const linuxPath = wslMatch[1].replace(/\\/g, '/');
+        return `/@fs${linuxPath.startsWith('/') ? linuxPath : '/' + linuxPath}`;
+      }
+
+      const fileWslMatch = value.match(/^wsl\$\/[^/]+(\/.*)$/i);
+      if (fileWslMatch) return `/@fs${fileWslMatch[1]}`;
+
+      if (/^[a-z]+:\/\//i.test(value) || value.startsWith('/')) {
+        return value;
+      }
+
+      return value;
+    }
+
+    async function uploadConfigPath(rawPath) {
+      if (!rawPath?.trim()) return;
+      const status = document.getElementById('status');
+      const configUrl = devServerUrlForPath(rawPath);
+      status.textContent = `Loading "${rawPath.trim()}"…`;
+      let res;
+      try {
+        res = await fetch(configUrl);
+      } catch (err) {
+        status.textContent = `Could not open "${rawPath.trim()}": ${err.message ?? String(err)}`;
+        return;
+      }
+      if (!res.ok) {
+        status.textContent = `Could not open "${rawPath.trim()}" (${res.status}). If this is a local dev path, restart Vite after the latest config change.`;
+        return;
+      }
+      try {
+        baseConfig = normalizeRawConfig(await res.json());
+      } catch (err) {
+        status.textContent = `Could not parse "${rawPath.trim()}" as JSON: ${err.message ?? String(err)}`;
+        return;
+      }
+      activeConfigUrl = res.url;
+      reinitializeFromConfig(baseConfig, `Opened "${rawPath.trim()}" — setup reinitialized.`);
+    }
+
+    const uploadBtn = document.getElementById('btn-upload');
+    const uploadInput = document.getElementById('config-upload-input');
+    const pathInput = document.getElementById('config-path-input');
+    let pageDragDepth = 0;
+
+    function hasConfigDragData(event) {
+      const types = [...(event.dataTransfer?.types ?? [])];
+      return types.includes('Files') || types.includes('text/plain') || types.includes('text/uri-list');
+    }
+
+    function setConfigDragOver(active) {
+      document.body.classList.toggle('config-drag-over', active);
+      uploadBtn.classList.toggle('drag-over', active);
+    }
+
+    function droppedFile(event) {
+      const files = [...(event.dataTransfer?.files ?? [])];
+      return files.find(file => file.name.toLowerCase().endsWith('.json')) ?? files[0];
+    }
+
+    function droppedPath(event) {
+      return event.dataTransfer?.getData('text/uri-list') || event.dataTransfer?.getData('text/plain') || '';
+    }
+
+    uploadBtn.addEventListener('click', () => uploadInput.click());
+    uploadInput.addEventListener('change', () => {
+      uploadConfigFile(uploadInput.files?.[0]);
+      uploadInput.value = '';
+    });
+    document.getElementById('btn-open-config-path').addEventListener('click', () => uploadConfigPath(pathInput.value));
+    pathInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        uploadConfigPath(pathInput.value);
+      }
+    });
+
+    document.addEventListener('dragenter', (e) => {
+      if (!hasConfigDragData(e)) return;
+      e.preventDefault();
+      pageDragDepth += 1;
+      setConfigDragOver(true);
+    });
+    document.addEventListener('dragover', (e) => {
+      if (!hasConfigDragData(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+    document.addEventListener('dragleave', (e) => {
+      if (!hasConfigDragData(e)) return;
+      pageDragDepth = Math.max(0, pageDragDepth - 1);
+      if (pageDragDepth === 0) setConfigDragOver(false);
+    });
+    document.addEventListener('drop', (e) => {
+      if (!hasConfigDragData(e)) return;
+      e.preventDefault();
+      pageDragDepth = 0;
+      setConfigDragOver(false);
+      const file = droppedFile(e);
+      if (file) uploadConfigFile(file);
+      else uploadConfigPath(droppedPath(e));
+    });
+
     document.getElementById('btn-launch').addEventListener('click', () => {
       if (!baseConfig) return;
       const overrides = getSaved();
       const finalConfig = applyOverrides(baseConfig, overrides);
       storeConfig(STORAGE_KEY, finalConfig);
-      const previewUrl = `preview.html?config=${encodeURIComponent(activeConfigUrl)}`;
+      const previewParams = new URLSearchParams(window.location.search);
+      if (activeConfigUrl) previewParams.set('config', activeConfigUrl);
+      else previewParams.delete('config');
+      const previewUrl = `preview.html${previewParams.toString() ? `?${previewParams}` : ''}`;
       // Reset engine to config value so any user override in preview is cleared.
       const engine = finalConfig.engine ?? finalConfig.map?.type ?? 'maplibre';
       setPreviewEngine(previewUrl, engine);
@@ -2341,19 +2515,7 @@
     });
 
     document.getElementById('btn-reset').addEventListener('click', () => {
-      saveOverrides({});
-      buildUI(baseConfig, {});
-      buildLayersUI(baseConfig);
-      buildMapUI(baseConfig);
-      refreshMapPreviewFrame(baseConfig);
-      selStoryIdx = 0;
-      selChapterIdx = 0;
-      selStepIdx = 0;
-      buildStoriesUI(baseConfig);
-      refreshStoriesPreviewFrame(baseConfig);
-      updateSelectAll();
-      storeConfig(STORAGE_KEY, baseConfig);
-      document.getElementById('status').textContent = 'Reset to defaults — preview updated.';
+      reinitializeFromConfig(baseConfig, 'Reset to defaults — preview updated.');
     });
 
     document.getElementById('btn-download').addEventListener('click', () => {

@@ -105,6 +105,8 @@ export interface LayerHost {
 
 export interface StyleDialogContext {
     title: string;
+    /** The layer's runtime metadata, used for the same labels the legend shows. */
+    layerMeta?: Record<string, unknown> | null;
     /**
      * Which engine is drawing, as `adapter.engineId`.
      *

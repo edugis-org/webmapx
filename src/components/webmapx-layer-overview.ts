@@ -1388,6 +1388,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     // fills itself in from `resample` below.
     const context: StyleDialogContext = {
       title,
+      layerMeta: runtimeMetadata ?? null,
       engine: this.adapter?.engineId,
       layerId,
       groups: [],

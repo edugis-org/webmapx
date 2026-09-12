@@ -15,6 +15,7 @@ import {
     type StyleEntry,
     type StyleRole,
 } from '../../utils/layer-style-model';
+import { metadataLabel } from '../../utils/layer-label';
 
 export const ROLE_LABELS: Record<StyleRole, string> = {
     fill: 'Fill',
@@ -137,6 +138,12 @@ function describeChannel(role: StyleRole, channel: ChannelId, state: ChannelStat
  * so it is not shown as one.
  */
 export function entryName(entry: StyleEntry, layerId: string): string | null {
+    const metadata = entry.origin?.metadata && typeof entry.origin.metadata === 'object'
+        ? entry.origin.metadata as Record<string, unknown>
+        : null;
+    const authoredLabel = metadataLabel(metadata);
+    if (authoredLabel) return authoredLabel;
+
     const id = entry.id;
     if (!id || id === layerId) return null;
     if (id.startsWith(`${layerId}--`)) return null;

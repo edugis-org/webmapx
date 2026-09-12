@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vite';
+import { defineConfig, searchForWorkspaceRoot } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import { readFileSync } from 'fs';
 
@@ -36,6 +36,14 @@ function pruneConfigCheckout() {
 export default defineConfig({
   base: './', // Set base to relative path for correct asset loading
   optimizeDeps: _mlMajor >= 6 ? { exclude: ['maplibre-gl'] } : {},
+  server: {
+    fs: {
+      allow: [
+        searchForWorkspaceRoot(process.cwd()),
+        path.resolve(__dirname, '../webmapx-configs'),
+      ],
+    },
+  },
   plugins: [
     pruneConfigCheckout(),
     // Configure the plugin to copy Shoelace assets

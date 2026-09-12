@@ -5,6 +5,7 @@ import type { IMapState } from '../store/IMapState';
 import Pickr from '@simonwep/pickr';
 import { COLOR_PALETTE, raiseColorPickerPopup } from './internal/color-picker';
 import { DEFAULT_DATA_COLOR } from '../map/default-paint';
+import { legendSublayerLabel } from '../utils/layer-label';
 import { readWmsSource } from '../utils/wms-source';
 import { legendGraphicUrl } from '../utils/wms-sld';
 
@@ -518,12 +519,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const paint = (sub.paint && typeof sub.paint === 'object') ? sub.paint as Record<string, unknown> : {};
             const layoutRaw = (sub.layout && typeof sub.layout === 'object') ? sub.layout as Record<string, unknown> : {};
             const rawId = String(sub.id ?? '');
-            const subMetadata = (sub.metadata && typeof sub.metadata === 'object') ? sub.metadata as Record<string, unknown> : undefined;
-            const label = singleSublayer
-                ? (typeof this.meta?.label === 'string' ? this.meta.label : '')
-                : typeof subMetadata?.label === 'string' && subMetadata.label.length > 0
-                    ? subMetadata.label
-                    : rawId.replace(/^style:/, '').replace(/-/g, ' ');
+            const label = legendSublayerLabel(this.meta, sub, rawId, singleSublayer);
 
             // Evaluate zoom-dependent paint and layout values
             const evalPaint: Record<string, unknown> = {};

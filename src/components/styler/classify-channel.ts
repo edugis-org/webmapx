@@ -43,15 +43,10 @@ export interface ClassifySettings {
     /** Categories only: how many get a colour of their own before the tail shares one. */
     maxCategories: number;
     /**
-     * Categories only: every value gets a colour, repeating the palette.
+ * Categories only: every value gets a colour, repeating the palette.
      *
-     * `null` means *decide from the data*, and is the default. Repeating is on
-     * whenever the alternative would grey out values — the eight biggest and
-     * one grey for the other 242 is not a map of 250 regions — and off when
-     * every value already fits the palette, where it would cost the legend and
-     * buy nothing: the colours are identical either way, and only the legend
-     * changes. That is the one case where repeating is the wrong answer, and it
-     * is exactly the case this decides for itself.
+     * `null` means use the styler default: repeat. The old alternative greyed
+     * out the tail, which was a filtering operation disguised as classification.
      */
     cycle: boolean | null;
 }
@@ -226,18 +221,26 @@ function numericChannel(features: readonly GeoJSON.Feature[], settings: Classify
 }
 
 /**
- * Whether every value gets a colour, deciding for itself when nobody has said.
- *
- * On whenever the classification would otherwise leave a tail in one grey, off
- * when everything fits — see `ClassifySettings.cycle`.
+ * Whether every value gets a colour. The styler default is to repeat colours:
+ * no categorical value silently falls into a grey tail.
  */
 export function cyclesCategories(
-    features: readonly GeoJSON.Feature[],
+    _features: readonly GeoJSON.Feature[],
     settings: ClassifySettings,
 ): boolean {
     if (settings.cycle !== null) return settings.cycle;
+    return true;
+}
+
+export function categoricalPaletteColorCount(
+    features: readonly GeoJSON.Feature[],
+    settings: ClassifySettings,
+): number {
+    if (cyclesCategories(features, settings)) {
+        return Math.min(settings.maxCategories, maxClassesFor('qual'));
+    }
     const classification = classifyCategorical(features, settings.attribute, { maxCategories: settings.maxCategories });
-    return classification.otherValues > 0;
+    return classification.categories.length;
 }
 
 function categoricalChannel(features: readonly GeoJSON.Feature[], settings: ClassifySettings): ClassifyOutcome | null {
@@ -247,7 +250,7 @@ function categoricalChannel(features: readonly GeoJSON.Feature[], settings: Clas
         // of 250 regions nobody is going to read off a key.
         const all = classifyCategorical(features, settings.attribute, { maxCategories: Number.MAX_SAFE_INTEGER });
         if (all.categories.length === 0) return null;
-        const wanted = Math.min(all.categories.length, maxClassesFor('qual'));
+        const wanted = Math.min(settings.maxCategories, maxClassesFor('qual'));
         const scheme = pickScheme(wanted, 'qual', settings);
         if (!scheme) return noScheme(wanted, 'qual', settings);
 

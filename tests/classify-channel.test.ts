@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 
 import {
     classifyColorChannel,
+    categoricalPaletteColorCount,
     cyclesCategories,
     classifySizeChannel,
     defaultSettings,
@@ -57,20 +58,18 @@ test('a skewed column says so instead of drawing one colour in silence', () => {
     assert.match(result.warning ?? '', /One class holds/);
 });
 
-test('repeating is decided from the data: on when values would be greyed out, off when they fit', () => {
+test('categorical colours repeat by default', () => {
     const fits = ['a', 'b', 'c'].map((code) => feature({ code }));
     const spills = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'].map((code) => feature({ code }));
 
-    // Everything fits the palette: repeating would cost the legend and change
-    // no colour, which is the one case where it is the wrong answer.
-    assert.equal(cyclesCategories(fits, { ...defaultSettings('code'), maxCategories: 8 }), false);
-    // A tail would otherwise be one grey — not a map of ten values.
+    assert.equal(cyclesCategories(fits, { ...defaultSettings('code'), maxCategories: 8 }), true);
     assert.equal(cyclesCategories(spills, { ...defaultSettings('code'), maxCategories: 4 }), true);
-    // An explicit answer always wins over the guess.
+    // Internal callers can still ask for the old top-N path, but the styler UI
+    // no longer exposes it.
     assert.equal(cyclesCategories(spills, { ...defaultSettings('code'), maxCategories: 4, cycle: false }), false);
 });
 
-test('a text column becomes categories, and the tail is reported rather than hidden', () => {
+test('the internal non-repeating path keeps its top categories and reports the grey tail', () => {
     const many = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'].map((code) => feature({ code }));
     const result = classifyColorChannel(many, false, { ...defaultSettings('code'), maxCategories: 4, cycle: false });
     assert.ok(result?.channel);
@@ -78,7 +77,6 @@ test('a text column becomes categories, and the tail is reported rather than hid
     if (result.channel.classification.kind !== 'categories') return;
     assert.equal(result.channel.classification.values.length, 4);
     assert.match(result.warning ?? '', /share one grey/);
-    // The fallback earns a legend row only because something falls into it.
     assert.equal(result.legend[result.legend.length - 1].label, 'other');
 });
 
@@ -95,6 +93,38 @@ test('cycling gives every value a colour, names them, and says what repeats', ()
     assert.equal(result.legend[0].color, result.channel.classification.colors[0]);
     // The honest caveat is about distant repeats, not about naming.
     assert.match(result.warning ?? '', /share \d+ colours/);
+});
+
+test('palette picker asks for enough colours for categorical data', () => {
+    const provinces = [...Array(12).keys()].map((i) => feature({ name: `p${i}` }));
+    const settings = { ...defaultSettings('name'), maxCategories: 12 };
+
+    assert.equal(categoricalPaletteColorCount(provinces, settings), 12);
+    assert.ok(schemesFor(categoricalPaletteColorCount(provinces, settings), 'qual', settings).every((scheme) =>
+        scheme.colors.length === 12
+    ));
+});
+
+test('cycling repeats the requested number of colours', () => {
+    const provinces = [...Array(12).keys()].map((i) => feature({ name: `p${i}` }));
+    const settings = {
+        ...defaultSettings('name'),
+        maxCategories: 4,
+        cycle: true,
+    };
+
+    assert.equal(categoricalPaletteColorCount(provinces, settings), 4);
+
+    const result = classifyColorChannel(provinces, false, {
+        ...settings,
+    });
+
+    assert.ok(result?.channel);
+    assert.equal(result.channel.classification.kind, 'categories');
+    if (result.channel.classification.kind !== 'categories') return;
+    assert.equal(result.channel.classification.values.length, 12);
+    assert.equal(result.channel.classification.colors.length, 12);
+    assert.equal(new Set(result.channel.classification.colors).size, 4);
 });
 
 test('cycled colours are assigned so that touching areas differ', () => {
