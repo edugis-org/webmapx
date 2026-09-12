@@ -648,3 +648,85 @@ layer opacity above level 0, or in the footer:
   empty-label convention (label it "outside range" to show it).
 - **Joins are a separate project** (key matching, not joining, is the hard part),
   and probably belong in the Analysis tool.
+
+---
+
+## Where this stands — 12 September 2026
+
+Branch `feat/layer-styler-hierarchy` (not merged, not pushed). The new panel is
+`src/components/webmapx-layer-styler.ts` with helpers in `src/components/styler/`;
+it is reached with **`?styler=next`**, and without that flag the legend still
+opens the old step dialog, which is untouched and still the shipped panel.
+
+### Built
+
+- **Levels 0–5**, as specified. Level 0 is a line, not a dropdown (a dropdown of
+  engine source ids hid 110 of a basemap's 111 sublayers); narrowing by source
+  lives in the filter row, which appears past 12 entries.
+- **The style list**: add, duplicate, delete, reorder, read from the adapter's
+  own sublayers (`getSubLayers`), listed topmost-first like the legend. Sublayers
+  the panel cannot style are carried through and re-emitted verbatim. Entries are
+  named by their sublayer id where that says something.
+- **Drivers**: `Single value`, `By attribute`, `By neighbours`, and `Custom
+  (expression)` shown read-only. Blocked drivers keep their reason as a disabled
+  option.
+- **Level 4**: attribute, method, class count, rounded breaks, category limit,
+  colour cycling, palette with reverse and colour-blind-safe. Size channels
+  classify as proportional symbols. It opens already answered.
+- **`decodePaint`** (`src/utils/style-decoder.ts`) and the object model
+  (`src/utils/layer-style-model.ts`), with invariant 4 asserted.
+- **Reset**, restoring the sublayer list snapshotted at open.
+- Tests: `tests/style-decoder.test.ts`, `style-list.test.ts`,
+  `classify-channel.test.ts`, and `scripts/ui-tests/layer-styler.mjs` on **all
+  four engines**.
+
+### Left to do, roughly in order
+
+1. **Labels' *More* tier** — font/weight, placement, offset, allow-overlap behind
+   the `⋯` affordance. Only the four primary channels exist.
+2. **The raster branch** — WMS `GetCapabilities` styles and raster opacity. The
+   new panel currently says "images, not features" and stops, so a raster layer
+   still needs the old dialog.
+3. **Rules** — a `filter` and a zoom range are decoded, preserved and named in the
+   summary, but there is no editor for either.
+4. **Level-4 content not ported**: the histogram with the breaks drawn over it,
+   per-method class bars, manual breaks, print/photocopy-safe filters, CVD
+   preview, the proportional-circle legend.
+5. **Whole-layer features**: undo, copy style to another layer, visible zoom
+   range, blend mode. Also the legend's halo control, which hides itself when no
+   halo exists.
+6. **Tiled layers**: explicit *recalculate from what is on screen now*, and the
+   fallback class.
+7. **Roles not built**: `pattern`, `icon`/`symbol`, heatmap, cluster,
+   `fill-extrusion`, line arrows, diagrams — all need an `addImage` path or are
+   MapLibre-only.
+8. **The swap**: point `webmapx-layer-overview` and `webmapx-layer-legend3d` at
+   the new tag, delete `webmapx-layer-style-dialog.ts`, and remove the
+   `?styler=next` flag and `usesNextStyler()`. Blocked on 1–2, since a raster
+   layer and label styling must not regress. The panel's read-only data view and
+   per-entry legend preview are not ported either and should be reviewed then.
+
+### Corrections this work forced on the sections above
+
+- **Engine tiers are looser than assumed.** The browser suite passes on Leaflet
+  and Cesium with classification and `By neighbours`, because those engines
+  evaluate the expressions through `maplibre-expression-evaluator`. The *Simple*
+  tier as written (one colour per layer on those engines) should be re-checked
+  against what they actually draw before anything is hidden.
+- **A fill's own edge has to be declared when the layer is built**, on MapLibre
+  *and* OpenLayers: MapLibre decides whether a fill carries outline geometry as
+  it uploads the layer, OpenLayers builds its style function from the GL document
+  once, and both report success for a later paint write that draws nothing. The
+  styler rebuilds the layer when that channel changes. OpenLayers *does* support
+  `fill-outline-color` — `ol-mapbox-style` spells it `layer.type +
+  '-outline-color'`, so searching for the literal finds nothing and proves
+  nothing.
+- **A dashed *outline* is not offered.** Every polygon carries its own ring, so a
+  shared border is stroked twice with independent dash phase and opposite
+  traversal; the dashes interleave into noise. The channel stays on `line`, and
+  an authored dash is preserved rather than stripped.
+- **Level 5 opens on the GL default, not on a slider minimum.** A channel the
+  layer says nothing about was reported as 0, which reads as an invisible style.
+- **Colour cycling assigns by adjacency** (`colorGroupsByAdjacency`), and whether
+  it is on is decided from the data: on when values would otherwise be greyed
+  out, off when they all fit, where it would only cost the legend.
