@@ -29,6 +29,7 @@ import {
     ROLE_OPACITY_KEY,
     type StyleRole,
 } from './style-builder';
+import { metadataLabel } from './layer-label';
 
 export type { StyleRole };
 
@@ -247,6 +248,26 @@ export interface StyleEntry {
     minzoom?: number;
     maxzoom?: number;
     /**
+     * What this style is called, in the legend and in this panel's own list.
+     *
+     * A style is named by its sublayer's `metadata.label`, which the legend
+     * already reads (`legendSublayerLabel`), so naming one here is the same
+     * fact the legend shows rather than a second one. Absent means the name is
+     * derived from the id, exactly as it was before it could be typed.
+     */
+    title?: string;
+    /**
+     * What the legend calls the features a classification has no class for —
+     * a missing value, and for categories anything outside the list.
+     *
+     * Empty (or absent) means the legend shows no row for them, which is the
+     * repo's empty-label convention, not a special case of it: the colour is
+     * still drawn on the map, it simply is not explained. The colour itself
+     * lives in the classification (`noDataColor` / `fallbackColor`), because
+     * that is what the paint expression needs; only the words are here.
+     */
+    noDataLabel?: string;
+    /**
      * The sublayer this entry was decoded from, and the reason an untouched
      * entry re-encodes byte-identically. Absent on an entry the user added.
      */
@@ -414,10 +435,41 @@ export function encodeStyleEntry(entry: StyleEntry): StyleSubLayer {
     };
     if (Object.keys(paint).length > 0 || origin.paint) encoded.paint = paint;
     if (Object.keys(layout).length > 0 || origin.layout) encoded.layout = layout;
+    encodeMetadata(encoded, origin, entry);
     setOrDelete(encoded, 'filter', entry.filter);
     setOrDelete(encoded, 'minzoom', entry.minzoom);
     setOrDelete(encoded, 'maxzoom', entry.maxzoom);
     return encoded;
+}
+
+/**
+ * The two things a style says about itself rather than about its paint.
+ *
+ * Written into the sublayer's own `metadata`, which is where the legend already
+ * looks for a name, and copied rather than mutated: `origin` is the object the
+ * layer is still drawing from, so writing through it would make an entry the
+ * user did change look untouched.
+ */
+function encodeMetadata(encoded: StyleSubLayer, origin: StyleSubLayer, entry: StyleEntry): void {
+    const current = origin.metadata && typeof origin.metadata === 'object'
+        ? origin.metadata as Record<string, unknown>
+        : null;
+    const authored = metadataLabel(current);
+    const title = entry.title?.trim() ?? '';
+    const label = entry.noDataLabel?.trim() ?? '';
+    if (title === (authored ?? '') && label === String(current?.noDataLabel ?? '')) return;
+
+    const metadata: Record<string, unknown> = { ...(current ?? {}) };
+    // `label` is the key the legend reads first, so a title typed here has to
+    // land on it even when the sublayer was authored with a `title` instead —
+    // otherwise the old one keeps winning and the rename does nothing.
+    if (title) metadata.label = title;
+    else { delete metadata.label; delete metadata.title; delete metadata['webmapx:title']; }
+    if (label) metadata.noDataLabel = label;
+    else delete metadata.noDataLabel;
+
+    if (Object.keys(metadata).length > 0) encoded.metadata = metadata;
+    else delete encoded.metadata;
 }
 
 function setOrDelete(target: StyleSubLayer, key: string, value: unknown): void {

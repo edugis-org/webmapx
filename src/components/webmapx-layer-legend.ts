@@ -564,8 +564,17 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
 
                 if (!singleSublayer) rows.push(html`<div class="sub-group-title">${label}</div>`);
                 const colorExpr = Array.isArray(rawColorExpr) ? rawColorExpr : null;
+                // The class an expression has no words for — a missing value, or
+                // a category outside the list — is drawn but not explained,
+                // which is the empty-label convention. A style that *does* carry
+                // wording for it (`metadata.noDataLabel`, written by the styler)
+                // gets that row back, with the colour the map is using.
+                const noDataLabel = typeof (sub.metadata as Record<string, unknown> | undefined)?.noDataLabel === 'string'
+                    ? String((sub.metadata as Record<string, unknown>).noDataLabel)
+                    : '';
                 for (let ci = 0; ci < dataCases.length; ci++) {
-                    const { label: caseLabel, paint: casePaint, path: casePath } = dataCases[ci];
+                    const { paint: casePaint, path: casePath } = dataCases[ci];
+                    const caseLabel = dataCases[ci].label === '' ? noDataLabel : dataCases[ci].label;
                     if (caseLabel === '') continue;
                     const casePaintObj = { ...evalPaint, [colorKey!]: casePaint };
                     const swatch = this.renderSwatch(type, casePaintObj, zoom, evalLayout);

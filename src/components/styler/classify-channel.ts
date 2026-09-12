@@ -49,6 +49,15 @@ export interface ClassifySettings {
      * out the tail, which was a filtering operation disguised as classification.
      */
     cycle: boolean | null;
+    /**
+     * What a feature with no value for the column is painted.
+     *
+     * Held here rather than read back off the classification because every
+     * change on this panel rebuilds the channel from these settings: a colour
+     * left in the expression alone would be overwritten by the default the
+     * moment the user moved any other control.
+     */
+    noDataColor: string;
 }
 
 export const DEFAULT_CLASS_COUNT = 5;
@@ -94,6 +103,7 @@ export function defaultSettings(attribute: string): ClassifySettings {
         blindSafe: false,
         maxCategories: DEFAULT_MAX_CATEGORIES,
         cycle: null,
+        noDataColor: NO_DATA_COLOR,
     };
 }
 
@@ -195,7 +205,7 @@ function numericChannel(features: readonly GeoJSON.Feature[], settings: Classify
             colors,
             // The guard that makes a missing value read as no data rather than
             // as the lowest class — `to-number` turns null into 0.
-            noDataColor: NO_DATA_COLOR,
+            noDataColor: settings.noDataColor,
         },
         schemeName: scheme.name,
     };
@@ -279,7 +289,7 @@ function categoricalChannel(features: readonly GeoJSON.Feature[], settings: Clas
                     kind: 'categories',
                     values,
                     colors,
-                    fallbackColor: NO_DATA_COLOR,
+                    fallbackColor: settings.noDataColor,
                 },
                 schemeName: scheme.name,
             },
@@ -304,7 +314,7 @@ function categoricalChannel(features: readonly GeoJSON.Feature[], settings: Clas
         label: String(category.value),
     }));
     const tail = classification.otherValues;
-    if (tail > 0) legend.push({ color: NO_DATA_COLOR, label: 'other' });
+    if (tail > 0) legend.push({ color: settings.noDataColor, label: 'other' });
 
     return {
         channel: {
@@ -314,7 +324,7 @@ function categoricalChannel(features: readonly GeoJSON.Feature[], settings: Clas
                 kind: 'categories',
                 values: classification.categories.map((category) => String(category.value)),
                 colors,
-                fallbackColor: NO_DATA_COLOR,
+                fallbackColor: settings.noDataColor,
             },
             schemeName: scheme.name,
         },

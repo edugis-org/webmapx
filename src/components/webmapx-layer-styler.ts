@@ -242,6 +242,18 @@ export class WebmapxLayerStyler extends DraggablePanel {
             color: var(--color-text-secondary, #5a6773);
         }
         .row input[type="range"] { flex: 1 1 auto; min-width: 0; }
+        /* A text field takes the rest of the row: a name and a legend wording
+           are both longer than the box a shrink-wrapped input would give them. */
+        .row input.grow {
+            flex: 1 1 auto;
+            min-width: 0;
+            font: inherit;
+            padding: 0.2rem 0.35rem;
+            border: 1px solid var(--color-border, #cbd5df);
+            border-radius: var(--webmapx-radius-sm, 0.35rem);
+            background: var(--color-surface, #fff);
+            color: var(--color-text-primary, #16202a);
+        }
         .row .value { flex: 0 0 3.5rem; text-align: right; font-variant-numeric: tabular-nums; }
 
         .source-line {
@@ -574,11 +586,23 @@ export class WebmapxLayerStyler extends DraggablePanel {
             : `${name} ${item.entry.origin?.type ?? ''}`;
     }
 
-    private displayEntryName(item: StyleListEntry): string | null {
+    /**
+     * The name shown for one entry.
+     *
+     * A name the user has typed wins, because it is the newest answer and the
+     * origin still carries the one it was opened with until the rebuild lands.
+     * `authored: false` asks for the name the entry would have *without* one,
+     * which is what the rename field shows as its placeholder.
+     */
+    private displayEntryName(item: StyleListEntry, options: { authored?: boolean } = {}): string | null {
+        if (options.authored !== false && item.entry.title) return item.entry.title;
         const rawId = item.entry.id;
+        const origin = options.authored === false
+            ? { ...(item.entry.origin ?? {}), metadata: undefined }
+            : item.entry.origin;
         const label = legendSublayerLabel(
-            this.context?.layerMeta ?? null,
-            item.entry.origin as Record<string, unknown> | null | undefined,
+            options.authored === false ? null : this.context?.layerMeta ?? null,
+            origin as Record<string, unknown> | null | undefined,
             rawId,
             this.list.length === 1,
         );
@@ -746,6 +770,26 @@ export class WebmapxLayerStyler extends DraggablePanel {
         if (options.silent) return;
         const updated = this.list.find((candidate) => candidate.entry.id === entry.id)!;
         this.applyEntry(updated, channel);
+    }
+
+    /**
+     * Renames one style, or clears the name again.
+     *
+     * The name lives in the sublayer's `metadata.label`, which is what the
+     * legend reads, so this is not a second name kept beside the legend's — it
+     * *is* the legend's. A rebuild rather than a paint write: metadata is part
+     * of the layer's definition, and no engine offers to change it in place.
+     */
+    private setEntryField(item: StyleListEntry, field: 'title' | 'noDataLabel', value: string): void {
+        const current = this.list.find((candidate) => candidate.entry.id === item.entry.id) ?? item;
+        const trimmed = value.trim();
+        if ((current.entry[field] ?? '') === trimmed) return;
+        const entry = { ...current.entry };
+        if (trimmed) entry[field] = trimmed;
+        else delete entry[field];
+        this.list = this.list.map((candidate) => (candidate === current ? { ...candidate, entry } : candidate));
+        this.touched = true;
+        this.rebuild();
     }
 
     private addEntry(role: StyleRole): void {
@@ -1444,7 +1488,32 @@ export class WebmapxLayerStyler extends DraggablePanel {
                 controls for. It is left exactly as it is.
             </p>`;
         }
-        return channelsOf(item.entry.role).map((channel) => this.renderChannel(item, channel));
+        return [
+            this.renderTitle(item),
+            ...channelsOf(item.entry.role).map((channel) => this.renderChannel(item, channel)),
+        ];
+    }
+
+    /**
+     * What this style is called — the first row, because it is what the legend
+     * shows and what tells seven label entries apart.
+     *
+     * `change` rather than `input`: every keystroke would rebuild the layer,
+     * and the name is judged when it is finished, not while it is typed. The
+     * placeholder is the name the entry has without one, so an empty field
+     * reads as "the derived name" rather than as no name at all.
+     */
+    private renderTitle(item: StyleListEntry): TemplateResult {
+        const derived = this.displayEntryName(item, { authored: false }) ?? summarizeEntry(item.entry);
+        return html`
+            <div class="row">
+                <span class="name">Name</span>
+                <input type="text" class="grow" aria-label="What this style is called"
+                       placeholder=${derived}
+                       .value=${item.entry.title ?? ''}
+                       @change=${(event: Event) => this.setEntryField(item, 'title', (event.target as HTMLInputElement).value)}>
+            </div>
+        `;
     }
 
     /** Channels a classification can drive: a colour, or a size. */
@@ -1501,20 +1570,42 @@ export class WebmapxLayerStyler extends DraggablePanel {
         const classification = state.classification;
         const seeded = defaultSettings(state.attribute || fallbackAttribute);
         seeded.schemeName = state.schemeName ?? null;
-        if (classification.kind === 'ranges') seeded.classCount = classification.colors.length;
+        if (classification.kind === 'ranges') {
+            seeded.classCount = classification.colors.length;
+            if (classification.noDataColor) seeded.noDataColor = classification.noDataColor;
+        }
         if (classification.kind === 'categories') {
             seeded.maxCategories = Math.max(classification.values.length, 1);
             seeded.cycle = true;
+            if (classification.fallbackColor) seeded.noDataColor = classification.fallbackColor;
         }
         return seeded;
     }
 
     private updateSettings(item: StyleListEntry, channel: ChannelId, change: Partial<ClassifySettings>): void {
-        const next = { ...this.settingsFor(item, channel), ...change };
+        const previous = this.settingsFor(item, channel);
+        const next = { ...previous, ...change };
         const merged = new Map(this.classifySettings);
         merged.set(this.settingsKey(item, channel), next);
         this.classifySettings = merged;
+        this.renameForAttribute(item, previous.attribute, next.attribute);
         this.applyClassification(item, channel, next);
+    }
+
+    /**
+     * Carries a name that was the column's along when the column changes.
+     *
+     * A style called `population_density` is describing the classification, not
+     * the style, so it is stale the moment another column is chosen — and a
+     * legend row naming a column the map is no longer showing is worse than one
+     * naming none. A name the user actually wrote is left alone: only a name
+     * that *is* the old column's is treated as having meant it.
+     */
+    private renameForAttribute(item: StyleListEntry, before: string, after: string): void {
+        if (!before || !after || before === after) return;
+        const current = this.list.find((candidate) => candidate.entry.id === item.entry.id) ?? item;
+        if (current.entry.title !== before) return;
+        this.setEntryField(current, 'title', after);
     }
 
     /** Recomputes a classified channel and pushes it to the map. */
@@ -1758,6 +1849,40 @@ export class WebmapxLayerStyler extends DraggablePanel {
                     : numeric ? this.renderNumericLevel4(item, channel, settings)
                     : this.renderCategoryLevel4(item, channel, settings)}
                 ${sizing ? nothing : this.renderPalette(item, channel, settings)}
+                ${sizing ? nothing : this.renderNoData(item, channel, settings)}
+            </div>
+        `;
+    }
+
+    /**
+     * What features the classification has no class for look like, and what the
+     * legend calls them.
+     *
+     * Two separate answers on purpose. The colour is always painted — a feature
+     * with no value has to be *something*, and light grey is the convention for
+     * "no data". The words are optional, and an empty field means the legend
+     * shows no row for them: the repo's empty-label convention, reached here by
+     * leaving the field blank rather than by knowing about it.
+     *
+     * Only one wording per style, because the legend reads it off the sublayer
+     * — which is also the only place a legend could read it from.
+     */
+    private renderNoData(item: StyleListEntry, channel: ChannelId, settings: ClassifySettings): TemplateResult | typeof nothing {
+        if (!COLOR_CHANNELS.includes(channel)) return nothing;
+        const numeric = this.isNumeric(item, settings.attribute);
+        const color = settings.noDataColor;
+        const key = `${item.entry.id}:${channel}:nodata`;
+        return html`
+            <div class="row">
+                <span class="name">${numeric ? 'No value' : 'No value, or not listed'}</span>
+                <button class="color-button" type="button" style=${`background:${color}`}
+                        aria-label=${`Colour for features with no value: ${color}`}
+                        @click=${(event: Event) => this.openPicker(key, event.currentTarget as HTMLElement, color,
+                            (rgba) => this.updateSettings(item, channel, { noDataColor: rgba }))}></button>
+                <input type="text" class="grow" aria-label="What the legend calls them — leave empty to leave them out"
+                       placeholder="Not in the legend"
+                       .value=${item.entry.noDataLabel ?? ''}
+                       @change=${(event: Event) => this.setEntryField(item, 'noDataLabel', (event.target as HTMLInputElement).value)}>
             </div>
         `;
     }

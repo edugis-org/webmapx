@@ -673,6 +673,24 @@ opens the old step dialog, which is untouched and still the shipped panel.
 - **Level 4**: attribute, method, class count, rounded breaks, category limit,
   colour cycling, palette with reverse and colour-blind-safe. Size channels
   classify as proportional symbols. It opens already answered.
+- **A style has a name of its own, and it is the legend's.** The first row of an
+  open entry renames it, writing `metadata.label` on the sublayer — the key
+  `legendSublayerLabel` already reads — so the panel and the legend cannot hold
+  two different names for one style. The field is empty by default and shows the
+  derived name as its placeholder, and it commits on `change` rather than on
+  every keystroke, since a rename is a rebuild. A name that *is* the classified
+  column's (`population_density`) is carried along when another column is
+  chosen; a name someone wrote is never touched.
+- **The no-data class is two answers, not one.** Its colour is a control
+  (default light grey, `NO_DATA_COLOR`) held in `ClassifySettings.noDataColor`
+  rather than read back off the expression — every control on the panel rebuilds
+  the channel from those settings, so a colour living only in the paint was
+  overwritten by the default the moment any other control moved. Its *wording*
+  is `metadata.noDataLabel`, and empty means the legend leaves the row out: the
+  empty-label convention, reached by leaving the field blank rather than by
+  knowing the convention exists. `webmapx-layer-legend` substitutes it for the
+  blank label the guard row carries, so the colour is explained only when the
+  author has said what it means.
 - **`decodePaint`** (`src/utils/style-decoder.ts`) and the object model
   (`src/utils/layer-style-model.ts`), with invariant 4 asserted.
 - **Reset**, restoring the sublayer list snapshotted at open.

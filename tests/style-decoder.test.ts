@@ -239,3 +239,50 @@ test('removing a channel removes its paint key', () => {
     assert.equal('line-dasharray' in (encoded.paint as Record<string, unknown>), false);
     assert.equal((encoded.paint as Record<string, unknown>)['line-color'], '#000000');
 });
+
+test('a style carries its own name, and clearing it takes the authored one away too', () => {
+    const sublayer: StyleSubLayer = {
+        id: 'areas', type: 'fill',
+        metadata: { label: 'Population density', reference: true },
+        paint: { 'fill-color': '#ff0000' },
+    };
+    const entry = decodeStyleEntry(sublayer);
+    assert.equal(entry.title, 'Population density');
+
+    entry.title = 'Inhabitants per km²';
+    const renamed = encodeStyleEntry(entry);
+    assert.equal((renamed.metadata as Record<string, unknown>).label, 'Inhabitants per km²');
+    // Everything else the sublayer's metadata carried is not ours to drop.
+    assert.equal((renamed.metadata as Record<string, unknown>).reference, true);
+
+    delete entry.title;
+    const cleared = encodeStyleEntry(entry);
+    assert.equal('label' in (cleared.metadata as Record<string, unknown>), false);
+    assert.equal((cleared.metadata as Record<string, unknown>).reference, true);
+});
+
+test('a title typed over an authored `title` key wins, rather than losing to it', () => {
+    // `metadataLabel` reads label, then title: writing only `label` would leave
+    // the old `title` in place and the two would disagree about the name.
+    const entry = decodeStyleEntry({ id: 'areas', type: 'fill', metadata: { title: 'Old' } });
+    assert.equal(entry.title, 'Old');
+    entry.title = '';
+    const encoded = encodeStyleEntry(entry);
+    assert.equal(encoded.metadata, undefined);
+});
+
+test('the no-data wording is metadata, and an empty one leaves no key behind', () => {
+    const entry = decodeStyleEntry({ id: 'areas', type: 'fill', paint: { 'fill-color': '#ff0000' } });
+    assert.equal(entry.noDataLabel, undefined);
+
+    entry.noDataLabel = 'no data';
+    assert.equal((encodeStyleEntry(entry).metadata as Record<string, unknown>).noDataLabel, 'no data');
+
+    entry.noDataLabel = '   ';
+    assert.equal(encodeStyleEntry(entry).metadata, undefined);
+});
+
+test('naming nothing changes nothing: invariant 4 holds for an unnamed entry', () => {
+    const sublayer: StyleSubLayer = { id: 'areas', type: 'fill', paint: { 'fill-color': '#ff0000' } };
+    assert.equal(JSON.stringify(encodeStyleEntry(decodeStyleEntry(sublayer))), JSON.stringify(sublayer));
+});

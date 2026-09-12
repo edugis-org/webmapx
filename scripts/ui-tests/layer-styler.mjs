@@ -164,7 +164,10 @@ async function liveSubLayers(page, layerId = LAYER_ID) {
     return page.evaluate(async (layerId) => {
         const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
         const entry = adapter.store.getState().mapLayers[layerId];
-        return (entry?.sublayers ?? []).map((sub) => ({ id: sub.id, type: sub.type, paint: sub.paint ?? null, layout: sub.layout ?? null }));
+        return (entry?.sublayers ?? []).map((sub) => ({
+            id: sub.id, type: sub.type, paint: sub.paint ?? null, layout: sub.layout ?? null,
+            metadata: sub.metadata ?? null,
+        }));
     }, layerId);
 }
 
@@ -449,6 +452,68 @@ export async function run({ page, engine, baseUrl }) {
         // pairs, wrapped in the missing-value guard.
         const step = JSON.stringify(fill?.paint?.['fill-color']);
         if (!step.includes('step')) fail(`no step expression after re-classifying: ${step}`);
+    });
+
+    await step('a style can be renamed, and the name is the one the legend reads', async () => {
+        await expandNamed(page, 'Fill');
+        await page.evaluate(() => {
+            const field = [...window.__styler.shadowRoot.querySelectorAll('.entry-body input[type="text"]')]
+                .find((candidate) => candidate.getAttribute('aria-label') === 'What this style is called');
+            if (!field) throw new Error('no name field');
+            field.value = 'People per km²';
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await page.waitForTimeout(700);
+
+        const fill = (await liveSubLayers(page)).find((sub) => sub.type === 'fill');
+        // `metadata.label` and not a field of the styler's own: it is what
+        // `legendSublayerLabel` reads, so the legend and the panel cannot
+        // disagree about what a style is called.
+        if (fill?.metadata?.label !== 'People per km²') {
+            fail(`the name did not reach the sublayer: ${JSON.stringify(fill?.metadata ?? null)}`);
+        }
+        const lines = await summaries(page);
+        if (!lines.some((line) => line.includes('by pop'))) fail(`the fill row lost its summary: ${JSON.stringify(lines)}`);
+    });
+
+    await step('the no-data colour survives the next change to any other control', async () => {
+        await expandNamed(page, 'Fill');
+        await page.evaluate(() => {
+            const root = window.__styler.shadowRoot;
+            const rows = [...root.querySelectorAll('.level4 .row')];
+            const row = rows.find((candidate) => candidate.querySelector('input[type="text"]'));
+            if (!row) throw new Error('no no-data row');
+            const field = row.querySelector('input[type="text"]');
+            field.value = 'no data';
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await page.waitForTimeout(700);
+        const withLabel = (await liveSubLayers(page)).find((sub) => sub.type === 'fill');
+        if (withLabel?.metadata?.noDataLabel !== 'no data') {
+            fail(`the legend wording did not reach the sublayer: ${JSON.stringify(withLabel?.metadata ?? null)}`);
+        }
+
+        // Every control on this panel rebuilds the channel from the settings, so
+        // a colour kept only in the expression would be back to grey after this.
+        await page.evaluate(() => {
+            window.__styler.updateSettings(
+                window.__styler.list.find((item) => item.entry.role === 'fill'),
+                'color',
+                { noDataColor: '#112233' },
+            );
+        });
+        await page.waitForTimeout(500);
+        await page.evaluate(() => {
+            const slider = [...window.__styler.shadowRoot.querySelectorAll('.level4 input[type="range"]')]
+                .find((candidate) => candidate.getAttribute('aria-label') === 'Number of classes');
+            slider.value = '4';
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        await page.waitForTimeout(600);
+
+        const fill = (await liveSubLayers(page)).find((sub) => sub.type === 'fill');
+        const paint = JSON.stringify(fill?.paint?.['fill-color']);
+        if (!paint.includes('#112233')) fail(`the chosen no-data colour was overwritten: ${paint}`);
     });
 
     await step('colouring by neighbours writes a class into the data and paints it', async () => {

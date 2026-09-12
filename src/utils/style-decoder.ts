@@ -25,6 +25,7 @@ import {
     type StyleRole,
     type StyleSubLayer,
 } from './layer-style-model';
+import { metadataLabel } from './layer-label';
 import { schemeByName, schemeNames, type SchemeType } from './color-schemes';
 
 /** The role a GL layer type is drawn as. A `line` over a polygon source is an outline, which the type alone cannot say. */
@@ -225,6 +226,17 @@ export function decodeStyleEntry(sublayer: StyleSubLayer, geometry?: string): St
         // entry look untouched — which would silently drop the user's change.
         originChannels: JSON.parse(JSON.stringify(channels)) as Partial<Record<ChannelId, ChannelState>>,
     };
+    // The name and the no-data wording are the sublayer's own metadata, which is
+    // where the legend reads them from — so the panel opens on what the legend
+    // is already showing rather than on a second copy of it.
+    const metadata = sublayer.metadata && typeof sublayer.metadata === 'object'
+        ? sublayer.metadata as Record<string, unknown>
+        : null;
+    const title = metadataLabel(metadata);
+    if (title) entry.title = title;
+    if (typeof metadata?.noDataLabel === 'string' && metadata.noDataLabel.length > 0) {
+        entry.noDataLabel = metadata.noDataLabel;
+    }
     if (sublayer.filter !== undefined) entry.filter = sublayer.filter;
     if (typeof sublayer.minzoom === 'number') entry.minzoom = sublayer.minzoom;
     if (typeof sublayer.maxzoom === 'number') entry.maxzoom = sublayer.maxzoom;
