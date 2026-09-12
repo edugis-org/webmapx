@@ -860,18 +860,37 @@ export class MapLayerService implements ILayerService {
             if (entity.polygon && fill && fillMatches) {
                 const fillColor = this.resolveColor(entity, fillPaint['fill-color'], DEFAULT_LINE_COLOR);
                 const fillOpacity = this.resolveNumber(entity, fillPaint['fill-opacity'], 0.2);
-                const outlineColorStr = this.resolveColor(entity, fillPaint['fill-outline-color'] ?? linePaint['line-color'], DEFAULT_LINE_COLOR);
                 setColorMaterial(entity.polygon, withMultipliedAlpha(Cesium.Color.fromCssColorString(fillColor), fillOpacity * opacityFactor));
-                setSafeProperty(entity.polygon, 'outline', true);
-                const outlineColor = withMultipliedAlpha(Cesium.Color.fromCssColorString(outlineColorStr), opacityFactor);
-                if (entity.polygon.outlineColor instanceof Cesium.ConstantProperty) {
-                    const julian = Cesium.JulianDate?.now?.() || new Cesium.JulianDate();
-                    const currentVal = entity.polygon.outlineColor.getValue(julian);
-                    if (!currentVal || !currentVal.equals(outlineColor)) {
-                        entity.polygon.outlineColor.setValue(outlineColor);
+
+                // An edge only where the style asks for one.
+                //
+                // `GeoJsonDataSource` gives every polygon an outline and this
+                // used to leave it on unconditionally, falling back to the line
+                // colour and then to a default — so a fill styled with no edge
+                // at all came out outlined on Cesium and nowhere else, and
+                // switching the edge off did nothing. Cesium draws an outline-
+                // less polygon perfectly well; it simply has to be told.
+                //
+                // A `line` sublayer over the same features still counts as the
+                // edge: Cesium has no separate stroke for a polygon fill, so
+                // that is how a fill-plus-outline pair is drawn here at all.
+                const declaredEdge = fillPaint['fill-outline-color'];
+                const lineAsEdge = line && lineMatches ? linePaint['line-color'] : undefined;
+                const edgeSpec = declaredEdge ?? lineAsEdge;
+                setSafeProperty(entity.polygon, 'outline', edgeSpec !== undefined);
+
+                if (edgeSpec !== undefined) {
+                    const outlineColorStr = this.resolveColor(entity, edgeSpec, DEFAULT_LINE_COLOR);
+                    const outlineColor = withMultipliedAlpha(Cesium.Color.fromCssColorString(outlineColorStr), opacityFactor);
+                    if (entity.polygon.outlineColor instanceof Cesium.ConstantProperty) {
+                        const julian = Cesium.JulianDate?.now?.() || new Cesium.JulianDate();
+                        const currentVal = entity.polygon.outlineColor.getValue(julian);
+                        if (!currentVal || !currentVal.equals(outlineColor)) {
+                            entity.polygon.outlineColor.setValue(outlineColor);
+                        }
+                    } else {
+                        entity.polygon.outlineColor = outlineColor;
                     }
-                } else {
-                    entity.polygon.outlineColor = outlineColor;
                 }
             }
         }
