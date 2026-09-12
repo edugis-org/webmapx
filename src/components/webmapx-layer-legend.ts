@@ -5,6 +5,8 @@ import type { IMapState } from '../store/IMapState';
 import Pickr from '@simonwep/pickr';
 import { COLOR_PALETTE, raiseColorPickerPopup } from './internal/color-picker';
 import { DEFAULT_DATA_COLOR } from '../map/default-paint';
+import { readWmsSource } from '../utils/wms-source';
+import { legendGraphicUrl } from '../utils/wms-sld';
 
 /**
  * The background a colour swatch button carries.
@@ -27,6 +29,16 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     collapsible = true;
 
     @state() private meta: Record<string, unknown> | null = null;
+    /**
+     * The legend image that failed, by url.
+     *
+     * Recorded rather than drawn over: replacing the `<img>` element with a
+     * notice took it out of Lit's hands, so a *later* legend — the one the user
+     * got by reducing the class count until the service accepted it — had no
+     * element left to render into and the failure stayed on screen for good.
+     * Keyed by url, so a new url is simply tried again.
+     */
+    @state() private failedLegendUrl: string | null = null;
     @state() private zoom: number = 2;
     @state() private legendCollapsed = true;
     @state() private legendOverflowing = false;
@@ -1707,13 +1719,51 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         return [];
     }
 
+    /**
+     * The legend a WMS can draw of itself, for a layer that carries none.
+     *
+     * A raster layer has no paint, so the legend has nothing to derive a swatch
+     * from and falls back to a chequerboard that says only "this is a picture".
+     * The service, though, will draw its own legend on request, and for the
+     * style *currently in force* — including a style of the user's own, since
+     * the document goes back with the request. Read from the live source rather
+     * than from the config, so choosing a style in the styler is reflected here
+     * without the two having to know about each other.
+     *
+     * One image request, to a service already serving this user tiles, and only
+     * for a layer that is on the map: nothing is asked of a service whose layer
+     * is merely listed somewhere.
+     */
+    private wmsLegendUrl(meta: Record<string, unknown> | null): string | null {
+        if (meta?.layerType !== 'raster') return null;
+        const sourceId = typeof meta?.sourceId === 'string' ? meta.sourceId : null;
+        if (!sourceId || !this.adapter) return null;
+        const config = this.adapter.getSourceConfig?.(sourceId) ?? null;
+        const wms = readWmsSource(config);
+        if (!wms) return null;
+        // What the layer was last *asked* to draw, recorded by the adapter as it
+        // asked. The engine is never consulted: it does not report a change the
+        // instant it accepts one — MapLibre reports a new `STYLES` about a
+        // second later — so reading it back is a step behind, which is how the
+        // legend came to show the style chosen before last.
+        const asked = meta?.sourceParams && typeof meta.sourceParams === 'object'
+            ? meta.sourceParams as Record<string, string>
+            : {};
+        return legendGraphicUrl(wms.endpoint, wms.layers.split(',')[0].trim(), {
+            sld: asked.SLD_BODY ?? null,
+            style: asked.STYLES ?? wms.style,
+            version: wms.version,
+        });
+    }
+
     protected render() {
         if (!this.layerId) return html``;
         const meta = this.meta;
         const layerType = typeof meta?.layerType === 'string' ? meta.layerType : null;
         const paint = (meta?.paint && typeof meta.paint === 'object') ? meta.paint as Record<string, unknown> : {};
         const layout = (meta?.layout && typeof meta.layout === 'object') ? meta.layout as Record<string, unknown> : undefined;
-        const legendUrl = typeof meta?.legendurl === 'string' && meta.legendurl.length > 0 ? meta.legendurl : null;
+        const legendUrl = (typeof meta?.legendurl === 'string' && meta.legendurl.length > 0 ? meta.legendurl : null)
+            ?? this.wmsLegendUrl(meta);
         const label = typeof meta?.label === 'string' ? meta.label : this.layerId;
         const sublayers = Array.isArray(meta?.sublayers) ? meta!.sublayers as unknown[] : null;
 
@@ -1766,16 +1816,12 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                     ${layerType === 'hillshade' ? this.renderHillshadeTerrainCheckbox() : ''}
                     ${editable && isOpen ? this.renderStyleEditor(stdSubLayerIds, layerType!, effectivePaint) : ''}
                 ` : ''}
-                ${legendUrl ? html`
+                ${legendUrl ? (this.failedLegendUrl === legendUrl
+                    ? html`<span class="img-error">⚠ invalid legend image</span>`
+                    : html`
                     <img class="legend-img" src=${legendUrl} alt=${label}
-                        @error=${(e: Event) => {
-                            const img = e.target as HTMLImageElement;
-                            const span = document.createElement('span');
-                            span.className = 'img-error';
-                            span.textContent = '⚠ invalid legend image';
-                            img.replaceWith(span);
-                    }}>
-                ` : ''}
+                        @error=${() => { this.failedLegendUrl = legendUrl; }}>
+                `) : ''}
             </div>
         `);
     }

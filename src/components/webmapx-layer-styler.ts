@@ -63,6 +63,35 @@ import {
     type StyleListEntry,
 } from './styler/style-list';
 import type { SourceStyleGroup, StyleDialogContext } from './styler/style-context';
+import { rasterBranch, wmsStyleTiles } from './styler/raster-branch';
+import {
+    buildDraftStyle,
+    draftDocument,
+    emptyDraft,
+    probeSamples,
+    VALUE_SAMPLE,
+    type SldDraft,
+} from './styler/wms-sld-branch';
+import {
+    probeGetMapUrl,
+    probeSldSupportCached,
+    verifyStyledRequest,
+    type SldProbeResult,
+} from '../utils/wms-sld-probe';
+import {
+    discoverWmsAttributes,
+    valuesFromWfs,
+    type WmsAttribute,
+    type WmsAttributeSource,
+} from '../utils/wms-attributes';
+import { withSldBodyUrl, type SldGeometry } from '../utils/wms-sld';
+import {
+    fetchWmsStyles,
+    readWmsSource,
+    withWmsStyleUrl,
+    type WmsSourceInfo,
+    type WmsStyleOption,
+} from '../utils/wms-source';
 import type { StyleSubLayer } from '../utils/layer-style-model';
 import {
     classifyColorChannel,
@@ -128,6 +157,32 @@ export class WebmapxLayerStyler extends DraggablePanel {
     /** Narrows a long style list. A remote basemap style carries over a hundred entries. */
     @state() private filterText = '';
     @state() private message: string | null = null;
+
+    // ── The raster branch ────────────────────────────────────────────────────
+    /** The named styles the WMS service advertises; null until they are read. */
+    @state() private wmsStyles: WmsStyleOption[] | null = null;
+    @state() private wmsStyle = '';
+    @state() private wmsLoading = false;
+    /** Whether this service draws a style of our own — measured, see the probe. */
+    @state() private sldProbe: SldProbeResult | null = null;
+    @state() private sldProbing = false;
+    @state() private sldAttributes: WmsAttributeSource | null = null;
+    @state() private sldLoadingValues = false;
+    @state() private sldDraft: SldDraft = emptyDraft();
+    @state() private sldApplied = false;
+    @state() private sldClasses: Array<{ label: string; color: string }> = [];
+    @state() private sldProblem: string | null = null;
+    @state() private sldVerifying = false;
+    /**
+     * Which attempt the panel is showing the result of.
+     *
+     * Verifying a style is a request, and a *rejected* request can answer after
+     * a later, good one — a long url refused with 431 is not necessarily slower
+     * to answer than a short one that draws. Without this, reducing the class
+     * count until it works left the earlier refusal on screen, describing a
+     * style that is no longer applied: the message was one attempt behind.
+     */
+    private sldAttempt = 0;
 
     private layerId = '';
     private context: StyleDialogContext | null = null;
@@ -290,6 +345,33 @@ export class WebmapxLayerStyler extends DraggablePanel {
             color: var(--color-text-primary, #16202a);
         }
         .muted { font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
+        .raster { display: flex; flex-direction: column; gap: 0.35rem; }
+        .raster p { margin: 0; }
+        .choices { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+        .choice {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+            align-items: flex-start;
+            text-align: left;
+            padding: 0.45rem 0.6rem;
+            border: 1px solid var(--color-border, #d6dbe1);
+            border-radius: var(--webmapx-radius, 6px);
+            background: var(--color-surface, #fff);
+            color: inherit;
+            font: inherit;
+            cursor: pointer;
+        }
+        .choice[aria-pressed="true"] {
+            border-color: var(--color-primary, #2b6cb0);
+            outline: 2px solid var(--color-primary, #2b6cb0);
+            outline-offset: -1px;
+        }
+        .style-legend { max-width: 100%; max-height: 6rem; margin-top: 0.25rem; }
+        .sld { margin-top: 0.35rem; padding-top: 0.5rem; border-top: 1px solid var(--color-border, #d6dbe1); }
+        .sld-legend { display: flex; flex-wrap: wrap; gap: 0.35rem; font-size: 0.75rem; }
+        .sld-class { display: inline-flex; align-items: center; gap: 0.25rem; }
+        .sld-class .swatch { width: 0.75rem; height: 0.75rem; border-radius: 2px; display: inline-block; }
         /* An inline action inside a sentence, which is a control, not decoration. */
         button.link {
             background: none;
@@ -371,6 +453,21 @@ export class WebmapxLayerStyler extends DraggablePanel {
         this.message = null;
         this.expandedId = null;
         this.classifySettings = new Map();
+        this.wmsStyles = null;
+        this.wmsLoading = false;
+        this.wmsStyle = readWmsSource(context.raster?.sourceConfig)?.style ?? '';
+        this.sldProbe = null;
+        this.sldProbing = false;
+        this.sldAttributes = null;
+        this.sldDraft = emptyDraft();
+        this.sldApplied = false;
+        this.sldClasses = [];
+        this.sldProblem = null;
+        this.sldVerifying = false;
+        // The panel is one element reused for every layer, so a check still in
+        // flight from the last time it was open would otherwise answer into
+        // this one — describing a style, and a layer, that are no longer here.
+        this.sldAttempt++;
         this.destroyPickers();
         this.adopt(context);
         this.visible = true;
@@ -713,6 +810,7 @@ export class WebmapxLayerStyler extends DraggablePanel {
                     <div class="sections">
                         ${this.renderLayerOpacity()}
                         ${this.renderSource()}
+                        ${this.renderRaster()}
                         ${this.renderList()}
                         ${this.message ? html`<div class="warning">${this.message}</div>` : nothing}
                     </div>
@@ -768,6 +866,442 @@ export class WebmapxLayerStyler extends DraggablePanel {
         `;
     }
 
+    /**
+     * What a layer made of pictures can be asked.
+     *
+     * The levels below do not apply to a raster layer at all — there is no
+     * geometry to classify and no paint to build an expression from — so this
+     * sits above the style list and answers instead of it. Which question is
+     * asked is `rasterBranch`'s decision, not this method's; the point of
+     * naming all four is that "nothing can be styled here" is a different
+     * statement from "this service draws it one way only", and the user can act
+     * on the second (ask the service's owner) but not on the first.
+     *
+     * Layer opacity is deliberately not repeated here: it is already at the top
+     * of the panel, applies to every layer, and a raster is not a special case
+     * of it.
+     */
+    private renderRaster(): TemplateResult | typeof nothing {
+        const raster = this.context?.raster;
+        if (!raster) return nothing;
+        const wms = readWmsSource(raster.sourceConfig);
+        if (wms && this.wmsStyles === null && !this.wmsLoading) void this.loadWmsStyles(wms);
+        // The service's own styles and a style of our own are two different
+        // questions, asked in parallel: the first is a capabilities read, the
+        // second two GetMaps, and neither should wait on the other.
+        const repointable = (this.context?.sourceControl?.getTiles?.(raster.sourceId) ?? null) !== null;
+        if (wms && repointable && this.sldProbe === null && !this.sldProbing) void this.loadSldBranch(wms);
+        if (this.wmsLoading) {
+            return html`<div class="raster"><strong>Styles</strong>
+                <p class="muted">Asking the service which ways it can draw this layer…</p></div>`;
+        }
+        const branch = rasterBranch(raster, this.context?.sourceControl, this.wmsStyles);
+        if (branch.kind === 'tiles') {
+            return html`<div class="raster"><strong>Images, not features</strong>
+                <p class="muted">
+                    This layer arrives as finished pictures from a tile service, so there is nothing here to colour
+                    or classify — the drawing was done before the tiles were sent. Its opacity is above.
+                </p></div>`;
+        }
+        if (branch.kind === 'fixed') {
+            return html`<div class="raster"><strong>Drawn by the service</strong>
+                <p class="muted">
+                    A WMS decides the colours itself, and this map engine cannot ask it for a different style once
+                    the layer is on the map. Its opacity is what can be changed here.
+                </p></div>${this.renderSldBranch(wms!)}`;
+        }
+        if (branch.kind === 'single') {
+            return html`<div class="raster"><strong>Drawn by the service</strong>
+                <p class="muted">
+                    ${branch.only
+                        ? `This service draws this layer one way only ("${branch.only.title}").`
+                        : 'This service advertises no named styles for this layer, so it draws it one way only.'}
+                    A WMS decides the colours itself; only its opacity can be changed here.
+                </p></div>${this.renderSldBranch(wms!)}`;
+        }
+        const styles = this.wmsStyles ?? [];
+        return html`
+            <div class="raster">
+                <strong>Which style?</strong>
+                <p class="muted">
+                    ${this.sldApplied
+                        ? 'Your own style is drawing this layer. Choosing one of these hands it back to the service.'
+                        : 'The service draws this layer; these are the ways it offers.'}
+                </p>
+                <div class="choices">
+                    ${styles.map((style) => html`
+                        <button class="choice" type="button"
+                                aria-pressed=${!this.sldApplied && style.name === this.wmsStyle ? 'true' : 'false'}
+                                @click=${() => this.applyWmsStyle(style.name)}>
+                            <span>${style.title}</span>
+                            ${style.legendUrl
+                                ? html`<img class="style-legend" src=${style.legendUrl} alt="" loading="lazy">`
+                                : nothing}
+                        </button>
+                    `)}
+                </div>
+            </div>
+            ${this.renderSldBranch(wms!)}
+        `;
+    }
+
+    /**
+     * The styler's own style for a WMS layer.
+     *
+     * Offered only where the service has been *seen* to honour one: the
+     * capabilities flag is worthless in practice (of twenty WMS endpoints in
+     * our own configs, the four that declare the element declare "no", while
+     * the two that actually draw a user style declare nothing), so this waits
+     * for a probe rather than reading a document. Hidden entirely when the
+     * answer is no — an unexplained disabled control on a third-party service
+     * is worse than no control.
+     */
+    private renderSldBranch(wms: WmsSourceInfo): TemplateResult | typeof nothing {
+        // An engine that cannot say where a live source points cannot repoint it
+        // either, so there is no way to send the document — the same gate the
+        // named-style list uses, and for the same reason.
+        const raster = this.context?.raster;
+        const repointable = !!raster
+            && (this.context?.sourceControl?.getTiles?.(raster.sourceId) ?? null) !== null;
+        if (!repointable) return nothing;
+        if (this.sldProbing) {
+            return html`<p class="muted">Asking the service whether it can draw a style of your own…</p>`;
+        }
+        if (!this.sldProbe?.supported) {
+            if (this.sldProbe?.reason === 'no-ink') {
+                // Answered about the moment, not about the service — so the
+                // panel offers to look again rather than making the user close
+                // it, move the map and open it a second time.
+                return html`
+                    <div class="raster">
+                        <p class="muted">
+                            This layer draws nothing where the map is looking, so it cannot be styled here yet.
+                            Move to somewhere it has data, then look again.
+                        </p>
+                        <div class="row">
+                            <sl-button size="small" @click=${() => void this.retrySldProbe(wms)}>Look again</sl-button>
+                        </div>
+                    </div>`;
+            }
+            return nothing;
+        }
+        const attributes = this.sldAttributes?.attributes ?? [];
+        const sampled = this.sldAttributes?.from === 'featureinfo';
+        return html`
+            <div class="raster sld">
+                <strong>Or draw it yourself</strong>
+                <p class="muted">This service will draw its data the way you ask, so it can be coloured here.</p>
+                <div class="row">
+                    <label for="sld-driver">Colour by</label>
+                    <select id="sld-driver" .value=${this.sldDraft.driver}
+                            @change=${(event: Event) => this.setDraft({
+                                driver: (event.target as HTMLSelectElement).value as SldDraft['driver'],
+                            })}>
+                        <option value="single">One colour</option>
+                        <option value="attribute" ?disabled=${attributes.length === 0}>An attribute</option>
+                    </select>
+                </div>
+                ${this.sldDraft.driver === 'single' ? html`
+                    <div class="row">
+                        <label>Colour</label>
+                        <button id="sld-color" class="color-button" type="button"
+                                style=${`background:${this.sldDraft.color}`}
+                                aria-label=${`Colour: ${this.sldDraft.color}`}
+                                @click=${(event: Event) => this.openPicker('sld:color',
+                                    event.currentTarget as HTMLElement, this.sldDraft.color,
+                                    (rgba) => this.setDraft({ color: rgba }))}></button>
+                    </div>` : this.renderSldAttribute(attributes, sampled)}
+                <div class="row">
+                    <label>Outline</label>
+                    <button id="sld-stroke" class="color-button" type="button"
+                            style=${`background:${this.sldDraft.strokeColor || 'transparent'}`}
+                            aria-label=${`Outline: ${this.sldDraft.strokeColor || 'none'}`}
+                            @click=${(event: Event) => this.openPicker('sld:stroke',
+                                event.currentTarget as HTMLElement, this.sldDraft.strokeColor || '#333333',
+                                (rgba) => this.setDraft({ strokeColor: rgba }))}></button>
+                    <button type="button" @click=${() => this.setDraft({ strokeColor: '' })}
+                            ?disabled=${!this.sldDraft.strokeColor}>None</button>
+                </div>
+                ${this.sldClasses.length > 1 ? html`
+                    <div class="sld-legend">
+                        ${this.sldClasses.map((item) => html`
+                            <span class="sld-class">
+                                <span class="swatch" style="background:${item.color}"></span>${item.label}
+                            </span>`)}
+                    </div>` : nothing}
+                ${this.sldProblem ? html`<div class="warning">${this.sldProblem}</div>` : nothing}
+                <div class="row">
+                    <!-- Never disabled while a check is in flight: a check is
+                         about a style the user may already have changed, and
+                         swallowing the next click is worse than superseding the
+                         check, which the attempt counter makes safe. -->
+                    <sl-button size="small" variant="primary"
+                               ?disabled=${this.sldLoadingValues}
+                               @click=${() => void this.applySld(wms)}>Draw it</sl-button>
+                    ${this.sldVerifying ? html`<span class="muted">Checking…</span>` : nothing}
+                    <sl-button size="small" ?disabled=${!this.sldApplied}
+                               @click=${() => this.clearSld()}>Back to the service's style</sl-button>
+                </div>
+            </div>
+        `;
+    }
+
+    private renderSldAttribute(attributes: WmsAttribute[], sampled: boolean): TemplateResult {
+        return html`
+            <div class="row">
+                <label for="sld-attribute">Attribute</label>
+                <select id="sld-attribute" .value=${this.sldDraft.attribute ?? ''}
+                        @change=${(event: Event) => void this.chooseSldAttribute((event.target as HTMLSelectElement).value)}>
+                    <option value="">Choose…</option>
+                    ${attributes.map((attribute) => html`
+                        <option value=${attribute.name} ?selected=${attribute.name === this.sldDraft.attribute}>
+                            ${attribute.name}${attribute.numeric ? ' (number)' : ''}
+                        </option>`)}
+                </select>
+            </div>
+            <div class="row">
+                <label for="sld-classes">Classes</label>
+                <input id="sld-classes" type="number" min="2" max="9" .value=${String(this.sldDraft.classCount)}
+                       @input=${(event: Event) => void this.setDraft({
+                           classCount: Number((event.target as HTMLInputElement).value) || 5,
+                       })}>
+            </div>
+            ${this.sldLoadingValues ? html`<p class="muted">Reading values from the service…</p>` : nothing}
+            ${sampled ? html`
+                <p class="muted">
+                    This service publishes no data service alongside its pictures, so these column names come from a
+                    single feature and there are no values to classify by. One colour is what can be drawn here.
+                </p>` : nothing}
+        `;
+    }
+
+    /** Every draft change re-derives the legend, so the panel shows what it will send. */
+    private setDraft(change: Partial<SldDraft>): void {
+        // Any edit abandons a verification still in flight: whatever it says, it
+        // says it about a style the user has already moved on from.
+        this.sldAttempt++;
+        this.sldVerifying = false;
+        this.sldDraft = { ...this.sldDraft, ...change };
+        const built = buildDraftStyle(this.sldDraft);
+        this.sldClasses = built.classes;
+        this.sldProblem = built.problem ?? null;
+    }
+
+    /**
+     * What the layer is made of, which decides the symbolizer.
+     *
+     * A WMS says nothing about this, so it comes from the sibling WFS's schema
+     * where there is one. Guessing "areas" instead would be silent and wrong on
+     * every point layer — RCE's monuments, one of the two services in our own
+     * configs that honours a user style, is points — so an unknown geometry is
+     * passed through as unknown and the document carries every symbolizer.
+     */
+    private sldGeometry(): SldGeometry {
+        // The schema where there is one, what the probe *drew* otherwise: both
+        // are observations, and a guess here is invisible until the map comes
+        // back empty (a polygon style on lines) or speckled (every symbolizer
+        // at once on polygons).
+        return this.sldAttributes?.geometry ?? this.sldProbe?.geometry ?? 'unknown';
+    }
+
+    private async chooseSldAttribute(name: string): Promise<void> {
+        this.setDraft({ attribute: name || null, values: null });
+        const wfs = this.sldAttributes?.wfs;
+        if (!name || !wfs) return;
+        this.sldLoadingValues = true;
+        try {
+            const values = await valuesFromWfs(wfs, name, VALUE_SAMPLE);
+            this.setDraft({ values: values ?? [] });
+        } finally {
+            this.sldLoadingValues = false;
+        }
+    }
+
+    /**
+     * Asks the service whether it draws a style of our own, and what its
+     * columns are. Both are third-party requests, so both happen once, when a
+     * raster panel opens, and neither blocks the panel.
+     */
+    /** Asks again, from wherever the map is looking now, ignoring what is remembered. */
+    private async retrySldProbe(wms: WmsSourceInfo): Promise<void> {
+        this.sldProbe = null;
+        await this.loadSldBranch(wms, { force: true });
+    }
+
+    private async loadSldBranch(wms: WmsSourceInfo, options: { force?: boolean } = {}): Promise<void> {
+        const context = this.context;
+        this.sldProbing = true;
+        try {
+            const samples = probeSamples(context?.sourceControl?.getView?.() ?? null, context?.bounds ?? null);
+            const probe = await probeSldSupportCached(wms, samples, undefined, options);
+            if (this.context !== context) return;
+            this.sldProbe = probe;
+            if (!probe.supported) return;
+            const found = await discoverWmsAttributes(wms, probe.hit ?? null);
+            if (this.context !== context) return;
+            this.sldAttributes = found;
+        } catch (_) {
+            if (this.context === context) this.sldProbe = { supported: false, reason: 'error' };
+        } finally {
+            if (this.context === context) this.sldProbing = false;
+        }
+    }
+
+    /**
+     * Draws the layer with the style the form describes, then checks that the
+     * service will actually answer the request it produces.
+     *
+     * The check is after the fact on purpose. The alternative is a guessed
+     * url-length ceiling, and that number cannot be known here: it is the
+     * service's, it differs per endpoint, and a guess either refuses a style a
+     * generous service would have drawn or lets a stricter one fail silently —
+     * a layer that quietly stops drawing, which reads as a broken map. One
+     * request settles it, for a tile the map is about to ask for anyway.
+     */
+    private async applySld(wms: WmsSourceInfo): Promise<void> {
+        const raster = this.context?.raster;
+        if (!raster) return;
+        const built = draftDocument(wms.layers.split(',')[0].trim(), this.sldGeometry(), this.sldDraft);
+        this.sldClasses = built.classes;
+        this.sldProblem = built.problem ?? null;
+        if (!built.sld) return;
+        // Parameters, not urls: the same call on every engine, and nothing has
+        // to be fabricated or taken apart. `STYLES` is emptied alongside, since
+        // a named style and a style of our own in one request is undefined.
+        if (!this.writeSourceParams(raster.sourceId,
+            { SLD_BODY: built.sld, STYLES: '' },
+            (url) => withSldBodyUrl(url, built.sld))) return;
+        this.sldApplied = true;
+        this.message = null;
+        const attempt = ++this.sldAttempt;
+        const context = this.context;
+        this.sldProblem = null;
+        this.sldVerifying = true;
+        try {
+            const [sample] = probeSamples(this.context?.sourceControl?.getView?.() ?? null, this.context?.bounds ?? null);
+            // Built here rather than read back from the engine. Reading back is
+            // a second question with its own answer — an engine may report a
+            // url it has not finished writing, and the check then describes the
+            // *previous* style, which is how a short style came back "too
+            // long". This is the request the service will be sent.
+            const request = withSldBodyUrl(
+                probeGetMapUrl(wms, sample.bbox, {}, sample.size ?? undefined),
+                built.sld,
+            );
+            const check = await verifyStyledRequest(request);
+            // A later attempt, or another layer: this answer is about neither.
+            if (attempt !== this.sldAttempt || this.context !== context) return;
+            if (check.ok) {
+                this.sldProblem = null;
+                return;
+            }
+            this.sldApplied = check.problem !== 'too-long';
+            this.sldProblem = check.problem === 'too-long'
+                // The length limit is the service's, so the fix is named in its
+                // terms rather than as a number the panel invented.
+                ? 'This service will not accept a request this long. Use fewer classes, or an attribute with shorter values.'
+                : check.detail
+                    ? `The service refused this style: ${check.detail}`
+                    : 'The service refused this style.';
+        } catch (error) {
+            // The check itself failing is not the same as the service refusing,
+            // but swallowing it leaves the panel silent about a style it never
+            // confirmed.
+            if (attempt === this.sldAttempt) {
+                this.sldProblem = `The style could not be checked: ${String((error as Error)?.message ?? error)}`;
+            }
+        } finally {
+            if (attempt === this.sldAttempt) this.sldVerifying = false;
+        }
+    }
+
+    /**
+     * Hands the layer back to the service — to the named style that was in
+     * force, not to the default: `withSldBodyUrl` empties `STYLES` when it
+     * writes a document, so removing the document alone would silently demote
+     * a layer that was showing one of the service's named styles.
+     */
+    private clearSld(): void {
+        const raster = this.context?.raster;
+        if (!raster) return;
+        const named = this.wmsStyle;
+        if (!this.writeSourceParams(raster.sourceId,
+            { SLD_BODY: null, STYLES: named },
+            (url) => withWmsStyleUrl(withSldBodyUrl(url, null), named))) return;
+        this.sldApplied = false;
+        this.sldClasses = [];
+    }
+
+    /**
+     * Rewrites the urls the engine is requesting, which is the only place a
+     * bare-endpoint WMS's request exists — see `wmsStyleTiles`, which the named
+     * style path uses for the same reason.
+     */
+    /**
+     * Writes a change as parameters where the engine holds requests that way,
+     * and as urls where it does not.
+     *
+     */
+    private writeSourceParams(
+        sourceId: string,
+        params: Record<string, string | null>,
+        rewrite: (url: string) => string,
+    ): boolean {
+        const control = this.context?.sourceControl;
+        if (control?.setParams?.(sourceId, params)) return true;
+        return this.writeSourceUrls(sourceId, rewrite) !== null;
+    }
+
+    private writeSourceUrls(sourceId: string, rewrite: (url: string) => string): string[] | null {
+        const control = this.context?.sourceControl;
+        const current = control?.getTiles?.(sourceId) ?? null;
+        if (!current || current.length === 0) {
+            this.message = 'This map engine cannot change this layer\'s request while it is on the map.';
+            return null;
+        }
+        const written = current.map(rewrite);
+        if (!control?.setTiles(sourceId, written)) {
+            this.message = 'This map engine cannot change this layer\'s request while it is on the map.';
+            return null;
+        }
+        // The urls as written, not as read back: an engine may replace the
+        // source object on a write, and reading it in that moment answers with
+        // nothing — which silently skipped the check that follows.
+        return written;
+    }
+
+    private async loadWmsStyles(wms: WmsSourceInfo): Promise<void> {
+        this.wmsLoading = true;
+        try {
+            this.wmsStyles = await fetchWmsStyles(wms);
+        } catch {
+            // A capabilities document that cannot be read is not an error the
+            // user caused, and the layer still draws: say what is missing.
+            this.wmsStyles = [];
+            this.message = 'The service did not answer with the styles it offers.';
+        } finally {
+            this.wmsLoading = false;
+        }
+    }
+
+    private applyWmsStyle(style: string): void {
+        const raster = this.context?.raster;
+        if (!raster) return;
+        // Through parameters where the engine keeps them, so the two engines
+        // make the same request; a style of our own comes back off either way.
+        const written = this.writeSourceParams(raster.sourceId,
+            { STYLES: style, SLD_BODY: null },
+            (url) => wmsStyleTiles(raster, this.context?.sourceControl, style)[0] ?? url);
+        if (!written) {
+            this.message = 'This map engine cannot change a layer\'s style while it is on the map.';
+            return;
+        }
+        this.wmsStyle = style;
+        this.sldApplied = false;
+        this.sldClasses = [];
+        this.message = null;
+    }
+
     /** Level 1: the persistent style list. Nothing here collapses on selection. */
     private renderList(): TemplateResult {
         const entries = this.visibleEntries();
@@ -800,7 +1334,7 @@ export class WebmapxLayerStyler extends DraggablePanel {
                 ${!canStyleFeatures && this.list.length > 0 ? html`
                     <p class="muted">
                         This layer arrives as finished pictures rather than features, so there is nothing here to
-                        colour. Its opacity is above, and a WMS layer's own styles are chosen in the style dialog.
+                        colour. What it can be asked is above.
                     </p>` : nothing}
                 ${!this.listIsWritable && this.list.length > 0 && canStyleFeatures ? html`
                     <p class="muted">

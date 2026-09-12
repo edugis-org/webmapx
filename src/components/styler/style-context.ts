@@ -158,7 +158,28 @@ export interface RasterStyleTarget {
 export interface SourceControl {
     /** Returns false when the engine cannot repoint a live source. */
     setTiles: (sourceId: string, tiles: string[]) => boolean;
+    /**
+     * Changes request parameters instead of urls — what a WMS style change
+     * really is, and the only form both engines hold natively. A url is not a
+     * shape every engine keeps: MapLibre stores a request template, OpenLayers
+     * stores a base url plus `params` and builds the rest as it fetches, so
+     * asking it for "the url" fabricates one and writing one back takes it
+     * apart again. `null` removes a parameter.
+     */
+    setParams?: (sourceId: string, params: Record<string, string | null>) => boolean;
     /** The urls the engine is currently requesting, when it can say. */
     getTiles?: (sourceId: string) => string[] | null;
     setLayerOpacity: (opacity: number) => void;
+    /**
+     * Where the map is looking, for a panel that has to sample the service.
+     *
+     * Asking a WMS whether it honours a style of our own means drawing an
+     * image and looking at it, and that image has to cover somewhere the layer
+     * actually draws. What the user is looking at is the only place known to
+     * qualify — they opened the panel on a layer they can see — so the size in
+     * pixels comes too: sampling the *visible extent* is what makes "where the
+     * map is looking" literally true, where a tile-sized window at the centre
+     * could land on water while buildings fill the rest of the screen.
+     */
+    getView?: () => { center: [number, number]; zoom: number; size?: [number, number] } | null;
 }

@@ -684,9 +684,169 @@ opens the old step dialog, which is untouched and still the shipped panel.
 
 1. **Labels' *More* tier** — font/weight, placement, offset, allow-overlap behind
    the `⋯` affordance. Only the four primary channels exist.
-2. **The raster branch** — WMS `GetCapabilities` styles and raster opacity. The
-   new panel currently says "images, not features" and stops, so a raster layer
-   still needs the old dialog.
+2. ~~**The raster branch**~~ — done. The styler answers a raster layer through
+   `styler/raster-branch.ts`: not-WMS, WMS the engine cannot repoint, WMS
+   offering one way only, WMS offering a choice. Opacity was already at the top
+   of the panel and is not repeated. `scripts/ui-tests/layer-style-raster.mjs`
+   now runs its three claims over **both** panels, so the swap loses a row here
+   rather than losing the coverage.
+   - **User-defined styles (SLD) are built**: `utils/wms-sld.ts` (the document),
+     `utils/wms-sld-probe.ts` (whether this service draws one),
+     `utils/wms-attributes.ts` (what its columns are) and
+     `components/styler/wms-sld-branch.ts` (the panel's decisions). One colour
+     or by attribute — categories for text, class breaks for numbers, through
+     the *same* `classification.ts` a vector layer uses — written into the tile
+     url as `SLD_BODY`, with a button to hand the layer back to the service.
+     Four things measurement decided:
+     - **Support is probed, never declared.** `<UserDefinedSymbolization
+       SupportSLD="1" UserStyle="1">` is what the spec offers, and over the 20
+       WMS endpoints in `nl.json` and `world.json` it is worthless: the only
+       four services that declare the element declare `0`, while the two that
+       actually honour `SLD_BODY` — PDOK's `fysischgeografischeregios` and RCE's
+       `rijksmonumentpunten`, plus PDOK BAG in `demo.json` — declare nothing at
+       all. The probe is the same GetMap twice, plain and with a flat magenta
+       user style, compared byte for byte, cached per service.
+     - **The probe must ask at the map's own scale.** A WMS commonly withholds
+       detail above a *scale* threshold rather than outside an area: PDOK
+       suppresses BAG buildings above about 1:12000, measured — one downtown
+       bbox comes back blank at WIDTH=256 (1:15576) and drawn at WIDTH=384
+       (1:10384). A probe that always asked for a 256-pixel image was therefore
+       coarser than the map's own tiles whenever it covered more than one
+       tile's ground, and reported "this layer draws nothing where the map is
+       looking" about a screen full of buildings. Each sample now carries the
+       image size that holds it at the view's scale (the screen, at the
+       screen's pixel size) or finer (the centre, at twice it). Reported from
+       the app, with the three urls, which is what identified it.
+     - **A blank sample is not a "no".** BAG draws nothing at country zoom, so
+       the same empty tile comes back twice and reads exactly like "ignored".
+       The probe therefore looks for an opaque pixel first (`inkedPixel`), tries
+       the current view before the layer's extent, and reports `no-ink`
+       separately — "move the map and try again" is a different instruction
+       from "this service cannot do it", and the panel offers a **Look again**
+       button rather than making the user close and reopen it.
+     - **Only an answer about the *service* is cached.** `supported` and
+       `ignored` hold for the session; `no-ink` and `error` are about the
+       moment, and remembering them made a layer unstyleable for the rest of the
+       session — a panel opened before zooming in to BAG's minimum scale
+       answered "this layer draws nothing here" for good, and reopening after
+       zooming to the buildings repeated the stale answer. Reported from the app
+       rather than caught by a test, so it is now a browser step of its own.
+     - **Values come from the sibling WFS, not from GetFeatureInfo.** Styling by
+       attribute needs a distribution, and a WMS cannot be enumerated;
+       GetFeatureInfo answers about one pixel. Every SLD-honouring service in
+       our configs publishes a WFS at the `wms`→`wfs` path swap with
+       `Access-Control-Allow-Origin: *`, where `DescribeFeatureType` gives names
+       **and types** and `GetFeature` real values. GetFeatureInfo (at the
+       probe's inked pixel, which is how it hits a feature at all — a land layer
+       asked about a point at sea answers nothing) remains the fallback for
+       names, and then only one colour is offered, which the panel says.
+       `@camptocamp/ogc-client`'s own WFS reader is *not* used: it returns empty
+       properties for PDOK's schemas.
+     - **Geometry has to be determined, and three readings of it were wrong.** A
+       rule carrying only a PolygonSymbolizer draws *nothing* on a line layer —
+       PDOK's roads come back blank from the very document that draws the
+       buildings — and the service reports success either way. The sibling WFS's
+       `gml:*PropertyType` answers where there is one; otherwise the probe
+       settles it, since it is already drawing the layer. Three symbolizers in
+       one rule only draws the first (measured: identical to polygon-only), and
+       three separate *rules* draw everything — including a circle on every
+       vertex of every polygon, so that is the last resort, not the default.
+       Deciding *which* by comparing against the service's own style calls every
+       layer a polygon (a blank answer differs from the default as much as a
+       correct one), and taking whichever draws the most calls a road layer
+       points (a mark on every vertex out-inks a thin stroke). What holds is
+       elimination by specificity: areas only fill polygons, strokes follow
+       lines and outlines, marks land on any vertex — so the first candidate
+       that draws anything at all is the answer. Verified against four real
+       layers: roads → line, BAG and municipal areas → polygon, monuments →
+       point.
+     - **A colour must reach the service as SLD spells it.** SLD 1.0 takes
+       `#rrggbb` and nothing else; the styler's own picker emits
+       `rgba(0,170,0,1)`, and a service handed that does not complain — it falls
+       back to its default style, which reads as "the style silently stopped
+       working". Reported from the app exactly that way: the first draw worked
+       (the default was hex) and the first *picked* colour drew the service's
+       grey. `toSldColor` converts, and carries the alpha across as SLD's own
+       `fill-opacity`/`stroke-opacity`, which a hex colour cannot hold.
+     - **How long a request may be is the service's answer, not a constant.**
+       `SLD_BODY` rides the tile url and the server in front refuses a long
+       request line with **HTTP 431**, never with a WMS exception. The ceiling
+       differs per service — bisected: PDOK BAG refuses at 7822 bytes, PDOK's
+       regions at 7886, RCE's monuments at 8049 — and it is spent by the
+       endpoint's own length too, so any constant here either refuses a style a
+       generous service would have drawn or lets a stricter one fail. The style
+       is therefore sent, and *one* request verifies it
+       (`verifyStyledRequest`), for a tile the map is about to ask for anyway —
+       so it warms the service's cache rather than adding to it. Only 414/431
+       are read as length; anything else is reported in the service's own words,
+       because telling someone to use fewer classes when their document is
+       malformed sends them the wrong way. Verified live: 16 categories drawn at
+       7535 bytes, 17 refused at 7953, a malformed document *not* reported as
+       too long.
+     - **A url is not a shape every engine holds, so the styler writes
+       *parameters*.** MapLibre keeps a raster source as a literal request
+       template and hands back what was written; OpenLayers keeps a `TileWMS` as
+       a base url plus `params` and assembles `SERVICE`, `REQUEST`, `WIDTH`,
+       `HEIGHT` and the bbox as it fetches. Asking OpenLayers for "the url"
+       therefore *fabricates* one and writing one back takes it apart again — a
+       round trip that dropped `SERVICE`, decoded what should stay encoded, and
+       let a `#` in a colour read as a fragment (truncating the query and
+       dragging the old document along on every later edit). `IMap.setSourceParams`
+       is the fix: each engine applies a parameter change the way it holds
+       requests (OpenLayers `updateParams`, MapLibre a template rewrite), so the
+       two engines end up sending the same request and generic code fabricates
+       nothing. The request the *check* measures is built generically too, from
+       the source's own description — reading it back from the engine is a
+       second question with its own answer, and an engine reporting a url it has
+       not finished writing made a short style come back "too long".
+     - **A refusal must not outlive the style it was about.** Verifying is a
+       request and a refused one can answer after a later, good one, so every
+       attempt carries a number and only the newest may speak. The panel is also
+       one element reused for every layer, so reopening it bumps that number
+       too. Reported from the app: reducing the class count until it worked left
+       the earlier refusal on screen.
+     - **The legend derives its picture from the live request.** A raster layer
+       has no paint, so the legend panel falls back to a chequerboard that says
+       only "this is a picture" — and `legendurl`, where a config carries one,
+       keeps describing the service's default long after the layer has been
+       restyled. `webmapx-layer-legend` now composes a `GetLegendGraphic` from
+       what the source is *currently* requesting, `SLD_BODY` and all, so a
+       style chosen in the styler shows up in the legend without the two
+       knowing about each other. A named style's advertised `LegendURL` is
+       preferred where the layer carries one, since it may carry sizing or a
+       font of the service's choosing. What a source requests is engine state
+       rather than store state, so `BaseAdapter.notifySourceChanged` touches the
+       layers drawing from it — one writer, and the legend reads the engine
+       again rather than a mirrored copy.
+     - **A failed legend image must not outlive its url.** The error handler
+       replaced the `<img>` element with a notice, which took it out of Lit's
+       hands: the next legend — the one you get by reducing the class count
+       until the service accepts it — had no element left to render into, so
+       "invalid legend image" stayed on screen for good. Recorded as state,
+       keyed by url.
+     - **A named style and a style of our own are exclusive.** Both in one
+       request is undefined between services and in practice the document wins,
+       so picking one of the service's styles appeared to do nothing.
+       `wmsStyleTiles` now strips `SLD_BODY`, and handing the layer back
+       restores the *named* style that was in force rather than the default —
+       `withSldBodyUrl` empties `STYLES` when it writes a document, so removing
+       the document alone would silently demote the layer.
+     - **Colour is the styler's own picker**, the same palette every other
+       swatch in the panel uses, not an `<input type="color">`.
+     - Not built: POST, and the branch is offered only where the engine can
+       repoint a live source — **MapLibre and OpenLayers today; Leaflet and
+       Cesium implement no `getSourceTiles` at all**, which is also why they
+       cannot switch a WMS's *named* style.
+   - **OpenLayers could always repoint a WMS source; nobody could address it.**
+     `nativeLayerToSource` is keyed by the native source id this service invents
+     (`src-<logical id>-<n>`) while every caller outside the engine knows the
+     logical id, so `getSourceTiles`/`setSourceTiles` matched nothing and
+     reported "this engine cannot repoint a live source". Fixed with an alias
+     lookup; the named-style step of `layer-style-raster.mjs` went from SKIP to
+     passing on OpenLayers as a result. Its `updateParams` also *merges*, so a
+     parameter the new url drops (`SLD_BODY`, when the layer is handed back)
+     survived forever — the live params object is the source's own, and a key
+     deleted there is really gone.
 3. **Rules** — a `filter` and a zoom range are decoded, preserved and named in the
    summary, but there is no editor for either.
 4. **Level-4 content not ported**: the histogram with the breaks drawn over it,

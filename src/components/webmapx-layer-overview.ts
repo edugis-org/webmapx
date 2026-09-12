@@ -1437,8 +1437,20 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         this.adapter?.setSourceData(sourceId, { type: 'FeatureCollection', features }) ?? false,
       sourceControl: {
         setTiles: (sourceId, tiles) => this.adapter?.setSourceTiles(sourceId, tiles) ?? false,
+        setParams: (sourceId, params) => this.adapter?.setSourceParams(sourceId, params) ?? false,
         getTiles: (sourceId) => this.adapter?.getSourceTiles(sourceId) ?? null,
         setLayerOpacity: (opacity) => this.adapter?.setLayerOpacity(layerId, opacity),
+        getView: () => {
+          const view = this.adapter?.getViewportState();
+          if (!view) return null;
+          // The map element's own box: the probe samples what is on screen.
+          const element = this.closest('webmapx-map') ?? this.parentElement;
+          const width = (element as HTMLElement | null)?.clientWidth ?? 0;
+          const height = (element as HTMLElement | null)?.clientHeight ?? 0;
+          return width > 0 && height > 0
+            ? { ...view, size: [width, height] as [number, number] }
+            : view;
+        },
       },
     };
 
