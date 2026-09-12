@@ -990,6 +990,37 @@ export class WebmapxMapElement extends HTMLElement {
     return promise;
   }
 
+  /**
+   * The three shapes a style document arrives in, as one shape.
+   *
+   * A plain MapLibre style has `sources` and `layers` at the top. An EduGIS
+   * *fragment* carries both under `source`. And an EduGIS **layer document** is
+   * a single GL layer — `{ id, type, source: {…}, source-layer, paint }` — where
+   * `source` is the source definition itself rather than a container.
+   *
+   * The third was read as the second: `source` is an object either way, so the
+   * whole document collapsed to a source definition with no `layers`, and the
+   * expansion answered null. The catalog then called the layer "unsupported for
+   * current engine" — four such layers in nl.json, every one of them a vector
+   * source MapLibre draws without complaint. Telling the two apart is what
+   * `source` *holds*: a container names layers, a source names a type.
+   */
+  private normalizeStyleDocument(styleDoc: Record<string, unknown> | null): Record<string, unknown> | null {
+    if (!styleDoc || styleDoc.sources || styleDoc.layers) return styleDoc;
+    const source = this.toRecord(styleDoc.source);
+    if (!source) return styleDoc;
+    if (source.sources || source.layers) return source;
+
+    // One layer with its source inline. The key is the layer's own id, which
+    // `buildExpandedStyleLayer` scopes like any other local source key.
+    if (typeof styleDoc.type !== 'string' || typeof source.type !== 'string') return styleDoc;
+    const key = typeof styleDoc.id === 'string' && styleDoc.id.length > 0 ? styleDoc.id : 'source';
+    return {
+      sources: { [key]: source },
+      layers: [{ ...styleDoc, source: key }],
+    };
+  }
+
   private buildExpandedStyleLayer(
     layer: AnyLayerConfig,
     styleDoc: Record<string, unknown> | null,
@@ -997,9 +1028,7 @@ export class WebmapxMapElement extends HTMLElement {
     scopedPrefix?: string,
   ): LayerInformation | null {
     // Support edugis fragment format: {source: {sources, layers}} instead of top-level sources/layers
-    const styleDocNorm = (styleDoc && !styleDoc.sources && !styleDoc.layers && styleDoc.source && typeof styleDoc.source === 'object')
-      ? (styleDoc.source as Record<string, unknown>)
-      : styleDoc;
+    const styleDocNorm = this.normalizeStyleDocument(styleDoc);
     const styleSources = this.toRecord(styleDocNorm?.sources);
     const styleLayers = Array.isArray(styleDocNorm?.layers)
       ? styleDocNorm.layers.map((entry) => this.toRecord(entry)).filter((entry): entry is Record<string, unknown> => !!entry)
