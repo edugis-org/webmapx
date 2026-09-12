@@ -409,6 +409,19 @@ export class WebmapxLayerTree extends LitElement {
         this.queueRootLazySupportChecks();
     }
 
+    /**
+     * The support answer for a layer that brought its own definition.
+     *
+     * Synchronous, because there is nothing to fetch: the sources are in hand.
+     * `unknown` where the map element cannot be asked, so a row is never
+     * disabled on the strength of a question nobody answered.
+     */
+    private supportOfSpec(spec: Record<string, unknown>): LayerSupportStatus {
+        const mapHost = this.mapHost;
+        if (typeof mapHost?.isLayerSpecSupported !== 'function') return 'unknown';
+        return mapHost.isLayerSpecSupported(spec) ? 'supported' : 'unsupported';
+    }
+
     private getSupportStatus(layerId: string | undefined): LayerSupportStatus {
         if (!layerId) return 'unknown';
         return this.supportStatusByLayerId.get(layerId) ?? 'unknown';
@@ -425,7 +438,10 @@ export class WebmapxLayerTree extends LitElement {
 
     private collectLayerIdsForSupport(node: LayerNode): string[] {
         if (node.layerId) {
-            return [node.layerId];
+            // A layer carrying its own definition is judged from that definition
+            // (`supportOfSpec`), not by looking it up in a catalog it was never
+            // in — which is what asking here would do.
+            return node.layerSpec ? [] : [node.layerId];
         }
 
         const children = Array.isArray(node.children) ? node.children : [];
@@ -1132,7 +1148,9 @@ export class WebmapxLayerTree extends LitElement {
         } else {
             const isExclusive = nodeContext.selectionMode === 'single';
             const selectionGroup = this.getExclusiveGroupKey(node, nodeContext);
-            const layerSupportStatus = this.getSupportStatus(node.layerId);
+            const layerSupportStatus = node.layerSpec
+                ? this.supportOfSpec(node.layerSpec)
+                : this.getSupportStatus(node.layerId);
             const disabled = layerSupportStatus === 'unsupported';
             // The label (and the "unsupported" note) is composed by
             // renderLayerLabel, which also derives the swatch.

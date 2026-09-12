@@ -1442,6 +1442,31 @@ export class WebmapxMapElement extends HTMLElement {
     return !this.isSourceSupportedByActiveEngine(source);
   }
 
+  /**
+   * Whether this engine can draw a layer that carries its own definition.
+   *
+   * A layer offered by a GetCapabilities node or an EduGIS layer document is
+   * never in the configuration: it arrives with its sources inline and is added
+   * straight through `webmapx-add-layer`, bypassing the catalog entirely. Asking
+   * `isCatalogLayerSupported` about it therefore asked the wrong question and
+   * got the wrong answer — not found, so "unsupported for current engine",
+   * which the tree then rendered as a disabled row. On nl.json that was 528
+   * layers, none of which the engine had any trouble with.
+   *
+   * A spec that declares no sources at all is admitted: there is nothing to
+   * judge, and refusing on no evidence is how this went wrong in the first
+   * place.
+   */
+  public isLayerSpecSupported(spec: Record<string, unknown> | null | undefined): boolean {
+    const sources = spec?.sources && typeof spec.sources === 'object'
+      ? Object.values(spec.sources as Record<string, unknown>)
+      : [];
+    const declared = sources.filter((source): source is SourceConfig =>
+      !!source && typeof source === 'object' && typeof (source as { type?: unknown }).type === 'string');
+    if (declared.length === 0) return true;
+    return declared.every((source) => this.isSourceSupportedByActiveEngine(source));
+  }
+
   public async isCatalogLayerSupported(layerId: string): Promise<boolean> {
     const layerInformation = this.getConfiguredLayerInformation(layerId);
     if (!layerInformation) {
