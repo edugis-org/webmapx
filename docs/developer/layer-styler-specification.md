@@ -862,7 +862,11 @@ opens the old step dialog, which is untouched and still the shipped panel.
    MapLibre-only.
 8. **The swap**: point `webmapx-layer-overview` and `webmapx-layer-legend3d` at
    the new tag, delete `webmapx-layer-style-dialog.ts`, and remove the
-   `?styler=next` flag and `usesNextStyler()`. Blocked on 1–2, since a raster
+   `?styler=next` flag and `usesNextStyler()`. `webmapx-layer-legend3d` builds
+   the same context but opens the *step dialog*, so it is missing the two
+   entries the new panel added — `sourceControl.setParams` and
+   `sourceControl.getView`. They belong in the same commit as the swap and not
+   before: added now they would be dead, since nothing in that path reads them. Blocked on 1–2, since a raster
    layer and label styling must not regress. The panel's read-only data view and
    per-entry legend preview are not ported either and should be reviewed then.
 
