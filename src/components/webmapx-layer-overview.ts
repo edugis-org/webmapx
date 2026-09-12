@@ -8,11 +8,14 @@ import type { LayerAddEvent, LayerRemoveEvent } from '../store/map-events';
 import './webmapx-layer-legend';
 import './webmapx-layer-info-dialog';
 import './webmapx-layer-style-dialog';
+import './webmapx-layer-styler';
 import './webmapx-save-layers-dialog';
 import './webmapx-permalink-dialog';
 import './webmapx-clear-layers-dialog';
 import type { WebmapxLayerInfoDialog } from './webmapx-layer-info-dialog';
 import type { LayerStyleTarget, SourceStyleGroup, WebmapxLayerStyleDialog } from './webmapx-layer-style-dialog';
+import type { StyleDialogContext } from './styler/style-context';
+import type { WebmapxLayerStyler } from './webmapx-layer-styler';
 import type { WebmapxSaveLayersDialog, SaveLayerCandidate } from './webmapx-save-layers-dialog';
 import type { WebmapxPermalinkDialog } from './webmapx-permalink-dialog';
 import type { WebmapxClearLayersDialog } from './webmapx-clear-layers-dialog';
@@ -142,6 +145,23 @@ export interface LayerPanelItem {
 
 const STYLE_DIALOG_LAYER_TYPES = new Set(['circle', 'symbol', 'label', 'line', 'fill', 'fill-extrusion']);
 
+/**
+ * Whether the style button opens the hierarchy panel instead of the step dialog.
+ *
+ * `?styler=next` while the two panels overlap, so the new one can be driven
+ * from the real legend — the same layers, the same context object — rather than
+ * from a test page that would rebuild half the legend to call it. It goes when
+ * the new panel covers level 4 and replaces the old one outright.
+ */
+function usesNextStyler(): boolean {
+    if (typeof window === 'undefined') return false;
+    try {
+        return new URLSearchParams(window.location.search).get('styler') === 'next';
+    } catch {
+        return false;
+    }
+}
+
 interface SourceLayerTarget extends LayerStyleTarget {
   sourceId: string;
   sourceLayer?: string;
@@ -184,6 +204,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   // first click, before they've moved; every click after that would silently find nothing.
   @query('webmapx-layer-info-dialog', true) private infoDialog!: WebmapxLayerInfoDialog;
   @query('webmapx-layer-style-dialog', true) private styleDialog!: WebmapxLayerStyleDialog;
+  @query('webmapx-layer-styler', true) private layerStyler!: WebmapxLayerStyler;
   // cache: true — see the comment on infoDialog/styleDialog above; same reason.
   @query('webmapx-save-layers-dialog', true) private saveLayersDialog!: WebmapxSaveLayersDialog;
   @query('webmapx-permalink-dialog', true) private permalinkDialog!: WebmapxPermalinkDialog;
@@ -765,6 +786,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       </div>
       <webmapx-layer-info-dialog></webmapx-layer-info-dialog>
       <webmapx-layer-style-dialog></webmapx-layer-style-dialog>
+      <webmapx-layer-styler></webmapx-layer-styler>
       <webmapx-save-layers-dialog></webmapx-save-layers-dialog>
       <webmapx-permalink-dialog></webmapx-permalink-dialog>
       <webmapx-clear-layers-dialog @webmapx-clear-layers-confirm=${() => this.handleConfirmClearAllLayers()}></webmapx-clear-layers-dialog>
@@ -1364,8 +1386,9 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     // vector-tile layer can take seconds to answer, and a button that does
     // nothing for that long reads as broken. It shows a spinner meanwhile and
     // fills itself in from `resample` below.
-    this.styleDialog?.open({
+    const context: StyleDialogContext = {
       title,
+      engine: this.adapter?.engineId,
       layerId,
       groups: [],
       // The panel builds a paint spec; putting it on the map is the adapter's
@@ -1390,6 +1413,9 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         // Labels go on as a sublayer of the layer itself, so it keeps one
         // legend row, one delete button and one style panel.
         setExtraSubLayer: (id, sublayer) => this.adapter?.setExtraSubLayer(id, sublayer) ?? Promise.resolve(false),
+        setSubLayers: (id, sublayers) => this.adapter?.setSubLayers(id, sublayers) ?? Promise.resolve(false),
+        getSubLayers: (id) => this.adapter?.getSubLayers(id) ?? null,
+        canRebuild: (id) => this.adapter?.canRebuildLayer(id) ?? false,
       },
       // What the layer is made of decides which questions the panel can ask; a
       // raster has no features and no paint, so it gets its own branch.
@@ -1414,7 +1440,10 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         getTiles: (sourceId) => this.adapter?.getSourceTiles(sourceId) ?? null,
         setLayerOpacity: (opacity) => this.adapter?.setLayerOpacity(layerId, opacity),
       },
-    });
+    };
+
+    if (usesNextStyler()) this.layerStyler?.open(context);
+    else this.styleDialog?.open(context);
   }
 
   /**
@@ -1471,7 +1500,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       const sourceLayer = typeof metadata?.sourceLayer === 'string' ? metadata.sourceLayer : undefined;
       if (layerType && STYLE_DIALOG_LAYER_TYPES.has(layerType)) {
         const paint = (metadata?.paint && typeof metadata.paint === 'object') ? metadata.paint as Record<string, unknown> : undefined;
-        targets.push({ id: layerId, type: layerType, sourceId, ...(paint ? { paint } : {}), ...(sourceLayer ? { sourceLayer } : {}) });
+        const layout = (metadata?.layout && typeof metadata.layout === 'object') ? metadata.layout as Record<string, unknown> : undefined;
+        targets.push({ id: layerId, type: layerType, sourceId, ...(paint ? { paint } : {}), ...(layout ? { layout } : {}), ...(sourceLayer ? { sourceLayer } : {}) });
       }
     }
     return targets;
@@ -1489,7 +1519,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       const sourceLayer = typeof sub['source-layer'] === 'string' ? sub['source-layer'] : undefined;
       if (type && id && STYLE_DIALOG_LAYER_TYPES.has(type)) {
         const paint = (sub.paint && typeof sub.paint === 'object') ? sub.paint as Record<string, unknown> : undefined;
-        targets.push({ id, type, sourceId, ...(paint ? { paint } : {}), ...(sourceLayer ? { sourceLayer } : {}) });
+        const layout = (sub.layout && typeof sub.layout === 'object') ? sub.layout as Record<string, unknown> : undefined;
+        targets.push({ id, type, sourceId, ...(paint ? { paint } : {}), ...(layout ? { layout } : {}), ...(sourceLayer ? { sourceLayer } : {}) });
       }
       this.collectStyleTargetsFromSublayers(layerId, sub.sublayers, targets);
     }

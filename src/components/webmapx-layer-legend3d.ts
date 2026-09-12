@@ -1590,6 +1590,7 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
     const title = (runtimeMetadata?.label as string | undefined) ?? fallbackLabel;
     this.styleDialog?.open({
       title,
+      engine: this.adapter?.engineId,
       layerId,
       groups: [],
       // The panel builds a paint spec; putting it on the map is the adapter's
@@ -1614,6 +1615,9 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
         // Labels go on as a sublayer of the layer itself, so it keeps one
         // legend row, one delete button and one style panel.
         setExtraSubLayer: (id, sublayer) => this.adapter?.setExtraSubLayer(id, sublayer) ?? Promise.resolve(false),
+        setSubLayers: (id, sublayers) => this.adapter?.setSubLayers(id, sublayers) ?? Promise.resolve(false),
+        getSubLayers: (id) => this.adapter?.getSubLayers(id) ?? null,
+        canRebuild: (id) => this.adapter?.canRebuildLayer(id) ?? false,
       },
       // What the layer is made of decides which questions the panel can ask; a
       // raster has no features and no paint, so it gets its own branch.
@@ -1690,7 +1694,8 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
       const sourceLayer = typeof metadata?.sourceLayer === 'string' ? metadata.sourceLayer : undefined;
       if (layerType && STYLE_DIALOG_LAYER_TYPES.has(layerType)) {
         const paint = (metadata?.paint && typeof metadata.paint === 'object') ? metadata.paint as Record<string, unknown> : undefined;
-        targets.push({ id: layerId, type: layerType, sourceId, ...(paint ? { paint } : {}), ...(sourceLayer ? { sourceLayer } : {}) });
+        const layout = (metadata?.layout && typeof metadata.layout === 'object') ? metadata.layout as Record<string, unknown> : undefined;
+        targets.push({ id: layerId, type: layerType, sourceId, ...(paint ? { paint } : {}), ...(layout ? { layout } : {}), ...(sourceLayer ? { sourceLayer } : {}) });
       }
     }
     return targets;
@@ -1708,7 +1713,8 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
       const sourceLayer = typeof sub['source-layer'] === 'string' ? sub['source-layer'] : undefined;
       if (type && id && STYLE_DIALOG_LAYER_TYPES.has(type)) {
         const paint = (sub.paint && typeof sub.paint === 'object') ? sub.paint as Record<string, unknown> : undefined;
-        targets.push({ id, type, sourceId, ...(paint ? { paint } : {}), ...(sourceLayer ? { sourceLayer } : {}) });
+        const layout = (sub.layout && typeof sub.layout === 'object') ? sub.layout as Record<string, unknown> : undefined;
+        targets.push({ id, type, sourceId, ...(paint ? { paint } : {}), ...(layout ? { layout } : {}), ...(sourceLayer ? { sourceLayer } : {}) });
       }
       this.collectStyleTargetsFromSublayers(layerId, sub.sublayers, targets);
     }

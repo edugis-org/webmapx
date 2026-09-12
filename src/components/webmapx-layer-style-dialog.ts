@@ -50,14 +50,8 @@ import { dropModelessFromTopLayer, raiseModelessToTopLayer } from './internal/to
 import type Pickr from '@simonwep/pickr';
 import { DATA_OUTLINE, DATA_START } from '../theme/data-colors';
 import { EXTRA_SUBLAYER_SUFFIX } from '../map/base-adapter';
+import { NEIGHBOUR_COLOR_FIELD } from '../utils/layer-style-model';
 import { fetchWmsStyles, readWmsSource, withWmsStyleUrl, type WmsSourceInfo, type WmsStyleOption } from '../utils/wms-source';
-
-export interface LayerStyleTarget {
-    id: string;
-    type: string;
-    /** The sublayer's authored paint, so "reset" has something to go back to. */
-    paint?: Record<string, unknown>;
-}
 
 /** What a numeric column looks like, for the line under its name. */
 interface AttributeStats {
@@ -70,119 +64,25 @@ interface AttributeStats {
 }
 
 import type { SourceAttributeInfo } from '../utils/attribute-info';
-export type { SourceAttributeInfo };
-
-export interface SourceStyleGroup {
-    sourceId: string;
-    featureCountLabel: string;
-    featureCount: number | null;
-    geometryTypes: string[];
-    attributes: SourceAttributeInfo[];
-    featureRows: Record<string, unknown>[];
-    layers: LayerStyleTarget[];
-    /** The features themselves — what a classification is computed from. */
-    features?: GeoJSON.Feature[] | null;
-    /**
-     * False when the features are only what the map has drawn (a tiled source),
-     * which changes the answer as the user pans. Same convention as the Analysis
-     * tool's viewport warning.
-     */
-    completeData?: boolean;
-    /** The vector-tile sublayer these targets read, when the source is tiled. */
-    sourceLayer?: string;
-    /**
-     * The source's own config as the map holds it. A labels layer over a tiled
-     * source re-declares this rather than copying features, so the labels are
-     * drawn from the tiles themselves and stay put while the user pans.
-     */
-    sourceConfig?: Record<string, unknown> | null;
-}
-
-/**
- * Applies a paint change to one sublayer of the layer being styled, and says
- * whether the engine took it. `false` means the sublayer is described in the
- * store but is not on the map — a style that silently does nothing is the worst
- * outcome, since the user blames their own choices.
- */
-export type StyleApply = (subLayerId: string, paint: Record<string, unknown>) => boolean | void;
-
-/**
- * Adding and removing a layer of its own — what labels need.
- *
- * Labels are a second sublayer over the same features, and the shortest honest
- * way to get one on every engine is a small layer alongside the styled one: it
- * appears in the legend, can be switched off, and is removed with the same
- * button. Attaching a sublayer to an existing logical layer instead would need
- * engine-specific plumbing in all four adapters.
- */
-export interface LayerHost {
-    add: (config: Record<string, unknown>) => Promise<boolean> | boolean;
-    remove: (layerId: string) => void;
-    /**
-     * Attaches a sublayer to a layer, or removes it again with `null`. This is
-     * how labels reach the map: as part of the layer they belong to.
-     */
-    setExtraSubLayer?: (layerId: string, sublayer: Record<string, unknown> | null) => Promise<boolean>;
-}
-
-export interface StyleDialogContext {
-    title: string;
-    /** Names the labels layer, and is the caller's own bookkeeping otherwise. */
-    layerId: string;
-    groups: SourceStyleGroup[];
-    apply?: StyleApply;
-    /** Lets the panel put a labels layer on the map. Omitted: no labels step. */
-    layers?: LayerHost;
-    /**
-     * Samples the source again. A tiled layer has nothing to offer until its
-     * tiles have arrived, and the panel is usually opened before that: without
-     * this it shows "no features are loaded" for good and the user has to close
-     * it and try again.
-     */
-    resample?: () => Promise<SourceStyleGroup[]>;
-    /**
-     * What the layer is made of, when it is not something with features.
-     *
-     * A raster layer has no paint to build an expression from — it arrives as
-     * finished pictures — so the panel asks a different question of it, and
-     * needs the source itself to know which question that is.
-     */
-    raster?: RasterStyleTarget;
-    /** Lets the panel repoint a raster source and set the layer's opacity. */
-    sourceControl?: SourceControl;
-    /** The styled layer's extent, inherited by a labels layer made from it. */
-    bounds?: number[];
-    /**
-     * Rewrites a source's features, for a colouring the data has to carry.
-     *
-     * Only a source the app holds whole — a `geojson` one — can be rewritten;
-     * a tiled source's properties live on a server. Absent, or returning false,
-     * means the panel falls back to keying on a column the data already has.
-     */
-    writeFeatures?: (sourceId: string, features: GeoJSON.Feature[]) => boolean;
-}
-
-export interface RasterStyleTarget {
-    sourceId: string;
-    sourceConfig: Record<string, unknown> | null;
-}
-
-export interface SourceControl {
-    /** Returns false when the engine cannot repoint a live source. */
-    setTiles: (sourceId: string, tiles: string[]) => boolean;
-    /** The urls the engine is currently requesting, when it can say. */
-    getTiles?: (sourceId: string) => string[] | null;
-    setLayerOpacity: (opacity: number) => void;
-}
-
-/**
- * Property the neighbour colouring writes its class index into.
- *
- * Named to be recognisable as machinery rather than data if it is ever seen in
- * an info popup or an export: it is not a fact about the region, it is which of
- * six colours this run of the algorithm gave it.
- */
-const NEIGHBOUR_COLOR_FIELD = '__webmapx_neighbour_class';
+import type {
+    LayerHost,
+    LayerStyleTarget,
+    RasterStyleTarget,
+    SourceControl,
+    SourceStyleGroup,
+    StyleApply,
+    StyleDialogContext,
+} from './styler/style-context';
+export type {
+    LayerHost,
+    LayerStyleTarget,
+    RasterStyleTarget,
+    SourceAttributeInfo,
+    SourceControl,
+    SourceStyleGroup,
+    StyleApply,
+    StyleDialogContext,
+} from './styler/style-context';
 
 /** What a circle layer shows an attribute with. */
 type CircleShow = 'color' | 'size' | 'both';
