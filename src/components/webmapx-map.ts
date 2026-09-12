@@ -1055,7 +1055,12 @@ export class WebmapxMapElement extends HTMLElement {
 
     const inlineSourceIds = new Set(Object.keys(inlineSources));
     const filteredLayers = normalizedLayers.filter((entry) => !entry.source || inlineSourceIds.has(entry.source));
-    if (filteredLayers.length === 0 || inlineSourceIds.size === 0) {
+    // A `background` layer paints a flat colour and has nothing behind it, so a
+    // style document may legitimately carry no sources at all — which is what
+    // an EduGIS "achtergrondkleur" fragment is. Requiring one rejected the
+    // whole layer, and the rejection then read as "unsupported for current
+    // engine" in the catalog while `addLayerRequest` simply answered false.
+    if (filteredLayers.length === 0) {
       return null;
     }
 
