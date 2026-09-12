@@ -214,6 +214,22 @@ async function openStylePanel(page, options = {}) {
                 { id: 'style-composite-line', type: 'line', paint: { 'line-color': '#2c6fad', 'line-width': 2 } },
             ]
             : [{ id: layerId, type: 'fill', paint: { 'fill-color': '#888888', 'fill-opacity': 0.6 } }];
+        // Every attribute the panel is handed must carry uniqueCount: that is what
+        // tells it a column is a name or a code rather than something to group by
+        // (webmapx-layer-style-dialog's isKey). Deriving it here keeps the fixture
+        // honest with buildSourceAttributes, which counts distinct values for real.
+        const attr = (name, type, read) => {
+            const values = source.features.map(read);
+            return {
+                name,
+                type,
+                values,
+                presentCount: values.filter(v => v !== undefined && v !== null && v !== '').length,
+                missingCount: values.filter(v => v === undefined || v === null || v === '').length,
+                uniqueCount: new Set(values.filter(v => v !== undefined && v !== null && v !== '')).size,
+            };
+        };
+
         dialog.open({
             title: 'Style test',
             layerId,
@@ -223,15 +239,15 @@ async function openStylePanel(page, options = {}) {
                 featureCount: source.features.length,
                 geometryTypes: [points ? 'Point' : 'Polygon'],
                 attributes: points ? [
-                    { name: 'name', type: 'string', values: source.features.map(f => f.properties.name), presentCount: source.features.length, missingCount: 0 },
-                    { name: 'rank', type: 'number', values: source.features.map(f => f.properties.rank), presentCount: source.features.length, missingCount: 0 },
+                    attr('name', 'string', f => f.properties.name),
+                    attr('rank', 'number', f => f.properties.rank),
                 ] : keysOnly ? [
-                    { name: 'NAME', type: 'string', values: source.features.map(f => f.properties.NAME), presentCount: source.features.length, missingCount: 0 },
-                    { name: 'ISO_A3', type: 'string', values: source.features.map(f => f.properties.ISO_A3), presentCount: source.features.length, missingCount: 0 },
+                    attr('NAME', 'string', f => f.properties.NAME),
+                    attr('ISO_A3', 'string', f => f.properties.ISO_A3),
                 ] : [
-                    { name: 'pop', type: 'number', values: source.features.map(f => f.properties.pop), presentCount: source.features.length, missingCount: 0 },
-                    { name: 'name', type: 'string', values: source.features.map(f => f.properties.name), presentCount: source.features.length, missingCount: 0 },
-                    { name: 'region', type: 'string', values: source.features.map(f => f.properties.region), presentCount: source.features.length, missingCount: 0 },
+                    attr('pop', 'number', f => f.properties.pop),
+                    attr('name', 'string', f => f.properties.name),
+                    attr('region', 'string', f => f.properties.region),
                 ],
                 featureRows: source.features.map(f => f.properties),
                 layers,
