@@ -9,6 +9,7 @@
  * otherwise have to know which panel they were filling in for.
  */
 import type { SourceAttributeInfo } from '../../utils/attribute-info';
+import type { AttributeTranslations } from '../../utils/attribute-translations';
 export type { SourceAttributeInfo };
 
 export interface LayerStyleTarget {
@@ -150,6 +151,12 @@ export interface StyleDialogContext {
     sourceControl?: SourceControl;
     /** The styled layer's extent, inherited by a labels layer made from it. */
     bounds?: number[];
+    /**
+     * What this layer's columns are called in words, where the configuration
+     * says — the same labels the legend shows, resolved by the caller because
+     * a shared definition lives in the store rather than on the layer.
+     */
+    attributeLabels?: AttributeTranslations;
     /**
      * Rewrites a source's features, for a colouring the data has to carry.
      *

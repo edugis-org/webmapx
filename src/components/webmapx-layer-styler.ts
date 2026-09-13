@@ -117,6 +117,7 @@ import {
     type ChannelState,
     type StyleRole,
 } from '../utils/layer-style-model';
+import { attributeChoiceLabel } from '../utils/attribute-translations';
 import { legendSublayerLabel } from '../utils/layer-label';
 import { throttle } from '../utils/throttle';
 
@@ -702,7 +703,7 @@ export class WebmapxLayerStyler extends DraggablePanel {
     private entryLabel(item: StyleListEntry): string {
         const name = this.displayEntryName(item) ?? item.entry.id;
         return item.styleable
-            ? `${name} ${summarizeEntry(item.entry)}`
+            ? `${name} ${summarizeEntry(item.entry, this.context?.attributeLabels)}`
             : `${name} ${item.entry.origin?.type ?? ''}`;
     }
 
@@ -1617,7 +1618,7 @@ export class WebmapxLayerStyler extends DraggablePanel {
                         <span class="entry-text">
                             ${name ? html`<span class="entry-name">${name}</span>` : nothing}
                             <span class=${name ? 'entry-detail' : ''}>
-                                ${item.styleable ? summarizeEntry(item.entry) : `${item.entry.origin?.type ?? 'Other'} — not styled here`}
+                                ${item.styleable ? summarizeEntry(item.entry, this.context?.attributeLabels) : `${item.entry.origin?.type ?? 'Other'} — not styled here`}
                                 ${showSource ? html`<small class="source-key">${item.sourceId.split(':').pop()}</small>` : nothing}
                             </span>
                         </span>
@@ -1676,7 +1677,7 @@ export class WebmapxLayerStyler extends DraggablePanel {
      * reads as "the derived name" rather than as no name at all.
      */
     private renderTitle(item: StyleListEntry): TemplateResult {
-        const derived = this.displayEntryName(item, { authored: false }) ?? summarizeEntry(item.entry);
+        const derived = this.displayEntryName(item, { authored: false }) ?? summarizeEntry(item.entry, this.context?.attributeLabels);
         return html`
             <div class="row">
                 <span class="name">Name</span>
@@ -1999,6 +2000,11 @@ export class WebmapxLayerStyler extends DraggablePanel {
         const sizing = channel === 'radius' || channel === 'textSize';
         return html`
             <div class="level4">
+                ${attributes.length === 0 ? html`
+                    <p class="muted">
+                        No columns to classify by yet — the map has drawn no features of this layer here. Move to
+                        where it draws, and this fills itself in.
+                    </p>` : nothing}
                 <div class="row">
                     <span class="name">Attribute</span>
                     <select aria-label="Attribute to classify by"
@@ -2019,7 +2025,8 @@ export class WebmapxLayerStyler extends DraggablePanel {
                             return html`
                                 <option value=${attribute.name} ?selected=${attribute.name === settings.attribute}
                                         ?disabled=${unusable}>
-                                    ${attribute.name}${isKey ? ' — a colour each' : unusable ? ' — not a number' : ''}
+                                    ${attributeChoiceLabel(attribute.name, this.context?.attributeLabels)}${
+                                        isKey ? ' — a colour each' : unusable ? ' — not a number' : ''}
                                 </option>`;
                         })}
                     </select>

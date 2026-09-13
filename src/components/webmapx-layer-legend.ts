@@ -5,6 +5,7 @@ import type { IMapState } from '../store/IMapState';
 import Pickr from '@simonwep/pickr';
 import { COLOR_PALETTE, raiseColorPickerPopup } from './internal/color-picker';
 import { DEFAULT_DATA_COLOR } from '../map/default-paint';
+import { attributeTranslations, type AttributeTranslations } from '../utils/attribute-translations';
 import { formatLegendNumber, legendNumberFormatter } from '../utils/legend-numbers';
 import { legendSublayerLabel } from '../utils/layer-label';
 import { readWmsSource } from '../utils/wms-source';
@@ -968,24 +969,11 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     }
 
     /** Get attribute translations from layer metadata: name → {label, unit, maxvalue, valuemap} */
-    private getAttrTranslations(): Map<string, {label: string; unit: string; maxvalue?: number; valuemap?: Array<{value: unknown; label: string; operator?: string}>}> {
-        const rawAttrs = (this.meta as any)?.attributes;
-        const attrs = typeof rawAttrs === 'string'
-            ? (this.adapter?.store.getState().attributeMetadata?.[rawAttrs] as any)
-            : rawAttrs;
-        const map = new Map<string, {label: string; unit: string; maxvalue?: number; valuemap?: Array<{value: unknown; label: string; operator?: string}>}>();
-        if (!Array.isArray(attrs?.translations)) return map;
-        for (const t of attrs.translations) {
-            if (typeof t?.name === 'string') {
-                map.set(t.name, {
-                    label: typeof t.translation === 'string' ? t.translation : t.name,
-                    unit: typeof t.unit === 'string' ? t.unit : '',
-                    ...(typeof t.maxvalue === 'number' ? { maxvalue: t.maxvalue } : {}),
-                    ...(Array.isArray(t.valuemap) ? { valuemap: t.valuemap } : {}),
-                });
-            }
-        }
-        return map;
+    private getAttrTranslations(): AttributeTranslations {
+        return attributeTranslations(
+            (this.meta as Record<string, unknown> | null)?.attributes,
+            this.adapter?.store.getState().attributeMetadata as Record<string, unknown> | undefined,
+        );
     }
 
     /** Extract property name from a ["get", "prop"] expression. */

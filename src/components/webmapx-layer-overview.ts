@@ -5,6 +5,7 @@ import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
 import type { LayerAddEvent, LayerRemoveEvent, ViewChangeEndEvent } from '../store/map-events';
+import { attributeTranslations } from '../utils/attribute-translations';
 import './webmapx-layer-legend';
 import './webmapx-layer-info-dialog';
 import './webmapx-layer-style-dialog';
@@ -1405,6 +1406,13 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       resample: () => this.getLayerStyleGroups(
         layerId,
         this.adapter?.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined,
+      ),
+      // The same labels the legend shows: the layer may name its columns, or
+      // refer to a shared set by name, and only this side can see the store
+      // where that set lives.
+      attributeLabels: attributeTranslations(
+        (runtimeMetadata as Record<string, unknown> | undefined)?.attributes,
+        this.adapter?.store.getState().attributeMetadata as Record<string, unknown> | undefined,
       ),
       // `view-change-end` and not `view-change`: the panel reads features the
       // map has drawn, and there is nothing new to read until the map has

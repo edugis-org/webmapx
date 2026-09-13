@@ -15,6 +15,7 @@ import {
     type StyleEntry,
     type StyleRole,
 } from '../../utils/layer-style-model';
+import type { AttributeTranslations } from '../../utils/attribute-translations';
 import { metadataLabel } from '../../utils/layer-label';
 
 export const ROLE_LABELS: Record<StyleRole, string> = {
@@ -83,10 +84,10 @@ export function swatchColorsOf(state: ChannelState | undefined): string[] {
  * draws nothing because of either is otherwise indistinguishable from a broken
  * one.
  */
-export function summarizeEntry(entry: StyleEntry): string {
+export function summarizeEntry(entry: StyleEntry, labels?: AttributeTranslations): string {
     const parts: string[] = [];
     for (const channel of channelsOf(entry.role)) {
-        const described = describeChannel(entry.role, channel, entry.channels[channel]);
+        const described = describeChannel(entry.role, channel, entry.channels[channel], labels);
         if (described) parts.push(described);
     }
     const scope: string[] = [];
@@ -104,19 +105,27 @@ function zoomRangeLabel(minzoom: number | undefined, maxzoom: number | undefined
     return `to z${maxzoom}`;
 }
 
-function describeChannel(role: StyleRole, channel: ChannelId, state: ChannelState | undefined): string | null {
+function describeChannel(
+    role: StyleRole,
+    channel: ChannelId,
+    state: ChannelState | undefined,
+    labels?: AttributeTranslations,
+): string | null {
     if (!state) return null;
     if (state.driver === 'custom') return channel === 'color' ? 'a custom expression' : null;
     if (state.driver === 'neighbours') return 'no two neighbours alike';
     if (state.driver === 'attribute') {
         const classification = state.classification;
-        if (classification.kind === 'proportional') return `sized by ${state.attribute}`;
+        // The column as the configuration names it: a row reading "by mean"
+        // tells a student nothing that "by Gemiddelde neerslag" does not.
+        const named = labels?.get(state.attribute)?.label ?? state.attribute;
+        if (classification.kind === 'proportional') return `sized by ${named}`;
         const count = classification.kind === 'ranges'
             ? classification.colors.length
             : classification.values.length;
         const noun = classification.kind === 'ranges' ? 'classes' : 'categories';
         const scheme = state.schemeName ? `, ${state.schemeName}` : '';
-        return `by ${state.attribute}, ${count} ${noun}${scheme}`;
+        return `by ${named}, ${count} ${noun}${scheme}`;
     }
     // A single value is worth naming only where it is what the user would
     // recognise the entry by: its colour, and its weight.

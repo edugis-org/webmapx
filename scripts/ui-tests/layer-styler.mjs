@@ -520,6 +520,29 @@ export async function run({ page, engine, baseUrl }) {
         if (!paint.includes('#112233')) fail(`the chosen no-data colour was overwritten: ${paint}`);
     });
 
+    await step('a column is offered by the name the configuration gives it', async () => {
+        // The legend has always read `metadata.attributes.translations`; the
+        // panel offered the raw column name, which on a layer with one column
+        // called `mean` told the user nothing about what they were styling.
+        const shown = await page.evaluate(async () => {
+            const styler = window.__styler;
+            styler.context.attributeLabels = new Map([['pop', { label: 'Inwoners', unit: ' per km²' }]]);
+            styler.requestUpdate();
+            await styler.updateComplete;
+            const select = [...styler.shadowRoot.querySelectorAll('.level4 select')]
+                .find((candidate) => candidate.getAttribute('aria-label') === 'Attribute to classify by');
+            const option = select ? [...select.options].find((o) => o.value === 'pop') : null;
+            const summary = [...styler.shadowRoot.querySelectorAll('.entry-summary')]
+                .map((row) => row.textContent.trim().replace(/\s+/g, ' '))
+                .find((line) => line.includes('Fill'));
+            return { option: option?.textContent?.trim() ?? null, summary: summary ?? null };
+        });
+        // Both halves in the chooser: the words, and the column they mean.
+        if (shown.option !== 'Inwoners (pop)') fail(`the column reads as ${JSON.stringify(shown.option)}`);
+        // And the words alone in the summary, where there is no room for both.
+        if (!/by Inwoners/.test(shown.summary ?? '')) fail(`the summary reads as ${JSON.stringify(shown.summary)}`);
+    });
+
     await step('a viewport-limited source is re-read when the map opens up', async () => {
         // The panel reads what the map has *drawn*, so one opened over a layer
         // that draws nothing here has nothing to offer and no button to press.
