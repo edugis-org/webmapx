@@ -223,6 +223,27 @@ export async function run({ page, engine, baseUrl }) {
         await waitForMapReady(page);
     });
 
+    await step('every sublayer of a catalog layer is actually on the map', async () => {
+        // Carried over from the step dialog's test, because it is about the map
+        // rather than about a panel. world-countries is a style layer with a
+        // fill and a line over one source. Its fill used to be refused at
+        // startup — the executor flushed the queued sublayer adds before its
+        // source was registered — so the layer came up as outlines only and
+        // styling the areas silently did nothing. A sublayer that is not on the
+        // map cannot be repainted, which is the engine-agnostic way to see it.
+        const refused = await page.evaluate(async () => {
+            const map = document.querySelector('webmapx-map');
+            const adapter = await map.getAdapterAsync();
+            await map.addLayerRequest({ layerId: 'world-countries' });
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+            const sublayers = adapter.store.getState().mapLayers['world-countries']?.sublayers ?? [];
+            return sublayers
+                .filter((sub) => !adapter.updateLayerStyle('world-countries', sub.id, { ...(sub.paint ?? {}) }))
+                .map((sub) => sub.id);
+        });
+        if (refused.length > 0) fail(`these sublayers are in the legend but not on the map: ${refused.join(', ')}`);
+    });
+
     await step('add a composite test layer', () => addCompositeLayer(page));
 
     const before = await step('record the layer as authored', () => liveSubLayers(page));
@@ -492,6 +513,30 @@ export async function run({ page, engine, baseUrl }) {
         // pairs, wrapped in the missing-value guard.
         const step = JSON.stringify(fill?.paint?.['fill-color']);
         if (!step.includes('step')) fail(`no step expression after re-classifying: ${step}`);
+    });
+
+    await step('the legend can read the classification the panel wrote', async () => {
+        // Carried over from the step dialog's test. A classification guarded
+        // against missing values puts its `step` inside a `case`, and a legend
+        // reading only the outer `case` found two grey branches and one
+        // "colour" that was a whole expression — a layer styled here reached
+        // the legend with no classes at all. Driven through the legend's own
+        // reader, since it is the rows that were missing.
+        const fill = (await liveSubLayers(page)).find((sub) => sub.type === 'fill');
+        const expression = fill?.paint?.['fill-color'];
+        if (!Array.isArray(expression)) fail(`the fill is not classified: ${JSON.stringify(fill?.paint)}`);
+        const rows = await page.evaluate(async (paint) => {
+            await import('/src/components/webmapx-layer-legend.ts');
+            const legend = document.createElement('webmapx-layer-legend');
+            document.body.appendChild(legend);
+            await legend.updateComplete;
+            const classes = legend.extractColorClasses(paint, legend.getAttrTranslations());
+            legend.remove();
+            return (classes ?? []).map((entry) => entry.label);
+        }, expression);
+        if (rows.length < 3) fail(`the legend made ${rows.length} row(s) of a classification: ${JSON.stringify(rows)}`);
+        if (!rows.some((row) => /–/.test(row))) fail(`the legend labels no class as a range: ${JSON.stringify(rows)}`);
+        if (rows.filter((row) => row === '').length > 1) fail(`the legend repeats the no-data row: ${JSON.stringify(rows)}`);
     });
 
     await step('a style can be renamed, and the name is the one the legend reads', async () => {

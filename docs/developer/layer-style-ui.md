@@ -25,7 +25,7 @@ Grounded in the code, not in intent.
 | Where | What it does | File |
 |---|---|---|
 | Legend inline editor | Colour of one stop (Pickr), fill/line/circle colour, outline colour, opacity, line width, circle radius. Applies live via `adapter.updateLayerStyle`, keeps local overrides for preview | `src/components/webmapx-layer-legend.ts` (`renderStyleEditor`, `setPaintOverride`) |
-| Style dialog | **Read-only.** Per source: feature count, geometry types, attribute list with type, present/missing counts, unique count, range, sample values, and a feature table | `src/components/webmapx-layer-style-dialog.ts` |
+| Style dialog | **Read-only.** Per source: feature count, geometry types, attribute list with type, present/missing counts, unique count, range, sample values, and a feature table | `src/components/webmapx-layer-style-dialog.ts` (since deleted, replaced by `webmapx-layer-styler.ts`) |
 | Legend/catalog swatch | Derives a representative colour from the paint spec; `metadata.swatch` overrides; offline baker for raster/style layers | `src/utils/layer-swatch.ts`, `scripts/generate-layer-swatches.ts` |
 | Transparency slider | Per-layer opacity, mirrored into the store | `webmapx-layer-overview.ts` → `adapter.setLayerOpacity` |
 | Save layers | Exports data + a generated style document per layer | `webmapx-save-layers-dialog.ts` |

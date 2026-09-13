@@ -209,8 +209,8 @@ this panel can produce.
 
 ## Where every control of today's dialog lands
 
-Inventory of `webmapx-layer-style-dialog.ts` as it stands, checked against the
-hierarchy. Nothing in the present panel is dropped; most of it moves one level
+Inventory of `webmapx-layer-style-dialog.ts` (since deleted) as it stood,
+checked against the hierarchy. Nothing in the present panel is dropped; most of it moves one level
 down, from "the whole dialog" to "one channel of one style entry".
 
 | Today | Code | Lands at |
@@ -655,8 +655,10 @@ layer opacity above level 0, or in the footer:
 
 Branch `feat/layer-styler-hierarchy` (not merged, not pushed). The new panel is
 `src/components/webmapx-layer-styler.ts` with helpers in `src/components/styler/`;
-it is reached with **`?styler=next`**, and without that flag the legend still
-opens the old step dialog, which is untouched and still the shipped panel.
+it is what both legends (`webmapx-layer-overview`, `webmapx-layer-legend3d`)
+open. The step dialog it replaced, `webmapx-layer-style-dialog.ts`, is deleted,
+along with the `?styler=next` flag; what it did that this panel does not is
+listed under *Not carried over from the step dialog* below.
 
 ### Built
 
@@ -979,15 +981,34 @@ opens the old step dialog, which is untouched and still the shipped panel.
 7. **Roles not built**: `pattern`, `icon`/`symbol`, heatmap, cluster,
    `fill-extrusion`, line arrows, diagrams — all need an `addImage` path or are
    MapLibre-only.
-8. **The swap**: point `webmapx-layer-overview` and `webmapx-layer-legend3d` at
-   the new tag, delete `webmapx-layer-style-dialog.ts`, and remove the
-   `?styler=next` flag and `usesNextStyler()`. `webmapx-layer-legend3d` builds
-   the same context but opens the *step dialog*, so it is missing the two
-   entries the new panel added — `sourceControl.setParams` and
-   `sourceControl.getView`. They belong in the same commit as the swap and not
-   before: added now they would be dead, since nothing in that path reads them. Blocked on 1–2, since a raster
-   layer and label styling must not regress. The panel's read-only data view and
-   per-entry legend preview are not ported either and should be reviewed then.
+8. ~~**The swap**~~ — done. Both legends open `webmapx-layer-styler` with the
+   same context; `webmapx-layer-legend3d` gained what it lacked (`setParams`,
+   `getView`, `watchView`, `attributeLabels`, `writeFeatures`, `fontStacks`,
+   `setSubLayerMetadata`). `scripts/ui-tests/layer-style.mjs` went with the
+   dialog it drove; its two claims that were about the map rather than the
+   panel — every sublayer of a catalog layer is really on the map, and the
+   legend can read a classification the panel wrote — now live in
+   `layer-styler.mjs`. `layer-style-raster.mjs` runs over one panel.
+
+### Not carried over from the step dialog
+
+The step dialog did these and the styler does not. Each has a recommendation;
+none is decided.
+
+| Feature (old code) | What it did | Recommendation |
+|---|---|---|
+| Histogram with the breaks drawn over it (`renderHistogram`) | 40 bins of the column, bins holding a break highlighted | **Port.** The specification calls it the widget that teaches; it belongs in level 4 under Method. Item 4 above |
+| Per-method class bars (`renderClassBars`, `classificationFor`) | Each method button showed how many features each class would hold, before choosing | **Port**, cached per column and class count as before — natural breaks over every method per slider tick is otherwise too slow |
+| Crowded-class note (`renderCrowdedNote`, `CROWDED_CLASS_SHARE`) | "N of M features fall in one class", with links to quantile / geometric | **Port.** Cheap, and the measured reason geometric intervals exist |
+| "Only N distinct values" note | Said why fewer classes came back than asked for | **Port** with the crowded note |
+| Column summary (`attributeSummary`, `attributeStats`) | min · median · average · max, empty count, unique count, under each column | **Port** as a line under the Attribute select; the median-vs-average gap is what explains the skew |
+| Column order (`sortedAttributes`) | Numeric columns with few gaps first, id-like columns last | **Port.** One comparator; today's order is the source's |
+| Proportional-circle legend (`renderBubbleNote`) | Three sample circles with their values | **Port** — item 4 already lists it |
+| Legend preview with feature counts (`renderPreview`) | A swatch and label per class, with how many features it holds, at the chosen opacity | **Do not port as a preview**: the legend now updates live beside the panel, so a second copy disagrees the moment either changes. The *counts* are worth keeping — fold them into the histogram / class bars |
+| Keyed neighbour colouring for tiled sources (`buildKeyedColorStyle`, `coloringKeyFor`, `colorGroupsByAdjacency`) | "Neighbours differ" on a source it could not write into, as a `match` on a unique column | **Decide.** The styler offers *By neighbours* only on a whole `geojson` source. Tiled layers are exactly where the old fallback applied, but a `match` with a branch per feature re-evaluated per tile was the reason it was demoted |
+| Read-only data table (`renderData`, `featureRows`) | Show data → first 50 rows of the sampled features | **Do not port to the styler.** It is not a style decision; the info tool and an attribute table belong elsewhere. `featureRows` can then leave `SourceStyleGroup` |
+| "Every scheme is already colour-blind safe" note | Said when the filter would change nothing | **Low value**; port only with a palette rework |
+| Spinner while the layer is first read (`renderLoading`) | "Reading the layer" before any feature arrived | **Not needed**: the styler opens on the style list, which needs no read, and fills in columns when they arrive |
 
 ### Bugs found by using it, and fixed — 13 September 2026
 

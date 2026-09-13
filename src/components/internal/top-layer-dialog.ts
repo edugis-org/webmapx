@@ -108,7 +108,7 @@ export function raiseToTopLayer(host: LitElement): void {
 /**
  * The modeless variant, for a panel that must not take the map away.
  *
- * `showModal()` is the wrong primitive for `webmapx-layer-style-dialog`: it is a
+ * `showModal()` is the wrong primitive for `webmapx-layer-styler`: it is a
  * panel you drag aside and work next to, restyling a layer while panning the map
  * underneath, and a modal makes everything outside it inert — including the map
  * it is styling. `popover` is the same top layer without the modality: painted

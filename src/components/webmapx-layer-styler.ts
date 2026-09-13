@@ -1,9 +1,10 @@
 /**
  * The layer styler, as a hierarchy rather than a sequence of steps.
  *
- * Specified in `docs/developer/layer-styler-specification.md`, which this file
- * implements levels 0–3 and 5 of; level 4 (the classification) still lives in
- * `webmapx-layer-style-dialog.ts`, which is still the panel the legend opens.
+ * Specified in `docs/developer/layer-styler-specification.md`. It is the panel
+ * both legends open; it replaced the step dialog (`webmapx-layer-style-dialog.ts`,
+ * deleted), and what that dialog did and this one does not is listed in the
+ * specification under *Not carried over from the step dialog*.
  *
  * The ordering rule is the whole design: a decision comes earlier only if it
  * changes *which decisions exist later*. So the source comes first, then the

@@ -8,14 +8,12 @@ import type { LayerAddEvent, LayerRemoveEvent, ViewChangeEndEvent } from '../sto
 import { attributeTranslations } from '../utils/attribute-translations';
 import './webmapx-layer-legend';
 import './webmapx-layer-info-dialog';
-import './webmapx-layer-style-dialog';
 import './webmapx-layer-styler';
 import './webmapx-save-layers-dialog';
 import './webmapx-permalink-dialog';
 import './webmapx-clear-layers-dialog';
 import type { WebmapxLayerInfoDialog } from './webmapx-layer-info-dialog';
-import type { LayerStyleTarget, SourceStyleGroup, WebmapxLayerStyleDialog } from './webmapx-layer-style-dialog';
-import type { StyleDialogContext } from './styler/style-context';
+import type { LayerStyleTarget, SourceStyleGroup, StyleDialogContext } from './styler/style-context';
 import type { WebmapxLayerStyler } from './webmapx-layer-styler';
 import type { WebmapxSaveLayersDialog, SaveLayerCandidate } from './webmapx-save-layers-dialog';
 import type { WebmapxPermalinkDialog } from './webmapx-permalink-dialog';
@@ -147,23 +145,6 @@ export interface LayerPanelItem {
 
 const STYLE_DIALOG_LAYER_TYPES = new Set(['circle', 'symbol', 'label', 'line', 'fill', 'fill-extrusion']);
 
-/**
- * Whether the style button opens the hierarchy panel instead of the step dialog.
- *
- * `?styler=next` while the two panels overlap, so the new one can be driven
- * from the real legend — the same layers, the same context object — rather than
- * from a test page that would rebuild half the legend to call it. It goes when
- * the new panel covers level 4 and replaces the old one outright.
- */
-function usesNextStyler(): boolean {
-    if (typeof window === 'undefined') return false;
-    try {
-        return new URLSearchParams(window.location.search).get('styler') === 'next';
-    } catch {
-        return false;
-    }
-}
-
 interface SourceLayerTarget extends LayerStyleTarget {
   sourceId: string;
   sourceLayer?: string;
@@ -205,12 +186,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   // their position:fixed sl-dialog. A live (uncached) @query only finds them here on the
   // first click, before they've moved; every click after that would silently find nothing.
   @query('webmapx-layer-info-dialog', true) private infoDialog!: WebmapxLayerInfoDialog;
-  @query('webmapx-layer-style-dialog', true) private styleDialog!: WebmapxLayerStyleDialog;
   @query('webmapx-layer-styler', true) private layerStyler!: WebmapxLayerStyler;
-  // cache: true — see the comment on infoDialog/styleDialog above; same reason.
+  // cache: true — see the comment on infoDialog above; same reason.
   @query('webmapx-save-layers-dialog', true) private saveLayersDialog!: WebmapxSaveLayersDialog;
   @query('webmapx-permalink-dialog', true) private permalinkDialog!: WebmapxPermalinkDialog;
-  // cache: true — see the comment on infoDialog/styleDialog above; same reason.
+  // cache: true — see the comment on infoDialog above; same reason.
   @query('webmapx-clear-layers-dialog', true) private clearLayersDialog!: WebmapxClearLayersDialog;
   private unsubscribeLayerAdd: (() => void) | null = null;
   private unsubscribeLayerRemove: (() => void) | null = null;
@@ -787,7 +767,6 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         ${this.renderSection(this.backgroundTitle, this.backgroundLayers, 'No base map selected.')}
       </div>
       <webmapx-layer-info-dialog></webmapx-layer-info-dialog>
-      <webmapx-layer-style-dialog></webmapx-layer-style-dialog>
       <webmapx-layer-styler></webmapx-layer-styler>
       <webmapx-save-layers-dialog></webmapx-save-layers-dialog>
       <webmapx-permalink-dialog></webmapx-permalink-dialog>
@@ -1481,8 +1460,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       },
     };
 
-    if (usesNextStyler()) this.layerStyler?.open(context);
-    else this.styleDialog?.open(context);
+    this.layerStyler?.open(context);
   }
 
   /**

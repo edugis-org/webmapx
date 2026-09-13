@@ -2,11 +2,9 @@
  * What a style panel is handed: the layer, its sources, and the ways it is
  * allowed to change the map.
  *
- * Lifted out of `webmapx-layer-style-dialog.ts` so the panel and its
- * replacement (`webmapx-layer-styler.ts`) are two readings of **one** context
- * rather than two definitions that can drift while both are live. The callers
- * (`webmapx-layer-overview`, `webmapx-layer-legend3d`) build it once and would
- * otherwise have to know which panel they were filling in for.
+ * Built by the callers (`webmapx-layer-overview`, `webmapx-layer-legend3d`)
+ * and read by `webmapx-layer-styler.ts`. It was lifted out of the step dialog
+ * the styler replaced, so both panels read one definition while both were live.
  */
 import type { SourceAttributeInfo } from '../../utils/attribute-info';
 import type { AttributeTranslations } from '../../utils/attribute-translations';

@@ -21,17 +21,14 @@ const PLAIN_TILES = 'osm';               // not a WMS at all
 export const engines = ['maplibre', 'openlayers', 'leaflet', 'cesium'];
 
 /**
- * Both panels, driven through the same assertions.
+ * The styler, as the legend opens it.
  *
- * The hierarchy styler is reached with `?styler=next` and answers a raster
- * layer in its own markup — a heading per branch rather than a step per
- * question — so the two differ in where the text is, not in what it must say.
- * Running one test over both is what keeps the swap (deleting the step dialog)
- * from being a leap: the day the flag goes, this file loses a row.
+ * Kept as a list of one: this file used to run the same assertions over the
+ * step dialog and the hierarchy styler while both were live, which is what made
+ * deleting the step dialog a row removed here rather than coverage lost.
  */
 const VARIANTS = [
-  { name: 'step dialog', params: {}, tag: 'webmapx-layer-style-dialog', headings: '.question h3' },
-  { name: 'hierarchy styler', params: { styler: 'next' }, tag: 'webmapx-layer-styler', headings: '.raster strong' },
+  { name: 'styler', params: {}, tag: 'webmapx-layer-styler', headings: '.raster strong' },
 ];
 
 function fail(message) {

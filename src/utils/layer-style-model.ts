@@ -3,7 +3,7 @@
  * it, a role per style, and a driver per visual channel.
  *
  * This is the piece `docs/developer/layer-styler-specification.md` says is
- * missing. `webmapx-layer-style-dialog.ts` holds a flat state bag styling one
+ * missing. The step dialog it replaced held a flat state bag styling one
  * sublayer at a time, so composite layers, casing pairs (a 2px white dashed
  * line over a 4px black one) and labels are bolted on as boolean flags rather
  * than being what they are: several styles over one source.

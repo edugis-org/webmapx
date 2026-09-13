@@ -4,15 +4,18 @@ import { customElement, property, state, query } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
-import type { LayerAddEvent, LayerRemoveEvent } from '../store/map-events';
+import type { LayerAddEvent, LayerRemoveEvent, ViewChangeEndEvent } from '../store/map-events';
+import { attributeTranslations } from '../utils/attribute-translations';
 import './webmapx-layer-legend';
 import './webmapx-layer-info-dialog';
-import './webmapx-layer-style-dialog';
+import './webmapx-layer-styler';
 import './webmapx-save-layers-dialog';
 import './webmapx-permalink-dialog';
 import './webmapx-clear-layers-dialog';
 import type { WebmapxLayerInfoDialog } from './webmapx-layer-info-dialog';
-import type { LayerStyleTarget, SourceStyleGroup, WebmapxLayerStyleDialog } from './webmapx-layer-style-dialog';
+import type { LayerStyleTarget, SourceStyleGroup, StyleDialogContext } from './styler/style-context';
+import type { WebmapxLayerStyler } from './webmapx-layer-styler';
+import { collectFontStacks } from './styler/label-more';
 import type { WebmapxSaveLayersDialog, SaveLayerCandidate } from './webmapx-save-layers-dialog';
 import type { WebmapxPermalinkDialog } from './webmapx-permalink-dialog';
 import type { WebmapxClearLayersDialog } from './webmapx-clear-layers-dialog';
@@ -182,11 +185,11 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
   // their position:fixed sl-dialog. A live (uncached) @query only finds them here on the
   // first click, before they've moved; every click after that would silently find nothing.
   @query('webmapx-layer-info-dialog', true) private infoDialog!: WebmapxLayerInfoDialog;
-  @query('webmapx-layer-style-dialog', true) private styleDialog!: WebmapxLayerStyleDialog;
-  // cache: true — see the comment on infoDialog/styleDialog above; same reason.
+  @query('webmapx-layer-styler', true) private layerStyler!: WebmapxLayerStyler;
+  // cache: true — see the comment on infoDialog above; same reason.
   @query('webmapx-save-layers-dialog', true) private saveLayersDialog!: WebmapxSaveLayersDialog;
   @query('webmapx-permalink-dialog', true) private permalinkDialog!: WebmapxPermalinkDialog;
-  // cache: true — see the comment on infoDialog/styleDialog above; same reason.
+  // cache: true — see the comment on infoDialog above; same reason.
   @query('webmapx-clear-layers-dialog', true) private clearLayersDialog!: WebmapxClearLayersDialog;
   private unsubscribeLayerAdd: (() => void) | null = null;
   private unsubscribeLayerRemove: (() => void) | null = null;
@@ -914,7 +917,7 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
         ${this.renderSection(this.backgroundTitle, this.backgroundLayers, 'No base map selected.')}
       </div>
       <webmapx-layer-info-dialog></webmapx-layer-info-dialog>
-      <webmapx-layer-style-dialog></webmapx-layer-style-dialog>
+      <webmapx-layer-styler></webmapx-layer-styler>
       <webmapx-save-layers-dialog></webmapx-save-layers-dialog>
       <webmapx-permalink-dialog></webmapx-permalink-dialog>
       <webmapx-clear-layers-dialog @webmapx-clear-layers-confirm=${() => this.handleConfirmClearAllLayers()}></webmapx-clear-layers-dialog>
@@ -1588,7 +1591,7 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
   private handleShowLayerStyle(layerId: string, fallbackLabel: string): void {
     const runtimeMetadata = this.adapter?.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined;
     const title = (runtimeMetadata?.label as string | undefined) ?? fallbackLabel;
-    this.styleDialog?.open({
+    const context: StyleDialogContext = {
       title,
       layerMeta: runtimeMetadata ?? null,
       engine: this.adapter?.engineId,
@@ -1606,18 +1609,32 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
         layerId,
         this.adapter?.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined,
       ),
-      // Labels go on as a layer of their own, so they show up in the legend and
-      // can be switched off there like anything else.
+      // The same column names the legend shows, resolved here because a shared
+      // definition lives in the store rather than on the layer.
+      attributeLabels: attributeTranslations(
+        runtimeMetadata?.attributes,
+        this.adapter?.store.getState().attributeMetadata as Record<string, unknown> | undefined,
+      ),
+      // `view-change-end`: there is nothing new to read until the map has
+      // stopped and the tiles for where it stopped have arrived.
+      watchView: (listener) => this.adapter?.events.on('view-change-end', (event: ViewChangeEndEvent) => {
+        listener({
+          west: event.bounds.sw[0], south: event.bounds.sw[1],
+          east: event.bounds.ne[0], north: event.bounds.ne[1],
+        });
+      }) ?? (() => {}),
       layers: {
         add: (config) => this.adapter?.addLayer(config as never) ?? false,
         remove: (id) => {
           if (this.adapter?.hasLayer?.(id)) this.adapter.removeLayer(id);
         },
-        // Labels go on as a sublayer of the layer itself, so it keeps one
+        // Styles go on as sublayers of the layer itself, so it keeps one
         // legend row, one delete button and one style panel.
         setExtraSubLayer: (id, sublayer) => this.adapter?.setExtraSubLayer(id, sublayer) ?? Promise.resolve(false),
         setSubLayers: (id, sublayers) => this.adapter?.setSubLayers(id, sublayers) ?? Promise.resolve(false),
         getSubLayers: (id) => this.adapter?.getSubLayers(id) ?? null,
+        setSubLayerMetadata: (id, subLayerId, metadata) =>
+          this.adapter?.setSubLayerMetadata(id, subLayerId, metadata) ?? false,
         canRebuild: (id) => this.adapter?.canRebuildLayer(id) ?? false,
       },
       // What the layer is made of decides which questions the panel can ask; a
@@ -1633,12 +1650,35 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
       // A labels layer made here inherits the extent, so "zoom to layer" means
       // the same on its row as on the layer it came from.
       ...(Array.isArray(runtimeMetadata?.bounds) ? { bounds: runtimeMetadata.bounds as number[] } : {}),
+      // A colouring the panel computes has no attribute of its own; a source
+      // held whole can be given one. `setSourceData` refuses anything else.
+      writeFeatures: (sourceId, features) =>
+        this.adapter?.setSourceData(sourceId, { type: 'FeatureCollection', features }) ?? false,
+      // Read when the font list is shown, so a basemap that finished loading
+      // after the panel opened still contributes its faces.
+      fontStacks: () => collectFontStacks(
+        Object.keys(this.adapter?.store.getState().mapLayers ?? {})
+          .map((id) => this.adapter?.getSubLayers(id) ?? null),
+      ),
       sourceControl: {
         setTiles: (sourceId, tiles) => this.adapter?.setSourceTiles(sourceId, tiles) ?? false,
+        setParams: (sourceId, params) => this.adapter?.setSourceParams(sourceId, params) ?? false,
         getTiles: (sourceId) => this.adapter?.getSourceTiles(sourceId) ?? null,
         setLayerOpacity: (opacity) => this.adapter?.setLayerOpacity(layerId, opacity),
+        getView: () => {
+          const view = this.adapter?.getViewportState();
+          if (!view) return null;
+          // The map element's own box: a WMS probe samples what is on screen.
+          const element = this.closest('webmapx-map') ?? this.parentElement;
+          const width = (element as HTMLElement | null)?.clientWidth ?? 0;
+          const height = (element as HTMLElement | null)?.clientHeight ?? 0;
+          return width > 0 && height > 0
+            ? { ...view, size: [width, height] as [number, number] }
+            : view;
+        },
       },
-    });
+    };
+    this.layerStyler?.open(context);
   }
 
   /**
