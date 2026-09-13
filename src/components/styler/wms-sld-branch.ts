@@ -167,7 +167,6 @@ export function buildDraftStyle(draft: SldDraft): SldBuildResult {
         const classification = classifyNumeric(numbers, {
             method: draft.method,
             classCount: draft.classCount,
-            rounded: true,
         });
         if (classification.classes.length === 0) {
             return { style: null, classes: [], problem: 'Those values are all the same, so there is nothing to classify.' };

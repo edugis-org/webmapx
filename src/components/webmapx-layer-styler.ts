@@ -2093,16 +2093,6 @@ export class WebmapxLayerStyler extends DraggablePanel {
                        })}>
                 <span class="value">${settings.classCount}</span>
             </div>
-            <div class="row check-row">
-                <span class="name">Breaks</span>
-                <label class="check">
-                    <input type="checkbox" .checked=${settings.rounded}
-                           @change=${(event: Event) => this.updateSettings(item, channel, {
-                               rounded: (event.target as HTMLInputElement).checked,
-                           })}>
-                    Round the breaks
-                </label>
-            </div>
         `;
     }
 

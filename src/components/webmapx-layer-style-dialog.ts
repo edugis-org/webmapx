@@ -169,7 +169,6 @@ export class WebmapxLayerStyleDialog extends LitElement {
      * legend of "0-20, 20-40" is what a student can read, and no method
      * produces those numbers on its own.
      */
-    @state() private roundedBreaks = true;
     /**
      * Whether the "how should the numbers be divided" step is open. Unlike the
      * other steps it always has an answer, so it needs its own flag rather than
@@ -910,7 +909,6 @@ export class WebmapxLayerStyleDialog extends LitElement {
             method: this.method,
             classCount: this.classCount,
             missing,
-            rounded: this.roundedBreaks,
         });
     }
 
@@ -1239,7 +1237,6 @@ export class WebmapxLayerStyleDialog extends LitElement {
         this.neighbourColors = MIN_NEIGHBOUR_COLORS;
         this.classCount = DEFAULT_CLASS_COUNT;
         this.cycleCategories = null;
-        this.roundedBreaks = true;
         this.methodOpen = true;
         this.schemeOpen = true;
         this.methodPreviewCache = null;
@@ -1803,10 +1800,6 @@ export class WebmapxLayerStyleDialog extends LitElement {
                            .value=${String(this.classCount)}
                            @input=${(e: Event) => this.answer(() => { this.classCount = Number((e.target as HTMLInputElement).value); })}>
                     <span>${classification?.classes.length ?? this.classCount}</span>
-                    <sl-checkbox size="small" ?checked=${this.roundedBreaks}
-                                 @sl-change=${(e: Event) => this.answer(() => {
-                                     this.roundedBreaks = (e.target as HTMLInputElement).checked;
-                                 })}>Round</sl-checkbox>
                 </div>
                 <div class="method-grid">
                     ${(Object.keys(METHOD_LABELS) as ClassificationMethod[])
@@ -1852,7 +1845,7 @@ export class WebmapxLayerStyleDialog extends LitElement {
     private classificationFor(method: ClassificationMethod): NumericClassification | null {
         if (!this.field || !this.isNumericField(this.field)) return null;
         const features = this.features();
-        const key = `${this.field}|${this.classCount}|${this.roundedBreaks}|${features.length}`;
+        const key = `${this.field}|${this.classCount}|${features.length}`;
         if (this.methodPreviewCache?.key !== key) {
             this.methodPreviewCache = { key, results: new Map() };
         }
@@ -1863,7 +1856,6 @@ export class WebmapxLayerStyleDialog extends LitElement {
                 method,
                 classCount: this.classCount,
                 missing,
-                rounded: this.roundedBreaks,
             }));
         }
         return cache.get(method) ?? null;

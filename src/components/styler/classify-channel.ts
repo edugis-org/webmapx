@@ -34,8 +34,6 @@ export interface ClassifySettings {
     attribute: string;
     method: ClassificationMethod;
     classCount: number;
-    /** Snap the breaks to numbers a person would say out loud. */
-    rounded: boolean;
     schemeName: string | null;
     reversed: boolean;
     /** Restrict the palette list to schemes that survive colour blindness. */
@@ -97,7 +95,6 @@ export function defaultSettings(attribute: string): ClassifySettings {
         attribute,
         method: 'quantile',
         classCount: DEFAULT_CLASS_COUNT,
-        rounded: true,
         schemeName: null,
         reversed: false,
         blindSafe: false,
@@ -184,7 +181,6 @@ function numericChannel(features: readonly GeoJSON.Feature[], settings: Classify
         method: settings.method,
         classCount: settings.classCount,
         missing,
-        rounded: settings.rounded,
     });
     const classes = classification.classes;
     if (classes.length === 0) return null;

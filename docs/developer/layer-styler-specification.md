@@ -706,6 +706,21 @@ opens the old step dialog, which is untouched and still the shipped panel.
     bounds, two guards of different colours, a condition on another column)
     stays `custom` and is written back untouched.
 - **Reset**, restoring the sublayer list snapshotted at open.
+- **Breaks are tidied only where that changes nothing, and the legend rounds
+  the rest.** Two halves of one answer. `tidyBreaks` moves a break to a rounder
+  number only inside the *empty gap* it already sits in — above the largest
+  value below it, no higher than the smallest value at or above it, and no
+  further than a quarter of the way to its neighbour — so "9.7 – 14.94" becomes
+  "10 – 15" and not one feature changes class. A candidate must also be a value
+  the data could have had (a column of whole numbers cannot hold 1722.5), which
+  is measured from the sample, since nothing in a column says whether it holds
+  years, metres, degrees or euros. What is left untidy the legend *displays*
+  well: `src/utils/legend-numbers.ts` formats a whole set of breaks at once,
+  choosing the decimals and whether a `M`/`B` suffix may be used at all from
+  one rule — no two breaks may print the same. What this replaced was snapping
+  to a round number regardless of the data: on building years it put every
+  break on a century boundary, nine classes came back as five, and the legend
+  read "2K – 2K" three rows running.
 - **Writes are scheduled, state is not** (`STYLE_APPLY_INTERVAL_MS`, 80 ms). A
   colour picker emits on every pointer move; for a classified channel each of
   those rebuilt the whole classification and wrote it. The newest write per

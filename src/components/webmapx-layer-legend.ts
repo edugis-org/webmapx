@@ -5,6 +5,7 @@ import type { IMapState } from '../store/IMapState';
 import Pickr from '@simonwep/pickr';
 import { COLOR_PALETTE, raiseColorPickerPopup } from './internal/color-picker';
 import { DEFAULT_DATA_COLOR } from '../map/default-paint';
+import { formatLegendNumber, legendNumberFormatter } from '../utils/legend-numbers';
 import { legendSublayerLabel } from '../utils/layer-label';
 import { readWmsSource } from '../utils/wms-source';
 import { legendGraphicUrl } from '../utils/wms-sld';
@@ -384,7 +385,8 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             for (let i = 3; i + 1 < expr.length; i += 2) {
                 if (typeof expr[i] === 'number') breaks.push(expr[i] as number);
             }
-            const bound = (value: number) => `${this.formatNumber(value)}${unit}`;
+            const format = legendNumberFormatter(breaks, unit);
+            const bound = (value: number) => format(value);
             const cases: Array<{label: string, paint: unknown, path: number[]}> = [{
                 label: breaks.length > 0 ? `< ${bound(breaks[0])}` : '',
                 paint: expr[2],
@@ -1014,12 +1016,8 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     }
 
     /** Format a large number for legend labels: 1500000 → "1.5M" */
-    private formatNumber(v: number, unit?: string): string {
-        const suffix = unit ?? '';
-        if (v >= 1e9) return `${(v / 1e9).toFixed(1).replace(/\.0$/, '')}B${suffix}`;
-        if (v >= 1e6) return `${(v / 1e6).toFixed(1).replace(/\.0$/, '')}M${suffix}`;
-        if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K${suffix}`;
-        return `${Math.round(v)}${suffix}`;
+    private formatNumber(v: number, unit?: string, decimals?: number): string {
+        return formatLegendNumber(v, { unit, decimals });
     }
 
     /**
@@ -1056,7 +1054,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 if (typeof expr[i] === 'number') breaks.push(expr[i] as number);
             }
             const items: Array<{label: string, color: string}> = [];
-            const bound = (value: number) => this.formatNumber(value, unit);
+            const bound = legendNumberFormatter(breaks, unit);
             if (typeof expr[2] === 'string' && breaks.length > 0) {
                 items.push({ label: `< ${bound(breaks[0])}`, color: expr[2] });
             }
