@@ -116,6 +116,7 @@ export const TOOL_REGISTRY: readonly ToolRegistryEntry[] = [
     { id: 'menu', tag: 'webmapx-menu-tool', placement: 'toolbar', label: 'Tools', icon: 'list', bundled: true, container: true },
     { id: 'buffer', tag: 'webmapx-buffer-tool', placement: 'toolbar', label: 'Buffer', icon: { src: bufferIconUrl } },
     { id: 'geoprocessing', tag: 'webmapx-geoprocessing-tool', placement: 'toolbar', label: 'Analysis', icon: 'intersect' },
+    { id: 'data-analyzer', tag: 'webmapx-data-analyzer-tool', placement: 'toolbar', label: 'Data analyzer', icon: 'bar-chart-line' },
     { id: 'stories', tag: 'webmapx-stories-tool', placement: 'toolbar', label: 'Stories', icon: 'book' },
     { id: 'deeptime', tag: 'webmapx-deeptime-tool', placement: 'toolbar', label: 'Deep time', icon: { src: dinosaurIconUrl } },
     { id: 'compare', tag: 'webmapx-compare-tool', placement: 'toolbar', label: 'Compare', icon: 'layout-split' },
