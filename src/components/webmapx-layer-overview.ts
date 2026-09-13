@@ -28,6 +28,7 @@ import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import { splitLayerTitle } from '../utils/layer-swatch';
+import { collectFontStacks } from './styler/label-more';
 
 /** Computes [west, south, east, north] from a GeoJSON FeatureCollection's coordinates. */
 function geojsonExtent(geojson: GeoJSON.FeatureCollection): [number, number, number, number] | null {
@@ -1433,6 +1434,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         setExtraSubLayer: (id, sublayer) => this.adapter?.setExtraSubLayer(id, sublayer) ?? Promise.resolve(false),
         setSubLayers: (id, sublayers) => this.adapter?.setSubLayers(id, sublayers) ?? Promise.resolve(false),
         getSubLayers: (id) => this.adapter?.getSubLayers(id) ?? null,
+        setSubLayerMetadata: (id, subLayerId, metadata) =>
+          this.adapter?.setSubLayerMetadata(id, subLayerId, metadata) ?? false,
         canRebuild: (id) => this.adapter?.canRebuildLayer(id) ?? false,
       },
       // What the layer is made of decides which questions the panel can ask; a
@@ -1453,6 +1456,12 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       // not a geojson source, which is exactly the right line.
       writeFeatures: (sourceId, features) =>
         this.adapter?.setSourceData(sourceId, { type: 'FeatureCollection', features }) ?? false,
+      // Read when the font list is shown rather than now, so a basemap that
+      // finished loading after the panel opened still contributes its faces.
+      fontStacks: () => collectFontStacks(
+        Object.keys(this.adapter?.store.getState().mapLayers ?? {})
+          .map((id) => this.adapter?.getSubLayers(id) ?? null),
+      ),
       sourceControl: {
         setTiles: (sourceId, tiles) => this.adapter?.setSourceTiles(sourceId, tiles) ?? false,
         setParams: (sourceId, params) => this.adapter?.setSourceParams(sourceId, params) ?? false,

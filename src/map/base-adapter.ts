@@ -833,6 +833,52 @@ export abstract class BaseAdapter {
         return applied;
     }
 
+    /**
+     * A sublayer's name and legend wording, written without a rebuild.
+     *
+     * Two places, because they answer two readers: `store.mapLayers` is what
+     * the legend draws from, and the kept config is what `getSubLayers` and
+     * every later rebuild start from — updating only the store would make the
+     * next rebuild quietly put the old name back.
+     */
+    setSubLayerMetadata(layerId: string, subLayerId: string, metadata: Record<string, unknown> | null): boolean {
+        const withMetadata = (sub: Record<string, unknown>): Record<string, unknown> => {
+            const { metadata: _previous, ...rest } = sub;
+            return metadata ? { ...rest, metadata } : rest;
+        };
+
+        const current = this.store.getState().mapLayers ?? {};
+        const entry = current[layerId] as Record<string, unknown> | undefined;
+        const sublayers = Array.isArray(entry?.sublayers) ? entry!.sublayers as Record<string, unknown>[] : null;
+        // Only a composite: a plain layer's `metadata` is the *layer's*, and
+        // renaming a style there would rename the layer.
+        if (!entry || !sublayers?.some((sub) => String(sub.id ?? '') === subLayerId)) return false;
+
+        this.store.dispatch({
+            mapLayers: {
+                ...current,
+                [layerId]: {
+                    ...entry,
+                    sublayers: sublayers.map((sub) => (String(sub.id ?? '') === subLayerId ? withMetadata(sub) : sub)),
+                },
+            },
+        }, 'UI');
+
+        const stored = this.layerConfigStore.get(layerId);
+        const config = stored?.config as Record<string, unknown> | undefined;
+        if (stored && config && Array.isArray(config.layers)) {
+            this.layerConfigStore.set(layerId, {
+                ...stored,
+                config: {
+                    ...config,
+                    layers: (config.layers as Record<string, unknown>[])
+                        .map((sub) => (String(sub.id ?? '') === subLayerId ? withMetadata(sub) : sub)),
+                },
+            });
+        }
+        return true;
+    }
+
     private mirrorPaintToStore(layerId: string, subLayerId: string, partialPaint: Record<string, unknown>): void {
         const current = this.store.getState().mapLayers ?? {};
         const entry = current[layerId] as Record<string, unknown> | undefined;

@@ -304,6 +304,14 @@ export interface IMap {
     setSubLayers(layerId: string, sublayers: Array<Record<string, unknown>>): Promise<boolean>;
 
     /**
+     * Replaces one sublayer's `metadata` (`null` removes it) without rebuilding
+     * the layer. Metadata is never drawn — it is the name and wording the legend
+     * shows — so it can change as it is typed, where a rebuild per keystroke
+     * could not. `false` when the layer has no sublayer by that id.
+     */
+    setSubLayerMetadata(layerId: string, subLayerId: string, metadata: Record<string, unknown> | null): boolean;
+
+    /**
      * Whether `setSubLayers` can rebuild this layer at all. False for a layer
      * drawn from a remote style document, whose sublayers live in the fetched
      * style rather than in the config it was added with.

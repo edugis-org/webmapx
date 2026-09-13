@@ -96,6 +96,12 @@ export interface LayerHost {
      */
     getSubLayers?: (layerId: string) => Array<Record<string, unknown>> | null;
     /**
+     * Replaces one sublayer's metadata without a rebuild, so a name shows in
+     * the legend as it is typed. Absent or `false`: the panel rebuilds the
+     * layer once the edit is finished instead.
+     */
+    setSubLayerMetadata?: (layerId: string, subLayerId: string, metadata: Record<string, unknown> | null) => boolean;
+    /**
      * Whether the layer's style list can be written at all. False for a layer
      * drawn from a remote style document: its sublayers are the style server's,
      * and rebuilding the layer from them would leave an empty basemap. Their
@@ -165,6 +171,15 @@ export interface StyleDialogContext {
      * means the panel falls back to keying on a column the data already has.
      */
     writeFeatures?: (sourceId: string, features: GeoJSON.Feature[]) => boolean;
+    /**
+     * The font stacks other layers on this map draw with.
+     *
+     * A label's font must be a face the glyph server has, or it draws no text
+     * at all and says nothing — and no engine can list what a glyph server
+     * holds. A face another layer is already drawing with is the only evidence
+     * there is. Absent: the panel offers the map's default font only.
+     */
+    fontStacks?: () => string[][];
 }
 
 /** A map extent in lon/lat, as `view-change-end` reports it. */

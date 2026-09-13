@@ -38,7 +38,10 @@ export function legendSublayerLabel(
     fallbackId: string,
     singleSublayer: boolean,
 ): string {
+    // A sublayer's own name wins even when it is the only one: that is where the
+    // styler writes a rename, and a layer's name falling back in behind it is
+    // what the style is called until someone gives it one of its own.
     return singleSublayer
-        ? metadataLabel(parentMetadata) ?? styleSublayerTypeLabel(sublayer) ?? ''
+        ? styleSublayerMetadataLabel(sublayer) ?? metadataLabel(parentMetadata) ?? styleSublayerTypeLabel(sublayer) ?? ''
         : styleSublayerMetadataLabel(sublayer) ?? styleSublayerTypeLabel(sublayer) ?? fallbackId.replace(/^style:/, '').replace(/-/g, ' ');
 }

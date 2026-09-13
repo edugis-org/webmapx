@@ -16,7 +16,7 @@
 import {
     CHANNEL_KEYS,
     NEIGHBOUR_COLOR_FIELD,
-    channelsOf,
+    allChannelsOf,
     type AttributeChannel,
     type ChannelId,
     type ChannelState,
@@ -49,17 +49,33 @@ export function roleOfLayerType(type: string | undefined, geometry?: string): St
 /** Reads one channel's GL value back as a driver plus its parameters. */
 export function decodeChannel(value: unknown): ChannelState | undefined {
     if (value === undefined) return undefined;
-    if (typeof value === 'string' || typeof value === 'number') {
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
         return { driver: 'single', value };
     }
-    if (Array.isArray(value) && value.every((entry) => typeof entry === 'number')) {
-        // A dash array is a list of numbers and not an expression at all.
+    if (Array.isArray(value) && value.length > 0 && value.every((entry) => typeof entry === 'number')) {
+        // A dash array or a text offset is a list of numbers and not an expression at all.
         return { driver: 'single', value: value as number[] };
+    }
+    if (Array.isArray(value) && isFontStack(value)) {
+        return { driver: 'single', value: value as string[] };
     }
     if (!Array.isArray(value)) return { driver: 'custom', expression: value };
 
     const decoded = decodeExpression(value);
     return decoded ?? { driver: 'custom', expression: value };
+}
+
+/**
+ * A `text-font` stack: faces, not an expression.
+ *
+ * Both are arrays whose first element is a string, so the test is whether that
+ * string is an operator. A face name has a space in it (`Noto Sans Regular`);
+ * no GL operator does, and a one-word face that happens to be an operator's
+ * name is not a face any glyph server publishes.
+ */
+function isFontStack(value: unknown[]): boolean {
+    return value.every((entry) => typeof entry === 'string')
+        && value.some((entry) => (entry as string).includes(' '));
 }
 
 function decodeExpression(expression: unknown[]): ChannelState | undefined {
@@ -318,7 +334,7 @@ export function decodeStyleEntry(sublayer: StyleSubLayer, geometry?: string): St
     const role = roleOfLayerType(sublayer.type, geometry);
     const keys = CHANNEL_KEYS[role] ?? {};
     const channels: Partial<Record<ChannelId, ChannelState>> = {};
-    for (const channel of channelsOf(role)) {
+    for (const channel of allChannelsOf(role)) {
         const target = keys[channel];
         if (!target) continue;
         const bag = target.slot === 'layout' ? sublayer.layout : sublayer.paint;

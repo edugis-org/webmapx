@@ -63,7 +63,12 @@ export type ChannelId =
     | 'text'
     | 'textSize'
     | 'haloColor'
-    | 'haloWidth';
+    | 'haloWidth'
+    | 'font'
+    | 'placement'
+    | 'anchor'
+    | 'offset'
+    | 'allowOverlap';
 
 /** Where a channel's value lives in a GL layer. Layout is not paint, and mixing the two silently drops the value. */
 export type ChannelSlot = 'paint' | 'layout';
@@ -127,6 +132,13 @@ export const CHANNEL_KEYS: Record<StyleRole, Partial<Record<ChannelId, ChannelKe
         // them into `paint` is accepted by nothing and reported by nothing.
         text: { key: 'text-field', slot: 'layout' },
         textSize: { key: 'text-size', slot: 'layout' },
+        // The *More* tier: every one of these is layout, and none is something
+        // most label work touches — see `LABEL_MORE_CHANNELS`.
+        font: { key: 'text-font', slot: 'layout' },
+        placement: { key: 'symbol-placement', slot: 'layout' },
+        anchor: { key: 'text-anchor', slot: 'layout' },
+        offset: { key: 'text-offset', slot: 'layout' },
+        allowOverlap: { key: 'text-allow-overlap', slot: 'layout' },
     },
     background: {
         color: { key: ROLE_COLOR_KEY.background, slot: 'paint' },
@@ -140,7 +152,11 @@ export type ChannelDriver = 'single' | 'attribute' | 'neighbours' | 'custom';
 /** A channel that is one value for every feature. */
 export interface SingleChannel {
     driver: 'single';
-    value: string | number | readonly number[];
+    /**
+     * A string array is a font stack (`text-font`), a boolean a switch such as
+     * `text-allow-overlap` — both plain values in the GL spec, not expressions.
+     */
+    value: string | number | boolean | readonly number[] | readonly string[];
 }
 
 /** Ranges of a number, drawn as a `step` expression. */
@@ -346,8 +362,31 @@ const ROLE_CHANNEL_ORDER: Record<StyleRole, ChannelId[]> = {
     background: ['color', 'opacity'],
 };
 
+/**
+ * Channels a role keeps behind the `⋯` affordance: reachable, never removed,
+ * but not on the panel until asked for.
+ *
+ * Only labels have any. A label has more adjustable properties than every other
+ * role put together, and most label work is "pick a column, make it bigger" —
+ * so font, placement, position and overlap wait until someone wants them.
+ */
+const ROLE_MORE_CHANNELS: Partial<Record<StyleRole, ChannelId[]>> = {
+    label: ['font', 'placement', 'anchor', 'offset', 'allowOverlap'],
+};
+
+/** The channels a role shows on the panel. */
 export function channelsOf(role: StyleRole): ChannelId[] {
     return ROLE_CHANNEL_ORDER[role] ?? [];
+}
+
+/** The channels a role keeps in its *More* tier. */
+export function moreChannelsOf(role: StyleRole): ChannelId[] {
+    return ROLE_MORE_CHANNELS[role] ?? [];
+}
+
+/** Every channel a role has, shown or not — what a decoder has to read. */
+export function allChannelsOf(role: StyleRole): ChannelId[] {
+    return [...channelsOf(role), ...moreChannelsOf(role)];
 }
 
 /** True when the role can draw the channel at all. */

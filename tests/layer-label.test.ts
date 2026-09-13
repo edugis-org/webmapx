@@ -17,3 +17,15 @@ test('legend and styler labels prefer metadata, then layer type, then id fallbac
         'line',
     );
 });
+
+test('a single sublayer renamed in the styler is called by its own name, not the layer’s', () => {
+    assert.equal(
+        legendSublayerLabel(
+            { label: 'Provincienamen (2023)' },
+            { id: 'provincienamen2023-layer', type: 'symbol', metadata: { label: 'Provinces' } },
+            'provincienamen2023-layer',
+            true,
+        ),
+        'Provinces',
+    );
+});

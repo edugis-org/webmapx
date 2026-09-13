@@ -146,6 +146,7 @@ async function openStyler(page, options = {}) {
                 setExtraSubLayer: (id, sublayer) => adapter.setExtraSubLayer(id, sublayer),
                 setSubLayers: (id, sublayers) => adapter.setSubLayers(id, sublayers),
                 getSubLayers: (id) => adapter.getSubLayers(id),
+                setSubLayerMetadata: (id, subLayerId, metadata) => adapter.setSubLayerMetadata(id, subLayerId, metadata),
             },
             // The panel re-reads a viewport-limited source when the map opens
             // up; the test drives that listener directly, since a real camera
@@ -304,6 +305,41 @@ export async function run({ page, engine, baseUrl }) {
         }
     });
 
+    await step('a label’s More tier reaches the engine, where the engine reads it', async () => {
+        await expandNamed(page, 'Labels');
+        const hasToggle = await page.evaluate(() => Boolean(
+            window.__styler.shadowRoot.querySelector('.entry-body .more-toggle')));
+        // Leaflet and Cesium draw a label in one plain font on its point and
+        // read none of these keys: an affordance there would change nothing.
+        if (engine === 'leaflet' || engine === 'cesium') {
+            if (hasToggle) fail(`${engine} reads no label layout keys, yet offers the More tier`);
+            return;
+        }
+        if (!hasToggle) fail('no ⋯ on the label entry');
+        await page.evaluate(() => window.__styler.shadowRoot.querySelector('.entry-body .more-toggle').click());
+        await page.waitForTimeout(120);
+        await page.evaluate(() => {
+            const select = window.__styler.shadowRoot.querySelector('select[aria-label="Where the label sits"]');
+            if (!select) throw new Error('no placement control for labels on areas');
+            select.value = 'line';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await page.waitForTimeout(600);
+        const live = await liveSubLayers(page);
+        const symbol = live.find((sub) => sub.type === 'symbol');
+        if (symbol?.layout?.['symbol-placement'] !== 'line') {
+            fail(`placement did not reach the layer: ${JSON.stringify(symbol?.layout)}`);
+        }
+        // A rebuild re-renders the list; the tier must still be open, and the
+        // collapsed-row marker must say something non-default is inside.
+        const state = await page.evaluate(() => {
+            const toggle = window.__styler.shadowRoot.querySelector('.entry-body .more-toggle');
+            return { open: toggle?.getAttribute('aria-expanded'), marked: toggle?.classList.contains('overridden') };
+        });
+        if (state.open !== 'true') fail('the More tier closed itself after a change');
+        if (!state.marked) fail('a non-default placement is not marked on the ⋯');
+    });
+
     await step('a polygon outline is offered no dash pattern', async () => {
         // A border shared by two areas is in the data twice and stroked twice,
         // so the two dash phases interleave and the border reads as noise. The
@@ -460,11 +496,33 @@ export async function run({ page, engine, baseUrl }) {
 
     await step('a style can be renamed, and the name is the one the legend reads', async () => {
         await expandNamed(page, 'Fill');
+        // The field opens on the name the style already has, not an empty box.
+        const opened = await page.evaluate(() => [...window.__styler.shadowRoot.querySelectorAll('.entry-body input[type="text"]')]
+            .find((candidate) => candidate.getAttribute('aria-label') === 'What this style is called')?.value ?? null);
+        if (!opened) fail('the name field opened empty rather than on the current name');
+
+        const before = await liveSubLayers(page);
         await page.evaluate(() => {
             const field = [...window.__styler.shadowRoot.querySelectorAll('.entry-body input[type="text"]')]
                 .find((candidate) => candidate.getAttribute('aria-label') === 'What this style is called');
             if (!field) throw new Error('no name field');
             field.value = 'People per km²';
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        await page.waitForTimeout(150);
+        // While still typing: the legend's store already has the name, and the
+        // layer was not rebuilt for it (every sublayer keeps its paint object).
+        const typing = await liveSubLayers(page);
+        if (typing.find((sub) => sub.type === 'fill')?.metadata?.label !== 'People per km²') {
+            fail(`the name did not reach the legend while typing: ${JSON.stringify(typing.map((sub) => sub.metadata))}`);
+        }
+        if (typing.length !== before.length) fail('typing a name rebuilt the layer');
+        const header = await summaries(page);
+        if (!header.length) fail('no style list after typing');
+
+        await page.evaluate(() => {
+            const field = [...window.__styler.shadowRoot.querySelectorAll('.entry-body input[type="text"]')]
+                .find((candidate) => candidate.getAttribute('aria-label') === 'What this style is called');
             field.dispatchEvent(new Event('change', { bubbles: true }));
         });
         await page.waitForTimeout(700);

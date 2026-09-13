@@ -120,6 +120,18 @@ import {
     scaleZoomChannelTo,
     type StyleRole,
 } from '../utils/layer-style-model';
+import {
+    DIRECTION_LABELS,
+    fontStackOf,
+    hasMoreOverrides,
+    labelMoreSupported,
+    placementOf,
+    placementOptions,
+    readPosition,
+    writePosition,
+    type LabelDirection,
+    type LabelPosition,
+} from './styler/label-more';
 import { attributeChoiceLabel } from '../utils/attribute-translations';
 import { legendSublayerLabel } from '../utils/layer-label';
 import { throttle } from '../utils/throttle';
@@ -251,6 +263,20 @@ export class WebmapxLayerStyler extends DraggablePanel {
     @state() private neighbourColors = new Map<string, number>();
     /** What the last colouring found, for the isolated-areas note. */
     @state() private lastColoring: ReturnType<typeof colorByAdjacency> | null = null;
+    /**
+     * Entries whose *More* tier is open. A set rather than one id, and never
+     * cleared by the panel: nothing the user opened closes itself.
+     */
+    @state() private moreOpen = new Set<string>();
+    /**
+     * What is in a text field while it is being typed in, per entry and field.
+     *
+     * The field otherwise shows the entry's current name, and that name falls
+     * back to the inherited one the moment the field is empty — which would
+     * put the inherited name back under the cursor and make the field
+     * impossible to clear. Dropped when the edit is finished.
+     */
+    @state() private textDrafts = new Map<string, string>();
 
     static styles = [controlSurfaceStyles, panelChromeStyles, css`
         .sections { display: flex; flex-direction: column; gap: 0.6rem; }
@@ -279,6 +305,33 @@ export class WebmapxLayerStyler extends DraggablePanel {
             color: var(--color-text-primary, #16202a);
         }
         .row .value { flex: 0 0 3.5rem; text-align: right; font-variant-numeric: tabular-nums; }
+
+        /* The same "show more..." link the legend uses when it is taller than
+           its box, so one pattern means "there is more here" everywhere. */
+        .more-toggle {
+            position: relative;
+            align-self: flex-start;
+            padding: 0;
+            border: 0;
+            background: none;
+            color: var(--color-primary, #2b6cb0);
+            font: inherit;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+        .more-toggle:hover { text-decoration: underline; }
+        /* Marks a tier holding something other than the defaults, which the
+           collapsed row would otherwise hide. */
+        .more-toggle.overridden::after {
+            content: '';
+            position: absolute;
+            top: 0.05rem;
+            right: -0.55rem;
+            width: 0.4rem;
+            height: 0.4rem;
+            border-radius: 50%;
+            background: var(--color-primary, #2b6cb0);
+        }
 
         .source-line {
             font-size: 0.85rem;
@@ -725,8 +778,13 @@ export class WebmapxLayerStyler extends DraggablePanel {
         const origin = options.authored === false
             ? { ...(item.entry.origin ?? {}), metadata: undefined }
             : item.entry.origin;
+        // `authored: false` asks what the style is called *without its own
+        // name* — the placeholder under the Name field. Only the sublayer's own
+        // metadata is set aside: a single sublayer inherits the layer's name
+        // ("Provincienamen (2023)"), and dropping that too showed the type
+        // word `label` as if the style had no name at all.
         const label = legendSublayerLabel(
-            options.authored === false ? null : this.context?.layerMeta ?? null,
+            this.context?.layerMeta ?? null,
             origin as Record<string, unknown> | null | undefined,
             rawId,
             this.list.length === 1,
@@ -957,16 +1015,51 @@ export class WebmapxLayerStyler extends DraggablePanel {
      * *is* the legend's. A rebuild rather than a paint write: metadata is part
      * of the layer's definition, and no engine offers to change it in place.
      */
-    private setEntryField(item: StyleListEntry, field: 'title' | 'noDataLabel', value: string): void {
+    private setEntryField(
+        item: StyleListEntry,
+        field: 'title' | 'noDataLabel',
+        value: string,
+        options: { finished?: boolean } = { finished: true },
+    ): void {
         const current = this.list.find((candidate) => candidate.entry.id === item.entry.id) ?? item;
         const trimmed = value.trim();
-        if ((current.entry[field] ?? '') === trimmed) return;
-        const entry = { ...current.entry };
-        if (trimmed) entry[field] = trimmed;
-        else delete entry[field];
-        this.list = this.list.map((candidate) => (candidate === current ? { ...candidate, entry } : candidate));
-        this.touched = true;
-        this.rebuild();
+        const unchanged = (current.entry[field] ?? '') === trimmed;
+        if (!unchanged) {
+            const entry = { ...current.entry };
+            if (trimmed) entry[field] = trimmed;
+            else delete entry[field];
+            this.list = this.list.map((candidate) => (candidate === current ? { ...candidate, entry } : candidate));
+            this.touched = true;
+            const updated = this.list.find((candidate) => candidate.entry.id === entry.id)!;
+            // Straight into the legend, as typed: metadata is not drawn, so it
+            // needs no rebuild where the map can take it on its own.
+            if (this.writeEntryMetadata(updated)) {
+                this.metadataWritten.add(entry.id);
+                return;
+            }
+        }
+        // A map that cannot take metadata on its own gets one rebuild, when the
+        // edit is finished rather than per keystroke.
+        if (options.finished && !this.metadataWritten.has(current.entry.id) && !unchanged) this.rebuild();
+    }
+
+    /** Entries whose metadata reached the map without a rebuild this session. */
+    private readonly metadataWritten = new Set<string>();
+
+    private writeEntryMetadata(item: StyleListEntry): boolean {
+        const write = this.context?.layers?.setSubLayerMetadata;
+        if (!write || !this.context) return false;
+        const metadata = encodeStyleEntry(item.entry).metadata;
+        return write(this.context.layerId, item.entry.id,
+            metadata && typeof metadata === 'object' ? metadata as Record<string, unknown> : null);
+    }
+
+    /** Keeps a text field's typed value while the edit is in progress. See `textDrafts`. */
+    private setTextDraft(key: string, value: string | null): void {
+        const drafts = new Map(this.textDrafts);
+        if (value === null) drafts.delete(key);
+        else drafts.set(key, value);
+        this.textDrafts = drafts;
     }
 
     private addEntry(role: StyleRole): void {
@@ -1658,7 +1751,7 @@ export class WebmapxLayerStyler extends DraggablePanel {
         `;
     }
 
-    private renderChannels(item: StyleListEntry): TemplateResult[] | TemplateResult {
+    private renderChannels(item: StyleListEntry): Array<TemplateResult | typeof nothing> | TemplateResult {
         if (!item.styleable) {
             return html`<p class="muted">
                 This part of the layer is drawn as <code>${item.entry.origin?.type}</code>, which this panel has no
@@ -1668,6 +1761,7 @@ export class WebmapxLayerStyler extends DraggablePanel {
         return [
             this.renderTitle(item),
             ...channelsOf(item.entry.role).map((channel) => this.renderChannel(item, channel)),
+            this.renderMoreToggle(item),
         ];
     }
 
@@ -1681,14 +1775,30 @@ export class WebmapxLayerStyler extends DraggablePanel {
      * reads as "the derived name" rather than as no name at all.
      */
     private renderTitle(item: StyleListEntry): TemplateResult {
-        const derived = this.displayEntryName(item, { authored: false }) ?? summarizeEntry(item.entry, this.context?.attributeLabels);
+        // What the style is called without a name of its own — the layer's
+        // name for a single sublayer — and what the field goes back to when
+        // emptied.
+        const inherited = this.displayEntryName(item, { authored: false }) ?? summarizeEntry(item.entry, this.context?.attributeLabels);
+        const key = `${item.entry.id}:title`;
+        // Typing the inherited name back is not naming the style: it stays
+        // without a name of its own, so a later change to the layer's name
+        // still reaches it.
+        const titleFor = (value: string) => (value.trim() === inherited ? '' : value);
         return html`
             <div class="row">
                 <span class="name">Name</span>
                 <input type="text" class="grow" aria-label="What this style is called"
-                       placeholder=${derived}
-                       .value=${item.entry.title ?? ''}
-                       @change=${(event: Event) => this.setEntryField(item, 'title', (event.target as HTMLInputElement).value)}>
+                       placeholder=${inherited}
+                       .value=${this.textDrafts.get(key) ?? item.entry.title ?? inherited}
+                       @input=${(event: Event) => {
+                           const value = (event.target as HTMLInputElement).value;
+                           this.setTextDraft(key, value);
+                           this.setEntryField(item, 'title', titleFor(value), { finished: false });
+                       }}
+                       @change=${(event: Event) => {
+                           this.setTextDraft(key, null);
+                           this.setEntryField(item, 'title', titleFor((event.target as HTMLInputElement).value));
+                       }}>
             </div>
         `;
     }
@@ -2078,6 +2188,8 @@ export class WebmapxLayerStyler extends DraggablePanel {
                 <input type="text" class="grow" aria-label="What the legend calls them — leave empty to leave them out"
                        placeholder="Not in the legend"
                        .value=${item.entry.noDataLabel ?? ''}
+                       @input=${(event: Event) => this.setEntryField(item, 'noDataLabel',
+                           (event.target as HTMLInputElement).value, { finished: false })}
                        @change=${(event: Event) => this.setEntryField(item, 'noDataLabel', (event.target as HTMLInputElement).value)}>
             </div>
         `;
@@ -2337,6 +2449,167 @@ export class WebmapxLayerStyler extends DraggablePanel {
                         </select>`}
             </div>
             ${unreadable ? html`<pre class="custom">${JSON.stringify(state.driver === 'custom' ? state.expression : state)}</pre>` : nothing}
+        `;
+    }
+
+    /**
+     * The "show more..." link under a label's channels, and the tier it opens.
+     *
+     * Worded and styled like the legend's own link, rather than a `⋯` at the
+     * end of the Text row: in use the `⋯` read as decoration and was not found. Under the channels, because
+     * that is where "the rest of this style" is looked for. The tier holds no
+     * driver, only constants. Absent where the engine reads none of it, rather
+     * than a link that opens onto controls that change nothing.
+     */
+    private renderMoreToggle(item: StyleListEntry): TemplateResult | typeof nothing {
+        if (item.entry.role !== 'label' || !labelMoreSupported(this.context?.engine)) return nothing;
+        const open = this.moreOpen.has(item.entry.id);
+        const overridden = hasMoreOverrides(item.entry);
+        return html`
+            <button type="button" class=${overridden ? 'more-toggle overridden' : 'more-toggle'}
+                    aria-expanded=${open ? 'true' : 'false'}
+                    aria-label=${overridden ? 'Font, placement and overlap (changed)' : 'Font, placement and overlap'}
+                    title="Font, placement and overlap"
+                    @click=${() => {
+                        const next = new Set(this.moreOpen);
+                        if (open) next.delete(item.entry.id);
+                        else next.add(item.entry.id);
+                        this.moreOpen = next;
+                    }}>${open ? 'show less' : 'show more...'}</button>
+            ${open ? this.renderLabelMore(item) : nothing}
+        `;
+    }
+
+    /**
+     * Font, placement, position and overlap — the label controls most label
+     * work never needs, one step away rather than removed.
+     */
+    private renderLabelMore(item: StyleListEntry): TemplateResult {
+        const { font, placement, anchor, offset, allowOverlap } = item.entry.channels;
+        const group = this.group(item.sourceId) ?? this.groups[0] ?? null;
+        const placements = placementOptions(group?.geometryTypes ?? []);
+        const placed = placementOf(placement);
+        const position = readPosition(anchor, offset);
+        return html`
+            <div class="level4">
+                ${this.renderFont(item, font)}
+                ${placements.length > 0 || placed !== 'point' ? html`
+                    <div class="row">
+                        <span class="name">${CHANNEL_LABELS.placement}</span>
+                        ${placed === null
+                            ? html`<span class="muted">a custom expression</span>`
+                            : html`
+                                <select aria-label="Where the label sits"
+                                        @change=${(event: Event) => {
+                                            const value = (event.target as HTMLSelectElement).value;
+                                            // `point` is the GL default: saying nothing is saying it.
+                                            this.setChannel(item, 'placement', value === 'point' ? undefined : { driver: 'single', value });
+                                        }}>
+                                    ${placements.map((option) => html`
+                                        <option value=${option.value} ?selected=${option.value === placed}>${option.label}</option>`)}
+                                    ${placements.some((option) => option.value === placed)
+                                        ? nothing
+                                        : html`<option value=${placed} selected>${placed}</option>`}
+                                </select>`}
+                    </div>` : nothing}
+                ${placed === 'point' ? this.renderPosition(item, position) : nothing}
+                <div class="row check-row">
+                    <span class="name">${CHANNEL_LABELS.allowOverlap}</span>
+                    <label class="check">
+                        <input type="checkbox"
+                               .checked=${allowOverlap?.driver === 'single' && allowOverlap.value === true}
+                               ?disabled=${allowOverlap !== undefined && allowOverlap.driver !== 'single'}
+                               @change=${(event: Event) => this.setChannel(item, 'allowOverlap',
+                                   (event.target as HTMLInputElement).checked ? { driver: 'single', value: true } : undefined)}>
+                        Draw every label, even where they collide
+                    </label>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * A font is a face, and only faces the map is already drawing are offered.
+     *
+     * MapLibre renders text from a glyph server's pre-rendered faces, so bold
+     * is a different face and one the server lacks draws no text at all,
+     * silently. The current value is always listed, so opening the tier never
+     * swaps an authored face for the first one in the list.
+     */
+    private renderFont(item: StyleListEntry, state: ChannelState | undefined): TemplateResult {
+        if (state && !fontStackOf(state)) {
+            return html`
+                <div class="row">
+                    <span class="name">${CHANNEL_LABELS.font}</span>
+                    <span class="muted">a custom expression</span>
+                </div>`;
+        }
+        const current = fontStackOf(state);
+        const stacks = this.context?.fontStacks?.() ?? [];
+        const options = current && !stacks.some((stack) => stack[0] === current[0]) ? [current, ...stacks] : stacks;
+        return html`
+            <div class="row">
+                <span class="name">${CHANNEL_LABELS.font}</span>
+                <select aria-label="Label font"
+                        @change=${(event: Event) => {
+                            const index = Number((event.target as HTMLSelectElement).value);
+                            const stack = options[index];
+                            this.setChannel(item, 'font', stack ? { driver: 'single', value: stack } : undefined);
+                        }}>
+                    <option value="-1" ?selected=${!current}>Map default</option>
+                    ${options.map((stack, index) => html`
+                        <option value=${String(index)} ?selected=${current?.[0] === stack[0]}>${stack[0]}</option>`)}
+                </select>
+            </div>
+            ${options.length === 0 ? html`
+                <p class="muted">
+                    No other layer on this map names a font. A face the map cannot draw shows no text at all, so only
+                    the default is offered.
+                </p>` : nothing}
+        `;
+    }
+
+    /** Which side of its point a label sits, and how far off it. */
+    private renderPosition(item: StyleListEntry, position: LabelPosition | null): TemplateResult {
+        if (!position) {
+            return html`
+                <div class="row">
+                    <span class="name">${CHANNEL_LABELS.anchor}</span>
+                    <span class="muted">set in the layer in a way this control cannot show</span>
+                </div>`;
+        }
+        const write = (next: LabelPosition) => {
+            const { anchor, offset } = writePosition(next);
+            // Both keys in one write: an anchor without its offset puts the
+            // label flush against its point for one interval.
+            this.setChannel(item, 'offset', offset, { silent: true });
+            this.setChannel(item, 'anchor', anchor);
+        };
+        const distance = position.direction === 'center' ? 0 : position.distance;
+        return html`
+            <div class="row">
+                <span class="name">${CHANNEL_LABELS.anchor}</span>
+                <select aria-label="Which side of the point"
+                        @change=${(event: Event) => write({
+                            direction: (event.target as HTMLSelectElement).value as LabelDirection,
+                            // Moving off the spot with no distance would change nothing visible.
+                            distance: position.direction === 'center' ? 0.5 : position.distance,
+                        })}>
+                    ${(Object.keys(DIRECTION_LABELS) as LabelDirection[]).map((direction) => html`
+                        <option value=${direction} ?selected=${direction === position.direction}>${DIRECTION_LABELS[direction]}</option>`)}
+                </select>
+            </div>
+            ${position.direction === 'center' ? nothing : html`
+                <div class="row">
+                    <span class="name">${CHANNEL_LABELS.offset}</span>
+                    <input type="range" min="0" max="3" step="0.25" aria-label="Distance from the point"
+                           .value=${String(distance)}
+                           @input=${(event: Event) => write({
+                               direction: position.direction,
+                               distance: Number((event.target as HTMLInputElement).value),
+                           })}>
+                    <span class="value">${distance} em</span>
+                </div>`}
         `;
     }
 

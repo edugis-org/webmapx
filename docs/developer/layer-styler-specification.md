@@ -689,6 +689,21 @@ opens the old step dialog, which is untouched and still the shipped panel.
   every keystroke, since a rename is a rebuild. A name that *is* the classified
   column's (`population_density`) is carried along when another column is
   chosen; a name someone wrote is never touched.
+  - **The field shows the name the style has, and the legend follows as it is
+    typed.** A single sublayer inherits the layer's name ("Provincienamen
+    (2023)"), and the field opened empty with the type word `label` as its
+    placeholder — reading as "this style has no name". It now holds the current
+    name; emptying it, or typing the inherited name back, leaves the style
+    without a name of its own. The legend reads the sublayer's own
+    `metadata.label` first even for a single sublayer, or a rename there would
+    change nothing it shows.
+  - **A rename is not a rebuild.** `IMap.setSubLayerMetadata` writes the
+    sublayer's metadata into `store.mapLayers` (what the legend draws from) and
+    into the kept config (what `getSubLayers` and every later rebuild start
+    from — the store alone would have the next rebuild restore the old name).
+    Metadata is never drawn, so this runs per keystroke; the id is never
+    touched. The no-data wording goes the same way. Only a host without the
+    hook falls back to one rebuild when the edit is finished.
 - **The no-data class is two answers, not one.** Its colour is a control
   (default light grey, `NO_DATA_COLOR`) held in `ClassifySettings.noDataColor`
   rather than read back off the expression — every control on the panel rebuilds
@@ -760,8 +775,26 @@ opens the old step dialog, which is untouched and still the shipped panel.
 
 ### Left to do, roughly in order
 
-1. **Labels' *More* tier** — font/weight, placement, offset, allow-overlap behind
-   the `⋯` affordance. Only the four primary channels exist.
+1. ~~**Labels' *More* tier**~~ — done. `font`, `placement`, `anchor`, `offset`
+   and `allowOverlap` are label channels (`moreChannelsOf`), decoded and
+   round-tripped like the rest, and shown behind a **show more...** link under the label's channels — the same link, wording and colour the legend uses when it is taller than its box (first built as a `⋯` at the end of the Text row, which in use read as decoration and was not found)
+   (`styler/label-more.ts`). Three things decided the shape:
+   - **Fonts offered are only faces another layer on the map already draws
+     with** (`context.fontStacks`, collected from every layer's sublayers). No
+     engine can list a glyph server's faces, and a face it lacks draws no text
+     at all, silently. Stacks are kept whole, since the later faces are the
+     author's fallbacks, and the current face is always listed.
+   - **Position is one control over two keys**: "above" is `text-anchor:
+     bottom` *and* a negative y `text-offset`. Anything the control cannot
+     express (a diagonal anchor, a sideways offset) is shown as such and never
+     rewritten. It is offered only for `point` placement.
+   - **MapLibre and OpenLayers only.** `ol-mapbox-style` reads all five keys
+     (including `line-center`); Leaflet and Cesium read none, so the link is
+     absent there rather than opening onto controls that change nothing.
+   The link carries a dot when anything inside differs from the GL default, and
+   stays open across the rebuild a layout change causes. Not built: weight and
+   slant as their own control (they are faces, and only offered as faces), and
+   the tier on channels other than Text.
 2. ~~**The raster branch**~~ — done. The styler answers a raster layer through
    `styler/raster-branch.ts`: not-WMS, WMS the engine cannot repoint, WMS
    offering one way only, WMS offering a choice. Opacity was already at the top

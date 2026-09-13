@@ -61,6 +61,11 @@ export const CHANNEL_LABELS: Record<ChannelId, string> = {
     textSize: 'Text size',
     haloColor: 'Halo colour',
     haloWidth: 'Halo width',
+    font: 'Font',
+    placement: 'Placement',
+    anchor: 'Position',
+    offset: 'Distance',
+    allowOverlap: 'Overlap',
 };
 
 /**
