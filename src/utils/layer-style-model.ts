@@ -214,10 +214,30 @@ export interface CustomChannel {
     expression: unknown;
 }
 
+/**
+ * A size that grows with the zoom — the shape half the authored styles in the
+ * wild use for line width, circle radius and text size.
+ *
+ * Read as `custom` it was read-only, so a line whose width was
+ * `interpolate(linear, zoom, 10 → 2, 14 → 6)` could not be made thicker at all:
+ * the only way out was to replace the whole expression with one flat number and
+ * lose the zoom behaviour with it. The stops are therefore kept as authored and
+ * a single `scale` multiplies them, so "thicker" means thicker at every zoom
+ * and the curve the author drew survives.
+ */
+export interface ZoomChannel {
+    driver: 'zoom';
+    /** `[zoom, value]` pairs, ascending by zoom, exactly as authored. */
+    stops: Array<[number, number]>;
+    /** Multiplies every stop's value. 1 — or absent — is the style as authored. */
+    scale?: number;
+}
+
 export type ChannelState =
     | SingleChannel
     | AttributeChannel
     | NeighbourChannel
+    | ZoomChannel
     | CustomChannel;
 
 /** A sublayer as the map holds it — what an entry is decoded from and encoded to. */
@@ -355,9 +375,60 @@ export function encodeChannel(channel: ChannelState): unknown {
                 ...channel.colors.flatMap((color, index) => [index, color]),
                 channel.fallbackColor ?? NO_DATA,
             ];
+        case 'zoom':
+            return encodeZoomChannel(channel);
         case 'attribute':
             return encodeAttributeChannel(channel);
     }
+}
+
+function encodeZoomChannel(channel: ZoomChannel): unknown {
+    const scale = channel.scale ?? 1;
+    return [
+        'interpolate', ['linear'], ['zoom'],
+        ...channel.stops.flatMap(([zoom, value]) => [zoom, roundSize(value * scale)]),
+    ];
+}
+
+/**
+ * A size with the digits a style would be written with.
+ *
+ * Scaling by a slider otherwise puts 2.4000000000000004 in the paint, which is
+ * the same width and a different document — and a document that differs is one
+ * `encodeStyleEntry` has to write, so an untouched entry would stop
+ * round-tripping.
+ */
+function roundSize(value: number): number {
+    return Number(value.toFixed(3));
+}
+
+/** What a zoom-driven size is at one zoom, with its scale applied. */
+export function zoomValueAt(state: ZoomChannel, zoom: number | undefined): number | null {
+    const stops = state.stops.map(([at, value]) => [at, value * (state.scale ?? 1)] as [number, number]);
+    if (stops.length === 0) return null;
+    // Flat outside the ends, as GL's own interpolation is.
+    const where = zoom ?? stops[0][0];
+    if (where <= stops[0][0]) return stops[0][1];
+    if (where >= stops[stops.length - 1][0]) return stops[stops.length - 1][1];
+    for (let i = 1; i < stops.length; i++) {
+        const [z0, v0] = stops[i - 1];
+        const [z1, v1] = stops[i];
+        if (where <= z1) return v0 + ((where - z0) / (z1 - z0)) * (v1 - v0);
+    }
+    return stops[stops.length - 1][1];
+}
+
+/**
+ * The same curve, scaled so that it reads `wanted` at this zoom.
+ *
+ * A curve that is zero here cannot be scaled to anything else — every factor
+ * leaves it at zero — so that one case becomes a flat size, which is the only
+ * thing the slider could mean there.
+ */
+export function scaleZoomChannelTo(state: ZoomChannel, wanted: number, zoom: number | undefined): ChannelState {
+    const authored = zoomValueAt({ ...state, scale: 1 }, zoom);
+    if (authored === null || authored === 0) return { driver: 'single', value: wanted };
+    return { ...state, scale: wanted / authored };
 }
 
 /** Kept local rather than imported so this module has no reason to pull in the builders. */

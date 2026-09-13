@@ -115,6 +115,9 @@ import {
     encodeStyleEntry,
     type ChannelId,
     type ChannelState,
+    type ZoomChannel,
+    zoomValueAt,
+    scaleZoomChannelTo,
     type StyleRole,
 } from '../utils/layer-style-model';
 import { attributeChoiceLabel } from '../utils/attribute-translations';
@@ -159,6 +162,7 @@ const DRIVER_LABELS: Record<ChannelState['driver'], string> = {
     single: 'Single value',
     attribute: 'By attribute',
     neighbours: 'By neighbours',
+    zoom: 'Grows with zoom',
     custom: 'Custom (expression)',
 };
 
@@ -1979,6 +1983,8 @@ export class WebmapxLayerStyler extends DraggablePanel {
             </div>
             ${state?.driver === 'attribute' ? this.renderClassification(item, channel) : nothing}
             ${state?.driver === 'neighbours' ? this.renderNeighbours(item, channel) : nothing}
+            ${state?.driver === 'zoom' ? html`
+                <p class="muted">${zoomStopsSentence(state)}</p>` : nothing}
             ${state && state.driver === 'custom' && channel !== 'dash'
                 ? html`<pre class="custom">${JSON.stringify(state.expression)}</pre>`
                 : nothing}
@@ -2164,6 +2170,7 @@ export class WebmapxLayerStyler extends DraggablePanel {
     }
 
     private renderChannelValue(item: StyleListEntry, channel: ChannelId, state: ChannelState | undefined): TemplateResult | typeof nothing {
+        if (state?.driver === 'zoom') return this.renderZoomSize(item, channel, state);
         if (state && state.driver !== 'single') {
             // Read-only on purpose: the panel can show what the layer is doing
             // without being able to rebuild it, and writing a default over it
@@ -2187,6 +2194,34 @@ export class WebmapxLayerStyler extends DraggablePanel {
                        driver: 'single', value: Number((event.target as HTMLInputElement).value),
                    })}>
             <span class="value">${channel === 'opacity' ? `${Math.round(value * 100)}%` : `${value}${range.unit}`}</span>
+        `;
+    }
+
+    /**
+     * A size that grows with the zoom, adjusted where the user can see it.
+     *
+     * The slider sets the size **at the zoom the map is on**, and the stops are
+     * scaled to match. Offering the scale factor instead would be asking the
+     * user to do the arithmetic the panel is looking at: they want this line
+     * thicker *here*, and whether that is 1.4× of an authored curve is the
+     * panel's problem. What the whole curve becomes is said underneath, because
+     * the change reaches zooms the user is not looking at.
+     */
+    private renderZoomSize(item: StyleListEntry, channel: ChannelId, state: ZoomChannel): TemplateResult {
+        const range = CHANNEL_RANGES[channel];
+        const zoom = this.context?.sourceControl?.getView?.()?.zoom;
+        const here = zoomValueAt(state, zoom);
+        return html`
+            ${range && here !== null ? html`
+                <input type="range" min=${range.min} max=${range.max} step=${range.step}
+                       aria-label=${`${CHANNEL_LABELS[channel]} at this zoom`}
+                       .value=${String(here)}
+                       @input=${(event: Event) => {
+                           const wanted = Number((event.target as HTMLInputElement).value);
+                           this.setChannel(item, channel, scaleZoomChannelTo(state, wanted, zoom));
+                       }}>
+                <span class="value">${round1(here)}${range.unit}</span>`
+                : html`<span class="muted">${summarizeDriver(state)}</span>`}
         `;
     }
 
@@ -2373,11 +2408,35 @@ function swatchBackground(colors: readonly string[]): string {
     return `background:linear-gradient(90deg, ${stops.join(', ')})`;
 }
 
+function round1(value: number): number {
+    return Number(value.toFixed(1));
+}
+
+/**
+ * The whole curve in a sentence, because the slider changes zooms the user is
+ * not looking at: "2 px at z10, 6 px at z14" is what "thicker" just did
+ * everywhere else.
+ */
+function zoomStopsSentence(state: ZoomChannel): string {
+    const scale = state.scale ?? 1;
+    const stops = state.stops.map(([zoom, value]) => `${round1(value * scale)}px at z${zoom}`);
+    return `Grows with zoom: ${stops.join(', ')}. Between and beyond those, it follows the line.`;
+}
+
+/** The span a zoom-driven size covers, which is the only honest single number for it. */
+function zoomRangeSummary(state: ZoomChannel): string {
+    const values = state.stops.map(([, value]) => value * (state.scale ?? 1));
+    const low = Math.min(...values);
+    const high = Math.max(...values);
+    return low === high ? `${low}px` : `${low}–${high}px by zoom`;
+}
+
 /** What a non-single driver is showing, in one phrase. */
 function summarizeDriver(state: ChannelState): string {
     if (state.driver === 'neighbours') return 'no two neighbours alike';
     if (state.driver === 'custom') return 'a custom expression';
     if (state.driver === 'single') return String(state.value);
+    if (state.driver === 'zoom') return zoomRangeSummary(state);
     const classification = state.classification;
     if (classification.kind === 'proportional') return `sized by ${state.attribute}`;
     const count = classification.kind === 'ranges' ? classification.colors.length : classification.values.length;

@@ -28,7 +28,9 @@ import {
     encodeChannel,
     encodeStyleEntry,
     NEIGHBOUR_COLOR_FIELD,
+    scaleZoomChannelTo,
     type StyleSubLayer,
+    zoomValueAt,
 } from '../src/utils/layer-style-model';
 import { decodeChannel, decodeStyleEntry, roleOfLayerType, schemeNameFor } from '../src/utils/style-decoder';
 
@@ -343,4 +345,66 @@ test('a ladder this panel cannot restate is handed back whole', () => {
         assert.equal(entry.channels.color?.driver, 'custom', JSON.stringify(paint));
         assert.deepEqual(encodeStyleEntry(entry).paint?.['fill-color'], paint);
     }
+});
+
+test('a size that grows with the zoom is read as such, not as a custom expression', () => {
+    // Half the authored styles in the wild write line width, circle radius and
+    // text size this way. Read as `custom` every one of them was read-only, so
+    // a dike layer's lines could not be made thicker at all without throwing
+    // the zoom behaviour away with the expression.
+    const entry = decodeStyleEntry({
+        id: 'dikes', type: 'line',
+        paint: { 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2, 14, 6] },
+    });
+    const width = entry.channels.width;
+    assert.equal(width?.driver, 'zoom');
+    if (width?.driver !== 'zoom') return;
+    assert.deepEqual(width.stops, [[10, 2], [14, 6]]);
+    assert.equal(width.scale, undefined);
+});
+
+test('only a linear interpolation over zoom into numbers is taken', () => {
+    const custom = [
+        // Exponential is a different curve, not this one with a factor on it.
+        ['interpolate', ['exponential', 2], ['zoom'], 10, 2, 14, 6],
+        // Over a column, not over zoom: that is a classification question.
+        ['interpolate', ['linear'], ['get', 'pop'], 10, 2, 14, 6],
+        // Colours cannot be scaled by a number.
+        ['interpolate', ['linear'], ['zoom'], 10, '#fff', 14, '#000'],
+        // Zoom stops must ascend, or the curve is not one this can rebuild.
+        ['interpolate', ['linear'], ['zoom'], 14, 2, 10, 6],
+    ];
+    for (const paint of custom) {
+        const entry = decodeStyleEntry({ id: 'a', type: 'line', paint: { 'line-width': paint } });
+        assert.equal(entry.channels.width?.driver, 'custom', JSON.stringify(paint));
+        assert.deepEqual(encodeStyleEntry(entry).paint?.['line-width'], paint);
+    }
+});
+
+test('scaling a zoom size keeps the curve and moves every stop', () => {
+    const state = { driver: 'zoom' as const, stops: [[10, 2], [14, 6]] as Array<[number, number]> };
+    // At zoom 12, halfway between the stops, the authored width is 4.
+    assert.equal(zoomValueAt(state, 12), 4);
+    // Flat outside the ends, as GL's own interpolation is.
+    assert.equal(zoomValueAt(state, 2), 2);
+    assert.equal(zoomValueAt(state, 22), 6);
+
+    // Asking for 8 here is asking for twice as thick everywhere.
+    const scaled = scaleZoomChannelTo(state, 8, 12);
+    assert.equal(scaled.driver, 'zoom');
+    assert.deepEqual(encodeChannel(scaled), ['interpolate', ['linear'], ['zoom'], 10, 4, 14, 12]);
+});
+
+test('a curve that is zero where the user is looking becomes a flat size', () => {
+    // No factor can move zero, so the slider could not mean anything else.
+    const state = { driver: 'zoom' as const, stops: [[10, 0], [14, 0]] as Array<[number, number]> };
+    assert.deepEqual(scaleZoomChannelTo(state, 3, 12), { driver: 'single', value: 3 });
+});
+
+test('an untouched zoom size re-encodes byte-identically', () => {
+    const sublayer: StyleSubLayer = {
+        id: 'dikes', type: 'line',
+        paint: { 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2, 14, 6] },
+    };
+    assert.equal(JSON.stringify(encodeStyleEntry(decodeStyleEntry(sublayer))), JSON.stringify(sublayer));
 });

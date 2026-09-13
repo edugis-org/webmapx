@@ -127,6 +127,14 @@ function describeChannel(
         const scheme = state.schemeName ? `, ${state.schemeName}` : '';
         return `by ${named}, ${count} ${noun}${scheme}`;
     }
+    if (state.driver === 'zoom') {
+        // The range it spans, which is what tells this apart from a flat size —
+        // and the only honest single number for it is "it depends".
+        const values = state.stops.map(([, value]) => value * (state.scale ?? 1));
+        const low = Math.min(...values);
+        const high = Math.max(...values);
+        return low === high ? `${low}px` : `${low}–${high}px by zoom`;
+    }
     // A single value is worth naming only where it is what the user would
     // recognise the entry by: its colour, and its weight.
     if (channel === 'color') return typeof state.value === 'string' ? state.value : null;

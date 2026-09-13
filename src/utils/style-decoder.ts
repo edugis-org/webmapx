@@ -68,7 +68,36 @@ function decodeExpression(expression: unknown[]): ChannelState | undefined {
     if (operator === 'step') return decodeStep(expression, undefined);
     if (operator === 'match') return decodeMatch(expression);
     if (operator === '*') return decodeProportional(expression);
+    if (operator === 'interpolate') return decodeZoomInterpolation(expression);
     return undefined;
+}
+
+/**
+ * A size that grows with the zoom: `interpolate(linear, zoom, z1, v1, …)`.
+ *
+ * Half the authored styles in the wild write line width, circle radius and text
+ * size this way, and read as `custom` every one of them was read-only — the
+ * dike layer's lines could not be made thicker at all without throwing the zoom
+ * behaviour away. Only a *linear* interpolation over zoom into numbers is taken:
+ * an exponential one, or one over a column, or one producing colours, is a
+ * different thing and stays `custom` rather than being flattened into this.
+ */
+function decodeZoomInterpolation(expression: unknown[]): ChannelState | undefined {
+    const [, interpolation, input] = expression;
+    if (!Array.isArray(interpolation) || interpolation[0] !== 'linear') return undefined;
+    if (!Array.isArray(input) || input[0] !== 'zoom') return undefined;
+    const tail = expression.slice(3);
+    if (tail.length < 4 || tail.length % 2 !== 0) return undefined;
+
+    const stops: Array<[number, number]> = [];
+    for (let i = 0; i < tail.length; i += 2) {
+        const zoom = tail[i];
+        const value = tail[i + 1];
+        if (typeof zoom !== 'number' || typeof value !== 'number') return undefined;
+        if (stops.length > 0 && zoom <= stops[stops.length - 1][0]) return undefined;
+        stops.push([zoom, value]);
+    }
+    return { driver: 'zoom', stops };
 }
 
 /**

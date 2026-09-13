@@ -706,6 +706,17 @@ opens the old step dialog, which is untouched and still the shipped panel.
     bounds, two guards of different colours, a condition on another column)
     stays `custom` and is written back untouched.
 - **Reset**, restoring the sublayer list snapshotted at open.
+- **A size that grows with the zoom is a driver, not a custom expression.**
+  `interpolate(linear, zoom, …)` is how half the authored styles in the wild
+  write line width, circle radius and text size, and reading it as `custom` made
+  every one of them read-only: the dike layer's lines could not be made thicker
+  at all except by replacing the curve with one flat number. The stops are kept
+  as authored and a `scale` multiplies them, so the curve survives. The slider
+  sets the size **at the zoom the map is on** — offering the factor instead
+  would be asking the user to do the arithmetic they are looking at — and the
+  whole curve is spelled out underneath, because the change reaches zooms they
+  are not looking at. Only *linear* interpolation over *zoom* into *numbers* is
+  taken; exponential, over a column, or into colours stays `custom`.
 - **Breaks are tidied only where that changes nothing, and the legend rounds
   the rest.** Two halves of one answer. `tidyBreaks` moves a break to a rounder
   number only inside the *empty gap* it already sits in — above the largest

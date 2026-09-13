@@ -520,10 +520,53 @@ export async function run({ page, engine, baseUrl }) {
         if (!paint.includes('#112233')) fail(`the chosen no-data colour was overwritten: ${paint}`);
     });
 
+    await step('a width that grows with zoom can still be made thicker', async () => {
+        // Authored styles write width, radius and text size as a zoom curve.
+        // Read as `custom` it was read-only, so the only way to change it was to
+        // replace the curve with one flat number and lose the zoom behaviour.
+        await page.evaluate(async ([layerId]) => {
+            const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
+            const subs = adapter.getSubLayers(layerId);
+            const line = subs.find((sub) => sub.type === 'line');
+            line.paint = { ...line.paint, 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2, 14, 6] };
+            await adapter.setSubLayers(layerId, subs);
+        }, [LAYER_ID]);
+        await page.waitForTimeout(600);
+
+        await page.evaluate(() => window.__styler.close());
+        await openStyler(page);
+        // The map's own zoom decides what the slider shows, so the test fixes it.
+        await page.evaluate(() => { window.__styler.context.sourceControl.getView = () => ({ zoom: 12 }); });
+        await expandNamed(page, 'Outline');
+
+        const shown = await page.evaluate(async () => {
+            const styler = window.__styler;
+            styler.requestUpdate();
+            await styler.updateComplete;
+            const slider = [...styler.shadowRoot.querySelectorAll('.entry-body input[type="range"]')]
+                .find((candidate) => (candidate.getAttribute('aria-label') ?? '').startsWith('Width'));
+            if (!slider) return { error: 'no width slider' };
+            const before = slider.value;
+            slider.value = '8';
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+            await new Promise((resolve) => setTimeout(resolve, 600));
+            return { before, label: slider.getAttribute('aria-label') };
+        });
+        // Halfway between the stops at z12, the authored width is 4.
+        if (shown.before !== '4') fail(`the slider opened on ${JSON.stringify(shown)}`);
+
+        const width = (await liveSubLayers(page)).find((sub) => sub.type === 'line')?.paint?.['line-width'];
+        // Twice as thick here is twice as thick everywhere: the curve survives.
+        if (JSON.stringify(width) !== JSON.stringify(['interpolate', ['linear'], ['zoom'], 10, 4, 14, 12])) {
+            fail(`the curve did not scale: ${JSON.stringify(width)}`);
+        }
+    });
+
     await step('a column is offered by the name the configuration gives it', async () => {
         // The legend has always read `metadata.attributes.translations`; the
         // panel offered the raw column name, which on a layer with one column
         // called `mean` told the user nothing about what they were styling.
+        await expandNamed(page, 'Fill');
         const shown = await page.evaluate(async () => {
             const styler = window.__styler;
             styler.context.attributeLabels = new Map([['pop', { label: 'Inwoners', unit: ' per km²' }]]);
