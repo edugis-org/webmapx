@@ -1093,6 +1093,14 @@ export class WebmapxLayerTree extends LitElement {
                     };
                 });
 
+            // allowedLayers is the category's own list, in the order its author
+            // (or the old catalog it was migrated from) gave. Capabilities order
+            // is the server's -- GeoServer's is alphabetical across ~800 layers --
+            // so filtering alone scrambled every category.
+            if (allowed.length > 0) {
+                children.sort((a, b) => allowed.indexOf(a.layerId as string) - allowed.indexOf(b.layerId as string));
+            }
+
             this.capsCache.set(key, { status: 'loaded', children });
         } catch (e) {
             this.capsCache.set(key, { status: 'error', error: e instanceof Error ? e.message : String(e) });
