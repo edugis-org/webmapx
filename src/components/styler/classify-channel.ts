@@ -134,7 +134,7 @@ export interface ClassifyResult {
  *
  * A separate outcome rather than `null`, because the two causes need different
  * answers from the user and one of them is easy to walk into: ColorBrewer rates
- * **no** qualitative scheme colour-blind-safe above four classes, so ticking
+ * **no** qualitative scheme colour-blind-safe above four classes, and the palettes added for it stop at nine, so ticking
  * that box on a categorical map leaves nothing to draw with. Returning nothing
  * at all there is a panel that stops responding for a reason it knows and will
  * not say.
@@ -151,7 +151,7 @@ function noScheme(colorCount: number, type: SchemeType, settings: ClassifySettin
         return {
             channel: null,
             problem: type === 'qual'
-                ? `No colour-blind-safe palette has ${colorCount} distinct colours — ColorBrewer rates none above four. Use fewer categories, or turn the filter off.`
+                ? `No colour-blind-safe palette has ${colorCount} distinct colours — the largest colour-blind-safe palette (Tol muted) has nine. Use fewer categories, or turn the filter off.`
                 : `No colour-blind-safe palette has ${colorCount} classes. Use fewer, or turn the filter off.`,
         };
     }

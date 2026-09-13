@@ -107,8 +107,8 @@ import {
     type ClassifySettings,
 } from './styler/classify-channel';
 import type { ClassificationMethod } from '../utils/classification';
-import { colorByAdjacency } from '../utils/topological-coloring';
-import { colorSchemesFor } from '../utils/color-schemes';
+import { colorByAdjacency, coloringKeyFor, coloringKeyValue } from '../utils/topological-coloring';
+import type { ColorScheme } from '../utils/color-schemes';
 import { NEIGHBOUR_COLOR_FIELD } from '../utils/layer-style-model';
 import {
     CHANNEL_KEYS,
@@ -178,6 +178,13 @@ const DRIVER_LABELS: Record<ChannelState['driver'], string> = {
     zoom: 'Grows with zoom',
     custom: 'Custom (expression)',
 };
+
+/** Which palette a neighbour colouring draws from. */
+interface NeighbourPalette {
+    schemeName: string | null;
+    reversed: boolean;
+    blindSafe: boolean;
+}
 
 @customElement('webmapx-layer-styler')
 export class WebmapxLayerStyler extends DraggablePanel {
@@ -262,6 +269,14 @@ export class WebmapxLayerStyler extends DraggablePanel {
     @state() private classifySettings = new Map<string, ClassifySettings>();
     /** How many colours a neighbour colouring spreads over, per channel. */
     @state() private neighbourColors = new Map<string, number>();
+    /**
+     * The palette a neighbour colouring draws from, per channel.
+     *
+     * Separate from the classification settings because choosing one must not
+     * classify anything: a neighbour colouring has no column, and routing it
+     * through `updateSettings` would repaint the channel as a classification.
+     */
+    @state() private neighbourPalettes = new Map<string, NeighbourPalette>();
     /** What the last colouring found, for the isolated-areas note. */
     @state() private lastColoring: ReturnType<typeof colorByAdjacency> | null = null;
     /**
@@ -1948,7 +1963,11 @@ export class WebmapxLayerStyler extends DraggablePanel {
         const areal = (group?.geometryTypes ?? []).some((type) => /polygon/i.test(type));
         if (group && !areal) return 'Areas only';
         if (this.featuresOf(item).length === 0) return 'No features are loaded';
-        if (!this.canWriteFeatures(item)) return 'This layer\u2019s data cannot be added to';
+        // A source the app cannot write into is still colourable, keyed on
+        // something that tells its areas apart: the id, or columns unique together.
+        if (!this.canWriteFeatures(item) && !coloringKeyFor(this.featuresOf(item))) {
+            return 'Nothing tells these areas apart: no id, and no columns unique together';
+        }
         return null;
     }
 
@@ -1987,10 +2006,17 @@ export class WebmapxLayerStyler extends DraggablePanel {
                            @input=${(event: Event) => this.applyNeighbours(item, channel, Number((event.target as HTMLInputElement).value))}>
                     <span class="value">${count}</span>
                 </div>
+                ${this.renderNeighbourPalette(item, channel)}
                 <p class="muted">
                     A colour here names no value, so this map has no legend — it is for showing where the areas are
                     and where their borders run.
                 </p>
+                ${(item.entry.channels[channel] as { key?: unknown } | undefined)?.key ? html`
+                    <p class="muted">
+                        This layer's data cannot be added to, so every area is named in the style, coloured from the
+                        areas drawn now. An area that comes into view later is drawn in the fallback colour until the
+                        colouring is run again: move the Colours slider to do that.
+                    </p>` : nothing}
                 ${report && report.isolatedRegions > 0 ? html`
                     <p class="muted">
                         ${report.isolatedRegions} of ${report.isolatedRegions + report.colors.length - report.isolatedRegions}
@@ -2009,6 +2035,138 @@ export class WebmapxLayerStyler extends DraggablePanel {
      * the layers this exists for frequently do not have, and emits one branch
      * per feature: 4363 regions is 4363 branches re-evaluated per tile.
      */
+    /**
+     * The same colouring, named per feature in the paint instead of written
+     * into the data: what a tiled source needs, since its properties live on
+     * a server.
+     *
+     * One branch per area, matched on its id or on columns unique together.
+     * The areas are the ones the map has drawn: one that arrives later has no
+     * branch and takes the fallback colour until the colouring is run again.
+     */
+    private neighbourPalette(item: StyleListEntry, channel: ChannelId): NeighbourPalette {
+        return this.neighbourPalettes.get(this.settingsKey(item, channel)) ?? { schemeName: null, reversed: false, blindSafe: false };
+    }
+
+    /**
+     * The qualitative palettes a colouring of this many colours can use.
+     *
+     * At least three: the smallest ColorBrewer qualitative schemes have three,
+     * and a two-colour chessboard still reads best from a three-colour palette.
+     */
+    private neighbourSchemes(item: StyleListEntry, channel: ChannelId, colorCount: number): ColorScheme[] {
+        return schemesFor(Math.min(Math.max(colorCount, 3), 12), 'qual', this.neighbourPalette(item, channel));
+    }
+
+    /** The chosen palette, or the first on offer when the choice is not (or no longer) available. */
+    private neighbourScheme(item: StyleListEntry, channel: ChannelId, colorCount: number): ColorScheme | null {
+        const schemes = this.neighbourSchemes(item, channel, colorCount);
+        const { schemeName } = this.neighbourPalette(item, channel);
+        return schemes.find((scheme) => scheme.name === schemeName) ?? schemes[0] ?? null;
+    }
+
+    private noNeighbourSchemeMessage(item: StyleListEntry, channel: ChannelId, colorCount: number): string {
+        // No qualitative palette rated colour-blind safe goes past nine colours
+        // (Tol muted), so this is the filter speaking, not a missing palette.
+        return this.neighbourPalette(item, channel).blindSafe
+            ? `No colour-blind-safe palette has ${colorCount} colours. Use fewer colours, or untick Colour-blind safe.`
+            : `No palette has ${colorCount} distinct colours.`;
+    }
+
+    /** A palette change: remembered, then the colouring is run again with it. */
+    private updateNeighbourPalette(item: StyleListEntry, channel: ChannelId, change: Partial<NeighbourPalette>): void {
+        const palettes = new Map(this.neighbourPalettes);
+        palettes.set(this.settingsKey(item, channel), { ...this.neighbourPalette(item, channel), ...change });
+        this.neighbourPalettes = palettes;
+        this.applyNeighbours(item, channel,
+            this.neighbourColors.get(this.settingsKey(item, channel)) ?? DEFAULT_NEIGHBOUR_COLORS);
+    }
+
+    /** The palette row under a neighbour colouring: the same row `By attribute` shows, qualitative only. */
+    private renderNeighbourPalette(item: StyleListEntry, channel: ChannelId): TemplateResult {
+        const state = item.entry.channels[channel];
+        const palette = this.neighbourPalette(item, channel);
+        // The count the slider asks for, not the count on the map: when no
+        // palette has that many colours the colouring is not applied, and a row
+        // judged by the map would show palettes and no reason.
+        const colorCount = this.neighbourColors.get(this.settingsKey(item, channel))
+            ?? (state?.driver === 'neighbours' ? state.colors.length : DEFAULT_NEIGHBOUR_COLORS);
+        const drawn = state?.driver === 'neighbours' ? state.colors.length : null;
+        const schemes = this.neighbourSchemes(item, channel, colorCount);
+        const current = this.neighbourScheme(item, channel, colorCount)?.name ?? null;
+        return html`
+            <div class="row check-row">
+                <span class="name">Palette</span>
+                <div class="checks">
+                    <label class="check">
+                        <input type="checkbox" .checked=${palette.reversed}
+                               @change=${(event: Event) => this.updateNeighbourPalette(item, channel, {
+                                   reversed: (event.target as HTMLInputElement).checked,
+                               })}>
+                        Reverse
+                    </label>
+                    <label class="check">
+                        <input type="checkbox" .checked=${palette.blindSafe}
+                               @change=${(event: Event) => this.updateNeighbourPalette(item, channel, {
+                                   blindSafe: (event.target as HTMLInputElement).checked,
+                               })}>
+                        Colour-blind safe
+                    </label>
+                </div>
+            </div>
+            ${schemes.length === 0
+                ? html`<div class="warning">
+                    ${this.noNeighbourSchemeMessage(item, channel, colorCount)}
+                    ${drawn !== null ? ` The map still shows the last colouring, with ${drawn} colours.` : ''}
+                  </div>`
+                : html`
+                    <div class="schemes">
+                        ${schemes.map((scheme) => html`
+                            <button class="scheme" type="button" aria-label=${scheme.name}
+                                    aria-pressed=${scheme.name === current}
+                                    title=${scheme.name}
+                                    @click=${() => this.updateNeighbourPalette(item, channel, { schemeName: scheme.name })}>
+                                ${scheme.colors.map((color) => html`<span style=${`background:${color}`}></span>`)}
+                            </button>`)}
+                    </div>`}
+        `;
+    }
+
+    private applyKeyedNeighbours(
+        item: StyleListEntry,
+        channel: ChannelId,
+        features: GeoJSON.Feature[],
+        coloring: ReturnType<typeof colorByAdjacency>,
+    ): void {
+        const key = coloringKeyFor(features);
+        if (!key) {
+            this.message = 'Nothing tells these areas apart (no id, and no columns unique together), so a colouring cannot name them.';
+            return;
+        }
+        const scheme = this.neighbourScheme(item, channel, coloring.colorCount);
+        if (!scheme) {
+            // Said in the palette row, next to the slider that asked for it:
+            // the panel-top warning is scrolled out of view from down here.
+            this.message = null;
+            return;
+        }
+        const assignments = new Map<string, number>();
+        features.forEach((feature, index) => {
+            const value = coloringKeyValue(key, feature);
+            const color = coloring.colors[index];
+            // A key value is a `match` label, and labels must be unique.
+            if (value === null || color === undefined || assignments.has(value)) return;
+            assignments.set(value, color);
+        });
+        this.message = null;
+        this.setChannel(item, channel, {
+            driver: 'neighbours',
+            key,
+            assignments: [...assignments],
+            colors: Array.from({ length: coloring.colorCount }, (_, index) => scheme.colors[index % scheme.colors.length]),
+        });
+    }
+
     private applyNeighbours(item: StyleListEntry, channel: ChannelId, colorCount: number): void {
         const counts = new Map(this.neighbourColors);
         counts.set(this.settingsKey(item, channel), colorCount);
@@ -2016,13 +2174,18 @@ export class WebmapxLayerStyler extends DraggablePanel {
 
         const group = this.group(item.sourceId) ?? this.groups[0] ?? null;
         const features = group?.features;
-        if (!group || !features?.length || !this.context?.writeFeatures) {
+        if (!group || !features?.length) {
             this.message = 'Colouring by neighbours needs the layer\u2019s own features, and this layer has not handed them over.';
             return;
         }
 
         const coloring = colorByAdjacency(features, { paletteSize: colorCount });
         this.lastColoring = coloring;
+        if (!this.canWriteFeatures(item)) {
+            this.applyKeyedNeighbours(item, channel, features, coloring);
+            return;
+        }
+        if (!this.context?.writeFeatures) return;
         features.forEach((feature, index) => {
             const value = coloring.colors[index];
             if (value === undefined) return;
@@ -2033,9 +2196,11 @@ export class WebmapxLayerStyler extends DraggablePanel {
             return;
         }
 
-        const scheme = colorSchemesFor(Math.min(Math.max(coloring.colorCount, 3), 12), 'qual')[0];
+        const scheme = this.neighbourScheme(item, channel, coloring.colorCount);
         if (!scheme) {
-            this.message = `No palette has ${coloring.colorCount} distinct colours.`;
+            // Said in the palette row, next to the slider that asked for it:
+            // the panel-top warning is scrolled out of view from down here.
+            this.message = null;
             return;
         }
         this.message = null;

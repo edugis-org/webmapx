@@ -30,6 +30,7 @@ import {
     type StyleRole,
 } from './style-builder';
 import { metadataLabel } from './layer-label';
+import { COMPOSITE_KEY_SEPARATOR, type ColoringKey } from './topological-coloring';
 
 export type { StyleRole };
 
@@ -211,10 +212,38 @@ export interface AttributeChannel {
 /** A colour per feature from a graph colouring — no two touching areas alike. */
 export interface NeighbourChannel {
     driver: 'neighbours';
-    /** The property carrying the class index, or the key expression for a keyed colouring. */
-    attribute: string;
+    /** The property carrying the class index, when the colouring was written into the data. */
+    attribute?: string;
     colors: string[];
     fallbackColor?: string;
+    /**
+     * How the paint names a feature, when the colouring could *not* be written
+     * into the data — a tiled source, whose properties live on a server.
+     *
+     * The expression then carries one branch per feature, matched on the
+     * feature's id or on columns that are unique together, which is why this is
+     * the fallback and not the default: 4000 regions is 4000 branches evaluated
+     * per tile. Present together with `assignments`.
+     */
+    key?: ColoringKey;
+    /** Per key value, which of `colors` it takes. */
+    assignments?: Array<[string, number]>;
+}
+
+/**
+ * The expression that computes a feature's key, spelled exactly as
+ * `coloringKeyValue` computes it.
+ *
+ * A single column is written as a one-argument `concat` rather than a bare
+ * `to-string`: the two are the same value, but a bare `to-string` of a column
+ * is also what a categorical `match` reads, and a reopened panel must tell a
+ * neighbour colouring from a classification of that column.
+ */
+export function coloringKeyExpression(key: ColoringKey): unknown[] {
+    if (key.kind === 'id') return ['to-string', ['id']];
+    const names = key.kind === 'property' ? [key.name] : key.names;
+    return ['concat', ...names.flatMap((name, index) =>
+        (index === 0 ? [] : [COMPOSITE_KEY_SEPARATOR]).concat([['to-string', ['get', name]] as unknown as string]))];
 }
 
 /**
@@ -408,6 +437,14 @@ export function encodeChannel(channel: ChannelState): unknown {
         case 'custom':
             return channel.expression;
         case 'neighbours':
+            if (channel.key && channel.assignments) {
+                return [
+                    'match',
+                    coloringKeyExpression(channel.key),
+                    ...channel.assignments.flatMap(([value, index]) => [value, channel.colors[index % channel.colors.length]]),
+                    channel.fallbackColor ?? NO_DATA,
+                ];
+            }
             return [
                 'match',
                 ['get', channel.attribute],

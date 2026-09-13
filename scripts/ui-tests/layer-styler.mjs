@@ -796,6 +796,67 @@ export async function run({ page, engine, baseUrl }) {
         if (new Set(written).size < 2) fail(`every area got the same colour: ${JSON.stringify(written)}`);
     });
 
+    await step('a neighbour colouring can take another palette', async () => {
+        // It could not, at first: the palette was fixed to the first qualitative
+        // scheme, and the palette row existed only under `By attribute`.
+        const colorsOf = (paint) => JSON.stringify(paint).match(/#[0-9a-f]{6}|rgba?\([^)]*\)/gi) ?? [];
+        const before = colorsOf((await liveSubLayers(page)).find((sub) => sub.type === 'fill')?.paint?.['fill-color']);
+        const picked = await page.evaluate(() => {
+            const buttons = [...window.__styler.shadowRoot.querySelectorAll('.level4 .schemes button.scheme')];
+            const other = buttons.find((button) => button.getAttribute('aria-pressed') !== 'true');
+            if (!other) return null;
+            other.click();
+            return other.getAttribute('aria-label');
+        });
+        if (!picked) fail('no other palette offered under By neighbours');
+        await page.waitForTimeout(600);
+        const after = colorsOf((await liveSubLayers(page)).find((sub) => sub.type === 'fill')?.paint?.['fill-color']);
+        if (JSON.stringify(after) === JSON.stringify(before)) fail(`choosing ${picked} left the colours as they were: ${after}`);
+        const pressed = await page.evaluate(() => [...window.__styler.shadowRoot.querySelectorAll('.level4 .schemes button.scheme')]
+            .find((button) => button.getAttribute('aria-pressed') === 'true')?.getAttribute('aria-label') ?? null);
+        if (pressed !== picked) fail(`the chosen palette is ${pressed}, not ${picked}`);
+    });
+
+    await step('asking for more colour-blind-safe colours than exist says so beside the slider', async () => {
+        // No qualitative palette rated colour-blind safe has ten colours (Tol muted, the largest, has nine).
+        // The warning used to go to the top of the panel, out of view, while the
+        // slider moved and the palette row went on showing palettes.
+        const ticked = await page.evaluate(async () => {
+            const root = window.__styler.shadowRoot;
+            const safe = [...root.querySelectorAll('.level4 label.check')]
+                .find((label) => label.textContent.trim() === 'Colour-blind safe')?.querySelector('input');
+            if (!safe) return false;
+            if (!safe.checked) {
+                safe.checked = true;
+                safe.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            return true;
+        });
+        if (!ticked) fail('no Colour-blind safe checkbox under By neighbours');
+        await page.waitForTimeout(600);
+        // Ticking it at a count a safe palette has recolours the map, rightly;
+        // the claim is only about the slider asking for more than exist.
+        const before = JSON.stringify((await liveSubLayers(page)).find((sub) => sub.type === 'fill')?.paint?.['fill-color']);
+        const result = await page.evaluate(async () => {
+            const root = window.__styler.shadowRoot;
+            const slider = root.querySelector('input[aria-label="How many colours to spread over"]');
+            slider.value = '10';
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+            await new Promise((resolve) => setTimeout(resolve, 400));
+            const level4 = slider.closest('.level4');
+            return {
+                inline: level4?.querySelector('.warning')?.textContent.replace(/\s+/g, ' ').trim() ?? null,
+                top: root.querySelector('.panel > .warning, .panel-body > .warning')?.textContent.trim() ?? null,
+            };
+        });
+        if (result.error) fail(result.error);
+        if (!result.inline || !/colour-blind-safe/i.test(result.inline)) {
+            fail(`no warning beside the slider: ${JSON.stringify(result)}`);
+        }
+        const after = JSON.stringify((await liveSubLayers(page)).find((sub) => sub.type === 'fill')?.paint?.['fill-color']);
+        if (after !== before) fail('the map changed although no palette had that many colours');
+    });
+
     await step('a long sublayer name cannot push the row\u2019s buttons out', async () => {
         // A dropped file names its sublayers after the file:
         // `NUTS_RG_01M_2024_4326_LEVL_3_uk_stats:…-line`. A flex item will not

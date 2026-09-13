@@ -26,6 +26,7 @@ import {
     type StyleSubLayer,
 } from './layer-style-model';
 import { metadataLabel } from './layer-label';
+import { COMPOSITE_KEY_SEPARATOR, type ColoringKey } from './topological-coloring';
 import { schemeByName, schemeNames, type SchemeType } from './color-schemes';
 
 /** The role a GL layer type is drawn as. A `line` over a polygon source is an outline, which the type alone cannot say. */
@@ -244,8 +245,63 @@ function decodeStep(expression: unknown[], noDataColor: string | undefined): Cha
     return attributeChannel(field, { kind: 'ranges', breaks, colors, ...(noDataColor === undefined ? {} : { noDataColor }) });
 }
 
+/**
+ * The feature key a keyed neighbour colouring matches on, or null.
+ *
+ * The inverse of `coloringKeyExpression`: a feature's id as a string, or a
+ * `concat` of columns joined by the composite separator — including the
+ * one-column `concat` that marks a key rather than a category.
+ */
+function coloringKeyOfInput(input: unknown): ColoringKey | null {
+    if (!Array.isArray(input)) return null;
+    if (input[0] === 'to-string' && Array.isArray(input[1]) && input[1][0] === 'id' && input[1].length === 1) {
+        return { kind: 'id' };
+    }
+    if (input[0] !== 'concat' || input.length < 2 || input.length % 2 !== 0) return null;
+    const names: string[] = [];
+    for (let i = 1; i < input.length; i++) {
+        const part = input[i];
+        // Columns at odd positions, the separator between them.
+        if (i % 2 === 0) {
+            if (part !== COMPOSITE_KEY_SEPARATOR) return null;
+            continue;
+        }
+        if (!Array.isArray(part) || part[0] !== 'to-string') return null;
+        const get = part[1];
+        if (!Array.isArray(get) || get[0] !== 'get' || typeof get[1] !== 'string' || get.length !== 2) return null;
+        names.push(get[1]);
+    }
+    if (names.length === 0) return null;
+    return names.length === 1 ? { kind: 'property', name: names[0] } : { kind: 'properties', names };
+}
+
+/** A `match` on a feature key: a neighbour colouring the data could not carry. */
+function decodeKeyedNeighbours(expression: unknown[], key: ColoringKey): ChannelState | undefined {
+    if (expression.length < 5 || expression.length % 2 !== 1) return undefined;
+    const colors: string[] = [];
+    const assignments: Array<[string, number]> = [];
+    for (let i = 2; i < expression.length - 1; i += 2) {
+        const value = expression[i];
+        const color = expression[i + 1];
+        if (typeof value !== 'string' || typeof color !== 'string') return undefined;
+        let index = colors.indexOf(color);
+        if (index < 0) index = colors.push(color) - 1;
+        assignments.push([value, index]);
+    }
+    const fallback = expression[expression.length - 1];
+    return {
+        driver: 'neighbours',
+        key,
+        assignments,
+        colors,
+        ...(typeof fallback === 'string' ? { fallbackColor: fallback } : {}),
+    };
+}
+
 function decodeMatch(expression: unknown[]): ChannelState | undefined {
     const input = expression[1];
+    const key = coloringKeyOfInput(input);
+    if (key) return decodeKeyedNeighbours(expression, key);
     const raw = Array.isArray(input) && input[0] === 'get' && typeof input[1] === 'string';
     const field = raw ? (input as unknown[])[1] as string : fieldOfInput(input);
     // A `match` is input, then key/value pairs, then its required fallback.

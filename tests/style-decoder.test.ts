@@ -33,6 +33,7 @@ import {
     zoomValueAt,
 } from '../src/utils/layer-style-model';
 import { decodeChannel, decodeStyleEntry, roleOfLayerType, schemeNameFor } from '../src/utils/style-decoder';
+import { COMPOSITE_KEY_SEPARATOR, type ColoringKey } from '../src/utils/topological-coloring';
 
 const feature = (properties: GeoJSON.GeoJsonProperties): GeoJSON.Feature =>
     ({ type: 'Feature', properties, geometry: { type: 'Point', coordinates: [0, 0] } });
@@ -407,4 +408,50 @@ test('an untouched zoom size re-encodes byte-identically', () => {
         paint: { 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2, 14, 6] },
     };
     assert.equal(JSON.stringify(encodeStyleEntry(decodeStyleEntry(sublayer))), JSON.stringify(sublayer));
+});
+
+test('a neighbour colouring keyed on the features round-trips, and paints each area its own colour', async () => {
+    // What a tiled source gets: the colouring cannot be written into its data,
+    // so the paint names every area — by id, by one column, or by columns that
+    // are unique together. Each must decode back to `neighbours`, not to a
+    // classification of that column, or reopening the panel loses the driver.
+    const { evaluateColor } = await import('../src/utils/maplibre-expression-evaluator');
+    const colors = ['#1b9e77', '#d95f02', '#7570b3'];
+    const cases: Array<{ key: ColoringKey; feature: (value: string) => Record<string, unknown> }> = [
+        { key: { kind: 'id' }, feature: (value) => ({ id: value, properties: {} }) },
+        { key: { kind: 'property', name: 'code' }, feature: (value) => ({ properties: { code: value } }) },
+        { key: { kind: 'properties', names: ['name', 'admin'] }, feature: (value) => ({ properties: { name: value[0], admin: value[1] } }) },
+    ];
+    for (const { key, feature } of cases) {
+        // For the composite key the value is what `coloringKeyValue` builds: the
+        // two columns joined by the separator.
+        const parts = [['a', 'x'], ['a', 'y'], ['b', 'x']];
+        const values = key.kind === 'properties'
+            ? parts.map((pair) => pair.join(COMPOSITE_KEY_SEPARATOR))
+            : ['a', 'b', 'c'];
+        const state = {
+            driver: 'neighbours' as const,
+            key,
+            assignments: values.map((value, index) => [value, index] as [string, number]),
+            colors,
+            fallbackColor: '#cccccc',
+        };
+        const expression = encodeChannel(state);
+        assert.deepEqual(decodeChannel(expression), state, `${key.kind} did not decode back to itself`);
+        values.forEach((value, index) => {
+            const input = key.kind === 'properties' ? parts[index].join('') : value;
+            const painted = evaluateColor(expression, { ...feature(input), geometry: { type: 'Polygon' } } as never, 6, '#000000');
+            // The evaluator answers in rgba(); compare as hex.
+            const rgb = /rgba?\(([^)]+)\)/.exec(String(painted));
+            const hex = rgb
+                ? `#${rgb[1].split(',').slice(0, 3).map((part) => Math.round(Number(part.trim())).toString(16).padStart(2, '0')).join('')}`
+                : String(painted).toLowerCase();
+            assert.equal(hex, colors[index], `${key.kind} ${input} painted ${painted}`);
+        });
+    }
+});
+
+test('a categorical match on a column is not mistaken for a keyed colouring', () => {
+    const decoded = decodeChannel(['match', ['to-string', ['get', 'code']], 'a', '#ff0000', 'b', '#00ff00', '#cccccc']);
+    assert.equal(decoded?.driver, 'attribute');
 });

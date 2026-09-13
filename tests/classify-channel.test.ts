@@ -189,11 +189,13 @@ test('the colour-blind filter narrows diverging and qualitative, never sequentia
 });
 
 test('asking for a palette that does not exist says so instead of going quiet', () => {
-    // ColorBrewer rates no qualitative scheme colour-blind-safe above four
-    // colours, so this combination is one a student can walk into: five
-    // categories and the filter ticked leaves nothing to draw with.
-    const many = ['a', 'b', 'c', 'd', 'e'].map((code) => feature({ code }));
-    const outcome = classifyColorChannel(many, false, { ...defaultSettings('code'), blindSafe: true });
+    // No qualitative palette rated colour-blind safe has ten colours (Tol muted,
+    // the largest, has nine), so this combination is one a student can walk
+    // into: ten categories and the filter ticked leaves nothing to draw with.
+    const many = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'].map((code) => feature({ code }));
+    // A colour each for all ten: the default cap of eight would ask for an
+    // eight-colour palette, and two colour-blind-safe ones have eight.
+    const outcome = classifyColorChannel(many, false, { ...defaultSettings('code'), blindSafe: true, maxCategories: 10 });
     assert.ok(outcome);
     assert.equal(outcome.channel, null);
     if (outcome.channel !== null) return;
