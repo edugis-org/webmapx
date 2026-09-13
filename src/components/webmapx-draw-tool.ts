@@ -5,6 +5,7 @@ import type { IMap } from '../map/IMapInterfaces';
 import type { LngLat, ClickEvent, PointerMoveEvent, ContextMenuEvent, PointerDownEvent, PointerUpEvent } from '../store/map-events';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
+import '@shoelace-style/shoelace/dist/components/dropdown/dropdown.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
@@ -201,7 +202,13 @@ export interface DrawFeature {
 
 interface HistoryEntry {
     type: 'add' | 'update' | 'delete' | 'finish';
+    /** For 'update': the pre-change snapshot, restored on undo. */
     features: DrawFeature[];
+    /** For 'update': the post-change snapshot (same ids/order as `features`),
+     *  restored on redo. Without its own snapshot, redo re-applied the same
+     *  pre-change coordinates undo just restored — redoing a move undid it
+     *  again instead of moving forward. */
+    afterFeatures?: DrawFeature[];
     /** For 'finish': draft points to restore on undo, re-opening the in-progress line/polygon. */
     draftPoints?: LngLat[];
 }
@@ -308,7 +315,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     @state() private editState: EditState = 'none';
     private editHandles: EditHandle[] = [];
     private hoveredHandle: EditHandle | null = null;
-    private dragging: { handle: EditHandle; lastCoords: LngLat } | null = null;
+    private dragging: { handle: EditHandle; lastCoords: LngLat; origCoords: any } | null = null;
     /** Vertex highlighted for Delete/Backspace removal (click a vertex handle to select). */
     private selectedHandle: VertexHandle | null = null;
     private featureDrag: { featureId: string; startCoords: LngLat; origCoords: any; origCentroidLat: number; origCentroidLng: number } | null = null;
@@ -334,10 +341,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     /** Empty until explicitly chosen — the dropdown shows a placeholder rather
      *  than silently defaulting to a type the user never actually picked. */
     @state() private newAttrType: PropertyDef['type'] | '' = '';
-    /** Automatic types checked in the "Add attribute" form's optional-attributes
-     *  checklist — each added with its default name (see AUTO_PROPERTY_DEFAULTS),
-     *  alongside the custom-named one, when the form is saved. */
-    @state() private checkedAutoTypes = new Set<PropertyDef['type']>();
 
     // ─── Styles ───────────────────────────────────────────────────────────────
 
@@ -357,16 +360,15 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             min-height: 0;
         }
 
-        /* The one required choice (mode) is boxed so it reads as a single
-           decision; everything below it is loose icon clusters instead, so
-           the two kinds of control don't compete for the same visual weight. */
+        /* Each row is its own boxed pill: select, draw shape, the snap
+           toggle, and the history actions, so the four kinds of control
+           read as separate groups instead of one long strip of icons. */
         .pill {
             display: inline-flex;
             gap: 0.15rem;
             padding: 3px;
             border: 1px solid var(--color-background-secondary, #e2e5e8);
             border-radius: 8px;
-            margin-bottom: 0.5rem;
             flex-shrink: 0;
         }
         .toolbar-row {
@@ -377,18 +379,15 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             margin-bottom: 0.5rem;
             flex-shrink: 0;
         }
-        .toolbar-row.split {
-            justify-content: space-between;
-        }
-        .cluster {
-            display: flex;
-            align-items: center;
-            gap: 0.15rem;
-        }
         sl-icon-button[active]::part(base) {
-            color: var(--sl-color-primary-600);
-            background: var(--sl-color-primary-100);
-            border-radius: 4px;
+            color: #fff;
+            background: var(--sl-color-primary-600);
+            border-radius: 6px;
+            box-shadow: 0 2px 6px -2px var(--sl-color-primary-600);
+        }
+        sl-icon-button:not([active]):not([disabled])::part(base):hover {
+            background: var(--color-background-secondary, #e8ebee);
+            border-radius: 6px;
         }
 
         .help {
@@ -668,11 +667,15 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             color: var(--color-text-secondary, #5a6773);
             margin-top: 0.3rem;
         }
-        .auto-attr-checklist {
+        .auto-attr-dropdown-panel {
             display: flex;
             flex-direction: column;
-            gap: 0.35rem;
-            margin-top: 0.3rem;
+            gap: 0.45rem;
+            padding: 0.6rem 0.7rem;
+            background: var(--sl-panel-background-color, #fff);
+            border: 1px solid var(--color-background-secondary, #e2e7ec);
+            border-radius: 6px;
+            box-shadow: var(--sl-shadow-medium);
         }
         .auto-attr-checkbox {
             display: flex;
@@ -680,6 +683,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             gap: 0.4rem;
             font-size: 0.82rem;
             cursor: pointer;
+            white-space: nowrap;
         }
         .add-attr-note {
             font-size: 0.72rem;
@@ -1409,7 +1413,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.addingAttribute = false;
         this.newAttrName = '';
         this.newAttrType = '';
-        this.checkedAutoTypes = new Set();
     }
 
     private restoreBorrowedLayer(cfg: DrawLayerConfig): void {
@@ -1614,7 +1617,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.addingAttribute = false;
         this.newAttrName = '';
         this.newAttrType = '';
-        this.checkedAutoTypes = new Set();
     }
 
     private stopEditingCurrent(): void {
@@ -1691,50 +1693,48 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }
     }
 
-    /** Adds every attribute selected in the "Add attribute" form at once: each
-     *  checked automatic type (with its default name) plus the custom-named
-     *  one, if a name was actually typed — either half is optional, so
-     *  checking boxes alone (no custom name) is a valid save, and vice versa. */
     private addActiveLayerProperty(cfg: DrawLayerConfig): void {
-        const additions: PropertyDef[] = [];
-        const existingNames = new Set(cfg.properties.map(p => p.name));
-        for (const type of this.checkedAutoTypes) {
-            const def = AUTO_PROPERTY_DEFAULTS[type];
-            if (!def || existingNames.has(def.name)) continue;
-            additions.push({ name: def.name, type });
-            existingNames.add(def.name);
-        }
-        const customName = this.newAttrName.trim();
-        if (customName && this.newAttrType && !existingNames.has(customName)) {
-            additions.push({ name: customName, type: this.newAttrType });
-        }
-        if (additions.length === 0) return;
-        const properties = [...cfg.properties, ...additions];
+        const name = this.newAttrName.trim();
+        if (!name || !this.newAttrType || cfg.properties.some(p => p.name === name)) return;
+        const properties = [...cfg.properties, { name, type: this.newAttrType }];
         this.drawLayers = this.drawLayers.map(l => l.id === cfg.id ? { ...l, properties } : l);
         this.cancelAddAttribute();
     }
 
-    private toggleAutoAttribute(type: PropertyDef['type']): void {
-        const next = new Set(this.checkedAutoTypes);
-        if (next.has(type)) next.delete(type); else next.add(type);
-        this.checkedAutoTypes = next;
+    /** All automatic types available for this layer's geometry — the footer's
+     *  "Optional attributes" dropdown lists every one regardless of whether
+     *  it's currently present, so checking it back off is just as reachable
+     *  as checking it on. */
+    private availableAutoAttributeTypes(layer: DrawLayerConfig): PropertyDef['type'][] {
+        return PROPERTY_TYPES[layer.type].filter(t => AUTO_PROPERTY_DEFAULTS[t]);
     }
 
-    /** Automatic types this layer doesn't already have an attribute for —
-     *  the "Add attribute" form's optional-attributes checklist. */
-    private availableAutoAttributeTypes(layer: DrawLayerConfig): PropertyDef['type'][] {
-        const existingNames = new Set(layer.properties.map(p => p.name));
-        return PROPERTY_TYPES[layer.type].filter(t => {
-            const def = AUTO_PROPERTY_DEFAULTS[t];
-            return def && !existingNames.has(def.name);
-        });
+    private isAutoAttributeChecked(layer: DrawLayerConfig, type: PropertyDef['type']): boolean {
+        const def = AUTO_PROPERTY_DEFAULTS[type];
+        return Boolean(def && layer.properties.some(p => p.name === def.name));
+    }
+
+    private checkedAutoAttributeCount(layer: DrawLayerConfig): number {
+        return this.availableAutoAttributeTypes(layer).filter(t => this.isAutoAttributeChecked(layer, t)).length;
+    }
+
+    /** Toggles one automatic attribute on/off immediately — this dropdown
+     *  lives in the dialog's footer, independent of the "Add attribute" flow
+     *  above, so there's no separate save step: checking a box adds it with
+     *  its default name right away, unchecking removes it. */
+    private toggleAutoAttribute(layer: DrawLayerConfig, type: PropertyDef['type']): void {
+        const def = AUTO_PROPERTY_DEFAULTS[type];
+        if (!def) return;
+        const properties = this.isAutoAttributeChecked(layer, type)
+            ? layer.properties.filter(p => p.name !== def.name)
+            : [...layer.properties, { name: def.name, type }];
+        this.drawLayers = this.drawLayers.map(l => l.id === layer.id ? { ...l, properties } : l);
     }
 
     private cancelAddAttribute(): void {
         this.addingAttribute = false;
         this.newAttrName = '';
         this.newAttrType = '';
-        this.checkedAutoTypes = new Set();
     }
 
     private removeActiveLayerProperty(cfg: DrawLayerConfig, index: number): void {
@@ -1891,7 +1891,12 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }
 
         if (isVertexDrawMode(this.mode)) {
-            if (this.effectiveSnap && this.features.length > 0) {
+            // Closing a polygon onto its own start point needs snapping even
+            // with zero committed features on the map yet (the very first
+            // shape drawn) — the `features.length > 0` half of this guard
+            // only covers snapping to *other* geometry.
+            const canClosePolygon = this.mode === 'draw-polygon' && this.draftPoints.length >= 2;
+            if (this.effectiveSnap && (this.features.length > 0 || canClosePolygon)) {
                 const px = this.adapter!.project(e.coords);
                 const cursorPx: [number, number] = [px[0], px[1]];
                 if (!this.lastCursorPx ||
@@ -1974,7 +1979,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.selectedHandle = h.kind === 'vertex' ? h : null;
         this.updateSelectedVertexSource();
 
-        this.dragging = { handle: h, lastCoords: e.coords };
+        const draggedFeature = this.features.find(f => f.id === h.featureId);
+        this.dragging = {
+            handle: h, lastCoords: e.coords,
+            origCoords: draggedFeature ? JSON.parse(JSON.stringify(draggedFeature.coordinates)) : null,
+        };
         this.adapter?.setPanEnabled(false);
         this.adapter?.setCursor('grabbing');
 
@@ -1993,7 +2002,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                     vertIdx: newVertIdx,
                     coords: h.coords
                 };
-                this.dragging = { handle: vertHandle, lastCoords: e.coords };
+                // `f.coordinates` already reflects the just-inserted vertex
+                // (a separate, already-pushed history entry of its own) — the
+                // "before" state for *this* drag is that post-insert shape,
+                // not the shape from before the vertex existed at all.
+                this.dragging = {
+                    handle: vertHandle, lastCoords: e.coords,
+                    origCoords: JSON.parse(JSON.stringify(f.coordinates)),
+                };
                 this.selectedHandle = vertHandle;
                 this.updateSelectedVertexSource();
                 this.refreshDrawLayerSource(f.layerId);
@@ -2014,9 +2030,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (this.featureDrag) {
             const f = this.features.find(f => f.id === this.featureDrag!.featureId);
             if (f) {
+                // Snapshot taken from the drag-start coordinates, not `f` —
+                // by pointer-up `f` already holds the dragged-to position, so
+                // capturing "before" from it here would save the same state
+                // twice and make undo (which restores `features`) a no-op.
+                const before: DrawFeature = { ...f, coordinates: this.featureDrag!.origCoords };
                 const layer = this.drawLayers.find(l => l.id === f.layerId);
                 if (layer) this.computeSpecialProperties(f, layer);
-                this.pushHistory({ type: 'update', features: [{ ...f }] });
+                this.pushHistory({ type: 'update', features: [before], afterFeatures: [{ ...f }] });
                 // computeSpecialProperties mutates `f.properties` in place —
                 // refresh the array reference and map source so the recomputed
                 // area/perimeter/etc. show up in the properties panel and on the map.
@@ -2036,9 +2057,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
         const f = this.features.find(f => f.id === this.dragging!.handle.featureId);
         if (f) {
+            const before: DrawFeature = { ...f, coordinates: this.dragging!.origCoords };
             const layer = this.drawLayers.find(l => l.id === f.layerId);
             if (layer) this.computeSpecialProperties(f, layer);
-            this.pushHistory({ type: 'update', features: [{ ...f }] });
+            this.pushHistory({ type: 'update', features: [before], afterFeatures: [{ ...f }] });
             // Same as feature-drag: force the array/source refresh so the
             // recomputed special properties (area, perimeter, …) become visible.
             this.features = [...this.features];
@@ -2191,7 +2213,23 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     // ─── Snap ─────────────────────────────────────────────────────────────────
 
     private computeSnap(cursorPx: [number, number]): LngLat | null {
-        return this.computeSnapExcluding(cursorPx, null, this.mode === 'draw-point');
+        const otherSnap = this.computeSnapExcluding(cursorPx, null, this.mode === 'draw-point');
+        // Snapping onto the ring's own start point while drawing a polygon —
+        // closing used to rely on clicking within a small pixel radius blind,
+        // with none of the visual pull/feedback snapping to another
+        // feature's vertex already had.
+        if (this.mode === 'draw-polygon' && this.draftPoints.length >= 2 && this.adapter) {
+            const start = this.draftPoints[0];
+            const startPx = this.adapter.project(start);
+            const d = Math.hypot(startPx[0] - cursorPx[0], startPx[1] - cursorPx[1]);
+            if (d <= SNAP_THRESHOLD) {
+                if (!otherSnap) return start;
+                const otherPx = this.adapter.project(otherSnap);
+                const otherD = Math.hypot(otherPx[0] - cursorPx[0], otherPx[1] - cursorPx[1]);
+                return d <= otherD ? start : otherSnap;
+            }
+        }
+        return otherSnap;
     }
 
     private computeSnapExcluding(cursorPx: [number, number], excludeFeatureId: string | null, skipPoints: boolean): LngLat | null {
@@ -2409,6 +2447,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private insertVertex(f: DrawFeature, h: MidpointHandle): void {
+        const before: DrawFeature = { ...f, coordinates: JSON.parse(JSON.stringify(f.coordinates)) };
         const coords = JSON.parse(JSON.stringify(f.coordinates));
         const { partIdx, ringIdx, afterVertIdx } = h;
         if (f.type === 'LineString') {
@@ -2421,7 +2460,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             (coords[partIdx][ringIdx] as number[][]).splice(afterVertIdx + 1, 0, [h.coords[0], h.coords[1]]);
         }
         f.coordinates = coords;
-        this.pushHistory({ type: 'update', features: [{ ...f }] });
+        this.pushHistory({ type: 'update', features: [before], afterFeatures: [{ ...f }] });
     }
 
     private updateSelectedVertexSource(): void {
@@ -2476,10 +2515,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             return; // single Point: nothing to remove
         }
 
+        const before: DrawFeature = { ...f };
         f.coordinates = coords;
         const layer = this.drawLayers.find(l => l.id === f.layerId);
         if (layer) this.computeSpecialProperties(f, layer);
-        this.pushHistory({ type: 'update', features: [{ ...f }] });
+        this.pushHistory({ type: 'update', features: [before], afterFeatures: [{ ...f }] });
         this.features = [...this.features];
         this.refreshDrawLayerSource(f.layerId);
 
@@ -2632,8 +2672,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             this.features = this.features.filter(f => !ids.has(f.id));
             entry.features.forEach(f => affected.add(f.layerId));
         } else if (entry.type === 'update') {
+            const afterSnaps = entry.afterFeatures ?? entry.features;
             this.features = this.features.map(f => {
-                const snap = entry.features.find(s => s.id === f.id);
+                const snap = afterSnaps.find(s => s.id === f.id);
                 if (snap) { affected.add(f.layerId); return { ...f, coordinates: snap.coordinates }; }
                 return f;
             });
@@ -2926,45 +2967,49 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             ` : ''}
 
             ${needsName ? '' : html`
-            <div class="pill">
-                <sl-tooltip content="Select">
-                    <sl-icon-button name="cursor"
-                        ?active=${this.mode === 'select'}
-                        @click=${() => this.setModeInternal('select')}>
-                    </sl-icon-button>
-                </sl-tooltip>
-                <sl-tooltip content="Draw ${typeLabelPlural(type).toLowerCase()}">
-                    <sl-icon-button name=${type === 'Point' ? 'geo-fill' : type === 'LineString' ? 'slash-lg' : 'pentagon'}
-                        ?active=${this.mode === drawMode}
-                        @click=${() => this.setModeInternal(drawMode)}>
-                    </sl-icon-button>
-                </sl-tooltip>
-                ${type === 'LineString' ? html`
-                    <sl-tooltip content="Draw dashed lines">
-                        <sl-icon-button src=${dashLineIconUrl}
-                            ?active=${this.mode === 'draw-line-dashed'}
-                            @click=${() => this.setModeInternal('draw-line-dashed')}>
+            <div class="toolbar-row">
+                <div class="pill">
+                    <sl-tooltip content="Select">
+                        <sl-icon-button name="hand-index-thumb"
+                            ?active=${this.mode === 'select'}
+                            @click=${() => this.setModeInternal('select')}>
                         </sl-icon-button>
                     </sl-tooltip>
-                ` : ''}
-                ${type === 'Polygon' ? html`
-                    <sl-tooltip content="Draw circles">
-                        <sl-icon-button name="circle"
-                            ?active=${this.mode === 'draw-circle'}
-                            @click=${() => this.setModeInternal('draw-circle')}>
+                </div>
+                <div class="pill">
+                    <sl-tooltip content="Draw ${typeLabelPlural(type).toLowerCase()}">
+                        <sl-icon-button name=${type === 'Point' ? 'geo-fill' : type === 'LineString' ? 'slash-lg' : 'pentagon'}
+                            ?active=${this.mode === drawMode}
+                            @click=${() => this.setModeInternal(drawMode)}>
                         </sl-icon-button>
                     </sl-tooltip>
-                    <sl-tooltip content="Draw rectangles">
-                        <sl-icon-button name="square"
-                            ?active=${this.mode === 'draw-rectangle'}
-                            @click=${() => this.setModeInternal('draw-rectangle')}>
-                        </sl-icon-button>
-                    </sl-tooltip>
-                ` : ''}
+                    ${type === 'LineString' ? html`
+                        <sl-tooltip content="Draw dashed lines">
+                            <sl-icon-button src=${dashLineIconUrl}
+                                ?active=${this.mode === 'draw-line-dashed'}
+                                @click=${() => this.setModeInternal('draw-line-dashed')}>
+                            </sl-icon-button>
+                        </sl-tooltip>
+                    ` : ''}
+                    ${type === 'Polygon' ? html`
+                        <sl-tooltip content="Draw circles">
+                            <sl-icon-button name="circle"
+                                ?active=${this.mode === 'draw-circle'}
+                                @click=${() => this.setModeInternal('draw-circle')}>
+                            </sl-icon-button>
+                        </sl-tooltip>
+                        <sl-tooltip content="Draw rectangles">
+                            <sl-icon-button name="square"
+                                ?active=${this.mode === 'draw-rectangle'}
+                                @click=${() => this.setModeInternal('draw-rectangle')}>
+                            </sl-icon-button>
+                        </sl-tooltip>
+                    ` : ''}
+                </div>
             </div>
 
-            <div class="toolbar-row split">
-                <div class="cluster">
+            <div class="toolbar-row">
+                <div class="pill">
                     <sl-tooltip content="Snap to points and edges (${this.snapEnabled ? 'on' : 'off'}) — hold Alt to toggle">
                         <sl-icon-button name="magnet"
                             ?active=${this.effectiveSnap}
@@ -2975,7 +3020,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                         </sl-icon-button>
                     </sl-tooltip>
                 </div>
-                <div class="cluster">
+            </div>
+
+            <div class="toolbar-row">
+                <div class="pill">
                     <sl-tooltip content="Undo (${this.modKey}+Z)">
                         <sl-icon-button name="arrow-counterclockwise"
                             ?disabled=${this.historyIndex < 0 && this.draftPoints.length === 0}
@@ -3095,24 +3143,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                                     `)}
                                 </sl-select>
                             ` : ''}
-                            ${this.availableAutoAttributeTypes(layer).length > 0 ? html`
-                                <div class="type-picker-instruction">Optional attributes — computed automatically, no name needed:</div>
-                                <div class="auto-attr-checklist">
-                                    ${this.availableAutoAttributeTypes(layer).map(t => html`
-                                        <label class="auto-attr-checkbox">
-                                            <input type="checkbox"
-                                                .checked=${this.checkedAutoTypes.has(t)}
-                                                @change=${() => this.toggleAutoAttribute(t)}>
-                                            ${AUTO_PROPERTY_DEFAULTS[t]?.label ?? t}
-                                        </label>
-                                    `)}
-                                </div>
-                            ` : ''}
                             <div class="add-attr-note">New attributes are added to the bottom of the list below.</div>
                             <div class="add-attr-actions">
                                 <sl-button size="small" @click=${() => this.cancelAddAttribute()}>Cancel</sl-button>
                                 <sl-button size="small" variant="primary"
-                                    ?disabled=${this.checkedAutoTypes.size === 0 && !(this.newAttrName.trim() && this.newAttrType)}
+                                    ?disabled=${!(this.newAttrName.trim() && this.newAttrType)}
                                     @click=${() => this.addActiveLayerProperty(layer)}>
                                     Add
                                 </sl-button>
@@ -3149,6 +3184,21 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                         </table>
                     </div>
 
+                    <sl-dropdown slot="footer" placement="top-end">
+                        <sl-button slot="trigger" size="small" caret>
+                            Optional attributes${this.checkedAutoAttributeCount(layer) > 0 ? ` (${this.checkedAutoAttributeCount(layer)})` : ''}
+                        </sl-button>
+                        <div class="auto-attr-dropdown-panel">
+                            ${this.availableAutoAttributeTypes(layer).map(t => html`
+                                <label class="auto-attr-checkbox">
+                                    <input type="checkbox"
+                                        .checked=${this.isAutoAttributeChecked(layer, t)}
+                                        @change=${() => this.toggleAutoAttribute(layer, t)}>
+                                    ${AUTO_PROPERTY_DEFAULTS[t]?.label ?? t}
+                                </label>
+                            `)}
+                        </div>
+                    </sl-dropdown>
                     <sl-button slot="footer" variant="primary" @click=${() => this.attributesDialog?.hide()}>Done</sl-button>
                 </sl-dialog>
             ` : ''}
