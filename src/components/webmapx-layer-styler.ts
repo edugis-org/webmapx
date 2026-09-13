@@ -61,7 +61,8 @@ import {
     writeStyleList,
     type StyleListEntry,
 } from './styler/style-list';
-import type { SourceStyleGroup, StyleDialogContext } from './styler/style-context';
+import { hasFeatures, isWiderThan } from './styler/style-context';
+import type { SourceStyleGroup, StyleDialogContext, ViewBounds } from './styler/style-context';
 import { rasterBranch, wmsStyleTiles } from './styler/raster-branch';
 import {
     buildDraftStyle,
@@ -134,6 +135,14 @@ import { throttle } from '../utils/throttle';
  * against the map rather than against a form.
  */
 const STYLE_APPLY_INTERVAL_MS = 80;
+
+/**
+ * How many times a re-read waits for the map to draw what it was asked for, and
+ * how long between tries. Three seconds in all: long enough for a tile server to
+ * answer, short enough that a layer that draws nothing here stops being asked.
+ */
+const RESAMPLE_ATTEMPTS = 4;
+const RESAMPLE_RETRY_MS = 900;
 
 const MAX_BUBBLE_RADIUS = 28;
 const MAX_LABEL_SIZE = 32;
@@ -500,14 +509,101 @@ export class WebmapxLayerStyler extends DraggablePanel {
         // what it already knows and fills the rest in when it answers, rather
         // than holding the panel back behind a spinner.
         void this.loadGroups(context);
+        this.watchTheView(context);
     }
 
-    private async loadGroups(context: StyleDialogContext): Promise<void> {
-        if (!context.resample) return;
+    /**
+     * Reads the source again when the map comes to rest somewhere wider.
+     *
+     * A tiled source answers with what the map has *drawn*
+     * (`isViewportLimited`), so a panel opened while zoomed out over a layer
+     * with a high minzoom sees nothing at all and says so — and used to keep
+     * saying it, because nothing read the source a second time. There is no
+     * reload button to press, and asking for one is asking the user to know
+     * why the panel is wrong.
+     *
+     * Three conditions, and each one is there to stop this making things
+     * worse rather than better:
+     *
+     * - **Only a source the map answers from the screen.** A `geojson` source
+     *   is held whole, so a new extent tells it nothing.
+     * - **Only a wider extent.** Panning at the same zoom trades one set of
+     *   features for another, which would move the attribute list and the
+     *   value ranges under the user while they are reading them. Zooming out
+     *   is the one move that can only add.
+     * - **Only an answer that has something in it.** Zoom out far enough and a
+     *   layer stops drawing entirely; replacing what the panel knows with that
+     *   empty answer is exactly the state this exists to get out of.
+     */
+    private watchTheView(context: StyleDialogContext): void {
+        this.unwatchView?.();
+        this.unwatchView = context.watchView?.((bounds) => {
+            if (this.context !== context || !this.visible) return;
+            if (!this.viewportLimited()) return;
+            const seen = this.sampledExtent;
+            this.sampledExtent = bounds;
+            // The first move is the one whose direction is unknown — the panel
+            // has no extent to compare with, because it was opened rather than
+            // moved to. So it re-reads only if it has nothing, which is the
+            // complaint this exists for; after that, only a wider view.
+            if (seen ? !isWiderThan(bounds, seen) : hasFeatures(this.groups)) return;
+            void this.resampleUntilDrawn(context);
+        }) ?? null;
+    }
+
+    /**
+     * Reads again until the map has something to answer with.
+     *
+     * `view-change-end` fires when the *camera* has come to rest, which is
+     * before the tiles for where it stopped have arrived — so a single read
+     * there answers about the screen as it was a moment ago and finds nothing.
+     * Measured on the 2D buildings layer: zooming from z9 to z16 and reading
+     * once still returned zero features.
+     *
+     * A few spaced attempts rather than a subscription to tile events: every
+     * engine reports loading differently (and two of them barely at all), and
+     * the cost of being wrong here is one wasted read of what is on screen.
+     * Stops as soon as something is there, and on the next camera move, since
+     * that starts its own run.
+     */
+    private async resampleUntilDrawn(context: StyleDialogContext): Promise<void> {
+        const attempt = ++this.sampleAttempt;
+        for (let tries = 0; tries < RESAMPLE_ATTEMPTS; tries++) {
+            // What the *read* found, not what the panel is holding: the panel
+            // keeps the older sample when a read comes back empty, so asking it
+            // instead would end the retries on the first attempt, which is the
+            // one that is too early by construction.
+            const drawn = await this.loadGroups(context, { keepWhenEmpty: true });
+            if (this.context !== context || attempt !== this.sampleAttempt) return;
+            if (drawn) return;
+            await new Promise((resolve) => setTimeout(resolve, RESAMPLE_RETRY_MS));
+            if (this.context !== context || attempt !== this.sampleAttempt) return;
+        }
+    }
+
+    private sampleAttempt = 0;
+
+    /** True while any source the panel is showing answers from the screen. */
+    private viewportLimited(): boolean {
+        return this.groups.some((group) => group.completeData === false);
+    }
+
+    /** Reads the source again; answers whether that read found anything to show. */
+    private async loadGroups(
+        context: StyleDialogContext,
+        options: { keepWhenEmpty?: boolean } = {},
+    ): Promise<boolean> {
+        if (!context.resample) return false;
         const groups = await context.resample();
         // The user may have closed the panel, or opened it on another layer,
         // while the read was in flight.
-        if (this.context !== context) return;
+        if (this.context !== context) return false;
+        // A later read that found nothing is not news: the layer stopped
+        // drawing at this zoom. Keeping what the panel already knows is the
+        // difference between "here are your columns" and the empty panel the
+        // user opened this layer to get away from.
+        const drawn = hasFeatures(groups);
+        if (options.keepWhenEmpty && !drawn && hasFeatures(this.groups)) return false;
         this.groups = groups;
         // Deliberately not narrowed to a source here. `adopt` sets this to
         // null — every style, whatever it draws from — and picking the first
@@ -521,20 +617,31 @@ export class WebmapxLayerStyler extends DraggablePanel {
         // layer, so the first decode had no geometry to go on. Re-read once it
         // does, but never over the user's own edits: a slow tiled source could
         // otherwise land after the first change and undo it.
-        if (this.touched || this.openedWith.length === 0) return;
+        if (this.touched || this.openedWith.length === 0) return drawn;
         this.list = readStyleList(this.layerId, this.openedWith, groups);
+        return drawn;
     }
+
+    /** The extent the current sample came from, so a later one can be compared with it. */
+    private sampledExtent: ViewBounds | null = null;
+
+    private unwatchView: (() => void) | null = null;
 
     close(): void {
         // Whatever the pointer left behind goes to the map before the panel
         // does: a throttle that drops the last edit is a lost edit.
         this.flushPending();
+        this.unwatchView?.();
+        this.unwatchView = null;
+        this.sampledExtent = null;
         this.visible = false;
         this.destroyPickers();
         this.hidePanel();
     }
 
     disconnectedCallback(): void {
+        this.unwatchView?.();
+        this.unwatchView = null;
         this.destroyPickers();
         super.disconnectedCallback();
     }

@@ -131,6 +131,14 @@ export interface StyleDialogContext {
      */
     resample?: () => Promise<SourceStyleGroup[]>;
     /**
+     * Tells the panel the map has come to rest somewhere new.
+     *
+     * Returns its own unsubscribe. Only the camera is reported — what to do
+     * about it is the panel's decision, because only the panel knows whether
+     * the source it is looking at answers from the screen (see `resample`).
+     */
+    watchView?: (listener: (bounds: ViewBounds) => void) => () => void;
+    /**
      * What the layer is made of, when it is not something with features.
      *
      * A raster layer has no paint to build an expression from — it arrives as
@@ -150,6 +158,41 @@ export interface StyleDialogContext {
      * means the panel falls back to keying on a column the data already has.
      */
     writeFeatures?: (sourceId: string, features: GeoJSON.Feature[]) => boolean;
+}
+
+/** A map extent in lon/lat, as `view-change-end` reports it. */
+export interface ViewBounds {
+    west: number;
+    south: number;
+    east: number;
+    north: number;
+}
+
+/**
+ * Whether a new extent covers more ground than the one already sampled.
+ *
+ * Area, not containment: a zoom-out that also pans still shows more of the
+ * layer than before, while a pan at the same zoom — which trades features for
+ * features and would move the attribute list under the reader — does not. The
+ * margin keeps a re-render at the same camera, or a pixel of rounding, from
+ * counting as wider.
+ */
+export function isWiderThan(next: ViewBounds, previous: ViewBounds, margin = 1.1): boolean {
+    return extentArea(next) > extentArea(previous) * margin;
+}
+
+function extentArea(bounds: ViewBounds): number {
+    // Longitude is wrapped, not clamped: a view straddling the antimeridian
+    // reports east < west, and the width is what is between them going east.
+    const width = bounds.east >= bounds.west
+        ? bounds.east - bounds.west
+        : bounds.east + 360 - bounds.west;
+    return Math.abs(width) * Math.abs(bounds.north - bounds.south);
+}
+
+/** Whether a sample found anything at all. */
+export function hasFeatures(groups: readonly SourceStyleGroup[]): boolean {
+    return groups.some((group) => (group.features?.length ?? 0) > 0);
 }
 
 export interface RasterStyleTarget {

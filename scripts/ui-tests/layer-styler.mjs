@@ -147,6 +147,10 @@ async function openStyler(page, options = {}) {
                 setSubLayers: (id, sublayers) => adapter.setSubLayers(id, sublayers),
                 getSubLayers: (id) => adapter.getSubLayers(id),
             },
+            // The panel re-reads a viewport-limited source when the map opens
+            // up; the test drives that listener directly, since a real camera
+            // move would be four different cameras across four engines.
+            watchView: (listener) => { window.__viewListener = listener; return () => { window.__viewListener = null; }; },
             sourceControl: {
                 setTiles: () => false,
                 setLayerOpacity: (opacity) => adapter.setLayerOpacity(layerId, opacity),
@@ -514,6 +518,42 @@ export async function run({ page, engine, baseUrl }) {
         const fill = (await liveSubLayers(page)).find((sub) => sub.type === 'fill');
         const paint = JSON.stringify(fill?.paint?.['fill-color']);
         if (!paint.includes('#112233')) fail(`the chosen no-data colour was overwritten: ${paint}`);
+    });
+
+    await step('a viewport-limited source is re-read when the map opens up', async () => {
+        // The panel reads what the map has *drawn*, so one opened over a layer
+        // that draws nothing here has nothing to offer and no button to press.
+        // Driven through the context the panel was opened with, because that is
+        // where the rule lives; the engines' own cameras differ too much to
+        // assert a feature count against.
+        const result = await page.evaluate(async () => {
+            const styler = window.__styler;
+            const groups = styler.groups.map((group) => ({ ...group, completeData: false }));
+            styler.groups = groups;
+            let reads = 0;
+            const real = styler.context.resample;
+            // First answer empty, as a tile that has not arrived does; then full.
+            styler.context.resample = async () => {
+                reads += 1;
+                return reads === 1 ? groups.map((group) => ({ ...group, features: [], attributes: [] })) : real();
+            };
+            const listener = window.__viewListener;
+            const before = styler.groups[0].features.length;
+            listener({ west: 0, south: 40, east: 20, north: 60 });   // first move: panel has data, no read
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            const afterFirst = reads;
+            listener({ west: 4, south: 50, east: 6, north: 52 });     // narrower: no read
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            const afterNarrower = reads;
+            listener({ west: -40, south: 0, east: 60, north: 70 });   // wider: reads, and retries past the empty answer
+            await new Promise((resolve) => setTimeout(resolve, 2500));
+            return { afterFirst, afterNarrower, afterWider: reads, keptFeatures: styler.groups[0].features.length, before };
+        });
+        if (result.afterFirst !== 0) fail(`the first move re-read a panel that already had data: ${JSON.stringify(result)}`);
+        if (result.afterNarrower !== 0) fail(`zooming in re-read the source: ${JSON.stringify(result)}`);
+        if (result.afterWider < 2) fail(`a wider view did not retry past the empty answer: ${JSON.stringify(result)}`);
+        // The empty answer in between must not have replaced what was there.
+        if (result.keptFeatures !== result.before) fail(`an empty answer wiped the sample: ${JSON.stringify(result)}`);
     });
 
     await step('a classification written as a ladder of comparisons is editable', async () => {

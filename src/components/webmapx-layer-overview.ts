@@ -4,7 +4,7 @@ import { customElement, property, state, query } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
-import type { LayerAddEvent, LayerRemoveEvent } from '../store/map-events';
+import type { LayerAddEvent, LayerRemoveEvent, ViewChangeEndEvent } from '../store/map-events';
 import './webmapx-layer-legend';
 import './webmapx-layer-info-dialog';
 import './webmapx-layer-style-dialog';
@@ -1406,6 +1406,15 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         layerId,
         this.adapter?.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined,
       ),
+      // `view-change-end` and not `view-change`: the panel reads features the
+      // map has drawn, and there is nothing new to read until the map has
+      // stopped and the tiles for where it stopped have arrived.
+      watchView: (listener) => this.adapter?.events.on('view-change-end', (event: ViewChangeEndEvent) => {
+        listener({
+          west: event.bounds.sw[0], south: event.bounds.sw[1],
+          east: event.bounds.ne[0], north: event.bounds.ne[1],
+        });
+      }) ?? (() => {}),
       layers: {
         add: (config) => this.adapter?.addLayer(config as never) ?? false,
         remove: (id) => {
