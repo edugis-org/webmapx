@@ -13,6 +13,7 @@ export interface FieldProfile {
     unique: number;
     numeric: number;
     numericShare: number;
+    dataType: 'integer' | 'number' | 'text';
     family: string;
     role: 'measure' | 'id' | 'constant' | 'mostly-missing' | 'text';
     stats?: NumericStats;
@@ -178,11 +179,11 @@ function suspectedNoData(values: number[], counts: Map<number, number>, s: Numer
             result.push({ value, count, reason: 'CBS missing-value code' });
         } else if (RASTER_NO_DATA.has(value)) {
             result.push({ value, count, reason: 'common raster no-data value' });
-        } else if (count > 1 && s.standardDeviation > 0 && Math.abs(value - s.median) > s.standardDeviation * 8) {
+        } else if (Number.isInteger(value) && count > 1 && s.standardDeviation > 0 && Math.abs(value - s.median) > s.standardDeviation * 8) {
             result.push({ value, count, reason: 'repeated extreme value' });
-        } else if (count > 1 && value > 1000 && normalMax < 1000 && value > normalMax * 10) {
+        } else if (Number.isInteger(value) && count > 1 && value > 1000 && normalMax < 1000 && value > normalMax * 10) {
             result.push({ value, count, reason: 'far above normal range' });
-        } else if (count > 1 && value < -1000 && normalMin > -1000) {
+        } else if (Number.isInteger(value) && count > 1 && value < -1000 && normalMin > -1000) {
             result.push({ value, count, reason: 'far below normal range' });
         }
     }
@@ -218,11 +219,17 @@ function profileField(name: string, rawValues: unknown[], featureCount: number):
     const unique = new Set(nonMissing.map(value => String(value))).size;
     const numericValues = nonMissing.map(asNumber).filter((value): value is number => value !== null);
     const numericShare = nonMissing.length ? numericValues.length / nonMissing.length : 0;
+    const dataType = numericShare >= 0.8
+        ? (numericValues.length > 0 && numericValues.every(Number.isInteger) ? 'integer' : 'number')
+        : 'text';
     const counts = new Map<number, number>();
     for (const value of numericValues) counts.set(value, (counts.get(value) ?? 0) + 1);
 
-    const numericStats = numericValues.length ? stats(numericValues) : undefined;
-    const noData = numericStats ? suspectedNoData(numericValues, counts, numericStats) : [];
+    const preliminaryStats = numericValues.length ? stats(numericValues) : undefined;
+    const noData = preliminaryStats ? suspectedNoData(numericValues, counts, preliminaryStats) : [];
+    const noDataValues = new Set(noData.map(item => item.value));
+    const validNumericValues = numericValues.filter(value => !noDataValues.has(value));
+    const numericStats = validNumericValues.length ? stats(validNumericValues) : undefined;
     const likelyId = hasIdName(name) || looksLikeCodeValues(nonMissing, featureCount);
 
     let role: FieldProfile['role'] = 'text';
@@ -238,6 +245,7 @@ function profileField(name: string, rawValues: unknown[], featureCount: number):
         unique,
         numeric: numericValues.length,
         numericShare,
+        dataType,
         family: familyFor(name),
         role,
         ...(numericStats ? { stats: numericStats } : {}),

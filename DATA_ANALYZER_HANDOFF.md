@@ -291,3 +291,87 @@ population_age_under_15 rises with live_births
 ```
 
 This may be acceptable, but the analyzer should eventually recognize obvious duplicate/near-duplicate measures such as EUR vs PPS variants as a family or redundant pair.
+
+## Resume Update: 2026-09-14
+
+This section supersedes older implementation status and next-step notes above.
+
+- Continue in `/home/anneb/projects/webmapx-data-analyzer`, branch
+  `feat/data-analyzer-tool`. The original `/home/anneb/projects/webmapx`
+  checkout is used by another process for styler work; do not edit it.
+- Base analyzer implementation was committed as `ad79951` and pushed to
+  `origin/feat/data-analyzer-tool`. The current follow-up commit contains this
+  handoff and the field-summary changes below. It has not been pushed yet.
+- Existing Vite URL: `http://localhost:5174/testpages/preview.html?config=..%2Fconfig%2Fnl.json`.
+  Check whether the server is still running before restarting it.
+  Untracked `config/` is a local runtime copy and remains excluded from commits.
+
+### Current Implementation
+
+- Analysis runs on all available feature properties in a worker. No sampled
+  preview results. GeoJSON can cover the loaded full source; MVT covers loaded
+  viewport features. Cancellation terminates the worker; refresh reruns it.
+- Options include `Map this` for single-field map suggestions. The action uses
+  `classifyColorChannel` and `encodeStyleEntry`, applies paint through
+  `adapter.updateLayerStyle`, and updates composite sublayer metadata when
+  available. It restyles the selected layer, rather than creating a new layer.
+- Fields now show type, non-missing count, distinct non-missing values, missing,
+  min, max, average, and median. Each label/value pair stays together on wrapping.
+- Type is inferred as integer or number when at least 80% of non-missing values
+  parse as numeric; otherwise text. This is inference, not source schema typing.
+- Numeric display uses standard notation, exponential only when absolute value
+  exceeds 1e9 or is nonzero below 1e-6. Non-integers use roughly four significant
+  digits; integers within the threshold are displayed exactly.
+- A `no-data:` line appears only for detected candidates, with occurrence counts.
+  Ordinary null/undefined/blank missing values remain a separate count.
+- Detection first examines raw numeric values, then excludes all detected
+  candidates from min, max, mean, median, and standard deviation.
+  Count/unique/numeric still include non-null sentinel occurrences; these counts
+  therefore do not necessarily equal the number used for numeric statistics.
+- Known CBS/raster sentinels are detected explicitly. Heuristic extreme-value
+  detection is restricted to integer-valued numbers. Arbitrary decimal extremes
+  such as 999999.9999 stay valid. Integer-valued decimal notation such as -9999.0
+  is indistinguishable from -9999 in JavaScript.
+
+### Outstanding Issues and Cautions
+
+- User saw only one CBS map suggestion (population density). Suggestions are
+  sorted together and capped at ten overall, so families and relationships can
+  crowd out single-field map actions. Revisit presentation/ranking if requested.
+- User reported `Map this` appeared to do nothing, then said they may have tested
+  incorrectly and explicitly requested undoing the attempted fix. The proposed
+  `adapter.getSubLayers()` fallback in `styleTargets()` WAS REMOVED. Do not
+  restore it without reproducing the problem. Existing error/success messages
+  appear above the tabs, potentially outside the scrolled view.
+- Earlier Bosgebied Ugchelen color/info mismatch was not conclusively reproduced.
+  Local CBS GeoJSON had percentage_gescheid=18 (dark red), while user reported
+  info value 7 (expected orange). Local value 7 belonged to a different age field.
+  Verify actual live feature, selected layer, paint, and legend before a fix.
+- Known sentinel removal in correlation helpers and the separate styler
+  classification path are not necessarily identical to profile heuristic
+  exclusion. Do not claim every analysis/map operation uses the same exclusions.
+- Suspected extreme values are heuristics, although UI currently says no-data.
+  Legitimate integer extremes can be misidentified. Decimal regression test is
+  small and does not exercise all heuristic trigger thresholds.
+- Fields rendering still limits its sorted list to thirty profiles.
+
+### Documentation in the Demo Repository
+
+- Added `/home/anneb/projects/webmapx-demo/docs/tools/data-analyzer.md` (uncommitted).
+- Added local, ignored `config/docs/tools/data-analyzer.json` in that repository.
+- Maintained prose is Markdown under `docs/tools/`; the builder generates both
+  HTML and JSON under `tools/`, along with indexes. Do not hand-edit outputs.
+- `npm run build:tool-docs -- --check` currently fails because the demo's built
+  WebMapX registry predates data-analyzer. Update/build the appropriate analyzer
+  distribution before generating. The ignored demo config needs a maintained
+  home for deployment; it currently exists only locally.
+
+### Verification and Next Session
+
+- Latest typecheck, nine analyzer tests, and ESLint passed after the attempted
+  Map this fallback was reverted. No browser reproduction verified that fix.
+- Start by reading this section and `git status`. These changes were committed
+  at the user's request; no push was requested for this follow-up.
+- Likely next work: reproduce Map this only if still broken, improve access to
+  single-field map options, and advance family/profile map creation. The end
+  goal remains maps showing discovered statistical or geographical patterns.

@@ -20,7 +20,12 @@ test('data analyzer detects CBS no-data codes and excludes ID-like fields', () =
     const code = analysis.profiles.find(profile => profile.name === 'buurtcode');
 
     assert.equal(income?.family, 'Income');
+    assert.equal(income?.dataType, 'integer');
     assert.equal(income?.suspectedNoData[0]?.value, 99997);
+    assert.equal(income?.stats?.min, 30);
+    assert.equal(income?.stats?.max, 35);
+    assert.equal(income?.stats?.mean, 32.333333333333336);
+    assert.equal(income?.stats?.median, 32);
     assert.equal(code?.role, 'id');
     assert.ok(!analysis.usableNumericFields.includes('buurtcode'));
     assert.ok(analysis.suggestions.some(suggestion => suggestion.kind === 'hygiene'));
@@ -56,8 +61,23 @@ test('data analyzer keeps high-cardinality numeric measures usable', () => {
     const analysis = analyzeDataset(features);
 
     assert.equal(analysis.profiles.find(profile => profile.name === 'objectid')?.role, 'id');
+    assert.equal(analysis.profiles.find(profile => profile.name === 'objectid')?.dataType, 'integer');
     assert.equal(analysis.profiles.find(profile => profile.name === 'inkomen_score')?.role, 'measure');
+    assert.equal(analysis.profiles.find(profile => profile.name === 'inkomen_score')?.dataType, 'number');
     assert.ok(analysis.usableNumericFields.includes('inkomen_score'));
+});
+
+test('data analyzer does not infer no-data from repeated decimal extremes', () => {
+    const features = [
+        feature({ measurement: 1.2 }),
+        feature({ measurement: 1.3 }),
+        feature({ measurement: 1.4 }),
+        feature({ measurement: 999999.9999 }),
+        feature({ measurement: 999999.9999 }),
+    ];
+
+    const profile = analyzeDataset(features).profiles.find(item => item.name === 'measurement');
+    assert.deepEqual(profile?.suspectedNoData, []);
 });
 
 test('data analyzer detects totals and percentage composition families', () => {

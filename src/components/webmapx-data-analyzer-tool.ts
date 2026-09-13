@@ -161,6 +161,19 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
             overflow-wrap: anywhere;
         }
 
+        .profile-stats {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px 10px;
+            color: var(--sl-color-neutral-600, #5f6b76);
+            font-size: var(--sl-font-size-x-small);
+        }
+
+        .profile-stats span {
+            white-space: nowrap;
+        }
+
         .actions {
             display: flex;
             justify-content: flex-end;
@@ -550,13 +563,24 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
             return score(b) - score(a);
         }).slice(0, 30);
         return html`<div class="cards">${interesting.map(profile => html`
-            <div class="item profile">
-                <div class="profile-name">${profile.name}</div>
-                <sl-badge variant=${profile.role === 'measure' ? 'success' : 'neutral'}>${profile.role}</sl-badge>
-                <div class="meta">${profile.family} · ${profile.unique} unique · ${profile.missing} missing</div>
-                <div class="meta">${profile.stats ? `${formatNumber(profile.stats.min)}–${formatNumber(profile.stats.max)}` : ''}</div>
+                <div class="item profile">
+                    <div class="profile-name">${profile.name}</div>
+                    <sl-badge variant=${profile.role === 'measure' ? 'success' : 'neutral'}>${profile.role}</sl-badge>
+                <div class="meta">${profile.family}</div>
+                <div class="profile-stats">
+                    <span>type: ${profile.dataType}</span>
+                    <span>count: ${profile.total - profile.missing}</span>
+                    <span>unique: ${profile.unique}</span>
+                    <span>missing: ${profile.missing}</span>
+                    ${profile.stats ? html`
+                        <span>min: ${formatNumber(profile.stats.min)}</span>
+                        <span>max: ${formatNumber(profile.stats.max)}</span>
+                        <span>avg: ${formatNumber(profile.stats.mean)}</span>
+                        <span>median: ${formatNumber(profile.stats.median)}</span>
+                    ` : nothing}
+                </div>
                 ${profile.suspectedNoData.length ? html`
-                    <div class="meta">Possible no-data: ${profile.suspectedNoData.map(item => `${item.value} (${item.count})`).join(', ')}</div>
+                    <div class="meta">no-data: ${profile.suspectedNoData.map(item => `${item.value} (${item.count})`).join(', ')}</div>
                 ` : nothing}
             </div>
         `)}</div>`;
@@ -597,5 +621,11 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
 }
 
 function formatNumber(value: number): string {
-    return Number.isInteger(value) ? String(value) : value.toPrecision(4);
+    if (!Number.isFinite(value)) return String(value);
+    const absolute = Math.abs(value);
+    if (absolute > 1e9 || (absolute > 0 && absolute < 1e-6)) return value.toExponential(4);
+    if (Number.isInteger(value)) return String(value);
+
+    const decimals = Math.max(0, 4 - Math.floor(Math.log10(absolute)) - 1);
+    return value.toFixed(Math.min(8, decimals)).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
 }
