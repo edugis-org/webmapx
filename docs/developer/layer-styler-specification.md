@@ -667,12 +667,20 @@ opens the old step dialog, which is untouched and still the shipped panel.
   own sublayers (`getSubLayers`), listed topmost-first like the legend. Sublayers
   the panel cannot style are carried through and re-emitted verbatim. Entries are
   named by their sublayer id where that says something.
-- **Drivers**: `Single value`, `By attribute`, `By neighbours`, and `Custom
-  (expression)` shown read-only. Blocked drivers keep their reason as a disabled
-  option.
-- **Level 4**: attribute, method, class count, rounded breaks, category limit,
-  colour cycling, palette with reverse and colour-blind-safe. Size channels
-  classify as proportional symbols. It opens already answered.
+- **Drivers**: `Single value`, `By attribute`, `By neighbours`, `Grows with
+  zoom` (a size read back from an `interpolate` over zoom, see below), and
+  `Custom (expression)` shown read-only. Blocked drivers keep their reason as a
+  disabled option.
+- **Level 4**: attribute, method, class count, category limit, colour cycling,
+  palette with reverse and colour-blind-safe. Size channels classify as
+  proportional symbols. It opens already answered. There is no "round the
+  breaks" option any more — see the tidying rule below. A column is offered by
+  the name the configuration gives it (`metadata.attributes.translations`,
+  resolved through `src/utils/attribute-translations.ts` and shared with the
+  legend): the chooser shows "Gemiddelde neerslag (mean)" — the words for the
+  reader, the column name for everything they will meet it in — and the summary
+  line, where there is no room for both, shows the words. A layer with no
+  columns to offer says why rather than showing an empty dropdown.
 - **A style has a name of its own, and it is the legend's.** The first row of an
   open entry renames it, writing `metadata.label` on the sublayer — the key
   `legendSublayerLabel` already reads — so the panel and the legend cannot hold
@@ -746,8 +754,9 @@ opens the old step dialog, which is untouched and still the shipped panel.
   layer back and then writing one last edit over it is the one order that cannot
   be right.
 - Tests: `tests/style-decoder.test.ts`, `style-list.test.ts`,
-  `classify-channel.test.ts`, `throttle.test.ts`, and
-  `scripts/ui-tests/layer-styler.mjs` on **all four engines**.
+  `classify-channel.test.ts`, `classification.test.ts`, `legend-numbers.test.ts`,
+  `attribute-translations.test.ts`, `style-context.test.ts`, `throttle.test.ts`,
+  and `scripts/ui-tests/layer-styler.mjs` on **all four engines**.
 
 ### Left to do, roughly in order
 
@@ -921,6 +930,14 @@ opens the old step dialog, which is untouched and still the shipped panel.
 4. **Level-4 content not ported**: the histogram with the breaks drawn over it,
    per-method class bars, manual breaks, print/photocopy-safe filters, CVD
    preview, the proportional-circle legend.
+   - **Editing the stops of a zoom-driven size**, rather than only scaling the
+     curve. Scaling answers "thicker", which is the question that was being
+     asked; "thicker only when zoomed in" needs the stops themselves.
+   - **A classification is not recomputed when the sample grows.** The panel
+     re-reads a viewport-limited source and offers the new columns, but the
+     classes stay where they were — deliberately, since a legend that changes
+     under the reader is worse than one a moment old. The explicit *recalculate
+     from what is on screen now* in item 6 is what closes this.
 5. **Whole-layer features**: undo, copy style to another layer, visible zoom
    range, blend mode. Also the legend's halo control, which hides itself when no
    halo exists.
@@ -958,6 +975,34 @@ covered by one.
   padded box of its own. `webmapx-layer-style-dialog` has carried the reset
   since it became a popover; the panel chrome the new styler was lifted onto
   never got it.
+- **A panel opened while zoomed out stayed empty for good.** A tiled source
+  answers with what the map has *drawn*, and nothing read it a second time, so
+  a layer with a high minzoom offered no columns and no way to ask again. It now
+  follows `view-change-end` — and only re-reads a viewport-limited source, only
+  on a *wider* extent (panning trades features for features and would move the
+  attribute list under the reader), and only keeps an answer that has something
+  in it. `view-change-end` fires before the tiles for the new camera arrive, so
+  a read retries four times 900 ms apart, stopping on what *that read* found:
+  asking the panel instead ends the retries on the first attempt, since it is
+  still holding the older sample by design.
+- **A classification could not be edited on the layers that most needed it.**
+  Two separate blind spots in the decoder, both reported as "the panel says it
+  is a custom expression": a `case` ladder of comparisons (the shape real
+  configs write choropleths in) and an `interpolate` over zoom (the shape they
+  write sizes in). Both are drivers now, and the second is what made the dike
+  layer's line width adjustable at all.
+- **The no-data colour had nowhere to be set, and then was overwritten.** The
+  branch painting every feature with no value — 49 of 409 neighbourhoods on the
+  buildings layer, where a vector tile simply drops an empty column — had no
+  control. Adding one was not enough: every control on this panel rebuilds the
+  channel from the classify settings, so a colour kept only in the expression
+  was back to grey on the next slider move. It lives in `ClassifySettings`.
+- **Numbers a legend could not be read from.** The legend shortened anything
+  over a thousand to one significant digit, so a run of class bounds read
+  "2K – 2K" three rows running; the classification made that worse by snapping
+  breaks to round numbers regardless of the data, which on building years put
+  every break on a century boundary and turned nine classes into five. The
+  tidying rule and `legend-numbers.ts` replace both.
 
 ### Corrections this work forced on the sections above
 
@@ -999,3 +1044,14 @@ covered by one.
 - **Colour cycling assigns by adjacency** (`colorGroupsByAdjacency`), and whether
   it is on is decided from the data: on when values would otherwise be greyed
   out, off when they all fit, where it would only cost the legend.
+- **Section 2.2 offered "pretty/rounded breaks" as an option on every method.
+  There is no such option.** Rounding a break moves features between classes,
+  which is the classification answering a question nobody asked; what is offered
+  instead is tidying inside the empty gap a break already sits in, where the
+  partition provably cannot change. Where the numbers still read badly, that is
+  the legend's to format and not the classification's to move.
+- **What a number *means* is not knowable from the number.** Nothing in a column
+  says whether it holds years, metres, degrees or euros, so neither the tidying
+  nor the formatting may assume it. What both use instead is measured: the
+  precision the data is written in (a column of whole numbers cannot hold
+  1722.5), and whether a candidate spelling still tells the breaks apart.
