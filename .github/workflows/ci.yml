@@ -45,9 +45,10 @@ jobs:
     # Pull requests only: a push to main has already been through this on its
     # pull request, and every-push browser runs are not worth the wait.
     if: github.event_name == 'pull_request'
-    # The whole set takes about a minute. Ten is generous and, more to the point,
-    # bounded — a hung browser or a wait that never resolves cannot run for hours.
-    timeout-minutes: 10
+    # The whole set now takes over ten minutes on a runner (Cesium suites are
+    # slow there). Twenty is still bounded — a hung browser or a wait that never
+    # resolves cannot run for hours.
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v5

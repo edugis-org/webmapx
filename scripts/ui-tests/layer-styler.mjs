@@ -487,10 +487,15 @@ export async function run({ page, engine, baseUrl }) {
             select.value = 'attribute';
             select.dispatchEvent(new Event('change', { bubbles: true }));
         });
-        await page.waitForTimeout(500);
-
-        const fill = (await liveSubLayers(page)).find((sub) => sub.type === 'fill');
-        const color = fill?.paint?.['fill-color'];
+        // Poll rather than wait a fixed time: Cesium on a CI runner can take
+        // well over half a second to write the classified paint back.
+        let color;
+        for (const deadline = Date.now() + 5000; ;) {
+            const fill = (await liveSubLayers(page)).find((sub) => sub.type === 'fill');
+            color = fill?.paint?.['fill-color'];
+            if (Array.isArray(color) || Date.now() > deadline) break;
+            await page.waitForTimeout(100);
+        }
         // Choosing the driver classifies immediately: level 4 opens already
         // answered, so there is no state where the panel waits for input before
         // the map will draw.
