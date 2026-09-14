@@ -653,7 +653,7 @@ layer opacity above level 0, or in the footer:
 
 ## Where this stands — 13 September 2026
 
-Branch `feat/layer-styler-hierarchy` (not merged, not pushed). The new panel is
+Branch `feat/layer-styler-hierarchy` (pushed, not yet merged into main). The new panel is
 `src/components/webmapx-layer-styler.ts` with helpers in `src/components/styler/`;
 it is what both legends (`webmapx-layer-overview`, `webmapx-layer-legend3d`)
 open. The step dialog it replaced, `webmapx-layer-style-dialog.ts`, is deleted,

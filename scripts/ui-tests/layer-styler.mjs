@@ -120,6 +120,22 @@ async function openStyler(page, options = {}) {
         const sourceId = `${layerId}:${layerId}-src`;
         const source = adapter.getSourceData(sourceId) ?? adapter.getSourceData(`${layerId}-src`);
         const features = source?.features ?? [];
+        // Every attribute the panel is handed must carry uniqueCount: that is what
+        // tells it a column is a name or a code rather than something to group by.
+        // Deriving it here keeps the fixture honest with buildSourceAttributes,
+        // which counts distinct values for real.
+        const present = (v) => v !== undefined && v !== null && v !== '';
+        const attr = (name, type, read) => {
+            const values = features.map(read);
+            return {
+                name,
+                type,
+                values,
+                presentCount: values.filter(present).length,
+                missingCount: values.filter((v) => !present(v)).length,
+                uniqueCount: new Set(values.filter(present)).size,
+            };
+        };
         panel.open({
             title: 'Styler test',
             layerId,
@@ -130,8 +146,8 @@ async function openStyler(page, options = {}) {
                 featureCount: features.length,
                 geometryTypes: [geometry],
                 attributes: [
-                    { name: 'name', type: 'string', values: features.map((f) => f.properties.name), presentCount: features.length, missingCount: 0 },
-                    { name: 'pop', type: 'number', values: features.map((f) => f.properties.pop), presentCount: features.length, missingCount: 0 },
+                    attr('name', 'string', (f) => f.properties.name),
+                    attr('pop', 'number', (f) => f.properties.pop),
                 ],
                 featureRows: features.map((f) => f.properties),
                 layers: [],
@@ -471,10 +487,15 @@ export async function run({ page, engine, baseUrl }) {
             select.value = 'attribute';
             select.dispatchEvent(new Event('change', { bubbles: true }));
         });
-        await page.waitForTimeout(500);
-
-        const fill = (await liveSubLayers(page)).find((sub) => sub.type === 'fill');
-        const color = fill?.paint?.['fill-color'];
+        // Poll rather than wait a fixed time: Cesium on a CI runner can take
+        // well over half a second to write the classified paint back.
+        let color;
+        for (const deadline = Date.now() + 5000; ;) {
+            const fill = (await liveSubLayers(page)).find((sub) => sub.type === 'fill');
+            color = fill?.paint?.['fill-color'];
+            if (Array.isArray(color) || Date.now() > deadline) break;
+            await page.waitForTimeout(100);
+        }
         // Choosing the driver classifies immediately: level 4 opens already
         // answered, so there is no state where the panel waits for input before
         // the map will draw.
@@ -761,8 +782,14 @@ export async function run({ page, engine, baseUrl }) {
             window.__styler.updateSettings(
                 window.__styler.list.find((item) => item.entry.role === 'fill'), 'color', { noDataColor: '#ff0000' });
         });
-        await page.waitForTimeout(600);
-        const paint = JSON.stringify((await liveSubLayers(page)).find((sub) => sub.type === 'fill')?.paint?.['fill-color']);
+        // Poll: Cesium on a CI runner can take longer than a fixed wait to
+        // write the new paint back.
+        let paint;
+        for (const deadline = Date.now() + 5000; ;) {
+            paint = JSON.stringify((await liveSubLayers(page)).find((sub) => sub.type === 'fill')?.paint?.['fill-color']);
+            if ((paint?.match(/#ff0000/g) ?? []).length === 2 || Date.now() > deadline) break;
+            await page.waitForTimeout(100);
+        }
         // Both guards, because a feature with no value reaches the map two ways:
         // the key absent (vector tiles drop an empty column) and the key null.
         if ((paint.match(/#ff0000/g) ?? []).length !== 2) fail(`the no-data colour reached ${paint}`);
