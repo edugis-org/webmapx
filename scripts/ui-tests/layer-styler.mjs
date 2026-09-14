@@ -120,6 +120,22 @@ async function openStyler(page, options = {}) {
         const sourceId = `${layerId}:${layerId}-src`;
         const source = adapter.getSourceData(sourceId) ?? adapter.getSourceData(`${layerId}-src`);
         const features = source?.features ?? [];
+        // Every attribute the panel is handed must carry uniqueCount: that is what
+        // tells it a column is a name or a code rather than something to group by.
+        // Deriving it here keeps the fixture honest with buildSourceAttributes,
+        // which counts distinct values for real.
+        const present = (v) => v !== undefined && v !== null && v !== '';
+        const attr = (name, type, read) => {
+            const values = features.map(read);
+            return {
+                name,
+                type,
+                values,
+                presentCount: values.filter(present).length,
+                missingCount: values.filter((v) => !present(v)).length,
+                uniqueCount: new Set(values.filter(present)).size,
+            };
+        };
         panel.open({
             title: 'Styler test',
             layerId,
@@ -130,8 +146,8 @@ async function openStyler(page, options = {}) {
                 featureCount: features.length,
                 geometryTypes: [geometry],
                 attributes: [
-                    { name: 'name', type: 'string', values: features.map((f) => f.properties.name), presentCount: features.length, missingCount: 0 },
-                    { name: 'pop', type: 'number', values: features.map((f) => f.properties.pop), presentCount: features.length, missingCount: 0 },
+                    attr('name', 'string', (f) => f.properties.name),
+                    attr('pop', 'number', (f) => f.properties.pop),
                 ],
                 featureRows: features.map((f) => f.properties),
                 layers: [],

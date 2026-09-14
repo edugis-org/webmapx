@@ -530,7 +530,14 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
                 }));
             // The configured `data` decides which one starts selected, so a
             // config that already named a directory keeps showing that model.
-            const current = this.models.find((m) => m.data === this.data) ?? this.models[0];
+            //
+            // No fallback to the first built-in model when the config named a
+            // directory of its own: the built-in list is resolved against the
+            // config's location, so a config pointing anywhere else never
+            // matches one of them, and falling back would quietly replace the
+            // model the config asked for with the default one.
+            const current = this.models.find((m) => m.data === this.data)
+                ?? (typeof section?.data === 'string' ? undefined : this.models[0]);
             if (current && !this.hasAttribute('data') && !this.chosenModelId) {
                 this.data = current.data;
                 this.to = current.to;
