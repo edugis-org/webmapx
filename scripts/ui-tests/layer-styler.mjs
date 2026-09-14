@@ -782,8 +782,14 @@ export async function run({ page, engine, baseUrl }) {
             window.__styler.updateSettings(
                 window.__styler.list.find((item) => item.entry.role === 'fill'), 'color', { noDataColor: '#ff0000' });
         });
-        await page.waitForTimeout(600);
-        const paint = JSON.stringify((await liveSubLayers(page)).find((sub) => sub.type === 'fill')?.paint?.['fill-color']);
+        // Poll: Cesium on a CI runner can take longer than a fixed wait to
+        // write the new paint back.
+        let paint;
+        for (const deadline = Date.now() + 5000; ;) {
+            paint = JSON.stringify((await liveSubLayers(page)).find((sub) => sub.type === 'fill')?.paint?.['fill-color']);
+            if ((paint?.match(/#ff0000/g) ?? []).length === 2 || Date.now() > deadline) break;
+            await page.waitForTimeout(100);
+        }
         // Both guards, because a feature with no value reaches the map two ways:
         // the key absent (vector tiles drop an empty column) and the key null.
         if ((paint.match(/#ff0000/g) ?? []).length !== 2) fail(`the no-data colour reached ${paint}`);

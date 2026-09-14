@@ -225,7 +225,8 @@ export async function run({ page, engine, baseUrl }) {
       const driver = root.querySelector('#sld-driver');
       driver.value = 'attribute';
       driver.dispatchEvent(new Event('change', { bubbles: true }));
-      await panel.updateComplete;
+      // One render is not always enough on a slow runner: wait for the select.
+      await window.__wmxWaitFor(() => root.querySelector('#sld-attribute'), 10000);
       const attribute = root.querySelector('#sld-attribute');
       attribute.value = 'bouwjaar';
       attribute.dispatchEvent(new Event('change', { bubbles: true }));
