@@ -1108,6 +1108,23 @@ export class WebmapxLayerTree extends LitElement {
         this.requestUpdate();
     }
 
+    private isCapsNode(node: LayerNode): boolean {
+        return (node.type === 'getcapabilities' || node.type === 'capabilities') && !!node.url;
+    }
+
+    /** The layers of a capabilities node, rendered in place of the node itself. */
+    private renderCapsLayers(node: LayerNode, context: SelectionContext, nodeKey: string): TemplateResult {
+        const cacheEntry = this.capsCache.get(this.capsKey(node));
+        if (!cacheEntry || cacheEntry.status === 'loading') {
+            return html`<sl-tree-item disabled><sl-spinner style="font-size:0.85rem"></sl-spinner> Loading…</sl-tree-item>`;
+        }
+        if (cacheEntry.status === 'error') {
+            return html`<sl-tree-item disabled style="color:var(--sl-color-danger-600)">⚠ ${cacheEntry.error}</sl-tree-item>`;
+        }
+        const nodeContext = this.getChildSelectionContext(node, context, nodeKey);
+        return html`${cacheEntry.children.map((child, i) => this.renderNode(child, nodeContext, `${nodeKey}.${i}`))}`;
+    }
+
     renderNode(node: LayerNode, context?: SelectionContext, nodeKey = '0'): TemplateResult {
         // Getcapabilities node: lazy-load WMS layers on first expand
         const isCaps = node.type === 'getcapabilities' || node.type === 'capabilities';
@@ -1144,13 +1161,22 @@ export class WebmapxLayerTree extends LitElement {
         this.nodeByKey.set(nodeKey, node);
 
         if (node.children && node.children.length > 0) {
+            // A capabilities child stands in for the layers it lists, as the EduGIS
+            // viewer replaced it: its layers sit directly in this group. Drawn as a
+            // node of its own it repeated the group's name one level down.
+            const capsChildren = node.children.filter(child => this.isCapsNode(child));
+            const fetchCaps = () => { for (const child of capsChildren) void this.fetchCapabilities(child); };
+            if (node.expanded && capsChildren.length > 0) queueMicrotask(fetchCaps);
             return html`
-                <sl-tree-item ?expanded=${node.expanded} data-node-key=${nodeKey}>
+                <sl-tree-item ?expanded=${node.expanded} data-node-key=${nodeKey}
+                    @sl-expand=${(e: Event) => { if (e.target === e.currentTarget) fetchCaps(); }}>
                     <span @click=${(e: Event) => {
                         const item = (e.currentTarget as HTMLElement).closest('sl-tree-item') as (HTMLElement & { expanded?: boolean }) | null;
                         if (item) { item.expanded = !item.expanded; }
                     }} style="cursor:pointer">${this.resolveNodeLabel(node)}</span>
-                    ${node.children.map((child, index) => this.renderNode(child, nodeContext, `${nodeKey}.${index}`))}
+                    ${node.children.map((child, index) => this.isCapsNode(child)
+                        ? this.renderCapsLayers(child, nodeContext, `${nodeKey}.${index}`)
+                        : this.renderNode(child, nodeContext, `${nodeKey}.${index}`))}
                 </sl-tree-item>
             `;
         } else {
