@@ -35,6 +35,9 @@
  */
 
 import { cartogram as edugisCartogram } from '@edugis/cartogram';
+import { featureArea, polygonsOf, shortestLongitudeStep } from './geo-calculations';
+
+export { featureArea };
 
 export type CartogramMethod = 'diffusion' | 'flow' | 'contiguous' | 'scaled' | 'dorling';
 
@@ -184,107 +187,11 @@ const DEFAULT_ITERATIONS = 60;
 
 // ─── Geometry helpers ────────────────────────────────────────────────────────
 
-/** Every polygon in a geometry, whatever wrapper it arrived in. */
-function polygonsOf(geometry: GeoJSON.Geometry | null | undefined): GeoJSON.Position[][][] {
-    if (!geometry) return [];
-    if (geometry.type === 'Polygon') return [geometry.coordinates];
-    if (geometry.type === 'MultiPolygon') return geometry.coordinates;
-    if (geometry.type === 'GeometryCollection') return geometry.geometries.flatMap(polygonsOf);
-    return [];
-}
-
 /** Mean Earth radius, the sphere every measurement here is made on. */
 const EARTH_RADIUS = 6371008.8;
 
 const RAD = Math.PI / 180;
 const DEG = 180 / Math.PI;
-
-/**
- * Area of a ring on the sphere, in square metres.
- *
- * The standard spherical excess formula (the one PostGIS, turf and Google Maps
- * all use). Signed, so a hole wound the other way subtracts.
- */
-function sphericalRingArea(ring: GeoJSON.Position[]): number {
-    if (ring.length < 4) return 0;
-
-    // A ring that goes right round the globe encircles a pole, and the excess
-    // formula below cannot see that: it measures the region *between* the ring
-    // and the equator and misses the cap. Measuring such a ring in an equal-area
-    // plane centred on it is exact and has no special cases. Found on Dorling
-    // circles that had been pushed over the pole, which reported areas hundreds
-    // of times too large.
-    if (Math.abs(totalLongitudeTravel(ring)) > 350) return equalAreaPlanarRingArea(ring);
-
-    let total = 0;
-    for (let i = 0; i < ring.length - 1; i++) {
-        const [lon1, lat1] = ring[i];
-        const [lon2, lat2] = ring[i + 1];
-        // Each step takes the *short* way round. A ring that crosses the date
-        // line has a step from 179 to -179, and reading that as -358 degrees
-        // instead of +2 does not dent the area, it inverts it: measured on world
-        // countries, a blown-up Tuvalu came out at 45 million km², larger than
-        // Russia.
-        total += shortestLongitudeStep(lon1, lon2) * RAD * (2 + Math.sin(lat1 * RAD) + Math.sin(lat2 * RAD));
-    }
-    return (total * EARTH_RADIUS * EARTH_RADIUS) / 2;
-}
-
-/** The signed longitude difference, taken the short way round the globe. */
-function shortestLongitudeStep(from: number, to: number): number {
-    const delta = to - from;
-    // Arithmetic rather than a loop: this is called per coordinate pair on every
-    // ring, and a single non-finite input used to hang the whole calculation
-    // rather than produce a wrong number.
-    if (!Number.isFinite(delta)) return 0;
-    return delta - 360 * Math.round(delta / 360);
-}
-
-/** How far a ring travels in longitude overall: ±360 means it went round a pole. */
-function totalLongitudeTravel(ring: GeoJSON.Position[]): number {
-    let total = 0;
-    for (let i = 0; i < ring.length - 1; i++) {
-        total += shortestLongitudeStep(ring[i][0], ring[i + 1][0]);
-    }
-    return total;
-}
-
-/**
- * Ring area measured in an equal-area plane centred on the ring itself.
- *
- * Exact, because the projection preserves area — the shoelace formula in that
- * plane *is* the ground area — and free of the pole and antimeridian special
- * cases the spherical formula needs. Not used as the default only because it
- * costs a projection of every vertex.
- */
-function equalAreaPlanarRingArea(ring: GeoJSON.Position[]): number {
-    const centre = centroidOfPolygons([[ring]]) ?? [ring[0][0], ring[0][1]];
-    const plane = equalAreaPlaneAt(centre);
-    const projected = ring.map(p => plane.forward(p));
-    let sum = 0;
-    for (let i = 0; i < projected.length - 1; i++) {
-        sum += projected[i][0] * projected[i + 1][1] - projected[i + 1][0] * projected[i][1];
-    }
-    return sum / 2;
-}
-
-/**
- * Ground area of a feature in square metres, holes excluded.
- *
- * Absolute value per polygon rather than per ring: ring winding in real data is
- * not reliable enough to trust for the outer ring, but a hole is always wound
- * opposite to the ring containing it, so subtracting within a polygon works.
- */
-export function featureArea(geometry: GeoJSON.Geometry | null | undefined): number {
-    let total = 0;
-    for (const polygon of polygonsOf(geometry)) {
-        if (!polygon.length) continue;
-        const outer = Math.abs(sphericalRingArea(polygon[0]));
-        const holes = polygon.slice(1).reduce((sum, ring) => sum + Math.abs(sphericalRingArea(ring)), 0);
-        total += Math.max(outer - holes, 0);
-    }
-    return total;
-}
 
 /**
  * Drops the parts of a multi-part feature that are too small to survive being

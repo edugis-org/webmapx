@@ -15,6 +15,7 @@ import {
     naturalBreaks,
     numericValues,
     suggestSchemeType,
+    roundBreaks,
     tidyBreaks,
 } from '../src/utils/classification';
 
@@ -259,4 +260,29 @@ test('a tidied break is written in the precision the data is written in', () => 
     assert.deepEqual(tidyBreaks([1.05, 2.25, 9.7, 14.94, 22.5], [9.72]), [10]);
     // Thousandths in the data, so a break may be written in thousandths too.
     assert.deepEqual(tidyBreaks([1.05, 2.255, 9.7, 14.94, 30, 40], [9.996]), [10]);
+});
+
+test('rounded breaks read like a legend when only a few features change class', () => {
+    // A dense column: every integer from 1 to 600 once, so no break has an
+    // empty gap to move through and tidyBreaks leaves them all alone.
+    const sorted = Array.from({ length: 600 }, (_, i) => i + 1);
+    const breaks = [24, 62, 128, 351];
+    assert.deepEqual(tidyBreaks(sorted, breaks), breaks);
+    assert.deepEqual(roundBreaks(sorted, breaks), [25, 60, 125, 350]);
+});
+
+test('a rounded break stays put when it would move too many features', () => {
+    // 40 values packed at 24.5, just above the break: 25 is rounder but would
+    // carry all of them into the lower class, far more than a tenth of either
+    // class. A rounder number *below* them moves nothing and is fine.
+    const sorted = [...Array.from({ length: 20 }, (_, i) => i), ...Array.from({ length: 40 }, () => 24.5), ...Array.from({ length: 20 }, (_, i) => 30 + i)];
+    const [rounded] = roundBreaks(sorted, [24.2]);
+    assert.ok(rounded <= 24.5 && rounded > 19, `break ${rounded} moved the cluster at 24.5`);
+});
+
+test('rounded breaks stay in order and inside the data', () => {
+    const sorted = Array.from({ length: 1000 }, (_, i) => (i * i) / 100);
+    const result = roundBreaks(sorted, [3.1, 17.9, 91.4, 402.7]);
+    for (let i = 1; i < result.length; i++) assert.ok(result[i] > result[i - 1]);
+    assert.ok(result[0] > sorted[0] && result[result.length - 1] < sorted[sorted.length - 1]);
 });

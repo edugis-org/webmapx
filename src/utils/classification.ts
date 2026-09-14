@@ -128,6 +128,11 @@ export function classifyNumeric(
         classCount?: number;
         breaks?: readonly number[];
         missing?: number;
+        /**
+         * Also round breaks where that moves a few features: see `roundBreaks`.
+         * Off by default, so the styler keeps breaks that change nothing.
+         */
+        niceBreaks?: boolean;
     },
 ): NumericClassification {
     const sorted = [...values].filter(Number.isFinite).sort((a, b) => a - b);
@@ -149,7 +154,8 @@ export function classifyNumeric(
         : innerBreaks(sorted, classCount, options.method, min, max);
     // Tidied, but only within the gap each break sits in — the author's own
     // numbers are left exactly as they are.
-    const breaks = options.method === 'manual' ? raw : tidyBreaks(sorted, raw);
+    const tidied = options.method === 'manual' ? raw : tidyBreaks(sorted, raw);
+    const breaks = options.method !== 'manual' && options.niceBreaks ? roundBreaks(sorted, tidied) : tidied;
 
     return {
         method: options.method,
@@ -259,6 +265,81 @@ export function tidyBreaks(sorted: readonly number[], breaks: readonly number[])
         // in the upper class, which is how `countInto` reads it.
         return tidiestWithin(low, high, value, finest);
     });
+}
+
+/**
+ * Share of the smaller neighbouring class a rounded break may move across.
+ *
+ * "25 – 60" reads as a statement about the data where "24 – 62" reads as noise,
+ * and when only one feature in twenty changes class the map says the same thing.
+ */
+const MAX_MOVED_SHARE = 0.1;
+
+/**
+ * Breaks in numbers a person would write in a legend, allowing a few features
+ * to change class.
+ *
+ * `tidyBreaks` only moves a break through an empty gap, which leaves 24, 62 and
+ * 351 untouched on any dense column. This goes one step further: a break may
+ * move to a rounder number when the features it passes are at most
+ * `MAX_MOVED_SHARE` of the smaller of the two classes it separates. The same
+ * quarter-of-the-class-width limit as `tidyBreaks` keeps a break
+ * representative, and the coarsest number wins — 50 before 25 before 10.
+ */
+export function roundBreaks(sorted: readonly number[], breaks: readonly number[]): number[] {
+    if (sorted.length === 0 || breaks.length === 0) return [...breaks];
+    const edges = [sorted[0], ...breaks, sorted[sorted.length - 1]];
+    const finest = dataPrecision(sorted);
+    const result: number[] = [];
+    breaks.forEach((value, index) => {
+        if (!Number.isFinite(value)) { result.push(value); return; }
+        const below = edges[index];
+        const above = edges[index + 2];
+        const room = MAX_TIDY_SHIFT * Math.min(value - below, above - value);
+        const lowerCount = countFrom(sorted, value) - countFrom(sorted, below);
+        const upperCount = countFrom(sorted, above) - countFrom(sorted, value) + (index === breaks.length - 1 ? countAt(sorted, above) : 0);
+        const allowed = MAX_MOVED_SHARE * Math.min(lowerCount, upperCount);
+        const previous = result.length ? result[result.length - 1] : -Infinity;
+
+        let chosen = value;
+        const start = Math.ceil(Math.log10(Math.max(Math.abs(value), room, finest))) + 1;
+        const stop = Math.floor(Math.log10(finest));
+        search: for (let exponent = start; exponent >= stop; exponent--) {
+            const decade = 10 ** exponent;
+            for (const multiple of [1, 0.5, 0.25]) {
+                const step = decade * multiple;
+                const candidate = round(Math.round(value / step) * step, step);
+                if (Math.abs(candidate / finest - Math.round(candidate / finest)) > 1e-9) continue;
+                if (Math.abs(candidate - value) > room || candidate <= previous || candidate <= below || candidate >= above) continue;
+                const moved = Math.abs(countFrom(sorted, candidate) - countFrom(sorted, value));
+                if (moved > allowed) continue;
+                chosen = candidate;
+                break search;
+            }
+        }
+        result.push(chosen);
+    });
+    return result;
+}
+
+/** How many values lie below `value` — the index of the first value at or above it. */
+function countFrom(sorted: readonly number[], value: number): number {
+    let low = 0;
+    let high = sorted.length;
+    while (low < high) {
+        const mid = (low + high) >> 1;
+        if (sorted[mid] < value) low = mid + 1;
+        else high = mid;
+    }
+    return low;
+}
+
+/** How many values equal `value`. */
+function countAt(sorted: readonly number[], value: number): number {
+    let index = countFrom(sorted, value);
+    let count = 0;
+    while (index < sorted.length && sorted[index] === value) { count++; index++; }
+    return count;
 }
 
 /**

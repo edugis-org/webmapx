@@ -8,7 +8,7 @@ import type { IMap } from '../map/IMapInterfaces';
 import { LngLat, Pixel, ClickEvent, DoubleClickEvent, PointerMoveEvent, ContextMenuEvent } from '../store/map-events';
 import {
     haversineDistanceCm,
-    geodesicAreaM2,
+    featureArea,
     formatDistance,
     formatArea,
     type UnitSystem
@@ -784,7 +784,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         this.totalDistanceCm += distanceCm;
 
         // Calculate area
-        this.areaM2 = geodesicAreaM2(this.points);
+        this.areaM2 = featureArea({ type: 'Polygon', coordinates: [this.points] });
         this.isClosed = true;
         this.cursorPosition = null;
 

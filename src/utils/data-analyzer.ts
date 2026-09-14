@@ -31,7 +31,7 @@ export interface CorrelationResult {
 export interface AnalyzerSuggestion {
     id: string;
     title: string;
-    kind: 'map' | 'relationship' | 'hygiene' | 'family';
+    kind: 'map' | 'relationship' | 'hygiene' | 'family' | 'spatial';
     strength: number;
     description: string;
     fields: string[];
@@ -54,6 +54,23 @@ export interface DatasetAnalysis {
     familyBorders: AttributeFamilyBorder[];
     correlations: CorrelationResult[];
     suggestions: AnalyzerSuggestion[];
+    /** Global Moran's I per usable numeric field; absent when the features carry no geometry. */
+    spatial?: SpatialPattern[];
+    /** Fields whose values follow the features' measured area: an area in some unit, never to be divided by area. */
+    areaFields?: string[];
+}
+
+export interface SpatialPattern {
+    field: string;
+    /** Whether the value was turned into a density per km² first (a count on polygons). */
+    density: boolean;
+    /** Whether the values were log-transformed first, because they were strongly skewed. */
+    log: boolean;
+    i: number;
+    z: number;
+    p: number;
+    n: number;
+    neighbours: 'contiguity' | 'nearest';
 }
 
 const CBS_NO_DATA = new Set([99996, 99997, 99998, 99999]);

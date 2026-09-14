@@ -11,6 +11,20 @@ import { legendSublayerLabel } from '../utils/layer-label';
 import { readWmsSource } from '../utils/wms-source';
 import { legendGraphicUrl } from '../utils/wms-sld';
 
+/** Fill for proportional bubbles whose colour is classified separately. */
+const NEUTRAL_BUBBLE_COLOR = '#bdbdbd';
+
+/**
+ * A label the browser may wrap inside long identifiers: a zero-width space after
+ * each `_`, `/` and `.`, so `perc_geb_buiten_nl_met_herkomstlnd` breaks between
+ * its words instead of running out of the legend. The text itself is unchanged
+ * — the row's `title` carries it whole — and `overflow-wrap: anywhere` catches
+ * any token that has no such separator.
+ */
+function breakableLabel(label: string): string {
+    return String(label).replace(/([_/.])(?=\S)/g, '$1\u200B');
+}
+
 /**
  * The background a colour swatch button carries.
  *
@@ -107,8 +121,9 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         .legend-toggle:hover {
             text-decoration: underline;
         }
-        .legend-row { display: flex; align-items: center; gap: 6px; min-height: 18px; width: 100%; padding: 0; border: 0; background: transparent; font: inherit; color: inherit; text-align: left; }
-        .legend-label { font-size: 0.75rem; color: var(--color-text-primary, #16202a); line-height: 1.2; }
+        /* Top-aligned: a label that wraps to several lines keeps its swatch beside the first line, where reading starts. */
+        .legend-row { display: flex; align-items: flex-start; gap: 6px; min-height: 18px; width: 100%; padding: 0; border: 0; background: transparent; font: inherit; color: inherit; text-align: left; }
+        .legend-label { font-size: 0.75rem; color: var(--color-text-primary, #16202a); line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
         .legend-img { max-width: 100%; width: auto; height: auto; display: block; border-radius: 3px; align-self: flex-start; }
         .img-error { font-size: 0.75rem; color: var(--sl-color-danger-600, #c0392b); font-style: italic; }
         .sub-group-title { font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary, #5a6773); margin-top: 4px; }
@@ -508,7 +523,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         const format = legendNumberFormatter(stops.map(s => s.value), ramp.unit);
         return html`
             <div class="legend-row" style="flex-direction:column;align-items:flex-start;gap:2px">
-                ${ramp.title ? html`<span class="legend-label">${ramp.title}</span>` : ''}
+                ${ramp.title ? html`<span class="legend-label" title=${ramp.title}>${breakableLabel(ramp.title)}</span>` : ''}
                 <div style="width:150px;height:15px;background:linear-gradient(to right, ${gradient})"></div>
                 <div style="width:150px;display:flex;justify-content:space-between;font-size:0.85em">
                     <span>${format(stops[0].value)}</span><span>${format(stops[stops.length - 1].value)}</span>
@@ -666,7 +681,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                     rows.push(html`
                         <div class="legend-row sub-row">
                             ${clickableSwatch}
-                            <span class="legend-label">${caseLabel}</span>
+                            <span class="legend-label" title=${caseLabel}>${breakableLabel(caseLabel)}</span>
                         </div>`);
                 }
                 // The outline belongs to the layer, not to a class: MapLibre's
@@ -730,11 +745,11 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                         ? html`<button type="button" class="legend-row editable" aria-expanded=${isOpen}
                             @click=${() => { this.editorOpenKey = isOpen ? null : groupIds[0]; }}>
                             ${swatch}
-                            <span class="legend-label">${label}</span>
+                            <span class="legend-label" title=${label}>${breakableLabel(label)}</span>
                         </button>`
                         : html`<div class="legend-row">
                             ${swatch}
-                            <span class="legend-label">${label}</span>
+                            <span class="legend-label" title=${label}>${breakableLabel(label)}</span>
                         </div>`}`);
                 if (editable && isOpen) {
                     const editorPaint = type === 'symbol' ? { ...evalPaint, 'text-size': evalLayout['text-size'] ?? evalPaint['text-size'] } : evalPaint;
@@ -936,7 +951,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                     <circle cx="${size / 2}" cy="${size / 2}" r="${r}"
                         fill="${color}" stroke="${strokeColor}" stroke-width="${sw}"/>
                 </svg>`}
-                ${label !== null ? html`<span class="legend-label">${label}</span>` : ''}
+                ${label !== null ? html`<span class="legend-label" title=${label}>${breakableLabel(label)}</span>` : ''}
             </div>`;
     }
 
@@ -949,7 +964,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         return html`
             <div class="legend-row">
                 ${onClick ? html`<button type="button" style="background:none;border:none;padding:0;cursor:pointer;display:flex;align-items:center" @click=${onClick}>${swatchSvg}</button>` : swatchSvg}
-                ${label !== null ? html`<span class="legend-label">${label}</span>` : ''}
+                ${label !== null ? html`<span class="legend-label" title=${label}>${breakableLabel(label)}</span>` : ''}
             </div>`;
     }
 
@@ -1017,7 +1032,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                         stroke="${lineColor}" stroke-width="${w}"
                         stroke-dasharray="${dasharray}" stroke-linecap="round"/>
                 </svg>`}
-                ${label !== null ? html`<span class="legend-label">${label}</span>` : ''}
+                ${label !== null ? html`<span class="legend-label" title=${label}>${breakableLabel(label)}</span>` : ''}
             </div>`;
     }
 
@@ -1034,7 +1049,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                             stroke-dasharray="${dasharray}" stroke-linecap="round"/>
                     </svg>`}
                 </button>
-                ${label !== null ? html`<span class="legend-label">${label}</span>` : ''}
+                ${label !== null ? html`<span class="legend-label" title=${label}>${breakableLabel(label)}</span>` : ''}
             </div>`;
     }
 
@@ -1652,6 +1667,17 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 // Deduplicate stops with same radius (collapsed range)
                 const seen = new Set<number>();
                 const deduped = stops.filter(s => !seen.has(s.radius) && seen.add(s.radius));
+                // Size and colour both data-driven: the bubbles can only show
+                // size, so they go neutral and the colour classes follow as rows.
+                // Filling them from the expression put a stringified array in
+                // `fill`, which draws black.
+                if (colorClasses) {
+                    const neutral = deduped.map(s => ({ ...s, color: NEUTRAL_BUBBLE_COLOR }));
+                    return [
+                        this.renderBubbleLegend(neutral, strokeColor, strokeWidth),
+                        ...colorClasses.filter(c => c.label !== '').map(c => this.renderCircleRow(c.color, strokeColor, strokeWidth, 6, c.label)),
+                    ];
+                }
                 return [this.renderBubbleLegend(deduped, strokeColor, strokeWidth)];
             }
 
@@ -1747,7 +1773,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                         <text x="12" y="11" text-anchor="middle" font-size="11"
                             fill="${textColor}" font-family="sans-serif">A</text>
                     </svg>`}
-                    ${field ? html`<span class="legend-label">${field}</span>` : ''}
+                    ${field ? html`<span class="legend-label" title=${field}>${breakableLabel(field)}</span>` : ''}
                 </div>`];
         }
 

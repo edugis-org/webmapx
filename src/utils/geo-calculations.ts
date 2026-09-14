@@ -31,31 +31,106 @@ export function haversineDistanceCm(p1: LngLat, p2: LngLat): number {
     return EARTH_RADIUS_CM * c;
 }
 
-/**
- * Calculate geodesic polygon area using spherical excess formula.
- * Returns area in square meters.
- *
- * Uses the Shoelace formula adapted for spherical coordinates.
- */
-export function geodesicAreaM2(ring: LngLat[]): number {
-    if (ring.length < 3) return 0;
+/** Mean Earth radius in metres, the sphere areas are measured on. */
+const EARTH_RADIUS_M = 6371008.8;
+const RAD = Math.PI / 180;
 
-    const toRad = (deg: number) => deg * Math.PI / 180;
-    const EARTH_RADIUS_M = 6371008.8;
+/** Every polygon in a geometry, whatever wrapper it arrived in. */
+export function polygonsOf(geometry: GeoJSON.Geometry | null | undefined): GeoJSON.Position[][][] {
+    if (!geometry) return [];
+    if (geometry.type === 'Polygon') return [geometry.coordinates];
+    if (geometry.type === 'MultiPolygon') return geometry.coordinates;
+    if (geometry.type === 'GeometryCollection') return geometry.geometries.flatMap(polygonsOf);
+    return [];
+}
+
+/** The signed longitude difference, taken the short way round the globe. */
+export function shortestLongitudeStep(from: number, to: number): number {
+    const delta = to - from;
+    // Arithmetic rather than a loop: this is called per coordinate pair on every
+    // ring, and a single non-finite input used to hang the whole calculation
+    // rather than produce a wrong number.
+    if (!Number.isFinite(delta)) return 0;
+    return delta - 360 * Math.round(delta / 360);
+}
+
+/** How far a ring travels in longitude overall: ±360 means it went round a pole. */
+function totalLongitudeTravel(ring: GeoJSON.Position[]): number {
+    let total = 0;
+    for (let i = 0; i < ring.length - 1; i++) {
+        total += shortestLongitudeStep(ring[i][0], ring[i + 1][0]);
+    }
+    return total;
+}
+
+/** A ring with its first point repeated at the end, as GeoJSON requires. */
+function closedRing(ring: GeoJSON.Position[]): GeoJSON.Position[] {
+    if (ring.length === 0) return ring;
+    const first = ring[0];
+    const last = ring[ring.length - 1];
+    return first[0] === last[0] && first[1] === last[1] ? ring : [...ring, first];
+}
+
+/**
+ * Area of a ring that encircles a pole, measured in a Lambert azimuthal
+ * equal-area plane centred on that pole. Exact, because the plane preserves area,
+ * and the one case the excess formula cannot see: it measures the region between
+ * the ring and the equator and misses the cap.
+ */
+function polarRingArea(ring: GeoJSON.Position[]): number {
+    const north = ring.reduce((sum, p) => sum + p[1], 0) >= 0;
+    const projected = ring.map(([lon, lat]) => {
+        const phi = lat * RAD;
+        const k = EARTH_RADIUS_M * Math.sqrt(2 / Math.max(1 + (north ? Math.sin(phi) : -Math.sin(phi)), 1e-12));
+        return [k * Math.cos(phi) * Math.sin(lon * RAD), k * Math.cos(phi) * Math.cos(lon * RAD)];
+    });
+    let sum = 0;
+    for (let i = 0; i < projected.length - 1; i++) {
+        sum += projected[i][0] * projected[i + 1][1] - projected[i + 1][0] * projected[i][1];
+    }
+    return sum / 2;
+}
+
+/**
+ * Area of a ring on the sphere, in square metres.
+ *
+ * The standard spherical excess formula (the one PostGIS, turf and Google Maps
+ * all use). Signed, so a hole wound the other way subtracts.
+ */
+function sphericalRingArea(input: GeoJSON.Position[]): number {
+    const ring = closedRing(input);
+    if (ring.length < 4) return 0;
+    if (Math.abs(totalLongitudeTravel(ring)) > 350) return polarRingArea(ring);
 
     let total = 0;
-    const n = ring.length;
-
-    for (let i = 0; i < n; i++) {
-        const j = (i + 1) % n;
+    for (let i = 0; i < ring.length - 1; i++) {
         const [lon1, lat1] = ring[i];
-        const [lon2, lat2] = ring[j];
-
-        total += toRad(lon2 - lon1) *
-                 (2 + Math.sin(toRad(lat1)) + Math.sin(toRad(lat2)));
+        const [lon2, lat2] = ring[i + 1];
+        // Each step takes the *short* way round. A ring that crosses the date
+        // line has a step from 179 to -179, and reading that as -358 degrees
+        // instead of +2 does not dent the area, it inverts it.
+        total += shortestLongitudeStep(lon1, lon2) * RAD * (2 + Math.sin(lat1 * RAD) + Math.sin(lat2 * RAD));
     }
+    return (total * EARTH_RADIUS_M * EARTH_RADIUS_M) / 2;
+}
 
-    return Math.abs(total * EARTH_RADIUS_M * EARTH_RADIUS_M / 2);
+/**
+ * Ground area of a feature in square metres, holes excluded.
+ *
+ * Absolute value per polygon rather than per ring: ring winding in real data is
+ * not reliable enough to trust for the outer ring, but a hole is always wound
+ * opposite to the ring containing it, so subtracting within a polygon works.
+ * Point and line geometry have no area and return 0.
+ */
+export function featureArea(geometry: GeoJSON.Geometry | null | undefined): number {
+    let total = 0;
+    for (const polygon of polygonsOf(geometry)) {
+        if (!polygon.length) continue;
+        const outer = Math.abs(sphericalRingArea(polygon[0]));
+        const holes = polygon.slice(1).reduce((sum, ring) => sum + Math.abs(sphericalRingArea(ring)), 0);
+        total += Math.max(outer - holes, 0);
+    }
+    return total;
 }
 
 /**
