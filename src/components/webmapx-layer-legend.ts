@@ -5,6 +5,11 @@ import type { IMapState } from '../store/IMapState';
 import Pickr from '@simonwep/pickr';
 import { COLOR_PALETTE, raiseColorPickerPopup } from './internal/color-picker';
 import { DEFAULT_DATA_COLOR } from '../map/default-paint';
+import { attributeTranslations, type AttributeTranslations } from '../utils/attribute-translations';
+import { formatLegendNumber, legendNumberFormatter } from '../utils/legend-numbers';
+import { legendSublayerLabel } from '../utils/layer-label';
+import { readWmsSource } from '../utils/wms-source';
+import { legendGraphicUrl } from '../utils/wms-sld';
 
 /**
  * The background a colour swatch button carries.
@@ -18,6 +23,11 @@ function swatchBackground(color: string, kind: 'area' | 'line'): string {
     return `linear-gradient(to bottom, transparent 0 33%, ${color} 33% 67%, transparent 67% 100%)`;
 }
 
+/** MapLibre's three interpolation operators share one stop layout. */
+function isInterpolate(op: unknown): boolean {
+    return op === 'interpolate' || op === 'interpolate-hcl' || op === 'interpolate-lab';
+}
+
 @customElement('webmapx-layer-legend')
 export class WebmapxLayerLegend extends WebmapxBaseTool {
     @property({ type: String, attribute: 'layer-id' })
@@ -27,6 +37,16 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     collapsible = true;
 
     @state() private meta: Record<string, unknown> | null = null;
+    /**
+     * The legend image that failed, by url.
+     *
+     * Recorded rather than drawn over: replacing the `<img>` element with a
+     * notice took it out of Lit's hands, so a *later* legend — the one the user
+     * got by reducing the class count until the service accepted it — had no
+     * element left to render into and the failure stayed on screen for good.
+     * Keyed by url, so a new url is simply tried again.
+     */
+    @state() private failedLegendUrl: string | null = null;
     @state() private zoom: number = 2;
     @state() private legendCollapsed = true;
     @state() private legendOverflowing = false;
@@ -268,7 +288,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     private evalAtZoom(expr: unknown, zoom: number): unknown {
         if (!Array.isArray(expr)) return expr;
         const op = expr[0];
-        if (op === 'interpolate' && expr.length >= 4) {
+        if (isInterpolate(op) && expr.length >= 4) {
             const stops: Array<[number, unknown]> = [];
             for (let i = 3; i + 1 < expr.length; i += 2)
                 stops.push([Number(expr[i]), expr[i + 1]]);
@@ -371,7 +391,8 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             for (let i = 3; i + 1 < expr.length; i += 2) {
                 if (typeof expr[i] === 'number') breaks.push(expr[i] as number);
             }
-            const bound = (value: number) => `${this.formatNumber(value)}${unit}`;
+            const format = legendNumberFormatter(breaks, unit);
+            const bound = (value: number) => format(value);
             const cases: Array<{label: string, paint: unknown, path: number[]}> = [{
                 label: breaks.length > 0 ? `< ${bound(breaks[0])}` : '',
                 paint: expr[2],
@@ -387,6 +408,30 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 });
             }
             return cases;
+        }
+        // A continuous ramp over a column: one row per stop, the colour the map
+        // reaches exactly at that value. Without this branch the whole ramp fell
+        // through to a single swatch, which cannot draw an expression and went black.
+        if (isInterpolate(op) && expr.length >= 5) {
+            const input = expr[2];
+            if (!Array.isArray(input) || input[0] === 'zoom') return null;
+            const prop = this.getPropName(input);
+            const unit = (prop ? attrTr?.get(prop) : undefined)?.unit ?? '';
+            const values: number[] = [];
+            for (let i = 3; i + 1 < expr.length; i += 2) {
+                if (typeof expr[i] === 'number') values.push(expr[i] as number);
+            }
+            const format = legendNumberFormatter(values, unit);
+            const cases: Array<{label: string, paint: unknown, path: number[]}> = [];
+            for (let i = 3; i + 1 < expr.length; i += 2) {
+                const value = expr[i];
+                cases.push({
+                    label: typeof value === 'number' ? format(value) : String(value),
+                    paint: expr[i + 1],
+                    path: [i + 1],
+                });
+            }
+            return cases.length > 1 ? cases : null;
         }
         if (op === 'case' && expr.length >= 3) {
             const cases: Array<{label: string, paint: unknown, path: number[]}> = [];
@@ -440,12 +485,43 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         return noData.length > 0 ? [...classes, noData[0]] : classes;
     }
 
+    /** A colour `interpolate` over a column, as stops placed on its value range. */
+    private extractColorRamp(expr: unknown, attrTr?: Map<string, {label: string; unit: string}>): {title: string; unit: string; stops: Array<{value: number; color: string}>} | null {
+        if (!Array.isArray(expr) || !isInterpolate(expr[0]) || expr.length < 7) return null;
+        const input = expr[2];
+        if (!Array.isArray(input) || input[0] === 'zoom') return null;
+        const stops: Array<{value: number; color: string}> = [];
+        for (let i = 3; i + 1 < expr.length; i += 2) {
+            if (typeof expr[i] !== 'number' || typeof expr[i + 1] !== 'string') return null;
+            stops.push({ value: expr[i] as number, color: expr[i + 1] as string });
+        }
+        const prop = this.getPropName(input);
+        const entry = prop ? attrTr?.get(prop) : undefined;
+        return { title: entry?.label || prop || '', unit: entry?.unit ?? '', stops };
+    }
+
+    private renderColorRamp(ramp: {title: string; unit: string; stops: Array<{value: number; color: string}>}): TemplateResult {
+        const { stops } = ramp;
+        const min = stops[0].value;
+        const span = stops[stops.length - 1].value - min || 1;
+        const gradient = stops.map(s => `${s.color} ${((s.value - min) / span) * 100}%`).join(', ');
+        const format = legendNumberFormatter(stops.map(s => s.value), ramp.unit);
+        return html`
+            <div class="legend-row" style="flex-direction:column;align-items:flex-start;gap:2px">
+                ${ramp.title ? html`<span class="legend-label">${ramp.title}</span>` : ''}
+                <div style="width:150px;height:15px;background:linear-gradient(to right, ${gradient})"></div>
+                <div style="width:150px;display:flex;justify-content:space-between;font-size:0.85em">
+                    <span>${format(stops[0].value)}</span><span>${format(stops[stops.length - 1].value)}</span>
+                </div>
+            </div>`;
+    }
+
     private isDataDriven(expr: unknown): boolean {
         if (!Array.isArray(expr)) return false;
         const op = expr[0];
         if (op === 'match' || op === 'case') return true;
         if (op === 'step') return !(Array.isArray(expr[1]) && expr[1][0] === 'zoom');
-        if (op === 'interpolate') return Array.isArray(expr[2]) && expr[2][0] !== 'zoom';
+        if (isInterpolate(op)) return Array.isArray(expr[2]) && expr[2][0] !== 'zoom';
         return false;
     }
 
@@ -506,12 +582,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const paint = (sub.paint && typeof sub.paint === 'object') ? sub.paint as Record<string, unknown> : {};
             const layoutRaw = (sub.layout && typeof sub.layout === 'object') ? sub.layout as Record<string, unknown> : {};
             const rawId = String(sub.id ?? '');
-            const subMetadata = (sub.metadata && typeof sub.metadata === 'object') ? sub.metadata as Record<string, unknown> : undefined;
-            const label = singleSublayer
-                ? (typeof this.meta?.label === 'string' ? this.meta.label : '')
-                : typeof subMetadata?.label === 'string' && subMetadata.label.length > 0
-                    ? subMetadata.label
-                    : rawId.replace(/^style:/, '').replace(/-/g, ' ');
+            const label = legendSublayerLabel(this.meta, sub, rawId, singleSublayer);
 
             // Evaluate zoom-dependent paint and layout values
             const evalPaint: Record<string, unknown> = {};
@@ -546,8 +617,18 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
 
             const rawColorExpr = colorKey ? (evalPaint[colorKey] ?? paint[colorKey]) : null;
             const dataCases = rawColorExpr ? this.extractDataCases(rawColorExpr, attrTr) : null;
+            const ramp = this.extractColorRamp(rawColorExpr, attrTr);
 
-            if (dataCases && dataCases.length > 1) {
+            if (ramp) {
+                // A continuous ramp reads as one bar, as the EduGIS viewer drew it:
+                // a row per stop suggests classes the map does not have.
+                const dedupKey = `${type}|${rawId}`;
+                if (seen.has(dedupKey)) continue;
+                seen.add(dedupKey);
+                if (!dedupGroups.has(dedupKey)) dedupGroups.set(dedupKey, [rawId]);
+                if (!singleSublayer) rows.push(html`<div class="sub-group-title">${label}</div>`);
+                rows.push(this.renderColorRamp(ramp));
+            } else if (dataCases && dataCases.length > 1) {
                 // Multi-class legend: title row + case rows
                 const dedupKey = `${type}|${rawId}`;
                 if (seen.has(dedupKey)) continue;
@@ -556,8 +637,17 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
 
                 if (!singleSublayer) rows.push(html`<div class="sub-group-title">${label}</div>`);
                 const colorExpr = Array.isArray(rawColorExpr) ? rawColorExpr : null;
+                // The class an expression has no words for — a missing value, or
+                // a category outside the list — is drawn but not explained,
+                // which is the empty-label convention. A style that *does* carry
+                // wording for it (`metadata.noDataLabel`, written by the styler)
+                // gets that row back, with the colour the map is using.
+                const noDataLabel = typeof (sub.metadata as Record<string, unknown> | undefined)?.noDataLabel === 'string'
+                    ? String((sub.metadata as Record<string, unknown>).noDataLabel)
+                    : '';
                 for (let ci = 0; ci < dataCases.length; ci++) {
-                    const { label: caseLabel, paint: casePaint, path: casePath } = dataCases[ci];
+                    const { paint: casePaint, path: casePath } = dataCases[ci];
+                    const caseLabel = dataCases[ci].label === '' ? noDataLabel : dataCases[ci].label;
                     if (caseLabel === '') continue;
                     const casePaintObj = { ...evalPaint, [colorKey!]: casePaint };
                     const swatch = this.renderSwatch(type, casePaintObj, zoom, evalLayout);
@@ -757,7 +847,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             return [{ value: null, paint: null }];
         }
         const op = expression[0];
-        if (op === 'interpolate') {
+        if (isInterpolate(op)) {
             const stops: Array<{ value: unknown; paint: unknown }> = [];
             for (let i = 3; i + 1 < expression.length; i += 2) {
                 stops.push({ value: expression[i], paint: expression[i + 1] });
@@ -949,24 +1039,11 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     }
 
     /** Get attribute translations from layer metadata: name → {label, unit, maxvalue, valuemap} */
-    private getAttrTranslations(): Map<string, {label: string; unit: string; maxvalue?: number; valuemap?: Array<{value: unknown; label: string; operator?: string}>}> {
-        const rawAttrs = (this.meta as any)?.attributes;
-        const attrs = typeof rawAttrs === 'string'
-            ? (this.adapter?.store.getState().attributeMetadata?.[rawAttrs] as any)
-            : rawAttrs;
-        const map = new Map<string, {label: string; unit: string; maxvalue?: number; valuemap?: Array<{value: unknown; label: string; operator?: string}>}>();
-        if (!Array.isArray(attrs?.translations)) return map;
-        for (const t of attrs.translations) {
-            if (typeof t?.name === 'string') {
-                map.set(t.name, {
-                    label: typeof t.translation === 'string' ? t.translation : t.name,
-                    unit: typeof t.unit === 'string' ? t.unit : '',
-                    ...(typeof t.maxvalue === 'number' ? { maxvalue: t.maxvalue } : {}),
-                    ...(Array.isArray(t.valuemap) ? { valuemap: t.valuemap } : {}),
-                });
-            }
-        }
-        return map;
+    private getAttrTranslations(): AttributeTranslations {
+        return attributeTranslations(
+            (this.meta as Record<string, unknown> | null)?.attributes,
+            this.adapter?.store.getState().attributeMetadata as Record<string, unknown> | undefined,
+        );
     }
 
     /** Extract property name from a ["get", "prop"] expression. */
@@ -997,12 +1074,8 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     }
 
     /** Format a large number for legend labels: 1500000 → "1.5M" */
-    private formatNumber(v: number, unit?: string): string {
-        const suffix = unit ?? '';
-        if (v >= 1e9) return `${(v / 1e9).toFixed(1).replace(/\.0$/, '')}B${suffix}`;
-        if (v >= 1e6) return `${(v / 1e6).toFixed(1).replace(/\.0$/, '')}M${suffix}`;
-        if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K${suffix}`;
-        return `${Math.round(v)}${suffix}`;
+    private formatNumber(v: number, unit?: string, decimals?: number): string {
+        return formatLegendNumber(v, { unit, decimals });
     }
 
     /**
@@ -1039,7 +1112,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 if (typeof expr[i] === 'number') breaks.push(expr[i] as number);
             }
             const items: Array<{label: string, color: string}> = [];
-            const bound = (value: number) => this.formatNumber(value, unit);
+            const bound = legendNumberFormatter(breaks, unit);
             if (typeof expr[2] === 'string' && breaks.length > 0) {
                 items.push({ label: `< ${bound(breaks[0])}`, color: expr[2] });
             }
@@ -1121,10 +1194,10 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     private isZoomExpression(expr: unknown): boolean {
         if (!Array.isArray(expr)) return false;
         const op = expr[0];
-        if ((op === 'interpolate' || op === 'step') && Array.isArray(expr[1])) {
+        if ((isInterpolate(op) || op === 'step') && Array.isArray(expr[1])) {
             return expr[1][0] === 'zoom' || expr[2]?.[0] === 'zoom';
         }
-        if (op === 'interpolate' && expr.length >= 3) {
+        if (isInterpolate(op) && expr.length >= 3) {
             return Array.isArray(expr[2]) && expr[2][0] === 'zoom';
         }
         return false;
@@ -1707,13 +1780,51 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         return [];
     }
 
+    /**
+     * The legend a WMS can draw of itself, for a layer that carries none.
+     *
+     * A raster layer has no paint, so the legend has nothing to derive a swatch
+     * from and falls back to a chequerboard that says only "this is a picture".
+     * The service, though, will draw its own legend on request, and for the
+     * style *currently in force* — including a style of the user's own, since
+     * the document goes back with the request. Read from the live source rather
+     * than from the config, so choosing a style in the styler is reflected here
+     * without the two having to know about each other.
+     *
+     * One image request, to a service already serving this user tiles, and only
+     * for a layer that is on the map: nothing is asked of a service whose layer
+     * is merely listed somewhere.
+     */
+    private wmsLegendUrl(meta: Record<string, unknown> | null): string | null {
+        if (meta?.layerType !== 'raster') return null;
+        const sourceId = typeof meta?.sourceId === 'string' ? meta.sourceId : null;
+        if (!sourceId || !this.adapter) return null;
+        const config = this.adapter.getSourceConfig?.(sourceId) ?? null;
+        const wms = readWmsSource(config);
+        if (!wms) return null;
+        // What the layer was last *asked* to draw, recorded by the adapter as it
+        // asked. The engine is never consulted: it does not report a change the
+        // instant it accepts one — MapLibre reports a new `STYLES` about a
+        // second later — so reading it back is a step behind, which is how the
+        // legend came to show the style chosen before last.
+        const asked = meta?.sourceParams && typeof meta.sourceParams === 'object'
+            ? meta.sourceParams as Record<string, string>
+            : {};
+        return legendGraphicUrl(wms.endpoint, wms.layers.split(',')[0].trim(), {
+            sld: asked.SLD_BODY ?? null,
+            style: asked.STYLES ?? wms.style,
+            version: wms.version,
+        });
+    }
+
     protected render() {
         if (!this.layerId) return html``;
         const meta = this.meta;
         const layerType = typeof meta?.layerType === 'string' ? meta.layerType : null;
         const paint = (meta?.paint && typeof meta.paint === 'object') ? meta.paint as Record<string, unknown> : {};
         const layout = (meta?.layout && typeof meta.layout === 'object') ? meta.layout as Record<string, unknown> : undefined;
-        const legendUrl = typeof meta?.legendurl === 'string' && meta.legendurl.length > 0 ? meta.legendurl : null;
+        const legendUrl = (typeof meta?.legendurl === 'string' && meta.legendurl.length > 0 ? meta.legendurl : null)
+            ?? this.wmsLegendUrl(meta);
         const label = typeof meta?.label === 'string' ? meta.label : this.layerId;
         const sublayers = Array.isArray(meta?.sublayers) ? meta!.sublayers as unknown[] : null;
 
@@ -1766,16 +1877,12 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                     ${layerType === 'hillshade' ? this.renderHillshadeTerrainCheckbox() : ''}
                     ${editable && isOpen ? this.renderStyleEditor(stdSubLayerIds, layerType!, effectivePaint) : ''}
                 ` : ''}
-                ${legendUrl ? html`
+                ${legendUrl ? (this.failedLegendUrl === legendUrl
+                    ? html`<span class="img-error">⚠ invalid legend image</span>`
+                    : html`
                     <img class="legend-img" src=${legendUrl} alt=${label}
-                        @error=${(e: Event) => {
-                            const img = e.target as HTMLImageElement;
-                            const span = document.createElement('span');
-                            span.className = 'img-error';
-                            span.textContent = '⚠ invalid legend image';
-                            img.replaceWith(span);
-                    }}>
-                ` : ''}
+                        @error=${() => { this.failedLegendUrl = legendUrl; }}>
+                `) : ''}
             </div>
         `);
     }

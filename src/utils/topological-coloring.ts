@@ -408,6 +408,102 @@ function rebalance(adjacency: readonly (readonly number[])[], colors: number[], 
             colors[index] = target;
         }
     }
+    return diversify(adjacency, colors, colorCount, counts);
+}
+
+/**
+ * Spreads the palette *locally*, by swapping colours between regions.
+ *
+ * Even global counts do not mean an even map. The greedy pass takes the lowest
+ * free colour, so a group of regions that needs only three of six gets colours
+ * 0–2, and the balancing pass has no reason to move them: it judges the whole
+ * layer, and the whole layer is already even. Measured on four separated blocks
+ * of 25 squares with a palette of six, two blocks never showed colour 1 at all
+ * — which is exactly "why does the Netherlands never get yellow".
+ *
+ * Swapping rather than recolouring is what keeps both existing guarantees
+ * intact: the two regions exchange colours, so every colour's count is
+ * unchanged by construction, and each only takes a colour no neighbour of *its
+ * own* holds, so no border disappears. The search is bounded — each region
+ * looks only at regions two steps away, which is where a missing colour is
+ * visible — so this stays linear in the number of edges rather than quadratic
+ * in the regions.
+ */
+/** How many holders of a colour to try before giving up on a swap. */
+const SWAP_SCAN_LIMIT = 64;
+
+function diversify(
+    adjacency: readonly (readonly number[])[],
+    colors: number[],
+    colorCount: number,
+    counts: number[],
+): number[] {
+    if (colorCount < 3) return colors;
+
+    // Regions per colour, so a partner is found by lookup rather than by a scan
+    // over every region.
+    const byColor: number[][] = Array.from({ length: colorCount }, () => []);
+    colors.forEach((color, index) => byColor[color]?.push(index));
+    // Where the next scan starts, so the same few regions are not the ones
+    // always giving their colour away.
+    let scanStart = 0;
+
+    const neighbourColors = (index: number): Set<number> =>
+        new Set(adjacency[index].map((neighbour) => colors[neighbour]));
+
+    /** Colours within two steps: what the eye reads as "the colours around here". */
+    const nearby = (index: number): Set<number> => {
+        const seen = new Set<number>([colors[index]]);
+        for (const neighbour of adjacency[index]) {
+            seen.add(colors[neighbour]);
+            for (const second of adjacency[neighbour]) seen.add(colors[second]);
+        }
+        return seen;
+    };
+
+    for (let index = 0; index < colors.length; index++) {
+        const around = nearby(index);
+        if (around.size >= colorCount) continue;
+
+        // A colour this neighbourhood never shows, and that none of this
+        // region's own neighbours holds — so it can be taken here.
+        const ownNeighbours = neighbourColors(index);
+        let wanted = -1;
+        for (let candidate = 0; candidate < colorCount; candidate++) {
+            if (!around.has(candidate) && !ownNeighbours.has(candidate)) { wanted = candidate; break; }
+        }
+        if (wanted < 0) continue;
+
+        // Anybody at all holding that colour who can take ours in exchange.
+        //
+        // Deliberately not limited to regions nearby: a colour missing from this
+        // neighbourhood is usually missing from the whole of the surrounding
+        // country, and on an island or any separate group of regions there is no
+        // nearby holder *by definition* — which is the case that started this.
+        // The scan is capped so one region cannot walk the whole layer.
+        const holders = byColor[wanted];
+        const limit = Math.min(holders.length, SWAP_SCAN_LIMIT);
+        for (let scan = 0; scan < limit; scan++) {
+            const partner = holders[(scanStart + scan) % holders.length];
+            if (partner === index) continue;
+            // Never our own neighbour: that would only move the clash one step.
+            if (ownNeighbours.size > 0 && adjacency[index].includes(partner)) continue;
+            // The partner has to be able to hold our colour.
+            if (neighbourColors(partner).has(colors[index])) continue;
+
+            const mine = colors[index];
+            colors[index] = wanted;
+            colors[partner] = mine;
+            // Both lists stay truthful, so later regions swap against reality.
+            byColor[wanted][byColor[wanted].indexOf(partner)] = index;
+            byColor[mine][byColor[mine].indexOf(index)] = partner;
+            scanStart = (scanStart + scan + 1) % Math.max(holders.length, 1);
+            break;
+        }
+    }
+
+    // Counts are untouched by construction; returned for the caller's clarity.
+    void counts;
     return colors;
 }
 

@@ -292,6 +292,32 @@ export interface IMap {
      */
     setExtraSubLayer(layerId: string, sublayer: Record<string, unknown> | null): Promise<boolean>;
 
+    /** The sublayers a layer draws with today, paint included. `null` if the adapter did not add it. */
+    getSubLayers(layerId: string): Array<Record<string, unknown>> | null;
+
+    /**
+     * Replaces a layer's whole sublayer list, rebuilding it as a composite in
+     * place. What the styler's style list writes through: adding, deleting and
+     * reordering styles all need the list itself to be writable, which
+     * `setExtraSubLayer` (one extra sublayer, for labels) cannot express.
+     */
+    setSubLayers(layerId: string, sublayers: Array<Record<string, unknown>>): Promise<boolean>;
+
+    /**
+     * Replaces one sublayer's `metadata` (`null` removes it) without rebuilding
+     * the layer. Metadata is never drawn — it is the name and wording the legend
+     * shows — so it can change as it is typed, where a rebuild per keystroke
+     * could not. `false` when the layer has no sublayer by that id.
+     */
+    setSubLayerMetadata(layerId: string, subLayerId: string, metadata: Record<string, unknown> | null): boolean;
+
+    /**
+     * Whether `setSubLayers` can rebuild this layer at all. False for a layer
+     * drawn from a remote style document, whose sublayers live in the fetched
+     * style rather than in the config it was added with.
+     */
+    canRebuildLayer(layerId: string): boolean;
+
     // ===== Viewport / Camera =====
     /** Gets the current viewport state (center, zoom, bearing, pitch). */
     getViewportState(): { center: [number, number], zoom: number, bearing: number, pitch: number };
@@ -398,6 +424,27 @@ export interface IMap {
      * rather than reporting a change it did not make.
      */
     setSourceTiles(sourceId: string, tiles: string[]): boolean;
+
+    /**
+     * Changes request *parameters* of a live source, rather than its urls.
+     *
+     * This exists because a url is not a shape every engine holds. MapLibre
+     * keeps a raster source as a literal request template and hands back
+     * exactly what was written; OpenLayers keeps a `TileWMS` as a base url plus
+     * a `params` object and assembles `SERVICE`, `REQUEST`, `WIDTH`, `HEIGHT`
+     * and the bounding box itself at fetch time. Asking OpenLayers for "the
+     * url" therefore means *fabricating* one, and writing one back means taking
+     * it apart again — a round trip that loses whatever the engine adds itself
+     * and mangles what it does not expect (a `#` inside an SLD document being
+     * read as a fragment).
+     *
+     * So callers that want to change a parameter say so, and each engine
+     * applies it the way it holds requests: OpenLayers through `updateParams`,
+     * MapLibre by rewriting its template. A value of `null` removes the
+     * parameter. Returns false when the engine cannot do it.
+     */
+    setSourceParams(sourceId: string, params: Record<string, string | null>): boolean;
+
 
     /**
      * The request urls a live tile source is actually using, which is not always

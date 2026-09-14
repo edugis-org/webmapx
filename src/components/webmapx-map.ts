@@ -975,7 +975,50 @@ export class WebmapxMapElement extends HTMLElement {
     })();
 
     this.styleLayerCache.set(cacheKey, promise);
+    // A style document that could not be read is a fact about this moment, not
+    // about the layer: the server was slow, the dev server was restarting, the
+    // network blinked. Remembering it made one hiccup permanent — the catalog
+    // reported the layer as "unsupported for current engine" (an expansion that
+    // answers null is indistinguishable from an engine that cannot draw it) and
+    // kept saying so for the rest of the session, however many times the user
+    // tried. Only a document that was actually read is worth keeping.
+    void promise.then((expanded) => {
+      if (!expanded && this.styleLayerCache.get(cacheKey) === promise) {
+        this.styleLayerCache.delete(cacheKey);
+      }
+    });
     return promise;
+  }
+
+  /**
+   * The three shapes a style document arrives in, as one shape.
+   *
+   * A plain MapLibre style has `sources` and `layers` at the top. An EduGIS
+   * *fragment* carries both under `source`. And an EduGIS **layer document** is
+   * a single GL layer — `{ id, type, source: {…}, source-layer, paint }` — where
+   * `source` is the source definition itself rather than a container.
+   *
+   * The third was read as the second: `source` is an object either way, so the
+   * whole document collapsed to a source definition with no `layers`, and the
+   * expansion answered null. The catalog then called the layer "unsupported for
+   * current engine" — four such layers in nl.json, every one of them a vector
+   * source MapLibre draws without complaint. Telling the two apart is what
+   * `source` *holds*: a container names layers, a source names a type.
+   */
+  private normalizeStyleDocument(styleDoc: Record<string, unknown> | null): Record<string, unknown> | null {
+    if (!styleDoc || styleDoc.sources || styleDoc.layers) return styleDoc;
+    const source = this.toRecord(styleDoc.source);
+    if (!source) return styleDoc;
+    if (source.sources || source.layers) return source;
+
+    // One layer with its source inline. The key is the layer's own id, which
+    // `buildExpandedStyleLayer` scopes like any other local source key.
+    if (typeof styleDoc.type !== 'string' || typeof source.type !== 'string') return styleDoc;
+    const key = typeof styleDoc.id === 'string' && styleDoc.id.length > 0 ? styleDoc.id : 'source';
+    return {
+      sources: { [key]: source },
+      layers: [{ ...styleDoc, source: key }],
+    };
   }
 
   private buildExpandedStyleLayer(
@@ -985,9 +1028,7 @@ export class WebmapxMapElement extends HTMLElement {
     scopedPrefix?: string,
   ): LayerInformation | null {
     // Support edugis fragment format: {source: {sources, layers}} instead of top-level sources/layers
-    const styleDocNorm = (styleDoc && !styleDoc.sources && !styleDoc.layers && styleDoc.source && typeof styleDoc.source === 'object')
-      ? (styleDoc.source as Record<string, unknown>)
-      : styleDoc;
+    const styleDocNorm = this.normalizeStyleDocument(styleDoc);
     const styleSources = this.toRecord(styleDocNorm?.sources);
     const styleLayers = Array.isArray(styleDocNorm?.layers)
       ? styleDocNorm.layers.map((entry) => this.toRecord(entry)).filter((entry): entry is Record<string, unknown> => !!entry)
@@ -1043,7 +1084,12 @@ export class WebmapxMapElement extends HTMLElement {
 
     const inlineSourceIds = new Set(Object.keys(inlineSources));
     const filteredLayers = normalizedLayers.filter((entry) => !entry.source || inlineSourceIds.has(entry.source));
-    if (filteredLayers.length === 0 || inlineSourceIds.size === 0) {
+    // A `background` layer paints a flat colour and has nothing behind it, so a
+    // style document may legitimately carry no sources at all — which is what
+    // an EduGIS "achtergrondkleur" fragment is. Requiring one rejected the
+    // whole layer, and the rejection then read as "unsupported for current
+    // engine" in the catalog while `addLayerRequest` simply answered false.
+    if (filteredLayers.length === 0) {
       return null;
     }
 
@@ -1423,6 +1469,31 @@ export class WebmapxMapElement extends HTMLElement {
     const source = this.layerDataConfig?.sources?.find((s) => s.id === sourceId) ?? null;
     if (!source) return false;
     return !this.isSourceSupportedByActiveEngine(source);
+  }
+
+  /**
+   * Whether this engine can draw a layer that carries its own definition.
+   *
+   * A layer offered by a GetCapabilities node or an EduGIS layer document is
+   * never in the configuration: it arrives with its sources inline and is added
+   * straight through `webmapx-add-layer`, bypassing the catalog entirely. Asking
+   * `isCatalogLayerSupported` about it therefore asked the wrong question and
+   * got the wrong answer — not found, so "unsupported for current engine",
+   * which the tree then rendered as a disabled row. On nl.json that was 528
+   * layers, none of which the engine had any trouble with.
+   *
+   * A spec that declares no sources at all is admitted: there is nothing to
+   * judge, and refusing on no evidence is how this went wrong in the first
+   * place.
+   */
+  public isLayerSpecSupported(spec: Record<string, unknown> | null | undefined): boolean {
+    const sources = spec?.sources && typeof spec.sources === 'object'
+      ? Object.values(spec.sources as Record<string, unknown>)
+      : [];
+    const declared = sources.filter((source): source is SourceConfig =>
+      !!source && typeof source === 'object' && typeof (source as { type?: unknown }).type === 'string');
+    if (declared.length === 0) return true;
+    return declared.every((source) => this.isSourceSupportedByActiveEngine(source));
   }
 
   public async isCatalogLayerSupported(layerId: string): Promise<boolean> {

@@ -109,3 +109,36 @@ test('a custom ramp reports its usage as unknown, never as safe', () => {
 test('a ramp rejects anything that is not a colour', () => {
     assert.throws(() => rampScheme(['red', '#fff'], 3), /hex colours/);
 });
+
+test('colour-blind-safe qualitative palettes exist beyond four colours', () => {
+    // ColorBrewer rates none above four; Okabe–Ito and Paul Tol's palettes were
+    // designed for this, and are what "colour-blind safe" draws with from five.
+    const safeNames = (count: number) =>
+        colorSchemesFor(count, 'qual', { usage: { blind: 'ok' } }).map((scheme) => scheme.name);
+    assert.deepEqual(safeNames(4), ['Paired', 'OkabeIto', 'TolBright', 'TolMuted']);
+    for (const count of [5, 6, 7]) assert.deepEqual(safeNames(count), ['OkabeIto', 'TolBright', 'TolMuted'], `${count}`);
+    assert.deepEqual(safeNames(8), ['OkabeIto', 'TolMuted']);
+    assert.deepEqual(safeNames(9), ['TolMuted']);
+    assert.deepEqual(safeNames(10), []);
+});
+
+test('Okabe–Ito keeps black for the eighth colour only', () => {
+    // Black is a poor area fill, so the order puts it last: seven colours or
+    // fewer never contain it.
+    for (let count = 3; count <= 7; count++) {
+        assert.ok(!schemeByName('OkabeIto', count)!.colors.includes('#000000'), `${count}`);
+    }
+    assert.equal(schemeByName('OkabeIto', 8)!.colors[7], '#000000');
+});
+
+test('the added palettes are not claimed safe for print or photocopy', () => {
+    // Designed for colour vision and screens, not rated for paper: unknown is
+    // not evidence of safety, so asking for print leaves them out.
+    const print = colorSchemesFor(5, 'qual', { usage: { print: 'maybe' } }).map((scheme) => scheme.name);
+    assert.ok(!print.includes('OkabeIto') && !print.includes('TolBright') && !print.includes('TolMuted'));
+});
+
+test('ColorBrewer still comes first, so a palette list opens on the same scheme', () => {
+    assert.equal(colorSchemesFor(5, 'qual')[0].name, 'Set2');
+    assert.equal(colorSchemesFor(7, 'qual').length, 11);
+});
