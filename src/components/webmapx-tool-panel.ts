@@ -3,6 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import type { WebmapxMapElement } from './webmapx-map';
 import {
   isToolSelectFromDifferentToolbar,
+  resolveToolId,
   type ToolSelectEventDetail
 } from './internal/tool-selection-scope';
 
@@ -82,26 +83,13 @@ export class WebmapxToolPanel extends LitElement {
   private indexTools(elements: Element[]): void {
     this.toolIndex.clear();
     elements.forEach((element) => {
-      const toolId = this.resolveToolId(element);
+      const toolId = resolveToolId(element);
       if (!toolId) {
         return;
       }
       const label = this.resolveToolLabel(toolId, element);
       this.toolIndex.set(toolId, { element: element as HTMLElement, label });
     });
-  }
-
-  private resolveToolId(element: Element): string | null {
-    const attrToolId =
-      element.getAttribute('tool-id') ||
-      element.getAttribute('data-tool') ||
-      element.getAttribute('name');
-    if (attrToolId) return attrToolId;
-    const propertyToolId = (element as { toolId?: unknown }).toolId;
-    if (typeof propertyToolId === 'string' && propertyToolId) {
-      return propertyToolId;
-    }
-    return null;
   }
 
   private resolveToolLabel(toolId: string, element: Element): string {

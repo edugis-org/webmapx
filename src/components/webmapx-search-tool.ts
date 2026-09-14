@@ -7,6 +7,7 @@ import type { IMapState } from '../store/IMapState';
 import type { WebmapxMapElement } from './webmapx-map';
 import { resolveMapElement } from './internal/map-context';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
+import { resolveToolId } from './internal/tool-selection-scope';
 
 /**
  * Simple search modal tool inspired by edugis map-search.
@@ -323,6 +324,14 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     // Query, results and selection are deliberately left alone — the component
     // stays mounted (just hidden) while another tool is active, so reopening
     // the search tool should find it exactly as it was left.
+    //
+    // The preview layer is a different matter: it is only ever cleared by @mouseleave/
+    // @blur on a result row, and switching tools doesn't necessarily trigger either —
+    // Escape closes the panel from a document-level keydown listener regardless of where
+    // the mouse is, and a result's own @focus handler shows the preview without needing
+    // the mouse at all. Left uncleared, a hover preview outlives the panel that can clean
+    // it up, stranded on the map with nothing left open to remove it.
+    this.clearPreview();
     (this as HTMLElement).hidden = true;
     this.dispatchEvent(new CustomEvent('webmapx-search-closed', { bubbles: true, composed: true }));
   }
@@ -848,7 +857,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
   private openLegendIfClosed(): void {
     const legendEl = this.mapElement?.querySelector<HTMLElement>('webmapx-layer-overview');
     if (!legendEl || !legendEl.hidden) return;
-    const toolId = legendEl.getAttribute('tool-id') || legendEl.getAttribute('data-tool') || legendEl.getAttribute('name');
+    const toolId = resolveToolId(legendEl);
     if (!toolId) return;
     this.dispatchEvent(new CustomEvent('webmapx-tool-select', {
       detail: { toolId, previousToolId: null, sourceToolbar: null },
