@@ -110,13 +110,10 @@ async function clickSearchResult(page, index) {
     const results = tool.shadowRoot.querySelectorAll('.result-item');
     if (idx >= results.length) throw new Error(`Result index ${idx} out of bounds (${results.length} results)`);
 
-    // Click on the result text area (not checkbox) to zoom
-    const clickArea = results[idx].querySelector('div[style*="flex:1"]');
-    if (clickArea) {
-      clickArea.click();
-    } else {
-      results[idx].click();
-    }
+    // Click the result's own button (not the layer toggle beside it) to zoom
+    const clickArea = results[idx].querySelector('.result-select');
+    if (!clickArea) throw new Error('Result select button not found in search result');
+    clickArea.click();
   }, { idx: index });
 
   // Wait a moment for the map to pan/zoom
@@ -132,12 +129,12 @@ async function persistSearchResult(page, index) {
     const results = tool.shadowRoot.querySelectorAll('.result-item');
     if (idx >= results.length) throw new Error(`Result index ${idx} out of bounds`);
 
-    const checkbox = results[idx].querySelector('sl-checkbox');
-    if (!checkbox) throw new Error('Checkbox not found in search result');
+    const toggle = results[idx].querySelector('.layer-toggle');
+    if (!toggle) throw new Error('Layer toggle not found in search result');
 
-    // Only click if not already checked
-    if (!checkbox.checked) {
-      checkbox.click();
+    // Only click if not already added
+    if (toggle.getAttribute('aria-pressed') !== 'true') {
+      toggle.click();
     }
   }, { idx: index });
 
@@ -148,8 +145,8 @@ async function persistSearchResult(page, index) {
     if (!tool?.shadowRoot) return false;
 
     const results = tool.shadowRoot.querySelectorAll('.result-item');
-    const checkbox = results[idx]?.querySelector('sl-checkbox');
-    return checkbox?.checked === true;
+    const toggle = results[idx]?.querySelector('.layer-toggle');
+    return toggle?.getAttribute('aria-pressed') === 'true';
   }, { idx: index }, { timeout: 10_000 });
 }
 
@@ -413,7 +410,7 @@ export async function run({ page, engine, baseUrl }) {
     await clickSearchResult(page, resultIndex);
   });
 
-  await step('persist search result (check checkbox)', async () => {
+  await step('persist search result (layer toggle)', async () => {
     await persistSearchResult(page, resultIndex);
   });
 

@@ -7,7 +7,6 @@ import type { IMapState } from '../store/IMapState';
 import type { WebmapxMapElement } from './webmapx-map';
 import { resolveMapElement } from './internal/map-context';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
-import { resolveToolId } from './internal/tool-selection-scope';
 
 /**
  * Simple search modal tool inspired by edugis map-search.
@@ -38,8 +37,11 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
   private previewSourceId = 'search-preview';
   private previewLayerIds = ['search-preview-fill', 'search-preview-line', 'search-preview-point'];
   private previewLayersAdded = false;
-  private persistCounter = 0;
-  private persistedMap: WeakMap<GeoJSON.Feature, { sourceId: string; color: string }> = new WeakMap();
+  // Keyed by a value derived from the feature's own identity, never by object identity:
+  // a repeated search returns equal-but-new feature objects for the same place, and a
+  // WeakMap keyed on those reports "not added" for a result whose layer is on the map —
+  // the row would show "+" again and its toggle could no longer remove the layer.
+  private persistedMap: Map<string, { sourceId: string; color: string }> = new Map();
 
   private randomColorHex(): string {
     // Generate a vivid HSL color and convert to hex
@@ -198,10 +200,11 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     /* The stack sits small and muted, upper-left — it identifies "a map
        layer" but is deliberately not the thing the eye lands on. The badge
        is the whole point: a big, high-contrast plus that reads as "add"
-       before the layer glyph even registers. A one-time action, not a
-       switch: once this result scrolls out of the list (a new search, or
-       closing the tool) there is no control left here to flip back — that
-       lives in the layer overview from then on, same as any other layer. */
+       before the layer glyph even registers. It is a switch: once added the
+       badge becomes a green check and the same button removes the layer
+       again, so the row keeps the control rather than sending the user to
+       the layer overview to undo what they did here. State is carried by
+       shape as well as colour (plus vs check), not colour alone. */
     .layer-toggle {
       flex: 0 0 auto;
       width: 2.05rem;
@@ -666,22 +669,40 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     this.requestUpdate();
   }
 
+  // Stable across searches, so the same place keeps its state. Nominatim gives an
+  // osm_type/osm_id (or a place_id); anything else falls back to the title plus the
+  // first coordinate, which is deterministic for the same result — unlike a counter.
+  private persistKeyFor(feature: GeoJSON.Feature): string {
+    const props = feature.properties ?? {};
+    if (props.osm_id || props.osm_type) {
+      return `search-persist-osm-${props.osm_type ?? ''}-${props.osm_id ?? ''}`;
+    }
+    if (props.place_id) return `search-persist-place-${props.place_id}`;
+    const anchor = this.firstCoordinate(feature.geometry);
+    const at = anchor ? `${anchor[0].toFixed(5)},${anchor[1].toFixed(5)}` : 'no-geom';
+    return `search-persist-${this.getFeatureTitle(feature)}-${at}`;
+  }
+
+  private firstCoordinate(geometry: GeoJSON.Geometry | undefined): [number, number] | null {
+    if (!geometry || geometry.type === 'GeometryCollection') return null;
+    let coords: unknown = geometry.coordinates;
+    while (Array.isArray(coords) && Array.isArray(coords[0])) coords = coords[0];
+    return Array.isArray(coords) && typeof coords[0] === 'number' && typeof coords[1] === 'number'
+      ? [coords[0], coords[1]]
+      : null;
+  }
+
   private isPersisted(feature: GeoJSON.Feature): boolean {
-    return this.persistedMap.has(feature);
+    return this.persistedMap.has(this.persistKeyFor(feature));
   }
 
   private addPersistedFeature(feature: GeoJSON.Feature) {
     if (!this.adapter || !this.mapElement) return;
     const mapElement = this.mapElement;
 
-    // Determine source id
-    let sourceId = null as string | null;
-    if (feature.properties && (feature.properties.osm_id || feature.properties.osm_type)) {
-      sourceId = `search-persist-osm-${feature.properties.osm_type ?? ''}-${feature.properties.osm_id ?? ''}`;
-    }
-    if (!sourceId) {
-      sourceId = `search-persist-${Date.now()}-${this.persistCounter++}`;
-    }
+    // The key is the source id: one place, one source, however often it is searched.
+    const persistKey = this.persistKeyFor(feature);
+    const sourceId = persistKey;
 
     const fc: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [feature] };
 
@@ -721,7 +742,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
         mapElement.addLayerRequest({ id: pointId, type: 'circle', source: sourceId, sources, metadata: { label: resultName, hideFromLegend: false }, paint: { 'circle-color': color, 'circle-radius': 6 } });
       }
 
-      this.persistedMap.set(feature, { sourceId, color });
+      this.persistedMap.set(persistKey, { sourceId, color });
     } catch (e) {
       console.error('Failed to persist feature', e);
     }
@@ -731,7 +752,8 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     if (!this.adapter || !this.mapElement) return;
     const map = this.adapter;
     const mapElement = this.mapElement;
-    const info = this.persistedMap.get(feature);
+    const persistKey = this.persistKeyFor(feature);
+    const info = this.persistedMap.get(persistKey);
     if (!info) return;
     const sourceId = info.sourceId;
     try {
@@ -745,7 +767,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
       console.warn('Error removing persisted feature', e);
     }
 
-    this.persistedMap.delete(feature);
+    this.persistedMap.delete(persistKey);
   }
 
   private async showPreviewLayers(
@@ -840,30 +862,9 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
       this.clearPreview();
       this.addPersistedFeature(feature);
       this.persistedChanged(feature, true);
-      this.openLegendIfClosed();
     }
     // Ensure UI updates
     this.requestUpdate();
-  }
-
-  // The layer-toggle icon is a one-time "add" action, not a switch — pressing it never
-  // promises a control the user can find here again. This is what makes that promise good:
-  // if the legend isn't already showing, bring it forward the same way its own toolbar
-  // button would, so the user actually sees where the result landed. Works regardless of
-  // layout (shared panel, standalone, inside a toolbox/menu) because it goes through the
-  // same 'webmapx-tool-select' event every toolbar button uses, and only acts when the
-  // legend element itself reports hidden — the single source of truth every container
-  // (webmapx-tool-panel, toolbox, menu) already writes to.
-  private openLegendIfClosed(): void {
-    const legendEl = this.mapElement?.querySelector<HTMLElement>('webmapx-layer-overview');
-    if (!legendEl || !legendEl.hidden) return;
-    const toolId = resolveToolId(legendEl);
-    if (!toolId) return;
-    this.dispatchEvent(new CustomEvent('webmapx-tool-select', {
-      detail: { toolId, previousToolId: null, sourceToolbar: null },
-      bubbles: true,
-      composed: true,
-    }));
   }
 
   render() {
@@ -890,7 +891,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
           ${!this.results ? html`` : html`
             <div style="display:flex; flex-direction:column; gap:2px; padding:2px 6px; font-size:11px; color:var(--color-text-secondary); border-bottom:1px solid var(--color-border);">
               <span>Hover to preview | Click to zoom</span>
-              <span>Add as map layer with +</span>
+              <span>Add as map layer with +, remove with ✓</span>
             </div>
             <ul>
               ${(this.results.features || []).map((f, i) => html`
@@ -913,6 +914,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
                     class="layer-toggle"
                     aria-pressed=${this.isPersisted(f) ? 'true' : 'false'}
                     data-added=${this.isPersisted(f) ? 'true' : 'false'}
+                    aria-label="Add as map layer"
                     title=${this.isPersisted(f) ? 'Remove from map' : 'Add as map layer'}
                     @click=${(e: Event) => this.onResultLayerToggle(f, e)}>
                     ${this.layerToggleIcon}
