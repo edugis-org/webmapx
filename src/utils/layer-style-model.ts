@@ -188,8 +188,17 @@ export interface CategoriesClassification {
 /** A size straight from a value, with no classes: `coefficient × √value`. */
 export interface ProportionalClassification {
     kind: 'proportional';
+    /** The radius per √value — at zoom 0 when `zoomFactor` is set. */
     coefficient: number;
+    /**
+     * The radius is multiplied by this for every zoom level. 2 keeps a circle
+     * the same size on the *ground*, the way the map itself grows.
+     */
+    zoomFactor?: number;
 }
+
+/** The last zoom a growing circle names a stop for; MapLibre holds the value beyond it. */
+export const PROPORTIONAL_MAX_ZOOM = 24;
 
 export type ChannelClassification =
     | RangesClassification
@@ -513,7 +522,15 @@ const NO_DATA = '#cccccc';
 function encodeAttributeChannel(channel: AttributeChannel): unknown {
     const { attribute, classification } = channel;
     if (classification.kind === 'proportional') {
-        return ['*', classification.coefficient, ['sqrt', ['get', attribute]]];
+        const { coefficient, zoomFactor } = classification;
+        const at = (c: number) => ['*', c, ['sqrt', ['get', attribute]]];
+        if (zoomFactor === undefined) return at(coefficient);
+        // `zoom` may only be the input of a top-level interpolate, so the value
+        // expression goes inside each stop. Exponential with the same base as
+        // the growth makes two stops exact at every zoom between them.
+        return ['interpolate', ['exponential', zoomFactor], ['zoom'],
+            0, at(coefficient),
+            PROPORTIONAL_MAX_ZOOM, at(coefficient * zoomFactor ** PROPORTIONAL_MAX_ZOOM)];
     }
     if (classification.kind === 'ranges') {
         const { breaks, colors, noDataColor } = classification;

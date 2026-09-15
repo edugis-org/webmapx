@@ -174,6 +174,19 @@ test('a size channel is a coefficient, and survives the decoder', () => {
     assert.equal(classifySizeChannel([feature({ pop: 0 })], 'pop', 28), null);
 });
 
+test('a size channel that grows with zoom doubles per level and survives the decoder', () => {
+    const result = classifySizeChannel(numbers, 'pop', 28, 10);
+    assert.ok(result);
+    const encoded = encodeChannel(result.channel) as unknown[];
+    assert.equal(encoded[0], 'interpolate');
+    assert.deepEqual(decodeChannel(encoded), result.channel);
+    // The largest value is drawn at the requested radius at the zoom it was classified at.
+    if (result.channel.classification.kind !== 'proportional') return;
+    const { coefficient, zoomFactor } = result.channel.classification;
+    assert.equal(zoomFactor, 2);
+    assert.ok(Math.abs(coefficient * 2 ** 10 * Math.sqrt(9000) - 28) < 1e-3);
+});
+
 test('the colour-blind filter narrows diverging and qualitative, never sequential', () => {
     // Measured against the ColorBrewer ratings rather than assumed: every
     // sequential scheme is rated safe, so the filter changes nothing there and a

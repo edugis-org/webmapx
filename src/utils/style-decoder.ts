@@ -85,7 +85,7 @@ function decodeExpression(expression: unknown[]): ChannelState | undefined {
     if (operator === 'step') return decodeStep(expression, undefined);
     if (operator === 'match') return decodeMatch(expression);
     if (operator === '*') return decodeProportional(expression);
-    if (operator === 'interpolate') return decodeZoomInterpolation(expression);
+    if (operator === 'interpolate') return decodeGrowingProportional(expression) ?? decodeZoomInterpolation(expression);
     return undefined;
 }
 
@@ -343,6 +343,28 @@ function decodeProportional(expression: unknown[]): ChannelState | undefined {
     const get = sqrt[1];
     if (!Array.isArray(get) || get[0] !== 'get' || typeof get[1] !== 'string') return undefined;
     return attributeChannel(get[1], { kind: 'proportional', coefficient: expression[1] });
+}
+
+/**
+ * A proportional symbol that grows with zoom: two zoom stops of the same
+ * column, whose coefficients differ by exactly the interpolation's base per
+ * level. Anything else zoom-driven is left to the other decoders.
+ */
+function decodeGrowingProportional(expression: unknown[]): ChannelState | undefined {
+    if (expression.length !== 7) return undefined;
+    const [, interpolation, input, z0, low, z1, high] = expression;
+    if (!Array.isArray(interpolation) || interpolation[0] !== 'exponential' || typeof interpolation[1] !== 'number') return undefined;
+    if (!Array.isArray(input) || input[0] !== 'zoom') return undefined;
+    if (typeof z0 !== 'number' || typeof z1 !== 'number' || z1 <= z0) return undefined;
+    const a = Array.isArray(low) ? decodeProportional(low) : undefined;
+    const b = Array.isArray(high) ? decodeProportional(high) : undefined;
+    if (a?.driver !== 'attribute' || b?.driver !== 'attribute' || a.attribute !== b.attribute) return undefined;
+    if (a.classification.kind !== 'proportional' || b.classification.kind !== 'proportional') return undefined;
+    const zoomFactor = interpolation[1];
+    const c0 = a.classification.coefficient;
+    const expected = c0 * zoomFactor ** (z1 - z0);
+    if (Math.abs(b.classification.coefficient - expected) > 1e-9 * Math.abs(expected)) return undefined;
+    return attributeChannel(a.attribute, { kind: 'proportional', coefficient: c0 / zoomFactor ** z0, zoomFactor });
 }
 
 /** The column an expression reads, through `to-number` or `to-string` or neither. */

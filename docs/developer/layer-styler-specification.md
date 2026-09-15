@@ -742,6 +742,21 @@ listed under *Not carried over from the step dialog* below.
   whole curve is spelled out underneath, because the change reaches zooms they
   are not looking at. Only *linear* interpolation over *zoom* into *numbers* is
   taken; exponential, over a column, or into colours stays `custom`.
+- **A proportional circle can grow with the zoom too — a checkbox, not a
+  driver.** Circle size `By attribute` offers **Grow with zoom** (on by
+  default; label size does not). Ticked, the radius doubles per zoom level, so a
+  circle keeps its size on the *ground*, and the largest value is drawn at
+  `MAX_BUBBLE_RADIUS` at the zoom the map is on when it is classified.
+  `zoom` may only be the input of a top-level `interpolate`, so the value
+  formula goes inside each stop:
+  `["interpolate", ["exponential", 2], ["zoom"], 0, ["*", c, ["sqrt", ["get", f]]], 24, ["*", c·2²⁴, …]]`.
+  Exponential with the growth as its base makes two stops exact at every zoom,
+  and the legend's bubble detection already interpolates that shape.
+  `ProportionalClassification.zoomFactor` carries it; `decodeGrowingProportional`
+  reads it back only for exactly two stops on one column whose coefficients
+  differ by `base^(z1−z0)` — so the checkbox opens ticked for such a layer and
+  unticked for a flat one. Linear, multi-stop or inconsistent curves stay
+  `custom`. A base other than 2 is decoded, but re-classifying writes 2.
 - **Breaks are tidied only where that changes nothing, and the legend rounds
   the rest.** Two halves of one answer. `tidyBreaks` moves a break to a rounder
   number only inside the *empty gap* it already sits in — above the largest

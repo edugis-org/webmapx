@@ -1882,6 +1882,7 @@ export class WebmapxLayerStyler extends DraggablePanel {
             seeded.cycle = true;
             if (classification.fallbackColor) seeded.noDataColor = classification.fallbackColor;
         }
+        if (classification.kind === 'proportional') seeded.growWithZoom = classification.zoomFactor !== undefined;
         return seeded;
     }
 
@@ -1928,7 +1929,10 @@ export class WebmapxLayerStyler extends DraggablePanel {
         if (!settings.attribute || features.length === 0) return;
 
         const outcome = channel === 'radius' || channel === 'textSize'
-            ? classifySizeChannel(features, settings.attribute, channel === 'radius' ? MAX_BUBBLE_RADIUS : MAX_LABEL_SIZE)
+            ? channel === 'radius'
+                ? classifySizeChannel(features, settings.attribute, MAX_BUBBLE_RADIUS,
+                    settings.growWithZoom === false ? undefined : this.context?.sourceControl?.getView?.()?.zoom)
+                : classifySizeChannel(features, settings.attribute, MAX_LABEL_SIZE)
             : classifyColorChannel(features, this.isNumeric(item, settings.attribute), settings);
 
         if (!outcome) {
@@ -2317,7 +2321,20 @@ export class WebmapxLayerStyler extends DraggablePanel {
                     <p class="muted">
                         Sized straight from the value — twice the value draws twice the area, which a class
                         boundary would throw away. No classes, and no legend of them.
-                    </p>`
+                    </p>
+                    ${channel === 'radius' ? html`
+                        <div class="row check-row">
+                            <span class="name">Zoom</span>
+                            <div class="checks">
+                                <label class="check">
+                                    <input type="checkbox" .checked=${settings.growWithZoom !== false}
+                                           @change=${(event: Event) => this.updateSettings(item, channel, {
+                                               growWithZoom: (event.target as HTMLInputElement).checked,
+                                           })}>
+                                    Grow with zoom
+                                </label>
+                            </div>
+                        </div>` : nothing}`
                     : numeric ? this.renderNumericLevel4(item, channel, settings)
                     : this.renderCategoryLevel4(item, channel, settings)}
                 ${sizing ? nothing : this.renderPalette(item, channel, settings)}
@@ -2877,7 +2894,9 @@ function summarizeDriver(state: ChannelState): string {
     if (state.driver === 'single') return String(state.value);
     if (state.driver === 'zoom') return zoomRangeSummary(state);
     const classification = state.classification;
-    if (classification.kind === 'proportional') return `sized by ${state.attribute}`;
+    if (classification.kind === 'proportional') {
+        return `sized by ${state.attribute}${classification.zoomFactor ? ', grows with zoom' : ''}`;
+    }
     const count = classification.kind === 'ranges' ? classification.colors.length : classification.values.length;
     const noun = classification.kind === 'ranges' ? 'classes' : 'categories';
     return `${state.attribute}, ${count} ${noun}`;

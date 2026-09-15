@@ -58,6 +58,8 @@ export interface ClassifySettings {
     noDataColor: string;
     /** Round breaks even where a few features change class (`roundBreaks`). */
     niceBreaks?: boolean;
+    /** Circle size only: the radius doubles per zoom level. `undefined` means yes. */
+    growWithZoom?: boolean;
 }
 
 export const DEFAULT_CLASS_COUNT = 5;
@@ -344,16 +346,24 @@ export function classifySizeChannel(
     features: readonly GeoJSON.Feature[],
     attribute: string,
     maxRadius: number,
+    /**
+     * When given, the circles grow ×2 per zoom level, with the largest at
+     * `maxRadius` at *this* zoom — the one the user is looking at.
+     */
+    growFromZoom?: number,
 ): ClassifyResult | null {
     const { values } = numericValues(features, attribute);
     const max = Math.max(...values, 0);
     if (values.length === 0 || max <= 0) return null;
     const { coefficient } = buildProportionalRadius({ field: attribute, maxValue: max, maxRadius });
+    const classification = growFromZoom === undefined
+        ? { kind: 'proportional' as const, coefficient }
+        : { kind: 'proportional' as const, coefficient: coefficient / 2 ** growFromZoom, zoomFactor: 2 };
     return {
         channel: {
             driver: 'attribute',
             attribute,
-            classification: { kind: 'proportional', coefficient },
+            classification,
         },
         legend: [],
     };

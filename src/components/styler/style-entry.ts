@@ -119,7 +119,7 @@ function describeChannel(
         // The column as the configuration names it: a row reading "by mean"
         // tells a student nothing that "by Gemiddelde neerslag" does not.
         const named = labels?.get(state.attribute)?.label ?? state.attribute;
-        if (classification.kind === 'proportional') return `sized by ${named}`;
+        if (classification.kind === 'proportional') return `sized by ${named}${classification.zoomFactor ? ', grows with zoom' : ''}`;
         const count = classification.kind === 'ranges'
             ? classification.colors.length
             : classification.values.length;
