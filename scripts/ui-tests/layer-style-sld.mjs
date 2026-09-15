@@ -222,6 +222,11 @@ export async function run({ page, engine, baseUrl }) {
       await window.__wmxWaitFor(() => panel.sldProbe !== null && !panel.sldProbing, 30000);
       if (!panel.sldProbe?.supported) return { skipped: 'the service did not offer its own styling' };
 
+      // Same reason as the wait below: the probe resolving and the panel rendering the
+      // controls it unlocks are two different frames, and a slow runner lands between
+      // them — reading the select straight away is how this failed with "Cannot set
+      // properties of null" on CI while passing locally.
+      await window.__wmxWaitFor(() => root.querySelector('#sld-driver'), 10000);
       const driver = root.querySelector('#sld-driver');
       driver.value = 'attribute';
       driver.dispatchEvent(new Event('change', { bubbles: true }));

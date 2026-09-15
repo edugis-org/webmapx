@@ -8,7 +8,8 @@ The `<webmapx-search-tool>` component provides a geocoding search UI for places 
 2.  **Search:** Enter a query and press Enter or click Go.
 3.  **Preview:** Hover a result to preview it on the map.
 4.  **Select:** Click a result to zoom to it and toggle persistence on/off.
-5.  **Persist:** Use the checkbox to pin/unpin results without zooming.
+5.  **Persist:** Use the layer icon to pin/unpin results without zooming.
+6.  **Clear:** Use the × in the field to empty the query and its results. The panel otherwise keeps its state when another tool is activated, and pinned layers stay on the map.
 
 ## Attributes
 

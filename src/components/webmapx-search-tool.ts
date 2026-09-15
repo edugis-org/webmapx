@@ -1,4 +1,4 @@
-import { html, css } from 'lit';
+import { html, css, svg } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 
 import { WebmapxBaseTool } from './webmapx-base-tool';
@@ -6,6 +6,7 @@ import type { IMap } from '../map/IMapInterfaces';
 import type { IMapState } from '../store/IMapState';
 import type { WebmapxMapElement } from './webmapx-map';
 import { resolveMapElement } from './internal/map-context';
+import { controlSurfaceStyles } from './internal/control-surface-styles';
 
 /**
  * Simple search modal tool inspired by edugis map-search.
@@ -36,8 +37,11 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
   private previewSourceId = 'search-preview';
   private previewLayerIds = ['search-preview-fill', 'search-preview-line', 'search-preview-point'];
   private previewLayersAdded = false;
-  private persistCounter = 0;
-  private persistedMap: WeakMap<GeoJSON.Feature, { sourceId: string; color: string }> = new WeakMap();
+  // Keyed by a value derived from the feature's own identity, never by object identity:
+  // a repeated search returns equal-but-new feature objects for the same place, and a
+  // WeakMap keyed on those reports "not added" for a result whose layer is on the map —
+  // the row would show "+" again and its toggle could no longer remove the layer.
+  private persistedMap: Map<string, { sourceId: string; color: string }> = new Map();
 
   private randomColorHex(): string {
     // Generate a vivid HSL color and convert to hex
@@ -107,18 +111,202 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     return WebmapxSearchTool.KNOWN_PROVIDERS.has(provider.toLowerCase());
   }
 
-  static styles = css`
+  static styles = [controlSurfaceStyles, css`
     :host { display: block; width: 100%; pointer-events: auto; }
     :host([hidden]) { display: none !important; }
     .container { width: 100%; max-width: 100%; color: var(--webmapx-search-color, var(--color-text-primary)); box-sizing: border-box; padding: var(--webmapx-tool-padding, 0); }
     .searchbox { display:flex; gap:6px; align-items:center; }
-    input { flex:1; padding:6px; min-width:0; }
+    /* The clear button sits *inside* the field rather than beside it: it acts on the
+       text, not on the search, and a third control in the row would read as a third
+       action. The input keeps room for it at all times so the text never shifts when
+       it appears. */
+    .input-wrap { position: relative; display: flex; flex: 1; min-width: 0; }
+    /* Same border as .go-button, fixed at 1px always — focus recolours it to the
+       same blue as the button's hover instead of adding an outline, so the box
+       never changes thickness. */
+    input {
+      flex:1;
+      height: 2rem;
+      padding:0 6px;
+      min-width:0;
+      box-sizing: border-box;
+      font: inherit;
+      font-size: 12px;
+      color: inherit;
+      background: var(--color-background, #fff);
+      border: 1px solid var(--color-border, #d5dce3);
+      border-radius: var(--webmapx-radius-sm, 4px);
+      outline: none;
+    }
+    input { padding-right: 1.75rem; }
+    input:focus-visible {
+      border-color: var(--color-primary, #2b6c8f);
+    }
+    .clear-button {
+      position: absolute;
+      right: 2px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 1.5rem;
+      height: 1.5rem;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--color-text-muted, #6b7681);
+    }
+    .clear-button:hover {
+      background: var(--color-background-hover, rgba(22, 32, 42, 0.06));
+      color: var(--color-text, #16202a);
+    }
+    .clear-button:focus-visible {
+      outline: var(--webmapx-focus-ring, 2px solid var(--color-primary, #2b6c8f));
+      outline-offset: var(--webmapx-focus-offset, 1px);
+    }
+    .clear-button svg { width: .8rem; height: .8rem; }
     button { flex:0 0 auto; }
+    .searchbox button { cursor: pointer; }
+    /* Same house style as the toolbar's own search button in its resting state
+       (a Shoelace default-variant button: neutral border, no fill) — .webmapx-control
+       picks up the active [data-style] preset the way every other plain button here does. */
+    .go-button {
+      display: grid;
+      place-items: center;
+      width: 2rem;
+      height: 2rem;
+      padding: 0;
+      color: inherit;
+      border: 1px solid var(--color-border, #d5dce3);
+      border-radius: var(--webmapx-radius-sm, 4px);
+      background-color: var(--color-background, #fff);
+    }
+    /* Same primary fill a toolbar button gets while its tool is active. */
+    .go-button:hover {
+      background-color: var(--color-primary, #2b6c8f);
+      border-color: var(--color-primary, #2b6c8f);
+      color: var(--color-on-primary, #fff);
+    }
+    .go-button svg { width: 1.1rem; height: 1.1rem; }
     .results { margin-top:8px; max-height:50%; overflow:auto; }
     .results ul { list-style: none; margin: 0; padding: 0; }
-    .result-item { padding:6px; border-bottom:1px solid rgba(0,0,0,0.05); cursor:pointer; display:flex; align-items:center; gap:8px; }
+    .result-item { padding:6px; border-bottom:1px solid rgba(0,0,0,0.05); display:flex; align-items:center; gap:8px; }
     .result-item:hover, .result-item[selected] { background: rgba(0,0,0,0.03); }
-    .meta { font-size: small; color: var(--color-text-secondary); }
+    .result-select {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      /* The OS-supplied zoom-in cursor renders as a tiny, blurry bitmap on some
+         displays — a hand-drawn SVG (white halo + dark line, like a native pointer)
+         stays crisp at any DPI instead. Hotspot sits at the lens centre. */
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'%3E%3Cg fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cline x1='15.8' y1='15.8' x2='23' y2='23'/%3E%3C/g%3E%3Cg fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cline x1='15.8' y1='15.8' x2='23' y2='23'/%3E%3C/g%3E%3C/svg%3E") 11 11, zoom-in;
+      border: 0;
+      background: transparent;
+      font: inherit;
+      color: inherit;
+      text-align: left;
+      padding: 0;
+    }
+    .result-title {
+      font-size: 12.5px;
+      font-weight: 400;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .result-title strong { font-weight: 600; }
+    /* Subtitle: the result's type/category, one step quieter and smaller than the title. */
+    .meta { display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; line-height: 1.2; color: var(--color-text-muted, #6b7681); }
+    /* Same CSS colour as the subtitle text, but a filled shape reads visually heavier
+       than thin text glyphs at identical colour (more ink coverage) — opacity brings
+       the two back to the same optical weight. */
+    .geom-icon { display: inline-flex; flex: none; opacity: 0.75; }
+    .geom-icon svg { width: 12px; height: 12px; overflow: visible; }
+
+    /* The stack sits small and muted, upper-left — it identifies "a map
+       layer" but is deliberately not the thing the eye lands on. The badge
+       is the whole point: a big, high-contrast plus that reads as "add"
+       before the layer glyph even registers. It is a switch: once added the
+       badge becomes a green check and the same button removes the layer
+       again, so the row keeps the control rather than sending the user to
+       the layer overview to undo what they did here. State is carried by
+       shape as well as colour (plus vs check), not colour alone. */
+    .layer-toggle {
+      flex: 0 0 auto;
+      width: 2.05rem;
+      height: 2.05rem;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      color: var(--color-text-muted, #6b7681);
+    }
+    .layer-toggle:hover {
+      background: var(--color-background-hover, rgba(22, 32, 42, 0.06));
+      color: var(--color-primary, #2b6c8f);
+    }
+    .layer-toggle:focus-visible {
+      outline: var(--webmapx-focus-ring, 2px solid var(--color-primary, #2b6c8f));
+      outline-offset: var(--webmapx-focus-offset, 2px);
+    }
+    .layer-toggle svg { width: 1.5rem; height: 1.5rem; overflow: visible; }
+    .layer-toggle .stack-top {
+      fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linejoin: round; opacity: .85;
+    }
+    .layer-toggle .stack-mid, .layer-toggle .stack-bot {
+      fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; opacity: .6;
+    }
+    .layer-toggle .badge-circle {
+      fill: var(--color-primary, #2b6c8f); stroke: var(--color-surface, #fff); stroke-width: 1.5;
+    }
+    .layer-toggle .badge-plus { stroke: var(--color-on-primary, #fff); stroke-width: 2.3; stroke-linecap: round; }
+    .layer-toggle:hover .badge-circle { fill: var(--color-primary-hover, #21566f); }
+    .layer-toggle[data-added="true"] { color: var(--color-primary, #2b6c8f); }
+    .layer-toggle[data-added="true"] .stack-top {
+      fill: var(--color-primary, #2b6c8f); stroke: var(--color-primary, #2b6c8f); opacity: 1;
+    }
+    .layer-toggle[data-added="true"] .stack-mid, .layer-toggle[data-added="true"] .stack-bot { opacity: .85; }
+    .layer-toggle[data-added="true"] .badge-circle { fill: var(--color-success, #1c7c4a); }
+    .layer-toggle[data-added="true"]:hover .badge-circle { filter: brightness(0.92); }
+    .layer-toggle[data-added="true"] .badge-plus { display: none; }
+    .layer-toggle[data-added="true"] .badge-check {
+      stroke: var(--color-on-primary, #fff); stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; fill: none;
+    }
+    .layer-toggle:not([data-added="true"]) .badge-check { display: none; }
+  `];
+
+  private readonly clearIcon = html`
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M3.5 3.5 L12.5 12.5 M12.5 3.5 L3.5 12.5"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  `;
+
+  // Same shape as the .result-select cursor (lens + handle, no "+") — the button that
+  // runs the search should look like the action, not just cue it via the pointer.
+  private readonly searchIcon = html`
+    <svg viewBox="0 0 22 22" aria-hidden="true">
+      <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" stroke-width="2"/>
+      <line x1="13.2" y1="13.2" x2="19" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  `;
+
+  private readonly layerToggleIcon = html`
+    <svg viewBox="0 0 22 22" aria-hidden="true">
+      <path class="stack-top" d="M8 2.4 L13.6 5.6 L8 8.8 L2.4 5.6 Z"/>
+      <path class="stack-mid" d="M3 8.2 L8 11 L13 8.2"/>
+      <path class="stack-bot" d="M3 10.6 L8 13.4 L13 10.6"/>
+      <circle class="badge-circle" cx="15.6" cy="15.6" r="6"/>
+      <path class="badge-plus" d="M15.6 12.1V19.1M12.1 15.6H19.1"/>
+      <path class="badge-check" d="M12.3 15.8 L14.5 18 L19 12.9"/>
+    </svg>
   `;
 
   protected onMapAttached(adapter: IMap): void {
@@ -173,10 +361,17 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
 
   deactivate(): void {
     this.active = false;
-    this.results = null;
-    this.query = '';
-    this.selectedIndex = -1;
-    // hide the tool
+    // Query, results and selection are deliberately left alone — the component
+    // stays mounted (just hidden) while another tool is active, so reopening
+    // the search tool should find it exactly as it was left.
+    //
+    // The preview layer is a different matter: it is only ever cleared by @mouseleave/
+    // @blur on a result row, and switching tools doesn't necessarily trigger either —
+    // Escape closes the panel from a document-level keydown listener regardless of where
+    // the mouse is, and a result's own @focus handler shows the preview without needing
+    // the mouse at all. Left uncleared, a hover preview outlives the panel that can clean
+    // it up, stranded on the map with nothing left open to remove it.
+    this.clearPreview();
     (this as HTMLElement).hidden = true;
     this.dispatchEvent(new CustomEvent('webmapx-search-closed', { bubbles: true, composed: true }));
   }
@@ -328,6 +523,23 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     return lon >= west && lon <= east && lat >= south && lat <= north;
   }
 
+  // Clearing the query is now an explicit action rather than something deactivate()
+  // did behind the user's back: switching tools and coming back finds the panel as it
+  // was left, and this is how you empty it on purpose. Persisted layers are ordinary
+  // map layers by this point and are deliberately left alone — only the query, its
+  // results and any preview go.
+  private clearSearch(): void {
+    this.query = '';
+    this.results = null;
+    this.selectedIndex = -1;
+    this.clearPreview();
+    // Focus goes back to the field: the button the user just pressed is about to be
+    // removed from the DOM, which would otherwise drop focus to the document.
+    this.updateComplete.then(() => {
+      this.shadowRoot?.querySelector<HTMLInputElement>('input')?.focus();
+    });
+  }
+
   private async doSearch(): Promise<void> {
     const q = this.query.trim();
     if (!q || q.length < 1) {
@@ -375,6 +587,68 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
 
   private getFeatureTitle(f: GeoJSON.Feature): string {
     return (f.properties && (f.properties.display_name || f.properties.name)) ?? JSON.stringify(f.geometry?.type ?? '');
+  }
+
+  // Only the first word carries weight — the rest of a geocoder title (often a full,
+  // comma-separated address) reads as a caption to it, not a second heading.
+  private renderResultTitle(f: GeoJSON.Feature) {
+    const title = this.getFeatureTitle(f);
+    const spaceIdx = title.indexOf(' ');
+    if (spaceIdx === -1) {
+      return html`<strong>${title}</strong>`;
+    }
+    return html`<strong>${title.slice(0, spaceIdx)}</strong>${title.slice(spaceIdx)}`;
+  }
+
+  // Same three buckets addPersistedFeature draws with — a result's geometry only ever
+  // becomes a fill, a line or a point, regardless of how many ways OSM/PDOK spell the
+  // underlying GeoJSON type (Multi* included).
+  private geometryKind(type: GeoJSON.Geometry['type'] | undefined): 'polygon' | 'line' | 'point' {
+    if (type === 'Polygon' || type === 'MultiPolygon') return 'polygon';
+    if (type === 'LineString' || type === 'MultiLineString') return 'line';
+    return 'point';
+  }
+
+  // A round dot competing with an equally-thin, equally-grey outline anti-aliases into
+  // nothing at this icon size — confirmed by screenshotting the actual rendered pixels,
+  // not just eyeballing a zoomed-in preview. A punched square (solid square, background-
+  // colour hole cut from its centre) reads as a distinct object regardless of scale,
+  // because it doesn't depend on being *bigger* than the line, only on having a hard
+  // inner edge — the same reason vector-editor node handles are drawn this way.
+  //
+  // Must be lit's `svg` tag, not `html`: this template is parsed on its own (it's a
+  // separate call embedded into the parent svg via ${}), and without an <svg> ancestor
+  // *in that same parse* to establish foreign-content mode, `html` creates the <rect>s
+  // as plain HTML elements — not SVGRectElement, so nothing paints, however the
+  // attributes are tuned. Confirmed with r.getBBox() throwing "not a function" on the
+  // rendered nodes: they were never real SVG shapes to begin with.
+  private nodeMarker(x: number, y: number) {
+    return svg`
+      <rect x="${x - 1.9}" y="${y - 1.9}" width="3.8" height="3.8" rx="1" fill="currentColor"></rect>
+      <rect x="${x - 0.8}" y="${y - 0.8}" width="1.6" height="1.6" rx="0.4" fill="var(--color-background, #fff)"></rect>
+    `;
+  }
+
+  // A result's subtitle says what kind of thing it is (village, river…), this says what
+  // it will actually draw as, which the category name alone doesn't reliably tell you.
+  private geometryKindIcon(kind: 'polygon' | 'line' | 'point') {
+    if (kind === 'polygon') {
+      // 4 corners, not more — each node needs real space around it to read, and a
+      // quadrilateral still says "polygon" as clearly as a pentagon would.
+      const pts: Array<[number, number]> = [[2.3, 2], [12, 3], [11.3, 12.2], [2, 10.6]];
+      return html`<svg viewBox="0 0 14 14" aria-hidden="true">
+        <polygon points="${pts.map(([x, y]) => `${x},${y}`).join(' ')}" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+        ${pts.map(([x, y]) => this.nodeMarker(x, y))}
+      </svg>`;
+    }
+    if (kind === 'line') {
+      return html`<svg viewBox="0 0 14 14" aria-hidden="true">
+        <line x1="2" y1="11.5" x2="12" y2="2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        ${this.nodeMarker(2, 11.5)}
+        ${this.nodeMarker(12, 2.5)}
+      </svg>`;
+    }
+    return html`<svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="currentColor"/></svg>`;
   }
 
   // Recursively walks any GeoJSON geometry's coordinate arrays to derive a bbox.
@@ -449,22 +723,40 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     this.requestUpdate();
   }
 
+  // Stable across searches, so the same place keeps its state. Nominatim gives an
+  // osm_type/osm_id (or a place_id); anything else falls back to the title plus the
+  // first coordinate, which is deterministic for the same result — unlike a counter.
+  private persistKeyFor(feature: GeoJSON.Feature): string {
+    const props = feature.properties ?? {};
+    if (props.osm_id || props.osm_type) {
+      return `search-persist-osm-${props.osm_type ?? ''}-${props.osm_id ?? ''}`;
+    }
+    if (props.place_id) return `search-persist-place-${props.place_id}`;
+    const anchor = this.firstCoordinate(feature.geometry);
+    const at = anchor ? `${anchor[0].toFixed(5)},${anchor[1].toFixed(5)}` : 'no-geom';
+    return `search-persist-${this.getFeatureTitle(feature)}-${at}`;
+  }
+
+  private firstCoordinate(geometry: GeoJSON.Geometry | undefined): [number, number] | null {
+    if (!geometry || geometry.type === 'GeometryCollection') return null;
+    let coords: unknown = geometry.coordinates;
+    while (Array.isArray(coords) && Array.isArray(coords[0])) coords = coords[0];
+    return Array.isArray(coords) && typeof coords[0] === 'number' && typeof coords[1] === 'number'
+      ? [coords[0], coords[1]]
+      : null;
+  }
+
   private isPersisted(feature: GeoJSON.Feature): boolean {
-    return this.persistedMap.has(feature);
+    return this.persistedMap.has(this.persistKeyFor(feature));
   }
 
   private addPersistedFeature(feature: GeoJSON.Feature) {
     if (!this.adapter || !this.mapElement) return;
     const mapElement = this.mapElement;
 
-    // Determine source id
-    let sourceId = null as string | null;
-    if (feature.properties && (feature.properties.osm_id || feature.properties.osm_type)) {
-      sourceId = `search-persist-osm-${feature.properties.osm_type ?? ''}-${feature.properties.osm_id ?? ''}`;
-    }
-    if (!sourceId) {
-      sourceId = `search-persist-${Date.now()}-${this.persistCounter++}`;
-    }
+    // The key is the source id: one place, one source, however often it is searched.
+    const persistKey = this.persistKeyFor(feature);
+    const sourceId = persistKey;
 
     const fc: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [feature] };
 
@@ -479,12 +771,13 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
 
       // Add appropriate layers depending on geometry type
       const geom = feature.geometry?.type;
+      const kind = this.geometryKind(geom);
       const fillId = `${sourceId}-fill`;
       const lineId = `${sourceId}-line`;
       const pointId = `${sourceId}-point`;
       const resultName = this.getFeatureTitle(feature);
 
-      if (geom === 'Polygon' || geom === 'MultiPolygon') {
+      if (kind === 'polygon') {
         // Composite style layer for polygons: separate fill and outline (line) sub-layers,
         // with a single legend item.
         mapElement.addLayerRequest({
@@ -497,13 +790,13 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
           ],
           metadata: { label: resultName, hideFromLegend: false },
         });
-      } else if (geom === 'LineString' || geom === 'MultiLineString') {
+      } else if (kind === 'line') {
         mapElement.addLayerRequest({ id: lineId, type: 'line', source: sourceId, sources, metadata: { label: resultName, hideFromLegend: false }, paint: { 'line-color': color, 'line-width': 3 } });
       } else { // Point / MultiPoint fallback
         mapElement.addLayerRequest({ id: pointId, type: 'circle', source: sourceId, sources, metadata: { label: resultName, hideFromLegend: false }, paint: { 'circle-color': color, 'circle-radius': 6 } });
       }
 
-      this.persistedMap.set(feature, { sourceId, color });
+      this.persistedMap.set(persistKey, { sourceId, color });
     } catch (e) {
       console.error('Failed to persist feature', e);
     }
@@ -513,7 +806,8 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     if (!this.adapter || !this.mapElement) return;
     const map = this.adapter;
     const mapElement = this.mapElement;
-    const info = this.persistedMap.get(feature);
+    const persistKey = this.persistKeyFor(feature);
+    const info = this.persistedMap.get(persistKey);
     if (!info) return;
     const sourceId = info.sourceId;
     try {
@@ -527,7 +821,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
       console.warn('Error removing persisted feature', e);
     }
 
-    this.persistedMap.delete(feature);
+    this.persistedMap.delete(persistKey);
   }
 
   private async showPreviewLayers(
@@ -537,6 +831,20 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     if (!this.adapter || !this.mapElement) return;
     const map = this.adapter;
     const mapElement = this.mapElement;
+
+    // Remove existing preview layers so colors can be applied fresh. This has to happen
+    // *before* touching the source: removing the last layer that references a source is
+    // what orphans and deletes it (see MapLayerService.removeLayer's ref-count cleanup),
+    // so doing this after an addSource/setData below would silently drop the source we
+    // just set right before the new layers try to attach to it — the fill/line/point adds
+    // then fail with "source not found" (an async MapLibre error, not a thrown exception,
+    // so it isn't caught below and previewLayersAdded still ends up true) and nothing
+    // renders. Concretely: this is a second call to showPreviewLayers for a result whose
+    // preview is already showing — which happens on every click-to-zoom, since the title
+    // button's own `@focus` handler re-triggers the preview a moment after `@mouseenter`.
+    for (const lid of this.previewLayerIds) {
+      if (map.hasLayer(lid)) mapElement.removeInlineLayer(lid);
+    }
 
     // Update or create source
     try {
@@ -548,11 +856,6 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
       }
     } catch (e) {
       console.warn('preview source update failed', e);
-    }
-
-    // Remove existing preview layers so colors can be applied fresh
-    for (const lid of this.previewLayerIds) {
-      if (map.hasLayer(lid)) mapElement.removeInlineLayer(lid);
     }
 
     try {
@@ -602,31 +905,17 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     this.showPreviewLayers(fc, colors);
   }
 
-  private onResultCheckboxChange(feature: GeoJSON.Feature, e: Event) {
+  private onResultLayerToggle(feature: GeoJSON.Feature, e: Event) {
     // Stop propagation so the parent list item doesn't also handle the click
     try { e.stopPropagation(); } catch (_err) { /* ignore */ }
 
-    // Shoelace emits a custom event 'sl-change' with detail.checked; fall back to target.checked
-    const evAny = e as any;
-    let checked: boolean;
-    if (evAny?.detail && typeof evAny.detail.checked === 'boolean') {
-      checked = evAny.detail.checked;
+    if (this.isPersisted(feature)) {
+      this.removePersistedFeature(feature);
+      this.persistedChanged(feature, false);
     } else {
-      const target = e.target as any;
-      checked = Boolean(target?.checked);
-    }
-
-    if (checked) {
-      if (!this.isPersisted(feature)) {
-        this.clearPreview();
-        this.addPersistedFeature(feature);
-        this.persistedChanged(feature, true);
-      }
-    } else {
-      if (this.isPersisted(feature)) {
-        this.removePersistedFeature(feature);
-        this.persistedChanged(feature, false);
-      }
+      this.clearPreview();
+      this.addPersistedFeature(feature);
+      this.persistedChanged(feature, true);
     }
     // Ensure UI updates
     this.requestUpdate();
@@ -635,47 +924,64 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
   render() {
     return html`
       <div class="container tool-content">
-        <div class="title">Search</div>
         <div class="searchbox">
-          <input
-            type="text"
-            name="${this.searchInputName}"
-            autocomplete="off"
-            autocorrect="off"
-            autocapitalize="off"
-            spellcheck="false"
-            placeholder="Search places and addresses"
-            .value="${this.query}"
-            @input="${(e: Event) => { this.query = (e.target as HTMLInputElement).value; }}"
-            @keyup="${(e: KeyboardEvent) => this.handleKey(e)}"
-          />
-          <button @click="${() => this.doSearch()}">Go</button>
+          <div class="input-wrap">
+            <input
+              type="text"
+              name="${this.searchInputName}"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              placeholder="Search cities, rivers, mountains…"
+              .value="${this.query}"
+              @input="${(e: Event) => { this.query = (e.target as HTMLInputElement).value; }}"
+              @keyup="${(e: KeyboardEvent) => this.handleKey(e)}"
+            />
+            ${this.query ? html`
+              <button
+                class="clear-button"
+                type="button"
+                aria-label="Clear search"
+                title="Clear search"
+                @click="${() => this.clearSearch()}">${this.clearIcon}</button>
+            ` : ''}
+          </div>
+          <button class="go-button webmapx-control" type="button" aria-label="Search" title="Search" @click="${() => this.doSearch()}">${this.searchIcon}</button>
         </div>
 
         <div class="results">
           ${this.searching ? html`<div>Searching...</div>` : ''}
           ${!this.results ? html`` : html`
-            <div style="display:flex; align-items:center; gap:8px; padding:2px 6px; font-size:11px; color:var(--color-text-secondary); border-bottom:1px solid var(--color-border);">
-              <span style="flex:0 0 auto; min-width:1.5rem; text-align:center;" title="Check to add result as a permanent layer on the map">📌</span>
-              <span>hover to preview · click to zoom</span>
+            <div style="display:flex; flex-direction:column; gap:2px; padding:2px 6px; font-size:11px; color:var(--color-text-secondary); border-bottom:1px solid var(--color-border);">
+              <span>Hover to preview | Click to zoom</span>
+              <span>Add as map layer with +, remove with ✓</span>
             </div>
             <ul>
               ${(this.results.features || []).map((f, i) => html`
                 <li class="result-item" ?selected=${i === this.selectedIndex}
                     @mouseenter=${() => this.showPreviewForFeature(f)}
                     @mouseleave=${() => this.clearPreview()}>
-                  <sl-checkbox
-                    .checked=${this.isPersisted(f)}
-                    @sl-change=${(e: Event) => this.onResultCheckboxChange(f, e)}
-                    @click=${(e: Event) => e.stopPropagation()}
-                    style="flex:0 0 auto;">
-                  </sl-checkbox>
-                  <button type="button" @click=${() => this.handleSelect(f)}
+                  <button type="button" class="result-select" @click=${() => this.handleSelect(f)}
                           @focus=${() => this.showPreviewForFeature(f)}
-                          @blur=${() => this.clearPreview()}
-                          style="flex:1; display:flex; justify-content:space-between; align-items:center; gap:8px; cursor:pointer; border:0; background:transparent; font:inherit; color:inherit; text-align:left; padding:0;">
-                    <strong>${this.getFeatureTitle(f)}</strong>
-                    <span style="font-size:12px; color:var(--color-text-secondary);">${f.properties ? (f.properties.type || f.properties.category || '') : ''}</span>
+                          @blur=${() => this.clearPreview()}>
+                    <span class="result-title">${this.renderResultTitle(f)}</span>
+                    ${(() => {
+                      const meta = f.properties ? (f.properties.type || f.properties.category || '') : '';
+                      if (!meta) return '';
+                      const kind = this.geometryKind(f.geometry?.type);
+                      return html`<span class="meta"><span class="geom-icon">${this.geometryKindIcon(kind)}</span>${meta}</span>`;
+                    })()}
+                  </button>
+                  <button
+                    type="button"
+                    class="layer-toggle"
+                    aria-pressed=${this.isPersisted(f) ? 'true' : 'false'}
+                    data-added=${this.isPersisted(f) ? 'true' : 'false'}
+                    aria-label="Add as map layer"
+                    title=${this.isPersisted(f) ? 'Remove from map' : 'Add as map layer'}
+                    @click=${(e: Event) => this.onResultLayerToggle(f, e)}>
+                    ${this.layerToggleIcon}
                   </button>
                 </li>
               `)}
