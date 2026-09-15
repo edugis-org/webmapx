@@ -468,6 +468,45 @@ export async function run({ page, engine, baseUrl }) {
     }
     console.log(`    Utrecht layer restored: ${restored.layerCount} layer(s) found`);
   });
+
+  // The clear button replaced deactivate()'s silent wipe: emptying the field is now
+  // something the user does on purpose. It must take the query, its results and any
+  // preview — and leave the persisted layer, which is an ordinary map layer by now.
+  await step('clear the search field', async () => {
+    const cleared = await page.evaluate(() => {
+      const map = document.querySelector('webmapx-map');
+      const tool = map?.querySelector('webmapx-search-tool');
+      if (!tool?.shadowRoot) throw new Error('Search tool shadow root unavailable');
+
+      const clear = tool.shadowRoot.querySelector('.clear-button');
+      if (!clear) throw new Error('Clear button not found (is the query empty?)');
+      clear.click();
+
+      return true;
+    });
+    if (!cleared) fail('Clear button did not run');
+
+    await page.waitForFunction(() => {
+      const map = document.querySelector('webmapx-map');
+      const tool = map?.querySelector('webmapx-search-tool');
+      if (!tool?.shadowRoot) return false;
+      const input = tool.shadowRoot.querySelector('input');
+      const results = tool.shadowRoot.querySelectorAll('.result-item');
+      const clear = tool.shadowRoot.querySelector('.clear-button');
+      // The button removes itself along with the text it acted on.
+      return input?.value === '' && results.length === 0 && !clear;
+    }, {}, { timeout: 5_000 });
+
+    const layersKept = await page.evaluate(() => {
+      const map = document.querySelector('webmapx-map');
+      const state = map?.adapter?.store?.getState?.() ?? {};
+      return Object.keys(state.mapLayers || {}).filter((id) => id.includes('search-persist')).length;
+    });
+    if (layersKept === 0) {
+      fail('Clearing the search field removed the persisted layer');
+    }
+    console.log(`    Search field cleared, ${layersKept} persisted layer(s) kept`);
+  });
 }
 
 // Run on all engines
