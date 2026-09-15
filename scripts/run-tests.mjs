@@ -1,5 +1,5 @@
 import { build } from 'esbuild';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { access, mkdtemp, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,6 +12,23 @@ const repoRoot = path.resolve(__dirname, '..');
 const testsDir = path.join(repoRoot, 'tests');
 const tempDir = await mkdtemp(path.join(os.tmpdir(), 'webmapx-tests-'));
 
+function parseArgs(argv) {
+  const files = [];
+  const nodeArgs = [];
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg.startsWith('--')) {
+      nodeArgs.push(arg);
+      if (!arg.includes('=') && i + 1 < argv.length && !argv[i + 1].startsWith('-') && !argv[i + 1].endsWith('.ts')) {
+        nodeArgs.push(argv[++i]);
+      }
+    } else {
+      files.push(arg);
+    }
+  }
+  return { files, nodeArgs };
+}
+
 async function collectTestFiles() {
   const entries = await readdir(testsDir, { withFileTypes: true });
   return entries
@@ -20,9 +37,31 @@ async function collectTestFiles() {
     .sort();
 }
 
-function runNodeTests(compiledFiles) {
+async function resolveRequestedFiles(requestedFiles) {
+  if (requestedFiles.length === 0) return collectTestFiles();
+
+  const resolved = requestedFiles.map((file) => {
+    const candidate = path.isAbsolute(file) ? file : path.resolve(repoRoot, file);
+    return candidate.endsWith('.test.ts')
+      ? candidate
+      : path.join(testsDir, `${file.replace(/\.ts$/, '')}.test.ts`);
+  });
+
+  for (const file of resolved) {
+    try {
+      await access(file);
+    } catch {
+      console.error(`Test file not found: ${path.relative(repoRoot, file)}`);
+      process.exit(1);
+    }
+  }
+
+  return resolved.sort();
+}
+
+function runNodeTests(compiledFiles, nodeArgs) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, ['--test', ...compiledFiles], {
+    const child = spawn(process.execPath, ['--test', ...nodeArgs, ...compiledFiles], {
       cwd: repoRoot,
       stdio: 'inherit',
     });
@@ -33,7 +72,8 @@ function runNodeTests(compiledFiles) {
   });
 }
 
-const testFiles = await collectTestFiles();
+const { files: requestedFiles, nodeArgs } = parseArgs(process.argv.slice(2));
+const testFiles = await resolveRequestedFiles(requestedFiles);
 
 if (testFiles.length === 0) {
   console.error('No test files found in ./tests');
@@ -59,7 +99,7 @@ try {
     compiledFiles.push(outfile);
   }
 
-  const exitCode = await runNodeTests(compiledFiles);
+  const exitCode = await runNodeTests(compiledFiles, nodeArgs);
   process.exit(exitCode);
 } finally {
   await rm(tempDir, { recursive: true, force: true });

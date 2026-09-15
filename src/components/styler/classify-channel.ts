@@ -56,6 +56,8 @@ export interface ClassifySettings {
      * moment the user moved any other control.
      */
     noDataColor: string;
+    /** Round breaks even where a few features change class (`roundBreaks`). */
+    niceBreaks?: boolean;
 }
 
 export const DEFAULT_CLASS_COUNT = 5;
@@ -181,6 +183,7 @@ function numericChannel(features: readonly GeoJSON.Feature[], settings: Classify
         method: settings.method,
         classCount: settings.classCount,
         missing,
+        niceBreaks: settings.niceBreaks,
     });
     const classes = classification.classes;
     if (classes.length === 0) return null;
