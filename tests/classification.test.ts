@@ -15,6 +15,7 @@ import {
     naturalBreaks,
     numericValues,
     suggestSchemeType,
+    tidyBreaks,
 } from '../src/utils/classification';
 
 const feature = (properties: GeoJSON.GeoJsonProperties): GeoJSON.Feature =>
@@ -99,34 +100,53 @@ test('natural breaks on a big column agree with the full solve', () => {
     }
 });
 
-test('rounding gives numbers a person would say out loud', () => {
-    const result = classifyNumeric([0, 37, 61, 94, 98.7], { method: 'equalInterval', classCount: 5, rounded: true });
-    for (const value of result.breaks) {
-        assert.equal(value, Number(value.toFixed(6)), `${value} is not a tidy number`);
+test('breaks are tidied only where no feature changes class', () => {
+    // "10 – 15" beats "9.7 – 14.94" on a legend, and the two are the same
+    // classification exactly when no value lies between the old break and the
+    // new one. So the tidying is judged by the partition, not by the numbers.
+    const partition = (values: readonly number[], breaks: readonly number[]): number[] =>
+        values.map((value) => breaks.filter((edge) => value >= edge).length);
+
+    const values = Array.from({ length: 400 }, (_, i) => Math.round(Math.sin(i) * 5000 + 5000) / 7);
+    const sorted = [...values].sort((a, b) => a - b);
+    for (const method of ['quantile', 'naturalBreaks', 'equalInterval', 'geometric', 'standardDeviation'] as const) {
+        const result = classifyNumeric(values, { method, classCount: 7 });
+        const untidied = result.breaks.map((value) => value + 0);
+        assert.deepEqual(
+            partition(values, tidyBreaks(sorted, untidied)),
+            partition(values, untidied),
+            `${method} moved a feature between classes`,
+        );
     }
-    assert.deepEqual(result.breaks, [20, 40, 60, 80]);
 });
 
-/**
- * Rounding used to be a method of its own ("pretty"), which meant asking for a
- * readable legend also meant giving up on choosing how the data was divided.
- */
-test('rounding applies to every method, not only to equal intervals', () => {
-    const values = [1, 3, 4, 7, 12, 19, 31, 44, 78, 96, 103, 187, 219, 402, 987];
-    const raw = classifyNumeric(values, { method: 'quantile', classCount: 4 });
-    const rounded = classifyNumeric(values, { method: 'quantile', classCount: 4, rounded: true });
-    assert.notDeepEqual(rounded.breaks, raw.breaks);
-    for (const value of rounded.breaks) {
-        // Tidy means "a number a person would say": a multiple of half its own
-        // magnitude — 20, 70, 250, 1500 — not necessarily 1/2/5 × a power of ten,
-        // which on unevenly spaced breaks would have to move them much too far.
-        const magnitude = 10 ** Math.floor(Math.log10(Math.abs(value)));
-        const steps = value / (magnitude / 10);
-        assert.ok(Math.abs(steps - Math.round(steps)) < 1e-9, `${value} is not a tidy number`);
-    }
-    // Every class must still hold something: a break rounded onto its neighbour
-    // is dropped rather than shipped as an empty class.
-    assert.ok(rounded.classes.every((entry) => entry.count > 0), JSON.stringify(rounded.classes));
+test('a break with room to move lands on a number a person would say', () => {
+    // Room is the empty gap in the data *and* a quarter of the way to the
+    // neighbouring break: 14.94 becomes 15, and 6.5 becomes 7 rather than
+    // wandering off to 10, which the gap alone would have allowed.
+    const sorted = [1, 2, 3, 4, 5, 6, 11, 12, 13, 16, 18, 20, 24, 30, 44];
+    assert.deepEqual(tidyBreaks(sorted, [6.5, 14.94]), [7, 15]);
+});
+
+test('a break with no room is left exactly where the method put it', () => {
+    // 9.7 is hemmed in by 9.6 and 9.8: every tidier number is on the far side
+    // of a feature, so moving there would move that feature too.
+    const sorted = [9.6, 9.8, 20, 30];
+    assert.deepEqual(tidyBreaks(sorted, [9.7]), [9.7]);
+});
+
+test('tidying never crosses a neighbouring break', () => {
+    // It cannot: the gap is bounded by data, and a neighbour has data between
+    // it and this break, or it would not be a separate class.
+    const sorted = [1, 2, 3, 10, 11, 12, 30, 31, 32];
+    const tidied = tidyBreaks(sorted, [6, 21]);
+    assert.ok(tidied[0] < tidied[1], JSON.stringify(tidied));
+    assert.deepEqual(tidied, [5, 20]);
+});
+
+test("the author's own breaks are never tidied", () => {
+    const result = classifyNumeric([1, 5, 9, 14, 22], { method: 'manual', breaks: [4.7, 13.2] });
+    assert.deepEqual(result.breaks, [4.7, 13.2]);
 });
 
 /**
@@ -228,4 +248,15 @@ test('the histogram covers every value and nothing else', () => {
     assert.equal(bins.reduce((sum, bin) => sum + bin.count, 0), values.length);
     assert.equal(bins[0].min, 1);
     assert.equal(bins[bins.length - 1].max, 13);
+});
+
+test('a tidied break is written in the precision the data is written in', () => {
+    // Nothing in a column says whether it holds years, metres or euros, but a
+    // column of whole numbers cannot contain 1722.5 — so a break there is
+    // written in a precision the data does not have. Measured, not assumed:
+    // the same rule leaves a column of cents free to land on 14.9.
+    assert.deepEqual(tidyBreaks([1650, 1700, 1722, 1723, 1740, 1757], [1722.5]), [1723]);
+    assert.deepEqual(tidyBreaks([1.05, 2.25, 9.7, 14.94, 22.5], [9.72]), [10]);
+    // Thousandths in the data, so a break may be written in thousandths too.
+    assert.deepEqual(tidyBreaks([1.05, 2.255, 9.7, 14.94, 30, 40], [9.996]), [10]);
 });

@@ -458,3 +458,41 @@ test('islands differ from the coast they sit beside, and from each other', () =>
     assert.notEqual(a, land, 'an island must differ from the coast it sits beside');
     assert.notEqual(a, b, 'two neighbouring islands must differ from each other');
 });
+
+test('every group of regions sees the whole palette, not just the map as a whole', () => {
+    // Even global counts do not make an even map. The greedy pass takes the
+    // lowest free colour, so a group needing only three of six gets colours
+    // 0–2, and the balancing pass has no reason to move them — it judges the
+    // whole layer, and the whole layer is already even. What that looks like on
+    // a real map: the Netherlands never gets yellow while its neighbours do.
+    const features: GeoJSON.Feature[] = [];
+    const blocks = [[0, 0], [7, 0], [0, 7], [7, 7]];
+    blocks.forEach(([bx, by], block) => {
+        for (let row = 0; row < 5; row++) {
+            for (let col = 0; col < 5; col++) {
+                features.push(cell(bx + col, by + row, { block }, `b${block}-${row}-${col}`));
+            }
+        }
+    });
+
+    const result = colorByAdjacency(features, { paletteSize: 6 });
+    noNeighbourShares(result);
+    assert.equal(result.colorCount, 6);
+
+    const perBlock = new Map<number, Set<number>>();
+    result.colors.forEach((color, index) => {
+        const block = features[index].properties!.block as number;
+        if (!perBlock.has(block)) perBlock.set(block, new Set());
+        perBlock.get(block)!.add(color);
+    });
+    for (const [block, colors] of perBlock) {
+        assert.equal(colors.size, 6, `block ${block} shows only ${[...colors].sort().join(',')}`);
+    }
+
+    // Evenness is not asserted here on purpose: four disconnected 5×5 blocks
+    // cannot spread 100 regions evenly over six colours to begin with, and this
+    // fixture's spread is the same with the local pass as without it — swapping
+    // exchanges two regions' colours, so no count moves at all. The global
+    // distribution is pinned by "the colours are spread evenly" above, on a
+    // fixture where an even answer exists.
+});

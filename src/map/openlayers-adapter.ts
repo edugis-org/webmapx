@@ -75,6 +75,10 @@ export class OpenLayersAdapter extends BaseAdapter implements IMap {
         return this.layerService?.setSourceTiles(sourceId, tiles) ?? false;
     }
 
+    protected override engineSetSourceParams(sourceId: string, params: Record<string, string | null>): boolean {
+        return this.layerService?.setSourceParams(sourceId, params) ?? false;
+    }
+
     override getSourceTiles(sourceId: string): string[] | null {
         return this.layerService?.getSourceTiles(sourceId) ?? null;
     }

@@ -701,24 +701,37 @@ export class MapCoreService implements IMapCore {
         try { this.mapInstance.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none'); } catch (_) {}
     }
 
+    /**
+     * What the source holds now.
+     *
+     * The engine is asked first, and the registry is only a fallback — the
+     * other way round it went stale, because the registry has *two* writers and
+     * only one of them updates it: `getSource().setData` here, and
+     * `MapLayerService.setSourceData`, which talks to the native source
+     * directly. So a feature written through the second one was drawn by the
+     * map and invisible to every reader — which is how rebuilding a layer threw
+     * a neighbour colouring away and reverted the map to one grey.
+     *
+     * A `geojson` source given a *url* serializes back as that url; the
+     * registry may hold what was actually fetched for it, so for that case the
+     * registry still wins.
+     */
     public getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
-        // Registry first — always reflects the latest setData call
         const cached = this.geoJSONData.get(sourceId);
-        if (cached) return cached;
-        if (!this.mapInstance) return null;
-        const source = this.mapInstance.getSource(sourceId) as any;
-        if (!source || source.type !== 'geojson') return null;
-        // Fallback: try serialize for URL-backed sources
-        try {
-            const s = source.serialize();
-            if (!s) return null;
-            if (typeof s.data === 'string') return s.data; // URL — caller must fetch
-            if (typeof s.data === 'object') {
-                this.geoJSONData.set(sourceId, s.data as GeoJSON.FeatureCollection);
-                return s.data as GeoJSON.FeatureCollection;
-            }
-        } catch (_) {}
-        return null;
+        const source = this.mapInstance?.getSource(sourceId) as any;
+        if (source?.type === 'geojson') {
+            try {
+                const data = source.serialize()?.data;
+                if (data && typeof data === 'object') {
+                    this.geoJSONData.set(sourceId, data as GeoJSON.FeatureCollection);
+                    return data as GeoJSON.FeatureCollection;
+                }
+                // A url: whatever was fetched for it, else the url itself.
+                if (cached) return cached;
+                if (typeof data === 'string') return data;
+            } catch (_) {}
+        }
+        return cached ?? null;
     }
 
     public suppressBusySignalForSource(sourceId: string): void {

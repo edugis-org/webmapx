@@ -8,6 +8,12 @@ UI should be shaped.
 Audience: whoever builds this. Nothing here is decided yet — the open questions
 are listed at the end.
 
+> **Written before the styler was built (13 September 2026).** The inventory
+> below is the state it started from; the tables are updated where the answer
+> has changed, but where this document and
+> `layer-styler-specification.md` disagree, **the specification is the rule** —
+> it carries what was built, what it cost, and what is still missing.
+
 ---
 
 ## 1. What exists today
@@ -19,7 +25,7 @@ Grounded in the code, not in intent.
 | Where | What it does | File |
 |---|---|---|
 | Legend inline editor | Colour of one stop (Pickr), fill/line/circle colour, outline colour, opacity, line width, circle radius. Applies live via `adapter.updateLayerStyle`, keeps local overrides for preview | `src/components/webmapx-layer-legend.ts` (`renderStyleEditor`, `setPaintOverride`) |
-| Style dialog | **Read-only.** Per source: feature count, geometry types, attribute list with type, present/missing counts, unique count, range, sample values, and a feature table | `src/components/webmapx-layer-style-dialog.ts` |
+| Style dialog | **Read-only.** Per source: feature count, geometry types, attribute list with type, present/missing counts, unique count, range, sample values, and a feature table | `src/components/webmapx-layer-style-dialog.ts` (since deleted, replaced by `webmapx-layer-styler.ts`) |
 | Legend/catalog swatch | Derives a representative colour from the paint spec; `metadata.swatch` overrides; offline baker for raster/style layers | `src/utils/layer-swatch.ts`, `scripts/generate-layer-swatches.ts` |
 | Transparency slider | Per-layer opacity, mirrored into the store | `webmapx-layer-overview.ts` → `adapter.setLayerOpacity` |
 | Save layers | Exports data + a generated style document per layer | `webmapx-save-layers-dialog.ts` |
@@ -95,14 +101,14 @@ Legend: ✅ exists · 🟡 partly there · ❌ missing.
 | Function | State | Notes |
 |---|---|---|
 | Single symbol | ✅ | |
-| Categorized (unique values) | 🟡 | `match` expression renders + legends correctly; no builder |
-| Graduated (ranges) | 🟡 | `case`/`step`/`interpolate` render; no builder |
-| Equal interval | ❌ | trivial |
-| Quantile (equal count) | ❌ | trivial |
-| Natural breaks (Jenks) | ❌ | use `simple-statistics` `ckmeans` — exact, and faster than classic Jenks |
-| Standard deviation | ❌ | |
+| Categorized (unique values) | ✅ | built, with a colour-cycling rule so no value falls into a grey tail |
+| Graduated (ranges) | ✅ | built; `step` and the `case` ladder real configs use are both read back |
+| Equal interval | ✅ | |
+| Quantile (equal count) | ✅ | the styler's default |
+| Natural breaks (Jenks) | ✅ | `ckmeans` — exact, and faster than classic Jenks |
+| Standard deviation | ✅ | offered alongside the rest |
 | Geometric (each class a multiple of the last) | ✅ | the one that survives a skewed column — see below |
-| Pretty/rounded breaks | ✅ | an **option on every method**, not a method of its own: "0–20, 20–40" reads better than "0–19.7381", and that is as true of natural breaks as of equal intervals |
+| Pretty/rounded breaks | ✅ | **not** an option and not a method: rounding a break moves features between classes. A break is tidied only inside the empty gap it already sits in, where the partition provably cannot change ("9.7 – 14.94" → "10 – 15"), and what is left the legend formats. See the specification. |
 | Manual breaks | ❌ | must exist — the others are starting points |
 | Rule-based (arbitrary filters) | ❌ | QGIS's most powerful renderer; maps onto `filter` per sublayer |
 | Class count + preview histogram | ✅ | a histogram is the single most useful widget here |
@@ -125,13 +131,13 @@ survive skew.
 | Pick one colour | ✅ | Pickr |
 | Colour ramp 2 stops (from → to) | ❌ | |
 | Colour ramp 3 stops (from → via → to) | ❌ | diverging |
-| Named scheme library | ❌ | see §4 |
-| Reverse a scheme | ❌ | one checkbox |
-| Colour-blind-safe filter | ❌ | **EduGIS's colorbrewer copy already carries the flags** |
-| Print/photocopy-safe filter | ❌ | same source |
+| Named scheme library | ✅ | ColorBrewer ported to `src/utils/color-schemes.ts`, flags and all |
+| Reverse a scheme | ✅ | one checkbox, as expected |
+| Colour-blind-safe filter | ✅ | filters the palette list, from the flags the data carries |
+| Print/photocopy-safe filter | ❌ | the flags are there; no control offers them yet |
 | Contrast check against basemap | ❌ | worth prototyping; hard to do honestly |
-| Random/distinct palette for many categories | ❌ | needed when categories > 12 |
-| Topological colouring (no attribute at all) | ❌ | "just make the neighbours differ" — see below |
+| Random/distinct palette for many categories | ✅ | the palette repeats, assigned so touching values differ (`colorGroupsByAdjacency`) |
+| Topological colouring (no attribute at all) | ✅ | the `By neighbours` driver |
 
 ### 2.4 Attributes and data
 
@@ -298,6 +304,16 @@ layer with no usable columns.
 ---
 
 ## 5. How the UI should ask
+
+> **Superseded by `layer-styler-specification.md`.** This section proposed a
+> sequence of questions, each collapsing to a ✓ summary row ("a stack of resolved
+> decisions"). That is what `renderDone` implements, and in use it turned out to be
+> the problem rather than the shape: a selection collapsing the control that was
+> just used stops the user trying a second palette, and the fixed sequence put
+> labels behind every colour question. The specification replaces it with a
+> persistent, random-access style list. Kept here for the reasoning, not as the
+> plan — where the two disagree, the specification wins.
+
 
 ### The tension in "wizard with back/forward"
 

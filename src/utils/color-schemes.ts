@@ -12,6 +12,14 @@
  * for. That is why `colorSchemesFor` takes the class count.
  */
 import { COLOR_BREWER } from './color-schemes-data';
+import { CVD_SAFE_QUALITATIVE } from './color-schemes-cvd';
+
+/**
+ * Every scheme on offer: ColorBrewer's, then the colour-blind-safe qualitative
+ * palettes ColorBrewer does not have (see `color-schemes-cvd.ts`). ColorBrewer
+ * first, so its order still decides which palette a list opens on.
+ */
+const SCHEMES: readonly RawColorScheme[] = [...COLOR_BREWER, ...CVD_SAFE_QUALITATIVE];
 
 /**
  * How well a scheme serves one purpose.
@@ -121,7 +129,7 @@ export function colorSchemesFor(classCount: number, type: SchemeType, query: Sch
     const reversed = query.reversed ?? false;
 
     if (count < MIN_SET_CLASSES) {
-        return COLOR_BREWER
+        return SCHEMES
             .filter((scheme) => scheme.type === type && satisfies(scheme.sets[0], query.usage))
             .map((scheme) => {
                 const [low, , high] = scheme.sets[0].colors;
@@ -133,28 +141,28 @@ export function colorSchemesFor(classCount: number, type: SchemeType, query: Sch
     }
 
     const index = count - MIN_SET_CLASSES;
-    return COLOR_BREWER
+    return SCHEMES
         .filter((scheme) => scheme.type === type && scheme.sets.length > index && satisfies(scheme.sets[index], query.usage))
         .map((scheme) => resolve(scheme, scheme.sets[index], scheme.sets[index].colors, reversed));
 }
 
 /** The largest class count `type` can serve at all, ignoring usage. */
 export function maxClassesFor(type: SchemeType): number {
-    return COLOR_BREWER
+    return SCHEMES
         .filter((scheme) => scheme.type === type)
         .reduce((max, scheme) => Math.max(max, scheme.sets.length + MIN_SET_CLASSES - 1), 0);
 }
 
 /** One named scheme at one class count, or null if it does not go that far. */
 export function schemeByName(name: string, classCount: number, query: SchemeQuery = {}): ColorScheme | null {
-    const scheme = COLOR_BREWER.find((candidate) => candidate.name === name);
+    const scheme = SCHEMES.find((candidate) => candidate.name === name);
     if (!scheme) return null;
     return colorSchemesFor(classCount, scheme.type, query).find((candidate) => candidate.name === name) ?? null;
 }
 
 /** All scheme names of one type, for a picker that lists names before colours. */
 export function schemeNames(type: SchemeType): string[] {
-    return COLOR_BREWER.filter((scheme) => scheme.type === type).map((scheme) => scheme.name);
+    return SCHEMES.filter((scheme) => scheme.type === type).map((scheme) => scheme.name);
 }
 
 /**

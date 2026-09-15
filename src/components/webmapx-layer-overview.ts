@@ -4,15 +4,17 @@ import { customElement, property, state, query } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
-import type { LayerAddEvent, LayerRemoveEvent } from '../store/map-events';
+import type { LayerAddEvent, LayerRemoveEvent, ViewChangeEndEvent } from '../store/map-events';
+import { attributeTranslations } from '../utils/attribute-translations';
 import './webmapx-layer-legend';
 import './webmapx-layer-info-dialog';
-import './webmapx-layer-style-dialog';
+import './webmapx-layer-styler';
 import './webmapx-save-layers-dialog';
 import './webmapx-permalink-dialog';
 import './webmapx-clear-layers-dialog';
 import type { WebmapxLayerInfoDialog } from './webmapx-layer-info-dialog';
-import type { LayerStyleTarget, SourceStyleGroup, WebmapxLayerStyleDialog } from './webmapx-layer-style-dialog';
+import type { LayerStyleTarget, SourceStyleGroup, StyleDialogContext } from './styler/style-context';
+import type { WebmapxLayerStyler } from './webmapx-layer-styler';
 import type { WebmapxSaveLayersDialog, SaveLayerCandidate } from './webmapx-save-layers-dialog';
 import type { WebmapxPermalinkDialog } from './webmapx-permalink-dialog';
 import type { WebmapxClearLayersDialog } from './webmapx-clear-layers-dialog';
@@ -24,6 +26,7 @@ import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import { splitLayerTitle } from '../utils/layer-swatch';
+import { collectFontStacks } from './styler/label-more';
 
 /** Computes [west, south, east, north] from a GeoJSON FeatureCollection's coordinates. */
 function geojsonExtent(geojson: GeoJSON.FeatureCollection): [number, number, number, number] | null {
@@ -183,11 +186,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   // their position:fixed sl-dialog. A live (uncached) @query only finds them here on the
   // first click, before they've moved; every click after that would silently find nothing.
   @query('webmapx-layer-info-dialog', true) private infoDialog!: WebmapxLayerInfoDialog;
-  @query('webmapx-layer-style-dialog', true) private styleDialog!: WebmapxLayerStyleDialog;
-  // cache: true — see the comment on infoDialog/styleDialog above; same reason.
+  @query('webmapx-layer-styler', true) private layerStyler!: WebmapxLayerStyler;
+  // cache: true — see the comment on infoDialog above; same reason.
   @query('webmapx-save-layers-dialog', true) private saveLayersDialog!: WebmapxSaveLayersDialog;
   @query('webmapx-permalink-dialog', true) private permalinkDialog!: WebmapxPermalinkDialog;
-  // cache: true — see the comment on infoDialog/styleDialog above; same reason.
+  // cache: true — see the comment on infoDialog above; same reason.
   @query('webmapx-clear-layers-dialog', true) private clearLayersDialog!: WebmapxClearLayersDialog;
   private unsubscribeLayerAdd: (() => void) | null = null;
   private unsubscribeLayerRemove: (() => void) | null = null;
@@ -319,10 +322,24 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
 
     .layer-row {
       display: flex;
-      align-items: center;
+      /* flex-start (not center): a long title wraps to several lines, and
+         centering against the whole wrapped block drifted the drag/eye/delete
+         icons down to the label's vertical middle instead of its first line.
+         flex-start alone sits the icons flush with the row's top edge, above
+         where the label's own line-height leading starts its first line of
+         glyphs — .row-icon below nudges them down to match that. */
+      align-items: flex-start;
       gap: var(--webmapx-space-xs, 0.25rem);
       width: 100%;
       touch-action: none;
+    }
+
+    /* Half the label's line-height leading, minus half the icon's own
+       height — centers each icon on the label's first line instead of on
+       the row's top edge. Both icons and the label read
+       --webmapx-font-size-md, so this stays correct if that token changes. */
+    .row-icon {
+      margin-top: calc((var(--webmapx-font-size-md, 0.95rem) * 1.3 - var(--webmapx-font-size-md, 0.95rem)) / 2);
     }
 
     /* Reordering must stay within .layer-list, vertical-only (matches EduGIS):
@@ -764,7 +781,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         ${this.renderSection(this.backgroundTitle, this.backgroundLayers, 'No base map selected.')}
       </div>
       <webmapx-layer-info-dialog></webmapx-layer-info-dialog>
-      <webmapx-layer-style-dialog></webmapx-layer-style-dialog>
+      <webmapx-layer-styler></webmapx-layer-styler>
       <webmapx-save-layers-dialog></webmapx-save-layers-dialog>
       <webmapx-permalink-dialog></webmapx-permalink-dialog>
       <webmapx-clear-layers-dialog @webmapx-clear-layers-confirm=${() => this.handleConfirmClearAllLayers()}></webmapx-clear-layers-dialog>
@@ -833,7 +850,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                     <div class="layer-row">
                       <sl-tooltip content="Drag to change layer order" ?disabled=${items.length <= 1}>
                         <sl-icon
-                          class="drag-handle${items.length <= 1 ? ' drag-handle-disabled' : ''}"
+                          class="drag-handle row-icon${items.length <= 1 ? ' drag-handle-disabled' : ''}"
                           name=${index === 0 ? 'arrow-down' : index === items.length - 1 ? 'arrow-up' : 'arrow-down-up'}
                           @pointerdown=${items.length > 1 ? (e: PointerEvent) => this.onDragHandlePointerDown(e) : undefined}
                           @pointermove=${items.length > 1 ? (e: PointerEvent) => this.onDragHandlePointerMove(e) : undefined}
@@ -843,7 +860,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                       </sl-tooltip>
                       <sl-tooltip content=${item.visible ? 'Hide layer' : 'Show layer'}>
                         <sl-icon-button
-                          class="visibility-toggle"
+                          class="visibility-toggle row-icon"
                           name=${item.visible ? 'eye' : 'eye-slash'}
                           label=${item.visible ? 'Hide layer' : 'Show layer'}
                           @click=${() => this.handleVisibilityToggle(item.layerId)}
@@ -864,7 +881,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                       ${isOverviewSection ? html`
                         <sl-tooltip content="Remove layer">
                           <sl-icon-button
-                            class="delete-layer"
+                            class="delete-layer row-icon"
                             name="x-circle"
                             label="Remove layer"
                             @click=${() => this.handleDeleteLayer(item.layerId)}
@@ -1364,8 +1381,10 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     // vector-tile layer can take seconds to answer, and a button that does
     // nothing for that long reads as broken. It shows a spinner meanwhile and
     // fills itself in from `resample` below.
-    this.styleDialog?.open({
+    const context: StyleDialogContext = {
       title,
+      layerMeta: runtimeMetadata ?? null,
+      engine: this.adapter?.engineId,
       layerId,
       groups: [],
       // The panel builds a paint spec; putting it on the map is the adapter's
@@ -1382,6 +1401,22 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         layerId,
         this.adapter?.store.getState().mapLayers?.[layerId] as Record<string, unknown> | undefined,
       ),
+      // The same labels the legend shows: the layer may name its columns, or
+      // refer to a shared set by name, and only this side can see the store
+      // where that set lives.
+      attributeLabels: attributeTranslations(
+        (runtimeMetadata as Record<string, unknown> | undefined)?.attributes,
+        this.adapter?.store.getState().attributeMetadata as Record<string, unknown> | undefined,
+      ),
+      // `view-change-end` and not `view-change`: the panel reads features the
+      // map has drawn, and there is nothing new to read until the map has
+      // stopped and the tiles for where it stopped have arrived.
+      watchView: (listener) => this.adapter?.events.on('view-change-end', (event: ViewChangeEndEvent) => {
+        listener({
+          west: event.bounds.sw[0], south: event.bounds.sw[1],
+          east: event.bounds.ne[0], north: event.bounds.ne[1],
+        });
+      }) ?? (() => {}),
       layers: {
         add: (config) => this.adapter?.addLayer(config as never) ?? false,
         remove: (id) => {
@@ -1390,6 +1425,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         // Labels go on as a sublayer of the layer itself, so it keeps one
         // legend row, one delete button and one style panel.
         setExtraSubLayer: (id, sublayer) => this.adapter?.setExtraSubLayer(id, sublayer) ?? Promise.resolve(false),
+        setSubLayers: (id, sublayers) => this.adapter?.setSubLayers(id, sublayers) ?? Promise.resolve(false),
+        getSubLayers: (id) => this.adapter?.getSubLayers(id) ?? null,
+        setSubLayerMetadata: (id, subLayerId, metadata) =>
+          this.adapter?.setSubLayerMetadata(id, subLayerId, metadata) ?? false,
+        canRebuild: (id) => this.adapter?.canRebuildLayer(id) ?? false,
       },
       // What the layer is made of decides which questions the panel can ask; a
       // raster has no features and no paint, so it gets its own branch.
@@ -1409,12 +1449,32 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       // not a geojson source, which is exactly the right line.
       writeFeatures: (sourceId, features) =>
         this.adapter?.setSourceData(sourceId, { type: 'FeatureCollection', features }) ?? false,
+      // Read when the font list is shown rather than now, so a basemap that
+      // finished loading after the panel opened still contributes its faces.
+      fontStacks: () => collectFontStacks(
+        Object.keys(this.adapter?.store.getState().mapLayers ?? {})
+          .map((id) => this.adapter?.getSubLayers(id) ?? null),
+      ),
       sourceControl: {
         setTiles: (sourceId, tiles) => this.adapter?.setSourceTiles(sourceId, tiles) ?? false,
+        setParams: (sourceId, params) => this.adapter?.setSourceParams(sourceId, params) ?? false,
         getTiles: (sourceId) => this.adapter?.getSourceTiles(sourceId) ?? null,
         setLayerOpacity: (opacity) => this.adapter?.setLayerOpacity(layerId, opacity),
+        getView: () => {
+          const view = this.adapter?.getViewportState();
+          if (!view) return null;
+          // The map element's own box: the probe samples what is on screen.
+          const element = this.closest('webmapx-map') ?? this.parentElement;
+          const width = (element as HTMLElement | null)?.clientWidth ?? 0;
+          const height = (element as HTMLElement | null)?.clientHeight ?? 0;
+          return width > 0 && height > 0
+            ? { ...view, size: [width, height] as [number, number] }
+            : view;
+        },
       },
-    });
+    };
+
+    this.layerStyler?.open(context);
   }
 
   /**
@@ -1471,7 +1531,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       const sourceLayer = typeof metadata?.sourceLayer === 'string' ? metadata.sourceLayer : undefined;
       if (layerType && STYLE_DIALOG_LAYER_TYPES.has(layerType)) {
         const paint = (metadata?.paint && typeof metadata.paint === 'object') ? metadata.paint as Record<string, unknown> : undefined;
-        targets.push({ id: layerId, type: layerType, sourceId, ...(paint ? { paint } : {}), ...(sourceLayer ? { sourceLayer } : {}) });
+        const layout = (metadata?.layout && typeof metadata.layout === 'object') ? metadata.layout as Record<string, unknown> : undefined;
+        targets.push({ id: layerId, type: layerType, sourceId, ...(paint ? { paint } : {}), ...(layout ? { layout } : {}), ...(sourceLayer ? { sourceLayer } : {}) });
       }
     }
     return targets;
@@ -1489,7 +1550,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       const sourceLayer = typeof sub['source-layer'] === 'string' ? sub['source-layer'] : undefined;
       if (type && id && STYLE_DIALOG_LAYER_TYPES.has(type)) {
         const paint = (sub.paint && typeof sub.paint === 'object') ? sub.paint as Record<string, unknown> : undefined;
-        targets.push({ id, type, sourceId, ...(paint ? { paint } : {}), ...(sourceLayer ? { sourceLayer } : {}) });
+        const layout = (sub.layout && typeof sub.layout === 'object') ? sub.layout as Record<string, unknown> : undefined;
+        targets.push({ id, type, sourceId, ...(paint ? { paint } : {}), ...(layout ? { layout } : {}), ...(sourceLayer ? { sourceLayer } : {}) });
       }
       this.collectStyleTargetsFromSublayers(layerId, sub.sublayers, targets);
     }

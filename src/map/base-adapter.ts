@@ -74,6 +74,29 @@ interface MarkerService {
     remove(id: string): void;
 }
 
+/**
+ * The query a request url carries, upper-cased.
+ *
+ * Only so a source repointed by url reports the same thing as one repointed by
+ * parameter: everything downstream then reads one shape.
+ */
+function requestParamsOf(url: string | undefined): Record<string, string> {
+    if (!url) return {};
+    const params: Record<string, string> = {};
+    const query = url.indexOf('?');
+    if (query === -1) return params;
+    for (const pair of url.slice(query + 1).split('&')) {
+        const eq = pair.indexOf('=');
+        if (eq === -1) continue;
+        try {
+            params[pair.slice(0, eq).toUpperCase()] = decodeURIComponent(pair.slice(eq + 1).replace(/\+/g, ' '));
+        } catch (_) {
+            params[pair.slice(0, eq).toUpperCase()] = pair.slice(eq + 1);
+        }
+    }
+    return params;
+}
+
 export abstract class BaseAdapter {
     public readonly store: MapStateStore;
     public readonly events: MapEventBus;
@@ -328,7 +351,63 @@ export abstract class BaseAdapter {
         if (config) {
             this.sourceConfigs.set(sourceId, { ...config, tiles, ...(config.url ? { url: tiles } : {}) });
         }
+        // What the urls ask for, so a reader does not have to take them apart.
+        this.notifySourceChanged(sourceId, requestParamsOf(tiles[0]));
         return true;
+    }
+
+    /**
+     * Changes request parameters on a live source.
+     *
+     * The public entry, so the store notification happens once and in one
+     * place; engines implement `engineSetSourceParams`.
+     */
+    setSourceParams(sourceId: string, params: Record<string, string | null>): boolean {
+        if (!this.engineSetSourceParams(sourceId, params)) return false;
+        this.notifySourceChanged(sourceId, params);
+        return true;
+    }
+
+    protected engineSetSourceParams(_sourceId: string, _params: Record<string, string | null>): boolean {
+        return false;
+    }
+
+    /**
+     * Tells the store that a source is now asking for something different, and
+     * what it asked for.
+     *
+     * The request itself travels, rather than a hint to go and read it: an
+     * engine does not necessarily report a change the instant it accepts one —
+     * MapLibre reports a new `STYLES` about a second after `setTiles` returns —
+     * so anything that reacted by reading the engine back saw the *previous*
+     * request. That is exactly one step behind, which is how a legend came to
+     * show the style chosen before last.
+     */
+    protected notifySourceChanged(sourceId: string, params?: Record<string, string | null>): void {
+        const current = this.store.getState().mapLayers ?? {};
+        let changed = false;
+        const next = { ...current };
+        for (const [layerId, entry] of Object.entries(current)) {
+            const record = entry as unknown as Record<string, unknown>;
+            if (record?.sourceId !== sourceId) continue;
+            const merged: Record<string, string> = {
+                ...(record.sourceParams && typeof record.sourceParams === 'object'
+                    ? record.sourceParams as Record<string, string>
+                    : {}),
+            };
+            for (const [name, value] of Object.entries(params ?? {})) {
+                const key = name.toUpperCase();
+                if (value === null) delete merged[key];
+                else merged[key] = value;
+            }
+            next[layerId] = {
+                ...record,
+                sourceParams: merged,
+                sourceRevision: Number(record.sourceRevision ?? 0) + 1,
+            } as typeof entry;
+            changed = true;
+        }
+        if (changed) this.store.dispatch({ mapLayers: next }, 'UI');
     }
 
     protected engineSetSourceTiles(_sourceId: string, _tiles: string[]): boolean {
@@ -567,21 +646,75 @@ export abstract class BaseAdapter {
      * place in the stack is preserved by re-adding it before whatever sat above.
      */
     async setExtraSubLayer(layerId: string, sublayer: Record<string, unknown> | null): Promise<boolean> {
+        const current = this.getSubLayers(layerId);
+        if (!current) return false;
+        const kept = current.filter((entry) => (entry as { id?: string }).id !== sublayer?.id
+            && !String((entry as { id?: string }).id ?? '').endsWith(EXTRA_SUBLAYER_SUFFIX));
+        return this.setSubLayers(layerId, sublayer ? [...kept, sublayer] : kept);
+    }
+
+    /**
+     * The sublayers a layer is drawing with, as the styler's style list reads
+     * them: the config it was added with, with the paint the map is actually
+     * using. `null` when the layer is not one this adapter added.
+     */
+    getSubLayers(layerId: string): Array<Record<string, unknown>> | null {
+        const stored = this.layerConfigStore.get(layerId);
+        const config = stored?.config as Record<string, unknown> | undefined;
+        if (!config) return null;
+        return this.originalSubLayers(config, layerId);
+    }
+
+    /**
+     * Whether this layer can be rebuilt from the config it was added with.
+     *
+     * A layer whose sublayers come from a **remote style document** cannot: its
+     * config carries a `url` and an empty `layers`, so re-adding it from a
+     * sublayer list would either drop every sublayer or invent a composite the
+     * style server knows nothing about. The paint of such a layer is still
+     * editable in place (`updateLayerStyle`) — it is only the *list* that is
+     * not ours to write.
+     */
+    canRebuildLayer(layerId: string): boolean {
+        const config = this.layerConfigStore.get(layerId)?.config as Record<string, unknown> | undefined;
+        if (!config) return false;
+        // The test is whether the config *owns* its sublayers, not what it calls
+        // itself: a remote style arrives as a `url` and an empty `layers`, and
+        // by the time it is on the map its type may read as whatever the
+        // resolved style draws. Asking about the type let a basemap of 111
+        // sublayers offer an Add button that would have emptied it.
+        if (typeof config.url !== 'string') return true;
+        return Array.isArray(config.layers) && config.layers.length > 0;
+    }
+
+    /**
+     * Replaces a layer's whole sublayer list.
+     *
+     * `setExtraSubLayer` can only ever hold one extra sublayer, which is all
+     * labels needed. A style list is several styles over one source — a fill
+     * and its own outline, a casing pair, one entry per rule — so adding,
+     * deleting and reordering all need the list itself to be writable. Same
+     * mechanism either way: the layer is rebuilt as a composite and re-added
+     * where it stood, so its place in the stack and its legend row survive.
+     */
+    async setSubLayers(layerId: string, sublayers: Array<Record<string, unknown>>): Promise<boolean> {
         const stored = this.layerConfigStore.get(layerId);
         const config = stored?.config as Record<string, unknown> | undefined;
         if (!config) return false;
-
-        const original = this.originalSubLayers(config, layerId);
-        const kept = original.filter((entry) => (entry as { id?: string }).id !== sublayer?.id
-            && !String((entry as { id?: string }).id ?? '').endsWith(EXTRA_SUBLAYER_SUFFIX));
-        const layers = sublayer ? [...kept, sublayer] : kept;
+        // Refused rather than attempted: a remote style's sublayers are not in
+        // the config, so rebuilding from them would replace a working basemap
+        // with an empty one.
+        if (!this.canRebuildLayer(layerId)) return false;
+        // A layer with no sublayers at all would be removed and never re-added,
+        // taking its legend row with it and leaving nothing to undo it from.
+        if (sublayers.length === 0) return false;
 
         const composite: Record<string, unknown> = {
             ...config,
             type: 'style',
             version: 8,
             sources: (config.sources && typeof config.sources === 'object') ? config.sources : {},
-            layers,
+            layers: sublayers,
         };
         delete composite.paint;
         delete composite.layout;
@@ -698,6 +831,52 @@ export abstract class BaseAdapter {
         const applied = this.getLogicalLayerExecutor().updateLayerStyle(layerId, subLayerId, partialPaint);
         if (applied) this.mirrorPaintToStore(layerId, subLayerId, partialPaint);
         return applied;
+    }
+
+    /**
+     * A sublayer's name and legend wording, written without a rebuild.
+     *
+     * Two places, because they answer two readers: `store.mapLayers` is what
+     * the legend draws from, and the kept config is what `getSubLayers` and
+     * every later rebuild start from — updating only the store would make the
+     * next rebuild quietly put the old name back.
+     */
+    setSubLayerMetadata(layerId: string, subLayerId: string, metadata: Record<string, unknown> | null): boolean {
+        const withMetadata = (sub: Record<string, unknown>): Record<string, unknown> => {
+            const { metadata: _previous, ...rest } = sub;
+            return metadata ? { ...rest, metadata } : rest;
+        };
+
+        const current = this.store.getState().mapLayers ?? {};
+        const entry = current[layerId] as Record<string, unknown> | undefined;
+        const sublayers = Array.isArray(entry?.sublayers) ? entry!.sublayers as Record<string, unknown>[] : null;
+        // Only a composite: a plain layer's `metadata` is the *layer's*, and
+        // renaming a style there would rename the layer.
+        if (!entry || !sublayers?.some((sub) => String(sub.id ?? '') === subLayerId)) return false;
+
+        this.store.dispatch({
+            mapLayers: {
+                ...current,
+                [layerId]: {
+                    ...entry,
+                    sublayers: sublayers.map((sub) => (String(sub.id ?? '') === subLayerId ? withMetadata(sub) : sub)),
+                },
+            },
+        }, 'UI');
+
+        const stored = this.layerConfigStore.get(layerId);
+        const config = stored?.config as Record<string, unknown> | undefined;
+        if (stored && config && Array.isArray(config.layers)) {
+            this.layerConfigStore.set(layerId, {
+                ...stored,
+                config: {
+                    ...config,
+                    layers: (config.layers as Record<string, unknown>[])
+                        .map((sub) => (String(sub.id ?? '') === subLayerId ? withMetadata(sub) : sub)),
+                },
+            });
+        }
+        return true;
     }
 
     private mirrorPaintToStore(layerId: string, subLayerId: string, partialPaint: Record<string, unknown>): void {
@@ -1029,8 +1208,50 @@ export abstract class BaseAdapter {
         return this.getCore().getSourceData(sourceId) ?? this.getLogicalLayerExecutor().getSourceData(sourceId);
     }
 
+    /**
+     * Replaces a source's features, and records that in the layer config.
+     *
+     * The record is the point. `layerConfigStore` is what a layer is rebuilt
+     * from — `setSubLayers` re-adds it as a composite — and without this the
+     * config still held the features as they were when the layer was *added*,
+     * so any later write was thrown away by an unrelated change: the styler's
+     * neighbour colouring writes a class index per feature, and adding or
+     * deleting a style reverted the map to one grey fallback. Drawn features,
+     * pushed into an empty source vertex by vertex, would go the same way.
+     *
+     * Mirrored here rather than read back from the engine when rebuilding: the
+     * generic layer says what the map holds, and asking the engine to confirm
+     * it is how the two drift apart in the first place. Same rule as the paint
+     * and visibility mirrors above.
+     */
     setSourceData(sourceId: string, data: GeoJSON.FeatureCollection): boolean {
-        return this.getLogicalLayerExecutor().setSourceData(sourceId, data);
+        const applied = this.getLogicalLayerExecutor().setSourceData(sourceId, data);
+        if (applied) this.recordSourceData(sourceId, data);
+        return applied;
+    }
+
+    /** Writes the new features into every stored layer config that declares this source. */
+    private recordSourceData(sourceId: string, data: GeoJSON.FeatureCollection): void {
+        for (const [layerId, stored] of this.layerConfigStore) {
+            const config = (stored as { config?: unknown }).config as Record<string, unknown> | undefined;
+            const sources = config?.sources;
+            if (!config || !sources || typeof sources !== 'object') continue;
+
+            let changed = false;
+            const updated: Record<string, unknown> = { ...(sources as Record<string, unknown>) };
+            for (const [key, value] of Object.entries(updated)) {
+                // A composite's source is registered as `<layerId>:<key>`; a
+                // plain layer's keeps the key it was declared with.
+                if (sourceId !== key && sourceId !== `${layerId}:${key}`) continue;
+                if (!value || typeof value !== 'object') continue;
+                if ((value as { type?: unknown }).type !== 'geojson') continue;
+                updated[key] = { ...(value as Record<string, unknown>), data };
+                changed = true;
+            }
+            if (changed) {
+                this.layerConfigStore.set(layerId, { ...stored, config: { ...config, sources: updated } });
+            }
+        }
     }
 
     queryLayerFeatures(layerId: string, options?: QueryLayerFeaturesOptions): Promise<GeoJSON.FeatureCollection> {

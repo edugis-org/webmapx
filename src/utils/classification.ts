@@ -25,11 +25,18 @@
  * - **manual** — the breaks the author chose. Every other method is a starting
  *   point for this one.
  *
- * Rounding is **not** a method but an option on all of them (`rounded`): "0–20,
- * 20–40" beats "0–19.7381" on a legend a child has to read, and that is just as
- * true of natural breaks as of equal intervals. It used to be a method of its
- * own ("pretty"), which meant asking for readable numbers also meant giving up
- * on choosing how the data was divided.
+ * **Breaks are tidied only where that changes nothing** (`tidyBreaks`). "10 –
+ * 15" beats "9.7 – 14.94" to a child reading it, and the two are the same
+ * classification as long as no value lies between the old break and the new
+ * one — so a break is moved only inside the empty gap it already sits in, and
+ * left alone when that gap holds no tidier number. Snapping to a round number
+ * regardless of the data is what this replaced: measured on building years it
+ * put the breaks on century boundaries, so nine classes came back as five, each
+ * holding a century however the years were really distributed.
+ *
+ * What is left untidy after that is the legend's to *display* well, not this
+ * module's to move: the legend prints the breaks it is given, to as many digits
+ * as it takes to keep neighbours apart.
  */
 
 export type ClassificationMethod =
@@ -121,8 +128,6 @@ export function classifyNumeric(
         classCount?: number;
         breaks?: readonly number[];
         missing?: number;
-        /** Snap the breaks to numbers a person would say out loud. */
-        rounded?: boolean;
     },
 ): NumericClassification {
     const sorted = [...values].filter(Number.isFinite).sort((a, b) => a - b);
@@ -142,10 +147,9 @@ export function classifyNumeric(
     const raw = options.method === 'manual'
         ? [...(options.breaks ?? [])].map(Number).filter(Number.isFinite).sort((a, b) => a - b)
         : innerBreaks(sorted, classCount, options.method, min, max);
-    // Rounding applies to whatever method produced the breaks: a legend is read
-    // by a person whichever way the data was divided. Manual breaks are the
-    // author's own numbers and are left alone.
-    const breaks = options.rounded && options.method !== 'manual' ? roundBreaks(raw, min, max) : raw;
+    // Tidied, but only within the gap each break sits in — the author's own
+    // numbers are left exactly as they are.
+    const breaks = options.method === 'manual' ? raw : tidyBreaks(sorted, raw);
 
     return {
         method: options.method,
@@ -212,39 +216,134 @@ function geometricBreaks(sorted: readonly number[], classCount: number, min: num
 }
 
 /**
- * The breaks, snapped to numbers a person would say out loud — 1, 2, 2.5 or 5
- * times a power of ten, the same family of steps an axis uses.
+ * The same division of the data, written in numbers a person would say.
  *
- * Each break is rounded on its own scale rather than to one shared step, since
- * the methods worth rounding produce unevenly spaced breaks: rounding 30, 82,
- * 106, 216 to a single step of 50 would throw away what quantile just worked
- * out. A break that rounds onto its neighbour, or out of the data's range, is
- * dropped — an empty class is a worse legend than an unrounded number.
+ * "9.7 – 14.94" is ugly where "10 – 15" would do, and the two are the *same
+ * classification* as long as no value lies between the old break and the new
+ * one. That is the whole rule here, and it is what makes this safe where
+ * snapping to a round number was not: a break is moved only inside the gap it
+ * already sits in — above the largest value below it, and no higher than the
+ * smallest value at or above it — so every feature stays in the class the
+ * method put it in. Nothing is moved when the gap holds no tidier number.
+ *
+ * (Earlier this rounded to the scale of the break itself, regardless of the
+ * data. Measured on building years that put the breaks on century boundaries:
+ * nine classes came back as five, each holding a century however the years were
+ * really distributed.)
+ *
+ * The gap is bounded by *data*, not by the neighbouring breaks, so a tidier
+ * number cannot cross a neighbour: it would have to pass every value between
+ * them first.
+ *
+ * One caveat, and it belongs to the sample rather than to this function: on a
+ * viewport-limited source the gap is only empty in the data the map has drawn.
+ * A feature off-screen with a value between 9.7 and 10 would have been on the
+ * other side of the tidied break — the same sampling caveat that governs the
+ * breaks themselves.
  */
-function roundBreaks(breaks: readonly number[], min: number, max: number): number[] {
-    const edges = [min, ...breaks, max];
-    const snapped = breaks.map((value, index) => {
-        if (!Number.isFinite(value) || value === 0) return value;
-        // Rounded on the scale of the break itself — 108 to 100, 1711 to 1500 —
-        // not on the scale of the gap beside it. A gap-sized step is what a
-        // ruler uses, and it is far too coarse where the breaks are unevenly
-        // spaced: on geometric intervals it moved the first break by most of
-        // its own value and rounded the second onto it, which is one class
-        // fewer than the student asked for.
-        const magnitude = 10 ** Math.floor(Math.log10(Math.abs(value)));
-        const gap = Math.min(value - edges[index], edges[index + 2] - value);
-        // Never round by more than the room the break has: a fine step keeps
-        // tightly packed breaks apart, a coarse one reads better.
-        const step = gap > 0 && magnitude / 2 > gap ? magnitude / 10 : magnitude / 2;
-        return round(Math.round(value / step) * step, step);
+export function tidyBreaks(sorted: readonly number[], breaks: readonly number[]): number[] {
+    if (sorted.length === 0) return [...breaks];
+    const edges = [sorted[0], ...breaks, sorted[sorted.length - 1]];
+    const finest = dataPrecision(sorted);
+    return breaks.map((value, index) => {
+        if (!Number.isFinite(value)) return value;
+        // Two limits, and both are needed. The gap is what keeps the
+        // classification identical; the fraction of the class width is what
+        // keeps the break *representative* — 25 sitting in an empty stretch
+        // could legally become 50, which is a break on top of its neighbour and
+        // equal intervals that are no longer equal.
+        const room = MAX_TIDY_SHIFT * Math.min(value - edges[index], edges[index + 2] - value);
+        const low = Math.max(largestBelow(sorted, value) ?? -Infinity, value - room);
+        const high = Math.min(smallestAtOrAbove(sorted, value) ?? Infinity, value + room);
+        // Open below, closed above: a break equal to a value keeps that value
+        // in the upper class, which is how `countInto` reads it.
+        return tidiestWithin(low, high, value, finest);
     });
-    return dedupe(snapped).filter((value) => value > min && value < max);
+}
+
+/**
+ * The smallest step the data itself is written in — 1 for whole numbers, 0.01
+ * for two decimals, and so on.
+ *
+ * This is the only thing here that knows anything about what the numbers *are*,
+ * and it knows it by measuring rather than by guessing: nothing in a column of
+ * numbers says whether they are years, metres, degrees or euros, but a column
+ * whose every value is whole cannot contain 1722.5, so a break there is written
+ * in a precision the data does not have. Capped at six decimals, past which the
+ * distinction stops meaning anything.
+ */
+function dataPrecision(sorted: readonly number[]): number {
+    for (let decimals = 0; decimals < 6; decimals++) {
+        const step = 10 ** -decimals;
+        if (sorted.every((value) => Math.abs(value / step - Math.round(value / step)) < 1e-9)) {
+            return step;
+        }
+    }
+    return 10 ** -6;
+}
+
+/**
+ * How far a break may be moved, as a fraction of the room between it and its
+ * neighbours. Small on purpose: this is a nicer spelling of the same break, not
+ * a second opinion about where it belongs.
+ */
+const MAX_TIDY_SHIFT = 0.25;
+
+/** The tidiest multiple of a power-of-ten step in `(low, high]`, or `value` if none is. */
+function tidiestWithin(low: number, high: number, value: number, finest: number): number {
+    if (!(high > low)) return value;
+    // Coarsest first — 100 beats 50 beats 25 beats 10 — because the coarser
+    // number is the one a reader takes in at a glance. Starting above the
+    // break's own magnitude costs nothing, since no multiple of it can land
+    // inside the window, and the search stops at the precision the data is
+    // written in.
+    const start = Math.ceil(Math.log10(Math.max(Math.abs(value), high - low))) + 1;
+    const stop = Math.floor(Math.log10(finest));
+    for (let exponent = start; exponent >= stop; exponent--) {
+        const decade = 10 ** exponent;
+        for (const multiple of [1, 0.5, 0.25]) {
+            const step = decade * multiple;
+            const candidate = round(Math.round(value / step) * step, step);
+            // Written in the precision the data is written in. A step of 2.5 is
+            // coarser than 1, so it is tried first, and on a column of whole
+            // numbers it offers 1722.5 where 1723 was available — a number that
+            // column cannot hold. The test belongs on the candidate, not on the
+            // step: it is the *result* that has to be a value the data could
+            // have had. This is the only thing here that needs to know anything
+            // about the numbers, and it measures rather than assumes.
+            if (Math.abs(candidate / finest - Math.round(candidate / finest)) > 1e-9) continue;
+            if (candidate > low && candidate <= high) return candidate;
+        }
+    }
+    return value;
 }
 
 /** Guards against 0.30000000000000004 appearing on a legend. */
 function round(value: number, step: number): number {
     const decimals = Math.max(0, -Math.floor(Math.log10(step)) + 1);
     return Number(value.toFixed(Math.min(12, decimals)));
+}
+
+function largestBelow(sorted: readonly number[], value: number): number | null {
+    let low = 0;
+    let high = sorted.length;
+    while (low < high) {
+        const mid = (low + high) >> 1;
+        if (sorted[mid] < value) low = mid + 1;
+        else high = mid;
+    }
+    return low > 0 ? sorted[low - 1] : null;
+}
+
+function smallestAtOrAbove(sorted: readonly number[], value: number): number | null {
+    let low = 0;
+    let high = sorted.length;
+    while (low < high) {
+        const mid = (low + high) >> 1;
+        if (sorted[mid] < value) low = mid + 1;
+        else high = mid;
+    }
+    return low < sorted.length ? sorted[low] : null;
 }
 
 function quantileBreaks(sorted: readonly number[], classCount: number): number[] {
