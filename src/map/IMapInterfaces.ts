@@ -82,6 +82,32 @@ export interface LayerInsertOptions {
     afterLayerId?: string;
 }
 
+/**
+ * Everything needed to bring a just-removed layer back exactly as it was:
+ * config (with any live restyle merged in), the GeoJSON data of every source
+ * it draws, the store's UI-only metadata (visibility, label, …), and where it
+ * sat in the stack. Captured by `captureLayerSnapshot` right before a
+ * `removeLayer` call, replayed by `restoreLayerSnapshot`.
+ */
+export interface LayerRemovalSnapshot {
+    layerId: string;
+    config: unknown;
+    /** GeoJSON data captured per source id, for every GeoJSON source the layer draws. */
+    sourceData: Record<string, GeoJSON.FeatureCollection>;
+    /**
+     * Serialized source config per source id, for a source `config` does not carry inline
+     * (a plain, non-composite layer only references its source by id — the source itself has
+     * to be re-registered before the layer can be re-added, since nothing else keeps it alive
+     * once the layer using it is removed). Composite layers carry their sources inline in
+     * `config.sources` already, so their entries here go unused on restore.
+     */
+    sourceConfigs: Record<string, Record<string, unknown>>;
+    /** Shallow copy of the layer's `store.mapLayers` entry at capture time. */
+    entry: Record<string, unknown>;
+    /** The layer id that sat directly above this one, or null if it was on top. */
+    beforeLayerId: string | null;
+}
+
 /** Options accepted by `setViewport`. */
 export interface ViewportChangeOptions {
     /** False writes the camera instantly instead of animating towards it. Default true. */
@@ -284,6 +310,15 @@ export interface IMap {
     updateLayerStyle(layerId: string, subLayerId: string, partialPaint: Record<string, unknown>): boolean;
     /** Returns the original layer config for every currently active layer, keyed by logical layer id. */
     getLayerConfigs(): Map<string, unknown>;
+
+    /** Captures everything needed to restore a layer, for a `removeLayer` call about to
+     *  happen — see `LayerRemovalSnapshot`. Null if the layer isn't tracked (nothing to
+     *  restore). Must be called *before* `removeLayer`. */
+    captureLayerSnapshot(layerId: string): LayerRemovalSnapshot | null;
+
+    /** Replays a `captureLayerSnapshot` result: re-adds the layer, its source data, and its
+     *  visibility/opacity/position/UI metadata. */
+    restoreLayerSnapshot(snapshot: LayerRemovalSnapshot): Promise<boolean>;
 
     /**
      * Adds a sublayer to a layer (or removes it again with `null`), rebuilding

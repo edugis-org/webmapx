@@ -15,7 +15,7 @@
 import { MapStateStore } from '../store/map-state-store';
 import { registerMapLayer, unregisterMapLayer, reorderMapLayers } from './map-layer-registry';
 import type {
-    IMapCore, ISource, LayerInsertOptions, MarkerOptions,
+    IMapCore, ISource, LayerInsertOptions, LayerRemovalSnapshot, MarkerOptions,
     NavigationCapabilities, QueryLayerFeaturesOptions, ViewportChangeOptions,
 } from './IMapInterfaces';
 import type { CompositeStyleLayerConfig, MapStyle } from '../config/types';
@@ -663,6 +663,127 @@ export abstract class BaseAdapter {
             result.set(id, entry.config);
         }
         return result;
+    }
+
+    /**
+     * The source-id candidates a layer draws with, tried in order — a composite's
+     * sublayer names its source by local key, the engine registers it as
+     * `<layerId>:<key>`. Mirrors `getLayerSourceRefs` in `webmapx-layer-overview.ts`
+     * (kept duplicated rather than shared, since components must not be imported here).
+     */
+    private layerSourceCandidates(layerId: string, entry: Record<string, unknown>): string[][] {
+        if (Array.isArray(entry.sublayers) && entry.sublayers.length > 0) {
+            const keys = new Set<string>();
+            for (const sub of entry.sublayers as Record<string, unknown>[]) {
+                if (typeof sub.source === 'string') keys.add(sub.source);
+            }
+            return [...keys].map((key) => [`${layerId}:${key}`, key]);
+        }
+        if (typeof entry.sourceId === 'string') return [[entry.sourceId]];
+        return [];
+    }
+
+    /** A layer's added-with config, with the store's live paint merged in — same idea as
+     *  `originalSubLayers`, but returning the layer's own shape rather than forcing it
+     *  into a composite, since this is for putting the layer straight back, not editing it. */
+    private configWithLiveStyle(config: Record<string, unknown>, entry: Record<string, unknown>): Record<string, unknown> {
+        if (Array.isArray(config.layers)) {
+            const live = Array.isArray(entry.sublayers) ? entry.sublayers as Record<string, unknown>[] : null;
+            if (!live) return config;
+            const layers = (config.layers as Record<string, unknown>[]).map((sub) => {
+                const match = live.find((s) => s.id === sub.id);
+                const paint = match?.paint;
+                return paint && typeof paint === 'object' ? { ...sub, paint } : sub;
+            });
+            return { ...config, layers };
+        }
+        const paint = entry.paint;
+        return paint && typeof paint === 'object' ? { ...config, paint } : config;
+    }
+
+    /**
+     * Snapshots a layer right before it is removed, so a caller (the legend's
+     * undo row) can bring it back exactly as it was. Must run before `removeLayer`,
+     * which drops the config this reads from `layerConfigStore`.
+     */
+    captureLayerSnapshot(layerId: string): LayerRemovalSnapshot | null {
+        const baseConfig = this.layerConfigStore.get(layerId)?.config as Record<string, unknown> | undefined;
+        const entry = (this.store.getState().mapLayers ?? {})[layerId] as Record<string, unknown> | undefined;
+        if (!baseConfig || !entry) return null;
+
+        const config = this.configWithLiveStyle(baseConfig, entry);
+
+        const sourceData: Record<string, GeoJSON.FeatureCollection> = {};
+        const sourceConfigs: Record<string, Record<string, unknown>> = {};
+        for (const candidates of this.layerSourceCandidates(layerId, entry)) {
+            for (const sourceId of candidates) {
+                const data = this.getSourceData(sourceId);
+                if (data && typeof data === 'object') {
+                    sourceData[sourceId] = data as GeoJSON.FeatureCollection;
+                    const sourceConfig = this.getSourceConfig(sourceId);
+                    if (sourceConfig) sourceConfigs[sourceId] = sourceConfig;
+                    break;
+                }
+            }
+        }
+
+        const ids = Object.keys(this.store.getState().mapLayers ?? {});
+        const beforeLayerId = ids[ids.indexOf(layerId) + 1] ?? null;
+
+        return { layerId, config, sourceData, sourceConfigs, entry: { ...entry }, beforeLayerId };
+    }
+
+    /** Replays a `captureLayerSnapshot` result: re-adds the layer with its data, then
+     *  restores visibility/opacity (engine + store) and the rest of the captured
+     *  UI-only metadata, then puts it back exactly where it sat in the stack. */
+    async restoreLayerSnapshot(snapshot: LayerRemovalSnapshot): Promise<boolean> {
+        // A composite (`type: 'style'`) layer carries its sources inline in `config.sources`
+        // and re-registers them itself on `addLayer` — pre-registering those too would be
+        // redundant. A plain layer only references its source by id, and nothing keeps that
+        // source alive once the layer using it is gone, so it has to be recreated here first.
+        const config = snapshot.config as Record<string, unknown>;
+        const inlineKeys = Array.isArray(config.layers) && config.sources && typeof config.sources === 'object'
+            ? new Set(Object.keys(config.sources as object))
+            : new Set<string>();
+        const prefix = `${snapshot.layerId}:`;
+        for (const [sourceId, sourceConfig] of Object.entries(snapshot.sourceConfigs)) {
+            const localKey = sourceId.startsWith(prefix) ? sourceId.slice(prefix.length) : sourceId;
+            if (inlineKeys.has(localKey)) continue;
+            this.addSource(sourceId, sourceConfig);
+        }
+
+        const options: LayerInsertOptions | undefined = snapshot.beforeLayerId
+            ? { beforeLayerId: snapshot.beforeLayerId }
+            : undefined;
+        const added = await this.addLayer(snapshot.config, options);
+        if (!added) return false;
+
+        for (const [sourceId, data] of Object.entries(snapshot.sourceData)) {
+            // `getSource(id).setData` rather than `setSourceData`: a plain layer's source was
+            // just re-created through the raw `addSource` above, which registers it directly
+            // under `id` on the engine core without going through the logical-layer executor's
+            // own id translation — the same reason `webmapx-map.ts`'s per-vertex draw updates
+            // use `getSource(id)?.setData` instead of `setSourceData` too.
+            this.getSource(sourceId)?.setData(data);
+        }
+
+        if (typeof snapshot.entry.visible === 'boolean') {
+            this.setLayerVisibility(snapshot.layerId, snapshot.entry.visible);
+        }
+        if (typeof snapshot.entry.transparency === 'number' && snapshot.entry.transparency > 0) {
+            this.setLayerOpacity(snapshot.layerId, (100 - snapshot.entry.transparency) / 100);
+        }
+
+        const current = this.store.getState().mapLayers ?? {};
+        const fresh = current[snapshot.layerId];
+        if (fresh) {
+            this.store.dispatch({
+                mapLayers: { ...current, [snapshot.layerId]: { ...fresh, ...snapshot.entry } },
+            }, 'UI');
+        }
+
+        this.moveLayer(snapshot.layerId, snapshot.beforeLayerId);
+        return true;
     }
 
     /** Returns stored layer configs in current stack order (bottom to top), then clears the store. */

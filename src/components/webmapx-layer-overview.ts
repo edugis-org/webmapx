@@ -3,8 +3,9 @@ import { collectAttributeInfo } from '../utils/attribute-info';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
-import type { IMap } from '../map/IMapInterfaces';
+import type { IMap, LayerRemovalSnapshot } from '../map/IMapInterfaces';
 import type { LayerAddEvent, LayerRemoveEvent } from '../store/map-events';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
 import './webmapx-layer-legend';
 import './webmapx-layer-info-dialog';
 import './webmapx-layer-style-dialog';
@@ -140,6 +141,18 @@ export interface LayerPanelItem {
   beingEdited: boolean;
 }
 
+/** One queued "Undo" row — see `pendingUndos`. `id` is a local counter, not the
+ *  layer id: a restored-then-redeleted layer reuses the same layer id, and this
+ *  must stay unambiguous regardless. */
+interface PendingUndoEntry {
+  id: number;
+  layerId: string;
+  label: string;
+  snapshot: LayerRemovalSnapshot;
+  beforeLayerId: string | null;
+  timeoutId: number;
+}
+
 const STYLE_DIALOG_LAYER_TYPES = new Set(['circle', 'symbol', 'label', 'line', 'fill', 'fill-extrusion']);
 
 interface SourceLayerTarget extends LayerStyleTarget {
@@ -173,6 +186,15 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   @state() private hoveredTransparencySliderLayerId: string | null = null;
   @state() private dropTargetLayerId: string | null = null;
   @state() private dropTargetPosition: 'above' | 'below' | null = null;
+  // Every just-removed layer, kept around long enough to undo its own removal —
+  // see handleDeleteLayer/handleUndoDeleteLayer. Unbounded: deleting several
+  // layers in a row (or in quick succession by accident) queues one undo slot
+  // each, rather than only the most recent one replacing the others. Each
+  // entry clears itself (and its own row disappears) independently when its
+  // timer fires or Undo is clicked for it.
+  @state() private pendingUndos: PendingUndoEntry[] = [];
+  private pendingUndoCounter = 0;
+  private static readonly UNDO_WINDOW_MS = 8000;
   // Lazily-computed and cached extents — geojsonExtent() walks every coordinate, so it's
   // only run when the user clicks "zoom to layer", and per-source so composite layers
   // sharing a source don't recompute it for each sublayer.
@@ -315,6 +337,59 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
          in .layer-details lines up with, except .layer-details-actions,
          which breaks back out of it (see below). */
       --details-indent: calc(var(--webmapx-font-size-md, 0.95rem) + var(--webmapx-space-xs, 0.25rem));
+    }
+
+    /* The temporary row a removed layer leaves behind — muted and dashed so it
+       reads as "gone, but recoverable" rather than an active layer. A long
+       name is cut off with an ellipsis rather than wrapping or pushing Undo
+       out of the row. */
+    .undo-row {
+      display: flex;
+      align-items: center;
+      gap: var(--webmapx-space-sm, 0.625rem);
+      padding: var(--webmapx-space-xs, 0.35rem) var(--webmapx-space-sm, 0.625rem);
+      border: 1px dashed var(--color-border, #d5dce3);
+      border-radius: var(--webmapx-radius-lg, 0.75rem);
+      background: transparent;
+      box-sizing: border-box;
+    }
+
+    /* Flush against .undo-row's own padding — a plain left margin, not lined up
+       with a real row's title (which sits past its drag-handle/visibility icons). */
+    .undo-row-label {
+      display: flex;
+      align-items: center;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .undo-row-text {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    /* "DELETED:" — .section-title's micro-label treatment (uppercase, muted),
+       scaled down and tighter so it reads as a tag on the line, not a heading. */
+    .undo-row-prefix {
+      font-size: calc(var(--webmapx-label-size, var(--webmapx-font-size-sm, 0.75rem)) * 0.9);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      text-transform: var(--webmapx-label-transform, uppercase);
+      color: var(--webmapx-legend-title-color, var(--color-text-muted, #6b7681));
+    }
+
+    /* The layer name itself, in .layer-label's own size — grey rather than
+       .layer-label's full text colour is the only thing that marks it as gone. */
+    .undo-row-name {
+      font-size: var(--webmapx-font-size-md, 0.95rem);
+      color: var(--color-text-muted, #6b7681);
+    }
+
+    .undo-row sl-button {
+      flex: 0 0 auto;
     }
 
     .layer-row {
@@ -744,6 +819,14 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     this.unsubscribeLayerRemove?.();
     this.unsubscribeLayerAdd = null;
     this.unsubscribeLayerRemove = null;
+    this.clearAllPendingUndos();
+  }
+
+  /** Clears every queued undo row and its timer — used when the map detaches
+   *  and when "Clear all layers" makes them all moot at once. */
+  private clearAllPendingUndos(): void {
+    for (const entry of this.pendingUndos) window.clearTimeout(entry.timeoutId);
+    this.pendingUndos = [];
   }
 
   protected updated(changed: PropertyValues): void {
@@ -785,7 +868,61 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     `;
   }
 
+  /**
+   * Groups queued undo rows by what they render immediately after — a real
+   * layer's id, another queued row's id (deleting two adjacent layers chains
+   * their ghosts, in either deletion order — see the walk below), or `null`
+   * for the top of the stack. A row's own recorded `beforeLayerId` is only
+   * trusted when it still resolves to something on screen (live or queued);
+   * otherwise its old neighbour is gone some other way (e.g. "Clear all"
+   * would have taken this queue with it, so this is a defensive fallback,
+   * not a real path) and it renders at the top rather than nowhere.
+   */
+  private ghostsByAnchor(items: LayerPanelItem[]): Map<string | null, PendingUndoEntry[]> {
+    const liveIds = new Set(items.map((i) => i.layerId));
+    const queuedIds = new Set(this.pendingUndos.map((g) => g.layerId));
+    const map = new Map<string | null, PendingUndoEntry[]>();
+    for (const entry of this.pendingUndos) {
+      const anchor = entry.beforeLayerId !== null && (liveIds.has(entry.beforeLayerId) || queuedIds.has(entry.beforeLayerId))
+        ? entry.beforeLayerId
+        : null;
+      const list = map.get(anchor) ?? [];
+      list.push(entry);
+      map.set(anchor, list);
+    }
+    return map;
+  }
+
+  /** Renders whatever is queued to appear right after `anchor` (a real layer's id, or
+   *  null for the top), then recurses into what's queued after each of those in turn —
+   *  a chain, for when adjacent layers were each deleted while the other's row was
+   *  still showing. */
+  private renderGhostsAt(anchor: string | null, byAnchor: Map<string | null, PendingUndoEntry[]>): unknown {
+    const ghosts = byAnchor.get(anchor);
+    if (!ghosts || ghosts.length === 0) return null;
+    return ghosts.map((entry) => html`
+      ${this.renderUndoRow(entry)}
+      ${this.renderGhostsAt(entry.layerId, byAnchor)}
+    `);
+  }
+
+  private renderUndoRow(entry: PendingUndoEntry) {
+    return html`
+      <div class="undo-row" data-layer-id=${entry.layerId}>
+        <div class="undo-row-label">
+          <span class="undo-row-text"
+            ><span class="undo-row-prefix">Deleted:</span
+            ><span class="undo-row-name"> ${splitLayerTitle(entry.label).name}</span
+          ></span>
+        </div>
+        <sl-button size="small" variant="text" @click=${() => this.handleUndoDeleteLayer(entry.id)}>Undo</sl-button>
+      </div>
+    `;
+  }
+
   private renderSection(title: string, items: LayerPanelItem[], emptyText: string, isOverviewSection = false) {
+    // Only the overview section has deletable (and so undoable) rows.
+    const byAnchor = isOverviewSection ? this.ghostsByAnchor(items) : null;
     return html`
       <section class="section">
         <div class="section-header-row ${isOverviewSection ? 'sticky' : ''}">
@@ -839,6 +976,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
         ${items.length > 0
           ? html`
               <div class="layer-list">
+                ${byAnchor ? this.renderGhostsAt(null, byAnchor) : null}
                 ${items.map((item, index) => html`
                   ${this.dropTargetLayerId === item.layerId && this.dropTargetPosition === 'above'
                     ? html`<div class="drop-indicator"></div>`
@@ -982,10 +1120,13 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                   ${this.dropTargetLayerId === item.layerId && this.dropTargetPosition === 'below'
                     ? html`<div class="drop-indicator"></div>`
                     : null}
+                  ${byAnchor ? this.renderGhostsAt(item.layerId, byAnchor) : null}
                 `)}
               </div>
             `
-          : html`<div class="empty">${emptyText}</div>`}
+          : byAnchor && byAnchor.size > 0
+            ? html`<div class="layer-list">${this.renderGhostsAt(null, byAnchor)}</div>`
+            : html`<div class="empty">${emptyText}</div>`}
       </section>
     `;
   }
@@ -1638,11 +1779,40 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     if (extent) this.adapter?.fitBounds(extent);
   }
 
+  /**
+   * Every deletion here gets an undo row, not just a drawn/copied layer's: a
+   * plain catalog layer can carry just as much invested work once it's been
+   * restyled per attribute or given a label (`setExtraSubLayer`), and
+   * "re-add it from the catalog" would throw all of that away. Captured
+   * *before* `removeLayer`, which drops the config this reads from.
+   */
   private handleDeleteLayer(layerId: string): void {
     if (!this.adapter) {
       return;
     }
+    const label = this.adapter.store.getState().mapLayers?.[layerId]?.label ?? layerId;
+    const snapshot = this.adapter.captureLayerSnapshot(layerId);
+    if (snapshot) this.armPendingUndo(layerId, label, snapshot);
     this.adapter.removeLayer(layerId);
+    this.applyVisibleLayers(this.adapter.store.getState());
+  }
+
+  /** Queues a removal snapshot and starts its own auto-dismiss timer — deleting several
+   *  layers in a row queues one undo slot each, rather than the latest replacing the rest. */
+  private armPendingUndo(layerId: string, label: string, snapshot: LayerRemovalSnapshot): void {
+    const id = this.pendingUndoCounter++;
+    const timeoutId = window.setTimeout(() => {
+      this.pendingUndos = this.pendingUndos.filter((entry) => entry.id !== id);
+    }, WebmapxLayerOverview.UNDO_WINDOW_MS);
+    this.pendingUndos = [...this.pendingUndos, { id, layerId, label, snapshot, beforeLayerId: snapshot.beforeLayerId, timeoutId }];
+  }
+
+  private async handleUndoDeleteLayer(id: number): Promise<void> {
+    const entry = this.pendingUndos.find((e) => e.id === id);
+    if (!this.adapter || !entry) return;
+    window.clearTimeout(entry.timeoutId);
+    this.pendingUndos = this.pendingUndos.filter((e) => e.id !== id);
+    await this.adapter.restoreLayerSnapshot(entry.snapshot);
     this.applyVisibleLayers(this.adapter.store.getState());
   }
 
@@ -1698,6 +1868,9 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   private handleConfirmClearAllLayers(): void {
     this.clearLayersDialog?.hide();
     if (!this.adapter) return;
+    // Any pending undos no longer have anything to restore next to once
+    // everything is gone — drop them rather than leave them to expire on their own.
+    this.clearAllPendingUndos();
     for (const item of this.overviewLayers) {
       this.adapter.removeLayer(item.layerId);
     }
