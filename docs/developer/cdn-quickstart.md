@@ -131,7 +131,11 @@ config: {
 }
 ```
 
-Plugins from trusted CDNs (jsdelivr, unpkg, esm.sh) load automatically. Others are skipped with a console warning.
+A plugin may come from the page's own site — a path relative to the config — or
+from a trusted CDN (jsdelivr, unpkg, esm.sh). Others are skipped with a console
+warning. Plugins load before the config is validated, so their tools can be named
+in `tools` like built-in ones. See the
+[plugin authoring guide](./plugin-authoring.md) for writing one.
 
 ---
 

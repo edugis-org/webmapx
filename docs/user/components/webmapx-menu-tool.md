@@ -69,7 +69,7 @@ The menu's own `label` and `icon` are used for its toolbar button and panel titl
 
 Set `enabled: false` on any item (including a submenu) to leave it out.
 
-The [config editor](../config-editor.md) (`testpages/setup.html`) lists `Menu` among the toolbar tools and shows a "contents" section for it. Submenus nested more than one level deep are preserved when saving, but are edited by hand in the config JSON.
+The setup page (`testpages/setup.html`) lists `Menu` among the toolbar tools and shows a "contents" section for it. Submenus nested more than one level deep are preserved when saving, but are edited by hand in the config JSON.
 
 ## Markup usage
 

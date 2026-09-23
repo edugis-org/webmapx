@@ -683,6 +683,66 @@ Defines guided-tour content for the [`webmapx-stories-tool`](./components/webmap
 
 See [`webmapx-stories-tool`](./components/webmapx-stories-tool.md) for the full `StoryConfig`/`StoryStepConfigState` field reference.
 
+### Plugins Section
+
+`plugins` lists JavaScript modules that add tools webmapx does not ship with. A
+plugin's tool is then used like any other: name its id as a toolbar item, and
+put its settings in the `tools` section under that same id.
+
+```json
+{
+  "plugins": ["../plugins/bookmarks.js"],
+  "tools": {
+    "mainToolbar": {
+      "type": "toolbar", "enabled": true, "position": "top-left",
+      "items": [{ "type": "bookmarks" }]
+    },
+    "bookmarks": {
+      "enabled": true,
+      "views": [
+        { "label": "World", "center": [0, 20], "zoom": 1.5 },
+        { "label": "Amsterdam", "center": [4.9, 52.37], "zoom": 12 },
+        { "label": "Eiffel Tower", "center": [2.2945, 48.8584], "zoom": 17 }
+      ]
+    }
+  }
+}
+```
+
+- **Paths are relative to the config file**, like every other path in a config.
+  A plugin must come from the same site as the page, or from a trusted CDN
+  (`cdn.jsdelivr.net/npm`, `unpkg.com`, `esm.sh`) — pin an exact version there.
+  Anything else is skipped with a console warning.
+- **A plugin is code that runs in the page**, with the same rights as webmapx
+  itself. Only name plugins you trust.
+- **Which settings a plugin tool takes is up to the plugin** — see its own
+  documentation. The bookmarks plugin (`public/plugins/bookmarks.js`, the
+  example that ships with webmapx) reads `views`: a list of `{ label, center,
+  zoom }`, shown as fixed entries above the views a user saves. It has no
+  built-in views, so without `views` (or with `"views": []`) only the user's own
+  appear.
+- The command-line validator does not run plugins, so it warns that their tool
+  names are unknown. The map itself loads plugins first and does not warn.
+
+#### Plugins in the setup page
+
+`testpages/setup.html` handles plugins on the **Tools** tab:
+
+1. The **Plugins** section lists the config's plugins and loads them; their
+   tools appear in the toolbar and standalone lists, like built-in tools.
+2. To add one, type its path (relative to the config, e.g.
+   `../plugins/bookmarks.js`) and press **Add plugin**. It is written into the
+   config's `plugins`. **Remove** takes it out of the config again; its tools
+   stay listed until the page is reloaded, since a loaded module cannot be
+   unloaded.
+3. Tick the plugin's tool in a toolbar list to place it. If the config has no
+   `tools.<id>` section yet, the plugin's default settings (its template) are
+   written into the config — for bookmarks: World, Amsterdam and Eiffel Tower.
+4. Hover the tool and click **⚙** to edit its settings. Simple values get a
+   field; lists and objects such as `views` are edited as JSON. **OK** stores
+   them in `tools.<id>`, **Reset** returns to what the config had.
+5. **Update preview** shows the result; **Download config** saves it.
+
 ## API Keys
 
 Some tile services require API keys (Mapbox, OpenWeatherMap, Bing, etc.). WebMapX keeps keys out of config files using a placeholder convention and a separate `config/apikeys.json` file.

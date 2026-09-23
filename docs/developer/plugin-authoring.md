@@ -103,6 +103,8 @@ In `testpages/setup.html` the Tools tab has a **Plugins** section: the plugins
 of the loaded config are loaded, their tools appear in the toolbar and
 standalone lists, and a plugin can be added by URL (it is written into the
 config's `plugins`).
+Config authors' steps (adding a plugin, placing its tool, editing its settings
+with ⚙) are in [configuration.md → Plugins Section](../user/configuration.md#plugins-section).
 
 ### Where a plugin may be loaded from
 
