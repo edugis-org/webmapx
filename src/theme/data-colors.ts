@@ -53,3 +53,14 @@ export const DATA_SEAM = '#d64545';
  * casing would vanish over imagery.
  */
 export const DATA_OUTLINE = '#000000';
+
+/**
+ * Categorical colours for data that comes in unnamed groups — the segment
+ * tool's "segment everything", where only sameness is known. Twelve
+ * saturated hues that stay apart on aerial imagery (Trubetskoy's list, the
+ * greys dropped since they vanish on roofs and roads); cycled past twelve.
+ */
+export const DATA_CATEGORICAL: readonly string[] = [
+    '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4',
+    '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff',
+];

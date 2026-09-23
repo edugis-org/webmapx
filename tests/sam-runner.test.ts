@@ -25,6 +25,7 @@ import {
     runDecoder, type ModelBytes, type RgbaImage, type SamMasks, type SamResult,
 } from '../src/workers/sam-runner';
 import { maskToRings, ringArea, rewindPolygon, simplifyRing } from '../src/utils/sam/mask-to-polygon';
+import { clusterFeatures, fillGaps, partition, segmentEverything, suppressDuplicates } from '../src/workers/sam-everything';
 import { SAM_MODELS, type SamModelEntry } from '../src/utils/sam/sam-models';
 
 // ─── Geometry ────────────────────────────────────────────────────────────────
@@ -135,6 +136,64 @@ test('an empty verdict outlines nothing at any granularity', () => {
     assert.equal(outlineMask(masks, { granularity: 'whole' }).polygons.length, 0);
 });
 
+// ─── Segment everything: the pure parts ──────────────────────────────────────
+
+function squareCells(cols: number, rows: number, x0: number, y0: number, x1: number, y1: number) {
+    const cells = new Uint8Array(cols * rows);
+    let area = 0;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { cells[y * cols + x] = 1; area++; }
+    return { cells, area };
+}
+
+test('partition keeps a mask nested inside a larger one as its own segment', () => {
+    const big = squareCells(20, 20, 0, 0, 20, 20);
+    const small = squareCells(20, 20, 5, 5, 10, 10);
+    const { labels, order } = partition([small, big], 20, 20, 4);
+    assert.deepEqual(order, [1, 0], 'largest first');
+    assert.equal(labels[7 * 20 + 7], 0, 'the small one wins inside itself');
+    assert.equal(labels[15 * 20 + 15], 1);
+});
+
+test('partition erases what is left of a mask below the minimum area', () => {
+    const big = squareCells(20, 20, 0, 0, 20, 20);
+    const sliver = squareCells(20, 20, 0, 0, 1, 3); // 3 cells
+    const { labels, order } = partition([big, sliver], 20, 20, 4);
+    assert.deepEqual(order, [0]);
+    assert.equal(labels[0], -1, 'the sliver is not invented into the big segment either');
+});
+
+test('fillGaps turns each unclaimed patch into its own segment, and skips specks', () => {
+    // A 10×4 grid: label 0 in the middle column band splits the rest in two, plus one lone cell.
+    const labels = new Int32Array(40).fill(-1);
+    for (let y = 0; y < 4; y++) for (let x = 4; x < 6; x++) labels[y * 10 + x] = 0;
+    labels[9] = 0;
+    labels[19] = 0;
+    labels[29] = 0;
+    labels[38] = 0; // together these leave (9, 3) as a one-cell patch
+    const added = fillGaps(labels, 10, 4, 2, 1);
+    assert.deepEqual(added, [1, 2]);
+    assert.equal(labels[0], 1, 'left patch');
+    assert.equal(labels[6], 2, 'right patch');
+    assert.equal(labels[39], -1, 'a one-cell patch stays unclaimed');
+});
+
+test('suppressDuplicates keeps the better of two overlapping boxes', () => {
+    const kept = suppressDuplicates([
+        { score: 0.8, box: [0, 0, 10, 10] as [number, number, number, number] },
+        { score: 0.9, box: [1, 0, 11, 10] as [number, number, number, number] },
+        { score: 0.7, box: [30, 30, 40, 40] as [number, number, number, number] },
+    ], 0.7);
+    assert.deepEqual(kept.map(k => k.score), [0.9, 0.7]);
+});
+
+test('clusterFeatures separates two obvious groups and numbers the larger first', () => {
+    const v = (a: number, b: number) => { const f = Float32Array.from([a, b]); const n = Math.hypot(a, b); return f.map(x => x / n); };
+    const features = [v(1, 0.05), v(1, -0.05), v(1, 0.1), v(0.05, 1), v(-0.05, 1)];
+    const groups = clusterFeatures(features, [1, 1, 1, 5, 5], 2);
+    assert.deepEqual(groups, [1, 1, 1, 0, 0], 'the heavier pair is group 0');
+    assert.deepEqual(clusterFeatures(features, [1, 1, 1, 5, 5], 2), groups, 'deterministic');
+});
+
 // ─── Inference with the real models ──────────────────────────────────────────
 
 const MODELS_DIR = process.env.SAM_MODELS_DIR;
@@ -235,6 +294,23 @@ for (const id of ['slimsam-77', 'sam2.1-tiny']) {
         const looser = totalArea(outlineMask(masks, { granularity: 'whole', threshold: -2 }));
         const tighter = totalArea(outlineMask(masks, { granularity: 'whole', threshold: 2 }));
         assert.ok(looser > tighter, `looser ${looser.toFixed(0)} > tighter ${tighter.toFixed(0)}`);
+
+        // Segment everything: the disc and the rectangle each come out as a
+        // segment of about their own area, and they are not grouped with the ground.
+        const everything = await segmentEverything(ort, sessions, embedding, { pointsPerSide: 8, k: 3 });
+        const { segments, groups } = everything.result;
+        const within = (s: SamResult | typeof segments[number], cx: number, cy: number) =>
+            s.polygons.some(p => { const [x0, y0, x1, y1] = bbox({ polygons: [p] } as SamResult); return cx > x0 && cx < x1 && cy > y0 && cy < y1; });
+        const discSeg = segments.findIndex(s => within(s, DISC.cx, DISC.cy) && s.coverage < 0.2);
+        const rectSeg = segments.findIndex(s => within(s, (RECT.x0 + RECT.x1) / 2, (RECT.y0 + RECT.y1) / 2) && s.coverage < 0.2);
+        assert.ok(discSeg >= 0 && rectSeg >= 0, `segments: ${segments.map(s => s.coverage.toFixed(3)).join(', ')}`);
+        const discSegArea = totalArea(segments[discSeg] as unknown as SamResult);
+        assert.ok(Math.abs(discSegArea - Math.PI * DISC.r ** 2) / (Math.PI * DISC.r ** 2) < 0.2, `disc segment ${discSegArea.toFixed(0)}`);
+        const ground = segments.findIndex(s => s.coverage > 0.4);
+        if (ground >= 0) {
+            assert.notEqual(groups[ground], groups[discSeg], 'disc not grouped with the ground');
+            assert.notEqual(groups[ground], groups[rectSeg], 'rectangle not grouped with the ground');
+        }
 
         const [rx0, ry0, rx1, ry1] = bbox(rect);
         assert.ok(Math.abs(rx0 - RECT.x0) < 8 && Math.abs(rx1 - RECT.x1) < 8
