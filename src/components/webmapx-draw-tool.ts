@@ -2141,31 +2141,31 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         return html`
             <div class="toolbar">
                 <sl-tooltip content="Select">
-                    <sl-icon-button name="cursor"
+                    <sl-icon-button name="cursor" label="Select"
                         ?active=${this.mode === 'select'}
                         @click=${() => this.requestDrawMode('select')}>
                     </sl-icon-button>
                 </sl-tooltip>
                 <sl-tooltip content="Draw point">
-                    <sl-icon-button name="geo-fill"
+                    <sl-icon-button name="geo-fill" label="Draw point"
                         ?active=${this.mode === 'draw-point'}
                         @click=${() => this.requestDrawMode('draw-point')}>
                     </sl-icon-button>
                 </sl-tooltip>
                 <sl-tooltip content="Draw line">
-                    <sl-icon-button name="slash-lg"
+                    <sl-icon-button name="slash-lg" label="Draw line"
                         ?active=${this.mode === 'draw-line'}
                         @click=${() => this.requestDrawMode('draw-line')}>
                     </sl-icon-button>
                 </sl-tooltip>
                 <sl-tooltip content="Draw polygon">
-                    <sl-icon-button name="pentagon"
+                    <sl-icon-button name="pentagon" label="Draw polygon"
                         ?active=${this.mode === 'draw-polygon'}
                         @click=${() => this.requestDrawMode('draw-polygon')}>
                     </sl-icon-button>
                 </sl-tooltip>
                 <sl-tooltip content="Draw circle">
-                    <sl-icon-button name="circle"
+                    <sl-icon-button name="circle" label="Draw circle"
                         ?active=${this.mode === 'draw-circle'}
                         @click=${() => this.requestDrawMode('draw-circle')}>
                     </sl-icon-button>
@@ -2174,7 +2174,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 <div class="divider"></div>
 
                 <sl-tooltip content="Snap to points and edges (${this.snapEnabled ? 'on' : 'off'}) — hold Alt to toggle">
-                    <sl-icon-button name="magnet"
+                    <sl-icon-button name="magnet" label="Snap to points and edges"
                         ?active=${this.effectiveSnap}
                         @click=${() => {
                             this.snapEnabled = !this.snapEnabled;
@@ -2186,13 +2186,13 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 <div class="divider"></div>
 
                 <sl-tooltip content="Undo (${this.modKey}+Z)">
-                    <sl-icon-button name="arrow-counterclockwise"
+                    <sl-icon-button name="arrow-counterclockwise" label="Undo"
                         ?disabled=${this.historyIndex < 0 && this.draftPoints.length === 0}
                         @click=${() => this.undoOrDraftBack()}>
                     </sl-icon-button>
                 </sl-tooltip>
                 <sl-tooltip content="Redo (${this.modKey}+Y)">
-                    <sl-icon-button name="arrow-clockwise"
+                    <sl-icon-button name="arrow-clockwise" label="Redo"
                         ?disabled=${this.historyIndex >= this.history.length - 1 && this.draftRedoStack.length === 0}
                         @click=${() => this.redoOrDraftForward()}>
                     </sl-icon-button>
@@ -2202,12 +2202,13 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
                 <sl-tooltip content=${this.draftPoints.length > 0 ? 'Remove last point' : this.selectedHandle ? 'Delete selected point' : 'Delete selected'}>
                     <sl-icon-button name="trash"
+                        label=${this.draftPoints.length > 0 ? 'Remove last point' : this.selectedHandle ? 'Delete selected point' : 'Delete selected'}
                         ?disabled=${this.draftPoints.length === 0 && !this.selectedFeatureId && !this.selectedHandle}
                         @click=${() => this.draftPoints.length > 0 ? this.removeLastDraftPoint() : this.selectedHandle ? this.deleteSelectedVertex() : this.deleteSelected()}>
                     </sl-icon-button>
                 </sl-tooltip>
                 <sl-tooltip content="Export GeoJSON">
-                    <sl-icon-button name="download"
+                    <sl-icon-button name="download" label="Export GeoJSON"
                         ?disabled=${this.features.length === 0}
                         @click=${() => this.exportGeoJSON()}>
                     </sl-icon-button>
@@ -2243,7 +2244,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                             </button>
                             ${this.drawLayers.length > 1 ? html`
                                 <sl-tooltip content="Stop editing">
-                                    <sl-icon-button name="x" class="remove-layer-btn"
+                                    <sl-icon-button name="x" class="remove-layer-btn" label="Stop editing ${l.name}"
                                         @click=${(e: Event) => { e.stopPropagation(); this.removeFromEditing(l); }}>
                                     </sl-icon-button>
                                 </sl-tooltip>

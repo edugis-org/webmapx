@@ -963,7 +963,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         </svg>`;
         return html`
             <div class="legend-row">
-                ${onClick ? html`<button type="button" style="background:none;border:none;padding:0;cursor:pointer;display:flex;align-items:center" @click=${onClick}>${swatchSvg}</button>` : swatchSvg}
+                ${onClick ? html`<button type="button" aria-label=${label ? `Change colour for ${label}` : 'Change colour'} style="background:none;border:none;padding:0;cursor:pointer;display:flex;align-items:center" @click=${onClick}>${swatchSvg}</button>` : swatchSvg}
                 ${label !== null ? html`<span class="legend-label" title=${label}>${breakableLabel(label)}</span>` : ''}
             </div>`;
     }

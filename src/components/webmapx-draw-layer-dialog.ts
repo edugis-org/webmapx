@@ -377,7 +377,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
                             <td class="${!['string', 'number', 'linkURL', 'imageURL'].includes(p.type) ? 'type-computed' : ''}">${p.type}${p.name === 'id' ? ' (auto)' : ''}</td>
                             <td>
                                 ${i === 0 ? '' : html`
-                                    <sl-icon-button name="x" @click=${() => this.removeProperty(i)}></sl-icon-button>
+                                    <sl-icon-button name="x" label="Remove property ${p.name}" @click=${() => this.removeProperty(i)}></sl-icon-button>
                                 `}
                             </td>
                         </tr>
@@ -408,7 +408,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
                             </sl-select>
                         </td>
                         <td>
-                            <sl-icon-button name="plus" @click=${this.addProperty}></sl-icon-button>
+                            <sl-icon-button name="plus" label="Add property" @click=${this.addProperty}></sl-icon-button>
                         </td>
                     </tr>
                 </tbody>
