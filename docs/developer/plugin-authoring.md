@@ -61,6 +61,7 @@ constructor — not as a class field, which would shadow Lit's accessor.
 | `label`, `icon` | Toolbar button caption/tooltip and Shoelace icon name; also what setup.html shows. |
 | `aliases` | Optional other spellings. |
 | `offered` | `false` to keep it out of setup.html's lists. |
+| `configTemplate` | Optional object: the default `tools.<id>` section, used by setup.html. |
 
 A plugin cannot replace a built-in tool: an `id`, alias or `tag` that is
 already taken is refused. To change a built-in tool, see Pattern 2.
@@ -74,9 +75,13 @@ reads them as `this.toolsConfig?.<id>`:
 }
 ```
 
-The bookmarks plugin shows a sensible way to handle defaults: without `views`
-it offers World, Amsterdam and the Eiffel Tower; any `views` array replaces
-them, and `"views": []` removes them.
+A plugin can register a `configTemplate`: its default config section. In
+`testpages/setup.html` a plugin tool's ⚙ button edits that section (arrays and
+objects as JSON), starting from the template when the config has none, and a
+plugin tool placed on a toolbar without a section gets the template written
+into the config. The bookmarks plugin's template holds World, Amsterdam and the
+Eiffel Tower; the plugin itself has no built-in views, so what the config says
+is what it shows.
 
 ### Naming the plugin in a config
 

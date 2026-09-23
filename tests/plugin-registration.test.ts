@@ -40,6 +40,12 @@ test('a registered toolbar tool appears in every derived table', () => {
     assert.deepEqual(known, { id: 'pluginA', label: 'Plugin A', icon: 'star', plugin: true });
 });
 
+test('a config template is kept on the registry entry', () => {
+    const template = { enabled: true, views: [] };
+    assert.equal(registerTool({ id: 'pluginT', tag: 'plugin-t-tool', placement: 'toolbar', label: 'T', configTemplate: template }), true);
+    assert.deepEqual(TOOL_REGISTRY.find((entry) => entry.id === 'pluginT')?.configTemplate, template);
+});
+
 test('a registered standalone tool is placed by its section and gets no button metadata', () => {
     assert.equal(registerTool({ id: 'pluginB', tag: 'plugin-b-control', placement: 'standalone', label: 'Plugin B' }), true);
     assert.equal(STANDALONE_TAGS.pluginB, 'plugin-b-control');
@@ -71,6 +77,7 @@ test('registering the same plugin twice is a no-op, a conflicting re-registratio
 
 test('malformed entries are refused', () => {
     quietly(() => {
+        assert.equal(registerTool({ id: 'badTemplate', tag: 'x-t', placement: 'toolbar', label: 'x', configTemplate: [] as never }), false);
         assert.equal(registerTool({ id: 'noHyphen', tag: 'nohyphen', placement: 'toolbar', label: 'x' }), false);
         assert.equal(registerTool({ id: '', tag: 'x-y', placement: 'toolbar', label: 'x' }), false);
         assert.equal(registerTool({ id: 'badPlacement', tag: 'x-z', placement: 'floating' as never, label: 'x' }), false);

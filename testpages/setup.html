@@ -547,6 +547,7 @@
   <script type="module">
     import { KNOWN_TOOLS } from '/src/utils/dynamic-layout.ts';
     import { loadPlugins } from '/src/bootstrap/plugin-loader.ts';
+    import { TOOL_REGISTRY } from '/src/tools/tool-registry.ts';
     import { discoverLayers } from '/src/utils/layer-discovery.ts';
     import { toStoryStepState } from '/src/config/story-step-state.ts';
 
@@ -762,6 +763,32 @@
 
     // Extra prop defaults injected into the ⚙ popup for specific tools,
     // so config-defined options surface even when absent from the config JSON.
+    // A plugin tool reads its parameters from its own `tools.<id>` section, so
+    // its ⚙ options are that section (seeded from the plugin's configTemplate)
+    // and they are written back there — never onto the toolbar item.
+    function isPluginTool(id) {
+      return KNOWN_TOOLS.some(t => t.plugin && t.id === id);
+    }
+    function pluginTemplate(id) {
+      const template = TOOL_REGISTRY.find(entry => entry.id === id)?.configTemplate;
+      return template ? JSON.parse(JSON.stringify(template)) : { enabled: true };
+    }
+    function pluginToolProps(id, tools) {
+      if (!isPluginTool(id)) return null;
+      const section = tools[id] && typeof tools[id] === 'object' ? tools[id] : null;
+      return section ? { ...section } : pluginTemplate(id);
+    }
+    // What a section-configured tool's options are merged onto: its existing
+    // section, or for a plugin with none yet, the plugin's template.
+    function sectionBase(tools, id) {
+      if (tools[id] && typeof tools[id] === 'object') return tools[id];
+      return isPluginTool(id) ? pluginTemplate(id) : {};
+    }
+    // Tools whose options live at `tools.<id>` rather than on the toolbar item.
+    function isSectionTool(id) {
+      return DUAL_MODE_TOOL_IDS.has(id) || isPluginTool(id);
+    }
+
     const TOOL_EXTRA_PROPS = {
       coordinates: { defaultFormat: 'geographic-en' },
       search: { provider: 'nominatim' },
@@ -1116,9 +1143,9 @@
           const standaloneVal = !inCfg && tools[tool.id] && typeof tools[tool.id] === 'object' ? tools[tool.id] : null;
           // Merge extra prop defaults so options like search's "provider" surface in the
           // ⚙ popup even when absent from the config JSON (mirrors the standalone-tool path).
-          const itemOrDefault = TOOL_EXTRA_PROPS[tool.id]
+          const itemOrDefault = pluginToolProps(tool.id, tools) ?? (TOOL_EXTRA_PROPS[tool.id]
             ? { ...TOOL_EXTRA_PROPS[tool.id], ...(inCfg ? item : (standaloneVal ?? {})) }
-            : (inCfg ? item : standaloneVal);
+            : (inCfg ? item : standaloneVal));
           const defaultEnabled = inCfg ? item.enabled !== false : false;
           const enabled = overrides[key] !== undefined ? overrides[key] : defaultEnabled;
           const cb = document.createElement('input');
@@ -1163,9 +1190,9 @@
               const subInCfg = subItem !== undefined;
               const subStandaloneVal = !subInCfg && tools[subTool.id] && typeof tools[subTool.id] === 'object' ? tools[subTool.id] : null;
               const subDefaultProps = !subInCfg && !subStandaloneVal ? { title: subTool.label, ...(subTool.icon ? { icon: subTool.icon } : {}) } : null;
-              const subItemOrDefault = TOOL_EXTRA_PROPS[subTool.id]
+              const subItemOrDefault = pluginToolProps(subTool.id, tools) ?? (TOOL_EXTRA_PROPS[subTool.id]
                 ? { ...TOOL_EXTRA_PROPS[subTool.id], ...(subInCfg ? subItem : (subStandaloneVal ?? subDefaultProps ?? {})) }
-                : (subInCfg ? subItem : (subStandaloneVal ?? subDefaultProps));
+                : (subInCfg ? subItem : (subStandaloneVal ?? subDefaultProps)));
               const subDefaultEnabled = subInCfg ? subItem.enabled !== false : false;
               const subEnabled = overrides[subKey] !== undefined ? overrides[subKey] : subDefaultEnabled;
               const subCb = document.createElement('input');
@@ -1201,7 +1228,7 @@
         const val = tools[tool.id];
         const inCfg = val !== undefined && val !== null && typeof val === 'object';
         // not in config or null → give a default so the ⚙ editor still appears
-        const valOrDefault = { position: 'top-left', ...(TOOL_EXTRA_PROPS[tool.id] ?? {}), ...(inCfg ? val : {}) };
+        const valOrDefault = { position: 'top-left', ...(TOOL_EXTRA_PROPS[tool.id] ?? {}), ...(isPluginTool(tool.id) && !inCfg ? pluginTemplate(tool.id) : {}), ...(inCfg ? val : {}) };
         const defaultEnabled = val !== undefined ? (inCfg ? val.enabled !== false : true) : false;
         const enabled = overrides[key] !== undefined ? overrides[key] : defaultEnabled;
         const cb = document.createElement('input');
@@ -2244,9 +2271,9 @@
           const propsKey = `toolbar:${toolbarKey}:${knownTool.id}:props`;
           const propOverrides = overrides[propsKey];
           if (propOverrides) {
-            Object.assign(item, propOverrides);
-            if (DUAL_MODE_TOOL_IDS.has(knownTool.id)) {
-              tools[knownTool.id] = { enabled: true, ...(tools[knownTool.id] ?? {}), ...propOverrides };
+            if (!isPluginTool(knownTool.id)) Object.assign(item, propOverrides);
+            if (isSectionTool(knownTool.id)) {
+              tools[knownTool.id] = { enabled: true, ...sectionBase(tools, knownTool.id), ...propOverrides };
             }
           }
 
@@ -2266,9 +2293,9 @@
               const subKey = `${knownTool.id}:${toolbarKey}:${containerId}:${subTool.id}`;
               if (overrides[subKey] === true && !existingSubIds.has(subTool.id)) {
                 const subProps = overrides[`${subKey}:props`] ?? {};
-                item.items.push({ type: subTool.id, id: subTool.id, enabled: true, ...subProps });
-                if (DUAL_MODE_TOOL_IDS.has(subTool.id)) {
-                  tools[subTool.id] = { enabled: true, ...(tools[subTool.id] ?? {}), ...subProps };
+                item.items.push({ type: subTool.id, id: subTool.id, enabled: true, ...(isPluginTool(subTool.id) ? {} : subProps) });
+                if (isSectionTool(subTool.id)) {
+                  tools[subTool.id] = { enabled: true, ...sectionBase(tools, subTool.id), ...subProps };
                 }
               }
             }
@@ -2282,9 +2309,9 @@
           if (overrides[key] === true && !existingIds.has(tool.id)) {
             const propsKey = `${key}:props`;
             const propOverrides = overrides[propsKey] ?? {};
-            const newItem = { type: tool.id, id: tool.id, enabled: true, ...propOverrides };
-            if (DUAL_MODE_TOOL_IDS.has(tool.id)) {
-              tools[tool.id] = { enabled: true, ...(tools[tool.id] ?? {}), ...propOverrides };
+            const newItem = { type: tool.id, id: tool.id, enabled: true, ...(isPluginTool(tool.id) ? {} : propOverrides) };
+            if (isSectionTool(tool.id)) {
+              tools[tool.id] = { enabled: true, ...sectionBase(tools, tool.id), ...propOverrides };
             }
             // Populate sub-items for newly added containers
             if (CONTAINER_TOOL_IDS.has(tool.id)) {
@@ -2294,9 +2321,9 @@
                 const subKey = `${tool.id}:${toolbarKey}:${containerId}:${subTool.id}`;
                 if (overrides[subKey] === true) {
                   const subProps = overrides[`${subKey}:props`] ?? {};
-                  newItem.items.push({ type: subTool.id, id: subTool.id, enabled: true, ...subProps });
-                  if (DUAL_MODE_TOOL_IDS.has(subTool.id)) {
-                    tools[subTool.id] = { enabled: true, ...(tools[subTool.id] ?? {}), ...subProps };
+                  newItem.items.push({ type: subTool.id, id: subTool.id, enabled: true, ...(isPluginTool(subTool.id) ? {} : subProps) });
+                  if (isSectionTool(subTool.id)) {
+                    tools[subTool.id] = { enabled: true, ...sectionBase(tools, subTool.id), ...subProps };
                   }
                 }
               }
@@ -2341,8 +2368,22 @@
           if (propOverrides) tools[tool.id] = { ...(tools[tool.id] ?? existing), ...propOverrides };
         } else if (existing === null || enabledOverride === true) {
           // null in config = present but unconfigured; build a real object
-          tools[tool.id] = { enabled: enabledOverride ?? true, ...(propOverrides ?? {}) };
+          tools[tool.id] = { enabled: enabledOverride ?? true, ...(isPluginTool(tool.id) ? pluginTemplate(tool.id) : {}), ...(propOverrides ?? {}) };
         }
+      }
+
+      // A plugin tool placed on a toolbar with no section of its own gets the
+      // plugin's configTemplate as its section — that is its default config.
+      const placedIds = new Set();
+      const collect = (items) => {
+        for (const item of Array.isArray(items) ? items : []) {
+          if (item?.type) placedIds.add(item.type);
+          collect(item?.items);
+        }
+      };
+      for (const toolbarKey of getToolbarKeys(result)) collect(tools[toolbarKey]?.items);
+      for (const id of placedIds) {
+        if (isPluginTool(id) && !(tools[id] && typeof tools[id] === 'object')) tools[id] = pluginTemplate(id);
       }
 
       // Active layers (Layers tab)

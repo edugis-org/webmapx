@@ -63,7 +63,7 @@ export async function run({ page, baseUrl }) {
     return tool?.active && tool.shadowRoot?.querySelector('button.go');
   }, undefined, { timeout: 10_000 });
 
-  // "views" in the config replaces the plugin's defaults; absent restores them; [] empties them.
+  // The fixed views are exactly the config's "views"; the plugin has no built-in ones.
   const rowsFor = (views) => page.evaluate(async (views) => {
     const tool = document.querySelector('webmapx-bookmarks-tool');
     const section = tool.toolsConfig.bookmarks;
@@ -73,11 +73,9 @@ export async function run({ page, baseUrl }) {
     return [...tool.shadowRoot.querySelectorAll('button.go')].map((b) => b.textContent.replace(/z\d+\s*$/, '').trim());
   }, views);
   const configured = await rowsFor([{ label: 'Amsterdam', center: [4.9, 52.37], zoom: 12 }]);
-  if (configured.join() !== 'Amsterdam') fail(`configured views should replace the defaults, got ${configured.join()}`);
-  const defaults = await rowsFor(undefined);
-  if (defaults.join() !== 'World,Amsterdam,Eiffel Tower') fail(`missing "views" should give the defaults, got ${defaults.join()}`);
-  const none = await rowsFor([]);
-  if (none.length !== 0) fail(`"views": [] should show no fixed views, got ${none.join()}`);
+  if (configured.join() !== 'Amsterdam') fail(`fixed views should be the config's views, got ${configured.join()}`);
+  const absent = await rowsFor(undefined);
+  if (absent.length !== 0) fail(`no "views" should mean no fixed views, got ${absent.join()}`);
   await rowsFor([{ label: 'Amsterdam', center: [4.9, 52.37], zoom: 12 }]);
 
   await page.evaluate(() => {

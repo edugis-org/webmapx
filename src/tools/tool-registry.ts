@@ -65,6 +65,12 @@ export interface ToolRegistryEntry {
     container?: boolean;
     /** Offered in the setup page's "add a tool" list. Default true. */
     offered?: boolean;
+    /**
+     * The default `tools.<id>` config section. The setup page's ⚙ editor starts
+     * from it when the config has none, and writes it into the config when the
+     * tool is placed on a toolbar. Plugins only.
+     */
+    configTemplate?: Record<string, unknown>;
 }
 
 const BUILT_IN_TOOLS: readonly ToolRegistryEntry[] = [
@@ -251,7 +257,7 @@ for (const entry of BUILT_IN_TOOLS) indexTool(entry, false);
  * element is defined by the time it registers (so it is always "bundled"), and
  * a plugin has no older spellings to keep alive yet.
  */
-export type PluginToolEntry = Pick<ToolRegistryEntry, 'id' | 'tag' | 'placement' | 'label' | 'icon' | 'aliases' | 'offered'> & {
+export type PluginToolEntry = Pick<ToolRegistryEntry, 'id' | 'tag' | 'placement' | 'label' | 'icon' | 'aliases' | 'offered' | 'configTemplate'> & {
     tag: string;
 };
 
@@ -299,6 +305,10 @@ function pluginEntryProblem(entry: PluginToolEntry): string | null {
     }
     if (!['toolbar', 'standalone', 'both'].includes(entry.placement)) return `"${entry.id}" has invalid placement ${JSON.stringify(entry.placement)}`;
     if (typeof entry.label !== 'string' || !entry.label) return `"${entry.id}" needs a label`;
+    const template = entry.configTemplate;
+    if (template !== undefined && (template === null || typeof template !== 'object' || Array.isArray(template))) {
+        return `"${entry.id}" configTemplate must be a plain object`;
+    }
     return null;
 }
 

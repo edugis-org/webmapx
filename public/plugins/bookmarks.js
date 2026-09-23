@@ -16,10 +16,10 @@
 //   }
 //
 // Views from the config are fixed; views the user adds are kept in this
-// browser's localStorage, per page. A config without "views" gets
-// DEFAULT_VIEWS; "views": [] turns them off, leaving only the user's own.
+// browser's localStorage, per page. The code has no built-in views: the three
+// below are the plugin's config template, its default tools.bookmarks section.
 
-const DEFAULT_VIEWS = [
+const TEMPLATE_VIEWS = [
   { label: 'World', center: [0, 20], zoom: 1.5 },
   { label: 'Amsterdam', center: [4.9, 52.37], zoom: 12 },
   { label: 'Eiffel Tower', center: [2.2945, 48.8584], zoom: 17 },
@@ -87,9 +87,8 @@ export default {
       get toolId() { return 'bookmarks'; }
 
       get configuredViews() {
-        // Absent means "use the defaults"; an array, even an empty one, replaces them.
         const views = this.toolsConfig?.bookmarks?.views;
-        return Array.isArray(views) ? views.filter(isView) : DEFAULT_VIEWS;
+        return Array.isArray(views) ? views.filter(isView) : [];
       }
 
       onStateChanged(state) {
@@ -164,6 +163,9 @@ export default {
       placement: 'toolbar',
       label: 'Bookmarks',
       icon: 'bookmark-star',
+      // The default tools.bookmarks section: setup.html writes it into a config
+      // that places the tool, and its ⚙ editor starts from it.
+      configTemplate: { enabled: true, views: TEMPLATE_VIEWS },
     });
   },
 };
