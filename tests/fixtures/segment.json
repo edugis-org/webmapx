@@ -1,0 +1,54 @@
+{
+  "version": 0,
+  "map": {
+    "label": "Segment",
+    "center": [4.8952, 52.3702],
+    "zoom": 17,
+    "type": "maplibre",
+    "style": { "version": 8, "sources": {}, "layers": [] }
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "luchtfoto-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": ["https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg"],
+        "tileSize": 256,
+        "minzoom": 5,
+        "maxzoom": 21,
+        "bounds": [2.75, 50.5, 7.5, 53.6],
+        "attribution": "PDOK"
+      }
+    ],
+    "layers": [
+      {
+        "id": "luchtfoto",
+        "title": "Luchtfoto (PDOK)",
+        "type": "raster",
+        "source": "luchtfoto-source",
+        "metadata": { "label": "Luchtfoto (PDOK)" }
+      }
+    ]
+  },
+  "state": {
+    "activeLayers": [{ "ref": "luchtfoto", "visible": true }]
+  },
+  "tools": {
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "panel": { "enabled": true, "position": "after" },
+      "items": [
+        { "id": "layerOverview", "type": "layerOverview", "enabled": true },
+        { "id": "segment", "type": "segment", "enabled": true }
+      ]
+    },
+    "segment": {
+      "enabled": true,
+      "modelBaseUrl": "../../models/{repo}/"
+    }
+  }
+}

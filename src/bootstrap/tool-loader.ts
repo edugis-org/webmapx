@@ -27,6 +27,7 @@ const TOOL_MAP: Record<string, () => Promise<unknown>> = {
   isochrone:       () => import('../components/webmapx-isochrone-tool.js'),
   buffer:          () => import('../components/webmapx-buffer-tool.js'),
   geoprocessing:   () => import('../components/webmapx-geoprocessing-tool.js'),
+  segment:         () => import('../components/webmapx-segment-tool.js'),
   'data-analyzer': () => import('../components/webmapx-data-analyzer-tool.js'),
   'config-edit':   () => import('../components/webmapx-config-edit-tool.js'),
   stories:         () => import('../components/webmapx-stories-tool.js'),

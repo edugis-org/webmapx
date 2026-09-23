@@ -1,7 +1,8 @@
 // src/map/maplibre-adapter.ts
 
-import { IMap, IMapCore, ISource, IToolService, ISubMapFactory, LayerInsertOptions, type PrintFrame, type TerrainSourceKind, type SourceFeatureQueryOptions, type SourceFeatureSample } from './IMapInterfaces';
+import { IMap, IMapCore, ISource, IToolService, ISubMapFactory, LayerInsertOptions, type PrintFrame, type TerrainSourceKind, type ViewImage, type ViewImageOptions, type SourceFeatureQueryOptions, type SourceFeatureSample } from './IMapInterfaces';
 import { renderMapLibrePrintMap } from './maplibre-services/print-map';
+import { renderMapLibreViewImage } from './maplibre-services/view-image';
 import * as _ml from 'maplibre-gl';
 
 import { BaseAdapter } from './base-adapter';
@@ -280,6 +281,20 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
             }
             core.onMapReady((map) => {
                 renderMapLibrePrintMap(map, container, frame).then(resolve, reject);
+            });
+        });
+    }
+
+    renderViewImage(options: ViewImageOptions = {}): Promise<ViewImage> {
+        return new Promise((resolve, reject) => {
+            const core = this.core as { onMapReady?: (callback: (map: _ml.Map) => void) => void };
+            if (typeof core.onMapReady !== 'function' || !this.layerService) {
+                reject(new Error('MapLibre map not initialised.'));
+                return;
+            }
+            const layerService = this.layerService;
+            core.onMapReady((map) => {
+                renderMapLibreViewImage(map, (id) => layerService.getNativeLayerIds(id), options).then(resolve, reject);
             });
         });
     }

@@ -499,6 +499,19 @@ export interface IMap {
     renderPrintMap?(container: HTMLElement, frame: PrintFrame): Promise<() => void>;
 
     /**
+     * Renders the current view — same camera, same size as the map element —
+     * into an image, optionally with only some layers, for code that analyses
+     * what the map shows (the segment tool feeds it to Segment Anything).
+     *
+     * An image coordinate divided by `pixelRatio` is a pixel of the live map
+     * element, so `unproject` turns it into lon/lat for as long as the camera
+     * has not moved.
+     *
+     * Optional: an engine that leaves it out cannot offer image analysis.
+     */
+    renderViewImage?(options?: ViewImageOptions): Promise<ViewImage>;
+
+    /**
      * The ways of drawing the world this engine offers, in the order worth
      * offering them: `'mercator'` and `'globe'` for a flat or spherical
      * rendering, or ids from the view-projection catalogue
@@ -581,6 +594,28 @@ export interface PrintFrame {
     center: Pixel;
     /** Paper width of the map area divided by its on-screen width. */
     scale: number;
+}
+
+export interface ViewImageOptions {
+    /**
+     * Logical layer ids to draw. Omitted: every layer the map draws now,
+     * except those in `exclude`.
+     */
+    include?: string[];
+    /** Logical layer ids to leave out — a tool's own overlays, typically. */
+    exclude?: string[];
+    /**
+     * Render at a pixel ratio that makes the image's longer side at least this
+     * many pixels (capped at 2). A small map element otherwise hands an image
+     * analyser fewer pixels than it works on.
+     */
+    minLongestSide?: number;
+}
+
+export interface ViewImage {
+    image: ImageBitmap;
+    /** Image pixels per pixel of the live map element. */
+    pixelRatio: number;
 }
 
 export interface NavigationCapabilities {

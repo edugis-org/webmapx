@@ -122,6 +122,7 @@ const BUILT_IN_TOOLS: readonly ToolRegistryEntry[] = [
     { id: 'menu', tag: 'webmapx-menu-tool', placement: 'toolbar', label: 'Tools', icon: 'list', bundled: true, container: true },
     { id: 'buffer', tag: 'webmapx-buffer-tool', placement: 'toolbar', label: 'Buffer', icon: { src: bufferIconUrl } },
     { id: 'geoprocessing', tag: 'webmapx-geoprocessing-tool', placement: 'toolbar', label: 'Analysis', icon: 'intersect' },
+    { id: 'segment', tag: 'webmapx-segment-tool', placement: 'toolbar', label: 'Segment', icon: 'magic' },
     { id: 'data-analyzer', tag: 'webmapx-data-analyzer-tool', placement: 'toolbar', label: 'Data analyzer', icon: 'bar-chart-line' },
     { id: 'stories', tag: 'webmapx-stories-tool', placement: 'toolbar', label: 'Stories', icon: 'book' },
     { id: 'deeptime', tag: 'webmapx-deeptime-tool', placement: 'toolbar', label: 'Deep time', icon: { src: dinosaurIconUrl } },

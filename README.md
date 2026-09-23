@@ -98,8 +98,12 @@ compiled to WebAssembly (wasm). GDAL is the engine behind buffering, overlay ana
 file import. **Visitors never download it unless they use those tools.** The
 spatial worker, and the ~38 MB of wasm with it, is fetched the first time an
 analysis panel is opened; a map that only pans, zooms and switches layers
-fetches none of it. The weight is on your build server's disk, not on your
-users' connections.
+fetches none of it. The same holds for ONNX Runtime's ~27 MB of wasm behind
+the segment tool, which is fetched only when that panel opens — and its
+Segment Anything models (14 MB to 900 MB) are not in the package at all: they
+are downloaded on request, from wherever the config says, and cached by the
+browser. The weight is on your build server's disk, not on your users'
+connections.
 
 
 ---

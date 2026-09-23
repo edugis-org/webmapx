@@ -468,6 +468,20 @@ export interface CompareToolConfig extends ToolConfig {
   initialSplit?: number;
 }
 
+/** `tools.segment`: Segment Anything in the browser (`webmapx-segment-tool`). */
+export interface SegmentToolConfig extends ToolConfig {
+  /**
+   * Where model repositories live; `{repo}` is replaced by a model's repository
+   * path (`onnx-community/sam2.1-hiera-tiny-ONNX`). Relative to the config.
+   * Default `models/{repo}/`; `https://huggingface.co/{repo}/resolve/main/` fetches from HuggingFace.
+   */
+  modelBaseUrl?: string;
+  /** Model ids to offer (`slimsam-77`, `sam2.1-tiny`, `sam2.1-small`, `sam2.1-base-plus`, `sam2.1-large`). Default all. */
+  models?: string[];
+  /** Model selected first. Default `sam2.1-tiny` with WebGPU, `slimsam-77` without. */
+  defaultModel?: string;
+}
+
 export interface ToolsConfig {
   coordinates?: CoordinatesToolConfig;
   compare?: CompareToolConfig;
@@ -477,7 +491,8 @@ export interface ToolsConfig {
   insetMap?: InsetMapToolConfig;
   search?: SearchToolConfig;
   info?: InfoToolConfig;
-  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | InfoToolConfig | CompareToolConfig | undefined;
+  segment?: SegmentToolConfig;
+  [toolName: string]: ToolConfig | SegmentToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | InfoToolConfig | CompareToolConfig | undefined;
 }
 
 /**
