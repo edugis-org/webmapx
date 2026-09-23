@@ -480,6 +480,10 @@ export interface SegmentToolConfig extends ToolConfig {
   models?: string[];
   /** Model selected first. Default `sam2.1-tiny` with WebGPU, `slimsam-77` without. */
   defaultModel?: string;
+  /** Names "segment everything" may give a segment, in English (CLIP reads English). Their order sets their colours. */
+  labels?: string[];
+  /** Model that names segments: `remoteclip` (trained on aerial imagery, default) or `clip`. */
+  clipModel?: string;
 }
 
 export interface ToolsConfig {

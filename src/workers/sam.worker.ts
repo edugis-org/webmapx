@@ -19,9 +19,14 @@ import {
     createSamSessions, encodeImage, outlineMask, runDecoder,
     type ModelBytes, type SamEmbedding, type SamMasks, type SamOutlineOptions, type SamPrompt, type SamSessions,
 } from './sam-runner';
-import type { ResolvedSamModel } from '../utils/sam/sam-models';
+import type { ResolvedClipModel, ResolvedSamModel } from '../utils/sam/sam-models';
+import { Tokenizer } from '@huggingface/tokenizers';
 import {
-    SamOperationCancelled, clusterFeatures, segmentEverything,
+    classify, createClipSessions, embedSegment, embedTexts,
+    type ClipSessions,
+} from './clip-runner';
+import {
+    SamOperationCancelled, clusterFeatures, segmentEverything, segmentRegion,
     type EverythingOptions, type EverythingState,
 } from './sam-everything';
 
@@ -46,11 +51,12 @@ export type SamWorkerRequest =
     | { id: number; op: 'outline'; outline: SamOutlineOptions }
     | { id: number; op: 'everything'; options: EverythingOptions & { k: number } }
     | { id: number; op: 'regroup'; k: number }
+    | { id: number; op: 'name'; clip: ResolvedClipModel; labels: string[]; backend: 'webgpu' | 'wasm' }
     | { id: number; op: 'cancel' };
 
 export type SamWorkerResponse =
     | { id: number; status: 'ok'; result: unknown }
-    | { id: number; status: 'progress'; loaded: number; total: number }
+    | { id: number; status: 'progress'; loaded: number; total: number; phase?: 'download' | 'regions' }
     | { id: number; status: 'error'; message: string; cancelled?: boolean };
 
 let sessions: SamSessions | null = null;
@@ -62,6 +68,15 @@ let masks: SamMasks | null = null;
 let everything: EverythingState | null = null;
 /** Set by a `cancel` message, which arrives while a long operation is awaiting between prompts. */
 let cancelRequested = false;
+/** The encoded view's pixels, kept so segments can be cut out of it to be named. */
+let viewPixels: ImageData | null = null;
+let clip: { key: string; sessions: ClipSessions; tokenizer: Tokenizer } | null = null;
+/**
+ * One CLIP embedding per segment of the last "segment everything", for one
+ * CLIP model. Embedding the segments is the slow part of naming; with these
+ * kept, a new word list costs only its own few text embeddings.
+ */
+let segmentEmbeddings: { key: string; embeddings: Float32Array[] } | null = null;
 
 function post(msg: SamWorkerResponse): void {
     (self as unknown as Worker).postMessage(msg);
@@ -233,6 +248,8 @@ async function encode(image: ImageBitmap): Promise<{ ms: number }> {
     embedding = null;
     masks = null;
     everything = null;
+    segmentEmbeddings = null;
+    viewPixels = pixels;
     embedding = await encodeImage(ort, sessions, pixels);
     return { ms: Math.round(performance.now() - t0) };
 }
@@ -258,7 +275,64 @@ async function runEverything(id: number, options: EverythingOptions & { k: numbe
         cancelled: () => cancelRequested,
     });
     everything = state;
+    segmentEmbeddings = null;
     return result;
+}
+
+async function loadClip(id: number, model: ResolvedClipModel, backend: 'webgpu' | 'wasm'): Promise<NonNullable<typeof clip>> {
+    const key = `${model.id}@${backend}`;
+    if (clip?.key === key) return clip;
+    const cache = await openCache();
+    const total = model.sizeMB * 1e6;
+    let loaded = 0;
+    let lastPost = 0;
+    const onBytes = (n: number) => {
+        loaded += n;
+        const now = performance.now();
+        if (now - lastPost > 100) {
+            lastPost = now;
+            post({ id, status: 'progress', loaded, total: Math.max(total, loaded), phase: 'download' });
+        }
+    };
+    const [vision, text, tokenizerJson, tokenizerConfig] = await Promise.all(
+        [model.vision, model.text, model.tokenizer, model.tokenizerConfig].map(url => fetchFile(url, cache, onBytes)),
+    );
+    const decoder = new TextDecoder();
+    let sessions: ClipSessions;
+    try {
+        sessions = await createClipSessions(ort, vision, text, backend === 'webgpu' ? ['webgpu', 'wasm'] : ['wasm']);
+    } catch (err) {
+        await Promise.all([model.vision, model.text].map(url => cache?.delete(url)));
+        throw err;
+    }
+    if (clip) await Promise.allSettled([clip.sessions.vision.release(), clip.sessions.text.release()]);
+    clip = {
+        key,
+        sessions,
+        tokenizer: new Tokenizer(JSON.parse(decoder.decode(tokenizerJson)), JSON.parse(decoder.decode(tokenizerConfig))),
+    };
+    return clip;
+}
+
+async function nameSegments(id: number, model: ResolvedClipModel, labels: string[], backend: 'webgpu' | 'wasm') {
+    if (!everything || !viewPixels) throw new Error('Segment the view first.');
+    if (!labels.length) throw new Error('Give at least one name to choose from.');
+    cancelRequested = false;
+    const { key, sessions, tokenizer } = await loadClip(id, model, backend);
+    const state = everything;
+    const image = viewPixels;
+    if (segmentEmbeddings?.key !== key) {
+        const embeddings: Float32Array[] = [];
+        for (let i = 0; i < state.order.length; i++) {
+            if (cancelRequested) throw new SamOperationCancelled();
+            const { box, inside } = segmentRegion(state, i);
+            embeddings.push(await embedSegment(ort, sessions, image, box, inside));
+            post({ id, status: 'progress', loaded: i + 1, total: state.order.length, phase: 'regions' });
+        }
+        segmentEmbeddings = { key, embeddings };
+    }
+    const texts = await embedTexts(ort, sessions, tokenizer, labels.map(l => model.template.replace('{label}', l)));
+    return classify(segmentEmbeddings.embeddings, texts);
 }
 
 function regroup(k: number): number[] {
@@ -290,6 +364,7 @@ self.onmessage = async (e: MessageEvent<SamWorkerRequest>) => {
             case 'outline': result = outline(msg.outline); break;
             case 'everything': result = await runEverything(msg.id, msg.options); break;
             case 'regroup': result = regroup(msg.k); break;
+            case 'name': result = await nameSegments(msg.id, msg.clip, msg.labels, msg.backend); break;
         }
         post({ id: msg.id, status: 'ok', result });
     } catch (err) {

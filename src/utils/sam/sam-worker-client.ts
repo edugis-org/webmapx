@@ -10,13 +10,13 @@
 
 import type { SamOutlineOptions, SamPrompt, SamResult } from '../../workers/sam-runner';
 import type { SamCapabilities, SamWorkerRequest, SamWorkerResponse } from '../../workers/sam.worker';
-import type { ResolvedSamModel } from './sam-models';
+import type { ResolvedClipModel, ResolvedSamModel } from './sam-models';
 import type { EverythingOptions, EverythingResult } from '../../workers/sam-everything';
 
 type Pending = {
     resolve: (value: any) => void;
     reject: (err: Error) => void;
-    onProgress?: (loaded: number, total: number) => void;
+    onProgress?: (loaded: number, total: number, phase?: 'download' | 'regions') => void;
 };
 
 // Distributes Omit over the union, so each request keeps its own fields.
@@ -48,7 +48,7 @@ function getWorker(): Worker {
         const p = pending.get(msg.id);
         if (!p) return;
         if (msg.status === 'progress') {
-            p.onProgress?.(msg.loaded, msg.total);
+            p.onProgress?.(msg.loaded, msg.total, msg.phase);
             return;
         }
         pending.delete(msg.id);
@@ -114,6 +114,26 @@ export function segmentEverythingSam(
     onProgress?: (done: number, total: number) => void,
 ): Promise<EverythingResult> {
     return request({ op: 'everything', options }, { onProgress });
+}
+
+/**
+ * Names each segment of the last "segment everything" with the best-fitting
+ * label, downloading the CLIP model on first use. Progress reports the
+ * download, then the segments being embedded; a second list of labels for
+ * the same segments skips both.
+ */
+export function nameSegmentsSam(
+    clip: ResolvedClipModel,
+    labels: string[],
+    backend: 'webgpu' | 'wasm',
+    onProgress?: (done: number, total: number, phase?: 'download' | 'regions') => void,
+): Promise<{ label: number; probability: number }[]> {
+    return request({ op: 'name', clip, labels, backend }, { onProgress });
+}
+
+/** Whether a CLIP model's files are all in the browser's cache already. */
+export function isClipModelCached(clip: ResolvedClipModel): Promise<boolean> {
+    return request({ op: 'cached', urls: [clip.vision, clip.text, clip.tokenizer, clip.tokenizerConfig] });
 }
 
 /** Regroups the last "segment everything" into `k` groups; no model run. */

@@ -166,3 +166,84 @@ export function modelsFromConfig(models: unknown): SamModelEntry[] {
     }
     return out.length ? out : [...SAM_MODELS];
 }
+
+// ─── CLIP, for naming segments ───────────────────────────────────────────────
+
+/**
+ * A CLIP model for naming segments: an image encoder and a text encoder with
+ * the interface of `Xenova/clip-vit-base-patch32` (`pixel_values` →
+ * `image_embeds`, `input_ids` → `text_embeds`), plus CLIP's tokenizer.
+ */
+export interface ClipModelEntry {
+    id: string;
+    label: string;
+    repo: string;
+    vision: string;
+    text: string;
+    tokenizer: string;
+    tokenizerConfig: string;
+    sizeMB: number;
+    /** Sentence each label is put into; `{label}` is replaced. Matches how the model was trained. */
+    template: string;
+}
+
+export const CLIP_MODELS: readonly ClipModelEntry[] = [
+    {
+        // RemoteCLIP (Liu et al. 2024, Apache-2.0) is CLIP ViT-B/32 retrained on
+        // remote-sensing image–text pairs. It has no ONNX release: the open_clip
+        // checkpoint was exported with the Xenova interface and int8-quantized.
+        // On an Amsterdam orthophoto it named roofs, canals and courtyards where
+        // generic CLIP called most of the city "grass".
+        id: 'remoteclip',
+        label: 'RemoteCLIP (aerial)',
+        repo: 'webmapx/remoteclip-vit-b-32',
+        vision: 'onnx/vision_model_quantized.onnx',
+        text: 'onnx/text_model_quantized.onnx',
+        tokenizer: 'tokenizer.json',
+        tokenizerConfig: 'tokenizer_config.json',
+        sizeMB: 156,
+        template: 'a satellite image of {label}.',
+    },
+    {
+        id: 'clip',
+        label: 'CLIP (general)',
+        repo: 'Xenova/clip-vit-base-patch32',
+        vision: 'onnx/vision_model_quantized.onnx',
+        text: 'onnx/text_model_quantized.onnx',
+        tokenizer: 'tokenizer.json',
+        tokenizerConfig: 'tokenizer_config.json',
+        sizeMB: 156,
+        template: 'an aerial photograph of {label}.',
+    },
+];
+
+export interface ResolvedClipModel {
+    id: string;
+    vision: string;
+    text: string;
+    tokenizer: string;
+    tokenizerConfig: string;
+    sizeMB: number;
+    template: string;
+}
+
+export function resolveClipModel(
+    entry: ClipModelEntry, baseUrl: string, resolve: (path: string) => string = (p) => p,
+): ResolvedClipModel {
+    const base = resolve(resolveModelBase(baseUrl, entry.repo));
+    const url = (file: string): string => new URL(file, base).toString();
+    return {
+        id: entry.id,
+        vision: url(entry.vision),
+        text: url(entry.text),
+        tokenizer: url(entry.tokenizer),
+        tokenizerConfig: url(entry.tokenizerConfig),
+        sizeMB: entry.sizeMB,
+        template: entry.template,
+    };
+}
+
+/** What a segment might be, when a config names nothing. English: CLIP reads English. */
+export const DEFAULT_SEGMENT_LABELS = [
+    'rooftops', 'a street', 'trees', 'grass', 'water', 'a parking lot', 'cars', 'a field',
+];

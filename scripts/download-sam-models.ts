@@ -20,7 +20,33 @@ import { createWriteStream, existsSync, mkdirSync, renameSync, statSync } from '
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { SAM_MODELS, type SamModelEntry } from '../src/utils/sam/sam-models';
+import { CLIP_MODELS, SAM_MODELS } from '../src/utils/sam/sam-models';
+
+/** One downloadable model: a repository and the files to fetch from it. */
+interface Download {
+    label: string;
+    repo: string;
+    files: string[];
+}
+
+/**
+ * Everything the segment tool can use and HuggingFace hosts: the SAM models
+ * (both variants, since a browser picks between them) and the CLIP models
+ * for naming segments. RemoteCLIP is not on HuggingFace in ONNX form (its
+ * repo is `webmapx/...`), so it is not offered here.
+ */
+const DOWNLOADS: Record<string, Download> = Object.fromEntries([
+    ...SAM_MODELS.map(m => [m.id, {
+        label: m.label,
+        repo: m.repo,
+        files: [...new Set([m.default, ...(m.fp16 ? [m.fp16] : [])].flatMap(v => [...v.files.encoder, ...v.files.decoder]))],
+    }]),
+    ...CLIP_MODELS.filter(m => !m.repo.startsWith('webmapx/')).map(m => [m.id, {
+        label: m.label,
+        repo: m.repo,
+        files: [m.vision, m.text, m.tokenizer, m.tokenizerConfig],
+    }]),
+]);
 
 const HF = 'https://huggingface.co';
 const DEFAULT_MODELS = ['slimsam-77', 'sam2.1-tiny'];
@@ -28,25 +54,25 @@ const DEFAULT_MODELS = ['slimsam-77', 'sam2.1-tiny'];
 function usage(): never {
     console.log(`Usage: npm run models:sam -- --out <dir> [--models id,id | --all]
 
-Models: ${SAM_MODELS.map(m => m.id).join(', ')}
+Models: ${Object.keys(DOWNLOADS).join(', ')}
 Default: ${DEFAULT_MODELS.join(', ')}`);
     process.exit(1);
 }
 
-function parseArgs(argv: string[]): { out: string; models: SamModelEntry[] } {
+function parseArgs(argv: string[]): { out: string; models: Download[] } {
     let out = '';
     let ids = DEFAULT_MODELS;
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         if (arg === '--out') out = argv[++i] ?? '';
         else if (arg === '--models') ids = (argv[++i] ?? '').split(',').filter(Boolean);
-        else if (arg === '--all') ids = SAM_MODELS.map(m => m.id);
+        else if (arg === '--all') ids = Object.keys(DOWNLOADS);
         else if (arg === '--help' || arg === '-h') usage();
         else { console.error(`Unknown argument ${arg}`); usage(); }
     }
     if (!out) usage();
     const models = ids.map(id => {
-        const m = SAM_MODELS.find(e => e.id === id);
+        const m = DOWNLOADS[id];
         if (!m) { console.error(`Unknown model ${id}`); usage(); }
         return m;
     });
@@ -74,9 +100,7 @@ async function main(): Promise<void> {
     const { out, models } = parseArgs(process.argv.slice(2));
     for (const model of models) {
         console.log(`${model.label} (${model.repo})`);
-        const variants = [model.default, ...(model.fp16 ? [model.fp16] : [])];
-        const files = new Set(variants.flatMap(v => [...v.files.encoder, ...v.files.decoder]));
-        for (const file of files) {
+        for (const file of model.files) {
             await download(`${HF}/${model.repo}/resolve/main/${file}`, path.join(out, model.repo, file));
         }
     }

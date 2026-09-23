@@ -356,6 +356,44 @@ export function clusterFeatures(features: Float32Array[], weights: number[], k: 
 export interface EverythingState {
     features: Float32Array[];
     weights: number[];
+    /** The label grid and which label each segment is, so a segment's cells can be found again. */
+    labels: Int32Array;
+    order: number[];
+    cols: number;
+    rows: number;
+    /** Image pixels per grid cell. */
+    cellX: number;
+    cellY: number;
+}
+
+/**
+ * One segment as an image region: its bounding box in image pixels and a
+ * test for whether a pixel belongs to it — for cutting it out to name it.
+ */
+export function segmentRegion(state: EverythingState, index: number): {
+    box: [number, number, number, number];
+    inside: (x: number, y: number) => boolean;
+} {
+    const { labels, cols, rows, cellX, cellY } = state;
+    const label = state.order[index];
+    let x0 = cols, y0 = rows, x1 = -1, y1 = -1;
+    for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+            if (labels[y * cols + x] !== label) continue;
+            if (x < x0) x0 = x;
+            if (x > x1) x1 = x;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+        }
+    }
+    return {
+        box: [x0 * cellX, y0 * cellY, (x1 + 1) * cellX, (y1 + 1) * cellY],
+        inside: (x, y) => {
+            const gx = Math.floor(x / cellX);
+            const gy = Math.floor(y / cellY);
+            return gx >= 0 && gy >= 0 && gx < cols && gy < rows && labels[gy * cols + gx] === label;
+        },
+    };
 }
 
 /** The embedding tensor holding one 256-channel vector per 64² cell, whichever family. */
@@ -433,6 +471,6 @@ export async function segmentEverything(
                 filled: segments.filter(s => s.kind === 'fill').length,
             },
         },
-        state: { features, weights },
+        state: { features, weights, labels, order, cols, rows, cellX, cellY },
     };
 }
