@@ -76,6 +76,18 @@ export class WebmapxSpinner extends WebmapxBaseTool {
      * spinner. Tiles genuinely loading mid-animation go unreported for the
      * duration; the moving picture already shows the map is working.
      */
+    /**
+     * Decorative to assistive technology. `sl-spinner` is a `progressbar`
+     * labelled "Loading", and it stays in the page while hidden (opacity 0), so
+     * a screen reader could find a permanent loading bar. The map's own busy
+     * state is exposed as `aria-busy` on the map region instead; inline uses sit
+     * next to text that already says what is happening.
+     */
+    connectedCallback(): void {
+        super.connectedCallback();
+        this.setAttribute('aria-hidden', 'true');
+    }
+
     protected onStateChanged(state: IMapState): void {
         this.busy = state.mapBusy && !state.mapTimePlay;
     }

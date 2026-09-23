@@ -21,6 +21,7 @@
  * loader in tool-loader.ts.
  */
 
+import { announce } from './internal/announce';
 import { html, css, nothing, type TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
@@ -938,6 +939,8 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
 
         await this.mapElement?.addLayerRequest(layerConfig);
         this.lastOutputLayerId = outputLayerId;
+        const count = Array.isArray((result as { features?: unknown[] }).features) ? (result as { features: unknown[] }).features.length : 0;
+        announce(this, `${label} added to the map, ${count} ${count === 1 ? 'feature' : 'features'}`);
     }
 
     /**
@@ -1118,6 +1121,10 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
     protected updated(changed: Map<string, unknown>): void {
         super.updated?.(changed as never);
         this.markClippedHints();
+        // Set from a dozen places (validation, empty inputs, cancellation, warnings
+        // about the result); announcing on change covers all of them.
+        if (changed.has('error') && this.error) announce(this, this.error);
+        if (changed.has('notice') && this.notice) announce(this, this.notice);
     }
 
     /**

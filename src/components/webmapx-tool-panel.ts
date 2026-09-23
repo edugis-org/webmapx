@@ -269,7 +269,7 @@ export class WebmapxToolPanel extends LitElement {
       flex-shrink: 0;
     }
 
-    .panel-header h3 {
+    .panel-header h2 {
       margin: 0;
       font-size: var(--webmapx-font-size-lg, 1rem);
       font-weight: 600;
@@ -350,7 +350,7 @@ export class WebmapxToolPanel extends LitElement {
   render() {
     return html`
       <div class="panel-header">
-        <slot name="header"><h3>${this.label}</h3></slot>
+        <slot name="header"><h2>${this.label}</h2></slot>
         <sl-button size="small" circle variant="text" @click=${this.toggleCollapsed}>
           <sl-icon name=${this.collapsed ? 'chevron-down' : 'chevron-up'} label=${this.collapsed ? 'Expand' : 'Collapse'}></sl-icon>
         </sl-button>

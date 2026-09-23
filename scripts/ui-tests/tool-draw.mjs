@@ -45,7 +45,7 @@ async function setDrawModeAndCreateLayer(page, buttonName, layerName, activeLaye
     const tool = map?.querySelector('webmapx-draw-tool');
     if (!tool?.shadowRoot) throw new Error('Draw tool shadow root unavailable');
 
-    const modeButton = tool.shadowRoot.querySelector(`sl-icon-button[name="${drawButtonName}"]`);
+    const modeButton = tool.shadowRoot.querySelector(`button[name="${drawButtonName}"]`);
     if (!modeButton) throw new Error(`Draw mode button not found: ${drawButtonName}`);
     modeButton.click();
 
@@ -99,7 +99,7 @@ async function setDrawModeAndCreateLayerByEvent(page, buttonName, layerName, geo
   await page.evaluate(({ drawButtonName }) => {
     const map = document.querySelector('webmapx-map');
     const tool = map?.querySelector('webmapx-draw-tool');
-    const button = tool?.shadowRoot?.querySelector(`sl-icon-button[name="${drawButtonName}"]`);
+    const button = tool?.shadowRoot?.querySelector(`button[name="${drawButtonName}"]`);
     if (!button) throw new Error(`Draw mode button not found: ${drawButtonName}`);
     button.click();
   }, { drawButtonName: buttonName });
@@ -136,7 +136,7 @@ async function setDrawModeAndCreateLayerByEvent(page, buttonName, layerName, geo
   await page.evaluate(({ drawButtonName }) => {
     const map = document.querySelector('webmapx-map');
     const tool = map?.querySelector('webmapx-draw-tool');
-    const button = tool?.shadowRoot?.querySelector(`sl-icon-button[name="${drawButtonName}"]`);
+    const button = tool?.shadowRoot?.querySelector(`button[name="${drawButtonName}"]`);
     if (!button) throw new Error(`Draw mode button not found for mode activation: ${drawButtonName}`);
     button.click();
   }, { drawButtonName: buttonName });
@@ -329,7 +329,7 @@ async function setDrawModeWithoutCreatingLayer(page, buttonName, activeLayerType
   await page.evaluate(({ drawButtonName }) => {
     const map = document.querySelector('webmapx-map');
     const tool = map?.querySelector('webmapx-draw-tool');
-    const button = tool?.shadowRoot?.querySelector(`sl-icon-button[name="${drawButtonName}"]`);
+    const button = tool?.shadowRoot?.querySelector(`button[name="${drawButtonName}"]`);
     if (!button) throw new Error(`Draw mode button not found: ${drawButtonName}`);
     button.click();
   }, { drawButtonName: buttonName });

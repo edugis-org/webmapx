@@ -1254,14 +1254,22 @@ export class WebmapxInsetMap extends LitElement {
 
   protected render() {
     return html`
-      <div class="inset-map-frame ${this._collapsed ? 'hidden' : ''}" tabindex=${this.minimizable ? '0' : '-1'}>
-        <div class="inset-map"></div>
+      <!-- One labelled picture to assistive technology. The engine inside
+           labels its own canvas like the main map's ("Map", a landmark), so
+           left exposed the page would carry two identical map landmarks, and
+           nothing in the overview can be operated anyway (the sub-map is
+           created non-interactive). \`inert\` rather than aria-hidden: Leaflet
+           makes its container focusable, and a hidden element must not be
+           reachable with Tab. -->
+      <div class="inset-map-frame ${this._collapsed ? 'hidden' : ''}" tabindex=${this.minimizable ? '0' : '-1'}
+        role="img" aria-label="Overview map">
+        <div class="inset-map" inert></div>
       </div>
       ${this.minimizable ? html`
         <div class="toggle-btn">
           <sl-icon-button
             name=${this._collapsed ? 'arrows-angle-expand' : 'arrows-angle-contract'}
-            label=${this._collapsed ? 'Expand' : 'Collapse'}
+            label=${this._collapsed ? 'Expand overview map' : 'Collapse overview map'}
             @click=${() => { this._collapsed = !this._collapsed; }}>
           </sl-icon-button>
         </div>

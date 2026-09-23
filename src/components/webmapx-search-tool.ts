@@ -1,3 +1,4 @@
+import { announce } from './internal/announce';
 import { html, css, svg } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 
@@ -565,9 +566,12 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
         .map(({ f }) => f);
 
       this.results = { type: 'FeatureCollection', features };
+      announce(this, features.length === 0 ? `No results for ${q}`
+        : `${features.length} ${features.length === 1 ? 'result' : 'results'} for ${q}`);
     } catch (e) {
       console.error('search error', e);
       this.results = { type: 'FeatureCollection', features: [] };
+      announce(this, `Search for ${q} failed`);
     } finally {
       this.searching = false;
       // dispatch raw results so consumers can react

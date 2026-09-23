@@ -1,6 +1,7 @@
 // src/components/webmapx-measure-tool.ts
 // Interactive measure tool for distance and area measurement
 
+import { announce } from './internal/announce';
 import { html, css, nothing, TemplateResult } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
@@ -787,6 +788,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         this.areaM2 = featureArea({ type: 'Polygon', coordinates: [this.points] });
         this.isClosed = true;
         this.cursorPosition = null;
+        announce(this, `Area ${formatArea(this.areaM2, this.unitSystem)}, perimeter ${formatDistance(this.totalDistanceCm, this.unitSystem)}`);
 
         this.updateMapVisualization();
         this.doUpdateRubberbandVisualization();
@@ -797,6 +799,9 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
      *  line/polygon) visible on the map until cleared or a new measurement starts. */
     private finishMeasurement(): void {
         this.finished = true;
+        if (!this.isClosed && this.segments.length > 0) {
+            announce(this, `Distance ${formatDistance(this.totalDistanceCm, this.unitSystem)}`);
+        }
         this.cursorPosition = null;
         this.doUpdateRubberbandVisualization();
         this.updateElevationProfile();

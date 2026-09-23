@@ -78,7 +78,7 @@ async function activateDrawTool(page) {
 async function drawPointFeature(page) {
   await page.evaluate(() => {
     const tool = document.querySelector('webmapx-draw-tool');
-    const btn = tool.shadowRoot.querySelector('sl-icon-button[name="geo-fill"]');
+    const btn = tool.shadowRoot.querySelector('button[name="geo-fill"]');
     if (!btn) throw new Error('Point draw button not found');
     btn.click();
   });

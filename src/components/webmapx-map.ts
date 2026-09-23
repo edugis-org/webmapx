@@ -46,6 +46,7 @@ type LayerInformation = {
 
 import type { LegendRole } from './internal/legend-role-policy';
 import { buildLayerDefinition, type LayerDefinitionResult } from '../utils/layer-definition';
+import { setupMapAccessibility, type MapAccessibilityHandle } from './internal/map-accessibility';
 
 type LayerRequest = Record<string, unknown>;
 type ActiveLayerStateObject = Exclude<ActiveLayerStateEntry, string>;
@@ -86,6 +87,8 @@ export class WebmapxMapElement extends HTMLElement {
 
     disconnectedCallback(): void {
       this.surfaceObserver?.disconnect();
+      this.mapAccessibility?.dispose();
+      this.mapAccessibility = null;
       this.removeEventListener('add-layer', this.handleLayerAddRequest as unknown as EventListener);
       this.removeEventListener('webmapx-add-layer', this.handleAddLayerEvent as unknown as EventListener);
       this.removeEventListener('webmapx-remove-layer', this.handleRemoveLayerEvent as EventListener);
@@ -310,6 +313,7 @@ export class WebmapxMapElement extends HTMLElement {
     }
   private surfaceObserver?: MutationObserver;
   private currentSurface: HTMLElement | null = null;
+  private mapAccessibility: MapAccessibilityHandle | null = null;
   private adapterInstance: IMap | null = null;
   private adapterPromise: Promise<IMap | null> | null = null;
   private configInstance: AppConfig | null = null;
@@ -677,6 +681,7 @@ export class WebmapxMapElement extends HTMLElement {
       }
 
       void this.applyCatalogToAdapter();
+      this.attachMapAccessibility(adapter);
 
       this.dispatchEvent(new CustomEvent('webmapx-map-ready', {
         detail: { adapter: this.adapterInstance, map: this },
@@ -686,6 +691,35 @@ export class WebmapxMapElement extends HTMLElement {
 
       return adapter;
     })();
+  }
+
+  /**
+   * Names the map and makes it keyboard-reachable on every engine (see
+   * `internal/map-accessibility`). Inspected again once the engine has drawn,
+   * because only then does its own DOM — a labelled canvas, a focusable
+   * container — exist to be found.
+   */
+  private attachMapAccessibility(adapter: IMap): void {
+    this.mapAccessibility?.dispose();
+    const surface = this.currentSurface ?? this.ensureMapViewElement();
+    this.mapAccessibility = setupMapAccessibility(surface, adapter, () => this.accessibleMapLabel());
+    if (adapter.store.getState().mapLoaded) {
+      this.mapAccessibility.refresh();
+      return;
+    }
+    const unsubscribe = adapter.store.subscribe((state) => {
+      if (!state.mapLoaded) return;
+      unsubscribe();
+      this.mapAccessibility?.refresh();
+    });
+  }
+
+  /** The config's `map.label`, so two maps on a page are told apart by name. */
+  private accessibleMapLabel(): string {
+    const label = this.mapConfig?.label?.trim() || 'Map';
+    // The frozen half of a comparison is a second map of the same config; give
+    // it a name of its own rather than a second landmark with the same one.
+    return this.getAttribute('data-webmapx-role') === 'compare-reference' ? `${label} (before)` : label;
   }
 
   private async applyCatalogToAdapter(): Promise<void> {

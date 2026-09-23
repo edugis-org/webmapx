@@ -167,7 +167,7 @@ export class WebmapxDrawLayerDialog extends LitElement {
 
         .prop-row-auto td { color: var(--color-text-muted, #6b7681); font-style: italic; }
 
-        .type-computed { color: var(--sl-color-primary-600); font-size: var(--webmapx-font-size-sm, 0.75rem); }
+        .type-computed { color: var(--color-primary, #2b6c8f); font-size: var(--webmapx-font-size-sm, 0.75rem); }
 
         .add-row td { background: var(--color-surface-raised, #f4f6f8); }
 

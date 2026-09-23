@@ -53,7 +53,7 @@ async function setupDrawLayer(page) {
         if (!dialog) throw new Error('Draw layer dialog not found');
 
         // Click draw-point button first to open dialog
-        const btn = tool.shadowRoot.querySelector('sl-icon-button[name="geo-fill"]');
+        const btn = tool.shadowRoot.querySelector('button[name="geo-fill"]');
         if (!btn) throw new Error('Point draw button not found');
         btn.click();
     });

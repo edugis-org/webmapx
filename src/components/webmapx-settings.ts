@@ -79,7 +79,7 @@ export class WebmapxSettings extends LitElement {
             margin-bottom: 0;
         }
 
-        h4 {
+        h3 {
             margin: 0 0 0.75rem 0;
             font-size: 0.875rem;
             font-weight: 600;
@@ -275,7 +275,7 @@ export class WebmapxSettings extends LitElement {
     render() {
         return html`
             <div class="setting-group">
-                <h4>Map Engine</h4>
+                <h3>Map Engine</h3>
                 <sl-select
                     label="Adapter"
                     value=${this.currentAdapter}
@@ -292,7 +292,7 @@ export class WebmapxSettings extends LitElement {
             <sl-divider></sl-divider>
 
             <div class="setting-group">
-                <h4>Appearance</h4>
+                <h3>Appearance</h3>
                 <sl-select
                     label="Style"
                     help-text=${UI_STYLES.find(s => s.value === this.uiStyle)?.hint ?? ''}
@@ -317,7 +317,7 @@ export class WebmapxSettings extends LitElement {
             <sl-divider></sl-divider>
 
             <div class="setting-group">
-                <h4>API Configuration</h4>
+                <h3>API Configuration</h3>
                 <sl-input
                     label="API Key"
                     type="password"

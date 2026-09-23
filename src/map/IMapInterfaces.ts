@@ -588,6 +588,13 @@ export interface NavigationCapabilities {
     bearing: boolean;
     /** True if map supports pitch/tilt adjustments. */
     pitch: boolean;
+    /**
+     * True if the engine pans and zooms from the keyboard itself once its map
+     * has focus. When false, webmapx-map supplies arrow-key panning and +/-
+     * zoom (see `internal/map-accessibility`), so every map can be used without
+     * a mouse.
+     */
+    keyboard: boolean;
 }
 
 /**

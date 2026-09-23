@@ -492,7 +492,7 @@ export class MapCoreService implements IMapCore {
     }
 
     public getNavigationCapabilities(): NavigationCapabilities {
-        return { bearing: true, pitch: false };
+        return { bearing: true, pitch: false, keyboard: true };
     }
 
     public getBearing(): number {

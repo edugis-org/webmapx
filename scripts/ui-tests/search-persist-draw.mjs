@@ -196,7 +196,7 @@ async function clickPolygonModeAndSelectUtrechtLayer(page) {
     if (!tool?.shadowRoot) throw new Error('Draw tool shadow root unavailable');
 
     // Click polygon mode button
-    const polygonButton = tool.shadowRoot.querySelector('sl-icon-button[name="pentagon"]');
+    const polygonButton = tool.shadowRoot.querySelector('button[name="pentagon"]');
     if (!polygonButton) throw new Error('Polygon mode button not found');
     polygonButton.click();
 

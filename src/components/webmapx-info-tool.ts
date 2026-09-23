@@ -2,6 +2,7 @@
 // Info tool: queries vector features on hover, vector + WMS on click.
 // Click same location again to unpin and return to hover mode.
 
+import { announce } from './internal/announce';
 import { html, css, nothing, TemplateResult } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
@@ -117,7 +118,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 
         .streetview-link {
             font-style: normal;
-            color: var(--sl-color-primary-600, #0070f3);
+            color: var(--color-primary, #2b6c8f);
             text-decoration: none;
         }
 
@@ -417,6 +418,10 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
             // Also query any visible raster layers with getFeatureInfoUrl in metadata
             const gfiResults = await this.queryGFILayers(event.pixel, event.coords);
             this.features = [...results, ...gfiResults];
+            // Only for a click: hover results change with every mouse move and
+            // would talk over everything else.
+            const n = this.features.length;
+            announce(this, n === 0 ? 'Nothing found here' : `${n} ${n === 1 ? 'feature' : 'features'} found here`);
         } finally {
             this.loading = false;
         }

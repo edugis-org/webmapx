@@ -436,9 +436,11 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
 
     /* After .out-of-zoom so hover/focus feedback wins even on a dimmed label
        (equal specificity to .layer-label.out-of-zoom — source order decides). */
+    /* Our own hover token, not Shoelace's primary-600: that one is a sky blue
+       (#0284c7) at 4.09:1 on white, below the 4.5:1 AA needs for text. */
     .layer-label:hover,
     .layer-label:focus-visible {
-      color: var(--sl-color-primary-600, var(--color-primary, #2b6c8f));
+      color: var(--color-primary-hover, #21566f);
     }
 
     /* No padding here (unlike before): .layer-details-inner below has

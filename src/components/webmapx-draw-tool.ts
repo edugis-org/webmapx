@@ -1,4 +1,4 @@
-import { html, css } from 'lit';
+import { html, css, type TemplateResult } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
@@ -284,10 +284,29 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             flex-shrink: 0;
         }
 
-        sl-icon-button[active]::part(base) {
-            color: var(--sl-color-primary-600);
-            background: var(--sl-color-primary-100);
+        /* Sized and coloured like the sl-icon-buttons beside it. */
+        .toggle-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--sl-font-size-large, 1.25rem);
+            padding: var(--sl-spacing-x-small, 0.5rem);
+            border: none;
             border-radius: 4px;
+            background: none;
+            color: var(--sl-color-neutral-600, #5a6773);
+            cursor: pointer;
+        }
+        .toggle-button:hover {
+            color: var(--color-primary, #2b6c8f);
+        }
+        .toggle-button:focus-visible {
+            outline: var(--webmapx-focus-ring, 2px solid var(--color-primary, #2b6c8f));
+            outline-offset: var(--webmapx-focus-offset, 2px);
+        }
+        .toggle-button[aria-pressed="true"] {
+            color: var(--color-primary, #2b6c8f);
+            background: var(--color-primary-soft, rgba(43, 108, 143, 0.12));
         }
 
         .help {
@@ -2134,54 +2153,42 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     // ─── Render ───────────────────────────────────────────────────────────────
 
+    /**
+     * An on/off button in the draw toolbar. A native <button> rather than
+     * sl-icon-button, because only a real button can carry `aria-pressed`: the
+     * mode buttons and snap are toggles, and a screen reader otherwise hears
+     * "Draw polygon, button" with no word on whether it is the active mode.
+     * `name` stays the icon name, which is how the UI tests address them.
+     */
+    private toggleButton(icon: string, label: string, pressed: boolean, onClick: () => void, tooltip = label): TemplateResult {
+        return html`
+            <sl-tooltip content=${tooltip}>
+                <button type="button" class="toggle-button" name=${icon}
+                    aria-label=${label} aria-pressed=${pressed ? 'true' : 'false'}
+                    @click=${onClick}>
+                    <sl-icon name=${icon} aria-hidden="true"></sl-icon>
+                </button>
+            </sl-tooltip>`;
+    }
+
     render() {
         const selFeature = this.features.find(f => f.id === this.selectedFeatureId);
         const selLayer = selFeature ? this.drawLayers.find(l => l.id === selFeature.layerId) : null;
 
         return html`
             <div class="toolbar">
-                <sl-tooltip content="Select">
-                    <sl-icon-button name="cursor" label="Select"
-                        ?active=${this.mode === 'select'}
-                        @click=${() => this.requestDrawMode('select')}>
-                    </sl-icon-button>
-                </sl-tooltip>
-                <sl-tooltip content="Draw point">
-                    <sl-icon-button name="geo-fill" label="Draw point"
-                        ?active=${this.mode === 'draw-point'}
-                        @click=${() => this.requestDrawMode('draw-point')}>
-                    </sl-icon-button>
-                </sl-tooltip>
-                <sl-tooltip content="Draw line">
-                    <sl-icon-button name="slash-lg" label="Draw line"
-                        ?active=${this.mode === 'draw-line'}
-                        @click=${() => this.requestDrawMode('draw-line')}>
-                    </sl-icon-button>
-                </sl-tooltip>
-                <sl-tooltip content="Draw polygon">
-                    <sl-icon-button name="pentagon" label="Draw polygon"
-                        ?active=${this.mode === 'draw-polygon'}
-                        @click=${() => this.requestDrawMode('draw-polygon')}>
-                    </sl-icon-button>
-                </sl-tooltip>
-                <sl-tooltip content="Draw circle">
-                    <sl-icon-button name="circle" label="Draw circle"
-                        ?active=${this.mode === 'draw-circle'}
-                        @click=${() => this.requestDrawMode('draw-circle')}>
-                    </sl-icon-button>
-                </sl-tooltip>
+                ${this.toggleButton('cursor', 'Select', this.mode === 'select', () => this.requestDrawMode('select'))}
+                ${this.toggleButton('geo-fill', 'Draw point', this.mode === 'draw-point', () => this.requestDrawMode('draw-point'))}
+                ${this.toggleButton('slash-lg', 'Draw line', this.mode === 'draw-line', () => this.requestDrawMode('draw-line'))}
+                ${this.toggleButton('pentagon', 'Draw polygon', this.mode === 'draw-polygon', () => this.requestDrawMode('draw-polygon'))}
+                ${this.toggleButton('circle', 'Draw circle', this.mode === 'draw-circle', () => this.requestDrawMode('draw-circle'))}
 
                 <div class="divider"></div>
 
-                <sl-tooltip content="Snap to points and edges (${this.snapEnabled ? 'on' : 'off'}) — hold Alt to toggle">
-                    <sl-icon-button name="magnet" label="Snap to points and edges"
-                        ?active=${this.effectiveSnap}
-                        @click=${() => {
-                            this.snapEnabled = !this.snapEnabled;
-                            if (!this.snapEnabled) { this.snapPos = null; this.updateRubberband(); }
-                        }}>
-                    </sl-icon-button>
-                </sl-tooltip>
+                ${this.toggleButton('magnet', 'Snap to points and edges', this.effectiveSnap, () => {
+                    this.snapEnabled = !this.snapEnabled;
+                    if (!this.snapEnabled) { this.snapPos = null; this.updateRubberband(); }
+                }, `Snap to points and edges (${this.snapEnabled ? 'on' : 'off'}) — hold Alt to toggle`)}
 
                 <div class="divider"></div>
 

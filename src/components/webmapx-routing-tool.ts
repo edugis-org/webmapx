@@ -1,3 +1,4 @@
+import { announce } from './internal/announce';
 import { html, css, TemplateResult, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
@@ -656,8 +657,13 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
             this.setRouteData(result.coordinates);
             this.distanceM = result.distanceM;
             this.durationS = result.durationS;
+            announce(this, ['Route found',
+                this.distanceM !== null ? this.formatDistance(this.distanceM) : null,
+                this.durationS !== null ? this.formatDuration(this.durationS) : null,
+            ].filter(Boolean).join(', '));
         } catch (err) {
             this.error = err instanceof Error ? err.message : 'Route calculation failed';
+            announce(this, this.error);
             this.setRouteData([]);
         } finally {
             this.loading = false;
