@@ -201,9 +201,13 @@ function buildToolbarGroup(config: Record<string, unknown>): HTMLElement {
     }
 
     const metadata = resolveToolbarItemMetadata(item);
+    // An item may name only its `type`; the type is then its id too, as it is
+    // for a sub-tool. Without this the button had no name and the tool was
+    // registered as "undefined", so the button could never open it.
+    const itemId = item.id ?? item.type;
     const button = document.createElement('sl-button');
     setAttrs(button, {
-      name: item.id,
+      name: itemId,
       size: 'medium',
       'data-tooltip': metadata.label,
     });
@@ -223,7 +227,7 @@ function buildToolbarGroup(config: Record<string, unknown>): HTMLElement {
     const tagName = item.type ? TOOL_ELEMENT_TAGS[item.type] : undefined;
     if (tagName) {
       const toolEl = document.createElement(tagName);
-      toolEl.setAttribute('tool-id', String(item.id));
+      toolEl.setAttribute('tool-id', String(itemId));
       toolEl.setAttribute('label', metadata.label);
       if (metadata.icon) {
         // Set as a pre-upgrade property; Lit replays it on upgrade for @property({ attribute: false })
