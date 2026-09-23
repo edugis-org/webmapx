@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import { readFileSync } from 'fs';
+import { createHash } from 'crypto';
 import path from 'path';
 
 const pkg = JSON.parse(readFileSync('./package.json', 'utf8'));
@@ -49,14 +50,23 @@ function extractInlinedAssets(minBase64Chars = 500_000): Plugin {
       for (const [fileName, chunk] of Object.entries(bundle)) {
         if (chunk.type !== 'chunk') continue;
 
+        // One file per distinct binary, not per reference: ONNX Runtime's
+        // bundle names its wasm in several `new URL(…, import.meta.url)`
+        // expressions, each inlined separately, which otherwise shipped the
+        // same 27 MB three times.
+        const emitted = new Map<string, string>();
         let index = 0;
         const code = chunk.code.replace(
           /`data:(application\/wasm|application\/octet-stream);base64,([A-Za-z0-9+/=]+)`/g,
           (whole: string, mime: string, base64: string) => {
             if (base64.length < minBase64Chars) return whole;
+            const key = createHash('sha256').update(base64).digest('hex');
+            let assetName = emitted.get(key);
+            if (assetName) return '(new URL(`./' + assetName + '`, self.location.href).href)';
             const extension = mime === 'application/wasm' ? 'wasm' : 'bin';
             const base = path.basename(fileName).replace(/\.[^.]+$/, '').replace(/[^\w.-]+/g, '-');
-            const assetName = `${base}-inlined-${index++}.${extension}`;
+            assetName = `${base}-inlined-${index++}.${extension}`;
+            emitted.set(key, assetName);
             this.emitFile({ type: 'asset', fileName: `assets/${assetName}`, source: Buffer.from(base64, 'base64') });
             // Addressed relative to the chunk that used it, which is where it
             // is emitted — the same shape the app build produces.
