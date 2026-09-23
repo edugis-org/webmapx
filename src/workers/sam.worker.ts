@@ -20,6 +20,10 @@ import {
     type ModelBytes, type SamEmbedding, type SamMasks, type SamOutlineOptions, type SamPrompt, type SamSessions,
 } from './sam-runner';
 import type { ResolvedSamModel } from '../utils/sam/sam-models';
+import {
+    SamOperationCancelled, clusterFeatures, segmentEverything,
+    type EverythingOptions, type EverythingState,
+} from './sam-everything';
 
 // Vite emits the wasm as a hashed asset; ORT's own guess (beside its module)
 // is wrong both in dev, where dependencies are pre-bundled, and in the library build.
@@ -39,18 +43,25 @@ export type SamWorkerRequest =
     | { id: number; op: 'load'; model: ResolvedSamModel; backend: 'webgpu' | 'wasm' }
     | { id: number; op: 'encode'; image: ImageBitmap }
     | { id: number; op: 'decode'; prompt: SamPrompt; outline: SamOutlineOptions }
-    | { id: number; op: 'outline'; outline: SamOutlineOptions };
+    | { id: number; op: 'outline'; outline: SamOutlineOptions }
+    | { id: number; op: 'everything'; options: EverythingOptions & { k: number } }
+    | { id: number; op: 'regroup'; k: number }
+    | { id: number; op: 'cancel' };
 
 export type SamWorkerResponse =
     | { id: number; status: 'ok'; result: unknown }
     | { id: number; status: 'progress'; loaded: number; total: number }
-    | { id: number; status: 'error'; message: string };
+    | { id: number; status: 'error'; message: string; cancelled?: boolean };
 
 let sessions: SamSessions | null = null;
 let loadedModelId: string | null = null;
 let embedding: SamEmbedding | null = null;
 /** The last decoder answer, so granularity and threshold can change without rerunning it. */
 let masks: SamMasks | null = null;
+/** Per-segment features of the last "segment everything", so regrouping needs no model. */
+let everything: EverythingState | null = null;
+/** Set by a `cancel` message, which arrives while a long operation is awaiting between prompts. */
+let cancelRequested = false;
 
 function post(msg: SamWorkerResponse): void {
     (self as unknown as Worker).postMessage(msg);
@@ -221,6 +232,7 @@ async function encode(image: ImageBitmap): Promise<{ ms: number }> {
     const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
     embedding = null;
     masks = null;
+    everything = null;
     embedding = await encodeImage(ort, sessions, pixels);
     return { ms: Math.round(performance.now() - t0) };
 }
@@ -231,6 +243,29 @@ async function decode(prompt: SamPrompt, options: SamOutlineOptions) {
     return outlineMask(masks, options);
 }
 
+async function runEverything(id: number, options: EverythingOptions & { k: number }) {
+    if (!sessions || !embedding) throw new Error('No image encoded.');
+    cancelRequested = false;
+    let lastPost = 0;
+    const { result, state } = await segmentEverything(ort, sessions, embedding, options, {
+        onProgress: (done, total) => {
+            const now = performance.now();
+            if (now - lastPost > 100 || done === total) {
+                lastPost = now;
+                post({ id, status: 'progress', loaded: done, total });
+            }
+        },
+        cancelled: () => cancelRequested,
+    });
+    everything = state;
+    return result;
+}
+
+function regroup(k: number): number[] {
+    if (!everything) throw new Error('Nothing segmented yet.');
+    return clusterFeatures(everything.features, everything.weights, k);
+}
+
 function outline(options: SamOutlineOptions) {
     if (!masks) throw new Error('Nothing decoded yet.');
     return outlineMask(masks, options);
@@ -238,6 +273,12 @@ function outline(options: SamOutlineOptions) {
 
 self.onmessage = async (e: MessageEvent<SamWorkerRequest>) => {
     const msg = e.data;
+    // Not an operation of its own: it flags the one in progress, and must not
+    // wait its turn behind it.
+    if (msg.op === 'cancel') {
+        cancelRequested = true;
+        return;
+    }
     try {
         let result: unknown;
         switch (msg.op) {
@@ -247,9 +288,16 @@ self.onmessage = async (e: MessageEvent<SamWorkerRequest>) => {
             case 'encode': result = await encode(msg.image); break;
             case 'decode': result = await decode(msg.prompt, msg.outline); break;
             case 'outline': result = outline(msg.outline); break;
+            case 'everything': result = await runEverything(msg.id, msg.options); break;
+            case 'regroup': result = regroup(msg.k); break;
         }
         post({ id: msg.id, status: 'ok', result });
     } catch (err) {
-        post({ id: msg.id, status: 'error', message: err instanceof Error ? err.message : String(err) });
+        post({
+            id: msg.id,
+            status: 'error',
+            message: err instanceof Error ? err.message : String(err),
+            cancelled: err instanceof SamOperationCancelled,
+        });
     }
 };

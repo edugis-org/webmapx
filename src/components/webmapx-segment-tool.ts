@@ -39,18 +39,20 @@ import type {
     ClickEvent, ContextMenuEvent, PointerDownEvent, PointerMoveEvent, PointerUpEvent,
 } from '../store/map-events';
 import type { WebmapxMapElement } from './webmapx-map';
-import { DATA_END, DATA_START, DATA_TOOL, DATA_TOOL_HALO } from '../theme/data-colors';
+import { DATA_CATEGORICAL, DATA_END, DATA_START, DATA_TOOL, DATA_TOOL_HALO } from '../theme/data-colors';
 import {
     DEFAULT_MODEL_BASE_URL, modelsFromConfig, resolveSamModel,
     type ResolvedSamModel, type SamModelEntry,
 } from '../utils/sam/sam-models';
 import { rewindPolygon } from '../utils/sam/mask-to-polygon';
 import {
-    decodeSamPrompt, encodeSamImage, isSamModelCached, loadSamModel, outlineSamMasks, probeSam,
+    SamCancelledError, cancelSam, decodeSamPrompt, encodeSamImage, isSamModelCached, loadSamModel,
+    outlineSamMasks, probeSam, regroupSam, segmentEverythingSam,
 } from '../utils/sam/sam-worker-client';
 import type { SamCapabilities } from '../workers/sam.worker';
 import type { SamGranularity, SamGranularityLevel, SamPrompt, SamResult } from '../workers/sam-runner';
-import { isEventFromEditableElement } from '../utils/dom-focus-utils';
+import type { EverythingResult } from '../workers/sam-everything';
+import { isEventFromEditableElement, isEventFromTextEntry } from '../utils/dom-focus-utils';
 
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/button-group/button-group.js';
@@ -66,11 +68,40 @@ import '@shoelace-style/shoelace/dist/components/range/range.js';
 
 type LngLat = [number, number];
 
+/** Controls that answer Enter themselves. */
+const ENTER_CONTROLS = new Set(['button', 'sl-button', 'sl-radio-button', 'sl-select', 'sl-option', 'a']);
+
+function isEventFromControl(event: Event): boolean {
+    return event.composedPath().some(node =>
+        typeof (node as HTMLElement).tagName === 'string'
+        && ENTER_CONTROLS.has((node as HTMLElement).tagName.toLowerCase()));
+}
+
 const PREVIEW_SOURCE = 'webmapx-segment-preview';
 const PREVIEW_FILL = 'webmapx-segment-preview-fill';
 const PREVIEW_LINE = 'webmapx-segment-preview-line';
 const PROMPT_POINTS = 'webmapx-segment-prompt-points';
-const TOOL_LAYERS = [PREVIEW_FILL, PREVIEW_LINE, PROMPT_POINTS];
+const PREVIEW_SEGMENTS_FILL = 'webmapx-segment-everything-fill';
+const PREVIEW_SEGMENTS_LINE = 'webmapx-segment-everything-line';
+const TOOL_LAYERS = [PREVIEW_SEGMENTS_FILL, PREVIEW_SEGMENTS_LINE, PREVIEW_FILL, PREVIEW_LINE, PROMPT_POINTS];
+
+/** Prompts per side for "segment everything", with what each costs. */
+const EVERYTHING_DETAIL = [
+    { points: 8, label: 'Coarse (64 prompts)' },
+    { points: 16, label: 'Normal (256 prompts)' },
+    { points: 24, label: 'Fine (576 prompts)' },
+    { points: 32, label: 'Finest (1024 prompts)' },
+];
+
+type Mode = 'point' | 'box' | 'everything';
+
+/** A fill-colour expression giving each group its categorical colour. */
+function groupColour(k: number): unknown[] {
+    const expr: unknown[] = ['match', ['get', 'group']];
+    for (let g = 0; g < k; g++) expr.push(g, DATA_CATEGORICAL[g % DATA_CATEGORICAL.length]);
+    expr.push('#888888');
+    return expr;
+}
 
 const RESULT_LAYER = 'webmapx-segments';
 const RESULT_SOURCE = 'webmapx-segments-src';
@@ -103,7 +134,16 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
     @state() private layers: LayerOption[] = [];
     /** '' means the map as shown. */
     @state() private layerId = '';
-    @state() private mode: 'point' | 'box' = 'point';
+    @state() private mode: Mode = 'point';
+    /** Prompts per side for "segment everything". */
+    @state() private everythingDetail = 16;
+    @state() private groupCount = 6;
+    /** Prompts run so far / in total while segmenting everything; null when not running. */
+    @state() private everythingProgress: [number, number] | null = null;
+    /** The segmented view in lon/lat, one feature per segment with its `group`. */
+    @state() private segments: GeoJSON.Feature<GeoJSON.MultiPolygon>[] = [];
+    @state() private segmentStats: EverythingResult['stats'] | null = null;
+    @state() private viewLayersKept = 0;
     @state() private points: PromptPoint[] = [];
     @state() private box: [LngLat, LngLat] | null = null;
     @state() private preview: GeoJSON.Feature<GeoJSON.MultiPolygon> | null = null;
@@ -179,6 +219,18 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
         sl-alert { font-size: var(--sl-font-size-x-small); }
         sl-radio-group::part(form-control-label),
         sl-range::part(form-control-label) { font-size: var(--sl-font-size-small); }
+        .swatches {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            margin-top: var(--sl-spacing-2x-small);
+        }
+        .swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.2);
+        }
         .range-ends {
             display: flex;
             justify-content: space-between;
@@ -348,13 +400,16 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
     private prepareMap(): void {
         this.adapter?.setCursor('crosshair');
         this.adapter?.setDoubleClickZoomEnabled(false);
-        this.adapter?.setPanEnabled(this.mode === 'point');
+        this.adapter?.setPanEnabled(this.mode !== 'box');
         this.ensureOverlays();
     }
 
-    private setMode(mode: 'point' | 'box'): void {
+    private setMode(mode: Mode): void {
+        if (mode === this.mode) return;
         this.mode = mode;
-        if (this.loadState === 'ready') this.adapter?.setPanEnabled(mode === 'point');
+        this.clearPrompt();
+        this.clearSegments();
+        if (this.loadState === 'ready') this.adapter?.setPanEnabled(mode !== 'box');
     }
 
     private get interactive(): boolean {
@@ -413,16 +468,31 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
         this.viewGeneration++;
     }
 
+    /**
+     * Each key has its own notion of "someone else's": Backspace yields only to
+     * a field being typed in — after touching the Edge slider or a radio
+     * button, focus stays on that control, and Backspace there does nothing, so
+     * it must still undo. Enter also yields to any control that acts on it
+     * itself (a button, a select), or Keep would run twice.
+     */
     private handleKey(e: KeyboardEvent): void {
-        if (!this.active || isEventFromEditableElement(e)) return;
-        if (e.key === 'Enter' && this.preview) {
-            e.preventDefault();
-            this.keep();
-        } else if ((e.key === 'Backspace' || (e.key === 'z' && (e.ctrlKey || e.metaKey))) && this.points.length) {
+        if (!this.active) return;
+        const undo = e.key === 'Backspace' || (e.key === 'z' && (e.ctrlKey || e.metaKey));
+        if (undo) {
+            if (!this.points.length || isEventFromTextEntry(e)) return;
             e.preventDefault();
             this.points = this.points.slice(0, -1);
             if (this.hasPrompt) this.requestDecode();
             else this.clearPrompt();
+            return;
+        }
+        if (e.key !== 'Enter' || isEventFromEditableElement(e) || isEventFromControl(e)) return;
+        if (this.mode === 'everything' && this.segments.length) {
+            e.preventDefault();
+            void this.keepSegments();
+        } else if (this.preview) {
+            e.preventDefault();
+            this.keep();
         }
     }
 
@@ -565,8 +635,23 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
     }
 
     private toFeature(adapter: IMap, result: SamResult, ratio: number): GeoJSON.Feature<GeoJSON.MultiPolygon> | null {
+        const polygons = this.toLngLat(adapter, result.polygons, ratio);
+        if (!polygons.length) return null;
+        return {
+            type: 'Feature',
+            properties: {
+                score: Math.round(result.score * 1000) / 1000,
+                model: this.selectedModel?.label ?? this.modelId,
+                granularity: result.granularity,
+            },
+            geometry: { type: 'MultiPolygon', coordinates: polygons },
+        };
+    }
+
+    /** Image-pixel polygons to RFC 7946 lon/lat, through the live camera. */
+    private toLngLat(adapter: IMap, imagePolygons: [number, number][][][], ratio: number): LngLat[][][] {
         const polygons: LngLat[][][] = [];
-        for (const polygon of result.polygons) {
+        for (const polygon of imagePolygons) {
             const rings: LngLat[][] = [];
             for (const ring of polygon) {
                 const out: LngLat[] = [];
@@ -579,16 +664,120 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
             }
             if (rings.length) polygons.push(rewindPolygon(rings));
         }
-        if (!polygons.length) return null;
-        return {
-            type: 'Feature',
-            properties: {
-                score: Math.round(result.score * 1000) / 1000,
-                model: this.selectedModel?.label ?? this.modelId,
-                granularity: result.granularity,
+        return polygons;
+    }
+
+    // ─── Segment everything ──────────────────────────────────────────────
+
+    private async runEverything(): Promise<void> {
+        const adapter = this.adapter;
+        if (!adapter || this.everythingProgress || this.decodeRunning) return;
+        this.error = null;
+        this.clearSegments();
+        this.everythingProgress = [0, this.everythingDetail ** 2];
+        try {
+            if (!(await this.ensureEncoded(adapter))) {
+                throw new Error('The map moved while it was being analysed. Hold it still and try again.');
+            }
+            const generation = this.viewGeneration;
+            this.busy = '';
+            const result = await segmentEverythingSam(
+                { pointsPerSide: this.everythingDetail, k: this.groupCount },
+                (done, total) => { this.everythingProgress = [done, total]; },
+            );
+            if (generation !== this.viewGeneration) {
+                throw new Error('The map moved while it was being segmented, so the result no longer fits. Hold it still and try again.');
+            }
+            const model = this.selectedModel?.label ?? this.modelId;
+            this.segments = result.segments.flatMap((segment, i) => {
+                const coordinates = this.toLngLat(adapter, segment.polygons, this.encodedPixelRatio);
+                return coordinates.length ? [{
+                    type: 'Feature' as const,
+                    properties: {
+                        index: i,
+                        group: result.groups[i],
+                        kind: segment.kind,
+                        score: Math.round(segment.score * 1000) / 1000,
+                        model,
+                    },
+                    geometry: { type: 'MultiPolygon' as const, coordinates },
+                }] : [];
+            });
+            this.segmentStats = result.stats;
+            this.updateOverlays();
+        } catch (err) {
+            if (!(err instanceof SamCancelledError)) this.fail(err);
+        } finally {
+            this.everythingProgress = null;
+            this.busy = '';
+        }
+    }
+
+    private cancelEverything(): void {
+        cancelSam();
+    }
+
+    private async handleGroupCount(e: Event): Promise<void> {
+        this.groupCount = Number((e.target as HTMLInputElement).value);
+        if (!this.segments.length) return;
+        try {
+            const groups = await regroupSam(this.groupCount);
+            this.segments = this.segments.map(f => ({
+                ...f,
+                properties: { ...f.properties, group: groups[Number(f.properties?.index ?? 0)] },
+            }));
+            this.updateOverlays();
+        } catch (err) {
+            this.fail(err);
+        }
+    }
+
+    private clearSegments(): void {
+        this.segments = [];
+        this.segmentStats = null;
+        this.updateOverlays();
+    }
+
+    /**
+     * Each kept segmentation is its own layer — a view is a unit, and two
+     * views' groups are numbered independently, so mixing them in one layer
+     * would give "group 2" two meanings.
+     */
+    private async keepSegments(): Promise<void> {
+        if (!this.segments.length) return;
+        const n = ++this.viewLayersKept;
+        const k = Math.max(...this.segments.map(f => Number(f.properties?.group ?? 0))) + 1;
+        const id = `webmapx-segmented-view-${n}`;
+        const source = `${id}-src`;
+        const features = this.segments.map(f => {
+            const { index: _index, ...properties } = f.properties ?? {};
+            return { ...f, properties: { ...properties, group: Number(properties.group ?? 0) } };
+        });
+        const host = this.mapHost as (WebmapxMapElement & { addLayerRequest(c: Record<string, unknown>): Promise<boolean> }) | null;
+        await host?.addLayerRequest({
+            id,
+            type: 'fill',
+            source,
+            sources: { [source]: { id: source, type: 'geojson', data: { type: 'FeatureCollection', features } } },
+            paint: {
+                'fill-color': groupColour(k),
+                'fill-opacity': 0.45,
+                'fill-outline-color': '#ffffff',
             },
-            geometry: { type: 'MultiPolygon', coordinates: polygons },
-        };
+            metadata: {
+                label: `Segmented view ${n}`,
+                dynamic: true,
+                legendRole: 'overlay',
+                attributes: {
+                    translations: [{
+                        name: 'group',
+                        translation: 'Group',
+                        valuemap: Array.from({ length: k }, (_, g) => ({ value: g, label: `Group ${g + 1}` })),
+                    }],
+                },
+            },
+        });
+        this.clearSegments();
     }
 
     private clearPrompt(): void {
@@ -661,6 +850,18 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
         });
         const meta = (label: string) => ({ isToolLayer: true, hideFromLegend: true, label });
         this.emit('webmapx-add-layer', {
+            id: PREVIEW_SEGMENTS_FILL, type: 'fill', source: PREVIEW_SOURCE,
+            metadata: meta('Segmented view preview'),
+            filter: ['==', ['get', 'role'], 'segment'],
+            paint: { 'fill-color': groupColour(DATA_CATEGORICAL.length), 'fill-opacity': 0.45 },
+        });
+        this.emit('webmapx-add-layer', {
+            id: PREVIEW_SEGMENTS_LINE, type: 'line', source: PREVIEW_SOURCE,
+            metadata: meta('Segmented view outlines'),
+            filter: ['==', ['get', 'role'], 'segment'],
+            paint: { 'line-color': '#ffffff', 'line-width': 1, 'line-opacity': 0.8 },
+        });
+        this.emit('webmapx-add-layer', {
             id: PREVIEW_FILL, type: 'fill', source: PREVIEW_SOURCE,
             metadata: meta('Segment preview'),
             filter: ['==', ['get', 'role'], 'mask'],
@@ -690,6 +891,9 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
     private updateOverlays(): void {
         if (!this.overlaysAdded) return;
         const features: GeoJSON.Feature[] = [];
+        for (const segment of this.segments) {
+            features.push({ ...segment, properties: { role: 'segment', group: segment.properties?.group } });
+        }
         if (this.preview) {
             features.push({ ...this.preview, properties: { role: 'mask' } });
         }
@@ -801,7 +1005,82 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
                     @click=${() => this.setMode('box')}>
                     <sl-icon slot="prefix" name="bounding-box"></sl-icon>Box
                 </sl-button>
+                <sl-button size="small" variant=${this.mode === 'everything' ? 'primary' : 'default'}
+                    @click=${() => this.setMode('everything')}>
+                    <sl-icon slot="prefix" name="grid-3x3"></sl-icon>All
+                </sl-button>
             </sl-button-group>
+            ${this.mode === 'everything' ? this.renderEverything() : this.renderPrompting()}
+        `;
+    }
+
+    private renderEverything() {
+        const running = !!this.everythingProgress;
+        const [done, total] = this.everythingProgress ?? [0, 1];
+        const groupsShown = this.segments.length
+            ? Math.max(...this.segments.map(f => Number(f.properties?.group ?? 0))) + 1
+            : 0;
+        return html`
+            <p class="hint">
+                Divides the view into segments and colours alike those that look alike.
+                SAM finds shapes, not names: the groups are unnamed.
+            </p>
+            <sl-select
+                label="Detail"
+                size="small"
+                value=${String(this.everythingDetail)}
+                ?disabled=${running}
+                @sl-change=${(e: Event) => { this.everythingDetail = Number((e.target as HTMLSelectElement).value); }}
+            >
+                ${EVERYTHING_DETAIL.map(d => html`<sl-option value=${String(d.points)}>${d.label}</sl-option>`)}
+            </sl-select>
+            ${running ? html`
+                <sl-progress-bar value=${this.busy === 'encoding' ? 0 : Math.round((done / total) * 100)}></sl-progress-bar>
+                <div class="row">
+                    <div class="status">
+                        ${this.busy === 'encoding' ? html`<sl-spinner></sl-spinner>Analysing the view…` : html`Segmenting… ${done} of ${total}`}
+                    </div>
+                    <sl-button size="small" @click=${() => this.cancelEverything()}>Cancel</sl-button>
+                </div>
+            ` : html`
+                <div class="actions">
+                    <sl-button size="small" variant=${this.segments.length ? 'default' : 'primary'} @click=${() => this.runEverything()}>
+                        <sl-icon slot="prefix" name="grid-3x3"></sl-icon>Segment the view
+                    </sl-button>
+                </div>
+            `}
+            ${this.segments.length && !running ? html`
+                <div>
+                    <sl-range
+                        label="Groups"
+                        min="2" max="12" step="1"
+                        .value=${this.groupCount}
+                        @sl-change=${this.handleGroupCount}
+                    ></sl-range>
+                    <div class="swatches">
+                        ${Array.from({ length: groupsShown }, (_, g) => html`
+                            <span class="swatch" style="background:${DATA_CATEGORICAL[g % DATA_CATEGORICAL.length]}"
+                                title="Group ${g + 1}"></span>`)}
+                    </div>
+                </div>
+                <div class="status">
+                    ${this.segments.length} segments
+                    ${this.segmentStats?.filled ? html` (${this.segmentStats.filled} filling the gaps between outlines)` : nothing}
+                </div>
+                <div class="actions">
+                    <sl-button size="small" @click=${() => this.clearSegments()}>Clear</sl-button>
+                    <sl-button size="small" variant="primary" @click=${() => this.keepSegments()}>
+                        <sl-icon slot="prefix" name="check-lg"></sl-icon>Keep
+                    </sl-button>
+                </div>
+            ` : nothing}
+            ${!this.segments.length && !running && this.segmentStats ? html`<div class="status">Nothing stable enough to keep in this view.</div>` : nothing}
+            ${this.viewLayersKept ? html`<p class="hint">${this.viewLayersKept} segmented view${this.viewLayersKept === 1 ? '' : 's'} kept as layers.</p>` : nothing}
+        `;
+    }
+
+    private renderPrompting() {
+        return html`
             <p class="hint">
                 ${this.mode === 'point'
                     ? html`Click an object to outline it. Click again to add to it, right-click to leave something out.`

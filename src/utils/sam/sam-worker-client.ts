@@ -11,6 +11,7 @@
 import type { SamOutlineOptions, SamPrompt, SamResult } from '../../workers/sam-runner';
 import type { SamCapabilities, SamWorkerRequest, SamWorkerResponse } from '../../workers/sam.worker';
 import type { ResolvedSamModel } from './sam-models';
+import type { EverythingOptions, EverythingResult } from '../../workers/sam-everything';
 
 type Pending = {
     resolve: (value: any) => void;
@@ -20,6 +21,14 @@ type Pending = {
 
 // Distributes Omit over the union, so each request keeps its own fields.
 type WithoutId<T> = T extends unknown ? Omit<T, 'id'> : never;
+
+/** The operation was cancelled by the user: a notice, not a failure. */
+export class SamCancelledError extends Error {
+    constructor() {
+        super('Cancelled.');
+        this.name = 'SamCancelledError';
+    }
+}
 
 let worker: Worker | null = null;
 const pending = new Map<number, Pending>();
@@ -44,7 +53,7 @@ function getWorker(): Worker {
         }
         pending.delete(msg.id);
         if (msg.status === 'ok') p.resolve(msg.result);
-        else p.reject(new Error(msg.message));
+        else p.reject(msg.cancelled ? new SamCancelledError() : new Error(msg.message));
     };
     w.onerror = (e: ErrorEvent) => {
         // Usually out of memory while building a large model's session.
@@ -97,6 +106,28 @@ export function decodeSamPrompt(prompt: SamPrompt, outline: SamOutlineOptions = 
 /** Re-outlines the last decoded masks — another granularity or threshold, no inference. */
 export function outlineSamMasks(outline: SamOutlineOptions): Promise<SamResult> {
     return request({ op: 'outline', outline });
+}
+
+/** Segments the whole encoded view; `onProgress` counts prompts run. */
+export function segmentEverythingSam(
+    options: EverythingOptions & { k: number },
+    onProgress?: (done: number, total: number) => void,
+): Promise<EverythingResult> {
+    return request({ op: 'everything', options }, { onProgress });
+}
+
+/** Regroups the last "segment everything" into `k` groups; no model run. */
+export function regroupSam(k: number): Promise<number[]> {
+    return request({ op: 'regroup', k });
+}
+
+/**
+ * Stops a running "segment everything" at its next prompt. Sent straight to
+ * the worker, not queued: queued, it would only arrive after the operation
+ * it is meant to stop.
+ */
+export function cancelSam(): void {
+    worker?.postMessage({ id: 0, op: 'cancel' });
 }
 
 /** Starts the worker and asks what the browser can run — the panel needs that before offering models. */
