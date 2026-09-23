@@ -258,7 +258,7 @@ webmapx itself (one copy) may import them directly, including `registerTool`:
 import {
   // Base classes
   WebmapxBaseTool,
-  WebmapxPluginTool,
+  registerTool,
 
   // Map interfaces
   IMap, ISubMap, ISubMapFactory,
@@ -290,4 +290,4 @@ import {
 - Tools own their own throttling — use `throttle` from `webmapx/utils/throttle` if needed.
 - Clean up in `onMapDetached` / `disconnectedCallback` — remove layers, sources, event listeners.
 - Use `tool-id` attribute to participate in the ToolManager activation system.
-- Config keys in `ToolConfig` beyond `enabled` and `element` are plugin-defined — document them in your plugin.
+- Keys in a plugin tool's `tools.<id>` section beyond `enabled` are plugin-defined — document them in your plugin, and register a `configTemplate` with sensible defaults.

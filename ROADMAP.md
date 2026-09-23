@@ -87,7 +87,7 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 - [x] Export public API surface (`src/index.ts`) — base classes, interfaces, events, config types, adapter registry
 - [x] CSS custom property audit — `--webmapx-*` vars on all major components (coordinates, zoom, navigation, scale, search, legend, layer-tree, toolbar, tool-panel, inset-map, layout)
 - [x] Named slots — `before`/`after` on toolbar; `header`/`footer` on tool-panel
-- [x] Config-driven tool injection — `element` field in `ToolConfig`; `<webmapx-plugin-tool tool-id="...">` instantiates plugin element from config
+- [x] Config-driven tool injection — config `plugins` load modules that call `registerTool()`; their tools are named in `tools` like built-in ones (replaced the earlier `element` field and `<webmapx-plugin-tool>`)
 
 - [x] Plugin authoring guide — [`docs/developer/plugin-authoring.md`](./docs/developer/plugin-authoring.md)
 

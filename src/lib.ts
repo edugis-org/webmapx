@@ -11,7 +11,6 @@ export type { WebMapXConfig, WebMapXMountOptions } from './bootstrap/types.js';
 
 // Re-export public API for plugin authors
 export { WebmapxBaseTool } from './components/webmapx-base-tool.js';
-export { WebmapxPluginTool } from './components/webmapx-plugin-tool.js';
 export { registerTool } from './tools/tool-registry.js';
 export type { PluginToolEntry, ToolRegistryEntry } from './tools/tool-registry.js';
 export type { WebmapxPluginApi } from './bootstrap/plugin-loader.js';

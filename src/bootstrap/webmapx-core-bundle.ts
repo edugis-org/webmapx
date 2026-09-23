@@ -14,7 +14,6 @@ import '../components/webmapx-attribution-control.js';
 import '../components/webmapx-tool-template.js';
 import '../components/webmapx-base-tool.js';
 import '../components/webmapx-inset-map.js';
-import '../components/webmapx-plugin-tool.js';
 import '../components/webmapx-modal-tool.js';
 import '../components/webmapx-active-adapter.js';
 import '../components/webmapx-toolbox-tool.js';

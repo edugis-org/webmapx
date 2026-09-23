@@ -29,6 +29,9 @@ All notable changes to this project will be documented here.
 - **"Give every value a colour" is on by default** when a categorical field has more values than classes. Showing every area beats showing a fraction of them: 39 country codes over 1798 regions came out as 8 colours and a grey remainder. The cost — a colour no longer names one value, and so there is no legend — is stated under the checkbox and reversed in one click, whereas a map that quietly drew most of its data in one grey announces nothing.
 - **The `flow` cartogram method no longer projects anything itself.** `@edugis/cartogram@0.1.3` bounds its own output and picks Equal Earth for world-scale data, so the projection to Equal Earth, the shrink-to-fit and the unprojection this file used to do around it all came out — with them the `plane` option and this file's only use of proj4. Measured on 177 world countries by population, ground-area error against value is 0.440% through the library on its own against 0.447% through the old route, so nothing was given up for it.
 
+### Removed
+- **`<webmapx-plugin-tool>` and the tool config key `element`.** They instantiated a custom element from a config entry, but only when the page's HTML placed the host element by hand — config-built toolbars never saw them. Config `plugins` with `registerTool()` replace them: a plugin tool is named in `tools` like a built-in one. No shipped config used `element`; a config that still does now gets an "unknown key" warning.
+
 ---
 
 ## [2026 Q1–Q2] - Marker API, Info Tool, Layer Order Fixes

@@ -43,10 +43,10 @@ const KNOWN_KEYS = {
   sourceRasterDem: ['tiles', 'tileSize', 'encoding', 'maxzoom', 'attribution'],
   layer: ['id', 'type', 'source', 'source-layer', 'sources', 'layers', 'url', 'annotation', 'fallbackLayerId', 'singleGroup', 'title', 'metadata', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter', 'featureInfoLimit'],
   styleLayer: ['id', 'type', 'source', 'sourceLayer', 'source-layer', 'metadata', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
-  tool: ['enabled', 'label', 'icon', 'element'],
-  toolInsetMap: ['enabled', 'type', 'position', 'label', 'icon', 'element', 'zoomOffset', 'baseScale', 'styleUrl', 'background'],
+  tool: ['enabled', 'label', 'icon'],
+  toolInsetMap: ['enabled', 'type', 'position', 'label', 'icon', 'zoomOffset', 'baseScale', 'styleUrl', 'background'],
   toolInsetMapBackground: ['service', 'url', 'tiles', 'attribution', 'tileSize'],
-  toolSearch: ['enabled', 'type', 'label', 'title', 'icon', 'element', 'endpoint', 'params', 'maxResults', 'defaultZoom', 'marker', 'persistOnSelect', 'provider', 'attribution'],
+  toolSearch: ['enabled', 'type', 'label', 'title', 'icon', 'endpoint', 'params', 'maxResults', 'defaultZoom', 'marker', 'persistOnSelect', 'provider', 'attribution'],
 };
 
 const VALID_MAP_TYPES = ['maplibre', 'openlayers', 'leaflet', 'cesium'];
