@@ -22,12 +22,10 @@ import {
  * one of them always said "not supported here".
  *
  * So: one tool, and what it offers is decided by the engine, because that is
- * where the difference actually lives.
- *
- *   MapLibre     Mercator or globe — two renderings of one projection family.
- *   OpenLayers   the projection catalogue; no globe, it has none.
- *   Cesium       a globe, and nothing else to choose.
- *   Leaflet      Mercator, and nothing else to choose.
+ * where the difference actually lives — the adapter lists its views
+ * (`getViewProjections`) and this tool only describes them. Today: MapLibre
+ * offers Mercator or a globe, OpenLayers the projection catalogue, Cesium a
+ * globe and Leaflet Mercator, the last two with nothing to choose.
  *
  * The reason any of it matters is area: Web Mercator inflates it by
  * 1/cos²(latitude), so every world-scale thematic map drawn in it overstates
@@ -69,28 +67,26 @@ const MERCATOR_OPTION: ViewOption = {
     rendering: true,
 };
 
-/** What this engine can actually draw, in the order worth offering it. */
-export function viewOptionsFor(engineId: string): ViewOption[] {
-    switch (engineId) {
-        case 'maplibre':
-            return [MERCATOR_OPTION, GLOBE_OPTION];
-        case 'openlayers':
-            // The full catalogue, and no globe: OpenLayers has no sphere to
-            // draw on, so offering one would be a control that does nothing.
-            return VIEW_PROJECTIONS.map((projection) => ({
+/**
+ * Describes the views an engine offers. The engine decides *which* ones
+ * (`IMap.getViewProjections`); what they are called and what they do to areas
+ * is the same whichever engine draws them, so it lives here.
+ */
+export function viewOptionsFor(viewIds: readonly string[]): ViewOption[] {
+    return viewIds.flatMap((id): ViewOption[] => {
+        if (id === GLOBE) return [GLOBE_OPTION];
+        if (id === MERCATOR_VIEW) return [MERCATOR_OPTION];
+        const projection = VIEW_PROJECTIONS.find((entry) => entry.id === id);
+        return projection
+            ? [{
                 id: projection.id,
                 label: projection.label,
                 description: projection.description,
                 equalArea: projection.equalArea,
                 rendering: false,
-            }));
-        case 'cesium':
-            return [GLOBE_OPTION];
-        case 'leaflet':
-            return [MERCATOR_OPTION];
-        default:
-            return [];
-    }
+            }]
+            : [];
+    });
 }
 
 /** "Covers latitudes south of 50°S" — a polar projection is not a world map. */
@@ -106,6 +102,7 @@ function coverageLabel(id: string): string {
 export class WebmapxProjectionTool extends WebmapxBaseTool {
     @state() private selectedId = DEFAULT_VIEW_PROJECTION;
     @state() private engineId = '';
+    @state() private viewIds: readonly string[] = [];
     /** null until the engine has said whether it can change anything at all. */
     @state() private supported: boolean | null = null;
     /** True while this tool is applying its own change — see `apply()`. */
@@ -132,6 +129,7 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
 
     protected onMapAttached(): void {
         this.engineId = this.adapter?.engineId ?? '';
+        this.viewIds = this.adapter?.getViewProjections() ?? [];
         this.readProjection(this.adapter?.store.getState().mapProjection);
     }
 
@@ -153,7 +151,7 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
         }
         this.supported = true;
         const name = projection.name;
-        const options = viewOptionsFor(this.engineId);
+        const options = viewOptionsFor(this.viewIds);
         // MapLibre reports 'mercator'/'globe'; OpenLayers reports a projection
         // id. Both arrive on the same channel, so match against this engine's
         // own options rather than assuming which kind it is.
@@ -164,7 +162,7 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
 
     private apply(id: string): void {
         this.selectedId = id;
-        const option = viewOptionsFor(this.engineId).find((entry) => entry.id === id);
+        const option = viewOptionsFor(this.viewIds).find((entry) => entry.id === id);
         this.applyingOwnChange = true;
         try {
             if (option?.rendering) {
@@ -187,7 +185,7 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
     }
 
     render(): TemplateResult {
-        const options = viewOptionsFor(this.engineId);
+        const options = viewOptionsFor(this.viewIds);
         if (options.length === 0) {
             return html`<div class="unsupported">
                 How this map is drawn cannot be changed${this.engineId ? html` on the ${this.engineId} engine` : nothing}.
@@ -226,7 +224,7 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
                     nothing to change here. Switch engine to compare projections.
                   </div>`
                 : nothing}
-            ${this.engineId === 'openlayers' && current.id !== DEFAULT_VIEW_PROJECTION
+            ${!current.rendering && current.id !== DEFAULT_VIEW_PROJECTION
                 ? html`<div class="note">
                     Raster and vector tiles are re-projected in the browser, so a background map
                     may look softer and labels less tidy than in Web Mercator.

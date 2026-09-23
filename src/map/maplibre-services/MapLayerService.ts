@@ -168,7 +168,7 @@ export class MapLayerService implements ILayerService {
                     tiles = existingTiles;
                 } else {
                     const baseUrl = Array.isArray(wmsConfig.url) ? wmsConfig.url[0] : wmsConfig.url;
-                    tiles = [buildWMSGetMapUrl({ baseUrl, layers: wmsConfig.layers ?? '', version: wmsConfig.version, styles: wmsConfig.styles, format: wmsConfig.format, transparent: wmsConfig.transparent, crs: wmsConfig.crs, tileSize: wmsConfig.tileSize }, 'maplibre')];
+                    tiles = [buildWMSGetMapUrl({ baseUrl, layers: wmsConfig.layers ?? '', version: wmsConfig.version, styles: wmsConfig.styles, format: wmsConfig.format, transparent: wmsConfig.transparent, crs: wmsConfig.crs, tileSize: wmsConfig.tileSize })];
                 }
                 nativeSource = { type: 'raster', tiles };
                 if ('tileSize' in sourceConfig) nativeSource.tileSize = sourceConfig.tileSize;

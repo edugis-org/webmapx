@@ -1,6 +1,6 @@
 // src/map/cesium-services/MapFactoryService.ts
 
-import type { ISubMapFactory, ISubMap, ISource, ILayer, LayerSpec, MapCreateOptions } from '../IMapInterfaces';
+import type { ISubMapFactory, ISubMap, ISource, ILayer, SubMapLayerSpec, MapCreateOptions } from '../IMapInterfaces';
 import type { LngLat, Pixel } from '../../store/map-events';
 import { forceGeodesicArcType } from './MapLayerService';
 import { DEFAULT_DATA_COLOR } from '../default-paint';
@@ -78,7 +78,7 @@ class CesiumLayer implements ILayer {
 
 type CesiumSourceState = {
     dataSource: any | null;
-    layerSpecs: LayerSpec[];
+    layerSpecs: SubMapLayerSpec[];
 };
 
 class CesiumMap implements ISubMap {
@@ -140,22 +140,22 @@ class CesiumMap implements ISubMap {
         return this.sources.get(sourceId) ?? null;
     }
 
-    createLayer(spec: LayerSpec): ILayer {
+    createLayer(spec: SubMapLayerSpec): ILayer {
         if (this.layers.has(spec.id)) {
             return this.layers.get(spec.id)!;
         }
 
-        const state = this.sourceState.get(spec.sourceId);
+        const state = this.sourceState.get(spec.source);
         if (state) {
             state.layerSpecs = [...state.layerSpecs, spec];
-            this.applyLayerStyles(spec.sourceId);
+            this.applyLayerStyles(spec.source);
         }
 
-        const layer = new CesiumLayer(spec.id, spec.sourceId, () => {
-            const state = this.sourceState.get(spec.sourceId);
+        const layer = new CesiumLayer(spec.id, spec.source, () => {
+            const state = this.sourceState.get(spec.source);
             if (state) {
                 state.layerSpecs = state.layerSpecs.filter(s => s.id !== spec.id);
-                this.applyLayerStyles(spec.sourceId);
+                this.applyLayerStyles(spec.source);
             }
             this.layers.delete(spec.id);
         });

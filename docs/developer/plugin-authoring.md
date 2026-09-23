@@ -262,7 +262,7 @@ import {
 
   // Map interfaces
   IMap, ISubMap, ISubMapFactory,
-  ISource, ILayer, LayerSpec, LayerInsertOptions,
+  ISource, ILayer, SubMapLayerSpec, LayerInsertOptions,
   MarkerOptions, MapCreateOptions,
 
   // State

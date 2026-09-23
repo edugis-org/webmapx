@@ -1,7 +1,7 @@
 // src/map/maplibre-services/MapFactoryService.ts
 
 import * as maplibregl from 'maplibre-gl';
-import { ISubMapFactory, ISubMap, ILayer, ISource, MapCreateOptions, LayerSpec } from '../IMapInterfaces';
+import { ISubMapFactory, ISubMap, ILayer, ISource, MapCreateOptions, SubMapLayerSpec } from '../IMapInterfaces';
 
 const DEFAULT_STYLE = 'https://demotiles.maplibre.org/style.json';
 
@@ -83,12 +83,14 @@ class MapLibreMap implements ISubMap {
         return null;
     }
 
-    createLayer(spec: LayerSpec): ILayer {
+    createLayer(spec: SubMapLayerSpec): ILayer {
         if (!this.map.getLayer(spec.id)) {
-            const mlSpec = this.toMapLibreLayerSpec(spec);
-            this.map.addLayer(mlSpec);
+            // A sub-map layer is a style-spec layer already, so MapLibre takes
+            // it as it is. The cast bridges the spec package's types and the
+            // copy maplibre-gl bundles, which describe the same objects.
+            this.map.addLayer(spec as unknown as maplibregl.LayerSpecification);
         }
-        return new MapLibreLayer(spec.id, spec.sourceId, this.map);
+        return new MapLibreLayer(spec.id, spec.source, this.map);
     }
 
     getLayer(layerId: string): ILayer | null {
@@ -110,41 +112,6 @@ class MapLibreMap implements ISubMap {
 
     destroy(): void {
         this.map.remove();
-    }
-
-    private toMapLibreLayerSpec(spec: LayerSpec): maplibregl.LayerSpecification {
-        switch (spec.type) {
-            case 'fill':
-                return {
-                    id: spec.id,
-                    type: 'fill',
-                    source: spec.sourceId,
-                    paint: spec.paint as maplibregl.FillLayerSpecification['paint'],
-                };
-            case 'line':
-                return {
-                    id: spec.id,
-                    type: 'line',
-                    source: spec.sourceId,
-                    paint: spec.paint as maplibregl.LineLayerSpecification['paint'],
-                };
-            case 'circle':
-                return {
-                    id: spec.id,
-                    type: 'circle',
-                    source: spec.sourceId,
-                    paint: spec.paint as maplibregl.CircleLayerSpecification['paint'],
-                };
-            case 'symbol':
-                return {
-                    id: spec.id,
-                    type: 'symbol',
-                    source: spec.sourceId,
-                    layout: {},
-                };
-            default:
-                throw new Error(`Unsupported layer type: ${spec.type}`);
-        }
     }
 }
 

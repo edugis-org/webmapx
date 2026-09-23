@@ -71,7 +71,7 @@ export class Webmapx3dTool extends WebmapxBaseTool {
         return undefined;
     }
 
-    private getMaplibreTerrainSource(): unknown {
+    private getDemTerrainSource(): unknown {
         // Check top-level sources
         const source = this.layerDataConfig?.sources?.find((s: any) => s?.type === 'raster-dem');
         if (source) return source;
@@ -94,7 +94,7 @@ export class Webmapx3dTool extends WebmapxBaseTool {
         return undefined;
     }
 
-    private getCesiumTerrainUrl(): string | undefined {
+    private getTerrainServiceUrl(): string | undefined {
         const layer = this.layerDataConfig?.layers?.find((l: any) => l?.type === 'terrain' || l?.type === 'cesium-terrain');
         return (layer as any)?.url ?? (layer as any)?.source?.url ?? this.getToolAttr('cesium-terrain-fallback-url');
     }
@@ -137,9 +137,12 @@ export class Webmapx3dTool extends WebmapxBaseTool {
 
     private async toggleTerrain(): Promise<void> {
         if (!this.adapter) return;
-        if (this.mapConfig?.type === 'cesium') {
+        // A terrain service is switched on by URL; elevation tiles need a
+        // hillshade layer and its raster-dem source, below. Which one is the
+        // engine's to say, not this tool's to guess from the engine's name.
+        if (this.adapter.getTerrainSourceKind() === 'terrain-service') {
             const next = !this.terrainEnabled;
-            if (this.adapter.setTerrainEnabled(next, this.getCesiumTerrainUrl())) {
+            if (this.adapter.setTerrainEnabled(next, this.getTerrainServiceUrl())) {
                 this.terrainEnabled = next;
             }
             return;
@@ -155,7 +158,7 @@ export class Webmapx3dTool extends WebmapxBaseTool {
         // check: find existing hillshade layer, or add one
         let sourceConfig = this.findActiveHillshadeSource();
         if (!sourceConfig) {
-            const terrainSource = this.getMaplibreTerrainSource() as Record<string, unknown> | undefined;
+            const terrainSource = this.getDemTerrainSource() as Record<string, unknown> | undefined;
             if (!terrainSource) return;
             const sourceId = (terrainSource.id as string | undefined) ?? 'webmapx-terrain-source';
             // Use catalog layer title if source came from an inline layer

@@ -1,7 +1,7 @@
 // src/map/leaflet-services/MapFactoryService.ts
 
 import * as L from 'leaflet';
-import { ISubMapFactory, ISubMap, ILayer, ISource, MapCreateOptions, LayerSpec } from '../IMapInterfaces';
+import { ISubMapFactory, ISubMap, ILayer, ISource, MapCreateOptions, SubMapLayerSpec } from '../IMapInterfaces';
 
 const DEFAULT_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const DEFAULT_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
@@ -95,11 +95,11 @@ class LeafletMap implements ISubMap {
         return this.sources.get(sourceId) || null;
     }
 
-    createLayer(spec: LayerSpec): ILayer {
+    createLayer(spec: SubMapLayerSpec): ILayer {
         if (!this.layers.has(spec.id)) {
-            const geoJsonLayer = this.geoJsonLayers.get(spec.sourceId);
+            const geoJsonLayer = this.geoJsonLayers.get(spec.source);
             if (!geoJsonLayer) {
-                throw new Error(`Source ${spec.sourceId} not found for layer ${spec.id}`);
+                throw new Error(`Source ${spec.source} not found for layer ${spec.id}`);
             }
 
             // Apply styling based on layer spec
@@ -107,7 +107,7 @@ class LeafletMap implements ISubMap {
             geoJsonLayer.setStyle(style);
             geoJsonLayer.addTo(this.map);
 
-            const source = this.sources.get(spec.sourceId)!;
+            const source = this.sources.get(spec.source)!;
             const layer = new LeafletLayer(spec.id, geoJsonLayer, source, this.map);
             this.layers.set(spec.id, layer);
         }
@@ -144,7 +144,7 @@ class LeafletMap implements ISubMap {
         this.map.remove();
     }
 
-    private toLeafletStyle(spec: LayerSpec): L.PathOptions {
+    private toLeafletStyle(spec: SubMapLayerSpec): L.PathOptions {
         const style: L.PathOptions = {};
 
         if (spec.paint) {

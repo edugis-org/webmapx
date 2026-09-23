@@ -1,7 +1,9 @@
-// Utility to build WMS GetMap URL templates for different map engines
-// Supported engines: 'maplibre', 'openlayers' (add more as needed)
-
-export type WMSEngine = 'maplibre' | 'openlayers';
+// Builds a WMS GetMap URL as a style-spec raster `tiles` template.
+//
+// There is one output form, not one per engine: webmapx's shared layer format
+// is the MapLibre style spec, whose tile templates spell the tile's extent
+// `{bbox-epsg-3857}` and give the image size as a number. An engine that
+// needs another spelling translates it in its own layer service.
 
 export interface WMSGetMapParams {
   baseUrl: string; // e.g. 'https://example.com/wms'
@@ -52,13 +54,10 @@ class CaseInsensitiveMap {
 }
 
 /**
- * Builds a WMS GetMap URL template for the specified engine.
- * Placeholders (e.g. {bbox-epsg-3857}, {width}, {height}) are inserted as needed.
+ * Builds a WMS GetMap URL template in style-spec form: `bbox={bbox-epsg-3857}`
+ * and `width`/`height` set to the tile size.
  */
-export function buildWMSGetMapUrl(
-  params: WMSGetMapParams,
-  engine: WMSEngine
-): string {
+export function buildWMSGetMapUrl(params: WMSGetMapParams): string {
   const {
     baseUrl,
     layers,
@@ -112,17 +111,9 @@ export function buildWMSGetMapUrl(
     paramMap.set(useCRS ? 'crs' : 'srs', crs);
   }
 
-  // Set bbox placeholder based on engine
-  const bboxPlaceholder = engine === 'maplibre' ? '{bbox-epsg-3857}' : '{bbox}';
-  paramMap.set('bbox', bboxPlaceholder);
-  
-  // Set width/height: use actual tileSize values for MapLibre, placeholders for others
-  if (!paramMap.has('width')) {
-    paramMap.set('width', engine === 'maplibre' ? String(tileSize) : '{width}');
-  }
-  if (!paramMap.has('height')) {
-    paramMap.set('height', engine === 'maplibre' ? String(tileSize) : '{height}');
-  }
+  paramMap.set('bbox', '{bbox-epsg-3857}');
+  if (!paramMap.has('width')) paramMap.set('width', String(tileSize));
+  if (!paramMap.has('height')) paramMap.set('height', String(tileSize));
 
   // Build the query string
   const queryParts = paramMap.entries().map(([key, value]) => {

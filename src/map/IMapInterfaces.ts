@@ -4,6 +4,12 @@ import type { AnyLayerConfig, MapStyle, WMSSourceConfig } from '../config/types'
 import type { NormalizedCompositeSpec } from './composite-layer-utils';
 import type { IQueryService } from './IQueryService';
 import type { LngLat, Pixel, MapEventBus } from '../store/map-events';
+import type {
+    CircleLayerSpecification,
+    FillLayerSpecification,
+    LineLayerSpecification,
+    SymbolLayerSpecification,
+} from '@maplibre/maplibre-gl-style-spec';
 
 export interface MarkerOptions {
     /** Pin fill color (CSS color string). Default: engine default or red. */
@@ -46,31 +52,19 @@ export interface MapCreateOptions {
 }
 
 /**
- * Paint properties for fill layers.
+ * A layer on a sub-map (an inset map, a child map): a style-spec layer, so the
+ * same shape a config layer has — `source`, `paint`, `layout` — rather than a
+ * second, smaller dialect.
+ *
+ * Only MapLibre evaluates expressions here. The other engines read a paint
+ * property when it is a plain value and fall back to their default otherwise,
+ * which is enough for what sub-maps draw (a viewport box, an outline).
  */
-export interface FillPaint {
-    'fill-color'?: string;
-    'fill-opacity'?: number;
-}
-
-/**
- * Paint properties for line layers.
- */
-export interface LinePaint {
-    'line-color'?: string;
-    'line-width'?: number;
-    'line-opacity'?: number;
-}
-
-/**
- * Library-agnostic layer specification.
- */
-export interface LayerSpec {
-    id: string;
-    type: 'fill' | 'line' | 'circle' | 'symbol';
-    sourceId: string;
-    paint?: FillPaint | LinePaint;
-}
+export type SubMapLayerSpec =
+    | FillLayerSpecification
+    | LineLayerSpecification
+    | CircleLayerSpecification
+    | SymbolLayerSpecification;
 
 /**
  * Optional insertion hints for layer ordering.
@@ -227,7 +221,7 @@ export interface ISubMap {
     getSource(sourceId: string): ISource | null;
 
     /** Creates a layer on this map. */
-    createLayer(spec: LayerSpec): ILayer;
+    createLayer(spec: SubMapLayerSpec): ILayer;
 
     /** Gets an existing layer by ID. */
     getLayer(layerId: string): ILayer | null;
@@ -478,6 +472,49 @@ export interface IMap {
     /** Returns which camera controls this engine supports. */
     getNavigationCapabilities(): NavigationCapabilities;
 
+    // ===== Drawing Capabilities =====
+    /**
+     * Whether this engine can draw a source of this shape. Asked before a layer
+     * is offered or added, so a catalog can show a layer as unavailable instead
+     * of adding one that renders nothing. Takes the whole source, not just its
+     * type, because support can depend on more than the type (Cesium draws
+     * raster tiles but not an Allmaps `warpedmap://` raster).
+     */
+    canDrawSource(source: { type: string; url?: unknown; tiles?: unknown }): boolean;
+
+    /**
+     * Whether this engine can draw a layer of this webmapx-specific `type`
+     * (currently `allmaps`). Style-spec layer types are judged by their source.
+     */
+    canDrawLayerType(type: string): boolean;
+
+    /**
+     * Renders the framed part of the map into `container` at print size and
+     * resolves once it is drawn, with a function that removes it again.
+     *
+     * Optional: an engine whose live map prints as it is on screen leaves this
+     * out, and the print tool scales the live map element with CSS instead.
+     * An engine drawing into a WebGL canvas cannot be printed that way.
+     */
+    renderPrintMap?(container: HTMLElement, frame: PrintFrame): Promise<() => void>;
+
+    /**
+     * The ways of drawing the world this engine offers, in the order worth
+     * offering them: `'mercator'` and `'globe'` for a flat or spherical
+     * rendering, or ids from the view-projection catalogue
+     * (`utils/view-projections`). An engine with one fixed way reports just
+     * that one, so a tool can still say how the map is drawn.
+     */
+    getViewProjections(): readonly string[];
+
+    /**
+     * What `setTerrainEnabled` needs as its `terrainSource`: a `raster-dem`
+     * source config (elevation tiles, as in the style spec), or the URL of a
+     * terrain service (a quantized-mesh endpoint such as Cesium's). `null` when
+     * the engine has no terrain.
+     */
+    getTerrainSourceKind(): TerrainSourceKind | null;
+
     // ===== Native Layer/Source Management =====
     /** Adds a layer to the map. Handles both pre-registered sources and catalog-resolved sources. */
     addLayer(layer: any, options?: LayerInsertOptions): Promise<boolean>;
@@ -534,6 +571,16 @@ export interface IMap {
     // ===== Sub-map Factory =====
     /** Factory for creating independent sub-map instances (e.g., inset maps). */
     readonly mapFactory: ISubMapFactory;
+}
+
+export type TerrainSourceKind = 'raster-dem' | 'terrain-service';
+
+/** The part of the live map a print shows, in the live map's own pixels. */
+export interface PrintFrame {
+    /** Centre of the printed area, in pixels of the live map element. */
+    center: Pixel;
+    /** Paper width of the map area divided by its on-screen width. */
+    scale: number;
 }
 
 export interface NavigationCapabilities {

@@ -14,7 +14,7 @@
 
 import { MapStateStore } from '../store/map-state-store';
 import { registerMapLayer, unregisterMapLayer, reorderMapLayers } from './map-layer-registry';
-import type {
+import type { TerrainSourceKind,
     IMapCore, ISource, LayerInsertOptions, MarkerOptions,
     NavigationCapabilities, QueryLayerFeaturesOptions, ViewportChangeOptions,
 } from './IMapInterfaces';
@@ -96,6 +96,9 @@ function requestParamsOf(url: string | undefined): Record<string, string> {
     }
     return params;
 }
+
+const BASE_DRAWABLE_SOURCE_TYPES: ReadonlySet<string> = new Set(['raster', 'geojson']);
+const MERCATOR_ONLY: readonly string[] = ['mercator'];
 
 export abstract class BaseAdapter {
     public readonly store: MapStateStore;
@@ -1162,6 +1165,32 @@ export abstract class BaseAdapter {
 
     getNavigationCapabilities(): NavigationCapabilities {
         return this.getCore().getNavigationCapabilities();
+    }
+
+    /**
+     * Source types this engine's layer services can draw. The floor every
+     * engine meets is raster tiles and GeoJSON; an engine that draws more
+     * (vector tiles, a DEM) says so by overriding this.
+     */
+    protected drawableSourceTypes(): ReadonlySet<string> {
+        return BASE_DRAWABLE_SOURCE_TYPES;
+    }
+
+    canDrawSource(source: { type: string; url?: unknown; tiles?: unknown }): boolean {
+        return typeof source?.type === 'string' && this.drawableSourceTypes().has(source.type);
+    }
+
+    canDrawLayerType(_type: string): boolean {
+        return true;
+    }
+
+    getTerrainSourceKind(): TerrainSourceKind | null {
+        return null;
+    }
+
+    /** Flat Web Mercator: what an engine draws when it says nothing else. */
+    getViewProjections(): readonly string[] {
+        return MERCATOR_ONLY;
     }
 
     getElevation(lngLat: LngLat): number | null {

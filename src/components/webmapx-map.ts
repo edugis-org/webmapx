@@ -1403,41 +1403,23 @@ export class WebmapxMapElement extends HTMLElement {
     return typeof fallbackLayerId === 'string' && fallbackLayerId.length > 0 ? fallbackLayerId : null;
   }
 
+  // Which sources and layer types an engine can draw is the adapter's to say:
+  // this element only asks. An engine named here would have to be edited for
+  // every new engine, and would be wrong for an engine added by a plugin.
   private isSourceTypeSupportedByActiveEngine(sourceType: string): boolean {
-    const adapterName = this.activeAdapterName;
-    if (adapterName === 'leaflet' || adapterName === 'cesium') {
-      return sourceType === 'raster' || sourceType === 'geojson';
-    }
-
-    if (adapterName === 'maplibre' || adapterName === 'openlayers') {
-      return sourceType === 'raster' || sourceType === 'geojson' || sourceType === 'vector' || sourceType === 'raster-dem';
-    }
-
-    return false;
+    return this.adapterInstance?.canDrawSource({ type: sourceType }) ?? false;
   }
 
   private isSourceSupportedByActiveEngine(source: SourceConfig): boolean {
     const sourceType = typeof source?.type === 'string' ? source.type : null;
-    if (!sourceType || !this.isSourceTypeSupportedByActiveEngine(sourceType)) {
-      return false;
-    }
-
-    // Allmaps warpedmap:// currently has no Cesium runtime renderer.
-    if (this.activeAdapterName === 'cesium' && sourceType === 'raster') {
-      const rasterSource = source as any;
-      const url = Array.isArray(rasterSource.url) ? rasterSource.url[0] : rasterSource.url;
-      if (typeof url === 'string' && url.startsWith('warpedmap://')) {
-        return false;
-      }
-    }
-
-    return true;
+    if (!sourceType) return false;
+    return this.adapterInstance?.canDrawSource(source as { type: string; url?: unknown; tiles?: unknown }) ?? false;
   }
 
   private hasUnsupportedStyleComponents(layerInformation: LayerInformation): boolean {
     const layer = layerInformation.layer;
     if (layer.type === 'allmaps') {
-      return this.activeAdapterName === 'cesium';
+      return !(this.adapterInstance?.canDrawLayerType('allmaps') ?? false);
     }
     if (layer.type === 'style') {
       const composite = layer as CompositeStyleLayerConfig;

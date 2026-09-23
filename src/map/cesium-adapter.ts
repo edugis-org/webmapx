@@ -1,6 +1,6 @@
 // src/map/cesium-adapter.ts
 
-import { IMap, IMapCore, IToolService, ISubMapFactory } from './IMapInterfaces';
+import { IMap, IMapCore, IToolService, ISubMapFactory, type TerrainSourceKind } from './IMapInterfaces';
 
 import { BaseAdapter } from './base-adapter';
 import { MapCoreService } from './cesium-services/MapCoreService';
@@ -156,6 +156,30 @@ export class CesiumAdapter extends BaseAdapter implements IMap {
             if (scene.skyBox) scene.skyBox.show = false;
         });
         return true;
+    }
+
+    /**
+     * Raster tiles and GeoJSON, but not an Allmaps `warpedmap://` raster:
+     * Cesium has no runtime renderer for georeferenced IIIF images.
+     */
+    canDrawSource(source: { type: string; url?: unknown; tiles?: unknown }): boolean {
+        if (!super.canDrawSource(source)) return false;
+        const url = Array.isArray(source.url) ? source.url[0] : source.url;
+        return !(typeof url === 'string' && url.startsWith('warpedmap://'));
+    }
+
+    canDrawLayerType(type: string): boolean {
+        return type !== 'allmaps';
+    }
+
+    /** Cesium drapes a quantized-mesh terrain service, not elevation tiles. */
+    getTerrainSourceKind(): TerrainSourceKind {
+        return 'terrain-service';
+    }
+
+    /** A globe, and nothing else to choose. */
+    getViewProjections(): readonly string[] {
+        return ['globe'];
     }
 
 }

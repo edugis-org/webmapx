@@ -417,7 +417,7 @@ export class WebmapxInsetMap extends LitElement {
     this.insetMap.createLayer({
       id: VIEWPORT_FILL_LAYER_ID,
       type: 'fill',
-      sourceId: VIEWPORT_SOURCE_ID,
+      source: VIEWPORT_SOURCE_ID,
       paint: {
         'fill-color': DATA_TOOL,
         'fill-opacity': 0.15,
@@ -428,7 +428,7 @@ export class WebmapxInsetMap extends LitElement {
     this.insetMap.createLayer({
       id: VIEWPORT_OUTLINE_LAYER_ID,
       type: 'line',
-      sourceId: VIEWPORT_SOURCE_ID,
+      source: VIEWPORT_SOURCE_ID,
       paint: {
         'line-color': DATA_TOOL,
         'line-width': 1.5,

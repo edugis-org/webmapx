@@ -209,9 +209,11 @@ export class WebmapxPrintTool extends WebmapxModalTool {
         const boxW    = boxRect.width;
 
         // ── Build print overlay ──────────────────────────────────────────────
-        // For MapLibre: white background, contains a new map instance.
-        // For other engines: transparent background (existing map element shows through via CSS transform).
-        const isMapLibre = adapter.engineId === 'maplibre';
+        // An engine that renders its own print map (a WebGL canvas cannot be
+        // printed as it is) gets a white page holding that map; every other
+        // engine is printed by scaling the live map element into a transparent
+        // overlay with CSS.
+        const rendersOwnPrint = typeof adapter.renderPrintMap === 'function';
 
         const overlay = document.createElement('div');
         overlay.id = 'webmapx-print-overlay';
@@ -220,7 +222,7 @@ export class WebmapxPrintTool extends WebmapxModalTool {
             top: '-99999px', left: '0',
             width: pageW + 'px',
             height: pageH + 'px',
-            background: isMapLibre ? 'white' : 'transparent',
+            background: rendersOwnPrint ? 'white' : 'transparent',
             display: 'flex',
             flexDirection: 'column',
             padding: M + 'px',
@@ -383,36 +385,22 @@ export class WebmapxPrintTool extends WebmapxModalTool {
             }));
         }
 
-        // ── Engine-specific map rendering ────────────────────────────────────
+        // ── Map rendering ────────────────────────────────────────────────────
         let extraCleanup: () => void = () => {};
         let mapPrintCSS: string;
 
-        if (isMapLibre) {
-            // Create a new MapLibre map at print resolution in the mapContainer
-            const nativeMap = (adapter as any).core?.mapInstance;
-            if (!nativeMap) throw new Error('MapLibre map not initialised.');
-
-            const geoCenter = nativeMap.unproject([boxLeft + boxW / 2, boxTop + boxRect.height / 2]);
-            const printZoom = nativeMap.getZoom() + Math.log2(mapW / boxW);
-
-            const { default: maplibregl } = await import('maplibre-gl');
-            const printMap = new maplibregl.Map({
-                container: mapContainer,
-                style: nativeMap.getStyle(),
-                center: geoCenter,
-                zoom: printZoom,
-                bearing: nativeMap.getBearing(),
-                pitch: nativeMap.getPitch(),
-                interactive: false,
-                attributionControl: false,
-            });
-
-            await new Promise<void>((resolve, reject) => {
-                const t = setTimeout(() => reject(new Error('Map render timed out (30 s)')), 30_000);
-                printMap.once('idle', () => { clearTimeout(t); resolve(); });
-            });
-
-            extraCleanup = () => printMap.remove();
+        if (rendersOwnPrint) {
+            try {
+                extraCleanup = await adapter.renderPrintMap!(mapContainer, {
+                    center: [boxLeft + boxW / 2, boxTop + boxRect.height / 2],
+                    scale: mapW / boxW,
+                });
+            } catch (error) {
+                // Nothing has been printed and no afterprint will come to tidy
+                // up, so the off-screen page has to go now or it stays behind.
+                overlay.remove();
+                throw error;
+            }
             mapPrintCSS = `
   body > * { display: none !important; }
   #webmapx-print-overlay { display: flex !important; position: fixed !important; top: 0 !important; left: 0 !important; }

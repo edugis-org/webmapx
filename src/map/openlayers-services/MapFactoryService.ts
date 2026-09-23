@@ -10,7 +10,7 @@ import XYZ from 'ol/source/XYZ';
 import { WebmapxGeoJSON as GeoJSON } from './geojson-format';
 import { Fill, Stroke, Style } from 'ol/style';
 import { fromLonLat } from 'ol/proj';
-import { ISubMapFactory, ISubMap, ILayer, ISource, MapCreateOptions, LayerSpec } from '../IMapInterfaces';
+import { ISubMapFactory, ISubMap, ILayer, ISource, MapCreateOptions, SubMapLayerSpec } from '../IMapInterfaces';
 import 'ol/ol.css';
 
 /**
@@ -95,11 +95,11 @@ class OpenLayersMap implements ISubMap {
         return null;
     }
 
-    createLayer(spec: LayerSpec): ILayer {
+    createLayer(spec: SubMapLayerSpec): ILayer {
         if (!this.layers.has(spec.id)) {
-            const source = this.sources.get(spec.sourceId);
+            const source = this.sources.get(spec.source);
             if (!source) {
-                throw new Error(`Source "${spec.sourceId}" not found. Create source before layer.`);
+                throw new Error(`Source "${spec.source}" not found. Create source before layer.`);
             }
 
             const style = this.createStyle(spec);
@@ -112,7 +112,7 @@ class OpenLayersMap implements ISubMap {
             this.map.addLayer(layer);
             this.layers.set(spec.id, layer);
         }
-        return new OpenLayersLayer(spec.id, this.layers.get(spec.id)!, spec.sourceId, this.map);
+        return new OpenLayersLayer(spec.id, this.layers.get(spec.id)!, spec.source, this.map);
     }
 
     getLayer(layerId: string): ILayer | null {
@@ -144,7 +144,7 @@ class OpenLayersMap implements ISubMap {
         this.layers.clear();
     }
 
-    private createStyle(spec: LayerSpec): Style {
+    private createStyle(spec: SubMapLayerSpec): Style {
         const paint = spec.paint || {};
 
         switch (spec.type) {

@@ -1,5 +1,6 @@
 // src/map/openlayers-adapter.ts
 
+import { VIEW_PROJECTIONS } from '../utils/view-projections';
 import { IMap, IMapCore, IToolService, ISubMapFactory } from './IMapInterfaces';
 import { VERSION as olVersion } from 'ol/util.js';
 
@@ -19,6 +20,8 @@ import type { MapProjectionState } from '../store/IMapState';
  * The concrete Map implementation for OpenLayers.
  * Implements the unified IMap interface by delegating to specialized services.
  */
+const VECTOR_CAPABLE_SOURCE_TYPES: ReadonlySet<string> = new Set(['raster', 'geojson', 'vector', 'raster-dem']);
+
 export class OpenLayersAdapter extends BaseAdapter implements IMap {
     public readonly engineId = 'openlayers';
     public readonly engineVersion = olVersion;
@@ -106,6 +109,16 @@ export class OpenLayersAdapter extends BaseAdapter implements IMap {
             if (target) target.style.backgroundColor = color ?? '';
         });
         return true;
+    }
+
+    /** The projection catalogue; no globe, since OpenLayers has no sphere to draw on. */
+    getViewProjections(): readonly string[] {
+        return VIEW_PROJECTIONS.map((projection) => projection.id);
+    }
+
+    /** Vector tiles and DEMs as well as the raster/GeoJSON floor. */
+    protected drawableSourceTypes(): ReadonlySet<string> {
+        return VECTOR_CAPABLE_SOURCE_TYPES;
     }
 
 }

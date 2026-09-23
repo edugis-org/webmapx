@@ -1,6 +1,7 @@
 // src/map/leaflet-services/label-collision.ts
 
 import * as L from 'leaflet';
+import { placeLabels } from '../label-placement';
 
 /** Hides overlapping text labels across ALL symbol layers registered on a given map, keeping
  *  the one with the lowest `symbol-sort-key` (mirrors MapLibre GL JS's / OL's `declutter`
@@ -29,21 +30,13 @@ function runCollision(map: L.Map): void {
             entries.push({ el, measureEl, sortKey: (l as any)._webmapxSortKey ?? 0 });
         });
     }
-    entries.sort((a, b) => a.sortKey - b.sortKey);
-    const placed: DOMRect[] = [];
+    const shown = placeLabels(entries.map(({ el, measureEl, sortKey }) => ({
+        item: el,
+        sortKey,
+        box: measureEl.getBoundingClientRect(),
+    })));
     for (const { el } of entries) {
-        el.style.visibility = 'visible';
-    }
-    for (const { el, measureEl } of entries) {
-        const rect = measureEl.getBoundingClientRect();
-        const overlaps = placed.some((r) =>
-            !(rect.right < r.left || rect.left > r.right || rect.bottom < r.top || rect.top > r.bottom)
-        );
-        if (overlaps) {
-            el.style.visibility = 'hidden';
-        } else {
-            placed.push(rect);
-        }
+        el.style.visibility = shown.has(el) ? 'visible' : 'hidden';
     }
 }
 

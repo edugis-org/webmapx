@@ -45,10 +45,10 @@ export type {
   NavigationCapabilities,
   MarkerOptions,
   MapCreateOptions,
-  LayerSpec,
+  SubMapLayerSpec,
   LayerInsertOptions,
-  FillPaint,
-  LinePaint,
+  PrintFrame,
+  TerrainSourceKind,
 } from './map/IMapInterfaces.js';
 
 // State

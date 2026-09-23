@@ -345,7 +345,7 @@ export async function discoverWms(baseUrl: string): Promise<DiscoveredLayer[]> {
             }),
             layers: layer.name,
             version,
-          }, 'maplibre'),
+          }),
         ], {
           // buildWMSGetMapUrl() above bakes width=256&height=256 into the URL (its own
           // `tileSize` default) — MapLibre's raster source spec defaults `tileSize` to 512,

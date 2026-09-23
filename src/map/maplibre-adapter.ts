@@ -1,6 +1,7 @@
 // src/map/maplibre-adapter.ts
 
-import { IMap, IMapCore, ISource, IToolService, ISubMapFactory, LayerInsertOptions, type SourceFeatureQueryOptions, type SourceFeatureSample } from './IMapInterfaces';
+import { IMap, IMapCore, ISource, IToolService, ISubMapFactory, LayerInsertOptions, type PrintFrame, type TerrainSourceKind, type SourceFeatureQueryOptions, type SourceFeatureSample } from './IMapInterfaces';
+import { renderMapLibrePrintMap } from './maplibre-services/print-map';
 import * as _ml from 'maplibre-gl';
 
 import { BaseAdapter } from './base-adapter';
@@ -21,6 +22,8 @@ const BACKGROUND_LAYER_ID = 'webmapx-background-color';
  * The concrete Map implementation for MapLibre.
  * Implements the unified IMap interface by delegating to specialized services.
  */
+const VECTOR_CAPABLE_SOURCE_TYPES: ReadonlySet<string> = new Set(['raster', 'geojson', 'vector', 'raster-dem']);
+
 export class MapLibreAdapter extends BaseAdapter implements IMap {
     public readonly engineId = 'maplibre';
     public readonly engineVersion: string = typeof (_ml as any).getVersion === 'function'
@@ -258,5 +261,32 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
     }
 
     private backgroundListenerAttached = false;
+
+    getTerrainSourceKind(): TerrainSourceKind {
+        return 'raster-dem';
+    }
+
+    /** Two renderings of one projection family: flat, or on a sphere. */
+    getViewProjections(): readonly string[] {
+        return ['mercator', 'globe'];
+    }
+
+    renderPrintMap(container: HTMLElement, frame: PrintFrame): Promise<() => void> {
+        return new Promise((resolve, reject) => {
+            const core = this.core as { onMapReady?: (callback: (map: _ml.Map) => void) => void };
+            if (typeof core.onMapReady !== 'function') {
+                reject(new Error('MapLibre map not initialised.'));
+                return;
+            }
+            core.onMapReady((map) => {
+                renderMapLibrePrintMap(map, container, frame).then(resolve, reject);
+            });
+        });
+    }
+
+    /** Vector tiles and DEMs as well as the raster/GeoJSON floor. */
+    protected drawableSourceTypes(): ReadonlySet<string> {
+        return VECTOR_CAPABLE_SOURCE_TYPES;
+    }
 
 }

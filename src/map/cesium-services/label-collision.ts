@@ -8,6 +8,8 @@
  *  Entities must carry their sort key on `_webmapxSortKey` and text on a real `label` graphics
  *  (see the `symbol` handling in cesium MapLayerService.applyGeoJsonStyles). */
 
+import { placeLabels, type LabelBox } from '../label-placement';
+
 function getCesium(): any {
     return (globalThis as any).Cesium;
 }
@@ -39,7 +41,7 @@ export function setupLabelCollision(viewer: any, getGeojsonDataSources: () => an
             const julian = Cesium.JulianDate.now();
             const ctx = getMeasureContext();
 
-            const entries: { entity: any; sortKey: number; rect: { left: number; right: number; top: number; bottom: number } }[] = [];
+            const entries: { item: any; sortKey: number; box: LabelBox }[] = [];
             for (const dataSource of getGeojsonDataSources()) {
                 const entities = dataSource?.entities?.values ?? [];
                 for (const entity of entities) {
@@ -59,9 +61,9 @@ export function setupLabelCollision(viewer: any, getGeojsonDataSources: () => an
                     const height = fontSize * 1.2;
 
                     entries.push({
-                        entity,
+                        item: entity,
                         sortKey: entity._webmapxSortKey ?? 0,
-                        rect: {
+                        box: {
                             left: canvasPos.x - width / 2,
                             right: canvasPos.x + width / 2,
                             top: canvasPos.y - height / 2,
@@ -71,14 +73,9 @@ export function setupLabelCollision(viewer: any, getGeojsonDataSources: () => an
                 }
             }
 
-            entries.sort((a, b) => a.sortKey - b.sortKey);
-            const placed: { left: number; right: number; top: number; bottom: number }[] = [];
-            for (const { entity, rect } of entries) {
-                const overlaps = placed.some((r) =>
-                    !(rect.right < r.left || rect.left > r.right || rect.bottom < r.top || rect.top > r.bottom)
-                );
-                entity.label.show = !overlaps;
-                if (!overlaps) placed.push(rect);
+            const shown = placeLabels(entries);
+            for (const { item: entity } of entries) {
+                entity.label.show = shown.has(entity);
             }
         } catch (err) {
             console.error('[webmapx][cesium] label collision update failed', err);
