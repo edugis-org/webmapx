@@ -21,3 +21,7 @@ public/config
 # assets of edugis-org/coastal_zones); served locally, not versioned.
 public/data/*.pmtiles
 public/data/coastal_zones*
+
+# Segment Anything models for local development (npm run models:sam -- --out models).
+# Served by the dev server, never copied into a build; hundreds of MB.
+/models

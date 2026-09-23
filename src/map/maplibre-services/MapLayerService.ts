@@ -119,6 +119,16 @@ export class MapLayerService implements ILayerService {
         return undefined;
     }
 
+    /**
+     * The style layers drawing a logical layer. An inline layer added straight
+     * to the style (a tool overlay) is its own single style layer.
+     */
+    getNativeLayerIds(logicalLayerId: string): string[] {
+        const ids = this.logicalToNative.get(logicalLayerId);
+        if (ids) return [...ids];
+        return this.map.getLayer(logicalLayerId) ? [logicalLayerId] : [];
+    }
+
     getNativeSourceId(logicalSourceId: string): string | undefined {
         return this.logicalSourceToNative.get(logicalSourceId);
     }

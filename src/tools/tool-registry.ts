@@ -130,6 +130,7 @@ const BUILT_IN_TOOLS: readonly ToolRegistryEntry[] = [
     { id: 'menu', tag: 'webmapx-menu-tool', placement: 'toolbar', label: 'Tools', icon: 'list', bundled: true, container: true },
     { id: 'buffer', tag: 'webmapx-buffer-tool', placement: 'toolbar', label: 'Buffer', description: 'Create a buffer zone around the features of a layer', icon: { src: bufferIconUrl } },
     { id: 'geoprocessing', tag: 'webmapx-geoprocessing-tool', placement: 'toolbar', label: 'Analysis', description: 'Combine, select or reshape map layers', icon: 'intersect' },
+    { id: 'segment', tag: 'webmapx-segment-tool', placement: 'toolbar', label: 'Segment', description: 'Outline areas on an aerial photo with a machine-learning model', icon: 'magic' },
     { id: 'data-analyzer', tag: 'webmapx-data-analyzer-tool', placement: 'toolbar', label: 'Data analyzer', description: 'Discover patterns in a layer’s data', icon: 'bar-chart-line' },
     { id: 'stories', tag: 'webmapx-stories-tool', placement: 'toolbar', label: 'Stories', description: 'Follow a guided tour through the map', icon: 'book' },
     { id: 'deeptime', tag: 'webmapx-deeptime-tool', placement: 'toolbar', label: 'Deep time', description: 'Travel back through millions of years of Earth’s history', icon: { src: dinosaurIconUrl } },
