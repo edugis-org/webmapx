@@ -67,7 +67,7 @@ export interface ToolRegistryEntry {
     offered?: boolean;
 }
 
-export const TOOL_REGISTRY: readonly ToolRegistryEntry[] = [
+const BUILT_IN_TOOLS: readonly ToolRegistryEntry[] = [
     // --- toolbar tools, in the order the setup page offers them ---
     { id: 'search', tag: 'webmapx-search-tool', placement: 'toolbar', label: 'Search', icon: 'search' },
     {
@@ -156,25 +156,26 @@ function spellings(entry: ToolRegistryEntry): string[] {
     return [entry.id, ...(entry.aliases ?? [])];
 }
 
-function tagMap(include: (entry: ToolRegistryEntry) => boolean): Record<string, string> {
-    const map: Record<string, string> = {};
-    for (const entry of TOOL_REGISTRY) {
-        if (!entry.tag || !include(entry)) continue;
-        for (const name of spellings(entry)) map[name] = entry.tag;
-    }
-    return map;
-}
-
-/** Config tool `type` → custom element, for items inside a toolbar. */
-export const TOOL_ELEMENT_TAGS: Record<string, string> = tagMap(isToolbar);
-
-/** Config section name → custom element, for standalone map furniture. */
-export const STANDALONE_TAGS: Record<string, string> = tagMap(isStandalone);
-
 export interface ToolMetadata {
     label: string;
     icon?: ToolIconConfig;
 }
+
+// Every table below is a live object filled by `indexTool`, which runs once per
+// built-in entry at module load and once per `registerTool` call afterwards. A
+// plugin's tool therefore lands in exactly the tables a built-in one does, and
+// callers that imported a table before the plugin loaded still see it: they
+// hold the same object, not a snapshot.
+const registry: ToolRegistryEntry[] = [];
+
+/** Every tool this page knows: the built-ins, then any a plugin registered. */
+export const TOOL_REGISTRY: readonly ToolRegistryEntry[] = registry;
+
+/** Config tool `type` → custom element, for items inside a toolbar. */
+export const TOOL_ELEMENT_TAGS: Record<string, string> = {};
+
+/** Config section name → custom element, for standalone map furniture. */
+export const STANDALONE_TAGS: Record<string, string> = {};
 
 /**
  * Default label and icon per toolbar tool.
@@ -183,34 +184,123 @@ export interface ToolMetadata {
  * buttons, and injecting a label and icon into one would put a caption on the
  * scale bar.
  */
-export const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = (() => {
-    const map: Record<string, ToolMetadata> = {};
-    for (const entry of TOOL_REGISTRY) {
-        if (!isToolbar(entry) || entry.offered === false) continue;
-        const metadata: ToolMetadata = { label: entry.label, icon: entry.icon };
-        for (const name of [...spellings(entry), ...(entry.metadataAliases ?? [])]) map[name] = metadata;
-    }
-    return map;
-})();
+export const DEFAULT_TOOL_METADATA: Record<string, ToolMetadata> = {};
 
 /**
  * Canonical tool list for the config editor and the setup page — one entry per
  * tool, aliases excluded.
  */
-export const KNOWN_TOOLS: Array<{ id: string; label: string; icon?: ToolIconConfig; standalone?: boolean }> =
-    TOOL_REGISTRY
-        .filter((entry) => entry.offered !== false && entry.tag)
-        .map((entry) => ({
-            id: entry.id,
-            label: entry.label,
-            icon: entry.icon,
-            ...(entry.placement === 'standalone' ? { standalone: true } : {}),
-        }));
+export const KNOWN_TOOLS: Array<{ id: string; label: string; icon?: ToolIconConfig; standalone?: boolean; plugin?: boolean }> = [];
 
-const CANONICAL_IDS = new Map<string, string>(
-    TOOL_REGISTRY.flatMap((entry) => [...spellings(entry), ...(entry.metadataAliases ?? [])]
-        .map((name) => [name, entry.id] as const)),
-);
+const CANONICAL_IDS = new Map<string, string>();
+
+const bundledToolIds = new Set<string>();
+/** Tool ids that need no lazy loader because the core bundle imports them, or a plugin already defined them. */
+export const BUNDLED_TOOL_IDS: ReadonlySet<string> = bundledToolIds;
+
+const subtoolContainerTypes = new Set<string>();
+/** Tool types whose `items` are other tools: the toolbox and the menu. */
+export const SUBTOOL_CONTAINER_TYPES: ReadonlySet<string> = subtoolContainerTypes;
+
+const taglessToolIds = new Set<string>();
+/**
+ * Registered types that build no element of their own — toolbar filler, and
+ * types handled entirely by the code that injects them. They need no loader,
+ * and a missing loader for one is not the silent failure the warning is for.
+ */
+export const TAGLESS_TOOL_IDS: ReadonlySet<string> = taglessToolIds;
+
+function indexTool(entry: ToolRegistryEntry, plugin: boolean): void {
+    registry.push(entry);
+    const names = spellings(entry);
+    const offered = entry.offered !== false;
+
+    if (entry.tag) {
+        for (const name of names) {
+            if (isToolbar(entry)) TOOL_ELEMENT_TAGS[name] = entry.tag;
+            if (isStandalone(entry)) STANDALONE_TAGS[name] = entry.tag;
+        }
+        if (offered) {
+            KNOWN_TOOLS.push({
+                id: entry.id,
+                label: entry.label,
+                icon: entry.icon,
+                ...(entry.placement === 'standalone' ? { standalone: true } : {}),
+                ...(plugin ? { plugin: true } : {}),
+            });
+        }
+    } else {
+        for (const name of names) taglessToolIds.add(name);
+    }
+
+    if (isToolbar(entry) && offered) {
+        const metadata: ToolMetadata = { label: entry.label, icon: entry.icon };
+        for (const name of [...names, ...(entry.metadataAliases ?? [])]) DEFAULT_TOOL_METADATA[name] = metadata;
+    }
+
+    for (const name of [...names, ...(entry.metadataAliases ?? [])]) CANONICAL_IDS.set(name, entry.id);
+    if (entry.bundled) for (const name of [...names, ...(entry.loaderAliases ?? [])]) bundledToolIds.add(name);
+    if (entry.container) for (const name of names) subtoolContainerTypes.add(name);
+}
+
+for (const entry of BUILT_IN_TOOLS) indexTool(entry, false);
+
+/**
+ * What a plugin declares to add a tool. The same fields a built-in entry has,
+ * minus the ones that only describe how webmapx itself is built: a plugin's
+ * element is defined by the time it registers (so it is always "bundled"), and
+ * a plugin has no older spellings to keep alive yet.
+ */
+export type PluginToolEntry = Pick<ToolRegistryEntry, 'id' | 'tag' | 'placement' | 'label' | 'icon' | 'aliases' | 'offered'> & {
+    tag: string;
+};
+
+/**
+ * Adds a plugin's tool to every registry table, so a config can name it as a
+ * toolbar item or a standalone section, the validator accepts it, and the setup
+ * page offers it — exactly like a built-in tool.
+ *
+ * Refuses (and returns false) rather than overriding: a plugin that reuses a
+ * built-in id or tag would otherwise silently replace a tool every config
+ * relies on. Registering the identical entry twice — the same plugin loaded
+ * by two maps on one page — is accepted as a no-op.
+ */
+export function registerTool(entry: PluginToolEntry): boolean {
+    const problem = pluginEntryProblem(entry);
+    if (problem) {
+        console.warn(`[webmapx] registerTool: ${problem} — tool not registered`);
+        return false;
+    }
+    const existing = registry.find((known) => known.id === entry.id);
+    if (existing) {
+        if (existing.tag === entry.tag) return true;
+        console.warn(`[webmapx] registerTool: "${entry.id}" is already registered as <${existing.tag ?? 'no element'}> — tool not registered`);
+        return false;
+    }
+    const clash = [...spellings(entry)].find((name) => CANONICAL_IDS.has(name));
+    if (clash) {
+        console.warn(`[webmapx] registerTool: "${clash}" already names the "${CANONICAL_IDS.get(clash)}" tool — tool not registered`);
+        return false;
+    }
+    const tagOwner = registry.find((known) => known.tag === entry.tag);
+    if (tagOwner) {
+        console.warn(`[webmapx] registerTool: <${entry.tag}> already belongs to "${tagOwner.id}" — tool not registered`);
+        return false;
+    }
+    indexTool({ ...entry, bundled: true }, true);
+    return true;
+}
+
+function pluginEntryProblem(entry: PluginToolEntry): string | null {
+    if (!entry || typeof entry !== 'object') return 'entry must be an object';
+    if (typeof entry.id !== 'string' || !/^[A-Za-z][\w-]*$/.test(entry.id)) return `invalid id ${JSON.stringify(entry?.id)}`;
+    if (typeof entry.tag !== 'string' || !/^[a-z][a-z0-9]*-[a-z0-9-]*$/.test(entry.tag)) {
+        return `"${entry.id}" needs a custom element tag containing a hyphen, got ${JSON.stringify(entry.tag)}`;
+    }
+    if (!['toolbar', 'standalone', 'both'].includes(entry.placement)) return `"${entry.id}" has invalid placement ${JSON.stringify(entry.placement)}`;
+    if (typeof entry.label !== 'string' || !entry.label) return `"${entry.id}" needs a label`;
+    return null;
+}
 
 /**
  * Resolves any spelling of a tool — an old type name, or a config section that
@@ -220,24 +310,3 @@ const CANONICAL_IDS = new Map<string, string>(
 export function canonicalToolId(id: string): string {
     return CANONICAL_IDS.get(id) ?? id;
 }
-
-/** Tool ids that need no lazy loader because the core bundle imports them. */
-export const BUNDLED_TOOL_IDS: ReadonlySet<string> = new Set(
-    TOOL_REGISTRY
-        .filter((entry) => entry.bundled)
-        .flatMap((entry) => [...spellings(entry), ...(entry.loaderAliases ?? [])]),
-);
-
-/** Tool types whose `items` are other tools: the toolbox and the menu. */
-export const SUBTOOL_CONTAINER_TYPES: ReadonlySet<string> = new Set(
-    TOOL_REGISTRY.filter((entry) => entry.container).flatMap((entry) => spellings(entry)),
-);
-
-/**
- * Registered types that build no element of their own — toolbar filler, and
- * types handled entirely by the code that injects them. They need no loader,
- * and a missing loader for one is not the silent failure the warning is for.
- */
-export const TAGLESS_TOOL_IDS: ReadonlySet<string> = new Set(
-    TOOL_REGISTRY.filter((entry) => !entry.tag).flatMap((entry) => spellings(entry)),
-);

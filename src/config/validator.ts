@@ -28,7 +28,7 @@ export interface ValidationResult {
 const KNOWN_SEARCH_PROVIDERS = new Set(['nominatim']);
 
 const KNOWN_KEYS = {
-  root: ['version', 'baseUrl', 'apiKeysFile', 'project', 'map', 'runtimeMap', 'layerData', 'catalog', 'library', 'state', 'ui', 'tools', 'stories', '_devTools'],
+  root: ['version', 'baseUrl', 'apiKeysFile', 'project', 'map', 'runtimeMap', 'layerData', 'catalog', 'library', 'state', 'ui', 'tools', 'stories', 'plugins', '_devTools'],
   map: ['label', 'center', 'zoom', 'minZoom', 'maxZoom', 'minPitch', 'maxPitch', 'type', 'style', 'styleUrl', 'bearing', 'pitch', 'projection', 'backgroundColor'],
   runtimeMap: ['minZoom', 'maxZoom', 'minPitch', 'maxPitch', 'maxBounds'],
   layerData: ['sources', 'layers', 'attributeMetadata'],
@@ -124,6 +124,8 @@ export function validateConfig(config: unknown): ValidationResult {
   if (cfg.stories !== undefined) {
     validateStoriesSection(cfg.stories, layerIds, errors, warnings);
   }
+
+  validatePlugins(cfg.plugins, warnings);
 
   // Cross-reference validation is done within validateCatalogSection
 
@@ -1067,6 +1069,33 @@ function validateSchemaVersion(version: unknown, warnings: ValidationMessage[]):
       severity: 'warning', path: 'version',
       message: `This config declares schema version ${String(version)}, but this build of webmapx reads version ${CONFIG_SCHEMA_VERSION} — anything newer will be ignored, and the map may be missing features the config asks for`,
     });
+  }
+}
+
+/**
+ * `plugins` is a list of module URLs, resolved against the config like every
+ * other path in it.
+ *
+ * A plugin's tool ids are only known once the plugin has run, and the CLI
+ * validator never runs one — so when a config has plugins, "unknown tool" gets
+ * a hint that the name may be one of theirs rather than a typo.
+ */
+function validatePlugins(plugins: unknown, warnings: ValidationMessage[]): void {
+  if (plugins === undefined) return;
+  if (!Array.isArray(plugins)) {
+    warnings.push({ severity: 'warning', path: 'plugins', message: '"plugins" should be an array of module URLs' });
+    return;
+  }
+  plugins.forEach((url, i) => {
+    if (typeof url !== 'string' || !url.trim()) {
+      warnings.push({ severity: 'warning', path: `plugins[${i}]`, message: 'A plugin should be a non-empty module URL' });
+    }
+  });
+  if (plugins.length === 0) return;
+  for (const warning of warnings) {
+    if (warning.message.startsWith('Unknown tool "')) {
+      warning.message += ' (or it comes from a plugin that has not been loaded)';
+    }
   }
 }
 

@@ -57,10 +57,12 @@ export class WebMapX {
     const toolsToLoad = toolsList.length > 0
       ? toolsList
       : extractToolIds(config.tools as Record<string, unknown> | undefined);
+    // Plugins first: they register tool ids that loadTools and the validator
+    // must already know, or a plugin's tool is reported unknown and skipped.
+    await loadPlugins(config.plugins, configUrl);
     await Promise.all([
       loadEngine(engine),
       loadTools(toolsToLoad),
-      config.plugins?.length ? loadPlugins(config.plugins) : Promise.resolve(),
     ]);
 
     if (config.locale && config.locale !== 'en') {

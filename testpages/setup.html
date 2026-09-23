@@ -153,6 +153,12 @@
     h2 { font-size: 1rem; margin: 1.5rem 0 0.5rem; color: #555; text-transform: uppercase; letter-spacing: .05em; }
     .tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.4rem; }
     .tool-list { display: flex; flex-direction: column; gap: 0.25rem; }
+    .plugin-list { list-style: none; margin: 0 0 0.4rem; padding: 0; font-size: 0.85rem; }
+    .plugin-list li { display: flex; align-items: center; gap: 0.5rem; padding: 0.15rem 0; }
+    .plugin-list code { flex: 1; overflow-wrap: anywhere; }
+    .plugin-list .plugin-tools { color: #666; }
+    .plugin-add-row { display: flex; gap: 0.4rem; max-width: 40rem; }
+    .plugin-add-row input { flex: 1; min-width: 0; }
     label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; position: relative; }
     label input[type=checkbox] { cursor: pointer; flex-shrink: 0; }
     label.not-in-config { color: #888; font-style: italic; }
@@ -302,6 +308,14 @@
     <div style="margin-bottom:0.5rem">
       <label><input type="checkbox" id="select-all" checked> Select / deselect all</label>
     </div>
+    <section class="plugins-section">
+      <h2>Plugins <span class="section-hint">module URLs, relative to the config file — their tools appear in the lists below</span></h2>
+      <ul id="plugin-list" class="plugin-list"></ul>
+      <form id="plugin-add-form" class="plugin-add-row">
+        <input id="plugin-url-input" type="text" aria-label="Plugin URL" placeholder="e.g. ../plugins/bookmarks.js">
+        <button type="submit">Add plugin</button>
+      </form>
+    </section>
     <div id="ui"></div>
   </div>
 
@@ -532,6 +546,7 @@
 
   <script type="module">
     import { KNOWN_TOOLS } from '/src/utils/dynamic-layout.ts';
+    import { loadPlugins } from '/src/bootstrap/plugin-loader.ts';
     import { discoverLayers } from '/src/utils/layer-discovery.ts';
     import { toStoryStepState } from '/src/config/story-step-state.ts';
 
@@ -649,8 +664,16 @@
       return layers.map(l => ({ label: l.id, layerId: l.id }));
     }
 
-    const TOOLBAR_TOOLS = KNOWN_TOOLS.filter(t => !t.standalone);
-    const STANDALONE_TOOLS = KNOWN_TOOLS.filter(t => t.standalone);
+    // KNOWN_TOOLS is live: a plugin's registerTool() appends to it, so these are
+    // recomputed after plugins load rather than fixed at page start.
+    let TOOLBAR_TOOLS = [];
+    let STANDALONE_TOOLS = [];
+    let LEAF_TOOLBAR_TOOLS = [];
+    function refreshToolLists() {
+      TOOLBAR_TOOLS = KNOWN_TOOLS.filter(t => !t.standalone);
+      STANDALONE_TOOLS = KNOWN_TOOLS.filter(t => t.standalone);
+      LEAF_TOOLBAR_TOOLS = TOOLBAR_TOOLS.filter(t => !CONTAINER_TOOL_IDS.has(t.id));
+    }
 
     // Tool types that hold other tools (see SUBTOOL_CONTAINER_TYPES in dynamic-layout.ts).
     // Each gets its own "contents" section here; override keys are namespaced by the
@@ -658,7 +681,81 @@
     // Submenus nested deeper inside a container are left as-is — they are preserved on
     // save, but only the container's top level is editable here.
     const CONTAINER_TOOL_IDS = new Set(['toolbox', 'menu']);
-    const LEAF_TOOLBAR_TOOLS = TOOLBAR_TOOLS.filter(t => !CONTAINER_TOOL_IDS.has(t.id));
+    refreshToolLists();
+
+    // Plugins resolve against the config file, as every path in a config does;
+    // an uploaded file has no URL, so the page stands in for it.
+    function pluginBaseUrl() {
+      return activeConfigUrl ? new URL(activeConfigUrl, window.location.href).href : document.baseURI;
+    }
+
+    async function loadConfigPlugins(config) {
+      if (!Array.isArray(config?.plugins) || config.plugins.length === 0) return;
+      await loadPlugins(config.plugins, pluginBaseUrl());
+      refreshToolLists();
+    }
+
+    function renderPluginList(config) {
+      const list = document.getElementById('plugin-list');
+      list.innerHTML = '';
+      const plugins = Array.isArray(config?.plugins) ? config.plugins : [];
+      const pluginTools = KNOWN_TOOLS.filter(t => t.plugin).map(t => t.label);
+      if (plugins.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'plugin-tools';
+        li.textContent = 'No plugins.';
+        list.appendChild(li);
+      }
+      plugins.forEach((url, i) => {
+        const li = document.createElement('li');
+        const code = document.createElement('code');
+        code.textContent = url;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = 'Remove';
+        remove.setAttribute('aria-label', `Remove plugin ${url}`);
+        remove.addEventListener('click', () => {
+          config.plugins.splice(i, 1);
+          if (config.plugins.length === 0) delete config.plugins;
+          // A loaded module cannot be unloaded, so its tools stay offered until
+          // the page reloads; the config itself no longer names the plugin.
+          renderPluginList(config);
+          storeConfig(STORAGE_KEY, applyOverrides(config, getSaved()));
+          document.getElementById('status').textContent = 'Plugin removed from the config — reload this page to drop its tools from the lists.';
+        });
+        li.append(code, remove);
+        list.appendChild(li);
+      });
+      if (pluginTools.length > 0) {
+        const li = document.createElement('li');
+        li.className = 'plugin-tools';
+        li.textContent = `Tools from plugins: ${pluginTools.join(', ')}`;
+        list.appendChild(li);
+      }
+    }
+
+    document.getElementById('plugin-add-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const input = document.getElementById('plugin-url-input');
+      const url = input.value.trim();
+      if (!url || !baseConfig) return;
+      const status = document.getElementById('status');
+      const before = KNOWN_TOOLS.length;
+      await loadPlugins([url], pluginBaseUrl());
+      refreshToolLists();
+      const added = KNOWN_TOOLS.slice(before).map(t => t.label);
+      if (added.length === 0 && !KNOWN_TOOLS.some(t => t.plugin)) {
+        status.textContent = `"${url}" registered no tools — see the browser console.`;
+        return;
+      }
+      baseConfig.plugins = [...new Set([...(baseConfig.plugins ?? []), url])];
+      input.value = '';
+      renderPluginList(baseConfig);
+      buildUI(baseConfig, getSaved());
+      updateSelectAll();
+      storeConfig(STORAGE_KEY, applyOverrides(baseConfig, getSaved()));
+      status.textContent = added.length ? `Plugin added: ${added.join(', ')}.` : `Plugin added.`;
+    });
 
     // Keys not shown as editable props (structural or handled elsewhere)
     const SKIP_PROPS = new Set(['id', 'type', 'enabled', 'items']);
@@ -2352,7 +2449,9 @@
       saveOverrides(ov);
     });
 
-    function reinitializeFromConfig(config, statusText) {
+    async function reinitializeFromConfig(config, statusText) {
+      await loadConfigPlugins(config);
+      renderPluginList(config);
       saveOverrides({});
       closePopup();
       buildUI(config, {});
@@ -3173,6 +3272,8 @@
 
     // Init
     const config = await loadConfig();
+    await loadConfigPlugins(config);
+    renderPluginList(config);
     buildUI(config, getSaved());
     buildLayersUI(config);
     buildMapUI(config);

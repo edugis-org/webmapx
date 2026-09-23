@@ -28,6 +28,7 @@ import { peekMapState } from './map/map-state-persistence.ts';
 import { resolveInitOptions } from './bootstrap/resolve-init-options.ts';
 import { injectConfigEditTool } from './bootstrap/inject-config-edit-tool.ts';
 import { observeToolElements } from './bootstrap/tool-loader.ts';
+import { loadPlugins } from './bootstrap/plugin-loader.ts';
 
 // 2. Register the core framework components (map, layout, toolbar, ...) — always needed.
 // Tool-specific components (measure, draw, buffer, ...) are loaded lazily, the moment their
@@ -87,7 +88,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const droppedConfig = await consumeDroppedConfig();
         if (droppedConfig) {
             try {
-                appConfig = parseAndValidateConfig(JSON.parse(droppedConfig), 'dropped config');
+                const rawDropped = JSON.parse(droppedConfig);
+                await loadPlugins(rawDropped?.plugins);
+                appConfig = parseAndValidateConfig(rawDropped, 'dropped config');
                 console.log('[app] Loaded config from dropped file');
             } catch (error) {
                 console.error('[app] Failed to load dropped config:', error);

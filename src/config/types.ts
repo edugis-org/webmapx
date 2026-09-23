@@ -598,4 +598,10 @@ export interface AppConfig {
   state?: AppStateConfig;
   tools?: ToolsConfig;
   stories?: StoriesConfig;
+  /**
+   * Plugin module URLs, relative to the config file (same origin) or on a
+   * trusted CDN. Each is imported and its `register(api)` called before the
+   * config is validated, so the tools it registers can be named in `tools`.
+   */
+  plugins?: string[];
 }

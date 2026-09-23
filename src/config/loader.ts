@@ -614,6 +614,7 @@ function normalizeAppConfig(rawConfig: unknown, configUrl: string): AppConfig {
     state: isObject(raw.state) ? (raw.state as any) : undefined,
     version: typeof raw.version === 'number' ? raw.version : undefined,
     project: isObject(raw.project) ? (raw.project as Record<string, unknown>) : undefined,
+    ...(Array.isArray(raw.plugins) ? { plugins: raw.plugins as string[] } : {}),
     ...(stories !== undefined ? { stories: stories as any } : {}),
   };
 
@@ -662,6 +663,19 @@ export function parseAndValidateConfig(
   return config;
 }
 
+type ConfigPluginLoader = (plugins: unknown[], configUrl: string) => Promise<void>;
+let pluginLoader: ConfigPluginLoader | null = null;
+
+/**
+ * Lets the app bootstrap load a fetched config's `plugins` before it is
+ * validated. Injected rather than imported: plugin loading needs the component
+ * classes, and the config layer — including the DOM-free validator entry point
+ * and every unit test that fetches a config — must not depend on them.
+ */
+export function setConfigPluginLoader(loader: ConfigPluginLoader | null): void {
+  pluginLoader = loader;
+}
+
 export async function fetchConfig(url: string): Promise<AppConfig> {
   if (configCache.has(url)) {
     return configCache.get(url)!;
@@ -673,6 +687,10 @@ export async function fetchConfig(url: string): Promise<AppConfig> {
   }
 
   const rawConfig = await response.json();
+  // A config's plugins register tools the validator below must already know.
+  if (pluginLoader && Array.isArray(rawConfig?.plugins) && rawConfig.plugins.length > 0) {
+    await pluginLoader(rawConfig.plugins, response.url);
+  }
   // response.url is the final, absolute URL (resolves relative fetch input and
   // any redirects) — the correct base for resolving relative resource paths
   // inside the config, regardless of what page loaded it or from where.

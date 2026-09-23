@@ -2,243 +2,137 @@
 
 Plugins extend WebMapX without forking. Two patterns:
 
-1. **New tool** — add capability (buffer, routing, 3D, etc.)
-2. **Override** — change look, feel, or behaviour of an existing tool
+1. **New tool** — a tool a config can name, with a toolbar button, a panel and
+   an entry in `testpages/setup.html`, exactly like a built-in one
+2. **Override** — change the look, feel or behaviour of an existing tool
 
-Both patterns work as plain npm packages that import from `webmapx`.
-
----
-
-## Distribution & Loading
-
-### Package structure
-
-A plugin is a standard npm package. The entry point must export a default object with a `register` function:
-
-```ts
-// my-plugin/src/index.ts
-import './my-buffer-tool';  // side-effect: customElements.define(...)
-
-export default {
-  register() {
-    // Called once by webmapx after the module loads.
-    // Register locale strings, hook into registries, etc.
-  }
-};
-```
-
-webmapx calls `plugin.register()` immediately after dynamic import resolves. The `register` function is synchronous; use it to set up anything that must happen before the first render.
-
-### Config entry
-
-Add the plugin's full CDN URL to the `plugins` array in your map config:
-
-```json
-{
-  "engine": "maplibre",
-  "tools": ["draw"],
-  "plugins": [
-    "https://cdn.jsdelivr.net/npm/@my-org/wmx-routing-plugin@2.1/dist/plugin.js"
-  ]
-}
-```
-
-webmapx fetches and registers each plugin in order before completing mount.
-
-### Trusted CDN list
-
-For security, webmapx only loads plugin URLs whose origin is in the trusted list:
-
-| CDN | Origin |
-| :-- | :----- |
-| jsDelivr | `https://cdn.jsdelivr.net` |
-| unpkg | `https://unpkg.com` |
-| esm.sh | `https://esm.sh` |
-
-A URL from any other origin is skipped with a console warning. Self-hosted plugins must be served from the same origin as the page (no restriction applies to same-origin URLs).
-
-### CSP requirement
-
-If your page sets a `Content-Security-Policy`, add the CDNs you use to `script-src`:
-
-```
-Content-Security-Policy: script-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://esm.sh;
-```
-
-Without this header, browsers will block the dynamic import and the plugin silently fails to load.
-
-### Registering locale strings
-
-Inside `register()`, add your plugin's translation strings using i18next's `addResourceBundle`:
-
-```ts
-import i18n from 'webmapx/i18n';
-
-export default {
-  register() {
-    i18n.addResourceBundle('en', 'my-routing-plugin', {
-      startPoint: 'Start point',
-      endPoint: 'End point',
-      calculate: 'Calculate route'
-    });
-    i18n.addResourceBundle('nl', 'my-routing-plugin', {
-      startPoint: 'Startpunt',
-      endPoint: 'Eindpunt',
-      calculate: 'Bereken route'
-    });
-  }
-};
-```
-
-In your tool component, use the namespace directly:
-
-```ts
-this.t('my-routing-plugin:startPoint')
-```
-
-### Version pinning
-
-Always pin an exact version in the CDN URL for production configs. Floating `@latest` will pick up breaking changes on the next user visit:
-
-```json
-// good
-"https://cdn.jsdelivr.net/npm/@my-org/wmx-routing-plugin@2.1.3/dist/plugin.js"
-
-// avoid in production
-"https://cdn.jsdelivr.net/npm/@my-org/wmx-routing-plugin@latest/dist/plugin.js"
-```
-
----
-
-## Setup
-
-Install WebMapX as a peer dependency:
-
-```bash
-npm install webmapx
-```
-
-Your plugin is a TypeScript/JavaScript module that defines one or more custom elements. No plugin manifest, no registration call beyond `customElements.define`.
+A complete, working example is `public/plugins/bookmarks.js` (named map views):
+one plain `.js` file, no build step, no imports.
 
 ---
 
 ## Pattern 1: New Tool
 
-### Step 1 — Choose a base class
+### The module
 
-| Base class | Use when |
-| :--- | :--- |
-| `WebmapxBaseTool` | Passive tool (always visible, no exclusive activation) |
-| `WebmapxModalTool` | Modal tool (exclusive — only one active at a time, captures map events) |
+A plugin is an ES module whose default export has a `register(api)` function:
 
-Both are exported from `webmapx`.
+```js
+export default {
+  register(api) {
+    const { WebmapxModalTool, html, css, registerTool } = api;
 
-### Step 2 — Implement the tool
+    class MyTool extends WebmapxModalTool {
+      get toolId() { return 'mytool'; }
+      onStateChanged(state) { /* react to map state */ }
+      render() { return html`<div class="tool-content">Hello</div>`; }
+    }
 
-```typescript
-import { html, css } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
-import { WebmapxBaseTool } from 'webmapx';
-import type { IMap, IMapState } from 'webmapx';
-
-@customElement('my-buffer-tool')
-export class MyBufferTool extends WebmapxBaseTool {
-
-  @state() private radius = 500;
-
-  static styles = css`
-    :host { display: block; padding: 0.5rem; }
-  `;
-
-  protected onMapAttached(adapter: IMap): void {
-    // Map is ready — set up sources, layers, event listeners
-  }
-
-  protected onStateChanged(state: IMapState): void {
-    // React to map state changes
-  }
-
-  protected onMapDetached(): void {
-    // Clean up sources, layers, listeners
-  }
-
-  render() {
-    return html`<button @click=${this.runBuffer}>Buffer ${this.radius}m</button>`;
-  }
-
-  private runBuffer() {
-    if (!this.adapter) return;
-    // Use this.adapter (IMap) to read state, add layers, etc.
-  }
-}
+    customElements.define('my-tool', MyTool);
+    registerTool({ id: 'mytool', tag: 'my-tool', placement: 'toolbar', label: 'My tool', icon: 'star' });
+  },
+};
 ```
 
-For modal tools (exclusive activation, captures clicks):
+**Use the classes in `api`, don't import webmapx.** A plugin loaded from a CDN
+or its own bundle that imports `@edugis-org/webmapx` gets a *second copy* of
+it — a different tool registry, ToolManager and Lit — and a tool registered
+there never appears on this page. `api` holds the live instances:
 
-```typescript
-import { WebmapxModalTool } from 'webmapx';
+| Member | What it is |
+| :-- | :-- |
+| `registerTool(entry)` | Adds a tool to the registry (see below). Returns `false` and warns if refused. |
+| `WebmapxModalTool` | Base class for a toolbar tool with a panel (exclusive activation). |
+| `WebmapxBaseTool` | Base class for a passive, always-visible tool or control. |
+| `LitElement`, `html`, `css`, `svg`, `nothing` | This page's Lit. |
+| `i18n`, `t` | This page's i18next instance. |
 
-@customElement('my-draw-tool')
-export class MyDrawTool extends WebmapxModalTool {
-  readonly toolId = 'my-draw-tool';  // required, must be unique
+Plain JavaScript has no decorators, so declare reactive state with
+`static properties = { name: { state: true } }` and initialise it in the
+constructor — not as a class field, which would shadow Lit's accessor.
 
-  protected onActivate(): void {
-    // Tool became active — subscribe to click events
-    this.adapter?.events.on('click', this.handleClick);
-  }
+### `registerTool(entry)`
 
-  protected onDeactivate(): void {
-    // Tool deactivated — remove listeners, clean up state
-    this.adapter?.events.off('click', this.handleClick);
-  }
+| Field | |
+| :-- | :-- |
+| `id` | The name a config uses: a toolbar item's `type`, or a standalone section name. |
+| `tag` | The custom element to build. Must contain a hyphen and be defined before or right after registering. |
+| `placement` | `toolbar` (item in a toolbar, opens a panel), `standalone` (map furniture placed by its own `tools.<id>` section), or `both`. |
+| `label`, `icon` | Toolbar button caption/tooltip and Shoelace icon name; also what setup.html shows. |
+| `aliases` | Optional other spellings. |
+| `offered` | `false` to keep it out of setup.html's lists. |
 
-  private handleClick = (e: ClickEvent) => { /* ... */ };
+A plugin cannot replace a built-in tool: an `id`, alias or `tag` that is
+already taken is refused. To change a built-in tool, see Pattern 2.
 
-  render() { return html`...`; }
-}
-```
-
-### Step 3 — Add to the page
-
-Import your plugin module, then place the element in a toolbar:
-
-```html
-<script type="module" src="./my-plugin.js"></script>
-
-<webmapx-map src="config/demo.json">
-  <webmapx-layout>
-    <webmapx-control-group slot="top-left">
-      <webmapx-toolbar>
-        <my-buffer-tool tool-id="buffer"></my-buffer-tool>
-      </webmapx-toolbar>
-    </webmapx-control-group>
-  </webmapx-layout>
-</webmapx-map>
-```
-
-### Step 4 — Wire config (optional)
-
-Add tool settings to the map config JSON:
+Tool parameters live in the config section named after the id, and the tool
+reads them as `this.toolsConfig?.<id>`:
 
 ```json
 "tools": {
-  "buffer": {
-    "enabled": true,
-    "element": "my-buffer-tool",
-    "radius": 1000
+  "bookmarks": { "enabled": true, "views": [{ "label": "Amsterdam", "center": [4.9, 52.37], "zoom": 12 }] }
+}
+```
+
+The bookmarks plugin shows a sensible way to handle defaults: without `views`
+it offers World, Amsterdam and the Eiffel Tower; any `views` array replaces
+them, and `"views": []` removes them.
+
+### Naming the plugin in a config
+
+```json
+{
+  "plugins": ["../plugins/bookmarks.js"],
+  "tools": {
+    "mainToolbar": { "type": "toolbar", "enabled": true, "items": [{ "type": "bookmarks" }] }
   }
 }
 ```
 
-Then use `<webmapx-plugin-tool>` to instantiate from config automatically:
+Each plugin is imported and its `register()` awaited **before** the config is
+validated and its toolbars built, so its tool ids are known at that point. This
+happens on every entry point: `?config=`, a map's `src`, a dropped config, and
+`WebMapX.mount`. A plugin named by several configs on one page is loaded once.
 
-```html
-<webmapx-toolbar>
-  <webmapx-plugin-tool tool-id="buffer"></webmapx-plugin-tool>
-</webmapx-toolbar>
+In `testpages/setup.html` the Tools tab has a **Plugins** section: the plugins
+of the loaded config are loaded, their tools appear in the toolbar and
+standalone lists, and a plugin can be added by URL (it is written into the
+config's `plugins`).
+
+### Where a plugin may be loaded from
+
+- **The page's own origin**, by a path relative to the config file — so a
+  plugin can sit beside the configs on a passive web server.
+- **A trusted CDN**: `https://cdn.jsdelivr.net/npm/`, `https://unpkg.com/`,
+  `https://esm.sh/`. Pin an exact version; `@latest` changes under your users.
+
+Anything else is skipped with a console warning. A relative path in a config
+fetched from another origin resolves to *that* origin and is refused.
+
+A plugin is code running with the page's full rights, and the CDN list only
+limits *where* it comes from, not *who* published it: anyone can publish to npm.
+Only name plugins you trust. If your page sets a `Content-Security-Policy`, add
+the CDNs you use to `script-src`.
+
+### Validation
+
+The browser validator knows a plugin's tools once it has loaded. The CLI
+validator (`webmapx-validate`) never runs plugins, so it reports their tool
+names as unknown — with a hint that they may come from a plugin — as warnings,
+not errors.
+
+### Locale strings
+
+```js
+register(api) {
+  api.i18n.addResourceBundle('en', 'my-plugin', { add: 'Add view' });
+  api.i18n.addResourceBundle('nl', 'my-plugin', { add: 'Weergave toevoegen' });
+  // in render(): api.t('my-plugin:add')
+}
 ```
 
-The `element` field names the custom element to create. All extra config keys are forwarded as properties onto the element.
+Most of webmapx's own UI is not translated yet, so this only affects the
+plugin's own text.
 
 ---
 
@@ -349,7 +243,9 @@ customElements.define('webmapx-coordinates-tool', MyCoordinatesTool);
 
 ## Available Public API
 
-Import from `webmapx`:
+For a plugin loaded through `plugins`, take runtime values from `register(api)`
+and use these imports for **types only** (`import type`). An app that bundles
+webmapx itself (one copy) may import them directly, including `registerTool`:
 
 ```typescript
 import {

@@ -41,6 +41,7 @@ export {
   parseAttributeConfig,
   getConfigUrlParam,
   clearConfigCache,
+  setConfigPluginLoader,
   DEFAULT_MAP_CONFIG,
   type LoadedAppConfig,
 } from './loader.js';

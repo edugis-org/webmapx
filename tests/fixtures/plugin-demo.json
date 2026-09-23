@@ -1,0 +1,31 @@
+{
+  "version": 0,
+  "project": { "title": "Plugin fixture" },
+  "plugins": ["../../plugins/bookmarks.js"],
+  "map": {
+    "label": "Plugin fixture",
+    "type": "maplibre",
+    "center": [0, 0],
+    "zoom": 2,
+    "style": { "version": 8, "sources": {}, "layers": [] }
+  },
+  "layerData": { "sources": [], "layers": [] },
+  "tools": {
+    "bookmarks": {
+      "enabled": true,
+      "views": [
+        { "label": "Amsterdam", "center": [4.9, 52.37], "zoom": 12 }
+      ]
+    },
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "panel": { "enabled": true, "label": "Tools" },
+      "items": [
+        { "type": "bookmarks", "enabled": true }
+      ]
+    }
+  }
+}

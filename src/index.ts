@@ -11,6 +11,9 @@ export { WebmapxBaseTool } from './components/webmapx-base-tool.js';
 
 // Config-driven plugin tool host
 export { WebmapxPluginTool } from './components/webmapx-plugin-tool.js';
+export { registerTool } from './tools/tool-registry.js';
+export type { PluginToolEntry, ToolRegistryEntry } from './tools/tool-registry.js';
+export type { WebmapxPluginApi } from './bootstrap/plugin-loader.js';
 
 // Toolbox tool
 export { WebmapxToolboxTool } from './components/webmapx-toolbox-tool.js';
