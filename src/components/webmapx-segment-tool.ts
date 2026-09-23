@@ -41,13 +41,14 @@ import type {
 import type { WebmapxMapElement } from './webmapx-map';
 import { DATA_CATEGORICAL, DATA_END, DATA_START, DATA_TOOL, DATA_TOOL_HALO } from '../theme/data-colors';
 import {
-    DEFAULT_MODEL_BASE_URL, modelsFromConfig, resolveSamModel,
+    CLIP_MODELS, DEFAULT_MODEL_BASE_URL, DEFAULT_SEGMENT_LABELS, modelsFromConfig, resolveClipModel, resolveSamModel,
+    type ClipModelEntry,
     type ResolvedSamModel, type SamModelEntry,
 } from '../utils/sam/sam-models';
 import { rewindPolygon } from '../utils/sam/mask-to-polygon';
 import {
     SamCancelledError, cancelSam, decodeSamPrompt, encodeSamImage, isSamModelCached, loadSamModel,
-    outlineSamMasks, probeSam, regroupSam, segmentEverythingSam,
+    isClipModelCached, nameSegmentsSam, outlineSamMasks, probeSam, regroupSam, segmentEverythingSam,
 } from '../utils/sam/sam-worker-client';
 import type { SamCapabilities } from '../workers/sam.worker';
 import type { SamGranularity, SamGranularityLevel, SamPrompt, SamResult } from '../workers/sam-runner';
@@ -65,6 +66,7 @@ import '@shoelace-style/shoelace/dist/components/alert/alert.js';
 import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
 import '@shoelace-style/shoelace/dist/components/radio-button/radio-button.js';
 import '@shoelace-style/shoelace/dist/components/range/range.js';
+import '@shoelace-style/shoelace/dist/components/textarea/textarea.js';
 
 type LngLat = [number, number];
 
@@ -94,6 +96,19 @@ const EVERYTHING_DETAIL = [
 ];
 
 type Mode = 'point' | 'box' | 'everything';
+
+/** A fill-colour expression colouring each name as its position in the list. */
+function nameColour(labels: string[]): unknown[] {
+    const expr: unknown[] = ['match', ['get', 'name']];
+    labels.forEach((label, i) => expr.push(label, DATA_CATEGORICAL[i % DATA_CATEGORICAL.length]));
+    expr.push('#888888');
+    return expr;
+}
+
+/** A list the user typed: commas or new lines, blanks and repeats dropped. */
+function parseLabels(text: string): string[] {
+    return [...new Set(text.split(/[,\n]/).map(l => l.trim()).filter(Boolean))];
+}
 
 /** A fill-colour expression giving each group its categorical colour. */
 function groupColour(k: number): unknown[] {
@@ -144,6 +159,16 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
     @state() private segments: GeoJSON.Feature<GeoJSON.MultiPolygon>[] = [];
     @state() private segmentStats: EverythingResult['stats'] | null = null;
     @state() private viewLayersKept = 0;
+    /** What the segments' colour shows: SAM's look-alike groups, or CLIP's names. */
+    @state() private colourBy: 'group' | 'name' = 'group';
+    @state() private clipId = 'remoteclip';
+    @state() private clipCached: Record<string, boolean> = {};
+    /** The words segments are named from, in the order their colours are assigned. */
+    @state() private labels: string[] = [...DEFAULT_SEGMENT_LABELS];
+    /** Labels the current names were chosen from; differs from `labels` once the list is edited. */
+    @state() private namedWith: string[] | null = null;
+    /** Naming in progress: phase and count; null when not running. */
+    @state() private namingProgress: { phase: 'download' | 'regions' | 'texts'; done: number; total: number } | null = null;
     @state() private points: PromptPoint[] = [];
     @state() private box: [LngLat, LngLat] | null = null;
     @state() private preview: GeoJSON.Feature<GeoJSON.MultiPolygon> | null = null;
@@ -231,6 +256,19 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
             border-radius: 3px;
             box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.2);
         }
+        .name-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--sl-spacing-2x-small) var(--sl-spacing-small);
+            font-size: var(--sl-font-size-x-small);
+        }
+        .name-entry {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .name-entry[data-empty] { opacity: 0.5; }
+        .count { color: var(--color-text-secondary, #5a6773); }
         .range-ends {
             display: flex;
             justify-content: space-between;
@@ -244,6 +282,14 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
     private get section(): Record<string, unknown> | undefined {
         const tools = this.toolsConfig as Record<string, unknown> | undefined;
         return (tools?.[this.instanceId] ?? tools?.[this.toolId]) as Record<string, unknown> | undefined;
+    }
+
+    private get clipModel(): ClipModelEntry {
+        return CLIP_MODELS.find(m => m.id === this.clipId) ?? CLIP_MODELS[0];
+    }
+
+    private get resolvedClip() {
+        return resolveClipModel(this.clipModel, this.modelBaseUrl, p => this.resolveConfigAsset(p));
     }
 
     private get modelBaseUrl(): string {
@@ -313,6 +359,10 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
             return;
         }
         this.models = modelsFromConfig(this.section?.models);
+        const labels = this.section?.labels;
+        if (Array.isArray(labels) && labels.every(l => typeof l === 'string') && labels.length) this.labels = labels as string[];
+        const clipModel = this.section?.clipModel;
+        if (typeof clipModel === 'string' && CLIP_MODELS.some(m => m.id === clipModel)) this.clipId = clipModel;
         const configured = this.section?.defaultModel;
         const fallback = this.capabilities.webgpu ? 'sam2.1-tiny' : 'slimsam-77';
         this.modelId = [configured, fallback, this.models[0]?.id]
@@ -735,7 +785,71 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
     private clearSegments(): void {
         this.segments = [];
         this.segmentStats = null;
+        this.namedWith = null;
+        this.colourBy = 'group';
         this.updateOverlays();
+    }
+
+    // ─── Naming ──────────────────────────────────────────────────────────
+
+    /** Colour slot of a segment: its group, or the position of its name in the label list. */
+    private colourIndex(segment: GeoJSON.Feature): number {
+        if (this.colourBy === 'name' && this.namedWith) {
+            const i = this.namedWith.indexOf(String(segment.properties?.name ?? ''));
+            return i < 0 ? -1 : i;
+        }
+        return Number(segment.properties?.group ?? 0);
+    }
+
+    private async checkClipCached(): Promise<void> {
+        const model = this.clipModel;
+        const cached = await isClipModelCached(this.resolvedClip).catch(() => false);
+        this.clipCached = { ...this.clipCached, [model.id]: cached };
+    }
+
+    private setColourBy(value: 'group' | 'name'): void {
+        this.colourBy = value;
+        if (value === 'name' && this.clipCached[this.clipId] === undefined) void this.checkClipCached();
+        this.updateOverlays();
+    }
+
+    private handleLabelsInput(e: Event): void {
+        this.labels = parseLabels((e.target as HTMLTextAreaElement).value);
+    }
+
+    private async nameSegments(): Promise<void> {
+        if (!this.segments.length || this.namingProgress) return;
+        const labels = [...this.labels];
+        if (!labels.length) {
+            this.error = 'Give at least one name to choose from.';
+            return;
+        }
+        this.error = null;
+        this.namingProgress = { phase: 'texts', done: 0, total: 1 };
+        try {
+            const names = await nameSegmentsSam(this.resolvedClip, labels, this.backend, (done, total, phase) => {
+                this.namingProgress = { phase: phase ?? 'regions', done, total };
+            });
+            this.clipCached = { ...this.clipCached, [this.clipId]: true };
+            this.segments = this.segments.map(f => {
+                const named = names[Number(f.properties?.index ?? 0)];
+                return {
+                    ...f,
+                    properties: {
+                        ...f.properties,
+                        name: named ? labels[named.label] : null,
+                        name_probability: named ? Math.round(named.probability * 1000) / 1000 : null,
+                    },
+                };
+            });
+            this.namedWith = labels;
+            this.colourBy = 'name';
+            this.updateOverlays();
+        } catch (err) {
+            if (!(err instanceof SamCancelledError)) this.fail(err);
+        } finally {
+            this.namingProgress = null;
+        }
     }
 
     /**
@@ -747,6 +861,7 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
         if (!this.segments.length) return;
         const n = ++this.viewLayersKept;
         const k = Math.max(...this.segments.map(f => Number(f.properties?.group ?? 0))) + 1;
+        const byName = this.colourBy === 'name' && !!this.namedWith;
         const id = `webmapx-segmented-view-${n}`;
         const source = `${id}-src`;
         const features = this.segments.map(f => {
@@ -760,7 +875,7 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
             source,
             sources: { [source]: { id: source, type: 'geojson', data: { type: 'FeatureCollection', features } } },
             paint: {
-                'fill-color': groupColour(k),
+                'fill-color': byName ? nameColour(this.namedWith!) : groupColour(k),
                 'fill-opacity': 0.45,
                 'fill-outline-color': '#ffffff',
             },
@@ -892,7 +1007,7 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
         if (!this.overlaysAdded) return;
         const features: GeoJSON.Feature[] = [];
         for (const segment of this.segments) {
-            features.push({ ...segment, properties: { role: 'segment', group: segment.properties?.group } });
+            features.push({ ...segment, properties: { role: 'segment', group: this.colourIndex(segment) } });
         }
         if (this.preview) {
             features.push({ ...this.preview, properties: { role: 'mask' } });
@@ -1050,23 +1165,35 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
                 </div>
             `}
             ${this.segments.length && !running ? html`
-                <div>
-                    <sl-range
-                        label="Groups"
-                        min="2" max="12" step="1"
-                        .value=${this.groupCount}
-                        @sl-change=${this.handleGroupCount}
-                    ></sl-range>
-                    <div class="swatches">
-                        ${Array.from({ length: groupsShown }, (_, g) => html`
-                            <span class="swatch" style="background:${DATA_CATEGORICAL[g % DATA_CATEGORICAL.length]}"
-                                title="Group ${g + 1}"></span>`)}
+                <sl-radio-group
+                    label="Colour by"
+                    size="small"
+                    .value=${this.colourBy}
+                    @sl-change=${(e: Event) => this.setColourBy((e.target as HTMLInputElement).value as 'group' | 'name')}
+                >
+                    <sl-radio-button value="group">Look-alike</sl-radio-button>
+                    <sl-radio-button value="name">Name</sl-radio-button>
+                </sl-radio-group>
+                ${this.colourBy === 'group' ? html`
+                    <div>
+                        <sl-range
+                            label="Groups"
+                            min="2" max="12" step="1"
+                            .value=${this.groupCount}
+                            @sl-change=${this.handleGroupCount}
+                        ></sl-range>
+                        <div class="swatches">
+                            ${Array.from({ length: groupsShown }, (_, g) => html`
+                                <span class="swatch" style="background:${DATA_CATEGORICAL[g % DATA_CATEGORICAL.length]}"
+                                    title="Group ${g + 1}"></span>`)}
+                        </div>
                     </div>
-                </div>
+                ` : nothing}
                 <div class="status">
                     ${this.segments.length} segments
                     ${this.segmentStats?.filled ? html` (${this.segmentStats.filled} filling the gaps between outlines)` : nothing}
                 </div>
+                ${this.renderNaming()}
                 <div class="actions">
                     <sl-button size="small" @click=${() => this.clearSegments()}>Clear</sl-button>
                     <sl-button size="small" variant="primary" @click=${() => this.keepSegments()}>
@@ -1076,6 +1203,72 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
             ` : nothing}
             ${!this.segments.length && !running && this.segmentStats ? html`<div class="status">Nothing stable enough to keep in this view.</div>` : nothing}
             ${this.viewLayersKept ? html`<p class="hint">${this.viewLayersKept} segmented view${this.viewLayersKept === 1 ? '' : 's'} kept as layers.</p>` : nothing}
+        `;
+    }
+
+    private renderNaming() {
+        if (this.colourBy !== 'name') return nothing;
+        const progress = this.namingProgress;
+        const stale = !!this.namedWith && this.namedWith.join('\n') !== this.labels.join('\n');
+        const counts = new Map<string, number>();
+        for (const f of this.segments) {
+            const name = f.properties?.name;
+            if (typeof name === 'string') counts.set(name, (counts.get(name) ?? 0) + 1);
+        }
+        const model = this.clipModel;
+        return html`
+            ${CLIP_MODELS.length > 1 ? html`
+                <sl-select
+                    label="Naming model"
+                    size="small"
+                    value=${this.clipId}
+                    ?disabled=${!!progress}
+                    @sl-change=${(e: Event) => { this.clipId = (e.target as HTMLSelectElement).value; void this.checkClipCached(); }}
+                >
+                    ${CLIP_MODELS.map(m => html`<sl-option value=${m.id}>${m.label} · ${m.sizeMB} MB</sl-option>`)}
+                </sl-select>
+            ` : nothing}
+            <sl-textarea
+                label="Names to choose from"
+                size="small"
+                rows="3"
+                resize="auto"
+                help-text="Comma or line separated, in English."
+                .value=${this.labels.join(', ')}
+                ?disabled=${!!progress}
+                @sl-change=${this.handleLabelsInput}
+            ></sl-textarea>
+            ${progress ? html`
+                <sl-progress-bar value=${Math.round((progress.done / Math.max(1, progress.total)) * 100)}></sl-progress-bar>
+                <div class="row">
+                    <div class="status">
+                        ${progress.phase === 'download' ? html`Downloading ${model.label}…`
+                            : progress.phase === 'regions' ? html`Looking at segment ${progress.done} of ${progress.total}…`
+                            : html`<sl-spinner></sl-spinner>Starting ${model.label}…`}
+                    </div>
+                    <sl-button size="small" @click=${() => this.cancelEverything()}>Cancel</sl-button>
+                </div>
+            ` : html`
+                <div class="actions">
+                    <sl-button size="small" variant=${this.namedWith && !stale ? 'default' : 'primary'} @click=${() => this.nameSegments()}>
+                        <sl-icon slot="prefix" name="tags"></sl-icon>${this.namedWith ? 'Name again' : 'Name the segments'}
+                    </sl-button>
+                </div>
+                ${this.clipCached[model.id] === false ? html`<p class="hint">The first time downloads ${model.label} (${model.sizeMB} MB), kept by your browser afterwards.</p>` : nothing}
+            `}
+            ${this.namedWith ? html`
+                <div class="name-legend">
+                    ${this.namedWith.map((label, i) => html`
+                        <span class="name-entry" ?data-empty=${!counts.get(label)}>
+                            <span class="swatch" style="background:${DATA_CATEGORICAL[i % DATA_CATEGORICAL.length]}"></span>
+                            ${label} <span class="count">${counts.get(label) ?? 0}</span>
+                        </span>`)}
+                </div>
+                ${stale ? html`<p class="hint">The list has changed; name again to use it.</p>` : nothing}
+                <p class="hint">
+                    Names are CLIP's best guess from your list for each segment — it always picks one, even when none fits.
+                </p>
+            ` : nothing}
         `;
     }
 
