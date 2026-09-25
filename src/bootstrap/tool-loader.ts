@@ -22,6 +22,7 @@ const TOOL_MAP: Record<string, () => Promise<unknown>> = {
   compare:        () => import('../components/webmapx-compare-tool.js'),
   cartogram:       () => import('../components/webmapx-cartogram-tool.js'),
   coordinates:     () => import('../components/webmapx-coordinates-tool.js'),
+  megaSlider:      () => import('../components/webmapx-mega-slider.js'),
   settings:        () => import('../components/webmapx-settings.js'),
   routing:         () => import('../components/webmapx-routing-tool.js'),
   isochrone:       () => import('../components/webmapx-isochrone-tool.js'),

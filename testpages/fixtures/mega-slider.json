@@ -1,0 +1,68 @@
+{
+  "version": 0,
+  "map": {
+    "label": "Mega slider fixture",
+    "center": [4.9, 52.37],
+    "zoom": 12,
+    "type": "maplibre",
+    "style": {
+      "version": 8,
+      "sources": {},
+      "layers": []
+    }
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "streets-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "attribution": "© OpenStreetMap contributors",
+        "maxzoom": 19
+      },
+      {
+        "id": "satellite-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+        "tileSize": 256,
+        "attribution": "© Google Satellite"
+      }
+    ],
+    "layers": [
+      {
+        "id": "streets",
+        "type": "raster",
+        "source": "streets-source",
+        "title": "Streets",
+        "metadata": { "legendRole": "overlay" }
+      },
+      {
+        "id": "satellite",
+        "type": "raster",
+        "source": "satellite-source",
+        "title": "Satellite",
+        "metadata": { "legendRole": "overlay" }
+      }
+    ]
+  },
+  "state": {
+    "activeLayers": [
+      { "ref": "streets", "visible": true },
+      { "ref": "satellite", "visible": true }
+    ]
+  },
+  "tools": {
+    "megaSlider": {
+      "enabled": true,
+      "type": "megaSlider",
+      "position": "bottom-center"
+    }
+  }
+}

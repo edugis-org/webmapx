@@ -643,6 +643,9 @@
     const TOOL_EXTRA_PROPS = {
       coordinates: { defaultFormat: 'geographic-en' },
       search: { provider: 'nominatim' },
+      // Overrides the generic 'top-left' standalone default: the mega slider is
+      // built to float centered above the bottom edge, not sit in a corner.
+      megaSlider: { position: 'bottom-center' },
     };
 
     const LAYOUT_POSITIONS = [

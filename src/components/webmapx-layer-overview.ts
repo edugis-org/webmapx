@@ -21,6 +21,7 @@ import { buildPermalinkUrl, getMapDomIndex, getConfigUrlForIndex, permalinkState
 import { findActiveComparison } from '../utils/compare-replay';
 import { snapshotMapForPermalink } from '../utils/permalink-state';
 import { sampleLayerFeatures } from '../utils/layer-features';
+import { applyLayerTransparency } from '../utils/layer-transparency';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
@@ -1449,22 +1450,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
 
   private applyTransparency(layerId: string, transparency: number): void {
     if (!this.adapter) return;
-    const current = this.adapter.store.getState().mapLayers;
-    const entry = current[layerId];
-    const meta = entry as Record<string, unknown> | undefined;
-    if (meta?.layerType === 'hillshade') {
-      // Hillshade uses exaggeration instead of opacity, so adapter.setLayerOpacity
-      // (which mirrors transparency into the store itself) is not called here.
-      if (entry) {
-        this.adapter.store.dispatch({ mapLayers: { ...current, [layerId]: { ...entry, transparency } } }, 'UI');
-      }
-      const sublayers = meta?.sublayers as any[] | undefined;
-      const primarySub = sublayers?.find((s: any) => s?.type === 'hillshade');
-      const subLayerId = primarySub?.id ?? layerId;
-      this.adapter.updateLayerStyle(layerId, subLayerId, { 'hillshade-exaggeration': (100 - transparency) / 100 });
-    } else {
-      this.adapter.setLayerOpacity(layerId, (100 - transparency) / 100);
-    }
+    applyLayerTransparency(this.adapter, layerId, transparency);
   }
 
   private beginEditTransparency(layerId: string): void {

@@ -470,16 +470,32 @@ export interface CompareToolConfig extends ToolConfig {
   initialSplit?: number;
 }
 
+/**
+ * `tools.megaSlider` — a full-width, oversized opacity slider for kiosk/museum
+ * displays. Always controls whichever layer is currently topmost in the
+ * legend; there is nothing here to name that layer, since it is meant to keep
+ * working if the layer on top ever changes.
+ */
+export interface MegaSliderToolConfig extends ToolConfig {
+  /**
+   * End labels shown beside the bar — positional (left/right), not "top/bottom":
+   * `start` is the left label (the top layer, the one the slider controls) and
+   * `end` is the right one. Default: the two layers' own catalog labels.
+   */
+  labels?: { start?: string; end?: string };
+}
+
 export interface ToolsConfig {
   coordinates?: CoordinatesToolConfig;
   compare?: CompareToolConfig;
+  megaSlider?: MegaSliderToolConfig;
   layerTree?: ToolConfig;
   legend?: ToolConfig;
   measure?: MeasureToolConfig;
   insetMap?: InsetMapToolConfig;
   search?: SearchToolConfig;
   info?: InfoToolConfig;
-  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | InfoToolConfig | CompareToolConfig | undefined;
+  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | InfoToolConfig | CompareToolConfig | MegaSliderToolConfig | undefined;
 }
 
 /**
