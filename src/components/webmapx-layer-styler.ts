@@ -804,6 +804,7 @@ export class WebmapxLayerStyler extends DraggablePanel {
             origin as Record<string, unknown> | null | undefined,
             rawId,
             this.list.length === 1,
+            this.layerId,
         );
         return label || null;
     }

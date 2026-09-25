@@ -620,7 +620,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const paint = (sub.paint && typeof sub.paint === 'object') ? sub.paint as Record<string, unknown> : {};
             const layoutRaw = (sub.layout && typeof sub.layout === 'object') ? sub.layout as Record<string, unknown> : {};
             const rawId = String(sub.id ?? '');
-            const label = legendSublayerLabel(this.meta, sub, rawId, singleSublayer);
+            const label = legendSublayerLabel(this.meta, sub, rawId, singleSublayer, this.layerId);
 
             // Evaluate zoom-dependent paint and layout values
             const evalPaint: Record<string, unknown> = {};
