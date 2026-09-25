@@ -1390,7 +1390,10 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 apply(orig);
                 pickr!.hide();
             });
-            if (!paintButtonBackground) {
+            // Only for a button that is a transparent frame around an SVG swatch.
+            // The style editor's colour rows paint their own background as the
+            // swatch, and resetting it on hide blanked the swatch on Save.
+            if (!paintButtonBackground && button.style.backgroundColor === 'transparent') {
                 pickr.on('hide', () => { button.style.background = 'transparent'; });
             }
             // The legend's panel is in the top layer, and a popup on
