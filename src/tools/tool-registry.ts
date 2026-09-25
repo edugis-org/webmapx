@@ -123,6 +123,10 @@ export const TOOL_REGISTRY: readonly ToolRegistryEntry[] = [
     // --- standalone map furniture, in the order the setup page offers them ---
     { id: 'navigation', tag: 'webmapx-navigation-control', placement: 'standalone', label: 'Navigation', icon: 'compass', bundled: true },
     {
+        id: 'megaReset', tag: 'webmapx-mega-reset', placement: 'standalone', label: 'Mega reset',
+        icon: 'arrow-counterclockwise',
+    },
+    {
         id: 'scale', tag: 'webmapx-scale-control', placement: 'standalone', label: 'Scale bar', icon: 'rulers',
         bundled: true, loaderAliases: ['scaleControl'],
     },

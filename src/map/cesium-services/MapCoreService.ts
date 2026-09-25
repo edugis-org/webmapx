@@ -872,20 +872,40 @@ export class MapCoreService implements IMapCore {
         const desiredHeight = this.zoomToCameraHeightMeters(zoom, center[1]);
         const verticalComponent = Math.max(0.01, Math.abs(Math.sin(pitch)));
         const range = Math.max(1, desiredHeight / verticalComponent);
+        const hpr = new Cesium.HeadingPitchRange(heading, pitch, range);
         const action = () => {
-            camera.lookAt(target, new Cesium.HeadingPitchRange(heading, pitch, range));
+            camera.lookAt(target, hpr);
             camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
         };
-        if (animate) {
-            camera.flyTo({
-                destination: target,
-                orientation: { heading, pitch, roll: camera.roll },
-                duration: 0.1,
-                complete: action
-            });
-        } else {
+
+        if (!animate) {
             action();
+            return;
         }
+
+        // `flyTo`'s `destination` is the camera's own eye position, not a look-at
+        // target — flying straight to `target` (a ground-level point) would carry
+        // the camera into the terrain at the destination, with `action()` in
+        // `complete` only fixing that up *after* arriving. That went unnoticed
+        // because the flight used to be a fixed 0.1s — short enough nothing was
+        // ever really on screen to see it — rather than genuinely animated. Now
+        // that the flight is meant to be visible (duration omitted below so
+        // Cesium picks one from the distance travelled, the same "let the
+        // engine's own curve decide" rule MapLibre/Leaflet's native flyTo already
+        // gets here), the eye position/orientation `action()` would land on has
+        // to be the actual flight target. A scratch `action()` — jump there,
+        // read the pose off, jump back — gets that without reimplementing
+        // Cesium's own heading/pitch/range → world-position math by hand.
+        const original = {
+            destination: Cesium.Cartesian3.clone(camera.position),
+            orientation: { direction: Cesium.Cartesian3.clone(camera.direction), up: Cesium.Cartesian3.clone(camera.up) },
+        };
+        action();
+        const destination = Cesium.Cartesian3.clone(camera.position);
+        const orientation = { direction: Cesium.Cartesian3.clone(camera.direction), up: Cesium.Cartesian3.clone(camera.up) };
+        camera.setView(original);
+
+        camera.flyTo({ destination, orientation, complete: action });
     }
 
     private dispatchViewportState(): void {

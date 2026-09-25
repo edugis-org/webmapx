@@ -75,7 +75,13 @@ export class MapCoreService implements IMapCore {
             this.mapInstance.jumpTo({ center, zoom });
             return;
         }
-        this.mapInstance.flyTo({ center, zoom });
+        // essential: true - without it, MapLibre silently zeroes the duration whenever
+        // the OS "reduce motion" setting is on, which is indistinguishable from a plain
+        // jumpTo (correct final position, no visible flight) — see fitBounds below for
+        // the original fix; this call needed the same one. A visitor still sees *where*
+        // the camera went relative to where it was, which is exactly what `essential` is
+        // for, not a decorative flourish reduced motion should be allowed to cut.
+        this.mapInstance.flyTo({ center, zoom, essential: true });
     }
 
     public initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; bearing?: number; pitch?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; maxBounds?: [number, number, number, number]; styleUrl?: string; style?: MapStyle; projection?: string; backgroundColor?: string }): void {

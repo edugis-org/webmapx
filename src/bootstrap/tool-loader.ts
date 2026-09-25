@@ -23,6 +23,7 @@ const TOOL_MAP: Record<string, () => Promise<unknown>> = {
   cartogram:       () => import('../components/webmapx-cartogram-tool.js'),
   coordinates:     () => import('../components/webmapx-coordinates-tool.js'),
   megaSlider:      () => import('../components/webmapx-mega-slider.js'),
+  megaReset:       () => import('../components/webmapx-mega-reset.js'),
   settings:        () => import('../components/webmapx-settings.js'),
   routing:         () => import('../components/webmapx-routing-tool.js'),
   isochrone:       () => import('../components/webmapx-isochrone-tool.js'),
