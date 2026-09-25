@@ -151,6 +151,10 @@ const BUILT_IN_TOOLS: readonly ToolRegistryEntry[] = [
     },
     { id: 'insetMap', tag: 'webmapx-inset-map', placement: 'standalone', label: 'Inset map', icon: 'map', bundled: true },
     {
+        id: 'megaSlider', tag: 'webmapx-mega-slider', placement: 'standalone', label: 'Mega slider',
+        icon: 'sliders',
+    },
+    {
         id: 'activeAdapter', tag: 'webmapx-active-adapter', placement: 'standalone', label: 'Engine label',
         icon: 'cpu', aliases: ['active-adapter'], bundled: true,
     },
