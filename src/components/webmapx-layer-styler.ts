@@ -1016,11 +1016,24 @@ export class WebmapxLayerStyler extends DraggablePanel {
         const channels = { ...current.entry.channels };
         if (state) channels[channel] = state;
         else delete channels[channel];
+        // A line that never said how its corners are drawn gets the GL
+        // default — miter joins, butt caps — which nobody picked. The first
+        // edit rounds it, as a new line entry starts; opening the panel alone
+        // still changes nothing. A line that does say keeps what it says.
+        const rounds = (current.entry.role === 'line' || current.entry.role === 'outline')
+            && channel !== 'lineJoin' && channel !== 'lineCap'
+            && !channels.lineJoin && !channels.lineCap;
+        if (rounds) {
+            channels.lineJoin = { driver: 'single', value: 'round' };
+            channels.lineCap = { driver: 'single', value: 'round' };
+        }
         const entry = { ...current.entry, channels };
         this.list = this.list.map((candidate) => (candidate === current ? { ...candidate, entry } : candidate));
         this.touched = true;
-        if (options.silent) return;
         const updated = this.list.find((candidate) => candidate.entry.id === entry.id)!;
+        // Layout, so it goes as a write of its own: a paint write carries none.
+        if (rounds) this.applyEntry(updated, 'lineJoin');
+        if (options.silent) return;
         this.applyEntry(updated, channel);
     }
 

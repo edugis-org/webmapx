@@ -467,6 +467,11 @@ export async function run({ page, engine, baseUrl }) {
         await setPattern('Dashed');
         const dashed = (await liveSubLayers(page, LINE_LAYER_ID))[0];
         if (!Array.isArray(dashed?.paint?.['line-dasharray'])) fail(`the line never became dashed: ${JSON.stringify(dashed?.paint)}`);
+        // The layer said nothing about its corners, so its first edit rounds
+        // them rather than leaving the GL default (miter joins, butt caps).
+        if (dashed?.layout?.['line-join'] !== 'round' || dashed?.layout?.['line-cap'] !== 'round') {
+            fail(`an unset line was not rounded by its first edit: ${JSON.stringify(dashed?.layout)}`);
+        }
 
         await setPattern('Solid');
         const solid = (await liveSubLayers(page, LINE_LAYER_ID))[0];
