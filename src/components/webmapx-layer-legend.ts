@@ -8,6 +8,7 @@ import { DEFAULT_DATA_COLOR } from '../map/default-paint';
 import { attributeTranslations, type AttributeTranslations } from '../utils/attribute-translations';
 import { formatLegendNumber, legendNumberFormatter } from '../utils/legend-numbers';
 import { legendSublayerLabel } from '../utils/layer-label';
+import { outlineCompanionIds, outlineCompanionIndex, readFillOutline, withFillOutline, type FillOutline } from '../utils/fill-outline';
 import { readWmsSource } from '../utils/wms-source';
 import { legendGraphicUrl } from '../utils/wms-sld';
 
@@ -32,6 +33,12 @@ function breakableLabel(label: string): string {
  * the middle of the button, over the checkerboard the CSS provides, so an
  * outline row reads as an outline rather than as a second fill.
  */
+/**
+ * Width of a fill's outline, carried in the legend's evaluated paint so the
+ * swatch can draw it. Not a GL key and never written to the map.
+ */
+const LEGEND_OUTLINE_WIDTH = '__legend-outline-width';
+
 function swatchBackground(color: string, kind: 'area' | 'line'): string {
     if (kind !== 'line') return color;
     return `linear-gradient(to bottom, transparent 0 33%, ${color} 33% 67%, transparent 67% 100%)`;
@@ -68,9 +75,18 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     /** Local paint overrides from the inline style editor, layered over paint for live preview.
      *  Keyed by sub-layer id (empty string for non-composite layers). */
     @state() private editOverrides: Record<string, Record<string, unknown>> = {};
+    /** Outline edits, one at a time: a width change may rebuild the layer, and the next edit must start from the rebuilt list. */
+    private outlineWork: Promise<void> = Promise.resolve();
 
     /** Sub-layer id (empty string for non-composite) whose inline style editor is open, or null. */
     @state() private editorOpenKey: string | null = null;
+    /**
+     * What an open editor looked like when its layer was rebuilt. A rebuild
+     * removes the layer and adds it again, and the layer list renders a new
+     * legend element for it in between — so an outline edit that needed a
+     * line added closed the editor it was made in.
+     */
+    private static readonly carriedOver = new Map<string, { editorOpenKey: string | null; legendCollapsed: boolean }>();
     @state() private terrainEnabled = false;
     private legendResizeObserver: ResizeObserver | null = null;
     private measureLegendQueued = false;
@@ -554,7 +570,13 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
         const rows: TemplateResult[] = [];
         const seen = new Set<string>(); // deduplicate by visual key
         const dedupGroups = new Map<string, string[]>(); // visual key -> all sublayer ids sharing it
-        const singleSublayer = sublayers.length === 1;
+        // A fill's outline line is part of the fill, not a style of its own:
+        // it is drawn into the fill's swatch and edited in the fill's editor
+        // (see utils/fill-outline.ts).
+        const records = sublayers.filter((raw): raw is Record<string, unknown> => !!raw && typeof raw === 'object');
+        const outlineOf = outlineCompanionIds(records);
+        const companionIds = new Set(outlineOf.values());
+        const singleSublayer = sublayers.length - companionIds.size === 1;
         const attrTr = this.getAttrTranslations();
 
         // Combined zoom range across all visible-eligible sublayers (256px-tile +1 offset, as below)
@@ -580,6 +602,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const sub = raw as Record<string, unknown>;
             if (!sub || typeof sub.type !== 'string') continue;
             if (sub.hideFromLegend === true) continue;
+            if (companionIds.has(String(sub.id ?? ''))) continue;
 
             // Zoom visibility
             const minz = typeof sub.minzoom === 'number' ? sub.minzoom : 0;
@@ -619,6 +642,14 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             if (overrides) {
                 Object.assign(evalPaint, overrides);
                 if ('text-size' in overrides) evalLayout['text-size'] = overrides['text-size'];
+            }
+            const companion = outlineOf.has(rawId)
+                ? records.find((candidate) => String(candidate.id ?? '') === outlineOf.get(rawId))
+                : undefined;
+            if (type === 'fill') {
+                const outline = readFillOutline(sub, companion ?? null);
+                if (companion) evalPaint['fill-outline-color'] = outline.color;
+                evalPaint[LEGEND_OUTLINE_WIDTH] = outline.width;
             }
 
             // Find primary color key for this layer type
@@ -689,10 +720,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 // classed layer had no way to reach it at all — `renderStyleEditor`,
                 // which carries this row for a plain fill, is only rendered for a
                 // layer with a single colour.
-                if (type === 'fill') {
-                    const outline = this.toCssColor(evalPaint['fill-outline-color'], '#000000');
-                    rows.push(this.renderOutlineRow([rawId], outline));
-                }
+                if (type === 'fill') rows.push(...this.renderClassedOutline(rawId, evalPaint));
             } else if (type === 'circle') {
                 // Circle layers may have proportional/data-driven radius — delegate to
                 // renderLegendItems which handles bubble legends.
@@ -714,6 +742,10 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                     // tropics vs. polar circles) look visually distinct — keep separate
                     const dash = basePaint['line-dasharray'];
                     dedupKey = `line|${resolvedColor}|${Array.isArray(dash) ? dash.join(',') : String(dash ?? '')}`;
+                } else if (type === 'fill' && companion) {
+                    // A fill with an outline line of its own is edited through
+                    // that line, so it cannot share an editor with another fill.
+                    dedupKey = `fill|${rawId}`;
                 } else if (type === 'symbol') {
                     const rawSize = baseLayout['text-size'] ?? basePaint['text-size'];
                     const sz = Math.round(Number(typeof rawSize === 'number' ? rawSize : 12));
@@ -774,9 +806,12 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const c = this.resolveSwatchColor(paint['fill-color'], '#000000');
             const op = Number(paint['fill-opacity'] ?? 0.7);
             const outline = String(paint['fill-outline-color'] ?? c);
+            // Widths above 3px would swallow a 20x12 swatch; the sign is enough.
+            const width = Math.min(Number(paint[LEGEND_OUTLINE_WIDTH] ?? 1) || 1, 3);
+            const inset = Math.max(1, width / 2);
             return svg`<svg width="20" height="12" style="flex-shrink:0">
-                <rect x="1" y="1" width="18" height="10" fill="${c}" fill-opacity="${op}"
-                    stroke="${outline}" stroke-width="1" rx="1"/>
+                <rect x="${inset}" y="${inset}" width="${20 - 2 * inset}" height="${12 - 2 * inset}" fill="${c}" fill-opacity="${op}"
+                    stroke="${outline}" stroke-width="${width}" rx="1"/>
             </svg>`;
         }
         if (type === 'fill-extrusion') {
@@ -1334,6 +1369,12 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     protected updated(changed: Map<string, unknown>): void {
         if (changed.has('layerId')) {
             this.legendCollapsed = true;
+            const carried = WebmapxLayerLegend.carriedOver.get(this.layerId);
+            if (carried) {
+                WebmapxLayerLegend.carriedOver.delete(this.layerId);
+                this.editorOpenKey = carried.editorOpenKey;
+                this.legendCollapsed = carried.legendCollapsed;
+            }
             if (this.store) this.onStateChanged(this.store.getState());
         }
         if (changed.has('editorOpenKey')) {
@@ -1451,24 +1492,146 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
     }
 
     /**
-     * The layer-wide fill outline, drawn as what it is.
+     * The layer-wide fill outline of a classed fill, drawn as what it is.
      *
      * A line swatch rather than a filled square, laid out swatch-then-label like
      * the class rows above it: the outline is one more thing this layer draws,
-     * not a form field about it.
+     * not a form field about it. Clicking it opens the same outline editor a
+     * single-colour fill has — the outline is one setting for the whole layer
+     * whichever way the classes are coloured.
      */
-    private renderOutlineRow(subLayerIds: string[], color: string): TemplateResult {
-        return html`
-            <div class="legend-row sub-row">
-                <button type="button" style="background:none;border:none;padding:0;cursor:pointer;display:flex;align-items:center"
-                    aria-label="Edit outline colour"
-                    @click=${(e: Event) => { e.stopPropagation(); this.openColorPicker(e.currentTarget as HTMLElement, subLayerIds, 'fill-outline-color', color, undefined, false); }}>
-                    ${svg`<svg width="24" height="14" style="flex-shrink:0">
-                        <line x1="2" y1="7" x2="22" y2="7" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
-                    </svg>`}
-                </button>
+    private renderClassedOutline(fillId: string, paint: Record<string, unknown>): TemplateResult[] {
+        const color = this.toCssColor(paint['fill-outline-color'], '#000000');
+        const width = Math.min(Number(paint[LEGEND_OUTLINE_WIDTH] ?? 1) || 1, 4);
+        const key = `${fillId}::outline`;
+        const isOpen = this.editorOpenKey === key;
+        return [
+            html`
+            <button type="button" class="legend-row sub-row editable" aria-expanded=${isOpen} aria-label="Edit outline"
+                @click=${(e: Event) => { e.stopPropagation(); this.editorOpenKey = isOpen ? null : key; }}>
+                ${svg`<svg width="24" height="14" style="flex-shrink:0">
+                    <line x1="2" y1="7" x2="22" y2="7" stroke="${color}" stroke-width="${width}" stroke-linecap="round"/>
+                </svg>`}
                 <span class="legend-label">outline</span>
-            </div>`;
+            </button>`,
+            ...(isOpen ? [html`<div class="style-editor">${this.renderOutlineRows(fillId, paint)}</div>`] : []),
+        ];
+    }
+
+    /**
+     * Where a fill's outline stands: the fill, its outline line if it has one,
+     * and the outline they draw together. Read from the adapter every time,
+     * never from a rendered copy — an edit may just have rebuilt the layer.
+     */
+    private fillOutlineOf(fillId: string): { subs: Array<Record<string, unknown>>; outline: FillOutline; companionId: string | null } | null {
+        const subs = this.adapter?.getSubLayers(this.layerId);
+        if (!subs) return null;
+        const index = subs.findIndex((sub) => String(sub.id ?? '') === fillId && sub.type === 'fill');
+        if (index < 0) return null;
+        const companionIndex = outlineCompanionIndex(subs, index);
+        const companion = companionIndex >= 0 ? subs[companionIndex] : null;
+        return {
+            subs,
+            outline: readFillOutline(subs[index], companion),
+            companionId: companion ? String(companion.id ?? '') : null,
+        };
+    }
+
+    /**
+     * Applies an outline change, storing it however it has to be stored
+     * (`withFillOutline`): a paint write when the layer keeps its shape, a
+     * rebuild when a line has to appear or go.
+     */
+    private applyFillOutline(fillId: string, change: Partial<FillOutline>): Promise<void> {
+        this.outlineWork = this.outlineWork.then(async () => {
+            const adapter = this.adapter;
+            const state = this.fillOutlineOf(fillId);
+            if (!adapter || !state) return;
+            const next = withFillOutline(state.subs, fillId, { ...state.outline, ...change });
+
+            // Layout (an outline's round joins) cannot travel as paint either.
+            const sameShape = next.length === state.subs.length
+                && next.every((sub, i) => sub.id === state.subs[i].id
+                    && JSON.stringify(sub.layout ?? null) === JSON.stringify(state.subs[i].layout ?? null));
+            const writes: Array<[string, Record<string, unknown>]> = [];
+            let removesKey = false;
+            if (sameShape) {
+                next.forEach((sub, i) => {
+                    const before = (state.subs[i].paint ?? {}) as Record<string, unknown>;
+                    const after = (sub.paint ?? {}) as Record<string, unknown>;
+                    if (Object.keys(before).some((key) => !(key in after))) removesKey = true;
+                    const changed = Object.fromEntries(Object.entries(after)
+                        .filter(([key, value]) => JSON.stringify(before[key]) !== JSON.stringify(value)));
+                    if (Object.keys(changed).length > 0) writes.push([String(sub.id ?? ''), changed]);
+                });
+            }
+            // A removed paint key cannot travel as paint — updateLayerStyle merges.
+            if (sameShape && !removesKey) {
+                for (const [subId, paint] of writes) adapter.updateLayerStyle(this.layerId, subId, paint);
+                return;
+            }
+            if (!adapter.canRebuildLayer(this.layerId)) return;
+            WebmapxLayerLegend.carriedOver.set(this.layerId, { editorOpenKey: this.editorOpenKey, legendCollapsed: this.legendCollapsed });
+            await adapter.setSubLayers(this.layerId, next);
+            // Nobody picked it up: this element survived the rebuild.
+            WebmapxLayerLegend.carriedOver.delete(this.layerId);
+        }).catch((error) => { console.warn('[webmapx-layer-legend] outline change failed', error); });
+        return this.outlineWork;
+    }
+
+    /**
+     * Outline colour and width for one fill. Any width: 1px is kept on the fill
+     * itself where it can be drawn there, anything else becomes a line over it
+     * (utils/fill-outline.ts) — which of the two is not the reader's concern.
+     *
+     * A layer that cannot be rebuilt (drawn from a remote style) and has no
+     * outline line keeps the fill's own 1px edge, colour only.
+     */
+    private renderOutlineRows(fillId: string, paint: Record<string, unknown>): TemplateResult[] {
+        const state = this.fillOutlineOf(fillId);
+        const canWiden = !!state && (state.companionId !== null || this.adapter?.canRebuildLayer(this.layerId) === true);
+        if (!state || !canWiden) {
+            const outline = this.toCssColor(paint['fill-outline-color'], this.toCssColor(paint['fill-color'], '#000000'));
+            return [this.renderColorRow([fillId], 'outline color', 'fill-outline-color', outline, 'line')];
+        }
+        const { outline, companionId } = state;
+        const color = this.toCssColor(outline.color, '#000000');
+        return [
+            html`
+            <div class="style-editor-row">
+                <label>outline color</label>
+                <button type="button" class="color-swatch line" aria-label="Outline colour"
+                    style="background:${swatchBackground(color, 'line')}"
+                    @click=${(e: Event) => {
+                        const button = e.currentTarget as HTMLElement;
+                        this.openColorPicker(button, [fillId], 'outline', color, (rgba: string) => {
+                            button.style.background = swatchBackground(rgba, 'line');
+                            // Choosing a colour for an outline that is not
+                            // there asks for one.
+                            const width = this.fillOutlineOf(fillId)?.outline.width ?? 0;
+                            void this.applyFillOutline(fillId, width > 0 ? { color: rgba } : { color: rgba, width: 1 });
+                        }, false);
+                    }}></button>
+            </div>`,
+            html`
+            <div class="style-editor-row">
+                <label>outline width
+                    <input type="range" min="0" max="10" step="0.5" .value=${String(outline.width)}
+                        @input=${(e: Event) => {
+                            // Live only while there is a line to widen; a
+                            // change of shape waits for the release.
+                            const v = Number((e.target as HTMLInputElement).value);
+                            if (companionId && v > 0) this.adapter?.updateLayerStyle(this.layerId, companionId, { 'line-width': v });
+                            const out = (e.target as HTMLElement).closest('.style-editor-row')?.querySelector('output');
+                            if (out) out.textContent = v === 0 ? 'none' : `${v}px`;
+                        }}
+                        @change=${(e: Event) => {
+                            void this.applyFillOutline(fillId, { width: Number((e.target as HTMLInputElement).value) });
+                        }}>
+                </label>
+                <output>${outline.width === 0 ? 'none' : `${outline.width}px`}</output>
+            </div>`,
+        ];
     }
 
     private renderColorRow(
@@ -1496,12 +1659,18 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             const color = this.toCssColor(paint[colorKey], '#000000');
             const opacityKey = layerType === 'fill' ? 'fill-opacity' : 'fill-extrusion-opacity';
             const opacity = Number(paint[opacityKey] ?? 1);
-            const rows = [this.renderColorRow(subLayerIds, 'fill color', colorKey, color)];
-            if (layerType === 'fill') {
+            const rows = [
+                this.renderColorRow(subLayerIds, 'fill color', colorKey, color),
+                this.renderRangeRow(subLayerIds, 'opacity', opacityKey, opacity, 0, 1, 0.05),
+            ];
+            if (layerType === 'fill' && subLayerIds.length === 1) {
+                rows.push(...this.renderOutlineRows(subLayerIds[0] || this.layerId, paint));
+            } else if (layerType === 'fill') {
+                // Several identical fills edited as one: their outlines are one
+                // paint write, not something to restructure.
                 const outline = this.toCssColor(paint['fill-outline-color'], color);
                 rows.push(this.renderColorRow(subLayerIds, 'outline color', 'fill-outline-color', outline, 'line'));
             }
-            rows.push(this.renderRangeRow(subLayerIds, 'opacity', opacityKey, opacity, 0, 1, 0.05));
             return html`<div class="style-editor">${rows}</div>`;
         }
 

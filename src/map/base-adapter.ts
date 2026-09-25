@@ -712,16 +712,38 @@ export abstract class BaseAdapter {
         // taking its legend row with it and leaving nothing to undo it from.
         if (sublayers.length === 0) return false;
 
+        // A plain layer added with its source inline hands that object to its
+        // sublayers as it becomes a composite, and a composite sublayer names
+        // its source by key. Left inline, the re-add failed after the remove
+        // had already happened, and the layer was gone.
+        const sources: Record<string, unknown> = {
+            ...((config.sources && typeof config.sources === 'object') ? config.sources as Record<string, unknown> : {}),
+        };
+        const inlineKeys = new Map<unknown, string>();
+        const keyedSublayers = sublayers.map((sublayer) => {
+            const source = sublayer.source;
+            if (!source || typeof source !== 'object') return sublayer;
+            let key = inlineKeys.get(source);
+            if (!key) {
+                key = 'source';
+                for (let n = 2; key in sources; n += 1) key = `source-${n}`;
+                sources[key] = source;
+                inlineKeys.set(source, key);
+            }
+            return { ...sublayer, source: key };
+        });
+
         const composite: Record<string, unknown> = {
             ...config,
             type: 'style',
             version: 8,
-            sources: (config.sources && typeof config.sources === 'object') ? config.sources : {},
-            layers: sublayers,
+            sources,
+            layers: keyedSublayers,
         };
         delete composite.paint;
         delete composite.layout;
         delete composite['source-layer'];
+        if (inlineKeys.size > 0) delete composite.source;
 
         // Whatever sat directly above it, so the rebuilt layer lands back in the
         // same place rather than on top of everything.
