@@ -115,6 +115,8 @@ async function waitForServer(url, timeoutMs, proc) {
 function startDevServer(host, port) {
   const child = spawn('npm', ['run', 'dev', '--', '--host', host, '--port', String(port), '--strictPort', '--no-open'], {
     cwd: repoRoot,
+    // See `server.hmr` in vite.config.js: no reloads under a running test.
+    env: { WEBMAPX_UI_TEST: '1', ...process.env },
     detached: true,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -234,6 +236,21 @@ async function run() {
         });
         const page = await context.newPage();
 
+        // What happened to the page, printed only when the suite fails. A
+        // Cesium run failed intermittently with "Execution context was
+        // destroyed, most likely because of a navigation" in the middle of a
+        // suite, where no step navigates; this is what tells a reload (and
+        // what caused it: Vite logs to the console before reloading) from a
+        // crash from a navigation elsewhere.
+        const startedAt = Date.now();
+        const pageEvents = [];
+        const note = (text) => pageEvents.push(`${((Date.now() - startedAt) / 1000).toFixed(1)}s ${text}`);
+        page.on('framenavigated', (frame) => { if (frame === page.mainFrame()) note(`navigated ${frame.url()}`); });
+        page.on('crash', () => note('page crashed'));
+        page.on('close', () => note('page closed'));
+        page.on('console', (message) => { if (/\[vite\]/.test(message.text())) note(`console ${message.text()}`); });
+        page.on('pageerror', (error) => note(`pageerror ${error.message.split('\n')[0]}`));
+
         await context.addInitScript((selectedEngine) => {
           // The key is scoped by page and map id — `webmapx-adapter:{scope}:{mapId}`
           // (getMapScopedStorageKey). Without the scope the preference is never
@@ -266,6 +283,7 @@ async function run() {
         } catch (error) {
           failures += 1;
           process.stderr.write(`FAIL ${suiteId} (${engine}): ${error instanceof Error ? error.message : String(error)}\n`);
+          process.stderr.write(`  page events:\n${pageEvents.map((line) => `    ${line}`).join('\n')}\n`);
         } finally {
           await context.close();
         }

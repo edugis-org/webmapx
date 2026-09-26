@@ -37,6 +37,14 @@ export default defineConfig({
   base: './', // Set base to relative path for correct asset loading
   optimizeDeps: _mlMajor >= 6 ? { exclude: ['maplibre-gl'] } : {},
   server: {
+    // The UI test runner starts its own dev server on this same working tree.
+    // Any file changing under it — an edit, a checkout, a stash, another
+    // session sharing the checkout — made Vite reload the page in the middle
+    // of a step, reported as "Execution context was destroyed, most likely
+    // because of a navigation": an intermittent failure that looked like a
+    // Cesium bug because Cesium runs are the slowest and come last. A test run
+    // wants the code it started with, so no HMR there.
+    ...(process.env.WEBMAPX_UI_TEST ? { hmr: false } : {}),
     fs: {
       allow: [
         searchForWorkspaceRoot(process.cwd()),
