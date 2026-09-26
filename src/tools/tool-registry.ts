@@ -125,6 +125,7 @@ const BUILT_IN_TOOLS: readonly ToolRegistryEntry[] = [
     { id: 'data-analyzer', tag: 'webmapx-data-analyzer-tool', placement: 'toolbar', label: 'Data analyzer', icon: 'bar-chart-line' },
     { id: 'stories', tag: 'webmapx-stories-tool', placement: 'toolbar', label: 'Stories', icon: 'book' },
     { id: 'deeptime', tag: 'webmapx-deeptime-tool', placement: 'toolbar', label: 'Deep time', icon: { src: dinosaurIconUrl } },
+    { id: 'sealevel', tag: 'webmapx-sealevel-tool', placement: 'toolbar', label: 'Sea level', icon: 'water' },
     { id: 'compare', tag: 'webmapx-compare-tool', placement: 'toolbar', label: 'Compare', icon: 'layout-split' },
 
     // --- standalone map furniture, in the order the setup page offers them ---

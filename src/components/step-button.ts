@@ -32,6 +32,15 @@ export const STEP_FORWARD_ICON = svg`<svg viewBox="0 0 16 16" width="14" height=
         stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
 
+/** ▶ and ❚❚, drawn rather than spelled: the two most universally read buttons there are. */
+export const PLAY_ICON = svg`<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+    <path d="M4 2.5v11l9-5.5z" fill="currentColor"/>
+</svg>`;
+export const PAUSE_ICON = svg`<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+    <rect x="4" y="2.5" width="3" height="11" fill="currentColor"/>
+    <rect x="9" y="2.5" width="3" height="11" fill="currentColor"/>
+</svg>`;
+
 /**
  * Press-and-hold: the wait before it starts repeating, and the interval it
  * repeats at. Taken from a keyboard's own auto-repeat, so a held button feels

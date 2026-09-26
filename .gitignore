@@ -16,3 +16,6 @@ dist-lib/
 # A checkout of the config repository, not content of this one.
 # `npm run configs` creates it; see scripts/configs.ts.
 public/config
+
+# Large generated tile archives; served locally, not versioned.
+public/data/*.pmtiles

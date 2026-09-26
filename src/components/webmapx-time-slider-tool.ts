@@ -1,7 +1,7 @@
-import { html, css, svg, TemplateResult } from 'lit';
+import { html, css, TemplateResult } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
-import { STEP_BACK_ICON, STEP_FORWARD_ICON, StepRepeater, renderStepButton } from './step-button';
+import { STEP_BACK_ICON, STEP_FORWARD_ICON, StepRepeater, renderStepButton, PLAY_ICON, PAUSE_ICON } from './step-button';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState, MapTimeState } from '../store/IMapState';
 import { isLive } from '../utils/map-clock';
@@ -111,15 +111,6 @@ function speedIndexFor(perSecond: number): number {
     }
     return best;
 }
-
-/** ▶ and ❚❚, drawn rather than spelled: the two most universally read buttons there are. */
-const PLAY_ICON = svg`<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
-    <path d="M4 2.5v11l9-5.5z" fill="currentColor"/>
-</svg>`;
-const PAUSE_ICON = svg`<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
-    <rect x="4" y="2.5" width="3" height="11" fill="currentColor"/>
-    <rect x="9" y="2.5" width="3" height="11" fill="currentColor"/>
-</svg>`;
 
 @customElement('webmapx-time-slider-tool')
 export class WebmapxTimeSliderTool extends WebmapxBaseTool {

@@ -3,6 +3,7 @@
 import { IMap, IMapCore, ISource, IToolService, ISubMapFactory, LayerInsertOptions, type PrintFrame, type TerrainSourceKind, type SourceFeatureQueryOptions, type SourceFeatureSample } from './IMapInterfaces';
 import { renderMapLibrePrintMap } from './maplibre-services/print-map';
 import * as _ml from 'maplibre-gl';
+import { Protocol as PmtilesProtocol } from 'pmtiles';
 
 import { BaseAdapter } from './base-adapter';
 import { MapCoreService } from './maplibre-services/MapCoreService';
@@ -17,6 +18,11 @@ import type { IQueryService } from './IQueryService';
 
 /** Style layer that paints the map surface itself when a background colour is configured. */
 const BACKGROUND_LAYER_ID = 'webmapx-background-color';
+
+// `pmtiles://<url>` vector sources: tiles are read straight from a single
+// .pmtiles archive with HTTP range requests, so any static host serves them.
+// The protocol is global to maplibre-gl, so every map (main, sub, print) has it.
+_ml.addProtocol('pmtiles', new PmtilesProtocol({ metadata: true }).tile);
 
 /**
  * The concrete Map implementation for MapLibre.

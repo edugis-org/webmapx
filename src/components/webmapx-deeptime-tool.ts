@@ -15,12 +15,12 @@
  *
  *   { "type": "deeptime", "data": "data/paleo/merdith2021", "to": 400 }
  */
-import { html, css, svg, nothing, type TemplateResult } from 'lit';
+import { html, css, nothing, type TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
-import { STEP_BACK_ICON, STEP_FORWARD_ICON, StepRepeater, renderStepButton } from './step-button';
+import { STEP_BACK_ICON, STEP_FORWARD_ICON, StepRepeater, renderStepButton, PLAY_ICON, PAUSE_ICON } from './step-button';
 import { loadPlateModelFrom } from '../utils/paleo-coastlines';
 import type { WebmapxMapElement } from './webmapx-map';
 
@@ -158,14 +158,6 @@ const CONTINENT_COLORS: Array<[string, string]> = [
 ];
 
 const UNKNOWN_COLOR = '#96907f';
-
-const PLAY_ICON = svg`<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
-    <path d="M4 2.5v11l9-5.5z" fill="currentColor"/>
-</svg>`;
-const PAUSE_ICON = svg`<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
-    <rect x="4" y="2.5" width="3" height="11" fill="currentColor"/>
-    <rect x="9" y="2.5" width="3" height="11" fill="currentColor"/>
-</svg>`;
 
 
 /**

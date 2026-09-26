@@ -60,8 +60,15 @@ function isObject(value: unknown): value is Record<string, unknown> {
  * its sibling data files be moved/deployed as a unit to any path, without the
  * result depending on which page loaded the config. Non-string, absolute, and
  * data:/blob: values pass through unchanged.
+ *
+ * `pmtiles://` wraps the archive's own URL, so a relative archive path
+ * (`pmtiles://data/zones.pmtiles`) is resolved like any other relative URL
+ * and re-wrapped; otherwise its scheme would leave it relative to the page.
  */
 function resolveConfigRelativeUrl(value: string, baseUrl: string): string {
+  if (value.startsWith('pmtiles://')) {
+    return `pmtiles://${resolveConfigRelativeUrl(value.slice('pmtiles://'.length), baseUrl)}`;
+  }
   if (/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(value)) {
     // Already absolute (has a scheme) or protocol-relative — leave as-is.
     return value;
