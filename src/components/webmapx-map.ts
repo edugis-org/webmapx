@@ -1440,10 +1440,6 @@ export class WebmapxMapElement extends HTMLElement {
   // Which sources and layer types an engine can draw is the adapter's to say:
   // this element only asks. An engine named here would have to be edited for
   // every new engine, and would be wrong for an engine added by a plugin.
-  private isSourceTypeSupportedByActiveEngine(sourceType: string): boolean {
-    return this.adapterInstance?.canDrawSource({ type: sourceType }) ?? false;
-  }
-
   private isSourceSupportedByActiveEngine(source: SourceConfig): boolean {
     const sourceType = typeof source?.type === 'string' ? source.type : null;
     if (!sourceType) return false;
@@ -1458,12 +1454,14 @@ export class WebmapxMapElement extends HTMLElement {
     if (layer.type === 'style') {
       const composite = layer as CompositeStyleLayerConfig;
       const localSources = composite.sources ?? {};
-      const sourceTypes = new Set<string>();
-      // Check inline sources
+      // The sources themselves, not just their types: whether an engine can
+      // draw a source can depend on more than its type — Cesium draws a vector
+      // source with a z/x/y template, not one given as TileJSON — and a bare
+      // type left it nothing to judge by, so it refused every one.
+      const sources: SourceConfig[] = [];
       for (const rawSrc of Object.values(localSources)) {
-        if (typeof rawSrc === 'object' && rawSrc !== null) {
-          const t = (rawSrc as Record<string, unknown>).type;
-          if (typeof t === 'string') sourceTypes.add(t);
+        if (typeof rawSrc === 'object' && rawSrc !== null && typeof (rawSrc as Record<string, unknown>).type === 'string') {
+          sources.push(rawSrc as SourceConfig);
         }
       }
       // Also check catalog sources referenced by sub-layers
@@ -1472,12 +1470,10 @@ export class WebmapxMapElement extends HTMLElement {
         const srcId = typeof sub?.source === 'string' ? sub.source : null;
         if (!srcId || srcId in localSources) continue;
         const catalogSrc = this.layerDataConfig?.sources?.find((s) => s.id === srcId);
-        if (catalogSrc && typeof (catalogSrc as any).type === 'string') {
-          sourceTypes.add((catalogSrc as any).type);
-        }
+        if (catalogSrc && typeof (catalogSrc as any).type === 'string') sources.push(catalogSrc);
       }
-      if (sourceTypes.size === 0) return false;
-      return Array.from(sourceTypes).some((t) => !this.isSourceTypeSupportedByActiveEngine(t));
+      if (sources.length === 0) return false;
+      return sources.some((source) => !this.isSourceSupportedByActiveEngine(source));
     }
     // StandardLayerConfig
     const sourceId = (layer as any).source;
