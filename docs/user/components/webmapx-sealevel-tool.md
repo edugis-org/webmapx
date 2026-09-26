@@ -25,7 +25,7 @@ The data are CC BY 4.0 and derived from the public-domain GEBCO_2026 Grid, whose
 
 ## Usage
 
-1. Open the tool from the toolbar. If the configured layer is not on the map yet, it is added from the catalog.
+1. Open the tool from the toolbar. If the configured layer is not on the map yet, it is added from the catalog — or, if the catalog has no such layer, the tool adds one itself from the `tiles` archive, the way the deeptime tool lends its coastlines.
 2. Drag the slider, or use the step buttons (hold to repeat), ▶ to play, and *Today* to return to today's level.
 3. At level `L`:
    - `flood_level <= L` is drawn as **sea**;
@@ -50,11 +50,13 @@ A curve is a JSON config asset of `[age in ka BP, metres]` points, linearly inte
 }
 ```
 
-The demo config ships `data/sealevel/lambeck2014-approx.json`, an approximation of Lambeck et al. (2014) for the last 26,000 years.
+The configs repository ships `data/sealevel/lambeck2014-approx.json`, an approximation of Lambeck et al. (2014) for the last 26,000 years; it is the default `data`. Set `data` to an empty string to turn time mode off.
 
 ## Configuration
 
-A source and a layer in the catalog, and a `sealevel` section under `tools`:
+Nothing is required: every key has a default, so a toolbar item `{ "type": "sealevel" }` is enough. That is also how to add it to a config without it — the demo config does not include the tool; add it in `testpages/setup.html`, whose ⚙ options for the tool are `data` and `tiles` (written to `tools.sealevel`).
+
+A config can also put the layer in its catalog — to style it, title it, or show it without the tool — and name it in a `sealevel` section:
 
 ```json
 "sources": [
@@ -86,7 +88,7 @@ A source and a layer in the catalog, and a `sealevel` section under `tools`:
 }
 ```
 
-The archive path after `pmtiles://` is resolved relative to the config file, like every other path in a config. The layer's own paint is only what shows before the tool is first opened; the tool replaces it.
+The archive path after `pmtiles://` is resolved relative to the config file, like every other path in a config. The default `tiles` (`../data/…`) is where webmapx.com serves the archive: in `data/` beside the `config/` directory. The layer's own paint is only what shows before the tool is first opened; the tool replaces it.
 
 | Key / attribute | Type | Default | Description |
 |---|---|---|---|
@@ -99,7 +101,8 @@ The archive path after `pmtiles://` is resolved relative to the config file, lik
 | `water` | `string` | `#aad3df` | Sea colour (OpenStreetMap's water). |
 | `land` | `string` | `#f2efe9` | Dry sea floor colour (OpenStreetMap's land). |
 | `levels` | `number[]` | the ETL's classes | Class levels the attribute takes; config only. |
-| `data` | `string` | — | Sea level curve (config asset); enables time mode. |
+| `data` | `string` | `data/sealevel/lambeck2014-approx.json` | Sea level curve (config asset) for time mode; `""` turns time mode off. |
+| `tiles` | `string` | `../data/coastal_zones.pmtiles` | Coastal zones archive (config asset, `pmtiles://` optional). Only used when neither the map nor the catalog has `layer`. |
 
 An attribute on the element overrides the config section.
 

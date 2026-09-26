@@ -792,6 +792,12 @@
     const TOOL_EXTRA_PROPS = {
       coordinates: { defaultFormat: 'geographic-en' },
       search: { provider: 'nominatim' },
+      // Config-relative, like every path in a config. The archive is a release
+      // of github.com/edugis-org/coastal_zones; webmapx.com serves it here.
+      sealevel: {
+        data: 'data/sealevel/lambeck2014-approx.json',
+        tiles: '../data/coastal_zones.pmtiles',
+      },
     };
 
     const LAYOUT_POSITIONS = [
@@ -2228,7 +2234,7 @@
     // `tools.<id>` object (see e.g. webmapx-search-tool's onConfigReady), even when
     // placed inside a toolbar/toolbox. dynamic-layout.ts only forwards id/label/icon
     // to the toolbar-embedded element — everything else must land at `tools.<id>`.
-    const DUAL_MODE_TOOL_IDS = new Set(['search']);
+    const DUAL_MODE_TOOL_IDS = new Set(['search', 'sealevel']);
 
     function applyOverrides(config, overrides) {
       const result = JSON.parse(JSON.stringify(config));

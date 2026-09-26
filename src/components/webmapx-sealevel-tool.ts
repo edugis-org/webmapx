@@ -16,15 +16,21 @@
  * uniform; a data-driven expression would be re-evaluated for every feature
  * of every loaded tile on each move.
  *
- * Configured with the layer to drive; everything else has a default:
+ * Everything has a default, so a tool added with nothing but `enabled: true`
+ * (which is what the setup page writes) works on any config:
  *
  *   { "type": "sealevel", "layer": "coastal-zones", "min": -134, "max": 70 }
  *
- * With a `data` curve (a config asset, see `utils/sea-level-curve.ts`) the
- * tool also offers a time mode: the slider runs through years instead of
- * metres, and the level at each age is read from the curve.
+ * The layer is taken from the map, else from the catalog, and else the tool
+ * lends the map one drawn from `tiles` — the coastal zones archive built and
+ * released by github.com/edugis-org/coastal_zones — like the deeptime tool
+ * lends its coastlines. `data` is a sea level curve (see
+ * `utils/sea-level-curve.ts`) for the time mode: the slider runs through years
+ * instead of metres, and the level at each age is read from the curve. Both
+ * are config assets, resolved against the config like every other path.
  *
- *   { "type": "sealevel", "data": "data/sealevel/lambeck2014-approx.json" }
+ *   { "type": "sealevel", "data": "data/sealevel/lambeck2014-approx.json",
+ *     "tiles": "../data/coastal_zones.pmtiles" }
  */
 import { html, css, type TemplateResult } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
@@ -81,6 +87,23 @@ const PERIODS: ReadonlyArray<{ from: number; to: number; label: string }> = [
 
 type Mode = 'level' | 'time';
 
+/**
+ * The sea level curve, relative to the config. It ships with the configs
+ * (webmapx-configs), so a config naming no `data` still gets a time mode.
+ */
+const DEFAULT_DATA = 'data/sealevel/lambeck2014-approx.json';
+
+/**
+ * The coastal zones archive, relative to the config. Too large for the config
+ * repository: it is a release asset of edugis-org/coastal_zones, copied to the
+ * site's `data/` by the deployment, which sits beside the config directory.
+ */
+const DEFAULT_TILES = '../data/coastal_zones.pmtiles';
+
+/** Source layer and credit of the archive at DEFAULT_TILES. */
+const ZONES_SOURCE_LAYER = 'zones';
+const ZONES_ATTRIBUTION = 'Coastal zones: <a href="https://github.com/edugis-org/coastal_zones" target="_blank" rel="noopener">EduGIS</a>, from <a href="https://doi.org/10.5285/4f68d5c7-45eb-f999-e063-7086abc036fa" target="_blank" rel="noopener">GEBCO_2026 Grid</a>';
+
 /** OpenStreetMap's own water and land, so the layer sits on an OSM basemap without a seam. */
 const DEFAULT_WATER = '#aad3df';
 const DEFAULT_LAND = '#f2efe9';
@@ -122,8 +145,13 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
      * ETL's: 5 m steps, 1 m from -1 to +10 m.
      */
     @property({ attribute: false }) levels: number[] | null = null;
-    /** Sea level curve for the time mode, a config asset; unset, no time mode. */
+    /** Sea level curve for the time mode, a config asset. Empty: no time mode. */
     @property({ type: String }) data: string | null = null;
+    /**
+     * Coastal zones archive (`.pmtiles`, `pmtiles://` optional), a config
+     * asset. Only read when neither the map nor its catalog has `layer`.
+     */
+    @property({ type: String }) tiles: string | null = null;
 
     /** Where the slider stands. Starts at today and outlives the panel. */
     @state() private level: number | null = null;
@@ -219,8 +247,12 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
     private readConfig(): void {
         const tools = this.toolsConfig as Record<string, unknown> | undefined;
         const section = (tools?.[this.instanceId] ?? tools?.[this.toolId]) as Record<string, unknown> | undefined;
+        // The defaults are resolved here, whether or not there is a section:
+        // the loader only resolves what the config wrote, and a tool placed by
+        // the setup page, or directly in HTML, has no section at all.
+        if (!this.hasAttribute('data') && this.data === null) this.data = this.resolveConfigAsset(DEFAULT_DATA);
         if (!section) return;
-        for (const key of ['layer', 'attribute', 'water', 'land'] as const) {
+        for (const key of ['layer', 'attribute', 'water', 'land', 'tiles'] as const) {
             if (!this.hasAttribute(key) && typeof section[key] === 'string') this[key] = section[key] as string;
         }
         for (const key of ['min', 'max', 'step', 'today'] as const) {
@@ -267,11 +299,14 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
         this.level = this.clamp(this.level ?? this.today);
         void this.loadCurve();
 
-        // The layer is an ordinary catalog entry: opening the tool turns it on
-        // if the map does not show it yet, and from then on it is the user's.
+        // The layer is an ordinary layer: opening the tool turns it on if the
+        // map does not show it yet — from the catalog, or else lent from the
+        // archive — and from then on it is the user's.
         const loaded = this.layer in (this.adapter.store.getState().mapLayers ?? {});
-        if (!loaded && !(await this.mapElement.addLayerRequest({ layerId: this.layer }))) {
-            this.error = `Layer "${this.layer}" is not in this map's catalog.`;
+        if (!loaded
+            && !(await this.mapElement.addLayerRequest({ layerId: this.layer }))
+            && !(await this.mapElement.addLayerRequest(this.lentLayerConfig()))) {
+            this.error = `Layer "${this.layer}" is not in this map's catalog, and the coastal zones archive could not be added.`;
             return;
         }
         if (!(await this.ensureClassSubLayers())) {
@@ -279,6 +314,35 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
             return;
         }
         this.apply();
+    }
+
+    /**
+     * The layer the tool adds when the config has none: the coastal zones
+     * archive, shown at today's level until the classes take over.
+     */
+    private lentLayerConfig(): Record<string, unknown> {
+        const path = (this.tiles ?? DEFAULT_TILES).replace(/^pmtiles:\/\//, '');
+        const sourceId = `${this.layer}-source`;
+        return {
+            id: this.layer,
+            type: 'fill',
+            source: sourceId,
+            'source-layer': ZONES_SOURCE_LAYER,
+            sources: {
+                [sourceId]: {
+                    id: sourceId,
+                    type: 'vector',
+                    url: `pmtiles://${this.resolveConfigAsset(path)}`,
+                    attribution: ZONES_ATTRIBUTION,
+                },
+            },
+            paint: {
+                'fill-color': ['case', ['<=', ['get', this.attribute], this.today], this.water, 'rgba(0, 0, 0, 0)'],
+                'fill-antialias': false,
+            },
+            title: 'Coastal zones',
+            metadata: { title: 'Coastal zones' },
+        };
     }
 
     /**
