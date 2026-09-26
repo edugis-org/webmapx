@@ -33,11 +33,19 @@ export interface MapAccessibilityHandle {
     dispose(): void;
 }
 
+/**
+ * Focusable things inside a map that are controls, not the map. Cesium 1.145
+ * made its "Data attribution" link a tab stop; counting it as the engine's own
+ * focus target left the map itself unreachable, and arrows and `+` went to a
+ * link.
+ */
+const CONTROL = 'a, button, input, select, textarea, [role="button"], [role="link"]';
+
 function hasOwnFocusTarget(surface: HTMLElement): boolean {
     const own = surface.getAttribute(OWNED) === 'focus';
     if (!own && surface.tabIndex >= 0 && surface.hasAttribute('tabindex')) return true;
     return Array.from(surface.querySelectorAll<HTMLElement>('[tabindex]'))
-        .some((el) => el.tabIndex >= 0 && !el.closest('[inert]'));
+        .some((el) => el.tabIndex >= 0 && !el.closest('[inert]') && !el.matches(CONTROL));
 }
 
 export function setupMapAccessibility(
