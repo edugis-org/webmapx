@@ -74,6 +74,7 @@ See [Configuration](./configuration.md) for details on:
 - [`webmapx-geolocation-tool`](./components/webmapx-geolocation-tool.md)
 - [`webmapx-zoom-level`](./components/webmapx-zoom-level.md)
 - [`webmapx-stories-tool`](./components/webmapx-stories-tool.md)
+- [`webmapx-sealevel-tool`](./components/webmapx-sealevel-tool.md)
 
 See also: [Toolbar and Panel Interaction Guide](./components/interaction-guide.md)
 
@@ -93,3 +94,4 @@ Refer to the individual pages for usage tips, attributes, and slot details.
 - [`webmapx-tool-template`](./components/webmapx-tool-template.md)
 - [`webmapx-zoom-level`](./components/webmapx-zoom-level.md)
 - [`webmapx-stories-tool`](./components/webmapx-stories-tool.md)
+- [`webmapx-sealevel-tool`](./components/webmapx-sealevel-tool.md)
