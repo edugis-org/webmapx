@@ -98,6 +98,9 @@ function requestParamsOf(url: string | undefined): Record<string, string> {
 }
 
 const BASE_DRAWABLE_SOURCE_TYPES: ReadonlySet<string> = new Set(['raster', 'geojson']);
+/** Tile archive protocols an engine has to register before a url can use them. */
+const TILE_PROTOCOLS: ReadonlySet<string> = new Set(['pmtiles']);
+const NO_TILE_PROTOCOLS: ReadonlySet<string> = new Set();
 const MERCATOR_ONLY: readonly string[] = ['mercator'];
 
 export abstract class BaseAdapter {
@@ -1198,8 +1201,21 @@ export abstract class BaseAdapter {
         return BASE_DRAWABLE_SOURCE_TYPES;
     }
 
+    /**
+     * Archive protocols this engine reads tiles through, such as `pmtiles`. A
+     * source addressed by one is only drawable where the engine registered it:
+     * elsewhere its url is not a URL at all, and the layer comes up empty
+     * without a word. None by default.
+     */
+    protected tileProtocols(): ReadonlySet<string> {
+        return NO_TILE_PROTOCOLS;
+    }
+
     canDrawSource(source: { type: string; url?: unknown; tiles?: unknown }): boolean {
-        return typeof source?.type === 'string' && this.drawableSourceTypes().has(source.type);
+        if (typeof source?.type !== 'string' || !this.drawableSourceTypes().has(source.type)) return false;
+        const url = Array.isArray(source.url) ? source.url[0] : source.url;
+        const protocol = typeof url === 'string' ? /^([a-z][a-z0-9+.-]*):\/\//i.exec(url)?.[1]?.toLowerCase() : undefined;
+        return !(protocol && TILE_PROTOCOLS.has(protocol) && !this.tileProtocols().has(protocol));
     }
 
     canDrawLayerType(_type: string): boolean {

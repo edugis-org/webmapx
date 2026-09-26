@@ -82,6 +82,14 @@ export class MapLayerService implements ILayerService {
     // Track WarpedMapLayer instances for cleanup
     private warpedMapLayers: Map<string, WarpedMapLayer> = new Map();
     private compositeSubLayerCache: Map<string, { spec: SubLayerSpec; sourceConfig: SourceConfig }> = new Map();
+    /**
+     * One `VectorSource` per GeoJSON source, keyed by native source id, shared
+     * by every native layer that draws it. A layer split into sublayers used to
+     * get one copy of the data per sublayer — each fetching and parsing the
+     * file again — so a 10 MB layer split into 51 classes took half a gigabyte
+     * and crashed the tab.
+     */
+    private readonly geojsonSources = new Map<string, VectorSource>();
     /** Style-backed vector tile layers (whole GL style rendered via `stylefunction`), keyed by nativeLayerId. */
     private styleBackedLayerCache: Map<string, {
         layer: VectorTileLayer;
@@ -589,6 +597,18 @@ export class MapLayerService implements ILayerService {
         if (!cached || !oldLayer) return false;
 
         const mergedSpec: SubLayerSpec = { ...cached.spec, paint: { ...(cached.spec.paint ?? {}), ...partialPaint } };
+
+        // A GeoJSON layer is restyled where it stands. Rebuilding it made a new
+        // source, which fetched and parsed the whole file again on every paint
+        // edit — for the sea level tool, on every step of the slider.
+        if (cached.sourceConfig.type === 'geojson' && oldLayer instanceof VectorLayer
+            && ['fill', 'line', 'circle', 'symbol'].includes(mergedSpec.type)) {
+            this.applyGeoJSONStyle(oldLayer as VectorLayer<VectorSource>, nativeLayerId,
+                cached.sourceConfig as SourceConfig & { type: 'geojson' }, mergedSpec);
+            this.compositeSubLayerCache.set(nativeLayerId, { spec: mergedSpec, sourceConfig: cached.sourceConfig });
+            return true;
+        }
+
         const index = this.findLayerIndexByInstance(oldLayer);
 
         this.createLayer(nativeLayerId, mergedSpec, cached.sourceConfig).then((newLayer) => {
@@ -1192,16 +1212,21 @@ export class MapLayerService implements ILayerService {
         sourceConfig: SourceConfig & { type: 'geojson' },
         style: SubLayerSpec
     ): VectorLayer<VectorSource> {
-        const source = new VectorSource({
-            features: typeof sourceConfig.data === 'string'
-                ? undefined
-                : new GeoJSON().readFeatures(sourceConfig.data, {
-                    featureProjection: featureProjectionOf(this.map)
-                }),
-            url: typeof sourceConfig.data === 'string' ? sourceConfig.data : undefined,
-            format: typeof sourceConfig.data === 'string' ? new GeoJSON() : undefined,
-            attributions: sourceConfig.attribution
-        });
+        const nativeSourceId = this.getOrCreateNativeSourceId(sourceConfig);
+        let source = this.geojsonSources.get(nativeSourceId);
+        if (!source) {
+            source = new VectorSource({
+                features: typeof sourceConfig.data === 'string'
+                    ? undefined
+                    : new GeoJSON().readFeatures(sourceConfig.data, {
+                        featureProjection: featureProjectionOf(this.map)
+                    }),
+                url: typeof sourceConfig.data === 'string' ? sourceConfig.data : undefined,
+                format: typeof sourceConfig.data === 'string' ? new GeoJSON() : undefined,
+                attributions: sourceConfig.attribution
+            });
+            this.geojsonSources.set(nativeSourceId, source);
+        }
 
         const layer = new VectorLayer({
             source,
@@ -1210,6 +1235,22 @@ export class MapLayerService implements ILayerService {
             declutter: true
         });
 
+        this.applyGeoJSONStyle(layer, layerId, sourceConfig, style);
+        (layer as any).__layerId = layerId;
+        return layer;
+    }
+
+    /**
+     * Styles a GeoJSON layer from its GL spec. Also how a paint change reaches
+     * an existing layer: the style function is replaced, the layer and its
+     * source stay, so nothing is fetched, parsed or projected again.
+     */
+    private applyGeoJSONStyle(
+        layer: VectorLayer<VectorSource>,
+        layerId: string,
+        sourceConfig: SourceConfig & { type: 'geojson' },
+        style: SubLayerSpec
+    ): void {
         const glSourceId = layerId;
         const glLayerId = style.id ?? layerId;
         const glStyle = {
@@ -1228,9 +1269,6 @@ export class MapLayerService implements ILayerService {
         };
 
         stylefunction(layer as any, glStyle, [glLayerId]);
-
-        (layer as any).__layerId = layerId;
-        return layer;
     }
 
     moveLayer(layerId: string, beforeLayerId?: string | null): void {
@@ -1299,6 +1337,7 @@ export class MapLayerService implements ILayerService {
                 }
             }
             if (!stillUsed) {
+                this.geojsonSources.delete(sourceId);
                 for (const [logicalId, nativeId] of this.logicalSourceToNative.entries()) {
                     if (nativeId === sourceId) {
                         this.logicalSourceToNative.delete(logicalId);
@@ -1380,13 +1419,11 @@ export class MapLayerService implements ILayerService {
         const format = new GeoJSON();
         const allFeatures: GeoJSON.Feature[] = [];
         const tileRecords: TileFeatureRecord[] = [];
-        // One logical layer is drawn by one native layer per sublayer, and
-        // `createGeoJSONLayer` gives each of those its own `VectorSource` holding
-        // its own copy of the data. Reading every one of them returns each
-        // feature once per sublayer — a fill+outline layer answers twice, which
-        // is invisible on the map (the copies draw on top of each other) but
-        // doubles anything built from the answer. Features belong to the source,
-        // so each source contributes once.
+        // One logical layer is drawn by one native layer per sublayer, all
+        // drawing the same `VectorSource`. Reading every one of them would return
+        // each feature once per sublayer — a fill+outline layer answering twice,
+        // invisible on the map but doubling anything built from the answer.
+        // Features belong to the source, so each source contributes once.
         const seenSourceIds = new Set<string>();
 
         for (const nativeLayerId of nativeLayerIds) {
@@ -1516,11 +1553,14 @@ export class MapLayerService implements ILayerService {
         const nativeSourceId = this.logicalSourceToNative.get(sourceId);
         if (!nativeSourceId) return false;
         let updated = false;
+        // Sublayers share their source: each is written once.
+        const written = new Set<unknown>();
         for (const [nativeLayerId, usedSourceId] of this.nativeLayerToSource.entries()) {
             if (usedSourceId !== nativeSourceId) continue;
             const layer = this.nativeLayerInstances.get(nativeLayerId) as VectorLayer<VectorSource> | undefined;
             const source = layer?.getSource?.();
-            if (!source || typeof source.clear !== 'function') continue;
+            if (!source || typeof source.clear !== 'function' || written.has(source)) continue;
+            written.add(source);
             source.clear();
             source.addFeatures(new GeoJSON().readFeatures(data, {
                 dataProjection: 'EPSG:4326',

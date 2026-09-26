@@ -29,6 +29,7 @@ _ml.addProtocol('pmtiles', new PmtilesProtocol({ metadata: true }).tile);
  * Implements the unified IMap interface by delegating to specialized services.
  */
 const VECTOR_CAPABLE_SOURCE_TYPES: ReadonlySet<string> = new Set(['raster', 'geojson', 'vector', 'raster-dem']);
+const PMTILES_PROTOCOL: ReadonlySet<string> = new Set(['pmtiles']);
 
 export class MapLibreAdapter extends BaseAdapter implements IMap {
     public readonly engineId = 'maplibre';
@@ -293,6 +294,11 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
     /** Vector tiles and DEMs as well as the raster/GeoJSON floor. */
     protected drawableSourceTypes(): ReadonlySet<string> {
         return VECTOR_CAPABLE_SOURCE_TYPES;
+    }
+
+    /** `pmtiles://`, registered with MapLibre at the top of this module. */
+    protected tileProtocols(): ReadonlySet<string> {
+        return PMTILES_PROTOCOL;
     }
 
 }

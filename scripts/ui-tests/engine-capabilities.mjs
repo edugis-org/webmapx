@@ -7,10 +7,10 @@
 import { appUrl } from './lib/fixture-config.mjs';
 
 const EXPECTED = {
-  maplibre: { terrain: 'raster-dem', raster: true, geojson: true, vector: true, 'raster-dem': true, warped: true, allmaps: true },
-  openlayers: { terrain: null, raster: true, geojson: true, vector: true, 'raster-dem': true, warped: true, allmaps: true },
-  leaflet: { terrain: null, raster: true, geojson: true, vector: false, 'raster-dem': false, warped: true, allmaps: true },
-  cesium: { terrain: 'terrain-service', raster: true, geojson: true, vector: false, 'raster-dem': false, warped: false, allmaps: false },
+  maplibre: { terrain: 'raster-dem', raster: true, geojson: true, vector: true, 'raster-dem': true, warped: true, allmaps: true, pmtiles: true },
+  openlayers: { terrain: null, raster: true, geojson: true, vector: true, 'raster-dem': true, warped: true, allmaps: true, pmtiles: false },
+  leaflet: { terrain: null, raster: true, geojson: true, vector: false, 'raster-dem': false, warped: true, allmaps: true, pmtiles: false },
+  cesium: { terrain: 'terrain-service', raster: true, geojson: true, vector: false, 'raster-dem': false, warped: false, allmaps: false, pmtiles: false },
 };
 
 export async function run({ page, baseUrl, engine }) {
@@ -31,6 +31,7 @@ export async function run({ page, baseUrl, engine }) {
       vector: spec({ type: 'vector', tiles: ['https://example.org/{z}/{x}/{y}.pbf'] }),
       'raster-dem': spec({ type: 'raster-dem', tiles: ['https://example.org/{z}/{x}/{y}.png'] }),
       warped: spec({ type: 'raster', url: 'warpedmap://annotation' }),
+      pmtiles: spec({ type: 'vector', url: 'pmtiles://https://example.org/zones.pmtiles' }),
       allmaps: adapter.canDrawLayerType('allmaps'),
       views: adapter.getViewProjections(),
       terrain: adapter.getTerrainSourceKind(),

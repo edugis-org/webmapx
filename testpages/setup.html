@@ -797,6 +797,8 @@
       sealevel: {
         data: 'data/sealevel/lambeck2014-approx.json',
         tiles: '../data/coastal_zones.pmtiles',
+        // For engines that cannot read PMTiles (OpenLayers).
+        geojson: '../data/coastal_zones_16m.geojson',
       },
     };
 

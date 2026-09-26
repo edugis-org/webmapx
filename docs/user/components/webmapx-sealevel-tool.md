@@ -10,11 +10,12 @@ The coastal zones are built by a separate ETL from the GEBCO_2026 bathymetry/ele
 
 **[edugis-org/coastal_zones](https://github.com/edugis-org/coastal_zones)** — scripts, method and source attribution.
 
-Its output is a single PMTiles archive (`coastal_zones.pmtiles`, z0–6, ~20 MB, source layer `zones`) that any static web server can serve through HTTP range requests; no tile server is needed. The archive is **not** part of this repository (`public/data/*.pmtiles` is gitignored). Download it from the data repository's [releases](https://github.com/edugis-org/coastal_zones/releases) and put it where the config expects it — for the demo config, `public/data/`:
+Its output is a single PMTiles archive (`coastal_zones.pmtiles`, z0–6, ~20 MB, source layer `zones`) that any static web server can serve through HTTP range requests; no tile server is needed. The archive and its GeoJSON counterpart are **not** part of this repository (both are gitignored). Download them from the data repository's [releases](https://github.com/edugis-org/coastal_zones/releases) and put them where the config expects them — for the demo config, `public/data/`:
 
 ```bash
-curl -L -o public/data/coastal_zones.pmtiles \
-  https://github.com/edugis-org/coastal_zones/releases/latest/download/coastal_zones.pmtiles
+for f in coastal_zones.pmtiles coastal_zones_16m.geojson; do
+  curl -L -o public/data/$f https://github.com/edugis-org/coastal_zones/releases/latest/download/$f
+done
 ```
 
 A browser cannot read the release asset directly (GitHub serves release downloads without CORS headers), so the archive has to be copied to the host that serves the map. webmapx.com's build (`edugis-org/webmapx-demo`, `.github/workflows/pages.yml`) fetches a release pinned by tag and checksum into `dist/data/`; GitHub Pages answers the range requests PMTiles needs.
@@ -103,12 +104,18 @@ The archive path after `pmtiles://` is resolved relative to the config file, lik
 | `levels` | `number[]` | the ETL's classes | Class levels the attribute takes; config only. |
 | `data` | `string` | `data/sealevel/lambeck2014-approx.json` | Sea level curve (config asset) for time mode; `""` turns time mode off. |
 | `tiles` | `string` | `../data/coastal_zones.pmtiles` | Coastal zones archive (config asset, `pmtiles://` optional). Only used when neither the map nor the catalog has `layer`. |
+| `geojson` | `string` | `../data/coastal_zones_16m.geojson` | The same zones as GeoJSON (16′), used instead of `tiles` on an engine that cannot read PMTiles. |
 
 An attribute on the element overrides the config section.
 
 ## Engine support
 
-`pmtiles://` sources are currently read by the **MapLibre** adapter only. The tool itself is engine-neutral (it rewrites the layer through `setSubLayers`/`updateLayerStyle`), so it works on another engine given a source that engine can draw.
+The tool is engine-neutral: it splits the layer into classes with `setSubLayers` and recolours them with `updateLayerStyle` on every engine. Only the data differs, and the adapter decides which (`canDrawSource`):
+
+- **MapLibre** reads `pmtiles://` and gets the tile archive.
+- **OpenLayers** cannot, and gets `coastal_zones_16m.geojson`, read once into the view's projection — so the animation also runs in Equal Earth, Mollweide and the other equal-area projections, which suit a world map better than Mercator. A step that changes no class costs nothing; one that flips a class re-renders that class's layer (~0.1–0.3 s in a software-rendered test browser, once per 5 m at most).
+
+A catalog `coastal-zones` layer with a `pmtiles://` source is skipped on an engine that cannot draw it, and the tool lends the GeoJSON layer instead.
 
 ## Notes
 

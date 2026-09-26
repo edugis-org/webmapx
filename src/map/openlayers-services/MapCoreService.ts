@@ -651,9 +651,13 @@ export class MapCoreService implements IMapCore {
         }
 
         let skipped = 0;
+        // A source shared by several layers (every sublayer of a split GeoJSON
+        // layer draws the same one) must be transformed once, not once per layer.
+        const transformed = new Set<VectorSource>();
         const visitLayer = (layer: any): void => {
             const source = typeof layer?.getSource === 'function' ? layer.getSource() : null;
-            if (source instanceof VectorSource) {
+            if (source instanceof VectorSource && !transformed.has(source)) {
+                transformed.add(source);
                 for (const feature of source.getFeatures()) {
                     const geometry = feature.getGeometry();
                     if (!geometry) continue;

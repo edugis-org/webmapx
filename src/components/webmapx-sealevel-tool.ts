@@ -24,13 +24,16 @@
  * The layer is taken from the map, else from the catalog, and else the tool
  * lends the map one drawn from `tiles` — the coastal zones archive built and
  * released by github.com/edugis-org/coastal_zones — like the deeptime tool
- * lends its coastlines. `data` is a sea level curve (see
+ * lends its coastlines — or, on an engine that cannot read the archive, from
+ * the same zones as one GeoJSON file (`geojson`); nothing else differs.
+ * `data` is a sea level curve (see
  * `utils/sea-level-curve.ts`) for the time mode: the slider runs through years
  * instead of metres, and the level at each age is read from the curve. Both
  * are config assets, resolved against the config like every other path.
  *
  *   { "type": "sealevel", "data": "data/sealevel/lambeck2014-approx.json",
- *     "tiles": "../data/coastal_zones.pmtiles" }
+ *     "tiles": "../data/coastal_zones.pmtiles",
+ *     "geojson": "../data/coastal_zones_16m.geojson" }
  */
 import { html, css, type TemplateResult } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
@@ -100,6 +103,14 @@ const DEFAULT_DATA = 'data/sealevel/lambeck2014-approx.json';
  */
 const DEFAULT_TILES = '../data/coastal_zones.pmtiles';
 
+/**
+ * The same zones as one GeoJSON file, for an engine that cannot read the
+ * archive: at 16' (the archive's z0-1 layer), which is finer than a screen
+ * pixel on any world map. Read once into the view's projection, so it also
+ * serves the projections vector tiles are costly in. Same release, same place.
+ */
+const DEFAULT_GEOJSON = '../data/coastal_zones_16m.geojson';
+
 /** Source layer and credit of the archive at DEFAULT_TILES. */
 const ZONES_SOURCE_LAYER = 'zones';
 const ZONES_ATTRIBUTION = 'Coastal zones: <a href="https://github.com/edugis-org/coastal_zones" target="_blank" rel="noopener">EduGIS</a>, from <a href="https://doi.org/10.5285/4f68d5c7-45eb-f999-e063-7086abc036fa" target="_blank" rel="noopener">GEBCO_2026 Grid</a>';
@@ -152,6 +163,11 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
      * asset. Only read when neither the map nor its catalog has `layer`.
      */
     @property({ type: String }) tiles: string | null = null;
+    /**
+     * The zones as GeoJSON, a config asset: what the tool lends instead of
+     * `tiles` when the engine cannot draw a `pmtiles://` source.
+     */
+    @property({ type: String }) geojson: string | null = null;
 
     /** Where the slider stands. Starts at today and outlives the panel. */
     @state() private level: number | null = null;
@@ -252,7 +268,7 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
         // the setup page, or directly in HTML, has no section at all.
         if (!this.hasAttribute('data') && this.data === null) this.data = this.resolveConfigAsset(DEFAULT_DATA);
         if (!section) return;
-        for (const key of ['layer', 'attribute', 'water', 'land', 'tiles'] as const) {
+        for (const key of ['layer', 'attribute', 'water', 'land', 'tiles', 'geojson'] as const) {
             if (!this.hasAttribute(key) && typeof section[key] === 'string') this[key] = section[key] as string;
         }
         for (const key of ['min', 'max', 'step', 'today'] as const) {
@@ -321,21 +337,28 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
      * archive, shown at today's level until the classes take over.
      */
     private lentLayerConfig(): Record<string, unknown> {
-        const path = (this.tiles ?? DEFAULT_TILES).replace(/^pmtiles:\/\//, '');
         const sourceId = `${this.layer}-source`;
+        // The same zones either way; which file is the engine's to say. The
+        // tool is otherwise identical: both are split into the same classes.
+        const tiles = {
+            id: sourceId,
+            type: 'vector',
+            url: `pmtiles://${this.resolveConfigAsset((this.tiles ?? DEFAULT_TILES).replace(/^pmtiles:\/\//, ''))}`,
+            attribution: ZONES_ATTRIBUTION,
+        };
+        const useTiles = this.adapter?.canDrawSource(tiles) ?? true;
+        const source = useTiles ? tiles : {
+            id: sourceId,
+            type: 'geojson',
+            data: this.resolveConfigAsset(this.geojson ?? DEFAULT_GEOJSON),
+            attribution: ZONES_ATTRIBUTION,
+        };
         return {
             id: this.layer,
             type: 'fill',
             source: sourceId,
-            'source-layer': ZONES_SOURCE_LAYER,
-            sources: {
-                [sourceId]: {
-                    id: sourceId,
-                    type: 'vector',
-                    url: `pmtiles://${this.resolveConfigAsset(path)}`,
-                    attribution: ZONES_ATTRIBUTION,
-                },
-            },
+            ...(useTiles ? { 'source-layer': ZONES_SOURCE_LAYER } : {}),
+            sources: { [sourceId]: source },
             paint: {
                 'fill-color': ['case', ['<=', ['get', this.attribute], this.today], this.water, 'rgba(0, 0, 0, 0)'],
                 'fill-antialias': false,
