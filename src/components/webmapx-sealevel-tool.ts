@@ -21,7 +21,7 @@
  *
  *   { "type": "sealevel", "layer": "coastal-zones", "min": -134, "max": 70 }
  *
- * The layer is taken from the map, else from the catalog, and else the tool
+ * A layer already on the map under `layer` is adopted; otherwise the tool
  * lends the map one drawn from `tiles` — the coastal zones archive built and
  * released by github.com/edugis-org/coastal_zones — like the deeptime tool
  * lends its coastlines — or, on an engine that cannot read the archive, from
@@ -160,7 +160,7 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
     @property({ type: String }) data: string | null = null;
     /**
      * Coastal zones archive (`.pmtiles`, `pmtiles://` optional), a config
-     * asset. Only read when neither the map nor its catalog has `layer`.
+     * asset. Only read when the map does not already show `layer`.
      */
     @property({ type: String }) tiles: string | null = null;
     /**
@@ -315,14 +315,13 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
         this.level = this.clamp(this.level ?? this.today);
         void this.loadCurve();
 
-        // The layer is an ordinary layer: opening the tool turns it on if the
-        // map does not show it yet — from the catalog, or else lent from the
-        // archive — and from then on it is the user's.
+        // A layer already on the map is adopted. Otherwise the tool adds its
+        // own, in the format the engine can draw — never a catalog entry of the
+        // same name, whose format the config chose without knowing the engine.
+        // From then on it is an ordinary layer, and the user's.
         const loaded = this.layer in (this.adapter.store.getState().mapLayers ?? {});
-        if (!loaded
-            && !(await this.mapElement.addLayerRequest({ layerId: this.layer }))
-            && !(await this.mapElement.addLayerRequest(this.lentLayerConfig()))) {
-            this.error = `Layer "${this.layer}" is not in this map's catalog, and the coastal zones archive could not be added.`;
+        if (!loaded && !(await this.mapElement.addLayerRequest(this.lentLayerConfig()))) {
+            this.error = 'The coastal zones could not be added to the map.';
             return;
         }
         if (!(await this.ensureClassSubLayers())) {

@@ -1295,7 +1295,17 @@ export class WebmapxMapElement extends HTMLElement {
         ? await this.expandStyleBackedLayer(baseLayerInformation.layer)
         : baseLayerInformation;
 
-      if (layerInformation && (!styleBacked || !this.hasUnsupportedStyleComponents(layerInformation))) {
+      // Every catalog layer is asked whether this engine can draw it, not only a
+      // style-backed one: the same rule `isCatalogLayerSupported` applies to what
+      // the catalog offers. Without it a layer requested by id — by a tool, a
+      // story, a permalink — went through regardless, and on OpenLayers a
+      // `pmtiles://` source came up empty and filled the console with fetch
+      // errors, while the sea level tool took it for the layer it asked for.
+      const supportedEngines = layerInformation?.layer.metadata?.supportedEngines;
+      const drawable = !!layerInformation && (supportedEngines
+        ? supportedEngines.includes(this.activeAdapterName as any)
+        : !this.hasUnsupportedStyleComponents(layerInformation));
+      if (layerInformation && drawable) {
         const singleSelectionGroupKey = this.getSingleSelectionGroupKeyForLayer(catalogLayerId, preferredGroupKey);
 
         // Enforce single-group exclusivity: remove any active layers in the same group before adding.

@@ -26,7 +26,7 @@ The data are CC BY 4.0 and derived from the public-domain GEBCO_2026 Grid, whose
 
 ## Usage
 
-1. Open the tool from the toolbar. If the configured layer is not on the map yet, it is added from the catalog — or, if the catalog has no such layer, the tool adds one itself from the `tiles` archive, the way the deeptime tool lends its coastlines.
+1. Open the tool from the toolbar. If the configured layer is already on the map, the tool uses it; otherwise it adds one itself, the way the deeptime tool lends its coastlines — from the `tiles` archive, or from `geojson` on an engine that cannot read the archive.
 2. Drag the slider, or use the step buttons (hold to repeat), ▶ to play, and *Today* to return to today's level.
 3. At level `L`:
    - `flood_level <= L` is drawn as **sea**;
@@ -57,7 +57,7 @@ The configs repository ships `data/sealevel/lambeck2014-approx.json`, an approxi
 
 Nothing is required: every key has a default, so a toolbar item `{ "type": "sealevel" }` is enough. That is also how to add it to a config without it — the demo config does not include the tool; add it in `testpages/setup.html`, whose ⚙ options for the tool are `data` and `tiles` (written to `tools.sealevel`).
 
-A config can also put the layer in its catalog — to style it, title it, or show it without the tool — and name it in a `sealevel` section:
+A config can also put the layer in its catalog — to show it without the tool — and name it in a `sealevel` section. The tool adopts that layer only when it is already on the map; it never adds it from the catalog, since the catalog's format was chosen without knowing the engine:
 
 ```json
 "sources": [
@@ -93,7 +93,7 @@ The archive path after `pmtiles://` is resolved relative to the config file, lik
 
 | Key / attribute | Type | Default | Description |
 |---|---|---|---|
-| `layer` | `string` | `coastal-zones` | Id of the catalog layer to drive. |
+| `layer` | `string` | `coastal-zones` | Id of the layer to drive: adopted when already on the map, otherwise the id the tool adds its own layer under. |
 | `attribute` | `string` | `flood_level` | Feature attribute holding the sea level (m) at which a polygon floods. |
 | `min` | `number` | `-134` | Lowest level on the slider (m). |
 | `max` | `number` | `70` | Highest level on the slider (m). |
@@ -103,7 +103,7 @@ The archive path after `pmtiles://` is resolved relative to the config file, lik
 | `land` | `string` | `#f2efe9` | Dry sea floor colour (OpenStreetMap's land). |
 | `levels` | `number[]` | the ETL's classes | Class levels the attribute takes; config only. |
 | `data` | `string` | `data/sealevel/lambeck2014-approx.json` | Sea level curve (config asset) for time mode; `""` turns time mode off. |
-| `tiles` | `string` | `../data/coastal_zones.pmtiles` | Coastal zones archive (config asset, `pmtiles://` optional). Only used when neither the map nor the catalog has `layer`. |
+| `tiles` | `string` | `../data/coastal_zones.pmtiles` | Coastal zones archive (config asset, `pmtiles://` optional). Only used when the map does not already show `layer`. |
 | `geojson` | `string` | `../data/coastal_zones_16m.geojson` | The same zones as GeoJSON (16′), used instead of `tiles` on an engine that cannot read PMTiles. |
 
 An attribute on the element overrides the config section.
@@ -115,7 +115,7 @@ The tool is engine-neutral: it splits the layer into classes with `setSubLayers`
 - **MapLibre** reads `pmtiles://` and gets the tile archive.
 - **OpenLayers** cannot, and gets `coastal_zones_16m.geojson`, read once into the view's projection — so the animation also runs in Equal Earth, Mollweide and the other equal-area projections, which suit a world map better than Mercator. A step that changes no class costs nothing; one that flips a class re-renders that class's layer (~0.1–0.3 s in a software-rendered test browser, once per 5 m at most).
 
-A catalog `coastal-zones` layer with a `pmtiles://` source is skipped on an engine that cannot draw it, and the tool lends the GeoJSON layer instead.
+A catalog layer with a `pmtiles://` source is refused on an engine that cannot draw it (`webmapx-map` asks `canDrawSource` for every catalog layer).
 
 ## Notes
 
