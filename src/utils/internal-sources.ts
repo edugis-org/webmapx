@@ -359,13 +359,25 @@ export function resolveInternalSources<T>(
     prepareUrl: (url: string) => string = (url) => url,
 ): T {
     if (!layer || typeof layer !== 'object') return layer;
+    // Unchanged parts are returned as they are, arrays included. This runs on
+    // every layer added, and a copy of an unchanged array is a copy of every
+    // coordinate below it.
     if (Array.isArray(layer)) {
-        return layer.map((entry) => resolveInternalSources(entry, now, prepareUrl)) as unknown as T;
+        const mapped = layer.map((entry) => resolveInternalSources(entry, now, prepareUrl));
+        return (mapped.some((entry, i) => entry !== layer[i]) ? mapped : layer) as unknown as T;
     }
 
     let changed = false;
     const out: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(layer as Record<string, unknown>)) {
+        // Inline GeoJSON is data, not configuration: nothing in it is a url to
+        // resolve. Walking it copied every coordinate of the layer — for the
+        // sea level zones, split into 51 classes and so added 51 times, a
+        // gigabyte of copies that stayed alive.
+        if (key === 'data' && value !== null && typeof value === 'object') {
+            out[key] = value;
+            continue;
+        }
         if ((key === 'data' || key === 'url') && isInternalFuncUrl(value)) {
             out.data = resolveInternalFuncUrl(prepareUrl(value), now);
             // A resolved source is a geojson source whatever it called itself,

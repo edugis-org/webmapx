@@ -55,16 +55,28 @@ export function substituteApiKeys(text: string): string {
   return text.replace(/\{key-([^}]+)\}/g, (match, name) => keys![name] ?? match);
 }
 
+/**
+ * `substituteApiKeys` on every string in a layer or source. What it does not
+ * change it returns as it was, and it does not look inside inline GeoJSON
+ * (`data` as an object): keys live in urls, and copying a layer's data copies
+ * every coordinate in it — on every layer added.
+ */
 export function substituteApiKeysDeep<T>(obj: T): T {
   if (!keys) return obj;
   if (typeof obj === 'string') return substituteApiKeys(obj) as unknown as T;
-  if (Array.isArray(obj)) return obj.map(substituteApiKeysDeep) as unknown as T;
+  if (Array.isArray(obj)) {
+    const mapped = obj.map(substituteApiKeysDeep);
+    return (mapped.some((entry, i) => entry !== obj[i]) ? mapped : obj) as unknown as T;
+  }
   if (obj !== null && typeof obj === 'object') {
+    let changed = false;
     const result: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-      result[k] = substituteApiKeysDeep(v);
+      const next = k === 'data' && v !== null && typeof v === 'object' ? v : substituteApiKeysDeep(v);
+      if (next !== v) changed = true;
+      result[k] = next;
     }
-    return result as T;
+    return (changed ? result : obj) as T;
   }
   return obj;
 }

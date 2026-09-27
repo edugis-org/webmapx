@@ -64,3 +64,18 @@ test('only the internalfunc protocol is treated as computed', () => {
     assert.ok(!isInternalFuncUrl('internalfunc:day-night'));
     assert.ok(!isInternalFuncUrl(42));
 });
+
+test('a layer with nothing to resolve comes back as it was, and inline data is never copied', () => {
+    // This runs on every layer added. It used to copy every array it walked —
+    // every coordinate of inline GeoJSON — and a layer split into 51 classes is
+    // added 51 times: a gigabyte for the sea level zones.
+    const data = { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [5, 52] } }] };
+    const layer = { id: 'l', type: 'style', sources: { s: { type: 'geojson', data } }, layers: [{ id: 'a', source: 's', paint: { 'fill-color': ['case', ['<=', ['get', 'x'], 1], '#fff', '#000'] } }] };
+    assert.equal(resolveInternalSources(layer), layer);
+
+    const computed = { ...layer, sources: { ...layer.sources, c: { type: 'geojson', data: 'internalfunc://sun-position?at=2024-01-01T00:00:00Z' } } };
+    const resolved = resolveInternalSources(computed) as typeof computed;
+    assert.notEqual(resolved, computed, 'a computed source is resolved');
+    assert.equal(resolved.sources.s.data, data, 'inline data is passed on, not copied');
+    assert.equal(resolved.layers, computed.layers, 'unchanged arrays are shared');
+});
