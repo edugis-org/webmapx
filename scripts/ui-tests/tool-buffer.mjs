@@ -103,8 +103,7 @@ async function drawPointFeature(page) {
     await waitFor(() => tool.panelView === 'layers' && tool.pickedType === 'Point', 5_000, 'point layer picker');
 
     const addNewButton = await waitFor(
-      () => Array.from(tool.shadowRoot.querySelectorAll('sl-button'))
-        .find((button) => (button.textContent ?? '').includes('Add new')),
+      () => tool.shadowRoot.querySelector('.add-layer-btn'),
       5_000,
       'add new point layer button'
     );
@@ -113,8 +112,10 @@ async function drawPointFeature(page) {
     await waitFor(() => tool.panelView === 'editing' && Boolean(tool.activeLayerIds?.Point), 10_000, 'point editing session');
 
     const nameInput = await waitFor(() => tool.shadowRoot.querySelector('.editing-layer-name'), 5_000, 'layer name input');
+    // Draft-and-confirm control: `sl-input` fills the draft, Enter commits it.
     nameInput.value = 'buffer-test';
-    nameInput.dispatchEvent(new Event('sl-change', { bubbles: true, composed: true }));
+    nameInput.dispatchEvent(new Event('sl-input', { bubbles: true, composed: true }));
+    nameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }));
 
     const drawBtn = await waitFor(
       () => {

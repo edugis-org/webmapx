@@ -76,8 +76,7 @@ async function setupDrawLayer(page) {
         await waitFor(() => tool.panelView === 'layers' && tool.pickedType === 'Point', 5_000, 'point layer picker');
 
         const addNewButton = await waitFor(
-            () => Array.from(tool.shadowRoot.querySelectorAll('sl-button'))
-                .find((button) => (button.textContent ?? '').includes('Add new')),
+            () => tool.shadowRoot.querySelector('.add-layer-btn'),
             5_000,
             'add new point layer button'
         );

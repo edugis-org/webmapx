@@ -779,10 +779,23 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     }
 
     .layer-editing-notice {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: var(--webmapx-space-xs, 0.25rem) var(--webmapx-space-md, 0.75rem) var(--webmapx-space-sm, 0.5rem);
+    }
+
+    .layer-editing-notice span {
       font-size: var(--webmapx-font-size-sm, 0.75rem);
       color: var(--color-text-secondary, #5a6773);
       font-style: italic;
-      padding: var(--webmapx-space-xs, 0.25rem) var(--webmapx-space-md, 0.75rem) var(--webmapx-space-sm, 0.5rem);
+    }
+
+    .layer-editing-notice-text {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
     }
 
     .empty {
@@ -1013,7 +1026,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                           e.preventDefault();
                           this.handleCollapseToggle(item.layerId);
                         }}
-                      >${splitLayerTitle(item.label).name}${item.beingEdited ? html`&nbsp;<sl-icon name="pencil" title="Layer is currently being edited"></sl-icon>` : null}</span>
+                      >${splitLayerTitle(item.label).name}</span>
                       ${isOverviewSection ? html`
                         <sl-tooltip content="Remove layer">
                           <sl-icon-button
@@ -1028,7 +1041,15 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                     <div class="layer-details ${this.isLegendCollapsed(item.layerId) ? 'collapsed' : ''}">
                       <div class="layer-details-inner">
                         ${item.beingEdited
-                          ? html`<div class="layer-editing-notice">editing</div>`
+                          ? html`
+                              <div class="layer-editing-notice">
+                                <span class="layer-editing-notice-text">
+                                  <sl-icon name="pencil"></sl-icon>
+                                  Layer is being edited
+                                </span>
+                                <sl-button size="small" variant="primary" @click=${() => this.handleFinishEditingLayer(item.layerId)}>Done</sl-button>
+                              </div>
+                            `
                           : html`
                             ${item.visible
                               ? html`
@@ -1763,6 +1784,23 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   private handleZoomToLayer(layerId: string): void {
     const extent = this.resolveLayerExtent(layerId);
     if (extent) this.adapter?.fitBounds(extent);
+  }
+
+  /**
+   * The "Done" button next to a layer flagged `beingEdited` — this Legend
+   * has no direct handle on the draw tool's own internal state (which
+   * layer, of which geometry type, is actually being edited lives entirely
+   * in that tool's own private fields, not in the shared store), so
+   * finishing has to be requested as a bubbling event rather than a direct
+   * call. The draw tool listens on the shared `webmapx-map` ancestor, since
+   * it and this Legend are siblings, not ancestor/descendant.
+   */
+  private handleFinishEditingLayer(layerId: string): void {
+    this.dispatchEvent(new CustomEvent('webmapx-draw-finish-editing', {
+      detail: { layerId },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   /**

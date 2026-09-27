@@ -199,7 +199,7 @@ async function clickPolygonModeAndSelectUtrechtLayer(page) {
 
     // The panel opens onto a type picker, not straight into polygon mode —
     // pick "Polygons", where the persisted Utrecht layer shows up under
-    // "From the map" with its own "Start editing" button. No dialog: "Add
+    // "From the map" with its own "Edit" button. No dialog: "Add
     // new" is only for a genuinely new, empty layer now.
     const polygonCard = await waitFor(
       () => tool.shadowRoot.querySelector('.type-card[data-type="Polygon"]'),
@@ -230,8 +230,8 @@ async function clickPolygonModeAndSelectUtrechtLayer(page) {
     }
 
     const startBtn = Array.from(utrechtRow.querySelectorAll('sl-button'))
-      .find(b => (b.textContent ?? '').includes('Start editing'));
-    if (!startBtn) throw new Error('Start editing button not found on Utrecht row');
+      .find(b => (b.textContent ?? '').includes('Edit'));
+    if (!startBtn) throw new Error('Edit button not found on Utrecht row');
     startBtn.click();
 
     return { success: true };
@@ -240,6 +240,25 @@ async function clickPolygonModeAndSelectUtrechtLayer(page) {
   if (!result.success) {
     fail('Failed to select Utrecht layer in draw tool');
   }
+
+  // A catalog layer's "Edit" button no longer jumps straight into the
+  // editing session — it opens a confirmation dialog first ("You are about
+  // to create and edit a copy of..."), since editing now always makes an
+  // independent copy rather than mutating the shared/persisted original.
+  // Confirm it to actually enter the session.
+  await page.waitForFunction(() => {
+    const tool = document.querySelector('webmapx-map')?.querySelector('webmapx-draw-tool');
+    return Boolean(tool?.shadowRoot?.querySelector('sl-dialog[open]'));
+  }, undefined, { timeout: 5_000 });
+
+  await page.evaluate(() => {
+    const tool = document.querySelector('webmapx-map')?.querySelector('webmapx-draw-tool');
+    const dialog = tool.shadowRoot.querySelector('sl-dialog[open]');
+    const confirmBtn = Array.from(dialog.querySelectorAll('sl-button'))
+      .find((b) => (b.textContent ?? '').includes('Create a copy and edit'));
+    if (!confirmBtn) throw new Error('"Create a copy and edit" button not found in confirmation dialog');
+    confirmBtn.click();
+  });
 
   // Wait for the layer to be active and features to be loaded
   await page.waitForFunction(() => {

@@ -53,23 +53,15 @@ async function navigateToAddNewLayerScreen(page, geometryType) {
     if (!tool?.shadowRoot) throw new Error('Draw tool shadow root unavailable');
 
     if (tool.panelView === 'editing') {
-      const stopBtn = await waitFor(
-        () => tool.shadowRoot.querySelector('sl-icon-button[label="Stop editing"]'),
-        5_000, 'stop editing button'
-      );
-      stopBtn.click();
+      // No Back/Cancel button exists any more — "Done" is gated on the layer
+      // having a real name, which a test layer may not have yet — so leave
+      // the same way the (removed) button used to, via the component itself.
+      tool.stopEditingCurrent();
       await waitFor(() => tool.panelView === 'layers', 5_000, 'panel to leave editing view');
     }
 
-    if (tool.panelView === 'layers') {
-      const backBtn = await waitFor(
-        () => tool.shadowRoot.querySelector('sl-icon-button[label="Back"]'),
-        5_000, 'back button'
-      );
-      backBtn.click();
-      await waitFor(() => tool.panelView === 'type', 5_000, 'panel to reach type picker');
-    }
-
+    // The type grid stays visible on both the bare picker and the layer
+    // list, so a card can be clicked directly without a Back step first.
     const card = await waitFor(
       () => tool.shadowRoot.querySelector(`.type-card[data-type="${type}"]`),
       5_000, `type card for ${type}`
@@ -81,8 +73,7 @@ async function navigateToAddNewLayerScreen(page, geometryType) {
     );
 
     const addBtn = await waitFor(
-      () => Array.from(tool.shadowRoot.querySelectorAll('sl-button'))
-        .find((button) => (button.textContent ?? '').includes('Add new')),
+      () => tool.shadowRoot.querySelector('.add-layer-btn'),
       5_000, 'add new layer button'
     );
     addBtn.click();
@@ -91,7 +82,7 @@ async function navigateToAddNewLayerScreen(page, geometryType) {
 
 /**
  * Mirrors `navigateToAddNewLayerScreen`, but ends on an existing layer's
- * "Start editing" button instead of "Add new" — this is how a layer that
+ * "Edit" button instead of "Add new" — this is how a layer that
  * isn't the one currently showing gets resumed (it may have been paused by
  * a sibling layer of the same type taking over the editing session).
  */
@@ -112,24 +103,16 @@ async function navigateToStartEditingLayer(page, geometryType, layerName) {
     if (!tool?.shadowRoot) throw new Error('Draw tool shadow root unavailable');
 
     if (tool.panelView === 'editing') {
-      const stopBtn = await waitFor(
-        () => tool.shadowRoot.querySelector('sl-icon-button[label="Stop editing"]'),
-        5_000, 'stop editing button'
-      );
-      stopBtn.click();
+      // No Back/Cancel button exists any more — "Done" is gated on the layer
+      // having a real name, which a test layer may not have yet — so leave
+      // the same way the (removed) button used to, via the component itself.
+      tool.stopEditingCurrent();
       await waitFor(() => tool.panelView === 'layers', 5_000, 'panel to leave editing view');
     }
 
-    if (tool.panelView === 'layers' && tool.pickedType !== type) {
-      const backBtn = await waitFor(
-        () => tool.shadowRoot.querySelector('sl-icon-button[label="Back"]'),
-        5_000, 'back button'
-      );
-      backBtn.click();
-      await waitFor(() => tool.panelView === 'type', 5_000, 'panel to reach type picker');
-    }
-
-    if (tool.panelView === 'type') {
+    // The type grid stays visible on both the bare picker and the layer
+    // list, so a card can be clicked directly without a Back step first.
+    if (tool.pickedType !== type) {
       const card = await waitFor(
         () => tool.shadowRoot.querySelector(`.type-card[data-type="${type}"]`),
         5_000, `type card for ${type}`
@@ -151,8 +134,8 @@ async function navigateToStartEditingLayer(page, geometryType, layerName) {
     const row = rows.find((r) => r.querySelector('.layer-name')?.textContent?.trim() === name);
     if (!row) throw new Error(`Layer row not found: ${name}`);
     const startBtn = Array.from(row.querySelectorAll('sl-button'))
-      .find((button) => (button.textContent ?? '').includes('Start editing'));
-    if (!startBtn) throw new Error('Start editing button not found');
+      .find((button) => (button.textContent ?? '').includes('Edit'));
+    if (!startBtn) throw new Error('Edit button not found');
     startBtn.click();
   }, { type: geometryType, name: layerName });
 
@@ -181,12 +164,12 @@ async function enterDrawMode(page, buttonName, expectedMode) {
 }
 
 /**
- * Create a brand-new layer — "Add new" now goes straight to its editing
- * session, no dialog. A fresh layer starts unnamed, and the whole toolbar
- * (mode pill, snap/undo/redo/delete, help text, "Edit attributes") stays
- * hidden until it has a name — only the name field itself shows, so this
- * also exercises that gate (asserting the draw button doesn't exist yet)
- * before naming the layer and switching into draw mode.
+ * Create a brand-new layer — "Add new" goes straight to its editing
+ * session, no dialog. A fresh layer already has a default name ("New layer",
+ * or "New layer (N)" for a later one of the same type) and the full toolbar
+ * (mode pill, snap/undo/redo/delete, help text, "Edit attributes") is
+ * usable immediately, so this just renames it to `layerName` before
+ * switching into draw mode.
  */
 async function createLayerDirect(page, geometryType, layerName, activeLayerType, drawButtonName, drawMode) {
   await navigateToAddNewLayerScreen(page, geometryType);
@@ -197,22 +180,17 @@ async function createLayerDirect(page, geometryType, layerName, activeLayerType,
     return tool?.panelView === 'editing' && Boolean(tool.activeLayerIds?.[expectedType]);
   }, { expectedType: activeLayerType }, { timeout: 10_000 });
 
-  const toolbarHiddenBeforeNaming = await page.evaluate(({ buttonName }) => {
-    const tool = document.querySelector('webmapx-map')?.querySelector('webmapx-draw-tool');
-    const btn = tool.shadowRoot.querySelector(`sl-icon-button[name="${buttonName}"]`);
-    const pill = tool.shadowRoot.querySelector('.pill');
-    return btn === null && pill === null;
-  }, { buttonName: drawButtonName });
-  if (!toolbarHiddenBeforeNaming) {
-    throw new Error('Expected the mode pill/draw button to be absent before the new layer has a name');
-  }
-
   await page.evaluate(({ name }) => {
     const tool = document.querySelector('webmapx-map')?.querySelector('webmapx-draw-tool');
     const nameInput = tool.shadowRoot.querySelector('.editing-layer-name');
     if (!nameInput) throw new Error('Layer name input not found');
+    // The name field is a draft-and-confirm control now — `sl-input` fills
+    // the draft, and only Enter (or the checkmark button) commits it. A
+    // bare `sl-change` is never listened for, so the rename silently never
+    // applied and the layer kept its default "New layer" name.
     nameInput.value = name;
-    nameInput.dispatchEvent(new Event('sl-change', { bubbles: true, composed: true }));
+    nameInput.dispatchEvent(new Event('sl-input', { bubbles: true, composed: true }));
+    nameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }));
   }, { name: layerName });
 
   await enterDrawMode(page, drawButtonName, drawMode);
@@ -745,7 +723,7 @@ export async function run({ page, engine, baseUrl }) {
 
   await step('add second point without dialog', async () => {
     // Navigating to the points layer pauses the still-active polygon layer
-    // rather than destroying it — resumed later via the same "Start editing" path.
+    // rather than destroying it — resumed later via the same "Edit" path.
     await navigateToStartEditingLayer(page, 'Point', pointLayerName);
     await enterDrawMode(page, 'geo-fill', 'draw-point');
     await emitMapClickAtCenter(page);
