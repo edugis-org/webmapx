@@ -7,7 +7,10 @@ import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, So
 import { MapStateStore } from '../../store/map-state-store';
 import OLMap from 'ol/Map';
 import { featureProjectionOf } from './projection-support';
-import { transformExtent } from 'ol/proj';
+import { transformExtent, get as getProjection } from 'ol/proj';
+import { unByKey } from 'ol/Observable';
+import type { EventsKey } from 'ol/events';
+import { mayMatchFilter, isSelectiveFilter } from './filter-prefilter';
 import { intersects } from 'ol/extent';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
@@ -90,6 +93,13 @@ export class MapLayerService implements ILayerService {
      * and crashed the tab.
      */
     private readonly geojsonSources = new Map<string, VectorSource>();
+    /**
+     * Narrowed views of a shared GeoJSON source — one per selective filter,
+     * holding only the features that filter can pass — keyed by native source id
+     * and then by filter. A layer draws its view, while queries, data reads and
+     * writes go to the shared source, which the views follow.
+     */
+    private readonly geojsonViews = new Map<string, Map<string, { source: VectorSource; keys: EventsKey[] }>>();
     /** Style-backed vector tile layers (whole GL style rendered via `stylefunction`), keyed by nativeLayerId. */
     private styleBackedLayerCache: Map<string, {
         layer: VectorTileLayer;
@@ -1228,16 +1238,92 @@ export class MapLayerService implements ILayerService {
             this.geojsonSources.set(nativeSourceId, source);
         }
 
+        // A filtered layer draws only what its filter can pass. OpenLayers
+        // restyles a layer by running the style function over every feature of
+        // its source, so with the shared source each class of a split layer paid
+        // for all of them: 8 frames a second against 60 while the sea level tool
+        // played. The style function still applies the real filter.
+        const drawn = isSelectiveFilter(style.filter)
+            ? this.filteredView(nativeSourceId, source, style.filter)
+            : source;
+
         const layer = new VectorLayer({
-            source,
+            source: drawn,
             minZoom: style.minzoom,
             maxZoom: style.maxzoom,
-            declutter: true
+            // Only what can collide is decluttered. A decluttered layer is
+            // drawn in a deferred pass that re-executes every frame, so a fill
+            // split into 51 class layers was redrawn 51 times over on every
+            // frame of an animation that changed one of them.
+            declutter: style.type === 'symbol' || style.type === 'circle'
         });
 
         this.applyGeoJSONStyle(layer, layerId, sourceConfig, style);
         (layer as any).__layerId = layerId;
         return layer;
+    }
+
+    /** A view of `shared` holding the features `filter` may pass, kept in step with it. */
+    private filteredView(nativeSourceId: string, shared: VectorSource, filter: unknown): VectorSource {
+        const key = JSON.stringify(filter);
+        let views = this.geojsonViews.get(nativeSourceId);
+        if (!views) {
+            views = new Map();
+            this.geojsonViews.set(nativeSourceId, views);
+        }
+        const existing = views.get(key);
+        if (existing) return existing.source;
+
+        const matches = (feature: Feature | undefined): feature is Feature =>
+            !!feature && mayMatchFilter(filter, feature.getProperties());
+        const view = new VectorSource({ features: shared.getFeatures().filter(matches) });
+        // A load adds features one event at a time; they are handed on in one
+        // batch, which is what makes adding 45 000 of them cheap.
+        let pending: Feature[] = [];
+        const flush = (): void => {
+            const batch = pending;
+            pending = [];
+            view.addFeatures(batch);
+        };
+        const keys = [
+            shared.on('addfeature', (event: any) => {
+                if (!matches(event.feature)) return;
+                if (pending.length === 0) queueMicrotask(flush);
+                pending.push(event.feature);
+            }),
+            shared.on('removefeature', (event: any) => {
+                if (event.feature && view.hasFeature(event.feature)) view.removeFeature(event.feature);
+            }),
+            shared.on('clear', () => {
+                pending = [];
+                view.clear(true);
+            }),
+        ];
+        views.set(key, { source: view, keys });
+        this.ensureLoaded(shared);
+        return view;
+    }
+
+    /**
+     * Starts loading a url-backed source. A source loads when a layer draws it,
+     * and one drawn only through filtered views has no layer of its own.
+     */
+    private ensureLoaded(source: VectorSource): void {
+        if (!source.getUrl() || (source as any).__webmapxLoadRequested) return;
+        (source as any).__webmapxLoadRequested = true;
+        const projection = getProjection(featureProjectionOf(this.map));
+        if (projection) source.loadFeatures([-Infinity, -Infinity, Infinity, Infinity], 1, projection);
+    }
+
+    /** Every shared GeoJSON source, whether or not a layer draws it directly. */
+    sharedVectorSources(): Iterable<VectorSource> {
+        return this.geojsonSources.values();
+    }
+
+    /** The source a native layer's features belong to: the shared one, not its filtered view. */
+    private featureSourceOf(nativeLayerId: string, layer: any): any {
+        const nativeSourceId = this.nativeLayerToSource.get(nativeLayerId);
+        return (nativeSourceId ? this.geojsonSources.get(nativeSourceId) : undefined) ?? layer?.getSource?.();
     }
 
     /**
@@ -1338,6 +1424,8 @@ export class MapLayerService implements ILayerService {
             }
             if (!stillUsed) {
                 this.geojsonSources.delete(sourceId);
+                for (const view of this.geojsonViews.get(sourceId)?.values() ?? []) unByKey(view.keys);
+                this.geojsonViews.delete(sourceId);
                 for (const [logicalId, nativeId] of this.logicalSourceToNative.entries()) {
                     if (nativeId === sourceId) {
                         this.logicalSourceToNative.delete(logicalId);
@@ -1387,7 +1475,7 @@ export class MapLayerService implements ILayerService {
         for (const [nativeLayerId, usedSourceId] of this.nativeLayerToSource.entries()) {
             if (usedSourceId !== nativeSourceId) continue;
             const layer = this.nativeLayerInstances.get(nativeLayerId) as VectorLayer<VectorSource> | undefined;
-            const source = layer?.getSource?.();
+            const source = this.featureSourceOf(nativeLayerId, layer);
             if (!source || typeof source.getFeatures !== 'function') continue;
             const features = source.getFeatures().map((feature: any) =>
                 JSON.parse(format.writeFeature(feature, { dataProjection: 'EPSG:4326', featureProjection: featureProjectionOf(this.map) }))
@@ -1429,7 +1517,7 @@ export class MapLayerService implements ILayerService {
         for (const nativeLayerId of nativeLayerIds) {
             const layer = this.nativeLayerInstances.get(nativeLayerId) as any;
             if (!layer) continue;
-            const source = layer.getSource?.();
+            const source = this.featureSourceOf(nativeLayerId, layer);
             if (!source) continue;
 
             if (typeof source.getFeatures === 'function' && !(source instanceof VectorTileSource)) {
@@ -1558,7 +1646,7 @@ export class MapLayerService implements ILayerService {
         for (const [nativeLayerId, usedSourceId] of this.nativeLayerToSource.entries()) {
             if (usedSourceId !== nativeSourceId) continue;
             const layer = this.nativeLayerInstances.get(nativeLayerId) as VectorLayer<VectorSource> | undefined;
-            const source = layer?.getSource?.();
+            const source = this.featureSourceOf(nativeLayerId, layer);
             if (!source || typeof source.clear !== 'function' || written.has(source)) continue;
             written.add(source);
             source.clear();

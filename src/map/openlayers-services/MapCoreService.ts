@@ -651,32 +651,36 @@ export class MapCoreService implements IMapCore {
         }
 
         let skipped = 0;
-        // A source shared by several layers (every sublayer of a split GeoJSON
-        // layer draws the same one) must be transformed once, not once per layer.
-        const transformed = new Set<VectorSource>();
-        const visitLayer = (layer: any): void => {
-            const source = typeof layer?.getSource === 'function' ? layer.getSource() : null;
-            if (source instanceof VectorSource && !transformed.has(source)) {
-                transformed.add(source);
-                for (const feature of source.getFeatures()) {
-                    const geometry = feature.getGeometry();
-                    if (!geometry) continue;
-                    // A feature can hold coordinates no projection can express.
-                    // Reading GeoJSON that reaches latitude ±90 into a Mercator
-                    // view produces ±Infinity — Antarctica does exactly this —
-                    // and proj4 then throws "coordinates must be finite numbers"
-                    // part-way through, leaving the map half-converted. One bad
-                    // feature must not cost the whole switch.
-                    try {
-                        geometry.applyTransform(transformFn);
-                    } catch {
-                        skipped++;
-                    }
+        // Geometry is transformed once however many sources hold it: sublayers of
+        // a split GeoJSON layer share one source, filtered sublayers draw views of
+        // it holding the same features, and the shared source itself may be drawn
+        // by no layer at all — so it is visited as well, through the registry.
+        const transformed = new Set<unknown>();
+        const visitSource = (source: VectorSource): void => {
+            for (const feature of source.getFeatures()) {
+                const geometry = feature.getGeometry();
+                if (!geometry || transformed.has(geometry)) continue;
+                transformed.add(geometry);
+                // A feature can hold coordinates no projection can express.
+                // Reading GeoJSON that reaches latitude ±90 into a Mercator
+                // view produces ±Infinity — Antarctica does exactly this —
+                // and proj4 then throws "coordinates must be finite numbers"
+                // part-way through, leaving the map half-converted. One bad
+                // feature must not cost the whole switch.
+                try {
+                    geometry.applyTransform(transformFn);
+                } catch {
+                    skipped++;
                 }
             }
+        };
+        const visitLayer = (layer: any): void => {
+            const source = typeof layer?.getSource === 'function' ? layer.getSource() : null;
+            if (source instanceof VectorSource) visitSource(source);
             const sublayers = typeof layer?.getLayers === 'function' ? layer.getLayers() : null;
             sublayers?.forEach?.(visitLayer);
         };
+        for (const source of this.layerOrderRegistry?.sharedVectorSources?.() ?? []) visitSource(source);
         this.mapInstance.getLayers().forEach(visitLayer);
 
         this.mapInstance.getOverlays().forEach(overlay => {
@@ -723,9 +727,17 @@ export class MapCoreService implements IMapCore {
         return next;
     }
 
-    private layerOrderRegistry: { registerInlineLayer: (id: string, instance: any, options?: any) => void; unregisterInlineLayer: (id: string) => void } | null = null;
+    private layerOrderRegistry: {
+        registerInlineLayer: (id: string, instance: any, options?: any) => void;
+        unregisterInlineLayer: (id: string) => void;
+        sharedVectorSources?: () => Iterable<VectorSource>;
+    } | null = null;
 
-    setLayerOrderRegistry(registry: { registerInlineLayer: (id: string, instance: any, options?: any) => void; unregisterInlineLayer: (id: string) => void }): void {
+    setLayerOrderRegistry(registry: {
+        registerInlineLayer: (id: string, instance: any, options?: any) => void;
+        unregisterInlineLayer: (id: string) => void;
+        sharedVectorSources?: () => Iterable<VectorSource>;
+    }): void {
         this.layerOrderRegistry = registry;
     }
 
