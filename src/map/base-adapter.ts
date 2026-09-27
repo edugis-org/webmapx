@@ -1045,7 +1045,7 @@ export abstract class BaseAdapter {
 
     getSource(id: string): ISource | undefined {
         return this.getCore().getSource(id) ?? (
-            this.getLogicalLayerExecutor().getSourceData(id) !== null
+            this.hasSourceData(id)
                 ? { id, setData: (data: GeoJSON.FeatureCollection) => { this.getLogicalLayerExecutor().setSourceData(id, data); } }
                 : undefined
         );
@@ -1269,6 +1269,16 @@ export abstract class BaseAdapter {
     /** Alias of removeLayer — logical and native removal follow the same path. */
     removeLogicalLayer(layerId: string): void {
         this.removeLayer(layerId);
+    }
+
+    /**
+     * The layer service's cheap answer when it has one; otherwise `getSourceData`
+     * itself, including any engine override of it (MapLibre also tries native
+     * source ids), so an engine without a cheap path answers exactly as before.
+     */
+    hasSourceData(sourceId: string): boolean {
+        if (this.getLogicalLayerExecutor().hasSourceData?.(sourceId)) return true;
+        return this.getSourceData(sourceId) !== null;
     }
 
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {

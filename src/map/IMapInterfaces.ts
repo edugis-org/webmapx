@@ -398,6 +398,15 @@ export interface IMap {
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null;
 
     /**
+     * Whether `getSourceData` would return anything, without building it. Ask
+     * this to decide whether to *offer* something (zoom to layer): on
+     * OpenLayers `getSourceData` serialises every feature back to GeoJSON, and
+     * the legend asked on every store change — 45 000 features, twice per step
+     * of the sea level slider, took up to 13 seconds a step.
+     */
+    hasSourceData(sourceId: string): boolean;
+
+    /**
      * Replaces a logical GeoJSON source's data. False for a source the app does
      * not hold whole — a tiled one — whose features live on a server.
      */
@@ -654,6 +663,9 @@ export interface ILogicalLayerExecutor {
     /** Returns current GeoJSON data for a catalog/logical source, or null if unavailable. */
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null;
 
+    /** Whether `getSourceData` would return anything, without building it. Optional: absent means ask `getSourceData`. */
+    hasSourceData?(sourceId: string): boolean;
+
     /** Returns currently loaded source features when supported by the engine. */
     querySourceFeatures?(sourceId: string, options?: SourceFeatureQueryOptions): SourceFeatureSample | null;
 
@@ -714,6 +726,9 @@ export interface ILayerService {
 
     /** Returns current GeoJSON data for a catalog/logical source, or null if unavailable. */
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null;
+
+    /** Whether `getSourceData` would return anything, without building it. Optional: absent means ask `getSourceData`. */
+    hasSourceData?(sourceId: string): boolean;
 
     /** Returns currently loaded source features when supported by the engine. */
     querySourceFeatures?(sourceId: string, options?: SourceFeatureQueryOptions): SourceFeatureSample | null;

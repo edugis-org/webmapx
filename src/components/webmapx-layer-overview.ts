@@ -1508,7 +1508,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   private layerHasExtent(layerId: string, metadata: Record<string, unknown> | undefined): boolean {
     if (Array.isArray(metadata?.bounds) && metadata.bounds.length === 4) return true;
     return getLayerSourceRefs(layerId, metadata).some((candidates) =>
-      candidates.some((sourceId) => this.adapter?.getSourceData(sourceId) !== null));
+      candidates.some((sourceId) => this.adapter?.hasSourceData(sourceId) === true));
   }
 
   /**

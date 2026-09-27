@@ -62,6 +62,11 @@ export class DeferredLogicalLayerExecutor implements ILogicalLayerExecutor {
         this.layerService?.setLayerOpacity(layerId, factor);
     }
 
+    /** The layer service's cheap answer, if it has one; false otherwise (callers then ask `getSourceData`). */
+    hasSourceData(sourceId: string): boolean {
+        return this.layerService?.hasSourceData?.(sourceId) ?? false;
+    }
+
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
         return this.layerService?.getSourceData(sourceId) ?? null;
     }

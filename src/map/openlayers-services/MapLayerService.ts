@@ -1468,6 +1468,16 @@ export class MapLayerService implements ILayerService {
         }
     }
 
+    /**
+     * Whether `getSourceData` would return anything — answered without writing
+     * out a single feature, which is what `getSourceData` costs here.
+     */
+    hasSourceData(sourceId: string): boolean {
+        const nativeSourceId = this.logicalSourceToNative.get(sourceId);
+        if (!nativeSourceId) return false;
+        return this.geojsonSources.has(nativeSourceId);
+    }
+
     getSourceData(sourceId: string): GeoJSON.FeatureCollection | string | null {
         const nativeSourceId = this.logicalSourceToNative.get(sourceId);
         if (!nativeSourceId) return null;
