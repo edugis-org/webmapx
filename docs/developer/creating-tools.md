@@ -366,6 +366,17 @@ Call `this.subscribeToConfig()` in `connectedCallback` to receive `onConfigReady
 
 ---
 
+## Tools that add layers: permalinks
+
+A tool that adds a layer of its own (the sea level tool's coastal zones, the deep-time tool's coastlines) cannot leave it to the permalink's layer list: no catalog knows that layer, so the link would report it as "could not be restored", and the engine opening the link may need it in another format. Such a tool instead:
+
+1. returns a key from `protected get permalinkKey()` (usually its tool type);
+2. sets `metadata.ownerTool` to that key on every layer it adds — the permalink then leaves those layers out of `l`;
+3. calls `this.publishToolState({...})` with whatever it needs to rebuild them (a slider position, a model id; short keys, it goes into a URL), and `publishToolState(null)` when that no longer matters, e.g. once the user removed the layer. Publishing is debounced, so calling it on every frame of playback is fine;
+4. overrides `protected applyToolState(state)` to rebuild: add the layers and set the slider. It is called once, with the panel closed — a link restores the map, not the tool's panel.
+
+The states travel as `x: { <key>: state }` in the permalink; `webmapx-map` hands them to the tools through `store.toolRestore`, and each tool takes its own entry. The permalink code knows no tool by name.
+
 ## Accessibility checklist
 
 - `WebmapxBaseTool.connectedCallback` auto-sets `aria-label` from `label` attribute or `toolId`. Provide a `label` on every tool.

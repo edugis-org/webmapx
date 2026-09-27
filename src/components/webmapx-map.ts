@@ -1695,6 +1695,12 @@ export class WebmapxMapElement extends HTMLElement {
       adapter.store.dispatch({ terrainEnabled: true }, 'UI');
     }
 
+    // Layers a tool owns are not in `l`; each tool rebuilds its own from this,
+    // taking its entry when it attaches (`WebmapxBaseTool.applyToolState`).
+    if (state.x && typeof state.x === 'object') {
+      adapter.store.dispatch({ toolRestore: state.x }, 'INIT');
+    }
+
     // Notify user about layers from the permalink that could not be loaded.
     // Exclude the auto-managed terrain hillshade layer — the 3D tool re-adds it
     // asynchronously when state.terrain is true, so it won't be in loadedLayers yet.

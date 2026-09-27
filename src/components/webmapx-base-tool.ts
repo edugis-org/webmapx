@@ -62,6 +62,7 @@ export abstract class WebmapxBaseTool extends LitElement {
         
         // Notify subclass that map is ready
         this.onMapAttached(adapter);
+        this.takeToolRestore(this.store.getState());
 
         // Initial state sync
         this.onStateChanged(this.store.getState());
@@ -109,7 +110,72 @@ export abstract class WebmapxBaseTool extends LitElement {
             return; 
         }
 
+        this.takeToolRestore(state);
         this.onStateChanged(state);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Permalink state
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * The key this tool's state travels under in a permalink, or null for a
+     * tool with nothing to carry. A tool that sets one marks the layers it adds
+     * with `metadata.ownerTool` set to the same key, publishes its state with
+     * `publishToolState`, and rebuilds from it in `applyToolState`.
+     */
+    protected get permalinkKey(): string | null {
+        return null;
+    }
+
+    private toolStateTimer: ReturnType<typeof setTimeout> | null = null;
+    private takenRestore: unknown = null;
+
+    /**
+     * Records what a permalink needs to rebuild this tool's layers. Settles
+     * first: a slider publishes on every frame of playback, and a link only
+     * ever needs where it came to rest.
+     */
+    protected publishToolState(state: Record<string, unknown> | null): void {
+        const key = this.permalinkKey;
+        if (!key) return;
+        if (this.toolStateTimer !== null) clearTimeout(this.toolStateTimer);
+        this.toolStateTimer = setTimeout(() => {
+            this.toolStateTimer = null;
+            const store = this.store;
+            if (!store) return;
+            const next = { ...(store.getState().toolStates ?? {}) };
+            if (state) next[key] = state;
+            else delete next[key];
+            store.dispatch({ toolStates: next }, 'UI');
+        }, 250);
+    }
+
+    /**
+     * Rebuilds this tool's layers from the state a permalink carried. Called
+     * once, whether or not the tool is open: a link shows the map as it was,
+     * and the tool's panel was never part of that.
+     */
+    protected applyToolState(_state: Record<string, unknown>): void {
+        // Optional override
+    }
+
+    /** Takes this tool's entry out of `toolRestore`, once. */
+    private takeToolRestore(state: IMapState): void {
+        const key = this.permalinkKey;
+        const pending = key ? state.toolRestore?.[key] : undefined;
+        if (!key || !pending || typeof pending !== 'object' || this.takenRestore === pending) return;
+        this.takenRestore = pending;
+        // Not from inside the store's own notification loop.
+        queueMicrotask(() => {
+            const store = this.store;
+            if (store) {
+                const rest = { ...(store.getState().toolRestore ?? {}) };
+                delete rest[key];
+                store.dispatch({ toolRestore: rest }, 'INIT');
+            }
+            this.applyToolState(pending);
+        });
     }
 
     /**

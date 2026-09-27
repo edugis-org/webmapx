@@ -28,6 +28,11 @@ export interface MapPermalinkSnapshot {
    * share dialog names them rather than letting the link fail quietly.
    */
   dynamicLayerIds: string[];
+  /**
+   * State of the tools that publish one (`store.toolStates`). Layers a tool owns
+   * (`MapLayerStateEntry.ownerTool`) are left out of `layerIds`: the tool rebuilds them.
+   */
+  tools: Record<string, Record<string, unknown>>;
 }
 
 /**
@@ -55,9 +60,24 @@ export function snapshotMapForPermalink(adapter: IMap): MapPermalinkSnapshot {
 
   // The auto-managed terrain hillshade layer is implied by terrain:true — leaving it in the
   // layer list would have the other end report it as a layer it could not restore.
+  // A layer a tool added is the tool's to add again, from the state it publishes: no catalog
+  // knows it, and the engine opening the link may need it in another format. The tools' states
+  // travel instead. A tool withdraws its state itself when it stops mattering (the sea level
+  // tool when its layer is removed); it cannot be inferred from ownership, since the deep-time
+  // tool's age also drives coastline layers a config declared, which it does not own.
+  const ownedBy = (id: string): string | null => {
+    const owner = mapLayers[id]?.ownerTool;
+    return typeof owner === 'string' && owner.length > 0 ? owner : null;
+  };
+  const tools: Record<string, Record<string, unknown>> = {};
+  for (const [key, state] of Object.entries(storeState.toolStates ?? {})) {
+    if (state && typeof state === 'object') tools[key] = state;
+  }
+  const shared = allLayerIds.filter(id => ownedBy(id) === null);
+
   const layerIds = terrainEnabled
-    ? allLayerIds.filter(id => id !== TERRAIN_LAYER_ID)
-    : allLayerIds;
+    ? shared.filter(id => id !== TERRAIN_LAYER_ID)
+    : shared;
 
   // The map's clock travels with the link: a pinned moment, and the speed it is playing at.
   // A live map contributes nothing — "now" is not a value.
@@ -68,12 +88,13 @@ export function snapshotMapForPermalink(adapter: IMap): MapPermalinkSnapshot {
 
   return {
     layerIds,
-    hiddenLayerIds: hiddenLayerIds.filter(id => id !== TERRAIN_LAYER_ID),
+    hiddenLayerIds: hiddenLayerIds.filter(id => id !== TERRAIN_LAYER_ID && ownedBy(id) === null),
     viewport: adapter.getViewportState(),
     transparencyOverrides,
     projection: adapter.getProjection?.()?.name ?? null,
     terrainEnabled,
     time,
-    dynamicLayerIds: allLayerIds.filter(id => mapLayers[id]?.dynamic === true),
+    dynamicLayerIds: shared.filter(id => mapLayers[id]?.dynamic === true),
+    tools,
   };
 }

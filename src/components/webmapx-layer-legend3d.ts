@@ -1432,7 +1432,7 @@ export class WebmapxLayerLegend3d extends WebmapxBaseTool {
     const url = buildPermalinkUrl(
       mapIndex, snapshot.layerIds, snapshot.hiddenLayerIds, snapshot.viewport,
       snapshot.transparencyOverrides, snapshot.projection, configUrl, snapshot.terrainEnabled,
-      snapshot.time, compare,
+      snapshot.time, compare, snapshot.tools,
     );
     const dynamicLayerIds = [...new Set([
       ...snapshot.dynamicLayerIds,

@@ -80,6 +80,20 @@ export interface IMapState {
      * moves with the wall clock, so playing it means nothing.
      */
     mapTimePlay?: number | null;
+    /**
+     * What each tool that owns layers would need to rebuild them, keyed by the
+     * tool's permalink key (`WebmapxBaseTool.permalinkKey`): the sea level on
+     * the slider, the age and model of the deep-time map. A permalink carries
+     * every entry; a tool withdraws its own (publishes null) when it no longer
+     * matters, such as when the user removes the tool's layer.
+     */
+    toolStates?: Record<string, Record<string, unknown>>;
+    /**
+     * Tool states read from a permalink, waiting for their tool. Each tool takes
+     * its own entry once and removes it, so an entry for a tool this map does not
+     * have simply stays unused.
+     */
+    toolRestore?: Record<string, Record<string, unknown>>;
 }
 
 export type MapTimeState =
@@ -129,6 +143,14 @@ export interface MapLayerStateEntry {
     transparency?: number;
     /** True when the layer was added from a local file drop — cannot be restored from a permalink. */
     dynamic?: boolean;
+    /**
+     * The tool that added this layer and can add it again (`metadata.ownerTool`,
+     * the tool's permalink key). A permalink leaves such a layer out of its layer
+     * list — no catalog knows it — and carries the tool's state instead, from
+     * which the tool rebuilds it, in whatever format the engine opening the link
+     * can draw.
+     */
+    ownerTool?: string;
     [key: string]: unknown;
 }
 

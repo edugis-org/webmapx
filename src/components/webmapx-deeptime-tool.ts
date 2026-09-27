@@ -267,6 +267,14 @@ interface ModelChoice {
 export class WebmapxDeeptimeTool extends WebmapxModalTool {
     readonly toolId = 'deeptime';
 
+    /** Age, model and plate boundaries travel in a permalink; see `applyToolState`. */
+    protected get permalinkKey(): string {
+        return 'deeptime';
+    }
+
+    /** A model named by a permalink, applied once the config's list is read. */
+    private restoredModelId: string | null = null;
+
     /** Directory holding `coastlines-present.geojson` and `rotations-*.json`. */
     @property({ type: String }) data = DEFAULT_DATA;
     /**
@@ -405,7 +413,11 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
         void this.begin();
     }
 
-    protected onMapAttached(): void {
+    protected onMapAttached(adapter: Parameters<WebmapxModalTool['onMapAttached']>[0]): void {
+        // The base class registers the tool with the map's ToolManager; without
+        // it the tool was never registered, so activating another tool did not
+        // close this one and `toolManager.activate('deeptime')` found nothing.
+        super.onMapAttached(adapter);
         if (this.wanted) void this.begin();
     }
 
@@ -612,6 +624,7 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
             metadata: {
                 label: 'Deforming zones',
                 dynamic: true,
+                ownerTool: 'deeptime',
                 legendRole: 'overlay',
                 ...(deformingAbstract ? { abstract: deformingAbstract } : {}),
             },
@@ -626,6 +639,7 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
             metadata: {
                 label: 'Plate boundaries',
                 dynamic: true,
+                ownerTool: 'deeptime',
                 legendRole: 'overlay',
                 ...(deformingAbstract ? { abstract: deformingAbstract } : {}),
             },
@@ -747,6 +761,15 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
         if (this.started || !this.store || !this.mapElement) return;
         this.started = true;
         this.readConfig();
+        if (this.restoredModelId) {
+            const restored = this.models.find((model) => model.id === this.restoredModelId);
+            if (restored) {
+                this.chosenModelId = restored.id;
+                this.data = restored.data;
+                this.to = restored.to;
+            }
+            this.restoredModelId = null;
+        }
         this.loading = true;
         this.error = null;
         const model = await loadPlateModelFrom(this.data);
@@ -852,6 +875,7 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
             metadata: {
                 label: 'Palaeo-coastlines',
                 dynamic: true,
+                ownerTool: 'deeptime',
                 legendRole: 'overlay',
                 ...(this.credit.abstract ? { abstract: this.credit.abstract } : {}),
             },
@@ -861,6 +885,40 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
     /** Hands the age to the store, which is what actually redraws anything. */
     private publish(): void {
         this.store?.dispatch({ deepTimeMa: this.ma }, 'UI');
+        this.publishPermalinkState();
+    }
+
+    /**
+     * What a permalink needs: the age; the model, when there was a choice; the
+     * plate boundaries, when turned off; and whether the tool drew coastlines
+     * of its own (`c`) — a config's own paleo layers travel in the link's layer
+     * list and only need the age, while the tool's must be added again.
+     */
+    private publishPermalinkState(): void {
+        const layers = this.store?.getState().mapLayers ?? {};
+        const model = this.models.length > 0 ? this.currentModel?.id : undefined;
+        this.publishToolState({
+            ma: this.ma,
+            ...(model ? { m: model } : {}),
+            ...(this.showPlates ? {} : { p: 0 }),
+            ...(LAYER_ID in layers || !this.mapHasPaleoLayer() ? { c: 1 } : {}),
+        });
+    }
+
+    /**
+     * Rebuilds the map a permalink describes, with the panel closed: the age
+     * goes to the store, which every `{ma}` layer — the config's too — follows;
+     * the tool's own layers are added again only if it had drawn them.
+     */
+    protected applyToolState(state: Record<string, unknown>): void {
+        const ma = Number(state.ma);
+        if (Number.isFinite(ma)) {
+            this.ma = ma;
+            this.store?.dispatch({ deepTimeMa: ma }, 'INIT');
+        }
+        if (typeof state.m === 'string') this.restoredModelId = state.m;
+        if (state.p === 0) this.showPlates = false;
+        if (state.c === 1) void this.begin();
     }
 
     /**
@@ -992,6 +1050,7 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
                             @change=${(e: Event) => {
                                 this.showPlates = (e.target as HTMLInputElement).checked;
                                 void this.applyPlateLayers();
+                                this.publishPermalinkState();
                             }}>
                         Plate boundaries
                     </label>

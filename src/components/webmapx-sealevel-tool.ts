@@ -49,6 +49,7 @@ import {
 import { curveSpan, parseSeaLevelCurve, seaLevelAt, type SeaLevelCurve } from '../utils/sea-level-curve';
 import { sanitizeAbstractHtml } from '../utils/sanitize-html';
 import type { WebmapxMapElement } from './webmapx-map';
+import type { IMapState } from '../store/IMapState';
 
 /** Metres per second of playback. Slow enough to watch a strait close. */
 const SPEEDS = [
@@ -132,6 +133,11 @@ const LANDMARKS: ReadonlyArray<{ level: number; label: string }> = [
 @customElement('webmapx-sealevel-tool')
 export class WebmapxSealevelTool extends WebmapxModalTool {
     readonly toolId = 'sealevel';
+
+    /** The level travels in a permalink, and the tool rebuilds its layer from it. */
+    protected get permalinkKey(): string {
+        return 'sealevel';
+    }
 
     /** Id of the layer to drive, as named in the config's layers. */
     @property({ type: String }) layer = 'coastal-zones';
@@ -363,7 +369,9 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
                 'fill-antialias': false,
             },
             title: 'Coastal zones',
-            metadata: { title: 'Coastal zones' },
+            // Rebuilt from the tool's permalink state rather than by id: no
+            // catalog knows this layer, and its format depends on the engine.
+            metadata: { title: 'Coastal zones', ownerTool: this.permalinkKey },
         };
     }
 
@@ -417,6 +425,10 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
     private apply(): void {
         if (!this.adapter || !this.started) return;
         const level = this.roundedLevel();
+        this.publishToolState({
+            lv: level,
+            ...(this.mode === 'time' && this.ageKa !== null ? { m: 'time', a: Math.round(this.ageKa * 10) / 10 } : {}),
+        });
         for (const v of this.classLevels) {
             const role = classRole(v, level, this.today);
             if (this.appliedRoles.get(v) === role) continue;
@@ -462,6 +474,39 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
         this.stopPlaying();
         this.mode = mode;
         if (mode === 'time' && this.ageKa !== null) this.setAge(this.ageKa);
+        this.apply();
+    }
+
+    /** Whether the layer has been on the map since the state was last published. */
+    private hadLayer = false;
+
+    /**
+     * Withdraws the permalink state once the layer is gone: a link made after
+     * the user removed it from the legend should not bring it back.
+     */
+    protected onStateChanged(state: IMapState): void {
+        super.onStateChanged(state);
+        if (this.layer in (state.mapLayers ?? {})) {
+            this.hadLayer = true;
+        } else if (this.hadLayer) {
+            this.hadLayer = false;
+            this.publishToolState(null);
+        }
+    }
+
+    /**
+     * Rebuilds the map a permalink describes: the layer, split into classes, at
+     * the level it was shared at — with the panel closed, as the map was when
+     * the link was made. `a` is the age in time mode, which needs the curve; if
+     * that cannot be read the level alone still shows the right coastline.
+     */
+    protected applyToolState(state: Record<string, unknown>): void {
+        if (typeof state.lv === 'number' && Number.isFinite(state.lv)) this.level = state.lv;
+        if (state.m === 'time' && typeof state.a === 'number' && Number.isFinite(state.a)) {
+            this.mode = 'time';
+            this.ageKa = state.a;
+        }
+        void this.begin();
     }
 
     /**

@@ -75,6 +75,13 @@ export interface PermalinkState {
      * see is state nobody can verify from the picture.
      */
     tp?: number;
+    /**
+     * State of the tools that own layers, keyed by the tool's permalink key — the
+     * level on the sea level slider, the age and model of the deep-time map. The
+     * layers themselves are not in `l`: no catalog knows them, and the tool
+     * rebuilds them from this in whatever format the engine can draw.
+     */
+    x?: Record<string, Record<string, unknown>>;
 }
 
 /** The clock half of a permalink, as `buildPermalinkUrl` takes it. */
@@ -140,6 +147,8 @@ export interface PermalinkStateInput {
     projection?: string | null;
     terrainEnabled?: boolean;
     time?: PermalinkTimeState | null;
+    /** Tool states to carry (`x`); see `PermalinkState.x`. */
+    tools?: Record<string, Record<string, unknown>> | null;
 }
 
 /**
@@ -150,7 +159,7 @@ export interface PermalinkStateInput {
  * halves of a shared comparison would round differently and drift apart.
  */
 export function permalinkStateFrom(input: PermalinkStateInput): PermalinkState {
-    const { layerIds, hiddenLayerIds, viewport, transparencyOverrides, projection, terrainEnabled, time } = input;
+    const { layerIds, hiddenLayerIds, viewport, transparencyOverrides, projection, terrainEnabled, time, tools } = input;
 
     const t: Record<string, number> = {};
     for (const [id, val] of transparencyOverrides) {
@@ -177,6 +186,7 @@ export function permalinkStateFrom(input: PermalinkStateInput): PermalinkState {
         state.tm = Math.round(time.at / 1000);
         if (typeof time.play === 'number' && time.play > 0) state.tp = time.play / 1000;
     }
+    if (tools && Object.keys(tools).length > 0) state.x = tools;
     return state;
 }
 
@@ -191,6 +201,7 @@ export function buildPermalinkUrl(
     terrainEnabled?: boolean,
     time?: PermalinkTimeState | null,
     compare?: ComparePermalinkState | null,
+    tools?: Record<string, Record<string, unknown>> | null,
 ): string {
     const state = permalinkStateFrom({
         layerIds: allLayerIds,
@@ -200,6 +211,7 @@ export function buildPermalinkUrl(
         projection,
         terrainEnabled,
         time,
+        tools,
     });
 
     const url = new URL(window.location.href);

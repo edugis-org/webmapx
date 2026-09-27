@@ -34,7 +34,7 @@ The data are CC BY 4.0 and derived from the public-domain GEBCO_2026 Grid, whose
    - everything else is transparent, so the basemap shows today's land and lakes (e.g. the Caspian below its +25 m overflow).
 4. Levels worth a name (last glacial maximum, IPCC AR6 2100, Greenland/Antarctica melted) are labelled under the slider.
 
-Closing the panel leaves the layer at the level it was left at, so the map can be measured, queried or printed as the slider set it up. The legend follows the slider: the classes are titled "Sea", "Dry sea floor" and "As today".
+Closing the panel leaves the layer at the level it was left at, so the map can be measured, queried or printed as the slider set it up. A permalink carries the level (and the age, in time mode): opening the link rebuilds the layer at that level, with the panel closed, in whichever format the opening engine can draw. The legend follows the slider: the classes are titled "Sea", "Dry sea floor" and "As today".
 
 ### Time mode
 
