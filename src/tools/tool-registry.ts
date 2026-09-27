@@ -143,6 +143,10 @@ export const TOOL_REGISTRY: readonly ToolRegistryEntry[] = [
         icon: 'sliders',
     },
     {
+        id: 'megaCompare', tag: 'webmapx-mega-compare', placement: 'standalone', label: 'Mega compare',
+        icon: 'arrow-left-right',
+    },
+    {
         id: 'activeAdapter', tag: 'webmapx-active-adapter', placement: 'standalone', label: 'Engine label',
         icon: 'cpu', aliases: ['active-adapter'], bundled: true,
     },
