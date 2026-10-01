@@ -1540,15 +1540,30 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
                 : html`<p class="instructions">Measurement finished. Add it to the map with the layer button, or ${verb.toLowerCase()} Clear to start a new one.</p>`;
         }
 
+        const verb = this.isTouchDevice ? 'Tap' : 'Click';
         if (this.points.length === 0) {
-            return html`<p class="instructions">Click on the map to start measuring.</p>`;
+            return html`<p class="instructions">${verb} on the map to start measuring.</p>`;
         }
 
-        if (this.points.length < 3) {
-            return html`<p class="instructions">Click to add points. Double-click, right-click or ESC to finish.</p>`;
+        if (this.points.length === 1) {
+            return html`<p class="instructions">${verb} to add the next point.</p>`;
         }
 
-        return html`<p class="instructions">Click near first point to close polygon, or double-click/right-click/ESC to finish.</p>`;
+        // The Finish button is on screen from here on, so it leads; the mouse
+        // and keyboard shortcuts follow for those who want them.
+        const finish = this.isTouchDevice
+            ? 'finish with the Finish button'
+            : 'finish with the Finish button, a double-click or Esc';
+        if (this.points.length === 2) {
+            return html`<p class="instructions">${verb} to add points, or ${finish}.</p>`;
+        }
+
+        return html`<p class="instructions">${verb} the first point to close the area, or ${finish}.</p>`;
+    }
+
+    /** A measurement in progress with at least one segment can be finished. */
+    private get canFinish(): boolean {
+        return !this.isFinished && this.points.length >= 2;
     }
 
     private renderElevationProfile(): TemplateResult | typeof nothing {
@@ -1624,6 +1639,16 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
                             <sl-icon name="trash" slot="prefix"></sl-icon>
                             Clear
                         </sl-button>
+                        ${this.canFinish ? html`
+                            <sl-button
+                                size="small"
+                                title="Finish the measurement (double-click, right-click or Esc)"
+                                @click=${() => this.finishMeasurement()}
+                            >
+                                <sl-icon name="check-lg" slot="prefix"></sl-icon>
+                                Finish
+                            </sl-button>
+                        ` : nothing}
                         ${this.renderLayerToggle()}
                     </div>
                 </div>
