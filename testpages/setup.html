@@ -161,7 +161,8 @@
     .plugin-add-row input { flex: 1; min-width: 0; }
     label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; position: relative; }
     label input[type=checkbox] { cursor: pointer; flex-shrink: 0; }
-    label.not-in-config { color: #888; font-style: italic; }
+    /* Follows the checkbox, not the base config: an unchecked tool is left out of the saved config. */
+    label.tool-label:has(> input[type=checkbox]:not(:checked)) { color: #888; font-style: italic; }
     .tool-name { flex: 1; }
     .drag-handle {
       cursor: grab; color: #bbb; font-size: 13px; flex-shrink: 0;
@@ -1053,6 +1054,7 @@
 
     function makeToolLabel(cb, labelText, baseProps, propsKey) {
       const label = document.createElement('label');
+      label.className = 'tool-label';
       label.dataset.toolId = cb.dataset.tool ?? cb.dataset.standalone ?? cb.dataset.key ?? '';
       label.appendChild(cb);
       const span = document.createElement('span');
@@ -1163,7 +1165,6 @@
           cb.dataset.tool = tool.id;
           if (enabled) cb.checked = true;
           const label = makeToolLabel(cb, tool.label, itemOrDefault, propsKey);
-          if (!inCfg) label.className = 'not-in-config';
           makeDraggable(label, toolOrderKey);
           toolLabels.push(label);
 
@@ -1209,7 +1210,6 @@
               subCb.dataset.tool = subTool.id;
               if (subEnabled) subCb.checked = true;
               const subLabel = makeToolLabel(subCb, subTool.label, subItemOrDefault, subPropsKey);
-              if (!subInCfg) subLabel.className = 'not-in-config';
               makeDraggable(subLabel, subOrderKey);
               subLabels.push(subLabel);
             }
@@ -1245,7 +1245,6 @@
         cb.dataset.standalone = tool.id;
         if (enabled) cb.checked = true;
         const label = makeToolLabel(cb, tool.label, valOrDefault, propsKey);
-        if (!inCfg) label.className = 'not-in-config';
         gridS.appendChild(label);
       }
       ui.appendChild(gridS);
@@ -1262,7 +1261,6 @@
       cbDev.dataset.key = 'dev:configedit';
       if (configEditEnabled) cbDev.checked = true;
       const labelDev = makeToolLabel(cbDev, 'Config editor', null, null);
-      labelDev.className = 'not-in-config';
       gridDev.appendChild(labelDev);
       ui.appendChild(gridDev);
 
