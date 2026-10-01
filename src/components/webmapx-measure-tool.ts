@@ -1395,8 +1395,8 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             return `${x.toFixed(1)},${y.toFixed(1)}`;
         }).join(' ');
 
-        const minLabel = `${Math.round(min)} m`;
-        const maxLabel = `${Math.round(max)} m`;
+        const minLabel = `${Math.round(min).toLocaleString()} m`;
+        const maxLabel = `${Math.round(max).toLocaleString()} m`;
 
         return html`
             <div class="elevation-profile">

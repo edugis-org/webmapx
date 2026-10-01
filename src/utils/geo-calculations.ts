@@ -194,18 +194,34 @@ const M2_PER_ACRE = 4046.8564224;
 const ACRES_PER_SQUARE_MILE = 640;
 
 /**
+ * A number with a fixed number of decimals, grouped and punctuated the way the
+ * reader's locale writes numbers: 602.696 and 1,001 in Dutch, 602,696 and
+ * 1.001 in English.
+ *
+ * Grouping and the decimal mark have to come from the same place. Grouping
+ * thousands with a dot while keeping a decimal point would make 1.001 km (one
+ * kilometre) and 1.001 km (a thousand) the same string.
+ *
+ * @param locale BCP 47 tag; undefined means the browser's own locale
+ */
+function formatFixed(value: number, decimals: number, locale?: string): string {
+    return value.toLocaleString(locale, {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+    });
+}
+
+/**
  * Rounds to three significant digits *within a unit*, the way a measurement is
- * read aloud: 1.001 km, 10.01 km, 100.6 km, 1006 km.
+ * read aloud: 1.001 km, 10.01 km, 100.6 km, 1,006 km.
  *
  * Shared by both systems because the rule is about how many digits a reader can
  * use, not about which unit they are in — writing it twice is how the imperial
  * ladder ends up one decimal out from the metric one.
  */
-function threeSignificant(value: number, unit: string): string {
-    if (value < 10) return `${value.toFixed(3)} ${unit}`;
-    if (value < 100) return `${value.toFixed(2)} ${unit}`;
-    if (value < 1000) return `${value.toFixed(1)} ${unit}`;
-    return `${Math.round(value)} ${unit}`;
+function threeSignificant(value: number, unit: string, locale?: string): string {
+    const decimals = value < 10 ? 3 : value < 100 ? 2 : value < 1000 ? 1 : 0;
+    return `${formatFixed(value, decimals, locale)} ${unit}`;
 }
 
 /**
@@ -220,19 +236,20 @@ function threeSignificant(value: number, unit: string): string {
  *
  * @param distanceCm Distance in centimeters
  * @param system Unit system to read it in; metric unless asked otherwise
+ * @param locale How to punctuate the number; the browser's locale unless given
  */
-export function formatDistance(distanceCm: number, system: UnitSystem = 'metric'): string {
+export function formatDistance(distanceCm: number, system: UnitSystem = 'metric', locale?: string): string {
     if (system === 'imperial') {
         const feet = distanceCm / CM_PER_FOOT;
-        if (feet < FEET_PER_MILE) return `${Math.round(feet)} ft`;
-        return threeSignificant(feet / FEET_PER_MILE, 'mi');
+        if (feet < FEET_PER_MILE) return `${formatFixed(feet, 0, locale)} ft`;
+        return threeSignificant(feet / FEET_PER_MILE, 'mi', locale);
     }
 
     const meters = distanceCm / 100;
     if (meters < 1000) {
-        return `${Math.round(meters)} m`;
+        return `${formatFixed(meters, 0, locale)} m`;
     }
-    return threeSignificant(meters / 1000, 'km');
+    return threeSignificant(meters / 1000, 'km', locale);
 }
 
 /**
@@ -246,28 +263,29 @@ export function formatDistance(distanceCm: number, system: UnitSystem = 'metric'
  *
  * @param areaM2 Area in square meters
  * @param system Unit system to read it in; metric unless asked otherwise
+ * @param locale How to punctuate the number; the browser's locale unless given
  */
-export function formatArea(areaM2: number, system: UnitSystem = 'metric'): string {
+export function formatArea(areaM2: number, system: UnitSystem = 'metric', locale?: string): string {
     if (system === 'imperial') {
         const acres = areaM2 / M2_PER_ACRE;
         if (acres < 0.1) {
             const squareFeet = areaM2 / (CM_PER_FOOT / 100) ** 2;
-            return `${Math.round(squareFeet)} sq ft`;
+            return `${formatFixed(squareFeet, 0, locale)} sq ft`;
         }
         if (acres < ACRES_PER_SQUARE_MILE) {
-            return acres < 100 ? `${acres.toFixed(2)} acres` : `${Math.round(acres)} acres`;
+            return `${formatFixed(acres, acres < 100 ? 2 : 0, locale)} acres`;
         }
-        return threeSignificant(acres / ACRES_PER_SQUARE_MILE, 'sq mi');
+        return threeSignificant(acres / ACRES_PER_SQUARE_MILE, 'sq mi', locale);
     }
 
     if (areaM2 < 10000) {
-        return `${Math.round(areaM2)} m²`;
+        return `${formatFixed(areaM2, 0, locale)} m²`;
     }
 
     const hectares = areaM2 / 10000;
     if (hectares < 100) {
-        return `${hectares.toFixed(2)} ha`;
+        return `${formatFixed(hectares, 2, locale)} ha`;
     }
 
-    return threeSignificant(areaM2 / 1000000, 'km²');
+    return threeSignificant(areaM2 / 1000000, 'km²', locale);
 }
