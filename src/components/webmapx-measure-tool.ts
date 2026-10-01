@@ -264,9 +264,10 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
            they line up in; the three that act on the measurement itself sit below,
            left-aligned where a toolbar is looked for. Wrapping keeps that honest at
            any panel width a config asks for. */
+        /* Right-aligned, above the column of values it changes */
         .unit-row {
             display: flex;
-            justify-content: flex-start;
+            justify-content: flex-end;
             margin-bottom: 0.5rem;
         }
 
