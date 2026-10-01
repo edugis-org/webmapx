@@ -32,6 +32,9 @@ const SEGMENT_LABELS_LAYER_ID = 'webmapx-measure-segment-labels';
 
 const RUBBERBAND_SOURCE_ID = 'webmapx-measure-rubberband-source';
 const RUBBERBAND_LAYER_ID = 'webmapx-measure-rubberband-layer';
+const SNAP_LAYER_ID = 'webmapx-measure-snap-layer';
+/** px — the draw tool's snap radius, so closing feels the same in both tools */
+const SNAP_THRESHOLD = 16;
 
 /** Where the reader's choice of units is remembered between sessions. */
 const UNIT_SYSTEM_KEY = 'webmapx-measure-units';
@@ -89,9 +92,9 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     // Public Properties
     // ─────────────────────────────────────────────────────────────────────
 
-    /** Pixel threshold for closing polygon */
+    /** Pixel threshold for closing polygon — the same radius the draw tool closes a polygon with */
     @property({ type: Number, attribute: 'close-threshold' })
-    closeThreshold = 10;
+    closeThreshold = 14;
 
     /** Pixel threshold for finishing on last point */
     @property({ type: Number, attribute: 'finish-threshold' })
@@ -105,6 +108,12 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     @state() private segments: MeasureSegment[] = [];
     @state() private totalDistanceCm = 0;
     @state() private cursorPosition: LngLat | null = null;
+    /** The cursor is within snapping range of the first point, so the rubber
+     *  band ends there and the next click closes the polygon — the same pull
+     *  the draw tool gives a polygon's start point. Holding Alt suppresses it,
+     *  as it suppresses snapping in the draw tool. */
+    private snapToStart = false;
+    private altHeld = false;
     @state() private isClosed = false;
     @state() private areaM2 = 0;
     @state() private elevationProfile: number[] | null = null;
@@ -306,7 +315,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     private loadConfigDefaults(): void {
         const config = this.toolsConfig?.measure as MeasureToolConfig | undefined;
         if (config) {
-            this.closeThreshold = config.closeThreshold ?? 10;
+            this.closeThreshold = config.closeThreshold ?? 14;
             this.finishThreshold = config.finishThreshold ?? 10;
         }
     }
@@ -325,6 +334,8 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         // Keyboard events
         this.keydownHandler = this.handleKeydown.bind(this);
         document.addEventListener('keydown', this.keydownHandler);
+        document.addEventListener('keyup', this.handleKeyup);
+        window.addEventListener('blur', this.handleWindowBlur);
     }
 
     private cleanupEventListeners(): void {
@@ -337,6 +348,9 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             document.removeEventListener('keydown', this.keydownHandler);
             this.keydownHandler = null;
         }
+        document.removeEventListener('keyup', this.handleKeyup);
+        window.removeEventListener('blur', this.handleWindowBlur);
+        this.altHeld = false;
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -372,7 +386,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
         // Add rubber-band line before points so point circles remain visually on top.
         this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
-            detail: { id: RUBBERBAND_LAYER_ID, type: 'line', source: RUBBERBAND_SOURCE_ID, metadata: { hideFromLegend: true, label: 'Measure rubberband' }, paint: { 'line-color': '#0f62fe', 'line-width': 2, 'line-dasharray': [4, 4] } },
+            detail: { id: RUBBERBAND_LAYER_ID, type: 'line', source: RUBBERBAND_SOURCE_ID, metadata: { hideFromLegend: true, label: 'Measure rubberband' }, filter: ['==', ['get', 'type'], 'rubberband'], paint: { 'line-color': '#0f62fe', 'line-width': 2, 'line-dasharray': [4, 4] } },
             bubbles: true, composed: true
         }));
 
@@ -418,6 +432,19 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             bubbles: true, composed: true
         }));
 
+        // Snap indicator on the first point — the draw tool's snap marker, on top
+        this.dispatchEvent(new CustomEvent('webmapx-add-layer', {
+            detail: {
+                id: SNAP_LAYER_ID,
+                type: 'circle',
+                source: RUBBERBAND_SOURCE_ID,
+                metadata: { isToolLayer: true, hideFromLegend: true, label: 'Measure snap' },
+                filter: ['==', ['get', 'type'], 'snap'],
+                paint: { 'circle-radius': 7, 'circle-color': '#ffdd00', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff', 'circle-opacity': 0.9 },
+            },
+            bubbles: true, composed: true
+        }));
+
         this.layersCreated = true;
     }
 
@@ -431,6 +458,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         }
 
         // Remove all layers
+        this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: SNAP_LAYER_ID, bubbles: true, composed: true }));
         this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: POINTS_LAYER_ID, bubbles: true, composed: true }));
         this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: SEGMENT_LABELS_LAYER_ID, bubbles: true, composed: true }));
         this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: LINES_LAYER_ID, bubbles: true, composed: true }));
@@ -515,9 +543,10 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     private buildRubberbandGeoJSON(): GeoJSON.FeatureCollection {
         const features: GeoJSON.Feature[] = [];
 
-        // Rubber band line (from last point to cursor)
+        // Rubber band line (from last point to cursor, or to the first point when snapped)
         if (!this.isClosed && this.points.length > 0 && this.cursorPosition && this.active) {
-            const coords = this.buildSegmentCoordinates(this.points[this.points.length - 1], this.cursorPosition);
+            const end = this.isSnappedToStart ? this.points[0] : this.cursorPosition;
+            const coords = this.buildSegmentCoordinates(this.points[this.points.length - 1], end);
             features.push({
                 type: 'Feature',
                 properties: { type: 'rubberband' },
@@ -526,6 +555,13 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
                     coordinates: coords
                 }
             });
+            if (this.isSnappedToStart) {
+                features.push({
+                    type: 'Feature',
+                    properties: { type: 'snap' },
+                    geometry: { type: 'Point', coordinates: this.points[0] }
+                });
+            }
         }
 
         return { type: 'FeatureCollection', features };
@@ -539,7 +575,13 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         if (!this.active) return;
 
         const clickedCoords = event.coords;
-        const clickedPixel = event.pixel;
+        // Project the clicked coordinates instead of trusting event.pixel, as the
+        // draw tool does: Leaflet reports click pixels in layer space, which drifts
+        // away from projected (container) space as soon as the map is panned, so
+        // clicking the first point stopped closing the polygon.
+        const projected = this.adapter?.project(clickedCoords);
+        if (!projected) return;
+        const clickedPixel: Pixel = [projected[0], projected[1]];
 
         // A finished (or closed) measurement stays on the map until cleared. On
         // pointer devices a new click starts a fresh measurement at the new
@@ -550,6 +592,12 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             // Don't add a point on this same click — it may be the second click of
             // a double-click that just finished the measurement. Let the user place
             // the first point of the new measurement with a deliberate separate click.
+            return;
+        }
+
+        // The rubber band is snapped onto the first point: this click closes it
+        if (this.isSnappedToStart) {
+            this.closePolygon();
             return;
         }
 
@@ -590,6 +638,9 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         if (this.points.length === 0) return;
 
         this.cursorPosition = event.coords;
+        // Decided on every move, not in the throttled render, so a click right
+        // after the cursor arrives at the first point already closes the polygon.
+        this.updateSnapToStart();
         // Use throttled update for smooth but efficient rubber-band rendering
         this.throttledUpdateVisualization();
     }
@@ -601,6 +652,35 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         this.finishMeasurement();
     }
 
+    /** Only a polygon with three points can close, so only then does the first point pull. */
+    private get isSnappedToStart(): boolean {
+        return this.snapToStart && !this.altHeld && !this.isFinished
+            && this.points.length >= 3 && this.cursorPosition !== null;
+    }
+
+    private updateSnapToStart(): void {
+        this.snapToStart = false;
+        if (this.points.length < 3 || !this.cursorPosition || !this.adapter) return;
+        const cursorPx = this.adapter.project(this.cursorPosition);
+        const startPx = this.adapter.project(this.points[0]);
+        this.snapToStart = Math.hypot(startPx[0] - cursorPx[0], startPx[1] - cursorPx[1]) <= SNAP_THRESHOLD;
+    }
+
+    private handleKeyup = (event: KeyboardEvent): void => {
+        // Always process Alt release, wherever focus is, so snapping can't stay off.
+        if (event.key === 'Alt' && this.altHeld) {
+            this.altHeld = false;
+            this.doUpdateRubberbandVisualization();
+        }
+    };
+
+    private handleWindowBlur = (): void => {
+        if (this.altHeld) {
+            this.altHeld = false;
+            this.doUpdateRubberbandVisualization();
+        }
+    };
+
     private handleKeydown(event: KeyboardEvent): void {
         if (!this.active) return;
 
@@ -608,6 +688,16 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         // — including the ones meant for a search box or the config editor.
         // Backspace there must delete a character, not a measured point.
         if (isEventFromEditableElement(event)) return;
+
+        if (event.key === 'Alt') {
+            // Keep the browser from moving focus to its menu bar on release
+            event.preventDefault();
+            if (!this.altHeld) {
+                this.altHeld = true;
+                this.doUpdateRubberbandVisualization();
+            }
+            return;
+        }
 
         if (event.key === 'Escape') {
             if (this.isFinished) return;
@@ -638,7 +728,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         const dy = pixel[1] - targetPixel[1];
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        return distance <= threshold;
+        return distance < threshold;
     }
 
     /** Returns a segment broken into great-circle points when spanning >1° */
