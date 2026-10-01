@@ -21,6 +21,8 @@ import type { WebmapxSaveLayersDialog } from './webmapx-save-layers-dialog';
 import type { MeasureToolConfig } from '../config/types';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
+import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
+import '@shoelace-style/shoelace/dist/components/radio-button/radio-button.js';
 import { DATA_TOOL, DATA_TOOL_HALO } from '../theme/data-colors';
 
 // Layer IDs for visualization
@@ -248,8 +250,21 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
            any panel width a config asks for. */
         .unit-row {
             display: flex;
-            justify-content: flex-end;
-            margin-top: 0.5rem;
+            justify-content: flex-start;
+            margin-bottom: 0.5rem;
+        }
+
+        /* "Units" sits beside the control rather than above it */
+        .unit-row sl-radio-group::part(form-control) {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .unit-row sl-radio-group::part(form-control-label) {
+            margin: 0;
+            font-size: inherit; /* same size as the segment labels above */
+            color: var(--color-text-secondary, #5a6773);
         }
 
         .actions {
@@ -1253,8 +1268,10 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
      * square metres throughout, so switching cannot cost precision and a
      * measurement taken in one system reads exactly the same in the other.
      */
-    private toggleUnitSystem = (): void => {
-        this.unitSystem = this.unitSystem === 'metric' ? 'imperial' : 'metric';
+    private selectUnitSystem = (event: Event): void => {
+        const value = (event.target as HTMLInputElement).value;
+        if (value !== 'metric' && value !== 'imperial') return;
+        this.unitSystem = value;
         try {
             localStorage.setItem(UNIT_SYSTEM_KEY, this.unitSystem);
         } catch {
@@ -1401,19 +1418,26 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         return html`
             <div class="tool-content measure-container">
                 <div class="measure-content">
+                    <div class="unit-row">
+                        <!-- Both choices visible, the current one highlighted: a single
+                             button labelled with the current units read as an action
+                             and left the other option hidden until clicked. -->
+                        <sl-radio-group
+                            size="small"
+                            label="Units"
+                            value=${this.unitSystem}
+                            @sl-change=${this.selectUnitSystem}
+                        >
+                            <sl-radio-button value="metric">m / km</sl-radio-button>
+                            <sl-radio-button value="imperial">ft / mi</sl-radio-button>
+                        </sl-radio-group>
+                    </div>
                     ${this.renderInstructions()}
                     ${this.renderSegments()}
                     ${this.renderTotal()}
                     ${this.renderArea()}
                     ${this.renderElevationProfile()}
 
-                    <div class="unit-row">
-                        <sl-button
-                            size="small"
-                            title="Read the measurement in metric or imperial units"
-                            @click=${this.toggleUnitSystem}
-                        >${this.unitSystem === 'metric' ? 'm / km' : 'ft / mi'}</sl-button>
-                    </div>
                     <div class="actions">
                         <sl-button
                             size="small"
