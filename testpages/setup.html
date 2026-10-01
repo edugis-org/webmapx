@@ -169,7 +169,10 @@
       user-select: none; padding: 0 2px; line-height: 1;
     }
     .drag-handle:active { cursor: grabbing; }
-    label.drag-over { outline: 2px solid #0f62fe; border-radius: 3px; }
+    /* Drop position while reordering: a line on the side the item will land. */
+    .drop-before { box-shadow: 0 -2px 0 #0f62fe; }
+    .drop-after { box-shadow: 0 2px 0 #0f62fe; }
+    .drag-handle.placeholder { visibility: hidden; }
     label.dragging { opacity: 0.4; }
     .info-btn {
       width: 16px; height: 16px; border-radius: 50%; background: #ccc; color: #555;
@@ -844,55 +847,106 @@
     }
 
     // --- Drag-to-reorder ---
+    // Internal reorder drags carry their own MIME type, never text/plain: the page-wide
+    // config drop handler takes any text/plain drag for a config path, and its
+    // dropEffect 'copy' then makes the browser refuse the 'move' drop.
+    const REORDER_MIME = 'application/x-webmapx-reorder';
+
+    // The drag in progress: { source, container, items() → reorderable elements in display
+    // order, drop(fromIdx, toIdx, side) }. Handled at document level and decided by the
+    // pointer's height alone, so the pointer can be anywhere left or right of the list,
+    // or in the gap between two rows.
+    let reorderDrag = null;
+
+    function startReorder(e, source, container, items, drop) {
+      reorderDrag = { source, container, items, drop };
+      source.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData(REORDER_MIME, '');
+    }
+
+    function endReorder() {
+      if (!reorderDrag) return;
+      reorderDrag.source.classList.remove('dragging');
+      showDropLine(reorderDrag.container, null);
+      reorderDrag = null;
+    }
+
+    // The slot at the pointer's height: before the first item whose middle is below it,
+    // else after the last item.
+    function dropSlot(clientY, items) {
+      for (let i = 0; i < items.length; i++) {
+        const r = items[i].getBoundingClientRect();
+        if (clientY < r.top + r.height / 2) return { idx: i, side: 'before' };
+      }
+      return { idx: items.length - 1, side: 'after' };
+    }
+
+    function showDropLine(container, el, side) {
+      container.querySelectorAll('.drop-before, .drop-after')
+        .forEach(x => x.classList.remove('drop-before', 'drop-after'));
+      if (el) el.classList.add(`drop-${side}`);
+    }
+
+    document.addEventListener('dragover', (e) => {
+      if (!reorderDrag) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const items = reorderDrag.items();
+      const { idx, side } = dropSlot(e.clientY, items);
+      showDropLine(reorderDrag.container, items[idx], side);
+    });
+    document.addEventListener('drop', (e) => {
+      if (!reorderDrag) return;
+      e.preventDefault();
+      const { source, items, drop } = reorderDrag;
+      const list = items();
+      const { idx, side } = dropSlot(e.clientY, list);
+      const fromIdx = list.indexOf(source);
+      endReorder();
+      if (fromIdx !== -1 && idx !== -1) drop(fromIdx, idx, side);
+    });
+
+    // Move list[from] next to list[to], on `side` of it.
+    function moveItem(list, from, to, side) {
+      const out = list.slice();
+      const [moved] = out.splice(from, 1);
+      const target = out.indexOf(list[to]);
+      out.splice(side === 'after' ? target + 1 : target, 0, moved);
+      return out;
+    }
+
+    // Only checked tools have a position in the saved toolbar, so only they can be dragged,
+    // and only among each other (unchecked tools are listed alphabetically below them).
     function makeDraggable(label, orderKey) {
       const handle = document.createElement('span');
       handle.className = 'drag-handle';
       handle.textContent = '⠿';
-      handle.title = 'Drag to reorder';
       label.insertBefore(handle, label.firstChild);
+      const isChecked = l => l.querySelector(':scope > input[type=checkbox]')?.checked;
+      if (!isChecked(label)) {
+        handle.classList.add('placeholder');
+        return;
+      }
+      handle.title = 'Drag to reorder';
 
       label.draggable = true;
       label.addEventListener('dragstart', (e) => {
-        label.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', label.dataset.toolId);
+        const container = label.parentElement;
+        // Checked tools are listed first, so the reorderable items are a prefix of the list.
+        const items = () => [...container.querySelectorAll(':scope > label')].filter(isChecked);
+        startReorder(e, label, container, items, (from, to, side) => {
+          const all = [...container.querySelectorAll(':scope > label')].map(l => l.dataset.toolId);
+          const ids = items().map(l => l.dataset.toolId);
+          const order = [...moveItem(ids, from, to, side), ...all.filter(id => !ids.includes(id))];
+          const ov = getSaved();
+          ov[orderKey] = order;
+          saveOverrides(ov);
+          buildUI(baseConfig, ov);
+        });
         e.dataTransfer.setDragImage(label, 10, 10);
       });
-      label.addEventListener('dragend', () => {
-        label.classList.remove('dragging');
-        label.parentElement?.querySelectorAll('label').forEach(l => l.classList.remove('drag-over'));
-      });
-      label.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        label.parentElement?.querySelectorAll('label').forEach(l => l.classList.remove('drag-over'));
-        label.classList.add('drag-over');
-      });
-      label.addEventListener('dragleave', () => label.classList.remove('drag-over'));
-      label.addEventListener('drop', (e) => {
-        e.preventDefault();
-        label.classList.remove('drag-over');
-        const fromId = e.dataTransfer.getData('text/plain');
-        const toId = label.dataset.toolId;
-        if (!fromId || fromId === toId) return;
-        const container = label.parentElement;
-        const labels = [...container.querySelectorAll(':scope > label')];
-        const ids = labels.map(l => l.dataset.toolId);
-        const fromIdx = ids.indexOf(fromId);
-        const toIdx = ids.indexOf(toId);
-        if (fromIdx === -1 || toIdx === -1) return;
-        ids.splice(fromIdx, 1);
-        ids.splice(toIdx, 0, fromId);
-        // Reorder DOM
-        ids.forEach(id => {
-          const el = labels.find(l => l.dataset.toolId === id);
-          if (el) container.appendChild(el);
-        });
-        // Persist order
-        const ov = getSaved();
-        ov[orderKey] = ids;
-        saveOverrides(ov);
-      });
+      label.addEventListener('dragend', endReorder);
     }
 
     function applyStoredOrder(labels, orderKey) {
@@ -903,6 +957,18 @@
       // Append any new tools not yet in stored order
       for (const l of labels) if (!stored.includes(l.dataset.toolId)) ordered.push(l);
       return ordered;
+    }
+
+    // The list is the toolbar as it will be saved: checked tools in toolbar order, then
+    // the unchecked ones alphabetically. Unchecked tools are not written to the config,
+    // so any position they held would be lost on download → upload.
+    function toolbarDisplayOrder(labels) {
+      const isChecked = l => l.querySelector(':scope > input[type=checkbox]')?.checked;
+      const name = l => l.querySelector('.tool-name')?.textContent.trim() ?? '';
+      return [
+        ...labels.filter(isChecked),
+        ...labels.filter(l => !isChecked(l)).sort((a, b) => name(a).localeCompare(name(b))),
+      ];
     }
 
     // --- Props popup ---
@@ -1213,12 +1279,12 @@
               makeDraggable(subLabel, subOrderKey);
               subLabels.push(subLabel);
             }
-            applyStoredOrder(subLabels, subOrderKey).forEach(l => subList.appendChild(l));
+            toolbarDisplayOrder(applyStoredOrder(subLabels, subOrderKey)).forEach(l => subList.appendChild(l));
             subSection.appendChild(subList);
             containerSections.push(subSection);
           }
         }
-        applyStoredOrder(toolLabels, toolOrderKey).forEach(l => grid.appendChild(l));
+        toolbarDisplayOrder(applyStoredOrder(toolLabels, toolOrderKey)).forEach(l => grid.appendChild(l));
         col.appendChild(grid);
         containerSections.forEach(section => col.appendChild(section));
       }
@@ -1270,8 +1336,9 @@
           const ov = getSaved();
           ov[cb.dataset.key] = cb.checked;
           saveOverrides(ov);
-          // Rebuild UI if a container was toggled (sub-section appears/disappears)
-          if (CONTAINER_TOOL_IDS.has(cb.dataset.tool)) {
+          // Rebuild UI for toolbar tools: a toggled tool moves between the checked and
+          // unchecked groups, and a container's sub-section appears/disappears
+          if (cb.dataset.tool) {
             buildUI(baseConfig, getSaved());
           }
           updateSelectAll();
@@ -2199,32 +2266,13 @@
 
         row.addEventListener('dragstart', (e) => {
           if (e.target.isContentEditable) { e.preventDefault(); return; }
-          row.classList.add('dragging');
-          e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('text/plain', String(idx));
+          const items = () => [...activeEl.querySelectorAll(':scope > .active-layer-row')];
+          startReorder(e, row, activeEl, items, (from, to, side) => {
+            setActiveLayers(moveItem(getActiveLayers(config), from, to, side));
+            buildLayersUI(config);
+          });
         });
-        row.addEventListener('dragend', () => {
-          row.classList.remove('dragging');
-          activeEl.querySelectorAll('.active-layer-row').forEach(r => r.classList.remove('drag-over'));
-        });
-        row.addEventListener('dragover', (e) => {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
-          activeEl.querySelectorAll('.active-layer-row').forEach(r => r.classList.remove('drag-over'));
-          row.classList.add('drag-over');
-        });
-        row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
-        row.addEventListener('drop', (e) => {
-          e.preventDefault();
-          row.classList.remove('drag-over');
-          const fromIdx = Number(e.dataTransfer.getData('text/plain'));
-          if (isNaN(fromIdx) || fromIdx === idx) return;
-          const list = getActiveLayers(config).slice();
-          const [moved] = list.splice(fromIdx, 1);
-          list.splice(idx, 0, moved);
-          setActiveLayers(list);
-          buildLayersUI(config);
-        });
+        row.addEventListener('dragend', endReorder);
 
         activeEl.appendChild(row);
       });
@@ -2494,6 +2542,8 @@
         ov[cb.dataset.key] = checked;
       });
       saveOverrides(ov);
+      buildUI(baseConfig, ov);
+      updateSelectAll();
     });
 
     async function reinitializeFromConfig(config, statusText) {
@@ -2588,6 +2638,7 @@
 
     function hasConfigDragData(event) {
       const types = [...(event.dataTransfer?.types ?? [])];
+      if (types.includes(REORDER_MIME)) return false;
       return types.includes('Files') || types.includes('text/plain') || types.includes('text/uri-list');
     }
 
