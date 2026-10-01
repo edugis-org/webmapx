@@ -43,7 +43,17 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
   // a repeated search returns equal-but-new feature objects for the same place, and a
   // WeakMap keyed on those reports "not added" for a result whose layer is on the map —
   // the row would show "+" again and its toggle could no longer remove the layer.
-  private persistedMap: Map<string, { sourceId: string; color: string }> = new Map();
+  // `layerId`/`seen` let the toggle follow a layer removed elsewhere (the legend):
+  // an entry whose layer has been on the map and no longer is, is dropped. `seen`
+  // is what keeps an entry alive in the moment between asking for the layer and
+  // the map registering it, when it is legitimately not there yet.
+  private persistedMap: Map<string, {
+    sourceId: string;
+    color: string;
+    layerId: string;
+    feature: GeoJSON.Feature;
+    seen: boolean;
+  }> = new Map();
 
   private randomColorHex(): string {
     // Generate a vivid HSL color and convert to hex
@@ -316,8 +326,21 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     this.dispatchEvent(new CustomEvent('webmapx-search-closed', { bubbles: true, composed: true }));
   }
 
-  protected onStateChanged(_state: IMapState): void {
-    // No-op
+  /**
+   * Keeps each result's toggle honest when its layer is removed elsewhere —
+   * deleted from the legend, say. Without this the row stays a green check
+   * for a layer that is gone, and clicking it "removes" nothing.
+   */
+  protected onStateChanged(state: IMapState): void {
+    const layers = state.mapLayers ?? {};
+    for (const [key, info] of this.persistedMap) {
+      if (info.layerId in layers) {
+        info.seen = true;
+      } else if (info.seen) {
+        this.persistedMap.delete(key);
+        this.persistedChanged(info.feature, false);
+      }
+    }
   }
 
   // A hard geo filter (Nominatim bounded=1, PDOK fq=centroide_ll:[...]) can exclude the
@@ -720,6 +743,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
       const pointId = `${sourceId}-point`;
       const resultName = this.getFeatureTitle(feature);
 
+      const layerId = kind === 'polygon' ? fillId : kind === 'line' ? lineId : pointId;
       if (kind === 'polygon') {
         // Composite style layer for polygons: separate fill and outline (line) sub-layers,
         // with a single legend item.
@@ -739,7 +763,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
         mapElement.addLayerRequest({ id: pointId, type: 'circle', source: sourceId, sources, metadata: { label: resultName, hideFromLegend: false }, paint: { 'circle-color': color, 'circle-radius': 6 } });
       }
 
-      this.persistedMap.set(persistKey, { sourceId, color });
+      this.persistedMap.set(persistKey, { sourceId, color, layerId, feature, seen: false });
     } catch (e) {
       console.error('Failed to persist feature', e);
     }
