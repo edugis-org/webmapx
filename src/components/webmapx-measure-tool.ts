@@ -134,8 +134,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         return this.finished || this.isClosed;
     }
 
-    // On touch devices, a tap after finishing must not start a new measurement —
-    // only the Clear button erases a finished measurement there.
+    // Touch devices only change the wording of the instructions (tap vs click).
     private touchMQ = window.matchMedia('(pointer: coarse)');
     @state() private isTouchDevice = this.touchMQ.matches;
     private onTouchMQChange = (e: MediaQueryListEvent) => { this.isTouchDevice = e.matches; };
@@ -583,17 +582,11 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         if (!projected) return;
         const clickedPixel: Pixel = [projected[0], projected[1]];
 
-        // A finished (or closed) measurement stays on the map until cleared. On
-        // pointer devices a new click starts a fresh measurement at the new
-        // location, replacing it; on touch, only the Clear button does that.
-        if (this.isFinished) {
-            if (this.isTouchDevice) return;
-            this.clearMeasurement();
-            // Don't add a point on this same click — it may be the second click of
-            // a double-click that just finished the measurement. Let the user place
-            // the first point of the new measurement with a deliberate separate click.
-            return;
-        }
+        // A finished (or closed) measurement stays on the map until cleared, and
+        // a click does nothing to it — only the Clear button starts a new one.
+        // Replacing it on the next click meant one stray click threw away a
+        // measurement the user was still reading.
+        if (this.isFinished) return;
 
         // The rubber band is snapped onto the first point: this click closes it
         if (this.isSnappedToStart) {
@@ -624,9 +617,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
     private handleDblClick(_event: DoubleClickEvent): void {
         if (!this.active || this.isFinished) return;
-        // The second click of a double-click may have just called clearMeasurement()
-        // + addPoint(), leaving a 1-point in-progress measurement. Don't finish it —
-        // a 1-point measurement has no line and finishing it leaves a confusing state.
+        // A 1-point measurement has no line, and finishing it leaves a confusing state.
         if (this.points.length < 2) return;
         this.finishMeasurement();
     }
@@ -883,6 +874,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         this.updateMapVisualization();
         this.doUpdateRubberbandVisualization();
         this.updateElevationProfile();
+        this.applyCursorForState();
     }
 
     /** Stops further point-adding, keeping the measurement (and its rubber-band-less
@@ -895,6 +887,18 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         this.cursorPosition = null;
         this.doUpdateRubberbandVisualization();
         this.updateElevationProfile();
+        this.applyCursorForState();
+    }
+
+    /**
+     * A finished measurement leaves the map as it is with no tool at work: the
+     * plain cursor, drag to pan, and clicks that do nothing. The crosshair
+     * comes back once there is a measurement to add points to again — after
+     * Clear, or after undo reopens the finished one.
+     */
+    private applyCursorForState(): void {
+        if (!this.active) return;
+        this.adapter?.setCursor(this.isFinished ? '' : 'crosshair');
     }
 
     /** Whether there is anything left to take back. */
@@ -927,9 +931,11 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             this.isClosed = false;
             this.areaM2 = 0;
             this.finished = false;
+            this.applyCursorForState();
         } else if (this.finished) {
             // Nothing was added by finishing — it only stopped further points.
             this.finished = false;
+            this.applyCursorForState();
         } else {
             const lastSegment = this.segments[this.segments.length - 1];
             this.points = this.points.slice(0, -1);
@@ -962,6 +968,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
         this.doUpdateStaticVisualization();
         this.doUpdateRubberbandVisualization();
+        this.applyCursorForState();
     }
 
     private static readonly ELEVATION_SAMPLES = 100;
@@ -1290,7 +1297,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         if (this.isFinished) {
             return this.isTouchDevice
                 ? html`<p class="instructions">Measurement finished. Tap Clear to start a new measurement.</p>`
-                : html`<p class="instructions">Measurement finished. Click Clear, or click the map to start a new measurement.</p>`;
+                : html`<p class="instructions">Measurement finished. Click Clear to start a new measurement.</p>`;
         }
 
         if (this.points.length === 0) {
