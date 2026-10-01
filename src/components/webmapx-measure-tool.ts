@@ -3,9 +3,10 @@
 
 import { announce } from './internal/announce';
 import { html, css, nothing, TemplateResult } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
+import type { IMapState } from '../store/IMapState';
 import { LngLat, Pixel, ClickEvent, DoubleClickEvent, PointerMoveEvent, ContextMenuEvent } from '../store/map-events';
 import {
     haversineDistanceCm,
@@ -16,8 +17,7 @@ import {
 } from '../utils/geo-calculations';
 import { throttle } from '../utils/throttle';
 import { isEventFromEditableElement } from '../utils/dom-focus-utils';
-import './webmapx-save-layers-dialog';
-import type { WebmapxSaveLayersDialog } from './webmapx-save-layers-dialog';
+import { addLayerIcon, addLayerToggleStyles } from './internal/add-layer-icon';
 import type { MeasureToolConfig } from '../config/types';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
@@ -33,6 +33,8 @@ const POLYGON_LAYER_ID = 'webmapx-measure-polygon';
 const SEGMENT_LABELS_LAYER_ID = 'webmapx-measure-segment-labels';
 
 const RUBBERBAND_SOURCE_ID = 'webmapx-measure-rubberband-source';
+/** Key of the measurement's own source inside the layer it is added as */
+const MEASUREMENT_SOURCE_KEY = 'measurement';
 const RUBBERBAND_LAYER_ID = 'webmapx-measure-rubberband-layer';
 const SNAP_LAYER_ID = 'webmapx-measure-snap-layer';
 /** px — the draw tool's snap radius, so closing feels the same in both tools */
@@ -136,6 +138,8 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     /** What the Clear button last erased, so Undo can bring it back. Dropped
      *  once a new measurement is started. */
     @state() private clearedMeasurement: MeasureSnapshot | null = null;
+    /** The legend layer this measurement was added as, while it is on the map. */
+    @state() private addedLayerId: string | null = null;
 
     /**
      * Metric or imperial. Remembered per browser rather than configured: a
@@ -175,13 +179,12 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
      * query looks in this component's own render root, finds nothing after that
      * move, and every Save click after the first one silently does nothing.
      */
-    @query('webmapx-save-layers-dialog', true) private saveDialog?: WebmapxSaveLayersDialog;
 
     // ─────────────────────────────────────────────────────────────────────
     // Styles
     // ─────────────────────────────────────────────────────────────────────
 
-    static styles = css`
+    static styles = [addLayerToggleStyles, css`
         :host {
             display: block;
             pointer-events: auto;
@@ -283,6 +286,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         .actions {
             display: flex;
             flex-wrap: wrap;
+            align-items: center;
             gap: 0.5rem;
             margin-top: 0.35rem;
         }
@@ -301,7 +305,12 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             color: var(--color-text-secondary, #5a6773);
             margin-bottom: 2px;
         }
-    `;
+
+        /* The add-as-map-layer toggle closes the action row, far right */
+        .actions .layer-toggle {
+            margin-left: auto;
+        }
+    `];
 
     // ─────────────────────────────────────────────────────────────────────
     // Lifecycle
@@ -537,6 +546,8 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
     private buildStaticGeoJSON(): GeoJSON.FeatureCollection {
         const features: GeoJSON.Feature[] = [];
+        // Added to the map: its layer draws it, not the tool.
+        if (this.addedLayerId) return { type: 'FeatureCollection', features };
 
         // Points
         this.points.forEach((point, index) => {
@@ -976,7 +987,10 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
      */
     private clearByUser = (): void => {
         if (this.points.length === 0) return;
-        this.clearedMeasurement = this.snapshotMeasurement();
+        // One that is on the map is kept there, as a legend layer: Clear only
+        // empties the tool for the next measurement, and Undo has nothing to
+        // bring back (restoring it would put the same shape on the map twice).
+        this.clearedMeasurement = this.addedLayerId ? null : this.snapshotMeasurement();
         this.clearMeasurement();
     };
 
@@ -1020,6 +1034,12 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             return;
         }
 
+        // Adding to the map is the last thing done to an added measurement.
+        if (this.addedLayerId) {
+            this.removeFromMap();
+            return;
+        }
+
         if (this.isClosed) {
             // The closing segment is the last one added, and its length is part
             // of the total; the area only exists while the ring is closed.
@@ -1055,6 +1075,8 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     }
 
     private clearMeasurement(): void {
+        // An added layer stays on the map; the tool just lets go of it.
+        this.addedLayerId = null;
         this.points = [];
         this.segments = [];
         this.totalDistanceCm = 0;
@@ -1158,30 +1180,91 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Hands the measurement to the ordinary save dialog.
-     *
-     * Deliberately not a download of its own: the dialog already offers the
-     * filename, the style checkbox, the .zip-or-plain choice and coordinate
-     * rounding, and — more to the point — it writes the `<name>.geojson` +
-     * `<name>_style.json` pair that `dropped-layer-builder` reads back. A second
-     * exporter here would be a second format to keep in step with the importer.
-     *
-     * The measurement is passed as `sourceData`, so nothing has to be on the map
-     * as a real layer for it to be saved.
+     * The add-as-map-layer toggle beside the result — the same button, in the
+     * same place relative to what it adds, as on a search result. Pressed, the
+     * measurement becomes an ordinary legend layer; pressed again (or Undo),
+     * the layer goes. Several measurements in one session are several legend
+     * layers: add one, Clear, measure the next.
      */
-    private openSaveDialog = (): void => {
-        if (!this.canSave) return;
-        const label = this.isClosed ? 'Measured area' : 'Measured line';
-        this.saveDialog?.open([{
-            layerId: 'measurement',
-            label,
-            sourceData: this.buildSaveGeoJSON(),
-            sublayers: this.buildSaveSublayers(),
-        }], this.adapter ?? null);
+    private toggleMapLayer = (): void => {
+        if (this.addedLayerId) this.removeFromMap();
+        else void this.addToMap();
     };
 
-    /** A single point is a position, not a measurement — nothing to save yet. */
-    private get canSave(): boolean {
+    /**
+     * Adds the measurement to the map as an ordinary layer.
+     *
+     * Deliberately no download of its own: the legend's "Save layer(s)…"
+     * already offers the filename, the style checkbox, the .zip-or-plain choice
+     * and coordinate rounding, and writes the `<name>.geojson` +
+     * `<name>_style.json` pair that `dropped-layer-builder` reads back. It finds
+     * this layer's data and style in the store (`sourceData`, `sublayers`),
+     * where the layer registry records them for an inline source.
+     *
+     * The legend label carries the result in the units being read, so the
+     * legend itself says what was measured; the attributes stay in metres.
+     */
+    private addToMap = async (): Promise<void> => {
+        const mapHost = this.mapHost;
+        if (!this.canAddToMap || !mapHost) return;
+
+        // Short, since it is a legend row and the default download name; the
+        // perimeter and every segment length are in the layer's attributes.
+        const label = this.isClosed
+            ? `Area ${formatArea(this.areaM2, this.unitSystem)}`
+            : `Distance ${formatDistance(this.totalDistanceCm, this.unitSystem)}`;
+        const layerId = `measurement-${Date.now().toString(36)}`;
+        const added = await mapHost.addLayerRequest({
+            id: layerId,
+            type: 'style',
+            sources: { [MEASUREMENT_SOURCE_KEY]: { type: 'geojson', data: this.buildLayerGeoJSON() } },
+            layers: this.buildLayerSublayers(),
+            metadata: { label, hideFromLegend: false },
+        });
+        if (!added) {
+            announce(this, 'The measurement could not be added to the map');
+            return;
+        }
+
+        // The layer now draws the measurement, so the tool stops drawing its
+        // own copy (the same shape twice would double the outline and hide
+        // the legend's opacity and visibility controls behind it). Adding also
+        // finishes it: points added afterwards would not be in the layer.
+        this.addedLayerId = layerId;
+        this.finished = true;
+        this.cursorPosition = null;
+        this.updateMapVisualization();
+        this.doUpdateRubberbandVisualization();
+        this.applyCursorForState();
+        announce(this, `Added to the map: ${label}`);
+    };
+
+    /** Takes the measurement's layer off the map; the tool draws it again. */
+    private removeFromMap(): void {
+        const layerId = this.addedLayerId;
+        if (!layerId) return;
+        this.addedLayerId = null;
+        this.mapHost?.removeInlineLayer(layerId);
+        this.updateMapVisualization();
+        announce(this, 'Removed from the map');
+    }
+
+    /**
+     * Keeps the toggle honest when the layer is removed elsewhere — from the
+     * legend, say. Without this the button would stay a green check for a
+     * layer that is gone, and the measurement would vanish from the map while
+     * the panel still showed it.
+     */
+    protected onStateChanged(state: IMapState): void {
+        super.onStateChanged(state);
+        if (this.addedLayerId && !(this.addedLayerId in (state.mapLayers ?? {}))) {
+            this.addedLayerId = null;
+            this.updateMapVisualization();
+        }
+    }
+
+    /** A single point is a position, not a measurement — nothing to add yet. */
+    private get canAddToMap(): boolean {
         return this.segments.length > 0;
     }
 
@@ -1198,7 +1281,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
      * display, so a re-imported measurement still reads as metres in the info
      * tool without anything having to convert.
      */
-    private buildSaveGeoJSON(): GeoJSON.FeatureCollection {
+    private buildLayerGeoJSON(): GeoJSON.FeatureCollection {
         // The same densified coordinates the tool draws with, not the clicked
         // vertices. A measured leg is a great circle — that is what its length
         // says — and two vertices joined by a straight line in Web Mercator are
@@ -1256,7 +1339,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
      * `segment_1` into "Segment 1" and 17123.4 into "17123.4 m" after re-import —
      * without them the round trip keeps the numbers and loses their meaning.
      */
-    private buildSaveSublayers(): unknown[] {
+    private buildLayerSublayers(): unknown[] {
         const attributes = { translations: this.buildAttributeTranslations() };
         const layers: unknown[] = [];
 
@@ -1310,7 +1393,8 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
                 'text-halo-width': 1.5,
             },
         });
-        return layers;
+        // Each sublayer draws from the measurement source the layer carries inline.
+        return layers.map(layer => ({ ...(layer as object), source: MEASUREMENT_SOURCE_KEY }));
     }
 
     /** One entry per property the measurement writes, in the order it is read. */
@@ -1418,6 +1502,23 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         `;
     }
 
+    /** The add-as-map-layer toggle: search's button, at the end of the action row. */
+    private renderLayerToggle(): TemplateResult {
+        const added = this.addedLayerId !== null;
+        return html`
+            <button
+                type="button"
+                class="layer-toggle"
+                data-added=${added ? 'true' : 'false'}
+                aria-pressed=${added ? 'true' : 'false'}
+                aria-label="Add as map layer"
+                title=${added ? 'Remove from map' : 'Add as map layer'}
+                ?disabled=${!this.canAddToMap}
+                @click=${this.toggleMapLayer}
+            >${addLayerIcon}</button>
+        `;
+    }
+
     private renderArea(): TemplateResult | typeof nothing {
         if (!this.isClosed || this.areaM2 === 0) {
             return nothing;
@@ -1433,9 +1534,10 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
     private renderInstructions(): TemplateResult {
         if (this.isFinished) {
-            return this.isTouchDevice
-                ? html`<p class="instructions">Measurement finished. Tap Clear to start a new measurement.</p>`
-                : html`<p class="instructions">Measurement finished. Click Clear to start a new measurement.</p>`;
+            const verb = this.isTouchDevice ? 'Tap' : 'Click';
+            return this.addedLayerId
+                ? html`<p class="instructions">Added to the map, and listed in the legend. ${verb} Clear to start a new measurement.</p>`
+                : html`<p class="instructions">Measurement finished. Add it to the map with the layer button, or ${verb.toLowerCase()} Clear to start a new one.</p>`;
         }
 
         if (this.points.length === 0) {
@@ -1522,19 +1624,10 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
                             <sl-icon name="trash" slot="prefix"></sl-icon>
                             Clear
                         </sl-button>
-                        <sl-button
-                            size="small"
-                            ?disabled=${!this.canSave}
-                            title="Save the measurement as GeoJSON, with its style, ready to drag back onto a map"
-                            @click=${this.openSaveDialog}
-                        >
-                            <sl-icon name="download" slot="prefix"></sl-icon>
-                            Save
-                        </sl-button>
+                        ${this.renderLayerToggle()}
                     </div>
                 </div>
             </div>
-            <webmapx-save-layers-dialog></webmapx-save-layers-dialog>
         `;
     }
 }
