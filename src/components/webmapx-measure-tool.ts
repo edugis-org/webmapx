@@ -112,8 +112,8 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
      *  band ends there and the next click closes the polygon — the same pull
      *  the draw tool gives a polygon's start point. Holding Alt suppresses it,
      *  as it suppresses snapping in the draw tool. */
-    private snapToStart = false;
-    private altHeld = false;
+    @state() private snapToStart = false;
+    @state() private altHeld = false;
     @state() private isClosed = false;
     @state() private areaM2 = 0;
     @state() private elevationProfile: number[] | null = null;
@@ -151,6 +151,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     private unsubDblClick: (() => void) | null = null;
     private unsubPointerMove: (() => void) | null = null;
     private unsubContextMenu: (() => void) | null = null;
+    private unsubPointerLeave: (() => void) | null = null;
     private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
 
     /**
@@ -213,6 +214,15 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             padding-top: 0.5rem;
             border-top: 2px solid var(--color-border, #d5dce3);
             font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* The segment being drawn, and a total that still includes it: values
+           that change with the mouse until the next click fixes them. */
+        .segment.live .segment-value,
+        .total-row.live span:last-child {
+            font-style: italic;
+            color: var(--color-text-secondary, #5a6773);
         }
 
         .area-row {
@@ -295,7 +305,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     }
 
     protected async updated(changedProperties: Map<string | number | symbol, unknown>): Promise<void> {
-        if (changedProperties.has('segments')) {
+        if (changedProperties.has('segments') || changedProperties.has('points')) {
             // Ensure the component's own rendering is complete
             await this.updateComplete;
 
@@ -329,6 +339,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         this.unsubDblClick = adapter.events.on('dblclick', this.handleDblClick.bind(this));
         this.unsubPointerMove = adapter.events.on('pointer-move', this.handlePointerMove.bind(this));
         this.unsubContextMenu = adapter.events.on('contextmenu', this.handleContextMenu.bind(this));
+        this.unsubPointerLeave = adapter.events.on('pointer-leave', this.handlePointerLeave.bind(this));
 
         // Keyboard events
         this.keydownHandler = this.handleKeydown.bind(this);
@@ -342,6 +353,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         this.unsubDblClick?.();
         this.unsubPointerMove?.();
         this.unsubContextMenu?.();
+        this.unsubPointerLeave?.();
 
         if (this.keydownHandler) {
             document.removeEventListener('keydown', this.keydownHandler);
@@ -634,6 +646,15 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         this.updateSnapToStart();
         // Use throttled update for smooth but efficient rubber-band rendering
         this.throttledUpdateVisualization();
+    }
+
+    /** The mouse went to the panel or off the page: the map stops reporting it,
+     *  so drop the rubber band and the live length rather than freeze them. */
+    private handlePointerLeave(): void {
+        if (!this.active || !this.cursorPosition) return;
+        this.cursorPosition = null;
+        this.snapToStart = false;
+        this.doUpdateRubberbandVisualization();
     }
 
     private handleContextMenu(_event: ContextMenuEvent): void {
@@ -1241,11 +1262,30 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         }
     };
 
+    /** A segment is being drawn: there is a last point and the measurement is still open. */
+    private get hasLiveSegment(): boolean {
+        return !this.isFinished && this.points.length > 0;
+    }
+
+    /**
+     * Length of the segment being drawn, from the last point to where the next
+     * click would put the next one — the first point while snapped to it, since
+     * that is what the click will record. Null while there is no cursor to
+     * measure to: on touch, where nothing hovers, and once the mouse has left
+     * the map.
+     */
+    private get liveDistanceCm(): number | null {
+        if (!this.hasLiveSegment || !this.cursorPosition) return null;
+        const end = this.isSnappedToStart ? this.points[0] : this.cursorPosition;
+        return haversineDistanceCm(this.points[this.points.length - 1], end);
+    }
+
     private renderSegments(): TemplateResult | typeof nothing {
-        if (this.segments.length === 0) {
+        if (this.segments.length === 0 && !this.hasLiveSegment) {
             return nothing;
         }
 
+        const live = this.liveDistanceCm;
         return html`
             <div class="segment-list">
                 ${this.segments.map((seg, i) => html`
@@ -1254,6 +1294,12 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
                         <span class="segment-value">${formatDistance(seg.distanceCm, this.unitSystem)}</span>
                     </div>
                 `)}
+                ${this.hasLiveSegment ? html`
+                    <div class="segment live">
+                        <span class="segment-label">Segment ${this.segments.length + 1}</span>
+                        <span class="segment-value">${live === null ? '—' : formatDistance(live, this.unitSystem)}</span>
+                    </div>
+                ` : nothing}
             </div>
         `;
     }
@@ -1268,14 +1314,19 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
      * area appears, since both come into existence together.
      */
     private renderTotal(): TemplateResult | typeof nothing {
-        if (this.segments.length === 0) {
+        if (this.segments.length === 0 && !this.hasLiveSegment) {
             return nothing;
         }
 
+        // While a segment is being drawn the total includes it, so the list and
+        // the total always add up.
+        const live = this.liveDistanceCm;
         return html`
-            <div class="total-row">
+            <div class="total-row ${live === null ? '' : 'live'}">
                 <span>${this.isClosed ? 'Perimeter' : 'Total'}</span>
-                <span>${formatDistance(this.totalDistanceCm, this.unitSystem)}</span>
+                <span>${this.segments.length === 0 && live === null
+                    ? '—'
+                    : formatDistance(this.totalDistanceCm + (live ?? 0), this.unitSystem)}</span>
             </div>
         `;
     }
