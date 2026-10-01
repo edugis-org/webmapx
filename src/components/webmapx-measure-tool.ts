@@ -68,6 +68,16 @@ interface MeasureSegment {
     distanceCm: number;
 }
 
+/** Everything that makes up a measurement — what Clear keeps for Undo. */
+interface MeasureSnapshot {
+    points: LngLat[];
+    segments: MeasureSegment[];
+    totalDistanceCm: number;
+    isClosed: boolean;
+    finished: boolean;
+    areaM2: number;
+}
+
 /**
  * Interactive distance and area measurement tool.
  *
@@ -123,6 +133,9 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
      *  but not necessarily closed into a polygon. No further points can be added
      *  until cleared or a new measurement is started. */
     @state() private finished = false;
+    /** What the Clear button last erased, so Undo can bring it back. Dropped
+     *  once a new measurement is started. */
+    @state() private clearedMeasurement: MeasureSnapshot | null = null;
 
     /**
      * Metric or imperial. Remembered per browser rather than configured: a
@@ -871,6 +884,9 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     // ─────────────────────────────────────────────────────────────────────
 
     private addPoint(coords: LngLat): void {
+        // Starting a new measurement replaces the one Clear kept for Undo:
+        // undo now walks back through the new one instead.
+        if (this.points.length === 0) this.clearedMeasurement = null;
         const newPoints = [...this.points, coords];
 
         // Calculate new segment if we have at least 2 points
@@ -937,19 +953,60 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         this.adapter?.setCursor(this.isFinished ? '' : 'crosshair');
     }
 
-    /** Whether there is anything left to take back. */
+    /** Whether there is anything left to take back — including a Clear. */
     private get canUndo(): boolean {
-        return this.points.length > 0;
+        return this.points.length > 0 || this.clearedMeasurement !== null;
+    }
+
+    private snapshotMeasurement(): MeasureSnapshot {
+        return {
+            points: this.points,
+            segments: this.segments,
+            totalDistanceCm: this.totalDistanceCm,
+            isClosed: this.isClosed,
+            finished: this.finished,
+            areaM2: this.areaM2,
+        };
+    }
+
+    /**
+     * The Clear button: erases the measurement but keeps it, so Undo can bring
+     * it back. A measurement is the result of many clicks, and one misplaced
+     * click on Clear should not cost all of them.
+     */
+    private clearByUser = (): void => {
+        if (this.points.length === 0) return;
+        this.clearedMeasurement = this.snapshotMeasurement();
+        this.clearMeasurement();
+    };
+
+    private restoreClearedMeasurement(): void {
+        const kept = this.clearedMeasurement;
+        if (!kept) return;
+        this.clearedMeasurement = null;
+        this.points = kept.points;
+        this.segments = kept.segments;
+        this.totalDistanceCm = kept.totalDistanceCm;
+        this.isClosed = kept.isClosed;
+        this.finished = kept.finished;
+        this.areaM2 = kept.areaM2;
+        this.cursorPosition = null;
+        this.updateMapVisualization();
+        this.doUpdateRubberbandVisualization();
+        this.updateElevationProfile();
+        this.applyCursorForState();
     }
 
     /**
      * Takes back the last thing that changed the measurement.
      *
-     * Not a general undo stack, because the tool only has three actions that can
+     * Not a general undo stack, because the tool only has four actions that can
      * change it and each one has an obvious inverse: closing a ring is undone by
-     * reopening it, finishing a line by resuming it, and adding a point by
-     * removing it. A stack would store the same three facts the state already
-     * carries, and would then have to be kept in step with it.
+     * reopening it, finishing a line by resuming it, adding a point by removing
+     * it, and Clear by restoring what it erased (the one thing the state does
+     * not already carry, hence `clearedMeasurement`). A stack would store the
+     * same facts the state already carries, and would then have to be kept in
+     * step with it.
      *
      * Reopening deliberately does not also drop the point: closing and adding
      * are separate actions to the user (one click closed the ring; the click
@@ -957,6 +1014,11 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
      */
     private undoLastAction(): void {
         if (!this.canUndo) return;
+
+        if (this.points.length === 0) {
+            this.restoreClearedMeasurement();
+            return;
+        }
 
         if (this.isClosed) {
             // The closing segment is the last one added, and its length is part
@@ -1043,11 +1105,14 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
     /** Called when tool becomes active */
     protected onActivate(): void {
-        this.clearMeasurement();
+        // The measurement is kept across tool switches, so opening the panel
+        // carries on where it was left: a finished one stays finished (plain
+        // cursor), an open one picks up again from its last point.
         this.adapter?.setDoubleClickZoomEnabled(false);
-        this.adapter?.setCursor('crosshair');
+        this.adapter?.setCursor(this.isFinished ? '' : 'crosshair');
 
-        // Create layers when activating (ensures they're on top)
+        // Create layers when activating (ensures they're on top); they are
+        // built from the kept state, so the measurement reappears as it was.
         if (!this.layersCreated) {
             this.createMeasureLayers();
         }
@@ -1065,7 +1130,12 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
     /** Called when tool becomes inactive */
     protected onDeactivate(): void {
-        this.clearMeasurement();
+        // Keep the measurement — switching to another tool to look something up
+        // must not throw away what was measured; only Clear does that. Only the
+        // cursor-following state goes, since the cursor is not ours any more.
+        this.cursorPosition = null;
+        this.snapToStart = false;
+        this.altHeld = false;
         this.adapter?.setDoubleClickZoomEnabled(true);
         this.adapter?.setCursor('');
 
@@ -1442,13 +1512,13 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
                         <sl-button
                             size="small"
                             ?disabled=${!this.canUndo}
-                            title="Undo the last point (Ctrl+Z, Backspace or Delete)"
+                            title="Undo the last change (Ctrl+Z, Backspace or Delete)"
                             @click=${this.undoLastAction}
                         >
                             <sl-icon name="arrow-counterclockwise" slot="prefix"></sl-icon>
                             Undo
                         </sl-button>
-                        <sl-button size="small" @click=${this.clearMeasurement}>
+                        <sl-button size="small" @click=${this.clearByUser}>
                             <sl-icon name="trash" slot="prefix"></sl-icon>
                             Clear
                         </sl-button>
