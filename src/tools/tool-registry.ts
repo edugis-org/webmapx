@@ -114,7 +114,7 @@ const BUILT_IN_TOOLS: readonly ToolRegistryEntry[] = [
         icon: 'translate', aliases: ['language-osmvector'],
     },
     { id: 'print', tag: 'webmapx-print-tool', placement: 'toolbar', label: 'Print', icon: 'printer' },
-    { id: 'truearea', tag: 'webmapx-truearea-tool', placement: 'toolbar', label: 'True Area', icon: 'bounding-box-circles' },
+    { id: 'truearea', tag: 'webmapx-truearea-tool', placement: 'toolbar', label: 'True area', icon: 'bounding-box-circles' },
     { id: 'routing', tag: 'webmapx-routing-tool', placement: 'toolbar', label: 'Routing', icon: 'signpost-split' },
     { id: 'isochrone', tag: 'webmapx-isochrone-tool', placement: 'toolbar', label: 'Isochrone', icon: 'broadcast' },
     { id: 'settings', tag: 'webmapx-settings', placement: 'toolbar', label: 'Settings', icon: 'gear' },

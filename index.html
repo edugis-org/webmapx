@@ -38,7 +38,7 @@
                 <webmapx-inset-map map="#map-container" zoom-offset="-5" minimizable background-layer="osm"></webmapx-inset-map>
                 <webmapx-tool-template map="#map-container"></webmapx-tool-template>
                 <div id="truearea-host">
-                    <button id="truearea-button">True Area tool</button>
+                    <button id="truearea-button">True area tool</button>
                     <div id="truearea-output"></div>
                 </div>
                 <webmapx-spinner map="#map-container"></webmapx-spinner>
@@ -87,7 +87,7 @@
         const trueAreaOutput = document.getElementById('truearea-output');
 
         const setTrueAreaLabel = (active) => {
-            if (trueAreaButton) trueAreaButton.textContent = active ? 'Deactivate True Area tool' : 'True Area tool';
+            if (trueAreaButton) trueAreaButton.textContent = active ? 'Deactivate True area tool' : 'True area tool';
         };
 
         map?.addEventListener('webmapx-tool-activated', (e) => {
