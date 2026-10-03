@@ -197,8 +197,7 @@ export class Webmapx3dTool extends WebmapxBaseTool {
 
         return html`
             ${this.pitchSupported ? html`
-                <label>3D terrain and viewing angle</label>
-                <div class="pitch-buttons">
+                <div class="pitch-buttons" role="group" aria-label="Viewing angle">
                     <button class="webmapx-control ${activePreset === 0 ? 'active' : ''}" @click=${() => this.setPitch(0)}>0°</button>
                     <button class="webmapx-control ${(activePreset === 30 || midActive) ? 'active' : ''}" @click=${() => this.setPitch(30)}>${midLabel}</button>
                     <button class="webmapx-control ${(activePreset === 60 || rightActive) ? 'active' : ''}" @click=${() => this.setPitch(60)}>${rightLabel}</button>

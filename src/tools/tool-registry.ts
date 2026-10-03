@@ -39,6 +39,14 @@ export interface ToolRegistryEntry {
     placement: ToolPlacement;
     /** Shown on the toolbar button and in the setup page. */
     label: string;
+    /**
+     * One sentence under the panel title saying what the tool is for — the
+     * purpose, not how to operate it (instructions belong in the tool). Starts
+     * with a verb, sentence case, no full stop, short enough for one or two
+     * lines of a 300px panel. Drawn by the panel, so it looks the same in
+     * every tool; containers (toolbox, menu) have none.
+     */
+    description?: string;
     icon?: ToolIconConfig;
     /**
      * Older spellings of `id` that configs in the wild still use. Accepted
@@ -75,58 +83,58 @@ export interface ToolRegistryEntry {
 
 const BUILT_IN_TOOLS: readonly ToolRegistryEntry[] = [
     // --- toolbar tools, in the order the setup page offers them ---
-    { id: 'search', tag: 'webmapx-search-tool', placement: 'toolbar', label: 'Search', icon: 'search' },
+    { id: 'search', tag: 'webmapx-search-tool', placement: 'toolbar', label: 'Search', description: 'Find a place, address or feature on the map', icon: 'search' },
     {
-        id: 'layerTree', tag: 'webmapx-layer-tree', placement: 'toolbar', label: 'Catalog', icon: 'layers',
+        id: 'layerTree', tag: 'webmapx-layer-tree', placement: 'toolbar', label: 'Catalog', description: 'Choose which layers to show on the map', icon: 'layers',
         bundled: true, metadataAliases: ['layers', 'catalog', 'datacatalog'],
     },
-    { id: 'measure', tag: 'webmapx-measure-tool', placement: 'toolbar', label: 'Measure', icon: 'rulers' },
-    { id: 'info', tag: 'webmapx-info-tool', placement: 'toolbar', label: 'Feature info', icon: 'info-circle' },
-    { id: 'draw', tag: 'webmapx-draw-tool', placement: 'toolbar', label: 'Draw', icon: 'pencil' },
+    { id: 'measure', tag: 'webmapx-measure-tool', placement: 'toolbar', label: 'Measure', description: 'Measure a distance or an area on the map', icon: 'rulers' },
+    { id: 'info', tag: 'webmapx-info-tool', placement: 'toolbar', label: 'Feature info', description: 'See the details of a feature on the map', icon: 'info-circle' },
+    { id: 'draw', tag: 'webmapx-draw-tool', placement: 'toolbar', label: 'Draw', description: 'Draw points, lines and shapes on the map', icon: 'pencil' },
     {
-        id: 'geolocation', tag: 'webmapx-geolocation-tool', placement: 'toolbar', label: 'Geolocation',
+        id: 'geolocation', tag: 'webmapx-geolocation-tool', placement: 'toolbar', label: 'Geolocation', description: 'Show where you are on the map',
         icon: 'crosshair', metadataAliases: ['geolocate'],
     },
     {
         // One tool now: the projection picker decides what to offer from the
         // engine. The old `view-mode` type keeps working so configurations do
         // not have to be rewritten.
-        id: 'projection', tag: 'webmapx-projection-tool', placement: 'toolbar', label: 'Projection',
+        id: 'projection', tag: 'webmapx-projection-tool', placement: 'toolbar', label: 'Projection', description: 'Choose a different way to project the map',
         icon: 'globe-americas', aliases: ['view-mode'],
     },
     {
-        id: 'timeSlider', tag: 'webmapx-time-slider-tool', placement: 'toolbar', label: 'Time',
+        id: 'timeSlider', tag: 'webmapx-time-slider-tool', placement: 'toolbar', label: 'Time', description: 'Set the date and time the map shows',
         icon: 'clock', aliases: ['time-slider'],
     },
-    { id: 'cartogram', tag: 'webmapx-cartogram-tool', placement: 'toolbar', label: 'Cartogram', icon: 'pie-chart' },
-    { id: '3d', tag: 'webmapx-3d-tool', placement: 'toolbar', label: '3D', icon: 'box' },
+    { id: 'cartogram', tag: 'webmapx-cartogram-tool', placement: 'toolbar', label: 'Cartogram', description: 'Resize areas to show a number, like population', icon: 'pie-chart' },
+    { id: '3d', tag: 'webmapx-3d-tool', placement: 'toolbar', label: '3D', description: 'View the map in 3D, with terrain and tilt', icon: 'box' },
     {
-        id: 'import-layer', tag: 'webmapx-import-layer-tool', placement: 'toolbar', label: 'Import layer',
+        id: 'import-layer', tag: 'webmapx-import-layer-tool', placement: 'toolbar', label: 'Import layer', description: 'Add layers from a file or a web service',
         icon: 'file-earmark-arrow-up',
     },
     {
-        id: 'layerOverview', tag: 'webmapx-layer-overview', placement: 'toolbar', label: 'Legend',
+        id: 'layerOverview', tag: 'webmapx-layer-overview', placement: 'toolbar', label: 'Legend', description: 'See and arrange the layers on the map',
         icon: 'card-list', bundled: true, metadataAliases: ['legend'],
     },
-    { id: 'layerLegend3d', tag: 'webmapx-layer-legend3d', placement: 'toolbar', label: 'Legend 3D', icon: 'stack' },
+    { id: 'layerLegend3d', tag: 'webmapx-layer-legend3d', placement: 'toolbar', label: 'Legend 3D', description: 'See the map’s layers as a stack', icon: 'stack' },
     {
-        id: 'maplanguage', tag: 'webmapx-language-osmvector', placement: 'both', label: 'Map language',
+        id: 'maplanguage', tag: 'webmapx-language-osmvector', placement: 'both', label: 'Map language', description: 'Choose the language of the map labels',
         icon: 'translate', aliases: ['language-osmvector'],
     },
-    { id: 'print', tag: 'webmapx-print-tool', placement: 'toolbar', label: 'Print', icon: 'printer' },
-    { id: 'truearea', tag: 'webmapx-truearea-tool', placement: 'toolbar', label: 'True area', icon: 'bounding-box-circles' },
-    { id: 'routing', tag: 'webmapx-routing-tool', placement: 'toolbar', label: 'Routing', icon: 'signpost-split' },
-    { id: 'isochrone', tag: 'webmapx-isochrone-tool', placement: 'toolbar', label: 'Isochrone', icon: 'broadcast' },
-    { id: 'settings', tag: 'webmapx-settings', placement: 'toolbar', label: 'Settings', icon: 'gear' },
+    { id: 'print', tag: 'webmapx-print-tool', placement: 'toolbar', label: 'Print', description: 'Print the map or save it as a PDF', icon: 'printer' },
+    { id: 'truearea', tag: 'webmapx-truearea-tool', placement: 'toolbar', label: 'True area', description: 'Compare the real size of countries and areas', icon: 'bounding-box-circles' },
+    { id: 'routing', tag: 'webmapx-routing-tool', placement: 'toolbar', label: 'Routing', description: 'Plan a route from point to point', icon: 'signpost-split' },
+    { id: 'isochrone', tag: 'webmapx-isochrone-tool', placement: 'toolbar', label: 'Isochrone', description: 'Show how far you can travel within a time or distance', icon: 'broadcast' },
+    { id: 'settings', tag: 'webmapx-settings', placement: 'toolbar', label: 'Settings', description: 'Change the map engine, style and theme', icon: 'gear' },
     { id: 'toolbox', tag: 'webmapx-toolbox-tool', placement: 'toolbar', label: 'Toolbox', icon: 'grid', bundled: true, container: true },
     { id: 'menu', tag: 'webmapx-menu-tool', placement: 'toolbar', label: 'Tools', icon: 'list', bundled: true, container: true },
-    { id: 'buffer', tag: 'webmapx-buffer-tool', placement: 'toolbar', label: 'Buffer', icon: { src: bufferIconUrl } },
-    { id: 'geoprocessing', tag: 'webmapx-geoprocessing-tool', placement: 'toolbar', label: 'Analysis', icon: 'intersect' },
-    { id: 'data-analyzer', tag: 'webmapx-data-analyzer-tool', placement: 'toolbar', label: 'Data analyzer', icon: 'bar-chart-line' },
-    { id: 'stories', tag: 'webmapx-stories-tool', placement: 'toolbar', label: 'Stories', icon: 'book' },
-    { id: 'deeptime', tag: 'webmapx-deeptime-tool', placement: 'toolbar', label: 'Deep time', icon: { src: dinosaurIconUrl } },
-    { id: 'sealevel', tag: 'webmapx-sealevel-tool', placement: 'toolbar', label: 'Sea level', icon: 'water' },
-    { id: 'compare', tag: 'webmapx-compare-tool', placement: 'toolbar', label: 'Compare', icon: 'layout-split' },
+    { id: 'buffer', tag: 'webmapx-buffer-tool', placement: 'toolbar', label: 'Buffer', description: 'Create a buffer zone around the features of a layer', icon: { src: bufferIconUrl } },
+    { id: 'geoprocessing', tag: 'webmapx-geoprocessing-tool', placement: 'toolbar', label: 'Analysis', description: 'Combine, select or reshape map layers', icon: 'intersect' },
+    { id: 'data-analyzer', tag: 'webmapx-data-analyzer-tool', placement: 'toolbar', label: 'Data analyzer', description: 'Discover patterns in a layer’s data', icon: 'bar-chart-line' },
+    { id: 'stories', tag: 'webmapx-stories-tool', placement: 'toolbar', label: 'Stories', description: 'Follow a guided tour through the map', icon: 'book' },
+    { id: 'deeptime', tag: 'webmapx-deeptime-tool', placement: 'toolbar', label: 'Deep time', description: 'Travel back through millions of years of Earth’s history', icon: { src: dinosaurIconUrl } },
+    { id: 'sealevel', tag: 'webmapx-sealevel-tool', placement: 'toolbar', label: 'Sea level', description: 'See which land floods when the sea rises or falls', icon: 'water' },
+    { id: 'compare', tag: 'webmapx-compare-tool', placement: 'toolbar', label: 'Compare', description: 'Compare the map before and after a change', icon: 'layout-split' },
 
     // --- standalone map furniture, in the order the setup page offers them ---
     { id: 'navigation', tag: 'webmapx-navigation-control', placement: 'standalone', label: 'Navigation', icon: 'compass', bundled: true },
@@ -165,6 +173,7 @@ function spellings(entry: ToolRegistryEntry): string[] {
 
 export interface ToolMetadata {
     label: string;
+    description?: string;
     icon?: ToolIconConfig;
 }
 
@@ -241,7 +250,11 @@ function indexTool(entry: ToolRegistryEntry, plugin: boolean): void {
     }
 
     if (isToolbar(entry) && offered) {
-        const metadata: ToolMetadata = { label: entry.label, icon: entry.icon };
+        const metadata: ToolMetadata = {
+            label: entry.label,
+            ...(entry.description ? { description: entry.description } : {}),
+            icon: entry.icon,
+        };
         for (const name of [...names, ...(entry.metadataAliases ?? [])]) DEFAULT_TOOL_METADATA[name] = metadata;
     }
 

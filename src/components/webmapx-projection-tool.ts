@@ -201,12 +201,11 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
         const catalogue = getViewProjectionDef(current.id);
 
         return html`
-            <label for="projection-select">How the world is drawn</label>
             ${fixed
                 // Nothing to choose is a fact about the engine, not a disabled
                 // control: say what it draws and why that is all there is.
                 ? html`<div class="fixed">${current.label}</div>`
-                : html`<select id="projection-select"
+                : html`<select id="projection-select" aria-label="Projection"
                                 @change=${(e: Event) => this.apply((e.target as HTMLSelectElement).value)}>
                     ${options.map((option) => html`
                         <option value=${option.id} ?selected=${option.id === current.id}>${option.label}</option>`)}

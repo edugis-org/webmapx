@@ -51,6 +51,7 @@ function resolveToolbarItemMetadata(item: ToolbarItemConfig): ToolMetadata {
 
   return {
     label: item.label ?? item.title ?? defaultMetadata?.label ?? humanizeToolId(item.id ?? item.type),
+    description: defaultMetadata?.description,
     icon: item.icon ?? defaultMetadata?.icon,
   };
 }
@@ -229,6 +230,8 @@ function buildToolbarGroup(config: Record<string, unknown>): HTMLElement {
       const toolEl = document.createElement(tagName);
       toolEl.setAttribute('tool-id', String(itemId));
       toolEl.setAttribute('label', metadata.label);
+      // The panel draws it under its title, the way it draws the title itself.
+      if (metadata.description) toolEl.setAttribute('panel-description', metadata.description);
       if (metadata.icon) {
         // Set as a pre-upgrade property; Lit replays it on upgrade for @property({ attribute: false })
         (toolEl as unknown as Record<string, unknown>)['icon'] = metadata.icon;

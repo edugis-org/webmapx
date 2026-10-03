@@ -1,5 +1,5 @@
-import { LitElement, html, css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { LitElement, html, css, nothing } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
 import type { WebmapxMapElement } from './webmapx-map';
 import {
   isToolSelectFromDifferentToolbar,
@@ -16,10 +16,12 @@ export class WebmapxToolPanel extends LitElement {
   @property({ type: String }) label = 'Tools';
   @property({ type: Boolean, reflect: true }) active = false;
   @property({ type: Boolean, reflect: true }) collapsed = false;
+  /** What the active tool is for, drawn under the title (`panel-description` on the tool). */
+  @state() private description = '';
 
   private defaultLabel = 'Tools';
   private activeToolId: string | null = null;
-  private toolIndex: Map<string, { element: HTMLElement; label: string }> = new Map();
+  private toolIndex: Map<string, { element: HTMLElement; label: string; description: string }> = new Map();
   private mapHost: WebmapxMapElement | null = null;
   private boundHandleToolActivated = (e: Event) => this.handleToolActivated(e as CustomEvent);
   private boundHandleToolDeactivated = (e: Event) => this.handleToolDeactivated(e as CustomEvent);
@@ -88,7 +90,8 @@ export class WebmapxToolPanel extends LitElement {
         return;
       }
       const label = this.resolveToolLabel(toolId, element);
-      this.toolIndex.set(toolId, { element: element as HTMLElement, label });
+      const description = element.getAttribute('panel-description') ?? '';
+      this.toolIndex.set(toolId, { element: element as HTMLElement, label, description });
     });
   }
 
@@ -126,6 +129,7 @@ export class WebmapxToolPanel extends LitElement {
       const tool = this.toolIndex.get(this.activeToolId);
       if (tool) {
         this.label = tool.label;
+        this.description = tool.description;
         this.applyWidth(tool.element.getAttribute('panel-width'));
       }
       this.active = true;
@@ -136,6 +140,7 @@ export class WebmapxToolPanel extends LitElement {
     }
 
     this.label = this.defaultLabel;
+    this.description = '';
     this.active = false;
     this.setAttribute('aria-label', this.label);
     this.applyWidth(null);
@@ -277,6 +282,21 @@ export class WebmapxToolPanel extends LitElement {
       color: var(--color-text-primary, #16202a);
     }
 
+    /* What the tool is for: one sentence under the title that heads the tool
+       as a whole. Bold, so it stands apart from the instructions below it,
+       but smaller and in the secondary colour, so it stays under the title
+       rather than reading as a second one. Padded like tool content, since it
+       sits inside the scrolling content above the tool. */
+    .panel-description {
+      margin: 0;
+      padding: var(--webmapx-panel-content-padding, var(--webmapx-space-md, 0.75rem));
+      padding-bottom: 0;
+      font-size: var(--webmapx-font-size-md, 0.875rem);
+      font-weight: 600;
+      line-height: 1.4;
+      color: var(--color-text-secondary, #5a6773);
+    }
+
     .panel-content {
       box-sizing: border-box;
       flex: 0 1 auto;
@@ -359,6 +379,7 @@ export class WebmapxToolPanel extends LitElement {
         </sl-button>
       </div>
       <div class="panel-content">
+        ${this.description ? html`<p class="panel-description">${this.description}</p>` : nothing}
         <slot @slotchange=${this.handleSlotChange}></slot>
       </div>
       <slot name="footer"></slot>
