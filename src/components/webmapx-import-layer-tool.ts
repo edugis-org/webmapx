@@ -53,8 +53,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
     :host { display: block; width: 100%; pointer-events: auto; }
     :host([hidden]) { display: none !important; }
     .container { width: 100%; color: var(--color-text-primary); box-sizing: border-box; padding: var(--webmapx-tool-padding, 0); }
-    .section-title { margin: 10px 0 6px; }
-    .section-title:first-child { margin-top: 0; }
+    .section-title { margin: 0 0 6px; }
     .urlbox { display:flex; gap:6px; align-items:center; }
     input[type="text"] { flex:1; padding:6px; min-width:0; }
     .error { color: var(--sl-color-danger-600, #c0392b); font-size: 12px; margin-top: 6px; }
@@ -256,6 +255,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
   render() {
     return html`
       <div class="container tool-content">
+        <section class="panel-section">
         <div class="section-title section-heading">From URL</div>
         <div class="urlbox">
           <input
@@ -325,7 +325,9 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
             </ul>
           </div>
         `}
+        </section>
 
+        <section class="panel-section">
         <div class="section-title section-heading">From file</div>
         <div class="file-row">
           <sl-button size="small" ?loading=${this.fileImporting} ?disabled=${this.fileImporting}
@@ -346,6 +348,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
           <sl-icon name="file-earmark-arrow-up"></sl-icon>
           Drop files here or click to browse
         </div>
+        </section>
       </div>
     `;
   }

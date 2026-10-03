@@ -2,7 +2,6 @@ import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 
 import '@shoelace-style/shoelace/dist/components/input/input.js';
-import '@shoelace-style/shoelace/dist/components/divider/divider.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 
@@ -70,14 +69,6 @@ export class WebmapxSettings extends LitElement {
             display: block;
             padding: 1rem;
             box-sizing: border-box;
-        }
-
-        .setting-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .setting-group:last-child {
-            margin-bottom: 0;
         }
 
         h3 {
@@ -270,7 +261,7 @@ export class WebmapxSettings extends LitElement {
 
     render() {
         return html`
-            <div class="setting-group">
+            <section class="panel-section">
                 <h3 class="section-heading">Map Engine</h3>
                 <sl-select
                     label="Adapter"
@@ -283,11 +274,9 @@ export class WebmapxSettings extends LitElement {
                         </sl-option>
                     `)}
                 </sl-select>
-            </div>
+            </section>
 
-            <sl-divider></sl-divider>
-
-            <div class="setting-group">
+            <section class="panel-section">
                 <h3 class="section-heading">Appearance</h3>
                 <sl-select
                     label="Style"
@@ -308,11 +297,9 @@ export class WebmapxSettings extends LitElement {
                         <sl-option value=${t.value}>${t.label}</sl-option>
                     `)}
                 </sl-select>
-            </div>
+            </section>
 
-            <sl-divider></sl-divider>
-
-            <div class="setting-group">
+            <section class="panel-section">
                 <h3 class="section-heading">API Configuration</h3>
                 <sl-input
                     label="API Key"
@@ -322,7 +309,7 @@ export class WebmapxSettings extends LitElement {
                     @sl-input=${this.handleApiKeyChange}
                     placeholder="Enter your API key"
                 ></sl-input>
-            </div>
+            </section>
         `;
     }
 }

@@ -245,8 +245,6 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
       gap: 0.4rem;
       font-weight: 600;
       font-size: 1rem;
-      border-bottom: 1px solid var(--color-border-light);
-      padding-bottom: 0.5rem;
     }
 
     .title sl-spinner {

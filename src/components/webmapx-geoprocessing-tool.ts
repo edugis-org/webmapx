@@ -168,7 +168,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
         }
 
         .category {
-            margin-top: var(--sl-spacing-x-small);
+            margin-bottom: var(--sl-spacing-x-small);
         }
 
         /* Two columns, so the panel keeps the shared 300px default width. */
@@ -999,6 +999,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
         return html`
             <div class="hint">Choose what you want to do:</div>
             ${categories.map(category => html`
+                <section class="panel-section">
                 <div class="category section-heading">${CATEGORY_LABELS[category]}</div>
                 <div class="grid">
                     ${GEO_OPERATIONS.filter(op => op.category === category).map(op => html`
@@ -1013,6 +1014,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
                         </button>
                     `)}
                 </div>
+                </section>
             `)}
         `;
     }
