@@ -568,7 +568,6 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
         const rangeLabel = this.rangeType === 'time' ? 'minutes' : 'km';
 
         return html`
-            <label>Isochrone</label>
             <p class="hint">${this.center
                 ? 'Click the map to move the centre, then press Calculate.'
                 : 'Click the map to set the centre point.'}</p>

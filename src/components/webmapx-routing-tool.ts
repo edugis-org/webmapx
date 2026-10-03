@@ -737,7 +737,6 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
                                          'Click the map to update the end point.';
 
         return html`
-            <label>Route</label>
             <p class="hint">${hintText}</p>
 
             ${this.start ? html`

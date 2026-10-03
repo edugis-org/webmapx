@@ -270,7 +270,6 @@ export class WebmapxLanguageOsmVector extends WebmapxModalTool {
 
         return html`
             <div class="tool-content container">
-                <div>Map label language</div>
                 <div class="current-en">${current?.en ?? this.language}</div>
                 <sl-select
                     aria-label="Map label language"

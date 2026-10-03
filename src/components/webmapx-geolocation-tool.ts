@@ -977,7 +977,6 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
     return html`
       <div class="tool-content">
         <div class="title">
-          Location
           ${this.status === 'locating' ? html`<sl-spinner></sl-spinner>` : ''}
           <sl-icon-button
             name="box-arrow-up"

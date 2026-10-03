@@ -1026,7 +1026,9 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
             <div class="chosen">
                 <div class="chosen-head">
                     ${operationDiagram(op.id)}
-                    <div class="name">${op.label}</div>
+                    <!-- A pinned operation is the panel's own title ("Cartogram"),
+                         so naming it again here only repeats it. -->
+                    ${this.pinnedOperation ? nothing : html`<div class="name">${op.label}</div>`}
                     ${this.pinnedOperation ? nothing : html`
                         <sl-button
                             size="small"
