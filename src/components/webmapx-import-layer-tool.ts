@@ -6,6 +6,7 @@ import type { IMap } from '../map/IMapInterfaces';
 import type { IMapState } from '../store/IMapState';
 import type { WebmapxMapElement } from './webmapx-map';
 import { resolveMapElement } from './internal/map-context';
+import { sectionHeadingStyles } from './internal/section-heading-styles';
 import { discoverLayers, type DiscoveredLayer, type CatalogEntry } from '../utils/layer-discovery';
 
 /**
@@ -48,11 +49,11 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
   /** Bumped on each `handleDiscover` call; a stale (slower) call's result is discarded if a newer one has started. */
   private discoverySeq = 0;
 
-  static styles = css`
+  static styles = [sectionHeadingStyles, css`
     :host { display: block; width: 100%; pointer-events: auto; }
     :host([hidden]) { display: none !important; }
     .container { width: 100%; color: var(--color-text-primary); box-sizing: border-box; padding: var(--webmapx-tool-padding, 0); }
-    .section-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-secondary); margin: 10px 0 6px; }
+    .section-title { margin: 10px 0 6px; }
     .section-title:first-child { margin-top: 0; }
     .urlbox { display:flex; gap:6px; align-items:center; }
     input[type="text"] { flex:1; padding:6px; min-width:0; }
@@ -81,7 +82,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
       color: var(--sl-color-primary-700);
     }
     input[type="file"] { display: none; }
-  `;
+  `];
 
   protected onMapAttached(adapter: IMap): void {
     super.onMapAttached(adapter);
@@ -255,7 +256,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
   render() {
     return html`
       <div class="container tool-content">
-        <div class="section-title">From URL</div>
+        <div class="section-title section-heading">From URL</div>
         <div class="urlbox">
           <input
             type="text"
@@ -325,7 +326,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
           </div>
         `}
 
-        <div class="section-title">From file</div>
+        <div class="section-title section-heading">From file</div>
         <div class="file-row">
           <sl-button size="small" ?loading=${this.fileImporting} ?disabled=${this.fileImporting}
             @click=${() => (this.renderRoot?.querySelector('input[type="file"]') as HTMLInputElement)?.click()}>

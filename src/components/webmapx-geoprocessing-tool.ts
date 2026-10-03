@@ -47,6 +47,7 @@ import {
     type GeoParamValues,
 } from '../utils/geoprocessing-operations';
 import { operationDiagram } from './internal/geoprocessing-diagrams';
+import { sectionHeadingStyles } from './internal/section-heading-styles';
 import type { GeoprocessResult } from '../workers/geoprocessing-runner';
 import { DATA_START, DATA_OUTLINE } from '../theme/data-colors';
 
@@ -153,7 +154,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
 
     // ─── Styles ──────────────────────────────────────────────────────────
 
-    static styles = css`
+    static styles = [sectionHeadingStyles, css`
         :host { display: block; }
 
         :host(:not([active])) .tool-content { display: none; }
@@ -167,11 +168,6 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
         }
 
         .category {
-            font-size: var(--sl-font-size-x-small);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            color: var(--color-text-secondary, #5a6773);
             margin-top: var(--sl-spacing-x-small);
         }
 
@@ -433,7 +429,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
                 animation: none;
             }
         }
-    `;
+    `];
 
     // ─── Lifecycle ───────────────────────────────────────────────────────
 
@@ -1003,7 +999,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
         return html`
             <div class="hint">Choose what you want to do:</div>
             ${categories.map(category => html`
-                <div class="category">${CATEGORY_LABELS[category]}</div>
+                <div class="category section-heading">${CATEGORY_LABELS[category]}</div>
                 <div class="grid">
                     ${GEO_OPERATIONS.filter(op => op.category === category).map(op => html`
                         <button

@@ -14,6 +14,7 @@ import {
 } from '../config/adapter-resolution';
 import { resolveMapElement } from './internal/map-context';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
+import { sectionHeadingStyles } from './internal/section-heading-styles';
 
 /**
  * Appearance is two independent choices, mirroring the token axes in
@@ -64,7 +65,7 @@ export class WebmapxSettings extends LitElement {
     @state() private currentAdapter = DEFAULT_ADAPTER_NAME;
     @state() private availableAdapters: string[] = [];
 
-    static styles = [controlSurfaceStyles, css`
+    static styles = [controlSurfaceStyles, sectionHeadingStyles, css`
         :host {
             display: block;
             padding: 1rem;
@@ -81,11 +82,6 @@ export class WebmapxSettings extends LitElement {
 
         h3 {
             margin: 0 0 0.75rem 0;
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: var(--color-text-secondary, #5a6773);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
         }
 
         sl-input {
@@ -275,7 +271,7 @@ export class WebmapxSettings extends LitElement {
     render() {
         return html`
             <div class="setting-group">
-                <h3>Map Engine</h3>
+                <h3 class="section-heading">Map Engine</h3>
                 <sl-select
                     label="Adapter"
                     value=${this.currentAdapter}
@@ -292,7 +288,7 @@ export class WebmapxSettings extends LitElement {
             <sl-divider></sl-divider>
 
             <div class="setting-group">
-                <h3>Appearance</h3>
+                <h3 class="section-heading">Appearance</h3>
                 <sl-select
                     label="Style"
                     help-text=${UI_STYLES.find(s => s.value === this.uiStyle)?.hint ?? ''}
@@ -317,7 +313,7 @@ export class WebmapxSettings extends LitElement {
             <sl-divider></sl-divider>
 
             <div class="setting-group">
-                <h3>API Configuration</h3>
+                <h3 class="section-heading">API Configuration</h3>
                 <sl-input
                     label="API Key"
                     type="password"
