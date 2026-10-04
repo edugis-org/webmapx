@@ -84,9 +84,6 @@ export class WebmapxSettings extends LitElement {
             margin-top: 0.5rem;
         }
 
-        sl-select::part(combobox) {
-            min-height: 2.5rem;
-        }
     `];
 
     connectedCallback() {
@@ -265,6 +262,7 @@ export class WebmapxSettings extends LitElement {
             <section class="panel-section">
                 <h3 class="section-heading">Map Engine</h3>
                 <sl-select
+                    size="small"
                     label="Adapter"
                     value=${this.currentAdapter}
                     @sl-change=${this.handleAdapterChange}
@@ -280,6 +278,7 @@ export class WebmapxSettings extends LitElement {
             <section class="panel-section">
                 <h3 class="section-heading">Appearance</h3>
                 <sl-select
+                    size="small"
                     label="Style"
                     help-text=${UI_STYLES.find(s => s.value === this.uiStyle)?.hint ?? ''}
                     value=${this.uiStyle}
@@ -290,6 +289,7 @@ export class WebmapxSettings extends LitElement {
                     `)}
                 </sl-select>
                 <sl-select
+                    size="small"
                     label="Theme"
                     value=${this.uiTheme}
                     @sl-change=${this.handleThemeChange}
@@ -303,6 +303,7 @@ export class WebmapxSettings extends LitElement {
             <section class="panel-section">
                 <h3 class="section-heading">API Configuration</h3>
                 <sl-input
+                    size="small"
                     label="API Key"
                     type="password"
                     password-toggle
