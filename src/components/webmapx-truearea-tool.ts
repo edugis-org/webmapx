@@ -1,5 +1,6 @@
 import { html, css, TemplateResult } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
+import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import { customElement, state } from 'lit/decorators.js';
@@ -218,39 +219,9 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         .dragging-hint { color: var(--color-primary, #2b6c8f); font-size: 0.8rem; margin-bottom: 0.4rem; }
         .method-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
         .method-row input { cursor: pointer; }
-        .method-row label { cursor: pointer; }
         .rotation-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
-        .rotation-row input[type=range] {
-            flex: 1;
-            -webkit-appearance: none;
-            appearance: none;
-            height: 4px;
-            background: var(--color-background-tertiary, #e9edf1);
-            border-radius: 2px;
-            outline: none;
-        }
-        /* Restore a focus indicator for the slider the rule above stripped. */
-        .rotation-row input[type=range]:focus-visible {
-            outline: var(--webmapx-focus-ring, 2px solid var(--color-primary, #2b6c8f));
-            outline-offset: var(--webmapx-focus-offset, 2px);
-        }
-        .rotation-row input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: var(--color-primary, #2b6c8f);
-            cursor: pointer;
-        }
-        .rotation-row input[type=range]::-moz-range-thumb {
-            width: 14px;
-            height: 14px;
-            border: none;
-            border-radius: 50%;
-            background: var(--color-primary, #2b6c8f);
-            cursor: pointer;
-        }
+        /* The browser's own slider in the shared slider colour, like every other tool's. */
+        .rotation-row input[type=range] { flex: 1; min-width: 0; }
         .rotation-reset { border: none; background: none; cursor: pointer; padding: 0 2px; font-size: 1rem; line-height: 1; color: var(--color-text-secondary, #5a6773); }
         .rotation-reset:hover { color: var(--color-primary, #2b6c8f); }
         .rotation-value { font-variant-numeric: tabular-nums; min-width: 3.5em; text-align: right; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
@@ -716,10 +687,9 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
                         <span class="rotation-value">${this.rotationDeg}°</span>
                     </div>
                     <div class="method-row">
-                        <input type="checkbox" id="geodesic-toggle" .checked=${this.geodesic}
-                            @change=${(e: Event) => { this.geodesic = (e.target as HTMLInputElement).checked; this.recomputeLastCopy(); }}
-                        />
-                        <label class="option-label" for="geodesic-toggle">Geodesic (shape-accurate, may rotate borders)</label>
+                        <sl-checkbox size="small" id="geodesic-toggle" .checked=${this.geodesic}
+                            @sl-change=${(e: Event) => { this.geodesic = (e.target as HTMLInputElement).checked; this.recomputeLastCopy(); }}
+                        >Geodesic (shape-accurate, may rotate borders)</sl-checkbox>
                     </div>
 
                     ${this.copies.length > 0

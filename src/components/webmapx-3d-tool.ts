@@ -1,5 +1,6 @@
 import { html, css, TemplateResult } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
+import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
@@ -212,9 +213,8 @@ export class Webmapx3dTool extends WebmapxBaseTool {
             ` : ''}
             ${this.terrainSupported ? html`
                 <div class="terrain-row">
-                    <input type="checkbox" id="webmapx-3d-terrain" .checked=${this.terrainEnabled}
-                        @change=${() => this.toggleTerrain()}>
-                    <label class="option-label" for="webmapx-3d-terrain" style="margin:0;">Show terrain in 3D</label>
+                    <sl-checkbox size="small" id="webmapx-3d-terrain" .checked=${this.terrainEnabled}
+                        @sl-change=${() => this.toggleTerrain()}>Show terrain in 3D</sl-checkbox>
                 </div>
             ` : ''}
         `;

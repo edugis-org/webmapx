@@ -1,5 +1,6 @@
 import { html, css } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
+import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 import { customElement, property, state } from 'lit/decorators.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
@@ -987,10 +988,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         </div>
         <div class="status" style="white-space: pre-line;">${this.message}</div>
         <div class="follow">
-          <label class="option-label">
-            <input type="checkbox" .checked=${this.follow} @change=${this.handleFollowChange} />
-            Track me
-          </label>
+          <sl-checkbox size="small" .checked=${this.follow} @sl-change=${this.handleFollowChange}>Track me</sl-checkbox>
         </div>
         <div class="meta">
           Status: ${this.formatStatus()}${this.lastUpdate ? ` | Updated: ${this.lastUpdate}` : ''}
@@ -1014,11 +1012,8 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         ` : html`
           <p>Save the recorded GPS tracks as GeoJSON, or add them to the map.</p>
           <p>${this.storedPointCount} point(s) stored.</p>
-          <label style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0.5rem;">
-            <input type="checkbox" .checked=${this.eraseAfterExport}
-              @change=${(e: Event) => { this.eraseAfterExport = (e.target as HTMLInputElement).checked; }} />
-            <span class="option-label">Erase from memory</span>
-          </label>
+          <sl-checkbox size="small" style="margin-bottom:0.5rem;" .checked=${this.eraseAfterExport}
+            @sl-change=${(e: Event) => { this.eraseAfterExport = (e.target as HTMLInputElement).checked; }}>Erase from memory</sl-checkbox>
           <div slot="footer" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
             <sl-button autofocus .disabled=${this.storedPointCount === 0} @click=${() => this.openExportFilenameStep()}>Save as files</sl-button>
             <sl-button .disabled=${this.storedPointCount === 0} @click=${() => this.handleExportAddToMap()}>Add to map</sl-button>

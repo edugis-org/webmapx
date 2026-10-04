@@ -17,6 +17,7 @@
  */
 import { html, css, nothing, type TemplateResult } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
+import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -1046,15 +1047,12 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
 
             ${this.currentModel?.plates ? html`
                 <div class="models">
-                    <label class="option-label">
-                        <input type="checkbox" .checked=${this.showPlates}
-                            @change=${(e: Event) => {
-                                this.showPlates = (e.target as HTMLInputElement).checked;
-                                void this.applyPlateLayers();
-                                this.publishPermalinkState();
-                            }}>
-                        Plate boundaries
-                    </label>
+                    <sl-checkbox size="small" .checked=${this.showPlates}
+                        @sl-change=${(e: Event) => {
+                            this.showPlates = (e.target as HTMLInputElement).checked;
+                            void this.applyPlateLayers();
+                            this.publishPermalinkState();
+                        }}>Plate boundaries</sl-checkbox>
                 </div>` : ''}
 
             ${this.models.length > 1 ? html`

@@ -84,6 +84,14 @@ export const formLabelStyles = css`
         margin-bottom: 0.5rem;
     }
 
+    /* Sliders stay the browser's own (a range input is fine as it is, and the
+       tools draw value readouts around it), but in the colour Shoelace gives
+       a checked checkbox, a selected option and the m/km switch — so what is
+       "on" or "set" in a panel is one blue, not the browser's default one. */
+    input[type="range"] {
+        accent-color: var(--sl-color-primary-600, #0284c7);
+    }
+
     .label-hidden::part(form-control-label) {
         position: absolute;
         width: 1px;
