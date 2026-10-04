@@ -59,6 +59,13 @@ export const formLabelStyles = css`
         font-size: var(--sl-input-font-size-small, 0.875rem);
     }
 
+    /* An open list keeps clear of its field's focus ring. Shoelace places the
+       list flush against the field, over the bottom of the 3px ring; the gap
+       is on both sides so it holds when the list flips above the field. */
+    sl-select::part(listbox) {
+        margin-block: 0.375rem;
+    }
+
     /* The speed of a play row ("1 hour per second"): an ordinary labelled
        field above the row of play buttons, full width, the same in every tool
        with a play row. (Inside the row it pushed "per second" out of the
