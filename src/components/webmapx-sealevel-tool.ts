@@ -661,7 +661,7 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
                     @sl-change=${(e: Event) => this.setMode((e.target as HTMLInputElement).value as Mode)}>
                     <sl-radio-button value="level">Level</sl-radio-button>
                     <sl-radio-button value="time">Time</sl-radio-button>
-                </div>` : ''}
+                </sl-radio-group>` : ''}
 
             ${curve ? this.renderTimeMode(curve) : this.renderLevelMode(level)}
 
