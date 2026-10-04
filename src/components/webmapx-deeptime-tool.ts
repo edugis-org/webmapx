@@ -16,6 +16,7 @@
  *   { "type": "deeptime", "data": "data/paleo/merdith2021", "to": 400 }
  */
 import { html, css, nothing, type TemplateResult } from 'lit';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { formLabelStyles } from './internal/form-label-styles';
 import '@shoelace-style/shoelace/dist/components/switch/switch.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
@@ -348,30 +349,6 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
         .controls { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
         .models { margin-top: 0.5rem; font-size: 0.8125rem; color: var(--color-text-secondary, #5a6773); }
         .models label { display: flex; align-items: center; gap: 0.4rem; }
-        /* Play and the two step buttons are one control at different jobs, so
-           they are one rule: the house button (webmapx-control, so it picks up
-           the active style preset) at the compact size the time slider's play
-           button always had — a drawn 2rem box beside it read as heavier than
-           the job deserves. */
-        .controls .step,
-        .controls .play {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 2rem;
-            padding: 0.25rem 0.4rem;
-            line-height: 0;
-            cursor: pointer;
-            color: inherit;
-            border: 1px solid var(--color-border, #d5dce3);
-            border-radius: var(--webmapx-radius-sm, 4px);
-            background-color: var(--color-background, #fff);
-            /* A held button must not also select text or scroll the panel. */
-            touch-action: manipulation;
-            -webkit-user-select: none;
-            user-select: none;
-        }
-        .controls .step[disabled], .controls .play[disabled] { opacity: 0.4; cursor: default; }
         .legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; margin-top: 0.75rem; }
         .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
         .legend i { width: 0.75rem; height: 0.75rem; border-radius: 2px; display: inline-block; }
@@ -1080,12 +1057,11 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
                  is also leftwards on the slider above. -->
             <div class="controls">
                 ${this.renderStep(1, STEP_BACK_ICON, 'earlier')}
-                <button type="button" class="play webmapx-control"
-                    aria-label=${this.playing ? 'Pause' : 'Play'}
+                <sl-button size="small" class="play icon-only"
                     title=${this.playing ? 'Pause' : 'Play'}
                     @click=${() => this.togglePlay()}>
-                    ${this.playing ? PAUSE_ICON : PLAY_ICON}
-                </button>
+                    ${this.playing ? PAUSE_ICON : PLAY_ICON}<span class="visually-hidden">${this.playing ? 'Pause' : 'Play'}</span>
+                </sl-button>
                 ${this.renderStep(-1, STEP_FORWARD_ICON, 'later')}
             </div>
 

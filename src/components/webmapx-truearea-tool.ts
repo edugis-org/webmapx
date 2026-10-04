@@ -1,4 +1,6 @@
 import { html, css, TemplateResult } from 'lit';
+import '@shoelace-style/shoelace/dist/components/icon/icon.js';
+import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { formLabelStyles } from './internal/form-label-styles';
 import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
@@ -215,7 +217,6 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         .copy-item { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
         .copy-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
         .copy-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .copy-remove { cursor: pointer; color: var(--sl-color-danger-600, #c00); border: none; background: none; padding: 0 2px; font-size: 0.9rem; }
         .clear-btn { display: block; width: 100%; }
         .clear-btn::part(base) { width: 100%; }
         .no-copies { color: var(--color-text-muted, #6b7681); font-style: italic; font-size: 0.8rem; margin-bottom: 0.5rem; margin-top: 0.25rem; }
@@ -225,8 +226,6 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         .rotation-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
         /* The browser's own slider in the shared slider colour, like every other tool's. */
         .rotation-row input[type=range] { flex: 1; min-width: 0; }
-        .rotation-reset { border: none; background: none; cursor: pointer; padding: 0 2px; font-size: 1rem; line-height: 1; color: var(--color-text-secondary, #5a6773); }
-        .rotation-reset:hover { color: var(--color-primary, #2b6c8f); }
         .rotation-value { font-variant-numeric: tabular-nums; min-width: 3.5em; text-align: right; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
     `];
 
@@ -679,14 +678,16 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
                     <div class="copy-item">
                         <div class="copy-swatch" style="background:${active.color}"></div>
                         <span class="copy-label" title=${active.label}>${active.label}</span>
-                        <button class="copy-remove" @click=${() => this.removeCopy(active.id)} title="Remove">✕</button>
+                        <sl-icon-button name="x-lg" label="Remove copy" @click=${() => this.removeCopy(active.id)}></sl-icon-button>
                     </div>
                     <div class="rotation-row">
                         <input type="range" aria-label="Rotation" min="-180" max="180" step="1"
                             .value=${String(this.rotationDeg)}
                             @input=${(e: Event) => this.rotateLastCopy(Number((e.target as HTMLInputElement).value))}
                         />
-                        <button class="rotation-reset" title="Reset to 0°" @click=${() => this.rotateLastCopy(0)}>↺</button>
+                        <sl-button size="small" class="icon-only" title="Reset rotation to 0°" @click=${() => this.rotateLastCopy(0)}>
+                            <sl-icon name="arrow-counterclockwise" label="Reset rotation to 0°"></sl-icon>
+                        </sl-button>
                         <span class="rotation-value">${this.rotationDeg}°</span>
                     </div>
                     <div class="method-row">

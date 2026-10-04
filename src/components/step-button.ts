@@ -13,6 +13,7 @@
  */
 
 import { html, svg, type TemplateResult } from 'lit';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
 
 /**
  * A plain chevron, as a stepper is drawn in a paginator or a date picker.
@@ -58,13 +59,10 @@ const REPEAT_INTERVAL_MS = 90;
 export class StepRepeater {
     /** A timeout until the delay has passed, an interval after it. */
     private timer: number | null = null;
-    /** Whether the click now pending was already served by a pointer press. */
-    private handledByPointer = false;
 
     /** Steps once, then keeps stepping until `stop`. */
     press(step: () => void): void {
         this.stop();
-        this.handledByPointer = true;
         step();
         this.timer = window.setTimeout(() => {
             this.timer = window.setInterval(step, REPEAT_INTERVAL_MS);
@@ -80,16 +78,17 @@ export class StepRepeater {
     }
 
     /**
-     * Serves the click that a keyboard or assistive technology synthesises —
-     * which arrives with no pointer press before it — and swallows the one that
-     * merely follows a press this repeater has already acted on.
+     * Serves the click that a keyboard or assistive technology synthesises and
+     * ignores the one a pointer makes, which `press` has already acted on.
+     *
+     * Told apart by the event itself (`detail` is 0 for a keyboard click), not
+     * by remembering that a press happened: when stepping moved the layout
+     * under a held pointer — Sea level's time mode rewrites the age above the
+     * row — the click landed beside the button, the remembered press was never
+     * cleared, and it swallowed the next keyboard step instead.
      */
-    click(step: () => void): void {
-        if (this.handledByPointer) {
-            this.handledByPointer = false;
-            return;
-        }
-        step();
+    click(step: () => void, event: MouseEvent): void {
+        if (event.detail === 0) step();
     }
 }
 
@@ -105,13 +104,15 @@ export function renderStepButton(options: {
     repeater: StepRepeater;
 }): TemplateResult {
     const { icon, label, disabled, step, repeater } = options;
+    // A press on a disabled Shoelace button still reaches its host, unlike a
+    // disabled native button, so the handlers check it themselves.
     return html`
-        <button type="button" class="step webmapx-control" aria-label=${label} title=${label} ?disabled=${disabled}
-            @pointerdown=${() => repeater.press(step)}
+        <sl-button size="small" class="step icon-only" title=${label} ?disabled=${disabled}
+            @pointerdown=${() => { if (!disabled) repeater.press(step); }}
             @pointerup=${() => repeater.stop()}
             @pointercancel=${() => repeater.stop()}
             @pointerleave=${() => repeater.stop()}
-            @click=${() => repeater.click(step)}>
-            ${icon}
-        </button>`;
+            @click=${(e: MouseEvent) => { if (!disabled) repeater.click(step, e); }}>
+            ${icon}<span class="visually-hidden">${label}</span>
+        </sl-button>`;
 }

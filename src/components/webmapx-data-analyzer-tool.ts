@@ -485,13 +485,16 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
                             ? this.availableLayers.map(layer => html`<sl-option value=${layer.id}>${layer.label}</sl-option>`)
                             : html`<sl-option value="">No vector layers on the map</sl-option>`}
                     </sl-select>
+                    <!-- The name is the icon's label: an aria-label on a Shoelace button
+                         never reaches the button inside it, so this one had no name. -->
                     <sl-button
                         size="small"
+                        class=${this.busy ? '' : 'icon-only'}
                         ?disabled=${!this.selectedLayerId}
-                        aria-label=${this.busy ? 'Cancel analysis' : 'Run analysis'}
+                        title=${this.busy ? 'Cancel analysis' : 'Run analysis'}
                         @click=${() => this.busy ? this.cancelAnalysis() : this.runAnalysis()}
                     >
-                        ${this.busy ? html`Cancel` : html`<sl-icon name="arrow-clockwise"></sl-icon>`}
+                        ${this.busy ? html`Cancel` : html`<sl-icon name="arrow-clockwise" label="Run analysis"></sl-icon>`}
                     </sl-button>
                 </div>
                 ${sourceLayers.length > 1 ? html`

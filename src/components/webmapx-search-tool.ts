@@ -1,5 +1,6 @@
 import { announce } from './internal/announce';
 import { html, css, svg } from 'lit';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { customElement, state } from 'lit/decorators.js';
 
 import { WebmapxBaseTool } from './webmapx-base-tool';
@@ -139,24 +140,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     /* Same house style as the toolbar's own search button in its resting state
        (a Shoelace default-variant button: neutral border, no fill) — .webmapx-control
        picks up the active [data-style] preset the way every other plain button here does. */
-    .go-button {
-      display: grid;
-      place-items: center;
-      width: 2rem;
-      height: 2rem;
-      padding: 0;
-      color: inherit;
-      border: 1px solid var(--color-border, #d5dce3);
-      border-radius: var(--webmapx-radius-sm, 4px);
-      background-color: var(--color-background, #fff);
-    }
-    /* Same primary fill a toolbar button gets while its tool is active. */
-    .go-button:hover {
-      background-color: var(--color-primary, #2b6c8f);
-      border-color: var(--color-primary, #2b6c8f);
-      color: var(--color-on-primary, #fff);
-    }
-    .go-button svg { width: 1.1rem; height: 1.1rem; }
+    .go-button svg { width: 1rem; height: 1rem; }
     .results { margin-top:8px; max-height:50%; overflow:auto; }
     .results ul { list-style: none; margin: 0; padding: 0; }
     .result-item { padding:6px; border-bottom:1px solid rgba(0,0,0,0.05); display:flex; align-items:center; gap:8px; }
@@ -857,7 +841,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
             @sl-clear="${() => this.clearSearch()}"
             @keyup="${(e: KeyboardEvent) => this.handleKey(e)}"
           ></sl-input>
-          <button class="go-button webmapx-control" type="button" aria-label="Search" title="Search" @click="${() => this.doSearch()}">${this.searchIcon}</button>
+          <sl-button size="small" class="go-button icon-only" title="Search" @click="${() => this.doSearch()}">${this.searchIcon}<span class="visually-hidden">Search</span></sl-button>
         </div>
 
         <div class="results">

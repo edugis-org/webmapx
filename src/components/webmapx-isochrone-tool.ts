@@ -1,4 +1,5 @@
 import { html, css, TemplateResult, nothing } from 'lit';
+import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { formLabelStyles } from './internal/form-label-styles';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
@@ -574,7 +575,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
                 <div class="center-row">
                     <span class="dot"></span>
                     ${this.center[1].toFixed(5)}, ${this.center[0].toFixed(5)}
-                    <button @click=${() => this.clearIsochrone()} style="margin-left:auto;padding:0.1rem 0.4rem;font-size:0.75rem;" aria-label="Clear isochrone">✕</button>
+                    <sl-icon-button name="x-lg" label="Clear isochrone" style="margin-left:auto;" @click=${() => this.clearIsochrone()}></sl-icon-button>
                 </div>` : nothing}
 
             ${this.showServiceDropdown ? html`

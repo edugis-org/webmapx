@@ -92,6 +92,36 @@ export const formLabelStyles = css`
         accent-color: var(--sl-color-primary-600, #0284c7);
     }
 
+    /* An icon button in a row of controls (a play row, the search field's
+       magnifier, a refresh beside a dropdown): the small Shoelace button made
+       square, so it is exactly as high as the fields beside it, in every
+       style. A held step button must not also select text or scroll. */
+    sl-button.icon-only {
+        touch-action: manipulation;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+    sl-button.icon-only::part(base) {
+        width: var(--sl-input-height-small, 1.875rem);
+    }
+    sl-button.icon-only::part(label) {
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Text for screen readers only — the name of an icon button. A Shoelace
+       button does not pass an aria-label on to the button inside it. */
+    .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+
     .label-hidden::part(form-control-label) {
         position: absolute;
         width: 1px;

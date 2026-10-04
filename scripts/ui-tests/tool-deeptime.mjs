@@ -145,13 +145,13 @@ export async function run({ page, engine, baseUrl }) {
             const tool = document.querySelector('webmapx-deeptime-tool');
             adapter.store.dispatch({ deepTimeMa: 0 }, 'UI');
             await new Promise((r) => setTimeout(r, 300));
-            tool.shadowRoot.querySelector('button.play').click();
+            tool.shadowRoot.querySelector('sl-button.play').click();
             // Pressing play at the present must jump to the far end and start.
             await new Promise((r) => setTimeout(r, 400));
             const started = adapter.store.getState().deepTimeMa;
             await new Promise((r) => setTimeout(r, 1200));
             const later = adapter.store.getState().deepTimeMa;
-            tool.shadowRoot.querySelector('button.play').click();
+            tool.shadowRoot.querySelector('sl-button.play').click();
             return { started, later };
         });
         if (!(seen.started > 100)) fail(`play at the present started at ${seen.started} Ma, not in the deep past`);

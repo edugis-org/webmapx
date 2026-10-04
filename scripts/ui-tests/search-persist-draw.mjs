@@ -60,7 +60,7 @@ async function searchForUtrecht(page) {
     input.dispatchEvent(new CustomEvent('sl-input', { bubbles: true, composed: true }));
 
     // Click Go button
-    const goButton = tool.shadowRoot.querySelector('button');
+    const goButton = tool.shadowRoot.querySelector('sl-button.go-button');
     if (!goButton) throw new Error('Go button not found');
     goButton.click();
   });

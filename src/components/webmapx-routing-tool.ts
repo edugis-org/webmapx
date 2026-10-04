@@ -1,5 +1,7 @@
 import { announce } from './internal/announce';
 import { html, css, TemplateResult, nothing } from 'lit';
+import '@shoelace-style/shoelace/dist/components/icon/icon.js';
+import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { formLabelStyles } from './internal/form-label-styles';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
@@ -749,7 +751,7 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
                 <div class="waypoint">
                     <span class="dot start"></span>
                     ${this.start[1].toFixed(5)}, ${this.start[0].toFixed(5)}
-                    <button @click=${() => this.resetToSetStart()} style="margin-left:auto;padding:0.1rem 0.4rem;font-size:0.75rem;" aria-label="Clear route">✕</button>
+                    <sl-icon-button name="x-lg" label="Clear route" style="margin-left:auto;" @click=${() => this.resetToSetStart()}></sl-icon-button>
                 </div>` : nothing}
             ${this.end ? html`
                 <div class="waypoint">
@@ -773,7 +775,9 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
                     ${svc.modes.map(m => html`<sl-option value=${m.value}>${m.label}</sl-option>`)}
                 </sl-select>
                 ${this.start && this.end ? html`
-                    <button @click=${() => this.swapWaypoints()} title="Swap start and end">⇅</button>
+                    <sl-button size="small" class="icon-only" title="Swap start and end" @click=${() => this.swapWaypoints()}>
+                        <sl-icon name="arrow-down-up" label="Swap start and end"></sl-icon>
+                    </sl-button>
                 ` : nothing}
                 <sl-button size="small" @click=${() => this.clearRoute()}>Clear</sl-button>
             </div>

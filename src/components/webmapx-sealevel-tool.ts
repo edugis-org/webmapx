@@ -211,24 +211,6 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
         input[type="range"] { width: 100%; }
         .scale { display: flex; justify-content: space-between; color: var(--color-text-muted, #666); font-size: 0.75rem; }
         .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
-        .controls .step,
-        .controls .play {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 2rem;
-            padding: 0.25rem 0.4rem;
-            line-height: 0;
-            cursor: pointer;
-            color: inherit;
-            border: 1px solid var(--color-border, #d5dce3);
-            border-radius: var(--webmapx-radius-sm, 4px);
-            background-color: var(--color-background, #fff);
-            touch-action: manipulation;
-            -webkit-user-select: none;
-            user-select: none;
-        }
-        .controls .step[disabled], .controls .play[disabled] { opacity: 0.4; cursor: default; }
         .today { margin-left: auto; }
         .legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; margin-top: 0.75rem; }
         .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
@@ -569,12 +551,11 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
 
     private renderPlay(): TemplateResult {
         return html`
-            <button type="button" class="play webmapx-control"
-                aria-label=${this.playing ? 'Pause' : 'Play'}
+            <sl-button size="small" class="play icon-only"
                 title=${this.playing ? 'Pause' : 'Play'}
                 @click=${() => this.togglePlay()}>
-                ${this.playing ? PAUSE_ICON : PLAY_ICON}
-            </button>`;
+                ${this.playing ? PAUSE_ICON : PLAY_ICON}<span class="visually-hidden">${this.playing ? 'Pause' : 'Play'}</span>
+            </sl-button>`;
     }
 
     private renderLevelMode(level: number): TemplateResult {
