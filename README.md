@@ -74,7 +74,7 @@ Copy this HTML, save as `index.html`, open in a browser. You get a map with coor
 
 Or load config from a file: `WebMapX.mount('#map', { config: './mymap.json' })`
 
-**Build your config visually:** [setup.html](https://edugis-org.github.io/webmapx/testpages/setup.html) lets you configure tools and layers interactively, then download the JSON.
+**Build your config visually:** [setup.html](https://webmapx.com/testpages/setup.html) lets you configure tools and layers interactively, then download the JSON.
 
 → [Full CDN quickstart](https://github.com/edugis-org/webmapx/blob/main/docs/developer/cdn-quickstart.md) · [All tools](https://github.com/edugis-org/webmapx/blob/main/docs/developer/cdn-tools/overview.md)
 

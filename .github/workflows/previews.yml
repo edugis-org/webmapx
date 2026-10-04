@@ -1,0 +1,147 @@
+name: Branch previews
+
+# Every branch pushed to this repository is built and published at
+# https://preview.webmapx.com/<branch>/ — main included, at /main/ — so work can
+# be looked at and shown before its pull request is reviewed. Deleting the
+# branch removes its preview. The root page lists what is there.
+#
+# This is not the published site: webmapx.com is built by
+# edugis-org/webmapx-demo from a pinned site.lock. Previews follow the config
+# repository's main branch.
+#
+# Only pushes to this repository run it. A pull request from a fork never does:
+# the build carries the API keys secret, and running a fork's code with it would
+# hand the keys to whoever wrote that code. A maintainer who wants a fork's work
+# previewed pushes it to a branch here.
+#
+# The site lives on the gh-pages branch as a single commit with no history:
+# each deploy rewrites one folder and the root index, and history would keep
+# every build of every branch (~100 MB each) forever.
+
+on:
+  push:
+    branches-ignore: [gh-pages]
+  delete:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  # One run per branch; a newer push supersedes an unfinished build. Runs for
+  # different branches overlap freely and settle at the push (see Publish).
+  group: preview-${{ github.event_name == 'delete' && github.event.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    if: github.event_name != 'delete' || github.event.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    env:
+      # Through env, never interpolated into a script: a branch name is text
+      # anyone with push access chose.
+      BRANCH: ${{ github.event_name == 'delete' && github.event.ref || github.ref_name }}
+      EVENT: ${{ github.event_name }}
+
+    steps:
+      # On a delete this is the default branch: the deleted one is gone.
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Folder name
+        run: echo "SLUG=$(node scripts/run-ts.mjs scripts/preview-site.ts slug "$BRANCH")" >> "$GITHUB_ENV"
+
+      - name: Fetch the configs
+        if: env.EVENT != 'delete'
+        run: npm run configs
+
+      - name: API keys
+        if: env.EVENT != 'delete'
+        env:
+          APIKEYS_JSON: ${{ secrets.APIKEYS_JSON }}
+        run: printf '%s' "$APIKEYS_JSON" > public/config/apikeys.json
+
+      - name: Build
+        if: env.EVENT != 'delete'
+        run: npm run build
+
+      # Other branches deploy concurrently, so the push is conditional on
+      # gh-pages being exactly what this run started from; if another deploy
+      # got there first, start again from the new state.
+      #
+      # Nothing of the existing site is downloaded but its file list and the
+      # manifest: the clone carries no file contents (--filter=blob:none). The
+      # new folder and root files are hashed from a separate directory into a
+      # tree of their own, and the site's new top level is the old one's
+      # entries for every *other* preview plus that tree's entries, joined with
+      # `mktree --missing` — which, unlike read-tree or checkout, never asks
+      # for the contents of what it links to.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          root_files=(previews.json index.html CNAME .nojekyll)
+          for attempt in 1 2 3 4 5; do
+            rm -rf site stage
+            mkdir stage
+            if git ls-remote --exit-code --heads "$url" gh-pages > /dev/null; then
+              git clone --quiet --depth 1 --branch gh-pages --filter=blob:none --no-checkout "$url" site
+              git -C site show HEAD:previews.json > stage/previews.json 2> /dev/null || rm -f stage/previews.json
+              lease=$(git -C site rev-parse HEAD)
+            else
+              git init --quiet -b gh-pages site
+              git -C site remote add origin "$url"
+              lease=""
+            fi
+
+            if [ "$EVENT" = delete ]; then
+              node scripts/run-ts.mjs scripts/preview-site.ts remove "$PWD/stage" "$SLUG"
+              message="Remove preview of $BRANCH"
+            else
+              cp -r dist "stage/$SLUG"
+              node scripts/run-ts.mjs scripts/preview-site.ts add "$PWD/stage" "$SLUG" "$BRANCH" "$GITHUB_SHA" "$(du -sb dist | cut -f1)"
+              message="Preview $BRANCH at ${GITHUB_SHA:0:7}"
+            fi
+
+            export GIT_INDEX_FILE="$PWD/stage.index"
+            rm -f "$GIT_INDEX_FILE"
+            git -C stage --git-dir=../site/.git --work-tree=. add -A .
+            fresh=$(git --git-dir=site/.git write-tree)
+            unset GIT_INDEX_FILE
+
+            replaced=" $SLUG ${root_files[*]} "
+            {
+              if [ -n "$lease" ]; then
+                git -C site ls-tree HEAD | while IFS=$'\t' read -r meta name; do
+                  case "$replaced" in *" $name "*) ;; *) printf '%s\t%s\n' "$meta" "$name" ;; esac
+                done
+              fi
+              git -C site ls-tree "$fresh"
+            } > top-level.txt
+            tree=$(git -C site mktree --missing < top-level.txt)
+            commit=$(git -C site commit-tree "$tree" -m "$message")
+            # pack.window=0: no delta search against the previous build, which
+            # would fetch its files just to compare them with the new ones.
+            if git -C site -c pack.window=0 push --quiet --force-with-lease="gh-pages:$lease" origin "$commit:refs/heads/gh-pages"; then
+              if [ "$EVENT" != delete ]; then
+                echo "Preview: https://preview.webmapx.com/$SLUG/" >> "$GITHUB_STEP_SUMMARY"
+              fi
+              exit 0
+            fi
+            echo "gh-pages moved while publishing (attempt $attempt); starting again from the new state."
+            sleep $((attempt * 5))
+          done
+          echo "Could not publish after 5 attempts." >&2
+          exit 1

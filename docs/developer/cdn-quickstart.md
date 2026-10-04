@@ -95,7 +95,7 @@ WebMapX.mount('#map', { config: './mymap.json' });
 
 The JSON file uses the same structure as the inline config above.
 
-**Build your config visually:** open [setup.html](https://edugis-org.github.io/webmapx/testpages/setup.html), configure tools and layers interactively, then download the resulting JSON and point `config` at it.
+**Build your config visually:** open [setup.html](https://webmapx.com/testpages/setup.html), configure tools and layers interactively, then download the resulting JSON and point `config` at it.
 
 ---
 
