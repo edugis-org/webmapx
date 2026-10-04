@@ -509,6 +509,13 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
                     )}>
             </div>
 
+            <sl-select class="speed" size="small" hoist label="Speed" ?disabled=${live}
+                .value=${String(this.speedIndex)}
+                @sl-change=${(e: Event) => this.setSpeed(Number((e.target as HTMLSelectElement).value))}>
+                ${SPEEDS.map((speed, index) => html`
+                    <sl-option value=${String(index)}>${speed.label} per second</sl-option>`)}
+            </sl-select>
+
             <!-- Step, play, step: the transport row of a media player. -->
             <div class="controls">
                 ${this.renderStep(-1, STEP_BACK_ICON, 'earlier')}
@@ -519,12 +526,6 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
                     ${this.playing ? PAUSE_ICON : PLAY_ICON}
                 </button>
                 ${this.renderStep(1, STEP_FORWARD_ICON, 'later')}
-                <sl-select class="speed" size="small" hoist label="per second" ?disabled=${live}
-                    .value=${String(this.speedIndex)}
-                    @sl-change=${(e: Event) => this.setSpeed(Number((e.target as HTMLSelectElement).value))}>
-                    ${SPEEDS.map((speed, index) => html`
-                        <sl-option value=${String(index)}>${speed.label}</sl-option>`)}
-                </sl-select>
             </div>
 
             <div class="hint">

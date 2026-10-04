@@ -595,16 +595,17 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
                 }}>
             <div class="scale"><span>${signedMetres(this.min)}</span><span>${signedMetres(this.max)}</span></div>
 
+            <sl-select class="speed" size="small" hoist label="Speed"
+                .value=${String(this.speedIndex)}
+                @sl-change=${(e: Event) => { this.speedIndex = Number((e.target as HTMLSelectElement).value); }}>
+                ${SPEEDS.map((speed, index) => html`
+                    <sl-option value=${String(index)}>${speed.label} per second</sl-option>`)}
+            </sl-select>
+
             <div class="controls">
                 ${this.renderStep(-1)}
                 ${this.renderPlay()}
                 ${this.renderStep(1)}
-                <sl-select class="speed" size="small" hoist label="per second"
-                    .value=${String(this.speedIndex)}
-                    @sl-change=${(e: Event) => { this.speedIndex = Number((e.target as HTMLSelectElement).value); }}>
-                    ${SPEEDS.map((speed, index) => html`
-                        <sl-option value=${String(index)}>${speed.label}</sl-option>`)}
-                </sl-select>
                 <button type="button" class="today webmapx-control" ?disabled=${level === this.today}
                     @click=${() => { this.stopPlaying(); this.setLevel(this.today); }}>Today</button>
             </div>`;
@@ -629,6 +630,13 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
                 }}>
             <div class="scale"><span>${formatAge(oldest)}</span><span>${formatAge(youngest)}</span></div>
 
+            <sl-select class="speed" size="small" hoist label="Speed"
+                .value=${String(this.timeSpeedIndex)}
+                @sl-change=${(e: Event) => { this.timeSpeedIndex = Number((e.target as HTMLSelectElement).value); }}>
+                ${TIME_SPEEDS.map((speed, index) => html`
+                    <sl-option value=${String(index)}>${speed.label} per second</sl-option>`)}
+            </sl-select>
+
             <div class="controls">
                 ${renderStepButton({
                     icon: STEP_BACK_ICON, label: `${AGE_NUDGE_KA * 1000} years earlier`,
@@ -639,12 +647,6 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
                     icon: STEP_FORWARD_ICON, label: `${AGE_NUDGE_KA * 1000} years later`,
                     disabled: age <= youngest, step: () => this.nudgeAge(-1), repeater: this.stepper,
                 })}
-                <sl-select class="speed" size="small" hoist label="per second"
-                    .value=${String(this.timeSpeedIndex)}
-                    @sl-change=${(e: Event) => { this.timeSpeedIndex = Number((e.target as HTMLSelectElement).value); }}>
-                    ${TIME_SPEEDS.map((speed, index) => html`
-                        <sl-option value=${String(index)}>${speed.label}</sl-option>`)}
-                </sl-select>
             </div>
             ${curve.attribution ? html`
                 <div class="credit" title=${curve.note ?? ''}>${unsafeHTML(sanitizeAbstractHtml(curve.attribution))}</div>` : ''}`;

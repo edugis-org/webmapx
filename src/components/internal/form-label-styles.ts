@@ -49,31 +49,14 @@ export const formLabelStyles = css`
         color: var(--color-text-primary, #16202a);
     }
 
-    /* The speed of a play row ("‹ ▶ ›  [1 hour ▾] per second"): "per second" is
-       the field's own label, shown after the field rather than above it. A
-       label kept only for screen readers is not enough on a dropdown — axe's
-       label-title-only wants it visible — and here the visible text was
-       already there, so it simply became the label. One width and one look
-       in every tool with a play row. */
+    /* The speed of a play row ("1 hour per second"): an ordinary labelled
+       field above the row of play buttons, full width, the same in every tool
+       with a play row. (Inside the row it pushed "per second" out of the
+       panel and lost its border.) */
     sl-select.speed {
-        flex: 0 0 auto;
-    }
-    sl-select.speed::part(form-control) {
-        display: flex;
-        flex-direction: row-reverse;
-        justify-content: flex-end;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    sl-select.speed::part(form-control-input) {
-        width: 7.5rem;
-    }
-    sl-select.speed::part(form-control-label) {
-        margin: 0;
-        font-size: var(--webmapx-font-size-md, 0.875rem);
-        font-weight: 400;
-        white-space: nowrap;
-        color: var(--color-text-secondary, #5a6773);
+        display: block;
+        width: 100%;
+        margin-bottom: 0.5rem;
     }
 
     .label-hidden::part(form-control-label) {

@@ -1070,6 +1070,13 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
                     </sl-select>
                 </div>` : ''}
 
+            <sl-select class="speed" size="small" hoist label="Speed"
+                .value=${String(this.speedIndex)}
+                @sl-change=${(e: Event) => { this.speedIndex = Number((e.target as HTMLSelectElement).value); }}>
+                ${SPEEDS.map((speed, index) => html`
+                    <sl-option value=${String(index)}>${speed.label} per second</sl-option>`)}
+            </sl-select>
+
             <!-- Step, play, step: the transport row of a media player, and it
                  reads the same way here — back is towards the deep past, which
                  is also leftwards on the slider above. -->
@@ -1082,12 +1089,6 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
                     ${this.playing ? PAUSE_ICON : PLAY_ICON}
                 </button>
                 ${this.renderStep(-1, STEP_FORWARD_ICON, 'later')}
-                <sl-select class="speed" size="small" hoist label="per second"
-                    .value=${String(this.speedIndex)}
-                    @sl-change=${(e: Event) => { this.speedIndex = Number((e.target as HTMLSelectElement).value); }}>
-                    ${SPEEDS.map((speed, index) => html`
-                        <sl-option value=${String(index)}>${speed.label}</sl-option>`)}
-                </sl-select>
             </div>
 
             ${this.loading ? html`<div class="status">Loading the plate model…</div>` : ''}
