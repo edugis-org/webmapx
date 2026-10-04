@@ -51,6 +51,11 @@ export class Webmapx3dTool extends WebmapxBaseTool {
         this.terrainEnabled = terrainState === true;
     }
 
+    /** A click on the option already selected: the group fires no change for it. */
+    private reselectPitch(e: Event, pitch: number): void {
+        if ((e.currentTarget as HTMLInputElement).checked) this.setPitch(pitch);
+    }
+
     private setPitch(pitch: number): void {
         if (!this.adapter) return;
         this.adapter.setPitch(pitch);
@@ -197,14 +202,17 @@ export class Webmapx3dTool extends WebmapxBaseTool {
 
         return html`
             ${this.pitchSupported ? html`
-                <!-- The action is on each option's click, not on the group's change:
-                     after a hand tilt to 45° the middle option reads 45° and is
-                     already selected, and choosing it must still return to 30°. -->
+                <!-- A new choice, by mouse or arrow keys, arrives as the group's change.
+                     Clicking the option that is already selected changes nothing, so
+                     that click is handled on its own: after a hand tilt to 45° the
+                     middle option reads 45° and is selected, and choosing it must
+                     still return to 30°. -->
                 <sl-radio-group class="pitch" size="small" label="Viewing angle"
-                    .value=${activePreset >= 0 ? String(activePreset) : rightActive ? '60' : midActive ? '30' : '0'}>
-                    <sl-radio-button value="0" @click=${() => this.setPitch(0)}>0°</sl-radio-button>
-                    <sl-radio-button value="30" @click=${() => this.setPitch(30)}>${midLabel}</sl-radio-button>
-                    <sl-radio-button value="60" @click=${() => this.setPitch(60)}>${rightLabel}</sl-radio-button>
+                    .value=${activePreset >= 0 ? String(activePreset) : rightActive ? '60' : midActive ? '30' : '0'}
+                    @sl-change=${(e: Event) => this.setPitch(Number((e.target as HTMLInputElement).value))}>
+                    <sl-radio-button value="0" @click=${(e: Event) => this.reselectPitch(e, 0)}>0°</sl-radio-button>
+                    <sl-radio-button value="30" @click=${(e: Event) => this.reselectPitch(e, 30)}>${midLabel}</sl-radio-button>
+                    <sl-radio-button value="60" @click=${(e: Event) => this.reselectPitch(e, 60)}>${rightLabel}</sl-radio-button>
                 </sl-radio-group>
                 <div class="pitch-hint">
                     Choose a different viewing angle above,<br>
