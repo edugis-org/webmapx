@@ -208,10 +208,8 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
                 // Nothing to choose is a fact about the engine, not a disabled
                 // control: say what it draws and why that is all there is.
                 ? html`<div class="fixed">${current.label}</div>`
-                // The description sentence names this field, so its label is for
-                // screen readers only.
                 : html`<sl-select id="projection-select" size="small" hoist
-                                label="Projection" class="label-hidden"
+                                label="Projection"
                                 .value=${current.id}
                                 @sl-change=${(e: Event) => this.apply((e.target as HTMLSelectElement).value)}>
                     ${options.map((option) => html`

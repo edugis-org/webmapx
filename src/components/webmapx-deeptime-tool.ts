@@ -17,6 +17,8 @@
  */
 import { html, css, nothing, type TemplateResult } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
+import '@shoelace-style/shoelace/dist/components/select/select.js';
+import '@shoelace-style/shoelace/dist/components/option/option.js';
 import { customElement, property, state } from 'lit/decorators.js';
 
 import { WebmapxModalTool } from './webmapx-modal-tool';
@@ -345,7 +347,6 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
         .controls { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
         .models { margin-top: 0.5rem; font-size: 0.8125rem; color: var(--color-text-secondary, #5a6773); }
         .models label { display: flex; align-items: center; gap: 0.4rem; }
-        .models select { flex: 1; min-width: 0; }
         /* Play and the two step buttons are one control at different jobs, so
            they are one rule: the house button (webmapx-control, so it picks up
            the active style preset) at the compact size the time slider's play
@@ -370,7 +371,6 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
             user-select: none;
         }
         .controls .step[disabled], .controls .play[disabled] { opacity: 0.4; cursor: default; }
-        .per { color: var(--color-text-muted, #666); }
         .legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; margin-top: 0.75rem; }
         .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
         .legend i { width: 0.75rem; height: 0.75rem; border-radius: 2px; display: inline-block; }
@@ -1059,16 +1059,15 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
 
             ${this.models.length > 1 ? html`
                 <div class="models">
-                    <label>
-                        <span class="field-label">Model</span>
-                        <select aria-label="Plate model"
-                            @change=${(e: Event) => void this.switchModel((e.target as HTMLSelectElement).value)}>
-                            ${this.models.map((model) => html`
-                                <option value=${model.id} ?selected=${model.data === this.data}>
-                                    ${model.label}
-                                </option>`)}
-                        </select>
-                    </label>
+                    <!-- A config naming its own model directory matches no listed model,
+                         and the tool deliberately does not pretend it does: the field then
+                         says so rather than showing an option that is not in use. -->
+                    <sl-select size="small" hoist label="Model" placeholder="Configured model"
+                        .value=${this.currentModel?.id ?? ''}
+                        @sl-change=${(e: Event) => void this.switchModel((e.target as HTMLSelectElement).value)}>
+                        ${this.models.map((model) => html`
+                            <sl-option value=${model.id}>${model.label}</sl-option>`)}
+                    </sl-select>
                 </div>` : ''}
 
             <!-- Step, play, step: the transport row of a media player, and it
@@ -1083,12 +1082,12 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
                     ${this.playing ? PAUSE_ICON : PLAY_ICON}
                 </button>
                 ${this.renderStep(-1, STEP_FORWARD_ICON, 'later')}
-                <select aria-label="Millions of years per second"
-                    @change=${(e: Event) => { this.speedIndex = Number((e.target as HTMLSelectElement).value); }}>
+                <sl-select class="speed" size="small" hoist label="per second"
+                    .value=${String(this.speedIndex)}
+                    @sl-change=${(e: Event) => { this.speedIndex = Number((e.target as HTMLSelectElement).value); }}>
                     ${SPEEDS.map((speed, index) => html`
-                        <option value=${index} ?selected=${index === this.speedIndex}>${speed.label}</option>`)}
-                </select>
-                <span class="per">per second</span>
+                        <sl-option value=${String(index)}>${speed.label}</sl-option>`)}
+                </sl-select>
             </div>
 
             ${this.loading ? html`<div class="status">Loading the plate model…</div>` : ''}

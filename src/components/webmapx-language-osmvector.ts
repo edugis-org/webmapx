@@ -148,10 +148,6 @@ export class WebmapxLanguageOsmVector extends WebmapxModalTool {
             padding: 0.5rem 1rem;
             font-size: 0.875rem;
         }
-        .current-en {
-            color: var(--color-text-muted, #6b7681);
-            margin-bottom: 0.25rem;
-        }
         sl-select {
             width: 100%;
         }
@@ -271,12 +267,13 @@ export class WebmapxLanguageOsmVector extends WebmapxModalTool {
 
         return html`
             <div class="tool-content container">
-                <div class="current-en">${current?.en ?? this.language}</div>
-                <!-- The description sentence names this field, so its label is for screen readers only. -->
+                <!-- The help text gives the chosen language's English name ("Español" →
+                     "Spanish"), for a reader who does not recognise it in its own
+                     script. Left out where it would only repeat the option. -->
                 <sl-select
                     size="small"
-                    label="Map label language"
-                    class="label-hidden"
+                    label="Language"
+                    help-text=${current && current.en !== current.label ? current.en : ''}
                     value=${this.language}
                     hoist
                     @sl-change=${this.handleLanguageChange}

@@ -49,6 +49,33 @@ export const formLabelStyles = css`
         color: var(--color-text-primary, #16202a);
     }
 
+    /* The speed of a play row ("‹ ▶ ›  [1 hour ▾] per second"): "per second" is
+       the field's own label, shown after the field rather than above it. A
+       label kept only for screen readers is not enough on a dropdown — axe's
+       label-title-only wants it visible — and here the visible text was
+       already there, so it simply became the label. One width and one look
+       in every tool with a play row. */
+    sl-select.speed {
+        flex: 0 0 auto;
+    }
+    sl-select.speed::part(form-control) {
+        display: flex;
+        flex-direction: row-reverse;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    sl-select.speed::part(form-control-input) {
+        width: 7.5rem;
+    }
+    sl-select.speed::part(form-control-label) {
+        margin: 0;
+        font-size: var(--webmapx-font-size-md, 0.875rem);
+        font-weight: 400;
+        white-space: nowrap;
+        color: var(--color-text-secondary, #5a6773);
+    }
+
     .label-hidden::part(form-control-label) {
         position: absolute;
         width: 1px;

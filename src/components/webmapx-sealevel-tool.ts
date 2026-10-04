@@ -36,6 +36,9 @@
  *     "geojson": "../data/coastal_zones_16m.geojson" }
  */
 import { html, css, type TemplateResult } from 'lit';
+import { formLabelStyles } from './internal/form-label-styles';
+import '@shoelace-style/shoelace/dist/components/select/select.js';
+import '@shoelace-style/shoelace/dist/components/option/option.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { customElement, property, state } from 'lit/decorators.js';
 
@@ -197,7 +200,7 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
 
     private readonly stepper = new StepRepeater();
 
-    static styles = [controlSurfaceStyles, css`
+    static styles = [formLabelStyles, controlSurfaceStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         .level { font-size: 1.5rem; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
         .relative { color: var(--color-text-muted, #666); margin-bottom: 0.25rem; }
@@ -224,7 +227,6 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
         }
         .controls .step[disabled], .controls .play[disabled] { opacity: 0.4; cursor: default; }
         .today { margin-left: auto; }
-        .per { color: var(--color-text-muted, #666); white-space: nowrap; }
         .legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; margin-top: 0.75rem; }
         .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
         .legend i { width: 0.75rem; height: 0.75rem; border-radius: 2px; display: inline-block; border: 1px solid var(--color-border, #d5dce3); }
@@ -597,12 +599,12 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
                 ${this.renderStep(-1)}
                 ${this.renderPlay()}
                 ${this.renderStep(1)}
-                <select aria-label="Metres per second"
-                    @change=${(e: Event) => { this.speedIndex = Number((e.target as HTMLSelectElement).value); }}>
+                <sl-select class="speed" size="small" hoist label="per second"
+                    .value=${String(this.speedIndex)}
+                    @sl-change=${(e: Event) => { this.speedIndex = Number((e.target as HTMLSelectElement).value); }}>
                     ${SPEEDS.map((speed, index) => html`
-                        <option value=${index} ?selected=${index === this.speedIndex}>${speed.label}</option>`)}
-                </select>
-                <span class="per">per second</span>
+                        <sl-option value=${String(index)}>${speed.label}</sl-option>`)}
+                </sl-select>
                 <button type="button" class="today webmapx-control" ?disabled=${level === this.today}
                     @click=${() => { this.stopPlaying(); this.setLevel(this.today); }}>Today</button>
             </div>`;
@@ -637,12 +639,12 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
                     icon: STEP_FORWARD_ICON, label: `${AGE_NUDGE_KA * 1000} years later`,
                     disabled: age <= youngest, step: () => this.nudgeAge(-1), repeater: this.stepper,
                 })}
-                <select aria-label="Years per second"
-                    @change=${(e: Event) => { this.timeSpeedIndex = Number((e.target as HTMLSelectElement).value); }}>
+                <sl-select class="speed" size="small" hoist label="per second"
+                    .value=${String(this.timeSpeedIndex)}
+                    @sl-change=${(e: Event) => { this.timeSpeedIndex = Number((e.target as HTMLSelectElement).value); }}>
                     ${TIME_SPEEDS.map((speed, index) => html`
-                        <option value=${index} ?selected=${index === this.timeSpeedIndex}>${speed.label}</option>`)}
-                </select>
-                <span class="per">per second</span>
+                        <sl-option value=${String(index)}>${speed.label}</sl-option>`)}
+                </sl-select>
             </div>
             ${curve.attribution ? html`
                 <div class="credit" title=${curve.note ?? ''}>${unsafeHTML(sanitizeAbstractHtml(curve.attribution))}</div>` : ''}`;

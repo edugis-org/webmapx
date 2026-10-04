@@ -1,5 +1,7 @@
 import { html, css, TemplateResult } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
+import '@shoelace-style/shoelace/dist/components/select/select.js';
+import '@shoelace-style/shoelace/dist/components/option/option.js';
 import { customElement, state } from 'lit/decorators.js';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
 import { STEP_BACK_ICON, STEP_FORWARD_ICON, StepRepeater, renderStepButton, PLAY_ICON, PAUSE_ICON } from './step-button';
@@ -169,7 +171,7 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
             margin-bottom: 0.25rem;
         }
         .row .value { font-variant-numeric: tabular-nums; }
-        input[type="range"], select { width: 100%; box-sizing: border-box; }
+        input[type="range"], #time-year { width: 100%; box-sizing: border-box; }
         .controls { display: flex; align-items: center; gap: 0.5rem; }
         /* Play and the two step buttons are one control at different jobs, so
            they are one rule: the house button (webmapx-control, so it picks up
@@ -195,7 +197,6 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
             user-select: none;
         }
         .controls .step[disabled], .controls .play[disabled] { opacity: 0.4; cursor: default; }
-        .controls .per { color: var(--color-text-secondary, #5a6773); white-space: nowrap; }
         .controls select { flex: 1; min-width: 0; width: auto; }
         .hint {
             margin-top: 0.75rem;
@@ -475,14 +476,11 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
             </div>
 
             <div class="row ${live ? 'disabled' : ''}">
-                <label for="time-year">
-                    <span class="field-label">Year</span>
-                </label>
-                <select id="time-year" ?disabled=${live} .value=${String(shownYear)}
-                    @change=${(e: Event) => this.setYear(Number((e.target as HTMLSelectElement).value))}>
+                <sl-select id="time-year" size="small" hoist label="Year" ?disabled=${live} .value=${String(shownYear)}
+                    @sl-change=${(e: Event) => this.setYear(Number((e.target as HTMLSelectElement).value))}>
                     ${years.map((year) => html`
-                        <option value=${year} ?selected=${year === shownYear}>${year}</option>`)}
-                </select>
+                        <sl-option value=${String(year)}>${year}</sl-option>`)}
+                </sl-select>
             </div>
 
             <div class="row ${live ? 'disabled' : ''}">
@@ -521,12 +519,12 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
                     ${this.playing ? PAUSE_ICON : PLAY_ICON}
                 </button>
                 ${this.renderStep(1, STEP_FORWARD_ICON, 'later')}
-                <select aria-label="Step per second" ?disabled=${live}
-                    @change=${(e: Event) => this.setSpeed(Number((e.target as HTMLSelectElement).value))}>
+                <sl-select class="speed" size="small" hoist label="per second" ?disabled=${live}
+                    .value=${String(this.speedIndex)}
+                    @sl-change=${(e: Event) => this.setSpeed(Number((e.target as HTMLSelectElement).value))}>
                     ${SPEEDS.map((speed, index) => html`
-                        <option value=${index} ?selected=${index === this.speedIndex}>${speed.label}</option>`)}
-                </select>
-                <span class="per">per second</span>
+                        <sl-option value=${String(index)}>${speed.label}</sl-option>`)}
+                </sl-select>
             </div>
 
             <div class="hint">
