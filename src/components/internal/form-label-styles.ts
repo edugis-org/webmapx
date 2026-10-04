@@ -49,6 +49,16 @@ export const formLabelStyles = css`
         color: var(--color-text-primary, #16202a);
     }
 
+    /* The options of an open dropdown at the field's own size. Shoelace draws
+       every option at its *medium* size whatever the select's size, so a
+       small field showed "Español" at 14px and its list at 16px — the list
+       looked like it belonged to a larger field. Taking the small field's
+       own font size keeps the two equal in every style (console's fields
+       are smaller, so are its options). */
+    sl-select[size="small"] sl-option::part(base) {
+        font-size: var(--sl-input-font-size-small, 0.875rem);
+    }
+
     /* The speed of a play row ("1 hour per second"): an ordinary labelled
        field above the row of play buttons, full width, the same in every tool
        with a play row. (Inside the row it pushed "per second" out of the
