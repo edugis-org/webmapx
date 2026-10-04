@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import net from 'node:net';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -113,11 +113,17 @@ async function waitForServer(url, timeoutMs, proc) {
 }
 
 function startDevServer(host, port) {
-  const child = spawn('npm', ['run', 'dev', '--', '--host', host, '--port', String(port), '--strictPort', '--no-open'], {
+  const args = ['run', 'dev', '--', '--host', host, '--port', String(port), '--strictPort', '--no-open'];
+  // With a shell (Windows, below) the command is one string: Node deprecates
+  // separate args alongside `shell`. Every part here is fixed or a number.
+  const child = spawn(process.platform === 'win32' ? `npm ${args.join(' ')}` : 'npm', process.platform === 'win32' ? [] : args, {
     cwd: repoRoot,
     // See `server.hmr` in vite.config.js: no reloads under a running test.
     env: { WEBMAPX_UI_TEST: '1', ...process.env },
     detached: true,
+    // Windows has no `npm` executable, only npm.cmd, and Node refuses to
+    // spawn a .cmd without a shell.
+    shell: process.platform === 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
@@ -161,6 +167,13 @@ async function stopProcess(proc) {
   if (!proc || proc.exitCode !== null) return;
 
   const killGroup = (signal) => {
+    // Windows has no process groups to signal, and with a shell in between the
+    // child is cmd.exe: killing only it would leave the dev server running.
+    // taskkill /T takes the whole tree.
+    if (process.platform === 'win32') {
+      if (proc.pid) spawnSync('taskkill', ['/pid', String(proc.pid), '/T', '/F'], { stdio: 'ignore' });
+      return;
+    }
     try {
       if (proc.pid) {
         process.kill(-proc.pid, signal);
