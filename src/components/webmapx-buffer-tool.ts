@@ -406,11 +406,6 @@ export class WebmapxBufferTool extends WebmapxModalTool {
                     ` : nothing}
                     <sl-button
                         size="small"
-                        variant="text"
-                        @click=${() => this.deactivate()}
-                    >Close</sl-button>
-                    <sl-button
-                        size="small"
                         variant="primary"
                         ?disabled=${!hasLayers || this.busy}
                         @click=${this.handleRun}

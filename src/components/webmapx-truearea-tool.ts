@@ -1,4 +1,5 @@
 import { html, css, TemplateResult } from 'lit';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { formLabelStyles } from './internal/form-label-styles';
 import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
 import '@shoelace-style/shoelace/dist/components/radio-button/radio-button.js';
@@ -215,7 +216,8 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         .copy-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
         .copy-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .copy-remove { cursor: pointer; color: var(--sl-color-danger-600, #c00); border: none; background: none; padding: 0 2px; font-size: 0.9rem; }
-        .clear-btn { width: 100%; padding: 0.3rem; cursor: pointer; }
+        .clear-btn { display: block; width: 100%; }
+        .clear-btn::part(base) { width: 100%; }
         .no-copies { color: var(--color-text-muted, #6b7681); font-style: italic; font-size: 0.8rem; margin-bottom: 0.5rem; margin-top: 0.25rem; }
         .dragging-hint { color: var(--color-primary, #2b6c8f); font-size: 0.8rem; margin-bottom: 0.4rem; }
         .method-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
@@ -698,7 +700,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
                     </div>
 
                     ${this.copies.length > 0
-                        ? html`<button class="clear-btn" @click=${() => this.clearAll()}>Clear all</button>`
+                        ? html`<sl-button class="clear-btn" size="small" @click=${() => this.clearAll()}>Clear all</sl-button>`
                         : ''
                     }
                 `;

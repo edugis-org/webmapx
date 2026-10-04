@@ -1499,7 +1499,6 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
                             Cancel
                         </sl-button>`
                     : html`
-                        <sl-button size="small" variant="text" @click=${() => this.deactivate()}>Close</sl-button>
                         <sl-button
                             size="small"
                             variant="primary"

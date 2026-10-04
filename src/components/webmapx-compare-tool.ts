@@ -1,4 +1,5 @@
 import { html, css, TemplateResult, nothing } from 'lit';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMapState } from '../store/IMapState';
@@ -60,12 +61,8 @@ export class WebmapxCompareTool extends WebmapxModalTool {
         .sides { display: flex; gap: var(--webmapx-space-sm, 0.5rem); margin-top: var(--webmapx-space-sm, 0.5rem); }
         .side { flex: 1; border: 1px solid var(--color-border, #d5dce3); border-radius: var(--webmapx-radius-sm, 4px); padding: var(--webmapx-space-sm, 0.5rem); }
         .side b { display: block; }
-        .action {
-            width: 100%; margin-top: var(--webmapx-space-sm, 0.5rem); padding: 0.4rem 0;
-            border: 1px solid var(--color-border, #d5dce3); border-radius: var(--webmapx-radius-sm, 4px);
-            background: var(--color-background, #fff); cursor: pointer; font-size: inherit;
-        }
-        .action[disabled] { opacity: 0.6; cursor: default; }
+        .action { display: block; width: 100%; margin-top: var(--webmapx-space-sm, 0.5rem); }
+        .action::part(base) { width: 100%; }
     `;
 
     protected onStateChanged(_state: IMapState): void {
@@ -388,10 +385,10 @@ export class WebmapxCompareTool extends WebmapxModalTool {
                 <div class="side"><b>${reference}</b><span class="muted">frozen</span></div>
                 <div class="side"><b>${live}</b><span class="muted">live — tools act here</span></div>
             </div>
-            <button class="action" ?disabled=${this.busy}
+            <sl-button class="action" size="small" variant="primary" ?disabled=${this.busy}
                     @click=${() => (this.frozen ? this.stop() : void this.freeze())}>
                 ${this.frozen ? 'Stop comparing' : 'Start comparing'}
-            </button>
+            </sl-button>
             ${this.frozen
                 ? html`<p class="muted">Closing this panel keeps the comparison running, so you can
                           open the catalog and add a layer to the live half.</p>`

@@ -1,5 +1,6 @@
 import { announce } from './internal/announce';
 import { html, css, TemplateResult, nothing } from 'lit';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { formLabelStyles } from './internal/form-label-styles';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
@@ -774,7 +775,7 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
                 ${this.start && this.end ? html`
                     <button @click=${() => this.swapWaypoints()} title="Swap start and end">⇅</button>
                 ` : nothing}
-                <button @click=${() => this.clearRoute()}>Clear</button>
+                <sl-button size="small" @click=${() => this.clearRoute()}>Clear</sl-button>
             </div>
 
             ${this.showTruckOptions ? html`
@@ -804,7 +805,7 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
                     ${this.durationS !== null ? html`<span>${this.formatDuration(this.durationS)}</span>` : nothing}
                 </div>
                 <div class="row" style="margin-top:0.5rem;">
-                    <button class="primary" @click=${() => this.persistToMap()} style="flex:1">Persist to map</button>
+                    <sl-button size="small" style="flex:1" @click=${() => this.persistToMap()}>Persist to map</sl-button>
                 </div>
             ` : nothing}
         `;

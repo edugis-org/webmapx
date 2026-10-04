@@ -36,6 +36,7 @@
  *     "geojson": "../data/coastal_zones_16m.geojson" }
  */
 import { html, css, type TemplateResult } from 'lit';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { formLabelStyles } from './internal/form-label-styles';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
@@ -606,8 +607,8 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
                 ${this.renderStep(-1)}
                 ${this.renderPlay()}
                 ${this.renderStep(1)}
-                <button type="button" class="today webmapx-control" ?disabled=${level === this.today}
-                    @click=${() => { this.stopPlaying(); this.setLevel(this.today); }}>Today</button>
+                <sl-button size="small" class="today" ?disabled=${level === this.today}
+                    @click=${() => { this.stopPlaying(); this.setLevel(this.today); }}>Today</sl-button>
             </div>`;
     }
 

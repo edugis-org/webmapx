@@ -1,4 +1,5 @@
 import { html, css, TemplateResult, nothing } from 'lit';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { formLabelStyles } from './internal/form-label-styles';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
@@ -212,15 +213,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
         /* A row whose fields carry their labels above: buttons line up with the field, not the label. */
         .row.fields { align-items: flex-end; }
         button { padding: 0.35rem 0.75rem; border: 1px solid var(--color-border, #d5dce3); border-radius: 4px; background: var(--color-background, #fff); cursor: pointer; font-size: 0.875rem; color: var(--color-text-primary, #16202a); }
-        button.calculate {
-            flex: 1;
-            border-color: var(--color-primary, #2b6c8f);
-            background: var(--color-primary, #2b6c8f);
-            color: var(--color-on-primary, #fff);
-        }
-        /* Disabled rather than hidden: the button is where the reader looks for
-           what to do next, and a missing one reads as a broken panel. */
-        button.calculate[disabled] { opacity: 0.5; cursor: not-allowed; }
+        sl-button.calculate { flex: 1; }
         button:disabled { opacity: 0.5; cursor: default; }
         .field { margin-bottom: 0.5rem; }
         .error { color: var(--sl-color-danger-600, #c00); font-size: 0.8rem; margin-top: 0.25rem; }
@@ -611,17 +604,21 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
                         .value=${this.rangesInput}
                         @sl-input=${(e: Event) => { this.rangesInput = (e.target as HTMLInputElement).value; }}
                         placeholder="e.g. 10, 20, 30"></sl-input>
-                    <button @click=${() => this.clearIsochrone()}>Clear</button>
+                    <sl-button size="small" @click=${() => this.clearIsochrone()}>Clear</sl-button>
                 </div>
             </div>
 
             <div class="row" style="margin-top:0.5rem;">
-                <button
+                <!-- Disabled rather than hidden: the button is where the reader looks for
+                     what to do next, and a missing one reads as a broken panel. -->
+                <sl-button
                     class="calculate"
+                    size="small"
+                    variant="primary"
                     ?disabled=${!this.center || this.loading}
                     title=${this.center ? 'Ask the service for this isochrone' : 'Click the map to set a centre point first'}
                     @click=${() => void this.calculate()}
-                >${this.loading ? 'Calculating…' : 'Calculate'}</button>
+                >${this.loading ? 'Calculating…' : 'Calculate'}</sl-button>
             </div>
 
             ${this.loading ? html`<div class="row"><span class="spinner"></span> Calculating…</div>` : nothing}
@@ -629,7 +626,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
 
             ${this.currentFc && !this.loading ? html`
                 <div class="row" style="margin-top:0.5rem;">
-                    <button @click=${() => this.persistToMap()} style="flex:1;padding:0.35rem 0.75rem;border:1px solid var(--color-primary,#2b6c8f);border-radius:var(--webmapx-radius-sm,4px);background:var(--color-primary,#2b6c8f);color:var(--color-on-primary,#fff);cursor:pointer;font-size:0.875rem;">Persist to map</button>
+                    <sl-button size="small" style="flex:1" @click=${() => this.persistToMap()}>Persist to map</sl-button>
                 </div>
             ` : nothing}
         `;
