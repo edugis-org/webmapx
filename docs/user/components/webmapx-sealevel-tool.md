@@ -18,7 +18,7 @@ for f in coastal_zones.pmtiles coastal_zones_16m.geojson; do
 done
 ```
 
-A browser cannot read the release asset directly (GitHub serves release downloads without CORS headers), so the archive has to be copied to the host that serves the map. webmapx.com's build (`edugis-org/webmapx-demo`, `.github/workflows/pages.yml`) fetches a release pinned by tag and checksum into `dist/data/`; GitHub Pages answers the range requests PMTiles needs.
+A browser cannot read the release asset directly (GitHub serves release downloads without CORS headers), so the archive has to be copied to the host that serves the map. webmapx.com's build (`edugis-org/webmapx-demo`, `scripts/assemble-site.ts`, which the branch previews at preview.webmapx.com run too) fetches a release pinned by tag and checksum into `dist/data/`; GitHub Pages answers the range requests PMTiles needs.
 
 The data are CC BY 4.0 and derived from the public-domain GEBCO_2026 Grid, whose terms ask that the source be acknowledged. Credit both, e.g. `Coastal zones: EduGIS, from GEBCO_2026 Grid` in the source's `attribution`; the full citation is in the data repository's README.
 

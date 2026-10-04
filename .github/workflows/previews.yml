@@ -61,15 +61,32 @@ jobs:
         if: env.EVENT != 'delete'
         run: npm run configs
 
-      - name: API keys
+      - name: Build
+        if: env.EVENT != 'delete'
+        run: |
+          npm run build
+          npm run build:lib
+
+      # A preview is webmapx.com with this branch's webmapx in it, so it is
+      # assembled by webmapx-demo's own script — landing page, demo app, tool
+      # documentation, coastal zones — rather than by a copy of it here.
+      - name: Check out the site
+        if: env.EVENT != 'delete'
+        uses: actions/checkout@v5
+        with:
+          repository: edugis-org/webmapx-demo
+          path: webmapx-demo
+
+      - name: Assemble the site
         if: env.EVENT != 'delete'
         env:
           APIKEYS_JSON: ${{ secrets.APIKEYS_JSON }}
-        run: printf '%s' "$APIKEYS_JSON" > public/config/apikeys.json
-
-      - name: Build
-        if: env.EVENT != 'delete'
-        run: npm run build
+        run: |
+          cd webmapx-demo
+          npm ci
+          SITE_WEBMAPX_COMMIT="$GITHUB_SHA" \
+          SITE_CONFIGS_COMMIT="$(git -C ../public/config rev-parse HEAD)" \
+            npx tsx scripts/assemble-site.ts .. ../site-build
 
       # Other branches deploy concurrently, so the push is conditional on
       # gh-pages being exactly what this run started from; if another deploy
@@ -110,8 +127,8 @@ jobs:
               node scripts/run-ts.mjs scripts/preview-site.ts remove "$PWD/stage" "$SLUG"
               message="Remove preview of $BRANCH"
             else
-              cp -r dist "stage/$SLUG"
-              node scripts/run-ts.mjs scripts/preview-site.ts add "$PWD/stage" "$SLUG" "$BRANCH" "$GITHUB_SHA" "$(du -sb dist | cut -f1)"
+              cp -r site-build "stage/$SLUG"
+              node scripts/run-ts.mjs scripts/preview-site.ts add "$PWD/stage" "$SLUG" "$BRANCH" "$GITHUB_SHA" "$(du -sb site-build | cut -f1)"
               message="Preview $BRANCH at ${GITHUB_SHA:0:7}"
             fi
 
