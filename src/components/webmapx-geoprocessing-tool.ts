@@ -23,6 +23,7 @@
 
 import { announce } from './internal/announce';
 import { html, css, nothing, type TemplateResult } from 'lit';
+import { formLabelStyles } from './internal/form-label-styles';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMapState } from '../store/IMapState';
@@ -154,7 +155,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
 
     // ─── Styles ──────────────────────────────────────────────────────────
 
-    static styles = [sectionHeadingStyles, css`
+    static styles = [formLabelStyles, sectionHeadingStyles, css`
         :host { display: block; }
 
         :host(:not([active])) .tool-content { display: none; }
@@ -328,7 +329,6 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
 
         .field-label {
             display: block;
-            font-size: var(--sl-input-label-font-size-small, 0.875rem);
             margin-bottom: 4px;
         }
 

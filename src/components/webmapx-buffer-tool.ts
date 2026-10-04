@@ -10,6 +10,7 @@
  */
 
 import { html, css, nothing } from 'lit';
+import { formLabelStyles } from './internal/form-label-styles';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMapState } from '../store/IMapState';
@@ -60,7 +61,7 @@ export class WebmapxBufferTool extends WebmapxModalTool {
 
     // ─── Styles ──────────────────────────────────────────────────────────
 
-    static styles = css`
+    static styles = [formLabelStyles, css`
         :host { display: block; }
 
         :host(:not([active])) .tool-content { display: none; }
@@ -97,7 +98,7 @@ export class WebmapxBufferTool extends WebmapxModalTool {
             --sl-input-height-medium: 28px;
             --sl-input-font-size-medium: var(--sl-font-size-small);
         }
-    `;
+    `];
 
     // ─── Lifecycle ───────────────────────────────────────────────────────
 

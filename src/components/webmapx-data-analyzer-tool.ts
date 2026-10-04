@@ -1,4 +1,5 @@
 import { html, css, nothing, type TemplateResult } from 'lit';
+import { formLabelStyles } from './internal/form-label-styles';
 import { customElement, state } from 'lit/decorators.js';
 
 import { WebmapxModalTool } from './webmapx-modal-tool';
@@ -119,7 +120,18 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
     private lastMapBusy = false;
     private worker: Worker | null = null;
 
-    static styles = css`
+    static styles = [formLabelStyles, css`
+        /* Count | Rate is self-evident inside its card, so the group's label is
+           for screen readers only: without it the group announces no name. */
+        .unlabelled::part(form-control-label) {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            white-space: nowrap;
+        }
+
         :host { display: block; }
         :host(:not([active])) .tool-content { display: none; }
 
@@ -270,7 +282,7 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
 
         sl-alert { font-size: var(--sl-font-size-x-small); }
         sl-select { --sl-input-height-medium: 28px; --sl-input-font-size-medium: var(--sl-font-size-small); }
-    `;
+    `];
 
     protected onActivate(): void {
         if (!this.selectedLayerId && this.availableLayers.length) {
@@ -588,6 +600,8 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
                     <div class="actions">
                         <sl-radio-group
                             size="small"
+                            class="unlabelled"
+                            label="Map values as"
                             value=${this.kindOf(item.fields[0])}
                             @sl-change=${(event: Event) => {
                                 this.kindOverride = { ...this.kindOverride, [item.fields[0]]: (event.target as HTMLInputElement).value as MeasureKind };

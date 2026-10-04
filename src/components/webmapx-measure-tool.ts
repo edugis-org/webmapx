@@ -3,6 +3,7 @@
 
 import { announce } from './internal/announce';
 import { html, css, nothing, TemplateResult } from 'lit';
+import { formLabelStyles } from './internal/form-label-styles';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
@@ -184,7 +185,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     // Styles
     // ─────────────────────────────────────────────────────────────────────
 
-    static styles = [addLayerToggleStyles, css`
+    static styles = [formLabelStyles, addLayerToggleStyles, css`
         :host {
             display: block;
             pointer-events: auto;
@@ -280,8 +281,6 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
         .unit-row sl-radio-group::part(form-control-label) {
             margin: 0;
-            font-size: inherit; /* same size as the segment labels above */
-            color: var(--color-text-secondary, #5a6773);
         }
 
         .actions {

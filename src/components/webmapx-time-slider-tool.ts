@@ -1,4 +1,5 @@
 import { html, css, TemplateResult } from 'lit';
+import { formLabelStyles } from './internal/form-label-styles';
 import { customElement, state } from 'lit/decorators.js';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
 import { STEP_BACK_ICON, STEP_FORWARD_ICON, StepRepeater, renderStepButton, PLAY_ICON, PAUSE_ICON } from './step-button';
@@ -142,13 +143,12 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
     private playFrame: number | null = null;
     private playLastFrame = 0;
 
-    static styles = [controlSurfaceStyles, css`
+    static styles = [formLabelStyles, controlSurfaceStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         .now {
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            font-weight: 600;
             margin-bottom: 0.75rem;
         }
         .now input { margin: 0; }
@@ -466,7 +466,7 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
             <div class="now">
                 <input type="checkbox" id="time-now" .checked=${live}
                     @change=${(e: Event) => this.toggleNow((e.target as HTMLInputElement).checked)}>
-                <label for="time-now">Now</label>
+                <label class="option-label" for="time-now">Now</label>
             </div>
 
             <div class="moment">
@@ -476,7 +476,7 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
 
             <div class="row ${live ? 'disabled' : ''}">
                 <label for="time-year">
-                    <span>Year</span>
+                    <span class="field-label">Year</span>
                 </label>
                 <select id="time-year" ?disabled=${live} .value=${String(shownYear)}
                     @change=${(e: Event) => this.setYear(Number((e.target as HTMLSelectElement).value))}>
@@ -487,7 +487,7 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
 
             <div class="row ${live ? 'disabled' : ''}">
                 <label for="time-date">
-                    <span>Date</span>
+                    <span class="field-label">Date</span>
                     <span class="value">${formatUtcDate(at)}</span>
                 </label>
                 <input type="range" id="time-date"
@@ -500,7 +500,7 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
 
             <div class="row ${live ? 'disabled' : ''}">
                 <label for="time-minute">
-                    <span>Time of day (UTC)</span>
+                    <span class="field-label">Time of day (UTC)</span>
                     <span class="value">${formatMinute(minute)}</span>
                 </label>
                 <input type="range" id="time-minute"

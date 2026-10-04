@@ -1,4 +1,5 @@
 import { html, css, TemplateResult, nothing } from 'lit';
+import { formLabelStyles } from './internal/form-label-styles';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
@@ -199,9 +200,9 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
     private unsubClick: (() => void) | null = null;
     private layersCreated = false;
 
-    static styles = css`
+    static styles = [formLabelStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
-        label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
+        label { display: block; margin-bottom: 0.25rem; }
         .hint { color: var(--color-text-secondary, #5a6773); font-size: 0.8rem; margin-bottom: 0.75rem; line-height: 1.4; }
         .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
         select, input[type="text"] { flex: 1; padding: 0.3rem 0.5rem; border: 1px solid var(--color-border, #d5dce3); border-radius: 4px; font-size: 0.875rem; background: var(--color-background, #fff); color: var(--color-text-primary, #16202a); }
@@ -216,14 +217,14 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
            what to do next, and a missing one reads as a broken panel. */
         button.calculate[disabled] { opacity: 0.5; cursor: not-allowed; }
         button:disabled { opacity: 0.5; cursor: default; }
-        .field-label { font-size: 0.78rem; color: var(--color-text-secondary, #5a6773); margin-bottom: 0.15rem; font-weight: 600; }
+        .field-label { margin-bottom: 0.15rem; }
         .field { margin-bottom: 0.5rem; }
         .error { color: var(--sl-color-danger-600, #c00); font-size: 0.8rem; margin-top: 0.25rem; }
         .center-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
         .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--webmapx-data-route, #2563eb); display: inline-block; flex-shrink: 0; }
         .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--color-border, #d5dce3); border-top-color: var(--color-primary, #2b6c8f); border-radius: 50%; animation: spin 0.6s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-    `;
+    `];
 
     // ─── Config helpers ───────────────────────────────────────────────────────
 
@@ -581,8 +582,8 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
 
             ${this.showServiceDropdown ? html`
                 <div class="field">
-                    <div class="field-label">Service</div>
-                    <select aria-label="Isochrone service" @change=${(e: Event) => this.onServiceChange(e)}>
+                    <label class="field-label" for="iso-service">Service</label>
+                    <select id="iso-service" @change=${(e: Event) => this.onServiceChange(e)}>
                         ${this.availableServices.map(s => html`<option value=${s.id} ?selected=${s.id === this.serviceId}>${s.label}</option>`)}
                     </select>
                 </div>
@@ -590,14 +591,14 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
 
             <div class="row">
                 <div class="field" style="flex:1">
-                    <div class="field-label">Mode</div>
-                    <select aria-label="Travel mode" @change=${(e: Event) => this.onModeChange(e)}>
+                    <label class="field-label" for="iso-mode">Mode</label>
+                    <select id="iso-mode" @change=${(e: Event) => this.onModeChange(e)}>
                         ${svc.modes.map(m => html`<option value=${m.value} ?selected=${m.value === this.effectiveMode}>${m.label}</option>`)}
                     </select>
                 </div>
                 <div class="field" style="flex:1">
-                    <div class="field-label">Range type</div>
-                    <select aria-label="Range type" @change=${(e: Event) => this.onRangeTypeChange(e)}>
+                    <label class="field-label" for="iso-range-type">Range type</label>
+                    <select id="iso-range-type" @change=${(e: Event) => this.onRangeTypeChange(e)}>
                         <option value="time"     ?selected=${this.rangeType === 'time'}>Time</option>
                         <option value="distance" ?selected=${this.rangeType === 'distance'}>Distance</option>
                     </select>
@@ -605,9 +606,9 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
             </div>
 
             <div class="field">
-                <div class="field-label">Ranges (${rangeLabel}, comma-separated)</div>
+                <label class="field-label" for="iso-ranges">Ranges (${rangeLabel}, comma-separated)</label>
                 <div class="row">
-                    <input type="text" aria-label="Ranges, comma-separated" .value=${this.rangesInput}
+                    <input type="text" id="iso-ranges" .value=${this.rangesInput}
                         @input=${(e: Event) => { this.rangesInput = (e.target as HTMLInputElement).value; }}
                         placeholder="e.g. 10, 20, 30">
                     <button @click=${() => this.clearIsochrone()}>Clear</button>

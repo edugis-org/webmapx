@@ -16,6 +16,7 @@
  *   { "type": "deeptime", "data": "data/paleo/merdith2021", "to": 400 }
  */
 import { html, css, nothing, type TemplateResult } from 'lit';
+import { formLabelStyles } from './internal/form-label-styles';
 import { customElement, property, state } from 'lit/decorators.js';
 
 import { WebmapxModalTool } from './webmapx-modal-tool';
@@ -336,7 +337,7 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
 
     private readonly stepper = new StepRepeater();
 
-    static styles = [controlSurfaceStyles, css`
+    static styles = [formLabelStyles, controlSurfaceStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         .age { font-size: 1.5rem; font-weight: 600; line-height: 1.1; }
         .period { color: var(--color-text-muted, #666); margin-bottom: 0.75rem; }
@@ -1045,7 +1046,7 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
 
             ${this.currentModel?.plates ? html`
                 <div class="models">
-                    <label>
+                    <label class="option-label">
                         <input type="checkbox" .checked=${this.showPlates}
                             @change=${(e: Event) => {
                                 this.showPlates = (e.target as HTMLInputElement).checked;
@@ -1059,7 +1060,7 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
             ${this.models.length > 1 ? html`
                 <div class="models">
                     <label>
-                        Model
+                        <span class="field-label">Model</span>
                         <select aria-label="Plate model"
                             @change=${(e: Event) => void this.switchModel((e.target as HTMLSelectElement).value)}>
                             ${this.models.map((model) => html`

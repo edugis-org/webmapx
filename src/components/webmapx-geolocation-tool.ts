@@ -1,4 +1,5 @@
 import { html, css } from 'lit';
+import { formLabelStyles } from './internal/form-label-styles';
 import { customElement, property, state } from 'lit/decorators.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
@@ -220,7 +221,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
   private boundHandleToolActivated = (e: Event) => this.handleToolActivated(e as CustomEvent);
   private boundHandlePanelClose = () => this.handlePanelClose();
 
-  static styles = css`
+  static styles = [formLabelStyles, css`
     :host {
       display: block;
       box-sizing: border-box;
@@ -270,7 +271,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
       gap: 0.5rem;
       font-size: 0.875rem;
     }
-  `;
+  `];
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -986,7 +987,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         </div>
         <div class="status" style="white-space: pre-line;">${this.message}</div>
         <div class="follow">
-          <label>
+          <label class="option-label">
             <input type="checkbox" .checked=${this.follow} @change=${this.handleFollowChange} />
             Track me
           </label>
@@ -1016,7 +1017,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
           <label style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0.5rem;">
             <input type="checkbox" .checked=${this.eraseAfterExport}
               @change=${(e: Event) => { this.eraseAfterExport = (e.target as HTMLInputElement).checked; }} />
-            <span>Erase from memory</span>
+            <span class="option-label">Erase from memory</span>
           </label>
           <div slot="footer" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
             <sl-button autofocus .disabled=${this.storedPointCount === 0} @click=${() => this.openExportFilenameStep()}>Save as files</sl-button>

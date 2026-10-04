@@ -1,4 +1,5 @@
 import { html, css, TemplateResult } from 'lit';
+import { formLabelStyles } from './internal/form-label-styles';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMapState } from '../store/IMapState';
@@ -200,10 +201,10 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         if (this.copies.length === 0) this.cleanupLayers();
     }
 
-    static styles = css`
+    static styles = [formLabelStyles, css`
         :host { display: none; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; min-width: 200px; }
         :host([active]) { display: block; }
-        label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
+        label { display: block; margin-bottom: 0.25rem; }
         select { width: 100%; margin-bottom: 0.75rem; padding: 0.25rem; box-sizing: border-box; }
         .hint { color: var(--color-text-muted, #6b7681); font-style: italic; margin-bottom: 0.5rem; font-size: 0.8rem; }
         .copy-item { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
@@ -251,7 +252,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         .rotation-reset { border: none; background: none; cursor: pointer; padding: 0 2px; font-size: 1rem; line-height: 1; color: var(--color-text-secondary, #5a6773); }
         .rotation-reset:hover { color: var(--color-primary, #2b6c8f); }
         .rotation-value { font-variant-numeric: tabular-nums; min-width: 3.5em; text-align: right; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
-    `;
+    `];
 
     protected onMapAttached(adapter: IMap): void {
         super.onMapAttached(adapter);
@@ -677,7 +678,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
 
     render(): TemplateResult {
         return html`
-            <label>Source layer</label>
+            <label class="field-label">Source layer</label>
             ${this.availableLayers.length === 0
                 ? html`<div class="hint">No visible polygon layers on map.</div>`
                 : html`
@@ -715,7 +716,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
                         <input type="checkbox" id="geodesic-toggle" .checked=${this.geodesic}
                             @change=${(e: Event) => { this.geodesic = (e.target as HTMLInputElement).checked; this.recomputeLastCopy(); }}
                         />
-                        <label for="geodesic-toggle">Geodesic (shape-accurate, may rotate borders)</label>
+                        <label class="option-label" for="geodesic-toggle">Geodesic (shape-accurate, may rotate borders)</label>
                     </div>
 
                     ${this.copies.length > 0

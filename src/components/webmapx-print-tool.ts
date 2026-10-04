@@ -1,6 +1,7 @@
 // src/components/webmapx-print-tool.ts
 
 import { html, css } from 'lit';
+import { formLabelStyles } from './internal/form-label-styles';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import { resolveMapElement } from './internal/map-context';
@@ -60,7 +61,7 @@ export class WebmapxPrintTool extends WebmapxModalTool {
     private printBoxEl: HTMLElement | null = null;
     private resizeObserver: ResizeObserver | null = null;
 
-    static styles = css`
+    static styles = [formLabelStyles, css`
         :host { display: block; font-size: var(--sl-font-size-small); }
         .tool-content {
             padding: var(--webmapx-tool-panel-padding, 12px);
@@ -68,7 +69,6 @@ export class WebmapxPrintTool extends WebmapxModalTool {
         }
         .description { color: var(--color-text-secondary, #5a6773); margin: 0; line-height: 1.4; }
         .field { display: flex; flex-direction: column; gap: 4px; }
-        .field label { font-weight: var(--sl-font-weight-semibold); font-size: var(--sl-font-size-small); }
         .error { color: var(--sl-color-danger-600); font-size: var(--sl-font-size-x-small); margin: 0; }
         .warning {
             font-size: var(--sl-font-size-x-small);
@@ -81,7 +81,7 @@ export class WebmapxPrintTool extends WebmapxModalTool {
             line-height: 1.4;
         }
         .busy { display: flex; align-items: center; gap: 8px; color: var(--color-text-secondary, #5a6773); }
-    `;
+    `];
 
     // ── Print box overlay ──────────────────────────────────────────────────────
 
@@ -503,14 +503,14 @@ export class WebmapxPrintTool extends WebmapxModalTool {
             <div class="tool-content">
                 <p class="description">Position the map inside the box, then click Print to save as PDF.</p>
                 <div class="field">
-                    <label for="print-title">Title</label>
+                    <label class="field-label" for="print-title">Title</label>
                     <sl-input id="print-title" size="small" placeholder="Map title"
                         .value=${this.mapTitle}
                         @sl-input=${(e: Event) => { this.mapTitle = (e.target as HTMLInputElement).value; this.updateBox(); }}
                     ></sl-input>
                 </div>
                 <div class="field">
-                    <label for="print-format">Format</label>
+                    <label class="field-label" for="print-format">Format</label>
                     <sl-select id="print-format" size="small" .value=${this.format}
                         @sl-change=${(e: Event) => {
                             this.format = (e.target as HTMLSelectElement).value as PrintFormat;

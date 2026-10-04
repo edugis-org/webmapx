@@ -1,4 +1,5 @@
 import { html, css, TemplateResult } from 'lit';
+import { formLabelStyles } from './internal/form-label-styles';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
@@ -14,10 +15,10 @@ export class Webmapx3dTool extends WebmapxBaseTool {
     @state() private terrainSupported = false;
     @state() private pitchSupported = true;
 
-    static styles = [controlSurfaceStyles, css`
+    static styles = [formLabelStyles, controlSurfaceStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: var(--webmapx-font-size-md, 0.875rem); }
         .unsupported { color: var(--color-text-muted, #6b7681); font-style: italic; }
-        label { display: block; font-weight: 600; margin-bottom: var(--webmapx-space-xs, 0.25rem); }
+        label { display: block; margin-bottom: var(--webmapx-space-xs, 0.25rem); }
         .pitch-buttons { display: flex; gap: var(--webmapx-space-sm, 0.5rem); margin-bottom: var(--webmapx-space-md, 0.75rem); }
         .pitch-buttons button {
             flex: 1; padding: 0.35rem 0; border: 1px solid var(--color-border, #d5dce3);
@@ -213,7 +214,7 @@ export class Webmapx3dTool extends WebmapxBaseTool {
                 <div class="terrain-row">
                     <input type="checkbox" id="webmapx-3d-terrain" .checked=${this.terrainEnabled}
                         @change=${() => this.toggleTerrain()}>
-                    <label for="webmapx-3d-terrain" style="margin:0;font-weight:normal;">Show terrain in 3D</label>
+                    <label class="option-label" for="webmapx-3d-terrain" style="margin:0;">Show terrain in 3D</label>
                 </div>
             ` : ''}
         `;
