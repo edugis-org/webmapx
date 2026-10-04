@@ -1,6 +1,8 @@
 import { html, css, TemplateResult } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
-import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
+import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
+import '@shoelace-style/shoelace/dist/components/radio-button/radio-button.js';
+import '@shoelace-style/shoelace/dist/components/switch/switch.js';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState } from '../store/IMapState';
@@ -19,15 +21,11 @@ export class Webmapx3dTool extends WebmapxBaseTool {
     static styles = [formLabelStyles, controlSurfaceStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: var(--webmapx-font-size-md, 0.875rem); }
         .unsupported { color: var(--color-text-muted, #6b7681); font-style: italic; }
-        label { display: block; margin-bottom: var(--webmapx-space-xs, 0.25rem); }
-        .pitch-buttons { display: flex; gap: var(--webmapx-space-sm, 0.5rem); margin-bottom: var(--webmapx-space-md, 0.75rem); }
-        .pitch-buttons button {
-            flex: 1; padding: 0.35rem 0; border: 1px solid var(--color-border, #d5dce3);
-            border-radius: var(--webmapx-radius-sm, 4px); background-color: var(--color-background, #fff); cursor: pointer; font-size: var(--webmapx-font-size-md, 0.875rem);
-        }
-        .pitch-buttons button.active {
-            background-color: var(--color-primary, #2b6c8f); color: #fff; border-color: var(--color-primary, #2b6c8f);
-        }
+        /* The viewing angle: one choice between named angles, so a segmented
+           control spread over the panel's width as the three buttons were. */
+        .pitch { display: block; margin-bottom: var(--webmapx-space-md, 0.75rem); }
+        .pitch::part(button-group) { width: 100%; }
+        .pitch sl-radio-button { flex: 1; }
         .pitch-hint { font-size: var(--webmapx-font-size-sm, 0.8rem); color: var(--color-text-secondary, #5a6773); margin-bottom: var(--webmapx-space-sm, 0.5rem); line-height: 1.5; }
         .terrain-row { display: flex; align-items: center; gap: var(--webmapx-space-sm, 0.5rem); }
     `];
@@ -199,11 +197,15 @@ export class Webmapx3dTool extends WebmapxBaseTool {
 
         return html`
             ${this.pitchSupported ? html`
-                <div class="pitch-buttons" role="group" aria-label="Viewing angle">
-                    <button class="webmapx-control ${activePreset === 0 ? 'active' : ''}" @click=${() => this.setPitch(0)}>0°</button>
-                    <button class="webmapx-control ${(activePreset === 30 || midActive) ? 'active' : ''}" @click=${() => this.setPitch(30)}>${midLabel}</button>
-                    <button class="webmapx-control ${(activePreset === 60 || rightActive) ? 'active' : ''}" @click=${() => this.setPitch(60)}>${rightLabel}</button>
-                </div>
+                <!-- The action is on each option's click, not on the group's change:
+                     after a hand tilt to 45° the middle option reads 45° and is
+                     already selected, and choosing it must still return to 30°. -->
+                <sl-radio-group class="pitch" size="small" label="Viewing angle"
+                    .value=${activePreset >= 0 ? String(activePreset) : rightActive ? '60' : midActive ? '30' : '0'}>
+                    <sl-radio-button value="0" @click=${() => this.setPitch(0)}>0°</sl-radio-button>
+                    <sl-radio-button value="30" @click=${() => this.setPitch(30)}>${midLabel}</sl-radio-button>
+                    <sl-radio-button value="60" @click=${() => this.setPitch(60)}>${rightLabel}</sl-radio-button>
+                </sl-radio-group>
                 <div class="pitch-hint">
                     Choose a different viewing angle above,<br>
                     or use CTRL + mouse button,<br>
@@ -213,8 +215,8 @@ export class Webmapx3dTool extends WebmapxBaseTool {
             ` : ''}
             ${this.terrainSupported ? html`
                 <div class="terrain-row">
-                    <sl-checkbox size="small" id="webmapx-3d-terrain" .checked=${this.terrainEnabled}
-                        @sl-change=${() => this.toggleTerrain()}>Show terrain in 3D</sl-checkbox>
+                    <sl-switch size="small" id="webmapx-3d-terrain" .checked=${this.terrainEnabled}
+                        @sl-change=${() => this.toggleTerrain()}>Show terrain in 3D</sl-switch>
                 </div>
             ` : ''}
         `;

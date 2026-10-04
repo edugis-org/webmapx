@@ -1,6 +1,6 @@
 import { html, css, TemplateResult } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
-import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
+import '@shoelace-style/shoelace/dist/components/switch/switch.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import { customElement, state } from 'lit/decorators.js';
@@ -465,8 +465,8 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
 
         return html`
             <div class="now">
-                <sl-checkbox size="small" id="time-now" .checked=${live}
-                    @sl-change=${(e: Event) => this.toggleNow((e.target as HTMLInputElement).checked)}>Now</sl-checkbox>
+                <sl-switch size="small" id="time-now" .checked=${live}
+                    @sl-change=${(e: Event) => this.toggleNow((e.target as HTMLInputElement).checked)}>Now</sl-switch>
             </div>
 
             <div class="moment">

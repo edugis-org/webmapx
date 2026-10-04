@@ -1,6 +1,7 @@
 import { html, css } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
+import '@shoelace-style/shoelace/dist/components/switch/switch.js';
 import { customElement, property, state } from 'lit/decorators.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
@@ -988,7 +989,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
         </div>
         <div class="status" style="white-space: pre-line;">${this.message}</div>
         <div class="follow">
-          <sl-checkbox size="small" .checked=${this.follow} @sl-change=${this.handleFollowChange}>Track me</sl-checkbox>
+          <sl-switch size="small" .checked=${this.follow} @sl-change=${this.handleFollowChange}>Track me</sl-switch>
         </div>
         <div class="meta">
           Status: ${this.formatStatus()}${this.lastUpdate ? ` | Updated: ${this.lastUpdate}` : ''}

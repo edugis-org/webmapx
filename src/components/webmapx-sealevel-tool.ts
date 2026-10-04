@@ -39,6 +39,8 @@ import { html, css, type TemplateResult } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
+import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
+import '@shoelace-style/shoelace/dist/components/radio-button/radio-button.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { customElement, property, state } from 'lit/decorators.js';
 
@@ -231,9 +233,7 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
         .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
         .legend i { width: 0.75rem; height: 0.75rem; border-radius: 2px; display: inline-block; border: 1px solid var(--color-border, #d5dce3); }
         .error { color: var(--color-danger, #b3261e); margin-top: 0.5rem; }
-        .modes { display: inline-flex; margin-bottom: 0.5rem; border: 1px solid var(--color-border, #d5dce3); border-radius: var(--webmapx-radius-sm, 4px); overflow: hidden; }
-        .modes button { border: 0; padding: 0.2rem 0.75rem; background: var(--color-background, #fff); color: inherit; cursor: pointer; font: inherit; }
-        .modes button[aria-pressed="true"] { background: var(--color-primary, #0a7bc2); color: var(--color-primary-contrast, #fff); }
+        .modes { display: block; margin-bottom: 0.5rem; }
         .credit { color: var(--color-text-muted, #666); font-size: 0.75rem; margin-top: 0.5rem; }
     `];
 
@@ -657,9 +657,10 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
         const curve = this.mode === 'time' ? this.curve : null;
         return html`
             ${this.curve ? html`
-                <div class="modes" role="group" aria-label="Slider">
-                    <button type="button" aria-pressed=${this.mode === 'level'} @click=${() => this.setMode('level')}>Level</button>
-                    <button type="button" aria-pressed=${this.mode === 'time'} @click=${() => this.setMode('time')}>Time</button>
+                <sl-radio-group class="modes label-hidden" size="small" label="Slider" .value=${this.mode}
+                    @sl-change=${(e: Event) => this.setMode((e.target as HTMLInputElement).value as Mode)}>
+                    <sl-radio-button value="level">Level</sl-radio-button>
+                    <sl-radio-button value="time">Time</sl-radio-button>
                 </div>` : ''}
 
             ${curve ? this.renderTimeMode(curve) : this.renderLevelMode(level)}

@@ -22,6 +22,7 @@ import '@shoelace-style/shoelace/dist/components/alert/alert.js';
 import '@shoelace-style/shoelace/dist/components/badge/badge.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
+import '@shoelace-style/shoelace/dist/components/switch/switch.js';
 import '@shoelace-style/shoelace/dist/components/radio-button/radio-button.js';
 import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
@@ -565,13 +566,13 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
                 ` : nothing}
                 ${item.kind === 'spatial' && item.fields[0] ? html`
                     <div class="actions">
-                        <sl-checkbox
+                        <sl-switch
                             size="small"
                             ?checked=${this.logFor(item.fields[0])}
                             @sl-change=${(event: Event) => {
                                 this.logOverride = { ...this.logOverride, [item.fields[0]]: (event.target as HTMLInputElement).checked };
                             }}
-                        >Log scale</sl-checkbox>
+                        >Log scale</sl-switch>
                         <sl-button size="small" ?disabled=${this.busy} @click=${() => this.mapClusters([item.fields[0]])}>
                             Map clusters
                         </sl-button>

@@ -1,6 +1,7 @@
 import { html, css, TemplateResult } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
-import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
+import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
+import '@shoelace-style/shoelace/dist/components/radio-button/radio-button.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import { customElement, state } from 'lit/decorators.js';
@@ -687,9 +688,13 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
                         <span class="rotation-value">${this.rotationDeg}°</span>
                     </div>
                     <div class="method-row">
-                        <sl-checkbox size="small" id="geodesic-toggle" .checked=${this.geodesic}
-                            @sl-change=${(e: Event) => { this.geodesic = (e.target as HTMLInputElement).checked; this.recomputeLastCopy(); }}
-                        >Geodesic (shape-accurate, may rotate borders)</sl-checkbox>
+                        <sl-radio-group size="small" label="Method"
+                            help-text="Geodesic keeps the true shape on the globe, so borders may rotate"
+                            .value=${this.geodesic ? 'geodesic' : 'simple'}
+                            @sl-change=${(e: Event) => { this.geodesic = (e.target as HTMLInputElement).value === 'geodesic'; this.recomputeLastCopy(); }}>
+                            <sl-radio-button value="simple">Simple</sl-radio-button>
+                            <sl-radio-button value="geodesic">Geodesic</sl-radio-button>
+                        </sl-radio-group>
                     </div>
 
                     ${this.copies.length > 0
