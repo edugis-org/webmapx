@@ -451,7 +451,11 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
 
     private nudgeAge(direction: -1 | 1): void {
         if (this.playing) this.stopPlaying();
-        this.setAge(Math.round(((this.ageKa ?? 0) + direction * AGE_NUDGE_KA) / AGE_STEP_KA) * AGE_STEP_KA);
+        // No age chosen yet means the panel shows the curve's oldest point, so
+        // the first step starts there too — counting from 0 jumped the first
+        // "later" from the oldest age straight to today.
+        const shown = this.ageKa ?? (this.curve ? curveSpan(this.curve).oldest : 0);
+        this.setAge(Math.round((shown + direction * AGE_NUDGE_KA) / AGE_STEP_KA) * AGE_STEP_KA);
     }
 
     private setMode(mode: Mode): void {
