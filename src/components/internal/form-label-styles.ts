@@ -59,6 +59,14 @@ export const formLabelStyles = css`
         font-size: var(--sl-input-font-size-small, 0.875rem);
     }
 
+    /* No text cursor in a dropdown's value. Shoelace shows the chosen option
+       in a read-only input, and focus returns there after choosing, so the
+       browser drew a blinking cursor as if the value could be typed over.
+       The focus ring still shows where focus is. */
+    sl-select::part(display-input) {
+        caret-color: transparent;
+    }
+
     /* An open list keeps clear of its field's focus ring. Shoelace places the
        list flush against the field, over the bottom of the 3px ring; the gap
        is on both sides so it holds when the list flips above the field. */
