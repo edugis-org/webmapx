@@ -1,5 +1,8 @@
 import { html, css, TemplateResult, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
+import { formLabelStyles } from './internal/form-label-styles';
+import '@shoelace-style/shoelace/dist/components/select/select.js';
+import '@shoelace-style/shoelace/dist/components/option/option.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import { resolveMapElement } from './internal/map-context';
 import type { IMapState } from '../store/IMapState';
@@ -108,11 +111,11 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
     /** True while this tool is applying its own change — see `apply()`. */
     private applyingOwnChange = false;
 
-    static styles = css`
+    static styles = [formLabelStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         .unsupported { color: var(--color-text-muted, #6b7681); font-style: italic; }
         label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
-        select { width: 100%; padding: 0.25rem; box-sizing: border-box; }
+        sl-select { width: 100%; }
         .fixed { font-weight: 600; }
         .description { margin-top: 0.5rem; color: var(--color-text-secondary, #5a6773); }
         .badge {
@@ -125,7 +128,7 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
         }
         .badge.equal-area { color: var(--color-success, #1a7f37); }
         .note { margin-top: 0.75rem; font-size: 0.8125rem; color: var(--color-text-secondary, #5a6773); }
-    `;
+    `];
 
     protected onMapAttached(): void {
         this.engineId = this.adapter?.engineId ?? '';
@@ -205,11 +208,15 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
                 // Nothing to choose is a fact about the engine, not a disabled
                 // control: say what it draws and why that is all there is.
                 ? html`<div class="fixed">${current.label}</div>`
-                : html`<select id="projection-select" aria-label="Projection"
-                                @change=${(e: Event) => this.apply((e.target as HTMLSelectElement).value)}>
+                // The description sentence names this field, so its label is for
+                // screen readers only.
+                : html`<sl-select id="projection-select" size="small" hoist
+                                label="Projection" class="label-hidden"
+                                .value=${current.id}
+                                @sl-change=${(e: Event) => this.apply((e.target as HTMLSelectElement).value)}>
                     ${options.map((option) => html`
-                        <option value=${option.id} ?selected=${option.id === current.id}>${option.label}</option>`)}
-                  </select>`}
+                        <sl-option value=${option.id}>${option.label}</sl-option>`)}
+                  </sl-select>`}
             <div class="description">${current.description}</div>
             <div class="badge ${current.equalArea ? 'equal-area' : ''}">
                 ${current.equalArea ? 'Areas are comparable' : 'Areas are distorted'}

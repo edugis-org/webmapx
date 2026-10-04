@@ -7,6 +7,8 @@ import type { IMapState } from '../store/IMapState';
 import type { WebmapxMapElement } from './webmapx-map';
 import { resolveMapElement } from './internal/map-context';
 import { sectionHeadingStyles } from './internal/section-heading-styles';
+import { formLabelStyles } from './internal/form-label-styles';
+import '@shoelace-style/shoelace/dist/components/input/input.js';
 import { discoverLayers, type DiscoveredLayer, type CatalogEntry } from '../utils/layer-discovery';
 
 /**
@@ -49,15 +51,15 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
   /** Bumped on each `handleDiscover` call; a stale (slower) call's result is discarded if a newer one has started. */
   private discoverySeq = 0;
 
-  static styles = [sectionHeadingStyles, css`
+  static styles = [sectionHeadingStyles, formLabelStyles, css`
     :host { display: block; width: 100%; pointer-events: auto; }
     :host([hidden]) { display: none !important; }
     .container { width: 100%; color: var(--color-text-primary); box-sizing: border-box; padding: var(--webmapx-tool-padding, 0); }
     .section-title { margin: 0 0 6px; }
     .urlbox { display:flex; gap:6px; align-items:center; }
-    input[type="text"] { flex:1; padding:6px; min-width:0; }
+    sl-input.url { flex:1; min-width:0; }
     .error { color: var(--sl-color-danger-600, #c0392b); font-size: 12px; margin-top: 6px; }
-    .filter { width:100%; box-sizing:border-box; padding:6px; margin-top:8px; }
+    .filter { display:block; margin-top:8px; }
     .results { margin-top:8px; max-height:50%; overflow:auto; }
     .results ul { list-style: none; margin: 0; padding: 0; }
     .result-item { padding:6px; border-bottom:1px solid rgba(0,0,0,0.05); display:flex; align-items:center; gap:8px; }
@@ -107,8 +109,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
     this.active = true;
     (this as HTMLElement).hidden = false;
     setTimeout(() => {
-      const input = this.renderRoot?.querySelector('input');
-      (input as HTMLInputElement | null)?.focus();
+      (this.renderRoot?.querySelector('sl-input.url') as HTMLElement | null)?.focus();
     }, 0);
   }
 
@@ -150,7 +151,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
   private handleDiscover(): void {
     // Read the URL straight from the input DOM node — `this.url` can lag
     // behind a fast-typed/pasted edit if `@input` hasn't propagated yet.
-    const input = this.renderRoot?.querySelector('input');
+    const input = this.renderRoot?.querySelector('sl-input.url') as HTMLInputElement | null;
     const url = (input?.value ?? this.url).trim();
     this.url = url;
     if (!url) return;
@@ -258,10 +259,12 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
         <section class="panel-section">
         <div class="section-title section-heading">From URL</div>
         <div class="urlbox">
-          <input
-            type="text"
+          <!-- Named by the "From URL" heading above, so its label is for screen readers only. -->
+          <sl-input
+            class="url label-hidden"
+            size="small"
+            label="Service or tile URL"
             placeholder="Paste a service or tile URL"
-            aria-label="Service or tile URL"
             autocomplete="off"
             autocorrect="off"
             autocapitalize="off"
@@ -269,9 +272,9 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
             data-lpignore="true"
             data-1p-ignore
             .value="${this.url}"
-            @input="${(e: Event) => { this.url = (e.target as HTMLInputElement).value; }}"
+            @sl-input="${(e: Event) => { this.url = (e.target as HTMLInputElement).value; }}"
             @keyup="${(e: KeyboardEvent) => { if (e.key === 'Enter') this.handleDiscover(); }}"
-          />
+          ></sl-input>
           <sl-button size="small" ?loading=${this.discovering} ?disabled=${this.discovering} @click="${() => this.handleDiscover()}">Discover</sl-button>
         </div>
 
@@ -294,14 +297,14 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
         `}
 
         ${this.results.length === 0 ? '' : html`
-          <input
-            type="text"
-            class="filter"
+          <sl-input
+            class="filter label-hidden"
+            size="small"
+            label="Filter layers"
             placeholder="Filter layers..."
-            aria-label="Filter layers"
             .value="${this.filterText}"
-            @input="${(e: Event) => { this.filterText = (e.target as HTMLInputElement).value; }}"
-          />
+            @sl-input="${(e: Event) => { this.filterText = (e.target as HTMLInputElement).value; }}"
+          ></sl-input>
           <div class="actions">
             <sl-button size="small" variant="primary" ?disabled=${this.selected.size === 0} @click="${() => this.handleAdd()}">
               Add selected

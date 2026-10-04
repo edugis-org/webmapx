@@ -8,6 +8,7 @@
 
 import { html, css, TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { formLabelStyles } from './internal/form-label-styles';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
 import type { SubLayerSpec } from '../config/types';
@@ -139,7 +140,7 @@ export class WebmapxLanguageOsmVector extends WebmapxModalTool {
         this.applyLanguage();
     };
 
-    static styles = css`
+    static styles = [formLabelStyles, css`
         :host {
             display: block;
         }
@@ -154,7 +155,7 @@ export class WebmapxLanguageOsmVector extends WebmapxModalTool {
         sl-select {
             width: 100%;
         }
-    `;
+    `];
 
     connectedCallback(): void {
         // External, invisible instances (config `visible:false` or standalone usage) don't need
@@ -271,9 +272,11 @@ export class WebmapxLanguageOsmVector extends WebmapxModalTool {
         return html`
             <div class="tool-content container">
                 <div class="current-en">${current?.en ?? this.language}</div>
+                <!-- The description sentence names this field, so its label is for screen readers only. -->
                 <sl-select
                     size="small"
-                    aria-label="Map label language"
+                    label="Map label language"
+                    class="label-hidden"
                     value=${this.language}
                     hoist
                     @sl-change=${this.handleLanguageChange}

@@ -1,6 +1,9 @@
 import { announce } from './internal/announce';
 import { html, css, TemplateResult, nothing } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
+import '@shoelace-style/shoelace/dist/components/select/select.js';
+import '@shoelace-style/shoelace/dist/components/option/option.js';
+import '@shoelace-style/shoelace/dist/components/input/input.js';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
@@ -327,7 +330,9 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
         label { display: block; margin-bottom: 0.25rem; }
         .hint { color: var(--color-text-secondary, #5a6773); font-size: 0.8rem; margin-bottom: 0.75rem; line-height: 1.4; }
         .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
-        select { flex: 1; padding: 0.3rem 0.5rem; border: 1px solid var(--color-border, #d5dce3); border-radius: 4px; font-size: 0.875rem; background: var(--color-background, #fff); color: var(--color-text-primary, #16202a); }
+        sl-select { flex: 1; min-width: 0; }
+        /* A row whose field carries its label above: buttons line up with the field, not the label. */
+        .row.fields { align-items: flex-end; }
         button { padding: 0.35rem 0.75rem; border: 1px solid var(--color-border, #d5dce3); border-radius: 4px; background: var(--color-background, #fff); cursor: pointer; font-size: 0.875rem; color: var(--color-text-primary, #16202a); }
         button:disabled { opacity: 0.5; cursor: default; }
         .result { margin-top: 0.5rem; padding: 0.5rem; background: var(--color-surface-raised, #f4f6f8); border-radius: 4px; }
@@ -340,8 +345,7 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
         details { margin-bottom: 0.5rem; }
         summary { cursor: pointer; font-weight: 600; font-size: 0.8rem; margin-bottom: 0.25rem; user-select: none; }
         .truck-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem 0.5rem; font-size: 0.8rem; }
-        .truck-grid label { margin: 0; }
-        .truck-grid input { width: 100%; padding: 0.2rem 0.35rem; border: 1px solid var(--color-border, #d5dce3); border-radius: 4px; font-size: 0.8rem; background: var(--color-background, #fff); color: var(--color-text-primary, #16202a); }
+
         .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--color-border, #d5dce3); border-top-color: var(--color-primary, #2b6c8f); border-radius: 50%; animation: spin 0.6s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
     `];
@@ -753,19 +757,20 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
                 </div>` : nothing}
 
             ${this.showServiceDropdown ? html`
-                <label class="field-label" for="route-service" style="margin-top:0.5rem;">Service</label>
-                <div class="row">
-                    <select id="route-service" @change=${(e: Event) => this.onServiceChange(e)}>
-                        ${this.availableServices.map(s => html`<option value=${s.id} ?selected=${s.id === this.serviceId}>${s.label}</option>`)}
-                    </select>
+                <div class="row" style="margin-top:0.5rem;">
+                    <sl-select id="route-service" size="small" hoist label="Service" .value=${svc.id}
+                        @sl-change=${(e: Event) => this.onServiceChange(e)}>
+                        ${this.availableServices.map(s => html`<sl-option value=${s.id}>${s.label}</sl-option>`)}
+                    </sl-select>
                 </div>
             ` : nothing}
 
-            <label class="field-label" for="route-mode" style="${this.showServiceDropdown ? '' : 'margin-top:0.5rem;'}">Mode</label>
-            <div class="row">
-                <select id="route-mode" @change=${(e: Event) => this.onModeChange(e)}>
-                    ${svc.modes.map(m => html`<option value=${m.value} ?selected=${m.value === this.travelMode}>${m.label}</option>`)}
-                </select>
+            <div class="row fields" style="${this.showServiceDropdown ? '' : 'margin-top:0.5rem;'}">
+                <sl-select id="route-mode" size="small" hoist label="Mode"
+                    .value=${svc.modes.some(m => m.value === this.travelMode) ? this.travelMode : svc.modes[0]?.value}
+                    @sl-change=${(e: Event) => this.onModeChange(e)}>
+                    ${svc.modes.map(m => html`<sl-option value=${m.value}>${m.label}</sl-option>`)}
+                </sl-select>
                 ${this.start && this.end ? html`
                     <button @click=${() => this.swapWaypoints()} title="Swap start and end">⇅</button>
                 ` : nothing}
@@ -776,26 +781,16 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
                 <details open>
                     <summary>Truck parameters</summary>
                     <div class="truck-grid">
-                        <label class="field-label">Weight (kg)
-                            <input type="number" min="500" max="50000" .value=${String(this.truckWeight)}
-                                @change=${(e: Event) => { this.truckWeight = +(e.target as HTMLInputElement).value; if (this.start && this.end) void this.calculateRoute(); }}>
-                        </label>
-                        <label class="field-label">Axle weight (kg)
-                            <input type="number" min="500" max="12000" .value=${String(this.truckAxleWeight)}
-                                @change=${(e: Event) => { this.truckAxleWeight = +(e.target as HTMLInputElement).value; if (this.start && this.end) void this.calculateRoute(); }}>
-                        </label>
-                        <label class="field-label">Length (m)
-                            <input type="number" min="4" max="24" step="0.1" .value=${String(this.truckLength)}
-                                @change=${(e: Event) => { this.truckLength = +(e.target as HTMLInputElement).value; if (this.start && this.end) void this.calculateRoute(); }}>
-                        </label>
-                        <label class="field-label">Width (m)
-                            <input type="number" min="1" max="2.6" step="0.1" .value=${String(this.truckWidth)}
-                                @change=${(e: Event) => { this.truckWidth = +(e.target as HTMLInputElement).value; if (this.start && this.end) void this.calculateRoute(); }}>
-                        </label>
-                        <label class="field-label">Height (m)
-                            <input type="number" min="1" max="10" step="0.1" .value=${String(this.truckHeight)}
-                                @change=${(e: Event) => { this.truckHeight = +(e.target as HTMLInputElement).value; if (this.start && this.end) void this.calculateRoute(); }}>
-                        </label>
+                        <sl-input type="number" size="small" label="Weight (kg)" min="500" max="50000" .value=${String(this.truckWeight)}
+                                @sl-change=${(e: Event) => { this.truckWeight = +(e.target as HTMLInputElement).value; if (this.start && this.end) void this.calculateRoute(); }}></sl-input>
+                        <sl-input type="number" size="small" label="Axle weight (kg)" min="500" max="12000" .value=${String(this.truckAxleWeight)}
+                                @sl-change=${(e: Event) => { this.truckAxleWeight = +(e.target as HTMLInputElement).value; if (this.start && this.end) void this.calculateRoute(); }}></sl-input>
+                        <sl-input type="number" size="small" label="Length (m)" min="4" max="24" step="0.1" .value=${String(this.truckLength)}
+                                @sl-change=${(e: Event) => { this.truckLength = +(e.target as HTMLInputElement).value; if (this.start && this.end) void this.calculateRoute(); }}></sl-input>
+                        <sl-input type="number" size="small" label="Width (m)" min="1" max="2.6" step="0.1" .value=${String(this.truckWidth)}
+                                @sl-change=${(e: Event) => { this.truckWidth = +(e.target as HTMLInputElement).value; if (this.start && this.end) void this.calculateRoute(); }}></sl-input>
+                        <sl-input type="number" size="small" label="Height (m)" min="1" max="10" step="0.1" .value=${String(this.truckHeight)}
+                                @sl-change=${(e: Event) => { this.truckHeight = +(e.target as HTMLInputElement).value; if (this.start && this.end) void this.calculateRoute(); }}></sl-input>
                     </div>
                 </details>
             ` : nothing}

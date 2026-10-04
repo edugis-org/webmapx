@@ -1,5 +1,8 @@
 import { html, css, TemplateResult, nothing } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
+import '@shoelace-style/shoelace/dist/components/select/select.js';
+import '@shoelace-style/shoelace/dist/components/option/option.js';
+import '@shoelace-style/shoelace/dist/components/input/input.js';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
@@ -205,7 +208,9 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
         label { display: block; margin-bottom: 0.25rem; }
         .hint { color: var(--color-text-secondary, #5a6773); font-size: 0.8rem; margin-bottom: 0.75rem; line-height: 1.4; }
         .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
-        select, input[type="text"] { flex: 1; padding: 0.3rem 0.5rem; border: 1px solid var(--color-border, #d5dce3); border-radius: 4px; font-size: 0.875rem; background: var(--color-background, #fff); color: var(--color-text-primary, #16202a); }
+        sl-select, sl-input { flex: 1; min-width: 0; }
+        /* A row whose fields carry their labels above: buttons line up with the field, not the label. */
+        .row.fields { align-items: flex-end; }
         button { padding: 0.35rem 0.75rem; border: 1px solid var(--color-border, #d5dce3); border-radius: 4px; background: var(--color-background, #fff); cursor: pointer; font-size: 0.875rem; color: var(--color-text-primary, #16202a); }
         button.calculate {
             flex: 1;
@@ -217,7 +222,6 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
            what to do next, and a missing one reads as a broken panel. */
         button.calculate[disabled] { opacity: 0.5; cursor: not-allowed; }
         button:disabled { opacity: 0.5; cursor: default; }
-        .field-label { margin-bottom: 0.15rem; }
         .field { margin-bottom: 0.5rem; }
         .error { color: var(--sl-color-danger-600, #c00); font-size: 0.8rem; margin-top: 0.25rem; }
         .center-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
@@ -582,35 +586,31 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
 
             ${this.showServiceDropdown ? html`
                 <div class="field">
-                    <label class="field-label" for="iso-service">Service</label>
-                    <select id="iso-service" @change=${(e: Event) => this.onServiceChange(e)}>
-                        ${this.availableServices.map(s => html`<option value=${s.id} ?selected=${s.id === this.serviceId}>${s.label}</option>`)}
-                    </select>
+                    <sl-select id="iso-service" size="small" hoist label="Service" .value=${svc.id}
+                        @sl-change=${(e: Event) => this.onServiceChange(e)}>
+                        ${this.availableServices.map(s => html`<sl-option value=${s.id}>${s.label}</sl-option>`)}
+                    </sl-select>
                 </div>
             ` : nothing}
 
-            <div class="row">
-                <div class="field" style="flex:1">
-                    <label class="field-label" for="iso-mode">Mode</label>
-                    <select id="iso-mode" @change=${(e: Event) => this.onModeChange(e)}>
-                        ${svc.modes.map(m => html`<option value=${m.value} ?selected=${m.value === this.effectiveMode}>${m.label}</option>`)}
-                    </select>
-                </div>
-                <div class="field" style="flex:1">
-                    <label class="field-label" for="iso-range-type">Range type</label>
-                    <select id="iso-range-type" @change=${(e: Event) => this.onRangeTypeChange(e)}>
-                        <option value="time"     ?selected=${this.rangeType === 'time'}>Time</option>
-                        <option value="distance" ?selected=${this.rangeType === 'distance'}>Distance</option>
-                    </select>
-                </div>
+            <div class="row fields">
+                <sl-select id="iso-mode" size="small" hoist label="Mode" .value=${this.effectiveMode}
+                    @sl-change=${(e: Event) => this.onModeChange(e)}>
+                    ${svc.modes.map(m => html`<sl-option value=${m.value}>${m.label}</sl-option>`)}
+                </sl-select>
+                <sl-select id="iso-range-type" size="small" hoist label="Range type" .value=${this.rangeType}
+                    @sl-change=${(e: Event) => this.onRangeTypeChange(e)}>
+                    <sl-option value="time">Time</sl-option>
+                    <sl-option value="distance">Distance</sl-option>
+                </sl-select>
             </div>
 
             <div class="field">
-                <label class="field-label" for="iso-ranges">Ranges (${rangeLabel}, comma-separated)</label>
-                <div class="row">
-                    <input type="text" id="iso-ranges" .value=${this.rangesInput}
-                        @input=${(e: Event) => { this.rangesInput = (e.target as HTMLInputElement).value; }}
-                        placeholder="e.g. 10, 20, 30">
+                <div class="row fields">
+                    <sl-input id="iso-ranges" size="small" label="Ranges (${rangeLabel}, comma-separated)"
+                        .value=${this.rangesInput}
+                        @sl-input=${(e: Event) => { this.rangesInput = (e.target as HTMLInputElement).value; }}
+                        placeholder="e.g. 10, 20, 30"></sl-input>
                     <button @click=${() => this.clearIsochrone()}>Clear</button>
                 </div>
             </div>

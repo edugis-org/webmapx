@@ -1,5 +1,7 @@
 import { html, css, TemplateResult } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
+import '@shoelace-style/shoelace/dist/components/select/select.js';
+import '@shoelace-style/shoelace/dist/components/option/option.js';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMapState } from '../store/IMapState';
@@ -205,7 +207,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         :host { display: none; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; min-width: 200px; }
         :host([active]) { display: block; }
         label { display: block; margin-bottom: 0.25rem; }
-        select { width: 100%; margin-bottom: 0.75rem; padding: 0.25rem; box-sizing: border-box; }
+        sl-select { width: 100%; margin-bottom: 0.75rem; }
         .hint { color: var(--color-text-muted, #6b7681); font-style: italic; margin-bottom: 0.5rem; font-size: 0.8rem; }
         .copy-item { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
         .copy-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
@@ -678,15 +680,16 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
 
     render(): TemplateResult {
         return html`
-            <label class="field-label">Source layer</label>
             ${this.availableLayers.length === 0
-                ? html`<div class="hint">No visible polygon layers on map.</div>`
+                ? html`<div class="field-label">Source layer</div><div class="hint">No visible polygon layers on map.</div>`
                 : html`
-                    <select aria-label="Source layer" @change=${(e: Event) => { this.selectedLayerId = (e.target as HTMLSelectElement).value; }}>
-                        ${this.availableLayers.map(l => html`
-                            <option value=${l.id} ?selected=${l.id === this.selectedLayerId}>${l.label}</option>
+                    <sl-select size="small" hoist label="Source layer"
+                        .value=${String(Math.max(0, this.availableLayers.findIndex(l => l.id === this.selectedLayerId)))}
+                        @sl-change=${(e: Event) => { this.selectedLayerId = this.availableLayers[Number((e.target as HTMLSelectElement).value)]?.id ?? this.selectedLayerId; }}>
+                        ${this.availableLayers.map((l, i) => html`
+                            <sl-option value=${String(i)}>${l.label}</sl-option>
                         `)}
-                    </select>
+                    </sl-select>
                     ${this.dragging
                         ? html`<div class="dragging-hint">Drag to target location, release to place.</div>`
                         : html`<div class="hint">Click and drag a polygon to compare sizes.</div>`

@@ -19,6 +19,14 @@ import { css } from 'lit';
  * Sizes come from the active style's scale (`--webmapx-font-size-sm`/`-md`),
  * so console gets smaller labels and a future style gets its own, with no
  * tool touched.
+ *
+ * A field that deliberately shows no label (the field is the tool, or the
+ * description sentence or a section heading already names it) still needs a
+ * name for screen readers. On a Shoelace control that name *is* its `label`
+ * — an aria-label on the host does not reach the inner input, and a native
+ * <label for> cannot point into its shadow root — so it keeps the label and
+ * takes `label-hidden`, which hides it visually but not from assistive
+ * technology.
  */
 export const formLabelStyles = css`
     .field-label,
@@ -39,5 +47,14 @@ export const formLabelStyles = css`
         font-size: var(--webmapx-font-size-md, 0.875rem);
         font-weight: 400;
         color: var(--color-text-primary, #16202a);
+    }
+
+    .label-hidden::part(form-control-label) {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
     }
 `;

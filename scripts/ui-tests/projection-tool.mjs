@@ -47,10 +47,10 @@ export async function run({ page, engine, baseUrl }) {
         await new Promise((resolve) => setTimeout(resolve, 1500));
         await tool.updateComplete;
         const root = tool.shadowRoot;
-        const select = root.querySelector('select');
+        const select = root.querySelector('sl-select');
         return {
             engineId: (await map.getAdapterAsync()).engineId,
-            options: select ? [...select.options].map((o) => o.value) : null,
+            options: select ? [...select.querySelectorAll('sl-option')].map((o) => o.value) : null,
             fixedLabel: root.querySelector('.fixed')?.textContent?.trim() ?? null,
             unsupported: Boolean(root.querySelector('.unsupported')),
             badge: root.querySelector('.badge')?.textContent?.trim() ?? null,
@@ -90,10 +90,11 @@ export async function run({ page, engine, baseUrl }) {
     if (!expected.fixed) {
         const applied = await page.evaluate(async () => {
             const tool = document.querySelector('webmapx-projection-tool');
-            const select = tool.shadowRoot.querySelector('select');
-            const target = [...select.options].find((o) => o.value !== select.value)?.value;
+            const select = tool.shadowRoot.querySelector('sl-select');
+            const target = [...select.querySelectorAll('sl-option')].find((o) => o.value !== select.value)?.value;
             select.value = target;
-            select.dispatchEvent(new Event('change'));
+            // What Shoelace fires when a person picks an option.
+            select.dispatchEvent(new CustomEvent('sl-change', { bubbles: true, composed: true }));
             await new Promise((resolve) => setTimeout(resolve, 2500));
             const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
             return { target, engineSays: adapter.getProjection()?.name ?? null };

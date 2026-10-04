@@ -121,17 +121,6 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
     private worker: Worker | null = null;
 
     static styles = [formLabelStyles, css`
-        /* Count | Rate is self-evident inside its card, so the group's label is
-           for screen readers only: without it the group announces no name. */
-        .unlabelled::part(form-control-label) {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            overflow: hidden;
-            clip: rect(0 0 0 0);
-            white-space: nowrap;
-        }
-
         :host { display: block; }
         :host(:not([active])) .tool-content { display: none; }
 
@@ -600,7 +589,7 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
                     <div class="actions">
                         <sl-radio-group
                             size="small"
-                            class="unlabelled"
+                            class="label-hidden"
                             label="Map values as"
                             value=${this.kindOf(item.fields[0])}
                             @sl-change=${(event: Event) => {
