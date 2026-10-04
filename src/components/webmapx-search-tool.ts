@@ -8,6 +8,8 @@ import type { IMapState } from '../store/IMapState';
 import type { WebmapxMapElement } from './webmapx-map';
 import { resolveMapElement } from './internal/map-context';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
+import { formLabelStyles } from './internal/form-label-styles';
+import '@shoelace-style/shoelace/dist/components/input/input.js';
 import { addLayerIcon, addLayerToggleStyles } from './internal/add-layer-icon';
 
 /**
@@ -123,61 +125,15 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     return WebmapxSearchTool.KNOWN_PROVIDERS.has(provider.toLowerCase());
   }
 
-  static styles = [controlSurfaceStyles, addLayerToggleStyles, css`
+  static styles = [formLabelStyles, controlSurfaceStyles, addLayerToggleStyles, css`
     :host { display: block; width: 100%; pointer-events: auto; }
     :host([hidden]) { display: none !important; }
     .container { width: 100%; max-width: 100%; color: var(--webmapx-search-color, var(--color-text-primary)); box-sizing: border-box; padding: var(--webmapx-tool-padding, 0); }
     .searchbox { display:flex; gap:6px; align-items:center; }
-    /* The clear button sits *inside* the field rather than beside it: it acts on the
-       text, not on the search, and a third control in the row would read as a third
-       action. The input keeps room for it at all times so the text never shifts when
-       it appears. */
-    .input-wrap { position: relative; display: flex; flex: 1; min-width: 0; }
-    /* Same border as .go-button, fixed at 1px always — focus recolours it to the
-       same blue as the button's hover instead of adding an outline, so the box
-       never changes thickness. */
-    input {
-      flex:1;
-      height: 2rem;
-      padding:0 6px;
-      min-width:0;
-      box-sizing: border-box;
-      font: inherit;
-      font-size: 12px;
-      color: inherit;
-      background: var(--color-background, #fff);
-      border: 1px solid var(--color-border, #d5dce3);
-      border-radius: var(--webmapx-radius-sm, 4px);
-      outline: none;
-    }
-    input { padding-right: 1.75rem; }
-    input:focus-visible {
-      border-color: var(--color-primary, #2b6c8f);
-    }
-    .clear-button {
-      position: absolute;
-      right: 2px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 1.5rem;
-      height: 1.5rem;
-      display: grid;
-      place-items: center;
-      padding: 0;
-      border: none;
-      border-radius: 50%;
-      background: transparent;
-      color: var(--color-text-muted, #6b7681);
-    }
-    .clear-button:hover {
-      background: var(--color-background-hover, rgba(22, 32, 42, 0.06));
-      color: var(--color-text, #16202a);
-    }
-    .clear-button:focus-visible {
-      outline: var(--webmapx-focus-ring, 2px solid var(--color-primary, #2b6c8f));
-      outline-offset: var(--webmapx-focus-offset, 1px);
-    }
-    .clear-button svg { width: .8rem; height: .8rem; }
+    /* The search field: the same small Shoelace field as every other tool,
+       with its own clear button (it acts on the text, not on the search, so it
+       lives inside the field rather than as a third control in the row). */
+    sl-input.search-field { flex: 1; min-width: 0; }
     button { flex:0 0 auto; }
     .searchbox button { cursor: pointer; }
     /* Same house style as the toolbar's own search button in its resting state
@@ -241,13 +197,6 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
 
   `];
 
-  private readonly clearIcon = html`
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M3.5 3.5 L12.5 12.5 M12.5 3.5 L3.5 12.5"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-    </svg>
-  `;
-
   // Same shape as the .result-select cursor (lens + handle, no "+") — the button that
   // runs the search should look like the action, not just cue it via the pointer.
   private readonly searchIcon = html`
@@ -303,8 +252,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     this.active = true;
     (this as HTMLElement).hidden = false;
     setTimeout(() => {
-      const input = this.renderRoot?.querySelector('input');
-      (input as HTMLInputElement | null)?.focus();
+      (this.renderRoot?.querySelector('sl-input.search-field') as HTMLElement | null)?.focus();
     }, 0);
     this.dispatchEvent(new CustomEvent('webmapx-search-opened', { bubbles: true, composed: true }));
   }
@@ -499,7 +447,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     // Focus goes back to the field: the button the user just pressed is about to be
     // removed from the DOM, which would otherwise drop focus to the document.
     this.updateComplete.then(() => {
-      this.shadowRoot?.querySelector<HTMLInputElement>('input')?.focus();
+      this.shadowRoot?.querySelector<HTMLElement>('sl-input.search-field')?.focus();
     });
   }
 
@@ -892,28 +840,23 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     return html`
       <div class="container tool-content">
         <div class="searchbox">
-          <div class="input-wrap">
-            <input
-              type="text"
-              name="${this.searchInputName}"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="off"
-              spellcheck="false"
-              placeholder="Search cities, rivers, mountains…"
-              .value="${this.query}"
-              @input="${(e: Event) => { this.query = (e.target as HTMLInputElement).value; }}"
-              @keyup="${(e: KeyboardEvent) => this.handleKey(e)}"
-            />
-            ${this.query ? html`
-              <button
-                class="clear-button"
-                type="button"
-                aria-label="Clear search"
-                title="Clear search"
-                @click="${() => this.clearSearch()}">${this.clearIcon}</button>
-            ` : ''}
-          </div>
+          <!-- The field is the tool, so its label is for screen readers only. -->
+          <sl-input
+            class="search-field label-hidden"
+            size="small"
+            clearable
+            label="Search"
+            name="${this.searchInputName}"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            placeholder="Search cities, rivers, mountains…"
+            .value="${this.query}"
+            @sl-input="${(e: Event) => { this.query = (e.target as HTMLInputElement).value; }}"
+            @sl-clear="${() => this.clearSearch()}"
+            @keyup="${(e: KeyboardEvent) => this.handleKey(e)}"
+          ></sl-input>
           <button class="go-button webmapx-control" type="button" aria-label="Search" title="Search" @click="${() => this.doSearch()}">${this.searchIcon}</button>
         </div>
 

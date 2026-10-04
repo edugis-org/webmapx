@@ -6,6 +6,9 @@ import '@shoelace-style/shoelace/dist/components/tree/tree.js';
 import '@shoelace-style/shoelace/dist/components/tree-item/tree-item.js';
 import '@shoelace-style/shoelace/dist/components/switch/switch.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
+import '@shoelace-style/shoelace/dist/components/input/input.js';
+import '@shoelace-style/shoelace/dist/components/icon/icon.js';
+import { formLabelStyles } from './internal/form-label-styles';
 
 import type { TreeNodeConfig, TreeSelectionMode } from '../config/types';
 import type { WebmapxMapElement } from './webmapx-map';
@@ -102,7 +105,7 @@ export class WebmapxLayerTree extends LitElement {
     private readonly maxConcurrentSupportChecks = 3;
     private didQueueRootSupportChecks = false;
 
-    static styles = css`
+    static styles = [formLabelStyles, css`
         :host {
             display: block;
             height: auto; /* let parent control available height */
@@ -306,34 +309,13 @@ export class WebmapxLayerTree extends LitElement {
             position: relative;
             margin-bottom: 0.25rem;
         }
-        .search input {
-            width: 100%;
-            box-sizing: border-box;
-            font: inherit;
-            padding: 0.25rem 1.5rem 0.25rem 0.375rem;
-            border: 1px solid var(--color-border, #d5dce3);
-            border-radius: var(--sl-border-radius-medium);
-        }
-        .search-clear {
-            position: absolute;
-            right: 0.25rem;
-            top: 50%;
-            transform: translateY(-50%);
-            border: none;
-            background: none;
-            cursor: pointer;
-            line-height: 1;
-            font-size: 1rem;
-            color: var(--color-text-muted, #6b7681);
-            padding: 0;
-        }
         .layer-radio input[type='radio'] {
             width: 0.75rem;
             height: 0.75rem;
             margin: 0;
             flex: none;
         }
-    `;
+    `];
 
     connectedCallback(): void {
         super.connectedCallback();
@@ -1310,15 +1292,22 @@ export class WebmapxLayerTree extends LitElement {
         return html`
             ${this.showSearch ? html`
                 <div class="search">
-                    <input
-                        type="text"
+                    <!-- A filter above the list it filters: the magnifier and the
+                         placeholder say what it does, so its label is for screen readers. -->
+                    <sl-input
+                        class="label-hidden"
+                        size="small"
+                        clearable
+                        label="Search layers"
                         spellcheck="false"
                         autocomplete="off"
                         placeholder="Search layers..."
                         .value=${this.searchQuery}
-                        @input=${this.handleSearchInput}
-                    />
-                    ${this.searchQuery ? html`<button class="search-clear" @click=${this.handleSearchClear} aria-label="Clear search">&times;</button>` : html``}
+                        @sl-input=${this.handleSearchInput}
+                        @sl-clear=${this.handleSearchClear}
+                    >
+                        <sl-icon name="search" slot="prefix"></sl-icon>
+                    </sl-input>
                 </div>
             ` : html``}
             <sl-tree @sl-expand=${this.handleTreeExpand}>

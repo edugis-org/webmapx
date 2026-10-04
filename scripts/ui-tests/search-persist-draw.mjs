@@ -52,12 +52,12 @@ async function searchForUtrecht(page) {
     const tool = map?.querySelector('webmapx-search-tool');
     if (!tool?.shadowRoot) throw new Error('Search tool shadow root unavailable');
 
-    const input = tool.shadowRoot.querySelector('input[placeholder*="Search"]');
+    const input = tool.shadowRoot.querySelector('sl-input.search-field');
     if (!input) throw new Error('Search input not found');
 
-    // Clear and type search query
+    // Clear and type search query (what Shoelace fires as a person types)
     input.value = 'Utrecht';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new CustomEvent('sl-input', { bubbles: true, composed: true }));
 
     // Click Go button
     const goButton = tool.shadowRoot.querySelector('button');
@@ -478,7 +478,7 @@ export async function run({ page, engine, baseUrl }) {
       const tool = map?.querySelector('webmapx-search-tool');
       if (!tool?.shadowRoot) throw new Error('Search tool shadow root unavailable');
 
-      const clear = tool.shadowRoot.querySelector('.clear-button');
+      const clear = tool.shadowRoot.querySelector('sl-input.search-field')?.shadowRoot?.querySelector('[part~="clear-button"]');
       if (!clear) throw new Error('Clear button not found (is the query empty?)');
       clear.click();
 
@@ -490,9 +490,9 @@ export async function run({ page, engine, baseUrl }) {
       const map = document.querySelector('webmapx-map');
       const tool = map?.querySelector('webmapx-search-tool');
       if (!tool?.shadowRoot) return false;
-      const input = tool.shadowRoot.querySelector('input');
+      const input = tool.shadowRoot.querySelector('sl-input.search-field');
       const results = tool.shadowRoot.querySelectorAll('.result-item');
-      const clear = tool.shadowRoot.querySelector('.clear-button');
+      const clear = input?.shadowRoot?.querySelector('[part~="clear-button"]');
       // The button removes itself along with the text it acted on.
       return input?.value === '' && results.length === 0 && !clear;
     }, {}, { timeout: 5_000 });
