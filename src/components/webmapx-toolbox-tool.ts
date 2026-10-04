@@ -108,7 +108,11 @@ export class WebmapxToolboxTool extends WebmapxBaseTool {
       keywords.push(label.toLowerCase(), id.toLowerCase());
 
       const iconName = el.getAttribute('toolbox-icon') ?? el.getAttribute('icon-name');
-      const icon: ToolIconConfig | undefined = iconName ? { name: iconName } : undefined;
+      // A tool drawn with its own image (buffer, deep time) has a src and no name.
+      const iconSrc = el.getAttribute('toolbox-icon-src');
+      const icon: ToolIconConfig | undefined = iconName || iconSrc
+        ? { name: iconName ?? undefined, src: iconSrc ?? undefined }
+        : undefined;
 
       this.entries.push({ id, label, icon, keywords, element: el });
       el.hidden = true;
@@ -197,7 +201,7 @@ export class WebmapxToolboxTool extends WebmapxBaseTool {
     if (icon) {
       const cfg = typeof icon === 'string' ? { name: icon } : icon;
       return html`
-        <sl-icon name=${cfg.name ?? ''} library=${cfg.library ?? 'default'} aria-hidden="true"></sl-icon>
+        <sl-icon name=${cfg.name ?? ''} library=${cfg.library ?? 'default'} src=${cfg.src ?? ''} aria-hidden="true"></sl-icon>
         <span style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">${label}</span>
       `;
     }

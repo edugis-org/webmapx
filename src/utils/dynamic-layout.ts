@@ -150,8 +150,8 @@ function appendSubTools(
     if (metadata.icon) {
       const iconConfig = normalizeIconConfig(metadata.icon);
       if (iconConfig?.name) subEl.setAttribute(`${kind}-icon`, iconConfig.name);
-      if (kind === 'menu' && iconConfig?.src && isSameOriginSrc(iconConfig.src)) {
-        subEl.setAttribute('menu-icon-src', iconConfig.src);
+      if (iconConfig?.src && isSameOriginSrc(iconConfig.src)) {
+        subEl.setAttribute(`${kind}-icon-src`, iconConfig.src);
       }
       // Set as a pre-upgrade property; Lit replays it on upgrade for @property({ attribute: false })
       (subEl as unknown as Record<string, unknown>)['icon'] = metadata.icon;
