@@ -116,15 +116,92 @@ export class MapCoreService implements IMapCore {
             view.setCenter(this.toMapCoord(center));
             view.setZoom(this.toOLZoom(clampedZoom));
         } else {
-            view.animate({
-                center: this.toMapCoord(center),
-                zoom: this.toOLZoom(clampedZoom),
-                duration: 500
-            });
+            this.flyTo(view, this.toMapCoord(center), this.toOLZoom(clampedZoom));
         }
         if (clampedZoom !== zoom) {
             this.scheduleViewportSync();
         }
+    }
+
+    /** Below this fraction of the shorter viewport dimension, the target is already
+     *  "on screen" at the tighter of the two zooms, so a plain pan+zoom reads better
+     *  than zooming out for a move this small — MapLibre's own flyTo makes the same
+     *  call for a short hop. */
+    private static readonly FLY_FIT_FRACTION = 0.6;
+    /** Zoom levels the cruise altitude must sit below the tighter zoom by before the
+     *  zoom-out/pan/zoom-in choreography is worth the extra two animation legs. */
+    private static readonly FLY_MIN_ZOOM_OUT = 0.75;
+
+    private static clampNumber(value: number, min: number, max: number): number {
+        return Math.min(max, Math.max(min, value));
+    }
+
+    /**
+     * A MapLibre/Leaflet-style `flyTo`: for a short hop, a single eased pan+zoom: for
+     * a long one, zoom out to a "cruise" altitude that fits both the start and end
+     * points on screen, pan across at that altitude, then zoom in — the same
+     * choreography those two engines' native flyTo picks by itself, reproduced here
+     * because OpenLayers' `View#animate` only offers a flat linear/eased pan+zoom
+     * with no equivalent of its own.
+     *
+     * `View#animate` accepts a *sequence* of specs and runs them one after another,
+     * which is what makes the three-phase version possible without hand-rolling a
+     * requestAnimationFrame loop.
+     */
+    private flyTo(view: View, targetCenter: number[], targetZoomOL: number): void {
+        const fromCenter = view.getCenter();
+        const fromZoomOL = view.getZoom();
+        if (!fromCenter || fromZoomOL === undefined) {
+            view.animate({ center: targetCenter, zoom: targetZoomOL, duration: 500 });
+            return;
+        }
+
+        const distance = Math.hypot(targetCenter[0] - fromCenter[0], targetCenter[1] - fromCenter[1]);
+        const size = this.mapInstance?.getSize();
+        const viewportSpan = size ? Math.min(size[0], size[1]) : 0;
+
+        const directZoom = Math.min(fromZoomOL, targetZoomOL);
+        const directResolution = view.getResolutionForZoom(directZoom);
+        const directDistancePx = viewportSpan > 0 && directResolution ? distance / directResolution : 0;
+
+        const shortHop = (): void => {
+            const duration = MapCoreService.clampNumber(directDistancePx, 500, 1800);
+            view.animate({ center: targetCenter, zoom: targetZoomOL, duration });
+        };
+
+        if (distance === 0 || directDistancePx <= viewportSpan * MapCoreService.FLY_FIT_FRACTION) {
+            shortHop();
+            return;
+        }
+
+        const neededResolution = distance / (viewportSpan * MapCoreService.FLY_FIT_FRACTION);
+        const minZoomOL = view.getMinZoom();
+        const cruiseZoomOL = MapCoreService.clampNumber(
+            view.getZoomForResolution(neededResolution) ?? directZoom,
+            minZoomOL,
+            directZoom - MapCoreService.FLY_MIN_ZOOM_OUT,
+        );
+
+        // A minZoom floor (or an already-close pair of points) can leave no real
+        // room to zoom out — fall back to the same short hop rather than a
+        // "zoom-out" leg that barely moves.
+        if (cruiseZoomOL >= directZoom - MapCoreService.FLY_MIN_ZOOM_OUT) {
+            shortHop();
+            return;
+        }
+
+        const cruiseResolution = view.getResolutionForZoom(cruiseZoomOL) ?? neededResolution;
+        const cruiseDistancePx = distance / cruiseResolution;
+
+        const zoomOutDuration = MapCoreService.clampNumber(150 * (fromZoomOL - cruiseZoomOL), 300, 1200);
+        const panDuration = MapCoreService.clampNumber(cruiseDistancePx * 0.6, 400, 2500);
+        const zoomInDuration = MapCoreService.clampNumber(150 * (targetZoomOL - cruiseZoomOL), 300, 1200);
+
+        view.animate(
+            { zoom: cruiseZoomOL, duration: zoomOutDuration },
+            { center: targetCenter, duration: panDuration },
+            { zoom: targetZoomOL, duration: zoomInDuration },
+        );
     }
 
     /**
