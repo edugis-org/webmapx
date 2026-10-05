@@ -133,42 +133,61 @@ function copySourceData(liveAdapter: IMap, mirrorAdapter: IMap): void {
  * Applies the live map's current layer visibility/opacity/paint/order onto the mirror, with one
  * override: `forceHiddenId`, if given, is always hidden on the mirror regardless of what the
  * live entry says — that is the one deliberate difference between the two panes. Called on
- * every live store change, so — unlike the compare tool's one-time freeze — this mirror never
- * goes stale while it exists.
+ * every change to the live map's layers, so — unlike the compare tool's one-time freeze — this
+ * mirror never goes stale while it exists. Only what differs is written: the mirror's own store
+ * already says what it shows, and a mega slider drag changes one layer's opacity many times a
+ * second, which must not re-apply every layer's paint and reorder the whole stack each time.
  */
 export function syncLayerSettings(liveAdapter: IMap, mirrorAdapter: IMap, forceHiddenId: string | null): void {
   const liveLayers = liveAdapter.store.getState().mapLayers ?? {};
+
+  // The mirror is rebuilt from the config, so it can hold a config layer the live map no longer
+  // has — one removed in the legend. Left alone it would show on the mirror's side of the seam.
+  for (const id of Object.keys(mirrorAdapter.store.getState().mapLayers ?? {})) {
+    if (!liveLayers[id]) mirrorAdapter.removeLayer(id);
+  }
   const mirrorLayers = mirrorAdapter.store.getState().mapLayers ?? {};
 
-  let previous: string | null = null;
-  for (const id of Object.keys(liveLayers)) {
-    if (!mirrorLayers[id]) continue;
+  const ids = Object.keys(liveLayers).filter((id) => mirrorLayers[id]);
+  for (const id of ids) {
     const entry = liveLayers[id] as MapLayerStateEntry;
+    const mirrored = mirrorLayers[id] as MapLayerStateEntry;
 
-    mirrorAdapter.setLayerVisibility(id, id === forceHiddenId ? false : entry.visible !== false);
+    const visible = id === forceHiddenId ? false : entry.visible !== false;
+    if (visible !== (mirrored.visible !== false)) mirrorAdapter.setLayerVisibility(id, visible);
 
+    // Compared loosely: transparency comes back from the mirror through an opacity fraction.
     const transparency = typeof entry.transparency === 'number' ? entry.transparency : 0;
-    mirrorAdapter.setLayerOpacity(id, (100 - transparency) / 100);
+    const mirroredTransparency = typeof mirrored.transparency === 'number' ? mirrored.transparency : 0;
+    if (Math.abs(transparency - mirroredTransparency) > 1e-6) mirrorAdapter.setLayerOpacity(id, (100 - transparency) / 100);
 
-    syncPaint(mirrorAdapter, id, entry as Record<string, unknown>);
+    syncPaint(mirrorAdapter, id, entry as Record<string, unknown>, mirrored as Record<string, unknown>);
+  }
 
-    if (previous) mirrorAdapter.moveLayer(id, null);
-    previous = id;
+  const mirrorOrder = Object.keys(mirrorAdapter.store.getState().mapLayers ?? {}).filter((id) => liveLayers[id]);
+  if (mirrorOrder.join('\n') !== ids.join('\n')) {
+    ids.forEach((id, index) => { if (index > 0) mirrorAdapter.moveLayer(id, null); });
   }
 }
 
-function syncPaint(mirrorAdapter: IMap, layerId: string, entry: Record<string, unknown>): void {
+function syncPaint(mirrorAdapter: IMap, layerId: string, entry: Record<string, unknown>, mirrored: Record<string, unknown>): void {
+  const same = (a: unknown, b: unknown): boolean => JSON.stringify(a ?? {}) === JSON.stringify(b ?? {});
   const sublayers = Array.isArray(entry.sublayers) ? entry.sublayers as Record<string, unknown>[] : null;
   if (sublayers) {
+    const mirroredSublayers = Array.isArray(mirrored.sublayers) ? mirrored.sublayers as Record<string, unknown>[] : [];
     for (const sub of sublayers) {
       const paint = sub.paint as Record<string, unknown> | undefined;
       const subId = typeof sub.id === 'string' ? sub.id : null;
-      if (paint && subId && Object.keys(paint).length > 0) mirrorAdapter.updateLayerStyle(layerId, subId, paint);
+      if (!paint || !subId || Object.keys(paint).length === 0) continue;
+      if (same(paint, mirroredSublayers.find((s) => s.id === subId)?.paint)) continue;
+      mirrorAdapter.updateLayerStyle(layerId, subId, paint);
     }
     return;
   }
   const paint = entry.paint as Record<string, unknown> | undefined;
-  if (paint && Object.keys(paint).length > 0) mirrorAdapter.updateLayerStyle(layerId, layerId, paint);
+  if (paint && Object.keys(paint).length > 0 && !same(paint, mirrored.paint)) {
+    mirrorAdapter.updateLayerStyle(layerId, layerId, paint);
+  }
 }
 
 /** Keeps projection and terrain following the live map — the two pieces of "what the map looks

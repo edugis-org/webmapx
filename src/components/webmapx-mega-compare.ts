@@ -63,6 +63,18 @@ export class WebmapxMegaCompare extends WebmapxBaseTool {
   private knownLayerIds: Set<string> = new Set();
   private topId: string | null = null;
   private rebuildInFlight = false;
+  /**
+   * Bumped whenever the overlay is taken down. A mirror is built across several awaits, and one
+   * that arrives for an older generation belongs to a control that has since been removed or
+   * reset: it is destroyed on arrival, or it would stay in the map with nothing to remove it.
+   */
+  private mirrorGeneration = 0;
+  /**
+   * What the mirror was last synced from. Only these decide what it shows — the camera follows
+   * through its own events — so a store change that leaves all three alone (a pointer move, a
+   * tool opening, the mega slider's own label) has nothing to tell it.
+   */
+  private syncedFrom: { mapLayers: unknown; projection: unknown; terrain: unknown } | null = null;
   private split = DEFAULT_SPLIT;
 
   private handleEl: HTMLElement | null = null;
@@ -115,6 +127,11 @@ export class WebmapxMegaCompare extends WebmapxBaseTool {
     const mapHost = this.mapHost;
     if (!adapter || !mapHost) return;
 
+    const from = { mapLayers: state.mapLayers, projection: state.mapProjection, terrain: state.terrainEnabled };
+    const synced = this.syncedFrom;
+    if (this.mirror && synced && synced.mapLayers === from.mapLayers
+      && synced.projection === from.projection && synced.terrain === from.terrain) return;
+
     const mapLayers = state.mapLayers ?? {};
     const { topId, secondId } = computeTopTwo(mapLayers);
     this.topId = topId;
@@ -137,12 +154,20 @@ export class WebmapxMegaCompare extends WebmapxBaseTool {
       } finally {
         this.rebuildInFlight = false;
       }
+      // States that arrived while the mirror was built were turned away above: carry on from
+      // the current one, which also catches a layer set that changed again meanwhile.
+      const latest = this.adapter?.store.getState();
+      if (latest && latest.mapLayers !== state.mapLayers) {
+        void this.evaluate(latest);
+        return;
+      }
       if (!this.mirror) return;
     }
 
     syncLayerSettings(adapter, this.mirror.adapter, topId);
     syncProjectionAndTerrain(adapter, this.mirror.adapter);
     syncCamera(adapter, this.mirror.adapter);
+    this.syncedFrom = from;
 
     this.topLabel = labelFor(topId, mapLayers);
     this.secondLabel = labelFor(secondId, mapLayers);
@@ -154,7 +179,14 @@ export class WebmapxMegaCompare extends WebmapxBaseTool {
   private async rebuildMirror(mapHost: NonNullable<WebmapxMegaCompare['mapHost']>, adapter: IMap): Promise<void> {
     this.mirror?.destroy();
     this.mirror = null;
-    this.mirror = await createMegaCompareMirror(mapHost, adapter);
+    this.syncedFrom = null;
+    const generation = this.mirrorGeneration;
+    const mirror = await createMegaCompareMirror(mapHost, adapter);
+    if (generation !== this.mirrorGeneration) {
+      mirror?.destroy();
+      return;
+    }
+    this.mirror = mirror;
     if (!this.mirror) return;
     this.applyClip();
     // The new mirror element was just appended fresh, right before `<webmapx-layout>` — which,
@@ -167,6 +199,8 @@ export class WebmapxMegaCompare extends WebmapxBaseTool {
   }
 
   private teardownOverlay(): void {
+    this.mirrorGeneration += 1;
+    this.syncedFrom = null;
     this.mirror?.destroy();
     this.mirror = null;
     this.handleEl?.remove();
