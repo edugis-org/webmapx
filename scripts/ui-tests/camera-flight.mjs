@@ -6,10 +6,8 @@
 //   the way rather than jumping.
 // - A short move (an arrow-key nudge) is quick. Cesium gives any flight at
 //   least about two seconds of its own, which made each keypress crawl.
-// - On MapLibre the flight also plays under the OS "reduce motion" setting
-//   (`essential: true`), which MapLibre otherwise turns into a jump. Whether
-//   camera flights should ignore that setting is a product decision; this
-//   pins what the camera does today.
+// - Under the OS "reduce motion" setting every engine jumps instead: zooming
+//   out, across and back in is the kind of motion that setting exists to stop.
 
 import { appUrl } from './lib/fixture-config.mjs';
 
@@ -55,7 +53,7 @@ async function nudgeTarget(page) {
   });
 }
 
-export async function run({ page, baseUrl, engine }) {
+export async function run({ page, baseUrl }) {
   await page.goto(appUrl(baseUrl), { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(async () => (await document.querySelector('webmapx-map')?.getAdapterAsync?.())?.store.getState().mapLoaded, undefined, { timeout: 45_000 });
   const problems = [];
@@ -69,15 +67,14 @@ export async function run({ page, baseUrl, engine }) {
   if (nudge.ms === null) problems.push('an arrow-key-sized move never arrived');
   else if (nudge.ms > 1200) problems.push(`an arrow-key-sized move took ${nudge.ms} ms`);
 
-  if (engine === 'maplibre') {
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    try {
-      await startAt(page, [4.9, 52.37], 10);
-      const reduced = await fly(page, { to: [139.69, 35.69], zoom: 10 });
-      if (reduced.zoomsSeen <= 2) problems.push(`under "reduce motion" the long move jumped (zoom levels seen: ${reduced.zoomsSeen})`);
-    } finally {
-      await page.emulateMedia({ reducedMotion: 'no-preference' });
-    }
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  try {
+    await startAt(page, [4.9, 52.37], 10);
+    const reduced = await fly(page, { to: [139.69, 35.69], zoom: 10 });
+    if (reduced.ms === null) problems.push('under "reduce motion" the long move never arrived');
+    else if (reduced.zoomsSeen > 2 || reduced.ms > 300) problems.push(`under "reduce motion" the long move flew (${reduced.ms} ms, zoom levels seen: ${reduced.zoomsSeen})`);
+  } finally {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
   }
 
   if (problems.length) throw new Error(problems.join('\n'));
