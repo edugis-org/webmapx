@@ -1271,10 +1271,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         window.addEventListener('keydown', this.onKeyDown, true);
         window.addEventListener('keyup', this.onKeyUp);
         window.addEventListener('blur', this.onWindowBlur);
-        // The Legend (a sibling, not an ancestor/descendant) is where the
-        // "Done" button next to a `beingEdited` layer actually lives — see
-        // `onFinishEditingRequest`'s own doc comment for why `mapHost` (the
-        // nearest shared ancestor) is the right place to catch it.
+        // The Legend is where the "Done" button next to a `beingEdited` layer
+        // lives; it sends the request to the map element — see
+        // `onFinishEditingRequest`'s own doc comment.
         this.mapHost?.addEventListener('webmapx-draw-finish-editing', this.onFinishEditingRequest);
         this.setModeInternal('select');
         void this.refreshTypeCatalogCounts();
@@ -1694,8 +1693,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
      * actively editing (`beingEdited`, driven by the same `borrowedByDrawTool`
      * metadata this tool sets) — lets a user finish editing without
      * switching over to this tool's own panel first. `mapHost` is what
-     * makes this reachable at all: the Legend and this tool are siblings,
-     * not ancestor/descendant, and the Legend isn't modal (`WebmapxBaseTool`,
+     * makes this reachable at all: the Legend sends the request to the map
+     * element rather than bubbling it, since the two are siblings at best and
+     * the Legend may sit outside the map entirely (`map="#…"`), and the Legend
+     * isn't modal (`WebmapxBaseTool`,
      * not `WebmapxModalTool`), so it can stay open alongside this tool's own
      * active editing session rather than being kicked out by it — see
      * `ToolManager.activate`, which only deactivates the previous tool for a
@@ -3570,11 +3571,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
      */
     private applyShapeSelection(ring: LngLat[]): void {
         if (ring.length < 3) return;
+        const layerId = this.currentSessionLayerId;
         const hits: string[] = [];
         for (const f of this.features) {
-            // A paused layer's features stay in memory but leave the map — same
-            // exclusion `findFeatureAt` applies to click-select.
-            if (!this.createdDrawLayerIds.has(f.layerId)) continue;
+            // Same restriction `findFeatureAt` applies to click-select.
+            if (f.layerId !== layerId) continue;
             if (this.featureIntersectsRing(f, ring)) hits.push(f.id);
         }
         this.setSelection(hits);
@@ -4400,12 +4401,24 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         return Math.hypot(pa[0] - pb[0], pa[1] - pb[1]) < thresholdPx;
     }
 
+    /**
+     * The layer of the editing session the panel is showing — the only layer a
+     * click, rectangle or lasso may pick from. `activeLayerIds` holds a session
+     * per geometry type, and another type's session keeps its features on the
+     * map, but the toolbar acts on this one: lassoing in a Polygon session must
+     * not select (and then delete) points from a Point session. A paused layer
+     * is never the current session, so its features, which stay in memory after
+     * leaving the map, are excluded as well.
+     */
+    private get currentSessionLayerId(): string | null {
+        return this.pickedType ? this.activeLayerIds[this.pickedType] ?? null : null;
+    }
+
     private findFeatureAt(clickPixel: [number, number], clickCoords: LngLat): DrawFeature | null {
         const TOL = 10;
+        const layerId = this.currentSessionLayerId;
         for (const f of [...this.features].reverse()) {
-            // A paused layer's features stay in memory but leave the map — skip them,
-            // since their coordinates are otherwise indistinguishable from a live layer's.
-            if (!this.createdDrawLayerIds.has(f.layerId)) continue;
+            if (f.layerId !== layerId) continue;
             if (f.type === 'Point') {
                 const fp = this.adapter!.project(f.coordinates as LngLat);
                 if (Math.hypot(fp[0] - clickPixel[0], fp[1] - clickPixel[1]) < TOL) return f;

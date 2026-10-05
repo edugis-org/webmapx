@@ -893,7 +893,10 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                           this.handleCollapseToggle(item.layerId);
                         }}
                       >${splitLayerTitle(item.label).name}</span>
-                      ${isOverviewSection ? html`
+                      <!-- Not while the draw tool is editing it: its features are in the
+                           draw tool then, not in the layer, so removing it here takes them
+                           with it. "Done" below comes first. -->
+                      ${isOverviewSection && !item.beingEdited ? html`
                         <sl-tooltip content="Remove layer">
                           <sl-icon-button
                             class="delete-layer row-icon"
@@ -1714,12 +1717,13 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
    * has no direct handle on the draw tool's own internal state (which
    * layer, of which geometry type, is actually being edited lives entirely
    * in that tool's own private fields, not in the shared store), so
-   * finishing has to be requested as a bubbling event rather than a direct
-   * call. The draw tool listens on the shared `webmapx-map` ancestor, since
-   * it and this Legend are siblings, not ancestor/descendant.
+   * finishing has to be requested as an event rather than a direct call.
+   * It is sent to the map element, where the draw tool listens, rather than
+   * bubbled up from here: a Legend placed outside the map (`map="#…"`) is not
+   * inside it, so an event bubbling from the Legend would never get there.
    */
   private handleFinishEditingLayer(layerId: string): void {
-    this.dispatchEvent(new CustomEvent('webmapx-draw-finish-editing', {
+    (this.mapHost ?? this).dispatchEvent(new CustomEvent('webmapx-draw-finish-editing', {
       detail: { layerId },
       bubbles: true,
       composed: true,
