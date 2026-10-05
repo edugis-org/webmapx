@@ -1,0 +1,27 @@
+{
+  "version": 0,
+  "map": {
+    "label": "Mega reset fixture",
+    "center": [4.9, 52.37],
+    "zoom": 12,
+    "bearing": 20,
+    "pitch": 30,
+    "type": "maplibre",
+    "style": {
+      "version": 8,
+      "sources": {},
+      "layers": []
+    }
+  },
+  "layerData": {
+    "sources": [],
+    "layers": []
+  },
+  "tools": {
+    "megaReset": {
+      "enabled": true,
+      "type": "megaReset",
+      "position": "top-right"
+    }
+  }
+}
