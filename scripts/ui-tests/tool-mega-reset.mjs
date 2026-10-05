@@ -19,12 +19,9 @@ import { appUrl } from './lib/fixture-config.mjs';
  * rather than signalling "not ready" — reset would then fly to null island.
  * Fixed by gating the capture on `store.mapLoaded`.
  *
- * And a regression check for the OS "reduce motion" accessibility setting:
- * MapLibre's `flyTo` silently zeroes its own duration under it unless the
- * call is marked `essential: true` — landing on the right place with no
- * visible flight at all, exactly like a plain jump. `fitBounds` was already
- * fixed for this; `setViewport`'s `flyTo` (which is what this button, and
- * search's point-result path, actually call) was not.
+ * How the flight itself animates (and whether it does under the OS "reduce
+ * motion" setting) is the camera's business, not this button's: see
+ * camera-flight.mjs.
  */
 
 const CONFIG_PATH = '/testpages/fixtures/mega-reset.json';
@@ -180,33 +177,6 @@ export async function run({ page, baseUrl }) {
     }
     if (!close(restored.pitch, initialView.pitch, 0.5)) {
       fail(`Expected pitch to still be ${initialView.pitch} once the flight settled, got ${restored.pitch}`);
-    }
-  });
-
-  await step('still animates under the OS "reduce motion" setting (essential: true)', async () => {
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    try {
-      await disturbCamera(page);
-      await page.waitForTimeout(100);
-
-      const zoomsSeen = new Set();
-      const sampleDeadline = Date.now() + 2000;
-      await clickReset(page);
-      while (Date.now() < sampleDeadline) {
-        const v = await getViewport(page);
-        if (v) zoomsSeen.add(v.zoom.toFixed(2));
-        await page.waitForTimeout(30);
-      }
-
-      // A jumpTo fallback (what MapLibre silently substitutes for flyTo under
-      // reduced motion, absent `essential: true`) lands in one step: every
-      // sample in the 2s window reads the same, final zoom. A real flight
-      // passes through many distinct intermediate values on the way there.
-      if (zoomsSeen.size <= 1) {
-        fail(`Expected the flight to pass through multiple zoom levels under reduced motion, only ever saw: ${[...zoomsSeen]}`);
-      }
-    } finally {
-      await page.emulateMedia({ reducedMotion: 'no-preference' });
     }
   });
 }
