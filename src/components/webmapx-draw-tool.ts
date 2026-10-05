@@ -3315,7 +3315,12 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.adapter?.setCursor('');
 
         const f = this.features.find(f => f.id === this.dragging!.handle.featureId);
-        if (f) {
+        // Pressing a handle selects its vertex whether or not a drag follows —
+        // the same reasoning as feature-drag above: a release where it was
+        // pressed changed nothing, so it gets no undo step and no update time.
+        // A midpoint's new vertex is its own, already-pushed entry.
+        const moved = f && JSON.stringify(f.coordinates) !== JSON.stringify(this.dragging!.origCoords);
+        if (f && moved) {
             const before: DrawFeature = { ...f, coordinates: this.dragging!.origCoords };
             const layer = this.drawLayers.find(l => l.id === f.layerId);
             if (layer) this.computeSpecialProperties(f, layer);
@@ -4212,9 +4217,12 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private undoDraw(): void {
         const entry = this.stepBackDrawHistory();
         if (entry?.type === 'finish' && entry.draftPoints) {
-            // Re-open the in-progress line/polygon, point-by-point undo can continue from here.
+            // Re-open the in-progress line/polygon, point-by-point undo can continue from here —
+            // in the mode it was drawn in, or finishing it again would lose a line's dash.
             const feature = entry.features[0];
-            this.mode = feature.type === 'LineString' ? 'draw-line' : 'draw-polygon';
+            this.mode = feature.type === 'LineString'
+                ? (feature.dashed ? 'draw-line-dashed' : 'draw-line')
+                : 'draw-polygon';
             this.draftPoints = entry.draftPoints.map(p => [p[0], p[1]] as LngLat);
             this.draftRedoStack = [];
             this.cursorPos = this.draftPoints[this.draftPoints.length - 1];
