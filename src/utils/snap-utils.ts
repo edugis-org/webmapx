@@ -106,7 +106,19 @@ export function findSnap(
             if (d < bestDist) { bestDist = d; best = v; }
         }
         for (const [a, b] of flatEdges(f)) {
-            if (!inBox(a) && !inBox(b)) continue;
+            // Neither endpoint needs to be near the cursor — a long edge can
+            // pass right through the search box while both its own vertices
+            // sit far outside it, and `inBox` alone (checking the endpoints)
+            // missed exactly that case, which read as "snap only works on
+            // nodes". Overlap the edge's own bounding box against the search
+            // box instead — cheap, and correct for an edge of any length.
+            if (geoBox) {
+                const edgeMinLng = Math.min(a[0], b[0]), edgeMaxLng = Math.max(a[0], b[0]);
+                const edgeMinLat = Math.min(a[1], b[1]), edgeMaxLat = Math.max(a[1], b[1]);
+                const overlaps = edgeMaxLng >= geoBox.minLng && edgeMinLng <= geoBox.maxLng &&
+                                  edgeMaxLat >= geoBox.minLat && edgeMinLat <= geoBox.maxLat;
+                if (!overlaps) continue;
+            }
             const pa = project(a);
             const pb = project(b);
             const dx = pb[0] - pa[0], dy = pb[1] - pa[1];
