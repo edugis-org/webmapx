@@ -5065,7 +5065,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                     Edit attributes (${layer.properties.length})
                 </sl-button>
                 <span class="footer-spacer"></span>
-                ${this.layerNameInvalid ? html`<span class="name-required-hint">Geef de nieuwe kaartlaag een naam.</span>` : ''}
+                ${this.layerNameInvalid ? html`<span class="name-required-hint">Give the new layer a name.</span>` : ''}
                 <sl-button size="small" variant="primary" @click=${() => this.confirmDone()}>Done</sl-button>
             </div>
         `;
