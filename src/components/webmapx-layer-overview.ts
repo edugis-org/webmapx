@@ -809,7 +809,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
 
   protected onMapAttached(adapter: IMap): void {
     this.unsubscribeLayerAdd = adapter.events.on('layer-add', (event: LayerAddEvent) => {
-      void event;
+      this.dropPendingUndosFor(event.layerId);
       this.applyVisibleLayers(adapter.store.getState());
     });
     this.unsubscribeLayerRemove = adapter.events.on('layer-remove', (event: LayerRemoveEvent) => {
@@ -832,6 +832,16 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   private clearAllPendingUndos(): void {
     for (const entry of this.pendingUndos) window.clearTimeout(entry.timeoutId);
     this.pendingUndos = [];
+  }
+
+  /** A removed layer that is back on the map — re-added from the catalog,
+   *  say — has nothing left to undo: restoring it again would add it twice. */
+  private dropPendingUndosFor(layerId: string): void {
+    if (!this.pendingUndos.some((entry) => entry.layerId === layerId)) return;
+    for (const entry of this.pendingUndos) {
+      if (entry.layerId === layerId) window.clearTimeout(entry.timeoutId);
+    }
+    this.pendingUndos = this.pendingUndos.filter((entry) => entry.layerId !== layerId);
   }
 
   protected updated(changed: PropertyValues): void {
@@ -882,14 +892,32 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
    * otherwise its old neighbour is gone some other way (e.g. "Clear all"
    * would have taken this queue with it, so this is a defensive fallback,
    * not a real path) and it renders at the top rather than nowhere.
+   *
+   * A queued neighbour counts only if following the chain from it reaches the
+   * screen — a live row, or the top. Two queued rows that each name the other
+   * (each was above the other when it was removed) reach neither, and would
+   * otherwise render each other forever.
    */
   private ghostsByAnchor(items: LayerPanelItem[]): Map<string | null, PendingUndoEntry[]> {
     const liveIds = new Set(items.map((i) => i.layerId));
-    const queuedIds = new Set(this.pendingUndos.map((g) => g.layerId));
+    const queued = new Map(this.pendingUndos.map((g) => [g.layerId, g]));
+    const reachesScreen = (layerId: string): boolean => {
+      const seen = new Set<string>();
+      let id: string | null = layerId;
+      while (id !== null) {
+        if (liveIds.has(id)) return true;
+        const next = queued.get(id);
+        if (!next || seen.has(id)) return false;
+        seen.add(id);
+        id = next.beforeLayerId;
+      }
+      return true;
+    };
     const map = new Map<string | null, PendingUndoEntry[]>();
     for (const entry of this.pendingUndos) {
-      const anchor = entry.beforeLayerId !== null && (liveIds.has(entry.beforeLayerId) || queuedIds.has(entry.beforeLayerId))
-        ? entry.beforeLayerId
+      const before = entry.beforeLayerId;
+      const anchor = before !== null && (liveIds.has(before) || (queued.has(before) && reachesScreen(before)))
+        ? before
         : null;
       const list = map.get(anchor) ?? [];
       list.push(entry);
@@ -902,12 +930,18 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
    *  null for the top), then recurses into what's queued after each of those in turn —
    *  a chain, for when adjacent layers were each deleted while the other's row was
    *  still showing. */
-  private renderGhostsAt(anchor: string | null, byAnchor: Map<string | null, PendingUndoEntry[]>): unknown {
-    const ghosts = byAnchor.get(anchor);
+  private renderGhostsAt(
+    anchor: string | null,
+    byAnchor: Map<string | null, PendingUndoEntry[]>,
+    rendered: Set<number> = new Set(),
+  ): unknown {
+    // `rendered` is a second guard against a chain that loops (see `ghostsByAnchor`).
+    const ghosts = byAnchor.get(anchor)?.filter((entry) => !rendered.has(entry.id));
     if (!ghosts || ghosts.length === 0) return null;
+    for (const entry of ghosts) rendered.add(entry.id);
     return ghosts.map((entry) => html`
       ${this.renderUndoRow(entry)}
-      ${this.renderGhostsAt(entry.layerId, byAnchor)}
+      ${this.renderGhostsAt(entry.layerId, byAnchor, rendered)}
     `);
   }
 
@@ -1862,6 +1896,8 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     if (!this.adapter || !entry) return;
     window.clearTimeout(entry.timeoutId);
     this.pendingUndos = this.pendingUndos.filter((e) => e.id !== id);
+    // Back already (see `dropPendingUndosFor`): restoring would add it twice.
+    if (this.adapter.hasLayer(entry.layerId)) return;
     await this.adapter.restoreLayerSnapshot(entry.snapshot);
     this.applyVisibleLayers(this.adapter.store.getState());
   }
