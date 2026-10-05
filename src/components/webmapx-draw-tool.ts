@@ -347,6 +347,17 @@ export class WebmapxDrawTool extends WebmapxModalTool {
      */
     private confirmedRestingLayerIds = new Set<string>();
     private unsubMapLayers: (() => void) | null = null;
+    /** Waits for the map to load when the tool opens before it has; closing
+     *  the tool first cancels it, or the tool's layers would appear on a map
+     *  it is no longer open on, with nothing left to remove them. */
+    private unsubMapLoaded: (() => void) | null = null;
+    /**
+     * The map element this tool's layer requests go to, kept from when it was
+     * attached. Requests normally bubble up from the tool, which sits inside
+     * the map; a tool just taken off the page is no longer inside it, and its
+     * last requests (taking its layers off the map) must still arrive.
+     */
+    private boundMap: HTMLElement | null = null;
     /**
      * `Object.keys(store.mapLayers)` from the last `reconcileExternallyDeletedLayers`
      * pass, sorted and joined — lets it tell "a layer was added/removed" apart
@@ -1237,12 +1248,13 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (this.adapter?.store.getState().mapLoaded) {
             this.createSharedLayers();
         } else {
-            const unsub = this.adapter?.store.subscribe((state) => {
+            this.unsubMapLoaded = this.adapter?.store.subscribe((state) => {
                 if (state.mapLoaded) {
-                    unsub?.();
+                    this.unsubMapLoaded?.();
+                    this.unsubMapLoaded = null;
                     this.createSharedLayers();
                 }
-            });
+            }) ?? null;
         }
         // Catch up on any of our layers the legend (or anything else) deleted
         // while this tool was inactive, before the resume loop below gets a
@@ -1274,12 +1286,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         // The Legend is where the "Done" button next to a `beingEdited` layer
         // lives; it sends the request to the map element — see
         // `onFinishEditingRequest`'s own doc comment.
-        this.mapHost?.addEventListener('webmapx-draw-finish-editing', this.onFinishEditingRequest);
+        this.boundMap?.addEventListener('webmapx-draw-finish-editing', this.onFinishEditingRequest);
         this.setModeInternal('select');
         void this.refreshTypeCatalogCounts();
     }
 
     protected onDeactivate(): void {
+        this.unsubMapLoaded?.();
+        this.unsubMapLoaded = null;
         this.unsubMapLayers?.();
         this.unsubMapLayers = null;
         for (const id of [RUBBER_SOURCE_ID, VERTEX_SOURCE_ID, DRAFT_SOURCE_ID, EDIT_VERT_SOURCE, EDIT_MID_SOURCE, SEL_VERT_SOURCE, SNAP_SOURCE_ID,
@@ -1294,7 +1308,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         window.removeEventListener('keydown', this.onKeyDown, true);
         window.removeEventListener('keyup', this.onKeyUp);
         window.removeEventListener('blur', this.onWindowBlur);
-        this.mapHost?.removeEventListener('webmapx-draw-finish-editing', this.onFinishEditingRequest);
+        this.boundMap?.removeEventListener('webmapx-draw-finish-editing', this.onFinishEditingRequest);
         this.altActive = false;
         // Restore borrowed sources and suspend draw layers from the map (keep features in memory)
         for (const layer of this.drawLayers) {
@@ -1326,7 +1340,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.touchMQ.removeEventListener('change', this.onTouchMQChange);
         this.unsubMapLayers?.();
         this.unsubMapLayers = null;
-        this.removeAllMapLayers();   // full cleanup when component is removed
+        // An open tool is closed first (WebmapxModalTool), which gives a layer
+        // being edited its features back; detaching then takes the tool's own
+        // layers off the map (`onMapDetached`).
         super.disconnectedCallback();
     }
 
@@ -1353,12 +1369,15 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     protected onMapAttached(adapter: IMap): void {
+        // Before registering (super), which is what lets the tool be opened.
+        this.boundMap = this.mapHost;
         super.onMapAttached(adapter);
     }
 
     protected onMapDetached(): void {
         this.removeAllMapLayers();
         super.onMapDetached();
+        this.boundMap = null;
     }
 
     // ─── Shared map layers (rubberband, vertex) ───────────────────────────────
@@ -1794,6 +1813,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         const geoType = this.pickedType;
         if (!geoType) return;
         await this.applyLayerConfig({ ...newLayerConfig(geoType), name: this.nextDefaultLayerName(geoType) });
+        if (!this.active) return;
         // A freshly created layer is empty, so 'select' mode would land on
         // nothing to select — go straight to the type's primary draw mode
         // instead (`drawModeForType`: Polygon's own leftmost button, not the
@@ -2184,10 +2204,19 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                     }
                 }
 
-                // Blank the source — all engine layers using it go empty automatically
-                const src = this.adapter.getSource(cfg.borrowedSourceId!);
-                src?.setData({ type: 'FeatureCollection', features: [] });
-                this.setBorrowedLayerMetadata(cfg.borrowedSourceId!, { borrowedByDrawTool: true });
+                if (this.active) {
+                    // Blank the source — all engine layers using it go empty automatically
+                    const src = this.adapter.getSource(cfg.borrowedSourceId!);
+                    src?.setData({ type: 'FeatureCollection', features: [] });
+                    this.setBorrowedLayerMetadata(cfg.borrowedSourceId!, { borrowedByDrawTool: true });
+                } else {
+                    // The panel was closed while the data above loaded. Closing
+                    // has already given every layer back, and will not run
+                    // again, so give this one back too now that its features
+                    // are here, rather than blanking a layer nothing is editing.
+                    // Reopening the tool resumes it like any other.
+                    this.restoreBorrowedLayer(cfg);
+                }
             }
         }
 
@@ -2196,7 +2225,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.syncLayerPropertiesToStore(cfg.id, cfg.properties);
 
         if (this.pendingMode) {
-            this.setModeInternal(this.pendingMode);
+            // A mode sets the map's cursor and double-click zoom: not while
+            // closed (reopening starts in 'select' anyway).
+            if (this.active) this.setModeInternal(this.pendingMode);
             this.pendingMode = null;
         }
         this.pickedType = cfg.type;
@@ -4474,7 +4505,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private dispatch(event: string, detail: unknown): void {
-        this.dispatchEvent(new CustomEvent(event, { detail, bubbles: true, composed: true }));
+        // See `boundMap`: once off the page, requests go to the map directly.
+        const target = this.isConnected ? this : this.boundMap;
+        target?.dispatchEvent(new CustomEvent(event, { detail, bubbles: true, composed: true }));
     }
 
     private updateHelpTextDuring(): void {
