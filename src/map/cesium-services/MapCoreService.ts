@@ -905,8 +905,27 @@ export class MapCoreService implements IMapCore {
         const orientation = { direction: Cesium.Cartesian3.clone(camera.direction), up: Cesium.Cartesian3.clone(camera.up) };
         camera.setView(original);
 
-        camera.flyTo({ destination, orientation, complete: action });
+        // Cesium gives every flight at least about two seconds, which turned a
+        // keyboard nudge or a "+" zoom step (setZoom flies too) into a 2.4 s
+        // crawl. A move within about a screen of the camera — measured against
+        // the lower of the two heights, so one zoom level either way counts —
+        // gets OpenLayers' short-hop duration; only a real flight is left to
+        // Cesium's own curve.
+        const startHeight = Math.max(1, camera.positionCartographic.height);
+        const destinationHeight = Math.max(1, Cesium.Cartographic.fromCartesian(destination)?.height ?? startHeight);
+        const travel = Cesium.Cartesian3.distance(original.destination, destination);
+        const shortHop = travel < MapCoreService.SHORT_HOP_SCREENS * Math.min(startHeight, destinationHeight);
+
+        camera.flyTo({
+            destination, orientation, complete: action,
+            ...(shortHop ? { duration: MapCoreService.SHORT_HOP_SECONDS } : {}),
+        });
     }
+
+    /** A move shorter than this many camera heights is a hop, not a flight. */
+    private static readonly SHORT_HOP_SCREENS = 1.5;
+    /** Matches the shortest OpenLayers hop (500 ms). */
+    private static readonly SHORT_HOP_SECONDS = 0.5;
 
     private dispatchViewportState(): void {
         if (this.isClamping) {
