@@ -804,6 +804,9 @@
         // For engines that cannot read PMTiles (OpenLayers).
         geojson: '../data/coastal_zones_16m.geojson',
       },
+      // Overrides the generic 'top-left' standalone default: the mega slider is
+      // built to float centered above the bottom edge, not sit in a corner.
+      megaSlider: { position: 'bottom-center' },
     };
 
     const LAYOUT_POSITIONS = [

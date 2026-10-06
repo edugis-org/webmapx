@@ -139,6 +139,10 @@ const BUILT_IN_TOOLS: readonly ToolRegistryEntry[] = [
     // --- standalone map furniture, in the order the setup page offers them ---
     { id: 'navigation', tag: 'webmapx-navigation-control', placement: 'standalone', label: 'Navigation', icon: 'compass', bundled: true },
     {
+        id: 'megaReset', tag: 'webmapx-mega-reset', placement: 'standalone', label: 'Mega reset',
+        icon: 'arrow-counterclockwise',
+    },
+    {
         id: 'scale', tag: 'webmapx-scale-control', placement: 'standalone', label: 'Scale bar', icon: 'rulers',
         bundled: true, loaderAliases: ['scaleControl'],
     },
@@ -150,6 +154,14 @@ const BUILT_IN_TOOLS: readonly ToolRegistryEntry[] = [
         icon: 'info-circle', bundled: true, loaderAliases: ['attributionControl'],
     },
     { id: 'insetMap', tag: 'webmapx-inset-map', placement: 'standalone', label: 'Inset map', icon: 'map', bundled: true },
+    {
+        id: 'megaSlider', tag: 'webmapx-mega-slider', placement: 'standalone', label: 'Mega slider',
+        icon: 'sliders',
+    },
+    {
+        id: 'megaCompare', tag: 'webmapx-mega-compare', placement: 'standalone', label: 'Mega compare',
+        icon: 'arrow-left-right',
+    },
     {
         id: 'activeAdapter', tag: 'webmapx-active-adapter', placement: 'standalone', label: 'Engine label',
         icon: 'cpu', aliases: ['active-adapter'], bundled: true,
