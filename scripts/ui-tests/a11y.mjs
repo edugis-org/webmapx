@@ -99,19 +99,35 @@ async function checkInfoAnnouncement(page) {
   return said ? [] : ['the info tool did not announce its result'];
 }
 
-// Toggles must say whether they are on. The draw modes are one-of-many and
-// snap is on/off; both are native buttons with aria-pressed.
+// Toggles must say whether they are on. The geometry-type cards and the draw
+// modes are one-of-many and snap is on/off; all are native buttons with
+// aria-pressed. The toolbar only exists while a layer is being edited, so this
+// starts a new polygon layer, which opens in the polygon draw mode.
 async function checkDrawToggles(page) {
   await clickToolbarButton(page, 'draw');
-  await page.waitForFunction(() => document.querySelector('webmapx-draw-tool')?.shadowRoot?.querySelector('button[name="cursor"]'), undefined, { timeout: 10_000 });
+  await page.waitForFunction(() => document.querySelector('webmapx-draw-tool')?.shadowRoot?.querySelector('.type-card[data-type="Polygon"]'), undefined, { timeout: 10_000 });
+  const cards = await page.evaluate(() => {
+    const root = document.querySelector('webmapx-draw-tool').shadowRoot;
+    const all = [...root.querySelectorAll('.type-card')].map((c) => c.getAttribute('aria-pressed'));
+    root.querySelector('.type-card[data-type="Polygon"]').click();
+    return all;
+  });
+  await page.waitForFunction(() => document.querySelector('webmapx-draw-tool')?.shadowRoot?.querySelector('.add-layer-btn'), undefined, { timeout: 10_000 });
+  await page.evaluate(() => document.querySelector('webmapx-draw-tool').shadowRoot.querySelector('.add-layer-btn').click());
+  await page.waitForFunction(() => document.querySelector('webmapx-draw-tool')?.shadowRoot?.querySelector('button[name="pentagon"]'), undefined, { timeout: 10_000 });
   const state = await page.evaluate(() => {
     const root = document.querySelector('webmapx-draw-tool').shadowRoot;
-    const modes = ['cursor', 'geo-fill', 'slash-lg', 'pentagon', 'circle']
+    const modes = ['pentagon', 'circle', 'square']
       .map((name) => root.querySelector(`button[name="${name}"]`)?.getAttribute('aria-pressed'));
     return { modes, snap: root.querySelector('button[name="magnet"]')?.getAttribute('aria-pressed') };
   });
+  // Leave without "Done", which refuses a layer still called "New layer".
+  await page.evaluate(() => document.querySelector('webmapx-draw-tool').stopEditingCurrent());
   await clickToolbarButton(page, 'draw');
   const problems = [];
+  if (cards.length === 0 || cards.some((v) => v !== 'true' && v !== 'false')) {
+    problems.push(`geometry type cards should all carry aria-pressed, got ${JSON.stringify(cards)}`);
+  }
   if (state.modes.filter((v) => v === 'true').length !== 1 || state.modes.some((v) => v !== 'true' && v !== 'false')) {
     problems.push(`draw modes should have exactly one aria-pressed="true", got ${JSON.stringify(state.modes)}`);
   }
