@@ -75,6 +75,8 @@ export class MapCoreService implements IMapCore {
             this.mapInstance.jumpTo({ center, zoom });
             return;
         }
+        // Not `essential`: under the OS "reduce motion" setting MapLibre turns this
+        // flight into a jump, as every engine does (see utils/reduced-motion.ts).
         this.mapInstance.flyTo({ center, zoom });
     }
 

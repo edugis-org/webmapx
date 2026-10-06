@@ -7,6 +7,7 @@ import type { MapStyle } from '../../config/types';
 import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { LeafletLayerFactory } from './LeafletLayerFactory';
+import { prefersReducedMotion } from '../../utils/reduced-motion';
 
 /**
  * Zoom offset to normalize between MapLibre (512px tiles) and Leaflet/OSM (256px tiles).
@@ -98,8 +99,9 @@ export class MapCoreService implements IMapCore {
             const clampedZoom = this.clampZoom(zoom);
             const leafletZoom = Math.round(clampedZoom) + ZOOM_OFFSET;
             // See the MapLibre core: an animated move is abandoned by the next camera write,
-            // which is what a per-frame follower does.
-            if (options?.animate === false) {
+            // which is what a per-frame follower does. Under "reduce motion" every engine
+            // jumps (see utils/reduced-motion.ts).
+            if (options?.animate === false || prefersReducedMotion()) {
                 this.mapInstance.setView([center[1], center[0]], leafletZoom, { animate: false });
             } else {
                 this.mapInstance.flyTo([center[1], center[0]], leafletZoom);
