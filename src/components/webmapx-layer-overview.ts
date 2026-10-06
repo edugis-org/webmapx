@@ -960,8 +960,10 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   }
 
   private renderSection(title: string, items: LayerPanelItem[], emptyText: string, isOverviewSection = false) {
-    // Only the overview section has deletable (and so undoable) rows.
-    const byAnchor = isOverviewSection ? this.ghostsByAnchor(items) : null;
+    // Only the overview section has deletable (and so undoable) rows. With no
+    // undo row queued — nearly always — nothing is computed or allocated: the
+    // legend re-renders on every layer change.
+    const byAnchor = isOverviewSection && this.pendingUndos.length > 0 ? this.ghostsByAnchor(items) : null;
     return html`
       <section class="section">
         <div class="section-header-row ${isOverviewSection ? 'sticky' : ''}">
