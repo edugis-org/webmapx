@@ -503,15 +503,13 @@ export class WebmapxPrintTool extends WebmapxModalTool {
             <div class="tool-content">
                 <p class="description">Position the map inside the box, then click Print to save as PDF.</p>
                 <div class="field">
-                    <label class="field-label" for="print-title">Title</label>
-                    <sl-input id="print-title" size="small" placeholder="Map title"
+                    <sl-input id="print-title" size="small" label="Title" placeholder="Map title"
                         .value=${this.mapTitle}
                         @sl-input=${(e: Event) => { this.mapTitle = (e.target as HTMLInputElement).value; this.updateBox(); }}
                     ></sl-input>
                 </div>
                 <div class="field">
-                    <label class="field-label" for="print-format">Format</label>
-                    <sl-select id="print-format" size="small" .value=${this.format}
+                    <sl-select id="print-format" size="small" label="Format" .value=${this.format}
                         @sl-change=${(e: Event) => {
                             this.format = (e.target as HTMLSelectElement).value as PrintFormat;
                             this.updateBox();
