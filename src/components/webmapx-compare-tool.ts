@@ -380,8 +380,9 @@ export class WebmapxCompareTool extends WebmapxModalTool {
             ${this.failed
                 ? html`<p class="help-text">The comparison could not be started on this page.</p>`
                 : nothing}
-            <p class="help-text">Drag the handle across the map. The left half stays as it was when this tool was
-               opened; every change you make from now on shows on the right.</p>
+            <p class="help-text">${this.frozen
+                ? 'Drag the handle across the map.'
+                : 'Start comparing to freeze the map as it is now. Then drag the handle: the left side keeps that moment, the right side shows every change you make.'}</p>
             <div class="sides">
                 <div class="side"><b>${reference}</b><span class="muted">frozen</span></div>
                 <div class="side"><b>${live}</b><span class="muted">live — tools act here</span></div>
@@ -392,7 +393,7 @@ export class WebmapxCompareTool extends WebmapxModalTool {
             </sl-button>
             ${this.frozen
                 ? html`<p class="help-text">Closing this panel keeps the comparison running, so you can
-                          open the catalog and add a layer to the live half.</p>`
+                          open the catalog and add a layer to the right half.</p>`
                 : nothing}
         `;
     }

@@ -519,8 +519,8 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
                         MVT and other tile-backed layers are analyzed from features drawn in the current view.
                     </div>
                 ` : nothing}
-                ${this.busy ? html`<div class="hint help-text">${this.status || `Waiting for ${this.labelOf(this.selectedLayerId)} analysis...`}</div>` : nothing}
-                ${this.cancelled ? html`<div class="hint help-text">Analysis cancelled. Use refresh to run it again.</div>` : nothing}
+                ${this.busy ? html`<div class="hint help-text">${this.status || `Waiting for ${this.labelOf(this.selectedLayerId)} analysis…`}</div>` : nothing}
+                ${this.cancelled ? html`<div class="hint help-text">Analysis cancelled. Press refresh to run it again.</div>` : nothing}
                 ${this.error ? html`<sl-alert variant="danger" open>${this.error}</sl-alert>` : nothing}
                 ${this.actionMessage ? html`<sl-alert variant="success" open>${this.actionMessage}</sl-alert>` : nothing}
                 ${this.analysis ? this.renderAnalysis(this.analysis) : nothing}
@@ -1127,7 +1127,7 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
 
     private renderFamilies(analysis: DatasetAnalysis): TemplateResult {
         const families = analysis.families.filter(family => family.fields.length > 0);
-        if (!families.length) return html`<div class="hint help-text">No variable families recognized.</div>`;
+        if (!families.length) return html`<div class="hint help-text">No groups of related fields found.</div>`;
         return html`<div class="cards">${families.map(family => html`
             <div class="item">
                 <div class="item-head">

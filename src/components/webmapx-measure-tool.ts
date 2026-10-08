@@ -5,6 +5,7 @@ import { announce } from './internal/announce';
 import { html, css, nothing, TemplateResult } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
 import { helpTextStyles } from './internal/help-text-styles';
+import { TouchPointerController } from './internal/touch-pointer';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
@@ -156,9 +157,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     }
 
     // Touch devices only change the wording of the instructions (tap vs click).
-    private touchMQ = window.matchMedia('(pointer: coarse)');
-    @state() private isTouchDevice = this.touchMQ.matches;
-    private onTouchMQChange = (e: MediaQueryListEvent) => { this.isTouchDevice = e.matches; };
+    private readonly touch = new TouchPointerController(this);
 
     private layersCreated = false;
 
@@ -330,11 +329,9 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
     connectedCallback(): void {
         super.connectedCallback();
-        this.touchMQ.addEventListener('change', this.onTouchMQChange);
     }
 
     disconnectedCallback(): void {
-        this.touchMQ.removeEventListener('change', this.onTouchMQChange);
         this.cleanupEventListeners();
         super.disconnectedCallback();
     }
@@ -1532,15 +1529,15 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
     private renderInstructions(): TemplateResult {
         if (this.isFinished) {
-            const verb = this.isTouchDevice ? 'Tap' : 'Click';
+            const verb = this.touch.click;
             return this.addedLayerId
                 ? html`<p class="instructions help-text">Added to the map, and listed in the legend. ${verb} Clear to start a new measurement.</p>`
                 : html`<p class="instructions help-text">Measurement finished. Add it to the map with the layer button, or ${verb.toLowerCase()} Clear to start a new one.</p>`;
         }
 
-        const verb = this.isTouchDevice ? 'Tap' : 'Click';
+        const verb = this.touch.click;
         if (this.points.length === 0) {
-            return html`<p class="instructions help-text">${verb} on the map to start measuring.</p>`;
+            return html`<p class="instructions help-text">${verb} the map to start measuring.</p>`;
         }
 
         if (this.points.length === 1) {
@@ -1549,7 +1546,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
 
         // The Finish button is on screen from here on, so it leads; the mouse
         // and keyboard shortcuts follow for those who want them.
-        const finish = this.isTouchDevice
+        const finish = this.touch.isTouch
             ? 'finish with the Finish button'
             : 'finish with the Finish button, a double-click or Esc';
         if (this.points.length === 2) {

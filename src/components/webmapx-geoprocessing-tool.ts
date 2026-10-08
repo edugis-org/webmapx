@@ -996,7 +996,6 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
     private renderOperationGrid(): TemplateResult {
         const categories = [...new Set(GEO_OPERATIONS.map(op => op.category))] as GeoOperationCategory[];
         return html`
-            <div class="hint help-text">Choose what you want to do:</div>
             ${categories.map(category => html`
                 <section class="panel-section">
                 <div class="category section-heading">${CATEGORY_LABELS[category]}</div>

@@ -216,10 +216,8 @@ export class Webmapx3dTool extends WebmapxBaseTool {
                     <sl-radio-button value="60" @click=${(e: Event) => this.reselectPitch(e, 60)}>${rightLabel}</sl-radio-button>
                 </sl-radio-group>
                 <div class="pitch-hint help-text">
-                    Choose a different viewing angle above,<br>
-                    or use CTRL + mouse button,<br>
-                    or drag the compass needle at the bottom left of the map,<br>
-                    or use 2 fingers on a touch screen.
+                    You can also tilt the map with Ctrl + drag, by dragging the compass needle,
+                    or with two fingers on a touch screen.
                 </div>
             ` : ''}
             ${this.terrainSupported ? html`

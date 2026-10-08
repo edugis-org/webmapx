@@ -505,7 +505,7 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
             <div class="hint help-text">
                 ${live
                     ? 'The map runs with the clock. Switch Now off to choose a moment.'
-                    : 'Frozen. Switch Now on to run with the clock again.'}
+                    : 'The map shows the moment you chose. Switch Now on to follow the clock again.'}
             </div>
         `;
     }

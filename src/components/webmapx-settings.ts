@@ -1,6 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
 import { helpTextStyles } from './internal/help-text-styles';
+import { engineLabel } from './internal/engine-labels';
 import { customElement, state } from 'lit/decorators.js';
 
 import '@shoelace-style/shoelace/dist/components/input/input.js';
@@ -248,16 +249,6 @@ export class WebmapxSettings extends LitElement {
         window.location.reload();
     }
 
-    private formatAdapterName(name: string): string {
-        const names: Record<string, string> = {
-            'maplibre': 'MapLibre GL',
-            'openlayers': 'OpenLayers',
-            'leaflet': 'Leaflet',
-            'cesium': 'Cesium'
-        };
-        return names[name] || name;
-    }
-
     render() {
         return html`
             <section class="panel-section">
@@ -270,7 +261,7 @@ export class WebmapxSettings extends LitElement {
                 >
                     ${this.availableAdapters.map(adapter => html`
                         <sl-option value=${adapter}>
-                            ${this.formatAdapterName(adapter)}
+                            ${engineLabel(adapter)}
                         </sl-option>
                     `)}
                 </sl-select>

@@ -4,6 +4,7 @@ import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { formLabelStyles } from './internal/form-label-styles';
 import { helpTextStyles } from './internal/help-text-styles';
+import { TouchPointerController } from './internal/touch-pointer';
 import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
 import '@shoelace-style/shoelace/dist/components/radio-button/radio-button.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
@@ -155,6 +156,9 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
     readonly toolId = 'truearea';
     private mapElement: WebmapxMapElement | null = null;
     @state() private availableLayers: { id: string; label: string; sourceId: string }[] = [];
+    /** Instructions say "Tap" on a touch screen and "Click" elsewhere. */
+    private readonly touch = new TouchPointerController(this);
+
     @state() private selectedLayerId = '';
     @state() private copies: TrueAreaCopy[] = [];
     @state() private dragging = false;
@@ -656,7 +660,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
     render(): TemplateResult {
         return html`
             ${this.availableLayers.length === 0
-                ? html`<div class="field-label">Source layer</div><div class="hint help-text">No visible polygon layers on map.</div>`
+                ? html`<div class="field-label">Source layer</div><div class="hint help-text">Add a layer with countries or areas to the map first.</div>`
                 : html`
                     <sl-select size="small" hoist label="Source layer"
                         .value=${String(Math.max(0, this.availableLayers.findIndex(l => l.id === this.selectedLayerId)))}
@@ -666,8 +670,8 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
                         `)}
                     </sl-select>
                     ${this.dragging
-                        ? html`<div class="dragging-hint help-text">Drag to target location, release to place.</div>`
-                        : html`<div class="hint help-text">Click and drag a polygon to compare sizes.</div>`
+                        ? html`<div class="dragging-hint help-text">Release to place the copy.</div>`
+                        : html`<div class="hint help-text">Drag a country or area across the map to compare its true size.</div>`
                     }
                 `
             }
@@ -675,7 +679,10 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
             ${(() => {
                 const active = this.copies.find(c => c.id === this.lastTouchedCopyId);
                 if (!active && this.availableLayers.length === 0) return '';
-                if (!active) return html`<div class="no-copies help-text">No copy selected. Click a polygon on the map.</div>`;
+                // Until a copy exists there is nothing to select, and the drag hint above says how to make one.
+                if (!active) return this.copies.length
+                    ? html`<div class="no-copies help-text">${this.touch.click} a copy to select it.</div>`
+                    : '';
                 return html`
                     <div class="copy-item">
                         <div class="copy-swatch" style="background:${active.color}"></div>

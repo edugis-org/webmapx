@@ -2,13 +2,7 @@ import { html, css, TemplateResult } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMap } from '../map/IMapInterfaces';
-
-const ADAPTER_LABELS: Record<string, string> = {
-    maplibre: 'MapLibre GL',
-    openlayers: 'OpenLayers',
-    leaflet: 'Leaflet',
-    cesium: 'Cesium',
-};
+import { engineLabel } from './internal/engine-labels';
 
 @customElement('webmapx-active-adapter')
 export class WebmapxActiveAdapter extends WebmapxBaseTool {
@@ -40,7 +34,7 @@ export class WebmapxActiveAdapter extends WebmapxBaseTool {
     protected onStateChanged(): void {}
 
     protected onMapAttached(adapter: IMap): void {
-        this.adapterName = ADAPTER_LABELS[adapter.engineId] ?? adapter.engineId;
+        this.adapterName = engineLabel(adapter.engineId);
         const parts = adapter.engineVersion?.split('.');
         this.engineVersion = parts ? `${parts[0]}.${parts[1]}` : '';
     }

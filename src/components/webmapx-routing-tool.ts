@@ -5,6 +5,7 @@ import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { formLabelStyles } from './internal/form-label-styles';
 import { helpTextStyles } from './internal/help-text-styles';
+import { TouchPointerController } from './internal/touch-pointer';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
@@ -309,6 +310,9 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
     readonly toolId = 'routing';
 
     @state() private phase: Phase = 'set-start';
+    /** Instructions say "Tap" on a touch screen and "Click" elsewhere. */
+    private readonly touch = new TouchPointerController(this);
+
     @state() private start: LngLat | null = null;
     @state() private end:   LngLat | null = null;
     @state() private serviceId = 'osrm';
@@ -741,9 +745,9 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
     render(): TemplateResult {
         const svc = this.activeService;
         const hintText =
-            this.phase === 'set-start' ? 'Click the map to set the start point.' :
-            this.phase === 'set-end'   ? 'Click the map to set the end point.' :
-                                         'Click the map to update the end point.';
+            this.phase === 'set-start' ? `${this.touch.click} the map to set the start point.` :
+            this.phase === 'set-end'   ? `${this.touch.click} the map to set the end point.` :
+                                         `${this.touch.click} the map to move the end point.`;
 
         return html`
             <p class="hint help-text">${hintText}</p>

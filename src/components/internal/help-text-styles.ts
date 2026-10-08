@@ -5,8 +5,8 @@ import { css } from 'lit';
  *
  * This is the quiet text that tells you what to do next ("Click the map to
  * set the start point."), explains a field or the option chosen in it, or
- * says why there is nothing to show yet ("No visible polygon layers on
- * map."). Native elements take the `help-text` class;
+ * says why there is nothing to show yet ("Add a layer with countries or
+ * areas to the map first."). Native elements take the `help-text` class;
  * Shoelace controls get the same look through their `form-control-help-text`
  * part.
  *

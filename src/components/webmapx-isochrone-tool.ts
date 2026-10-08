@@ -3,6 +3,7 @@ import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { formLabelStyles } from './internal/form-label-styles';
 import { helpTextStyles } from './internal/help-text-styles';
+import { TouchPointerController } from './internal/touch-pointer';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
@@ -193,6 +194,9 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
     readonly toolId = 'isochrone';
 
     @state() private center: LngLat | null = null;
+    /** Instructions say "Tap" on a touch screen and "Click" elsewhere. */
+    private readonly touch = new TouchPointerController(this);
+
     @state() private serviceId = 'openrouteservice';
     @state() private mode = 'auto';
     @state() private rangeType: RangeType = 'time';
@@ -569,8 +573,8 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
 
         return html`
             <p class="hint help-text">${this.center
-                ? 'Click the map to move the centre, then press Calculate.'
-                : 'Click the map to set the centre point.'}</p>
+                ? `${this.touch.click} the map to move the centre, then press Calculate.`
+                : `${this.touch.click} the map to set the centre point.`}</p>
 
             ${this.center ? html`
                 <div class="center-row">

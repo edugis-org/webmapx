@@ -2,6 +2,7 @@ import { html, css, TemplateResult, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { formLabelStyles } from './internal/form-label-styles';
 import { helpTextStyles } from './internal/help-text-styles';
+import { engineLabel } from './internal/engine-labels';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
@@ -192,7 +193,7 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
         const options = viewOptionsFor(this.viewIds);
         if (options.length === 0) {
             return html`<div class="unsupported">
-                How this map is drawn cannot be changed${this.engineId ? html` on the ${this.engineId} engine` : nothing}.
+                How this map is drawn cannot be changed${this.engineId ? html` on the ${engineLabel(this.engineId)} engine` : nothing}.
             </div>`;
         }
         // An engine with one way of drawing the world reports no runtime
@@ -225,14 +226,14 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
                 : nothing}
             ${fixed
                 ? html`<div class="note help-text">
-                    The ${this.engineId} engine draws the world this way and no other, so there is
-                    nothing to change here. Switch engine to compare projections.
+                    The ${engineLabel(this.engineId)} engine can only draw this projection. To compare
+                    projections, switch to OpenLayers in Settings.
                   </div>`
                 : nothing}
             ${!current.rendering && current.id !== DEFAULT_VIEW_PROJECTION
                 ? html`<div class="note help-text">
-                    Raster and vector tiles are re-projected in the browser, so a background map
-                    may look softer and labels less tidy than in Web Mercator.
+                    In this projection your browser redraws the background map, so it may look
+                    softer and its labels less tidy.
                   </div>`
                 : nothing}
         `;

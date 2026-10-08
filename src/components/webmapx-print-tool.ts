@@ -502,7 +502,7 @@ export class WebmapxPrintTool extends WebmapxModalTool {
     protected render() {
         return html`
             <div class="tool-content">
-                <p class="description help-text">Position the map inside the box, then click Print to save as PDF.</p>
+                <p class="description help-text">Move the map until what you want is inside the box, then click Print.</p>
                 <div class="field">
                     <label class="field-label" for="print-title">Title</label>
                     <sl-input id="print-title" size="small" placeholder="Map title"
