@@ -391,7 +391,7 @@ get toolTip(): string {
 
 - Compute it from reactive state; the base class notices a changed text after each render and the panel re-reads it (`internal/tool-tip.ts`). Return `''` for no tip.
 - Say "Tap" on a touch screen: `TouchPointerController` (`internal/touch-pointer.ts`) gives `click` and `isTouch`.
-- Not a tip: an explanation of a field (put it in the field's `help-text` or a `help-text` element) and an empty state such as "Add a layer … first" — without it the panel would show nothing, so it stays in the panel.
+- Not a tip: an empty state such as "Add a layer … first" — without it the panel would show nothing, so it stays in the panel — and an explanation of a field, which goes behind an (i) at the right end of the field's label line: wrap the field in an element with class `field-with-info` and add `infoToggle(fieldLabel, text)` (`internal/info-toggle.ts`, styled by `helpTextStyles`). It opens on hover, focus and tap. If your tool closes itself on Escape, check `hasOpenInfo(this.shadowRoot)` first, so Escape closes the explanation and not the tool.
 - A tool that only asks for a choice its controls already show (a search box, a list of languages) needs no tip.
 - The tip is a live region, so screen readers hear each new step.
 

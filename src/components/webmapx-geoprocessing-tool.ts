@@ -25,6 +25,7 @@ import { announce } from './internal/announce';
 import { html, css, nothing, type TemplateResult } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
 import { helpTextStyles } from './internal/help-text-styles';
+import { hasOpenInfo, infoToggle } from './internal/info-toggle';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMapState } from '../store/IMapState';
@@ -109,14 +110,6 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
         b: { layerId: '', sourceLayer: '' },
     };
     @state() private params: GeoParamValues = {};
-    /**
-     * Which explanations the reader has opened, by hint key.
-     *
-     * There is no way back: an explanation is read once and then wants to stay
-     * where the eye already is. Offering "less" would spend a second control on
-     * undoing something nobody asks to undo.
-     */
-    @state() private openHints: ReadonlySet<string> = new Set();
     @state() private outputName = '';
     @state() private outputNameEdited = false;
     @state() private overwrite = true;
@@ -280,52 +273,6 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
             color: var(--sl-color-warning-700, #915930);
         }
 
-        /* A clipped hint is one line: the text takes what room there is and ends
-           in an ellipsis, and the more-link sits at the end of that line. Baseline
-           alignment so the link sits on the text's line, not on the box. */
-        .hint.clipped {
-            display: flex;
-            align-items: baseline;
-            gap: 4px;
-        }
-
-        /* min-width:0 is what actually lets a flex child shrink far enough to
-           overflow — without it the text refuses to clip and pushes the
-           more-link out of the panel. */
-        .hint.clipped .hint-text {
-            flex: 1;
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        /* Hidden until the text is measured as actually clipped, so a hint that
-           already fits gets no more-link. markClippedHints adds the class. */
-        .hint-more { display: none; }
-        .hint.is-clipped .hint-more { display: inline; }
-
-        /* Blue, because it is a link in everything but markup: it reveals the
-           rest of a sentence rather than performing an action. */
-        .hint-more {
-            flex: none;
-            border: 0;
-            padding: 0;
-            background: none;
-            font: inherit;
-            color: var(--color-primary, #1b6ec2);
-            cursor: pointer;
-        }
-
-        .hint-more:hover { text-decoration: underline; }
-
-        /* Never strip a focus ring without putting an equivalent back. */
-        .hint-more:focus-visible {
-            outline: var(--webmapx-focus-ring-width, 2px) solid var(--webmapx-focus-ring-color, #1b6ec2);
-            outline-offset: 2px;
-            border-radius: 2px;
-        }
-
         .field-label {
             display: block;
             margin-bottom: 4px;
@@ -440,7 +387,8 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
             this.handleOperationSelect(this.pinnedOperation);
         }
 
-        this.escHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') this.deactivate(); };
+        // An open explanation takes Escape first (info-toggle).
+        this.escHandler = (e: KeyboardEvent) => { if (e.key === 'Escape' && !hasOpenInfo(this.shadowRoot)) this.deactivate(); };
         document.addEventListener('keydown', this.escHandler);
 
         // GDAL WASM takes a few seconds to instantiate and is otherwise loaded on
@@ -1046,7 +994,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
                 const slot = this.slots[input.key];
                 const sources = this.sourceLayers(slot.layerId);
                 return html`
-                    <div>
+                    <div class="field-with-info">
                         <sl-select
                             label=${input.label}
                             size="small"
@@ -1058,7 +1006,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
                                 ? this.availableLayers.map(l => html`<sl-option value=${l.id}>${l.label}</sl-option>`)
                                 : html`<sl-option value="">No vector layers on the map</sl-option>`}
                         </sl-select>
-                        ${this.renderHint(`input:${input.key}`, input.hint)}
+                        ${input.hint ? infoToggle(input.label, input.hint) : nothing}
                         ${slot.layerId && this.isViewportLimited(slot.layerId) ? html`
                             <div class="hint help-text warning">
                                 <sl-icon name="exclamation-triangle"></sl-icon>
@@ -1118,90 +1066,14 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
 
     protected updated(changed: Map<string, unknown>): void {
         super.updated?.(changed as never);
-        this.markClippedHints();
         // Set from a dozen places (validation, empty inputs, cancellation, warnings
         // about the result); announcing on change covers all of them.
         if (changed.has('error') && this.error) announce(this, this.error);
         if (changed.has('notice') && this.notice) announce(this, this.notice);
     }
 
-    /**
-     * Marks the hints whose text does not fit on its line, so only those get a
-     * `more…`.
-     *
-     * Measured rather than guessed: whether a sentence fits depends on the
-     * panel's width — which an operation can change through `panel-width` — and
-     * on the reader's font size, so any rule written in characters would be
-     * wrong at every width but the one it was tuned at. `scrollWidth` against
-     * `clientWidth` is the browser answering the question it alone can answer.
-     */
-    private markClippedHints(): void {
-        const hints = this.shadowRoot?.querySelectorAll<HTMLElement>('.hint.clipped');
-        if (!hints) return;
-        for (const hint of hints) {
-            const text = hint.querySelector<HTMLElement>('.hint-text');
-            if (!text) continue;
-            // A pixel of slack: sub-pixel layout makes an exactly-fitting line
-            // report a scrollWidth a hair over its clientWidth, which would put
-            // a "more…" after a sentence that is already complete.
-            hint.classList.toggle('is-clipped', text.scrollWidth > text.clientWidth + 1);
-        }
-    }
-
-    /**
-     * Re-measures when the panel changes width.
-     *
-     * A hint that fits at 420px does not fit at 300px, and the panel is resized
-     * by the tool itself (`webmapx-panel-width`) as well as by the window. Held
-     * on the host rather than on each hint: one observer, and it survives the
-     * hints being re-rendered.
-     */
-    private hintWidthObserver: ResizeObserver | null = null;
-
-    protected firstUpdated(changed: Map<string, unknown>): void {
-        super.firstUpdated?.(changed as never);
-        if (typeof ResizeObserver === 'undefined') return;
-        this.hintWidthObserver = new ResizeObserver(() => this.markClippedHints());
-        this.hintWidthObserver.observe(this);
-    }
-
-    /**
-     * An explanation, clipped to one line with a `more…` at the end of it.
-     *
-     * A single "explain the options" toggle above the form was compact and
-     * useless: by the time you are looking at "Leave out islands smaller than"
-     * and wondering what it means, the control that would answer you has
-     * scrolled off the top. The answer has to be next to the question.
-     *
-     * Clipped with `text-overflow` rather than by cutting the string at some
-     * number of characters: one line is a fact about the panel's width, which
-     * changes with `panel-width` and with the reader's font size, and a
-     * character count would be wrong at every width but one.
-     *
-     * `more…` is only rendered once the text is known to be clipped — see
-     * `markClippedHints`, which measures after paint. Rendering it always would
-     * put a "more" after every short hint that already says everything.
-     */
-    private renderHint(key: string, text: string | undefined): TemplateResult | typeof nothing {
-        if (!text) return nothing;
-        const open = this.openHints.has(key);
-        return html`
-            <div class="hint help-text ${open ? 'open' : 'clipped'}" data-hint=${key}>
-                <span class="hint-text">${text}</span>
-                ${open ? nothing : html`
-                    <button
-                        type="button"
-                        class="hint-more"
-                        title=${text}
-                        @click=${() => { this.openHints = new Set([...this.openHints, key]); }}
-                    >more…</button>
-                `}
-            </div>
-        `;
-    }
-
     private renderParamHint(param: GeoParamSpec): TemplateResult | typeof nothing {
-        return this.renderHint(`param:${param.key}`, param.hint);
+        return param.hint ? infoToggle(param.label, param.hint) : nothing;
     }
 
     private renderParam(param: GeoParamSpec): TemplateResult {
@@ -1211,7 +1083,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
 
         if (param.kind === 'number') {
             return html`
-                <div>
+                <div class="field-with-info">
                     <sl-input
                         label=${param.label}
                         size="small"
@@ -1235,7 +1107,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
 
         if (param.kind === 'select') {
             return html`
-                <div>
+                <div class="field-with-info">
                     <sl-select
                         label=${param.label}
                         size="small"
@@ -1257,7 +1129,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
         // pipeline, it just produces nothing.
         const names = param.numericOnly ? this.numericFieldNames[param.from] : this.fieldNames[param.from];
         return html`
-            <div>
+            <div class="field-with-info">
                 <sl-select
                     label=${param.label}
                     size="small"
@@ -1307,8 +1179,9 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
         };
 
         return html`
-            <div>
+            <div class="field-with-info">
                 <label class="field-label">${param.label}</label>
+                ${this.renderParamHint(param)}
                 ${rows.map((row, index) => html`
                     <div class="agg-row">
                         <sl-select
@@ -1509,7 +1382,5 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
     disconnectedCallback(): void {
         super.disconnectedCallback();
         this.stopElapsedTimer();
-        this.hintWidthObserver?.disconnect();
-        this.hintWidthObserver = null;
     }
 }

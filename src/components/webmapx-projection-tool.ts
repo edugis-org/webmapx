@@ -2,6 +2,7 @@ import { html, css, TemplateResult, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { formLabelStyles } from './internal/form-label-styles';
 import { helpTextStyles } from './internal/help-text-styles';
+import { infoToggle } from './internal/info-toggle';
 import { engineLabel } from './internal/engine-labels';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
@@ -42,6 +43,9 @@ import {
 const GLOBE = 'globe';
 /** MapLibre's own name for its flat rendering; not the same as EPSG:3857. */
 const MERCATOR_VIEW = 'mercator';
+
+/** Behind the (i) of a projection the browser has to redraw the basemap for. */
+const REDRAWN_NOTE = 'In this projection your browser redraws the background map, so it may look softer and its labels less tidy.';
 
 interface ViewOption {
     id: string;
@@ -203,6 +207,7 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
         const fixed = options.length === 1;
 
         const current = options.find((option) => option.id === this.selectedId) ?? options[0];
+        const redrawn = !current.rendering && current.id !== DEFAULT_VIEW_PROJECTION;
         const catalogue = getViewProjectionDef(current.id);
 
         return html`
@@ -210,13 +215,13 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
                 // Nothing to choose is a fact about the engine, not a disabled
                 // control: say what it draws and why that is all there is.
                 ? html`<div class="fixed">${current.label}</div>`
-                : html`<sl-select id="projection-select" size="small" hoist
+                : html`<div class="field-with-info"><sl-select id="projection-select" size="small" hoist
                                 label="Projection"
                                 .value=${current.id}
                                 @sl-change=${(e: Event) => this.apply((e.target as HTMLSelectElement).value)}>
                     ${options.map((option) => html`
                         <sl-option value=${option.id}>${option.label}</sl-option>`)}
-                  </sl-select>`}
+                  </sl-select>${redrawn ? infoToggle('Projection', REDRAWN_NOTE) : nothing}</div>`}
             <div class="description help-text">${current.description}</div>
             <div class="badge ${current.equalArea ? 'equal-area' : ''}">
                 ${current.equalArea ? 'Areas are comparable' : 'Areas are distorted'}
@@ -230,12 +235,7 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
                     projections, switch to OpenLayers in Settings.
                   </div>`
                 : nothing}
-            ${!current.rendering && current.id !== DEFAULT_VIEW_PROJECTION
-                ? html`<div class="note help-text">
-                    In this projection your browser redraws the background map, so it may look
-                    softer and its labels less tidy.
-                  </div>`
-                : nothing}
+            ${fixed && redrawn ? html`<div class="note help-text">${REDRAWN_NOTE}</div>` : nothing}
         `;
     }
 }

@@ -1,6 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
 import { helpTextStyles } from './internal/help-text-styles';
+import { infoToggle } from './internal/info-toggle';
 import { engineLabel } from './internal/engine-labels';
 import { customElement, state } from 'lit/decorators.js';
 
@@ -269,10 +270,10 @@ export class WebmapxSettings extends LitElement {
 
             <section class="panel-section">
                 <h3 class="section-heading">Appearance</h3>
+                <div class="field-with-info">
                 <sl-select
                     size="small"
                     label="Style"
-                    help-text=${UI_STYLES.find(s => s.value === this.uiStyle)?.hint ?? ''}
                     value=${this.uiStyle}
                     @sl-change=${this.handleStyleChange}
                 >
@@ -280,6 +281,8 @@ export class WebmapxSettings extends LitElement {
                         <sl-option value=${s.value}>${s.label}</sl-option>
                     `)}
                 </sl-select>
+                ${infoToggle('Style', html`${UI_STYLES.map(s => html`<div><b>${s.label}</b>: ${s.hint.charAt(0).toLowerCase()}${s.hint.slice(1)}</div>`)}`)}
+                </div>
                 <sl-select
                     size="small"
                     label="Theme"

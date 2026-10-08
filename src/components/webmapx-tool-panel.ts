@@ -11,6 +11,7 @@ import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
 import { TOOL_TIP_CHANGE_EVENT, type ToolTipSource } from './internal/tool-tip';
+import { hasOpenInfo } from './internal/info-toggle';
 
 @customElement('webmapx-tool-panel')
 export class WebmapxToolPanel extends LitElement {
@@ -410,6 +411,10 @@ export class WebmapxToolPanel extends LitElement {
       // Let Escape close open dropdowns/popups first; only close the panel when nothing is open.
       const openPopup = document.querySelector('sl-select[open], sl-dropdown[open], sl-popup[active]');
       if (openPopup) return;
+      // An open explanation (info-toggle) lives in the tool's shadow root, out of
+      // reach of the query above; Escape closes it first, the panel next time.
+      const tool = this.activeToolId ? this.toolIndex.get(this.activeToolId)?.element : null;
+      if (hasOpenInfo(tool?.shadowRoot)) return;
       e.preventDefault();
       e.stopPropagation();
       this.handleClose();
