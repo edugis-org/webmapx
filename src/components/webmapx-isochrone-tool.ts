@@ -197,6 +197,13 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
     /** Instructions say "Tap" on a touch screen and "Click" elsewhere. */
     private readonly touch = new TouchPointerController(this);
 
+    /** The next step, shown on the map under the panel. */
+    get toolTip(): string {
+        return this.center
+            ? `${this.touch.click} the map to move the centre, then press Calculate.`
+            : `${this.touch.click} the map to set the centre point.`;
+    }
+
     @state() private serviceId = 'openrouteservice';
     @state() private mode = 'auto';
     @state() private rangeType: RangeType = 'time';
@@ -213,7 +220,6 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
     static styles = [formLabelStyles, helpTextStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         label { display: block; margin-bottom: 0.25rem; }
-        .hint { margin-bottom: 0.75rem; }
         .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
         sl-select, sl-input { flex: 1; min-width: 0; }
         /* A row whose fields carry their labels above: buttons line up with the field, not the label. */
@@ -572,10 +578,6 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
         const rangeLabel = this.rangeType === 'time' ? 'minutes' : 'km';
 
         return html`
-            <p class="hint help-text">${this.center
-                ? `${this.touch.click} the map to move the centre, then press Calculate.`
-                : `${this.touch.click} the map to set the centre point.`}</p>
-
             ${this.center ? html`
                 <div class="center-row">
                     <span class="dot"></span>

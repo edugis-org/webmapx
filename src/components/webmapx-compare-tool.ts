@@ -373,6 +373,13 @@ export class WebmapxCompareTool extends WebmapxModalTool {
         this.requestUpdate();
     }
 
+    /** The next step, shown on the map under the panel. */
+    get toolTip(): string {
+        return this.frozen
+            ? 'Drag the handle across the map. Closing this panel keeps the comparison running, so you can open the catalog and add a layer to the right half.'
+            : 'Start comparing to freeze the map as it is now. Then drag the handle: the left side keeps that moment, the right side shows every change you make.';
+    }
+
     protected render(): TemplateResult {
         const { reference, live } = this.labels;
         return html`
@@ -380,9 +387,6 @@ export class WebmapxCompareTool extends WebmapxModalTool {
             ${this.failed
                 ? html`<p class="help-text">The comparison could not be started on this page.</p>`
                 : nothing}
-            <p class="help-text">${this.frozen
-                ? 'Drag the handle across the map.'
-                : 'Start comparing to freeze the map as it is now. Then drag the handle: the left side keeps that moment, the right side shows every change you make.'}</p>
             <div class="sides">
                 <div class="side"><b>${reference}</b><span class="muted">frozen</span></div>
                 <div class="side"><b>${live}</b><span class="muted">live — tools act here</span></div>
@@ -391,10 +395,6 @@ export class WebmapxCompareTool extends WebmapxModalTool {
                     @click=${() => (this.frozen ? this.stop() : void this.freeze())}>
                 ${this.frozen ? 'Stop comparing' : 'Start comparing'}
             </sl-button>
-            ${this.frozen
-                ? html`<p class="help-text">Closing this panel keeps the comparison running, so you can
-                          open the catalog and add a layer to the right half.</p>`
-                : nothing}
         `;
     }
 }

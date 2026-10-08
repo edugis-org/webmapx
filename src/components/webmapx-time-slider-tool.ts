@@ -148,6 +148,13 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
     private playFrame: number | null = null;
     private playLastFrame = 0;
 
+    /** The next step, shown on the map under the panel. */
+    get toolTip(): string {
+        return isLive(this.mapTime)
+            ? 'The map runs with the clock. Switch Now off to choose a moment.'
+            : 'The map shows the moment you chose. Switch Now on to follow the clock again.';
+    }
+
     static styles = [formLabelStyles, helpTextStyles, controlSurfaceStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         .now {
@@ -176,9 +183,6 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
         input[type="range"], #time-year { width: 100%; box-sizing: border-box; }
         .controls { display: flex; align-items: center; gap: 0.5rem; }
         .controls select { flex: 1; min-width: 0; width: auto; }
-        .hint {
-            margin-top: 0.75rem;
-        }
         :host([disabled-controls]) .row,
         .disabled { color: var(--color-text-muted, #6b7681); }
     `];
@@ -502,11 +506,6 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
                 ${this.renderStep(1, STEP_FORWARD_ICON, 'later')}
             </div>
 
-            <div class="hint help-text">
-                ${live
-                    ? 'The map runs with the clock. Switch Now off to choose a moment.'
-                    : 'The map shows the moment you chose. Switch Now on to follow the clock again.'}
-            </div>
         `;
     }
 }

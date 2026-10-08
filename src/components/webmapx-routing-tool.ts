@@ -313,6 +313,13 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
     /** Instructions say "Tap" on a touch screen and "Click" elsewhere. */
     private readonly touch = new TouchPointerController(this);
 
+    /** The next step, shown on the map under the panel. */
+    get toolTip(): string {
+        return this.phase === 'set-start' ? `${this.touch.click} the map to set the start point.` :
+               this.phase === 'set-end'   ? `${this.touch.click} the map to set the end point.` :
+                                            `${this.touch.click} the map to move the end point.`;
+    }
+
     @state() private start: LngLat | null = null;
     @state() private end:   LngLat | null = null;
     @state() private serviceId = 'osrm';
@@ -336,7 +343,6 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
     static styles = [formLabelStyles, helpTextStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         label { display: block; margin-bottom: 0.25rem; }
-        .hint { margin-bottom: 0.75rem; }
         .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
         sl-select { flex: 1; min-width: 0; }
         /* A row whose field carries its label above: buttons line up with the field, not the label. */
@@ -744,14 +750,7 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
 
     render(): TemplateResult {
         const svc = this.activeService;
-        const hintText =
-            this.phase === 'set-start' ? `${this.touch.click} the map to set the start point.` :
-            this.phase === 'set-end'   ? `${this.touch.click} the map to set the end point.` :
-                                         `${this.touch.click} the map to move the end point.`;
-
         return html`
-            <p class="hint help-text">${hintText}</p>
-
             ${this.start ? html`
                 <div class="waypoint">
                     <span class="dot start"></span>

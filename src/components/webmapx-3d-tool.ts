@@ -19,6 +19,13 @@ export class Webmapx3dTool extends WebmapxBaseTool {
     @state() private terrainSupported = false;
     @state() private pitchSupported = true;
 
+    /** The next step, shown on the map under the panel: the other ways to tilt. */
+    get toolTip(): string {
+        return this.pitchSupported
+            ? 'You can also tilt the map with Ctrl + drag, by dragging the compass needle, or with two fingers on a touch screen.'
+            : '';
+    }
+
     static styles = [formLabelStyles, helpTextStyles, controlSurfaceStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: var(--webmapx-font-size-md, 0.875rem); }
         .unsupported { color: var(--color-text-muted, #6b7681); font-style: italic; }
@@ -27,7 +34,6 @@ export class Webmapx3dTool extends WebmapxBaseTool {
         .pitch { display: block; margin-bottom: var(--webmapx-space-md, 0.75rem); }
         .pitch::part(button-group) { width: 100%; }
         .pitch sl-radio-button { flex: 1; }
-        .pitch-hint { margin-bottom: var(--webmapx-space-sm, 0.5rem); }
         .terrain-row { display: flex; align-items: center; gap: var(--webmapx-space-sm, 0.5rem); }
     `];
 
@@ -215,10 +221,6 @@ export class Webmapx3dTool extends WebmapxBaseTool {
                     <sl-radio-button value="30" @click=${(e: Event) => this.reselectPitch(e, 30)}>${midLabel}</sl-radio-button>
                     <sl-radio-button value="60" @click=${(e: Event) => this.reselectPitch(e, 60)}>${rightLabel}</sl-radio-button>
                 </sl-radio-group>
-                <div class="pitch-hint help-text">
-                    You can also tilt the map with Ctrl + drag, by dragging the compass needle,
-                    or with two fingers on a touch screen.
-                </div>
             ` : ''}
             ${this.terrainSupported ? html`
                 <div class="terrain-row">

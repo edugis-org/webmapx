@@ -62,13 +62,17 @@ export class WebmapxPrintTool extends WebmapxModalTool {
     private printBoxEl: HTMLElement | null = null;
     private resizeObserver: ResizeObserver | null = null;
 
+    /** The next step, shown on the map under the panel. */
+    get toolTip(): string {
+        return 'Move the map until what you want is inside the box, then click Print.';
+    }
+
     static styles = [formLabelStyles, helpTextStyles, css`
         :host { display: block; font-size: var(--sl-font-size-small); }
         .tool-content {
             padding: var(--webmapx-tool-panel-padding, 12px);
             display: flex; flex-direction: column; gap: 12px; min-width: 220px;
         }
-        .description { margin: 0; }
         .field { display: flex; flex-direction: column; gap: 4px; }
         .error { color: var(--sl-color-danger-600); font-size: var(--sl-font-size-x-small); margin: 0; }
         .warning {
@@ -502,7 +506,6 @@ export class WebmapxPrintTool extends WebmapxModalTool {
     protected render() {
         return html`
             <div class="tool-content">
-                <p class="description help-text">Move the map until what you want is inside the box, then click Print.</p>
                 <div class="field">
                     <label class="field-label" for="print-title">Title</label>
                     <sl-input id="print-title" size="small" placeholder="Map title"

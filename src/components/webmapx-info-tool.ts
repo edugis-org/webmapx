@@ -45,6 +45,14 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
     /** Instructions say "Tap" on a touch screen and "Click" elsewhere. */
     private readonly touch = new TouchPointerController(this);
 
+    /** The next step, shown on the map under the panel. */
+    get toolTip(): string {
+        if (this.mode === 'pinned') return `${this.touch.click} the same spot again to let go.`;
+        return this.touch.isTouch
+            ? 'Tap a feature for more information.'
+            : 'Point at a feature for more information, click to keep it in view.';
+    }
+
     @state() private loading = false;
     @state() private mode: 'hover' | 'pinned' = 'hover';
     @state() private pinnedLocation: LngLat | null = null;
@@ -733,12 +741,6 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                     ${this.loading ? html`<sl-spinner></sl-spinner>` : nothing}
                 </div>
 
-                ${!isPinned && this.features.length === 0
-                    ? html`<p class="instructions help-text">${this.touch.isTouch
-                        ? 'Tap a feature for more information.'
-                        : 'Point at a feature for more information, click to keep it in view.'}</p>`
-                    : nothing}
-
                 ${isPinned && !this.loading && this.features.length === 0
                     ? html`<p class="empty-hint help-text">Nothing here. Try another spot.</p>`
                     : nothing}
@@ -756,7 +758,6 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                                 <p class="instructions help-text">
                                     <a class="streetview-link" href="#"
                                        @click=${(e: Event) => { e.preventDefault(); this.loadStreetview(this.pinnedLocation!); }}>Street View</a>
-                                    &nbsp;·&nbsp; ${this.touch.click} the same spot again to let go.
                                 </p>` : ''}
                             ${this.streetviewLoading ? html`<p class="instructions help-text"><sl-spinner></sl-spinner> Loading Street View…</p>` : ''}
                             ${this.streetviewUnavailable ? html`<p class="instructions help-text">No Street View here.</p>` : ''}
@@ -767,16 +768,14 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                                         <img class="streetview-thumb" src="${this.streetviewImageUrl}" alt="Street View">
                                     </a>
                                     <p class="streetview-caption">Click the image to open Street View</p>
-                                </div>
-                                <p class="instructions help-text">${this.touch.click} the same spot again to let go.</p>` : ''}
+                                </div>` : ''}
                         ` : html`
                             <p class="instructions help-text">
                                 <a class="streetview-link"
                                    href="https://www.google.com/maps/@?api=1&amp;map_action=pano&amp;viewpoint=${this.pinnedLocation[1]},${this.pinnedLocation[0]}"
                                    target="_blank" rel="noopener noreferrer">Street View</a>
-                                &nbsp;·&nbsp; ${this.touch.click} the same spot again to let go.
                             </p>`}
-                    ` : isPinned ? html`<p class="instructions help-text">${this.touch.click} the same spot again to let go.</p>` : nothing}
+                    ` : nothing}
             </div>
         `;
     }

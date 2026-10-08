@@ -159,6 +159,15 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
     /** Instructions say "Tap" on a touch screen and "Click" elsewhere. */
     private readonly touch = new TouchPointerController(this);
 
+    /** The next step, shown on the map under the panel. None while there is no layer to drag from: the panel says so. */
+    get toolTip(): string {
+        if (this.availableLayers.length === 0) return '';
+        if (this.dragging) return 'Release to place the copy.';
+        const drag = 'Drag a country or area across the map to compare its true size.';
+        const selected = this.copies.some(c => c.id === this.lastTouchedCopyId);
+        return this.copies.length && !selected ? `${drag} ${this.touch.click} a copy to select it.` : drag;
+    }
+
     @state() private selectedLayerId = '';
     @state() private copies: TrueAreaCopy[] = [];
     @state() private dragging = false;
@@ -225,8 +234,6 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         .clear-btn { display: block; width: 100%; }
         .clear-btn::part(base) { width: 100%; }
         .no-copies { margin-bottom: 0.5rem; margin-top: 0.25rem; }
-        /* While a copy is being dragged the hint takes the accent colour: it describes what the hand is doing right now. */
-        .help-text.dragging-hint { color: var(--color-primary, #2b6c8f); margin-bottom: 0.4rem; }
         .method-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
         .method-row input { cursor: pointer; }
         .rotation-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
@@ -669,20 +676,13 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
                             <sl-option value=${String(i)}>${l.label}</sl-option>
                         `)}
                     </sl-select>
-                    ${this.dragging
-                        ? html`<div class="dragging-hint help-text">Release to place the copy.</div>`
-                        : html`<div class="hint help-text">Drag a country or area across the map to compare its true size.</div>`
-                    }
                 `
             }
 
             ${(() => {
                 const active = this.copies.find(c => c.id === this.lastTouchedCopyId);
                 if (!active && this.availableLayers.length === 0) return '';
-                // Until a copy exists there is nothing to select, and the drag hint above says how to make one.
-                if (!active) return this.copies.length
-                    ? html`<div class="no-copies help-text">${this.touch.click} a copy to select it.</div>`
-                    : '';
+                if (!active) return '';
                 return html`
                     <div class="copy-item">
                         <div class="copy-swatch" style="background:${active.color}"></div>
