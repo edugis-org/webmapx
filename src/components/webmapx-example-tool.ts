@@ -43,6 +43,7 @@ import type { IMap } from '../map/IMapInterfaces';
 import type { ClickEvent } from '../store/map-events';
 
 import '@shoelace-style/shoelace/dist/components/button/button.js';
+import { helpTextStyles } from './internal/help-text-styles';
 
 @customElement('webmapx-example-tool')
 export class WebmapxExampleTool extends WebmapxModalTool {
@@ -73,7 +74,7 @@ export class WebmapxExampleTool extends WebmapxModalTool {
     // Styles
     // ─────────────────────────────────────────────────────────────────────
 
-    static styles = css`
+    static styles = [helpTextStyles, css`
         :host {
             display: block;
         }
@@ -100,16 +101,13 @@ export class WebmapxExampleTool extends WebmapxModalTool {
         }
 
         .instructions {
-            color: var(--color-text-muted, #6b7681);
-            font-size: 0.75rem;
-            font-style: italic;
             margin-top: 1rem;
         }
 
         .actions {
             margin-top: 1rem;
         }
-    `;
+    `];
 
     // ─────────────────────────────────────────────────────────────────────
     // Lifecycle Hooks
@@ -209,7 +207,7 @@ export class WebmapxExampleTool extends WebmapxModalTool {
                     </div>
                 ` : ''}
 
-                <p class="instructions">
+                <p class="instructions help-text">
                     Click on the map to count clicks. This is a demonstration of a minimal modal tool.
                 </p>
 

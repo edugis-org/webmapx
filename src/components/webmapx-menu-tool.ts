@@ -50,6 +50,12 @@ export class WebmapxMenuTool extends WebmapxBaseTool {
   @state() private searchQuery = '';
   @state() private currentPath = '';
   @state() private entries: MenuEntry[] = [];
+
+  /** The open sub-tool's next step, so the panel shows it while this container is open. */
+  get toolTip(): string {
+    const open = this.entries.find(e => e.id === this.activeSubToolId)?.element as (HTMLElement & { toolTip?: string }) | undefined;
+    return open?.toolTip ?? '';
+  }
   @state() private groups: MenuGroup[] = [];
   /** Roving-tabindex position within the current list; only this row is tabbable. */
   @state() private focusedIndex = 0;

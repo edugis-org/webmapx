@@ -27,6 +27,12 @@ export class WebmapxToolboxTool extends WebmapxBaseTool {
   @state() private showSearch = false;
   @state() private entries: ToolboxEntry[] = [];
 
+  /** The open sub-tool's next step, so the panel shows it while this container is open. */
+  get toolTip(): string {
+    const open = this.entries.find(e => e.id === this.activeSubToolId)?.element as (HTMLElement & { toolTip?: string }) | undefined;
+    return open?.toolTip ?? '';
+  }
+
   @query('.toolbox-scroll') private scrollEl?: HTMLElement;
   private resizeObserver?: ResizeObserver;
 

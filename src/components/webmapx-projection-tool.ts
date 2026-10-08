@@ -1,6 +1,9 @@
 import { html, css, TemplateResult, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { formLabelStyles } from './internal/form-label-styles';
+import { helpTextStyles } from './internal/help-text-styles';
+import { infoToggle } from './internal/info-toggle';
+import { engineLabel } from './internal/engine-labels';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
@@ -40,6 +43,9 @@ import {
 const GLOBE = 'globe';
 /** MapLibre's own name for its flat rendering; not the same as EPSG:3857. */
 const MERCATOR_VIEW = 'mercator';
+
+/** Behind the (i) of a projection the browser has to redraw the basemap for. */
+const REDRAWN_NOTE = 'In this projection your browser redraws the background map, so it may look softer and its labels less tidy.';
 
 interface ViewOption {
     id: string;
@@ -111,13 +117,13 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
     /** True while this tool is applying its own change — see `apply()`. */
     private applyingOwnChange = false;
 
-    static styles = [formLabelStyles, css`
+    static styles = [formLabelStyles, helpTextStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         .unsupported { color: var(--color-text-muted, #6b7681); font-style: italic; }
         label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
         sl-select { width: 100%; }
         .fixed { font-weight: 600; }
-        .description { margin-top: 0.5rem; color: var(--color-text-secondary, #5a6773); }
+        .description { margin-top: 0.5rem; }
         .badge {
             display: inline-block;
             margin-top: 0.5rem;
@@ -127,7 +133,7 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
             background: var(--color-surface-sunken, rgba(0, 0, 0, 0.06));
         }
         .badge.equal-area { color: var(--color-success, #1a7f37); }
-        .note { margin-top: 0.75rem; font-size: 0.8125rem; color: var(--color-text-secondary, #5a6773); }
+        .note { margin-top: 0.75rem; }
     `];
 
     protected onMapAttached(): void {
@@ -191,7 +197,7 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
         const options = viewOptionsFor(this.viewIds);
         if (options.length === 0) {
             return html`<div class="unsupported">
-                How this map is drawn cannot be changed${this.engineId ? html` on the ${this.engineId} engine` : nothing}.
+                How this map is drawn cannot be changed${this.engineId ? html` on the ${engineLabel(this.engineId)} engine` : nothing}.
             </div>`;
         }
         // An engine with one way of drawing the world reports no runtime
@@ -201,6 +207,7 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
         const fixed = options.length === 1;
 
         const current = options.find((option) => option.id === this.selectedId) ?? options[0];
+        const redrawn = !current.rendering && current.id !== DEFAULT_VIEW_PROJECTION;
         const catalogue = getViewProjectionDef(current.id);
 
         return html`
@@ -208,14 +215,14 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
                 // Nothing to choose is a fact about the engine, not a disabled
                 // control: say what it draws and why that is all there is.
                 ? html`<div class="fixed">${current.label}</div>`
-                : html`<sl-select id="projection-select" size="small" hoist
+                : html`<div class="field-with-info"><sl-select id="projection-select" size="small" hoist
                                 label="Projection"
                                 .value=${current.id}
                                 @sl-change=${(e: Event) => this.apply((e.target as HTMLSelectElement).value)}>
                     ${options.map((option) => html`
                         <sl-option value=${option.id}>${option.label}</sl-option>`)}
-                  </sl-select>`}
-            <div class="description">${current.description}</div>
+                  </sl-select>${redrawn ? infoToggle('Projection', REDRAWN_NOTE) : nothing}</div>`}
+            <div class="description help-text">${current.description}</div>
             <div class="badge ${current.equalArea ? 'equal-area' : ''}">
                 ${current.equalArea ? 'Areas are comparable' : 'Areas are distorted'}
             </div>
@@ -223,17 +230,12 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
                 ? html`<div class="badge">${coverageLabel(current.id)}</div>`
                 : nothing}
             ${fixed
-                ? html`<div class="note">
-                    The ${this.engineId} engine draws the world this way and no other, so there is
-                    nothing to change here. Switch engine to compare projections.
+                ? html`<div class="note help-text">
+                    The ${engineLabel(this.engineId)} engine can only draw this projection. To compare
+                    projections, switch to OpenLayers in Settings.
                   </div>`
                 : nothing}
-            ${!current.rendering && current.id !== DEFAULT_VIEW_PROJECTION
-                ? html`<div class="note">
-                    Raster and vector tiles are re-projected in the browser, so a background map
-                    may look softer and labels less tidy than in Web Mercator.
-                  </div>`
-                : nothing}
+            ${fixed && redrawn ? html`<div class="note help-text">${REDRAWN_NOTE}</div>` : nothing}
         `;
     }
 }

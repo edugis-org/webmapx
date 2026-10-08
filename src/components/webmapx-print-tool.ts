@@ -2,6 +2,7 @@
 
 import { html, css } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
+import { helpTextStyles } from './internal/help-text-styles';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import { resolveMapElement } from './internal/map-context';
@@ -61,13 +62,17 @@ export class WebmapxPrintTool extends WebmapxModalTool {
     private printBoxEl: HTMLElement | null = null;
     private resizeObserver: ResizeObserver | null = null;
 
-    static styles = [formLabelStyles, css`
+    /** The next step, shown on the map under the panel. */
+    get toolTip(): string {
+        return 'Move the map until what you want is inside the box, then click Print.';
+    }
+
+    static styles = [formLabelStyles, helpTextStyles, css`
         :host { display: block; font-size: var(--sl-font-size-small); }
         .tool-content {
             padding: var(--webmapx-tool-panel-padding, 12px);
             display: flex; flex-direction: column; gap: 12px; min-width: 220px;
         }
-        .description { color: var(--color-text-secondary, #5a6773); margin: 0; line-height: 1.4; }
         .field { display: flex; flex-direction: column; gap: 4px; }
         .error { color: var(--sl-color-danger-600); font-size: var(--sl-font-size-x-small); margin: 0; }
         .warning {
@@ -501,7 +506,6 @@ export class WebmapxPrintTool extends WebmapxModalTool {
     protected render() {
         return html`
             <div class="tool-content">
-                <p class="description">Position the map inside the box, then click Print to save as PDF.</p>
                 <div class="field">
                     <sl-input id="print-title" size="small" label="Title" placeholder="Map title"
                         .value=${this.mapTitle}

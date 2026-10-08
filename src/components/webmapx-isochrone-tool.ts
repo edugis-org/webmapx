@@ -2,6 +2,8 @@ import { html, css, TemplateResult, nothing } from 'lit';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { formLabelStyles } from './internal/form-label-styles';
+import { helpTextStyles } from './internal/help-text-styles';
+import { TouchPointerController } from './internal/touch-pointer';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
@@ -192,6 +194,16 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
     readonly toolId = 'isochrone';
 
     @state() private center: LngLat | null = null;
+    /** Instructions say "Tap" on a touch screen and "Click" elsewhere. */
+    private readonly touch = new TouchPointerController(this);
+
+    /** The next step, shown on the map under the panel. */
+    get toolTip(): string {
+        return this.center
+            ? `${this.touch.click} the map to move the centre, then press Calculate.`
+            : `${this.touch.click} the map to set the centre point.`;
+    }
+
     @state() private serviceId = 'openrouteservice';
     @state() private mode = 'auto';
     @state() private rangeType: RangeType = 'time';
@@ -205,10 +217,9 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
     private unsubClick: (() => void) | null = null;
     private layersCreated = false;
 
-    static styles = [formLabelStyles, css`
+    static styles = [formLabelStyles, helpTextStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         label { display: block; margin-bottom: 0.25rem; }
-        .hint { color: var(--color-text-secondary, #5a6773); font-size: 0.8rem; margin-bottom: 0.75rem; line-height: 1.4; }
         .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
         sl-select, sl-input { flex: 1; min-width: 0; }
         /* A row whose fields carry their labels above: buttons line up with the field, not the label. */
@@ -567,10 +578,6 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
         const rangeLabel = this.rangeType === 'time' ? 'minutes' : 'km';
 
         return html`
-            <p class="hint">${this.center
-                ? 'Click the map to move the centre, then press Calculate.'
-                : 'Click the map to set the centre point.'}</p>
-
             ${this.center ? html`
                 <div class="center-row">
                     <span class="dot"></span>

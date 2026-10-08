@@ -19,6 +19,8 @@ import { fetchWMSFeatureInfo } from '../map/wms-feature-info';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import { DATA_TOOL } from '../theme/data-colors';
+import { helpTextStyles } from './internal/help-text-styles';
+import { TouchPointerController } from './internal/touch-pointer';
 
 const PIN_MARKER_ID = 'webmapx-info-pin';
 
@@ -40,6 +42,17 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
     // ─────────────────────────────────────────────────────────────────────
 
     @state() private features: FeatureInfo[] = [];
+    /** Instructions say "Tap" on a touch screen and "Click" elsewhere. */
+    private readonly touch = new TouchPointerController(this);
+
+    /** The next step, shown on the map under the panel. */
+    get toolTip(): string {
+        if (this.mode === 'pinned') return `${this.touch.click} the same spot again to let go.`;
+        return this.touch.isTouch
+            ? 'Tap a feature for more information.'
+            : 'Point at a feature for more information, click to keep it in view.';
+    }
+
     @state() private loading = false;
     @state() private mode: 'hover' | 'pinned' = 'hover';
     @state() private pinnedLocation: LngLat | null = null;
@@ -79,7 +92,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
     // Styles
     // ─────────────────────────────────────────────────────────────────────
 
-    static styles = css`
+    static styles = [helpTextStyles, css`
         :host {
             display: block;
             pointer-events: auto;
@@ -110,9 +123,6 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         }
 
         .instructions {
-            color: var(--color-text-secondary, #5a6773);
-            font-size: 0.75rem;
-            font-style: italic;
             margin: 0;
         }
 
@@ -297,9 +307,6 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 
         .empty-hint {
             padding: 0.3rem 0.5rem;
-            color: var(--color-text-secondary, #5a6773);
-            font-size: 0.8rem;
-            font-style: italic;
         }
 
         .elevation-row {
@@ -311,7 +318,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         sl-spinner {
             font-size: 0.9rem;
         }
-    `;
+    `];
 
     // ─────────────────────────────────────────────────────────────────────
     // Lifecycle
@@ -687,7 +694,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
             rows.push(this.renderPropRow(k, k.replace(/_/g, ' '), strVal, schema));
         }
 
-        if (rows.length === 0) return html`<div class="empty-hint">No properties</div>`;
+        if (rows.length === 0) return html`<div class="empty-hint help-text">This feature has no details.</div>`;
         return html`<div class="props-list">${rows}</div>`;
     }
 
@@ -734,12 +741,8 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                     ${this.loading ? html`<sl-spinner></sl-spinner>` : nothing}
                 </div>
 
-                ${!isPinned && this.features.length === 0
-                    ? html`<p class="instructions">Move cursor over features to inspect. Click to pin and query WMS.</p>`
-                    : nothing}
-
                 ${isPinned && !this.loading && this.features.length === 0
-                    ? html`<p class="empty-hint">No features at this location.</p>`
+                    ? html`<p class="empty-hint help-text">Nothing here. Try another spot.</p>`
                     : nothing}
 
                 ${isPinned && this.elevation !== null
@@ -752,30 +755,27 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                     ? html`
                         ${this.googleApiKey ? html`
                             ${!this.streetviewImageUrl && !this.streetviewLoading && !this.streetviewUnavailable ? html`
-                                <p class="instructions">
+                                <p class="instructions help-text">
                                     <a class="streetview-link" href="#"
-                                       @click=${(e: Event) => { e.preventDefault(); this.loadStreetview(this.pinnedLocation!); }}>StreetView</a>
-                                    &nbsp;·&nbsp; Click same location to unpin.
+                                       @click=${(e: Event) => { e.preventDefault(); this.loadStreetview(this.pinnedLocation!); }}>Street View</a>
                                 </p>` : ''}
-                            ${this.streetviewLoading ? html`<p class="instructions"><sl-spinner></sl-spinner> Loading StreetView…</p>` : ''}
-                            ${this.streetviewUnavailable ? html`<p class="instructions">No StreetView at this location.</p>` : ''}
+                            ${this.streetviewLoading ? html`<p class="instructions help-text"><sl-spinner></sl-spinner> Loading Street View…</p>` : ''}
+                            ${this.streetviewUnavailable ? html`<p class="instructions help-text">No Street View here.</p>` : ''}
                             ${this.streetviewImageUrl ? html`
                                 <div class="streetview-wrap">
                                     <a href="https://www.google.com/maps/@?api=1&amp;map_action=pano&amp;pano=${this.streetviewPanoId}"
                                        target="_blank" rel="noopener noreferrer">
-                                        <img class="streetview-thumb" src="${this.streetviewImageUrl}" alt="StreetView">
+                                        <img class="streetview-thumb" src="${this.streetviewImageUrl}" alt="Street View">
                                     </a>
-                                    <p class="streetview-caption">Click image for full StreetView</p>
-                                </div>
-                                <p class="instructions">Click same location to unpin.</p>` : ''}
+                                    <p class="streetview-caption">Click the image to open Street View</p>
+                                </div>` : ''}
                         ` : html`
-                            <p class="instructions">
+                            <p class="instructions help-text">
                                 <a class="streetview-link"
                                    href="https://www.google.com/maps/@?api=1&amp;map_action=pano&amp;viewpoint=${this.pinnedLocation[1]},${this.pinnedLocation[0]}"
-                                   target="_blank" rel="noopener noreferrer">StreetView</a>
-                                &nbsp;·&nbsp; Click same location to unpin.
+                                   target="_blank" rel="noopener noreferrer">Street View</a>
                             </p>`}
-                    ` : isPinned ? html`<p class="instructions">Click same location to unpin.</p>` : nothing}
+                    ` : nothing}
             </div>
         `;
     }
