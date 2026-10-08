@@ -19,6 +19,7 @@ import { fetchWMSFeatureInfo } from '../map/wms-feature-info';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import { DATA_TOOL } from '../theme/data-colors';
+import { helpTextStyles } from './internal/help-text-styles';
 
 const PIN_MARKER_ID = 'webmapx-info-pin';
 
@@ -79,7 +80,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
     // Styles
     // ─────────────────────────────────────────────────────────────────────
 
-    static styles = css`
+    static styles = [helpTextStyles, css`
         :host {
             display: block;
             pointer-events: auto;
@@ -110,9 +111,6 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         }
 
         .instructions {
-            color: var(--color-text-secondary, #5a6773);
-            font-size: 0.75rem;
-            font-style: italic;
             margin: 0;
         }
 
@@ -297,9 +295,6 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 
         .empty-hint {
             padding: 0.3rem 0.5rem;
-            color: var(--color-text-secondary, #5a6773);
-            font-size: 0.8rem;
-            font-style: italic;
         }
 
         .elevation-row {
@@ -311,7 +306,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         sl-spinner {
             font-size: 0.9rem;
         }
-    `;
+    `];
 
     // ─────────────────────────────────────────────────────────────────────
     // Lifecycle
@@ -687,7 +682,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
             rows.push(this.renderPropRow(k, k.replace(/_/g, ' '), strVal, schema));
         }
 
-        if (rows.length === 0) return html`<div class="empty-hint">No properties</div>`;
+        if (rows.length === 0) return html`<div class="empty-hint help-text">No properties</div>`;
         return html`<div class="props-list">${rows}</div>`;
     }
 
@@ -735,11 +730,11 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                 </div>
 
                 ${!isPinned && this.features.length === 0
-                    ? html`<p class="instructions">Move cursor over features to inspect. Click to pin and query WMS.</p>`
+                    ? html`<p class="instructions help-text">Move cursor over features to inspect. Click to pin and query WMS.</p>`
                     : nothing}
 
                 ${isPinned && !this.loading && this.features.length === 0
-                    ? html`<p class="empty-hint">No features at this location.</p>`
+                    ? html`<p class="empty-hint help-text">No features at this location.</p>`
                     : nothing}
 
                 ${isPinned && this.elevation !== null
@@ -752,13 +747,13 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                     ? html`
                         ${this.googleApiKey ? html`
                             ${!this.streetviewImageUrl && !this.streetviewLoading && !this.streetviewUnavailable ? html`
-                                <p class="instructions">
+                                <p class="instructions help-text">
                                     <a class="streetview-link" href="#"
                                        @click=${(e: Event) => { e.preventDefault(); this.loadStreetview(this.pinnedLocation!); }}>StreetView</a>
                                     &nbsp;·&nbsp; Click same location to unpin.
                                 </p>` : ''}
-                            ${this.streetviewLoading ? html`<p class="instructions"><sl-spinner></sl-spinner> Loading StreetView…</p>` : ''}
-                            ${this.streetviewUnavailable ? html`<p class="instructions">No StreetView at this location.</p>` : ''}
+                            ${this.streetviewLoading ? html`<p class="instructions help-text"><sl-spinner></sl-spinner> Loading StreetView…</p>` : ''}
+                            ${this.streetviewUnavailable ? html`<p class="instructions help-text">No StreetView at this location.</p>` : ''}
                             ${this.streetviewImageUrl ? html`
                                 <div class="streetview-wrap">
                                     <a href="https://www.google.com/maps/@?api=1&amp;map_action=pano&amp;pano=${this.streetviewPanoId}"
@@ -767,15 +762,15 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                                     </a>
                                     <p class="streetview-caption">Click image for full StreetView</p>
                                 </div>
-                                <p class="instructions">Click same location to unpin.</p>` : ''}
+                                <p class="instructions help-text">Click same location to unpin.</p>` : ''}
                         ` : html`
-                            <p class="instructions">
+                            <p class="instructions help-text">
                                 <a class="streetview-link"
                                    href="https://www.google.com/maps/@?api=1&amp;map_action=pano&amp;viewpoint=${this.pinnedLocation[1]},${this.pinnedLocation[0]}"
                                    target="_blank" rel="noopener noreferrer">StreetView</a>
                                 &nbsp;·&nbsp; Click same location to unpin.
                             </p>`}
-                    ` : isPinned ? html`<p class="instructions">Click same location to unpin.</p>` : nothing}
+                    ` : isPinned ? html`<p class="instructions help-text">Click same location to unpin.</p>` : nothing}
             </div>
         `;
     }

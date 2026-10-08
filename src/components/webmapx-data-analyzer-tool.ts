@@ -1,5 +1,6 @@
 import { html, css, nothing, type TemplateResult } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
+import { helpTextStyles } from './internal/help-text-styles';
 import { customElement, state } from 'lit/decorators.js';
 
 import { WebmapxModalTool } from './webmapx-modal-tool';
@@ -121,7 +122,7 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
     private lastMapBusy = false;
     private worker: Worker | null = null;
 
-    static styles = [formLabelStyles, css`
+    static styles = [formLabelStyles, helpTextStyles, css`
         :host { display: block; }
         :host(:not([active])) .tool-content { display: none; }
 
@@ -142,7 +143,7 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
 
         .row sl-select { flex: 1; min-width: 0; }
 
-        .hint, .meta {
+        .meta {
             font-size: var(--sl-font-size-x-small);
             color: var(--color-text-secondary, #5a6773);
         }
@@ -518,8 +519,8 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
                         MVT and other tile-backed layers are analyzed from features drawn in the current view.
                     </div>
                 ` : nothing}
-                ${this.busy ? html`<div class="hint">${this.status || `Waiting for ${this.labelOf(this.selectedLayerId)} analysis...`}</div>` : nothing}
-                ${this.cancelled ? html`<div class="hint">Analysis cancelled. Use refresh to run it again.</div>` : nothing}
+                ${this.busy ? html`<div class="hint help-text">${this.status || `Waiting for ${this.labelOf(this.selectedLayerId)} analysis...`}</div>` : nothing}
+                ${this.cancelled ? html`<div class="hint help-text">Analysis cancelled. Use refresh to run it again.</div>` : nothing}
                 ${this.error ? html`<sl-alert variant="danger" open>${this.error}</sl-alert>` : nothing}
                 ${this.actionMessage ? html`<sl-alert variant="success" open>${this.actionMessage}</sl-alert>` : nothing}
                 ${this.analysis ? this.renderAnalysis(this.analysis) : nothing}
@@ -550,7 +551,7 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
     }
 
     private renderSuggestions(items: AnalyzerSuggestion[], profiles: FieldProfile[]): TemplateResult {
-        if (!items.length) return html`<div class="hint">No strong options found yet.</div>`;
+        if (!items.length) return html`<div class="hint help-text">No strong options found yet.</div>`;
         const profileByName = new Map(profiles.map(profile => [profile.name, profile]));
         return html`<div class="cards">${items.map(item => html`
             <div class="item">
@@ -1126,7 +1127,7 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
 
     private renderFamilies(analysis: DatasetAnalysis): TemplateResult {
         const families = analysis.families.filter(family => family.fields.length > 0);
-        if (!families.length) return html`<div class="hint">No variable families recognized.</div>`;
+        if (!families.length) return html`<div class="hint help-text">No variable families recognized.</div>`;
         return html`<div class="cards">${families.map(family => html`
             <div class="item">
                 <div class="item-head">

@@ -9,6 +9,7 @@
 import { html, css, TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { formLabelStyles } from './internal/form-label-styles';
+import { helpTextStyles } from './internal/help-text-styles';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
 import type { SubLayerSpec } from '../config/types';
@@ -140,7 +141,7 @@ export class WebmapxLanguageOsmVector extends WebmapxModalTool {
         this.applyLanguage();
     };
 
-    static styles = [formLabelStyles, css`
+    static styles = [formLabelStyles, helpTextStyles, css`
         :host {
             display: block;
         }

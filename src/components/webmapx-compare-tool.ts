@@ -8,6 +8,7 @@ import { COMPARE_SPLIT_ATTRIBUTE, createFrozenMap, syncCamera, type FrozenMap } 
 import { getComparePermalinkSplit } from '../utils/permalink';
 import type { WebmapxMapElement } from './webmapx-map';
 import type { CompareToolConfig } from '../config/types';
+import { helpTextStyles } from './internal/help-text-styles';
 
 const DEFAULT_SPLIT = 50;
 const KEY_STEP = 2;
@@ -54,7 +55,7 @@ export class WebmapxCompareTool extends WebmapxModalTool {
     private viewChangeUnsubscribe: (() => void) | null = null;
     private dragPointerId: number | null = null;
 
-    static styles = css`
+    static styles = [helpTextStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: var(--webmapx-font-size-md, 0.875rem); }
         p { margin: 0 0 var(--webmapx-space-sm, 0.5rem); line-height: 1.5; }
         .muted { color: var(--color-text-secondary, #5a6773); }
@@ -63,7 +64,7 @@ export class WebmapxCompareTool extends WebmapxModalTool {
         .side b { display: block; }
         .action { display: block; width: 100%; margin-top: var(--webmapx-space-sm, 0.5rem); }
         .action::part(base) { width: 100%; }
-    `;
+    `];
 
     protected onStateChanged(_state: IMapState): void {
         // The frozen map is built once, from the state at the moment the tool was opened;
@@ -375,11 +376,11 @@ export class WebmapxCompareTool extends WebmapxModalTool {
     protected render(): TemplateResult {
         const { reference, live } = this.labels;
         return html`
-            ${this.busy ? html`<p class="muted">Freezing the current map…</p>` : nothing}
+            ${this.busy ? html`<p class="help-text">Freezing the current map…</p>` : nothing}
             ${this.failed
-                ? html`<p class="muted">The comparison could not be started on this page.</p>`
+                ? html`<p class="help-text">The comparison could not be started on this page.</p>`
                 : nothing}
-            <p>Drag the handle across the map. The left half stays as it was when this tool was
+            <p class="help-text">Drag the handle across the map. The left half stays as it was when this tool was
                opened; every change you make from now on shows on the right.</p>
             <div class="sides">
                 <div class="side"><b>${reference}</b><span class="muted">frozen</span></div>
@@ -390,7 +391,7 @@ export class WebmapxCompareTool extends WebmapxModalTool {
                 ${this.frozen ? 'Stop comparing' : 'Start comparing'}
             </sl-button>
             ${this.frozen
-                ? html`<p class="muted">Closing this panel keeps the comparison running, so you can
+                ? html`<p class="help-text">Closing this panel keeps the comparison running, so you can
                           open the catalog and add a layer to the live half.</p>`
                 : nothing}
         `;

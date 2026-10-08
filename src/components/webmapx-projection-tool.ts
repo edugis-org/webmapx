@@ -1,6 +1,7 @@
 import { html, css, TemplateResult, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { formLabelStyles } from './internal/form-label-styles';
+import { helpTextStyles } from './internal/help-text-styles';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
@@ -111,13 +112,13 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
     /** True while this tool is applying its own change — see `apply()`. */
     private applyingOwnChange = false;
 
-    static styles = [formLabelStyles, css`
+    static styles = [formLabelStyles, helpTextStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         .unsupported { color: var(--color-text-muted, #6b7681); font-style: italic; }
         label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
         sl-select { width: 100%; }
         .fixed { font-weight: 600; }
-        .description { margin-top: 0.5rem; color: var(--color-text-secondary, #5a6773); }
+        .description { margin-top: 0.5rem; }
         .badge {
             display: inline-block;
             margin-top: 0.5rem;
@@ -127,7 +128,7 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
             background: var(--color-surface-sunken, rgba(0, 0, 0, 0.06));
         }
         .badge.equal-area { color: var(--color-success, #1a7f37); }
-        .note { margin-top: 0.75rem; font-size: 0.8125rem; color: var(--color-text-secondary, #5a6773); }
+        .note { margin-top: 0.75rem; }
     `];
 
     protected onMapAttached(): void {
@@ -215,7 +216,7 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
                     ${options.map((option) => html`
                         <sl-option value=${option.id}>${option.label}</sl-option>`)}
                   </sl-select>`}
-            <div class="description">${current.description}</div>
+            <div class="description help-text">${current.description}</div>
             <div class="badge ${current.equalArea ? 'equal-area' : ''}">
                 ${current.equalArea ? 'Areas are comparable' : 'Areas are distorted'}
             </div>
@@ -223,13 +224,13 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
                 ? html`<div class="badge">${coverageLabel(current.id)}</div>`
                 : nothing}
             ${fixed
-                ? html`<div class="note">
+                ? html`<div class="note help-text">
                     The ${this.engineId} engine draws the world this way and no other, so there is
                     nothing to change here. Switch engine to compare projections.
                   </div>`
                 : nothing}
             ${!current.rendering && current.id !== DEFAULT_VIEW_PROJECTION
-                ? html`<div class="note">
+                ? html`<div class="note help-text">
                     Raster and vector tiles are re-projected in the browser, so a background map
                     may look softer and labels less tidy than in Web Mercator.
                   </div>`

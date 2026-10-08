@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
+import { helpTextStyles } from './internal/help-text-styles';
 import { customElement, state } from 'lit/decorators.js';
 
 import '@shoelace-style/shoelace/dist/components/input/input.js';
@@ -65,7 +66,7 @@ export class WebmapxSettings extends LitElement {
     @state() private currentAdapter = DEFAULT_ADAPTER_NAME;
     @state() private availableAdapters: string[] = [];
 
-    static styles = [formLabelStyles, controlSurfaceStyles, sectionHeadingStyles, css`
+    static styles = [formLabelStyles, helpTextStyles, controlSurfaceStyles, sectionHeadingStyles, css`
         :host {
             display: block;
             padding: 1rem;

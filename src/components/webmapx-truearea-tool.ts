@@ -3,6 +3,7 @@ import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { formLabelStyles } from './internal/form-label-styles';
+import { helpTextStyles } from './internal/help-text-styles';
 import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
 import '@shoelace-style/shoelace/dist/components/radio-button/radio-button.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
@@ -208,19 +209,20 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         if (this.copies.length === 0) this.cleanupLayers();
     }
 
-    static styles = [formLabelStyles, css`
+    static styles = [formLabelStyles, helpTextStyles, css`
         :host { display: none; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; min-width: 200px; }
         :host([active]) { display: block; }
         label { display: block; margin-bottom: 0.25rem; }
         sl-select { width: 100%; margin-bottom: 0.75rem; }
-        .hint { color: var(--color-text-muted, #6b7681); font-style: italic; margin-bottom: 0.5rem; font-size: 0.8rem; }
+        .hint { margin-bottom: 0.5rem; }
         .copy-item { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
         .copy-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
         .copy-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .clear-btn { display: block; width: 100%; }
         .clear-btn::part(base) { width: 100%; }
-        .no-copies { color: var(--color-text-muted, #6b7681); font-style: italic; font-size: 0.8rem; margin-bottom: 0.5rem; margin-top: 0.25rem; }
-        .dragging-hint { color: var(--color-primary, #2b6c8f); font-size: 0.8rem; margin-bottom: 0.4rem; }
+        .no-copies { margin-bottom: 0.5rem; margin-top: 0.25rem; }
+        /* While a copy is being dragged the hint takes the accent colour: it describes what the hand is doing right now. */
+        .help-text.dragging-hint { color: var(--color-primary, #2b6c8f); margin-bottom: 0.4rem; }
         .method-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
         .method-row input { cursor: pointer; }
         .rotation-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
@@ -654,7 +656,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
     render(): TemplateResult {
         return html`
             ${this.availableLayers.length === 0
-                ? html`<div class="field-label">Source layer</div><div class="hint">No visible polygon layers on map.</div>`
+                ? html`<div class="field-label">Source layer</div><div class="hint help-text">No visible polygon layers on map.</div>`
                 : html`
                     <sl-select size="small" hoist label="Source layer"
                         .value=${String(Math.max(0, this.availableLayers.findIndex(l => l.id === this.selectedLayerId)))}
@@ -664,8 +666,8 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
                         `)}
                     </sl-select>
                     ${this.dragging
-                        ? html`<div class="dragging-hint">Drag to target location, release to place.</div>`
-                        : html`<div class="hint">Click and drag a polygon to compare sizes.</div>`
+                        ? html`<div class="dragging-hint help-text">Drag to target location, release to place.</div>`
+                        : html`<div class="hint help-text">Click and drag a polygon to compare sizes.</div>`
                     }
                 `
             }
@@ -673,7 +675,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
             ${(() => {
                 const active = this.copies.find(c => c.id === this.lastTouchedCopyId);
                 if (!active && this.availableLayers.length === 0) return '';
-                if (!active) return html`<div class="no-copies">No copy selected. Click a polygon on the map.</div>`;
+                if (!active) return html`<div class="no-copies help-text">No copy selected. Click a polygon on the map.</div>`;
                 return html`
                     <div class="copy-item">
                         <div class="copy-swatch" style="background:${active.color}"></div>

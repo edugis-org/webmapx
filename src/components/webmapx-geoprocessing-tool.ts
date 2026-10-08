@@ -24,6 +24,7 @@
 import { announce } from './internal/announce';
 import { html, css, nothing, type TemplateResult } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
+import { helpTextStyles } from './internal/help-text-styles';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMapState } from '../store/IMapState';
@@ -155,7 +156,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
 
     // ─── Styles ──────────────────────────────────────────────────────────
 
-    static styles = [formLabelStyles, sectionHeadingStyles, css`
+    static styles = [formLabelStyles, helpTextStyles, sectionHeadingStyles, css`
         :host { display: block; }
 
         :host(:not([active])) .tool-content { display: none; }
@@ -267,8 +268,6 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
         }
 
         .hint {
-            font-size: var(--sl-font-size-x-small);
-            color: var(--color-text-secondary, #5a6773);
             margin-top: 2px;
         }
 
@@ -997,7 +996,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
     private renderOperationGrid(): TemplateResult {
         const categories = [...new Set(GEO_OPERATIONS.map(op => op.category))] as GeoOperationCategory[];
         return html`
-            <div class="hint">Choose what you want to do:</div>
+            <div class="hint help-text">Choose what you want to do:</div>
             ${categories.map(category => html`
                 <section class="panel-section">
                 <div class="category section-heading">${CATEGORY_LABELS[category]}</div>
@@ -1036,7 +1035,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
                         >Change</sl-button>
                     `}
                 </div>
-                <div class="description">${op.description}</div>
+                <div class="description help-text">${op.description}</div>
             </div>
         `;
     }
@@ -1062,7 +1061,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
                         </sl-select>
                         ${this.renderHint(`input:${input.key}`, input.hint)}
                         ${slot.layerId && this.isViewportLimited(slot.layerId) ? html`
-                            <div class="hint warning">
+                            <div class="hint help-text warning">
                                 <sl-icon name="exclamation-triangle"></sl-icon>
                                 Only the features drawn in the current view are used.
                             </div>
@@ -1188,7 +1187,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
         if (!text) return nothing;
         const open = this.openHints.has(key);
         return html`
-            <div class="hint ${open ? 'open' : 'clipped'}" data-hint=${key}>
+            <div class="hint help-text ${open ? 'open' : 'clipped'}" data-hint=${key}>
                 <span class="hint-text">${text}</span>
                 ${open ? nothing : html`
                     <button

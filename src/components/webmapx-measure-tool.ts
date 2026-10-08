@@ -4,6 +4,7 @@
 import { announce } from './internal/announce';
 import { html, css, nothing, TemplateResult } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
+import { helpTextStyles } from './internal/help-text-styles';
 import { customElement, property, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
@@ -185,7 +186,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     // Styles
     // ─────────────────────────────────────────────────────────────────────
 
-    static styles = [formLabelStyles, addLayerToggleStyles, css`
+    static styles = [formLabelStyles, helpTextStyles, addLayerToggleStyles, css`
         :host {
             display: block;
             pointer-events: auto;
@@ -253,9 +254,6 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         }
 
         .instructions {
-            color: var(--color-text-secondary, #5a6773);
-            font-size: 0.75rem;
-            font-style: italic;
             margin: 0;
         }
 
@@ -1536,17 +1534,17 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         if (this.isFinished) {
             const verb = this.isTouchDevice ? 'Tap' : 'Click';
             return this.addedLayerId
-                ? html`<p class="instructions">Added to the map, and listed in the legend. ${verb} Clear to start a new measurement.</p>`
-                : html`<p class="instructions">Measurement finished. Add it to the map with the layer button, or ${verb.toLowerCase()} Clear to start a new one.</p>`;
+                ? html`<p class="instructions help-text">Added to the map, and listed in the legend. ${verb} Clear to start a new measurement.</p>`
+                : html`<p class="instructions help-text">Measurement finished. Add it to the map with the layer button, or ${verb.toLowerCase()} Clear to start a new one.</p>`;
         }
 
         const verb = this.isTouchDevice ? 'Tap' : 'Click';
         if (this.points.length === 0) {
-            return html`<p class="instructions">${verb} on the map to start measuring.</p>`;
+            return html`<p class="instructions help-text">${verb} on the map to start measuring.</p>`;
         }
 
         if (this.points.length === 1) {
-            return html`<p class="instructions">${verb} to add the next point.</p>`;
+            return html`<p class="instructions help-text">${verb} to add the next point.</p>`;
         }
 
         // The Finish button is on screen from here on, so it leads; the mouse
@@ -1555,10 +1553,10 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             ? 'finish with the Finish button'
             : 'finish with the Finish button, a double-click or Esc';
         if (this.points.length === 2) {
-            return html`<p class="instructions">${verb} to add points, or ${finish}.</p>`;
+            return html`<p class="instructions help-text">${verb} to add points, or ${finish}.</p>`;
         }
 
-        return html`<p class="instructions">${verb} the first point to close the area, or ${finish}.</p>`;
+        return html`<p class="instructions help-text">${verb} the first point to close the area, or ${finish}.</p>`;
     }
 
     /** A measurement in progress with at least one segment can be finished. */
