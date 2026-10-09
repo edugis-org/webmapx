@@ -16,7 +16,20 @@ export interface PreviewEntry {
     deployed: string;
     /** Size of the folder in bytes, so the site total can be checked without reading it. */
     bytes: number;
+    /**
+     * Files of this preview that live in {@link SHARED_DIR} instead of its own
+     * folder, by name, with their size. Absent for a preview deployed before
+     * sharing existed, which simply holds its own copies.
+     */
+    shared?: Record<string, number>;
 }
+
+/**
+ * Top-level folder holding the large binaries previews have in common (GDAL's
+ * WASM, mostly), each stored once under a name derived from its content. No
+ * branch can land on it: a slug never contains `_`.
+ */
+export const SHARED_DIR = '_shared';
 
 /**
  * GitHub Pages refuses to publish a site over 1 GB. The guard sits below it so
@@ -52,8 +65,22 @@ export function withoutPreview(entries: PreviewEntry[], slug: string): PreviewEn
     return entries.filter((e) => e.slug !== slug);
 }
 
+/** Every shared file some preview still refers to, with its size. */
+export function sharedFiles(entries: PreviewEntry[]): Map<string, number> {
+    const files = new Map<string, number>();
+    for (const e of entries) for (const [name, bytes] of Object.entries(e.shared ?? {})) files.set(name, bytes);
+    return files;
+}
+
+export function sharedBytes(entries: PreviewEntry[]): number {
+    let sum = 0;
+    for (const bytes of sharedFiles(entries).values()) sum += bytes;
+    return sum;
+}
+
+/** The site's size: each preview's own folder, plus each shared file once. */
 export function totalBytes(entries: PreviewEntry[]): number {
-    return entries.reduce((sum, e) => sum + e.bytes, 0);
+    return entries.reduce((sum, e) => sum + e.bytes, 0) + sharedBytes(entries);
 }
 
 function escapeHtml(text: string): string {
@@ -104,7 +131,8 @@ export function renderIndex(entries: PreviewEntry[], repoUrl: string): string {
      also share browser storage.</p>
   <ul>${rows || '\n      <li>No previews yet.</li>'}
   </ul>
-  <p>${entries.length} preview(s), ${megabytes(totalBytes(entries))} of ${megabytes(SITE_BUDGET_BYTES)}.</p>
+  <p>${entries.length} preview(s), ${megabytes(totalBytes(entries))} of ${megabytes(SITE_BUDGET_BYTES)},
+     of which ${megabytes(sharedBytes(entries))} is shared between them.</p>
 </body>
 </html>
 `;
