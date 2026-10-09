@@ -17,7 +17,7 @@ import * as ort from 'onnxruntime-web';
 import { Tokenizer } from '@huggingface/tokenizers';
 
 import {
-    classify, createClipSessions, embedSegment, embedTexts, padIds, regionTensor,
+    classify, createClipSessions, embedSegment, embedTexts, padIds, regionTensor, topLabels,
 } from '../src/workers/clip-runner';
 
 test('padIds pads to 77 with zeros and keeps the end token on overlong text', () => {
@@ -36,6 +36,14 @@ test('classify picks the most similar label and reports its softmax probability'
     assert.equal(a.label, 0);
     assert.equal(b.label, 1);
     assert.ok(a.probability > 0.99, 'a logit scale of 100 makes a clear winner near-certain');
+    assert.equal(a.probabilities.length, 2);
+    assert.ok(Math.abs(a.probabilities[0] + a.probabilities[1] - 1) < 1e-9, 'probabilities sum to 1');
+    assert.equal(a.probabilities[a.label], a.probability);
+});
+
+test('topLabels returns the most probable labels, best first', () => {
+    assert.deepEqual(topLabels([0.1, 0.5, 0.15, 0.25], 3).map(t => t.label), [1, 3, 2]);
+    assert.deepEqual(topLabels([0.6, 0.4], 3).map(t => t.label), [0, 1], 'never more than there are');
 });
 
 test('regionTensor blanks what lies outside the region to the mean, i.e. zero', () => {

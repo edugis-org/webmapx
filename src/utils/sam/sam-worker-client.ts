@@ -16,7 +16,7 @@ import type { EverythingOptions, EverythingResult } from '../../workers/sam-ever
 type Pending = {
     resolve: (value: any) => void;
     reject: (err: Error) => void;
-    onProgress?: (loaded: number, total: number, phase?: 'download' | 'regions') => void;
+    onProgress?: (loaded: number, total: number, phase?: 'download' | 'regions' | 'vocabulary') => void;
 };
 
 // Distributes Omit over the union, so each request keeps its own fields.
@@ -122,12 +122,23 @@ export function segmentEverythingSam(
  * download, then the segments being embedded; a second list of labels for
  * the same segments skips both.
  */
+/** What CLIP made of one segment. */
+export interface SegmentName {
+    /** Index into the user's labels of the best one. */
+    label: number;
+    probability: number;
+    /** Every user label's probability, in label order. */
+    probabilities: number[];
+    /** Best words from the suggestion vocabulary, best first. */
+    suggestions: { word: string; probability: number }[];
+}
+
 export function nameSegmentsSam(
     clip: ResolvedClipModel,
     labels: string[],
     backend: 'webgpu' | 'wasm',
-    onProgress?: (done: number, total: number, phase?: 'download' | 'regions') => void,
-): Promise<{ label: number; probability: number }[]> {
+    onProgress?: (done: number, total: number, phase?: 'download' | 'regions' | 'vocabulary') => void,
+): Promise<SegmentName[]> {
     return request({ op: 'name', clip, labels, backend }, { onProgress });
 }
 

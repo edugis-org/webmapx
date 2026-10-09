@@ -471,9 +471,11 @@ export interface CompareToolConfig extends ToolConfig {
 /** `tools.segment`: Segment Anything in the browser (`webmapx-segment-tool`). */
 export interface SegmentToolConfig extends ToolConfig {
   /**
-   * Where model repositories live; `{repo}` is replaced by a model's repository
+   * A mirror holding every model; `{repo}` is replaced by a model's repository
    * path (`onnx-community/sam2.1-hiera-tiny-ONNX`). Relative to the config.
-   * Default `models/{repo}/`; `https://huggingface.co/{repo}/resolve/main/` fetches from HuggingFace.
+   * Unset (the default), models come from HuggingFace, and a model that exists
+   * only as our own export (RemoteCLIP) from `models/{repo}/` beside the config.
+   * Set it for a long-lived deployment; see docs/user/components/webmapx-segment-tool.md.
    */
   modelBaseUrl?: string;
   /** Model ids to offer (`slimsam-77`, `sam2.1-tiny`, `sam2.1-small`, `sam2.1-base-plus`, `sam2.1-large`). Default all. */

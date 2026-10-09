@@ -23,9 +23,10 @@
  *   be quick; without it the tool starts on SlimSAM (14 MB, CPU).
  *
  * Config (`tools.segment`, all optional):
- *   modelBaseUrl  where model repositories live; `{repo}` is replaced by the
- *                 model's repository path. Default `models/{repo}/`, relative
- *                 to the config. HuggingFace: `https://huggingface.co/{repo}/resolve/main/`.
+ *   modelBaseUrl  a mirror holding every model; `{repo}` is replaced by the
+ *                 model's repository path, relative to the config. Default: none,
+ *                 so models come from HuggingFace, and a model only we export
+ *                 (RemoteCLIP) from `models/{repo}/` beside the config.
  *   models        model ids (or full entries) to offer; default all built-in.
  *   defaultModel  model selected first; default SAM 2.1 Tiny with WebGPU, else SlimSAM.
  */
@@ -41,7 +42,7 @@ import type {
 import type { WebmapxMapElement } from './webmapx-map';
 import { DATA_CATEGORICAL, DATA_END, DATA_START, DATA_TOOL, DATA_TOOL_HALO } from '../theme/data-colors';
 import {
-    CLIP_MODELS, DEFAULT_MODEL_BASE_URL, DEFAULT_SEGMENT_LABELS, modelsFromConfig, resolveClipModel, resolveSamModel,
+    CLIP_MODELS, DEFAULT_SEGMENT_LABELS, modelBaseFor, modelsFromConfig, resolveClipModel, resolveSamModel,
     type ClipModelEntry,
     type ResolvedSamModel, type SamModelEntry,
 } from '../utils/sam/sam-models';
@@ -49,7 +50,9 @@ import { rewindPolygon } from '../utils/sam/mask-to-polygon';
 import {
     SamCancelledError, cancelSam, decodeSamPrompt, encodeSamImage, isSamModelCached, loadSamModel,
     isClipModelCached, nameSegmentsSam, outlineSamMasks, probeSam, regroupSam, segmentEverythingSam,
+    type SegmentName,
 } from '../utils/sam/sam-worker-client';
+import { CLIP_SUGGESTION_VOCABULARY } from '../utils/sam/clip-vocabulary';
 import type { SamCapabilities } from '../workers/sam.worker';
 import type { SamGranularity, SamGranularityLevel, SamPrompt, SamResult } from '../workers/sam-runner';
 import type { EverythingResult } from '../workers/sam-everything';
@@ -105,6 +108,33 @@ function nameColour(labels: string[]): unknown[] {
     return expr;
 }
 
+function percent(p: number): string {
+    return `${Math.round(p * 100)}%`;
+}
+
+/** Every label with its probability, most likely first: `meadow 61% · water 9%`. */
+function scoreList(labels: string[], probabilities: number[]): string {
+    return probabilities
+        .map((p, i) => ({ label: labels[i], p }))
+        .sort((a, b) => b.p - a.p)
+        .map(s => `${s.label} ${percent(s.p)}`)
+        .join(' · ');
+}
+
+/**
+ * How often each vocabulary word was a segment's best suggestion, leaving out
+ * words already in the user's list — the point is to show what else to try.
+ */
+function countSuggestions(names: SegmentName[], labels: string[]): { word: string; count: number }[] {
+    const have = new Set(labels.map(l => l.toLowerCase()));
+    const counts = new Map<string, number>();
+    for (const n of names) {
+        const word = n.suggestions[0]?.word;
+        if (word && !have.has(word.toLowerCase())) counts.set(word, (counts.get(word) ?? 0) + 1);
+    }
+    return [...counts].map(([word, count]) => ({ word, count })).sort((a, b) => b.count - a.count);
+}
+
 /** A list the user typed: commas or new lines, blanks and repeats dropped. */
 function parseLabels(text: string): string[] {
     return [...new Set(text.split(/[,\n]/).map(l => l.trim()).filter(Boolean))];
@@ -118,6 +148,8 @@ function groupColour(k: number): unknown[] {
     return expr;
 }
 
+/** Suggested words shown in the panel; the rest are in each segment's attributes. */
+const MAX_SUGGESTED_WORDS = 10;
 const RESULT_LAYER = 'webmapx-segments';
 const RESULT_SOURCE = 'webmapx-segments-src';
 
@@ -168,7 +200,9 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
     /** Labels the current names were chosen from; differs from `labels` once the list is edited. */
     @state() private namedWith: string[] | null = null;
     /** Naming in progress: phase and count; null when not running. */
-    @state() private namingProgress: { phase: 'download' | 'regions' | 'texts'; done: number; total: number } | null = null;
+    @state() private namingProgress: { phase: 'download' | 'regions' | 'texts' | 'vocabulary'; done: number; total: number } | null = null;
+    /** Vocabulary words that were some segment's best suggestion, most frequent first. */
+    @state() private suggestedWords: { word: string; count: number }[] = [];
     @state() private points: PromptPoint[] = [];
     @state() private box: [LngLat, LngLat] | null = null;
     @state() private preview: GeoJSON.Feature<GeoJSON.MultiPolygon> | null = null;
@@ -268,6 +302,28 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
             gap: 4px;
         }
         .name-entry[data-empty] { opacity: 0.5; }
+        .suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: var(--sl-spacing-2x-small);
+        }
+        .suggestion {
+            font: inherit;
+            font-size: var(--sl-font-size-x-small);
+            color: var(--color-text-primary, inherit);
+            background: var(--color-surface, transparent);
+            border: 1px solid var(--color-border, #c5cdd5);
+            border-radius: 999px;
+            padding: 1px 8px;
+            cursor: pointer;
+        }
+        .suggestion:hover:not(:disabled) { border-color: var(--color-primary, #0369a1); }
+        .suggestion:focus-visible {
+            outline: var(--webmapx-focus-ring, 2px solid #0369a1);
+            outline-offset: var(--webmapx-focus-offset, 2px);
+        }
+        .suggestion:disabled { opacity: 0.5; cursor: default; }
         .count { color: var(--color-text-secondary, #5a6773); }
         .range-ends {
             display: flex;
@@ -289,17 +345,18 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
     }
 
     private get resolvedClip() {
-        return resolveClipModel(this.clipModel, this.modelBaseUrl, p => this.resolveConfigAsset(p));
+        return resolveClipModel(this.clipModel, modelBaseFor(this.clipModel, this.modelBaseUrl), p => this.resolveConfigAsset(p));
     }
 
-    private get modelBaseUrl(): string {
+    /** The configured mirror, if any; `modelBaseFor` picks each model's source. */
+    private get modelBaseUrl(): string | undefined {
         const configured = this.section?.modelBaseUrl;
-        return typeof configured === 'string' && configured ? configured : DEFAULT_MODEL_BASE_URL;
+        return typeof configured === 'string' && configured ? configured : undefined;
     }
 
     private resolved(entry: SamModelEntry): ResolvedSamModel {
         const useFp16 = !!this.capabilities?.webgpu && !!this.capabilities.fp16;
-        return resolveSamModel(entry, this.modelBaseUrl, useFp16, p => this.resolveConfigAsset(p));
+        return resolveSamModel(entry, modelBaseFor(entry, this.modelBaseUrl), useFp16, p => this.resolveConfigAsset(p));
     }
 
     private get selectedModel(): SamModelEntry | undefined {
@@ -786,6 +843,7 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
         this.segments = [];
         this.segmentStats = null;
         this.namedWith = null;
+        this.suggestedWords = [];
         this.colourBy = 'group';
         this.updateOverlays();
     }
@@ -813,6 +871,10 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
         this.updateOverlays();
     }
 
+    private addLabel(word: string): void {
+        if (!this.labels.includes(word)) this.labels = [...this.labels, word];
+    }
+
     private handleLabelsInput(e: Event): void {
         this.labels = parseLabels((e.target as HTMLTextAreaElement).value);
     }
@@ -833,15 +895,22 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
             this.clipCached = { ...this.clipCached, [this.clipId]: true };
             this.segments = this.segments.map(f => {
                 const named = names[Number(f.properties?.index ?? 0)];
+                // Flat strings, not arrays: they survive a GeoJSON export and
+                // read as they are in the info tool.
+                const suggestions = Object.fromEntries((named?.suggestions ?? [])
+                    .map((s, i) => [`suggestion_${i + 1}`, `${s.word} (${percent(s.probability)})`]));
                 return {
                     ...f,
                     properties: {
                         ...f.properties,
                         name: named ? labels[named.label] : null,
                         name_probability: named ? Math.round(named.probability * 1000) / 1000 : null,
+                        name_scores: named ? scoreList(labels, named.probabilities) : null,
+                        ...suggestions,
                     },
                 };
             });
+            this.suggestedWords = countSuggestions(names, labels);
             this.namedWith = labels;
             this.colourBy = 'name';
             this.updateOverlays();
@@ -884,11 +953,23 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
                 dynamic: true,
                 legendRole: 'overlay',
                 attributes: {
-                    translations: [{
-                        name: 'group',
-                        translation: 'Group',
-                        valuemap: Array.from({ length: k }, (_, g) => ({ value: g, label: `Group ${g + 1}` })),
-                    }],
+                    // Named segments are about their name; the look-alike group
+                    // stays as a second attribute, since it is what SAM itself saw.
+                    translations: [
+                        ...(byName ? [
+                            { name: 'name', translation: 'Name' },
+                            { name: 'name_probability', translation: 'Name certainty' },
+                            { name: 'name_scores', translation: 'Scores' },
+                            { name: 'suggestion_1', translation: 'Suggestion 1' },
+                            { name: 'suggestion_2', translation: 'Suggestion 2' },
+                            { name: 'suggestion_3', translation: 'Suggestion 3' },
+                        ] : []),
+                        {
+                            name: 'group',
+                            translation: 'Group',
+                            valuemap: Array.from({ length: k }, (_, g) => ({ value: g, label: `Group ${g + 1}` })),
+                        },
+                    ],
                 },
             },
         });
@@ -1244,6 +1325,7 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
                     <div class="status">
                         ${progress.phase === 'download' ? html`Downloading ${model.label}…`
                             : progress.phase === 'regions' ? html`Looking at segment ${progress.done} of ${progress.total}…`
+                            : progress.phase === 'vocabulary' ? html`<sl-spinner></sl-spinner>Trying ${CLIP_SUGGESTION_VOCABULARY.length} words for suggestions…`
                             : html`<sl-spinner></sl-spinner>Starting ${model.label}…`}
                     </div>
                     <sl-button size="small" @click=${() => this.cancelEverything()}>Cancel</sl-button>
@@ -1265,6 +1347,19 @@ export class WebmapxSegmentTool extends WebmapxModalTool {
                         </span>`)}
                 </div>
                 ${stale ? html`<p class="hint">The list has changed; name again to use it.</p>` : nothing}
+                ${this.suggestedWords.length ? html`
+                    <div class="suggestions">
+                        <span class="hint">CLIP's own best word, per segment — click to add:</span>
+                        ${this.suggestedWords.slice(0, MAX_SUGGESTED_WORDS).map(s => html`
+                            <button
+                                type="button"
+                                class="suggestion"
+                                ?disabled=${this.labels.includes(s.word)}
+                                title=${`Best word for ${s.count} segment${s.count === 1 ? '' : 's'}; add it to the names`}
+                                @click=${() => this.addLabel(s.word)}
+                            >+ ${s.word} <span class="count">${s.count}</span></button>`)}
+                    </div>
+                ` : nothing}
                 <p class="hint">
                     Names are CLIP's best guess from your list for each segment — it always picks one, even when none fits.
                 </p>

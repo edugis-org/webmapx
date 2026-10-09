@@ -6,12 +6,15 @@
  * (tens of milliseconds, run on every click). Two families exist and differ in
  * their tensors, not in how they are used — see `workers/sam-runner.ts`.
  *
- * The files are addressed as `<modelBaseUrl with {repo} filled in><file>`. The
- * default base is config-relative (`models/{repo}/`), so a deployment that
- * hosts its own copy needs no config at all and a passive server works; a
- * config may instead point at HuggingFace directly with
- * `https://huggingface.co/{repo}/resolve/main/`, which lays the repositories
- * out the same way. `npm run models:sam` mirrors them into a local directory.
+ * The files are addressed as `<modelBaseUrl with {repo} filled in><file>`.
+ * A model HuggingFace hosts is fetched from there by default
+ * (`https://huggingface.co/{repo}/resolve/main/`), so trying the tool needs no
+ * set-up at all. A model that exists only as our own export (`mirrorOnly`)
+ * defaults to a config-relative mirror (`models/{repo}/`), since there is
+ * nothing to fetch it from otherwise. A config that sets `modelBaseUrl` points
+ * *every* model at that mirror — the long-lived-deployment case, where a
+ * repository that changes or disappears upstream must not change the tool.
+ * `npm run models:sam` fills such a mirror; the layout is the same as HuggingFace's.
  */
 
 export type SamFamily = 'sam' | 'sam2';
@@ -50,9 +53,20 @@ export interface SamModelEntry {
      * too, but its encoder then takes tens of seconds per view.
      */
     cpuFriendly?: boolean;
+    /** Not on HuggingFace in a browser-loadable form: served only from a mirror. */
+    mirrorOnly?: boolean;
 }
 
-export const DEFAULT_MODEL_BASE_URL = 'models/{repo}/';
+/** Where a model HuggingFace hosts comes from when the config names no mirror. */
+export const HUGGINGFACE_MODEL_BASE_URL = 'https://huggingface.co/{repo}/resolve/main/';
+/** Where a `mirrorOnly` model comes from when the config names no mirror; config-relative. */
+export const DEFAULT_MIRROR_BASE_URL = 'models/{repo}/';
+
+/** The base a model's files are fetched from: the configured mirror, else its default source. */
+export function modelBaseFor(entry: { mirrorOnly?: boolean }, configured: string | undefined): string {
+    if (configured) return configured;
+    return entry.mirrorOnly ? DEFAULT_MIRROR_BASE_URL : HUGGINGFACE_MODEL_BASE_URL;
+}
 
 function sam2Files(suffix: string): SamModelFiles {
     return {
@@ -185,6 +199,8 @@ export interface ClipModelEntry {
     sizeMB: number;
     /** Sentence each label is put into; `{label}` is replaced. Matches how the model was trained. */
     template: string;
+    /** Not on HuggingFace in a browser-loadable form: served only from a mirror. */
+    mirrorOnly?: boolean;
 }
 
 export const CLIP_MODELS: readonly ClipModelEntry[] = [
@@ -197,6 +213,7 @@ export const CLIP_MODELS: readonly ClipModelEntry[] = [
         id: 'remoteclip',
         label: 'RemoteCLIP (aerial)',
         repo: 'webmapx/remoteclip-vit-b-32',
+        mirrorOnly: true,
         vision: 'onnx/vision_model_quantized.onnx',
         text: 'onnx/text_model_quantized.onnx',
         tokenizer: 'tokenizer.json',

@@ -20,9 +20,10 @@ import {
     type ModelBytes, type SamEmbedding, type SamMasks, type SamOutlineOptions, type SamPrompt, type SamSessions,
 } from './sam-runner';
 import type { ResolvedClipModel, ResolvedSamModel } from '../utils/sam/sam-models';
+import { CLIP_SUGGESTION_VOCABULARY } from '../utils/sam/clip-vocabulary';
 import { Tokenizer } from '@huggingface/tokenizers';
 import {
-    classify, createClipSessions, embedSegment, embedTexts,
+    classify, createClipSessions, embedSegment, embedTexts, topLabels,
     type ClipSessions,
 } from './clip-runner';
 import {
@@ -35,6 +36,8 @@ import {
 ort.env.wasm.wasmPaths = { wasm: new URL(ortWasmUrl, self.location.href).href };
 
 const CACHE_NAME = 'webmapx-sam-models-v1';
+/** Vocabulary words reported per segment, as suggestions for better names. */
+const SUGGESTIONS_PER_SEGMENT = 3;
 
 export interface SamCapabilities {
     webgpu: boolean;
@@ -56,7 +59,7 @@ export type SamWorkerRequest =
 
 export type SamWorkerResponse =
     | { id: number; status: 'ok'; result: unknown }
-    | { id: number; status: 'progress'; loaded: number; total: number; phase?: 'download' | 'regions' }
+    | { id: number; status: 'progress'; loaded: number; total: number; phase?: 'download' | 'regions' | 'vocabulary' }
     | { id: number; status: 'error'; message: string; cancelled?: boolean };
 
 let sessions: SamSessions | null = null;
@@ -71,6 +74,8 @@ let cancelRequested = false;
 /** The encoded view's pixels, kept so segments can be cut out of it to be named. */
 let viewPixels: ImageData | null = null;
 let clip: { key: string; sessions: ClipSessions; tokenizer: Tokenizer } | null = null;
+/** The suggestion vocabulary's text embeddings, for the CLIP model in `clip`. */
+let vocabularyEmbeddings: { key: string; texts: Float32Array[] } | null = null;
 /**
  * One CLIP embedding per segment of the last "segment everything", for one
  * CLIP model. Embedding the segments is the slow part of naming; with these
@@ -135,8 +140,8 @@ function looksLikeWebPage(data: Uint8Array, contentType: string | null): boolean
 
 function notAModelError(url: string): Error {
     return new Error(`Model file not found: ${url} — the server answered with a web page. `
-        + 'Download the model there (npm run models:sam), or set tools.segment.modelBaseUrl '
-        + 'to https://huggingface.co/{repo}/resolve/main/.');
+        + 'The mirror is missing this file: fill it with npm run models:sam '
+        + '(see docs/user/components/webmapx-segment-tool.md).');
 }
 
 async function fetchFile(url: string, cache: Cache | null, onBytes: (n: number) => void): Promise<Uint8Array> {
@@ -332,7 +337,20 @@ async function nameSegments(id: number, model: ResolvedClipModel, labels: string
         segmentEmbeddings = { key, embeddings };
     }
     const texts = await embedTexts(ort, sessions, tokenizer, labels.map(l => model.template.replace('{label}', l)));
-    return classify(segmentEmbeddings.embeddings, texts);
+    if (vocabularyEmbeddings?.key !== key) {
+        post({ id, status: 'progress', loaded: 0, total: 1, phase: 'vocabulary' });
+        vocabularyEmbeddings = {
+            key,
+            texts: await embedTexts(ort, sessions, tokenizer,
+                CLIP_SUGGESTION_VOCABULARY.map(l => model.template.replace('{label}', l))),
+        };
+    }
+    const suggested = classify(segmentEmbeddings.embeddings, vocabularyEmbeddings.texts);
+    return classify(segmentEmbeddings.embeddings, texts).map((c, i) => ({
+        ...c,
+        suggestions: topLabels(suggested[i].probabilities, SUGGESTIONS_PER_SEGMENT)
+            .map(s => ({ word: CLIP_SUGGESTION_VOCABULARY[s.label], probability: s.probability })),
+    }));
 }
 
 function regroup(k: number): number[] {

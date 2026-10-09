@@ -164,7 +164,16 @@ export async function embedSegment(
 }
 
 /** Best label per region, with CLIP's softmax probability for it. */
-export function classify(regions: Float32Array[], labels: Float32Array[]): { label: number; probability: number }[] {
+export interface Classification {
+    /** Index of the best label. */
+    label: number;
+    /** Its softmax probability. */
+    probability: number;
+    /** Every label's softmax probability, in label order; they sum to 1. */
+    probabilities: number[];
+}
+
+export function classify(regions: Float32Array[], labels: Float32Array[]): Classification[] {
     return regions.map(r => {
         const logits = labels.map(l => {
             let s = 0;
@@ -174,8 +183,17 @@ export function classify(regions: Float32Array[], labels: Float32Array[]): { lab
         const max = Math.max(...logits);
         const exp = logits.map(v => Math.exp(v - max));
         const sum = exp.reduce((a, b) => a + b, 0);
+        const probabilities = exp.map(v => v / sum);
         let best = 0;
         for (let i = 1; i < exp.length; i++) if (exp[i] > exp[best]) best = i;
-        return { label: best, probability: exp[best] / sum };
+        return { label: best, probability: probabilities[best], probabilities };
     });
+}
+
+/** The `n` most probable labels of one classification, best first. */
+export function topLabels(probabilities: number[], n: number): { label: number; probability: number }[] {
+    return probabilities
+        .map((probability, label) => ({ label, probability }))
+        .sort((a, b) => b.probability - a.probability)
+        .slice(0, n);
 }

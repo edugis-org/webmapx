@@ -1,6 +1,8 @@
 /**
  * Mirrors Segment Anything models from HuggingFace into a directory, laid out
- * the way the segment tool's default `modelBaseUrl` (`models/{repo}/`) expects.
+ * the way `tools.segment.modelBaseUrl` (`models/{repo}/`) expects. Only needed
+ * for a deployment that should not depend on HuggingFace: by default the tool
+ * fetches these models from HuggingFace itself.
  *
  *   npm run models:sam -- --out public/config/models            # default models
  *   npm run models:sam -- --out <dir> --models slimsam-77,sam2.1-large
@@ -12,8 +14,7 @@
  *
  * The files are large (SAM 2.1 Large's encoder is one 889 MB file), which rules
  * out hosting them in a git repository or on GitHub Pages (100 MB per file);
- * serve the directory from a plain web server, or point `modelBaseUrl` at
- * HuggingFace instead and skip this script altogether.
+ * serve the directory from a plain web server.
  */
 
 import { createWriteStream, existsSync, mkdirSync, renameSync, statSync } from 'node:fs';
@@ -32,8 +33,8 @@ interface Download {
 /**
  * Everything the segment tool can use and HuggingFace hosts: the SAM models
  * (both variants, since a browser picks between them) and the CLIP models
- * for naming segments. RemoteCLIP is not on HuggingFace in ONNX form (its
- * repo is `webmapx/...`), so it is not offered here.
+ * for naming segments. A `mirrorOnly` model (RemoteCLIP) is not on HuggingFace
+ * in ONNX form, so it is not offered here; copy its export into the mirror.
  */
 const DOWNLOADS: Record<string, Download> = Object.fromEntries([
     ...SAM_MODELS.map(m => [m.id, {
@@ -41,7 +42,7 @@ const DOWNLOADS: Record<string, Download> = Object.fromEntries([
         repo: m.repo,
         files: [...new Set([m.default, ...(m.fp16 ? [m.fp16] : [])].flatMap(v => [...v.files.encoder, ...v.files.decoder]))],
     }]),
-    ...CLIP_MODELS.filter(m => !m.repo.startsWith('webmapx/')).map(m => [m.id, {
+    ...CLIP_MODELS.filter(m => !m.mirrorOnly).map(m => [m.id, {
         label: m.label,
         repo: m.repo,
         files: [m.vision, m.text, m.tokenizer, m.tokenizerConfig],
@@ -104,8 +105,8 @@ async function main(): Promise<void> {
             await download(`${HF}/${model.repo}/resolve/main/${file}`, path.join(out, model.repo, file));
         }
     }
-    console.log(`\nDone. With the models in <config dir>/models the default modelBaseUrl finds them;
-otherwise set tools.segment.modelBaseUrl to where "${out}" is served, ending in {repo}/.`);
+    console.log(`\nDone. Point tools.segment.modelBaseUrl at where "${out}" is served, ending in {repo}/
+(e.g. "models/{repo}/" for <config dir>/models).`);
 }
 
 main().catch(err => {
