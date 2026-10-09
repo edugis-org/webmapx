@@ -1,0 +1,30 @@
+{
+  "id": "print",
+  "label": "Print",
+  "tagline": "Prints the current map view.",
+  "status": "stable",
+  "element": "webmapx-print-tool",
+  "placement": "toolbar",
+  "configType": "print",
+  "demoConfig": "config/docs/tools/print.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-print-tool.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "layerOverview",
+    "layerTree",
+    "measure"
+  ],
+  "sections": {
+    "what": "Printing a web page that contains a map often gives a poor result: the map is\ncut to the window, controls are printed too, and the legend is missing.\n\nPrint composes a page instead: A4, portrait or landscape, with a title and,\noptionally, **the legend beside the map**.\n\nIt can include a **viewer link**: a permalink to the map as printed, with the\nsame layers and view.",
+    "use": "1. Open the tool, give the map a title.\n2. Choose a format: portrait or landscape, with or without the legend.\n3. Optionally add the viewer link.\n4. Print. Use your browser's print dialog to save as PDF if you want a file.\n\nWhat is printed is the current view, so frame the map before opening the tool.",
+    "embed": "Add `print` to a toolbar. Nothing to configure.\n\nWorth including on any map meant for classroom or fieldwork use, where the\nresult is carried around on paper.",
+    "extend": "The printed page uses the same legend component as the panel, so layer swatches\nand ramps stay consistent."
+  },
+  "page": "https://webmapx.com/tools/print.html",
+  "webmapxCommit": "34406e84a118bc57ff063cef73ec08b6d8ce0cb4"
+}

@@ -1,0 +1,235 @@
+{
+  "title": "Earth Through Time: 1000 Ma to Now",
+  "sprite": "deeptime-sprite.webp",
+  "spriteWidth": 1071,
+  "spriteHeight": 625,
+  "periods": [
+    {
+      "id": "neoproterozoic",
+      "name": "Neoproterozoic",
+      "fromMa": 1000,
+      "toMa": 541,
+      "caption": "Stromatolites, early multicellular life",
+      "sprite": {
+        "x": 0,
+        "y": 0,
+        "w": 210,
+        "h": 209
+      }
+    },
+    {
+      "id": "cambrian",
+      "name": "Cambrian",
+      "fromMa": 541,
+      "toMa": 485,
+      "caption": "Explosion of marine life, trilobites",
+      "sprite": {
+        "x": 210,
+        "y": 0,
+        "w": 190,
+        "h": 209
+      }
+    },
+    {
+      "id": "ordovician",
+      "name": "Ordovician",
+      "fromMa": 485,
+      "toMa": 444,
+      "caption": "Marine diversification, nautiloids",
+      "sprite": {
+        "x": 400,
+        "y": 0,
+        "w": 219,
+        "h": 209
+      }
+    },
+    {
+      "id": "silurian",
+      "name": "Silurian",
+      "fromMa": 444,
+      "toMa": 419,
+      "caption": "First land plants, early jawed fish",
+      "sprite": {
+        "x": 619,
+        "y": 0,
+        "w": 221,
+        "h": 209
+      }
+    },
+    {
+      "id": "devonian",
+      "name": "Devonian",
+      "fromMa": 419,
+      "toMa": 359,
+      "caption": "Age of Fishes, early forests",
+      "sprite": {
+        "x": 840,
+        "y": 0,
+        "w": 231,
+        "h": 209
+      }
+    },
+    {
+      "id": "carboniferous",
+      "name": "Carboniferous",
+      "fromMa": 359,
+      "toMa": 299,
+      "caption": "Coal forests, large amphibians",
+      "sprite": {
+        "x": 0,
+        "y": 209,
+        "w": 219,
+        "h": 209
+      }
+    },
+    {
+      "id": "permian",
+      "name": "Permian",
+      "fromMa": 299,
+      "toMa": 252,
+      "caption": "Reptiles diversify, dry supercontinents",
+      "sprite": {
+        "x": 219,
+        "y": 209,
+        "w": 199,
+        "h": 209
+      }
+    },
+    {
+      "id": "triassic",
+      "name": "Triassic",
+      "fromMa": 252,
+      "toMa": 201,
+      "caption": "Dinosaurs appear, first mammals",
+      "sprite": {
+        "x": 418,
+        "y": 209,
+        "w": 184,
+        "h": 207
+      }
+    },
+    {
+      "id": "jurassic",
+      "name": "Jurassic",
+      "fromMa": 201,
+      "toMa": 145,
+      "caption": "Dinosaurs dominate, first birds",
+      "sprite": {
+        "x": 602,
+        "y": 209,
+        "w": 182,
+        "h": 207
+      }
+    },
+    {
+      "id": "cretaceous",
+      "name": "Cretaceous",
+      "fromMa": 145,
+      "toMa": 66,
+      "caption": "Flowering plants, dinosaur diversity",
+      "sprite": {
+        "x": 784,
+        "y": 209,
+        "w": 223,
+        "h": 207
+      }
+    },
+    {
+      "id": "paleogene",
+      "name": "Paleogene",
+      "fromMa": 66,
+      "toMa": 23,
+      "caption": "Mammals diversify, warm climates",
+      "sprite": {
+        "x": 0,
+        "y": 418,
+        "w": 200,
+        "h": 207
+      }
+    },
+    {
+      "id": "neogene",
+      "name": "Neogene",
+      "fromMa": 23,
+      "toMa": 2.58,
+      "caption": "Grasslands spread, mammals thrive",
+      "sprite": {
+        "x": 200,
+        "y": 418,
+        "w": 199,
+        "h": 207
+      }
+    },
+    {
+      "id": "pleistocene",
+      "name": "Pleistocene",
+      "fromMa": 2.58,
+      "toMa": 1,
+      "caption": "Ice ages, mammoths, humans spread",
+      "sprite": {
+        "x": 399,
+        "y": 418,
+        "w": 178,
+        "h": 207
+      }
+    },
+    {
+      "id": "early-hominins",
+      "name": "Early hominins",
+      "fromMa": 1,
+      "toMa": 0,
+      "caption": "Early human ancestors",
+      "sprite": {
+        "x": 577,
+        "y": 418,
+        "w": 142,
+        "h": 207
+      }
+    },
+    {
+      "id": "now",
+      "name": "Now",
+      "fromMa": 0,
+      "toMa": 0,
+      "caption": "Modern humans, civilization",
+      "sprite": {
+        "x": 719,
+        "y": 418,
+        "w": 180,
+        "h": 207
+      }
+    }
+  ],
+  "milestones": [
+    {
+      "label": "First multicellular life",
+      "ma": 1000
+    },
+    {
+      "label": "First land plants",
+      "ma": 470
+    },
+    {
+      "label": "Fishes to land",
+      "fromMa": 380,
+      "toMa": 360
+    },
+    {
+      "label": "Dinosaurs",
+      "ma": 230
+    },
+    {
+      "label": "Flowering plants",
+      "ma": 130
+    },
+    {
+      "label": "Hominins appear",
+      "ma": 7
+    },
+    {
+      "label": "Homo sapiens",
+      "ma": 0.3
+    }
+  ],
+  "spriteNote": "WebP, quality 82, tagged sRGB. Chosen by eye against lossless at 2x; 152 kB against 909."
+}

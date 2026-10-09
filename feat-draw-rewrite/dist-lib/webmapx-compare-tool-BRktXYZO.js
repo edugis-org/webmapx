@@ -1,0 +1,201 @@
+import { c as e, h as t, i as n, o as r, p as i } from "./decorators-d8E4nZJy.js";
+import { a, t as o } from "./decorate-Bl-DXcQA.js";
+import { t as s } from "./webmapx-modal-tool-CA-2uVss.js";
+import "./button-DE9ytwxI.js";
+import { i as c, n as l, t as u } from "./compare-replay-Nc8FG2S9.js";
+//#region src/components/webmapx-compare-tool.ts
+var d, f = 50, p = 2, m = 44, h = 16, g = class extends s {
+	static {
+		d = this;
+	}
+	constructor(...e) {
+		super(...e), this.toolId = "compare", this.split = f, this.busy = !1, this.failed = !1, this.frozen = null, this.restoredFromLink = !1, this.handleEl = null, this.viewChangeUnsubscribe = null, this.dragPointerId = null, this.onPointerDown = (e) => {
+			this.dragPointerId = e.pointerId, e.currentTarget.setPointerCapture(e.pointerId), e.preventDefault(), e.stopPropagation();
+		}, this.onPointerMove = (e) => {
+			this.dragPointerId === e.pointerId && this.setSplit(this.splitFromClientX(e.clientX));
+		}, this.onPointerUp = (e) => {
+			this.dragPointerId === e.pointerId && (e.currentTarget.releasePointerCapture(e.pointerId), this.dragPointerId = null);
+		}, this.onHandleKeyDown = (e) => {
+			let t = {
+				ArrowLeft: this.split - p,
+				ArrowRight: this.split + p,
+				Home: 0,
+				End: 100
+			}[e.key];
+			t !== void 0 && (e.preventDefault(), this.setSplit(t));
+		};
+	}
+	static {
+		this.styles = t`
+        :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: var(--webmapx-font-size-md, 0.875rem); }
+        p { margin: 0 0 var(--webmapx-space-sm, 0.5rem); line-height: 1.5; }
+        .muted { color: var(--color-text-secondary, #5a6773); }
+        .sides { display: flex; gap: var(--webmapx-space-sm, 0.5rem); margin-top: var(--webmapx-space-sm, 0.5rem); }
+        .side { flex: 1; border: 1px solid var(--color-border, #d5dce3); border-radius: var(--webmapx-radius-sm, 4px); padding: var(--webmapx-space-sm, 0.5rem); }
+        .side b { display: block; }
+        .action { display: block; width: 100%; margin-top: var(--webmapx-space-sm, 0.5rem); }
+        .action::part(base) { width: 100%; }
+    `;
+	}
+	onStateChanged(e) {}
+	onActivate() {}
+	onDeactivate() {}
+	disconnectedCallback() {
+		super.disconnectedCallback(), this.thaw();
+	}
+	get labels() {
+		let e = this.toolsConfig?.compare;
+		return {
+			reference: e?.labels?.reference ?? "before",
+			live: e?.labels?.live ?? "now"
+		};
+	}
+	onMapAttached(e) {
+		super.onMapAttached(e);
+		let t = a();
+		t === null || this.frozen || this.restoredFromLink || (this.restoredFromLink = !0, this.freeze({
+			split: t,
+			fromPermalink: !0
+		}));
+	}
+	async freeze(e) {
+		let t = this.mapHost, n = this.adapter;
+		if (!t || !n || this.frozen) return;
+		if (document.querySelectorAll("webmapx-map:not([data-webmapx-role])").length > 1) {
+			console.warn("[compare] The compare tool is only available on a page with a single map."), this.failed = !0;
+			return;
+		}
+		let r = this.toolsConfig?.compare;
+		if (this.split = _(e?.split ?? r?.initialSplit ?? f), this.busy = !0, this.failed = !1, this.frozen = await l(t, n, t, { replayLiveMap: !e?.fromPermalink }), this.busy = !1, !this.frozen) {
+			this.failed = !0;
+			return;
+		}
+		this.applyClip(), this.addHandle(t), this.linkCamera(n), this.requestUpdate();
+	}
+	thaw() {
+		this.viewChangeUnsubscribe?.(), this.viewChangeUnsubscribe = null, this.handleEl?.remove(), this.handleEl = null, this.frozen?.element.remove(), this.frozen = null;
+	}
+	linkCamera(e) {
+		let t = () => {
+			this.frozen && c(e, this.frozen.adapter);
+		};
+		e.events.on("view-change", t), e.events.on("view-change-end", t);
+		let n = e.getProjection()?.name, r = e.store.subscribe((e) => {
+			let t = e.mapProjection?.name;
+			!t || t === n || (n = t, this.frozen?.adapter.setProjection(t));
+		});
+		this.viewChangeUnsubscribe = () => {
+			e.events.off("view-change", t), e.events.off("view-change-end", t), r();
+		};
+	}
+	applyClip() {
+		let e = this.frozen?.element;
+		e && (e.style.clipPath = `inset(0 ${100 - this.split}% 0 0)`, e.setAttribute(u, String(Math.round(this.split))));
+	}
+	addHandle(e) {
+		let t = document.createElement("div");
+		t.className = "webmapx-compare-handle", t.setAttribute("role", "separator"), t.setAttribute("tabindex", "0"), t.setAttribute("aria-orientation", "vertical"), t.setAttribute("aria-label", "Compare split position"), t.setAttribute("aria-valuemin", "0"), t.setAttribute("aria-valuemax", "100");
+		let n = window.matchMedia?.("(any-pointer: coarse)").matches ?? !1 ? m : h;
+		t.style.cssText = [
+			"position:absolute",
+			"top:0",
+			"bottom:0",
+			`width:${n}px`,
+			"transform:translateX(-50%)",
+			"background:transparent",
+			"cursor:ew-resize",
+			"touch-action:none"
+		].join(";"), t.appendChild(this.seamLine()), t.appendChild(this.handleGrip());
+		let { reference: r, live: i } = this.labels;
+		t.appendChild(this.handleLabel(r, "right:calc(50% + 20px)")), t.appendChild(this.handleLabel(i, "left:calc(50% + 20px)")), t.addEventListener("pointerdown", this.onPointerDown), t.addEventListener("pointermove", this.onPointerMove), t.addEventListener("pointerup", this.onPointerUp), t.addEventListener("pointercancel", this.onPointerUp), t.addEventListener("keydown", this.onHandleKeyDown), e.insertBefore(t, e.querySelector(":scope > webmapx-layout")), this.handleEl = t, this.positionHandle();
+	}
+	seamLine() {
+		let e = document.createElement("div");
+		return e.style.cssText = [
+			"position:absolute",
+			"top:0",
+			"bottom:0",
+			"left:50%",
+			"width:2px",
+			"transform:translateX(-50%)",
+			"pointer-events:none",
+			"background:var(--webmapx-data-seam, #d64545)"
+		].join(";"), e;
+	}
+	static {
+		this.CHIP_STYLE = [
+			"position:absolute",
+			"top:8px",
+			"white-space:nowrap",
+			"padding:2px 6px",
+			"border-radius:var(--webmapx-radius-sm, 4px)",
+			"background:var(--color-surface, #fff)",
+			"font-size:var(--webmapx-font-size-sm, 0.8rem)",
+			"line-height:1.25"
+		];
+	}
+	handleGrip() {
+		let e = document.createElement("div");
+		return e.style.cssText = [
+			...d.CHIP_STYLE,
+			"left:50%",
+			"transform:translateX(-50%)",
+			"display:flex",
+			"align-items:center",
+			"justify-content:center",
+			"padding:2px",
+			"min-width:15px",
+			"color:var(--webmapx-data-seam, #d64545)",
+			"pointer-events:none"
+		].join(";"), e.textContent = "↔", e;
+	}
+	handleLabel(e, t) {
+		let n = document.createElement("span");
+		return n.textContent = e, n.style.cssText = [
+			...d.CHIP_STYLE,
+			t,
+			"color:var(--color-text-primary, #1c2530)",
+			"pointer-events:none"
+		].join(";"), n;
+	}
+	positionHandle() {
+		this.handleEl && (this.handleEl.style.left = `${this.split}%`, this.handleEl.setAttribute("aria-valuenow", String(Math.round(this.split))));
+	}
+	setSplit(e) {
+		this.split = _(e), this.applyClip(), this.positionHandle();
+	}
+	splitFromClientX(e) {
+		let t = this.mapHost;
+		if (!t) return this.split;
+		let n = t.getBoundingClientRect();
+		return n.width === 0 ? this.split : (e - n.left) / n.width * 100;
+	}
+	stop() {
+		this.thaw(), this.requestUpdate();
+	}
+	render() {
+		let { reference: t, live: n } = this.labels;
+		return i`
+            ${this.busy ? i`<p class="muted">Freezing the current map…</p>` : e}
+            ${this.failed ? i`<p class="muted">The comparison could not be started on this page.</p>` : e}
+            <p>Drag the handle across the map. The left half stays as it was when this tool was
+               opened; every change you make from now on shows on the right.</p>
+            <div class="sides">
+                <div class="side"><b>${t}</b><span class="muted">frozen</span></div>
+                <div class="side"><b>${n}</b><span class="muted">live — tools act here</span></div>
+            </div>
+            <sl-button class="action" size="small" variant="primary" ?disabled=${this.busy}
+                    @click=${() => this.frozen ? this.stop() : void this.freeze()}>
+                ${this.frozen ? "Stop comparing" : "Start comparing"}
+            </sl-button>
+            ${this.frozen ? i`<p class="muted">Closing this panel keeps the comparison running, so you can
+                          open the catalog and add a layer to the live half.</p>` : e}
+        `;
+	}
+};
+o([n()], g.prototype, "split", void 0), o([n()], g.prototype, "busy", void 0), o([n()], g.prototype, "failed", void 0), g = d = o([r("webmapx-compare-tool")], g);
+function _(e) {
+	return Number.isFinite(e) ? Math.min(100, Math.max(0, e)) : f;
+}
+//#endregion
+export { g as WebmapxCompareTool };

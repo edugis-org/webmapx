@@ -1,0 +1,99 @@
+[
+  {
+    "slug": "feat-camera-flyto",
+    "branch": "feat/camera-flyto",
+    "sha": "242f0c425d9f54bd67d8143c660f9708686a9572",
+    "deployed": "2026-10-06T03:59:32.529Z",
+    "bytes": 70173117,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "feat-draw-rewrite",
+    "branch": "feat/draw-rewrite",
+    "sha": "321e8835aa5967d909163e2e6f1b5a9b9042feb9",
+    "deployed": "2026-10-06T04:00:16.850Z",
+    "bytes": 70317253,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "feat-kiosk-tools",
+    "branch": "feat/kiosk-tools",
+    "sha": "34406e84a118bc57ff063cef73ec08b6d8ce0cb4",
+    "deployed": "2026-10-06T03:59:42.146Z",
+    "bytes": 70219447,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "feat-legend-undo",
+    "branch": "feat/legend-undo",
+    "sha": "d63450ebdcfa2cde130f3ebe78ae3e5389a4bbf5",
+    "deployed": "2026-10-06T03:59:57.987Z",
+    "bytes": 70183393,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "help-text-tips",
+    "branch": "help-text-tips",
+    "sha": "d295ce738f5bb532f05c59fcfde04a1d55ff80b4",
+    "deployed": "2026-10-08T17:16:45.361Z",
+    "bytes": 70174472,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "main",
+    "branch": "main",
+    "sha": "9d0f49fd2e9dd8ef112e072257eedd51810c2f20",
+    "deployed": "2026-10-09T14:05:45.711Z",
+    "bytes": 70021756,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "ui-style-edu",
+    "branch": "ui-style-edu",
+    "sha": "bcddc185f9eb131eeea4cb214ddbb80d983ffaaa",
+    "deployed": "2026-10-09T21:17:18.861Z",
+    "bytes": 70562949,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "worktree-sam-tool",
+    "branch": "worktree-sam-tool",
+    "sha": "cfd8ad6f1582c9aa5a0fa80c4c05ddb071c96dbf",
+    "deployed": "2026-10-09T14:09:26.458Z",
+    "bytes": 70498352,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835,
+      "39f9f0894d478800487e.wasm": 26781914
+    }
+  }
+]

@@ -1,0 +1,30 @@
+{
+  "id": "menu",
+  "label": "Tools",
+  "tagline": "Puts several tools behind one menu button.",
+  "status": "stable",
+  "element": "webmapx-menu-tool",
+  "placement": "toolbar",
+  "configType": "menu",
+  "demoConfig": "config/docs/tools/menu.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-menu-tool.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "toolbox",
+    "settings",
+    "layerTree"
+  ],
+  "sections": {
+    "what": "Menu is a container for other tools. It puts many tools behind one toolbar\nentry, as a **list with submenus**, a back button, and a breadcrumb.\n\nUse Menu when there are enough tools to need names and groups. Unlike Toolbox,\nMenu keeps nested groups.\n\nFrom eight entries it also offers **search across levels**.\n\nIt supports keyboard navigation: arrows, Home and End, left, and right for\nsubmenus, and Escape to close the panel.",
+    "use": "Open the menu, walk into a group, pick a tool. The back button and the\nbreadcrumb say where you are. Type to search once there are enough entries for\nsearching to beat looking.",
+    "embed": "Give the `menu` entry an `items` list, and nest further containers inside it for\nsubmenus. Labels and icons for a group come from the group's own entry.",
+    "extend": "Nesting is expressed in the flat DOM as a `menu-path` attribute plus a `groups`\nattribute with each submenu label and icon. The container renders one level at\na time from that.\n\nA modal sub-tool inside a container skips global tool registration. The\ncontainer controls which child is active."
+  },
+  "page": "https://webmapx.com/tools/menu.html",
+  "webmapxCommit": "d63450ebdcfa2cde130f3ebe78ae3e5389a4bbf5"
+}

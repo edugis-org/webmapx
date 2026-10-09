@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feature info — WebMapX tool</title>
+<meta name="description" content="Shows the attributes at a point on the map.">
+<link rel="canonical" href="https://webmapx.com/tools/info.html">
+<link rel="alternate" type="application/json" href="./info.json">
+<link rel="icon" href="../favicon.png" type="image/png">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f8f8f8;color:#1a1a1a;line-height:1.6}
+a{color:#1b6ec2}
+header{background:#0f1923;color:#fff;padding:2rem 1.5rem}
+header .inner,main{max-width:52rem;margin:0 auto}
+header .crumb{font-size:.85rem;color:#8fa6bd}
+header .crumb a{color:#8fa6bd}
+header h1{font-size:2rem;letter-spacing:-.02em;margin:.4rem 0;display:flex;align-items:center;gap:.55rem}
+.tool-icon{display:inline-flex;align-items:center;flex:none}
+.tool-link{display:inline-flex;align-items:center;gap:.45rem}
+header p{color:#aac;max-width:42rem}
+.badges{margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-size:.75rem;border:1px solid #2e4358;color:#cfe0f0;border-radius:99px;padding:.15rem .6rem}
+.mapwrap{max-width:52rem;margin:1.5rem auto;height:26rem;border:1px solid #d8d8d8;border-radius:8px;overflow:hidden;background:#e9e9e9}
+.mapwrap iframe{width:100%;height:100%;border:0;display:block}
+.mapwrap .fallback{padding:2rem;font-size:.9rem;color:#555}
+main{padding:0 1.5rem 4rem}
+section{margin-top:2.5rem}
+/* The tools that exist but have no page yet, listed quietly under their own
+   group rather than in one lump at the bottom: a reader looking for a control
+   should find out there is one, in the place they were already looking. */
+.pending{margin-top:.8rem;font-size:.85rem;color:#666}
+/* One worked example, two pictures and a table. The colours are the tool's own:
+   the first layer neutral, the second layer the accent, the result filled. */
+.io{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;margin-top:1rem}
+.io .arrow{font-size:1.6rem;color:#888;flex:0 0 auto}
+.map-figure{margin:0;flex:0 0 auto}
+.map-figure svg{background:#eef3f7;border:1px solid #d8d8d8;border-radius:4px;display:block}
+.map-figure figcaption{font-size:.75rem;color:#666;margin-top:.25rem}
+svg .a{fill:#c9d6e0;stroke:#7d8f9d;stroke-width:.5}
+svg .ghost{fill:#eceff2;stroke:#dfe4e8;stroke-width:.5}
+svg .b{fill:rgba(217,99,60,.18);stroke:#d9633c;stroke-width:1.2}
+svg .out{fill:rgba(43,108,143,.55);stroke:#1b4a63;stroke-width:.8}
+svg .pt{fill:#1b4a63;stroke:#fff;stroke-width:1}
+table.attrs{font-size:.8rem;margin-top:.6rem;width:auto;border-collapse:collapse}
+table.attrs th,table.attrs td{border:1px solid #ddd;padding:.2rem .5rem;text-align:left}
+table.attrs th{background:#f0f2f4}
+table.attrs td.null{color:#aaa;font-style:italic}
+p.fields{font-size:.85rem;color:#555;margin-top:.8rem}
+.scroll{overflow-x:auto}
+table.matrix{font-size:.8rem;border-collapse:collapse;margin-top:.6rem;width:auto}
+table.matrix th,table.matrix td{border:1px solid #ddd;padding:.25rem .5rem;text-align:center}
+table.matrix th.op{text-align:left;white-space:nowrap;font-weight:600}
+table.matrix th.sub{font-weight:400;color:#666;font-size:.75rem}
+table.matrix thead th{background:#f0f2f4}
+.yes{color:#2f7d4f;font-weight:700}
+.none{color:#999}
+.err{color:#b03030;font-weight:700}
+p.legend{font-size:.85rem;color:#555;margin-top:.6rem}
+.no-geom{width:300px;height:180px;display:flex;align-items:center;justify-content:center;text-align:center;
+  background:#f4f6f8;border:1px dashed #cfd6dc;border-radius:4px;color:#7a848c;font-size:.85rem}
+p.pagenav{font-size:.9rem;margin-top:1.2rem;padding-bottom:.6rem;border-bottom:1px solid #e2e2e2}
+.pending code{background:#ececec;padding:.1em .35em;border-radius:3px}
+h2{font-size:1.3rem;letter-spacing:-.01em;margin-bottom:.6rem}
+p+p,p+ul,p+ol,ul+p,ol+p,pre+p{margin-top:.8rem}
+li{margin-left:1.2rem}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:#ececec;padding:.1em .35em;border-radius:3px}
+pre{background:#0f1923;color:#dfe8f0;padding:1rem;border-radius:6px;overflow-x:auto;margin-top:.8rem}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin-top:.8rem;font-size:.9rem}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid #ddd;vertical-align:top}
+footer{border-top:1px solid #ddd;margin-top:3rem;padding-top:1rem;font-size:.85rem;color:#666}
+@media (prefers-color-scheme:dark){
+ body{background:#12181e;color:#e6ebf0}a{color:#6db8ff}
+ .mapwrap{border-color:#25313d;background:#1a222a}
+ code{background:#222c36}th,td{border-color:#25313d}footer{border-color:#25313d;color:#9aa8b5}
+}
+</style>
+</head>
+<body>
+<header><div class="inner">
+<div class="crumb"><a href="../index.html">WebMapX</a> / <a href="./index.html">Tools</a></div>
+<h1><span class="tool-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-info-circle" viewBox="0 0 16 16" width="1em" height="1em">
+  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+  <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/>
+</svg></span>Feature info</h1>
+<p>Shows the attributes at a point on the map.</p>
+<div class="badges"><span class="badge">type: info</span><span class="badge">toolbar</span><span class="badge">stable</span></div>
+</div></header>
+<div class="mapwrap"><iframe loading="lazy" allow="fullscreen" title="Feature info demo map"
+     src="../testpages/preview.html?storageKey=webmapx-docs-no-override&config=../config/docs/tools/info.json"></iframe></div>
+<main><section id="what"><h2>What it does</h2><p>Info shows the data at a point on the map: feature attributes, elevation where available, and Street View where configured.</p>
+<p>It has two modes:</p>
+<ul><li><strong>Hover</strong>: move the pointer and the panel follows it, reading the vector features under the cursor. Nothing is committed. You are browsing.</li><li><strong>Pinned</strong>: click, and that location is held. The panel stops following the pointer, so you can read it, scroll it, and select the text. Clicking the same place again unpins and returns to hovering.</li></ul>
+<p>Hover works for vector layers only, because those features are already in the browser. Clicking also queries WMS layers with <code>GetFeatureInfo</code>.</p>
+<p>The panel also shows <strong>elevation</strong> where the map has terrain data, and a <strong>Street View</strong> thumbnail where a Google API key is configured.</p>
+<p>Layer metadata can make attributes readable: translate names, add units, and map coded values to labels. For example, <code>pop_est</code> can be shown as population.</p></section>
+<section id="use"><h2>Using it</h2><ol><li>Open the info tool from the toolbar.</li><li>Move over the map. The panel shows the features under the pointer, layer by layer.</li><li>Click to pin a location. The panel holds still so you can read and copy it.</li><li>Click the same spot again to release it, or move on and click elsewhere to pin that instead.</li></ol>
+<p>For tiled vector layers, only drawn features can be queried. A feature outside the current view or below its zoom range cannot appear in the panel.</p></section>
+<section id="embed"><h2>In your own map</h2><p>The tool needs no configuration to work: it queries whatever the map has.</p>
+<p>One option is worth setting: <code>googleApiKey</code>, which turns on the Street View thumbnail. Without <code>googleApiKey</code>, the rest of the panel is unchanged. The Street View section simply does not appear.</p>
+<p>Attribute display comes from the layer, not from this tool. Give a layer <code>metadata.attributes.translations</code> and every panel that shows those properties reads the same definitions.</p></section>
+<section id="extend"><h2>Extending it</h2><p>Hover and pinned mode use different query paths. Hover is throttled and hit-tests within a few pixels. A click uses a slightly wider tolerance. A second click close to the pinned point unpins it.</p>
+<p><code>metadata.attributes</code> may be a string naming a shared definition in <code>layerData.attributeMetadata</code>. Use that when many layers share the same columns.</p><table><tr><th>Config <code>type</code></th><td><code>info</code></td></tr><tr><th>Element</th><td><code>&lt;webmapx-info-tool&gt;</code></td></tr><tr><th>Placement</th><td>toolbar</td></tr><tr><th>Source</th><td><a href="https://github.com/edugis-org/webmapx/blob/34406e84a118bc57ff063cef73ec08b6d8ce0cb4/src/components/webmapx-info-tool.ts"><code>src/components/webmapx-info-tool.ts</code></a><br><a href="https://github.com/edugis-org/webmapx/blob/34406e84a118bc57ff063cef73ec08b6d8ce0cb4/src/map/wms-feature-info.ts"><code>src/map/wms-feature-info.ts</code></a></td></tr><tr><th>Tests</th><td><a href="https://github.com/edugis-org/webmapx/blob/34406e84a118bc57ff063cef73ec08b6d8ce0cb4/tests/info-tool-query.test.ts"><code>tests/info-tool-query.test.ts</code></a></td></tr><tr><th>Related</th><td><a href="./layerOverview.html">layerOverview</a>, <a href="./measure.html">measure</a>, <a href="./draw.html">draw</a></td></tr></table></section>
+<footer>Built from webmapx <code>34406e8</code> and configs <code>046a5f5</code>.
+Machine-readable: <a href="./info.json">info.json</a>.</footer>
+</main>
+</body>
+</html>

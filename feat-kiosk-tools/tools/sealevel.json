@@ -1,0 +1,34 @@
+{
+  "id": "sealevel",
+  "label": "Sea level",
+  "tagline": "Moves the sea level from the last ice age to a world without land ice.",
+  "status": "stable",
+  "element": "webmapx-sealevel-tool",
+  "placement": "toolbar",
+  "configType": "sealevel",
+  "demoConfig": "config/docs/tools/sealevel.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-sealevel-tool.ts",
+    "src/utils/sea-level-style.ts",
+    "src/utils/sea-level-curve.ts"
+  ],
+  "tests": [
+    "tests/sea-level-style.test.ts",
+    "tests/sea-level-curve.test.ts",
+    "tests/pmtiles-config-paths.test.ts"
+  ],
+  "related": [
+    "deeptime",
+    "timeSlider",
+    "compare"
+  ],
+  "sections": {
+    "what": "Sea level shows where the sea reaches at a chosen level, from −134 m — the\nlowest sea level of the last glacial maximum, about 21,000 years ago — to\n+70 m, when all land ice has melted.\n\nBelow today the dry sea floor is drawn as land: Doggerland joins Britain to the\ncontinent, and the Bering Strait closes. Above today the sea floods the coasts.\n\nThe sea only goes where it can reach. A depression floods once the sea spills\nover its lowest saddle, not at its own depth: the Black Sea connects at −28 m\nover the Bosporus, the Caspian at +25 m, the Dead Sea at +58 m.",
+    "use": "1. Open the tool and move the slider, or use the step buttons and ▶ to play.\n   **Today** goes back to today's level.\n2. Switch to **Time** to move through years instead of metres. The level then\n   follows a sea level curve (Lambeck et al. 2014), and the panel names the\n   period — meltwater pulse 1A, the Younger Dryas, Doggerland drowning.\n\nClosing the panel leaves the map at the level you chose, so you can measure,\nquery or print it. The legend follows the slider: \"Sea\", \"Dry sea floor\" and\n\"As today\".\n\nNot for navigation: coastal land heights are only indicative.",
+    "embed": "Add `sealevel` to a toolbar. Nothing else is required. The tool adds its own\nlayer from the coastal zones archive (`tiles`) when the map does not already\nshow one — or from the same zones as GeoJSON (`geojson`) on an engine that\ncannot read the archive — and reads its curve from `data`. All three paths\nare config assets, relative to the config file.\n\nThe archive is `coastal_zones.pmtiles` (~15 MB; the GeoJSON is 10 MB, 0.8 MB gzipped), built from the GEBCO_2026 grid\nand published as a release of\n[edugis-org/coastal_zones](https://github.com/edugis-org/coastal_zones). It is\nread with HTTP range requests, so any static host serves it — but copy it to\nyour own host: GitHub release downloads are not readable by a browser. The data\nare CC BY 4.0; credit EduGIS and GEBCO.\n\nA `coastal-zones` layer already on the map is adopted rather than added\nagain. The tool never takes it from the catalog: which format to load is the\nengine's to decide, not the config's.",
+    "extend": "The layer is split once into one sublayer per `flood_level` class, each with a\nconstant colour, and a move rewrites only the classes that change role. A\nsingle data-driven `fill-color` expression was re-evaluated for every feature\nof every loaded tile on each move: about 335 ms per step against 32 ms now.\n\nThe tool is the same on every engine; only the data differs, and the adapter\ndecides which (`canDrawSource`). MapLibre reads the `pmtiles://` archive.\nOpenLayers cannot, and gets the same zones as one GeoJSON file at 16′\n(`geojson`), read once into the view's projection — so the animation also runs\nin Equal Earth or Mollweide, where a world map shows areas truthfully."
+  },
+  "page": "https://webmapx.com/tools/sealevel.html",
+  "webmapxCommit": "34406e84a118bc57ff063cef73ec08b6d8ce0cb4"
+}

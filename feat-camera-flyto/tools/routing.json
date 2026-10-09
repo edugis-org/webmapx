@@ -1,0 +1,30 @@
+{
+  "id": "routing",
+  "label": "Routing",
+  "tagline": "Finds a route, distance and travel time.",
+  "status": "stable",
+  "element": "webmapx-routing-tool",
+  "placement": "toolbar",
+  "configType": "routing",
+  "demoConfig": "config/docs/tools/routing.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-routing-tool.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "isochrone",
+    "measure",
+    "search"
+  ],
+  "sections": {
+    "what": "Routing uses a start and an end point to get a route with its **distance** and\n**duration**.\n\nThis is different from Measure. Measure gives a straight-line distance, or the\nlength of a line you drew. Routing gives distance along roads, paths or\ncycleways.\n\nFour services are offered, and they differ in what you have to bring and in\nwhat they can answer:\n\n- **OSRM**: free, no key. Car, bicycle, and foot. The default.\n- **Valhalla**: free, no key, and more modes: car, truck, motorcycle, bicycle,\n  pedestrian, and bus.\n- **OpenRouteService**: needs an API key. Car, truck, bicycle, foot, and\n  wheelchair.\n- **TomTom**: needs an API key. Car, truck, bicycle, and pedestrian.\n\nThe two free ones are public community servers, offered without a key and\ntherefore without a quota anyone is accounting for. Treat them as public test\nservices: they are rate-limited, and they are occasionally unreachable. A keyed service is\nthe one to use for a map that has to work on a given afternoon.\n\nA truck profile can use axle weight and dimensions, because those can change\nwhich roads are allowed.\n\nA route can be **kept**. By default the route is temporary. Persist it and the\nroute becomes a normal layer that can be measured, exported, and used in\nAnalysis.",
+    "use": "1. Open routing and click the start point on the map, then the end.\n2. Choose a travel mode. The route, its distance, and its duration appear.\n3. **Clear** removes the route. **Persist to map** keeps it as a layer.\n\nDuration is the service's estimate for the profile chosen, not a promise about\ntraffic on the day.",
+    "embed": "Add `routing` to a toolbar. OSRM and Valhalla work immediately.\nOpenRouteService and TomTom need their key, supplied through the map's API key\nsetting or a `{key-…}` placeholder in the config, which is resolved from the\n`apikeys.json` beside the config.\n\nAll four are third-party services with their own usage policies. A map expected\nto carry real traffic should use its own instance rather than the public\nservers. Expect the free ones to be unavailable sometimes, since a service\nnobody is paying for owes nobody an uptime.",
+    "extend": "A service definition lists its modes and the function that requests a route.\nAdding another service should be one new definition, not a new tool."
+  },
+  "page": "https://webmapx.com/tools/routing.html",
+  "webmapxCommit": "242f0c425d9f54bd67d8143c660f9708686a9572"
+}

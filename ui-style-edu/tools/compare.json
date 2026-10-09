@@ -1,0 +1,29 @@
+{
+  "id": "compare",
+  "label": "Compare",
+  "tagline": "Compares the current map with later changes.",
+  "status": "stable",
+  "element": "webmapx-compare-tool",
+  "placement": "toolbar",
+  "configType": "compare",
+  "demoConfig": "config/docs/tools/compare.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-compare-tool.ts",
+    "src/utils/compare-replay.ts"
+  ],
+  "tests": [],
+  "related": [
+    "stories",
+    "layerOverview",
+    "projection"
+  ],
+  "sections": {
+    "what": "Compare freezes the current map view. You can then change the live map: turn a\nlayer on, restyle it, import a file, or draw something. A vertical handle shows\nthe frozen map on one side and the live map on the other.\n\nBoth halves share **one camera**. Pan, zoom, rotate, or tilt, and both sides move\ntogether, so differences across the handle are content differences, not view\ndifferences.\n\nIt compares the whole map, not only two layers. Either side can include a\ndifferent basemap, a new layer, a restyled layer, a drawing, or an analysis\nresult.",
+    "use": "Open the tool, press **Start comparison**. Change the map however you like, then\ndrag the handle to sweep between before and after.\n\nThe panel can be closed while the comparison runs. Closing the panel is how you\nget at the layer catalog to fetch the thing you want to compare against, so\nending the comparison is a button in the panel and never a side effect of\nclosing the panel. The same button ends the comparison and throws the frozen\nhalf away.\n\nA running comparison goes into the permalink, so a link shares both halves and\nthe handle position. What comes back is a **reconstruction**, not a photograph:\na layer that only ever existed in your own browser has nothing behind its id at\nthe other end (the share dialog names those local-only layers), and styling\nchanges made to the frozen half are not carried in the link.",
+    "embed": "Add `compare` to a toolbar. Two optional settings:\n\n- `labels`: the names beside the handle, defaulting to *before* and *now*.\n- `initialSplit`: where the handle starts, as a percentage of the map width.\n\nOffered on a single-map page. It works on all four engines, because the freeze\nis not an engine feature.",
+    "extend": "The frozen map is a **second `<webmapx-map>` element**, overlaid on the live one\nand clipped with `clip-path`. This avoids maintaining two layer stacks inside\none map.\n\nFreezing is a **replay**, not a serialised config (`src/utils/compare-replay.ts`).\nThe frozen map is handed the same parsed config object, then the live map's\nclocks, its runtime layer requests, the data in each source, and\n`store.mapLayers` for visibility, opacity, order, and paint. A config snapshot\nwould lose the paint. A comparison must not get that wrong, because the frozen\nhalf would then differ from the map the button was pressed on. Source *data* is\ncopied separately because a drawn layer creates its\nsource empty and pushes features in per vertex: replaying the request alone\nreproduces an empty drawing.\n\nCamera sync is one-directional and **instantaneous**. The frozen map takes no\npointer events, so there is no echo to suppress, and `setViewport` gained\n`animate: false` for it. Every engine animated by default, and an animation is\nabandoned by the next camera write, so writing center, then bearing, then pitch\neach frame canceled itself and the frozen half simply stood still."
+  },
+  "page": "https://webmapx.com/tools/compare.html",
+  "webmapxCommit": "bcddc185f9eb131eeea4cb214ddbb80d983ffaaa"
+}

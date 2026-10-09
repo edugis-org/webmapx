@@ -1,0 +1,1 @@
+import{h as e}from"./vendor-lit-DP8NDNGT.js";import{t}from"./decorate-Bxy85Xl5.js";import{t as n}from"./webmapx-geoprocessing-tool-Dhwd16p5.js";var r=class extends n{constructor(){super(),this.toolId=`cartogram`,this.pinnedOperation=`cartogram`}};r=t([e(`webmapx-cartogram-tool`)],r);export{r as WebmapxCartogramTool};

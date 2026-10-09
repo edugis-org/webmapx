@@ -1,0 +1,33 @@
+{
+  "id": "deeptime",
+  "label": "Deep time",
+  "tagline": "Shows reconstructed coastlines from deep time.",
+  "status": "stable",
+  "element": "webmapx-deeptime-tool",
+  "placement": "toolbar",
+  "configType": "deeptime",
+  "demoConfig": "config/docs/tools/deeptime.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-deeptime-tool.ts",
+    "src/utils/plate-rotation.ts",
+    "src/utils/spherical-geojson.ts"
+  ],
+  "tests": [
+    "tests/deeptime-scenes.test.ts",
+    "tests/spherical-geojson.test.ts"
+  ],
+  "related": [
+    "timeSlider",
+    "projection",
+    "stories"
+  ],
+  "sections": {
+    "what": "Deep time shows reconstructed coastlines for a chosen moment in the past. Move\nthe slider back through hundreds of millions of years. The coastlines are\ncomputed by rotating tectonic plates in the browser.\n\nTwo plate models are included, so their differences can be compared.\n\nUse Deep time for questions a static palaeogeographic map cannot answer: when\nan ocean opened, what was next to what, or how long two coastlines were joined.",
+    "use": "1. Open the tool and move the slider. The coastlines redraw for that age.\n2. Switch models to see how much of the picture is model rather than fact.\n\n**The layer outlives the panel.** Closing the tool leaves the coastlines on the\nmap, because closing is how you get the map to yourself. You can then measure\nthe ocean between two continents, ask the info tool about a polygon, or print\nwhat is on screen. From then on it is an ordinary layer, and the legend is where\nyou turn it off.",
+    "embed": "Add `deeptime` to a toolbar and point it at a plate model with `data`, plus the\nages it covers. Model data is a config asset, resolved relative to the config\nfile, so it lives beside the config rather than inside webmapx.\n\nA map with no coastline layer gets one. A map that already draws the same\ncomputed source reuses it.",
+    "extend": "Reconstructed geometry is cut **on the sphere** before it leaves the tool.\nWatch ring winding, degenerate rings, and caps closed exactly along ±90. Each\ncan make a polygon render inside out or cover the map.\n\nCheck an equirectangular *and* an equal-area projection when changing this code."
+  },
+  "page": "https://webmapx.com/tools/deeptime.html",
+  "webmapxCommit": "9d0f49fd2e9dd8ef112e072257eedd51810c2f20"
+}

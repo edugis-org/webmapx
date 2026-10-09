@@ -1,0 +1,1 @@
+import{kr as e}from"./webmapx-shared-AhBMPANj.js";export{e as storeDroppedConfig};

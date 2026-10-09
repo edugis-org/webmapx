@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Draw and edit layers — WebMapX tool</title>
+<meta name="description" content="Adds points, lines and areas to the map, with your own fields.">
+<link rel="canonical" href="https://webmapx.com/tools/draw.html">
+<link rel="alternate" type="application/json" href="./draw.json">
+<link rel="icon" href="../favicon.png" type="image/png">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f8f8f8;color:#1a1a1a;line-height:1.6}
+a{color:#1b6ec2}
+header{background:#0f1923;color:#fff;padding:2rem 1.5rem}
+header .inner,main{max-width:52rem;margin:0 auto}
+header .crumb{font-size:.85rem;color:#8fa6bd}
+header .crumb a{color:#8fa6bd}
+header h1{font-size:2rem;letter-spacing:-.02em;margin:.4rem 0;display:flex;align-items:center;gap:.55rem}
+.tool-icon{display:inline-flex;align-items:center;flex:none}
+.tool-link{display:inline-flex;align-items:center;gap:.45rem}
+header p{color:#aac;max-width:42rem}
+.badges{margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-size:.75rem;border:1px solid #2e4358;color:#cfe0f0;border-radius:99px;padding:.15rem .6rem}
+.mapwrap{max-width:52rem;margin:1.5rem auto;height:26rem;border:1px solid #d8d8d8;border-radius:8px;overflow:hidden;background:#e9e9e9}
+.mapwrap iframe{width:100%;height:100%;border:0;display:block}
+.mapwrap .fallback{padding:2rem;font-size:.9rem;color:#555}
+main{padding:0 1.5rem 4rem}
+section{margin-top:2.5rem}
+/* The tools that exist but have no page yet, listed quietly under their own
+   group rather than in one lump at the bottom: a reader looking for a control
+   should find out there is one, in the place they were already looking. */
+.pending{margin-top:.8rem;font-size:.85rem;color:#666}
+/* One worked example, two pictures and a table. The colours are the tool's own:
+   the first layer neutral, the second layer the accent, the result filled. */
+.io{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;margin-top:1rem}
+.io .arrow{font-size:1.6rem;color:#888;flex:0 0 auto}
+.map-figure{margin:0;flex:0 0 auto}
+.map-figure svg{background:#eef3f7;border:1px solid #d8d8d8;border-radius:4px;display:block}
+.map-figure figcaption{font-size:.75rem;color:#666;margin-top:.25rem}
+svg .a{fill:#c9d6e0;stroke:#7d8f9d;stroke-width:.5}
+svg .ghost{fill:#eceff2;stroke:#dfe4e8;stroke-width:.5}
+svg .b{fill:rgba(217,99,60,.18);stroke:#d9633c;stroke-width:1.2}
+svg .out{fill:rgba(43,108,143,.55);stroke:#1b4a63;stroke-width:.8}
+svg .pt{fill:#1b4a63;stroke:#fff;stroke-width:1}
+table.attrs{font-size:.8rem;margin-top:.6rem;width:auto;border-collapse:collapse}
+table.attrs th,table.attrs td{border:1px solid #ddd;padding:.2rem .5rem;text-align:left}
+table.attrs th{background:#f0f2f4}
+table.attrs td.null{color:#aaa;font-style:italic}
+p.fields{font-size:.85rem;color:#555;margin-top:.8rem}
+.scroll{overflow-x:auto}
+table.matrix{font-size:.8rem;border-collapse:collapse;margin-top:.6rem;width:auto}
+table.matrix th,table.matrix td{border:1px solid #ddd;padding:.25rem .5rem;text-align:center}
+table.matrix th.op{text-align:left;white-space:nowrap;font-weight:600}
+table.matrix th.sub{font-weight:400;color:#666;font-size:.75rem}
+table.matrix thead th{background:#f0f2f4}
+.yes{color:#2f7d4f;font-weight:700}
+.none{color:#999}
+.err{color:#b03030;font-weight:700}
+p.legend{font-size:.85rem;color:#555;margin-top:.6rem}
+.no-geom{width:300px;height:180px;display:flex;align-items:center;justify-content:center;text-align:center;
+  background:#f4f6f8;border:1px dashed #cfd6dc;border-radius:4px;color:#7a848c;font-size:.85rem}
+p.pagenav{font-size:.9rem;margin-top:1.2rem;padding-bottom:.6rem;border-bottom:1px solid #e2e2e2}
+.pending code{background:#ececec;padding:.1em .35em;border-radius:3px}
+h2{font-size:1.3rem;letter-spacing:-.01em;margin-bottom:.6rem}
+p+p,p+ul,p+ol,ul+p,ol+p,pre+p{margin-top:.8rem}
+li{margin-left:1.2rem}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:#ececec;padding:.1em .35em;border-radius:3px}
+pre{background:#0f1923;color:#dfe8f0;padding:1rem;border-radius:6px;overflow-x:auto;margin-top:.8rem}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin-top:.8rem;font-size:.9rem}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid #ddd;vertical-align:top}
+footer{border-top:1px solid #ddd;margin-top:3rem;padding-top:1rem;font-size:.85rem;color:#666}
+@media (prefers-color-scheme:dark){
+ body{background:#12181e;color:#e6ebf0}a{color:#6db8ff}
+ .mapwrap{border-color:#25313d;background:#1a222a}
+ code{background:#222c36}th,td{border-color:#25313d}footer{border-color:#25313d;color:#9aa8b5}
+}
+</style>
+</head>
+<body>
+<header><div class="inner">
+<div class="crumb"><a href="../index.html">WebMapX</a> / <a href="./index.html">Tools</a></div>
+<h1><span class="tool-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-pencil" viewBox="0 0 16 16" width="1em" height="1em">
+  <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/>
+</svg></span>Draw and edit layers</h1>
+<p>Adds points, lines and areas to the map, with your own fields.</p>
+<div class="badges"><span class="badge">type: draw</span><span class="badge">toolbar</span><span class="badge">stable</span></div>
+</div></header>
+<div class="mapwrap"><iframe loading="lazy" allow="fullscreen" title="Draw and edit layers demo map"
+     src="../testpages/preview.html?storageKey=webmapx-docs-no-override&config=../config/docs/tools/draw.json"></iframe></div>
+<main><section id="what"><h2>What it does</h2><p>Draw is for adding your own map data: mark a site, trace a route, or outline a study area. What you draw becomes a normal layer. It appears in the legend, can be styled, and can be saved and opened again later.</p>
+<p>You draw <strong>into a layer</strong>. Before the first point, choose the layer name, the geometry type, a color, and the fields for its features. With fields, the drawing is data: it can be measured, filtered, joined, and exported.</p>
+<p>One layer holds one geometry type: Point, LineString, or Polygon. Keep routes, sites, and areas in separate layers when they need different styles or fields.</p>
+<p>There are three kinds of attributes:</p>
+<ul><li><strong>You type them</strong>: <code>string</code> and <code>number</code>.</li><li><strong>They come from the geometry</strong>: <code>longitude</code>, <code>latitude</code>, <code>area</code>, <code>perimeter</code>, <code>length</code>. These update when you edit the feature.</li><li><strong>They come from the edit</strong>: <code>create-time</code> and <code>update-time</code>.</li></ul>
+<p>Two more types, <code>linkURL</code> and <code>imageURL</code>, are recognized wherever features are shown, so a drawn point can carry a photo or a link to its source.</p>
+<p>Which types you can pick depends on the geometry. A point has no area and a line has no perimeter, so those are not offered.</p>
+<p><strong>Snapping</strong> is on by default. When the cursor is close to a point or edge you already drew, it jumps there and shows a marker. Use snapping when two shapes should share the same border. Hold <strong>Alt</strong> to skip snapping for one point, or use the toggle to switch snapping off.</p>
+<p><strong>Undo and redo</strong> work while drawing and after. In an unfinished shape, undo removes the last point. After a shape is finished, undo opens it again so you can keep editing its points.</p></section>
+<section id="use"><h2>Using it</h2><ol><li>Open Draw and create a layer: give it a name, a geometry type, and a color, and add the fields you want.</li><li>Draw. Click to place points. For a line or polygon, click each corner and then finish the shape.</li><li>Select a feature to fill in its attributes, move its points, or delete it. Select a single point and press <strong>Delete</strong> or <strong>Backspace</strong> to remove it.</li><li>Make more layers when you need them. Routes and sites belong in separate layers.</li><li>Save when you are done. There are two different saves, see below.</li></ol>
+<p>Useful keys while drawing:</p>
+<ul><li><strong>Ctrl/Cmd+Z</strong>, <strong>Ctrl/Cmd+Y</strong>: undo and redo. Point by point inside an unfinished shape, feature by feature outside one.</li><li><strong>Alt</strong> (held): skip snapping for the point you are about to place.</li><li><strong>Delete</strong> / <strong>Backspace</strong>: remove the selected point.</li></ul>
+<p>Every feature gets an <code>id</code> and a <code>name</code> unless you remove them.</p>
+<p><strong>Saving.</strong> There are two ways to save:</p>
+<ul><li><strong>Export GeoJSON</strong>, in the draw tool. This writes the shapes and attributes. One layer gives one <code>.geojson</code>. With several layers you choose between one combined file, where every feature gets a <code>_layer</code> property saying where it came from, or a <code>.zip</code> with one file per layer. No styling is included: this is the data.</li><li><strong>Save layers…</strong>, in the legend, writes what a map needs to look the same again: <code>&lt;name&gt;.geojson</code> together with <code>&lt;name&gt;_style.json</code>. Drop those on a map and the shapes come back with their colors.</li></ul>
+<p>Both are ordinary downloads. Nothing is uploaded, and nothing leaves your browser.</p></section>
+<section id="embed"><h2>In your own map</h2><p>Add <code>draw</code> to a toolbar and you are done. The tool brings its own dialog for creating layers and needs nothing from the config.</p>
+<p>A drawn layer is a normal GeoJSON layer from the moment the layer exists, so the rest of the map already understands it: the legend lists it, the info tool reads its attributes, and measure and the analysis tools accept it as input.</p></section>
+<section id="extend"><h2>Extending it</h2><p>Draw can also write <strong>into an existing layer</strong>. Use <code>borrowedSourceId</code> on the layer configuration, and <code>allowedAttributes</code> to limit which fields people may add. Use this when the map already has a dataset and new features must use its columns.</p>
+<p>Computed fields are recalculated from the geometry. Adding a new computed field means adding the calculation too, not only adding another option to the list.</p>
+<p>Snapping is <code>findSnap</code> in <code>src/utils/snap-utils.ts</code>, shared rather than private to this tool. Two numbers control it: a 16px threshold, and an 8px penalty an edge must beat before it wins over a corner point. Candidates are the features of the draw layers, minus the one being edited, and minus other points while you place a point, since snapping a point onto a point is rarely what anyone wants. <code>findSnap</code> first filters by a geographic box around the cursor, before projecting anything. That keeps snapping fast on a layer with many vertices, where <code>project()</code> is the expensive part.</p><table><tr><th>Config <code>type</code></th><td><code>draw</code></td></tr><tr><th>Element</th><td><code>&lt;webmapx-draw-tool&gt;</code></td></tr><tr><th>Placement</th><td>toolbar</td></tr><tr><th>Source</th><td><a href="https://github.com/edugis-org/webmapx/blob/321e8835aa5967d909163e2e6f1b5a9b9042feb9/src/components/webmapx-draw-tool.ts"><code>src/components/webmapx-draw-tool.ts</code></a><br><a href="https://github.com/edugis-org/webmapx/blob/321e8835aa5967d909163e2e6f1b5a9b9042feb9/src/components/webmapx-draw-layer-dialog.ts"><code>src/components/webmapx-draw-layer-dialog.ts</code></a></td></tr><tr><th>Tests</th><td><a href="https://github.com/edugis-org/webmapx/blob/321e8835aa5967d909163e2e6f1b5a9b9042feb9/tests/tool-registration.test.ts"><code>tests/tool-registration.test.ts</code></a></td></tr><tr><th>Related</th><td><a href="./measure.html">measure</a>, <a href="./info.html">info</a>, <a href="./layerOverview.html">layerOverview</a></td></tr></table></section>
+<footer>Built from webmapx <code>321e883</code> and configs <code>046a5f5</code>.
+Machine-readable: <a href="./draw.json">draw.json</a>.</footer>
+</main>
+</body>
+</html>

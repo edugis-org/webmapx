@@ -1,0 +1,30 @@
+{
+  "id": "navigation",
+  "label": "Navigation",
+  "tagline": "Provides zoom buttons and a compass.",
+  "status": "stable",
+  "element": "webmapx-navigation-control",
+  "placement": "standalone",
+  "configType": "navigation",
+  "demoConfig": "config/docs/tools/navigation.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-navigation-control.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "zoomLevel",
+    "fullscreen",
+    "scale"
+  ],
+  "sections": {
+    "what": "Navigation is the zoom buttons plus a compass.\n\nThe compass matters when a map can rotate. It shows where north is, and clicking\nit returns north to the top. It appears only when the current map engine can\nrotate.\n\nScroll, double-click, pinch, and keyboard controls still work.",
+    "use": "- **+** and **−** zoom by one level, centered on the middle of the map.\n- The **compass** shows which way north is, and resets the bearing when clicked.\n- Where the map is tilted, the compass shows the pitch as well.",
+    "embed": "Add `navigation` with a `position`, usually `top-right`.\n\n- `show-zoom`: the + and − buttons (on by default).\n- `show-compass`: the compass (on by default).\n- `visualize-pitch`: tilt the compass to show the pitch, not just the bearing.\n- `orientation`: `vertical` (default) or `horizontal`.\n\nTurning both off leaves an empty control. If you want no navigation, leave the\nentry out.",
+    "extend": "Bearing and pitch are read through the map adapter, so the same control can be\nused with each engine."
+  },
+  "page": "https://webmapx.com/tools/navigation.html",
+  "webmapxCommit": "bcddc185f9eb131eeea4cb214ddbb80d983ffaaa"
+}

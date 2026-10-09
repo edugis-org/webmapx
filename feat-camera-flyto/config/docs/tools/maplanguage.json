@@ -1,0 +1,109 @@
+{
+  "version": 0,
+  "apiKeysFile": "../../apikeys.json",
+  "project": {
+    "id": "docs-maplanguage",
+    "title": "Map language",
+    "description": "Documentation demo for the map-language tool: a vector basemap whose labels carry names in many languages, over a region where the local script differs from English.",
+    "language": "en"
+  },
+  "map": {
+    "label": "Map language",
+    "type": "maplibre",
+    "center": [
+      30.3,
+      59.94
+    ],
+    "zoom": 10
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "osm-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>"
+      }
+    ],
+    "layers": [
+      {
+        "id": "osm",
+        "type": "raster",
+        "title": "OpenStreetMap",
+        "source": "osm-source",
+        "metadata": {
+          "reference": true,
+          "swatch": "#f2efe9",
+          "abstract": "Plain OpenStreetMap raster tiles. A measurement needs something recognisable underneath it — a canal, a block, a runway — so the numbers can be checked against the world."
+        }
+      },
+      {
+        "id": "openfreemap-liberty",
+        "type": "style",
+        "url": "https://tiles.openfreemap.org/styles/liberty",
+        "singleGroup": "basemap",
+        "title": "OpenFreeMap Liberty (style)",
+        "attribution": "&copy; OpenStreetMap contributors | &copy; OpenFreeMap",
+        "layers": [],
+        "metadata": {
+          "swatch": "#f8f4f0",
+          "supportedEngines": [
+            "maplibre",
+            "openlayers"
+          ]
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeLayers": [
+      {
+        "ref": "openfreemap-liberty",
+        "visible": true
+      }
+    ]
+  },
+  "tools": {
+    "maplanguage": {
+      "type": "maplanguage",
+      "enabled": true
+    },
+    "layerOverview": {
+      "type": "layerOverview",
+      "enabled": true
+    },
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "items": [
+        {
+          "type": "maplanguage",
+          "id": "maplanguage",
+          "enabled": true
+        },
+        {
+          "type": "layerOverview",
+          "id": "layerOverview",
+          "enabled": true
+        }
+      ]
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "attribution": {
+      "type": "attribution",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    }
+  }
+}

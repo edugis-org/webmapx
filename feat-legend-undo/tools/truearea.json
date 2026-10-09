@@ -1,0 +1,30 @@
+{
+  "id": "truearea",
+  "label": "True area",
+  "tagline": "Moves an outline to compare its true size at another latitude.",
+  "status": "stable",
+  "element": "webmapx-truearea-tool",
+  "placement": "toolbar",
+  "configType": "truearea",
+  "demoConfig": "config/docs/tools/truearea.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-truearea-tool.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "cartogram",
+    "projection",
+    "measure"
+  ],
+  "sections": {
+    "what": "Web Mercator inflates area by 1/cos²(latitude). At 60° that is four times. At\nGreenland's latitudes, Mercator makes an island of two million km² look much\nlarger.\n\nPick a country's outline and drag it to another latitude. The copied outline\nkeeps its true ground size and is redrawn for its new position, so distortion is\nvisible.\n\nSeveral outlines can be shown at once, each in its own color.",
+    "use": "1. Open the tool and choose the layer to take shapes from. Any polygon layer on\n   the map can be used.\n2. Pick a feature. A copy of the feature appears, in a color of its own.\n3. Drag the copy. The outline is recomputed as it moves, so what you see is\n   always its true size at that latitude.\n4. **Clear all** removes the copied outlines.\n\nThe copies are a transient overlay. The copied outlines are for looking at, not\nfor keeping.",
+    "embed": "Add `truearea` to a toolbar. True Area needs a polygon layer on the map to take\nshapes from, and says so plainly when there is none.\n\nTrue Area pairs naturally with the projection tool: drag a country south to see\nthe distortion, then switch the map to an equal-area projection to see that\ndistortion removed.",
+    "extend": "Map dragging is suspended while the pointer hovers over a draggable outline.\nSuspending it only after pointer-down can leave the map in a stuck drag state."
+  },
+  "page": "https://webmapx.com/tools/truearea.html",
+  "webmapxCommit": "d63450ebdcfa2cde130f3ebe78ae3e5389a4bbf5"
+}

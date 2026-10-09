@@ -1,0 +1,31 @@
+{
+  "id": "draw",
+  "label": "Draw",
+  "tagline": "Adds points, lines and areas to the map, with your own fields.",
+  "status": "stable",
+  "element": "webmapx-draw-tool",
+  "placement": "toolbar",
+  "configType": "draw",
+  "demoConfig": "config/docs/tools/draw.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-draw-tool.ts",
+    "src/components/webmapx-draw-layer-dialog.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "measure",
+    "info",
+    "layerOverview"
+  ],
+  "sections": {
+    "what": "Draw is for adding your own map data: mark a site, trace a route, or outline a\nstudy area. What you draw becomes a normal layer. It appears in the legend, can\nbe styled, and can be saved and opened again later.\n\nYou draw **into a layer**. Before the first point, choose the layer name, the\ngeometry type, a color, and the fields for its features. With fields, the\ndrawing is data: it can be measured, filtered, joined, and exported.\n\nOne layer holds one geometry type: Point, LineString, or Polygon. Keep routes,\nsites, and areas in separate layers when they need different styles or fields.\n\nThere are three kinds of attributes:\n\n- **You type them**: `string` and `number`.\n- **They come from the geometry**: `longitude`, `latitude`, `area`,\n  `perimeter`, `length`. These update when you edit the feature.\n- **They come from the edit**: `create-time` and `update-time`.\n\nTwo more types, `linkURL` and `imageURL`, are recognized wherever features are\nshown, so a drawn point can carry a photo or a link to its source.\n\nWhich types you can pick depends on the geometry. A point has no area and a line\nhas no perimeter, so those are not offered.\n\n**Snapping** is on by default. When the cursor is close to a point or edge you\nalready drew, it jumps there and shows a marker. Use snapping when two shapes\nshould share the same border. Hold **Alt** to skip snapping for one point, or\nuse the toggle to switch snapping off.\n\n**Undo and redo** work while drawing and after. In an unfinished shape, undo\nremoves the last point. After a shape is finished, undo opens it again so you\ncan keep editing its points.",
+    "use": "1. Open Draw and create a layer: give it a name, a geometry type, and a color,\n   and add the fields you want.\n2. Draw. Click to place points. For a line or polygon, click each corner and\n   then finish the shape.\n3. Select a feature to fill in its attributes, move its points, or delete it.\n   Select a single point and press **Delete** or **Backspace** to remove it.\n4. Make more layers when you need them. Routes and sites belong in separate\n   layers.\n5. Save when you are done. There are two different saves, see below.\n\nUseful keys while drawing:\n\n- **Ctrl/Cmd+Z**, **Ctrl/Cmd+Y**: undo and redo. Point by point inside an\n  unfinished shape, feature by feature outside one.\n- **Alt** (held): skip snapping for the point you are about to place.\n- **Delete** / **Backspace**: remove the selected point.\n\nEvery feature gets an `id` and a `name` unless you remove them.\n\n**Saving.** There are two ways to save:\n\n- **Export GeoJSON**, in the draw tool. This writes the shapes and attributes.\n  One layer gives one `.geojson`. With several layers you choose between one\n  combined file, where every feature gets a `_layer` property saying where it\n  came from, or a `.zip` with one file per layer. No styling is included: this\n  is the data.\n- **Save layers…**, in the legend, writes what a map needs to look the same\n  again: `<name>.geojson` together with `<name>_style.json`. Drop those on a map\n  and the shapes come back with their colors.\n\nBoth are ordinary downloads. Nothing is uploaded, and nothing leaves your\nbrowser.",
+    "embed": "Add `draw` to a toolbar and you are done. The tool brings its own dialog for\ncreating layers and needs nothing from the config.\n\nA drawn layer is a normal GeoJSON layer from the moment the layer exists, so the\nrest of the map already understands it: the legend lists it, the info tool reads\nits attributes, and measure and the analysis tools accept it as input.",
+    "extend": "Draw can also write **into an existing layer**. Use `borrowedSourceId` on the\nlayer configuration, and `allowedAttributes` to limit which fields people may\nadd. Use this when the map already has a dataset and new features must use its\ncolumns.\n\nComputed fields are recalculated from the geometry. Adding a new computed field\nmeans adding the calculation too, not only adding another option to the list.\n\nSnapping is `findSnap` in `src/utils/snap-utils.ts`, shared rather than private\nto this tool. Two numbers control it: a 16px threshold, and an 8px penalty an\nedge must beat before it wins over a corner point. Candidates are the features of\nthe draw layers, minus the one being edited, and minus other points while you\nplace a point, since snapping a point onto a point is rarely what anyone wants.\n`findSnap` first filters by a geographic box around the cursor, before\nprojecting anything. That keeps snapping fast on a layer with many vertices,\nwhere `project()` is the expensive part."
+  },
+  "page": "https://webmapx.com/tools/draw.html",
+  "webmapxCommit": "bcddc185f9eb131eeea4cb214ddbb80d983ffaaa"
+}

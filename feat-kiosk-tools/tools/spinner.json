@@ -1,0 +1,29 @@
+{
+  "id": "spinner",
+  "label": "Spinner",
+  "tagline": "Shows when the map is busy.",
+  "status": "stable",
+  "element": "webmapx-spinner",
+  "placement": "standalone",
+  "configType": "spinner",
+  "demoConfig": "config/docs/tools/spinner.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-spinner.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "activeAdapter",
+    "layerOverview"
+  ],
+  "sections": {
+    "what": "A spinner appears while the map is loading tiles or rendering, and disappears\nwhen the map settles. The spinner helps distinguish a slow map from a broken\none.\n\n**While the map's clock is playing**, the spinner is hidden. An animation may\nnever reach idle, so the spinner would otherwise stay on for the whole run.\n\nTiles that arrive during animation are therefore not shown as a loading state.",
+    "use": "Nothing to operate. The spinner appears while the map is busy and goes away\nwhen the map is not busy.",
+    "embed": "Add `spinner` with a `position`.\n\n- `small`: a more discreet size for a map with little room.\n- `nocolor`: drop the accent color, for a map whose palette it would fight.",
+    "extend": "The store's `mapBusy` still records what the engine reports. This component\ndecides whether that busy state should be shown."
+  },
+  "page": "https://webmapx.com/tools/spinner.html",
+  "webmapxCommit": "34406e84a118bc57ff063cef73ec08b6d8ce0cb4"
+}

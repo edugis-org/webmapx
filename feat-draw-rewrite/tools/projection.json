@@ -1,0 +1,32 @@
+{
+  "id": "projection",
+  "label": "Projection",
+  "tagline": "Changes the map projection.",
+  "status": "stable",
+  "element": "webmapx-projection-tool",
+  "placement": "toolbar",
+  "configType": "projection",
+  "demoConfig": "config/docs/tools/projection.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-projection-tool.ts",
+    "src/utils/view-projections.ts",
+    "src/map/openlayers-services/projection-support.ts"
+  ],
+  "tests": [
+    "tests/view-projections.test.ts"
+  ],
+  "related": [
+    "truearea",
+    "cartogram",
+    "3d"
+  ],
+  "sections": {
+    "what": "Every flat map distorts the globe. Web Mercator, used by most web maps, keeps\nangles but inflates area by 1/cos²(latitude). Greenland appears far too large.\nFor a road map that can be acceptable. For maps about amounts, such as\npopulation, land cover, emissions, or votes, area distortion can mislead.\n\nChanging projection changes the projection the map is **computed** in, not only\nhow it looks. Choices include Equal Earth, Mollweide, EPSG:6933, polar Lambert\nazimuthal and stereographic, alongside Mercator. The panel marks which are\n**equal-area**.\n\nThis is not the same as the 3D tool's globe. The globe changes rendering. This\nchanges the projection.\n\n**OpenLayers only.** Of the four engines, only OpenLayers can use these view\nprojections.",
+    "use": "Pick a projection. The map is rebuilt in that projection, keeping the ground\nscale you were at. The view stays where it was even though the zoom *number*\nchanges, because zoom is relative to a projection's own extent.\n\nChoosing a regional projection from outside its area moves to the middle of that\nregion rather than showing you the blank beyond its edge. For example, the\nAntarctic projection moves to Antarctica when you are looking at Europe.",
+    "embed": "Add `projection` to a toolbar, on an OpenLayers map. A starting projection can\nalso be set in `map.projection`, which is applied when the view is *built*\nrather than afterwards. A map configured for Equal Earth never draws a Mercator\nframe first.",
+    "extend": "A projection must declare the latitudes it can be measured over. Polar\nstereographic sends its antipode to infinity, so world sampling can produce an\nunusable extent. Every cataloged projection must also be **metre-based**.\n\nVector tiles survive the switch because OpenLayers reprojects them in the\ncanvas renderer."
+  },
+  "page": "https://webmapx.com/tools/projection.html",
+  "webmapxCommit": "321e8835aa5967d909163e2e6f1b5a9b9042feb9"
+}

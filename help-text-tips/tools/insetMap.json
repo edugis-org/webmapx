@@ -1,0 +1,30 @@
+{
+  "id": "insetMap",
+  "label": "Inset map",
+  "tagline": "Shows where the main map is.",
+  "status": "stable",
+  "element": "webmapx-inset-map",
+  "placement": "standalone",
+  "configType": "insetMap",
+  "demoConfig": "config/docs/tools/insetMap.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-inset-map.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "navigation",
+    "fullscreen",
+    "layerOverview"
+  ],
+  "sections": {
+    "what": "At high zoom, a map can stop showing where you are. The inset map is a smaller\nmap in the corner, held a few zoom levels out, with a box around the main map's\ncurrent view.\n\nIt follows the main map. Pan the main map and the box moves. Zoom the main map\nand the inset keeps its offset.",
+    "use": "Glance at it. The rectangle is the area of the main map.\n\nWhere the control allows it, the inset can be collapsed to get it out of the\nway, and restored when you want the context back.",
+    "embed": "Add `insetMap` with a `position`, usually a corner the main map's other\ncontrols are not using.\n\n- `zoomOffset`: how many levels *out* from the main map, as a negative number.\n  `-5` is a good starting point: enough to show the region and close enough to\n  still be recognizable.\n- `baseScale`: pin the inset to a constant scale instead of following the main\n  map's zoom, for a map that should always show the same country.\n- `styleUrl` or `background`: what the inset itself draws. A plain, quiet\n  background usually works well because the inset is context.\n- `collapsed`, `minimizable`: start it folded away, and let the reader fold it.",
+    "extend": "The inset is a second map instance, not a picture. It can have its own\nbackground and projection, but it also makes its own tile requests."
+  },
+  "page": "https://webmapx.com/tools/insetMap.html",
+  "webmapxCommit": "d295ce738f5bb532f05c59fcfde04a1d55ff80b4"
+}

@@ -1,0 +1,30 @@
+{
+  "id": "geolocation",
+  "label": "Geolocation",
+  "tagline": "Shows your location and optional track.",
+  "status": "stable",
+  "element": "webmapx-geolocation-tool",
+  "placement": "toolbar",
+  "configType": "geolocation",
+  "demoConfig": "config/docs/tools/geolocation.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-geolocation-tool.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "measure",
+    "draw",
+    "coordinates"
+  ],
+  "sections": {
+    "what": "Geolocation puts your position on the map, using the browser's location service.\nIt draws a marker and an **accuracy** circle. The circle matters: a location fix\nis an estimate, not an exact point.\n\n**Track me** keeps receiving location fixes and joins them into a trail. Tracks\nare stored in the browser between sessions. Each tracking session is a separate\ntrack.\n\nA stored track can be added back to the map (**Add to map**), saved as files\n(**Save as files**), or deleted (**Erase from memory**). Saved tracks include\nboth a line and the individual points with their accuracy.\n\nLocation fixes can be noisy. The tool filters unlikely jumps against recent\nspeed, so standing still does not produce a long trail and one bad fix does not\nbecome a sharp corner.\n\nNothing here reaches the network. Position comes from the browser, tracks are\nstored in this browser, and the export is a local download.",
+    "use": "1. Open the tool. The browser asks for permission in a prompt of its own.\n   **Allow it**. The permission belongs to the browser, not to the map, so a\n   refusal cannot be worked around from here, only granted again.\n2. Your position appears with its accuracy circle. A large circle means the\n   device is unsure. This can happen indoors, or without a satellite fix. It\n   does not mean the map is wrong.\n3. Turn on **Track me** to record a trail. Close the panel and tracking keeps\n   running. The map does not have to stay in front of you.\n4. Open a stored track to add it to the map, save it, or erase it.\n\nTwo things can stop geolocation before it starts, and both look the same from\ninside the page. The browser reports **Permission denied, code 1** either way:\n\n- **The page is not on a secure origin.** Browsers hand out location only over\n  `https://`, or on `localhost` while you are developing. A map served from a\n  plain `http://` address is refused before the prompt ever appears, so there\n  is nothing to allow. Serve it over HTTPS.\n- **The prompt was dismissed or blocked.** Browsers remember that answer and\n  stop asking, so reloading changes nothing. Reopen the permission from the\n  padlock or the location icon in the address bar and set this site back to\n  *Allow*.\n\nIf the browser has no location service, the panel says so.\n\nAccuracy varies by device and surroundings far more than by anything the map\ncan do. A phone outdoors gives metres. A desktop over Wi-Fi may give the city.",
+    "embed": "Add `geolocation` to a toolbar. The behavior is tunable through attributes on\nthe element:\n\n- `watch`: keep following the position rather than taking a single fix\n  (default on).\n- `high-accuracy`: ask the device for a more accurate fix, at a cost in battery\n  (default on).\n- `timeout` and `max-age`: how long to wait for a fix, and how old a cached\n  one may be.\n- `follow`: keep the map centered on the position as it moves.\n- `zoom`: the zoom to use when the map moves to a fix.\n\nServe the map over **HTTPS**. Browsers give location only to a secure context:\n`https://`, or `localhost` while developing. A plain `http://` host is refused\nwith the same permission error as a denied prompt.",
+    "extend": "Position state is shared across instances on a page, so two geolocation\ncontrols do not open two location watches or draw two markers.\n\nStored tracks use one compact array per point: track id, order, timestamp,\nlongitude, latitude, and accuracy. `buildTrackGeoJSON` turns them back into the\npoint and line collections used by the map and export.\n\nChange the plausibility rules only with recorded tracks to test against. They\nscale by a moving average of recent speed, so the same jump may be valid in a\ncar and invalid while standing still."
+  },
+  "page": "https://webmapx.com/tools/geolocation.html",
+  "webmapxCommit": "9d0f49fd2e9dd8ef112e072257eedd51810c2f20"
+}

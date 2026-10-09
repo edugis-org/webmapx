@@ -1,0 +1,30 @@
+{
+  "id": "import-layer",
+  "label": "Import layer",
+  "tagline": "Adds layers from a service URL.",
+  "status": "stable",
+  "element": "webmapx-import-layer-tool",
+  "placement": "toolbar",
+  "configType": "import-layer",
+  "demoConfig": "config/docs/tools/import-layer.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-import-layer-tool.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "layerTree",
+    "layerOverview",
+    "settings"
+  ],
+  "sections": {
+    "what": "Many map services publish a description of the layers they offer. Import layer\nreads that description from a URL and lists the layers it can find.\n\nIt recognizes **WMS**, **WMTS**, **Esri** services, and plain **XYZ** tile\ntemplates. A capabilities URL works, and so do many URLs copied from a\nbrowser's network tab.\n\nChoose from the list to add a normal layer, with a legend row, opacity, order\nand feature info where the service supports it.",
+    "use": "1. Open the tool and paste the URL.\n2. The panel lists what the endpoint offers.\n3. Tick the layers you want and add them.\n\nA service that refuses is usually refusing because of **CORS**. A browser may\nnot read a response from another origin unless that origin allows it. That is a\ndecision by the service, not by the map, and no setting here can overrule it.\nMany public services do allow it. Some do not.",
+    "embed": "Add `import-layer` to a toolbar. Nothing to configure.\n\nConsider who your readers are before including it. On a public map it can invite\nlayers with no attribution, no styling, and no uptime promise. On a map for\nauthors it is useful.",
+    "extend": "Imported layers use the same source-normalisation as configured layers. That\nkeeps permalink and config export behavior the same."
+  },
+  "page": "https://webmapx.com/tools/import-layer.html",
+  "webmapxCommit": "242f0c425d9f54bd67d8143c660f9708686a9572"
+}

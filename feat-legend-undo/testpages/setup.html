@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <link rel="icon" href="../favicon.png">
+  <title>WebMapX Setup</title>
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.4rem; margin-bottom: 1.5rem; }
+    .tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid #ddd; margin-bottom: 1.25rem; }
+    .tab-btn {
+      background: none; border: none; padding: 0.5rem 0.9rem; font-size: 0.9rem;
+      cursor: pointer; color: #666; border-bottom: 2px solid transparent; border-radius: 0;
+    }
+    .tab-btn:hover { color: #0f62fe; }
+    .tab-btn.active { color: #0f62fe; border-bottom-color: #0f62fe; font-weight: 600; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .placeholder { color: #888; font-style: italic; padding: 2rem 0; }
+    .layers-section { margin-bottom: 1.75rem; }
+    .layers-section h2 { font-size: 1rem; margin: 0 0 0.6rem; color: #333; }
+    .map-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.6rem 1rem; }
+    .map-form-grid label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; color: #555; }
+    .map-form-grid input, .map-form-grid select {
+      padding: 0.35rem 0.5rem; font-size: 0.85rem; border: 1px solid #ccc; border-radius: 4px;
+    }
+    .map-checkbox-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; margin-bottom: 0.6rem; cursor: pointer; }
+    #map-maxbounds-fields.disabled { opacity: 0.45; pointer-events: none; }
+    .map-preview-hint { margin: 0.9rem 0 0.4rem; }
+    .map-preview { width: 100%; height: 380px; border: 1px solid #ccc; border-radius: 4px; display: block; }
+
+    /* Stories tab */
+    .story-toolbar { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.6rem; }
+    .story-toolbar select { flex: 1; max-width: 320px; padding: 0.3rem; }
+    .story-editor { margin-top: 0.8rem; }
+    .story-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.8rem; }
+    .story-column h3, .step-editor h3 { font-size: 0.85rem; margin: 0 0 0.4rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+    .chapter-meta { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.5rem; font-size: 0.8rem; }
+    .chapter-meta input { width: 100%; box-sizing: border-box; }
+    .step-editor h4 { font-size: 0.8rem; margin: 0.8rem 0 0.3rem; color: #555; }
+    .btn-add-small { font-size: 0.75rem; padding: 0.15rem 0.5rem; cursor: pointer; }
+    .story-list { display: flex; flex-direction: column; gap: 0.2rem; max-height: 260px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; padding: 0.3rem; }
+    .story-list-row { display: flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.4rem; border-radius: 3px; cursor: pointer; font-size: 0.85rem; }
+    .story-list-row:hover { background: #f5f7fb; }
+    .story-list-row.selected { background: #e5edff; font-weight: 600; }
+    .story-list-row .row-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .story-list-row .row-remove { color: #b00; cursor: pointer; font-size: 0.8rem; }
+    .step-editor { margin-top: 1rem; border-top: 1px solid #eee; padding-top: 0.8rem; }
+    .step-block-label { display: block; font-size: 0.85rem; margin: 0.5rem 0; }
+    .step-block-label textarea { width: 100%; box-sizing: border-box; margin-top: 0.2rem; font-family: inherit; }
+    .step-actions { display: flex; gap: 0.5rem; margin-top: 0.8rem; flex-wrap: wrap; }
+    .btn-danger { color: #b00; }
+    .layer-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.2rem 0.3rem; font-size: 0.82rem; }
+    .layer-row .layer-id { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .layer-row input[type=number] { width: 4.5rem; }
+    .map-preview-actions { display: flex; gap: 0.6rem; margin-top: 0.5rem; }
+    .btn-map-sync {
+      background: #0f62fe; color: #fff; border: none; border-radius: 4px;
+      font-size: 0.8rem; padding: 0.4rem 0.9rem; cursor: pointer;
+    }
+    .btn-map-sync:hover { background: #0353e9; }
+    .btn-map-refresh { background: #e0e0e0; color: #333; }
+    .btn-map-refresh:hover { background: #c6c6c6; }
+    .section-hint { font-size: 0.75rem; font-weight: normal; color: #888; text-transform: none; letter-spacing: normal; }
+    .active-layer-row {
+      display: flex; align-items: center; gap: 0.4rem; padding: 0.15rem 0;
+    }
+    .active-layer-row .layer-title { flex: 1; }
+    .active-layer-row .layer-remove {
+      background: none; border: none; color: #999; cursor: pointer; font-size: 0.9rem;
+      padding: 0 0.3rem; line-height: 1;
+    }
+    .active-layer-row .layer-remove:hover { color: #c00; }
+    .catalog-search {
+      width: 100%; box-sizing: border-box; padding: 0.4rem 0.6rem; margin-bottom: 0.6rem;
+      border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem;
+    }
+    .btn-add-layer {
+      background: #0f62fe; color: #fff; border: none; border-radius: 4px;
+      font-size: 0.8rem; padding: 0.35rem 0.8rem; cursor: pointer; margin-bottom: 0.6rem;
+    }
+    .btn-add-layer:hover { background: #0353e9; }
+    .add-layer-panel {
+      border: 1px solid #ddd; border-radius: 6px; padding: 0.7rem; margin-bottom: 0.8rem; background: #fafbfc;
+    }
+    .add-layer-tabs { display: flex; gap: 0.3rem; margin-bottom: 0.6rem; }
+    .add-layer-tab {
+      background: none; border: 1px solid transparent; border-bottom: 2px solid transparent;
+      padding: 0.3rem 0.6rem; font-size: 0.8rem; color: #666; cursor: pointer;
+    }
+    .add-layer-tab.active { color: #0f62fe; border-bottom-color: #0f62fe; font-weight: 600; }
+    .add-layer-source { display: none; }
+    .add-layer-source.active { display: block; }
+    .add-layer-source input[type=search], .add-layer-source input[type=text] {
+      width: 100%; box-sizing: border-box; padding: 0.35rem 0.5rem; font-size: 0.8rem;
+      border: 1px solid #ccc; border-radius: 4px;
+    }
+    .add-layer-source .urlbox { display: flex; gap: 0.4rem; }
+    .add-layer-source .urlbox input { flex: 1; }
+    .discover-error { color: #c00; font-size: 0.75rem; margin-top: 0.3rem; }
+    .add-layer-results { margin-top: 0.5rem; max-height: 260px; overflow-y: auto; }
+    .repo-provider { border-bottom: 1px solid #eee; padding: 0.3rem 0; }
+    .repo-provider-header {
+      display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.8rem; padding: 0.2rem 0;
+    }
+    .repo-provider-header .provider-name { flex: 1; font-weight: 600; }
+    .repo-provider-layers { padding-left: 0.9rem; display: none; }
+    .repo-provider-layers.open { display: block; }
+    .repo-layer-row, .discover-layer-row {
+      display: flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0; font-size: 0.8rem;
+    }
+    .repo-layer-row .layer-title, .discover-layer-row .layer-title { flex: 1; }
+    .catalog-group { margin-bottom: 0.3rem; }
+    .catalog-group > summary {
+      cursor: pointer; font-size: 0.8rem; color: #777; text-transform: uppercase;
+      letter-spacing: .04em; padding: 0.25rem 0; user-select: none;
+    }
+    .catalog-group > summary:hover { color: #0f62fe; }
+    .catalog-group .tool-list { padding-left: 0.6rem; }
+    .catalog-group[hidden] { display: none; }
+    .type-badge {
+      display: inline-block; font-size: 0.65rem; text-transform: uppercase; letter-spacing: .03em;
+      background: #eef1f6; color: #5a6472; border-radius: 3px; padding: 1px 5px; margin-left: 0.4rem;
+      flex-shrink: 0;
+    }
+    .pool-row {
+      display: flex; align-items: center; gap: 0.4rem; padding: 0.15rem 0;
+    }
+    .pool-row .layer-title { flex: 1; }
+    .pool-row .btn-add {
+      background: #f0f4ff; color: #0f62fe; border: 1px solid #cdd9ff; border-radius: 3px;
+      font-size: 0.7rem; padding: 1px 6px; cursor: pointer;
+    }
+    .pool-row .btn-add:hover { background: #dde8ff; }
+    .tree-group { margin: 0.2rem 0 0.2rem 0.9rem; }
+    .tree-group-header { display: flex; align-items: center; gap: 0.4rem; }
+    .tree-group-label { font-size: 0.8rem; font-weight: 600; color: #555; padding: 0.15rem 0; flex: 1; }
+    .tree-separator {
+      display: flex; align-items: center; gap: 0.4rem; margin: 0.35rem 0 0.15rem 0.9rem;
+      border-top: 1px dashed #ddd; padding-top: 0.2rem;
+    }
+    .tree-separator-label { font-size: 0.7rem; letter-spacing: .04em; color: #999; flex: 1; }
+    .tree-root-controls { display: flex; gap: 0.4rem; margin-bottom: 0.5rem; }
+    .add-layer-select {
+      font-size: 0.7rem; padding: 1px 4px; border: 1px solid #cdd9ff; border-radius: 3px;
+      background: #f0f4ff; color: #0f62fe; cursor: pointer; max-width: 160px;
+    }
+    .tree-leaf {
+      display: flex; align-items: center; gap: 0.4rem; padding: 0.15rem 0 0.15rem 0.9rem;
+    }
+    .tree-leaf .layer-title { flex: 1; }
+    h2 { font-size: 1rem; margin: 1.5rem 0 0.5rem; color: #555; text-transform: uppercase; letter-spacing: .05em; }
+    .tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.4rem; }
+    .tool-list { display: flex; flex-direction: column; gap: 0.25rem; }
+    .plugin-list { list-style: none; margin: 0 0 0.4rem; padding: 0; font-size: 0.85rem; }
+    .plugin-list li { display: flex; align-items: center; gap: 0.5rem; padding: 0.15rem 0; }
+    .plugin-list code { flex: 1; overflow-wrap: anywhere; }
+    .plugin-list .plugin-tools { color: #666; }
+    .plugin-add-row { display: flex; gap: 0.4rem; max-width: 40rem; }
+    .plugin-add-row input { flex: 1; min-width: 0; }
+    label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; position: relative; }
+    label input[type=checkbox] { cursor: pointer; flex-shrink: 0; }
+    /* Follows the checkbox, not the base config: an unchecked tool is left out of the saved config. */
+    label.tool-label:has(> input[type=checkbox]:not(:checked)) { color: #888; font-style: italic; }
+    .tool-name { flex: 1; }
+    .drag-handle {
+      cursor: grab; color: #bbb; font-size: 13px; flex-shrink: 0;
+      user-select: none; padding: 0 2px; line-height: 1;
+    }
+    .drag-handle:active { cursor: grabbing; }
+    /* Drop position while reordering: a line on the side the item will land. */
+    .drop-before { box-shadow: 0 -2px 0 #0f62fe; }
+    .drop-after { box-shadow: 0 2px 0 #0f62fe; }
+    .drag-handle.placeholder { visibility: hidden; }
+    label.dragging { opacity: 0.4; }
+    .info-btn {
+      width: 16px; height: 16px; border-radius: 50%; background: #ccc; color: #555;
+      font-size: 10px; line-height: 16px; text-align: center; flex-shrink: 0;
+      cursor: pointer; border: none; padding: 0; display: none; user-select: none;
+    }
+    label:hover .info-btn, label:focus-within .info-btn { display: block; }
+    .info-btn.active, .info-btn:hover { background: #0f62fe; color: #fff; }
+
+    /* Props popup */
+    .prop-popup {
+      display: none; position: fixed; z-index: 1000;
+      background: #fff; border: 1px solid #bbb; border-radius: 6px;
+      padding: 0.75rem; font-size: 0.8rem;
+      width: 320px; max-height: 380px; overflow-y: auto;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    }
+    .prop-popup.visible { display: block; }
+    .toolbox-section { margin: 0.3rem 0 0.3rem 1.4rem; padding: 0.3rem 0.5rem; border-left: 2px solid #ddd; }
+    .toolbox-section h4 { font-size: 0.75rem; color: #777; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 0.3rem; }
+    .prop-popup h3 { margin: 0 0 0.5rem; font-size: 0.85rem; color: #333; border-bottom: 1px solid #eee; padding-bottom: 0.35rem; }
+    .prop-row { display: flex; flex-direction: column; margin-bottom: 0.5rem; }
+    .prop-row label { font-size: 0.75rem; color: #666; margin-bottom: 2px; font-weight: 500; cursor: default; display: block; flex: none; }
+    .prop-row select { background: #fff; }
+    .prop-row input[type=text], .prop-row input[type=number], .prop-row textarea, .prop-row select {
+      width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 3px;
+      padding: 0.25rem 0.4rem; font-size: 0.8rem; font-family: inherit;
+    }
+    .prop-row input[type=checkbox] { width: auto; cursor: pointer; margin-top: 2px; }
+    .prop-row textarea { font-family: monospace; resize: vertical; min-height: 60px; }
+    .prop-row textarea.json-invalid { border-color: #c00; }
+    .prop-popup-footer { margin-top: 0.5rem; display: flex; justify-content: flex-end; gap: 0.4rem; }
+    .prop-popup-footer button { padding: 0.3rem 0.7rem; font-size: 0.8rem; border-radius: 3px; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; }
+    .prop-popup-footer .btn-apply { background: #0f62fe; color: #fff; border-color: #0f62fe; }
+
+    .actions { margin-top: 2rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+    button { padding: 0.6rem 1.4rem; font-size: 1rem; cursor: pointer; border: none; border-radius: 4px; }
+    #btn-launch { background: #0f62fe; color: #fff; }
+    #btn-launch:hover { background: #0353e9; }
+    #btn-reset { background: #e0e0e0; }
+    #btn-reset:hover { background: #c6c6c6; }
+    #status { margin-top: 1rem; font-size: 0.875rem; color: #555; }
+    #btn-publish { background: #e0e0e0; }
+    #btn-publish:hover { background: #c6c6c6; }
+    #btn-upload { background: #e0e0e0; border: 1px dashed transparent; }
+    #btn-upload:hover, #btn-upload.drag-over { background: #dbe8ff; border-color: #0f62fe; color: #0f62fe; }
+    .upload-hint { flex-basis: 100%; margin: -0.4rem 0 0; font-size: 0.8rem; color: #777; }
+    .upload-path-row { flex-basis: 100%; display: flex; gap: 0.5rem; align-items: center; }
+    .upload-path-row input {
+      flex: 1; min-width: 260px; box-sizing: border-box;
+      padding: 0.45rem 0.6rem; font-size: 0.85rem; border: 1px solid #ccc; border-radius: 4px;
+    }
+    .upload-path-row button { padding: 0.45rem 0.9rem; font-size: 0.85rem; background: #e0e0e0; }
+    body.config-drag-over::before {
+      content: "Drop config file to upload";
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(15, 98, 254, 0.12); color: #0f3f9e;
+      border: 4px dashed #0f62fe; box-sizing: border-box;
+      font-size: 1.4rem; font-weight: 600; pointer-events: none;
+    }
+    .publish-panel {
+      border: 1px solid #ddd; border-radius: 6px; padding: 0.9rem; margin: 0.75rem 0 1.25rem;
+      background: #fafbfc; max-width: 480px;
+    }
+    .publish-row { margin-bottom: 0.6rem; }
+    .publish-row label { display: block; font-size: 0.8rem; color: #555; margin-bottom: 0.2rem; }
+    .publish-row input {
+      width: 100%; box-sizing: border-box; padding: 0.35rem 0.5rem; font-size: 0.85rem;
+      border: 1px solid #ccc; border-radius: 4px;
+    }
+    .publish-actions { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
+    .publish-actions button { padding: 0.4rem 0.9rem; font-size: 0.85rem; }
+    #btn-publish-submit { background: #0f62fe; color: #fff; }
+    #btn-publish-submit:hover { background: #0353e9; }
+    #btn-publish-forget { background: none; border: 1px solid #ccc; margin-left: auto; }
+    .publish-status { margin-top: 0.6rem; font-size: 0.8rem; }
+    .publish-status.error { color: #c00; }
+    .publish-status.success { color: #0a7d2c; }
+  </style>
+  <script type="module" crossorigin src="../assets/setup-qF0IA-qZ.js"></script>
+  <link rel="modulepreload" crossorigin href="../assets/rolldown-runtime-Cyuzqnbw.js">
+  <link rel="modulepreload" crossorigin href="../assets/cesium-adapter-DisIqC8X.js">
+  <link rel="modulepreload" crossorigin href="../assets/leaflet-adapter-i_tz09dH.js">
+  <link rel="modulepreload" crossorigin href="../assets/maplibre-adapter-4uMOfx1s.js">
+  <link rel="modulepreload" crossorigin href="../assets/openlayers-adapter-CEzf42cr.js">
+  <link rel="modulepreload" crossorigin href="../assets/vendor-allmaps-foundation-DgvLFwLJ.js">
+  <link rel="modulepreload" crossorigin href="../assets/vendor-lit-DP8NDNGT.js">
+  <link rel="modulepreload" crossorigin href="../assets/webmapx-shared-BxP0Veuc.js">
+  <link rel="modulepreload" crossorigin href="../assets/decorate-BYWDLhV9.js">
+  <link rel="modulepreload" crossorigin href="../assets/webmapx-base-tool-iwCAYwbC.js">
+  <link rel="modulepreload" crossorigin href="../assets/webmapx-modal-tool-C5I1Dj5r.js">
+  <link rel="modulepreload" crossorigin href="../assets/plugin-loader-D9OD0i4M.js">
+  <link rel="stylesheet" crossorigin href="../assets/leaflet-adapter-vh-t_kPv.css">
+  <link rel="stylesheet" crossorigin href="../assets/maplibre-adapter-B2k4QVOw.css">
+  <link rel="stylesheet" crossorigin href="../assets/openlayers-adapter-c_1sG1-7.css">
+</head>
+<body>
+  <h1>WebMapX Setup</h1>
+
+  <div class="actions">
+    <button id="btn-launch">Update preview</button>
+    <button id="btn-reset">Reset to defaults</button>
+    <button id="btn-download">Download config</button>
+    <button id="btn-upload" type="button">Upload config</button>
+    <input id="config-upload-input" type="file" accept=".json,application/json" hidden>
+    <button id="btn-publish">Publish to GitHub…</button>
+    <div class="upload-path-row">
+      <input id="config-path-input" type="text" placeholder="Paste config path or URL, e.g. \\wsl$\Ubuntu-22.04\home\anneb\projects\webmapx-configs\nl.json">
+      <button id="btn-open-config-path" type="button">Open path</button>
+    </div>
+    <p class="upload-hint">Drop a JSON config or path anywhere on this page, use Upload config, or paste a local dev path above.</p>
+  </div>
+
+  <div id="publish-panel" class="publish-panel" hidden>
+    <div class="publish-row">
+      <label>Personal access token <span class="section-hint">(repo / contents:write scope, saved in this browser's localStorage)</span></label>
+      <input type="password" id="publish-token" autocomplete="off">
+    </div>
+    <div class="publish-row">
+      <label>Repository <span class="section-hint">(owner/repo)</span></label>
+      <input type="text" id="publish-repo" placeholder="owner/repo">
+    </div>
+    <div class="publish-row">
+      <label>Branch</label>
+      <input type="text" id="publish-branch" value="main">
+    </div>
+    <div class="publish-row">
+      <label>File path</label>
+      <input type="text" id="publish-path" value="configs/webmapx-config.json">
+    </div>
+    <div class="publish-row">
+      <label>Commit message</label>
+      <input type="text" id="publish-message" value="Update webmapx config">
+    </div>
+    <div class="publish-actions">
+      <button id="btn-publish-submit">Publish</button>
+      <button id="btn-publish-cancel">Cancel</button>
+      <button id="btn-publish-forget">Forget saved token</button>
+    </div>
+    <div id="publish-status" class="publish-status"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="tools">Tools</button>
+    <button class="tab-btn" data-tab="layers">Layers</button>
+    <button class="tab-btn" data-tab="map">Map</button>
+    <button class="tab-btn" data-tab="stories">Stories</button>
+  </div>
+
+  <div class="tab-panel active" id="tab-tools">
+    <p>Open <a href="preview.html" target="_blank">preview.html</a> in a split tab, then use the button below to push config to it.</p>
+    <div style="margin-bottom:0.5rem">
+      <label><input type="checkbox" id="select-all" checked> Select / deselect all</label>
+    </div>
+    <section class="plugins-section">
+      <h2>Plugins <span class="section-hint">module URLs, relative to the config file — their tools appear in the lists below</span></h2>
+      <ul id="plugin-list" class="plugin-list"></ul>
+      <form id="plugin-add-form" class="plugin-add-row">
+        <input id="plugin-url-input" type="text" aria-label="Plugin URL" placeholder="e.g. ../plugins/bookmarks.js">
+        <button type="submit">Add plugin</button>
+      </form>
+    </section>
+    <div id="ui"></div>
+  </div>
+
+  <div class="tab-panel" id="tab-layers">
+    <section class="layers-section">
+      <h2>Available layers <span class="section-hint">— layers not yet in the Layer tree tool below</span></h2>
+      <input type="search" id="catalog-search" class="catalog-search" placeholder="Filter layers…">
+
+      <button id="btn-add-layer" class="btn-add-layer">+ Add layer…</button>
+      <div id="add-layer-panel" class="add-layer-panel" hidden>
+        <div class="add-layer-tabs">
+          <button class="add-layer-tab active" data-source="repo" type="button">From layer repository</button>
+          <button class="add-layer-tab" data-source="url" type="button">From a service URL</button>
+        </div>
+
+        <div id="add-layer-repo" class="add-layer-source active">
+          <input type="search" id="repo-search" placeholder="Search provider, region, category…">
+          <div id="repo-results" class="add-layer-results"></div>
+        </div>
+
+        <div id="add-layer-url" class="add-layer-source">
+          <div class="urlbox">
+            <input type="text" id="discover-url" placeholder="Paste a WMS/WMTS/Esri/XYZ service URL…">
+            <button id="btn-discover">Discover</button>
+          </div>
+          <div id="discover-error" class="discover-error"></div>
+          <div id="discover-results" class="add-layer-results"></div>
+        </div>
+      </div>
+
+      <div id="catalog-list"></div>
+    </section>
+
+    <section class="layers-section">
+      <h2>Layer tree <span class="section-hint">— structure shown by the layerTree tool</span></h2>
+      <div id="layertree-list"></div>
+      <p id="layertree-empty" class="placeholder" style="display:none; padding:0.5rem 0;">No layerTree tool found in this config.</p>
+    </section>
+
+    <section class="layers-section">
+      <h2>Active layers <span class="section-hint">— current map stack, top of list = top of map</span></h2>
+      <div id="activelayers-list" class="tool-list"></div>
+      <p id="activelayers-empty" class="placeholder" style="display:none; padding:0.5rem 0;">No active layers — check layers in Available layers above to add them.</p>
+    </section>
+
+    <section class="layers-section">
+      <h2>Built-in data <span class="section-hint">— terrain and other tools needing bundled data</span></h2>
+      <p class="placeholder">Coming soon (e.g. 3D terrain exaggeration).</p>
+    </section>
+  </div>
+  <div class="tab-panel" id="tab-map">
+    <section class="layers-section">
+      <h2>Map <span class="section-hint">— initial view and engine</span></h2>
+      <div class="map-form-grid">
+        <label>Label
+          <input type="text" id="map-label">
+        </label>
+        <label>Engine
+          <select id="map-type">
+            <option value="maplibre">maplibre</option>
+            <option value="openlayers">openlayers</option>
+            <option value="leaflet">leaflet</option>
+            <option value="cesium">cesium</option>
+          </select>
+        </label>
+        <label>Center longitude
+          <input type="number" id="map-center-lon" step="any">
+        </label>
+        <label>Center latitude
+          <input type="number" id="map-center-lat" step="any">
+        </label>
+        <label>Zoom
+          <input type="number" id="map-zoom" step="any">
+        </label>
+        <label>Bearing
+          <input type="number" id="map-bearing" step="any">
+        </label>
+        <label>Pitch
+          <input type="number" id="map-pitch" step="any">
+        </label>
+        <label>Projection <span class="section-hint">(view-mode tool default)</span>
+          <select id="map-projection">
+            <option value="">(default — mercator)</option>
+            <option value="mercator">mercator</option>
+            <option value="globe">globe</option>
+          </select>
+        </label>
+      </div>
+
+      <p class="section-hint map-preview-hint">A real webmapx map — same engine, tools, and active layers as your config. Pan/zoom/rotate/tilt it, then use the button below to pull those values back into the form.</p>
+      <iframe id="map-preview-frame" class="map-preview" src="./preview.html?storageKey=webmapx-setup-map-preview-config"></iframe>
+      <div class="map-preview-actions">
+        <button id="btn-map-refresh" class="btn-map-sync btn-map-refresh">⟳ Refresh preview from form</button>
+        <button id="btn-map-sync" class="btn-map-sync" hidden>↻ Update form with map settings</button>
+      </div>
+    </section>
+
+    <section class="layers-section">
+      <h2>View limits <span class="section-hint">— runtimeMap zoom/pitch bounds</span></h2>
+      <div class="map-form-grid">
+        <label>Min zoom
+          <input type="number" id="map-minzoom" step="any">
+        </label>
+        <label>Max zoom
+          <input type="number" id="map-maxzoom" step="any">
+        </label>
+        <label>Min pitch
+          <input type="number" id="map-minpitch" step="any">
+        </label>
+        <label>Max pitch
+          <input type="number" id="map-maxpitch" step="any">
+        </label>
+      </div>
+    </section>
+
+    <section class="layers-section">
+      <h2>Max extent <span class="section-hint">— runtimeMap.maxBounds, restricts pan/zoom-out</span></h2>
+      <label class="map-checkbox-row"><input type="checkbox" id="map-maxbounds-enabled"> Restrict to a bounding box</label>
+      <div class="map-form-grid" id="map-maxbounds-fields">
+        <label>West
+          <input type="number" id="map-maxbounds-west" step="any">
+        </label>
+        <label>South
+          <input type="number" id="map-maxbounds-south" step="any">
+        </label>
+        <label>East
+          <input type="number" id="map-maxbounds-east" step="any">
+        </label>
+        <label>North
+          <input type="number" id="map-maxbounds-north" step="any">
+        </label>
+      </div>
+    </section>
+  </div>
+  <div class="tab-panel" id="tab-stories">
+    <section class="layers-section">
+      <h2>Stories <span class="section-hint">— guided tours (config `stories` section)</span></h2>
+
+      <div class="story-toolbar">
+        <select id="story-select"></select>
+        <button id="btn-story-add" type="button">+ New story</button>
+        <button id="btn-story-delete" type="button">Delete story</button>
+      </div>
+      <p id="stories-empty" class="placeholder" style="display:none; padding:0.5rem 0;">No stories yet — click "+ New story" to create one.</p>
+
+      <div id="story-editor" class="story-editor" hidden>
+        <div class="map-form-grid">
+          <label>Name
+            <input type="text" id="story-name">
+          </label>
+          <label>Panel width <span class="section-hint">(e.g. 480px)</span>
+            <input type="text" id="story-width" placeholder="(default)">
+          </label>
+          <label style="grid-column: 1 / -1">Description
+            <input type="text" id="story-description">
+          </label>
+        </div>
+
+        <div class="story-columns">
+          <div class="story-column">
+            <h3>Chapters <button id="btn-chapter-add" type="button" class="btn-add-small">+ Add</button></h3>
+            <div id="chapters-list" class="story-list"></div>
+            <div id="chapter-meta" class="chapter-meta" hidden>
+              <label>Title <input type="text" id="chapter-title"></label>
+              <label>Button text <input type="text" id="chapter-buttontext"></label>
+              <label>Id <input type="text" id="chapter-id"></label>
+            </div>
+          </div>
+          <div class="story-column">
+            <h3>Steps <button id="btn-step-add" type="button" class="btn-add-small">+ Add</button></h3>
+            <div id="steps-list" class="story-list"></div>
+          </div>
+        </div>
+
+        <div id="step-editor" class="step-editor" hidden>
+          <h3>Step</h3>
+          <div class="map-form-grid">
+            <label style="grid-column: 1 / -1">Title
+              <input type="text" id="step-title">
+            </label>
+          </div>
+          <label class="step-block-label">Content <span class="section-hint">(inline HTML, sanitized on render)</span>
+            <textarea id="step-html" rows="3"></textarea>
+          </label>
+
+          <div class="map-form-grid">
+            <label>Center longitude
+              <input type="number" id="step-lon" step="any">
+            </label>
+            <label>Center latitude
+              <input type="number" id="step-lat" step="any">
+            </label>
+            <label>Zoom
+              <input type="number" id="step-zoom" step="any">
+            </label>
+            <label>Bearing
+              <input type="number" id="step-bearing" step="any">
+            </label>
+            <label>Pitch
+              <input type="number" id="step-pitch" step="any">
+            </label>
+            <label>Projection
+              <select id="step-projection">
+                <option value="">(default — mercator)</option>
+                <option value="mercator">mercator</option>
+                <option value="globe">globe</option>
+              </select>
+            </label>
+          </div>
+          <label class="map-checkbox-row"><input type="checkbox" id="step-terrain"> 3D terrain enabled</label>
+
+          <h4>Layers <span class="section-hint">— checked = shown; "hidden" = loaded but not visible</span></h4>
+          <div id="step-layers-list" class="story-list"></div>
+
+          <div class="step-actions">
+            <button id="btn-step-capture" type="button">↻ Capture current view from map</button>
+            <button id="btn-step-preview" type="button">▶ Preview step on map</button>
+            <button id="btn-step-delete" type="button" class="btn-danger">Delete step</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-hint map-preview-hint">A real webmapx map — same engine, tools, and active layers as your config. Position it, then "Capture current view" to fill in a step's camera, or "Preview step" to see what a step looks like.</p>
+      <iframe id="stories-preview-frame" class="map-preview" src="./preview.html?storageKey=webmapx-setup-stories-preview-config"></iframe>
+    </section>
+  </div>
+  <div id="status"></div>
+
+</body>
+</html>

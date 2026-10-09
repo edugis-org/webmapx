@@ -1,0 +1,31 @@
+{
+  "id": "info",
+  "label": "Feature info",
+  "tagline": "Shows the attributes at a point on the map.",
+  "status": "stable",
+  "element": "webmapx-info-tool",
+  "placement": "toolbar",
+  "configType": "info",
+  "demoConfig": "config/docs/tools/info.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-info-tool.ts",
+    "src/map/wms-feature-info.ts"
+  ],
+  "tests": [
+    "tests/info-tool-query.test.ts"
+  ],
+  "related": [
+    "layerOverview",
+    "measure",
+    "draw"
+  ],
+  "sections": {
+    "what": "Info shows the data at a point on the map: feature attributes, elevation where\navailable, and Street View where configured.\n\nIt has two modes:\n\n- **Hover**: move the pointer and the panel follows it, reading the vector\n  features under the cursor. Nothing is committed. You are browsing.\n- **Pinned**: click, and that location is held. The panel stops following the\n  pointer, so you can read it, scroll it, and select the text. Clicking the\n  same place again unpins and returns to hovering.\n\nHover works for vector layers only, because those features are already in the\nbrowser. Clicking also queries WMS layers with `GetFeatureInfo`.\n\nThe panel also shows **elevation** where the map has terrain data, and a\n**Street View** thumbnail where a Google API key is configured.\n\nLayer metadata can make attributes readable: translate names, add units, and\nmap coded values to labels. For example, `pop_est` can be shown as population.",
+    "use": "1. Open the info tool from the toolbar.\n2. Move over the map. The panel shows the features under the pointer, layer by\n   layer.\n3. Click to pin a location. The panel holds still so you can read and copy it.\n4. Click the same spot again to release it, or move on and click elsewhere to\n   pin that instead.\n\nFor tiled vector layers, only drawn features can be queried. A feature outside\nthe current view or below its zoom range cannot appear in the panel.",
+    "embed": "The tool needs no configuration to work: it queries whatever the map has.\n\nOne option is worth setting: `googleApiKey`, which turns on the Street View\nthumbnail. Without `googleApiKey`, the rest of the panel is unchanged. The\nStreet View section simply does not appear.\n\nAttribute display comes from the layer, not from this tool. Give a layer\n`metadata.attributes.translations` and every panel that shows those properties\nreads the same definitions.",
+    "extend": "Hover and pinned mode use different query paths. Hover is throttled and\nhit-tests within a few pixels. A click uses a slightly wider tolerance. A second\nclick close to the pinned point unpins it.\n\n`metadata.attributes` may be a string naming a shared definition in\n`layerData.attributeMetadata`. Use that when many layers share the same columns."
+  },
+  "page": "https://webmapx.com/tools/info.html",
+  "webmapxCommit": "242f0c425d9f54bd67d8143c660f9708686a9572"
+}

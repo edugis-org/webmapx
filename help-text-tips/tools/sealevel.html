@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sea level — WebMapX tool</title>
+<meta name="description" content="Moves the sea level from the last ice age to a world without land ice.">
+<link rel="canonical" href="https://webmapx.com/tools/sealevel.html">
+<link rel="alternate" type="application/json" href="./sealevel.json">
+<link rel="icon" href="../favicon.png" type="image/png">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f8f8f8;color:#1a1a1a;line-height:1.6}
+a{color:#1b6ec2}
+header{background:#0f1923;color:#fff;padding:2rem 1.5rem}
+header .inner,main{max-width:52rem;margin:0 auto}
+header .crumb{font-size:.85rem;color:#8fa6bd}
+header .crumb a{color:#8fa6bd}
+header h1{font-size:2rem;letter-spacing:-.02em;margin:.4rem 0;display:flex;align-items:center;gap:.55rem}
+.tool-icon{display:inline-flex;align-items:center;flex:none}
+.tool-link{display:inline-flex;align-items:center;gap:.45rem}
+header p{color:#aac;max-width:42rem}
+.badges{margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-size:.75rem;border:1px solid #2e4358;color:#cfe0f0;border-radius:99px;padding:.15rem .6rem}
+.mapwrap{max-width:52rem;margin:1.5rem auto;height:26rem;border:1px solid #d8d8d8;border-radius:8px;overflow:hidden;background:#e9e9e9}
+.mapwrap iframe{width:100%;height:100%;border:0;display:block}
+.mapwrap .fallback{padding:2rem;font-size:.9rem;color:#555}
+main{padding:0 1.5rem 4rem}
+section{margin-top:2.5rem}
+/* The tools that exist but have no page yet, listed quietly under their own
+   group rather than in one lump at the bottom: a reader looking for a control
+   should find out there is one, in the place they were already looking. */
+.pending{margin-top:.8rem;font-size:.85rem;color:#666}
+/* One worked example, two pictures and a table. The colours are the tool's own:
+   the first layer neutral, the second layer the accent, the result filled. */
+.io{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;margin-top:1rem}
+.io .arrow{font-size:1.6rem;color:#888;flex:0 0 auto}
+.map-figure{margin:0;flex:0 0 auto}
+.map-figure svg{background:#eef3f7;border:1px solid #d8d8d8;border-radius:4px;display:block}
+.map-figure figcaption{font-size:.75rem;color:#666;margin-top:.25rem}
+svg .a{fill:#c9d6e0;stroke:#7d8f9d;stroke-width:.5}
+svg .ghost{fill:#eceff2;stroke:#dfe4e8;stroke-width:.5}
+svg .b{fill:rgba(217,99,60,.18);stroke:#d9633c;stroke-width:1.2}
+svg .out{fill:rgba(43,108,143,.55);stroke:#1b4a63;stroke-width:.8}
+svg .pt{fill:#1b4a63;stroke:#fff;stroke-width:1}
+table.attrs{font-size:.8rem;margin-top:.6rem;width:auto;border-collapse:collapse}
+table.attrs th,table.attrs td{border:1px solid #ddd;padding:.2rem .5rem;text-align:left}
+table.attrs th{background:#f0f2f4}
+table.attrs td.null{color:#aaa;font-style:italic}
+p.fields{font-size:.85rem;color:#555;margin-top:.8rem}
+.scroll{overflow-x:auto}
+table.matrix{font-size:.8rem;border-collapse:collapse;margin-top:.6rem;width:auto}
+table.matrix th,table.matrix td{border:1px solid #ddd;padding:.25rem .5rem;text-align:center}
+table.matrix th.op{text-align:left;white-space:nowrap;font-weight:600}
+table.matrix th.sub{font-weight:400;color:#666;font-size:.75rem}
+table.matrix thead th{background:#f0f2f4}
+.yes{color:#2f7d4f;font-weight:700}
+.none{color:#999}
+.err{color:#b03030;font-weight:700}
+p.legend{font-size:.85rem;color:#555;margin-top:.6rem}
+.no-geom{width:300px;height:180px;display:flex;align-items:center;justify-content:center;text-align:center;
+  background:#f4f6f8;border:1px dashed #cfd6dc;border-radius:4px;color:#7a848c;font-size:.85rem}
+p.pagenav{font-size:.9rem;margin-top:1.2rem;padding-bottom:.6rem;border-bottom:1px solid #e2e2e2}
+.pending code{background:#ececec;padding:.1em .35em;border-radius:3px}
+h2{font-size:1.3rem;letter-spacing:-.01em;margin-bottom:.6rem}
+p+p,p+ul,p+ol,ul+p,ol+p,pre+p{margin-top:.8rem}
+li{margin-left:1.2rem}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:#ececec;padding:.1em .35em;border-radius:3px}
+pre{background:#0f1923;color:#dfe8f0;padding:1rem;border-radius:6px;overflow-x:auto;margin-top:.8rem}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin-top:.8rem;font-size:.9rem}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid #ddd;vertical-align:top}
+footer{border-top:1px solid #ddd;margin-top:3rem;padding-top:1rem;font-size:.85rem;color:#666}
+@media (prefers-color-scheme:dark){
+ body{background:#12181e;color:#e6ebf0}a{color:#6db8ff}
+ .mapwrap{border-color:#25313d;background:#1a222a}
+ code{background:#222c36}th,td{border-color:#25313d}footer{border-color:#25313d;color:#9aa8b5}
+}
+</style>
+</head>
+<body>
+<header><div class="inner">
+<div class="crumb"><a href="../index.html">WebMapX</a> / <a href="./index.html">Tools</a></div>
+<h1><span class="tool-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-water" viewBox="0 0 16 16" width="1em" height="1em">
+  <path d="M.036 3.314a.5.5 0 0 1 .65-.278l1.757.703a1.5 1.5 0 0 0 1.114 0l1.014-.406a2.5 2.5 0 0 1 1.857 0l1.015.406a1.5 1.5 0 0 0 1.114 0l1.014-.406a2.5 2.5 0 0 1 1.857 0l1.015.406a1.5 1.5 0 0 0 1.114 0l1.757-.703a.5.5 0 1 1 .372.928l-1.758.703a2.5 2.5 0 0 1-1.857 0l-1.014-.406a1.5 1.5 0 0 0-1.114 0l-1.015.406a2.5 2.5 0 0 1-1.857 0l-1.014-.406a1.5 1.5 0 0 0-1.114 0l-1.015.406a2.5 2.5 0 0 1-1.857 0L.314 3.964a.5.5 0 0 1-.278-.65m0 3a.5.5 0 0 1 .65-.278l1.757.703a1.5 1.5 0 0 0 1.114 0l1.014-.406a2.5 2.5 0 0 1 1.857 0l1.015.406a1.5 1.5 0 0 0 1.114 0l1.014-.406a2.5 2.5 0 0 1 1.857 0l1.015.406a1.5 1.5 0 0 0 1.114 0l1.757-.703a.5.5 0 1 1 .372.928l-1.758.703a2.5 2.5 0 0 1-1.857 0l-1.014-.406a1.5 1.5 0 0 0-1.114 0l-1.015.406a2.5 2.5 0 0 1-1.857 0l-1.014-.406a1.5 1.5 0 0 0-1.114 0l-1.015.406a2.5 2.5 0 0 1-1.857 0L.314 6.964a.5.5 0 0 1-.278-.65m0 3a.5.5 0 0 1 .65-.278l1.757.703a1.5 1.5 0 0 0 1.114 0l1.014-.406a2.5 2.5 0 0 1 1.857 0l1.015.406a1.5 1.5 0 0 0 1.114 0l1.014-.406a2.5 2.5 0 0 1 1.857 0l1.015.406a1.5 1.5 0 0 0 1.114 0l1.757-.703a.5.5 0 1 1 .372.928l-1.758.703a2.5 2.5 0 0 1-1.857 0l-1.014-.406a1.5 1.5 0 0 0-1.114 0l-1.015.406a2.5 2.5 0 0 1-1.857 0l-1.014-.406a1.5 1.5 0 0 0-1.114 0l-1.015.406a2.5 2.5 0 0 1-1.857 0L.314 9.964a.5.5 0 0 1-.278-.65m0 3a.5.5 0 0 1 .65-.278l1.757.703a1.5 1.5 0 0 0 1.114 0l1.014-.406a2.5 2.5 0 0 1 1.857 0l1.015.406a1.5 1.5 0 0 0 1.114 0l1.014-.406a2.5 2.5 0 0 1 1.857 0l1.015.406a1.5 1.5 0 0 0 1.114 0l1.757-.703a.5.5 0 1 1 .372.928l-1.758.703a2.5 2.5 0 0 1-1.857 0l-1.014-.406a1.5 1.5 0 0 0-1.114 0l-1.015.406a2.5 2.5 0 0 1-1.857 0l-1.014-.406a1.5 1.5 0 0 0-1.114 0l-1.015.406a2.5 2.5 0 0 1-1.857 0l-1.757-.703a.5.5 0 0 1-.278-.65"/>
+</svg></span>Sea level</h1>
+<p>Moves the sea level from the last ice age to a world without land ice.</p>
+<div class="badges"><span class="badge">type: sealevel</span><span class="badge">toolbar</span><span class="badge">stable</span></div>
+</div></header>
+<div class="mapwrap"><iframe loading="lazy" allow="fullscreen" title="Sea level demo map"
+     src="../testpages/preview.html?storageKey=webmapx-docs-no-override&config=../config/docs/tools/sealevel.json"></iframe></div>
+<main><section id="what"><h2>What it does</h2><p>Sea level shows where the sea reaches at a chosen level, from −134 m — the lowest sea level of the last glacial maximum, about 21,000 years ago — to +70 m, when all land ice has melted.</p>
+<p>Below today the dry sea floor is drawn as land: Doggerland joins Britain to the continent, and the Bering Strait closes. Above today the sea floods the coasts.</p>
+<p>The sea only goes where it can reach. A depression floods once the sea spills over its lowest saddle, not at its own depth: the Black Sea connects at −28 m over the Bosporus, the Caspian at +25 m, the Dead Sea at +58 m.</p></section>
+<section id="use"><h2>Using it</h2><ol><li>Open the tool and move the slider, or use the step buttons and ▶ to play. <strong>Today</strong> goes back to today's level.</li><li>Switch to <strong>Time</strong> to move through years instead of metres. The level then follows a sea level curve (Lambeck et al. 2014), and the panel names the period — meltwater pulse 1A, the Younger Dryas, Doggerland drowning.</li></ol>
+<p>Closing the panel leaves the map at the level you chose, so you can measure, query or print it. The legend follows the slider: &quot;Sea&quot;, &quot;Dry sea floor&quot; and &quot;As today&quot;.</p>
+<p>Not for navigation: coastal land heights are only indicative.</p></section>
+<section id="embed"><h2>In your own map</h2><p>Add <code>sealevel</code> to a toolbar. Nothing else is required. The tool adds its own layer from the coastal zones archive (<code>tiles</code>) when the map does not already show one — or from the same zones as GeoJSON (<code>geojson</code>) on an engine that cannot read the archive — and reads its curve from <code>data</code>. All three paths are config assets, relative to the config file.</p>
+<p>The archive is <code>coastal_zones.pmtiles</code> (~15 MB; the GeoJSON is 10 MB, 0.8 MB gzipped), built from the GEBCO_2026 grid and published as a release of <a href="https://github.com/edugis-org/coastal_zones">edugis-org/coastal_zones</a>. It is read with HTTP range requests, so any static host serves it — but copy it to your own host: GitHub release downloads are not readable by a browser. The data are CC BY 4.0; credit EduGIS and GEBCO.</p>
+<p>A <code>coastal-zones</code> layer already on the map is adopted rather than added again. The tool never takes it from the catalog: which format to load is the engine's to decide, not the config's.</p></section>
+<section id="extend"><h2>Extending it</h2><p>The layer is split once into one sublayer per <code>flood_level</code> class, each with a constant colour, and a move rewrites only the classes that change role. A single data-driven <code>fill-color</code> expression was re-evaluated for every feature of every loaded tile on each move: about 335 ms per step against 32 ms now.</p>
+<p>The tool is the same on every engine; only the data differs, and the adapter decides which (<code>canDrawSource</code>). MapLibre reads the <code>pmtiles://</code> archive. OpenLayers cannot, and gets the same zones as one GeoJSON file at 16′ (<code>geojson</code>), read once into the view's projection — so the animation also runs in Equal Earth or Mollweide, where a world map shows areas truthfully.</p><table><tr><th>Config <code>type</code></th><td><code>sealevel</code></td></tr><tr><th>Element</th><td><code>&lt;webmapx-sealevel-tool&gt;</code></td></tr><tr><th>Placement</th><td>toolbar</td></tr><tr><th>Source</th><td><a href="https://github.com/edugis-org/webmapx/blob/d295ce738f5bb532f05c59fcfde04a1d55ff80b4/src/components/webmapx-sealevel-tool.ts"><code>src/components/webmapx-sealevel-tool.ts</code></a><br><a href="https://github.com/edugis-org/webmapx/blob/d295ce738f5bb532f05c59fcfde04a1d55ff80b4/src/utils/sea-level-style.ts"><code>src/utils/sea-level-style.ts</code></a><br><a href="https://github.com/edugis-org/webmapx/blob/d295ce738f5bb532f05c59fcfde04a1d55ff80b4/src/utils/sea-level-curve.ts"><code>src/utils/sea-level-curve.ts</code></a></td></tr><tr><th>Tests</th><td><a href="https://github.com/edugis-org/webmapx/blob/d295ce738f5bb532f05c59fcfde04a1d55ff80b4/tests/sea-level-style.test.ts"><code>tests/sea-level-style.test.ts</code></a><br><a href="https://github.com/edugis-org/webmapx/blob/d295ce738f5bb532f05c59fcfde04a1d55ff80b4/tests/sea-level-curve.test.ts"><code>tests/sea-level-curve.test.ts</code></a><br><a href="https://github.com/edugis-org/webmapx/blob/d295ce738f5bb532f05c59fcfde04a1d55ff80b4/tests/pmtiles-config-paths.test.ts"><code>tests/pmtiles-config-paths.test.ts</code></a></td></tr><tr><th>Related</th><td><a href="./deeptime.html">deeptime</a>, <a href="./timeSlider.html">timeSlider</a>, <a href="./compare.html">compare</a></td></tr></table></section>
+<footer>Built from webmapx <code>d295ce7</code> and configs <code>046a5f5</code>.
+Machine-readable: <a href="./sealevel.json">sealevel.json</a>.</footer>
+</main>
+</body>
+</html>

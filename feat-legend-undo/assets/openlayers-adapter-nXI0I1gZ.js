@@ -1,0 +1,1 @@
+import{t as e}from"./openlayers-adapter-CEzf42cr.js";export{e as OpenLayersAdapter};

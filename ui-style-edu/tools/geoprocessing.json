@@ -1,0 +1,32 @@
+{
+  "id": "geoprocessing",
+  "label": "Analysis",
+  "tagline": "Builds a new layer from one or two existing layers.",
+  "status": "stable",
+  "element": "webmapx-geoprocessing-tool",
+  "placement": "toolbar",
+  "configType": "geoprocessing",
+  "demoConfig": "config/docs/tools/geoprocessing.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-geoprocessing-tool.ts",
+    "src/utils/geoprocessing-operations.ts",
+    "src/workers/geoprocessing-runner.ts"
+  ],
+  "tests": [
+    "tests/geoprocessing.test.ts"
+  ],
+  "related": [
+    "buffer",
+    "cartogram",
+    "layerOverview"
+  ],
+  "sections": {
+    "what": "Analysis builds a new layer from one or two existing layers.\n\nAvailable: clip, erase, intersect, union, select by location, spatial join,\ndissolve, centroid, convex hull, simplify, buffer, voronoi, delaunay, and\ncartogram. Plus statistics, which is a dissolve without the geometry.\n\nPick an operation, choose the input layers, set the options, and calculate. The\nresult is added to the map as a new layer.\n\nWorth knowing before you start:\n\n- **Clip and intersect give the same shapes, but a different number of\n  features.** Clip merges the second layer first, so one input feature stays one\n  output feature with its own attributes. Intersect works per overlapping pair,\n  so a feature that meets three others becomes three features, each carrying the\n  attributes of the one it met.\n- **Simplify keeps shared borders identical.** Simplifying each polygon on its\n  own simplifies a shared border twice, in two different ways, and leaves gaps\n  and slivers between neighbors. This operation builds a topology first, so\n  both sides keep the same points.\n- **Summing and averaging attributes is a setting, not a separate operation.**\n  You can add sum, mean, min, max, count, and a list of values to dissolve and to\n  statistics. `total` and `average` are hidden for text fields.\n\nEverything runs inside your browser, using GDAL compiled to WebAssembly. Your\ndata is not uploaded anywhere.",
+    "use": "1. Choose an operation. Its inputs and settings appear below it.\n2. Pick the layers, set the values, press **Calculate**.\n3. The result is added as a new layer, and the panel reports how many features\n   it used.\n\n**Only loaded data is used.** A GeoJSON layer gives every feature. A tiled layer\ngives only the features in view. The panel warns you on inputs where\nthat can change the result.\n\nThree example pages show the operations on real data:\n\n- **[Two-layer operations](./analysis-operations.html)**: five countries and one\n  rectangle through clip, erase, intersect, union, select by location, and\n  spatial join, with the shapes and the attributes that come out of each.\n- **[One-layer operations](./analysis-single-layer.html)**: dissolve, statistics,\n  centroid, label point, buffer, convex hull, simplify, cartogram, voronoi, and\n  delaunay on the same five countries.\n- **[Which geometry each operation accepts](./analysis-geometry.html)**: points,\n  lines, and polygons against every operation, tested one combination at a time,\n  because not every operation accepts every geometry type.\n\nA long calculation can be **canceled**.",
+    "embed": "Add `geoprocessing` to a toolbar. It appears as **Analysis** and works on\nwhatever layers are on the map.\n\nThe WebAssembly is only fetched when it is needed, so a visitor who never opens\nthe panel never downloads it. Opening the panel starts that download in the\nbackground while you fill in the form.",
+    "extend": "An operation is one registry entry: inputs, parameters, a diagram, and either an\nSQL template or a JavaScript function.\n\nOperations run in EPSG:3857 instead of longitude/latitude because SpatiaLite\nworks on a flat plane. Inputs are written into one indexed SpatiaLite database\nbefore the query runs. Keep the index: on 144×576 polygons it took a query from\n19.8 s to 1.3 s without changing the algorithm.\n\nUnion is the slow operation to watch when testing performance. On 257 countries\nagainst 4000 regions, clip took 4 s, intersect 5 s, and union 38 s."
+  },
+  "page": "https://webmapx.com/tools/geoprocessing.html",
+  "webmapxCommit": "bcddc185f9eb131eeea4cb214ddbb80d983ffaaa"
+}

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deep time — WebMapX tool</title>
+<meta name="description" content="Shows reconstructed coastlines from deep time.">
+<link rel="canonical" href="https://webmapx.com/tools/deeptime.html">
+<link rel="alternate" type="application/json" href="./deeptime.json">
+<link rel="icon" href="../favicon.png" type="image/png">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f8f8f8;color:#1a1a1a;line-height:1.6}
+a{color:#1b6ec2}
+header{background:#0f1923;color:#fff;padding:2rem 1.5rem}
+header .inner,main{max-width:52rem;margin:0 auto}
+header .crumb{font-size:.85rem;color:#8fa6bd}
+header .crumb a{color:#8fa6bd}
+header h1{font-size:2rem;letter-spacing:-.02em;margin:.4rem 0;display:flex;align-items:center;gap:.55rem}
+.tool-icon{display:inline-flex;align-items:center;flex:none}
+.tool-link{display:inline-flex;align-items:center;gap:.45rem}
+header p{color:#aac;max-width:42rem}
+.badges{margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-size:.75rem;border:1px solid #2e4358;color:#cfe0f0;border-radius:99px;padding:.15rem .6rem}
+.mapwrap{max-width:52rem;margin:1.5rem auto;height:26rem;border:1px solid #d8d8d8;border-radius:8px;overflow:hidden;background:#e9e9e9}
+.mapwrap iframe{width:100%;height:100%;border:0;display:block}
+.mapwrap .fallback{padding:2rem;font-size:.9rem;color:#555}
+main{padding:0 1.5rem 4rem}
+section{margin-top:2.5rem}
+/* The tools that exist but have no page yet, listed quietly under their own
+   group rather than in one lump at the bottom: a reader looking for a control
+   should find out there is one, in the place they were already looking. */
+.pending{margin-top:.8rem;font-size:.85rem;color:#666}
+/* One worked example, two pictures and a table. The colours are the tool's own:
+   the first layer neutral, the second layer the accent, the result filled. */
+.io{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;margin-top:1rem}
+.io .arrow{font-size:1.6rem;color:#888;flex:0 0 auto}
+.map-figure{margin:0;flex:0 0 auto}
+.map-figure svg{background:#eef3f7;border:1px solid #d8d8d8;border-radius:4px;display:block}
+.map-figure figcaption{font-size:.75rem;color:#666;margin-top:.25rem}
+svg .a{fill:#c9d6e0;stroke:#7d8f9d;stroke-width:.5}
+svg .ghost{fill:#eceff2;stroke:#dfe4e8;stroke-width:.5}
+svg .b{fill:rgba(217,99,60,.18);stroke:#d9633c;stroke-width:1.2}
+svg .out{fill:rgba(43,108,143,.55);stroke:#1b4a63;stroke-width:.8}
+svg .pt{fill:#1b4a63;stroke:#fff;stroke-width:1}
+table.attrs{font-size:.8rem;margin-top:.6rem;width:auto;border-collapse:collapse}
+table.attrs th,table.attrs td{border:1px solid #ddd;padding:.2rem .5rem;text-align:left}
+table.attrs th{background:#f0f2f4}
+table.attrs td.null{color:#aaa;font-style:italic}
+p.fields{font-size:.85rem;color:#555;margin-top:.8rem}
+.scroll{overflow-x:auto}
+table.matrix{font-size:.8rem;border-collapse:collapse;margin-top:.6rem;width:auto}
+table.matrix th,table.matrix td{border:1px solid #ddd;padding:.25rem .5rem;text-align:center}
+table.matrix th.op{text-align:left;white-space:nowrap;font-weight:600}
+table.matrix th.sub{font-weight:400;color:#666;font-size:.75rem}
+table.matrix thead th{background:#f0f2f4}
+.yes{color:#2f7d4f;font-weight:700}
+.none{color:#999}
+.err{color:#b03030;font-weight:700}
+p.legend{font-size:.85rem;color:#555;margin-top:.6rem}
+.no-geom{width:300px;height:180px;display:flex;align-items:center;justify-content:center;text-align:center;
+  background:#f4f6f8;border:1px dashed #cfd6dc;border-radius:4px;color:#7a848c;font-size:.85rem}
+p.pagenav{font-size:.9rem;margin-top:1.2rem;padding-bottom:.6rem;border-bottom:1px solid #e2e2e2}
+.pending code{background:#ececec;padding:.1em .35em;border-radius:3px}
+h2{font-size:1.3rem;letter-spacing:-.01em;margin-bottom:.6rem}
+p+p,p+ul,p+ol,ul+p,ol+p,pre+p{margin-top:.8rem}
+li{margin-left:1.2rem}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:#ececec;padding:.1em .35em;border-radius:3px}
+pre{background:#0f1923;color:#dfe8f0;padding:1rem;border-radius:6px;overflow-x:auto;margin-top:.8rem}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin-top:.8rem;font-size:.9rem}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid #ddd;vertical-align:top}
+footer{border-top:1px solid #ddd;margin-top:3rem;padding-top:1rem;font-size:.85rem;color:#666}
+@media (prefers-color-scheme:dark){
+ body{background:#12181e;color:#e6ebf0}a{color:#6db8ff}
+ .mapwrap{border-color:#25313d;background:#1a222a}
+ code{background:#222c36}th,td{border-color:#25313d}footer{border-color:#25313d;color:#9aa8b5}
+}
+</style>
+</head>
+<body>
+<header><div class="inner">
+<div class="crumb"><a href="../index.html">WebMapX</a> / <a href="./index.html">Tools</a></div>
+<h1><span class="tool-icon" aria-hidden="true"><svg xmlns='http://www.w3.org/2000/svg' viewBox='170.9 193.9 1578.2 1532.3' fill='none' stroke='currentColor' stroke-width='95' stroke-linecap='round' stroke-linejoin='round' width="1em" height="1em"><path d='M1702.9 1394c-1.1.2-9.8 1.7-25.2 4-78.2 11.6-278.2 59.2-581.5 34.3l-26 56.5s39.5 26.6 39.5 191.4h-98.6'/><path d='M1703.1 1394s-.1 0 0 0h-.1c-8.2 1.7-16.6 3-25.2 4-222.2 25.6-497.7-162.9-497.7-162.9s-278-211-502.3-204.6c-224.4 6.4-246.7-214-224-479.7 22.8-265.7-134.4-288-134.4-288-5.6-27.9-33.9-22.5-33.9-22.5s-23.1 3.8-27.3 36.3c0 0-57.7 11.5-36.7 52.4s88.1-43 136.3 96.5C406 565 200 1034.4 546.2 1242.1c0 0 8.5 158.2 46.6 196.4 0 0-14.1 227.5-38.2 241.6h103.2s1.4-7.7 3.7-20.3c9-49.8 31-176.5 28.8-211.5-.8-12.8-2.1-31.5-4-52.4-4.6-50.7-12.6-114.3-25.6-138.3'/><path d='M686.4 1396c19 15.1 45.1 32.7 77.3 47 30.4 13.4 66.4 23.8 107 26.3'/><path d='M1011.2 1680.2H905.6s38.3-32.8 7.4-87.1c-20.4-35.9-34.9-90.8-42.3-123.8 25.7 1.6 53.2 0 82.4-6.1.2 1.1.4 2.2.5 3.2 5.4 35.9 70 108.6 74.5 150.8 4.5 42.1-16.9 63-16.9 63z'/></svg></span>Deep time</h1>
+<p>Shows reconstructed coastlines from deep time.</p>
+<div class="badges"><span class="badge">type: deeptime</span><span class="badge">toolbar</span><span class="badge">stable</span></div>
+</div></header>
+<div class="mapwrap"><iframe loading="lazy" allow="fullscreen" title="Deep time demo map"
+     src="../testpages/preview.html?storageKey=webmapx-docs-no-override&config=../config/docs/tools/deeptime.json"></iframe></div>
+<main><section id="what"><h2>What it does</h2><p>Deep time shows reconstructed coastlines for a chosen moment in the past. Move the slider back through hundreds of millions of years. The coastlines are computed by rotating tectonic plates in the browser.</p>
+<p>Two plate models are included, so their differences can be compared.</p>
+<p>Use Deep time for questions a static palaeogeographic map cannot answer: when an ocean opened, what was next to what, or how long two coastlines were joined.</p></section>
+<section id="use"><h2>Using it</h2><ol><li>Open the tool and move the slider. The coastlines redraw for that age.</li><li>Switch models to see how much of the picture is model rather than fact.</li></ol>
+<p><strong>The layer outlives the panel.</strong> Closing the tool leaves the coastlines on the map, because closing is how you get the map to yourself. You can then measure the ocean between two continents, ask the info tool about a polygon, or print what is on screen. From then on it is an ordinary layer, and the legend is where you turn it off.</p></section>
+<section id="embed"><h2>In your own map</h2><p>Add <code>deeptime</code> to a toolbar and point it at a plate model with <code>data</code>, plus the ages it covers. Model data is a config asset, resolved relative to the config file, so it lives beside the config rather than inside webmapx.</p>
+<p>A map with no coastline layer gets one. A map that already draws the same computed source reuses it.</p></section>
+<section id="extend"><h2>Extending it</h2><p>Reconstructed geometry is cut <strong>on the sphere</strong> before it leaves the tool. Watch ring winding, degenerate rings, and caps closed exactly along ±90. Each can make a polygon render inside out or cover the map.</p>
+<p>Check an equirectangular <em>and</em> an equal-area projection when changing this code.</p><table><tr><th>Config <code>type</code></th><td><code>deeptime</code></td></tr><tr><th>Element</th><td><code>&lt;webmapx-deeptime-tool&gt;</code></td></tr><tr><th>Placement</th><td>toolbar</td></tr><tr><th>Source</th><td><a href="https://github.com/edugis-org/webmapx/blob/d63450ebdcfa2cde130f3ebe78ae3e5389a4bbf5/src/components/webmapx-deeptime-tool.ts"><code>src/components/webmapx-deeptime-tool.ts</code></a><br><a href="https://github.com/edugis-org/webmapx/blob/d63450ebdcfa2cde130f3ebe78ae3e5389a4bbf5/src/utils/plate-rotation.ts"><code>src/utils/plate-rotation.ts</code></a><br><a href="https://github.com/edugis-org/webmapx/blob/d63450ebdcfa2cde130f3ebe78ae3e5389a4bbf5/src/utils/spherical-geojson.ts"><code>src/utils/spherical-geojson.ts</code></a></td></tr><tr><th>Tests</th><td><a href="https://github.com/edugis-org/webmapx/blob/d63450ebdcfa2cde130f3ebe78ae3e5389a4bbf5/tests/deeptime-scenes.test.ts"><code>tests/deeptime-scenes.test.ts</code></a><br><a href="https://github.com/edugis-org/webmapx/blob/d63450ebdcfa2cde130f3ebe78ae3e5389a4bbf5/tests/spherical-geojson.test.ts"><code>tests/spherical-geojson.test.ts</code></a></td></tr><tr><th>Related</th><td><a href="./timeSlider.html">timeSlider</a>, <a href="./projection.html">projection</a>, <a href="./stories.html">stories</a></td></tr></table></section>
+<footer>Built from webmapx <code>d63450e</code> and configs <code>046a5f5</code>.
+Machine-readable: <a href="./deeptime.json">deeptime.json</a>.</footer>
+</main>
+</body>
+</html>

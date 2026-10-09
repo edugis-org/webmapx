@@ -1,0 +1,30 @@
+{
+  "id": "3d",
+  "label": "3D",
+  "tagline": "Tilts the map and shows terrain.",
+  "status": "stable",
+  "element": "webmapx-3d-tool",
+  "placement": "toolbar",
+  "configType": "3d",
+  "demoConfig": "config/docs/tools/3d.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-3d-tool.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "projection",
+    "measure",
+    "layerLegend3d"
+  ],
+  "sections": {
+    "what": "Two related settings: **pitch**, which tilts the camera away from straight down,\nand **terrain**, which draws relief from elevation data.\n\nTilting alone changes how a map reads. A city at 60° shows its skyline and\nstreet canyons. A valley looks like a valley. Terrain changes the surface\nitself, so relief becomes visible.\n\nPitch presets (0°, 30°, 60°) give quick choices, with 0° returning to a flat\nplan view.\n\nNot every map engine supports both settings. Unsupported buttons are not shown.",
+    "use": "1. Pick a pitch, or drag with the right mouse button. On a phone or tablet, use\n   two fingers for any angle in between.\n2. Turn terrain on where the map has elevation data.\n3. Return to 0° to get the plan view back.\n\nA tilted map is worse for measuring and comparing. Everything far away is\nsmaller. Tilt for reading the landscape, and flatten again for reading the data.",
+    "embed": "Add `3d` to a toolbar. Terrain uses a `raster-dem` source already on the map.\nYou can configure a fallback where a map has none:\n\n- `maplibre-terrain-fallback-url`\n- `cesium-terrain-fallback-url`\n\n**The terrain outlives the panel.** Closing the tool does not switch terrain\noff. Closing is how you get the map to yourself, and taking the relief away at\nthat moment removes the relief you closed the panel to see.",
+    "extend": "`setTerrainEnabled` writes to the store only after the engine reports that\nterrain changed. A config or permalink can request terrain through the same\nstore field."
+  },
+  "page": "https://webmapx.com/tools/3d.html",
+  "webmapxCommit": "321e8835aa5967d909163e2e6f1b5a9b9042feb9"
+}

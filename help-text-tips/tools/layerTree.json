@@ -1,0 +1,30 @@
+{
+  "id": "layerTree",
+  "label": "Catalog",
+  "tagline": "Lets readers choose layers from a grouped catalog.",
+  "status": "stable",
+  "element": "webmapx-layer-tree",
+  "placement": "toolbar",
+  "configType": "layerTree",
+  "demoConfig": "config/docs/tools/layerTree.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-layer-tree.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "layerOverview",
+    "search",
+    "info"
+  ],
+  "sections": {
+    "what": "The catalog lists the layers a map offers. It is a tree of named entries from\nthe config. Tick a layer to add it to the map. Clear the tick to remove it. The\nlegend shows the layers you have picked.\n\nYou decide the tree. It is not generated from the layer list, because config\norder is rarely the order readers need. Groups such as \"Background,\"\n\"Population,\" and \"Historical maps\" are part of the map's design.\n\nGroups can behave in two ways, and the difference matters:\n\n- **Ordinary groups** let any number of children be on at once. Ticking one\n  changes nothing about the others.\n- **Single-choice groups** (`selectionMode: \"single\"`) allow one child at a\n  time, which is what a background belongs in: choosing a satellite basemap\n  should put away the street one rather than stack them. Add `allowNone: true`\n  to let the reader also choose none of them.\n\nLarge catalogs can have a search box at the top of the tree. It matches labels and\nshows matching entries wherever they sit in the tree.",
+    "use": "1. Open the catalog from the toolbar.\n2. Expand a group and tick a layer to add it. It appears on the map and in the\n   legend at once.\n3. Type in the search box to find a layer by name without opening groups.\n4. Clear the tick to remove the layer again. Any changes to the layer, such as\n   opacity or style, belong to the legend, not here.\n\nA catalog entry may point at a slow or unreachable service. The entry reports\nthat state instead of failing silently.",
+    "embed": "The tree lives on the toolbar item, as `tree`, and each node is one of two\nthings: a group with `children`, or a leaf naming a layer with `layerId`.\n\nThe `layerId` of a leaf must match a layer in `layerData.layers`. That is the\nwhole contract. The catalog does not define layers. The catalog arranges layers.\n\nUseful keys on a node: `label`, `children`, `layerId`, `checked` (on at start),\n`selectionMode: \"single\"` with `selectionGroup` and `allowNone` for\nmutually exclusive groups, and `stackOrder` where a group's layers must land at\na particular depth.",
+    "extend": "The tree is read from the config through `getTreeFromMapConfig`, which looks\nfor the `layerTree` tool item and takes its `tree`. A `tree` property set\ndirectly on the element overrides the config, so a host app can supply a\ncatalog at runtime.\n\nThe component re-reads the tree on `webmapx-config-ready`, so late or replaced\nconfigurations update the catalog."
+  },
+  "page": "https://webmapx.com/tools/layerTree.html",
+  "webmapxCommit": "d295ce738f5bb532f05c59fcfde04a1d55ff80b4"
+}

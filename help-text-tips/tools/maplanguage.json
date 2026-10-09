@@ -1,0 +1,29 @@
+{
+  "id": "maplanguage",
+  "label": "Map language",
+  "tagline": "Changes the language used for map labels.",
+  "status": "stable",
+  "element": "webmapx-language-osmvector",
+  "placement": "both",
+  "configType": "maplanguage",
+  "demoConfig": "config/docs/tools/maplanguage.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-language-osmvector.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "settings",
+    "layerOverview"
+  ],
+  "sections": {
+    "what": "OpenStreetMap vector tiles can carry several names for a place: `name` as it is\nwritten locally, and `name:en`, `name:de`, `name:ja` and so on where they are\navailable. A map usually starts with the local name.\n\nThis control switches which name field labels use. Set it to English and Москва\nbecomes Moscow. Set it back and it is Москва again. Around sixty languages are\noffered.\n\nNo new data is fetched. The label expression is changed to prefer the chosen\nfield, falling back to the local name where that language is missing.",
+    "use": "Choose a language. Labels change as the map redraws.\n\nIt applies to OpenStreetMap-schema vector layers. A raster basemap has its\nlabels baked into the image, and no setting can change those.",
+    "embed": "`maplanguage` works either in a toolbar or on its own. Put it in a toolbar with\nthe other tools, or place it directly on the map like a control.\n\nThe choice is remembered in the browser, and instances on one page stay in step.",
+    "extend": "The tool hooks `adapter.addLayer` and rewrites the `text-field` expression\nbefore the layer reaches an engine. Already-added layers are updated through\n`updateLayerStyle`, and layers added later get the same language rule."
+  },
+  "page": "https://webmapx.com/tools/maplanguage.html",
+  "webmapxCommit": "d295ce738f5bb532f05c59fcfde04a1d55ff80b4"
+}

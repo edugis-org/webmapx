@@ -1,0 +1,31 @@
+{
+  "id": "layerOverview",
+  "label": "Legend",
+  "tagline": "Lists the layers on the map.",
+  "status": "stable",
+  "element": "webmapx-layer-overview",
+  "placement": "toolbar",
+  "configType": "layerOverview",
+  "demoConfig": "config/docs/tools/layerOverview.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-layer-overview.ts",
+    "src/utils/layer-swatch.ts"
+  ],
+  "tests": [
+    "tests/layer-swatch.test.ts"
+  ],
+  "related": [
+    "layerTree",
+    "info",
+    "draw"
+  ],
+  "sections": {
+    "what": "The legend lists the layers drawn on the map, in draw order. There is a\nswatch for each layer.\n\nIt is not the catalog. The catalog offers layers you *could* add; the legend\nshows the layers on the map.\n\nEach row has a visibility toggle, an opacity slider, **Zoom to layer**, **About\nthis layer**, **Layer style**, and **Remove layer**. At the top of the list are\nactions for all layers: **Show all layers**, **Hide all layers**, **Clear all\nlayers**, **Save layers…**, and **Permalink**.\n\nThe swatch comes from the layer's paint specification. A fill layer shows its\nfill, a line layer its stroke, and a classified layer its ramp. Layers without\nreadable paint, such as raster basemaps or remote styles, can use a small\n`data:` image from the config.\n\nThe list reads top to bottom as the map reads front to back. Dragging a row\nreorders the map, not just the list.",
+    "use": "1. Open the legend from the toolbar. Every layer on the map is\n   listed, topmost first.\n2. Use the checkbox to hide a layer without removing it. Hidden layers keep\n   their place in the order and their style.\n3. Drag a row by its handle to move a layer in front of or behind another.\n4. Open a row's menu for what applies to that layer alone: zoom to its extent,\n   read its description, restyle it, or take it off the map.\n\nThe style panel is **not** modal. It floats over the map and can be dragged by\nits title bar, so you can see the map while changing colors.\n\n**Zoom to layer** uses the layer's own extent where it declares one, and the\nextent of its features where it does not. This works for a local vector layer\nwithout any configuration.",
+    "embed": "Add `layerOverview` to a toolbar. The legend lists whatever layers the map has\nand needs no knowledge of the layers themselves.\n\nThree attributes rename its headings, for a map in another language or with\nanother idea of what a basemap is called: `overview-title`,\n`background-title` and `background-group-label`.",
+    "extend": "The legend reads `store.mapLayers`, the map's record of what is drawn. Key order\nis the stacking order from bottom to top, and the list shows it reversed.\nDragging calls `adapter.moveLayer(layerId, beforeLayerId)`.\n\nTwo implementation details matter when changing it:\n\n- **Cesium cannot reorder a vector layer against a raster one.** Imagery is\n  baked into the globe's surface texture and primitives always draw over it.\n  Within one kind, reordering works. This is a property of the engine, not a\n  gap in the adapter.\n- **A swatch belongs to the layer, not to the panel.** `metadata.swatch` on a\n  layer definition overrides everything the panel could derive, and every panel\n  that lists layers reads the same value. Only self-contained values are\n  honored. A remote URL is ignored, because the value goes straight into a\n  style attribute."
+  },
+  "page": "https://webmapx.com/tools/layerOverview.html",
+  "webmapxCommit": "9d0f49fd2e9dd8ef112e072257eedd51810c2f20"
+}

@@ -1,0 +1,1 @@
+import{di as e,mi as t}from"./webmapx-shared-CW18CGkS.js";export{e as STANDALONE_TAGS,t as TOOL_ELEMENT_TAGS};

@@ -1,0 +1,1958 @@
+{
+  "version": 0,
+  "project": {
+    "id": "belgie-v3",
+    "title": "belgie_v3",
+    "description": "Converted from an EduGIS map configuration."
+  },
+  "map": {
+    "label": "belgie_v3",
+    "center": [
+      4.744,
+      50.542
+    ],
+    "zoom": 7.2,
+    "type": "leaflet",
+    "style": {
+      "version": 8,
+      "sources": {},
+      "layers": []
+    }
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "12334-combined-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://wms.ngi.be/inspire/dtm/service?layers=hillshade20m,digitalterrainmodel20meters"
+        ],
+        "attribution": "Bron: ngi.be"
+      },
+      {
+        "id": "d96de0e6-a206-40e7-8389-3d464ce45d3b-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://inspire.seismology.be/geoserver/inspire/wms?REQUEST=GETMAP&SERVICE=WMS&VERSION=1.1.1&TRANSPARENT=true&LAYERS=inspire%3Aseis_earthquakes&FORMAT=image%2Fpng&STYLES=&SRS=EPSG%3A3857&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512"
+        ],
+        "minzoom": 0,
+        "maxzoom": 22,
+        "bounds": [
+          -6,
+          44,
+          16,
+          59
+        ]
+      },
+      {
+        "id": "d7d0a9bc-9d29-46d7-9744-88248aaa2a89-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://inspire.seismology.be/geoserver/inspire/wms?REQUEST=GETMAP&SERVICE=WMS&VERSION=1.1.1&TRANSPARENT=true&LAYERS=inspire%3Aseis_EC8_2011&FORMAT=image%2Fpng&STYLES=&SRS=EPSG%3A3857&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512"
+        ],
+        "minzoom": 0,
+        "maxzoom": 22,
+        "bounds": [
+          2.52855895900347,
+          49.48444130413456,
+          6.457602387796467,
+          51.50549173199632
+        ]
+      },
+      {
+        "id": "26f3b478-58a3-42f6-81df-83ce1c375af1-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://inspire.seismology.be/geoserver/inspire/wms?REQUEST=GETMAP&SERVICE=WMS&VERSION=1.1.1&TRANSPARENT=true&LAYERS=inspire%3Aseis_stations&FORMAT=image%2Fpng&STYLES=&SRS=EPSG%3A3857&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512"
+        ],
+        "minzoom": 0,
+        "maxzoom": 22,
+        "bounds": [
+          2.8994999999999997,
+          49.6646,
+          6.2025,
+          51.2382
+        ]
+      },
+      {
+        "id": "b85d65a4-88a4-4ced-a077-10f2d492389b-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://inspire.seismology.be/geoserver/inspire/wms?REQUEST=GETMAP&SERVICE=WMS&VERSION=1.1.1&TRANSPARENT=true&LAYERS=inspire%3AROB_GNSS_Stations&FORMAT=image%2Fpng&STYLES=&SRS=EPSG%3A3857&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512"
+        ],
+        "minzoom": 0,
+        "maxzoom": 22,
+        "bounds": [
+          3.3997,
+          50.0949,
+          5.2453,
+          50.9337
+        ]
+      },
+      {
+        "id": "5467b49d-7953-44bd-8573-2ab980afc7e5-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://data.geo.be/ws/inspire_annex1/wms?REQUEST=GETMAP&SERVICE=WMS&VERSION=1.1.1&TRANSPARENT=true&LAYERS=TN_WaterTransportNetwork_WaterwayLink&FORMAT=image%2Fpng&STYLES=&SRS=EPSG%3A3857&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512"
+        ],
+        "minzoom": 0,
+        "maxzoom": 22,
+        "bounds": [
+          2.419278507190048,
+          49.48177856821498,
+          6.488459850048742,
+          51.51168721327237
+        ]
+      },
+      {
+        "id": "9839b39b-60d8-4aa7-a0e2-e1d214f013b7-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://data.geo.be/ws/inspire_annex1/wms?REQUEST=GETMAP&SERVICE=WMS&VERSION=1.1.1&TRANSPARENT=true&LAYERS=HY_PhysicalWaters_Waterbodies_WaterCourseArea&FORMAT=image%2Fpng&STYLES=&SRS=EPSG%3A3857&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512"
+        ],
+        "minzoom": 0,
+        "maxzoom": 22,
+        "bounds": [
+          2.419278507190048,
+          49.48177856821498,
+          6.488459850048742,
+          51.51168721327237
+        ]
+      },
+      {
+        "id": "4faa214f-2662-4eaf-812a-97a4d57c5aad-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://data.geo.be/ws/inspire_annex1/wms?REQUEST=GETMAP&SERVICE=WMS&VERSION=1.1.1&TRANSPARENT=true&LAYERS=HY_PhysicalWaters_Waterbodies_StandingWater&FORMAT=image%2Fpng&STYLES=&SRS=EPSG%3A3857&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512"
+        ],
+        "minzoom": 0,
+        "maxzoom": 22,
+        "bounds": [
+          2.419278507190048,
+          49.48177856821498,
+          6.488459850048742,
+          51.51168721327237
+        ]
+      },
+      {
+        "id": "c132ac7b-547f-4ead-b5f5-8868d63e01d0-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://data.geo.be/ws/inspire_annex1/wms?REQUEST=GETMAP&SERVICE=WMS&VERSION=1.1.1&TRANSPARENT=true&LAYERS=TN_RailTransportNetwork_RailwayLink&FORMAT=image%2Fpng&STYLES=&SRS=EPSG%3A3857&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512"
+        ],
+        "minzoom": 0,
+        "maxzoom": 22,
+        "bounds": [
+          2.419278507190048,
+          49.48177856821498,
+          6.488459850048742,
+          51.51168721327237
+        ]
+      },
+      {
+        "id": "openstreetmap-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/about\" target=\"copyright\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "openstreetmapgray-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osmgrayscale_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/about\" target=\"copyright\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "bingmaproad-source",
+        "type": "raster",
+        "service": "wms",
+        "url": "https://dev.virtualearth.net/REST/V1/Imagery/Metadata/Road?output=json&include=ImageryProviders&uriScheme=https&key={key-bing}",
+        "maxzoom": 19
+      },
+      {
+        "id": "stamentoner-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.stadiamaps.com/tiles/stamen_toner/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 17,
+        "attribution": "&copy; <a href=\"https://www.stamen.com\" target=\"attribution\">Stamen Design</a>,<a href=\"https://www.openstreetmap.org/about\" target=\"attribution\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "esriworldimagery-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        ],
+        "tileSize": 256,
+        "maxzoom": 22,
+        "attribution": "ESRI World Imagery"
+      },
+      {
+        "id": "bingmapaerial-source",
+        "type": "raster",
+        "service": "wms",
+        "url": "https://dev.virtualearth.net/REST/V1/Imagery/Metadata/Aerial?output=json&include=ImageryProviders&uriScheme=https&key={key-bing}",
+        "maxzoom": 18
+      },
+      {
+        "id": "bingmaphybrid-source",
+        "type": "raster",
+        "service": "wms",
+        "url": "https://dev.virtualearth.net/REST/V1/Imagery/Metadata/AerialWithLabels?output=json&include=ImageryProviders&uriScheme=https&key={key-bing}",
+        "maxzoom": 18
+      },
+      {
+        "id": "stamenwatercolor-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.stadiamaps.com/tiles/stamen_watercolor/{z}/{x}/{y}.jpg"
+        ],
+        "tileSize": 256,
+        "maxzoom": 17,
+        "attribution": "&copy; <a href=\"https://www.stamen.com\" target=\"attribution\">Stamen Design</a>,<a href=\"https://www.openstreetmap.org/about\" target=\"attribution\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "stamenterrain-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "maxzoom": 16,
+        "attribution": "&copy; <a href=\"https://www.stamen.com\" target=\"attribution\">Stamen Design</a>,<a href=\"https://www.openstreetmap.org/about\" target=\"attribution\">OpenStreetMap contributors</a>"
+      }
+    ],
+    "layers": [
+      {
+        "id": "custom-style-ter",
+        "title": "Landgrens",
+        "type": "style",
+        "sources": {
+          "Land_linSource": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/landgrens_lin.geo.json",
+            "attribution": "Bron: geo.be"
+          },
+          "Land_polSource": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/landgrens_pol.geo.json",
+            "attribution": "Bron: geo.be"
+          }
+        },
+        "layers": [
+          {
+            "id": "lineLayer_ter",
+            "type": "line",
+            "metadata": {
+              "title": "Landgrens",
+              "visible": true,
+              "userlayer": true,
+              "attributes": {
+                "translations": [
+                  {
+                    "name": "name",
+                    "translation": "naam"
+                  }
+                ]
+              }
+            },
+            "source": "Land_linSource",
+            "paint": {
+              "line-color": "rgba(213, 62, 79, 1)",
+              "line-width": 5
+            }
+          },
+          {
+            "id": "polygonLayer_ter",
+            "type": "fill",
+            "metadata": {
+              "title": "Landgrens",
+              "visible": true,
+              "userlayer": true,
+              "attributes": {
+                "translations": [
+                  {
+                    "name": "name",
+                    "translation": "naam"
+                  }
+                ]
+              }
+            },
+            "source": "Land_polSource",
+            "paint": {
+              "fill-color": "rgba(128, 128, 128, 0)",
+              "fill-outline-color": "#000",
+              "fill-opacity": 0.7
+            }
+          }
+        ],
+        "metadata": {
+          "label": "Landgrens"
+        }
+      },
+      {
+        "id": "custom-style-gew",
+        "title": "Gewesten",
+        "type": "style",
+        "sources": {
+          "Gew_linSource": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/gewesten_lin.geo.json",
+            "attribution": "Bron: geo.be"
+          },
+          "Gew_polSource": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/gewesten_pol.geo.json",
+            "attribution": "Bron: geo.be"
+          }
+        },
+        "layers": [
+          {
+            "id": "lineLayer_gew",
+            "type": "line",
+            "metadata": {
+              "title": "Gewesten",
+              "visible": true,
+              "userlayer": true,
+              "attributes": {
+                "translations": [
+                  {
+                    "name": "name",
+                    "translation": "naam"
+                  }
+                ]
+              }
+            },
+            "source": "Gew_linSource",
+            "paint": {
+              "line-color": "rgba(213, 62, 79, 1)",
+              "line-width": 4
+            }
+          },
+          {
+            "id": "polygonLayer_gew",
+            "type": "fill",
+            "metadata": {
+              "title": "Gewesten",
+              "visible": true,
+              "userlayer": true,
+              "attributes": {
+                "translations": [
+                  {
+                    "name": "name",
+                    "translation": "naam"
+                  }
+                ]
+              }
+            },
+            "source": "Gew_polSource",
+            "paint": {
+              "fill-color": "rgba(128, 128, 128, 0)",
+              "fill-outline-color": "#000",
+              "fill-opacity": 0.7
+            }
+          }
+        ],
+        "metadata": {
+          "label": "Gewesten"
+        }
+      },
+      {
+        "id": "custom-style",
+        "title": "Provincies",
+        "type": "style",
+        "sources": {
+          "lineSource": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/provincies_pol_fill.geo.json",
+            "attribution": "Bron: geo.be"
+          },
+          "polygonSource": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/provincies_pol_fill.geo.json",
+            "attribution": "Bron: geo.be"
+          }
+        },
+        "layers": [
+          {
+            "id": "lineLayer",
+            "type": "line",
+            "metadata": {
+              "title": "Provinciegrenzen",
+              "attributes": {
+                "translations": [
+                  {
+                    "name": "name",
+                    "translation": "naam"
+                  }
+                ]
+              }
+            },
+            "source": "lineSource",
+            "paint": {
+              "line-color": "rgba(41, 68, 234, 1)",
+              "line-width": 3
+            }
+          },
+          {
+            "id": "polygonLayer",
+            "type": "fill",
+            "metadata": {
+              "title": "Provincies",
+              "attributes": {
+                "translations": [
+                  {
+                    "name": "name",
+                    "translation": "naam"
+                  }
+                ]
+              }
+            },
+            "source": "polygonSource",
+            "paint": {
+              "fill-color": "rgba(128, 128, 128, 0)",
+              "fill-outline-color": "#000",
+              "fill-opacity": 0.7
+            }
+          }
+        ],
+        "metadata": {
+          "label": "Provincies"
+        }
+      },
+      {
+        "id": "custom-stylearr",
+        "title": "Arrondissementen",
+        "type": "style",
+        "sources": {
+          "lineSourceArr": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/arrondissementen_lin.geo.json",
+            "attribution": "Bron: geo.be"
+          },
+          "polygonSourceArr": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/arrondissementen_pol.geo.json",
+            "attribution": "Bron: geo.be"
+          }
+        },
+        "layers": [
+          {
+            "id": "lineLayerArr",
+            "type": "line",
+            "metadata": {
+              "title": "Arrondissementen",
+              "visible": true,
+              "userlayer": true,
+              "attributes": {
+                "translations": [
+                  {
+                    "name": "name",
+                    "translation": "naam"
+                  }
+                ]
+              }
+            },
+            "source": "lineSourceArr",
+            "paint": {
+              "line-color": "rgba(33, 139, 69, 1)",
+              "line-width": 2
+            }
+          },
+          {
+            "id": "polygonLayerArr",
+            "type": "fill",
+            "metadata": {
+              "title": "Arrondissementen",
+              "visible": true,
+              "userlayer": true,
+              "attributes": {
+                "translations": [
+                  {
+                    "name": "name",
+                    "translation": "naam"
+                  }
+                ]
+              }
+            },
+            "source": "polygonSourceArr",
+            "paint": {
+              "fill-color": "rgba(128, 128, 128, 0)",
+              "fill-outline-color": "#000",
+              "fill-opacity": 0.7
+            }
+          }
+        ],
+        "metadata": {
+          "label": "Arrondissementen"
+        }
+      },
+      {
+        "id": "31d6283e-7697-4310-a4eb-c97ddd4c5d6a",
+        "title": "Gemeentegrenzen",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/gemeentegrenzen_pol.geo.json",
+            "attribution": "Bron: geo.be"
+          }
+        },
+        "layers": [
+          {
+            "id": "31d6283e-7697-4310-a4eb-c97ddd4c5d6a-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": "#80808000",
+              "fill-opacity": 1,
+              "fill-outline-color": "rgba(0,0,0,1)"
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Gemeentegrenzen",
+          "visible": true,
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Gemeentegrenzen"
+        }
+      },
+      {
+        "id": "7a0a3c6c-687a-48b2-9e53-c9e3ef984850",
+        "title": "Gemeentenamen (NL)",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/Gemeentenamen_nl2.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "7a0a3c6c-687a-48b2-9e53-c9e3ef984850-layer",
+            "type": "symbol",
+            "source": "source",
+            "paint": {
+              "text-color": "rgba(0,0,0)"
+            },
+            "layout": {
+              "text-field": "{NamenNL}",
+              "text-font": [
+                "Open Sans Semibold",
+                "Arial Unicode MS Bold"
+              ],
+              "text-offset": [
+                0,
+                -0.6
+              ],
+              "text-anchor": "center",
+              "text-size": 16,
+              "text-allow-overlap": false,
+              "text-ignore-placement": false,
+              "symbol-sort-key": [
+                "-",
+                [
+                  "get",
+                  "TOTPOP_CY"
+                ]
+              ]
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Gemeentenamen (NL)",
+          "reference": false,
+          "visible": true,
+          "properties": [
+            {
+              "name": "id",
+              "type": "number"
+            },
+            {
+              "name": "title",
+              "type": "string"
+            }
+          ],
+          "userlayer": true,
+          "cansave": true,
+          "label": "Gemeentenamen (NL)"
+        }
+      },
+      {
+        "id": "0a3a5e4e-72a4-4356-9992-26e53042b248",
+        "title": "Gemeentenamen (FR)",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/Gemeentenamen_fr.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "0a3a5e4e-72a4-4356-9992-26e53042b248-layer",
+            "type": "symbol",
+            "source": "source",
+            "paint": {
+              "text-color": "rgba(0, 0, 0, 1)"
+            },
+            "layout": {
+              "text-field": "{NAME}",
+              "text-font": [
+                "Open Sans Semibold",
+                "Arial Unicode MS Bold"
+              ],
+              "text-offset": [
+                0,
+                -0.6
+              ],
+              "text-anchor": "center",
+              "text-size": 16,
+              "text-allow-overlap": false,
+              "text-ignore-placement": false,
+              "symbol-sort-key": [
+                "-",
+                [
+                  "get",
+                  "TOTPOP_CY"
+                ]
+              ]
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Gemeentenamen (FR)",
+          "reference": false,
+          "visible": true,
+          "properties": [
+            {
+              "name": "id",
+              "type": "number"
+            },
+            {
+              "name": "title",
+              "type": "string"
+            }
+          ],
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Gemeentenamen (FR)"
+        }
+      },
+      {
+        "id": "dd8f8b40-4bd0-4e65-93fd-a24d7beb60ea",
+        "title": "Arrondissementnamen (NL)",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/Arrondissementen_nl.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "dd8f8b40-4bd0-4e65-93fd-a24d7beb60ea-layer",
+            "type": "symbol",
+            "source": "source",
+            "paint": {
+              "text-color": "rgba(0, 0, 0, 1)"
+            },
+            "layout": {
+              "text-field": "{nl_NAME}",
+              "text-font": [
+                "Open Sans Semibold",
+                "Arial Unicode MS Bold"
+              ],
+              "text-offset": [
+                0,
+                -0.6
+              ],
+              "text-anchor": "center",
+              "text-size": 16,
+              "text-allow-overlap": false,
+              "text-ignore-placement": false,
+              "symbol-sort-key": [
+                "-",
+                [
+                  "get",
+                  "TOTPOP_CY"
+                ]
+              ]
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Arrondissementnamen (NL)",
+          "reference": false,
+          "visible": true,
+          "properties": [
+            {
+              "name": "id",
+              "type": "number"
+            },
+            {
+              "name": "title",
+              "type": "string"
+            }
+          ],
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Arrondissementnamen (NL)"
+        }
+      },
+      {
+        "id": "f55ec6e5-1a10-4575-adef-f3fc7d66c7ac",
+        "title": "Arrondissementnamen (FR)",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/Arrondissementen_fr.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "f55ec6e5-1a10-4575-adef-f3fc7d66c7ac-layer",
+            "type": "symbol",
+            "source": "source",
+            "paint": {
+              "text-color": "rgba(0,0,0)"
+            },
+            "layout": {
+              "text-field": "{NAME}",
+              "text-font": [
+                "Open Sans Semibold",
+                "Arial Unicode MS Bold"
+              ],
+              "text-offset": [
+                0,
+                -0.6
+              ],
+              "text-anchor": "center",
+              "text-size": 16,
+              "text-letter-spacing": 0.1,
+              "text-allow-overlap": false,
+              "text-ignore-placement": false,
+              "symbol-sort-key": [
+                "-",
+                [
+                  "get",
+                  "TOTPOP_CY"
+                ]
+              ]
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Arrondissementnamen (FR)",
+          "reference": false,
+          "visible": true,
+          "properties": [
+            {
+              "name": "id",
+              "type": "number"
+            },
+            {
+              "name": "title",
+              "type": "string"
+            }
+          ],
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Arrondissementnamen (FR)"
+        }
+      },
+      {
+        "id": "d81fff1d-e11c-45f0-ad31-4417e376bb35",
+        "title": "Aantal inwoners per km2",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/vierkantstatistiek.geo.json",
+            "attribution": "Bron: geo.be"
+          }
+        },
+        "layers": [
+          {
+            "id": "d81fff1d-e11c-45f0-ad31-4417e376bb35-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": [
+                "step",
+                [
+                  "to-number",
+                  [
+                    "get",
+                    "Inwonertal"
+                  ]
+                ],
+                "#ffffcc",
+                250,
+                "#ffeda0",
+                500,
+                "#fed976",
+                1000,
+                "#feb24c",
+                2000,
+                "#fd8d3c",
+                5000,
+                "#fc4e2a",
+                10000,
+                "#e31a1c",
+                20000,
+                "#800026"
+              ],
+              "fill-outline-color": "#444",
+              "fill-opacity": 1
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Aantal inwoners per km2",
+          "attributes": {
+            "translations": [
+              {
+                "name": "Inwonertal",
+                "translation": "aantal inwoners per km2",
+                "valuemap": [
+                  [
+                    250,
+                    "< 250",
+                    "<"
+                  ],
+                  [
+                    500,
+                    "250 tot 500",
+                    "<"
+                  ],
+                  [
+                    1000,
+                    "500 tot 1000",
+                    "<"
+                  ],
+                  [
+                    2000,
+                    "1000 tot 2000",
+                    "<"
+                  ],
+                  [
+                    5000,
+                    "2000 tot 5000",
+                    "<"
+                  ],
+                  [
+                    10000,
+                    "5000 tot 10.000",
+                    "<"
+                  ],
+                  [
+                    20000,
+                    "10.000 tot 20.000",
+                    "<"
+                  ],
+                  [
+                    20000,
+                    "> 20.000",
+                    ">="
+                  ],
+                  [
+                    null,
+                    "geen gegevens"
+                  ]
+                ]
+              }
+            ]
+          },
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "abstract": "Bevolkingsverdeling in een raster met cellen van telkens 1 km²-België. https://www.geo.be/home ",
+          "label": "Aantal inwoners per km2"
+        }
+      },
+      {
+        "id": "d81eef1d-e11c-45f0-ad31-4417e376bb35",
+        "title": "Aantal inwoners - Gemeenten",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/Gemeenten.geo.json",
+            "attribution": "Bron: geo.be"
+          }
+        },
+        "layers": [
+          {
+            "id": "d81eef1d-e11c-45f0-ad31-4417e376bb35-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": [
+                "case",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "Inwonertal"
+                  ],
+                  1000
+                ],
+                "#ffffcc",
+                [
+                  "<",
+                  [
+                    "get",
+                    "Inwonertal"
+                  ],
+                  10000
+                ],
+                "#ffeda0",
+                [
+                  "<",
+                  [
+                    "get",
+                    "Inwonertal"
+                  ],
+                  50000
+                ],
+                "#feb24c",
+                [
+                  "<",
+                  [
+                    "get",
+                    "Inwonertal"
+                  ],
+                  250000
+                ],
+                "#f03b20",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "Inwonertal"
+                  ],
+                  99999999
+                ],
+                "#bd0026",
+                [
+                  "!",
+                  [
+                    "has",
+                    "Inwonertal"
+                  ]
+                ],
+                "lightgray",
+                "#cccccc"
+              ],
+              "fill-outline-color": "#444",
+              "fill-opacity": 1
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Aantal inwoners - Gemeenten",
+          "attributes": {
+            "translations": [
+              {
+                "name": "Inwonertal",
+                "translation": "aantal inwoners",
+                "valuemap": [
+                  [
+                    1000,
+                    "≤ 1.000",
+                    "<="
+                  ],
+                  [
+                    10000,
+                    "1.000 tot 10.000",
+                    "<"
+                  ],
+                  [
+                    50000,
+                    "10.000 tot 50.000",
+                    "<"
+                  ],
+                  [
+                    250000,
+                    "50.000 tot 250.000",
+                    "<"
+                  ],
+                  [
+                    99999999,
+                    "> 250.000",
+                    "<="
+                  ],
+                  [
+                    null,
+                    "geen gegevens"
+                  ]
+                ]
+              }
+            ]
+          },
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "label": "Aantal inwoners - Gemeenten"
+        }
+      },
+      {
+        "id": "04ac3148-df6c-4463-be9f-ee570e160467",
+        "title": "Aantal inwoners - Arrondissementen",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/Arrondissementen.geo.json"
+          }
+        },
+        "layers": [
+          {
+            "id": "04ac3148-df6c-4463-be9f-ee570e160467-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": [
+                "case",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "Inwonertal"
+                  ],
+                  100000
+                ],
+                "#ffffcc",
+                [
+                  "<",
+                  [
+                    "get",
+                    "Inwonertal"
+                  ],
+                  250000
+                ],
+                "#ffeda0",
+                [
+                  "<",
+                  [
+                    "get",
+                    "Inwonertal"
+                  ],
+                  500000
+                ],
+                "#feb24c",
+                [
+                  "<",
+                  [
+                    "get",
+                    "Inwonertal"
+                  ],
+                  800000
+                ],
+                "#f03b20",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "Inwonertal"
+                  ],
+                  99999999
+                ],
+                "#bd0026",
+                [
+                  "!",
+                  [
+                    "has",
+                    "Inwonertal"
+                  ]
+                ],
+                "lightgray",
+                "#cccccc"
+              ],
+              "fill-outline-color": "#444",
+              "fill-opacity": 1
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Aantal inwoners - Arrondissementen",
+          "attributes": {
+            "translations": [
+              {
+                "name": "Inwonertal",
+                "translation": "aantal inwoners",
+                "valuemap": [
+                  [
+                    100000,
+                    "≤ 100.000",
+                    "<="
+                  ],
+                  [
+                    250000,
+                    "100.000 tot 250.000",
+                    "<"
+                  ],
+                  [
+                    500000,
+                    "250.000 tot 500.000",
+                    "<"
+                  ],
+                  [
+                    800000,
+                    "500.000 tot 800.000",
+                    "<"
+                  ],
+                  [
+                    99999999,
+                    "> 250.000",
+                    "<="
+                  ],
+                  [
+                    null,
+                    "geen gegevens"
+                  ]
+                ]
+              }
+            ]
+          },
+          "userlayer": true,
+          "cansave": true,
+          "label": "Aantal inwoners - Arrondissementen"
+        }
+      },
+      {
+        "id": "12334-combined",
+        "title": "Hoogte + Schaduwering",
+        "type": "raster",
+        "source": "12334-combined-source",
+        "metadata": {
+          "getFeatureInfoUrl": "",
+          "legendurl": "https://kaart.edugis.nl/data/belgie/inspire.png",
+          "abstract": "Hoogtemodel gecombineerd met schaduwering via WMS.",
+          "label": "Hoogte + Schaduwering"
+        }
+      },
+      {
+        "id": "d96de0e6-a206-40e7-8389-3d464ce45d3b",
+        "title": "Aardbevingen",
+        "type": "raster",
+        "source": "d96de0e6-a206-40e7-8389-3d464ce45d3b-source",
+        "metadata": {
+          "wms": true,
+          "title": "Aardbevingen (ROB)",
+          "abstract": "The earthquake catalogue is a list of earthquakes from 1911 up to the present day with the following parameters: origin time (year, month, day, hour, minute, second), geographic coordinates of the hypocenter (latitude, longitude, focal depth), magnitude  maximum observed intensity, and the name of the locality.",
+          "legendurl": "https://inspire.seismology.be/geoserver/inspire/wms?transparent=true&REQUEST=GETLEGENDGRAPHIC&SERVICE=WMS&VERSION=1.1.1&LAYER=inspire%3Aseis_earthquakes&FORMAT=image%2Fpng&STYLE=",
+          "getFeatureInfoUrl": "https://inspire.seismology.be/geoserver/inspire/wms?transparent=true&REQUEST=GETFEATUREINFO&SERVICE=WMS&VERSION=1.1.1&LAYERS=inspire%3Aseis_earthquakes&QUERY_LAYERS=inspire%3Aseis_earthquakes&FORMAT=image%2Fpng&STYLES=",
+          "label": "Aardbevingen"
+        }
+      },
+      {
+        "id": "8fe6de0f-dfae-4f64-9cdd-b4c28a7a56124343",
+        "title": "Breuken",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/breuken_line.geo.json",
+            "attribution": "unknown"
+          }
+        },
+        "layers": [
+          {
+            "id": "8fe6de0f-dfae-4f64-9cdd-b4c28a7a56124343-layer",
+            "type": "line",
+            "source": "source",
+            "paint": {
+              "line-color": "#fa0707",
+              "line-width": 1.5
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Breuken",
+          "userlayer": true,
+          "reference": false,
+          "label": "Breuken"
+        }
+      },
+      {
+        "id": "d7d0a9bc-9d29-46d7-9744-88248aaa2a89",
+        "title": "Seismische zones",
+        "type": "raster",
+        "source": "d7d0a9bc-9d29-46d7-9744-88248aaa2a89-source",
+        "metadata": {
+          "wms": true,
+          "title": "Seismische zones",
+          "abstract": "The Eurocode-8 seismic zoning map for Belgium was established by the Royal Observatory of Belgium for a return period of 475 years (equivalent to 10% probability of exceedance in a timespan of 50 years)",
+          "legendurl": "https://inspire.seismology.be/geoserver/inspire/wms?transparent=true&REQUEST=GETLEGENDGRAPHIC&SERVICE=WMS&VERSION=1.1.1&LAYER=inspire%3Aseis_EC8_2011&FORMAT=image%2Fpng&STYLE=",
+          "getFeatureInfoUrl": "https://inspire.seismology.be/geoserver/inspire/wms?transparent=true&REQUEST=GETFEATUREINFO&SERVICE=WMS&VERSION=1.1.1&LAYERS=inspire%3Aseis_EC8_2011&QUERY_LAYERS=inspire%3Aseis_EC8_2011&FORMAT=image%2Fpng&STYLES=",
+          "label": "Seismische zones"
+        }
+      },
+      {
+        "id": "26f3b478-58a3-42f6-81df-83ce1c375af1",
+        "title": "Seismische meetstations",
+        "type": "raster",
+        "source": "26f3b478-58a3-42f6-81df-83ce1c375af1-source",
+        "metadata": {
+          "wms": true,
+          "title": "Seismische meetstations",
+          "abstract": "The Belgian seismic network of the Royal Observatory of Belgium (ROB), with about 45 permanent stations, is mainly dedicated to the monitoring and the scientific study of the seismic activity in Belgium.\r\nTo complement the seismic network, the Belgian accelerometric network was installed early in the 2000ies to furnish reliable data when strong ground motions saturate traditional seismometers.",
+          "legendurl": "https://inspire.seismology.be/geoserver/inspire/wms?transparent=true&REQUEST=GETLEGENDGRAPHIC&SERVICE=WMS&VERSION=1.1.1&LAYER=inspire%3Aseis_stations&FORMAT=image%2Fpng&STYLE=",
+          "getFeatureInfoUrl": "https://inspire.seismology.be/geoserver/inspire/wms?transparent=true&REQUEST=GETFEATUREINFO&SERVICE=WMS&VERSION=1.1.1&LAYERS=inspire%3Aseis_stations&QUERY_LAYERS=inspire%3Aseis_stations&FORMAT=image%2Fpng&STYLES=",
+          "label": "Seismische meetstations"
+        }
+      },
+      {
+        "id": "b85d65a4-88a4-4ced-a077-10f2d492389b",
+        "title": "GNSS meetstations",
+        "type": "raster",
+        "source": "b85d65a4-88a4-4ced-a077-10f2d492389b-source",
+        "metadata": {
+          "wms": true,
+          "title": "GNSS Stations",
+          "abstract": "The Royal Observatory of Belgium maintains several continuously observing GNSS (Global Navigation Satellite System) tracking stations in Belgium. The stations are also belonging to EUREF Permanent Network (EPN) used to maintain the ETRS89",
+          "legendurl": "https://inspire.seismology.be/geoserver/inspire/wms?transparent=true&REQUEST=GETLEGENDGRAPHIC&SERVICE=WMS&VERSION=1.1.1&LAYER=inspire%3AROB_GNSS_Stations&FORMAT=image%2Fpng&STYLE=",
+          "getFeatureInfoUrl": "https://inspire.seismology.be/geoserver/inspire/wms?transparent=true&REQUEST=GETFEATUREINFO&SERVICE=WMS&VERSION=1.1.1&LAYERS=inspire%3AROB_GNSS_Stations&QUERY_LAYERS=inspire%3AROB_GNSS_Stations&FORMAT=image%2Fpng&STYLES=",
+          "label": "GNSS meetstations"
+        }
+      },
+      {
+        "id": "5467b49d-7953-44bd-8573-2ab980afc7e5",
+        "title": "Waterwegen - binnenvaart",
+        "type": "raster",
+        "source": "5467b49d-7953-44bd-8573-2ab980afc7e5-source",
+        "metadata": {
+          "wms": true,
+          "title": "Waterwegen",
+          "abstract": "Binnenvaartwegen",
+          "legendurl": "https://kaart.edugis.nl/data/belgie/insp_lijn_noedit_blauw.png",
+          "legendclipped": true,
+          "getFeatureInfoUrl": "https://data.geo.be/ws/inspire_annex1/wms?transparent=true&REQUEST=GETFEATUREINFO&SERVICE=WMS&VERSION=1.1.1&LAYERS=TN_WaterTransportNetwork_WaterwayLink&QUERY_LAYERS=TN_WaterTransportNetwork_WaterwayLink&FORMAT=image%2Fpng&STYLES=",
+          "label": "Waterwegen - binnenvaart"
+        }
+      },
+      {
+        "id": "9839b39b-60d8-4aa7-a0e2-e1d214f013b7",
+        "title": "Waterwegen - vlakken",
+        "type": "raster",
+        "source": "9839b39b-60d8-4aa7-a0e2-e1d214f013b7-source",
+        "metadata": {
+          "wms": true,
+          "title": "Waterwegen - vlakken",
+          "abstract": "Waterwegen als vlakken laat de breedte zien van de waterwegen. Zoom verder in als je de vlakken niet ziet.",
+          "legendurl": "https://data.geo.be/ws/inspire_annex1/wms?transparent=true&REQUEST=GETLEGENDGRAPHIC&SERVICE=WMS&VERSION=1.1.1&LAYER=HY_PhysicalWaters_Waterbodies_WaterCourseArea&FORMAT=image%2Fpng&STYLE=",
+          "getFeatureInfoUrl": "https://data.geo.be/ws/inspire_annex1/wms?transparent=true&REQUEST=GETFEATUREINFO&SERVICE=WMS&VERSION=1.1.1&LAYERS=HY_PhysicalWaters_Waterbodies_WaterCourseArea&QUERY_LAYERS=HY_PhysicalWaters_Waterbodies_WaterCourseArea&FORMAT=image%2Fpng&STYLES=",
+          "label": "Waterwegen - vlakken"
+        }
+      },
+      {
+        "id": "4faa214f-2662-4eaf-812a-97a4d57c5aad",
+        "title": "Waterlichamen (meren, plassen, havens)",
+        "type": "raster",
+        "source": "4faa214f-2662-4eaf-812a-97a4d57c5aad-source",
+        "metadata": {
+          "wms": true,
+          "title": "Waterlichamen: meren, plassen, havens",
+          "abstract": "Hier worden Waterlichamen getoond als vlakken. Zoom verder in als je de vlakken niet ziet.",
+          "legendurl": "https://data.geo.be/ws/inspire_annex1/wms?transparent=true&REQUEST=GETLEGENDGRAPHIC&SERVICE=WMS&VERSION=1.1.1&LAYER=HY_PhysicalWaters_Waterbodies_StandingWater&FORMAT=image%2Fpng&STYLE=",
+          "getFeatureInfoUrl": "https://data.geo.be/ws/inspire_annex1/wms?transparent=true&REQUEST=GETFEATUREINFO&SERVICE=WMS&VERSION=1.1.1&LAYERS=HY_PhysicalWaters_Waterbodies_StandingWater&QUERY_LAYERS=HY_PhysicalWaters_Waterbodies_StandingWater&FORMAT=image%2Fpng&STYLES=",
+          "label": "Waterlichamen (meren, plassen, havens)"
+        }
+      },
+      {
+        "id": "c132ac7b-547f-4ead-b5f5-8868d63e01d0",
+        "title": "Spoorwegen",
+        "type": "raster",
+        "source": "c132ac7b-547f-4ead-b5f5-8868d63e01d0-source",
+        "metadata": {
+          "wms": true,
+          "title": "Spoorwegen",
+          "abstract": "Spoorwegen",
+          "legendurl": "https://data.geo.be/ws/inspire_annex1/wms?transparent=true&REQUEST=GETLEGENDGRAPHIC&SERVICE=WMS&VERSION=1.1.1&LAYER=TN_RailTransportNetwork_RailwayLink&FORMAT=image%2Fpng&STYLE=",
+          "getFeatureInfoUrl": "https://data.geo.be/ws/inspire_annex1/wms?transparent=true&REQUEST=GETFEATUREINFO&SERVICE=WMS&VERSION=1.1.1&LAYERS=TN_RailTransportNetwork_RailwayLink&QUERY_LAYERS=TN_RailTransportNetwork_RailwayLink&FORMAT=image%2Fpng&STYLES=",
+          "label": "Spoorwegen"
+        }
+      },
+      {
+        "id": "e91fff1d-e11c-45f0-ad31-4417e376bb35",
+        "title": "Huishoudens zonder wagen (%)",
+        "type": "style",
+        "sources": {
+          "source": {
+            "type": "geojson",
+            "data": "https://kaart.edugis.nl/data/belgie/geenauto.geo.json",
+            "attribution": "Bron: stat.be"
+          }
+        },
+        "layers": [
+          {
+            "id": "e91fff1d-e11c-45f0-ad31-4417e376bb35-layer",
+            "type": "fill",
+            "source": "source",
+            "paint": {
+              "fill-color": [
+                "case",
+                [
+                  "<",
+                  [
+                    "get",
+                    "0 wagens (%)"
+                  ],
+                  10
+                ],
+                "#fcfbfd",
+                [
+                  "<",
+                  [
+                    "get",
+                    "0 wagens (%)"
+                  ],
+                  20
+                ],
+                "#efedf5",
+                [
+                  "<",
+                  [
+                    "get",
+                    "0 wagens (%)"
+                  ],
+                  30
+                ],
+                "#dadaeb",
+                [
+                  "<",
+                  [
+                    "get",
+                    "0 wagens (%)"
+                  ],
+                  40
+                ],
+                "#bcbddc",
+                [
+                  "<",
+                  [
+                    "get",
+                    "0 wagens (%)"
+                  ],
+                  50
+                ],
+                "#9e9ac8",
+                [
+                  "<",
+                  [
+                    "get",
+                    "0 wagens (%)"
+                  ],
+                  60
+                ],
+                "#807dba",
+                [
+                  "<",
+                  [
+                    "get",
+                    "0 wagens (%)"
+                  ],
+                  70
+                ],
+                "#6a51a3",
+                [
+                  ">=",
+                  [
+                    "get",
+                    "0 wagens (%)"
+                  ],
+                  70
+                ],
+                "#4a1486",
+                [
+                  "!",
+                  [
+                    "has",
+                    "0 wagens (%)"
+                  ]
+                ],
+                "lightgray",
+                "#cccccc"
+              ],
+              "fill-outline-color": "#444",
+              "fill-opacity": 1
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Huishoudens zonder wagen (%)",
+          "attributes": {
+            "emphasize": "0 wagens (%)",
+            "deniedattributes": [
+              "0 wagens",
+              "1 wagen",
+              "2 wagens",
+              "Meer dan 2 wagens",
+              "Aantal huishoudens"
+            ]
+          },
+          "maplayeropen": false,
+          "userlayer": true,
+          "cansave": true,
+          "abstract": "Huishoudens zonder wagen (%).",
+          "label": "Huishoudens zonder wagen (%)"
+        }
+      },
+      {
+        "id": "openstreetmap",
+        "title": "Standaard (OSM)",
+        "type": "raster",
+        "source": "openstreetmap-source",
+        "metadata": {
+          "legendurl": "https://mapserver.edugis.nl/legends/wereld/osm_logo.png",
+          "title": "Standaard (OSM)",
+          "reference": true,
+          "label": "Standaard (OSM)"
+        }
+      },
+      {
+        "id": "osmbright",
+        "title": "Helder (OSM)",
+        "type": "style",
+        "url": "styles/openmaptiles/osmbright.json",
+        "metadata": {
+          "reference": true,
+          "title": "Helder (OSM)",
+          "styleid": "OsmBright",
+          "styletitle": "Helder (OSM)",
+          "label": "Helder (OSM)"
+        }
+      },
+      {
+        "id": "openstreetmapgray",
+        "title": "Grijs (OSM)",
+        "type": "raster",
+        "source": "openstreetmapgray-source",
+        "metadata": {
+          "legendurl": "https://mapserver.edugis.nl/legends/wereld/osm_logo.png",
+          "title": "Grijs (OSM)",
+          "reference": true,
+          "userlayer": true,
+          "label": "Grijs (OSM)"
+        }
+      },
+      {
+        "id": "darkmatter",
+        "title": "Donker (OSM)",
+        "type": "style",
+        "url": "styles/openmaptiles/dark-matter.json",
+        "metadata": {
+          "reference": true,
+          "title": "Donker (OSM)",
+          "styleid": "DarkMatter",
+          "styletitle": "Donker (OSM)",
+          "label": "Donker (OSM)"
+        }
+      },
+      {
+        "id": "klokantechbasic",
+        "title": "Eenvoudig (OSM)",
+        "type": "style",
+        "url": "styles/openmaptiles/klokantech-basic.json",
+        "metadata": {
+          "reference": true,
+          "title": "Eenvoudig (OSM)",
+          "styleid": "klokantechbasic",
+          "styletitle": "Eenvoudig (OSM)",
+          "label": "Eenvoudig (OSM)"
+        }
+      },
+      {
+        "id": "positron",
+        "title": "Eenvoudig grijs (OSM)",
+        "type": "style",
+        "url": "styles/openmaptiles/positron.json",
+        "metadata": {
+          "reference": true,
+          "title": "Eenvoudig grijs (OSM)",
+          "styleid": "Positron",
+          "styletitle": "Eenvoudig grijs (OSM)",
+          "label": "Eenvoudig grijs (OSM)"
+        }
+      },
+      {
+        "id": "bingmaproad",
+        "title": "Standaard (Bing)",
+        "type": "raster",
+        "source": "bingmaproad-source",
+        "metadata": {
+          "reference": true,
+          "bing": true,
+          "title": "Standaard (Bing)",
+          "label": "Standaard (Bing)"
+        }
+      },
+      {
+        "id": "stamentoner",
+        "title": "Zwart-Wit (Stamen)",
+        "type": "raster",
+        "source": "stamentoner-source",
+        "metadata": {
+          "reference": true,
+          "title": "Zwart-Wit (Stamen)",
+          "label": "Zwart-Wit (Stamen)"
+        }
+      },
+      {
+        "id": "esriworldimagery",
+        "title": "Wereld (ESRI World Imagery)",
+        "type": "raster",
+        "source": "esriworldimagery-source",
+        "metadata": {
+          "reference": true,
+          "title": "Wereld (ESRI World Imagery)",
+          "label": "Wereld (ESRI World Imagery)"
+        }
+      },
+      {
+        "id": "bingmapaerial",
+        "title": "Wereld (Microsoft Bing)",
+        "type": "raster",
+        "source": "bingmapaerial-source",
+        "metadata": {
+          "reference": true,
+          "bing": true,
+          "title": "Wereld (Microsoft Bing)",
+          "label": "Wereld (Microsoft Bing)"
+        }
+      },
+      {
+        "id": "bingmaphybrid",
+        "title": "Hybride | Wereld (Microsoft Bing)",
+        "type": "raster",
+        "source": "bingmaphybrid-source",
+        "metadata": {
+          "reference": true,
+          "bing": true,
+          "title": "Hybride | Wereld (Microsoft Bing)",
+          "label": "Hybride | Wereld (Microsoft Bing)"
+        }
+      },
+      {
+        "id": "stamenwatercolor",
+        "title": "Waterverf (Stamen)",
+        "type": "raster",
+        "source": "stamenwatercolor-source",
+        "metadata": {
+          "reference": true,
+          "title": "Waterverf (Stamen)",
+          "label": "Waterverf (Stamen)"
+        }
+      },
+      {
+        "id": "stamenterrain",
+        "title": "Terrein | Relief (Stamen)",
+        "type": "raster",
+        "source": "stamenterrain-source",
+        "metadata": {
+          "reference": true,
+          "title": "Terrein | Relief (Stamen)",
+          "label": "Terrein | Relief (Stamen)"
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeBackground": "openstreetmap",
+    "activeLayers": [
+      {
+        "ref": "openstreetmap",
+        "visible": true
+      },
+      {
+        "ref": "12334-combined",
+        "visible": true
+      }
+    ],
+    "activeExclusiveLayers": {
+      "basemap": "openstreetmap"
+    }
+  },
+  "tools": {
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "panel": {
+        "enabled": true,
+        "position": "after"
+      },
+      "items": [
+        {
+          "id": "search",
+          "type": "search",
+          "enabled": true,
+          "title": "Search",
+          "provider": "nominatim",
+          "attribution": "&copy; OpenStreetMap contributors | &copy; Nominatim"
+        },
+        {
+          "id": "layers",
+          "type": "layerTree",
+          "enabled": true,
+          "title": "Catalog",
+          "tree": [
+            {
+              "label": "Bestuurlijke grenzen",
+              "children": [
+                {
+                  "label": "Landgrens",
+                  "layerId": "custom-style-ter"
+                },
+                {
+                  "label": "Gewesten",
+                  "layerId": "custom-style-gew"
+                },
+                {
+                  "label": "Provincies",
+                  "layerId": "custom-style"
+                },
+                {
+                  "label": "Arrondissementen",
+                  "layerId": "custom-stylearr"
+                },
+                {
+                  "label": "Gemeentegrenzen",
+                  "layerId": "31d6283e-7697-4310-a4eb-c97ddd4c5d6a"
+                },
+                {
+                  "label": "Naamlagen",
+                  "children": [
+                    {
+                      "label": "Gemeentenamen (NL)",
+                      "layerId": "7a0a3c6c-687a-48b2-9e53-c9e3ef984850"
+                    },
+                    {
+                      "label": "Gemeentenamen (FR)",
+                      "layerId": "0a3a5e4e-72a4-4356-9992-26e53042b248"
+                    },
+                    {
+                      "label": "Arrondissementnamen (NL)",
+                      "layerId": "dd8f8b40-4bd0-4e65-93fd-a24d7beb60ea"
+                    },
+                    {
+                      "label": "Arrondissementnamen (FR)",
+                      "layerId": "f55ec6e5-1a10-4575-adef-f3fc7d66c7ac"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "label": "Demografie (2023)",
+              "children": [
+                {
+                  "label": "Inwonertal",
+                  "children": [
+                    {
+                      "label": "Aantal inwoners per km2",
+                      "layerId": "d81fff1d-e11c-45f0-ad31-4417e376bb35"
+                    },
+                    {
+                      "label": "Aantal inwoners - Gemeenten",
+                      "layerId": "d81eef1d-e11c-45f0-ad31-4417e376bb35"
+                    },
+                    {
+                      "label": "Aantal inwoners - Arrondissementen",
+                      "layerId": "04ac3148-df6c-4463-be9f-ee570e160467"
+                    }
+                  ]
+                },
+                {
+                  "label": "belgie",
+                  "type": "getcapabilities",
+                  "url": "https://map.edugis.nl/cgi-bin/qgis_mapserv.fcgi?dpi=90&map=data/eduqgis/files/belgie/belgie_edugis.qgz",
+                  "tilecacheUrl": [
+                    "https://tiles.edugis.nl/mapproxy/belgie/service"
+                  ]
+                }
+              ]
+            },
+            {
+              "label": "Hoogtekaart",
+              "children": [
+                {
+                  "label": "Hoogte + Schaduwering",
+                  "layerId": "12334-combined",
+                  "checked": true
+                }
+              ]
+            },
+            {
+              "label": "Tektoniek",
+              "children": [
+                {
+                  "label": "Aardbevingen",
+                  "layerId": "d96de0e6-a206-40e7-8389-3d464ce45d3b"
+                },
+                {
+                  "label": "Breuken",
+                  "layerId": "8fe6de0f-dfae-4f64-9cdd-b4c28a7a56124343"
+                },
+                {
+                  "label": "Seismische zones",
+                  "layerId": "d7d0a9bc-9d29-46d7-9744-88248aaa2a89"
+                },
+                {
+                  "label": "Seismische meetstations",
+                  "layerId": "26f3b478-58a3-42f6-81df-83ce1c375af1"
+                },
+                {
+                  "label": "GNSS meetstations",
+                  "layerId": "b85d65a4-88a4-4ced-a077-10f2d492389b"
+                }
+              ]
+            },
+            {
+              "label": "Infrastructuur",
+              "children": [
+                {
+                  "label": "Water",
+                  "children": [
+                    {
+                      "label": "Waterwegen - binnenvaart",
+                      "layerId": "5467b49d-7953-44bd-8573-2ab980afc7e5"
+                    },
+                    {
+                      "label": "Waterwegen - vlakken",
+                      "layerId": "9839b39b-60d8-4aa7-a0e2-e1d214f013b7"
+                    },
+                    {
+                      "label": "Waterlichamen (meren, plassen, havens)",
+                      "layerId": "4faa214f-2662-4eaf-812a-97a4d57c5aad"
+                    }
+                  ]
+                },
+                {
+                  "label": "Spoorwegen",
+                  "layerId": "c132ac7b-547f-4ead-b5f5-8868d63e01d0"
+                }
+              ]
+            },
+            {
+              "label": "Overig",
+              "children": [
+                {
+                  "label": "Huishoudens zonder wagen (%)",
+                  "layerId": "e91fff1d-e11c-45f0-ad31-4417e376bb35"
+                }
+              ]
+            },
+            {
+              "label": "Achtergrondlagen",
+              "children": [
+                {
+                  "label": "Topografisch",
+                  "separator": true
+                },
+                {
+                  "label": "Standaard (OSM)",
+                  "layerId": "openstreetmap",
+                  "selectionGroup": "basemap",
+                  "checked": true
+                },
+                {
+                  "label": "Helder (OSM)",
+                  "layerId": "osmbright",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Grijs (OSM)",
+                  "layerId": "openstreetmapgray",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Donker (OSM)",
+                  "layerId": "darkmatter",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Eenvoudig (OSM)",
+                  "layerId": "klokantechbasic",
+                  "checked": false,
+                  "selectionGroup": "basemap"
+                },
+                {
+                  "label": "Eenvoudig grijs (OSM)",
+                  "layerId": "positron",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Standaard (Bing)",
+                  "layerId": "bingmaproad",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Zwart-Wit (Stamen)",
+                  "layerId": "stamentoner",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Luchtfoto",
+                  "separator": true
+                },
+                {
+                  "label": "Wereld (ESRI World Imagery)",
+                  "layerId": "esriworldimagery",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Wereld (Microsoft Bing)",
+                  "layerId": "bingmapaerial",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Overig",
+                  "separator": true
+                },
+                {
+                  "label": "Hybride | Wereld (Microsoft Bing)",
+                  "layerId": "bingmaphybrid",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Waterverf (Stamen)",
+                  "layerId": "stamenwatercolor",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Terrein | Relief (Stamen)",
+                  "layerId": "stamenterrain",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                }
+              ],
+              "selectionMode": "single",
+              "selectionGroup": "basemap",
+              "allowNone": false
+            }
+          ]
+        },
+        {
+          "id": "measure",
+          "type": "measure",
+          "enabled": true,
+          "title": "Measure"
+        },
+        {
+          "id": "info",
+          "type": "info",
+          "enabled": true,
+          "title": "Feature info"
+        },
+        {
+          "id": "draw",
+          "type": "draw",
+          "enabled": true,
+          "title": "Draw"
+        }
+      ]
+    },
+    "attribution": {
+      "type": "attributionControl",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    },
+    "coordinates": {
+      "type": "coordinates",
+      "enabled": true,
+      "position": "bottom-center"
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "bottom-right",
+      "direction": "vertical",
+      "orientation": "vertical"
+    },
+    "scale": {
+      "type": "scaleControl",
+      "enabled": true,
+      "position": "bottom-right",
+      "maxWidth": 140,
+      "margin": "0 0 5px 0"
+    },
+    "zoomLevel": {
+      "type": "zoomLevel",
+      "enabled": true,
+      "position": "bottom-left"
+    },
+    "spinner": {
+      "type": "spinner",
+      "enabled": true,
+      "position": "middle-center"
+    },
+    "legendToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-right",
+      "orientation": "vertical",
+      "tooltipPlacement": "left",
+      "panel": {
+        "enabled": true,
+        "position": "after",
+        "opened": false
+      },
+      "items": [
+        {
+          "id": "legend",
+          "type": "layerOverview",
+          "enabled": true,
+          "title": "Legend"
+        }
+      ]
+    }
+  },
+  "engine": "leaflet",
+  "_devTools": {
+    "configedit": false
+  }
+}

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buffer — WebMapX tool</title>
+<meta name="description" content="Creates a zone at a set distance around a layer.">
+<link rel="canonical" href="https://webmapx.com/tools/buffer.html">
+<link rel="alternate" type="application/json" href="./buffer.json">
+<link rel="icon" href="../favicon.png" type="image/png">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f8f8f8;color:#1a1a1a;line-height:1.6}
+a{color:#1b6ec2}
+header{background:#0f1923;color:#fff;padding:2rem 1.5rem}
+header .inner,main{max-width:52rem;margin:0 auto}
+header .crumb{font-size:.85rem;color:#8fa6bd}
+header .crumb a{color:#8fa6bd}
+header h1{font-size:2rem;letter-spacing:-.02em;margin:.4rem 0;display:flex;align-items:center;gap:.55rem}
+.tool-icon{display:inline-flex;align-items:center;flex:none}
+.tool-link{display:inline-flex;align-items:center;gap:.45rem}
+header p{color:#aac;max-width:42rem}
+.badges{margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-size:.75rem;border:1px solid #2e4358;color:#cfe0f0;border-radius:99px;padding:.15rem .6rem}
+.mapwrap{max-width:52rem;margin:1.5rem auto;height:26rem;border:1px solid #d8d8d8;border-radius:8px;overflow:hidden;background:#e9e9e9}
+.mapwrap iframe{width:100%;height:100%;border:0;display:block}
+.mapwrap .fallback{padding:2rem;font-size:.9rem;color:#555}
+main{padding:0 1.5rem 4rem}
+section{margin-top:2.5rem}
+/* The tools that exist but have no page yet, listed quietly under their own
+   group rather than in one lump at the bottom: a reader looking for a control
+   should find out there is one, in the place they were already looking. */
+.pending{margin-top:.8rem;font-size:.85rem;color:#666}
+/* One worked example, two pictures and a table. The colours are the tool's own:
+   the first layer neutral, the second layer the accent, the result filled. */
+.io{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;margin-top:1rem}
+.io .arrow{font-size:1.6rem;color:#888;flex:0 0 auto}
+.map-figure{margin:0;flex:0 0 auto}
+.map-figure svg{background:#eef3f7;border:1px solid #d8d8d8;border-radius:4px;display:block}
+.map-figure figcaption{font-size:.75rem;color:#666;margin-top:.25rem}
+svg .a{fill:#c9d6e0;stroke:#7d8f9d;stroke-width:.5}
+svg .ghost{fill:#eceff2;stroke:#dfe4e8;stroke-width:.5}
+svg .b{fill:rgba(217,99,60,.18);stroke:#d9633c;stroke-width:1.2}
+svg .out{fill:rgba(43,108,143,.55);stroke:#1b4a63;stroke-width:.8}
+svg .pt{fill:#1b4a63;stroke:#fff;stroke-width:1}
+table.attrs{font-size:.8rem;margin-top:.6rem;width:auto;border-collapse:collapse}
+table.attrs th,table.attrs td{border:1px solid #ddd;padding:.2rem .5rem;text-align:left}
+table.attrs th{background:#f0f2f4}
+table.attrs td.null{color:#aaa;font-style:italic}
+p.fields{font-size:.85rem;color:#555;margin-top:.8rem}
+.scroll{overflow-x:auto}
+table.matrix{font-size:.8rem;border-collapse:collapse;margin-top:.6rem;width:auto}
+table.matrix th,table.matrix td{border:1px solid #ddd;padding:.25rem .5rem;text-align:center}
+table.matrix th.op{text-align:left;white-space:nowrap;font-weight:600}
+table.matrix th.sub{font-weight:400;color:#666;font-size:.75rem}
+table.matrix thead th{background:#f0f2f4}
+.yes{color:#2f7d4f;font-weight:700}
+.none{color:#999}
+.err{color:#b03030;font-weight:700}
+p.legend{font-size:.85rem;color:#555;margin-top:.6rem}
+.no-geom{width:300px;height:180px;display:flex;align-items:center;justify-content:center;text-align:center;
+  background:#f4f6f8;border:1px dashed #cfd6dc;border-radius:4px;color:#7a848c;font-size:.85rem}
+p.pagenav{font-size:.9rem;margin-top:1.2rem;padding-bottom:.6rem;border-bottom:1px solid #e2e2e2}
+.pending code{background:#ececec;padding:.1em .35em;border-radius:3px}
+h2{font-size:1.3rem;letter-spacing:-.01em;margin-bottom:.6rem}
+p+p,p+ul,p+ol,ul+p,ol+p,pre+p{margin-top:.8rem}
+li{margin-left:1.2rem}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:#ececec;padding:.1em .35em;border-radius:3px}
+pre{background:#0f1923;color:#dfe8f0;padding:1rem;border-radius:6px;overflow-x:auto;margin-top:.8rem}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin-top:.8rem;font-size:.9rem}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid #ddd;vertical-align:top}
+footer{border-top:1px solid #ddd;margin-top:3rem;padding-top:1rem;font-size:.85rem;color:#666}
+@media (prefers-color-scheme:dark){
+ body{background:#12181e;color:#e6ebf0}a{color:#6db8ff}
+ .mapwrap{border-color:#25313d;background:#1a222a}
+ code{background:#222c36}th,td{border-color:#25313d}footer{border-color:#25313d;color:#9aa8b5}
+}
+</style>
+</head>
+<body>
+<header><div class="inner">
+<div class="crumb"><a href="../index.html">WebMapX</a> / <a href="./index.html">Tools</a></div>
+<h1><span class="tool-icon" aria-hidden="true"><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6.3 6.4' fill='currentColor' width="1em" height="1em"><path d='M4.6 1.4C4.6 1.4 1.7 4.6 1.7 4.6 1.7 4.6 1.8 4.7 1.8 4.7 1.8 4.7 4.8 1.6 4.8 1.6 4.8 1.6 4.6 1.4 4.6 1.4'/><path d='M4.2 0.1C4.2 0.1 4.2 0.1 4.2 0.1 4.2 0.1 4.2 0.1 4.2 0.1 4.2 0.1 4 0.2 4 0.2 4 0.2 4.1 0.6 4.1 0.6 4.1 0.6 4.3 0.6 4.3 0.6 4.3 0.6 4.5 0.5 4.5 0.5 4.5 0.5 4.5 0.1 4.5 0.1 4.5 0.1 4.2 0.1 4.2 0.1M4.9 0.5C4.9 0.5 4.8 0.6 4.8 0.6 4.8 0.6 4.8 0.6 4.8 0.6 4.8 0.6 4.8 0.6 4.8 0.6 4.8 0.6 4.9 0.6 4.9 0.6 4.9 0.6 5.1 0.8 5.1 0.8 5.1 0.8 5.2 0.8 5.2 0.8 5.2 0.8 5.2 0.7 5.2 0.7 5.2 0.7 5.5 0.4 5.5 0.4 5.5 0.4 5.4 0.4 5.4 0.4 5.4 0.4 5.4 0.4 5.4 0.4 5.4 0.4 5.4 0.4 5.4 0.4 5.4 0.4 5 0.2 5 0.2 5 0.2 5 0.2 5 0.2 5 0.2 5 0.2 5 0.2 5 0.2 4.9 0.2 4.9 0.2 4.9 0.2 4.9 0.5 4.9 0.5M3.3 0.6C3.3 0.6 3.3 0.6 3.3 0.6 3.3 0.6 3.3 0.6 3.3 0.6 3.3 0.6 3.2 0.8 3.2 0.8 3.2 0.8 3.5 1.1 3.5 1.1 3.5 1.1 3.6 0.9 3.6 0.9 3.6 0.9 3.6 0.9 3.6 0.9 3.6 0.9 3.7 0.9 3.7 0.9 3.7 0.9 3.8 0.8 3.8 0.8 3.8 0.8 3.5 0.4 3.5 0.4 3.5 0.4 3.3 0.6 3.3 0.6M5.4 1.1C5.4 1.1 5.5 1.3 5.5 1.3 5.5 1.3 5.6 1.4 5.6 1.4 5.6 1.4 6 1.3 6 1.3 6 1.3 6 1.1 6 1.1 6 1.1 5.9 1.1 5.9 1.1 5.9 1.1 5.9 1.1 5.9 1.1 5.9 1.1 5.8 0.8 5.8 0.8 5.8 0.8 5.4 1.1 5.4 1.1M2.6 1.4C2.6 1.4 2.9 1.8 2.9 1.8 2.9 1.8 3.2 1.4 3.2 1.4 3.2 1.4 2.9 1.1 2.9 1.1 2.9 1.1 2.6 1.4 2.6 1.4M1.9 2.1C1.9 2.1 2.3 2.4 2.3 2.4 2.3 2.4 2.6 2.1 2.6 2.1 2.6 2.1 2.2 1.8 2.2 1.8 2.2 1.8 1.9 2.1 1.9 2.1M5.6 1.9C5.6 1.9 5.5 2.2 5.5 2.2 5.5 2.2 5.9 2.3 5.9 2.3 5.9 2.3 6 2 6 2 6 2 6 2 6 2 6 2 6 1.9 6 1.9 6 1.9 6.1 1.8 6.1 1.8 6.1 1.8 5.6 1.8 5.6 1.8 5.6 1.8 5.6 1.9 5.6 1.9M1.3 2.8C1.3 2.8 1.6 3.1 1.6 3.1 1.6 3.1 2 2.8 2 2.8 2 2.8 1.6 2.5 1.6 2.5 1.6 2.5 1.3 2.8 1.3 2.8M5 2.8C5 2.8 5.3 3.1 5.3 3.1 5.3 3.1 5.6 2.8 5.6 2.8 5.6 2.8 5.3 2.5 5.3 2.5 5.3 2.5 5 2.8 5 2.8M0.7 3.5C0.7 3.5 1 3.8 1 3.8 1 3.8 1.3 3.5 1.3 3.5 1.3 3.5 1 3.1 1 3.1 1 3.1 0.7 3.5 0.7 3.5M4.3 3.5C4.3 3.5 4.7 3.8 4.7 3.8 4.7 3.8 5 3.5 5 3.5 5 3.5 4.7 3.2 4.7 3.2 4.7 3.2 4.3 3.5 4.3 3.5M3.7 4.2C3.7 4.2 4.1 4.5 4.1 4.5 4.1 4.5 4.4 4.2 4.4 4.2 4.4 4.2 4 3.8 4 3.8 4 3.8 3.7 4.2 3.7 4.2M0.3 4.1C0.3 4.1 0.3 4.1 0.3 4.1 0.3 4.1 0.3 4.1 0.3 4.1 0.3 4.1 0.2 4.4 0.2 4.4 0.2 4.4 0.2 4.4 0.2 4.4 0.2 4.4 0.2 4.4 0.2 4.4 0.2 4.4 0.2 4.4 0.2 4.4 0.2 4.4 0.5 4.4 0.5 4.4 0.5 4.4 0.7 4.5 0.7 4.5 0.7 4.5 0.7 4.3 0.7 4.3 0.7 4.3 0.8 4.1 0.8 4.1 0.8 4.1 0.4 3.9 0.4 3.9 0.4 3.9 0.3 4.1 0.3 4.1M3.1 4.9C3.1 4.9 3.4 5.2 3.4 5.2 3.4 5.2 3.8 4.8 3.8 4.8 3.8 4.8 3.4 4.5 3.4 4.5 3.4 4.5 3.1 4.9 3.1 4.9M0.2 4.9C0.2 4.9 0.3 5 0.3 5 0.3 5 0.3 5 0.3 5 0.3 5 0.3 5 0.3 5 0.3 5 0.4 5.3 0.4 5.3 0.4 5.3 0.4 5.3 0.4 5.3 0.4 5.3 0.4 5.3 0.4 5.3 0.4 5.3 0.5 5.5 0.5 5.5 0.5 5.5 0.8 5.2 0.8 5.2 0.8 5.2 0.8 5.1 0.8 5.1 0.8 5.1 0.7 4.9 0.7 4.9 0.7 4.9 0.7 4.9 0.7 4.9 0.7 4.9 0.2 4.9 0.2 4.9M2.7 5.4C2.7 5.4 2.6 5.4 2.6 5.4 2.6 5.4 2.6 5.4 2.6 5.4 2.6 5.4 2.5 5.5 2.5 5.5 2.5 5.5 2.8 5.9 2.8 5.9 2.8 5.9 3 5.7 3 5.7 3 5.7 3 5.7 3 5.7 3 5.7 3 5.7 3 5.7 3 5.7 3.1 5.5 3.1 5.5 3.1 5.5 2.8 5.2 2.8 5.2 2.8 5.2 2.7 5.4 2.7 5.4M0.8 5.9C0.8 5.9 1.2 6.1 1.2 6.1 1.2 6.1 1.2 6.1 1.2 6.1 1.2 6.1 1.2 6.1 1.2 6.1 1.2 6.1 1.3 6.1 1.3 6.1 1.3 6.1 1.4 5.8 1.4 5.8 1.4 5.8 1.4 5.7 1.4 5.7 1.4 5.7 1.4 5.7 1.4 5.7 1.4 5.7 1.4 5.7 1.4 5.7 1.4 5.7 1.4 5.7 1.4 5.7 1.4 5.7 1.1 5.5 1.1 5.5 1.1 5.5 0.8 5.9 0.8 5.9M2 5.8C2 5.8 1.8 5.8 1.8 5.8 1.8 5.8 1.8 6 1.8 6 1.8 6 1.8 6.2 1.8 6.2 1.8 6.2 1.8 6.2 1.8 6.2 1.8 6.2 1.8 6.2 1.8 6.2 1.8 6.2 1.8 6.2 1.8 6.2 1.8 6.2 2.1 6.2 2.1 6.2 2.1 6.2 2.1 6.2 2.1 6.2 2.1 6.2 2.1 6.2 2.1 6.2 2.1 6.2 2.3 6.1 2.3 6.1 2.3 6.1 2.2 5.7 2.2 5.7 2.2 5.7 2 5.8 2 5.8'/></svg></span>Buffer</h1>
+<p>Creates a zone at a set distance around a layer.</p>
+<div class="badges"><span class="badge">type: buffer</span><span class="badge">toolbar</span><span class="badge">stable</span></div>
+</div></header>
+<div class="mapwrap"><iframe loading="lazy" allow="fullscreen" title="Buffer demo map"
+     src="../testpages/preview.html?storageKey=webmapx-docs-no-override&config=../config/docs/tools/buffer.json"></iframe></div>
+<main><section id="what"><h2>What it does</h2><p>A buffer answers &quot;within how far?&quot; Examples: 500 m from a station, 50 m from a watercourse, or 1 km from a route. Choose a layer and a distance. The result is a new polygon layer.</p>
+<p>The distance is on the <strong>ground</strong>, in metres, not in degrees, and not in screen pixels. A degree of longitude is 111 km at the equator and 55 km at 60°N, so a buffer measured in degrees would be a different size in every part of the map. That would make the result wrong.</p>
+<p>The result is an ordinary layer: it appears in the legend, it can be restyled, it can be exported, and it can be the input to the next thing you do.</p></section>
+<section id="use"><h2>Using it</h2><ol><li>Open the tool, choose the layer to buffer, and give a distance in metres.</li><li>Calculate. The zone appears as a new layer on the map.</li><li>Run it again to replace the previous result rather than piling up copies.</li></ol>
+<p><strong>What goes in depends on how the layer is stored.</strong> A GeoJSON layer contributes every feature. A vector-tile layer contributes only what is drawn in the current view, at the current zoom, after filters. Zooming out and running it again can give a different answer.</p>
+<p><strong><a href="./analysis-single-layer.html#buffer">Worked example</a></strong>: a buffer of five real countries, generated by running the operation, so it shows the geometry and the attributes that actually come back.</p>
+<p>Points, lines, and polygons all buffer, which is unusual. Most operations are fussier. The <strong><a href="./analysis-geometry.html#geometry-support">geometry matrix</a></strong> records that combination by combination, each cell one real run.</p></section>
+<section id="embed"><h2>In your own map</h2><p>Add <code>buffer</code> to a toolbar. It works on whatever layers the map has.</p>
+<p>The heavy lifting is GDAL compiled to WebAssembly, loaded on first use. A visitor who never opens the tool never downloads it.</p></section>
+<section id="extend"><h2>Extending it</h2><p>Buffer uses the same spatial worker as Analysis. If you need more than a distance, such as clip, overlay or dissolve, use Analysis. Buffer is also available there.</p><table><tr><th>Config <code>type</code></th><td><code>buffer</code></td></tr><tr><th>Element</th><td><code>&lt;webmapx-buffer-tool&gt;</code></td></tr><tr><th>Placement</th><td>toolbar</td></tr><tr><th>Source</th><td><a href="https://github.com/edugis-org/webmapx/blob/34406e84a118bc57ff063cef73ec08b6d8ce0cb4/src/components/webmapx-buffer-tool.ts"><code>src/components/webmapx-buffer-tool.ts</code></a></td></tr><tr><th>Tests</th><td><a href="https://github.com/edugis-org/webmapx/blob/34406e84a118bc57ff063cef73ec08b6d8ce0cb4/tests/geoprocessing.test.ts"><code>tests/geoprocessing.test.ts</code></a></td></tr><tr><th>Related</th><td><a href="./geoprocessing.html">geoprocessing</a>, <a href="./measure.html">measure</a>, <a href="./draw.html">draw</a></td></tr></table></section>
+<footer>Built from webmapx <code>34406e8</code> and configs <code>046a5f5</code>.
+Machine-readable: <a href="./buffer.json">buffer.json</a>.</footer>
+</main>
+</body>
+</html>

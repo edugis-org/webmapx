@@ -1,0 +1,29 @@
+{
+  "id": "fullscreen",
+  "label": "Fullscreen",
+  "tagline": "Fills the screen with the map.",
+  "status": "stable",
+  "element": "webmapx-fullscreen-control",
+  "placement": "standalone",
+  "configType": "fullscreen",
+  "demoConfig": "config/docs/tools/fullscreen.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-fullscreen-control.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "navigation",
+    "insetMap"
+  ],
+  "sections": {
+    "what": "One button to put the map in fullscreen and leave fullscreen again.\n\nIt uses the browser's fullscreen API on the map element. Browser chrome, the\npage header, and the rest of the layout are hidden while fullscreen is active.",
+    "use": "Click it to fill the screen. Click again, or press **Escape**, to come back.\nThe map keeps its center, zoom, and layers across the change. Only the size\nchanges.",
+    "embed": "Add `fullscreen` with a `position`, usually beside the navigation control.\n\n**An iframe cannot go fullscreen unless it is allowed to.** If your map is\nembedded, the embedding page must say so:\n\n    <iframe src=\"…\" allow=\"fullscreen\"></iframe>\n\nWithout that the browser refuses the request.",
+    "extend": "The code requests fullscreen on the `webmapx-map` element, so the toolbar,\npanels, and controls come with the map."
+  },
+  "page": "https://webmapx.com/tools/fullscreen.html",
+  "webmapxCommit": "d295ce738f5bb532f05c59fcfde04a1d55ff80b4"
+}

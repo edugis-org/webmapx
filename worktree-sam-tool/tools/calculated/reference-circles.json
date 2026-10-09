@@ -1,0 +1,155 @@
+{
+  "version": 0,
+  "apiKeysFile": "../../config/apikeys.json",
+  "project": {
+    "id": "docs-calculated-reference-circles",
+    "title": "Reference circles",
+    "description": "Documentation demo for the calculated layer reference-circles.",
+    "language": "en"
+  },
+  "map": {
+    "label": "Reference circles",
+    "type": "maplibre",
+    "center": [
+      10,
+      20
+    ],
+    "zoom": 1
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "osm-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "calculated-source",
+        "type": "geojson",
+        "data": "internalfunc://reference-circles",
+        "attribution": "Computed in the browser"
+      }
+    ],
+    "layers": [
+      {
+        "id": "osm",
+        "type": "raster",
+        "title": "OpenStreetMap",
+        "source": "osm-source",
+        "metadata": {
+          "reference": true,
+          "swatch": "#f2efe9"
+        }
+      },
+      {
+        "id": "calculated",
+        "type": "style",
+        "title": "Reference circles (computed)",
+        "sources": {
+          "calculated": {
+            "type": "geojson",
+            "data": "internalfunc://reference-circles",
+            "attribution": "Computed in the browser"
+          }
+        },
+        "layers": [
+          {
+            "id": "calculated-line",
+            "type": "line",
+            "source": "calculated",
+            "paint": {
+              "line-color": "#1b4a63",
+              "line-width": 1.5
+            },
+            "metadata": {
+              "label": "Lines"
+            }
+          }
+        ],
+        "metadata": {
+          "abstract": "Equator, tropics and polar circles. The tropics and polar circles move with the Earth’s tilt, so they are computed for the moment shown rather than fixed at 23.5°.",
+          "title": "Reference circles (computed)"
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeLayers": [
+      {
+        "ref": "osm",
+        "visible": true
+      },
+      {
+        "ref": "calculated",
+        "visible": true
+      }
+    ]
+  },
+  "tools": {
+    "timeSlider": {
+      "type": "timeSlider",
+      "enabled": true
+    },
+    "projection": {
+      "type": "projection",
+      "enabled": true
+    },
+    "info": {
+      "type": "info",
+      "enabled": true
+    },
+    "layerOverview": {
+      "type": "layerOverview",
+      "enabled": true
+    },
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "items": [
+        {
+          "type": "timeSlider",
+          "id": "timeSlider",
+          "enabled": true
+        },
+        {
+          "type": "projection",
+          "id": "projection",
+          "enabled": true
+        },
+        {
+          "type": "info",
+          "id": "info",
+          "enabled": true
+        },
+        {
+          "type": "layerOverview",
+          "id": "layerOverview",
+          "enabled": true
+        }
+      ]
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "fullscreen": {
+      "type": "fullscreen",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "attribution": {
+      "type": "attribution",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    }
+  }
+}

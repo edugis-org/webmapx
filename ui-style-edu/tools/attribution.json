@@ -1,0 +1,29 @@
+{
+  "id": "attribution",
+  "label": "Attribution",
+  "tagline": "The credit your data requires, kept legible.",
+  "status": "stable",
+  "element": "webmapx-attribution-control",
+  "placement": "standalone",
+  "configType": "attribution",
+  "demoConfig": "config/docs/tools/attribution.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-attribution-control.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "layerOverview",
+    "scale"
+  ],
+  "sections": {
+    "what": "Map data comes with conditions, and nearly all of them say the same thing: show\nwhere the data came from. OpenStreetMap requires attribution, and so do most national\nservices. The attribution control shows those credits on the map.\n\nIt shows attribution for the sources that are **on the map**. Turn a layer off\nand its credit disappears. Add a layer and its credit appears. The\ntext comes from the source definitions.\n\nCredits can be long, so the line scrolls sideways instead of covering the map.\n\nTreat attribution as required furniture rather than as a feature. A map without\ncredits is usually a licence breach.",
+    "use": "Read it and follow the links. The list changes as you add and remove layers.",
+    "embed": "Add `attribution` with a `position`, conventionally `bottom-right`.\n\nThe text itself belongs to each source, as its `attribution` property. Put the\ncredit there, and every panel that needs the credit reads from there.",
+    "extend": "Attributions come from the live source list. A layer added later, such as a\ndrawing, analysis result, or dropped file, can show its credit too."
+  },
+  "page": "https://webmapx.com/tools/attribution.html",
+  "webmapxCommit": "bcddc185f9eb131eeea4cb214ddbb80d983ffaaa"
+}

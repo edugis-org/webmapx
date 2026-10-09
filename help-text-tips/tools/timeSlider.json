@@ -1,0 +1,30 @@
+{
+  "id": "timeSlider",
+  "label": "Time",
+  "tagline": "Sets the time used by time-based layers.",
+  "status": "stable",
+  "element": "webmapx-time-slider-tool",
+  "placement": "toolbar",
+  "configType": "timeSlider",
+  "demoConfig": "config/docs/tools/timeSlider.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-time-slider-tool.ts"
+  ],
+  "tests": [
+    "tests/map-clock-redraw.test.ts"
+  ],
+  "related": [
+    "deeptime",
+    "layerOverview",
+    "spinner"
+  ],
+  "sections": {
+    "what": "Some layers depend on time: where night falls, where the sun and moon stand,\nand which latitudes get twelve hours of daylight. The time slider lets those\nlayers show another moment instead of only now.\n\nThe main switch is **Now**:\n\n- **on**: the map uses the current time.\n- **off**: the map uses the time set by the sliders.\n\nTime of day and date are separate sliders. The year picker reaches far enough\nfor cycles that do not fit in one year, such as the moon's 18.6-year\nnorth-south swing.\n\nPress play to advance the slider.",
+    "use": "1. Turn **Now** off to take control of the moment.\n2. Move the time-of-day slider to watch the terminator sweep round. Move the\n   date to watch the seasons change where it falls.\n3. Play to run it. Turn **Now** back on to return to live.",
+    "embed": "Add `timeSlider` to a toolbar, and give the map at least one layer that depends\non the clock. The computed day/night, sun, and moon layers all do.\n\nThe clock lives in the map's store as `mapTime`, not in the panel. A chosen\nmoment survives closing the tool, and two maps on one page can use different\nmoments.",
+    "extend": "The spinner deliberately hides while the clock is playing: an animation never\nreaches idle, so a busy indicator would latch on for the whole run and read as\na map stuck loading rather than a map running."
+  },
+  "page": "https://webmapx.com/tools/timeSlider.html",
+  "webmapxCommit": "d295ce738f5bb532f05c59fcfde04a1d55ff80b4"
+}

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" href="../favicon.png" type="image/png">
+  <meta charset="UTF-8">
+  <title>WebMapX — CDN Quickstart</title>
+
+  <!-- Import map: resolve bare specifiers for webmapx peer deps -->
+  <script type="importmap">
+  {
+    "imports": {
+      "maplibre-gl": "https://esm.sh/maplibre-gl@5"
+    }
+  }
+  </script>
+
+  <!-- Shoelace theme -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2/cdn/themes/light.css">
+  <!-- webmapx styles -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@edugis-org/webmapx@latest/dist-lib/webmapx.css">
+  <!-- MapLibre CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.css">
+
+  <!-- webmapx -->
+  <script type="module">
+    import { WebMapX } from 'https://cdn.jsdelivr.net/npm/@edugis-org/webmapx@latest/dist-lib/webmapx.js';
+
+    WebMapX.mount('#map', {
+      config: {
+        engine: 'maplibre',
+        tools: {
+          mainToolbar: {
+            type: 'toolbar',
+            enabled: true,
+            position: 'top-left',
+            orientation: 'vertical',
+            panel: { enabled: true, position: 'after' },
+            items: [
+              { id: 'search', type: 'search', enabled: true, title: 'Search', provider: 'nominatim' },
+              { id: 'info', type: 'info', enabled: true, title: 'Feature info' },
+              { id: 'measure', type: 'measure', enabled: true, title: 'Measure' },
+              { id: 'draw', type: 'draw', enabled: true, title: 'Draw' },
+              { id: 'print', type: 'print', enabled: true, title: 'Print' },
+            ],
+          },
+          attribution: { type: 'attributionControl', enabled: true, position: 'edge-bottom-right' },
+          coordinates: { type: 'coordinates', enabled: true, position: 'bottom-center' },
+          navigation: { type: 'navigation', enabled: true, position: 'bottom-right', orientation: 'vertical' },
+          scale: { type: 'scaleControl', enabled: true, position: 'bottom-right', maxWidth: 140 },
+          zoomLevel: { type: 'zoomLevel', enabled: true, position: 'bottom-left' },
+        },
+        map: { center: [5, 52], zoom: 7, type: 'maplibre' },
+        layerData: {
+          sources: {
+            'osm-source': {
+              type: 'raster',
+              service: 'xyz',
+              url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              tileSize: 256,
+              attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }
+          },
+          layers: {
+            'osm': {
+              id: 'osm',
+              type: 'raster',
+              source: 'osm-source',
+              title: 'OpenStreetMap'
+            }
+          }
+        },
+        state: {
+          activeLayers: [{ ref: 'osm', visible: true }]
+        }
+      }
+    });
+  </script>
+
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+    #map { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+  <div id="map"></div>
+</body>
+</html>

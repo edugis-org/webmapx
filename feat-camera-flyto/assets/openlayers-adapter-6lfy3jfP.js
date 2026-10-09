@@ -1,0 +1,1 @@
+import{t as e}from"./openlayers-adapter-DaDAdewE.js";export{e as OpenLayersAdapter};

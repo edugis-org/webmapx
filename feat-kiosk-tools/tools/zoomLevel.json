@@ -1,0 +1,30 @@
+{
+  "id": "zoomLevel",
+  "label": "Zoom level",
+  "tagline": "Shows and sets the current zoom level.",
+  "status": "stable",
+  "element": "webmapx-zoom-level",
+  "placement": "standalone",
+  "configType": "zoomLevel",
+  "demoConfig": "config/docs/tools/zoomLevel.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-zoom-level.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "navigation",
+    "scale",
+    "coordinates"
+  ],
+  "sections": {
+    "what": "A small readout of the current zoom level, with an input for setting it.\n\nZoom levels matter when checking tile services and layer `minzoom` settings.\nType 14 and the map goes to zoom 14.\n\nIt reports fractional zoom, because trackpad and pinch gestures can leave the\nmap between whole zoom levels.",
+    "use": "Read it, or type a number into it and press Enter. The map goes there.\n\nMost useful next to a layer that appears and disappears with zoom. The number\nshows which side of the boundary you are on, which is otherwise guesswork.",
+    "embed": "Add `zoomLevel` with a `position`. It needs nothing else.\n\nIt is a developer's and an author's control more than a reader's. On a public\nmap it is usually noise, and on a map you are building it saves a great deal of\nscrolling.",
+    "extend": "The component is a small example of the control pattern: it listens for the\nmap's view-change events and calls `setZoom` through the `IMap` interface."
+  },
+  "page": "https://webmapx.com/tools/zoomLevel.html",
+  "webmapxCommit": "34406e84a118bc57ff063cef73ec08b6d8ce0cb4"
+}

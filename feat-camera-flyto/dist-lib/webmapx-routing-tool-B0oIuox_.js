@@ -1,0 +1,754 @@
+import { c as e, h as t, i as n, o as r, p as i } from "./decorators-d8E4nZJy.js";
+import { t as a } from "./decorate-D2tFcxUg.js";
+import { t as o } from "./webmapx-modal-tool-B2NMM-Q1.js";
+import { r as s } from "./apikeys-DFtVEG81.js";
+import "./button-DE9ytwxI.js";
+import "./icon-Qf3FyAAL.js";
+import "./input-eCCT7kEl.js";
+import { t as c } from "./form-label-styles-CiXgi-FX.js";
+import { n as l } from "./data-colors-BglhXRFr.js";
+import "./icon-button-DxwGf0BN.js";
+import "./option-C8qYanYH.js";
+import { t as u } from "./announce-DxxaToE8.js";
+//#region src/components/webmapx-routing-tool.ts
+var d = "webmapx-routing-source", f = "webmapx-routing-route", p = [
+	{
+		value: "driving",
+		label: "Car",
+		category: "car",
+		server: "routed-car",
+		profile: "driving"
+	},
+	{
+		value: "cycling",
+		label: "Bicycle",
+		category: "bicycle",
+		server: "routed-bike",
+		profile: "cycling"
+	},
+	{
+		value: "foot",
+		label: "Foot",
+		category: "foot",
+		server: "routed-foot",
+		profile: "foot"
+	}
+], m = [
+	{
+		value: "driving-car",
+		label: "Car",
+		category: "car"
+	},
+	{
+		value: "driving-hgv",
+		label: "Truck",
+		category: "truck",
+		isTruck: !0
+	},
+	{
+		value: "cycling-regular",
+		label: "Bicycle",
+		category: "bicycle"
+	},
+	{
+		value: "foot-walking",
+		label: "Foot",
+		category: "foot"
+	},
+	{
+		value: "wheelchair",
+		label: "Wheelchair",
+		category: "wheelchair"
+	}
+];
+function h(e) {
+	let t = [], n = 0, r = 0, i = 0;
+	for (; n < e.length;) {
+		let a, o = 0, s = 0;
+		do
+			a = e.charCodeAt(n++) - 63, s |= (a & 31) << o, o += 5;
+		while (a >= 32);
+		r += s & 1 ? ~(s >> 1) : s >> 1, o = 0, s = 0;
+		do
+			a = e.charCodeAt(n++) - 63, s |= (a & 31) << o, o += 5;
+		while (a >= 32);
+		i += s & 1 ? ~(s >> 1) : s >> 1, t.push([i / 1e6, r / 1e6]);
+	}
+	return t;
+}
+var g = [
+	{
+		id: "osrm",
+		label: "OSRM (free)",
+		attribution: "<a href=\"https://project-osrm.org/\" target=\"_blank\" rel=\"noopener\">OSRM</a>, hosted by <a href=\"https://www.fossgis.de/\" target=\"_blank\" rel=\"noopener\">FOSSGIS e.V.</a> | &copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>",
+		modes: p,
+		keyPlaceholder: null,
+		keyAttr: null,
+		async calculate(e, t, n) {
+			let [r, i] = e, [a, o] = t, s = p.find((e) => e.value === n) ?? p[0], c = `https://routing.openstreetmap.de/${s.server}/route/v1/${s.profile}/${r},${i};${a},${o}?overview=full&geometries=geojson`, l = await fetch(c);
+			if (!l.ok) throw Error(`OSRM ${l.status}`);
+			let u = await l.json();
+			if (u.code !== "Ok") throw Error(u.message ?? "No route");
+			let d = u.routes[0];
+			return {
+				coordinates: d.geometry.coordinates,
+				distanceM: d.distance,
+				durationS: d.duration
+			};
+		}
+	},
+	{
+		id: "openrouteservice",
+		label: "OpenRouteService",
+		attribution: "<a href=\"https://openrouteservice.org/\" target=\"_blank\" rel=\"noopener\">openrouteservice.org</a> by HeiGIT | &copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>",
+		modes: m,
+		keyPlaceholder: "{key-openrouteservice}",
+		keyAttr: "ors-api-key",
+		async calculate(e, t, n, r, i) {
+			if (!r) throw Error("No OpenRouteService API key configured.");
+			let a = `https://api.openrouteservice.org/v2/directions/${n}/geojson`, o = {
+				coordinates: [[e[0], e[1]], [t[0], t[1]]],
+				...n === "driving-hgv" ? { options: {
+					vehicle_type: "hgv",
+					profile_params: { restrictions: {
+						weight: i.weight / 1e3,
+						axleload: i.axleWeight / 1e3,
+						length: i.length,
+						width: i.width,
+						height: i.height
+					} }
+				} } : {}
+			}, s = await fetch(a, {
+				method: "POST",
+				headers: {
+					Authorization: r,
+					"Content-Type": "application/json"
+				},
+				body: JSON.stringify(o)
+			});
+			if (!s.ok) {
+				let e = await s.json().catch(() => ({}));
+				throw Error(e?.error?.message ?? `ORS ${s.status}`);
+			}
+			let c = (await s.json()).features?.[0];
+			if (!c) throw Error("No route");
+			return {
+				coordinates: c.geometry.coordinates,
+				distanceM: c.properties.summary.distance,
+				durationS: c.properties.summary.duration
+			};
+		}
+	},
+	{
+		id: "tomtom",
+		label: "TomTom",
+		attribution: "&copy; <a href=\"https://www.tomtom.com/\" target=\"_blank\" rel=\"noopener\">TomTom</a>",
+		modes: [
+			{
+				value: "car",
+				label: "Car",
+				category: "car"
+			},
+			{
+				value: "truck",
+				label: "Truck",
+				category: "truck",
+				isTruck: !0
+			},
+			{
+				value: "bicycle",
+				label: "Bicycle",
+				category: "bicycle"
+			},
+			{
+				value: "pedestrian",
+				label: "Pedestrian",
+				category: "foot"
+			}
+		],
+		keyPlaceholder: "{key-tomtom}",
+		keyAttr: "tomtom-api-key",
+		async calculate(e, t, n, r, i) {
+			if (!r) throw Error("No TomTom API key configured.");
+			let [a, o] = e, [s, c] = t, l = `https://api.tomtom.com/routing/1/calculateRoute/${o},${a}:${c},${s}/json?travelMode=${n}&key=${r}`;
+			n === "truck" && (l += `&vehicleWeight=${i.weight}&axleWeight=${i.axleWeight}`, l += `&vehicleLength=${i.length}&vehicleWidth=${i.width}&vehicleHeight=${i.height}`);
+			let u = await fetch(l);
+			if (!u.ok) throw Error(`TomTom ${u.status}`);
+			let d = (await u.json())?.routes?.[0];
+			if (!d) throw Error("No route found");
+			let f = [];
+			for (let e of d.legs ?? []) for (let t of e.points ?? []) f.push([t.longitude, t.latitude]);
+			return {
+				coordinates: f,
+				distanceM: d.summary.lengthInMeters,
+				durationS: d.summary.travelTimeInSeconds
+			};
+		}
+	},
+	{
+		id: "valhalla",
+		label: "Valhalla (free)",
+		attribution: "<a href=\"https://valhalla.github.io/valhalla/\" target=\"_blank\" rel=\"noopener\">Valhalla</a>, hosted by <a href=\"https://www.fossgis.de/\" target=\"_blank\" rel=\"noopener\">FOSSGIS e.V.</a> | &copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>",
+		modes: [
+			{
+				value: "auto",
+				label: "Car",
+				category: "car"
+			},
+			{
+				value: "truck",
+				label: "Truck",
+				category: "truck",
+				isTruck: !0
+			},
+			{
+				value: "motorcycle",
+				label: "Motorcycle",
+				category: "motorcycle"
+			},
+			{
+				value: "bicycle",
+				label: "Bicycle",
+				category: "bicycle"
+			},
+			{
+				value: "pedestrian",
+				label: "Pedestrian",
+				category: "foot"
+			},
+			{
+				value: "bus",
+				label: "Bus",
+				category: "bus"
+			}
+		],
+		keyPlaceholder: null,
+		keyAttr: null,
+		async calculate(e, t, n, r, i) {
+			let a = {
+				locations: [{
+					lon: e[0],
+					lat: e[1]
+				}, {
+					lon: t[0],
+					lat: t[1]
+				}],
+				costing: n,
+				directions_options: { units: "km" }
+			};
+			n === "truck" && (a.costing_options = { truck: {
+				weight: i.weight / 1e3,
+				axle_load: i.axleWeight / 1e3,
+				length: i.length,
+				width: i.width,
+				height: i.height
+			} });
+			let o = await fetch("https://valhalla1.openstreetmap.de/route", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(a)
+			});
+			if (!o.ok) {
+				let e = await o.json().catch(() => ({}));
+				throw Error(e?.error ?? `Valhalla ${o.status}`);
+			}
+			let s = (await o.json()).trip;
+			if (!s) throw Error("No route");
+			return {
+				coordinates: s.legs.flatMap((e) => h(e.shape)),
+				distanceM: s.summary.length * 1e3,
+				durationS: s.summary.time
+			};
+		}
+	},
+	{
+		id: "graphhopper",
+		label: "GraphHopper",
+		attribution: "<a href=\"https://www.graphhopper.com/\" target=\"_blank\" rel=\"noopener\">GraphHopper</a> | &copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>",
+		modes: [
+			{
+				value: "car",
+				label: "Car",
+				category: "car"
+			},
+			{
+				value: "truck",
+				label: "Truck",
+				category: "truck",
+				isTruck: !0
+			},
+			{
+				value: "motorcycle",
+				label: "Motorcycle",
+				category: "motorcycle"
+			},
+			{
+				value: "bike",
+				label: "Bicycle",
+				category: "bicycle"
+			},
+			{
+				value: "foot",
+				label: "Foot",
+				category: "foot"
+			}
+		],
+		keyPlaceholder: "{key-graphhopper}",
+		keyAttr: "graphhopper-api-key",
+		async calculate(e, t, n, r, i) {
+			if (!r) throw Error("No GraphHopper API key configured.");
+			let a = `https://graphhopper.com/api/1/route?point=${e[1]},${e[0]}&point=${t[1]},${t[0]}&profile=${n}&key=${r}&points_encoded=false`, o = await fetch(a);
+			if (!o.ok) {
+				let e = await o.json().catch(() => ({}));
+				throw Error(e?.message ?? `GraphHopper ${o.status}`);
+			}
+			let s = (await o.json()).paths?.[0];
+			if (!s) throw Error("No route");
+			return {
+				coordinates: s.points.coordinates,
+				distanceM: s.distance,
+				durationS: s.time / 1e3
+			};
+		}
+	}
+], _ = new Map(g.map((e) => [e.id, e])), v = class extends o {
+	constructor(...e) {
+		super(...e), this.toolId = "routing", this.phase = "set-start", this.start = null, this.end = null, this.serviceId = "osrm", this.travelMode = "driving", this.distanceM = null, this.durationS = null, this.loading = !1, this.error = null, this.truckWeight = 49e3, this.truckAxleWeight = 11500, this.truckLength = 10.2, this.truckWidth = 2.5, this.truckHeight = 3.7, this.previewAttribution = null, this.routeCoords = [], this.unsubClick = null, this.layersCreated = !1, this._escHandler = null;
+	}
+	static {
+		this.styles = [c, t`
+        :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
+        label { display: block; margin-bottom: 0.25rem; }
+        .hint { color: var(--color-text-secondary, #5a6773); font-size: 0.8rem; margin-bottom: 0.75rem; line-height: 1.4; }
+        .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+        sl-select { flex: 1; min-width: 0; }
+        /* A row whose field carries its label above: buttons line up with the field, not the label. */
+        .row.fields { align-items: flex-end; }
+        button { padding: 0.35rem 0.75rem; border: 1px solid var(--color-border, #d5dce3); border-radius: 4px; background: var(--color-background, #fff); cursor: pointer; font-size: 0.875rem; color: var(--color-text-primary, #16202a); }
+        button:disabled { opacity: 0.5; cursor: default; }
+        .result { margin-top: 0.5rem; padding: 0.5rem; background: var(--color-surface-raised, #f4f6f8); border-radius: 4px; }
+        .result strong { display: block; }
+        .error { color: var(--sl-color-danger-600, #c00); font-size: 0.8rem; margin-top: 0.25rem; }
+        .waypoint { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
+        .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+        .dot.start { background: var(--webmapx-data-start, #22c55e); }
+        .dot.end   { background: var(--webmapx-data-end, #e63946); }
+        details { margin-bottom: 0.5rem; }
+        summary { cursor: pointer; font-weight: 600; font-size: 0.8rem; margin-bottom: 0.25rem; user-select: none; }
+        .truck-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem 0.5rem; font-size: 0.8rem; }
+
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--color-border, #d5dce3); border-top-color: var(--color-primary, #2b6c8f); border-radius: 50%; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    `];
+	}
+	getToolAttr(e) {
+		let t = this.getAttribute("tool-id"), n = this.toolsConfig ? Object.values(this.toolsConfig) : [];
+		for (let r of n) {
+			let n = Array.isArray(r?.items) ? r.items : [];
+			for (let r of n) if (r?.id === t && typeof r[e] == "string") return r[e];
+		}
+	}
+	get configuredService() {
+		let e = this.getToolAttr("routingService");
+		return !e || e === "all" ? null : _.has(e) ? e : null;
+	}
+	get showServiceDropdown() {
+		return this.configuredService === null;
+	}
+	serviceHasKey(e) {
+		return e.keyPlaceholder ? this.getApiKey(e) !== null : !0;
+	}
+	get availableServices() {
+		return g.filter((e) => this.serviceHasKey(e));
+	}
+	get activeService() {
+		let e = this.configuredService ?? this.serviceId, t = _.get(e);
+		return t && this.serviceHasKey(t) ? t : this.availableServices[0] ?? g[0];
+	}
+	getApiKey(e) {
+		if (!e.keyPlaceholder) return null;
+		if (e.keyAttr) {
+			let t = this.getToolAttr(e.keyAttr);
+			if (t) return t;
+		}
+		let t = s(e.keyPlaceholder);
+		return t.startsWith("{") ? null : t;
+	}
+	get currentMode() {
+		return this.activeService.modes.find((e) => e.value === this.travelMode);
+	}
+	get showTruckOptions() {
+		return this.currentMode?.isTruck === !0;
+	}
+	get truckParams() {
+		return {
+			weight: this.truckWeight,
+			axleWeight: this.truckAxleWeight,
+			length: this.truckLength,
+			width: this.truckWidth,
+			height: this.truckHeight
+		};
+	}
+	onMapAttached(e) {
+		super.onMapAttached(e), this.unsubClick = e.events.on("click", (e) => this.handleMapClick(e));
+		let t = this.configuredService;
+		t && this.applyServiceId(t);
+	}
+	onMapDetached() {
+		this.unsubClick?.(), this.unsubClick = null, this.adapter?.setCursor(""), this.removeLayers(), this.adapter?.removeMarker("webmapx-routing-start"), this.adapter?.removeMarker("webmapx-routing-end"), super.onMapDetached();
+	}
+	onActivate() {
+		this.createLayers(), this.adapter?.setCursor("crosshair"), this._escHandler = (e) => {
+			e.key === "Escape" && this.deactivate();
+		}, document.addEventListener("keydown", this._escHandler);
+	}
+	onDeactivate() {
+		document.removeEventListener("keydown", this._escHandler), this._escHandler = null, this.adapter?.setCursor(""), this.clearRoute(), this.removeLayers();
+	}
+	onStateChanged(e) {}
+	createLayers(e = this.previewAttribution) {
+		this.layersCreated ||= (this.previewAttribution = e, this.dispatchEvent(new CustomEvent("webmapx-add-source", {
+			detail: {
+				id: d,
+				config: {
+					type: "geojson",
+					data: {
+						type: "FeatureCollection",
+						features: []
+					},
+					...e ? { attribution: e } : {}
+				}
+			},
+			bubbles: !0,
+			composed: !0
+		})), this.dispatchEvent(new CustomEvent("webmapx-add-layer", {
+			detail: {
+				id: f,
+				type: "line",
+				source: d,
+				paint: {
+					"line-color": l,
+					"line-width": 5,
+					"line-opacity": .85
+				},
+				layout: {
+					"line-cap": "round",
+					"line-join": "round"
+				},
+				metadata: {
+					isToolLayer: !0,
+					hideFromLegend: !0
+				}
+			},
+			bubbles: !0,
+			composed: !0
+		})), !0);
+	}
+	creditPreviewTo(e) {
+		this.previewAttribution !== e && (this.removeLayers(), this.createLayers(e));
+	}
+	removeLayers() {
+		this.layersCreated &&= (this.dispatchEvent(new CustomEvent("webmapx-remove-layer", {
+			detail: f,
+			bubbles: !0,
+			composed: !0
+		})), this.dispatchEvent(new CustomEvent("webmapx-remove-source", {
+			detail: d,
+			bubbles: !0,
+			composed: !0
+		})), !1);
+	}
+	setRouteData(e) {
+		this.routeCoords = e;
+		let t = {
+			type: "FeatureCollection",
+			features: e.length > 0 ? [{
+				type: "Feature",
+				geometry: {
+					type: "LineString",
+					coordinates: e
+				},
+				properties: {}
+			}] : []
+		};
+		this.adapter?.getSource(d)?.setData(t);
+	}
+	persistToMap() {
+		if (!this.routeCoords.length || !this.start || !this.end) return;
+		let e = `webmapx-route-${Date.now()}`, t = this.activeService, n = t.modes.find((e) => e.value === this.travelMode)?.label ?? this.travelMode, r = `Route ${n}${this.distanceM === null ? "" : " · " + this.formatDistance(this.distanceM)}${this.durationS === null ? "" : " / " + this.formatDuration(this.durationS)}`, i = (/* @__PURE__ */ new Date()).toISOString(), a = [
+			`<b>Service:</b> ${t.label}`,
+			`<b>Mode:</b> ${n}`,
+			`<b>From:</b> ${this.start[1].toFixed(6)}, ${this.start[0].toFixed(6)}`,
+			`<b>To:</b> ${this.end[1].toFixed(6)}, ${this.end[0].toFixed(6)}`,
+			...this.distanceM === null ? [] : [`<b>Distance:</b> ${this.formatDistance(this.distanceM)}`],
+			...this.durationS === null ? [] : [`<b>Duration:</b> ${this.formatDuration(this.durationS)}`],
+			...this.showTruckOptions ? [
+				`<b>Truck weight:</b> ${this.truckWeight} kg`,
+				`<b>Truck axle weight:</b> ${this.truckAxleWeight} kg`,
+				`<b>Truck dimensions:</b> ${this.truckLength} × ${this.truckWidth} × ${this.truckHeight} m (L×W×H)`
+			] : [],
+			`<b>Created:</b> ${i}`
+		].join("<br>"), o = {
+			type: "FeatureCollection",
+			features: [{
+				type: "Feature",
+				geometry: {
+					type: "LineString",
+					coordinates: this.routeCoords
+				},
+				properties: {}
+			}]
+		}, s = {
+			type: "FeatureCollection",
+			features: [{
+				type: "Feature",
+				geometry: {
+					type: "Point",
+					coordinates: this.start
+				},
+				properties: { name: "start" }
+			}, {
+				type: "Feature",
+				geometry: {
+					type: "Point",
+					coordinates: this.end
+				},
+				properties: { name: "end" }
+			}]
+		};
+		this.dispatchEvent(new CustomEvent("webmapx-add-layer", {
+			detail: {
+				id: e,
+				type: "style",
+				version: 8,
+				beforeLayerId: f,
+				metadata: {
+					label: r,
+					abstract: a,
+					legendRole: "overlay"
+				},
+				attribution: this.previewAttribution ?? t.attribution,
+				sources: {
+					route: {
+						type: "geojson",
+						data: o,
+						attribution: this.previewAttribution ?? t.attribution
+					},
+					waypoints: {
+						type: "geojson",
+						data: s
+					}
+				},
+				layers: [{
+					id: `${e}-line`,
+					type: "line",
+					source: "route",
+					paint: {
+						"line-color": l,
+						"line-width": 5,
+						"line-opacity": .85
+					},
+					layout: {
+						"line-cap": "round",
+						"line-join": "round"
+					},
+					metadata: { label: "Route" }
+				}, {
+					id: `${e}-circle`,
+					type: "circle",
+					source: "waypoints",
+					paint: {
+						"circle-color": [
+							"match",
+							["get", "name"],
+							"start",
+							"#22c55e",
+							"end",
+							"#e63946",
+							"rgba(0,0,0,0)"
+						],
+						"circle-radius": 8,
+						"circle-stroke-color": "#fff",
+						"circle-stroke-width": 2
+					},
+					metadata: { label: "Waypoints" }
+				}]
+			},
+			bubbles: !0,
+			composed: !0
+		}));
+	}
+	handleMapClick(e) {
+		if (!this.active) return;
+		let t = e.coords;
+		this.phase === "set-start" ? (this.start = t, this.adapter?.addMarker("webmapx-routing-start", t, {
+			color: "#22c55e",
+			draggable: !0,
+			onDrag: (e) => {
+				this.start = e;
+			},
+			onDragEnd: (e) => {
+				this.start = e, this.end && this.calculateRoute();
+			}
+		}), this.phase = "set-end") : (this.end = t, this.adapter?.addMarker("webmapx-routing-end", t, {
+			color: "#e63946",
+			draggable: !0,
+			onDrag: (e) => {
+				this.end = e;
+			},
+			onDragEnd: (e) => {
+				this.end = e, this.start && this.calculateRoute();
+			}
+		}), this.phase = "ready", this.calculateRoute());
+	}
+	applyServiceId(e) {
+		let t = _.get(e);
+		if (!t) return;
+		let n = this.activeService.modes.find((e) => e.value === this.travelMode)?.category;
+		this.serviceId = e;
+		let r = n ? t.modes.find((e) => e.category === n) : void 0;
+		this.travelMode = r?.value ?? t.modes[0].value;
+	}
+	onServiceChange(e) {
+		this.applyServiceId(e.target.value), this.distanceM = null, this.durationS = null, this.error = null, this.start && this.end && this.calculateRoute();
+	}
+	onModeChange(e) {
+		this.travelMode = e.target.value, this.start && this.end && this.calculateRoute();
+	}
+	async calculateRoute() {
+		if (!this.start || !this.end) return;
+		let e = this.activeService, t = this.getApiKey(e);
+		this.loading = !0, this.error = null;
+		try {
+			let n = await e.calculate(this.start, this.end, this.travelMode, t, this.truckParams);
+			this.creditPreviewTo(e.attribution), this.setRouteData(n.coordinates), this.distanceM = n.distanceM, this.durationS = n.durationS, u(this, [
+				"Route found",
+				this.distanceM === null ? null : this.formatDistance(this.distanceM),
+				this.durationS === null ? null : this.formatDuration(this.durationS)
+			].filter(Boolean).join(", "));
+		} catch (e) {
+			this.error = e instanceof Error ? e.message : "Route calculation failed", u(this, this.error), this.setRouteData([]);
+		} finally {
+			this.loading = !1;
+		}
+	}
+	clearRoute() {
+		this.start = null, this.end = null, this.phase = "set-start", this.distanceM = null, this.durationS = null, this.error = null, this.adapter?.removeMarker("webmapx-routing-start"), this.adapter?.removeMarker("webmapx-routing-end"), this.setRouteData([]);
+	}
+	resetToSetStart() {
+		this.phase = "set-start", this.start = null, this.adapter?.removeMarker("webmapx-routing-start"), this.setRouteData([]), this.distanceM = null, this.durationS = null, this.error = null;
+	}
+	swapWaypoints() {
+		[this.start, this.end] = [this.end, this.start], this.start ? this.adapter?.addMarker("webmapx-routing-start", this.start, {
+			color: "#22c55e",
+			draggable: !0,
+			onDrag: (e) => {
+				this.start = e;
+			},
+			onDragEnd: (e) => {
+				this.start = e, this.end && this.calculateRoute();
+			}
+		}) : this.adapter?.removeMarker("webmapx-routing-start"), this.end ? this.adapter?.addMarker("webmapx-routing-end", this.end, {
+			color: "#e63946",
+			draggable: !0,
+			onDrag: (e) => {
+				this.end = e;
+			},
+			onDragEnd: (e) => {
+				this.end = e, this.start && this.calculateRoute();
+			}
+		}) : this.adapter?.removeMarker("webmapx-routing-end"), this.start && this.end && this.calculateRoute();
+	}
+	formatDistance(e) {
+		return e >= 1e3 ? `${(e / 1e3).toFixed(1)} km` : `${Math.round(e)} m`;
+	}
+	formatDuration(e) {
+		let t = Math.floor(e / 3600), n = Math.floor(e % 3600 / 60);
+		return t > 0 ? `${t}h ${n}min` : `${n} min`;
+	}
+	render() {
+		let t = this.activeService;
+		return i`
+            <p class="hint">${this.phase === "set-start" ? "Click the map to set the start point." : this.phase === "set-end" ? "Click the map to set the end point." : "Click the map to update the end point."}</p>
+
+            ${this.start ? i`
+                <div class="waypoint">
+                    <span class="dot start"></span>
+                    ${this.start[1].toFixed(5)}, ${this.start[0].toFixed(5)}
+                    <sl-icon-button name="x-lg" label="Clear route" style="margin-left:auto;" @click=${() => this.resetToSetStart()}></sl-icon-button>
+                </div>` : e}
+            ${this.end ? i`
+                <div class="waypoint">
+                    <span class="dot end"></span>
+                    ${this.end[1].toFixed(5)}, ${this.end[0].toFixed(5)}
+                </div>` : e}
+
+            ${this.showServiceDropdown ? i`
+                <div class="row" style="margin-top:0.5rem;">
+                    <sl-select id="route-service" size="small" hoist label="Service" .value=${t.id}
+                        @sl-change=${(e) => this.onServiceChange(e)}>
+                        ${this.availableServices.map((e) => i`<sl-option value=${e.id}>${e.label}</sl-option>`)}
+                    </sl-select>
+                </div>
+            ` : e}
+
+            <div class="row fields" style="${this.showServiceDropdown ? "" : "margin-top:0.5rem;"}">
+                <sl-select id="route-mode" size="small" hoist label="Mode"
+                    .value=${t.modes.some((e) => e.value === this.travelMode) ? this.travelMode : t.modes[0]?.value}
+                    @sl-change=${(e) => this.onModeChange(e)}>
+                    ${t.modes.map((e) => i`<sl-option value=${e.value}>${e.label}</sl-option>`)}
+                </sl-select>
+                ${this.start && this.end ? i`
+                    <sl-button size="small" class="icon-only" title="Swap start and end" @click=${() => this.swapWaypoints()}>
+                        <sl-icon name="arrow-down-up" label="Swap start and end"></sl-icon>
+                    </sl-button>
+                ` : e}
+                <sl-button size="small" @click=${() => this.clearRoute()}>Clear</sl-button>
+            </div>
+
+            ${this.showTruckOptions ? i`
+                <details open>
+                    <summary>Truck parameters</summary>
+                    <div class="truck-grid">
+                        <sl-input type="number" size="small" label="Weight (kg)" min="500" max="50000" .value=${String(this.truckWeight)}
+                                @sl-change=${(e) => {
+			this.truckWeight = +e.target.value, this.start && this.end && this.calculateRoute();
+		}}></sl-input>
+                        <sl-input type="number" size="small" label="Axle weight (kg)" min="500" max="12000" .value=${String(this.truckAxleWeight)}
+                                @sl-change=${(e) => {
+			this.truckAxleWeight = +e.target.value, this.start && this.end && this.calculateRoute();
+		}}></sl-input>
+                        <sl-input type="number" size="small" label="Length (m)" min="4" max="24" step="0.1" .value=${String(this.truckLength)}
+                                @sl-change=${(e) => {
+			this.truckLength = +e.target.value, this.start && this.end && this.calculateRoute();
+		}}></sl-input>
+                        <sl-input type="number" size="small" label="Width (m)" min="1" max="2.6" step="0.1" .value=${String(this.truckWidth)}
+                                @sl-change=${(e) => {
+			this.truckWidth = +e.target.value, this.start && this.end && this.calculateRoute();
+		}}></sl-input>
+                        <sl-input type="number" size="small" label="Height (m)" min="1" max="10" step="0.1" .value=${String(this.truckHeight)}
+                                @sl-change=${(e) => {
+			this.truckHeight = +e.target.value, this.start && this.end && this.calculateRoute();
+		}}></sl-input>
+                    </div>
+                </details>
+            ` : e}
+
+            ${this.loading ? i`<div class="row"><span class="spinner"></span> Calculating route…</div>` : e}
+            ${this.error ? i`<div class="error">⚠ ${this.error}</div>` : e}
+
+            ${this.distanceM !== null && !this.loading ? i`
+                <div class="result">
+                    <strong>${this.formatDistance(this.distanceM)}</strong>
+                    ${this.durationS === null ? e : i`<span>${this.formatDuration(this.durationS)}</span>`}
+                </div>
+                <div class="row" style="margin-top:0.5rem;">
+                    <sl-button size="small" style="flex:1" @click=${() => this.persistToMap()}>Persist to map</sl-button>
+                </div>
+            ` : e}
+        `;
+	}
+};
+a([n()], v.prototype, "phase", void 0), a([n()], v.prototype, "start", void 0), a([n()], v.prototype, "end", void 0), a([n()], v.prototype, "serviceId", void 0), a([n()], v.prototype, "travelMode", void 0), a([n()], v.prototype, "distanceM", void 0), a([n()], v.prototype, "durationS", void 0), a([n()], v.prototype, "loading", void 0), a([n()], v.prototype, "error", void 0), a([n()], v.prototype, "truckWeight", void 0), a([n()], v.prototype, "truckAxleWeight", void 0), a([n()], v.prototype, "truckLength", void 0), a([n()], v.prototype, "truckWidth", void 0), a([n()], v.prototype, "truckHeight", void 0), v = a([r("webmapx-routing-tool")], v);
+//#endregion
+export { v as WebmapxRoutingTool };

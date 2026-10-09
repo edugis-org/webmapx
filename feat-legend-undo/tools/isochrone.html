@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Isochrone — WebMapX tool</title>
+<meta name="description" content="Shows where you can get within a chosen time or distance.">
+<link rel="canonical" href="https://webmapx.com/tools/isochrone.html">
+<link rel="alternate" type="application/json" href="./isochrone.json">
+<link rel="icon" href="../favicon.png" type="image/png">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f8f8f8;color:#1a1a1a;line-height:1.6}
+a{color:#1b6ec2}
+header{background:#0f1923;color:#fff;padding:2rem 1.5rem}
+header .inner,main{max-width:52rem;margin:0 auto}
+header .crumb{font-size:.85rem;color:#8fa6bd}
+header .crumb a{color:#8fa6bd}
+header h1{font-size:2rem;letter-spacing:-.02em;margin:.4rem 0;display:flex;align-items:center;gap:.55rem}
+.tool-icon{display:inline-flex;align-items:center;flex:none}
+.tool-link{display:inline-flex;align-items:center;gap:.45rem}
+header p{color:#aac;max-width:42rem}
+.badges{margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-size:.75rem;border:1px solid #2e4358;color:#cfe0f0;border-radius:99px;padding:.15rem .6rem}
+.mapwrap{max-width:52rem;margin:1.5rem auto;height:26rem;border:1px solid #d8d8d8;border-radius:8px;overflow:hidden;background:#e9e9e9}
+.mapwrap iframe{width:100%;height:100%;border:0;display:block}
+.mapwrap .fallback{padding:2rem;font-size:.9rem;color:#555}
+main{padding:0 1.5rem 4rem}
+section{margin-top:2.5rem}
+/* The tools that exist but have no page yet, listed quietly under their own
+   group rather than in one lump at the bottom: a reader looking for a control
+   should find out there is one, in the place they were already looking. */
+.pending{margin-top:.8rem;font-size:.85rem;color:#666}
+/* One worked example, two pictures and a table. The colours are the tool's own:
+   the first layer neutral, the second layer the accent, the result filled. */
+.io{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;margin-top:1rem}
+.io .arrow{font-size:1.6rem;color:#888;flex:0 0 auto}
+.map-figure{margin:0;flex:0 0 auto}
+.map-figure svg{background:#eef3f7;border:1px solid #d8d8d8;border-radius:4px;display:block}
+.map-figure figcaption{font-size:.75rem;color:#666;margin-top:.25rem}
+svg .a{fill:#c9d6e0;stroke:#7d8f9d;stroke-width:.5}
+svg .ghost{fill:#eceff2;stroke:#dfe4e8;stroke-width:.5}
+svg .b{fill:rgba(217,99,60,.18);stroke:#d9633c;stroke-width:1.2}
+svg .out{fill:rgba(43,108,143,.55);stroke:#1b4a63;stroke-width:.8}
+svg .pt{fill:#1b4a63;stroke:#fff;stroke-width:1}
+table.attrs{font-size:.8rem;margin-top:.6rem;width:auto;border-collapse:collapse}
+table.attrs th,table.attrs td{border:1px solid #ddd;padding:.2rem .5rem;text-align:left}
+table.attrs th{background:#f0f2f4}
+table.attrs td.null{color:#aaa;font-style:italic}
+p.fields{font-size:.85rem;color:#555;margin-top:.8rem}
+.scroll{overflow-x:auto}
+table.matrix{font-size:.8rem;border-collapse:collapse;margin-top:.6rem;width:auto}
+table.matrix th,table.matrix td{border:1px solid #ddd;padding:.25rem .5rem;text-align:center}
+table.matrix th.op{text-align:left;white-space:nowrap;font-weight:600}
+table.matrix th.sub{font-weight:400;color:#666;font-size:.75rem}
+table.matrix thead th{background:#f0f2f4}
+.yes{color:#2f7d4f;font-weight:700}
+.none{color:#999}
+.err{color:#b03030;font-weight:700}
+p.legend{font-size:.85rem;color:#555;margin-top:.6rem}
+.no-geom{width:300px;height:180px;display:flex;align-items:center;justify-content:center;text-align:center;
+  background:#f4f6f8;border:1px dashed #cfd6dc;border-radius:4px;color:#7a848c;font-size:.85rem}
+p.pagenav{font-size:.9rem;margin-top:1.2rem;padding-bottom:.6rem;border-bottom:1px solid #e2e2e2}
+.pending code{background:#ececec;padding:.1em .35em;border-radius:3px}
+h2{font-size:1.3rem;letter-spacing:-.01em;margin-bottom:.6rem}
+p+p,p+ul,p+ol,ul+p,ol+p,pre+p{margin-top:.8rem}
+li{margin-left:1.2rem}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:#ececec;padding:.1em .35em;border-radius:3px}
+pre{background:#0f1923;color:#dfe8f0;padding:1rem;border-radius:6px;overflow-x:auto;margin-top:.8rem}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin-top:.8rem;font-size:.9rem}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid #ddd;vertical-align:top}
+footer{border-top:1px solid #ddd;margin-top:3rem;padding-top:1rem;font-size:.85rem;color:#666}
+@media (prefers-color-scheme:dark){
+ body{background:#12181e;color:#e6ebf0}a{color:#6db8ff}
+ .mapwrap{border-color:#25313d;background:#1a222a}
+ code{background:#222c36}th,td{border-color:#25313d}footer{border-color:#25313d;color:#9aa8b5}
+}
+</style>
+</head>
+<body>
+<header><div class="inner">
+<div class="crumb"><a href="../index.html">WebMapX</a> / <a href="./index.html">Tools</a></div>
+<h1><span class="tool-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-broadcast" viewBox="0 0 16 16" width="1em" height="1em">
+  <path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707m2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708m5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708m2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.313.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM10 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0"/>
+</svg></span>Isochrone</h1>
+<p>Shows where you can get within a chosen time or distance.</p>
+<div class="badges"><span class="badge">type: isochrone</span><span class="badge">toolbar</span><span class="badge">stable</span></div>
+</div></header>
+<div class="mapwrap"><iframe loading="lazy" allow="fullscreen" title="Isochrone demo map"
+     src="../testpages/preview.html?storageKey=webmapx-docs-no-override&config=../config/docs/tools/isochrone.json"></iframe></div>
+<main><section id="what"><h2>What it does</h2><p>An isochrone is the area you can reach from a point within a given time. Pick a place, choose ten minutes on foot, and the result is the shape you can get to.</p>
+<p>It is more realistic than a simple buffer. A 500 m circle around a station assumes you can walk through buildings, across motorways, and over rivers. An isochrone follows the network, so it grows along roads and stops at barriers.</p>
+<p>Ranges can be by <strong>time</strong> or by <strong>distance</strong>, and several can be drawn at once as nested bands: 5, 10, and 15 minutes shaded from the inside out, which reads as a catchment rather than as a single edge.</p>
+<p>Two services answer it, and which modes you get depends on which:</p>
+<ul><li><strong>OpenRouteService</strong>: the default. Needs an API key. Car, truck, bicycle, foot, and wheelchair.</li><li><strong>Valhalla</strong>: free, no key, and the fallback when no key is configured. Car, truck, motorcycle, bicycle, pedestrian, and bus.</li></ul>
+<p>The wheelchair profile, which only OpenRouteService has, is a different question rather than a slower walk: it accounts for kerbs, steps, and surfaces, and its shape can differ dramatically from the walking one on the same street.</p></section>
+<section id="use"><h2>Using it</h2><ol><li>Open the tool and click a center point on the map.</li><li>Choose a mode, a range type, and the ranges you want.</li><li>Press <strong>Calculate</strong>. No route service is called until then. The button is off until there is a center, and while a request is running.</li><li>The bands are drawn. <strong>Clear</strong> removes them. <strong>Persist to map</strong> keeps them as a layer to analyze or export.</li></ol>
+<p>Each calculation replaces the last. Previous bands are removed before the new request starts.</p></section>
+<section id="embed"><h2>In your own map</h2><p>Add <code>isochrone</code> to a toolbar. <strong>OpenRouteService</strong> is the default: put its key in the map's API key setting or as a <code>{key-openrouteservice}</code> placeholder in the config, resolved from the <code>apikeys.json</code> beside the config.</p>
+<p>With no key the tool falls back to <strong>Valhalla</strong>, which needs none. Valhalla is a free community server, and it can be slow or unreachable. Use OpenRouteService for maps that need predictable service.</p></section>
+<section id="extend"><h2>Extending it</h2><p>Bands are colored by rank, smallest innermost, so minutes and kilometres read the same way. Persisting adds them as an ordinary GeoJSON layer for later use in Analysis.</p>
+<p>Travel modes are not a shared vocabulary: OpenRouteService says <code>driving-car</code> where Valhalla says <code>auto</code>. Resolve the selected mode against the active service before sending the request.</p><table><tr><th>Config <code>type</code></th><td><code>isochrone</code></td></tr><tr><th>Element</th><td><code>&lt;webmapx-isochrone-tool&gt;</code></td></tr><tr><th>Placement</th><td>toolbar</td></tr><tr><th>Source</th><td><a href="https://github.com/edugis-org/webmapx/blob/d63450ebdcfa2cde130f3ebe78ae3e5389a4bbf5/src/components/webmapx-isochrone-tool.ts"><code>src/components/webmapx-isochrone-tool.ts</code></a></td></tr><tr><th>Tests</th><td><a href="https://github.com/edugis-org/webmapx/blob/d63450ebdcfa2cde130f3ebe78ae3e5389a4bbf5/tests/tool-registration.test.ts"><code>tests/tool-registration.test.ts</code></a></td></tr><tr><th>Related</th><td><a href="./routing.html">routing</a>, <a href="./buffer.html">buffer</a>, <a href="./geoprocessing.html">geoprocessing</a></td></tr></table></section>
+<footer>Built from webmapx <code>d63450e</code> and configs <code>046a5f5</code>.
+Machine-readable: <a href="./isochrone.json">isochrone.json</a>.</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,265 @@
+{
+  "tools": [
+    {
+      "id": "3d",
+      "label": "3D",
+      "tagline": "Tilts the map and shows terrain.",
+      "page": "https://webmapx.com/tools/3d.html",
+      "json": "https://webmapx.com/tools/3d.json"
+    },
+    {
+      "id": "activeAdapter",
+      "label": "Engine label",
+      "tagline": "Shows which map engine is being used.",
+      "page": "https://webmapx.com/tools/activeAdapter.html",
+      "json": "https://webmapx.com/tools/activeAdapter.json"
+    },
+    {
+      "id": "attribution",
+      "label": "Attribution",
+      "tagline": "The credit your data requires, kept legible.",
+      "page": "https://webmapx.com/tools/attribution.html",
+      "json": "https://webmapx.com/tools/attribution.json"
+    },
+    {
+      "id": "buffer",
+      "label": "Buffer",
+      "tagline": "Creates a zone at a set distance around a layer.",
+      "page": "https://webmapx.com/tools/buffer.html",
+      "json": "https://webmapx.com/tools/buffer.json"
+    },
+    {
+      "id": "cartogram",
+      "label": "Cartogram",
+      "tagline": "Resizes regions by a numeric value.",
+      "page": "https://webmapx.com/tools/cartogram.html",
+      "json": "https://webmapx.com/tools/cartogram.json"
+    },
+    {
+      "id": "compare",
+      "label": "Compare",
+      "tagline": "Compares the current map with later changes.",
+      "page": "https://webmapx.com/tools/compare.html",
+      "json": "https://webmapx.com/tools/compare.json"
+    },
+    {
+      "id": "coordinates",
+      "label": "Coordinates",
+      "tagline": "Shows pointer coordinates in the chosen format.",
+      "page": "https://webmapx.com/tools/coordinates.html",
+      "json": "https://webmapx.com/tools/coordinates.json"
+    },
+    {
+      "id": "data-analyzer",
+      "label": "Data analyzer",
+      "tagline": "Finds useful fields, statistical families, and map-making options in a layer.",
+      "page": "https://webmapx.com/tools/data-analyzer.html",
+      "json": "https://webmapx.com/tools/data-analyzer.json"
+    },
+    {
+      "id": "deeptime",
+      "label": "Deep time",
+      "tagline": "Shows reconstructed coastlines from deep time.",
+      "page": "https://webmapx.com/tools/deeptime.html",
+      "json": "https://webmapx.com/tools/deeptime.json"
+    },
+    {
+      "id": "draw",
+      "label": "Draw",
+      "tagline": "Adds points, lines and areas to the map, with your own fields.",
+      "page": "https://webmapx.com/tools/draw.html",
+      "json": "https://webmapx.com/tools/draw.json"
+    },
+    {
+      "id": "fullscreen",
+      "label": "Fullscreen",
+      "tagline": "Fills the screen with the map.",
+      "page": "https://webmapx.com/tools/fullscreen.html",
+      "json": "https://webmapx.com/tools/fullscreen.json"
+    },
+    {
+      "id": "geolocation",
+      "label": "Geolocation",
+      "tagline": "Shows your location and optional track.",
+      "page": "https://webmapx.com/tools/geolocation.html",
+      "json": "https://webmapx.com/tools/geolocation.json"
+    },
+    {
+      "id": "geoprocessing",
+      "label": "Analysis",
+      "tagline": "Builds a new layer from one or two existing layers.",
+      "page": "https://webmapx.com/tools/geoprocessing.html",
+      "json": "https://webmapx.com/tools/geoprocessing.json"
+    },
+    {
+      "id": "import-layer",
+      "label": "Import layer",
+      "tagline": "Adds layers from a service URL.",
+      "page": "https://webmapx.com/tools/import-layer.html",
+      "json": "https://webmapx.com/tools/import-layer.json"
+    },
+    {
+      "id": "info",
+      "label": "Feature info",
+      "tagline": "Shows the attributes at a point on the map.",
+      "page": "https://webmapx.com/tools/info.html",
+      "json": "https://webmapx.com/tools/info.json"
+    },
+    {
+      "id": "insetMap",
+      "label": "Inset map",
+      "tagline": "Shows where the main map is.",
+      "page": "https://webmapx.com/tools/insetMap.html",
+      "json": "https://webmapx.com/tools/insetMap.json"
+    },
+    {
+      "id": "isochrone",
+      "label": "Isochrone",
+      "tagline": "Shows where you can get within a chosen time or distance.",
+      "page": "https://webmapx.com/tools/isochrone.html",
+      "json": "https://webmapx.com/tools/isochrone.json"
+    },
+    {
+      "id": "layerLegend3d",
+      "label": "Legend 3D",
+      "tagline": "Shows map layers as a 3D stack.",
+      "page": "https://webmapx.com/tools/layerLegend3d.html",
+      "json": "https://webmapx.com/tools/layerLegend3d.json"
+    },
+    {
+      "id": "layerOverview",
+      "label": "Legend",
+      "tagline": "Lists the layers on the map.",
+      "page": "https://webmapx.com/tools/layerOverview.html",
+      "json": "https://webmapx.com/tools/layerOverview.json"
+    },
+    {
+      "id": "layerTree",
+      "label": "Catalog",
+      "tagline": "Lets readers choose layers from a grouped catalog.",
+      "page": "https://webmapx.com/tools/layerTree.html",
+      "json": "https://webmapx.com/tools/layerTree.json"
+    },
+    {
+      "id": "maplanguage",
+      "label": "Map language",
+      "tagline": "Changes the language used for map labels.",
+      "page": "https://webmapx.com/tools/maplanguage.html",
+      "json": "https://webmapx.com/tools/maplanguage.json"
+    },
+    {
+      "id": "measure",
+      "label": "Measure",
+      "tagline": "Measures lengths, areas and perimeters by clicking on the map.",
+      "page": "https://webmapx.com/tools/measure.html",
+      "json": "https://webmapx.com/tools/measure.json"
+    },
+    {
+      "id": "menu",
+      "label": "Tools",
+      "tagline": "Puts several tools behind one menu button.",
+      "page": "https://webmapx.com/tools/menu.html",
+      "json": "https://webmapx.com/tools/menu.json"
+    },
+    {
+      "id": "navigation",
+      "label": "Navigation",
+      "tagline": "Provides zoom buttons and a compass.",
+      "page": "https://webmapx.com/tools/navigation.html",
+      "json": "https://webmapx.com/tools/navigation.json"
+    },
+    {
+      "id": "print",
+      "label": "Print",
+      "tagline": "Prints the current map view.",
+      "page": "https://webmapx.com/tools/print.html",
+      "json": "https://webmapx.com/tools/print.json"
+    },
+    {
+      "id": "projection",
+      "label": "Projection",
+      "tagline": "Changes the map projection.",
+      "page": "https://webmapx.com/tools/projection.html",
+      "json": "https://webmapx.com/tools/projection.json"
+    },
+    {
+      "id": "routing",
+      "label": "Routing",
+      "tagline": "Finds a route, distance and travel time.",
+      "page": "https://webmapx.com/tools/routing.html",
+      "json": "https://webmapx.com/tools/routing.json"
+    },
+    {
+      "id": "scale",
+      "label": "Scale bar",
+      "tagline": "Shows the current map scale.",
+      "page": "https://webmapx.com/tools/scale.html",
+      "json": "https://webmapx.com/tools/scale.json"
+    },
+    {
+      "id": "sealevel",
+      "label": "Sea level",
+      "tagline": "Moves the sea level from the last ice age to a world without land ice.",
+      "page": "https://webmapx.com/tools/sealevel.html",
+      "json": "https://webmapx.com/tools/sealevel.json"
+    },
+    {
+      "id": "search",
+      "label": "Search",
+      "tagline": "Finds a place by name and moves the map there.",
+      "page": "https://webmapx.com/tools/search.html",
+      "json": "https://webmapx.com/tools/search.json"
+    },
+    {
+      "id": "settings",
+      "label": "Settings",
+      "tagline": "Changes theme, style, engine, and API keys.",
+      "page": "https://webmapx.com/tools/settings.html",
+      "json": "https://webmapx.com/tools/settings.json"
+    },
+    {
+      "id": "spinner",
+      "label": "Spinner",
+      "tagline": "Shows when the map is busy.",
+      "page": "https://webmapx.com/tools/spinner.html",
+      "json": "https://webmapx.com/tools/spinner.json"
+    },
+    {
+      "id": "stories",
+      "label": "Stories",
+      "tagline": "Guides readers through a map step by step.",
+      "page": "https://webmapx.com/tools/stories.html",
+      "json": "https://webmapx.com/tools/stories.json"
+    },
+    {
+      "id": "timeSlider",
+      "label": "Time",
+      "tagline": "Sets the time used by time-based layers.",
+      "page": "https://webmapx.com/tools/timeSlider.html",
+      "json": "https://webmapx.com/tools/timeSlider.json"
+    },
+    {
+      "id": "toolbox",
+      "label": "Toolbox",
+      "tagline": "Puts several tools behind one icon row.",
+      "page": "https://webmapx.com/tools/toolbox.html",
+      "json": "https://webmapx.com/tools/toolbox.json"
+    },
+    {
+      "id": "truearea",
+      "label": "True area",
+      "tagline": "Moves an outline to compare its true size at another latitude.",
+      "page": "https://webmapx.com/tools/truearea.html",
+      "json": "https://webmapx.com/tools/truearea.json"
+    },
+    {
+      "id": "zoomLevel",
+      "label": "Zoom level",
+      "tagline": "Shows and sets the current zoom level.",
+      "page": "https://webmapx.com/tools/zoomLevel.html",
+      "json": "https://webmapx.com/tools/zoomLevel.json"
+    }
+  ],
+  "undocumented": [],
+  "webmapxCommit": "242f0c425d9f54bd67d8143c660f9708686a9572"
+}

@@ -1,0 +1,192 @@
+{
+  "version": 0,
+  "project": {
+    "id": "deeptime",
+    "title": "Deep time",
+    "description": "Plate tectonics as a function of time: coastlines reconstructed in the browser from the Merdith et al. 2021 plate model, which lives beside this config.",
+    "language": "en"
+  },
+  "map": {
+    "label": "Deep time",
+    "center": [
+      0,
+      0
+    ],
+    "zoom": 1,
+    "type": "maplibre",
+    "projection": "globe",
+    "backgroundColor": "#0b3d66"
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "paleo-coastlines-source",
+        "type": "geojson",
+        "data": "internalfunc://paleo-coastlines?data=data/paleo/merdith2021&ma={ma}",
+        "attribution": "Merdith et al. 2021 plate model (CC-BY-4.0), reconstructed in the browser"
+      },
+      {
+        "id": "paleo-plates-source",
+        "type": "geojson",
+        "data": "internalfunc://paleo-plates?data=data/paleo/muller2019/plates&ma={ma}",
+        "attribution": "Müller et al. 2019 plate model, topologies via GPlates Web Service"
+      }
+    ],
+    "layers": [
+      {
+        "id": "paleo-coastlines",
+        "type": "fill",
+        "title": "Palaeo-coastlines",
+        "source": "paleo-coastlines-source",
+        "paint": {
+          "fill-color": [
+            "match",
+            [
+              "get",
+              "continent"
+            ],
+            "Africa",
+            "#c98a3f",
+            "Asia",
+            "#c2596f",
+            "Europe",
+            "#7a9e5c",
+            "North America",
+            "#4f86a8",
+            "South America",
+            "#b5674c",
+            "Oceania",
+            "#a87bb0",
+            "Antarctica",
+            "#8fa3ad",
+            "#96907f"
+          ],
+          "fill-opacity": 1,
+          "fill-outline-color": "#33302b"
+        },
+        "metadata": {
+          "title": "Palaeo-coastlines",
+          "abstract": "Where the land was, at the age the Deep time tool is set to. Each polygon is coloured by the continent it belongs to *today*, so a single mass splitting into Africa and South America is legible as exactly that. Not a stack of stored maps: the coastlines are held once, at present day, together with the rotation carrying each tectonic plate back through time, and the position at any age is worked out in the browser — which is why the slider is continuous rather than stepped, and why the whole billion-year model is about three megabytes instead of three hundred. Land that had not formed yet is absent rather than adrift: the Galapagos are four million years old and simply do not appear before that. Coastlines are meaningful for roughly the last 400 million years; the plate motions themselves go back a billion."
+        }
+      },
+      {
+        "id": "paleo-deforming",
+        "type": "fill",
+        "title": "Deforming zones",
+        "source": "paleo-plates-source",
+        "filter": [
+          "==",
+          [
+            "get",
+            "deforming"
+          ],
+          true
+        ],
+        "paint": {
+          "fill-color": "#e63946",
+          "fill-opacity": 0.35,
+          "fill-outline-color": "#7a1420"
+        },
+        "metadata": {
+          "abstract": "Where crust is being stretched or squeezed rather than moving rigidly — the collision zones. Müller et al. 2019."
+        }
+      },
+      {
+        "id": "paleo-plate-boundaries",
+        "type": "line",
+        "title": "Plate boundaries",
+        "source": "paleo-plates-source",
+        "paint": {
+          "line-color": "#33302b",
+          "line-width": 1.2,
+          "line-opacity": 0.9
+        },
+        "metadata": {
+          "abstract": "Plate boundaries at the age on the slider, sampled every 10 Ma. Müller et al. 2019."
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeLayers": [
+      {
+        "ref": "paleo-coastlines",
+        "visible": true
+      },
+      {
+        "ref": "paleo-deforming",
+        "visible": true
+      },
+      {
+        "ref": "paleo-plate-boundaries",
+        "visible": true
+      }
+    ]
+  },
+  "tools": {
+    "deeptime": {
+      "enabled": true,
+      "data": "data/paleo/merdith2021",
+      "to": 1000,
+      "scenes": "data/paleo",
+      "models": [
+        {
+          "id": "merdith2021",
+          "label": "Merdith 2021 — 1000 Ma",
+          "data": "data/paleo/merdith2021",
+          "to": 1000,
+          "attribution": "Coastlines: <a href=\"https://doi.org/10.1016/j.earscirev.2020.103477\" target=\"_blank\" rel=\"noopener\">Merdith et al. 2021</a>, via <a href=\"https://gwsdoc.gplates.org/\" target=\"_blank\" rel=\"noopener\">GPlates Web Service</a> (CC BY 4.0)",
+          "abstract": "Present-day coastlines carried back to the chosen age on the plates they ride, using the Merdith et al. (2021) rotation model, which reaches 1000 Ma. The shapes are today\u2019s outlines rotated as rigid blocks: crust that has since been shortened or stretched is not shown, so continents meet later here than the rocks say. Latitude is well constrained by palaeomagnetism; longitude in deep time is far less certain."
+        },
+        {
+          "id": "muller2019",
+          "label": "Müller 2019 — 250 Ma",
+          "data": "data/paleo/muller2019",
+          "to": 250,
+          "plates": "data/paleo/muller2019/plates",
+          "attribution": "Coastlines: <a href=\"https://doi.org/10.1029/2018TC005462\" target=\"_blank\" rel=\"noopener\">M\u00fcller et al. 2019</a>, via <a href=\"https://gwsdoc.gplates.org/\" target=\"_blank\" rel=\"noopener\">GPlates Web Service</a> (CC BY 4.0)",
+          "abstract": "Present-day coastlines rotated to the chosen age using the M\u00fcller et al. (2019) model, which reaches 250 Ma and carries deforming plate boundaries. As with any rigid rotation, crust that has since been shortened is missing from the outlines \u2014 the deforming zones layer is where that crust is shown.",
+          "platesAttribution": "Plate boundaries and deforming networks: <a href=\"https://doi.org/10.1029/2018TC005462\" target=\"_blank\" rel=\"noopener\">M\u00fcller et al. 2019</a>, via <a href=\"https://gwsdoc.gplates.org/\" target=\"_blank\" rel=\"noopener\">GPlates Web Service</a> (CC BY 4.0)",
+          "platesAbstract": "Plate boundaries sampled every 5 Ma, with the deforming networks drawn separately. A boundary has no continuity through time \u2014 boundaries are born, die and change in number \u2014 so these are snapshots that snap to the nearest step rather than moving smoothly like the coastlines. The deforming zones are continental crust being squeezed: the Greater India mesh is the ~3 million km\u00b2 now folded into Tibet and the Himalaya, which is why the collision begins here some 45 Ma earlier than reconstructed coastlines suggest."
+        }
+      ]
+    },
+    "layerOverview": {
+      "type": "layerOverview",
+      "enabled": true
+    },
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "items": [
+        {
+          "type": "layerOverview",
+          "id": "layerOverview",
+          "enabled": true
+        },
+        {
+          "type": "deeptime",
+          "id": "deeptime",
+          "enabled": true
+        }
+      ]
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "attribution": {
+      "type": "attribution",
+      "enabled": true,
+      "position": "bottom-right"
+    },
+    "spinner": {
+      "type": "spinner",
+      "enabled": true,
+      "position": "middle-center"
+    }
+  }
+}

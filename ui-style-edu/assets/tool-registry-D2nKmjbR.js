@@ -1,0 +1,1 @@
+import{Gr as e,Jr as t}from"./webmapx-shared-BPzFIcB6.js";export{e as STANDALONE_TAGS,t as TOOL_ELEMENT_TAGS};

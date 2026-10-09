@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cartogram — WebMapX tool</title>
+<meta name="description" content="Resizes regions by a numeric value.">
+<link rel="canonical" href="https://webmapx.com/tools/cartogram.html">
+<link rel="alternate" type="application/json" href="./cartogram.json">
+<link rel="icon" href="../favicon.png" type="image/png">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f8f8f8;color:#1a1a1a;line-height:1.6}
+a{color:#1b6ec2}
+header{background:#0f1923;color:#fff;padding:2rem 1.5rem}
+header .inner,main{max-width:52rem;margin:0 auto}
+header .crumb{font-size:.85rem;color:#8fa6bd}
+header .crumb a{color:#8fa6bd}
+header h1{font-size:2rem;letter-spacing:-.02em;margin:.4rem 0;display:flex;align-items:center;gap:.55rem}
+.tool-icon{display:inline-flex;align-items:center;flex:none}
+.tool-link{display:inline-flex;align-items:center;gap:.45rem}
+header p{color:#aac;max-width:42rem}
+.badges{margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-size:.75rem;border:1px solid #2e4358;color:#cfe0f0;border-radius:99px;padding:.15rem .6rem}
+.mapwrap{max-width:52rem;margin:1.5rem auto;height:26rem;border:1px solid #d8d8d8;border-radius:8px;overflow:hidden;background:#e9e9e9}
+.mapwrap iframe{width:100%;height:100%;border:0;display:block}
+.mapwrap .fallback{padding:2rem;font-size:.9rem;color:#555}
+main{padding:0 1.5rem 4rem}
+section{margin-top:2.5rem}
+/* The tools that exist but have no page yet, listed quietly under their own
+   group rather than in one lump at the bottom: a reader looking for a control
+   should find out there is one, in the place they were already looking. */
+.pending{margin-top:.8rem;font-size:.85rem;color:#666}
+/* One worked example, two pictures and a table. The colours are the tool's own:
+   the first layer neutral, the second layer the accent, the result filled. */
+.io{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;margin-top:1rem}
+.io .arrow{font-size:1.6rem;color:#888;flex:0 0 auto}
+.map-figure{margin:0;flex:0 0 auto}
+.map-figure svg{background:#eef3f7;border:1px solid #d8d8d8;border-radius:4px;display:block}
+.map-figure figcaption{font-size:.75rem;color:#666;margin-top:.25rem}
+svg .a{fill:#c9d6e0;stroke:#7d8f9d;stroke-width:.5}
+svg .ghost{fill:#eceff2;stroke:#dfe4e8;stroke-width:.5}
+svg .b{fill:rgba(217,99,60,.18);stroke:#d9633c;stroke-width:1.2}
+svg .out{fill:rgba(43,108,143,.55);stroke:#1b4a63;stroke-width:.8}
+svg .pt{fill:#1b4a63;stroke:#fff;stroke-width:1}
+table.attrs{font-size:.8rem;margin-top:.6rem;width:auto;border-collapse:collapse}
+table.attrs th,table.attrs td{border:1px solid #ddd;padding:.2rem .5rem;text-align:left}
+table.attrs th{background:#f0f2f4}
+table.attrs td.null{color:#aaa;font-style:italic}
+p.fields{font-size:.85rem;color:#555;margin-top:.8rem}
+.scroll{overflow-x:auto}
+table.matrix{font-size:.8rem;border-collapse:collapse;margin-top:.6rem;width:auto}
+table.matrix th,table.matrix td{border:1px solid #ddd;padding:.25rem .5rem;text-align:center}
+table.matrix th.op{text-align:left;white-space:nowrap;font-weight:600}
+table.matrix th.sub{font-weight:400;color:#666;font-size:.75rem}
+table.matrix thead th{background:#f0f2f4}
+.yes{color:#2f7d4f;font-weight:700}
+.none{color:#999}
+.err{color:#b03030;font-weight:700}
+p.legend{font-size:.85rem;color:#555;margin-top:.6rem}
+.no-geom{width:300px;height:180px;display:flex;align-items:center;justify-content:center;text-align:center;
+  background:#f4f6f8;border:1px dashed #cfd6dc;border-radius:4px;color:#7a848c;font-size:.85rem}
+p.pagenav{font-size:.9rem;margin-top:1.2rem;padding-bottom:.6rem;border-bottom:1px solid #e2e2e2}
+.pending code{background:#ececec;padding:.1em .35em;border-radius:3px}
+h2{font-size:1.3rem;letter-spacing:-.01em;margin-bottom:.6rem}
+p+p,p+ul,p+ol,ul+p,ol+p,pre+p{margin-top:.8rem}
+li{margin-left:1.2rem}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:#ececec;padding:.1em .35em;border-radius:3px}
+pre{background:#0f1923;color:#dfe8f0;padding:1rem;border-radius:6px;overflow-x:auto;margin-top:.8rem}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin-top:.8rem;font-size:.9rem}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid #ddd;vertical-align:top}
+footer{border-top:1px solid #ddd;margin-top:3rem;padding-top:1rem;font-size:.85rem;color:#666}
+@media (prefers-color-scheme:dark){
+ body{background:#12181e;color:#e6ebf0}a{color:#6db8ff}
+ .mapwrap{border-color:#25313d;background:#1a222a}
+ code{background:#222c36}th,td{border-color:#25313d}footer{border-color:#25313d;color:#9aa8b5}
+}
+</style>
+</head>
+<body>
+<header><div class="inner">
+<div class="crumb"><a href="../index.html">WebMapX</a> / <a href="./index.html">Tools</a></div>
+<h1><span class="tool-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-pie-chart" viewBox="0 0 16 16" width="1em" height="1em">
+  <path d="M7.5 1.018a7 7 0 0 0-4.79 11.566L7.5 7.793zm1 0V7.5h6.482A7 7 0 0 0 8.5 1.018M14.982 8.5H8.207l-4.79 4.79A7 7 0 0 0 14.982 8.5M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8"/>
+</svg></span>Cartogram</h1>
+<p>Resizes regions by a numeric value.</p>
+<div class="badges"><span class="badge">type: cartogram</span><span class="badge">toolbar</span><span class="badge">stable</span></div>
+</div></header>
+<div class="mapwrap"><iframe loading="lazy" allow="fullscreen" title="Cartogram demo map"
+     src="../testpages/preview.html?storageKey=webmapx-docs-no-override&config=../config/docs/tools/cartogram.json"></iframe></div>
+<main><section id="what"><h2>What it does</h2><p>A cartogram sizes each region by a value instead of by its real area. Choose a population column and countries with more people take up more room.</p>
+<p>The whole layer keeps roughly the same overall size. The distribution changes, not the frame of the map.</p>
+<p>Areas are measured on the sphere in square metres. This avoids using Mercator screen area, where high-latitude regions start too large.</p>
+<p>Five methods are available:</p>
+<ul><li><strong>keep the map joined up, exact areas</strong> (default): neighbors stay attached and areas land within a percent or two.</li><li><strong>keep the map joined up (classic, faster)</strong>: Dougenik–Chrisman–Niemeyer. Quicker and rougher. The <strong>Detail</strong> slider controls how many passes it gets.</li><li><strong>keep the map joined up, exact areas (go-cart Wasm)</strong>: Gastner–Newman diffusion, the Worldmapper method.</li><li><strong>resize each shape in place</strong>: every outline is kept exactly, and gaps open between neighbors.</li><li><strong>replace each by a circle (Dorling)</strong>: shapes are replaced by circles.</li></ul>
+<p>Use something else when the question is &quot;how big is this really?&quot; rather than &quot;how big is this value.&quot; That is <strong>True area</strong>, or a switch to an equal-area projection with the <strong>Projection</strong> tool.</p>
+<p>The demo map opens in Equal Earth, not Web Mercator. The projection tool is on the toolbar so you can compare the same result in Mercator.</p></section>
+<section id="use"><h2>Using it</h2><ol><li>Open the cartogram icon in the toolbar.</li><li>Pick the <strong>input layer</strong>. Any polygon layer on the map can be used.</li><li>Pick the attribute to <strong>size by</strong>. Only attributes observed to hold numbers are offered. Features without a positive value are left out.</li><li>Pick a <strong>cartogram type</strong>. Start with the default.</li><li>Optionally raise <strong>leave out anything below</strong>: a region asked to shrink ten thousandfold cannot get there and can distort the rest of the map.</li><li>Press <strong>Calculate</strong>. The elapsed time is shown while it runs and the run can be canceled. A world layer takes a few seconds.</li><li>The result arrives as a new layer in the legend, with the original still underneath. That comparison is the point of the result.</li></ol>
+<p><strong>Only drawn data is used.</strong> For a layer served as vector tiles, only the features in view take part, and the panel says so. Zoom out until the whole layer is on screen before calculating, or use a layer with a <code>geojson</code> source, where the full dataset is always available.</p>
+<p><strong><a href="./analysis-single-layer.html#cartogram">Worked example</a></strong>: the same five countries sized by <code>pop_est</code>, generated by running the operation rather than drawn by hand.</p>
+<p><strong>Polygons only.</strong> A cartogram sizes a shape by its area, and a point or a line has none, so the operation refuses those rather than guessing. See the <strong><a href="./analysis-geometry.html#geometry-support">geometry matrix</a></strong>.</p></section>
+<section id="embed"><h2>In your own map</h2><p>The tool works on an ordinary polygon layer that carries a numeric attribute. There is no special layer type and no preparation step. The demo config points at Natural Earth country polygons with a <code>pop_est</code> column.</p></section>
+<section id="extend"><h2>Extending it</h2><p><code>webmapx-cartogram-tool</code> subclasses the geoprocessing tool with one operation pinned. Use the same pattern to give another analysis operation its own toolbar button: subclass, set <code>pinnedOperation</code>, add a registry entry.</p>
+<p>The maths is a plain GeoJSON→GeoJSON function in <code>src/utils/cartogram.ts</code>, wired in as the operation's <code>compute</code>. The function undoes the pipeline's Web Mercator round trip itself, because the pipeline hands every operation EPSG:3857 and Mercator inflates area by 1/cos²(latitude).</p>
+<p>Three rules are important: grow each part of a multipart feature around <strong>that part's own center</strong>, take longitude steps <strong>the short way</strong> round the globe, and <strong>measure and correct</strong> the achieved area over up to four passes.</p><table><tr><th>Config <code>type</code></th><td><code>cartogram</code></td></tr><tr><th>Element</th><td><code>&lt;webmapx-cartogram-tool&gt;</code></td></tr><tr><th>Placement</th><td>toolbar</td></tr><tr><th>Source</th><td><a href="https://github.com/edugis-org/webmapx/blob/d63450ebdcfa2cde130f3ebe78ae3e5389a4bbf5/src/components/webmapx-cartogram-tool.ts"><code>src/components/webmapx-cartogram-tool.ts</code></a><br><a href="https://github.com/edugis-org/webmapx/blob/d63450ebdcfa2cde130f3ebe78ae3e5389a4bbf5/src/utils/cartogram.ts"><code>src/utils/cartogram.ts</code></a><br><a href="https://github.com/edugis-org/webmapx/blob/d63450ebdcfa2cde130f3ebe78ae3e5389a4bbf5/src/utils/geoprocessing-operations.ts"><code>src/utils/geoprocessing-operations.ts</code></a></td></tr><tr><th>Tests</th><td><a href="https://github.com/edugis-org/webmapx/blob/d63450ebdcfa2cde130f3ebe78ae3e5389a4bbf5/tests/cartogram.test.ts"><code>tests/cartogram.test.ts</code></a></td></tr><tr><th>Related</th><td><a href="./geoprocessing.html">geoprocessing</a>, <a href="./projection.html">projection</a>, <a href="./truearea.html">truearea</a></td></tr></table></section>
+<footer>Built from webmapx <code>d63450e</code> and configs <code>046a5f5</code>.
+Machine-readable: <a href="./cartogram.json">cartogram.json</a>.</footer>
+</main>
+</body>
+</html>

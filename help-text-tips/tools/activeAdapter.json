@@ -1,0 +1,29 @@
+{
+  "id": "activeAdapter",
+  "label": "Engine label",
+  "tagline": "Shows which map engine is being used.",
+  "status": "stable",
+  "element": "webmapx-active-adapter",
+  "placement": "standalone",
+  "configType": "activeAdapter",
+  "demoConfig": "config/docs/tools/activeAdapter.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-active-adapter.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "zoomLevel",
+    "spinner"
+  ],
+  "sections": {
+    "what": "A small badge naming the map engine: **MapLibre GL**, **OpenLayers**,\n**Leaflet** or **Cesium**, with its version.\n\nWebMapX can use four engines, and they do not all support the same features.\nCesium cannot reorder a vector layer against a raster one. View projections\nother than Web Mercator are OpenLayers only. MapLibre has the globe. When two\nmaps behave differently, this badge makes the engine visible.\n\nIt is a diagnostic, not a feature for readers. On a public map it is clutter.\nOn a map you are building, or in a bug report, it is the first thing worth\nknowing.",
+    "use": "Read it. It changes when the map engine changes, and shows a dash when no map\nis attached.",
+    "embed": "Add `activeAdapter` with a `position`. There is nothing to configure.\n\nWorth including on a page where readers can switch engines, and worth leaving\nout everywhere else.",
+    "extend": "The badge reads the engine that is actually attached, not only the one named in\nthe config. A saved preference or URL parameter can override the config."
+  },
+  "page": "https://webmapx.com/tools/activeAdapter.html",
+  "webmapxCommit": "d295ce738f5bb532f05c59fcfde04a1d55ff80b4"
+}

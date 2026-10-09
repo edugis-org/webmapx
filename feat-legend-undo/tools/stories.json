@@ -1,0 +1,31 @@
+{
+  "id": "stories",
+  "label": "Stories",
+  "tagline": "Guides readers through a map step by step.",
+  "status": "stable",
+  "element": "webmapx-stories-tool",
+  "placement": "toolbar",
+  "configType": "stories",
+  "demoConfig": "config/docs/tools/stories.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-stories-tool.ts",
+    "src/config/story-step-state.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "layerOverview",
+    "timeSlider",
+    "print"
+  ],
+  "sections": {
+    "what": "A story is a guided path through a map. Each step can move the camera, choose\nwhich layers are visible, and show text about what is on screen.\n\nA step describes a map state: layers, hidden layers, center, zoom, optional\ntransparency, projection, and terrain. Steps are grouped into chapters. There is\nno click recording and no scripting.\n\n**A story is temporary.** Camera, layer visibility, opacity, projection, and\nterrain are captured when the story opens and restored when it closes.\n\nLayers needed by a step are added if the map does not already have them. Those\nstep-only layers are removed again when you leave the step. Layers that were\nalready on the map are hidden and restored, never removed.",
+    "use": "Open the tool, pick a story, and move through the steps. Chapters group them.\nClose the panel and the map returns to where it was.",
+    "embed": "A story lives in the `stories` tool section: a name, an optional description and\nwidth, and a list of chapters, each with steps. Each step carries `html` inline\nor `htmlUrl` for text kept in a file next to the config. Use `htmlUrl` when the\nprose is longer than a config file wants to hold. The URL is resolved relative\nto the config, so images and links inside it work.\n\nStep content is sanitized before it is shown.",
+    "extend": "The authored step is converted into the same short-key shape a decoded permalink\nuses, so applying a step is a set of direct adapter calls: viewport, bearing,\npitch, visibility, opacity, projection, and terrain. No tool state is involved.\nLayer visibility and transparency are additionally mirrored into the store so\nthe legend reflects what a step is showing. The camera is not, because the\ncapture-and-restore around the whole story already covers it.\n\n`width` on a story widens the tool panel while it is open, through the same\nmechanism any tool can use, and resets when it closes."
+  },
+  "page": "https://webmapx.com/tools/stories.html",
+  "webmapxCommit": "d63450ebdcfa2cde130f3ebe78ae3e5389a4bbf5"
+}

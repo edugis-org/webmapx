@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Measure — WebMapX tool</title>
+<meta name="description" content="Measures lengths, areas and perimeters by clicking on the map.">
+<link rel="canonical" href="https://webmapx.com/tools/measure.html">
+<link rel="alternate" type="application/json" href="./measure.json">
+<link rel="icon" href="../favicon.png" type="image/png">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f8f8f8;color:#1a1a1a;line-height:1.6}
+a{color:#1b6ec2}
+header{background:#0f1923;color:#fff;padding:2rem 1.5rem}
+header .inner,main{max-width:52rem;margin:0 auto}
+header .crumb{font-size:.85rem;color:#8fa6bd}
+header .crumb a{color:#8fa6bd}
+header h1{font-size:2rem;letter-spacing:-.02em;margin:.4rem 0;display:flex;align-items:center;gap:.55rem}
+.tool-icon{display:inline-flex;align-items:center;flex:none}
+.tool-link{display:inline-flex;align-items:center;gap:.45rem}
+header p{color:#aac;max-width:42rem}
+.badges{margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-size:.75rem;border:1px solid #2e4358;color:#cfe0f0;border-radius:99px;padding:.15rem .6rem}
+.mapwrap{max-width:52rem;margin:1.5rem auto;height:26rem;border:1px solid #d8d8d8;border-radius:8px;overflow:hidden;background:#e9e9e9}
+.mapwrap iframe{width:100%;height:100%;border:0;display:block}
+.mapwrap .fallback{padding:2rem;font-size:.9rem;color:#555}
+main{padding:0 1.5rem 4rem}
+section{margin-top:2.5rem}
+/* The tools that exist but have no page yet, listed quietly under their own
+   group rather than in one lump at the bottom: a reader looking for a control
+   should find out there is one, in the place they were already looking. */
+.pending{margin-top:.8rem;font-size:.85rem;color:#666}
+/* One worked example, two pictures and a table. The colours are the tool's own:
+   the first layer neutral, the second layer the accent, the result filled. */
+.io{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;margin-top:1rem}
+.io .arrow{font-size:1.6rem;color:#888;flex:0 0 auto}
+.map-figure{margin:0;flex:0 0 auto}
+.map-figure svg{background:#eef3f7;border:1px solid #d8d8d8;border-radius:4px;display:block}
+.map-figure figcaption{font-size:.75rem;color:#666;margin-top:.25rem}
+svg .a{fill:#c9d6e0;stroke:#7d8f9d;stroke-width:.5}
+svg .ghost{fill:#eceff2;stroke:#dfe4e8;stroke-width:.5}
+svg .b{fill:rgba(217,99,60,.18);stroke:#d9633c;stroke-width:1.2}
+svg .out{fill:rgba(43,108,143,.55);stroke:#1b4a63;stroke-width:.8}
+svg .pt{fill:#1b4a63;stroke:#fff;stroke-width:1}
+table.attrs{font-size:.8rem;margin-top:.6rem;width:auto;border-collapse:collapse}
+table.attrs th,table.attrs td{border:1px solid #ddd;padding:.2rem .5rem;text-align:left}
+table.attrs th{background:#f0f2f4}
+table.attrs td.null{color:#aaa;font-style:italic}
+p.fields{font-size:.85rem;color:#555;margin-top:.8rem}
+.scroll{overflow-x:auto}
+table.matrix{font-size:.8rem;border-collapse:collapse;margin-top:.6rem;width:auto}
+table.matrix th,table.matrix td{border:1px solid #ddd;padding:.25rem .5rem;text-align:center}
+table.matrix th.op{text-align:left;white-space:nowrap;font-weight:600}
+table.matrix th.sub{font-weight:400;color:#666;font-size:.75rem}
+table.matrix thead th{background:#f0f2f4}
+.yes{color:#2f7d4f;font-weight:700}
+.none{color:#999}
+.err{color:#b03030;font-weight:700}
+p.legend{font-size:.85rem;color:#555;margin-top:.6rem}
+.no-geom{width:300px;height:180px;display:flex;align-items:center;justify-content:center;text-align:center;
+  background:#f4f6f8;border:1px dashed #cfd6dc;border-radius:4px;color:#7a848c;font-size:.85rem}
+p.pagenav{font-size:.9rem;margin-top:1.2rem;padding-bottom:.6rem;border-bottom:1px solid #e2e2e2}
+.pending code{background:#ececec;padding:.1em .35em;border-radius:3px}
+h2{font-size:1.3rem;letter-spacing:-.01em;margin-bottom:.6rem}
+p+p,p+ul,p+ol,ul+p,ol+p,pre+p{margin-top:.8rem}
+li{margin-left:1.2rem}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:#ececec;padding:.1em .35em;border-radius:3px}
+pre{background:#0f1923;color:#dfe8f0;padding:1rem;border-radius:6px;overflow-x:auto;margin-top:.8rem}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin-top:.8rem;font-size:.9rem}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid #ddd;vertical-align:top}
+footer{border-top:1px solid #ddd;margin-top:3rem;padding-top:1rem;font-size:.85rem;color:#666}
+@media (prefers-color-scheme:dark){
+ body{background:#12181e;color:#e6ebf0}a{color:#6db8ff}
+ .mapwrap{border-color:#25313d;background:#1a222a}
+ code{background:#222c36}th,td{border-color:#25313d}footer{border-color:#25313d;color:#9aa8b5}
+}
+</style>
+</head>
+<body>
+<header><div class="inner">
+<div class="crumb"><a href="../index.html">WebMapX</a> / <a href="./index.html">Tools</a></div>
+<h1><span class="tool-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-rulers" viewBox="0 0 16 16" width="1em" height="1em">
+  <path d="M1 0a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5v-1H2v-1h4v-1H4v-1h2v-1H2v-1h4V9H4V8h2V7H2V6h4V2h1v4h1V4h1v2h1V2h1v4h1V4h1v2h1V2h1v4h1V1a1 1 0 0 0-1-1z"/>
+</svg></span>Measure</h1>
+<p>Measures lengths, areas and perimeters by clicking on the map.</p>
+<div class="badges"><span class="badge">type: measure</span><span class="badge">toolbar</span><span class="badge">stable</span></div>
+</div></header>
+<div class="mapwrap"><iframe loading="lazy" allow="fullscreen" title="Measure demo map"
+     src="../testpages/preview.html?storageKey=webmapx-docs-no-override&config=../config/docs/tools/measure.json"></iframe></div>
+<main><section id="what"><h2>What it does</h2><p>Measure calculates lengths, areas and perimeters from points clicked on the map.</p>
+<p>The measure tool gives up to four results:</p>
+<ul><li><strong>distance</strong> along a line, per segment, and as a total length.</li><li><strong>area</strong> of a shape, once the line is closed into a shape.</li><li><strong>perimeter</strong> of that shape, the total length including the closing segment.</li><li>a <strong>height profile</strong> along the line, if the map has an elevation layer. So a route has a length and a climb.</li></ul>
+<p><strong>The measurements are made on the globe, not on the flat picture.</strong> Every projection of the earth distorts distances and areas when the round earth is drawn on a flat surface such as a computer screen. On a normal web map, Greenland looks as big as Africa, and an area read off that picture is wrong by a factor of 14. The measure tool ignores the projection and calculates distance and area directly on the sphere, so a measurement in Svalbard is comparable with one in Kenya.</p>
+<p>The tool works at any scale, from a back garden to the distance from New York to London (5570 km). Press the unit button in the panel to show results in metric (m, km, m², ha, km²) or imperial (ft, mi, sq ft, acres, sq mi). The choice is stored in this browser, so it is still there after a reload.</p>
+<p>The height profile uses a hundred points along the line and is redrawn while points are added. The profile appears by itself when the map has elevation data. There is nothing to switch on.</p>
+<p>A measurement can be corrected with undo, and it can be saved to a file. The file holds the shape and all the numbers that were shown, so it can be mailed to someone, opened in QGIS or another GIS program, or dropped back on a webmapx map. Saving with styling adds a second file with the colors and labels. That second file is only understood by webmapx. QGIS reads the shape and the numbers from the GeoJSON file and ignores the style file.</p>
+<p>Use a different tool when:</p>
+<ul><li>the area of a feature that is already on the map is wanted: use <strong>True area</strong>.</li><li>the result should become a layer to style, save and analyse: use <strong>Draw</strong>, then <strong>Analysis</strong>.</li></ul></section>
+<section id="use"><h2>Using it</h2><ol><li>Open the ruler icon in the toolbar.</li><li>Click the map to place the first point.</li><li>Click again for each next point. The panel shows each segment length and the total length so far.</li><li>Double-click, right-click, or press Escape to finish the line.</li><li>To measure an area, click the <strong>first</strong> point again to complete the shape. The <strong>area</strong> appears in the panel, and the total length is now called <strong>perimeter</strong>.</li><li>Placed a point in the wrong spot? Press <strong>Undo</strong> to take back one step at a time.</li><li>Press <strong>Save</strong> to write the measurement to a file.</li><li>Press <strong>m / km</strong> (or <strong>ft / mi</strong>) to change the displayed unit system. Only the readout changes, so switching costs no precision.</li><li>If the map has an elevation layer, the height profile appears under the readout and follows every new point.</li><li>The measurement stays on the map until it is cleared or a new one is started.</li></ol>
+<p>Inside a unit system, the unit follows the size of the number, always with three significant digits: metres for values under a kilometre and kilometres after that, feet for values under a mile and miles after that, then square feet, acres, and square miles.</p>
+<p>Nothing is added to the legend. A measurement is scratch work and disappears when it is cleared, unless it is saved.</p>
+<p><strong>What undo takes back.</strong> The button, <code>Ctrl+Z</code> (<code>Cmd+Z</code> on a Mac), <code>Backspace</code> and <code>Delete</code> all do the same thing. The effect depends on the state of the measurement:</p>
+<ul><li>on a completed shape, undo <strong>opens it again</strong>: the area disappears, perimeter becomes a total length, and the shape is a line again with all its points.</li><li>on a finished line, undo <strong>reopens the line</strong>, so clicking can go on.</li><li>otherwise the <strong>last point</strong> is removed, together with the segment length and its part of the total.</li></ul>
+<p>Completing a shape and placing a point are two separate steps, so opening the shape again does not also remove the point it was completed on. Press undo again for that. The button greys out when there is nothing left to undo. Typing in a search box is safe: Backspace there deletes a character, not a point.</p>
+<p><strong>What Save produces.</strong> Save opens the same dialog the legend uses, so the options are familiar: a filename, style on or off, a <code>.zip</code> or a plain <code>.geojson</code>, and coordinate rounding. With style on, Save writes two files, <code>&lt;name&gt;.geojson</code> and <code>&lt;name&gt;_style.json</code>. That pair is what webmapx reads back: drop it on any webmapx map and the measurement returns with its shape, colors, numbered labels, and named attributes. The measurement does not have to be a layer on the map first.</p>
+<p><strong>What is in the file.</strong> The measured shape (a polygon when completed, a line when not) carries <code>segment_1</code> … <code>segment_N</code>, <code>total</code> (or <code>perimeter</code>), <code>area</code> when there is one, and <code>measured_in</code> for the units shown at the time. The file also contains one point per segment with its number and length, so the numbered labels come back with the shape.</p>
+<p>The file holds the <strong>drawn</strong> line, not only the clicked points. A long leg follows a great circle, so the saved line is written out as the measured curve. Amsterdam to Tokyo comes out as 85 vertices over the Arctic, with its label halfway along that curve.</p>
+<p>Lengths are always written in <strong>metres</strong> and areas in <strong>square metres</strong>, whatever the panel was showing. A file saying &quot;17.12&quot; would be unreadable without its unit, and rounding to the displayed value would throw away digits. The display unit travels separately, in the style file. The style file is also what turns <code>segment_1</code> back into &quot;Segment 1&quot; when the file is dropped on a map.</p></section>
+<section id="embed"><h2>In your own map</h2><p>The line is drawn by the map engine itself, so the tool needs no source, no layer and no data. Enabling it is the whole configuration.</p>
+<p>The height profile is the one exception: the profile appears only when the map has an elevation (<code>raster-dem</code>) layer, which is why the demo config mentioned earlier has one.</p></section>
+<section id="extend"><h2>Extending it</h2><p>The component handles the pointer events, the totals, the panel, and the profile graph. The arithmetic lives separately in <code>src/utils/geo-calculations.ts</code> (<code>haversineDistanceCm</code>, <code>geodesicAreaM2</code>, <code>formatDistance</code>, <code>formatArea</code>) and uses no DOM, so it can be tested directly. <code>tests/measure-units.test.ts</code> does that.</p>
+<p>Distances are held as <strong>integer centimetres</strong>, not floating-point metres, and <code>formatDistance</code> is the only place that turns them into text. If you add a second readout elsewhere in the UI, call it instead of rounding yourself.</p>
+<p><strong>Save reuses the save dialog instead of downloading a file itself.</strong> The dialog already offers filename, style, zip-or-plain, and rounding, and it writes the <code>&lt;name&gt;.geojson</code> + <code>&lt;name&gt;_style.json</code> pair that <code>dropped-layer-builder</code> reads back. A second exporter here would be a second format to keep in sync with the importer. One trap: the dialog moves itself to <code>document.body</code> the first time it opens, to escape the panel's <code>backdrop-filter</code>, so the <code>@query</code> for it must be cached. An uncached query finds nothing after that, and every Save click after the first does nothing at all.</p>
+<p><strong>Undo is not an undo stack.</strong> Only three actions change a measurement (complete a shape, finish a line, add a point) and each has an obvious opposite. The opposite is derived from the current state. A stack would store the same facts twice and would have to be kept in sync.</p>
+<p><strong>Metric and imperial are two separate ladders, not a conversion.</strong> Each one changes unit where its own smaller unit stops being readable: 1000 m, but 5280 ft. Formatting in metric and then converting would put the switch in the wrong place. <code>threeSignificant</code> is shared by both, because the number of digits a reader can use is a fact about reading, not about the unit.</p><table><tr><th>Config <code>type</code></th><td><code>measure</code></td></tr><tr><th>Element</th><td><code>&lt;webmapx-measure-tool&gt;</code></td></tr><tr><th>Placement</th><td>toolbar</td></tr><tr><th>Source</th><td><a href="https://github.com/edugis-org/webmapx/blob/9d0f49fd2e9dd8ef112e072257eedd51810c2f20/src/components/webmapx-measure-tool.ts"><code>src/components/webmapx-measure-tool.ts</code></a><br><a href="https://github.com/edugis-org/webmapx/blob/9d0f49fd2e9dd8ef112e072257eedd51810c2f20/src/utils/geo-calculations.ts"><code>src/utils/geo-calculations.ts</code></a></td></tr><tr><th>Tests</th><td><a href="https://github.com/edugis-org/webmapx/blob/9d0f49fd2e9dd8ef112e072257eedd51810c2f20/tests/measure-units.test.ts"><code>tests/measure-units.test.ts</code></a></td></tr><tr><th>Related</th><td><a href="./truearea.html">truearea</a>, <a href="./draw.html">draw</a>, <a href="./buffer.html">buffer</a></td></tr></table></section>
+<footer>Built from webmapx <code>9d0f49f</code> and configs <code>046a5f5</code>.
+Machine-readable: <a href="./measure.json">measure.json</a>.</footer>
+</main>
+</body>
+</html>

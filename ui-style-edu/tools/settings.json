@@ -1,0 +1,31 @@
+{
+  "id": "settings",
+  "label": "Settings",
+  "tagline": "Changes theme, style, engine, and API keys.",
+  "status": "stable",
+  "element": "webmapx-settings",
+  "placement": "toolbar",
+  "configType": "settings",
+  "demoConfig": "config/docs/tools/settings.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-settings.ts",
+    "src/theme/webmapx-style-core.css"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "activeAdapter",
+    "layerOverview",
+    "import-layer"
+  ],
+  "sections": {
+    "what": "Settings contains map-level choices: theme, interface style, map engine, and API\nkeys.\n\n**Appearance** has two independent choices:\n\n- **Theme**: light or dark. Color only.\n- **Style**: `atlas`, `folio`, or `console`. Form only: corner radius, surface\n  translucency, shadow, density.\n\nEvery style works in both themes.\n\n**Map engine** switches the renderer: MapLibre GL, OpenLayers, Leaflet or\nCesium. The map is rebuilt with the same config. Use this to check engine\nsupport: Cesium gives you a globe. OpenLayers gives you view projections other\nthan Web Mercator.\n\n**API key** is where a key some layers need is entered, kept in this browser.\n\nChoices are remembered in the browser. Engine choice is remembered per map.",
+    "use": "Open settings, choose, and the map changes at once. Nothing needs saving, and\nthe choices survive a reload.\n\nSwitching engines reloads the map, so it takes a moment and briefly clears the\nview.",
+    "embed": "Add `settings` to a toolbar.\n\nThink before letting readers choose the engine. On a map built around a globe or\nan equal-area projection, switching engines can remove the feature the map was\nmade for.",
+    "extend": "A saved engine preference **outranks the config**. The preference is scoped per\npage and per map id, so it does not leak between maps on the same host.\n\nStyle and theme are `data-style` and `data-theme` on the root element. Anything\nconsuming the tokens follows automatically, including your own components."
+  },
+  "page": "https://webmapx.com/tools/settings.html",
+  "webmapxCommit": "bcddc185f9eb131eeea4cb214ddbb80d983ffaaa"
+}

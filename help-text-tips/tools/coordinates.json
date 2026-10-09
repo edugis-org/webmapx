@@ -1,0 +1,30 @@
+{
+  "id": "coordinates",
+  "label": "Coordinates",
+  "tagline": "Shows pointer coordinates in the chosen format.",
+  "status": "stable",
+  "element": "webmapx-coordinates-tool",
+  "placement": "standalone",
+  "configType": "coordinates",
+  "demoConfig": "config/docs/tools/coordinates.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-coordinates-tool.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "scale",
+    "info",
+    "measure"
+  ],
+  "sections": {
+    "what": "A readout of the position under the pointer.\n\nThe important choice is the *format*. `4.895, 52.372`, `52°22'19\"N\n4°53'42\"E`, and Dutch RD New metres can all describe the same place. Use the\nformat your readers expect.\n\nSo the format is a choice, not a constant:\n\n- `lonlat` and `latlon`: decimal degrees, in either order.\n- `geographic-en`: degrees, minutes, and seconds with English cardinals.\n- `geographic-local`: the same, with the cardinal letters of the map's\n  language, so a Dutch map reads `N O Z W`.\n- `crs:<EPSG code>`: any projected system, for example `crs:28992` for Dutch\n  RD New. The reading is converted for display. The map is not reprojected.",
+    "use": "Move the pointer. On a phone or tablet, the readout shows the center of the map.",
+    "embed": "Add `coordinates` with a `position`, and set `defaultFormat` to whichever\nnotation your readers use:\n\n    \"coordinates\": { \"type\": \"coordinates\", \"position\": \"bottom-left\",\n                     \"defaultFormat\": \"crs:28992\" }\n\nWithout `defaultFormat`, the readout starts in decimal degrees.",
+    "extend": "A `crs:` format needs a proj4 definition before it can convert. Cataloged\nprojections are registered already. Register other projections before using\nthem here."
+  },
+  "page": "https://webmapx.com/tools/coordinates.html",
+  "webmapxCommit": "d295ce738f5bb532f05c59fcfde04a1d55ff80b4"
+}

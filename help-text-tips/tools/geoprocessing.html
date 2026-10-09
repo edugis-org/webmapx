@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analysis — WebMapX tool</title>
+<meta name="description" content="Builds a new layer from one or two existing layers.">
+<link rel="canonical" href="https://webmapx.com/tools/geoprocessing.html">
+<link rel="alternate" type="application/json" href="./geoprocessing.json">
+<link rel="icon" href="../favicon.png" type="image/png">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f8f8f8;color:#1a1a1a;line-height:1.6}
+a{color:#1b6ec2}
+header{background:#0f1923;color:#fff;padding:2rem 1.5rem}
+header .inner,main{max-width:52rem;margin:0 auto}
+header .crumb{font-size:.85rem;color:#8fa6bd}
+header .crumb a{color:#8fa6bd}
+header h1{font-size:2rem;letter-spacing:-.02em;margin:.4rem 0;display:flex;align-items:center;gap:.55rem}
+.tool-icon{display:inline-flex;align-items:center;flex:none}
+.tool-link{display:inline-flex;align-items:center;gap:.45rem}
+header p{color:#aac;max-width:42rem}
+.badges{margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-size:.75rem;border:1px solid #2e4358;color:#cfe0f0;border-radius:99px;padding:.15rem .6rem}
+.mapwrap{max-width:52rem;margin:1.5rem auto;height:26rem;border:1px solid #d8d8d8;border-radius:8px;overflow:hidden;background:#e9e9e9}
+.mapwrap iframe{width:100%;height:100%;border:0;display:block}
+.mapwrap .fallback{padding:2rem;font-size:.9rem;color:#555}
+main{padding:0 1.5rem 4rem}
+section{margin-top:2.5rem}
+/* The tools that exist but have no page yet, listed quietly under their own
+   group rather than in one lump at the bottom: a reader looking for a control
+   should find out there is one, in the place they were already looking. */
+.pending{margin-top:.8rem;font-size:.85rem;color:#666}
+/* One worked example, two pictures and a table. The colours are the tool's own:
+   the first layer neutral, the second layer the accent, the result filled. */
+.io{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;margin-top:1rem}
+.io .arrow{font-size:1.6rem;color:#888;flex:0 0 auto}
+.map-figure{margin:0;flex:0 0 auto}
+.map-figure svg{background:#eef3f7;border:1px solid #d8d8d8;border-radius:4px;display:block}
+.map-figure figcaption{font-size:.75rem;color:#666;margin-top:.25rem}
+svg .a{fill:#c9d6e0;stroke:#7d8f9d;stroke-width:.5}
+svg .ghost{fill:#eceff2;stroke:#dfe4e8;stroke-width:.5}
+svg .b{fill:rgba(217,99,60,.18);stroke:#d9633c;stroke-width:1.2}
+svg .out{fill:rgba(43,108,143,.55);stroke:#1b4a63;stroke-width:.8}
+svg .pt{fill:#1b4a63;stroke:#fff;stroke-width:1}
+table.attrs{font-size:.8rem;margin-top:.6rem;width:auto;border-collapse:collapse}
+table.attrs th,table.attrs td{border:1px solid #ddd;padding:.2rem .5rem;text-align:left}
+table.attrs th{background:#f0f2f4}
+table.attrs td.null{color:#aaa;font-style:italic}
+p.fields{font-size:.85rem;color:#555;margin-top:.8rem}
+.scroll{overflow-x:auto}
+table.matrix{font-size:.8rem;border-collapse:collapse;margin-top:.6rem;width:auto}
+table.matrix th,table.matrix td{border:1px solid #ddd;padding:.25rem .5rem;text-align:center}
+table.matrix th.op{text-align:left;white-space:nowrap;font-weight:600}
+table.matrix th.sub{font-weight:400;color:#666;font-size:.75rem}
+table.matrix thead th{background:#f0f2f4}
+.yes{color:#2f7d4f;font-weight:700}
+.none{color:#999}
+.err{color:#b03030;font-weight:700}
+p.legend{font-size:.85rem;color:#555;margin-top:.6rem}
+.no-geom{width:300px;height:180px;display:flex;align-items:center;justify-content:center;text-align:center;
+  background:#f4f6f8;border:1px dashed #cfd6dc;border-radius:4px;color:#7a848c;font-size:.85rem}
+p.pagenav{font-size:.9rem;margin-top:1.2rem;padding-bottom:.6rem;border-bottom:1px solid #e2e2e2}
+.pending code{background:#ececec;padding:.1em .35em;border-radius:3px}
+h2{font-size:1.3rem;letter-spacing:-.01em;margin-bottom:.6rem}
+p+p,p+ul,p+ol,ul+p,ol+p,pre+p{margin-top:.8rem}
+li{margin-left:1.2rem}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:#ececec;padding:.1em .35em;border-radius:3px}
+pre{background:#0f1923;color:#dfe8f0;padding:1rem;border-radius:6px;overflow-x:auto;margin-top:.8rem}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin-top:.8rem;font-size:.9rem}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid #ddd;vertical-align:top}
+footer{border-top:1px solid #ddd;margin-top:3rem;padding-top:1rem;font-size:.85rem;color:#666}
+@media (prefers-color-scheme:dark){
+ body{background:#12181e;color:#e6ebf0}a{color:#6db8ff}
+ .mapwrap{border-color:#25313d;background:#1a222a}
+ code{background:#222c36}th,td{border-color:#25313d}footer{border-color:#25313d;color:#9aa8b5}
+}
+</style>
+</head>
+<body>
+<header><div class="inner">
+<div class="crumb"><a href="../index.html">WebMapX</a> / <a href="./index.html">Tools</a></div>
+<h1><span class="tool-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-intersect" viewBox="0 0 16 16" width="1em" height="1em">
+  <path d="M0 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2H2a2 2 0 0 1-2-2zm5 10v2a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2v5a2 2 0 0 1-2 2zm6-8V2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h2V6a2 2 0 0 1 2-2z"/>
+</svg></span>Analysis</h1>
+<p>Builds a new layer from one or two existing layers.</p>
+<div class="badges"><span class="badge">type: geoprocessing</span><span class="badge">toolbar</span><span class="badge">stable</span></div>
+</div></header>
+<div class="mapwrap"><iframe loading="lazy" allow="fullscreen" title="Analysis demo map"
+     src="../testpages/preview.html?storageKey=webmapx-docs-no-override&config=../config/docs/tools/geoprocessing.json"></iframe></div>
+<main><section id="what"><h2>What it does</h2><p>Analysis builds a new layer from one or two existing layers.</p>
+<p>Available: clip, erase, intersect, union, select by location, spatial join, dissolve, centroid, convex hull, simplify, buffer, voronoi, delaunay, and cartogram. Plus statistics, which is a dissolve without the geometry.</p>
+<p>Pick an operation, choose the input layers, set the options, and calculate. The result is added to the map as a new layer.</p>
+<p>Worth knowing before you start:</p>
+<ul><li><strong>Clip and intersect give the same shapes, but a different number of features.</strong> Clip merges the second layer first, so one input feature stays one output feature with its own attributes. Intersect works per overlapping pair, so a feature that meets three others becomes three features, each carrying the attributes of the one it met.</li><li><strong>Simplify keeps shared borders identical.</strong> Simplifying each polygon on its own simplifies a shared border twice, in two different ways, and leaves gaps and slivers between neighbors. This operation builds a topology first, so both sides keep the same points.</li><li><strong>Summing and averaging attributes is a setting, not a separate operation.</strong> You can add sum, mean, min, max, count, and a list of values to dissolve and to statistics. <code>total</code> and <code>average</code> are hidden for text fields.</li></ul>
+<p>Everything runs inside your browser, using GDAL compiled to WebAssembly. Your data is not uploaded anywhere.</p></section>
+<section id="use"><h2>Using it</h2><ol><li>Choose an operation. Its inputs and settings appear below it.</li><li>Pick the layers, set the values, press <strong>Calculate</strong>.</li><li>The result is added as a new layer, and the panel reports how many features it used.</li></ol>
+<p><strong>Only loaded data is used.</strong> A GeoJSON layer gives every feature. A tiled layer gives only the features in view. The panel warns you on inputs where that can change the result.</p>
+<p>Three example pages show the operations on real data:</p>
+<ul><li><strong><a href="./analysis-operations.html">Two-layer operations</a></strong>: five countries and one rectangle through clip, erase, intersect, union, select by location, and spatial join, with the shapes and the attributes that come out of each.</li><li><strong><a href="./analysis-single-layer.html">One-layer operations</a></strong>: dissolve, statistics, centroid, label point, buffer, convex hull, simplify, cartogram, voronoi, and delaunay on the same five countries.</li><li><strong><a href="./analysis-geometry.html">Which geometry each operation accepts</a></strong>: points, lines, and polygons against every operation, tested one combination at a time, because not every operation accepts every geometry type.</li></ul>
+<p>A long calculation can be <strong>canceled</strong>.</p></section>
+<section id="embed"><h2>In your own map</h2><p>Add <code>geoprocessing</code> to a toolbar. It appears as <strong>Analysis</strong> and works on whatever layers are on the map.</p>
+<p>The WebAssembly is only fetched when it is needed, so a visitor who never opens the panel never downloads it. Opening the panel starts that download in the background while you fill in the form.</p></section>
+<section id="extend"><h2>Extending it</h2><p>An operation is one registry entry: inputs, parameters, a diagram, and either an SQL template or a JavaScript function.</p>
+<p>Operations run in EPSG:3857 instead of longitude/latitude because SpatiaLite works on a flat plane. Inputs are written into one indexed SpatiaLite database before the query runs. Keep the index: on 144×576 polygons it took a query from 19.8 s to 1.3 s without changing the algorithm.</p>
+<p>Union is the slow operation to watch when testing performance. On 257 countries against 4000 regions, clip took 4 s, intersect 5 s, and union 38 s.</p><table><tr><th>Config <code>type</code></th><td><code>geoprocessing</code></td></tr><tr><th>Element</th><td><code>&lt;webmapx-geoprocessing-tool&gt;</code></td></tr><tr><th>Placement</th><td>toolbar</td></tr><tr><th>Source</th><td><a href="https://github.com/edugis-org/webmapx/blob/d295ce738f5bb532f05c59fcfde04a1d55ff80b4/src/components/webmapx-geoprocessing-tool.ts"><code>src/components/webmapx-geoprocessing-tool.ts</code></a><br><a href="https://github.com/edugis-org/webmapx/blob/d295ce738f5bb532f05c59fcfde04a1d55ff80b4/src/utils/geoprocessing-operations.ts"><code>src/utils/geoprocessing-operations.ts</code></a><br><a href="https://github.com/edugis-org/webmapx/blob/d295ce738f5bb532f05c59fcfde04a1d55ff80b4/src/workers/geoprocessing-runner.ts"><code>src/workers/geoprocessing-runner.ts</code></a></td></tr><tr><th>Tests</th><td><a href="https://github.com/edugis-org/webmapx/blob/d295ce738f5bb532f05c59fcfde04a1d55ff80b4/tests/geoprocessing.test.ts"><code>tests/geoprocessing.test.ts</code></a></td></tr><tr><th>Related</th><td><a href="./buffer.html">buffer</a>, <a href="./cartogram.html">cartogram</a>, <a href="./layerOverview.html">layerOverview</a></td></tr></table></section>
+<footer>Built from webmapx <code>d295ce7</code> and configs <code>046a5f5</code>.
+Machine-readable: <a href="./geoprocessing.json">geoprocessing.json</a>.</footer>
+</main>
+</body>
+</html>

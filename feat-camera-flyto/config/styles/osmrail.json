@@ -1,0 +1,104 @@
+{
+    "version": 8,
+    "name": "osmrail",
+    "sources": {
+        "rail": {
+            "type": "vector",
+            "tiles": ["https://saturnus.geodan.nl/mvt/rail/{z}/{x}/{y}.mvt"]
+        }
+    },
+    "layers": [{
+            "id": "rail",
+            "type": "line",
+            "source": "rail",
+            "source-layer": "rail",
+            "minzoom": 12,
+            "maxzoom": 24,
+            "filter": [
+                "none",
+                ["==", "railway", "tram"],
+                ["==", "railway", "abandoned"]
+            ],
+            "layout": {
+                "visibility": "visible"
+            },
+            "paint": {
+                "line-color": "black",
+                "line-width": 1
+            }
+        },
+        {
+            "id": "rail-route",
+            "type": "line",
+            "source": "rail",
+            "source-layer": "rail",
+            "minzoom": 5,
+            "maxzoom": 11.9999,
+            "filter": [
+                "all",
+                ["in", "route", "railway", "train"],
+                ["!=", "railway", "abandoned"]
+            ],
+            "layout": {
+                "visibility": "visible"
+            },
+            "paint": {
+                "line-color": "rgba(179, 141, 39, 1)",
+                "line-width": 3
+            }
+        }, {
+            "id": "tram",
+            "type": "line",
+            "source": "rail",
+            "source-layer": "rail",
+            "minzoom": 12,
+            "filter": [
+                "any",
+                ["==", "railway", "tram"],
+                ["==", "route", "tram"],
+                ["==", "route", "light_rail"]
+            ],
+            "layout": {
+                "visibility": "visible"
+            },
+            "paint": {
+                "line-color": "rgba(103, 45, 45, 1)"
+            }
+        }, {
+            "id": "subway",
+            "type": "line",
+            "source": "rail",
+            "source-layer": "rail",
+            "minzoom": 12,
+            "filter": [
+                "all",
+                ["==", "railway", "subway"]
+            ],
+            "layout": {
+                "visibility": "visible"
+            },
+            "paint": {
+                "line-color": "rgba(143, 96, 144, 1)",
+                "line-width": 1,
+                "line-gap-width": 1
+            }
+        }, {
+            "id": "lightrail",
+            "type": "line",
+            "source": "rail",
+            "source-layer": "rail",
+            "minzoom": 12,
+            "filter": [
+                "all",
+                ["==", "railway", "light_rail"]
+            ],
+            "layout": {
+                "visibility": "visible"
+            },
+            "paint": {
+                "line-color": "rgba(143, 96, 144, 1)",
+                "line-width": 1
+            }
+        }
+    ]
+}
