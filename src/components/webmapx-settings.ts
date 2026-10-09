@@ -8,6 +8,14 @@ import '@shoelace-style/shoelace/dist/components/option/option.js';
 
 import { getRegisteredAdapters, DEFAULT_ADAPTER_NAME } from '../map/adapter-registry';
 import {
+    APPEARANCE_CHANGE_EVENT,
+    chooseAppearance,
+    effectiveAppearance,
+    resolveTheme,
+    type UiStyle,
+    type UiTheme
+} from '../utils/appearance';
+import {
     getMapScopedStorageKey,
     normalizeAdapterName,
     resolveAdapterSelection
@@ -24,8 +32,8 @@ import { sectionHeadingStyles } from './internal/section-heading-styles';
  * "dark" and "compact" mutually exclusive even though they describe
  * different things — there was no way to ask for a dense dark UI.
  */
-export type WebmapxUiStyle = 'atlas' | 'folio' | 'console' | 'classroom';
-export type WebmapxUiTheme = 'auto' | 'light' | 'dark';
+export type WebmapxUiStyle = UiStyle;
+export type WebmapxUiTheme = UiTheme;
 
 const UI_STYLES: { value: WebmapxUiStyle; label: string; hint: string }[] = [
     { value: 'atlas', label: 'Atlas', hint: 'Soft and roomy — public maps' },
@@ -40,29 +48,13 @@ const UI_THEMES: { value: WebmapxUiTheme; label: string }[] = [
     { value: 'dark', label: 'Dark' }
 ];
 
-const STYLE_KEY = 'webmapx-style';
-const THEME_KEY = 'webmapx-theme';
-
-/**
- * Values written by the previous single-dropdown version, mapped onto the two
- * axes. Without this, someone who had picked "Compact" would silently land on
- * the default after upgrading.
- */
-const LEGACY_STYLE_MIGRATION: Record<string, { style: WebmapxUiStyle; theme: WebmapxUiTheme }> = {
-    light: { style: 'atlas', theme: 'light' },
-    dark: { style: 'atlas', theme: 'dark' },
-    compact: { style: 'console', theme: 'light' },
-    glossy: { style: 'atlas', theme: 'light' }
-};
-
 @customElement('webmapx-settings')
 export class WebmapxSettings extends LitElement {
     @state() private uiStyle: WebmapxUiStyle = 'atlas';
     @state() private uiTheme: WebmapxUiTheme = 'auto';
     @state() private apiKey = '';
-    /** Live OS preference, watched so 'Match system' keeps following it. */
-    private systemDark: MediaQueryList | null = null;
-    private systemDarkHandler: (() => void) | null = null;
+    /** Keeps the dropdowns in step when a config (or another settings) changes the appearance. */
+    private appearanceListener = () => this.syncAppearance();
     @state() private currentAdapter = DEFAULT_ADAPTER_NAME;
     @state() private availableAdapters: string[] = [];
 
@@ -90,38 +82,25 @@ export class WebmapxSettings extends LitElement {
     connectedCallback() {
         super.connectedCallback();
         this.loadSettings();
-
-        // 'Match system' has to keep matching, not just read the preference once.
-        this.systemDark = window.matchMedia('(prefers-color-scheme: dark)');
-        this.systemDarkHandler = () => {
-            if (this.uiTheme === 'auto') this.applyAppearance();
-        };
-        this.systemDark.addEventListener('change', this.systemDarkHandler);
+        document.addEventListener(APPEARANCE_CHANGE_EVENT, this.appearanceListener);
     }
 
     disconnectedCallback() {
         super.disconnectedCallback();
-        if (this.systemDark && this.systemDarkHandler) {
-            this.systemDark.removeEventListener('change', this.systemDarkHandler);
-        }
-        this.systemDark = null;
-        this.systemDarkHandler = null;
+        document.removeEventListener(APPEARANCE_CHANGE_EVENT, this.appearanceListener);
+    }
+
+    /** Shows the appearance in force: the viewer's own choice, else the config's. */
+    private syncAppearance() {
+        const { style, theme } = effectiveAppearance();
+        this.uiStyle = style;
+        this.uiTheme = theme;
     }
 
     private loadSettings() {
-        const savedStyle = localStorage.getItem(STYLE_KEY);
-        const savedTheme = localStorage.getItem(THEME_KEY) as WebmapxUiTheme | null;
-
-        const legacy = savedStyle ? LEGACY_STYLE_MIGRATION[savedStyle] : undefined;
-        if (legacy) {
-            // One-time upgrade from the old combined dropdown.
-            this.uiStyle = legacy.style;
-            this.uiTheme = savedTheme ?? legacy.theme;
-        } else {
-            this.uiStyle = UI_STYLES.some(s => s.value === savedStyle) ? savedStyle as WebmapxUiStyle : 'atlas';
-            this.uiTheme = UI_THEMES.some(t => t.value === savedTheme) ? savedTheme! : 'auto';
-        }
-        this.applyAppearance();
+        // Reading only: applying (and remembering) happens when the viewer
+        // changes something. Writing here made every visit look like a choice.
+        this.syncAppearance();
 
         // Load API key
         this.apiKey = localStorage.getItem('webmapx-api-key') || '';
@@ -153,38 +132,11 @@ export class WebmapxSettings extends LitElement {
         return this.availableAdapters.includes(resolved) ? resolved : DEFAULT_ADAPTER_NAME;
     }
 
-    /** Resolves 'auto' against the OS; light/dark are taken at face value. */
-    private resolvedTheme(): 'light' | 'dark' {
-        if (this.uiTheme === 'auto') {
-            return this.systemDark?.matches ?? window.matchMedia('(prefers-color-scheme: dark)').matches
-                ? 'dark'
-                : 'light';
-        }
-        return this.uiTheme;
-    }
-
-    private applyAppearance() {
-        const style = UI_STYLES.find(s => s.value === this.uiStyle) ?? UI_STYLES[0];
-        const theme = this.resolvedTheme();
-        const html = document.documentElement;
-
-        // 'auto' is resolved here rather than left to a CSS media query, so the
-        // attribute always states the theme actually in force — the artifact of
-        // truth other components and host pages read.
-        html.setAttribute('data-theme', theme);
-        html.classList.toggle('sl-theme-dark', theme === 'dark');
-
-        html.setAttribute('data-style', style.value);
-
-        localStorage.setItem(STYLE_KEY, style.value);
-        localStorage.setItem(THEME_KEY, this.uiTheme);
-    }
-
     private emitAppearanceChange() {
         this.dispatchEvent(new CustomEvent('theme-change', {
             // `style` is kept for backwards compatibility with listeners written
             // against the old single-axis dropdown.
-            detail: { style: this.uiStyle, theme: this.uiTheme, resolvedTheme: this.resolvedTheme() },
+            detail: { style: this.uiStyle, theme: this.uiTheme, resolvedTheme: resolveTheme(this.uiTheme) },
             bubbles: true,
             composed: true
         }));
@@ -193,14 +145,14 @@ export class WebmapxSettings extends LitElement {
     private handleStyleChange(e: Event) {
         const target = e.target as HTMLSelectElement;
         this.uiStyle = target.value as WebmapxUiStyle;
-        this.applyAppearance();
+        chooseAppearance({ style: this.uiStyle });
         this.emitAppearanceChange();
     }
 
     private handleThemeChange(e: Event) {
         const target = e.target as HTMLSelectElement;
         this.uiTheme = target.value as WebmapxUiTheme;
-        this.applyAppearance();
+        chooseAppearance({ theme: this.uiTheme });
         this.emitAppearanceChange();
     }
 

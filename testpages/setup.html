@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <link rel="icon" href="../favicon.png">
   <title>WebMapX Setup</title>
+  <!-- For the tool palette tokens the Style tab's swatches are drawn with. -->
+  <link rel="stylesheet" href="../src/theme/webmapx-style-core.css">
   <style>
     body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
     h1 { font-size: 1.4rem; margin-bottom: 1.5rem; }
@@ -55,6 +57,18 @@
     .layer-row .layer-id { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .layer-row input[type=number] { width: 4.5rem; }
     .map-preview-actions { display: flex; gap: 0.6rem; margin-top: 0.5rem; }
+    /* Style tab */
+    .style-toolbar { margin: 0 0 1.1rem; }
+    .style-toolbar h3 { font-size: 0.9rem; margin: 0 0 0.4rem; color: #333; }
+    .style-tool-rows { display: grid; grid-template-columns: auto 1fr auto auto; gap: 0.3rem 0.7rem; align-items: center; }
+    .style-swatch { width: 1.4rem; height: 1.4rem; border-radius: 6px; border: 1px solid rgb(0 0 0 / .15); }
+    .style-tool-name { font-size: 0.85rem; }
+    .style-tool-rows select { padding: 0.25rem 0.4rem; font-size: 0.8rem; border: 1px solid #ccc; border-radius: 4px; }
+    .style-tool-rows input[type=color] { width: 2.2rem; height: 1.6rem; padding: 0; border: 1px solid #ccc; border-radius: 4px; }
+    /* Keeps its grid cell when hidden, so the rows stay aligned. */
+    .style-tool-rows input[type=color][hidden] { display: block; visibility: hidden; }
+    .style-chosen-warning { background: #fff7e0; border: 1px solid #e8c766; border-radius: 4px; padding: 0.5rem 0.7rem; font-size: 0.85rem; margin: 0 0 0.8rem; }
+    .style-chosen-warning button { margin-left: 0.4rem; }
     .btn-map-sync {
       background: #0f62fe; color: #fff; border: none; border-radius: 4px;
       font-size: 0.8rem; padding: 0.4rem 0.9rem; cursor: pointer;
@@ -304,6 +318,7 @@
     <button class="tab-btn active" data-tab="tools">Tools</button>
     <button class="tab-btn" data-tab="layers">Layers</button>
     <button class="tab-btn" data-tab="map">Map</button>
+    <button class="tab-btn" data-tab="style">Style</button>
     <button class="tab-btn" data-tab="stories">Stories</button>
   </div>
 
@@ -454,6 +469,47 @@
       </div>
     </section>
   </div>
+  <div class="tab-panel" id="tab-style">
+    <section class="layers-section">
+      <h2>Appearance <span class="section-hint">— config `ui`; a viewer's own choice in Settings outranks it</span></h2>
+      <div class="map-form-grid">
+        <label>Style
+          <select id="style-ui-style">
+            <option value="">(default — atlas)</option>
+            <option value="atlas">Atlas — soft and roomy</option>
+            <option value="folio">Folio — flat and precise</option>
+            <option value="console">Console — dense</option>
+            <option value="classroom">Classroom — coloured tool tiles</option>
+          </select>
+        </label>
+        <label>Theme
+          <select id="style-ui-theme">
+            <option value="">(default — match system)</option>
+            <option value="auto">Match system</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <section class="layers-section">
+      <h2>Toolbar buttons <span class="section-hint">— colours are drawn by the classroom style; "automatic" goes by position</span></h2>
+      <div id="style-toolbars"></div>
+    </section>
+
+    <section class="layers-section">
+      <div id="style-chosen-warning" class="style-chosen-warning" hidden>
+        This browser has its own style/theme choice from the Settings tool, which outranks the config, so the preview may not show what you pick here.
+        <button id="btn-style-forget-choice" type="button">Forget my own choice</button>
+      </div>
+      <iframe id="style-preview-frame" class="map-preview" src="./preview.html?storageKey=webmapx-setup-style-preview-config"></iframe>
+      <div class="map-preview-actions">
+        <button id="btn-style-refresh" class="btn-map-sync btn-map-refresh">⟳ Refresh preview</button>
+      </div>
+    </section>
+  </div>
+
   <div class="tab-panel" id="tab-stories">
     <section class="layers-section">
       <h2>Stories <span class="section-hint">— guided tours (config `stories` section)</span></h2>
@@ -554,6 +610,7 @@
     import { TOOL_REGISTRY } from '/src/tools/tool-registry.ts';
     import { discoverLayers } from '/src/utils/layer-discovery.ts';
     import { toStoryStepState } from '/src/config/story-step-state.ts';
+    import { TOOL_PALETTE, ToolAccentSequence } from '/src/utils/tool-accent.ts';
 
     const LAYER_REPO_RAW_BASE = 'https://raw.githubusercontent.com/edugis-org/webmapx-layer-repository/main/layers';
 
@@ -1993,6 +2050,153 @@
         .forEach(id => document.getElementById(id).addEventListener('input', onBoundsChange));
     }
 
+    // --- Style tab: config `ui` + toolbar labels and button colours ---
+    const STYLE_PREVIEW_STORAGE_KEY = 'webmapx-setup-style-preview-config';
+    const PALETTE_LABELS = { cyan: 'Cyan', green: 'Green', yellow: 'Yellow', orange: 'Orange', purple: 'Purple', blue: 'Blue' };
+
+    function setUiField(key, value) {
+      const ov = getSaved();
+      ov['ui:fields'] = { ...(ov['ui:fields'] ?? {}), [key]: value || undefined };
+      saveOverrides(ov);
+    }
+
+    function setToolbarStyle(toolbarKey, patch) {
+      const ov = getSaved();
+      const all = { ...(ov['style:toolbars'] ?? {}) };
+      const current = all[toolbarKey] ?? {};
+      all[toolbarKey] = {
+        ...current,
+        ...patch,
+        colors: { ...(current.colors ?? {}), ...(patch.colors ?? {}) },
+      };
+      ov['style:toolbars'] = all;
+      saveOverrides(ov);
+    }
+
+    function buildStyleUI(config) {
+      const merged = applyOverrides(config, getSaved());
+      document.getElementById('style-ui-style').value = merged.ui?.style ?? '';
+      document.getElementById('style-ui-theme').value = merged.ui?.theme ?? '';
+
+      const host = document.getElementById('style-toolbars');
+      host.replaceChildren();
+      for (const toolbarKey of getToolbarKeys(merged)) {
+        const toolbar = merged.tools[toolbarKey];
+        if (!toolbar || toolbar.enabled === false) continue;
+        const items = (toolbar.items ?? []).filter(i => i.enabled !== false && i.type !== 'spacer');
+        if (items.length === 0) continue;
+
+        const section = document.createElement('div');
+        section.className = 'style-toolbar';
+        const h3 = document.createElement('h3');
+        h3.textContent = `${toolbarKey} (${toolbar.position ?? 'top-left'})`;
+        section.appendChild(h3);
+
+        const labelsRow = document.createElement('label');
+        labelsRow.className = 'map-checkbox-row';
+        const labelsBox = document.createElement('input');
+        labelsBox.type = 'checkbox';
+        labelsBox.checked = toolbar.labels === true;
+        labelsBox.addEventListener('change', () => {
+          setToolbarStyle(toolbarKey, { labels: labelsBox.checked });
+          scheduleStylePreview();
+        });
+        labelsRow.append(labelsBox, ' Show names beside the icons (labels)');
+        section.appendChild(labelsRow);
+
+        // The same sequence the runtime runs, so "automatic" names the colour
+        // the button will actually get.
+        const accents = new ToolAccentSequence();
+        const rows = document.createElement('div');
+        rows.className = 'style-tool-rows';
+        for (const item of items) {
+          const itemId = item.id ?? item.type;
+          const accent = accents.take(item.color);
+          const autoName = item.color ? null : accent.match(/palette-(\w+)\)/)?.[1];
+
+          const swatch = document.createElement('span');
+          swatch.className = 'style-swatch';
+          swatch.style.background = accent;
+
+          const name = document.createElement('span');
+          name.className = 'style-tool-name';
+          name.textContent = item.title ?? item.label ?? itemId;
+
+          const select = document.createElement('select');
+          select.setAttribute('aria-label', `Colour of ${name.textContent}`);
+          const isPalette = item.color && TOOL_PALETTE.includes(String(item.color).toLowerCase());
+          const isCustom = item.color && !isPalette;
+          select.append(new Option(item.color ? 'Automatic' : `Automatic (${PALETTE_LABELS[autoName] ?? autoName})`, ''));
+          for (const p of TOOL_PALETTE) select.append(new Option(PALETTE_LABELS[p] ?? p, p));
+          select.append(new Option('Custom…', '__custom'));
+          select.value = isCustom ? '__custom' : (item.color ? String(item.color).toLowerCase() : '');
+
+          const picker = document.createElement('input');
+          picker.type = 'color';
+          picker.setAttribute('aria-label', `Custom colour of ${name.textContent}`);
+          picker.value = isCustom && /^#[0-9a-f]{6}$/i.test(item.color) ? item.color : '#ff8250';
+          picker.hidden = !isCustom;
+
+          select.addEventListener('change', () => {
+            const value = select.value === '__custom' ? picker.value : select.value;
+            setToolbarStyle(toolbarKey, { colors: { [itemId]: value || null } });
+            buildStyleUI(config);
+            scheduleStylePreview();
+          });
+          picker.addEventListener('change', () => {
+            setToolbarStyle(toolbarKey, { colors: { [itemId]: picker.value } });
+            buildStyleUI(config);
+            scheduleStylePreview();
+          });
+
+          rows.append(swatch, name, select, picker);
+        }
+        section.appendChild(rows);
+        host.appendChild(section);
+      }
+      updateChosenWarning();
+    }
+
+    function wireStyleUI(config) {
+      document.getElementById('style-ui-style').addEventListener('change', (e) => {
+        setUiField('style', e.target.value);
+        scheduleStylePreview();
+      });
+      document.getElementById('style-ui-theme').addEventListener('change', (e) => {
+        setUiField('theme', e.target.value);
+        scheduleStylePreview();
+      });
+      document.getElementById('btn-style-refresh').addEventListener('click', () => refreshStylePreviewFrame(baseConfig));
+      document.getElementById('btn-style-forget-choice').addEventListener('click', () => {
+        // Only the marker: the stored values stay for host pages that read them
+        // before first paint, but no longer outrank a config (src/utils/appearance.ts).
+        localStorage.removeItem('webmapx-appearance-chosen');
+        updateChosenWarning();
+        refreshStylePreviewFrame(baseConfig);
+      });
+    }
+
+    function updateChosenWarning() {
+      document.getElementById('style-chosen-warning').hidden =
+        localStorage.getItem('webmapx-appearance-chosen') !== '1';
+    }
+
+    let stylePreviewTimer = null;
+    function scheduleStylePreview() {
+      clearTimeout(stylePreviewTimer);
+      stylePreviewTimer = setTimeout(() => refreshStylePreviewFrame(baseConfig), 400);
+    }
+
+    function refreshStylePreviewFrame(config) {
+      if (!config) return;
+      const finalConfig = applyOverrides(config, getSaved());
+      storeConfig(STYLE_PREVIEW_STORAGE_KEY, finalConfig);
+      const frame = document.getElementById('style-preview-frame');
+      if (!frame) return;
+      setPreviewEngine(frame.getAttribute('src'), finalConfig.engine ?? finalConfig.map?.type ?? 'maplibre');
+      frame.contentWindow.location.reload();
+    }
+
     // The Map-tab preview is a real <webmapx-map>, mounted the same way as preview.html —
     // via an iframe pointed at that very page. This keeps the mount path identical to a
     // real embed (correct engine, real layer normalization, no reimplemented source logic)
@@ -2509,6 +2713,33 @@
         }
       }
 
+      // Style tab: default appearance
+      const uiOverride = overrides['ui:fields'];
+      if (uiOverride) {
+        result.ui = { ...(result.ui ?? {}) };
+        for (const [k, v] of Object.entries(uiOverride)) {
+          if (v) result.ui[k] = v;
+          else delete result.ui[k];
+        }
+        if (Object.keys(result.ui).length === 0) delete result.ui;
+      }
+
+      // Style tab: toolbar labels and button colours. Applied last, to the
+      // items the Tools tab has already added, removed and reordered.
+      const styleToolbars = overrides['style:toolbars'];
+      for (const [toolbarKey, styled] of Object.entries(styleToolbars ?? {})) {
+        const toolbar = tools[toolbarKey];
+        if (!toolbar || !Array.isArray(toolbar.items)) continue;
+        if (styled.labels === true) toolbar.labels = true;
+        else if (styled.labels === false) delete toolbar.labels;
+        for (const [itemId, color] of Object.entries(styled.colors ?? {})) {
+          const item = toolbar.items.find(i => (i.id ?? i.type) === itemId);
+          if (!item) continue;
+          if (color) item.color = color;
+          else delete item.color;
+        }
+      }
+
       // Stories tab
       const storiesOverride = overrides['stories:data'];
       if (storiesOverride) {
@@ -2555,6 +2786,7 @@
       buildLayersUI(config);
       buildMapUI(config);
       refreshMapPreviewFrame(config);
+      buildStyleUI(config);
       selStoryIdx = 0;
       selChapterIdx = 0;
       selStepIdx = 0;
@@ -3331,6 +3563,10 @@
         btn.classList.add('active');
         document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
         if (btn.dataset.tab === 'map' && baseConfig) refreshMapPreviewFrame(baseConfig);
+        if (btn.dataset.tab === 'style' && baseConfig) {
+          buildStyleUI(baseConfig);
+          refreshStylePreviewFrame(baseConfig);
+        }
         if (btn.dataset.tab === 'stories' && baseConfig) refreshStoriesPreviewFrame(baseConfig);
       });
     });
@@ -3377,6 +3613,8 @@
     buildMapUI(config);
     wireMapUI(config);
     refreshMapPreviewFrame(config);
+    buildStyleUI(config);
+    wireStyleUI(config);
     buildStoriesUI(config);
     refreshStoriesPreviewFrame(config);
     updateSelectAll();

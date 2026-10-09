@@ -71,8 +71,17 @@ export class WebmapxToolbar extends LitElement {
       max-width: var(--webmapx-toolbar-max-width, 100%);
     }
 
-    /* Labelled rail: rows as wide as the longest name. */
+    /* Labelled rail: rows as wide as the longest name. It scrolls instead of
+       wrapping: a column-wrapped flex box does not grow wider, so a second
+       column of labelled rows lands outside the card. Clipping is harmless
+       here, since a labelled rail shows no tooltips. */
+    :host([labels][orientation="vertical"]) {
+      flex-wrap: nowrap;
+      overflow-y: auto;
+    }
+
     :host([labels]) ::slotted(sl-button) {
+      flex: none;
       width: auto;
       min-width: var(--webmapx-toolbar-labelled-min-width, 9rem);
     }

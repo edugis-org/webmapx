@@ -17,16 +17,11 @@
     //   ?override=1      3D forced to orange by config `color`, to show an override
     //   ?few=1           a five-tool config, to show colours are assigned by position
     //   ?adapter=openlayers
-    // Classic script: data-theme/data-style must be on <html> before first paint.
-    // Written to webmapx-settings' own keys too, because that tool re-applies
-    // what it has stored as soon as it loads.
+    // Classic script: data-theme/data-style go on <html> before first paint;
+    // the config's `ui` section below then keeps them (src/utils/appearance.ts).
     const params = new URLSearchParams(location.search);
     const style = params.get('style') ?? 'classroom';
     const theme = params.get('theme') === 'dark' ? 'dark' : 'light';
-    try {
-      localStorage.setItem('webmapx-style', style);
-      localStorage.setItem('webmapx-theme', theme);
-    } catch { /* private mode: the attributes below still apply until settings loads */ }
     const html = document.documentElement;
     html.setAttribute('data-style', style);
     if (theme === 'dark') {
@@ -94,6 +89,9 @@
     }
     toolbar.items = items;
     toolbar.labels = params.get('labels') === '1';
+    // The appearance is the config's to set. A choice made in this browser's
+    // Settings tool would still outrank it — on purpose, see appearance.ts.
+    config.ui = { style: params.get('style') ?? 'classroom', theme: params.get('theme') === 'dark' ? 'dark' : 'light' };
 
     if (params.get('adapter')) config.map.type = params.get('adapter');
 
