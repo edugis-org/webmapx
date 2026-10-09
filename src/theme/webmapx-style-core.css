@@ -14,6 +14,10 @@
  * correctly when this file is not loaded.
  */
 
+/* Rounded UI face for the classroom style, self-hosted (no third-party font
+   request). @font-face only downloads when a rule actually uses the family. */
+@import '@fontsource-variable/nunito/index.css';
+
 /* ════════════════════════════════════════════════════════════════
    COLOUR AXIS — light (default)
    All values verified against WCAG 2.1 AA on their intended ground.
@@ -137,6 +141,24 @@
     --shadow-alpha-far: .55;
 
     --color-edge-alpha: .10;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TOOL PALETTE — the colours a style may give its toolbar buttons.
+   Assigned down a toolbar by position (src/utils/tool-accent.ts), or named
+   by a toolbar item's `color`. Only the classroom style draws them today.
+   The tiles stay light in both themes and always carry dark ink: every
+   entry clears 3:1 against --webmapx-tool-ink (the WCAG minimum for
+   graphics), the darkest being blue at 3.3:1 and purple at 3.8:1.
+   ════════════════════════════════════════════════════════════════ */
+:root {
+    --webmapx-tool-palette-cyan: #33ccff;
+    --webmapx-tool-palette-green: #1ee696;
+    --webmapx-tool-palette-yellow: #fbe055;
+    --webmapx-tool-palette-orange: #ff8250;
+    --webmapx-tool-palette-purple: #9340ff;
+    --webmapx-tool-palette-blue: #2f55ff;
+    --webmapx-tool-ink: #10161c;
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -323,6 +345,111 @@
     --sl-font-size-small: 11px;
     --sl-input-height-small: 1.6rem;
     --sl-input-height-medium: 1.9rem;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   STYLE: classroom — learners. Each tool a coloured rounded tile, a
+   rounded face, roomy rows. Prototype after the EduGIS design round 1
+   (8 Oct 2026). Colours come from the tool palette above, so this block
+   still sets none.
+   ════════════════════════════════════════════════════════════════ */
+[data-style="classroom"] {
+    --webmapx-font-ui: "Nunito Variable", "Nunito", ui-rounded, ui-sans-serif, system-ui, sans-serif;
+
+    --webmapx-radius-xs: 6px;
+    --webmapx-radius-sm: 10px;
+    --webmapx-radius-md: 14px;
+    --webmapx-radius-lg: 22px;
+
+    --webmapx-surface-alpha: 1;
+    --webmapx-surface-blur: none;
+    --webmapx-surface-border: 1px solid transparent;
+    --webmapx-surface-radius: var(--webmapx-radius-lg);
+    --webmapx-surface-shadow: var(--shadow-sm), var(--shadow-lg);
+
+    --webmapx-row-height: 40px;
+    --webmapx-hit-size: 44px;
+    --webmapx-label-transform: none;
+    --webmapx-label-spacing: 0;
+
+    /* The rail is a padded card of separate tiles, not a flush column. */
+    --webmapx-toolbar-padding: 8px;
+    --webmapx-toolbar-gap: 6px;
+    --webmapx-toolbar-separator-color: transparent;
+    --webmapx-tool-tile-radius: 12px;
+
+    --webmapx-panel-icon-display: inline-flex;
+    --webmapx-panel-header-divider: none;
+
+    --sl-font-sans: var(--webmapx-font-ui);
+    --sl-border-radius-small: var(--webmapx-radius-sm);
+    --sl-border-radius-medium: var(--webmapx-radius-md);
+    --sl-border-radius-large: var(--webmapx-radius-lg);
+}
+
+/* Toolbar buttons are light DOM, so the tile is drawn from here. The button
+   itself goes transparent; its icon becomes the tile. [name] lifts these
+   above the corner-rounding rules further down. */
+[data-style="classroom"] webmapx-toolbar sl-button[name]::part(base) {
+    background: transparent;
+    border: 0;
+    border-radius: var(--webmapx-tool-tile-radius, 12px);
+    color: var(--color-text-primary);
+    min-height: var(--webmapx-hit-size);
+}
+
+[data-style="classroom"] webmapx-toolbar sl-button[name]::part(label) {
+    padding: 0;
+    gap: var(--webmapx-space-md);
+}
+
+/* sl-icon forces box-sizing: content-box on itself, so the glyph is 1em and
+   the padding makes up the rest of the tile. */
+[data-style="classroom"] webmapx-toolbar sl-button[name] > sl-icon {
+    font-size: 1.375rem;
+    width: 1em;
+    height: 1em;
+    padding: calc((var(--webmapx-hit-size) - 1em) / 2);
+    flex: none;
+    border-radius: var(--webmapx-tool-tile-radius, 12px);
+    background: var(--webmapx-tool-accent, var(--color-primary));
+    color: var(--webmapx-tool-ink);
+    transition: transform var(--webmapx-motion-fast) ease, filter var(--webmapx-motion-fast) ease;
+}
+
+[data-style="classroom"] webmapx-toolbar sl-button[name]:hover > sl-icon {
+    transform: translateY(-1px);
+    filter: saturate(1.15) brightness(1.04);
+}
+
+/* Active, icon-only: a ring around the tile in the text colour. */
+[data-style="classroom"] webmapx-toolbar:not([labels]) sl-button[variant="primary"] > sl-icon {
+    box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-text-primary);
+}
+
+/* Labelled rail: name beside the tile; the active row fills with its accent. */
+[data-style="classroom"] webmapx-toolbar[labels] sl-button[name]::part(base) {
+    justify-content: flex-start;
+}
+
+[data-style="classroom"] webmapx-toolbar[labels] sl-button[name]::part(label) {
+    justify-content: flex-start;
+    padding-inline-end: var(--webmapx-space-lg);
+}
+
+[data-style="classroom"] webmapx-toolbar sl-button .webmapx-toolbar-label {
+    font-weight: 700;
+    font-size: var(--webmapx-font-size-lg);
+}
+
+[data-style="classroom"] webmapx-toolbar[labels] sl-button[name]:hover::part(base) {
+    background: var(--color-background-hover);
+}
+
+[data-style="classroom"] webmapx-toolbar[labels] sl-button[name][variant="primary"]::part(base),
+[data-style="classroom"] webmapx-toolbar[labels] sl-button[name][variant="primary"]:hover::part(base) {
+    background: var(--webmapx-tool-accent, var(--color-primary));
+    color: var(--webmapx-tool-ink);
 }
 
 /* ── Deprecated style aliases ────────────────────────────────────

@@ -11,6 +11,8 @@ import {
 @customElement('webmapx-toolbar')
 export class WebmapxToolbar extends LitElement {
   @property({ type: String, reflect: true }) orientation = 'vertical';
+  /** Each button shows its tool's name beside the icon (the expanded rail). */
+  @property({ type: Boolean, reflect: true }) labels = false;
 
   static styles = css`
     :host {
@@ -26,8 +28,8 @@ export class WebmapxToolbar extends LitElement {
       height: fit-content;
       align-self: stretch;
       width: fit-content;
-      padding: 0;
-      gap: 0;
+      padding: var(--webmapx-toolbar-padding, 0);
+      gap: var(--webmapx-toolbar-gap, 0);
       pointer-events: none;
       box-shadow: var(--webmapx-surface-shadow, 0 1px 2px rgba(16, 24, 40, 0.07));
     }
@@ -67,6 +69,12 @@ export class WebmapxToolbar extends LitElement {
     :host([orientation="horizontal"]) {
       flex-direction: row;
       max-width: var(--webmapx-toolbar-max-width, 100%);
+    }
+
+    /* Labelled rail: rows as wide as the longest name. */
+    :host([labels]) ::slotted(sl-button) {
+      width: auto;
+      min-width: var(--webmapx-toolbar-labelled-min-width, 9rem);
     }
   `;
 

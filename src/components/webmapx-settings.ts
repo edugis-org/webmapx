@@ -24,13 +24,14 @@ import { sectionHeadingStyles } from './internal/section-heading-styles';
  * "dark" and "compact" mutually exclusive even though they describe
  * different things — there was no way to ask for a dense dark UI.
  */
-export type WebmapxUiStyle = 'atlas' | 'folio' | 'console';
+export type WebmapxUiStyle = 'atlas' | 'folio' | 'console' | 'classroom';
 export type WebmapxUiTheme = 'auto' | 'light' | 'dark';
 
 const UI_STYLES: { value: WebmapxUiStyle; label: string; hint: string }[] = [
     { value: 'atlas', label: 'Atlas', hint: 'Soft and roomy — public maps' },
     { value: 'folio', label: 'Folio', hint: 'Flat and precise — page embeds' },
-    { value: 'console', label: 'Console', hint: 'Dense — daily operational use' }
+    { value: 'console', label: 'Console', hint: 'Dense — daily operational use' },
+    { value: 'classroom', label: 'Classroom', hint: 'Coloured tool tiles — learners' }
 ];
 
 const UI_THEMES: { value: WebmapxUiTheme; label: string }[] = [

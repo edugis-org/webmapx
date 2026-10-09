@@ -18,6 +18,8 @@ export class WebmapxToolPanel extends LitElement {
   @property({ type: Boolean, reflect: true }) collapsed = false;
   /** What the active tool is for, drawn under the title (`panel-description` on the tool). */
   @state() private description = '';
+  /** The active tool's icon, drawn as a tile before the title in styles that show it. */
+  @state() private headerIcon: { name?: string; library?: string; src?: string } | null = null;
 
   private defaultLabel = 'Tools';
   private activeToolId: string | null = null;
@@ -130,6 +132,7 @@ export class WebmapxToolPanel extends LitElement {
       if (tool) {
         this.label = tool.label;
         this.description = tool.description;
+        this.applyToolAccent(tool.element);
         this.applyWidth(tool.element.getAttribute('panel-width'));
       }
       this.active = true;
@@ -141,9 +144,24 @@ export class WebmapxToolPanel extends LitElement {
 
     this.label = this.defaultLabel;
     this.description = '';
+    this.applyToolAccent(null);
     this.active = false;
     this.setAttribute('aria-label', this.label);
     this.applyWidth(null);
+  }
+
+  /**
+   * Takes the accent and icon the toolbar gave the active tool, so the panel
+   * heads itself in the colour of the button that opened it.
+   */
+  private applyToolAccent(element: HTMLElement | null): void {
+    const accent = element?.style.getPropertyValue('--webmapx-tool-accent') ?? '';
+    if (accent) this.style.setProperty('--webmapx-tool-accent', accent);
+    else this.style.removeProperty('--webmapx-tool-accent');
+    const icon = (element as { icon?: unknown } | null)?.icon;
+    if (typeof icon === 'string') this.headerIcon = { name: icon };
+    else if (icon && typeof icon === 'object') this.headerIcon = icon as { name?: string; library?: string; src?: string };
+    else this.headerIcon = null;
   }
 
   private applyWidth(width: string | null): void {
@@ -275,11 +293,29 @@ export class WebmapxToolPanel extends LitElement {
     }
 
     .panel-header h2 {
+      display: flex;
+      align-items: center;
+      gap: var(--webmapx-space-sm, 0.5rem);
       margin: 0;
       font-size: var(--webmapx-font-size-lg, 1rem);
       font-weight: 600;
       letter-spacing: -0.005em;
       color: var(--color-text-primary, #16202a);
+    }
+
+    /* The active tool's icon on its accent, before the title. Hidden unless a
+       style asks for it (classroom does), so the other styles are unchanged. */
+    .panel-icon {
+      display: var(--webmapx-panel-icon-display, none);
+      align-items: center;
+      justify-content: center;
+      flex: none;
+      width: 2rem;
+      height: 2rem;
+      border-radius: var(--webmapx-tool-tile-radius, var(--webmapx-radius-sm, 4px));
+      background: var(--webmapx-tool-accent, var(--color-primary, #2b6c8f));
+      color: var(--webmapx-tool-ink, var(--color-on-primary, #fff));
+      font-size: 1.1rem;
     }
 
     /* What the tool is for: one sentence under the title that heads the tool
@@ -370,7 +406,12 @@ export class WebmapxToolPanel extends LitElement {
   render() {
     return html`
       <div class="panel-header">
-        <slot name="header"><h2>${this.label}</h2></slot>
+        <slot name="header"><h2>${this.headerIcon
+          ? html`<span class="panel-icon" aria-hidden="true"><sl-icon
+              name=${this.headerIcon.name ?? nothing}
+              library=${this.headerIcon.library ?? nothing}
+              src=${this.headerIcon.src ?? nothing}></sl-icon></span>`
+          : nothing}${this.label}</h2></slot>
         <sl-button size="small" circle variant="text" @click=${this.toggleCollapsed}>
           <sl-icon name=${this.collapsed ? 'chevron-down' : 'chevron-up'} label=${this.collapsed ? 'Expand' : 'Collapse'}></sl-icon>
         </sl-button>
