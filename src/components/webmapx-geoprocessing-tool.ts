@@ -21,6 +21,7 @@
  * loader in tool-loader.ts.
  */
 
+import { accentControlStyles } from './internal/accent-control-styles';
 import { announce } from './internal/announce';
 import { html, css, nothing, type TemplateResult } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
@@ -155,7 +156,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
 
     // ─── Styles ──────────────────────────────────────────────────────────
 
-    static styles = [formLabelStyles, sectionHeadingStyles, css`
+    static styles = [accentControlStyles, formLabelStyles, sectionHeadingStyles, css`
         :host { display: block; }
 
         :host(:not([active])) .tool-content { display: none; }

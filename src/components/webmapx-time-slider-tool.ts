@@ -1,5 +1,6 @@
 import { html, css, TemplateResult } from 'lit';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
+import { accentControlStyles } from './internal/accent-control-styles';
 import { formLabelStyles } from './internal/form-label-styles';
 import '@shoelace-style/shoelace/dist/components/switch/switch.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
@@ -147,7 +148,7 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
     private playFrame: number | null = null;
     private playLastFrame = 0;
 
-    static styles = [formLabelStyles, controlSurfaceStyles, css`
+    static styles = [accentControlStyles, formLabelStyles, controlSurfaceStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         .now {
             display: flex;

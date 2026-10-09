@@ -37,6 +37,7 @@
  */
 import { html, css, type TemplateResult } from 'lit';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
+import { accentControlStyles } from './internal/accent-control-styles';
 import { formLabelStyles } from './internal/form-label-styles';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
@@ -203,7 +204,7 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
 
     private readonly stepper = new StepRepeater();
 
-    static styles = [formLabelStyles, controlSurfaceStyles, css`
+    static styles = [accentControlStyles, formLabelStyles, controlSurfaceStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         .level { font-size: 1.5rem; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
         .relative { color: var(--color-text-muted, #666); margin-bottom: 0.25rem; }

@@ -7,6 +7,7 @@ import type { ToolIconConfig } from '../config/types';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
+import { accentControlStyles } from './internal/accent-control-styles';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
 
 /** A submenu declared in config, addressed by its slash-joined path of ids. */
@@ -56,7 +57,7 @@ export class WebmapxMenuTool extends WebmapxBaseTool {
   /** Set when a keyboard action should move DOM focus after the next render. */
   private pendingRowFocus = false;
 
-  static styles = [controlSurfaceStyles, css`
+  static styles = [accentControlStyles, controlSurfaceStyles, css`
     :host {
       display: block;
     }

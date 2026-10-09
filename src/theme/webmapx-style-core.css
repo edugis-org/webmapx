@@ -147,9 +147,7 @@
    TOOL PALETTE — the colours a style may give its toolbar buttons.
    Assigned down a toolbar by position (src/utils/tool-accent.ts), or named
    by a toolbar item's `color`. Only the classroom style draws them today.
-   The tiles stay light in both themes and always carry dark ink: every
-   entry clears 3:1 against --webmapx-tool-ink (the WCAG minimum for
-   graphics), the darkest being blue at 3.3:1 and purple at 3.8:1.
+   The tiles stay the same in both themes.
    ════════════════════════════════════════════════════════════════ */
 :root {
     --webmapx-tool-palette-cyan: #33ccff;
@@ -159,6 +157,21 @@
     --webmapx-tool-palette-purple: #9340ff;
     --webmapx-tool-palette-blue: #2f55ff;
     --webmapx-tool-ink: #10161c;
+}
+
+/* Ink on an accent is chosen per accent, because the palette spans both
+   sides of the line: dark ink on purple is 3.8:1 and on blue 3.3:1 — enough
+   for an icon (3:1), not for text (4.5:1) — while white on yellow or cyan is
+   unreadable. Relative colour picks black above OKLCH lightness 0.65 and
+   white below it, which gives white on purple (4.8:1) and blue (5.4:1) and
+   black on the rest (8:1 and up), and does the same for any CSS colour a
+   config names. Declared on every element that carries an accent (toolbar
+   button, tool, panel), so each resolves against its own. Browsers without
+   relative colour keep the dark ink above. */
+@supports (color: oklch(from red l c h)) {
+    [style*="--webmapx-tool-accent"] {
+        --webmapx-tool-ink: oklch(from var(--webmapx-tool-accent) clamp(0, (0.65 - l) * 1000, 1) 0 0);
+    }
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -450,6 +463,22 @@
 [data-style="classroom"] webmapx-toolbar[labels] sl-button[name][variant="primary"]:hover::part(base) {
     background: var(--webmapx-tool-accent, var(--color-primary));
     color: var(--webmapx-tool-ink);
+}
+
+/* A panel continues the button that opened it: Shoelace's primary colour
+   becomes the tool's accent inside each tool, so selected controls (a
+   checked radio button, a switch, a primary button) fill with it. Shoelace's
+   own state rules keep working on the remapped tokens; the text paired with
+   them is fixed by internal/accent-control-styles.ts. The focus ring and
+   field borders are untouched — Shoelace resolves those at :root. Only
+   tools that were given an accent: an empty remap would blank the controls
+   of a tool placed by hand. */
+[data-style="classroom"] webmapx-tool-panel > [tool-id][style*="--webmapx-tool-accent"] {
+    --sl-color-primary-500: color-mix(in srgb, var(--webmapx-tool-accent) 82%, white);
+    --sl-color-primary-600: var(--webmapx-tool-accent);
+    --sl-color-primary-700: color-mix(in srgb, var(--webmapx-tool-accent) 82%, black);
+    --webmapx-on-accent: var(--webmapx-tool-ink);
+    --webmapx-accent-text: var(--color-text-primary);
 }
 
 /* ── Deprecated style aliases ────────────────────────────────────

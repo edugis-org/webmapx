@@ -1,4 +1,5 @@
 import { html, css, TemplateResult } from 'lit';
+import { accentControlStyles } from './internal/accent-control-styles';
 import { formLabelStyles } from './internal/form-label-styles';
 import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
 import '@shoelace-style/shoelace/dist/components/radio-button/radio-button.js';
@@ -18,7 +19,7 @@ export class Webmapx3dTool extends WebmapxBaseTool {
     @state() private terrainSupported = false;
     @state() private pitchSupported = true;
 
-    static styles = [formLabelStyles, controlSurfaceStyles, css`
+    static styles = [accentControlStyles, formLabelStyles, controlSurfaceStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: var(--webmapx-font-size-md, 0.875rem); }
         .unsupported { color: var(--color-text-muted, #6b7681); font-style: italic; }
         /* The viewing angle: one choice between named angles, so a segmented

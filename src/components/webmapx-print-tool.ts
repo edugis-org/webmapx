@@ -1,6 +1,7 @@
 // src/components/webmapx-print-tool.ts
 
 import { html, css } from 'lit';
+import { accentControlStyles } from './internal/accent-control-styles';
 import { formLabelStyles } from './internal/form-label-styles';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
@@ -61,7 +62,7 @@ export class WebmapxPrintTool extends WebmapxModalTool {
     private printBoxEl: HTMLElement | null = null;
     private resizeObserver: ResizeObserver | null = null;
 
-    static styles = [formLabelStyles, css`
+    static styles = [accentControlStyles, formLabelStyles, css`
         :host { display: block; font-size: var(--sl-font-size-small); }
         .tool-content {
             padding: var(--webmapx-tool-panel-padding, 12px);

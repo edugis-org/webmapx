@@ -1,4 +1,5 @@
 import { html, css, type TemplateResult } from 'lit';
+import { accentControlStyles } from './internal/accent-control-styles';
 import { customElement, state, query } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
@@ -260,7 +261,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     // ─── Styles ───────────────────────────────────────────────────────────────
 
-    static styles = css`
+    static styles = [accentControlStyles, css`
         :host {
             display: flex;
             flex-direction: column;
@@ -414,7 +415,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         .prop-img { max-width: 100%; max-height: 80px; border-radius: 3px; object-fit: cover; }
         .prop-img-error { font-size: 0.75rem; color: var(--sl-color-danger-600, #c0392b); font-style: italic; }
         .prop-url-wrap { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 0.2rem; }
-    `;
+    `];
 
     // ─── Lifecycle ────────────────────────────────────────────────────────────
 

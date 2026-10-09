@@ -2,6 +2,7 @@ import { html, css, TemplateResult } from 'lit';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
+import { accentControlStyles } from './internal/accent-control-styles';
 import { formLabelStyles } from './internal/form-label-styles';
 import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
 import '@shoelace-style/shoelace/dist/components/radio-button/radio-button.js';
@@ -208,7 +209,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         if (this.copies.length === 0) this.cleanupLayers();
     }
 
-    static styles = [formLabelStyles, css`
+    static styles = [accentControlStyles, formLabelStyles, css`
         :host { display: none; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; min-width: 200px; }
         :host([active]) { display: block; }
         label { display: block; margin-bottom: 0.25rem; }

@@ -1,6 +1,7 @@
 // src/components/webmapx-measure-tool.ts
 // Interactive measure tool for distance and area measurement
 
+import { accentControlStyles } from './internal/accent-control-styles';
 import { announce } from './internal/announce';
 import { html, css, nothing, TemplateResult } from 'lit';
 import { formLabelStyles } from './internal/form-label-styles';
@@ -185,7 +186,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
     // Styles
     // ─────────────────────────────────────────────────────────────────────
 
-    static styles = [formLabelStyles, addLayerToggleStyles, css`
+    static styles = [accentControlStyles, formLabelStyles, addLayerToggleStyles, css`
         :host {
             display: block;
             pointer-events: auto;

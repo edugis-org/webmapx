@@ -1,4 +1,5 @@
 import { html, css, TemplateResult, nothing } from 'lit';
+import { accentControlStyles } from './internal/accent-control-styles';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
@@ -54,7 +55,7 @@ export class WebmapxCompareTool extends WebmapxModalTool {
     private viewChangeUnsubscribe: (() => void) | null = null;
     private dragPointerId: number | null = null;
 
-    static styles = css`
+    static styles = [accentControlStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: var(--webmapx-font-size-md, 0.875rem); }
         p { margin: 0 0 var(--webmapx-space-sm, 0.5rem); line-height: 1.5; }
         .muted { color: var(--color-text-secondary, #5a6773); }
@@ -63,7 +64,7 @@ export class WebmapxCompareTool extends WebmapxModalTool {
         .side b { display: block; }
         .action { display: block; width: 100%; margin-top: var(--webmapx-space-sm, 0.5rem); }
         .action::part(base) { width: 100%; }
-    `;
+    `];
 
     protected onStateChanged(_state: IMapState): void {
         // The frozen map is built once, from the state at the moment the tool was opened;
