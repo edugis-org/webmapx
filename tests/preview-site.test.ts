@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import {
     branchSlug,
     renderIndex,
+    sharedBytes,
+    sharedFiles,
     totalBytes,
     withPreview,
     withoutPreview,
@@ -44,4 +46,13 @@ test('the index lists main first and escapes branch names', () => {
     assert.ok(html.indexOf('href="./main/"') < html.indexOf('href="./zeta/"'));
     assert.ok(!html.includes('<script>x'));
     assert.ok(html.includes('&#60;script&#62;x'));
+});
+
+test('a shared file counts once towards the site, however many previews use it', () => {
+    const a = { ...entry('main', 100), shared: { 'h.wasm': 1000, 'g.bin': 10 } };
+    const b = { ...entry('feat-x', 50), shared: { 'h.wasm': 1000 } };
+    assert.equal(sharedBytes([a, b]), 1010);
+    assert.equal(totalBytes([a, b]), 1160);
+    assert.deepEqual([...sharedFiles([b])], [['h.wasm', 1000]]);
+    assert.equal(totalBytes([entry('old', 70)]), 70);
 });

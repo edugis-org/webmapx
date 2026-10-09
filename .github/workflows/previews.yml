@@ -86,7 +86,17 @@ jobs:
           npm ci
           SITE_WEBMAPX_COMMIT="$GITHUB_SHA" \
           SITE_CONFIGS_COMMIT="$(git -C ../public/config rev-parse HEAD)" \
-            npx tsx scripts/assemble-site.ts .. ../site-build
+            npx tsx scripts/assemble-site.ts .. ../publish/preview
+
+      # GDAL's WASM is ~40 MB of every ~150 MB preview, twice (app and library),
+      # and identical in nearly all of them. It moves to one folder at the site
+      # root, _shared/, stored once under a name hashed from its content, and
+      # the worker's reference to it is rewritten. Only this assembled copy
+      # changes: the build, the package, webmapx.com and the configs do not.
+      # See scripts/lib/preview-shared-assets.ts.
+      - name: Share large files between previews
+        if: env.EVENT != 'delete'
+        run: node scripts/run-ts.mjs scripts/preview-site.ts share "$PWD/publish/preview" "$PWD/publish/_shared" "$PWD/shared.json"
 
       # Other branches deploy concurrently, so the push is conditional on
       # gh-pages being exactly what this run started from; if another deploy
@@ -109,7 +119,7 @@ jobs:
         run: |
           set -euo pipefail
           url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          root_files=(previews.json index.html CNAME .nojekyll)
+          root_files=(previews.json index.html CNAME .nojekyll _shared)
           for attempt in 1 2 3 4 5; do
             rm -rf site stage
             mkdir stage
@@ -127,8 +137,9 @@ jobs:
               node scripts/run-ts.mjs scripts/preview-site.ts remove "$PWD/stage" "$SLUG"
               message="Remove preview of $BRANCH"
             else
-              cp -r site-build "stage/$SLUG"
-              node scripts/run-ts.mjs scripts/preview-site.ts add "$PWD/stage" "$SLUG" "$BRANCH" "$GITHUB_SHA" "$(du -sb site-build | cut -f1)"
+              cp -r publish/preview "stage/$SLUG"
+              if [ -d publish/_shared ]; then cp -r publish/_shared stage/_shared; fi
+              node scripts/run-ts.mjs scripts/preview-site.ts add "$PWD/stage" "$SLUG" "$BRANCH" "$GITHUB_SHA" "$(du -sb publish/preview | cut -f1)" "$PWD/shared.json"
               message="Preview $BRANCH at ${GITHUB_SHA:0:7}"
             fi
 
@@ -138,6 +149,15 @@ jobs:
             fresh=$(git --git-dir=site/.git write-tree)
             unset GIT_INDEX_FILE
 
+            # _shared/ keeps what the new manifest still names: the files already
+            # there plus this deploy's, and nothing a removed or redeployed
+            # preview alone used to need.
+            node scripts/run-ts.mjs scripts/preview-site.ts shared-names "$PWD/stage" > shared-keep.txt
+            {
+              if [ -n "$lease" ]; then git -C site ls-tree HEAD:_shared 2> /dev/null || true; fi
+              git -C site ls-tree "$fresh:_shared" 2> /dev/null || true
+            } | awk -F'\t' 'FILENAME == ARGV[1] { keep[$0] = 1; next } ($2 in keep) && !seen[$2]++' shared-keep.txt - > shared-tree.txt
+
             replaced=" $SLUG ${root_files[*]} "
             {
               if [ -n "$lease" ]; then
@@ -145,7 +165,10 @@ jobs:
                   case "$replaced" in *" $name "*) ;; *) printf '%s\t%s\n' "$meta" "$name" ;; esac
                 done
               fi
-              git -C site ls-tree "$fresh"
+              git -C site ls-tree "$fresh" | grep -v $'\t_shared$' || true
+              if [ -s shared-tree.txt ]; then
+                printf '040000 tree %s\t_shared\n' "$(git -C site mktree --missing < shared-tree.txt)"
+              fi
             } > top-level.txt
             tree=$(git -C site mktree --missing < top-level.txt)
             commit=$(git -C site commit-tree "$tree" -m "$message")
