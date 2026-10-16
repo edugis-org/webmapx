@@ -170,6 +170,9 @@ Goal: allow external packages to extend WebMapX without forking — custom tools
 - [ ] Cesium layer reorder across types is inherently impossible (imagery is baked into the globe surface; vector primitives always draw on top) — only within-type reorder works
 - [x] ~~`public/data/world-countries-simplified.topojson` has slivers and self-intersections~~ — rebuilt with valid geometry (2026-07-02)
 
+### Usage Statistics
+- [ ] Usage statistics tracker — record how maps are used (page views, loaded configs, tools opened). Privacy-friendly by default (no cookies, no personal data) since the main users are school classes
+
 ### Configuration
 - [x] Config edit tool — runtime UI for editing layer/map/tool config (add/remove/reorder layers, change sources, configure tools)
 
