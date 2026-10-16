@@ -2221,13 +2221,16 @@
         renderTree(tree, treeEl, layers, config, tree, activeList);
       }
 
-      // Active layers: current stack, reorderable, toggle visibility, remove
+      // Active layers: current stack, reorderable, toggle visibility, remove.
+      // state.activeLayers is bottom-to-top (first entry is drawn first), the list
+      // shows it top-to-bottom so the top row is the top layer on the map.
       const activeEl = document.getElementById('activelayers-list');
       const emptyEl = document.getElementById('activelayers-empty');
       activeEl.innerHTML = '';
       emptyEl.style.display = activeList.length === 0 ? 'block' : 'none';
 
-      activeList.forEach((entry, idx) => {
+      activeList.slice().reverse().forEach((entry, rowIdx) => {
+        const idx = activeList.length - 1 - rowIdx;
         const row = document.createElement('div');
         row.className = 'active-layer-row';
         row.draggable = true;
@@ -2268,7 +2271,9 @@
           if (e.target.isContentEditable) { e.preventDefault(); return; }
           const items = () => [...activeEl.querySelectorAll(':scope > .active-layer-row')];
           startReorder(e, row, activeEl, items, (from, to, side) => {
-            setActiveLayers(moveItem(getActiveLayers(config), from, to, side));
+            // from/to are row positions, so move within the top-to-bottom view
+            const topDown = getActiveLayers(config).slice().reverse();
+            setActiveLayers(moveItem(topDown, from, to, side).reverse());
             buildLayersUI(config);
           });
         });
