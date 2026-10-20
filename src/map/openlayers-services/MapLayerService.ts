@@ -860,6 +860,8 @@ export class MapLayerService implements ILayerService {
             return this.createGeoJSONLayer(layerId, sourceConfig, style);
         } else if (['fill', 'line', 'circle', 'symbol'].includes(style.type) && sourceConfig.type === 'vector') {
             return this.createVectorTileLayer(layerId, sourceConfig, style);
+        } else if (style.type === 'hillshade' && sourceConfig.type === 'raster-dem' && archiveProtocolOf((sourceConfig as any).url) === 'cog') {
+            return this.createCogHillshadeLayer(layerId, (sourceConfig as any).url, sourceConfig, style);
         }
         return null;
     }
@@ -1094,6 +1096,21 @@ export class MapLayerService implements ILayerService {
         };
         const layer = archiveProtocolOf(url) === 'cog' ? createCogLayer(url, options) : createPmtilesRasterLayer(url, options);
         this.bindDynamicRasterOpacity(layer as any, layerId, (style.paint as any)?.['raster-opacity']);
+        (layer as any).__layerId = layerId;
+        return layer;
+    }
+
+    /** A `cog://<file>#dem` elevation model shaded on the GPU, as MapLibre's `hillshade` layer does. */
+    private async createCogHillshadeLayer(layerId: string, url: string, sourceConfig: SourceConfig, style: SubLayerSpec): Promise<BaseLayer> {
+        const { createCogHillshadeLayer } = await import('./archive-layers');
+        const paint = (style.paint ?? {}) as Record<string, unknown>;
+        const layer = createCogHillshadeLayer(url, {
+            attribution: (sourceConfig as any).attribution,
+            minZoom: style.minzoom,
+            maxZoom: style.maxzoom,
+            exaggeration: this.getLiteralNumberValue(paint['hillshade-exaggeration'], 0.5),
+            illuminationDirection: this.getLiteralNumberValue(paint['hillshade-illumination-direction'], 335),
+        });
         (layer as any).__layerId = layerId;
         return layer;
     }

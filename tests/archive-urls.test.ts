@@ -47,3 +47,19 @@ test('a relative cog:// file is resolved against the config, fragment kept', () 
 
     assert.equal(source?.url, 'cog://http://example.org/data/dem.tif#color:BrewerGreens9,0,100,c');
 });
+
+test('a raster-dem source may name a cog://…#dem elevation model instead of tiles', () => {
+    const config = {
+        version: 0,
+        map: { type: 'maplibre', center: [0, 0], zoom: 2 },
+        layerData: {
+            sources: [{ id: 'dem', type: 'raster-dem', url: 'cog://https://host/dem.tif#dem', attribution: 'test' }],
+            layers: [{ id: 'relief', type: 'hillshade', source: 'dem' }],
+        },
+    };
+    assert.doesNotThrow(() => parseAndValidateConfig(config, 'test', 'http://example.org/config/world.json'));
+    assert.throws(
+        () => parseAndValidateConfig({ ...config, layerData: { ...config.layerData, sources: [{ id: 'dem', type: 'raster-dem', attribution: 'test' }] } }, 'test', 'http://example.org/config/world.json'),
+        /tiles.*or a "url"/,
+    );
+});

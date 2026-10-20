@@ -137,3 +137,53 @@ export function createCogLayer(url: string, options: ArchiveLayerOptions): BaseL
         ...(ramp ? { style: { color: ['case', ['==', ['band', 2], 0], [0, 0, 0, 0], rampExpression(ramp)] } } : {}),
     });
 }
+
+export interface HillshadeOptions extends ArchiveLayerOptions {
+    /** MapLibre's `hillshade-exaggeration`: how strongly light and shadow show, 0–1. */
+    exaggeration: number;
+    /** MapLibre's `hillshade-illumination-direction`: where the light comes from, degrees clockwise from north. */
+    illuminationDirection: number;
+}
+
+/** MapLibre lights its hillshade from 45° above the horizon. */
+const SUN_ELEVATION = Math.PI / 4;
+
+/**
+ * Hillshade from a single-band elevation COG, computed per pixel on the GPU.
+ *
+ * Slope and aspect come from the neighbouring pixels (OpenLayers' `band`
+ * operator takes pixel offsets), the light from MapLibre's defaults, and the
+ * result is drawn the way MapLibre draws it: transparent where the ground faces
+ * the sun at the angle flat ground does, darker in shadow, lighter in the light.
+ */
+export function createCogHillshadeLayer(url: string, options: HillshadeOptions): BaseLayer {
+    const source = new GeoTIFF({ sources: [{ url: archiveFileUrl(url) }], normalize: false });
+    if (options.attribution) source.setAttributions(options.attribution);
+
+    // Metres of elevation per metre of ground, across two pixels.
+    const run = ['*', 2, ['resolution']];
+    const dzdx = ['/', ['-', ['band', 1, 1, 0], ['band', 1, -1, 0]], run];
+    const dzdy = ['/', ['-', ['band', 1, 0, -1], ['band', 1, 0, 1]], run];
+    const slope = ['atan', ['sqrt', ['+', ['*', dzdx, dzdx], ['*', dzdy, dzdy]]]];
+    const aspect = ['clamp', ['atan', ['-', 0, dzdx], dzdy], -Math.PI, Math.PI];
+    const sunAzimuth = (options.illuminationDirection * Math.PI) / 180;
+    const incidence = ['+',
+        ['*', Math.sin(SUN_ELEVATION), ['cos', slope]],
+        ['*', Math.cos(SUN_ELEVATION), ['sin', slope], ['cos', ['-', sunAzimuth, aspect]]],
+    ];
+    // Relative to flat ground: negative is shadow, positive is light.
+    const shade = ['-', incidence, Math.sin(SUN_ELEVATION)];
+    const strength = 2 * options.exaggeration;
+    const color = ['case',
+        ['==', ['band', 2], 0], [0, 0, 0, 0],
+        ['<', shade, 0], ['color', 0, 0, 0, ['clamp', ['*', -strength, shade], 0, 1]],
+        ['color', 255, 255, 255, ['clamp', ['*', strength, shade], 0, 1]],
+    ];
+    return new WebGLTileLayer({
+        source,
+        minZoom: options.minZoom,
+        maxZoom: options.maxZoom,
+        opacity: options.opacity,
+        style: { color },
+    });
+}
