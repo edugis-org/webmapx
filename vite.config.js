@@ -88,6 +88,12 @@ export default defineConfig({
       },
       output: {
         manualChunks(id) {
+          // Reached only through a dynamic import when a Parquet file is opened.
+          // Naming no chunk lets it and hyparquet split off lazily; inside
+          // webmapx-shared they would load with every page.
+          if (id.includes('/src/utils/geoparquet')) {
+            return;
+          }
           if (
             id.includes('/src/store/') ||
             id.includes('/src/config/') ||
