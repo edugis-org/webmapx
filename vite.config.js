@@ -88,10 +88,11 @@ export default defineConfig({
       },
       output: {
         manualChunks(id) {
-          // Reached only through a dynamic import when a Parquet file is opened.
-          // Naming no chunk lets it and hyparquet split off lazily; inside
-          // webmapx-shared they would load with every page.
-          if (id.includes('/src/utils/geoparquet')) {
+          // Reached only through a dynamic import, when a Parquet file is opened or
+          // OpenLayers draws a pmtiles:// or cog:// source. Naming no chunk lets them
+          // and their libraries split off lazily; inside webmapx-shared or the
+          // adapter chunk they would load with every page.
+          if (id.includes('/src/utils/geoparquet') || id.includes('/src/map/openlayers-services/archive-layers')) {
             return;
           }
           if (

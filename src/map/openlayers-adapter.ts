@@ -21,6 +21,7 @@ import type { MapProjectionState } from '../store/IMapState';
  * Implements the unified IMap interface by delegating to specialized services.
  */
 const VECTOR_CAPABLE_SOURCE_TYPES: ReadonlySet<string> = new Set(['raster', 'geojson', 'vector', 'raster-dem']);
+const ARCHIVE_PROTOCOLS: ReadonlySet<string> = new Set(['pmtiles', 'cog']);
 
 export class OpenLayersAdapter extends BaseAdapter implements IMap {
     public readonly engineId = 'openlayers';
@@ -119,6 +120,11 @@ export class OpenLayersAdapter extends BaseAdapter implements IMap {
     /** Vector tiles and DEMs as well as the raster/GeoJSON floor. */
     protected drawableSourceTypes(): ReadonlySet<string> {
         return VECTOR_CAPABLE_SOURCE_TYPES;
+    }
+
+    /** Read by the layer service's own sources (`archive-layers.ts`), not by a protocol hook. */
+    protected tileProtocols(): ReadonlySet<string> {
+        return ARCHIVE_PROTOCOLS;
     }
 
 }

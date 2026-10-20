@@ -61,12 +61,12 @@ function isObject(value: unknown): value is Record<string, unknown> {
  * result depending on which page loaded the config. Non-string, absolute, and
  * data:/blob: values pass through unchanged.
  *
- * `pmtiles://` and `geoparquet://` wrap the file's own URL, so a relative path
+ * `pmtiles://`, `cog://` and `geoparquet://` wrap the file's own URL, so a relative path
  * (`pmtiles://data/zones.pmtiles`) is resolved like any other relative URL
  * and re-wrapped; otherwise its scheme would leave it relative to the page.
  */
 function resolveConfigRelativeUrl(value: string, baseUrl: string): string {
-  const wrapper = /^(pmtiles|geoparquet):\/\//.exec(value)?.[0];
+  const wrapper = /^(pmtiles|geoparquet|cog):\/\//.exec(value)?.[0];
   if (wrapper) {
     return `${wrapper}${resolveConfigRelativeUrl(value.slice(wrapper.length), baseUrl)}`;
   }

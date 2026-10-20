@@ -2,6 +2,7 @@
 
 import { ILayerService, LayerInsertOptions, type QueryLayerFeaturesOptions } from '../IMapInterfaces';
 import { normalizeRawSource } from '../layer-source-utils';
+import { archiveProtocolOf } from '../archive-urls';
 import { normalizeCompositeLayer, findNormalizedSource, type NormalizedCompositeSpec } from '../composite-layer-utils';
 import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, SubLayerSpec } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
@@ -703,10 +704,11 @@ export class MapLayerService implements ILayerService {
             return null;
         }
 
-        const { urlTemplate, minZoom: vectorMinZoom, maxZoom: vectorMaxZoom } = resolvedSource;
+        const { urlTemplate, minZoom: vectorMinZoom, maxZoom: vectorMaxZoom, tileLoadFunction } = resolvedSource;
 
         const source = new VectorTileSource({
             format: new MVT(),
+            ...(tileLoadFunction ? { tileLoadFunction } : {}),
             attributions: sourceConfig.attribution,
             ...(vectorMinZoom !== undefined ? { minZoom: vectorMinZoom } : {}),
             ...(vectorMaxZoom !== undefined ? { maxZoom: vectorMaxZoom } : {}),
@@ -843,6 +845,10 @@ export class MapLayerService implements ILayerService {
     ): Promise<BaseLayer | null> {
         // Raster layers
         if (style.type === 'raster' && sourceConfig.type === 'raster') {
+            const archiveUrl = Array.isArray(sourceConfig.url) ? sourceConfig.url[0] : sourceConfig.url;
+            if (archiveProtocolOf(archiveUrl)) {
+                return this.createArchiveRasterLayer(layerId, archiveUrl, sourceConfig, style);
+            }
             if (sourceConfig.service === 'xyz') {
                 return this.createXYZLayer(layerId, sourceConfig, style);
             } else if (sourceConfig.service === 'wms') {
@@ -892,7 +898,13 @@ export class MapLayerService implements ILayerService {
         urlTemplate: string;
         minZoom?: number;
         maxZoom?: number;
+        /** Set for a `pmtiles://` archive, whose tiles are read rather than fetched. */
+        tileLoadFunction?: (tile: import('ol/Tile').default, url: string) => void;
     } | null> {
+        if (archiveProtocolOf(sourceConfig.url) === 'pmtiles') {
+            const { pmtilesVectorTileInfo } = await import('./archive-layers');
+            return pmtilesVectorTileInfo(sourceConfig.url as string);
+        }
         const configuredMinZoom = typeof (sourceConfig as any).minzoom === 'number' ? (sourceConfig as any).minzoom : undefined;
         const configuredMaxZoom = typeof (sourceConfig as any).maxzoom === 'number' ? (sourceConfig as any).maxzoom : undefined;
         const declaredTiles = Array.isArray((sourceConfig as any).tiles)
@@ -1032,9 +1044,10 @@ export class MapLayerService implements ILayerService {
                 return null;
             }
 
-            const { urlTemplate, minZoom: vectorMinZoom, maxZoom: vectorMaxZoom } = resolvedSource;
+            const { urlTemplate, minZoom: vectorMinZoom, maxZoom: vectorMaxZoom, tileLoadFunction } = resolvedSource;
             const source = new VectorTileSource({
                 format: new MVT(),
+                ...(tileLoadFunction ? { tileLoadFunction } : {}),
                 attributions: sourceConfig.attribution,
                 ...(vectorMinZoom !== undefined ? { minZoom: vectorMinZoom } : {}),
                 ...(vectorMaxZoom !== undefined ? { maxZoom: vectorMaxZoom } : {}),
@@ -1068,6 +1081,21 @@ export class MapLayerService implements ILayerService {
             (layer as any).__layerId = layerId;
             return layer;
         });
+    }
+
+    /** `pmtiles://` or `cog://` raster, built in its own module so its libraries load only when used. */
+    private async createArchiveRasterLayer(layerId: string, url: string, sourceConfig: SourceConfig & { type: 'raster' }, style: SubLayerSpec): Promise<BaseLayer> {
+        const { createCogLayer, createPmtilesRasterLayer } = await import('./archive-layers');
+        const options = {
+            attribution: sourceConfig.attribution,
+            minZoom: style.minzoom,
+            maxZoom: style.maxzoom,
+            opacity: this.getLiteralNumberValue((style.paint as any)?.['raster-opacity'], 1),
+        };
+        const layer = archiveProtocolOf(url) === 'cog' ? createCogLayer(url, options) : createPmtilesRasterLayer(url, options);
+        this.bindDynamicRasterOpacity(layer as any, layerId, (style.paint as any)?.['raster-opacity']);
+        (layer as any).__layerId = layerId;
+        return layer;
     }
 
     private createXYZLayer(
