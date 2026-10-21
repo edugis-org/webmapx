@@ -92,7 +92,7 @@ export default defineConfig({
           // OpenLayers draws a pmtiles:// or cog:// source. Naming no chunk lets them
           // and their libraries split off lazily; inside webmapx-shared or the
           // adapter chunk they would load with every page.
-          if (id.includes('/src/utils/geoparquet') || id.includes('/src/map/openlayers-services/archive-layers')) {
+          if (id.includes('/src/utils/geoparquet') || id.includes('/src/map/openlayers-services/archive-layers') || id.includes('/src/map/openlayers-services/hillshade')) {
             return;
           }
           if (

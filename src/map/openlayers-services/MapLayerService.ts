@@ -2,7 +2,7 @@
 
 import { ILayerService, LayerInsertOptions, type QueryLayerFeaturesOptions } from '../IMapInterfaces';
 import { normalizeRawSource } from '../layer-source-utils';
-import { archiveProtocolOf } from '../archive-urls';
+import { archiveFileUrl, archiveProtocolOf } from '../archive-urls';
 import { normalizeCompositeLayer, findNormalizedSource, type NormalizedCompositeSpec } from '../composite-layer-utils';
 import type { AnyLayerConfig, StandardLayerConfig, CompositeStyleLayerConfig, SourceConfig, WMSSourceConfig, SubLayerSpec } from '../../config/types';
 import { MapStateStore } from '../../store/map-state-store';
@@ -862,6 +862,8 @@ export class MapLayerService implements ILayerService {
             return this.createVectorTileLayer(layerId, sourceConfig, style);
         } else if (style.type === 'hillshade' && sourceConfig.type === 'raster-dem' && archiveProtocolOf((sourceConfig as any).url) === 'cog') {
             return this.createCogHillshadeLayer(layerId, (sourceConfig as any).url, sourceConfig, style);
+        } else if (style.type === 'hillshade' && sourceConfig.type === 'raster-dem' && sourceConfig.tiles?.length) {
+            return this.createTileHillshadeLayer(layerId, sourceConfig, style);
         }
         return null;
     }
@@ -1102,14 +1104,43 @@ export class MapLayerService implements ILayerService {
 
     /** A `cog://<file>#dem` elevation model shaded on the GPU, as MapLibre's `hillshade` layer does. */
     private async createCogHillshadeLayer(layerId: string, url: string, sourceConfig: SourceConfig, style: SubLayerSpec): Promise<BaseLayer> {
-        const { createCogHillshadeLayer } = await import('./archive-layers');
+        const { createCogHillshadeLayer } = await import('./hillshade');
         const paint = (style.paint ?? {}) as Record<string, unknown>;
-        const layer = createCogHillshadeLayer(url, {
+        const layer = await createCogHillshadeLayer(archiveFileUrl(url), {
             attribution: (sourceConfig as any).attribution,
             minZoom: style.minzoom,
             maxZoom: style.maxzoom,
+            ...this.hillshadePaint(paint),
+        });
+        (layer as any).__layerId = layerId;
+        return layer;
+    }
+
+    /** The `hillshade` paint properties both hillshade layers read; expressions fall back to MapLibre's defaults. */
+    private hillshadePaint(paint: Record<string, unknown>) {
+        const color = (value: unknown) => (typeof value === 'string' ? value : undefined);
+        return {
             exaggeration: this.getLiteralNumberValue(paint['hillshade-exaggeration'], 0.5),
             illuminationDirection: this.getLiteralNumberValue(paint['hillshade-illumination-direction'], 335),
+            illuminationAnchor: paint['hillshade-illumination-anchor'] === 'map' ? 'map' as const : 'viewport' as const,
+            shadowColor: color(paint['hillshade-shadow-color']),
+            highlightColor: color(paint['hillshade-highlight-color']),
+            accentColor: color(paint['hillshade-accent-color']),
+        };
+    }
+
+    /** A `raster-dem` source's terrarium or mapbox RGB tiles, shaded on the GPU as MapLibre's `hillshade` layer does. */
+    private async createTileHillshadeLayer(layerId: string, sourceConfig: SourceConfig & { type: 'raster-dem' }, style: SubLayerSpec): Promise<BaseLayer> {
+        const { createTileHillshadeLayer } = await import('./hillshade');
+        const paint = (style.paint ?? {}) as Record<string, unknown>;
+        const layer = createTileHillshadeLayer(sourceConfig.tiles, {
+            attribution: sourceConfig.attribution,
+            encoding: sourceConfig.encoding,
+            tileSize: sourceConfig.tileSize,
+            sourceMaxZoom: sourceConfig.maxzoom,
+            minZoom: style.minzoom,
+            maxZoom: style.maxzoom,
+            ...this.hillshadePaint(paint),
         });
         (layer as any).__layerId = layerId;
         return layer;
