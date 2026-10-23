@@ -312,15 +312,48 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
         // same name, whose format the config chose without knowing the engine.
         // From then on it is an ordinary layer, and the user's.
         const loaded = this.layer in (this.adapter.store.getState().mapLayers ?? {});
-        if (!loaded && !(await this.mapElement.addLayerRequest(this.lentLayerConfig()))) {
-            this.error = 'The coastal zones could not be added to the map.';
-            return;
+        if (!loaded) {
+            const config = this.lentLayerConfig();
+            const missing = await this.missingZonesFile(config);
+            if (missing) {
+                this.error = 'The coastal zones data is missing, so the sea level cannot be shown.';
+                console.warn(`[webmapx-sealevel-tool] coastal zones file not found: ${missing}. `
+                    + 'It is a release asset of edugis-org/coastal_zones, not part of any repository; '
+                    + 'download coastal_zones.pmtiles and coastal_zones_16m.geojson into public/data/, or set the tool\'s `tiles`/`geojson`.');
+                return;
+            }
+            if (!(await this.mapElement.addLayerRequest(config))) {
+                this.error = 'The coastal zones could not be added to the map.';
+                return;
+            }
         }
         if (!(await this.ensureClassSubLayers())) {
             this.error = `Layer "${this.layer}" cannot be split into sea level classes.`;
             return;
         }
         this.apply();
+    }
+
+    /**
+     * The URL of the zones file the lent layer would read, if it is not there.
+     *
+     * The file is a release asset copied in by the deployment, so a dev server
+     * or a hand-made site can simply lack it — and the engines then fail
+     * silently, leaving a slider that moves nothing. A dev server answers a
+     * missing file with its index page, hence the content-type check. A request
+     * that fails outright (CORS, offline) proves nothing and is left to the engine.
+     */
+    private async missingZonesFile(config: Record<string, unknown>): Promise<string | null> {
+        const source = Object.values(config.sources as Record<string, { url?: string; data?: string }>)[0];
+        const url = (source?.data ?? source?.url ?? '').replace(/^pmtiles:\/\//, '');
+        if (!url) return null;
+        try {
+            const response = await fetch(url, { method: 'HEAD' });
+            const type = response.headers.get('content-type') ?? '';
+            return !response.ok || type.includes('text/html') ? url : null;
+        } catch {
+            return null;
+        }
     }
 
     /**
