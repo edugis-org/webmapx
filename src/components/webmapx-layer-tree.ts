@@ -8,6 +8,7 @@ import '@shoelace-style/shoelace/dist/components/switch/switch.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
+import { accentControlStyles } from './internal/accent-control-styles';
 import { formLabelStyles } from './internal/form-label-styles';
 
 import type { TreeNodeConfig, TreeSelectionMode } from '../config/types';
@@ -105,7 +106,7 @@ export class WebmapxLayerTree extends LitElement {
     private readonly maxConcurrentSupportChecks = 3;
     private didQueueRootSupportChecks = false;
 
-    static styles = [formLabelStyles, css`
+    static styles = [accentControlStyles, formLabelStyles, css`
         :host {
             display: block;
             height: auto; /* let parent control available height */

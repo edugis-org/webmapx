@@ -589,6 +589,12 @@ export interface AppConfig {
    */
   apiKeysFile?: string;
   project?: Record<string, unknown>;
+  /**
+   * Default appearance: `style` is form (atlas, folio, console, classroom),
+   * `theme` is colour (auto, light, dark). A choice the viewer makes in the
+   * settings tool outranks it.
+   */
+  ui?: { style?: string; theme?: string };
   map: MapConfig;
   runtimeMap?: RuntimeMapConfig;
   layerData: LayerDataConfig;

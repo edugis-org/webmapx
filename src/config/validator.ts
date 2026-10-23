@@ -1,6 +1,8 @@
 // src/config/validator.ts
 // Runtime validator for WebMapX configuration files
 
+import { isUiStyle, isUiTheme, UI_STYLE_VALUES, UI_THEME_VALUES } from '../utils/appearance.js';
+import { TOOL_PALETTE } from '../utils/tool-accent.js';
 import { CONFIG_SCHEMA_VERSION, configVersionStatus } from './schema-version.js';
 import {
   STANDALONE_TAGS,
@@ -126,6 +128,8 @@ export function validateConfig(config: unknown): ValidationResult {
   }
 
   validatePlugins(cfg.plugins, warnings);
+
+  validateUiSection(cfg.ui, warnings);
 
   // Cross-reference validation is done within validateCatalogSection
 
@@ -924,6 +928,9 @@ function validateToolsSection(
     validateToolMetadata(tc, toolPath, warnings);
 
     if (tc.type === 'toolbar') {
+      if (tc.labels !== undefined && typeof tc.labels !== 'boolean') {
+        warnings.push({ severity: 'warning', path: `${toolPath}.labels`, message: '"labels" should be true or false' });
+      }
       validateToolItems(tc.items, `${toolPath}.items`, warnings);
     } else {
       validateToolName(toolName, toolPath, 'section', warnings);
@@ -1158,6 +1165,13 @@ function validateToolItems(
       return;
     }
 
+    if (record.color !== undefined && (typeof record.color !== 'string' || record.color.trim() === '')) {
+      warnings.push({
+        severity: 'warning', path: `${itemPath}.color`,
+        message: `"color" should be a palette name (${TOOL_PALETTE.join(', ')}) or a CSS colour — the default colour is used instead`,
+      });
+    }
+
     if (SUBTOOL_CONTAINER_TYPES.has(canonicalToolId(type))) {
       validateToolItems(record.items, `${itemPath}.items`, warnings);
       return;
@@ -1165,6 +1179,26 @@ function validateToolItems(
 
     validateToolName(type, `${itemPath}.type`, 'item', warnings);
   });
+}
+
+/**
+ * `ui.style` / `ui.theme`: the config author's default appearance. Warnings
+ * only — an unknown value falls back to the default and the map still works.
+ */
+function validateUiSection(ui: unknown, warnings: ValidationMessage[]): void {
+  if (ui === undefined) return;
+  if (!isObject(ui)) {
+    warnings.push({ severity: 'warning', path: 'ui', message: '"ui" should be an object, e.g. { "style": "classroom", "theme": "auto" }' });
+    return;
+  }
+  const record = ui as Record<string, unknown>;
+  checkUnknownKeys(record, ['style', 'theme'], 'ui', warnings);
+  if (record.style !== undefined && !isUiStyle(record.style)) {
+    warnings.push({ severity: 'warning', path: 'ui.style', message: `Unknown style ${JSON.stringify(record.style)}; expected one of ${UI_STYLE_VALUES.join(', ')} — "atlas" is used instead` });
+  }
+  if (record.theme !== undefined && !isUiTheme(record.theme)) {
+    warnings.push({ severity: 'warning', path: 'ui.theme', message: `Unknown theme ${JSON.stringify(record.theme)}; expected one of ${UI_THEME_VALUES.join(', ')} — "auto" is used instead` });
+  }
 }
 
 function validateToolMetadata(

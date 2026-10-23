@@ -10,6 +10,7 @@
  */
 
 import { html, css, nothing } from 'lit';
+import { accentControlStyles } from './internal/accent-control-styles';
 import { formLabelStyles } from './internal/form-label-styles';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
@@ -61,7 +62,7 @@ export class WebmapxBufferTool extends WebmapxModalTool {
 
     // ─── Styles ──────────────────────────────────────────────────────────
 
-    static styles = [formLabelStyles, css`
+    static styles = [accentControlStyles, formLabelStyles, css`
         :host { display: block; }
 
         :host(:not([active])) .tool-content { display: none; }

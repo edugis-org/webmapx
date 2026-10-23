@@ -5,6 +5,7 @@ import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMap } from '../map/IMapInterfaces';
 import type { IMapState } from '../store/IMapState';
 import type { WebmapxMapElement } from './webmapx-map';
+import { accentControlStyles } from './internal/accent-control-styles';
 import { resolveMapElement } from './internal/map-context';
 import { sectionHeadingStyles } from './internal/section-heading-styles';
 import { formLabelStyles } from './internal/form-label-styles';
@@ -51,7 +52,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
   /** Bumped on each `handleDiscover` call; a stale (slower) call's result is discarded if a newer one has started. */
   private discoverySeq = 0;
 
-  static styles = [sectionHeadingStyles, formLabelStyles, css`
+  static styles = [accentControlStyles, sectionHeadingStyles, formLabelStyles, css`
     :host { display: block; width: 100%; pointer-events: auto; }
     :host([hidden]) { display: none !important; }
     .container { width: 100%; color: var(--color-text-primary); box-sizing: border-box; padding: var(--webmapx-tool-padding, 0); }

@@ -1,5 +1,6 @@
 import { html, css, TemplateResult } from 'lit';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
+import { accentControlStyles } from './internal/accent-control-styles';
 import { formLabelStyles } from './internal/form-label-styles';
 import { helpTextStyles } from './internal/help-text-styles';
 import '@shoelace-style/shoelace/dist/components/switch/switch.js';
@@ -155,7 +156,7 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
             : 'The map shows the moment you chose. Switch Now on to follow the clock again.';
     }
 
-    static styles = [formLabelStyles, helpTextStyles, controlSurfaceStyles, css`
+    static styles = [accentControlStyles, formLabelStyles, helpTextStyles, controlSurfaceStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         .now {
             display: flex;

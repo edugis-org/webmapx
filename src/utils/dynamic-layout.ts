@@ -2,6 +2,7 @@
 // Builds the <webmapx-layout> contents (control groups, toolbars, tool
 // panels and standalone tools) from a config's `tools` section.
 
+import { ToolAccentSequence } from './tool-accent.js';
 import type { ToolIconConfig, ToolsConfig } from '../config/types.js';
 import {
   DEFAULT_TOOL_METADATA,
@@ -23,6 +24,8 @@ interface ToolbarItemConfig {
   label?: string;
   title?: string;
   icon?: ToolIconConfig;
+  /** Button accent: a palette name (`cyan`, `purple`, …) or a CSS colour. Default: by position. */
+  color?: string;
   keywords?: string | string[];
   items?: ToolbarItemConfig[];
   [key: string]: unknown;
@@ -179,10 +182,15 @@ function buildToolbarGroup(config: Record<string, unknown>): HTMLElement {
   });
 
   const toolbar = document.createElement('webmapx-toolbar');
+  // `labels: true` writes each tool's name beside its icon instead of in a
+  // tooltip — the expanded rail.
+  const showLabels = config.labels === true;
   setAttrs(toolbar, {
     'tooltip-placement': config.tooltipPlacement,
     orientation: config.orientation,
+    labels: showLabels,
   });
+  const accents = new ToolAccentSequence();
 
   const panel = document.createElement('webmapx-tool-panel');
   if (panelConfig?.label) {
@@ -210,16 +218,23 @@ function buildToolbarGroup(config: Record<string, unknown>): HTMLElement {
     setAttrs(button, {
       name: itemId,
       size: 'medium',
-      'data-tooltip': metadata.label,
+      'data-tooltip': showLabels ? undefined : metadata.label,
     });
+    // Inherited by the button's icon tile, and by the tool so its panel can
+    // head itself in the same colour.
+    const accent = accents.take(item.color);
+    button.style.setProperty('--webmapx-tool-accent', accent);
     const icon = document.createElement('sl-icon');
     if (applyIconAttributes(icon, metadata.icon)) {
       icon.setAttribute('aria-hidden', 'true');
       button.appendChild(icon);
-      const srLabel = document.createElement('span');
-      srLabel.style.cssText = 'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0';
-      srLabel.textContent = metadata.label;
-      button.appendChild(srLabel);
+      const label = document.createElement('span');
+      label.className = 'webmapx-toolbar-label';
+      if (!showLabels) {
+        label.style.cssText = 'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0';
+      }
+      label.textContent = metadata.label;
+      button.appendChild(label);
     } else {
       button.textContent = metadata.label;
     }
@@ -230,6 +245,7 @@ function buildToolbarGroup(config: Record<string, unknown>): HTMLElement {
       const toolEl = document.createElement(tagName);
       toolEl.setAttribute('tool-id', String(itemId));
       toolEl.setAttribute('label', metadata.label);
+      toolEl.style.setProperty('--webmapx-tool-accent', accent);
       // The panel draws it under its title, the way it draws the title itself.
       if (metadata.description) toolEl.setAttribute('panel-description', metadata.description);
       if (metadata.icon) {

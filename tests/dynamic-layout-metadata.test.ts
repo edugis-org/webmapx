@@ -15,18 +15,25 @@ interface FakeEl {
   props: Record<string, unknown>;
   children: FakeEl[];
   text?: string;
+  /** Custom properties set through style.setProperty. */
+  styleProps: Record<string, string>;
 }
 
 function makeFakeDocument() {
   function createElement(tag: string): FakeEl & HTMLElement {
-    const el: FakeEl = { tag, attrs: {}, props: {}, children: [], text: undefined };
+    const el: FakeEl = { tag, attrs: {}, props: {}, children: [], text: undefined, styleProps: {} };
     return new Proxy(el, {
       get(t, p) {
         if (p === 'setAttribute')   return (k: string, v: string) => { t.attrs[k] = v; };
         if (p === 'getAttribute')   return (k: string) => t.attrs[k] ?? null;
         if (p === 'appendChild')    return (c: FakeEl) => { t.children.push(c); return c; };
         if (p === 'insertBefore')   return (c: FakeEl) => { t.children.unshift(c); return c; };
-        if (p === 'style')          return new Proxy({}, { set: () => true, get: () => undefined });
+        if (p === 'style')          return new Proxy({}, {
+          set: () => true,
+          get: (_s, sp) => sp === 'setProperty'
+            ? (k: string, v: string) => { t.styleProps[k] = v; }
+            : undefined,
+        });
         if (p === 'textContent')    return { set(v: string) { t.text = v; } };
         if (typeof p === 'string') {
           if (p in t.props) return t.props[p];
@@ -342,4 +349,75 @@ test('all three new tools respect enabled:false', () => {
   assert.equal(findByTag(layout, 'webmapx-routing-tool').length,   0);
   assert.equal(findByTag(layout, 'webmapx-isochrone-tool').length, 0);
   assert.equal(findByTag(layout, 'webmapx-buffer-tool').length,    0);
+});
+
+// ---------------------------------------------------------------------------
+// Tests: tool accents
+// ---------------------------------------------------------------------------
+
+function buildToolbar(items: Record<string, unknown>[], extra: Record<string, unknown> = {}) {
+  const layout = makeLayout();
+  buildLayoutFromConfig(layout as unknown as HTMLElement, {
+    mainToolbar: { enabled: true, type: 'toolbar', position: 'top-left', items, ...extra },
+  });
+  return layout;
+}
+
+test('toolbar buttons get accents by position, not by tool', () => {
+  // The same tool in a different position gets a different colour: the
+  // default must vary down any toolbar, whichever tools a config picks.
+  const a = buildToolbar([{ type: 'search' }, { type: 'measure' }, { type: 'info' }]);
+  const b = buildToolbar([{ type: 'info' }, { type: 'search' }]);
+  const accentsA = findByTag(a, 'sl-button').map(btn => btn.styleProps['--webmapx-tool-accent']);
+  const accentsB = findByTag(b, 'sl-button').map(btn => btn.styleProps['--webmapx-tool-accent']);
+  assert.deepEqual(accentsA, [
+    'var(--webmapx-tool-palette-cyan)',
+    'var(--webmapx-tool-palette-green)',
+    'var(--webmapx-tool-palette-yellow)',
+  ]);
+  assert.equal(accentsB[0], 'var(--webmapx-tool-palette-cyan)');
+});
+
+test('spacers do not take a colour from the sequence', () => {
+  const layout = buildToolbar([{ type: 'search' }, { type: 'spacer' }, { type: 'info' }]);
+  const accents = findByTag(layout, 'sl-button').map(btn => btn.styleProps['--webmapx-tool-accent']);
+  assert.deepEqual(accents, ['var(--webmapx-tool-palette-cyan)', 'var(--webmapx-tool-palette-green)']);
+});
+
+test('item color overrides the positional accent, as a palette name or a CSS colour', () => {
+  const layout = buildToolbar([
+    { type: 'search', color: 'Purple' },
+    { type: 'info', color: '#123456' },
+    { type: 'measure' },
+  ]);
+  const accents = findByTag(layout, 'sl-button').map(btn => btn.styleProps['--webmapx-tool-accent']);
+  assert.deepEqual(accents, [
+    'var(--webmapx-tool-palette-purple)',
+    '#123456',
+    // Overrides do not consume palette entries: the first default is still cyan.
+    'var(--webmapx-tool-palette-cyan)',
+  ]);
+});
+
+test('a default accent never repeats the colour directly above it', () => {
+  const layout = buildToolbar([{ type: 'search', color: 'cyan' }, { type: 'info' }]);
+  const accents = findByTag(layout, 'sl-button').map(btn => btn.styleProps['--webmapx-tool-accent']);
+  assert.deepEqual(accents, ['var(--webmapx-tool-palette-cyan)', 'var(--webmapx-tool-palette-green)']);
+});
+
+test('the tool element carries its button accent, for the panel header', () => {
+  const layout = buildToolbar([{ type: 'search' }, { type: 'info' }]);
+  const info = findByTag(layout, 'webmapx-info-tool')[0];
+  assert.equal(info?.styleProps['--webmapx-tool-accent'], 'var(--webmapx-tool-palette-green)');
+});
+
+test('labels: true shows names on the rail instead of in tooltips', () => {
+  const layout = buildToolbar([{ type: 'search' }], { labels: true });
+  const toolbar = findByTag(layout, 'webmapx-toolbar')[0];
+  assert.equal(toolbar.attrs['labels'], '');
+  const button = findByTag(layout, 'sl-button')[0];
+  assert.equal(button.attrs['data-tooltip'], undefined);
+  const label = button.children.find(c => c.tag === 'span');
+  assert.equal(label?.text, 'Search');
+  assert.equal(label?.props['className'], 'webmapx-toolbar-label');
 });

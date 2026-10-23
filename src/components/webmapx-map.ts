@@ -18,6 +18,7 @@ import {
 } from '../config/adapter-resolution';
 import { saveMapState, consumeMapState } from '../map/map-state-persistence';
 import { getPermalinkStateForIndex, getMapDomIndex } from '../utils/permalink';
+import { setConfiguredAppearance } from '../utils/appearance';
 import { ToolManager } from '../tools/tool-manager';
 import {
   rememberSingleGroupInsertSlotForGroup,
@@ -589,6 +590,8 @@ export class WebmapxMapElement extends HTMLElement {
    */
   public setConfig(config: AppConfig): void {
     this.configInstance = config;
+    // The author's default style/theme; a viewer's own choice in settings still wins.
+    setConfiguredAppearance(config.ui);
     this.initialStateLayersApplied = false;
     void this.applyCatalogToAdapter();
     this.dispatchEvent(new CustomEvent<ConfigReadyEventDetail>('webmapx-config-ready', {

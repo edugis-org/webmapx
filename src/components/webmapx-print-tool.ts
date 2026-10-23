@@ -1,6 +1,7 @@
 // src/components/webmapx-print-tool.ts
 
 import { html, css } from 'lit';
+import { accentControlStyles } from './internal/accent-control-styles';
 import { formLabelStyles } from './internal/form-label-styles';
 import { helpTextStyles } from './internal/help-text-styles';
 import { customElement, state } from 'lit/decorators.js';
@@ -67,7 +68,7 @@ export class WebmapxPrintTool extends WebmapxModalTool {
         return 'Move the map until what you want is inside the box, then click Print.';
     }
 
-    static styles = [formLabelStyles, helpTextStyles, css`
+    static styles = [accentControlStyles, formLabelStyles, helpTextStyles, css`
         :host { display: block; font-size: var(--sl-font-size-small); }
         .tool-content {
             padding: var(--webmapx-tool-panel-padding, 12px);

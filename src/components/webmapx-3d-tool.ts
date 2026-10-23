@@ -1,4 +1,5 @@
 import { html, css, TemplateResult } from 'lit';
+import { accentControlStyles } from './internal/accent-control-styles';
 import { formLabelStyles } from './internal/form-label-styles';
 import { helpTextStyles } from './internal/help-text-styles';
 import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
@@ -26,7 +27,7 @@ export class Webmapx3dTool extends WebmapxBaseTool {
             : '';
     }
 
-    static styles = [formLabelStyles, helpTextStyles, controlSurfaceStyles, css`
+    static styles = [accentControlStyles, formLabelStyles, helpTextStyles, controlSurfaceStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: var(--webmapx-font-size-md, 0.875rem); }
         .unsupported { color: var(--color-text-muted, #6b7681); font-style: italic; }
         /* The viewing angle: one choice between named angles, so a segmented

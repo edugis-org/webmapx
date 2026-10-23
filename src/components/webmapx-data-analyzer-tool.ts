@@ -1,4 +1,5 @@
 import { html, css, nothing, type TemplateResult } from 'lit';
+import { accentControlStyles } from './internal/accent-control-styles';
 import { formLabelStyles } from './internal/form-label-styles';
 import { helpTextStyles } from './internal/help-text-styles';
 import { customElement, state } from 'lit/decorators.js';
@@ -122,7 +123,7 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
     private lastMapBusy = false;
     private worker: Worker | null = null;
 
-    static styles = [formLabelStyles, helpTextStyles, css`
+    static styles = [accentControlStyles, formLabelStyles, helpTextStyles, css`
         :host { display: block; }
         :host(:not([active])) .tool-content { display: none; }
 

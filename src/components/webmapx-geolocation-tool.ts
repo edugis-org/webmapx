@@ -1,4 +1,5 @@
 import { html, css } from 'lit';
+import { accentControlStyles } from './internal/accent-control-styles';
 import { formLabelStyles } from './internal/form-label-styles';
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 import '@shoelace-style/shoelace/dist/components/switch/switch.js';
@@ -223,7 +224,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
   private boundHandleToolActivated = (e: Event) => this.handleToolActivated(e as CustomEvent);
   private boundHandlePanelClose = () => this.handlePanelClose();
 
-  static styles = [formLabelStyles, css`
+  static styles = [accentControlStyles, formLabelStyles, css`
     :host {
       display: block;
       box-sizing: border-box;

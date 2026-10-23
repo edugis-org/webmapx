@@ -1,6 +1,7 @@
 import { html, css, TemplateResult, nothing } from 'lit';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
+import { accentControlStyles } from './internal/accent-control-styles';
 import { formLabelStyles } from './internal/form-label-styles';
 import { helpTextStyles } from './internal/help-text-styles';
 import { TouchPointerController } from './internal/touch-pointer';
@@ -217,7 +218,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
     private unsubClick: (() => void) | null = null;
     private layersCreated = false;
 
-    static styles = [formLabelStyles, helpTextStyles, css`
+    static styles = [accentControlStyles, formLabelStyles, helpTextStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         label { display: block; margin-bottom: 0.25rem; }
         .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
