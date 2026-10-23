@@ -154,7 +154,15 @@ async function buffer(
     const scale = Math.cos(centerLat * Math.PI / 180);
     const dist3857 = distanceMeters / (scale || 1);
 
-    const inputFile = await featureCollectionToFile(input, 'spatialinput');
+    // GDAL gets the shapes only: the attributes are put back from the input by
+    // index below, and an `id` — a property, or a feature id GDAL turns into
+    // one — makes the SQLite buffer step return no dataset at all. Every drawn
+    // feature carries one, so buffering a drawn layer always failed.
+    const shapes: GeoJSON.FeatureCollection = {
+        type: 'FeatureCollection',
+        features: input.features.map((feature) => ({ type: 'Feature', geometry: feature.geometry, properties: {} })),
+    };
+    const inputFile = await featureCollectionToFile(shapes, 'spatialinput');
     const { datasets: inputDatasets, errors: inputErrors } = await gdal.open(inputFile);
     const inputDataset = inputDatasets[0];
     if (!inputDataset) throw new Error(`Failed to open input: ${inputErrors.join('; ')}`);
@@ -438,7 +446,24 @@ self.onmessage = async (e: MessageEvent<SpatialRequest>) => {
         reply({
             opId,
             status: 'error',
-            message: err instanceof Error ? err.message : String(err),
+            message: errorMessage(err),
         });
     }
 };
+
+/**
+ * gdal3.js rejects with plain objects (`{ message }`, or an array of them),
+ * not Errors — `String(err)` turned every GDAL failure into "[object Object]".
+ */
+function errorMessage(err: unknown): string {
+    if (err instanceof Error) return err.message;
+    if (typeof err === 'string') return err;
+    if (Array.isArray(err)) return err.map(errorMessage).filter(Boolean).join('; ') || 'Spatial operation failed';
+    if (err && typeof err === 'object') {
+        const o = err as Record<string, unknown>;
+        if (typeof o.message === 'string' && o.message) return o.message;
+        if (Array.isArray(o.errors)) return errorMessage(o.errors);
+        try { return JSON.stringify(err); } catch { /* fall through */ }
+    }
+    return String(err);
+}
