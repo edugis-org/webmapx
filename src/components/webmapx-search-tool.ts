@@ -875,7 +875,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
                     aria-pressed=${this.isPersisted(f) ? 'true' : 'false'}
                     data-added=${this.isPersisted(f) ? 'true' : 'false'}
                     aria-label="Add as map layer"
-                    title=${this.isPersisted(f) ? 'Remove from map' : 'Add as map layer'}
+                    title=${this.isPersisted(f) ? 'Remove as map layer' : 'Add as map layer'}
                     @click=${(e: Event) => this.onResultLayerToggle(f, e)}>
                     ${this.layerToggleIcon}
                   </button>

@@ -1,6 +1,8 @@
 import { html, css } from 'lit';
+import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import { accentControlStyles } from './internal/accent-control-styles';
 import { formLabelStyles } from './internal/form-label-styles';
+import { addLayerIcon, addLayerToggleStyles } from './internal/add-layer-icon';
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 import '@shoelace-style/shoelace/dist/components/switch/switch.js';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -224,7 +226,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
   private boundHandleToolActivated = (e: Event) => this.handleToolActivated(e as CustomEvent);
   private boundHandlePanelClose = () => this.handlePanelClose();
 
-  static styles = [accentControlStyles, formLabelStyles, css`
+  static styles = [addLayerToggleStyles, accentControlStyles, formLabelStyles, css`
     :host {
       display: block;
       box-sizing: border-box;
@@ -1008,7 +1010,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
             </sl-input>
           </div>
           <div slot="footer" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-            <sl-button variant="primary" autofocus @click=${() => this.handleExportSaveFiles()}>Download</sl-button>
+            <sl-button variant="primary" autofocus @click=${() => this.handleExportSaveFiles()}><sl-icon slot="prefix" name="download"></sl-icon>Download</sl-button>
             <sl-button variant="text" @click=${() => { this.exportFilenameStep = false; }}>Back</sl-button>
           </div>
         ` : html`
@@ -1017,8 +1019,8 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
           <sl-checkbox size="small" style="margin-bottom:0.5rem;" .checked=${this.eraseAfterExport}
             @sl-change=${(e: Event) => { this.eraseAfterExport = (e.target as HTMLInputElement).checked; }}>Erase from memory</sl-checkbox>
           <div slot="footer" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-            <sl-button autofocus .disabled=${this.storedPointCount === 0} @click=${() => this.openExportFilenameStep()}>Save as files</sl-button>
-            <sl-button .disabled=${this.storedPointCount === 0} @click=${() => this.handleExportAddToMap()}>Add to map</sl-button>
+            <sl-button autofocus .disabled=${this.storedPointCount === 0} @click=${() => this.openExportFilenameStep()}><sl-icon slot="prefix" name="file-earmark-arrow-down"></sl-icon>Save as files</sl-button>
+            <sl-button .disabled=${this.storedPointCount === 0} @click=${() => this.handleExportAddToMap()}><span slot="prefix" class="add-to-map-icon">${addLayerIcon}</span>Add as map layer</sl-button>
             <sl-button variant="text" @click=${() => { this.exportDialogOpen = false; }}>Cancel</sl-button>
           </div>
         `}

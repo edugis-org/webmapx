@@ -627,7 +627,7 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
                 ${this.renderPlay()}
                 ${this.renderStep(1)}
                 <sl-button size="small" class="today" ?disabled=${level === this.today}
-                    @click=${() => { this.stopPlaying(); this.setLevel(this.today); }}>Today</sl-button>
+                    @click=${() => { this.stopPlaying(); this.setLevel(this.today); }}><sl-icon slot="prefix" name="arrow-return-left"></sl-icon>Today</sl-button>
             </div>`;
     }
 

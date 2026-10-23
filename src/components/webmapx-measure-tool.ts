@@ -21,7 +21,7 @@ import {
 } from '../utils/geo-calculations';
 import { throttle } from '../utils/throttle';
 import { isEventFromEditableElement } from '../utils/dom-focus-utils';
-import { addLayerIcon, addLayerToggleStyles } from './internal/add-layer-icon';
+import { addToMapButton, addLayerToggleStyles } from './internal/add-layer-icon';
 import type { MeasureToolConfig } from '../config/types';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
@@ -298,11 +298,6 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             font-size: 0.7rem;
             color: var(--color-text-secondary, #5a6773);
             margin-bottom: 2px;
-        }
-
-        /* The add-as-map-layer toggle closes the action row, far right */
-        .actions .layer-toggle {
-            margin-left: auto;
         }
     `];
 
@@ -1494,21 +1489,9 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         `;
     }
 
-    /** The add-as-map-layer toggle: search's button, at the end of the action row. */
+    /** "Add as map layer" / "Remove as map layer": the same labelled button as routing and isochrone, on its own row under the actions. */
     private renderLayerToggle(): TemplateResult {
-        const added = this.addedLayerId !== null;
-        return html`
-            <button
-                type="button"
-                class="layer-toggle"
-                data-added=${added ? 'true' : 'false'}
-                aria-pressed=${added ? 'true' : 'false'}
-                aria-label="Add as map layer"
-                title=${added ? 'Remove from map' : 'Add as map layer'}
-                ?disabled=${!this.canAddToMap}
-                @click=${this.toggleMapLayer}
-            >${addLayerIcon}</button>
-        `;
+        return addToMapButton({ added: this.addedLayerId !== null, disabled: !this.canAddToMap, onClick: this.toggleMapLayer });
     }
 
     private renderArea(): TemplateResult | typeof nothing {
@@ -1530,7 +1513,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             const verb = this.touch.click;
             return this.addedLayerId
                 ? `Added to the map, and listed in the legend. ${verb} Clear to start a new measurement.`
-                : `Measurement finished. Add it to the map with the layer button, or ${verb.toLowerCase()} Clear to start a new one.`;
+                : `Measurement finished. ${verb} Add as map layer to keep it, or Clear to start a new one.`;
         }
 
         const verb = this.touch.click;

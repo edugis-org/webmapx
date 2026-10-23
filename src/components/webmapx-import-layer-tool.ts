@@ -1,4 +1,5 @@
 import { html, css } from 'lit';
+import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import { customElement, state } from 'lit/decorators.js';
 
 import { WebmapxBaseTool } from './webmapx-base-tool';
@@ -9,6 +10,7 @@ import { accentControlStyles } from './internal/accent-control-styles';
 import { resolveMapElement } from './internal/map-context';
 import { sectionHeadingStyles } from './internal/section-heading-styles';
 import { formLabelStyles } from './internal/form-label-styles';
+import { addLayerIcon, addLayerToggleStyles } from './internal/add-layer-icon';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
 import { discoverLayers, type DiscoveredLayer, type CatalogEntry } from '../utils/layer-discovery';
 
@@ -52,7 +54,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
   /** Bumped on each `handleDiscover` call; a stale (slower) call's result is discarded if a newer one has started. */
   private discoverySeq = 0;
 
-  static styles = [accentControlStyles, sectionHeadingStyles, formLabelStyles, css`
+  static styles = [addLayerToggleStyles, accentControlStyles, sectionHeadingStyles, formLabelStyles, css`
     :host { display: block; width: 100%; pointer-events: auto; }
     :host([hidden]) { display: none !important; }
     .container { width: 100%; color: var(--color-text-primary); box-sizing: border-box; padding: var(--webmapx-tool-padding, 0); }
@@ -275,7 +277,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
             @sl-input="${(e: Event) => { this.url = (e.target as HTMLInputElement).value; }}"
             @keyup="${(e: KeyboardEvent) => { if (e.key === 'Enter') this.handleDiscover(); }}"
           ></sl-input>
-          <sl-button size="small" ?loading=${this.discovering} ?disabled=${this.discovering} @click="${() => this.handleDiscover()}">Discover</sl-button>
+          <sl-button size="small" ?loading=${this.discovering} ?disabled=${this.discovering} @click="${() => this.handleDiscover()}"><sl-icon slot="prefix" name="search"></sl-icon>Discover</sl-button>
         </div>
 
         ${this.error ? html`<div class="error">${this.error}</div>` : ''}
@@ -306,8 +308,9 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
             @sl-input="${(e: Event) => { this.filterText = (e.target as HTMLInputElement).value; }}"
           ></sl-input>
           <div class="actions">
-            <sl-button size="small" variant="primary" ?disabled=${this.selected.size === 0} @click="${() => this.handleAdd()}">
-              Add selected
+            <sl-button class="main-action" size="small" variant="primary" ?disabled=${this.selected.size === 0} @click="${() => this.handleAdd()}">
+              <span slot="prefix" class="add-to-map-icon">${addLayerIcon}</span>
+              ${this.selected.size > 1 ? `Add ${this.selected.size} as map layers` : 'Add as map layer'}
             </sl-button>
           </div>
           <div class="results">

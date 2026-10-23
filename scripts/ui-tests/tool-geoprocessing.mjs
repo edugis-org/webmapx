@@ -577,7 +577,7 @@ async function checkCancel(page) {
     return {
       alert: root.querySelector('sl-alert')?.textContent?.trim() ?? '',
       variant: root.querySelector('sl-alert')?.getAttribute('variant') ?? '',
-      hasCalculate: [...root.querySelectorAll('.actions sl-button')].some(b => b.textContent.trim() === 'Calculate'),
+      hasCalculate: [...root.querySelectorAll('.actions sl-button')].some(b => b.textContent.trim().startsWith('Calculate')),
     };
   }), { timeout: 20_000, interval: 100 });
 

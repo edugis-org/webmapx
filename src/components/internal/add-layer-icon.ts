@@ -1,4 +1,4 @@
-import { html, css } from 'lit';
+import { html, css, type TemplateResult } from 'lit';
 
 /**
  * The "add as map layer" icon: a layer stack with a plus badge. One shape for
@@ -81,4 +81,33 @@ export const addLayerToggleStyles = css`
     /* Nothing to add yet (a measurement still without a segment) */
     .layer-toggle:disabled { cursor: default; opacity: .4; background: transparent; }
     .layer-toggle:disabled .badge-circle { fill: var(--color-primary, #2b6c8f); }
+
+    /* The labelled button: the icon at text size, the added state as above. */
+    .add-to-map-icon { display: inline-flex; }
+    .add-to-map-icon svg { width: 1.25em; height: 1.25em; }
+    sl-button.add-to-map[data-added="true"] .stack-top {
+      fill: var(--color-primary, #2b6c8f); stroke: var(--color-primary, #2b6c8f); opacity: 1;
+    }
+    sl-button.add-to-map[data-added="true"] .badge-circle { fill: var(--color-success, #1c7c4a); }
+    sl-button.add-to-map[data-added="true"] .badge-plus { display: none; }
+    sl-button.add-to-map[data-added="true"] .badge-check { display: inline; }
 `;
+
+export interface AddToMapButtonOptions {
+    added: boolean;
+    disabled?: boolean;
+    onClick: () => void;
+}
+
+/** "Add as map layer" / "Remove as map layer": one labelled button, the same in every tool. */
+export function addToMapButton({ added, disabled = false, onClick }: AddToMapButtonOptions): TemplateResult {
+    return html`
+        <sl-button
+            class="add-to-map main-action"
+            size="small"
+            data-added=${added ? 'true' : 'false'}
+            ?disabled=${disabled}
+            @click=${onClick}
+        ><span slot="prefix" class="add-to-map-icon">${addLayerIcon}</span>${added ? 'Remove as map layer' : 'Add as map layer'}</sl-button>
+    `;
+}

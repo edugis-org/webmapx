@@ -4,6 +4,7 @@ import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { formLabelStyles } from './internal/form-label-styles';
+import { addToMapButton, addLayerToggleStyles } from './internal/add-layer-icon';
 import { helpTextStyles } from './internal/help-text-styles';
 import { TouchPointerController } from './internal/touch-pointer';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
@@ -327,6 +328,10 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
     @state() private distanceM: number | null = null;
     @state() private durationS: number | null = null;
     @state() private loading = false;
+    /** The legend layer "Add as map layer" made of the current result, so the same button can take it off again. */
+    @state() private addedLayerId: string | null = null;
+    /** The layer is added asynchronously: only once the store has listed it does its absence mean it was removed. */
+    private addedLayerSeen = false;
     @state() private error: string | null = null;
     @state() private truckWeight     = 49000;
     @state() private truckAxleWeight = 11500;
@@ -340,7 +345,7 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
     private unsubClick: (() => void) | null = null;
     private layersCreated = false;
 
-    static styles = [formLabelStyles, helpTextStyles, css`
+    static styles = [addLayerToggleStyles, formLabelStyles, helpTextStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         label { display: block; margin-bottom: 0.25rem; }
         .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: var(--webmapx-space-md, 0.75rem); }
@@ -474,7 +479,11 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
         this.removeLayers();
     }
 
-    protected onStateChanged(_state: IMapState): void {}
+    protected onStateChanged(state: IMapState): void {
+        if (!this.addedLayerId) return;
+        if (this.addedLayerId in (state.mapLayers ?? {})) this.addedLayerSeen = true;
+        else if (this.addedLayerSeen) this.addedLayerId = null; // removed from the legend
+    }
 
     // ─── Layer management ─────────────────────────────────────────────────────
 
@@ -530,6 +539,7 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
 
     private setRouteData(coordinates: number[][]): void {
         this.routeCoords = coordinates;
+        this.addedLayerId = null;
         const fc: GeoJSON.FeatureCollection = {
             type: 'FeatureCollection',
             features: coordinates.length > 0 ? [{
@@ -541,8 +551,8 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
         this.adapter?.getSource(ROUTE_SOURCE_ID)?.setData(fc);
     }
 
-    private persistToMap(): void {
-        if (!this.routeCoords.length || !this.start || !this.end) return;
+    private persistToMap(): string | null {
+        if (!this.routeCoords.length || !this.start || !this.end) return null;
         const id = `webmapx-route-${Date.now()}`;
         const svc = this.activeService;
         const modeLabel = svc.modes.find(m => m.value === this.travelMode)?.label ?? this.travelMode;
@@ -613,6 +623,19 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
             },
             bubbles: true, composed: true,
         }));
+        return id;
+    }
+
+    private toggleMapLayer(): void {
+        if (this.addedLayerId) {
+            this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: this.addedLayerId, bubbles: true, composed: true }));
+            this.addedLayerId = null;
+            announce(this, 'Removed from the map');
+            return;
+        }
+        this.addedLayerSeen = false;
+        this.addedLayerId = this.persistToMap();
+        if (this.addedLayerId) announce(this, 'Added to the map');
     }
 
     // ─── Map interaction ──────────────────────────────────────────────────────
@@ -787,7 +810,7 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
                         <sl-icon name="arrow-down-up" label="Swap start and end"></sl-icon>
                     </sl-button>
                 ` : nothing}
-                <sl-button size="small" @click=${() => this.clearRoute()}>Clear</sl-button>
+                <sl-button size="small" @click=${() => this.clearRoute()}><sl-icon slot="prefix" name="trash"></sl-icon>Clear</sl-button>
             </div>
 
             ${this.showTruckOptions ? html`
@@ -817,7 +840,7 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
                     ${this.durationS !== null ? html`<span>${this.formatDuration(this.durationS)}</span>` : nothing}
                 </div>
                 <div class="row" style="margin-top:var(--webmapx-space-md, 0.75rem);">
-                    <sl-button size="small" style="flex:1" @click=${() => this.persistToMap()}>Persist to map</sl-button>
+                    ${addToMapButton({ added: this.addedLayerId !== null, onClick: () => this.toggleMapLayer() })}
                 </div>
             ` : nothing}
         `;
