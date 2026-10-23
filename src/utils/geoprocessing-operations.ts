@@ -248,6 +248,15 @@ export interface GeoOperation {
      */
     computeSpace?: 'metric' | 'lonlat';
     /**
+     * False for a `compute` whose result is not one feature per input feature —
+     * the Delaunay triangulation turns n points into roughly 2n triangles. The
+     * runner reads fewer features out than in as features skipped, which for
+     * such an operation means nothing: four points make two triangles, and were
+     * reported as two features skipped. The operation then says what it left
+     * out itself, in `warnings`.
+     */
+    oneFeaturePerInput?: false;
+    /**
      * Cleanup applied to the *result*, in EPSG:3857, before it is reprojected
      * back. Not a third computation branch: `buildSql`/`compute` answer the
      * question, this tidies the answer up (see `removeSmallHoles`), so the
@@ -866,6 +875,12 @@ function sitesOf(input: GeoJSON.FeatureCollection): Site[] {
     return sites;
 }
 
+/** What `sitesOf` had to leave out, in words, for the operations that report their own losses. */
+function sitesLeftOut(input: GeoJSON.FeatureCollection, sites: Site[]): string[] {
+    const n = input.features.length - sites.length;
+    return n > 0 ? [`${n} ${n === 1 ? 'feature has' : 'features have'} no position to use and ${n === 1 ? 'was' : 'were'} left out.`] : [];
+}
+
 /**
  * The three copies of the world a triangulation is built on: one world west, the
  * real one, one world east.
@@ -1023,7 +1038,7 @@ function clipHalfPlane(ring: GeoJSON.Position[], x: number, keepAbove: boolean):
  * Coordinates are EPSG:3857 metres here, which is what makes a planar
  * triangulation the right thing to compute at all.
  */
-function voronoiCells(input: GeoJSON.FeatureCollection, params: GeoParamValues): GeoJSON.FeatureCollection {
+function voronoiCells(input: GeoJSON.FeatureCollection, params: GeoParamValues): ComputedCollection {
     const sites = sitesOf(input);
     if (!sites.length) throw new Error('Voronoi needs at least one point.');
 
@@ -1033,11 +1048,13 @@ function voronoiCells(input: GeoJSON.FeatureCollection, params: GeoParamValues):
     const voronoi = Delaunay.from(points).voronoi(window);
 
     const features: GeoJSON.Feature[] = [];
+    let coincident = 0;
     sites.forEach((site, i) => {
         // A cell is collected from every copy of its point, because the piece of
         // it that reaches past the date line belongs to the copy one world over.
         // Null for a point that coincides exactly with an earlier one: it has no
-        // area of its own. The runner reports the difference in feature counts.
+        // area of its own. Said as that rather than left to the runner, whose
+        // only guess for a missing feature is a geometry it cannot use.
         const parts: GeoJSON.Position[][][] = [];
         for (let copy = 0; copy < offsets.length; copy++) {
             const cell = voronoi.cellPolygon(copy * sites.length + i);
@@ -1046,7 +1063,10 @@ function voronoiCells(input: GeoJSON.FeatureCollection, params: GeoParamValues):
                 parts.push([ring]);
             }
         }
-        if (!parts.length) return;
+        if (!parts.length) {
+            coincident++;
+            return;
+        }
         features.push({
             type: 'Feature',
             properties: { ...(site.feature.properties ?? {}) },
@@ -1056,7 +1076,11 @@ function voronoiCells(input: GeoJSON.FeatureCollection, params: GeoParamValues):
         });
     });
 
-    return { type: 'FeatureCollection', features };
+    const warnings = sitesLeftOut(input, sites);
+    if (coincident) {
+        warnings.push(`${coincident} ${coincident === 1 ? 'point lies' : 'points lie'} exactly on an earlier point and ${coincident === 1 ? 'gets' : 'get'} no cell of ${coincident === 1 ? 'its' : 'their'} own.`);
+    }
+    return { type: 'FeatureCollection', features, ...(warnings.length ? { warnings } : {}) };
 }
 
 /**
@@ -1068,7 +1092,7 @@ function voronoiCells(input: GeoJSON.FeatureCollection, params: GeoParamValues):
  * their attributes; it carries their position in the input instead, which is
  * what lets a result be traced back to its corners.
  */
-function delaunayTriangles(input: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
+function delaunayTriangles(input: GeoJSON.FeatureCollection): ComputedCollection {
     const sites = sitesOf(input);
     if (sites.length < 3) throw new Error('A Delaunay triangulation needs at least three points.');
 
@@ -1131,7 +1155,8 @@ function delaunayTriangles(input: GeoJSON.FeatureCollection): GeoJSON.FeatureCol
         });
     }
 
-    return { type: 'FeatureCollection', features };
+    const warnings = sitesLeftOut(input, sites);
+    return { type: 'FeatureCollection', features, ...(warnings.length ? { warnings } : {}) };
 }
 
 // ─── Performance helpers ─────────────────────────────────────────────────────
@@ -2105,6 +2130,7 @@ export const GEO_OPERATIONS: GeoOperation[] = [
         outputGeometry: 'polygon',
         outputName: a => `${a} triangles`,
         compute: delaunayTriangles,
+        oneFeaturePerInput: false,
     },
     {
         id: 'convexHull',

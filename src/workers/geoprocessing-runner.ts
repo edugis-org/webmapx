@@ -342,7 +342,7 @@ export async function runGeoprocess(
         // Only the operation knows whether its own answer is a good one — and an
         // operation that already said why it left features out (the cartogram
         // names each reason) must not also be given this generic guess.
-        if (skipped > 0 && !computed.warnings?.length) {
+        if (skipped > 0 && operation.oneFeaturePerInput !== false && !computed.warnings?.length) {
             warnings.push(`${skipped} ${skipped === 1 ? 'feature' : 'features'} were skipped by ${operation.label} — their geometry is not of a type it can use.`);
         }
         warnings.push(...(computed.warnings ?? []));
@@ -374,7 +374,9 @@ export async function runGeoprocess(
         const metric = await readFeatureCollection(gdal, pathA);
         const computed = await operation.compute(metric, params, context);
         const skipped = metric.features.length - computed.features.length;
-        if (skipped > 0) {
+        // Same rule as the lon/lat branch above: the count is only a guess, and
+        // an operation that said why it left features out knows better.
+        if (skipped > 0 && operation.oneFeaturePerInput !== false && !computed.warnings?.length) {
             warnings.push(`${skipped} ${skipped === 1 ? 'feature' : 'features'} were skipped by ${operation.label} — their geometry is not of a type it can use.`);
         }
         warnings.push(...(computed.warnings ?? []));

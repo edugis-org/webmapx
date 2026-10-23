@@ -1094,6 +1094,27 @@ test('delaunay triangulates the points and records their corners', { timeout: TI
     assert.deepEqual([props.point_1, props.point_2, props.point_3].sort(), [1, 2, 3]);
 });
 
+test('delaunay reports nothing skipped when every point is used', { timeout: TIMEOUT }, async () => {
+    // Four points make two triangles. Fewer features out than in is the normal
+    // shape of a triangulation, and was reported as two features skipped.
+    const four = fc(
+        ...POINTS.features.slice(0, 2),
+        { type: 'Feature', properties: { id: 'p4' }, geometry: { type: 'Point', coordinates: [3, 0.2] } },
+        { type: 'Feature', properties: { id: 'p5' }, geometry: { type: 'Point', coordinates: [0.2, 3] } },
+    );
+    const out = await run('delaunay', four);
+    assert.ok(out.features.length < four.features.length, 'the case this pins: fewer triangles than points');
+    assert.equal((out as { warnings?: string[] }).warnings, undefined);
+});
+
+test('voronoi names a coincident point as the reason it has no cell', { timeout: TIMEOUT }, async () => {
+    const twice = fc(...POINTS.features, { type: 'Feature', properties: { id: 'p1-again' }, geometry: { type: 'Point', coordinates: [0.5, 0.5] } });
+    const out = await run('voronoi', twice);
+    assert.equal(out.features.length, 3);
+    const warnings = (out as { warnings?: string[] }).warnings ?? [];
+    assert.deepEqual(warnings, ['1 point lies exactly on an earlier point and gets no cell of its own.']);
+});
+
 test('delaunay refuses input it cannot triangulate', { timeout: TIMEOUT }, async () => {
     const two = fc(POINTS.features[0], POINTS.features[1]);
     await assert.rejects(() => run('delaunay', two), /at least three points/);
