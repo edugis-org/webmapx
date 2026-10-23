@@ -126,6 +126,19 @@ export abstract class WebmapxModalTool extends WebmapxBaseTool implements IModal
     // Lifecycle
     // ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * Taking an open tool off the page closes it first, so it cleans up as it
+     * would on any other close: its window listeners go, and whatever it took
+     * from the map is given back. Nothing else does this for a tool outside
+     * the ToolManager (one in a toolbox or menu), and for one inside it,
+     * unregistering closes it only after detaching has already cleared
+     * `adapter`, too late for `onDeactivate` to use it.
+     */
+    disconnectedCallback(): void {
+        if (this._active) this.deactivate();
+        super.disconnectedCallback();
+    }
+
     protected onMapAttached(adapter: IMap): void {
         super.onMapAttached(adapter);
 

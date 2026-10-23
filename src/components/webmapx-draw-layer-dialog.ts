@@ -38,10 +38,46 @@ export interface MapLayerOption {
     allowedAttributes?: string[];
 }
 
-const PROPERTY_TYPES: Record<GeometryType, PropertyDef['type'][]> = {
+export const TYPE_LABELS: Partial<Record<PropertyDef['type'], string>> = {
+    longitude: 'longitude (auto)',
+    latitude: 'latitude (auto)',
+    area: 'area (auto)',
+    perimeter: 'perimeter (auto)',
+    length: 'length (auto)',
+    'linkURL': 'link URL',
+    'imageURL': 'image URL',
+    'create-time': 'create-time (auto)',
+    'update-time': 'update-time (auto)',
+};
+
+export const PROPERTY_TYPES: Record<GeometryType, PropertyDef['type'][]> = {
     Point:      ['string', 'number', 'longitude', 'latitude', 'linkURL', 'imageURL', 'create-time', 'update-time'],
     LineString: ['string', 'number', 'length', 'linkURL', 'imageURL', 'create-time', 'update-time'],
     Polygon:    ['string', 'number', 'area', 'perimeter', 'longitude', 'latitude', 'linkURL', 'imageURL', 'create-time', 'update-time'],
+};
+
+/** Types the app computes from the geometry or the clock — never typed in by hand. */
+export const AUTO_PROPERTY_TYPES = new Set<PropertyDef['type']>([
+    'longitude', 'latitude', 'area', 'perimeter', 'length', 'create-time', 'update-time',
+]);
+
+/**
+ * Default attribute name + checkbox label for each automatic type.
+ *
+ * An automatic value is computed by the app, never typed in — so unlike a
+ * manual attribute (string/number/URL) it never actually needed a
+ * user-chosen name. Giving each one a fixed default name is what lets the
+ * "Add attribute" flow offer these as a plain checklist instead of routing
+ * them through the name-first flow that manual attributes still need.
+ */
+export const AUTO_PROPERTY_DEFAULTS: Partial<Record<PropertyDef['type'], { name: string; label: string }>> = {
+    longitude: { name: 'longitude', label: 'Longitude' },
+    latitude: { name: 'latitude', label: 'Latitude' },
+    area: { name: 'area', label: 'Area' },
+    perimeter: { name: 'perimeter', label: 'Perimeter' },
+    length: { name: 'length', label: 'Length' },
+    'create-time': { name: 'created', label: 'Created date' },
+    'update-time': { name: 'updated', label: 'Updated date' },
 };
 
 const DEFAULT_PROPERTIES: PropertyDef[] = [
@@ -55,7 +91,7 @@ const DEFAULT_COLORS: Record<GeometryType, string> = {
     Polygon:    DATA_TOOL,
 };
 
-function newLayerConfig(type: GeometryType): DrawLayerConfig {
+export function newLayerConfig(type: GeometryType): DrawLayerConfig {
     return {
         id: `layer-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         name: '',
@@ -335,17 +371,6 @@ export class WebmapxDrawLayerDialog extends LitElement {
 
     private renderDetailStep() {
         const availableTypes = PROPERTY_TYPES[this.geometryType];
-        const TYPE_LABELS: Partial<Record<PropertyDef['type'], string>> = {
-            longitude: 'longitude (auto)',
-            latitude: 'latitude (auto)',
-            area: 'area (auto)',
-            perimeter: 'perimeter (auto)',
-            length: 'length (auto)',
-            'linkURL': 'link URL',
-            'imageURL': 'image URL',
-            'create-time': 'create-time (auto)',
-            'update-time': 'update-time (auto)',
-        };
         return html`
             <div class="name-input-row">
                 <sl-input name="layername"
