@@ -101,7 +101,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         .info-container {
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
+            gap: var(--webmapx-space-md, 0.75rem);
             padding: var(--webmapx-tool-padding, 0);
             font-size: var(--font-size-small, 0.875rem);
             min-width: 200px;
@@ -306,6 +306,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         }
 
         .empty-hint {
+            margin: 0;
             padding: 0.3rem 0.5rem;
         }
 

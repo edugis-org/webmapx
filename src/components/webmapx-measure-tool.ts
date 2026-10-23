@@ -263,7 +263,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         .unit-row {
             display: flex;
             justify-content: flex-end;
-            margin-bottom: 0.5rem;
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
         }
 
         /* "Units" sits beside the control rather than above it */
@@ -282,7 +282,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             flex-wrap: wrap;
             align-items: center;
             gap: 0.5rem;
-            margin-top: 0.35rem;
+            margin-top: var(--webmapx-space-md, 0.75rem);
         }
 
         .elevation-profile {

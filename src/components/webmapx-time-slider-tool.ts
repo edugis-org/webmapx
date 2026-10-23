@@ -162,18 +162,18 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            margin-bottom: 0.75rem;
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
         }
         .moment {
             font-variant-numeric: tabular-nums;
-            margin-bottom: 0.75rem;
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
         }
         .moment .local {
             display: block;
             font-weight: 400;
             color: var(--color-text-secondary, #5a6773);
         }
-        .row { margin-bottom: 0.75rem; }
+        .row { margin-bottom: var(--webmapx-space-md, 0.75rem); }
         .row > label {
             display: flex;
             justify-content: space-between;

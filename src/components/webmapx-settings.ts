@@ -64,20 +64,21 @@ export class WebmapxSettings extends LitElement {
     static styles = [formLabelStyles, helpTextStyles, controlSurfaceStyles, sectionHeadingStyles, css`
         :host {
             display: block;
-            padding: 1rem;
+            padding: var(--webmapx-tool-padding, 1rem);
             box-sizing: border-box;
         }
 
-        h3 {
-            margin: 0 0 0.75rem 0;
+        /* 12px between fields, 8px under a section heading. */
+        .panel-section > * {
+            margin: 0;
         }
 
-        sl-input {
-            margin-top: 0.5rem;
+        .panel-section > * + * {
+            margin-top: var(--webmapx-space-md, 0.75rem);
         }
 
-        sl-select {
-            margin-top: 0.5rem;
+        .panel-section > .section-heading + * {
+            margin-top: var(--webmapx-space-sm, 0.5rem);
         }
 
     `];

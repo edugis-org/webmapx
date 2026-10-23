@@ -71,8 +71,8 @@ export class WebmapxPrintTool extends WebmapxModalTool {
     static styles = [accentControlStyles, formLabelStyles, helpTextStyles, css`
         :host { display: block; font-size: var(--sl-font-size-small); }
         .tool-content {
-            padding: var(--webmapx-tool-panel-padding, 12px);
-            display: flex; flex-direction: column; gap: 12px; min-width: 220px;
+            padding: var(--webmapx-tool-padding, 12px);
+            display: flex; flex-direction: column; gap: var(--webmapx-space-md, 0.75rem); min-width: 220px;
         }
         .field { display: flex; flex-direction: column; gap: 4px; }
         .error { color: var(--sl-color-danger-600); font-size: var(--sl-font-size-x-small); margin: 0; }

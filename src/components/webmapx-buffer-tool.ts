@@ -68,10 +68,10 @@ export class WebmapxBufferTool extends WebmapxModalTool {
         :host(:not([active])) .tool-content { display: none; }
 
         .tool-content {
-            padding: var(--sl-spacing-medium);
+            padding: var(--webmapx-tool-padding, var(--sl-spacing-medium));
             display: flex;
             flex-direction: column;
-            gap: var(--sl-spacing-small);
+            gap: var(--webmapx-space-md, 0.75rem);
             font-size: var(--sl-font-size-small);
             min-width: 240px;
         }
@@ -80,7 +80,6 @@ export class WebmapxBufferTool extends WebmapxModalTool {
             display: flex;
             gap: var(--sl-spacing-x-small);
             justify-content: flex-end;
-            margin-top: var(--sl-spacing-x-small);
         }
 
         .status {

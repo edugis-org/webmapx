@@ -228,8 +228,9 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         :host { display: none; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; min-width: 200px; }
         :host([active]) { display: block; }
         label { display: block; margin-bottom: 0.25rem; }
-        sl-select { width: 100%; margin-bottom: 0.75rem; }
+        sl-select { width: 100%; margin-bottom: var(--webmapx-space-md, 0.75rem); }
         .hint { margin-bottom: 0.5rem; }
+        .field-label + .hint { margin-top: var(--webmapx-space-xs, 0.25rem); }
         .copy-item { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
         .copy-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
         .copy-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -239,6 +240,8 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         .method-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
         .method-row input { cursor: pointer; }
         .rotation-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
+        /* The panel's padding is the space under the last element; its own margin would add to it. */
+        sl-select:last-child, .hint:last-child, .copy-item:last-child, .no-copies:last-child, .method-row:last-child, .rotation-row:last-child { margin-bottom: 0; }
         /* The browser's own slider in the shared slider colour, like every other tool's. */
         .rotation-row input[type=range] { flex: 1; min-width: 0; }
         .rotation-value { font-variant-numeric: tabular-nums; min-width: 3.5em; text-align: right; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }

@@ -81,7 +81,7 @@ export const formLabelStyles = css`
     sl-select.speed {
         display: block;
         width: 100%;
-        margin-bottom: 0.5rem;
+        margin-bottom: var(--webmapx-space-md, 0.75rem);
     }
 
     /* Sliders stay the browser's own (a range input is fine as it is, and the

@@ -221,16 +221,18 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
     static styles = [accentControlStyles, formLabelStyles, helpTextStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         label { display: block; margin-bottom: 0.25rem; }
-        .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+        .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: var(--webmapx-space-md, 0.75rem); }
+        /* The panel's padding is the space under the last row; its own margin would add to it. */
+        .row:last-child, .field:last-child { margin-bottom: 0; }
         sl-select, sl-input { flex: 1; min-width: 0; }
         /* A row whose fields carry their labels above: buttons line up with the field, not the label. */
         .row.fields { align-items: flex-end; }
         button { padding: 0.35rem 0.75rem; border: 1px solid var(--color-border, #d5dce3); border-radius: 4px; background: var(--color-background, #fff); cursor: pointer; font-size: 0.875rem; color: var(--color-text-primary, #16202a); }
         sl-button.calculate { flex: 1; }
         button:disabled { opacity: 0.5; cursor: default; }
-        .field { margin-bottom: 0.5rem; }
+        .field { margin-bottom: var(--webmapx-space-md, 0.75rem); }
         .error { color: var(--sl-color-danger-600, #c00); font-size: 0.8rem; margin-top: 0.25rem; }
-        .center-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
+        .center-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: var(--webmapx-space-md, 0.75rem); font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
         .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--webmapx-data-route, #2563eb); display: inline-block; flex-shrink: 0; }
         .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--color-border, #d5dce3); border-top-color: var(--color-primary, #2b6c8f); border-radius: 50%; animation: spin 0.6s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -617,7 +619,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
                 </div>
             </div>
 
-            <div class="row" style="margin-top:0.5rem;">
+            <div class="row" style="margin-top:var(--webmapx-space-md, 0.75rem);">
                 <!-- Disabled rather than hidden: the button is where the reader looks for
                      what to do next, and a missing one reads as a broken panel. -->
                 <sl-button
@@ -634,7 +636,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
             ${this.error ? html`<div class="error">⚠ ${this.error}</div>` : nothing}
 
             ${this.currentFc && !this.loading ? html`
-                <div class="row" style="margin-top:0.5rem;">
+                <div class="row" style="margin-top:var(--webmapx-space-md, 0.75rem);">
                     <sl-button size="small" style="flex:1" @click=${() => this.persistToMap()}>Persist to map</sl-button>
                 </div>
             ` : nothing}
