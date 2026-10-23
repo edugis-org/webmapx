@@ -92,6 +92,18 @@ export const formLabelStyles = css`
         accent-color: var(--sl-color-primary-600, #0284c7);
     }
 
+    /* The one thing a tool's panel ends with — Calculate isochrone, Print map,
+       Add to map: full width, so it reads as the last step and is easy to hit
+       on a tablet. Its text says what you get, and it carries an icon like
+       every action button. */
+    sl-button.main-action {
+        display: block;
+        width: 100%;
+    }
+    sl-button.main-action::part(base) {
+        width: 100%;
+    }
+
     /* An icon button in a row of controls (a play row, the search field's
        magnifier, a refresh beside a dropdown): the small Shoelace button made
        square, so it is exactly as high as the fields beside it, in every

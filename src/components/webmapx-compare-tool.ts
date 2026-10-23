@@ -1,6 +1,7 @@
 import { html, css, TemplateResult, nothing } from 'lit';
 import { accentControlStyles } from './internal/accent-control-styles';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
+import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMapState } from '../store/IMapState';
@@ -395,6 +396,7 @@ export class WebmapxCompareTool extends WebmapxModalTool {
             </div>
             <sl-button class="action" size="small" variant="primary" ?disabled=${this.busy}
                     @click=${() => (this.frozen ? this.stop() : void this.freeze())}>
+                <sl-icon slot="prefix" name=${this.frozen ? 'x-lg' : 'layout-split'}></sl-icon>
                 ${this.frozen ? 'Stop comparing' : 'Start comparing'}
             </sl-button>
         `;

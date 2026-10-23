@@ -342,11 +342,11 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
             padding-top: var(--sl-spacing-x-small);
         }
 
+        /* The status line above, the full-width main action below. */
         .actions {
             display: flex;
-            align-items: center;
+            flex-direction: column;
             gap: var(--sl-spacing-x-small);
-            justify-content: flex-end;
         }
 
         .status {
@@ -981,7 +981,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
                             variant="text"
                             ?disabled=${this.busy}
                             @click=${() => { this.operationId = ""; this.error = null; this.notice = null; this.summary = null; this.table = null; }}
-                        >Change</sl-button>
+                        ><sl-icon slot="prefix" name="pencil"></sl-icon>Change</sl-button>
                     `}
                 </div>
                 <div class="description help-text">${op.description}</div>
@@ -1368,16 +1368,21 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
                 ` : nothing}
                 ${this.busy
                     ? html`
-                        <sl-button size="small" variant="danger" outline @click=${this.handleCancel}>
+                        <sl-button class="main-action" size="small" variant="danger" outline @click=${this.handleCancel}>
+                            <sl-icon slot="prefix" name="x-lg"></sl-icon>
                             Cancel
                         </sl-button>`
                     : html`
                         <sl-button
+                            class="main-action"
                             size="small"
                             variant="primary"
                             ?disabled=${!op || !this.availableLayers.length || this.hasMissingRequiredField()}
                             @click=${this.handleRun}
-                        >Calculate</sl-button>`}
+                        >
+                            <sl-icon slot="prefix" name="calculator"></sl-icon>
+                            ${op ? `Calculate ${op.label.toLowerCase()}` : 'Calculate'}
+                        </sl-button>`}
             </div>`;
     }
 

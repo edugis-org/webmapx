@@ -8,6 +8,7 @@ import { customElement, state } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import { resolveMapElement } from './internal/map-context';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
+import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
@@ -538,7 +539,7 @@ export class WebmapxPrintTool extends WebmapxModalTool {
                     </p>` : ''}
                 ${this.printing
                     ? html`<div class="busy"><sl-spinner></sl-spinner> Rendering map…</div>`
-                    : html`<sl-button variant="primary" size="small" @click=${this.handlePrint}>Print</sl-button>`
+                    : html`<sl-button class="main-action" variant="primary" size="small" @click=${this.handlePrint}><sl-icon slot="prefix" name="printer"></sl-icon>Print map</sl-button>`
                 }
                 ${this.errorMsg ? html`<p class="error">${this.errorMsg}</p>` : ''}
             </div>

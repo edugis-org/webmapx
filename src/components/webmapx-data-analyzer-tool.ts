@@ -565,6 +565,7 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
                 ${item.kind === 'family' && this.familyOf(item) ? html`
                     <div class="actions">
                         <sl-button size="small" ?disabled=${this.busy} @click=${() => this.mapProfiles(this.familyOf(item)!)}>
+                            <sl-icon slot="prefix" name="palette"></sl-icon>
                             Map profiles
                         </sl-button>
                     </div>
@@ -579,6 +580,7 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
                             }}
                         >Log scale</sl-switch>
                         <sl-button size="small" ?disabled=${this.busy} @click=${() => this.mapClusters([item.fields[0]])}>
+                            <sl-icon slot="prefix" name="diagram-3"></sl-icon>
                             Map clusters
                         </sl-button>
                     </div>
@@ -606,6 +608,7 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
                             <sl-radio-button value="relative">Rate</sl-radio-button>
                         </sl-radio-group>
                         <sl-button size="small" @click=${() => this.mapSuggestion(item, profileByName.get(item.fields[0]))}>
+                            <sl-icon slot="prefix" name="palette"></sl-icon>
                             Map this
                         </sl-button>
                     </div>

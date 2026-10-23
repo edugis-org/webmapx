@@ -20,7 +20,6 @@ import type { WebmapxMapElement } from './webmapx-map';
 
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
-import bufferIconUrl from '../icons/buffer.svg?url';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
 import '@shoelace-style/shoelace/dist/components/input/input.js';
@@ -76,10 +75,11 @@ export class WebmapxBufferTool extends WebmapxModalTool {
             min-width: 240px;
         }
 
+        /* The status line above, the full-width main action below. */
         .actions {
             display: flex;
+            flex-direction: column;
             gap: var(--sl-spacing-x-small);
-            justify-content: flex-end;
         }
 
         .status {
@@ -405,13 +405,14 @@ export class WebmapxBufferTool extends WebmapxModalTool {
                         </div>
                     ` : nothing}
                     <sl-button
+                        class="main-action"
                         size="small"
                         variant="primary"
                         ?disabled=${!hasLayers || this.busy}
                         @click=${this.handleRun}
                     >
-                        <sl-icon slot="prefix" src="${bufferIconUrl}"></sl-icon>
-                        Buffer
+                        <sl-icon slot="prefix" name="calculator"></sl-icon>
+                        Calculate buffer
                     </sl-button>
                 </div>
 

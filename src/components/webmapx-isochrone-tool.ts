@@ -1,8 +1,11 @@
+import { announce } from './internal/announce';
 import { html, css, TemplateResult, nothing } from 'lit';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
+import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import { accentControlStyles } from './internal/accent-control-styles';
 import { formLabelStyles } from './internal/form-label-styles';
+import { addToMapButton, addLayerToggleStyles } from './internal/add-layer-icon';
 import { helpTextStyles } from './internal/help-text-styles';
 import { TouchPointerController } from './internal/touch-pointer';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
@@ -210,6 +213,10 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
     @state() private rangeType: RangeType = 'time';
     @state() private rangesInput = '10, 20, 30';
     @state() private loading = false;
+    /** The legend layer "Add to map" made of the current result, so the same button can take it off again. */
+    @state() private addedLayerId: string | null = null;
+    /** The layer is added asynchronously: only once the store has listed it does its absence mean it was removed. */
+    private addedLayerSeen = false;
     @state() private error: string | null = null;
 
     private currentFc: GeoJSON.FeatureCollection | null = null;
@@ -218,7 +225,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
     private unsubClick: (() => void) | null = null;
     private layersCreated = false;
 
-    static styles = [accentControlStyles, formLabelStyles, helpTextStyles, css`
+    static styles = [addLayerToggleStyles, accentControlStyles, formLabelStyles, helpTextStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         label { display: block; margin-bottom: 0.25rem; }
         .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: var(--webmapx-space-md, 0.75rem); }
@@ -335,7 +342,11 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
         this.removeLayers();
     }
 
-    protected onStateChanged(_state: IMapState): void {}
+    protected onStateChanged(state: IMapState): void {
+        if (!this.addedLayerId) return;
+        if (this.addedLayerId in (state.mapLayers ?? {})) this.addedLayerSeen = true;
+        else if (this.addedLayerSeen) this.addedLayerId = null; // removed from the legend
+    }
 
     // ─── Layers ───────────────────────────────────────────────────────────────
 
@@ -389,6 +400,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
 
     private setData(fc: GeoJSON.FeatureCollection, sortedRanges?: number[]): void {
         this.currentFc = fc.features.length > 0 ? fc : null;
+        this.addedLayerId = null;
         this.adapter?.getSource(ISO_SOURCE_ID)?.setData(fc);
         // Update live layer paint to use match expression for the new contour values
         if (sortedRanges && sortedRanges.length > 0) {
@@ -398,10 +410,10 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
         }
     }
 
-    private persistToMap(): void {
-        if (!this.currentFc || !this.center) return;
+    private persistToMap(): string | null {
+        if (!this.currentFc || !this.center) return null;
         const ranges = this.parseRanges();
-        if (!ranges) return;
+        if (!ranges) return null;
 
         const id = `webmapx-iso-${Date.now()}`;
         const svc = this.activeService;
@@ -475,6 +487,19 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
             },
             bubbles: true, composed: true,
         }));
+        return id;
+    }
+
+    private toggleMapLayer(): void {
+        if (this.addedLayerId) {
+            this.dispatchEvent(new CustomEvent('webmapx-remove-layer', { detail: this.addedLayerId, bubbles: true, composed: true }));
+            this.addedLayerId = null;
+            announce(this, 'Removed from the map');
+            return;
+        }
+        this.addedLayerSeen = false;
+        this.addedLayerId = this.persistToMap();
+        if (this.addedLayerId) announce(this, 'Added to the map');
     }
 
     // ─── Interaction ──────────────────────────────────────────────────────────
@@ -615,7 +640,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
                         .value=${this.rangesInput}
                         @sl-input=${(e: Event) => { this.rangesInput = (e.target as HTMLInputElement).value; }}
                         placeholder="e.g. 10, 20, 30"></sl-input>
-                    <sl-button size="small" @click=${() => this.clearIsochrone()}>Clear</sl-button>
+                    <sl-button size="small" @click=${() => this.clearIsochrone()}><sl-icon slot="prefix" name="trash"></sl-icon>Clear</sl-button>
                 </div>
             </div>
 
@@ -623,13 +648,13 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
                 <!-- Disabled rather than hidden: the button is where the reader looks for
                      what to do next, and a missing one reads as a broken panel. -->
                 <sl-button
-                    class="calculate"
+                    class="calculate main-action"
                     size="small"
                     variant="primary"
                     ?disabled=${!this.center || this.loading}
                     title=${this.center ? 'Ask the service for this isochrone' : 'Click the map to set a centre point first'}
                     @click=${() => void this.calculate()}
-                >${this.loading ? 'Calculating…' : 'Calculate'}</sl-button>
+                ><sl-icon slot="prefix" name="calculator"></sl-icon>${this.loading ? 'Calculating…' : 'Calculate isochrone'}</sl-button>
             </div>
 
             ${this.loading ? html`<div class="row"><span class="spinner"></span> Calculating…</div>` : nothing}
@@ -637,7 +662,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
 
             ${this.currentFc && !this.loading ? html`
                 <div class="row" style="margin-top:var(--webmapx-space-md, 0.75rem);">
-                    <sl-button size="small" style="flex:1" @click=${() => this.persistToMap()}>Persist to map</sl-button>
+                    ${addToMapButton({ added: this.addedLayerId !== null, onClick: () => this.toggleMapLayer() })}
                 </div>
             ` : nothing}
         `;
