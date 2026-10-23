@@ -5,6 +5,7 @@ import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState, MapLayerStateEntry } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
 import { applyLayerTransparency } from '../utils/layer-transparency';
+import { KioskNotice, kioskNoticeStyles } from './internal/kiosk-notice';
 
 /**
  * Shown, and actually applied to the layer (once — see `recompute`), when the
@@ -55,8 +56,9 @@ export class WebmapxMegaSlider extends WebmapxBaseTool {
   @state() private transparencyPct = DEFAULT_TRANSPARENCY_PCT;
   /** Which layer id the default has already been written to, so it happens once, not on every store change while it stays unset. */
   private defaultedLayerId: string | null = null;
+  private readonly notice = new KioskNotice(this);
 
-  static styles = css`
+  static styles = [kioskNoticeStyles, css`
     :host {
       display: block;
       width: 100%;
@@ -228,7 +230,11 @@ export class WebmapxMegaSlider extends WebmapxBaseTool {
       height: var(--webmapx-mega-slider-track-height, 22px);
       background: transparent;
     }
-  `;
+
+    .kiosk-notice {
+      margin: 0 auto;
+    }
+  `];
 
   protected onMapAttached(_adapter: IMap): void {
     this.subscribeToConfig();
@@ -248,6 +254,7 @@ export class WebmapxMegaSlider extends WebmapxBaseTool {
     this.bottomLayerLabel = '';
     this.transparencyPct = DEFAULT_TRANSPARENCY_PCT;
     this.defaultedLayerId = null;
+    this.notice.set(null);
   }
 
   private recompute(state: IMapState | null): void {
@@ -266,6 +273,11 @@ export class WebmapxMegaSlider extends WebmapxBaseTool {
       ?? null;
 
     this.topLayerId = topId;
+    this.notice.set(!topId
+      ? 'Mega slider: there is no layer to fade. Add a layer on top of the base map.'
+      : !bottomId
+        ? `Mega slider: "${this.labelFor(topId, mapLayers)}" has no layer below it to fade into.`
+        : null);
 
     // start/end are positional (left/right), not "top/bottom": the top layer's
     // label is the one on the left now, so it takes the "start" override.
@@ -331,7 +343,7 @@ export class WebmapxMegaSlider extends WebmapxBaseTool {
   }
 
   protected render() {
-    if (!this.topLayerId) return html``;
+    if (!this.topLayerId || this.notice.text !== null) return this.notice.render();
 
     return html`
       <div class="shell" style="--slider-pct: ${this.transparencyPct}%">

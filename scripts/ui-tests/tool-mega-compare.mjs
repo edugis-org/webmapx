@@ -158,6 +158,29 @@ async function checkRemovedMidRebuild(page) {
   return r.mirrorsLeft ? [`a mirror built after its control was removed stayed in the page (${r.mirrorsLeft})`] : [];
 }
 
+/** A notice for whoever sets the kiosk up: never for a visitor hiding a layer, and only when a layer is really missing. */
+async function checkNotice(page) {
+  const result = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const text = () => document.querySelector('webmapx-mega-compare')?.shadowRoot?.querySelector('.kiosk-notice')?.textContent ?? null;
+    const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
+    const ids = Object.keys(adapter.store.getState().mapLayers);
+    await sleep(2500);
+    const atStart = text();
+    adapter.setLayerVisibility(ids[ids.length - 1], false);
+    await sleep(2500);
+    const hidden = text();
+    adapter.removeLayer(ids[ids.length - 1]);
+    await sleep(2500);
+    return { atStart, hidden, oneLeft: text() };
+  });
+  const problems = [];
+  if (result.atStart) problems.push(`a notice on a correctly set-up map: ${result.atStart}`);
+  if (result.hidden) problems.push(`a notice after a visitor hid a layer: ${result.hidden}`);
+  if (!result.oneLeft?.includes('only layer')) problems.push(`expected an "only layer" notice with one layer left, got ${JSON.stringify(result.oneLeft)}`);
+  return problems;
+}
+
 export async function run({ page, baseUrl }) {
   await open(page, baseUrl);
   const problems = await checkFollowsLiveMap(page);
@@ -167,5 +190,7 @@ export async function run({ page, baseUrl }) {
   problems.push(...await checkRemovedConfigLayerStaysGone(page));
   await open(page, baseUrl);
   problems.push(...await checkRemovedMidRebuild(page));
+  await open(page, baseUrl);
+  problems.push(...await checkNotice(page));
   if (problems.length) throw new Error(problems.join('\n'));
 }

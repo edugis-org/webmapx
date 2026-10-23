@@ -5,6 +5,7 @@ import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState, MapLayerStateEntry } from '../store/IMapState';
 import type { IMap } from '../map/IMapInterfaces';
 import { syncCamera } from '../utils/compare-replay';
+import { KioskNotice, kioskNoticeStyles } from './internal/kiosk-notice';
 import {
   createMegaCompareMirror,
   syncLayerSettings,
@@ -76,6 +77,7 @@ export class WebmapxMegaCompare extends WebmapxBaseTool {
    */
   private syncedFrom: { mapLayers: unknown; projection: unknown; terrain: unknown } | null = null;
   private split = DEFAULT_SPLIT;
+  private readonly notice = new KioskNotice(this);
 
   private handleEl: HTMLElement | null = null;
   private cameraUnsubscribe: (() => void) | null = null;
@@ -84,10 +86,12 @@ export class WebmapxMegaCompare extends WebmapxBaseTool {
   // Nothing is rendered through Lit's own shadow DOM: the seam and the mirror map have to sit
   // in the *light* DOM, as direct children of `<webmapx-map>`, spanning its full size — the
   // same reason the original compare tool builds its handle with raw DOM calls instead of
-  // through its (separate) panel template.
-  static styles = css`
+  // through its (separate) panel template. The one exception is the notice
+  // for a config without two layers, which sits in this control's own slot.
+  static styles = [kioskNoticeStyles, css`
     :host { display: none; }
-  `;
+    :host([notice]) { display: block; }
+  `];
 
   protected onStateChanged(state: IMapState): void {
     void this.evaluate(state);
@@ -107,7 +111,11 @@ export class WebmapxMegaCompare extends WebmapxBaseTool {
   }
 
   protected render() {
-    return html``;
+    return this.notice.render();
+  }
+
+  protected updated(): void {
+    this.toggleAttribute('notice', this.notice.text !== null);
   }
 
   private attachCameraSync(adapter: IMap): void {
@@ -133,6 +141,7 @@ export class WebmapxMegaCompare extends WebmapxBaseTool {
       && synced.projection === from.projection && synced.terrain === from.terrain) return;
 
     const mapLayers = state.mapLayers ?? {};
+    this.notice.set(missingLayersNotice(mapLayers));
     const { topId, secondId } = computeTopTwo(mapLayers);
     this.topId = topId;
 
@@ -209,6 +218,7 @@ export class WebmapxMegaCompare extends WebmapxBaseTool {
   }
 
   private teardown(): void {
+    this.notice.set(null);
     this.cameraUnsubscribe?.();
     this.cameraUnsubscribe = null;
     this.teardownOverlay();
@@ -425,6 +435,18 @@ function computeTopTwo(mapLayers: Record<string, MapLayerStateEntry>): { topId: 
   };
   const eligible = orderedIds.filter(isEligible);
   return { topId: eligible[0] ?? null, secondId: eligible[1] ?? null };
+}
+
+/**
+ * Counts the layers a config put on the map, not the visible ones: a visitor
+ * switching a layer off in the legend is not a configuration mistake, and
+ * must not bring up a notice meant for whoever set the kiosk up.
+ */
+function missingLayersNotice(mapLayers: Record<string, MapLayerStateEntry>): string | null {
+  const ids = Object.keys(mapLayers).filter((id) => mapLayers[id]?.hideFromLegend !== true);
+  if (ids.length === 0) return 'Mega compare: there are no layers to compare. Add two layers to the map.';
+  if (ids.length === 1) return `Mega compare: "${labelFor(ids[0], mapLayers)}" is the only layer. Add a second one to compare it with.`;
+  return null;
 }
 
 function labelFor(layerId: string | null, mapLayers: Record<string, MapLayerStateEntry>): string {

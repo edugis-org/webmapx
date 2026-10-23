@@ -279,7 +279,9 @@ function buildStandalone(name: string, config: Record<string, unknown>): HTMLEle
   if (!tagName) return null;
 
   const el = document.createElement(tagName);
-  el.setAttribute('slot', String(config.position));
+  // A control with no position would land in slot "undefined", which no
+  // layout zone shows; top-left is the default the setup page offers too.
+  el.setAttribute('slot', String(config.position ?? 'top-left'));
 
   switch (name) {
     case 'scale':

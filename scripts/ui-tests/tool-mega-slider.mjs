@@ -155,6 +155,25 @@ export async function run({ page, baseUrl }) {
       fail(`Expected satellite.transparency to stay at 30 from the earlier drag, got ${layers.satellite?.transparency}`);
     }
   });
+
+  await step('a correctly set-up map shows no notice', async () => {
+    if (await noticeText(page)) fail(`Unexpected notice: ${await noticeText(page)}`);
+  });
+
+  await step('with one layer left, the slider says so instead of showing an empty bar', async () => {
+    await page.evaluate(async () => {
+      const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
+      adapter.removeLayer('satellite');
+    });
+    // The notice waits two seconds, so a map still loading its layers does not flash one.
+    await page.waitForTimeout(2500);
+    const text = await noticeText(page);
+    if (!text?.includes('no layer below')) fail(`Expected a "no layer below" notice, got ${JSON.stringify(text)}`);
+  });
+}
+
+function noticeText(page) {
+  return page.evaluate(() => document.querySelector('webmapx-mega-slider')?.shadowRoot?.querySelector('.kiosk-notice')?.textContent ?? null);
 }
 
 export const engines = ['maplibre', 'openlayers'];
