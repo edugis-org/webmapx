@@ -7,6 +7,8 @@
 // - A drawn layer undone after the draw tool has ruled it deleted (it waits
 //   1.5 s, for a restyle's rebuild) is the draw tool's again: in its list,
 //   with its features, and not offered as a catalog layer to copy.
+// - Focus lands on Undo after a remove, and Ctrl+Z / Cmd+Z undoes the most
+//   recent removal — but not while typing in a field.
 // - Rows hang below their old neighbour. Removing A, re-adding A and then
 //   removing B made the two rows each other's neighbour, and the legend
 //   recursed until the stack overflowed. That order is tested as a user
@@ -147,6 +149,49 @@ async function checkRowsNamingEachOther(page, errors) {
   return problems;
 }
 
+async function checkKeyboardUndo(page) {
+  const problems = [];
+  const removeAndFocus = () => page.evaluate(async () => {
+    const u = window.__undo;
+    await u.map().addLayerRequest({ layerId: 'earthquake' });
+    await u.waitFor(() => u.row('earthquake'), 10_000, 'legend row');
+    u.remove('earthquake');
+    await u.waitFor(() => u.undoRow('earthquake'), 5000, 'undo row');
+    await u.sleep(100);
+    const button = u.undoRow('earthquake').querySelector('sl-button');
+    return u.legend().shadowRoot.activeElement === button;
+  });
+  const isBack = () => page.evaluate(async () => {
+    const u = window.__undo;
+    return u.waitFor(() => u.row('earthquake'), 5000, 'layer back').then(() => true, () => false);
+  });
+
+  if (!await removeAndFocus()) problems.push('focus is not on Undo after removing a layer');
+  await page.keyboard.press('Control+z');
+  if (!await isBack()) problems.push('Ctrl+Z did not undo the removal');
+
+  await removeAndFocus();
+  await page.keyboard.press('Meta+z');
+  if (!await isBack()) problems.push('Cmd+Z did not undo the removal');
+
+  await removeAndFocus();
+  await page.evaluate(() => {
+    const input = document.createElement('input');
+    input.id = 'undo-test-field';
+    document.body.append(input);
+    input.focus();
+  });
+  await page.keyboard.press('Control+z');
+  const typed = await page.evaluate(async () => {
+    const u = window.__undo;
+    await u.sleep(500);
+    document.getElementById('undo-test-field').remove();
+    return { back: Boolean(u.row('earthquake')), row: Boolean(u.undoRow('earthquake')) };
+  });
+  if (typed.back || !typed.row) problems.push('Ctrl+Z in a text field undid a layer removal');
+  return problems;
+}
+
 async function checkDrawLayerReadopted(page) {
   const result = await page.evaluate(async () => {
     const u = window.__undo;
@@ -211,6 +256,8 @@ export async function run({ page, baseUrl }) {
   problems.push(...await checkReaddedLayer(page));
   await openLegend(page, baseUrl);
   problems.push(...await checkRowsNamingEachOther(page, errors));
+  await openLegend(page, baseUrl);
+  problems.push(...await checkKeyboardUndo(page));
   await openLegend(page, baseUrl);
   problems.push(...await checkDrawLayerReadopted(page));
   if (problems.length) throw new Error(problems.join('\n'));

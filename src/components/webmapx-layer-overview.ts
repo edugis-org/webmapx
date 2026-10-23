@@ -821,6 +821,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
   }
 
   protected onMapAttached(adapter: IMap): void {
+    window.addEventListener('keydown', this.onUndoKeydown);
     this.unsubscribeLayerAdd = adapter.events.on('layer-add', (event: LayerAddEvent) => {
       this.dropPendingUndosFor(event.layerId);
       this.applyVisibleLayers(adapter.store.getState());
@@ -837,8 +838,27 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     this.unsubscribeLayerRemove?.();
     this.unsubscribeLayerAdd = null;
     this.unsubscribeLayerRemove = null;
+    window.removeEventListener('keydown', this.onUndoKeydown);
     this.clearAllPendingUndos();
   }
+
+  /**
+   * Ctrl+Z (Cmd+Z on a Mac) undoes the most recent removal while its row is
+   * showing — undo is a reflex, and people reach for the keys before the
+   * button. Listening on window in the bubble phase lets a tool with its own
+   * history go first: the draw tool's editing session and the measure tool
+   * claim the chord (`preventDefault`) for their own last step, and then this
+   * stays out of it. Never while typing, where Ctrl+Z belongs to the field.
+   */
+  private onUndoKeydown = (event: KeyboardEvent): void => {
+    if (this.pendingUndos.length === 0 || event.defaultPrevented) return;
+    if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== 'z') return;
+    const target = event.composedPath()[0];
+    if (target instanceof HTMLElement
+      && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
+    event.preventDefault();
+    void this.handleUndoDeleteLayer(this.pendingUndos[this.pendingUndos.length - 1].id);
+  };
 
   /** Clears every queued undo row and its timer — used when the map detaches
    *  and when "Clear all layers" makes them all moot at once. */
@@ -1926,6 +1946,19 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
     if (snapshot) this.armPendingUndo(layerId, label, snapshot);
     this.adapter.removeLayer(layerId);
     this.applyVisibleLayers(this.adapter.store.getState());
+    if (snapshot) void this.focusUndoRow(layerId);
+  }
+
+  /**
+   * The delete button that had focus is gone with its row, which would drop
+   * focus to the page. The Undo that took its place is where it belongs:
+   * Enter or Space right after a mistaken delete takes it back, and a screen
+   * reader announces the button it lands on.
+   */
+  private async focusUndoRow(layerId: string): Promise<void> {
+    await this.updateComplete;
+    const button = this.shadowRoot?.querySelector<HTMLElement>(`.undo-row[data-layer-id="${CSS.escape(layerId)}"] sl-button`);
+    button?.focus();
   }
 
   /** Queues a removal snapshot and starts its own auto-dismiss timer — deleting several
