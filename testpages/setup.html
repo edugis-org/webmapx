@@ -2637,13 +2637,17 @@
         const propOverrides = overrides[propsKey];
         const enabledOverride = overrides[key];
 
+        // The defaults the ⚙ editor shows (see buildUI) must also be what is
+        // written: a tool enabled without touching its options otherwise got
+        // no position at all, and only a changed value ever reached the config.
+        const shownDefaults = { position: 'top-left', ...(TOOL_EXTRA_PROPS[tool.id] ?? {}) };
         const existing = tools[tool.id];
         if (existing !== null && existing && typeof existing === 'object') {
-          if (enabledOverride !== undefined) tools[tool.id] = { ...existing, enabled: enabledOverride };
-          if (propOverrides) tools[tool.id] = { ...(tools[tool.id] ?? existing), ...propOverrides };
+          if (enabledOverride !== undefined) tools[tool.id] = { ...shownDefaults, ...existing, enabled: enabledOverride };
+          if (propOverrides) tools[tool.id] = { ...shownDefaults, ...(tools[tool.id] ?? existing), ...propOverrides };
         } else if (existing === null || enabledOverride === true) {
           // null in config = present but unconfigured; build a real object
-          tools[tool.id] = { enabled: enabledOverride ?? true, ...(isPluginTool(tool.id) ? pluginTemplate(tool.id) : {}), ...(propOverrides ?? {}) };
+          tools[tool.id] = { ...shownDefaults, enabled: enabledOverride ?? true, ...(isPluginTool(tool.id) ? pluginTemplate(tool.id) : {}), ...(propOverrides ?? {}) };
         }
       }
 
