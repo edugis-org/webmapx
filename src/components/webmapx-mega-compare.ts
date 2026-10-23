@@ -1,5 +1,5 @@
 // src/components/webmapx-mega-compare.ts
-import { css, html } from 'lit';
+import { css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { WebmapxBaseTool } from './webmapx-base-tool';
 import type { IMapState, MapLayerStateEntry } from '../store/IMapState';
