@@ -2158,22 +2158,31 @@
     }
 
     function wireStyleUI(config) {
+      // Picking a style or theme here is the newest choice, so it also drops the
+      // one made earlier in the Settings tool: the last switch touched wins, and
+      // the preview shows what was just picked.
       document.getElementById('style-ui-style').addEventListener('change', (e) => {
         setUiField('style', e.target.value);
+        forgetViewerAppearance();
         scheduleStylePreview();
       });
       document.getElementById('style-ui-theme').addEventListener('change', (e) => {
         setUiField('theme', e.target.value);
+        forgetViewerAppearance();
         scheduleStylePreview();
       });
       document.getElementById('btn-style-refresh').addEventListener('click', () => refreshStylePreviewFrame(baseConfig));
       document.getElementById('btn-style-forget-choice').addEventListener('click', () => {
-        // Only the marker: the stored values stay for host pages that read them
-        // before first paint, but no longer outrank a config (src/utils/appearance.ts).
-        localStorage.removeItem('webmapx-appearance-chosen');
-        updateChosenWarning();
+        forgetViewerAppearance();
         refreshStylePreviewFrame(baseConfig);
       });
+    }
+
+    function forgetViewerAppearance() {
+      // Only the marker: the stored values stay for host pages that read them
+      // before first paint, but no longer outrank a config (src/utils/appearance.ts).
+      localStorage.removeItem('webmapx-appearance-chosen');
+      updateChosenWarning();
     }
 
     function updateChosenWarning() {
