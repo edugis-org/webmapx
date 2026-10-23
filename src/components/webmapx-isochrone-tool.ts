@@ -222,6 +222,8 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         label { display: block; margin-bottom: 0.25rem; }
         .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
+        /* The panel's padding is the space under the last row; its own margin would add to it. */
+        .row:last-child, .field:last-child { margin-bottom: 0; }
         sl-select, sl-input { flex: 1; min-width: 0; }
         /* A row whose fields carry their labels above: buttons line up with the field, not the label. */
         .row.fields { align-items: flex-end; }

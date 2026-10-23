@@ -344,6 +344,8 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         label { display: block; margin-bottom: 0.25rem; }
         .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
+        /* The panel's padding is the space under the last row; its own margin would add to it. */
+        .row:last-child, .field:last-child { margin-bottom: 0; }
         /* Clear of the waypoints above, but flush with the panel when it is the first thing in it. */
         .waypoint + .row { margin-top: 0.75rem; }
         sl-select { flex: 1; min-width: 0; }

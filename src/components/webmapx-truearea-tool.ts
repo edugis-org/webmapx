@@ -240,6 +240,8 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         .method-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
         .method-row input { cursor: pointer; }
         .rotation-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
+        /* The panel's padding is the space under the last element; its own margin would add to it. */
+        sl-select:last-child, .hint:last-child, .copy-item:last-child, .no-copies:last-child, .method-row:last-child, .rotation-row:last-child { margin-bottom: 0; }
         /* The browser's own slider in the shared slider colour, like every other tool's. */
         .rotation-row input[type=range] { flex: 1; min-width: 0; }
         .rotation-value { font-variant-numeric: tabular-nums; min-width: 3.5em; text-align: right; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
