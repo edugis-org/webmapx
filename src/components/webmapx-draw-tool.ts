@@ -157,6 +157,9 @@ const MAP_LAYER_COLOR = '#888888';
 /** How long a draw layer may be missing from the map before it counts as
  *  deleted rather than rebuilt by the legend's style panel. */
 const REBUILD_GRACE_MS = 1500;
+/** How long a layer deleted from outside may still come back as this tool's
+ *  own — longer than the legend offers Undo for (8 s). */
+const READOPT_WINDOW_MS = 10_000;
 const SELECTED_VERTEX_COLOR = '#ff3b30';
 const SELECTED_VERTEX_RADIUS = 10;
 
@@ -381,6 +384,12 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     /** Resting layers seen missing, each with the timer that decides whether
      *  it was deleted or is being rebuilt — see `reconcileExternallyDeletedLayers`. */
     private missingLayerChecks = new Map<string, number>();
+    /**
+     * Layers this tool let go of because they were deleted from outside,
+     * kept for `READOPT_WINDOW_MS` with what is needed to take them back —
+     * see `readoptRestoredLayers`.
+     */
+    private releasedLayers = new Map<string, { cfg: DrawLayerConfig; index: number; features: DrawFeature[]; timer: number }>();
 
     /** Points collected for the current in-progress line/polygon. */
     private draftPoints: LngLat[] = [];
@@ -1351,6 +1360,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.touchMQ.removeEventListener('change', this.onTouchMQChange);
         for (const timer of this.missingLayerChecks.values()) clearTimeout(timer);
         this.missingLayerChecks.clear();
+        for (const { timer } of this.releasedLayers.values()) clearTimeout(timer);
+        this.releasedLayers.clear();
         this.unsubMapLayers?.();
         this.unsubMapLayers = null;
         // An open tool is closed first (WebmapxModalTool), which gives a layer
@@ -2341,16 +2352,20 @@ export class WebmapxDrawTool extends WebmapxModalTool {
      */
     private reconcileExternallyDeletedLayers(state: { mapLayers?: Record<string, unknown> }): void {
         const mapLayers = state.mapLayers ?? {};
+        this.readoptRestoredLayers(mapLayers);
         for (const cfg of [...this.drawLayers]) {
             if (!this.ownsPermLayer.has(cfg.id)) continue;
             if (mapLayers[drawMapLayerId(cfg.id)]) {
                 if (!this.confirmedRestingLayerIds.has(cfg.id)) {
                     this.confirmedRestingLayerIds.add(cfg.id);
-                    // The layer is added asynchronously, so a schema edited
-                    // before it registered never reached the store, and
-                    // features drawn before it had a source never reached that.
+                    // The layer is added asynchronously, so whatever happened
+                    // before it registered never reached the store: a schema
+                    // edit, a name (which is also what shows it in the legend),
+                    // features drawn before it had a source, and a pause.
                     this.syncLayerPropertiesToStore(cfg.id, cfg.properties);
-                    if (!this.pausedLayerIds.has(cfg.id)) this.refreshDrawLayerSource(cfg.id);
+                    this.syncLayerNameToStore(cfg);
+                    if (this.pausedLayerIds.has(cfg.id)) this.restoreBorrowedLayer(cfg);
+                    else this.refreshDrawLayerSource(cfg.id);
                 }
                 const pending = this.missingLayerChecks.get(cfg.id);
                 if (pending !== undefined) {
@@ -2403,11 +2418,58 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private handleExternallyDeletedLayer(cfg: DrawLayerConfig): void {
         const wasEditingThis = this.panelView === 'editing' && this.pickedType === cfg.type
             && this.activeLayerIds[cfg.type] === cfg.id;
+        this.rememberReleasedLayer(cfg);
         this.releaseLayer(cfg);
         if (wasEditingThis) {
             this.selectedFeatureId = null;
             this.setModeInternal('select');
             this.panelView = 'layers';
+        }
+    }
+
+    /**
+     * The legend's Undo puts a deleted layer back several seconds later —
+     * after `REBUILD_GRACE_MS` has already ruled it deleted. Without this the
+     * layer came back as a stranger: gone from this tool's list, offered
+     * under "From the catalog", and editing it made a copy.
+     */
+    private rememberReleasedLayer(cfg: DrawLayerConfig): void {
+        this.forgetReleasedLayer(cfg.id);
+        const timer = window.setTimeout(() => this.releasedLayers.delete(cfg.id), READOPT_WINDOW_MS);
+        this.releasedLayers.set(cfg.id, {
+            cfg,
+            index: this.drawLayers.findIndex(l => l.id === cfg.id),
+            features: this.features.filter(f => f.layerId === cfg.id),
+            timer,
+        });
+    }
+
+    private forgetReleasedLayer(layerId: string): void {
+        const released = this.releasedLayers.get(layerId);
+        if (!released) return;
+        clearTimeout(released.timer);
+        this.releasedLayers.delete(layerId);
+    }
+
+    /**
+     * Takes back a released layer that is on the map again. It returns
+     * paused, as any layer not being edited is: the map already shows what
+     * the Undo restored, and "Edit" resumes it as usual.
+     */
+    private readoptRestoredLayers(mapLayers: Record<string, unknown>): void {
+        for (const [layerId, { cfg, index, features }] of [...this.releasedLayers]) {
+            if (!mapLayers[drawMapLayerId(layerId)]) continue;
+            this.forgetReleasedLayer(layerId);
+            if (this.drawLayers.some(l => l.id === layerId)) continue;
+            const layers = [...this.drawLayers];
+            layers.splice(index < 0 ? layers.length : Math.min(index, layers.length), 0, cfg);
+            this.drawLayers = layers;
+            this.features = [...this.features, ...features];
+            this.ownsPermLayer.add(layerId);
+            this.confirmedRestingLayerIds.add(layerId);
+            this.pausedLayerIds.add(layerId);
+            void this.refreshCatalogLayerOptions();
+            void this.refreshTypeCatalogCounts();
         }
     }
 
@@ -2770,6 +2832,12 @@ export class WebmapxDrawTool extends WebmapxModalTool {
      * a `create-time`/`update-time` attribute added mid-session used to
      * render as a raw epoch number in the info tool for exactly this reason.
      */
+    /** The store half of `updateActiveLayerName`, for a layer named before it registered. */
+    private syncLayerNameToStore(cfg: DrawLayerConfig): void {
+        if (isDefaultLayerName(cfg.name) || !cfg.borrowedSourceId) return;
+        this.setBorrowedLayerMetadata(cfg.borrowedSourceId, { label: cfg.name, hideFromLegend: false });
+    }
+
     private syncLayerPropertiesToStore(layerId: string, properties: PropertyDef[]): void {
         const mapLayerId = drawMapLayerId(layerId);
         if (!this.adapter?.store) return;

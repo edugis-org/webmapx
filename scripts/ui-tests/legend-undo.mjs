@@ -4,6 +4,9 @@
 // - A layer that is back on the map some other way — re-added from the
 //   catalog — has nothing left to undo: its row goes, and no second copy of
 //   the layer can be added through it.
+// - A drawn layer undone after the draw tool has ruled it deleted (it waits
+//   1.5 s, for a restyle's rebuild) is the draw tool's again: in its list,
+//   with its features, and not offered as a catalog layer to copy.
 // - Rows hang below their old neighbour. Removing A, re-adding A and then
 //   removing B made the two rows each other's neighbour, and the legend
 //   recursed until the stack overflowed. That order is tested as a user
@@ -144,6 +147,59 @@ async function checkRowsNamingEachOther(page, errors) {
   return problems;
 }
 
+async function checkDrawLayerReadopted(page) {
+  const result = await page.evaluate(async () => {
+    const u = window.__undo;
+    const adapter = await u.adapter();
+    const tool = await u.waitFor(() => document.querySelector('webmapx-map webmapx-draw-tool'), 10_000, 'draw tool');
+    // The draw tool loads lazily; a click before its toolbar is wired does nothing.
+    for (let attempt = 0; attempt < 5 && !tool.active; attempt++) {
+      document.querySelector('webmapx-toolbar sl-button[name="draw"]')?.click();
+      await u.waitFor(() => tool.active, 2000, 'draw tool to open').catch(() => {});
+    }
+    if (!tool.active) throw new Error('the draw tool did not open');
+    const newLayer = async (name) => {
+      if (tool.panelView === 'editing') { tool.stopEditingCurrent(); await u.waitFor(() => tool.panelView === 'layers', 5000, 'layer list'); }
+      (await u.waitFor(() => tool.shadowRoot?.querySelector('.type-card[data-type="Point"]'), 5000, 'type card')).click();
+      (await u.waitFor(() => tool.panelView === 'layers' && tool.shadowRoot.querySelector('.add-layer-btn'), 5000, 'add button')).click();
+      await u.waitFor(() => tool.panelView === 'editing' && tool.activeLayerIds?.Point, 5000, 'editing');
+      const input = tool.shadowRoot.querySelector('.editing-layer-name');
+      input.value = name;
+      input.dispatchEvent(new Event('sl-input', { bubbles: true, composed: true }));
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }));
+      tool.shadowRoot.querySelector('button[name="geo-fill"]').click();
+      await u.waitFor(() => tool.mode === 'draw-point', 5000, 'draw mode');
+      const c = adapter.getViewportState().center;
+      for (const d of [0, 1]) {
+        const p = [c[0] + d, c[1] + d];
+        adapter.events.emit({ type: 'click', coords: p, pixel: adapter.project(p), resolution: null });
+      }
+      return tool.activeLayerIds.Point;
+    };
+    const id = await newLayer('Undo me');
+    await newLayer('Keep editing');   // pauses the first, so the legend may delete it
+    const mapLayerId = `${id}-map`;
+    await u.waitFor(() => u.row(mapLayerId)?.querySelector('.delete-layer'), 10_000, 'drawn layer in the legend');
+    u.remove(mapLayerId);
+    const undo = await u.waitFor(() => u.undoRow(mapLayerId)?.querySelector('sl-button'), 5000, 'undo row');
+    await u.waitFor(() => !tool.drawLayers.some((l) => l.id === id), 5000, 'draw tool to let the layer go');
+    undo.click();
+    await u.waitFor(() => u.row(mapLayerId), 10_000, 'layer back in the legend');
+    await u.sleep(300);
+    const offered = await tool.getEditableMapLayers('Point');
+    return {
+      known: tool.drawLayers.some((l) => l.id === id),
+      features: tool.features.filter((f) => f.layerId === id).length,
+      offeredAsCatalog: offered.some((o) => (o.id ?? o.layerId) === mapLayerId),
+    };
+  });
+  const problems = [];
+  if (!result.known) problems.push('an undone drawn layer is no longer in the draw tool\'s list');
+  if (result.features !== 2) problems.push(`the draw tool holds ${result.features} of the undone layer's 2 features`);
+  if (result.offeredAsCatalog) problems.push('an undone drawn layer is offered as a catalog layer to copy');
+  return problems;
+}
+
 export async function run({ page, baseUrl }) {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -155,5 +211,7 @@ export async function run({ page, baseUrl }) {
   problems.push(...await checkReaddedLayer(page));
   await openLegend(page, baseUrl);
   problems.push(...await checkRowsNamingEachOther(page, errors));
+  await openLegend(page, baseUrl);
+  problems.push(...await checkDrawLayerReadopted(page));
   if (problems.length) throw new Error(problems.join('\n'));
 }
