@@ -68,7 +68,7 @@ export class WebmapxBufferTool extends WebmapxModalTool {
         :host(:not([active])) .tool-content { display: none; }
 
         .tool-content {
-            padding: var(--sl-spacing-medium);
+            padding: var(--webmapx-tool-padding, var(--sl-spacing-medium));
             display: flex;
             flex-direction: column;
             gap: var(--sl-spacing-small);

@@ -128,7 +128,7 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
         :host(:not([active])) .tool-content { display: none; }
 
         .tool-content {
-            padding: var(--sl-spacing-medium);
+            padding: var(--webmapx-tool-padding, var(--sl-spacing-medium));
             min-height: 260px;
             display: flex;
             flex-direction: column;

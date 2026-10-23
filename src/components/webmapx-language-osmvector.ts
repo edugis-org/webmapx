@@ -146,7 +146,7 @@ export class WebmapxLanguageOsmVector extends WebmapxModalTool {
             display: block;
         }
         .container {
-            padding: 0.5rem 1rem;
+            padding: 0.5rem var(--webmapx-tool-padding, 1rem);
             font-size: 0.875rem;
         }
         sl-select {

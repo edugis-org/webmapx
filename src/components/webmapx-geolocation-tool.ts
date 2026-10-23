@@ -239,7 +239,7 @@ export class WebmapxGeolocationTool extends WebmapxBaseTool {
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
-      padding: 0.75rem;
+      padding: var(--webmapx-tool-padding, 0.75rem);
       color: var(--color-text-primary);
     }
 

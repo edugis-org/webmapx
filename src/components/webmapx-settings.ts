@@ -64,7 +64,7 @@ export class WebmapxSettings extends LitElement {
     static styles = [formLabelStyles, helpTextStyles, controlSurfaceStyles, sectionHeadingStyles, css`
         :host {
             display: block;
-            padding: 1rem;
+            padding: var(--webmapx-tool-padding, 1rem);
             box-sizing: border-box;
         }
 
