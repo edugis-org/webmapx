@@ -722,6 +722,16 @@ export abstract class BaseAdapter {
         const sources: Record<string, unknown> = {
             ...((config.sources && typeof config.sources === 'object') ? config.sources as Record<string, unknown> : {}),
         };
+        // The config holds the data a source was *added* with. A layer whose
+        // data arrived later through setData — a drawn layer, a tool's result —
+        // was added empty, so rebuilding from the config emptied it: restyling
+        // a drawn polygon layer lost every polygon. The data the map draws now
+        // is what the rebuilt layer has to keep.
+        for (const [key, source] of Object.entries(sources)) {
+            if (!source || typeof source !== 'object' || (source as { type?: unknown }).type !== 'geojson') continue;
+            const live = this.getSourceData(`${layerId}:${key}`);
+            if (live && typeof live === 'object') sources[key] = { ...source, data: live };
+        }
         const inlineKeys = new Map<unknown, string>();
         const keyedSublayers = sublayers.map((sublayer) => {
             const source = sublayer.source;
@@ -747,6 +757,19 @@ export abstract class BaseAdapter {
         delete composite.layout;
         delete composite['source-layer'];
         if (inlineKeys.size > 0) delete composite.source;
+
+        // Likewise the metadata: a key the config declared may have been
+        // changed in the store since (a layer renamed, shown in the legend once
+        // named, handed back by the draw tool), and the re-add would otherwise
+        // register the value the layer was added with.
+        const entry = (this.store.getState().mapLayers ?? {})[layerId] as Record<string, unknown> | undefined;
+        if (entry && config.metadata && typeof config.metadata === 'object') {
+            const metadata = { ...config.metadata as Record<string, unknown> };
+            for (const key of Object.keys(metadata)) {
+                if (key in entry) metadata[key] = entry[key];
+            }
+            composite.metadata = metadata;
+        }
 
         // Whatever sat directly above it, so the rebuilt layer lands back in the
         // same place rather than on top of everything.

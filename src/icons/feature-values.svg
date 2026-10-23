@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+<defs>
+<clipPath id="wmx-fv-clip"><rect x="3" y="2.5" width="10" height="11" rx="1.2"/></clipPath>
+</defs>
+<rect x="3" y="2.5" width="10" height="2.75" fill="currentColor" clip-path="url(#wmx-fv-clip)"/>
+<rect x="3" y="2.5" width="10" height="11" rx="1.2" stroke-width="1.2"/>
+<path d="M3.3 8 H12.7" stroke-width="0.7"/>
+<path d="M3.3 10.75 H12.7" stroke-width="0.7"/>
+</svg>
