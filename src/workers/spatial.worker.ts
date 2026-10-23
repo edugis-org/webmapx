@@ -7,16 +7,12 @@
  * Protocol: every message in/out carries an opId so the manager can route
  * responses back to the correct caller even if multiple ops are in flight.
  *
- * Buffer strategy:
- *   1. ogr2ogr WGS84 → EPSG:3857 (Web Mercator, metric, conformal)
- *   2. ST_Buffer in metres via SQLite spatial dialect
- *   3. ogr2ogr EPSG:3857 → WGS84
- *   EPSG:3857 is conformal so circles in metre-space are circles in reality.
- *   Clip to ±84° to avoid polar PROJ errors.
+ * The buffer pipeline itself lives in `buffer-runner.ts`.
  */
 
 import initGdalJs from 'gdal3.js';
 import { runGeoprocess, type GdalLike, type GeoprocessRequest } from './geoprocessing-runner';
+import { bufferFeatures } from './buffer-runner';
 import { parseGdalGeoJSON } from '../utils/geojson-crs';
 import wasmUrl from 'gdal3.js/dist/package/gdal3WebAssembly.wasm?url';
 import dataUrl from 'gdal3.js/dist/package/gdal3WebAssembly.data?url';
@@ -93,12 +89,6 @@ function getGdal(): Promise<GdalInstance> {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function featureCollectionToFile(fc: GeoJSON.FeatureCollection, name: string): Promise<File> {
-    const json = JSON.stringify(fc);
-    const blob = new Blob([json], { type: 'application/json' });
-    return new File([blob], `${name}.geojson`);
-}
-
 async function filePathToFeatureCollection(gdal: GdalInstance, filePath: string | { local: string; real: string }): Promise<GeoJSON.FeatureCollection> {
     const bytes = await gdal.getFileBytes(filePath as string | Parameters<GdalInstance['getFileBytes']>[0]);
     const text = new TextDecoder().decode(bytes);
@@ -109,107 +99,6 @@ async function filePathToFeatureCollection(gdal: GdalInstance, filePath: string 
 }
 
 // ─── Operations ──────────────────────────────────────────────────────────────
-
-async function openDataset(gdal: GdalInstance, path: string): Promise<any> {
-    const { datasets, errors } = await gdal.open(path);
-    const ds = datasets[0];
-    if (!ds) throw new Error(`Failed to open ${path}: ${errors.join('; ')}`);
-    return ds;
-}
-
-/**
- * Recursively drops a Z/M coordinate from every position in a geometry.
- * GDAL's SQLite dialect (ST_MakeValid/ST_Buffer, used by `buffer()` below) can
- * hard-abort the WASM module on 3D input — e.g. USGS earthquake feeds encode
- * depth as coordinates[2]. Buffering only needs 2D input regardless, so strip
- * any extra dimensions before anything reaches GDAL.
- */
-function dropZ(coords: unknown): unknown {
-    if (!Array.isArray(coords)) return coords;
-    if (typeof coords[0] === 'number') return coords.slice(0, 2);
-    return coords.map(dropZ);
-}
-
-function flattenTo2D(fc: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
-    return {
-        ...fc,
-        features: fc.features.map((f) => {
-            if (!f.geometry || !('coordinates' in f.geometry)) return f;
-            return { ...f, geometry: { ...f.geometry, coordinates: dropZ(f.geometry.coordinates) } as GeoJSON.Geometry };
-        }),
-    };
-}
-
-async function buffer(
-    gdal: GdalInstance,
-    rawInput: GeoJSON.FeatureCollection,
-    distanceMeters: number,
-    segments: number = 16,
-    centerLat: number = 0,
-): Promise<GeoJSON.FeatureCollection> {
-    const input = flattenTo2D(rawInput);
-
-    // EPSG:3857 unit = meters at equator, scaled by 1/cos(lat) elsewhere.
-    // Divide by cos(lat) so ST_Buffer in 3857-space produces correct real-world size.
-    const scale = Math.cos(centerLat * Math.PI / 180);
-    const dist3857 = distanceMeters / (scale || 1);
-
-    // GDAL gets the shapes only: the attributes are put back from the input by
-    // index below, and an `id` — a property, or a feature id GDAL turns into
-    // one — makes the SQLite buffer step return no dataset at all. Every drawn
-    // feature carries one, so buffering a drawn layer always failed.
-    const shapes: GeoJSON.FeatureCollection = {
-        type: 'FeatureCollection',
-        features: input.features.map((feature) => ({ type: 'Feature', geometry: feature.geometry, properties: {} })),
-    };
-    const inputFile = await featureCollectionToFile(shapes, 'spatialinput');
-    const { datasets: inputDatasets, errors: inputErrors } = await gdal.open(inputFile);
-    const inputDataset = inputDatasets[0];
-    if (!inputDataset) throw new Error(`Failed to open input: ${inputErrors.join('; ')}`);
-
-    let ds3857: any;
-    let dsBuf: any;
-
-    try {
-        const reproj3857Path = await gdal.ogr2ogr(inputDataset, [
-            '-f', 'GeoJSON',
-            '-t_srs', 'EPSG:3857',
-            '-clipsrc', '-180', '-84', '180', '84',
-            '-makevalid',
-            '-skipfailures',
-            '-nln', 'spatialbuf_3857',
-        ], 'spatialbuf_3857');
-
-        ds3857 = await openDataset(gdal, reproj3857Path.local);
-        const sql = `SELECT ST_Buffer(ST_MakeValid(geometry), ${dist3857}, ${segments}) AS geometry FROM "spatialbuf_3857"`;
-        const bufferedPath = await gdal.ogr2ogr(ds3857, [
-            '-f', 'GeoJSON',
-            '-dialect', 'SQLITE',
-            '-sql', sql,
-            '-skipfailures',
-        ], 'spatialbuf_buf');
-
-        dsBuf = await openDataset(gdal, bufferedPath.local);
-        const outputPath = await gdal.ogr2ogr(dsBuf, [
-            '-f', 'GeoJSON',
-            '-t_srs', 'EPSG:4326',
-            '-wrapdateline',
-            '-skipfailures',
-        ], 'spatialbuf_output');
-
-        const result = await filePathToFeatureCollection(gdal, outputPath);
-        result.features.forEach((f, i) => {
-            if (input.features[i]?.properties) {
-                f.properties = { ...input.features[i].properties, ...(f.properties ?? {}) };
-            }
-        });
-        return result;
-    } finally {
-        if (dsBuf) await gdal.close(dsBuf);
-        if (ds3857) await gdal.close(ds3857);
-        await gdal.close(inputDataset);
-    }
-}
 
 async function convertToGeoJSON(
     gdal: GdalInstance,
@@ -418,7 +307,7 @@ self.onmessage = async (e: MessageEvent<SpatialRequest>) => {
         let result: GeoJSON.FeatureCollection;
         switch (operation.op) {
             case 'buffer':
-                result = await buffer(gdal, operation.input, operation.distanceMeters, operation.segments, operation.centerLat);
+                result = await bufferFeatures(gdal as unknown as GdalLike, operation.input, operation.distanceMeters, operation.segments, operation.centerLat);
                 break;
             case 'geoprocess':
                 result = await runGeoprocess(gdal as unknown as GdalLike, operation, {
