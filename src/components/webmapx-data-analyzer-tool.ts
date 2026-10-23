@@ -259,7 +259,7 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
         /* Field names are long and the panel is narrow: a button wraps its
            label instead of pushing the row out of the panel. */
         .actions sl-button, .related sl-button { max-width: 100%; }
-        .actions sl-button::part(base), .related sl-button::part(base) { height: auto; min-height: var(--sl-input-height-small); }
+        .actions sl-button::part(base), .related sl-button::part(base) { height: auto; min-height: var(--sl-input-height-small); align-items: center; }
         .actions sl-button::part(label), .related sl-button::part(label) {
             white-space: normal;
             overflow-wrap: anywhere;
