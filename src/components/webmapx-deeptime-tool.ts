@@ -345,12 +345,12 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
     static styles = [accentControlStyles, formLabelStyles, controlSurfaceStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         .age { font-size: 1.5rem; font-weight: 600; line-height: 1.1; }
-        .period { color: var(--color-text-muted, #666); margin-bottom: 0.75rem; }
+        .period { color: var(--color-text-muted, #666); margin-bottom: var(--webmapx-space-md, 0.75rem); }
         input[type="range"] { width: 100%; }
         .controls { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
-        .models { margin: 0.5rem 0 0.75rem; font-size: 0.8125rem; color: var(--color-text-secondary, #5a6773); }
+        .models { margin: var(--webmapx-space-sm, 0.5rem) 0 var(--webmapx-space-md, 0.75rem); font-size: 0.8125rem; color: var(--color-text-secondary, #5a6773); }
         .models label { display: flex; align-items: center; gap: 0.4rem; }
-        .legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; margin-top: 0.75rem; }
+        .legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; margin-top: var(--webmapx-space-md, 0.75rem); }
         .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
         .legend i { width: 0.75rem; height: 0.75rem; border-radius: 2px; display: inline-block; }
         .status { color: var(--color-text-muted, #666); margin-top: 0.5rem; }

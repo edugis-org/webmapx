@@ -133,7 +133,7 @@ export class WebmapxProjectionTool extends WebmapxBaseTool {
             background: var(--color-surface-sunken, rgba(0, 0, 0, 0.06));
         }
         .badge.equal-area { color: var(--color-success, #1a7f37); }
-        .note { margin-top: 0.75rem; }
+        .note { margin-top: var(--webmapx-space-md, 0.75rem); }
     `];
 
     protected onMapAttached(): void {

@@ -159,7 +159,7 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
             padding: var(--webmapx-tool-padding, var(--sl-spacing-medium));
             display: flex;
             flex-direction: column;
-            gap: var(--sl-spacing-small);
+            gap: var(--webmapx-space-md, 0.75rem);
             font-size: var(--sl-font-size-small);
         }
 

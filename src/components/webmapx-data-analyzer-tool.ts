@@ -132,7 +132,7 @@ export class WebmapxDataAnalyzerTool extends WebmapxModalTool {
             min-height: 260px;
             display: flex;
             flex-direction: column;
-            gap: var(--sl-spacing-small);
+            gap: var(--webmapx-space-md, 0.75rem);
             font-size: var(--sl-font-size-small);
         }
 

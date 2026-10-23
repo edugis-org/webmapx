@@ -141,7 +141,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
        (a Shoelace default-variant button: neutral border, no fill) — .webmapx-control
        picks up the active [data-style] preset the way every other plain button here does. */
     .go-button svg { width: 1rem; height: 1rem; }
-    .results { margin-top:12px; max-height:50%; overflow:auto; }
+    .results { margin-top: var(--webmapx-space-md, 0.75rem); max-height:50%; overflow:auto; }
     /* Nothing searched yet: no box, so no margin under the field either. */
     .results:not(:has(*)) { display: none; }
     .results ul { list-style: none; margin: 0; padding: 0; }

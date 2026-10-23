@@ -213,7 +213,7 @@ export class WebmapxSealevelTool extends WebmapxModalTool {
         .scale { display: flex; justify-content: space-between; color: var(--color-text-muted, #666); font-size: 0.75rem; }
         .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
         .today { margin-left: auto; }
-        .legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; margin-top: 0.75rem; }
+        .legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; margin-top: var(--webmapx-space-md, 0.75rem); }
         .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
         .legend i { width: 0.75rem; height: 0.75rem; border-radius: 2px; display: inline-block; border: 1px solid var(--color-border, #d5dce3); }
         .error { color: var(--color-danger, #b3261e); margin-top: 0.5rem; }

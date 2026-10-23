@@ -75,7 +75,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
       color: var(--color-text-secondary);
       cursor: pointer;
       transition: border-color var(--webmapx-motion-fast, 120ms), background var(--webmapx-motion-fast, 120ms);
-      margin-top: 12px;
+      margin-top: var(--webmapx-space-md, 0.75rem);
     }
     .drop-zone:hover, .drop-zone.active {
       border-color: var(--sl-color-primary-500);

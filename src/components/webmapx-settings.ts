@@ -74,11 +74,11 @@ export class WebmapxSettings extends LitElement {
         }
 
         .panel-section > * + * {
-            margin-top: 0.75rem;
+            margin-top: var(--webmapx-space-md, 0.75rem);
         }
 
         .panel-section > .section-heading + * {
-            margin-top: 0.5rem;
+            margin-top: var(--webmapx-space-sm, 0.5rem);
         }
 
     `];
