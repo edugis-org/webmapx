@@ -111,7 +111,7 @@ export class WebmapxLayerTree extends LitElement {
             display: block;
             height: auto; /* let parent control available height */
             overflow: visible; /* do not create a nested scroll container */
-            padding: 0.25rem var(--webmapx-tool-padding, 0.25rem);
+            padding: var(--webmapx-tool-padding, 0.25rem);
             box-sizing: border-box;
             background: var(--webmapx-layer-tree-bg, var(--color-surface, #fff));
             border-left: 1px solid var(--color-border-light, #e2e7ec);

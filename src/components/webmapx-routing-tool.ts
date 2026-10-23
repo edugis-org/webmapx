@@ -344,6 +344,8 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         label { display: block; margin-bottom: 0.25rem; }
         .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+        /* Clear of the waypoints above, but flush with the panel when it is the first thing in it. */
+        .waypoint + .row { margin-top: 0.5rem; }
         sl-select { flex: 1; min-width: 0; }
         /* A row whose field carries its label above: buttons line up with the field, not the label. */
         .row.fields { align-items: flex-end; }
@@ -764,7 +766,7 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
                 </div>` : nothing}
 
             ${this.showServiceDropdown ? html`
-                <div class="row" style="margin-top:0.5rem;">
+                <div class="row">
                     <sl-select id="route-service" size="small" hoist label="Service" .value=${svc.id}
                         @sl-change=${(e: Event) => this.onServiceChange(e)}>
                         ${this.availableServices.map(s => html`<sl-option value=${s.id}>${s.label}</sl-option>`)}
@@ -772,7 +774,7 @@ export class WebmapxRoutingTool extends WebmapxModalTool {
                 </div>
             ` : nothing}
 
-            <div class="row fields" style="${this.showServiceDropdown ? '' : 'margin-top:0.5rem;'}">
+            <div class="row fields">
                 <sl-select id="route-mode" size="small" hoist label="Mode"
                     .value=${svc.modes.some(m => m.value === this.travelMode) ? this.travelMode : svc.modes[0]?.value}
                     @sl-change=${(e: Event) => this.onModeChange(e)}>

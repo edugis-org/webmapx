@@ -60,7 +60,8 @@ export class WebmapxCompareTool extends WebmapxModalTool {
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: var(--webmapx-font-size-md, 0.875rem); }
         p { margin: 0 0 var(--webmapx-space-sm, 0.5rem); line-height: 1.5; }
         .muted { color: var(--color-text-secondary, #5a6773); }
-        .sides { display: flex; gap: var(--webmapx-space-sm, 0.5rem); margin-top: var(--webmapx-space-sm, 0.5rem); }
+        .sides { display: flex; gap: var(--webmapx-space-sm, 0.5rem); }
+        * + .sides { margin-top: var(--webmapx-space-sm, 0.5rem); }
         .side { flex: 1; border: 1px solid var(--color-border, #d5dce3); border-radius: var(--webmapx-radius-sm, 4px); padding: var(--webmapx-space-sm, 0.5rem); }
         .side b { display: block; }
         .action { display: block; width: 100%; margin-top: var(--webmapx-space-sm, 0.5rem); }
