@@ -909,6 +909,9 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                     </div>
                     <div class="layer-details ${this.isLegendCollapsed(item.layerId) ? 'collapsed' : ''}">
                       <div class="layer-details-inner">
+                        <!-- The draw tool edits this very layer, so its style and
+                             transparency stay available while it does: what the
+                             legend sets is what the edited features are drawn with. -->
                         ${item.beingEdited
                           ? html`
                               <div class="layer-editing-notice">
@@ -919,7 +922,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                                 <sl-button size="small" variant="primary" @click=${() => this.handleFinishEditingLayer(item.layerId)}>Done</sl-button>
                               </div>
                             `
-                          : html`
+                          : null}${html`
                             ${item.visible
                               ? html`
                                   <div class="layer-legend-wrap" style=${item.layerType === 'hillshade' ? '' : `opacity: ${(100 - (this.layerTransparency.get(item.layerId) ?? 0)) / 100}`}>

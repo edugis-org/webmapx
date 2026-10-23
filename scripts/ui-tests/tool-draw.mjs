@@ -434,8 +434,10 @@ async function assertActiveDrawLayerRenderedAtMapCenter(page, activeLayerType, e
       };
     }
 
+    // A draw layer is edited in place: its features are in the layer the
+    // legend lists (`<id>-map`), not in a separate overlay.
     const state = adapter.store.getState();
-    const mapLayerEntry = state.mapLayers?.[layerId] ?? null;
+    const mapLayerEntry = state.mapLayers?.[`${layerId}-map`] ?? null;
     if (!mapLayerEntry) {
       return {
         ok: false,
@@ -472,7 +474,7 @@ async function assertActiveDrawLayerRenderedAtMapCenter(page, activeLayerType, e
 
     const features = await adapter.queryService.queryFeatures(
       { pixel, lngLat: center },
-      { layerIds: [layerId], tolerancePx: 10, includeWMS: false }
+      { layerIds: [`${layerId}-map`], tolerancePx: 10, includeWMS: false }
     );
 
     return {
@@ -805,17 +807,19 @@ export async function run({ page, engine, baseUrl }) {
         .find(l => l.name === polyName);
       if (!polyLayer) return { ok: false, reason: `draw layer "${polyName}" not found` };
 
+      // The layer the legend lists, which is also the one being edited.
+      const layerId = `${polyLayer.id}-map`;
       const mapLayers = adapter.store.getState().mapLayers ?? {};
-      if (mapLayers[`${polyLayer.id}-outline`]) {
+      if (mapLayers[`${layerId}-outline`]) {
         return { ok: false, reason: 'the outline is still a layer of its own' };
       }
-      if (!mapLayers[polyLayer.id]) {
-        return { ok: false, reason: `polygon layer "${polyLayer.id}" not in mapLayers` };
+      if (!mapLayers[layerId]) {
+        return { ok: false, reason: `polygon layer "${layerId}" not in mapLayers` };
       }
 
       // Both paint aspects are there, as sublayers of the one layer.
-      const config = adapter.layerConfigStore?.get?.(polyLayer.id)?.config
-        ?? adapter.getLayerConfig?.(polyLayer.id)
+      const config = adapter.layerConfigStore?.get?.(layerId)?.config
+        ?? adapter.getLayerConfig?.(layerId)
         ?? null;
       const subTypes = Array.isArray(config?.layers) ? config.layers.map(l => l.type).sort() : null;
       if (!subTypes) return { ok: false, reason: 'polygon layer is not a composite (no sublayers)' };
@@ -835,9 +839,9 @@ export async function run({ page, engine, baseUrl }) {
       }
 
       // And hiding the layer hides all of it — the bug this shape prevents.
-      adapter.setLayerVisibility(polyLayer.id, false);
-      const hidden = adapter.store.getState().mapLayers?.[polyLayer.id]?.visible;
-      adapter.setLayerVisibility(polyLayer.id, true);
+      adapter.setLayerVisibility(layerId, false);
+      const hidden = adapter.store.getState().mapLayers?.[layerId]?.visible;
+      adapter.setLayerVisibility(layerId, true);
       if (hidden !== false) return { ok: false, reason: 'hiding the polygon layer did not take' };
 
       return { ok: true };

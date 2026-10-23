@@ -50,16 +50,16 @@ const DEFAULT_LAYER_NAME = 'New layer';
 const DRAW_SOURCE_KEY = 'geom';
 
 /**
- * The source a draw layer's geometry lives in.
+ * The source a draw layer's geometry lives in: the composite's own source,
+ * under the `${layerId}:${key}` id `composite-layer-utils` gives it.
  *
- * A polygon layer is a composite, because it needs two paint aspects, and a
- * composite carries its own source under the `${layerId}:${key}` id
- * `composite-layer-utils` gives it. A point or line layer needs one sublayer
- * and stays a plain layer over a standalone source — a composite for a single
- * paint aspect buys nothing and costs the engines' composite paths.
+ * Every type is a composite, points included. A point layer used to be a plain
+ * layer over a standalone source, and the legend's style panel rebuilds a layer
+ * as a composite (`setSubLayers`) — which can only name sources it carries
+ * itself, so restyling a drawn point layer removed it and could not add it back.
  */
-function drawSourceId(layerId: string, type: GeometryType): string {
-    return type === 'Point' ? `webmapx-draw-src-${layerId}` : `${layerId}:${DRAW_SOURCE_KEY}`;
+function drawSourceId(layerId: string): string {
+    return `${layerId}:${DRAW_SOURCE_KEY}`;
 }
 function drawMapLayerId(layerId: string) { return `${layerId}-map`; }
 
@@ -138,14 +138,25 @@ function drawLayerSpec(
         };
     }
 
-    const source = drawSourceId(id, cfg.type);
     return {
-        id, type: 'circle', source, title: cfg.name, metadata,
-        paint: { 'circle-radius': 6, 'circle-color': color, 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' },
+        id, type: 'style', version: 8, title: cfg.name, metadata,
+        sources: {
+            [DRAW_SOURCE_KEY]: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+        },
+        layers: [
+            {
+                id: `${id}-circle`, type: 'circle', source: DRAW_SOURCE_KEY,
+                metadata: { label: 'Point' },
+                paint: { 'circle-radius': 6, 'circle-color': color, 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' },
+            },
+        ],
     };
 }
 
 const MAP_LAYER_COLOR = '#888888';
+/** How long a draw layer may be missing from the map before it counts as
+ *  deleted rather than rebuilt by the legend's style panel. */
+const REBUILD_GRACE_MS = 1500;
 const SELECTED_VERTEX_COLOR = '#ff3b30';
 const SELECTED_VERTEX_RADIUS = 10;
 
@@ -367,6 +378,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
      * refresh only fires when the map layer set actually changed.
      */
     private lastMapLayerIdsKey = '';
+    /** Resting layers seen missing, each with the timer that decides whether
+     *  it was deleted or is being rebuilt — see `reconcileExternallyDeletedLayers`. */
+    private missingLayerChecks = new Map<string, number>();
 
     /** Points collected for the current in-progress line/polygon. */
     private draftPoints: LngLat[] = [];
@@ -398,7 +412,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private moveHistoryIndex = -1;
 
     private sharedLayersCreated = false;
-    private createdDrawLayerIds = new Set<string>();
 
     // ── Touch detection ───────────────────────────────────────────────────────
 
@@ -1311,11 +1324,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         window.removeEventListener('blur', this.onWindowBlur);
         this.boundMap?.removeEventListener('webmapx-draw-finish-editing', this.onFinishEditingRequest);
         this.altActive = false;
-        // Restore borrowed sources and suspend draw layers from the map (keep features in memory)
-        for (const layer of this.drawLayers) {
-            if (layer.borrowedSourceId) this.restoreBorrowedLayer(layer);
-            this.suspendDrawLayerFromMap(layer);
-        }
+        // Hand every layer back (its features stay in memory for next time).
+        for (const layer of this.drawLayers) this.restoreBorrowedLayer(layer);
         this.draftPoints = [];
         this.circleDraft = null;
         this.rectDraft = null;
@@ -1339,6 +1349,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     disconnectedCallback(): void {
         this.touchMQ.removeEventListener('change', this.onTouchMQChange);
+        for (const timer of this.missingLayerChecks.values()) clearTimeout(timer);
+        this.missingLayerChecks.clear();
         this.unsubMapLayers?.();
         this.unsubMapLayers = null;
         // An open tool is closed first (WebmapxModalTool), which gives a layer
@@ -1484,61 +1496,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         });
 
         this.sharedLayersCreated = true;
-
-        // Re-add any draw layers from prior activation — but not a paused
-        // one (a "from the map" layer that's had "Done" pressed on it, or
-        // any layer stepped aside for a same-type "Add new"): it's supposed
-        // to stay off the map until "Edit" calls `resumeDrawLayer` on it
-        // again, same as `onActivate`'s own resume loop right after this
-        // method returns. Skipping this check here re-added the draw
-        // layer's own overlay (this tool's editing-style paint) on every
-        // reactivation regardless of pause state — since
-        // `removeSharedLayers` resets `sharedLayersCreated` on every
-        // deactivate, this loop runs again on every single activation, not
-        // just the first.
-        for (const layer of this.drawLayers) {
-            if (this.pausedLayerIds.has(layer.id)) continue;
-            this.addMapLayersForDrawLayer(layer);
-            this.refreshDrawLayerSource(layer.id);
-        }
-    }
-
-    private addMapLayersForDrawLayer(cfg: DrawLayerConfig): void {
-        if (this.createdDrawLayerIds.has(cfg.id)) return;
-        // A composite (Polygon, LineString) carries its own source; a plain
-        // layer (Point) needs one first.
-        if (cfg.type === 'Point') {
-            this.dispatch('webmapx-add-source', {
-                id: drawSourceId(cfg.id, cfg.type),
-                config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
-            });
-        }
-        this.dispatch('webmapx-add-layer', {
-            // `currentDrawLayerColor` (not `cfg.color`): resuming a paused
-            // layer rebuilds this overlay from scratch, and it must pick up
-            // whatever colour the Legend has since applied to the resting
-            // layer rather than reverting to the colour it was created with.
-            ...drawLayerSpec(cfg.id, cfg, this.currentDrawLayerColor(cfg), {
-                label: cfg.name, legendRole: 'overlay', hideFromLegend: true,
-            }),
-            // Keep every drawn feature below the tool's own overlay layers
-            // (vertex handles, active nodes, snap indicator, …) — those are
-            // all created up front in `createSharedLayers`, RUBBER_LINE_ID
-            // first, so inserting right below it puts a feature layer under
-            // the whole stack regardless of when it's added. Without this, a
-            // feature added after the shared layers (the normal case) drew
-            // on top of them, burying "Edit vertices"'s own handles under
-            // the very line they're meant to edit.
-            beforeLayerId: RUBBER_LINE_ID,
-        });
-        this.createdDrawLayerIds.add(cfg.id);
-    }
-
-    private removeMapLayersForDrawLayer(cfg: DrawLayerConfig): void {
-        this.dispatch('webmapx-remove-layer', cfg.id);
-        this.dispatch('webmapx-remove-source', drawSourceId(cfg.id, cfg.type));
-        if (this.adapter?.store) unregisterMapLayer(this.adapter.store, cfg.id);
-        this.createdDrawLayerIds.delete(cfg.id);
     }
 
     private removeSharedLayers(): void {
@@ -1555,8 +1512,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     private removeAllMapLayers(): void {
         this.removeSharedLayers();
-        for (const layer of this.drawLayers) this.removeMapLayersForDrawLayer(layer);
-        this.createdDrawLayerIds.clear();
     }
 
     // Layers with pending deferred source refresh (layerId → RAF handle).
@@ -1589,15 +1544,19 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 geometry: { type: f.type, coordinates: f.coordinates } as GeoJSON.Geometry,
                 properties: this.outgoingProperties(f)
             }));
-        const layerType = this.drawLayers.find(l => l.id === layerId)?.type ?? 'Polygon';
+        // Straight into the layer the legend lists: what is being edited is
+        // drawn with that layer's own style, visibility and transparency, so a
+        // colour or a classification chosen in the legend is what editing
+        // shows, and hiding the layer there hides it.
+        const cfg = this.drawLayers.find(l => l.id === layerId);
+        if (!cfg?.borrowedSourceId) return;
         this.dispatch('webmapx-set-source-data', {
-            id: drawSourceId(layerId, layerType),
+            id: cfg.borrowedSourceId,
             data: { type: 'FeatureCollection', features }
         });
         // Keep sourceData in the borrowed layer's store metadata up-to-date so
         // "save layers" picks up edits even while the draw tool is active.
-        const cfg = this.drawLayers.find(l => l.id === layerId);
-        if (cfg?.borrowedSourceId && this.adapter?.store) {
+        if (this.adapter?.store) {
             const fc: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features };
             this.setBorrowedLayerMetadata(cfg.borrowedSourceId, { sourceData: fc });
         }
@@ -1833,16 +1792,13 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         const seen = new Set<string>();
         const result: import('./webmapx-draw-layer-dialog').MapLayerOption[] = [];
         // Every draw layer this tool owns has its own perm-layer entry in
-        // `mapLayers` under `drawMapLayerId(l.id)`, a *different* key from
-        // `l.id`/`createdDrawLayerIds` (which track the active overlay
-        // layer, not the resting one) — never offer one of those back as a
+        // `mapLayers` under `drawMapLayerId(l.id)` — never offer one of those back as a
         // catalog option, active or paused, or a layer this tool created
         // (including a catalog copy) lists itself as still editable.
         const ownMapLayerIds = new Set(this.drawLayers.map(l => drawMapLayerId(l.id)));
 
         for (const [layerId, entry] of Object.entries(meta)) {
             if ((entry as any).isToolLayer) continue;
-            if (this.createdDrawLayerIds.has(layerId)) continue;
             if (ownMapLayerIds.has(layerId)) continue;
             const sourceId = typeof entry.sourceId === 'string' ? entry.sourceId : null;
             if (!sourceId || seen.has(sourceId)) continue;
@@ -2138,6 +2094,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
      */
     private async applyLayerConfig(initialCfg: DrawLayerConfig, seedData?: GeoJSON.FeatureCollection | string): Promise<void> {
         let cfg = initialCfg;
+        this.resetSessionState();
 
         // Pause the previous active layer for this type (at most one *editing* per
         // type — but the paused one stays listed, ready to resume, instead of
@@ -2163,9 +2120,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 this.ownsPermLayer.add(cfg.id);
             }
             this.drawLayers = [...this.drawLayers, cfg];
-            this.addMapLayersForDrawLayer(cfg);
 
-            // Borrow: load features from the source (or the given snapshot), then blank it
+            // Borrow: load features from the source (or the given snapshot)
             if (cfg.borrowedSourceId && this.adapter) {
                 const dataOrUrl = seedData ?? this.adapter.getSourceData(cfg.borrowedSourceId);
                 const data = dataOrUrl ? await this.resolveFeatureCollection(dataOrUrl) : null;
@@ -2206,9 +2162,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 }
 
                 if (this.active) {
-                    // Blank the source — all engine layers using it go empty automatically
-                    const src = this.adapter.getSource(cfg.borrowedSourceId!);
-                    src?.setData({ type: 'FeatureCollection', features: [] });
                     this.setBorrowedLayerMetadata(cfg.borrowedSourceId!, { borrowedByDrawTool: true });
                 } else {
                     // The panel was closed while the data above loaded. Closing
@@ -2254,18 +2207,23 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 properties: this.outgoingProperties(f)
             }));
         const fc: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features };
-        this.adapter.getSource(cfg.borrowedSourceId)?.setData(fc);
-        this.setBorrowedLayerMetadata(cfg.borrowedSourceId, { borrowedByDrawTool: false, sourceData: fc });
+        const sourceId = cfg.borrowedSourceId;
+        const source = this.adapter.getSource(sourceId);
+        if (source) {
+            source.setData(fc);
+        } else {
+            // The layer is added asynchronously, and on some engines (Leaflet)
+            // slowly enough that a session closed straight after it opened
+            // gets here first: written now, the features went nowhere.
+            void this.waitForMapLayer(drawMapLayerId(cfg.id)).then(added => {
+                if (added) this.adapter?.getSource(sourceId)?.setData(fc);
+            });
+        }
+        this.setBorrowedLayerMetadata(sourceId, { borrowedByDrawTool: false, sourceData: fc });
     }
 
     private createPermLayer(cfg: DrawLayerConfig): string {
         const mapLayerId = drawMapLayerId(cfg.id);
-        if (cfg.type === 'Point') {
-            this.dispatch('webmapx-add-source', {
-                id: drawSourceId(mapLayerId, cfg.type),
-                config: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
-            });
-        }
         this.dispatch('webmapx-add-layer', {
             ...drawLayerSpec(mapLayerId, cfg, cfg.color, {
                 label: cfg.name,
@@ -2281,29 +2239,23 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 // rename event never fires — so show it immediately instead.
                 hideFromLegend: isDefaultLayerName(cfg.name),
             }),
-            // Same reasoning as `addMapLayersForDrawLayer`: stay below the
-            // tool's own overlay layers, not on top of them.
+            // Below the tool's own overlay layers (vertex handles, active
+            // nodes, snap indicator, …), which `createSharedLayers` adds
+            // RUBBER_LINE_ID first: a layer added after them would otherwise
+            // bury "Edit vertices"'s handles under the very line they edit.
             beforeLayerId: RUBBER_LINE_ID,
         });
-        return drawSourceId(mapLayerId, cfg.type);
+        return drawSourceId(mapLayerId);
     }
 
     private releaseBorrowedLayer(cfg: DrawLayerConfig): void {
         if (!cfg.borrowedSourceId) return;
         this.restoreBorrowedLayer(cfg);
-        this.removeMapLayersForDrawLayer(cfg);
         this.features = this.features.filter(f => f.layerId !== cfg.id);
         this.drawLayers = this.drawLayers.filter(l => l.id !== cfg.id);
         for (const [type, layerId] of Object.entries(this.activeLayerIds) as [GeometryType, string][]) {
             if (layerId === cfg.id) delete this.activeLayerIds[type];
         }
-    }
-
-    private suspendDrawLayerFromMap(cfg: DrawLayerConfig): void {
-        this.dispatch('webmapx-remove-layer', cfg.id);
-        this.dispatch('webmapx-remove-source', drawSourceId(cfg.id, cfg.type));
-        if (this.adapter?.store) unregisterMapLayer(this.adapter.store, cfg.id);
-        this.createdDrawLayerIds.delete(cfg.id);
     }
 
     private releaseLayer(cfg: DrawLayerConfig): void {
@@ -2330,7 +2282,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private removePermLayer(cfg: DrawLayerConfig): void {
         const mapLayerId = drawMapLayerId(cfg.id);
         this.dispatch('webmapx-remove-layer', mapLayerId);
-        this.dispatch('webmapx-remove-source', drawSourceId(mapLayerId, cfg.type));
+        this.dispatch('webmapx-remove-source', drawSourceId(mapLayerId));
         if (this.adapter?.store) unregisterMapLayer(this.adapter.store, mapLayerId);
     }
 
@@ -2341,21 +2293,21 @@ export class WebmapxDrawTool extends WebmapxModalTool {
      * until "Edit" calls `resumeDrawLayer` on it again.
      */
     private pauseDrawLayer(cfg: DrawLayerConfig): void {
-        if (cfg.borrowedSourceId) this.restoreBorrowedLayer(cfg);
-        this.suspendDrawLayerFromMap(cfg);
+        this.restoreBorrowedLayer(cfg);
         this.pausedLayerIds.add(cfg.id);
     }
 
     private resumeDrawLayer(cfg: DrawLayerConfig): void {
         this.pausedLayerIds.delete(cfg.id);
-        if (!this.createdDrawLayerIds.has(cfg.id)) {
-            this.addMapLayersForDrawLayer(cfg);
-            this.refreshDrawLayerSource(cfg.id);
-        }
         if (cfg.borrowedSourceId && this.adapter) {
-            this.adapter.getSource(cfg.borrowedSourceId)?.setData({ type: 'FeatureCollection', features: [] });
             this.setBorrowedLayerMetadata(cfg.borrowedSourceId, { borrowedByDrawTool: true });
+            // Editing a layer someone hid in the legend would be editing blind.
+            const mapLayerId = drawMapLayerId(cfg.id);
+            if (this.adapter.store.getState().mapLayers?.[mapLayerId]?.visible === false) {
+                this.adapter.setLayerVisibility(mapLayerId, true);
+            }
         }
+        this.refreshDrawLayerSource(cfg.id);
     }
 
     /**
@@ -2392,11 +2344,34 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         for (const cfg of [...this.drawLayers]) {
             if (!this.ownsPermLayer.has(cfg.id)) continue;
             if (mapLayers[drawMapLayerId(cfg.id)]) {
-                this.confirmedRestingLayerIds.add(cfg.id);
+                if (!this.confirmedRestingLayerIds.has(cfg.id)) {
+                    this.confirmedRestingLayerIds.add(cfg.id);
+                    // The layer is added asynchronously, so a schema edited
+                    // before it registered never reached the store, and
+                    // features drawn before it had a source never reached that.
+                    this.syncLayerPropertiesToStore(cfg.id, cfg.properties);
+                    if (!this.pausedLayerIds.has(cfg.id)) this.refreshDrawLayerSource(cfg.id);
+                }
+                const pending = this.missingLayerChecks.get(cfg.id);
+                if (pending !== undefined) {
+                    clearTimeout(pending);
+                    this.missingLayerChecks.delete(cfg.id);
+                    this.afterRestingLayerRebuilt(cfg.id);
+                }
                 continue;
             }
-            if (!this.confirmedRestingLayerIds.has(cfg.id)) continue;
-            this.handleExternallyDeletedLayer(cfg);
+            if (!this.confirmedRestingLayerIds.has(cfg.id) || this.missingLayerChecks.has(cfg.id)) continue;
+            // Gone is not yet deleted: the legend's style panel rebuilds a layer
+            // by removing it and adding it back (`setSubLayers`), and the add is
+            // asynchronous. Judged at once, every restyle ended the layer's
+            // session and threw its features away.
+            this.missingLayerChecks.set(cfg.id, window.setTimeout(() => {
+                this.missingLayerChecks.delete(cfg.id);
+                const current = this.drawLayers.find(l => l.id === cfg.id);
+                if (current && !this.adapter?.store.getState().mapLayers?.[drawMapLayerId(cfg.id)]) {
+                    this.handleExternallyDeletedLayer(current);
+                }
+            }, REBUILD_GRACE_MS));
         }
 
         const idsKey = Object.keys(mapLayers).sort().join(',');
@@ -2404,6 +2379,24 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             this.lastMapLayerIdsKey = idsKey;
             void this.refreshCatalogLayerOptions();
             void this.refreshTypeCatalogCounts();
+        }
+    }
+
+    /**
+     * A rebuilt layer is registered afresh, from the config it was added with:
+     * the source data the draw tool keeps in the store (`sourceData`) is gone,
+     * and the features of a layer being edited live in the draw tool, not in
+     * that config. Put both back.
+     */
+    private afterRestingLayerRebuilt(layerId: string): void {
+        const cfg = this.drawLayers.find(l => l.id === layerId);
+        if (!cfg?.borrowedSourceId) return;
+        const editing = this.active && !this.pausedLayerIds.has(cfg.id);
+        if (editing) {
+            this.setBorrowedLayerMetadata(cfg.borrowedSourceId, { borrowedByDrawTool: true });
+            this.refreshDrawLayerSource(cfg.id);
+        } else {
+            this.restoreBorrowedLayer(cfg);
         }
     }
 
@@ -2485,10 +2478,112 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         // thing the user can do is click one, same as "Edit" on a draw layer
         // (`startEditingLayer`).
         this.pendingMode = 'select';
-        void this.applyLayerConfig(cfg, seedData);
+        void this.applyLayerConfig(cfg, seedData).then(() => this.copyLayerStyle(option.layerId, cfg));
+    }
+
+    /**
+     * Gives a copy the look of the layer it was copied from, rather than the
+     * default colour of a new layer: classes, colours and labels are part of
+     * what the user chose to copy.
+     *
+     * Polygon and point copies take the original's sublayers, repointed at
+     * the copy's own source, one per kind (fill, line, circle, symbol) and
+     * without their filters: a copy is for editing, and a feature drawn into
+     * it has none of the attributes a filter tests, so a copied filter hid
+     * every new feature. Data-driven paint (`match`, `interpolate`) is kept,
+     * since a feature without the attribute still gets its fallback colour; a
+     * style built from one filtered sublayer per class keeps its first class.
+     * A line copy keeps its own pair of sublayers, because solid and dashed
+     * lines are told apart by a filter on the copy's data, and takes only the
+     * original's line paint.
+     */
+    private async copyLayerStyle(fromLayerId: string, cfg: DrawLayerConfig): Promise<void> {
+        const adapter = this.adapter;
+        const original = adapter?.getSubLayers(fromLayerId);
+        if (!adapter || !original?.length) return;
+        const mapLayerId = drawMapLayerId(cfg.id);
+        if (!await this.waitForMapLayer(mapLayerId)) return;
+
+        if (cfg.type === 'LineString') {
+            const line = original.find(sub => sub.type === 'line');
+            const paint = { ...(line?.paint as Record<string, unknown> | undefined ?? {}) };
+            delete paint['line-dasharray'];
+            if (Object.keys(paint).length === 0) return;
+            adapter.updateLayerStyle(mapLayerId, `${mapLayerId}-solid`, paint);
+            adapter.updateLayerStyle(mapLayerId, `${mapLayerId}-dashed`, paint);
+            return;
+        }
+
+        const kinds = cfg.type === 'Point' ? ['circle', 'symbol'] : ['fill', 'line', 'symbol'];
+        const seen = new Set<string>();
+        const copied = original
+            .filter(sub => {
+                const kind = String(sub.type);
+                if (!kinds.includes(kind) || seen.has(kind)) return false;
+                seen.add(kind);
+                return true;
+            })
+            .map((sub, index) => {
+                const { source: _source, 'source-layer': _sourceLayer, filter: _filter, ...rest } = sub;
+                return { ...rest, id: `${mapLayerId}-${index}`, source: DRAW_SOURCE_KEY };
+            });
+        if (copied.length === 0 || !await adapter.setSubLayers(mapLayerId, copied)) return;
+        // The rebuild keeps the data the layer held when it started, and on
+        // Leaflet the copy's features can still be on their way into it then.
+        this.afterRestingLayerRebuilt(cfg.id);
+    }
+
+    /** Resolves true once `layerId` is registered in the store, false after `ms`. */
+    private waitForMapLayer(layerId: string, ms = 5000): Promise<boolean> {
+        const store = this.adapter?.store;
+        if (!store) return Promise.resolve(false);
+        if (store.getState().mapLayers?.[layerId]) return Promise.resolve(true);
+        return new Promise(resolve => {
+            let unsubscribe: (() => void) | null = null;
+            const timer = window.setTimeout(() => { unsubscribe?.(); resolve(false); }, ms);
+            unsubscribe = store.subscribe(state => {
+                if (!state.mapLayers?.[layerId]) return;
+                clearTimeout(timer);
+                unsubscribe?.();
+                resolve(true);
+            });
+        });
+    }
+
+    /**
+     * Forgets everything that belongs to the session being left: the
+     * selection, the hover, a half-drawn shape and both undo histories.
+     *
+     * Each points at features of one layer, and none of them was cleared on a
+     * switch. A rectangle or lasso selection made in one layer was still
+     * selected in the next, where the trash button deleted it from a layer the
+     * panel was not showing; Undo in the next layer brought back a feature
+     * deleted in the previous one, out of sight. Called whenever a session
+     * opens or closes.
+     */
+    private resetSessionState(): void {
+        this.selectedFeatureId = null;
+        this.selectedFeatureIds = [];
+        this.hoveredFeatureId = null;
+        this.selectedHandle = null;
+        this.editState = 'none';
+        this.editHandles = [];
+        this.draftPoints = [];
+        this.draftRedoStack = [];
+        this.drawHistory = [];
+        this.drawHistoryIndex = -1;
+        this.moveHistory = [];
+        this.moveHistoryIndex = -1;
+        this.uiVersion++;
+        this.updateSelectedSource();
+        this.updateMultiSelectSource();
+        this.updateSelectedVertexSource();
+        this.updateEditHandles();
+        this.updateRubberband();
     }
 
     private startEditingLayer(cfg: DrawLayerConfig): void {
+        this.resetSessionState();
         this.resumeDrawLayer(cfg);
         this.activeLayerIds[cfg.type] = cfg.id;
         this.pickedType = cfg.type;
@@ -2508,9 +2603,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (!this.pickedType) return;
         const layerId = this.activeLayerIds[this.pickedType];
         const cfg = layerId ? this.drawLayers.find(l => l.id === layerId) : undefined;
-        this.selectedFeatureId = null;
         this.setModeInternal('select');
-        this.updateSelectedSource();
+        this.resetSessionState();
         if (cfg) this.pauseDrawLayer(cfg);
         delete this.activeLayerIds[this.pickedType];
         this.panelView = 'layers';
@@ -2643,34 +2737,27 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     /**
-     * The colour to actually paint/preview a draw layer with — read live off
-     * the perm/resting layer's own paint (`store.mapLayers`) rather than
-     * `cfg.color`, which is only ever the colour it was *created* with.
-     * Styling is now exclusively a Legend affair (its per-layer style editor
-     * calls `adapter.updateLayerStyle`, which mirrors straight into this same
-     * `mapLayers` entry) — without this, a colour picked in the Legend would
-     * only show up on the resting layer, and reappear reverted to `cfg.color`
-     * the moment the layer's overlay is rebuilt (new layer, or resuming a
-     * paused one via `addMapLayersForDrawLayer`). Falls back to `cfg.color`
-     * when nothing's been registered yet (brand new layer) or the paint
-     * holds something other than a plain colour (e.g. a data-driven
-     * expression) — this preview only ever shows a flat swatch.
+     * The colour the panel's swatch and the active-feature nodes show for a
+     * draw layer, read live off the layer's own paint (`store.mapLayers`)
+     * rather than `cfg.color`, which is only the colour it was *created* with:
+     * styling is a Legend affair, and `adapter.updateLayerStyle` mirrors into
+     * that same entry. The first sublayer of the type's main kind with a plain
+     * colour wins, so a layer restyled in the legend (other sublayer ids, more
+     * rules) still answers; a data-driven colour falls back to `cfg.color`,
+     * since a swatch is one flat colour.
      */
     private currentDrawLayerColor(cfg: DrawLayerConfig): string {
         const entry = this.adapter?.store.getState().mapLayers?.[drawMapLayerId(cfg.id)] as
-            { paint?: Record<string, unknown>; sublayers?: { id?: string; paint?: Record<string, unknown> }[] } | undefined;
+            { paint?: Record<string, unknown>; sublayers?: { type?: string; paint?: Record<string, unknown> }[] } | undefined;
         if (!entry) return cfg.color;
-
-        if (cfg.type === 'Point') {
-            const c = entry.paint?.['circle-color'];
-            return typeof c === 'string' ? c : cfg.color;
+        const kind = cfg.type === 'Point' ? 'circle' : cfg.type === 'Polygon' ? 'fill' : 'line';
+        const colorKey = `${kind}-color`;
+        const candidates = entry.sublayers ?? [{ type: kind, paint: entry.paint }];
+        for (const sub of candidates) {
+            const c = sub.type === kind ? sub.paint?.[colorKey] : undefined;
+            if (typeof c === 'string') return c;
         }
-
-        const mapLayerId = drawMapLayerId(cfg.id);
-        const colorKey = cfg.type === 'Polygon' ? 'fill-color' : 'line-color';
-        const subId = cfg.type === 'Polygon' ? `${mapLayerId}-fill` : `${mapLayerId}-solid`;
-        const c = entry.sublayers?.find(s => s.id === subId)?.paint?.[colorKey];
-        return typeof c === 'string' ? c : cfg.color;
+        return cfg.color;
     }
 
     /**
