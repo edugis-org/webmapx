@@ -10,6 +10,8 @@ import {
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import { controlSurfaceStyles } from './internal/control-surface-styles';
+import { TOOL_TIP_CHANGE_EVENT, type ToolTipSource } from './internal/tool-tip';
+import { hasOpenInfo } from './internal/info-toggle';
 
 @customElement('webmapx-tool-panel')
 export class WebmapxToolPanel extends LitElement {
@@ -18,6 +20,8 @@ export class WebmapxToolPanel extends LitElement {
   @property({ type: Boolean, reflect: true }) collapsed = false;
   /** What the active tool is for, drawn under the title (`panel-description` on the tool). */
   @state() private description = '';
+  /** The active tool's next step, drawn on the map under the panel (see internal/tool-tip.ts). */
+  @state() private tip = '';
 
   private defaultLabel = 'Tools';
   private activeToolId: string | null = null;
@@ -28,6 +32,7 @@ export class WebmapxToolPanel extends LitElement {
   private boundHandleToolSelect = (e: Event) => this.handleToolSelect(e as CustomEvent);
   private boundHandleKeydown = (e: Event) => this.handleKeydown(e as KeyboardEvent);
   private boundHandlePanelWidth = (e: Event) => this.handlePanelWidth(e as CustomEvent);
+  private boundReadTip = () => this.readTip();
   /** CSS width of the panel host while collapsed to its default (no active-tool override). */
   private static readonly DEFAULT_WIDTH = '300px';
   /** The toolbar button that last activated a tool — focus is restored here on close. */
@@ -45,6 +50,7 @@ export class WebmapxToolPanel extends LitElement {
     document.addEventListener('keydown', this.boundHandleKeydown, { capture: true });
     this.addEventListener('webmapx-content-updated', this.handleContentUpdated as EventListener);
     this.addEventListener('webmapx-panel-width', this.boundHandlePanelWidth);
+    this.addEventListener(TOOL_TIP_CHANGE_EVENT, this.boundReadTip);
   }
 
   disconnectedCallback(): void {
@@ -56,6 +62,7 @@ export class WebmapxToolPanel extends LitElement {
     this.mapHost = null;
     this.removeEventListener('webmapx-content-updated', this.handleContentUpdated as EventListener);
     this.removeEventListener('webmapx-panel-width', this.boundHandlePanelWidth);
+    this.removeEventListener(TOOL_TIP_CHANGE_EVENT, this.boundReadTip);
   }
 
   protected firstUpdated(): void {
@@ -133,6 +140,7 @@ export class WebmapxToolPanel extends LitElement {
         this.applyWidth(tool.element.getAttribute('panel-width'));
       }
       this.active = true;
+      this.readTip();
       this.setAttribute('aria-label', this.label);
       // Move focus to first focusable element in the active tool
       requestAnimationFrame(() => this.focusFirstInActiveTool());
@@ -141,9 +149,20 @@ export class WebmapxToolPanel extends LitElement {
 
     this.label = this.defaultLabel;
     this.description = '';
+    this.tip = '';
     this.active = false;
     this.setAttribute('aria-label', this.label);
     this.applyWidth(null);
+  }
+
+  /**
+   * Re-read the active tool's tip. Any tool may announce a change (a hidden one
+   * too, or a sub-tool inside a toolbox), so the panel always asks the open tool
+   * rather than taking the text from the event.
+   */
+  private readTip(): void {
+    const tool = this.activeToolId ? this.toolIndex.get(this.activeToolId)?.element : null;
+    this.tip = (tool as (HTMLElement & Partial<ToolTipSource>) | null | undefined)?.toolTip ?? '';
   }
 
   private applyWidth(width: string | null): void {
@@ -238,14 +257,31 @@ export class WebmapxToolPanel extends LitElement {
   }
 
   static styles = [controlSurfaceStyles, css`
+    /* The host is a column of two boxes: the panel itself (.card) and, under
+       it, the active tool's next step (.tip). Both share the host's width and
+       maximum height; when space runs out the card's content scrolls and the
+       tip stays in view. */
     :host {
       display: none;
       box-sizing: border-box;
       flex-direction: column;
+      gap: var(--webmapx-space-sm, 0.5rem);
       align-self: flex-start;
       width: 300px;
       height: auto;
       max-height: 100%;
+      pointer-events: none;
+    }
+
+    :host([active]) {
+      display: flex;
+    }
+
+    .card {
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      flex: 0 1 auto;
       min-height: calc(
         var(--webmapx-panel-header-min-height, 3rem) +
         var(--webmapx-panel-min-content, 0px)
@@ -257,11 +293,40 @@ export class WebmapxToolPanel extends LitElement {
       border-radius: var(--webmapx-panel-radius, var(--webmapx-surface-radius, 6px));
       box-shadow: var(--webmapx-surface-shadow, 0 4px 12px rgba(16, 24, 40, 0.12));
       pointer-events: auto;
-      overflow: hidden; /* clamp host; inner content manages scroll */
+      overflow: hidden; /* clamp the card; inner content manages scroll */
     }
 
-    :host([active]) {
+    /* On the map, not in the panel, so it is drawn like map chrome: the
+       panel's own surface, body size, primary colour. Medium weight, because
+       it is the one sentence on screen that says what to do next. */
+    .tip {
+      box-sizing: border-box;
+      flex: none;
       display: flex;
+      align-items: flex-start;
+      gap: var(--webmapx-space-sm, 0.5rem);
+      padding: var(--webmapx-space-sm, 0.5rem) var(--webmapx-space-md, 0.75rem);
+      background: var(--webmapx-panel-bg, rgb(var(--color-surface-rgb, 255 255 255) / var(--webmapx-surface-alpha, 1)));
+      -webkit-backdrop-filter: var(--webmapx-surface-blur, none);
+      backdrop-filter: var(--webmapx-surface-blur, none);
+      border: var(--webmapx-surface-border, 1px solid var(--color-border-light, #e2e7ec));
+      border-radius: var(--webmapx-panel-radius, var(--webmapx-surface-radius, 6px));
+      box-shadow: var(--webmapx-surface-shadow, 0 4px 12px rgba(16, 24, 40, 0.12));
+      font-size: var(--webmapx-font-size-md, 0.875rem);
+      font-weight: 500;
+      line-height: 1.4;
+      color: var(--color-text-primary, #16202a);
+      pointer-events: auto;
+    }
+
+    .tip sl-icon {
+      flex: none;
+      margin-top: 0.15em;
+      color: var(--color-primary, #1b6ec2);
+    }
+
+    .tip[hidden] {
+      display: none;
     }
 
     .panel-header {
@@ -307,7 +372,7 @@ export class WebmapxToolPanel extends LitElement {
       --webmapx-tool-padding: var(--webmapx-panel-content-padding, var(--webmapx-space-md, 0.75rem));
     }
 
-    :host([collapsed]) {
+    :host([collapsed]) .card {
       min-height: 0;
     }
 
@@ -346,6 +411,10 @@ export class WebmapxToolPanel extends LitElement {
       // Let Escape close open dropdowns/popups first; only close the panel when nothing is open.
       const openPopup = document.querySelector('sl-select[open], sl-dropdown[open], sl-popup[active]');
       if (openPopup) return;
+      // An open explanation (info-toggle) lives in the tool's shadow root, out of
+      // reach of the query above; Escape closes it first, the panel next time.
+      const tool = this.activeToolId ? this.toolIndex.get(this.activeToolId)?.element : null;
+      if (hasOpenInfo(tool?.shadowRoot)) return;
       e.preventDefault();
       e.stopPropagation();
       this.handleClose();
@@ -369,6 +438,7 @@ export class WebmapxToolPanel extends LitElement {
 
   render() {
     return html`
+      <div class="card">
       <div class="panel-header">
         <slot name="header"><h2>${this.label}</h2></slot>
         <sl-button size="small" circle variant="text" @click=${this.toggleCollapsed}>
@@ -383,6 +453,12 @@ export class WebmapxToolPanel extends LitElement {
         <slot @slotchange=${this.handleSlotChange}></slot>
       </div>
       <slot name="footer"></slot>
+      </div>
+      <!-- A live region, so a changed next step is spoken. Kept in the DOM while
+           empty: a live region inserted together with its text is not announced. -->
+      <div class="tip" role="status" ?hidden=${!this.tip}>
+        ${this.tip ? html`<sl-icon name="hand-index" aria-hidden="true"></sl-icon><span>${this.tip}</span>` : nothing}
+      </div>
     `;
   }
 }

@@ -3,6 +3,9 @@ import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { formLabelStyles } from './internal/form-label-styles';
+import { helpTextStyles } from './internal/help-text-styles';
+import { infoToggle } from './internal/info-toggle';
+import { TouchPointerController } from './internal/touch-pointer';
 import '@shoelace-style/shoelace/dist/components/radio-group/radio-group.js';
 import '@shoelace-style/shoelace/dist/components/radio-button/radio-button.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
@@ -154,6 +157,18 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
     readonly toolId = 'truearea';
     private mapElement: WebmapxMapElement | null = null;
     @state() private availableLayers: { id: string; label: string; sourceId: string }[] = [];
+    /** Instructions say "Tap" on a touch screen and "Click" elsewhere. */
+    private readonly touch = new TouchPointerController(this);
+
+    /** The next step, shown on the map under the panel. None while there is no layer to drag from: the panel says so. */
+    get toolTip(): string {
+        if (this.availableLayers.length === 0) return '';
+        if (this.dragging) return 'Release to place the copy.';
+        const drag = 'Drag a country or area across the map to compare its true size.';
+        const selected = this.copies.some(c => c.id === this.lastTouchedCopyId);
+        return this.copies.length && !selected ? `${drag} ${this.touch.click} a copy to select it.` : drag;
+    }
+
     @state() private selectedLayerId = '';
     @state() private copies: TrueAreaCopy[] = [];
     @state() private dragging = false;
@@ -208,19 +223,18 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         if (this.copies.length === 0) this.cleanupLayers();
     }
 
-    static styles = [formLabelStyles, css`
+    static styles = [formLabelStyles, helpTextStyles, css`
         :host { display: none; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; min-width: 200px; }
         :host([active]) { display: block; }
         label { display: block; margin-bottom: 0.25rem; }
         sl-select { width: 100%; margin-bottom: 0.75rem; }
-        .hint { color: var(--color-text-muted, #6b7681); font-style: italic; margin-bottom: 0.5rem; font-size: 0.8rem; }
+        .hint { margin-bottom: 0.5rem; }
         .copy-item { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
         .copy-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
         .copy-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .clear-btn { display: block; width: 100%; }
         .clear-btn::part(base) { width: 100%; }
-        .no-copies { color: var(--color-text-muted, #6b7681); font-style: italic; font-size: 0.8rem; margin-bottom: 0.5rem; margin-top: 0.25rem; }
-        .dragging-hint { color: var(--color-primary, #2b6c8f); font-size: 0.8rem; margin-bottom: 0.4rem; }
+        .no-copies { margin-bottom: 0.5rem; margin-top: 0.25rem; }
         .method-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--color-text-secondary, #5a6773); }
         .method-row input { cursor: pointer; }
         .rotation-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
@@ -654,7 +668,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
     render(): TemplateResult {
         return html`
             ${this.availableLayers.length === 0
-                ? html`<div class="field-label">Source layer</div><div class="hint">No visible polygon layers on map.</div>`
+                ? html`<div class="field-label">Source layer</div><div class="hint help-text">Add a layer with countries or areas to the map first.</div>`
                 : html`
                     <sl-select size="small" hoist label="Source layer"
                         .value=${String(Math.max(0, this.availableLayers.findIndex(l => l.id === this.selectedLayerId)))}
@@ -663,17 +677,13 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
                             <sl-option value=${String(i)}>${l.label}</sl-option>
                         `)}
                     </sl-select>
-                    ${this.dragging
-                        ? html`<div class="dragging-hint">Drag to target location, release to place.</div>`
-                        : html`<div class="hint">Click and drag a polygon to compare sizes.</div>`
-                    }
                 `
             }
 
             ${(() => {
                 const active = this.copies.find(c => c.id === this.lastTouchedCopyId);
                 if (!active && this.availableLayers.length === 0) return '';
-                if (!active) return html`<div class="no-copies">No copy selected. Click a polygon on the map.</div>`;
+                if (!active) return '';
                 return html`
                     <div class="copy-item">
                         <div class="copy-swatch" style="background:${active.color}"></div>
@@ -690,14 +700,14 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
                         </sl-button>
                         <span class="rotation-value">${this.rotationDeg}°</span>
                     </div>
-                    <div class="method-row">
+                    <div class="method-row field-with-info">
                         <sl-radio-group size="small" label="Method"
-                            help-text="Geodesic keeps the true shape on the globe, so borders may rotate"
                             .value=${this.geodesic ? 'geodesic' : 'simple'}
                             @sl-change=${(e: Event) => { this.geodesic = (e.target as HTMLInputElement).value === 'geodesic'; this.recomputeLastCopy(); }}>
                             <sl-radio-button value="simple">Simple</sl-radio-button>
                             <sl-radio-button value="geodesic">Geodesic</sl-radio-button>
                         </sl-radio-group>
+                        ${infoToggle('Method', 'Geodesic keeps the true shape on the globe, so borders may rotate.')}
                     </div>
 
                     ${this.copies.length > 0

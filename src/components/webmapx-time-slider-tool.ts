@@ -1,6 +1,7 @@
 import { html, css, TemplateResult } from 'lit';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import { formLabelStyles } from './internal/form-label-styles';
+import { helpTextStyles } from './internal/help-text-styles';
 import '@shoelace-style/shoelace/dist/components/switch/switch.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
@@ -147,7 +148,14 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
     private playFrame: number | null = null;
     private playLastFrame = 0;
 
-    static styles = [formLabelStyles, controlSurfaceStyles, css`
+    /** The next step, shown on the map under the panel. */
+    get toolTip(): string {
+        return isLive(this.mapTime)
+            ? 'The map runs with the clock. Switch Now off to choose a moment.'
+            : 'The map shows the moment you chose. Switch Now on to follow the clock again.';
+    }
+
+    static styles = [formLabelStyles, helpTextStyles, controlSurfaceStyles, css`
         :host { display: block; padding: var(--webmapx-tool-padding, 0); font-size: 0.875rem; }
         .now {
             display: flex;
@@ -175,11 +183,6 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
         input[type="range"], #time-year { width: 100%; box-sizing: border-box; }
         .controls { display: flex; align-items: center; gap: 0.5rem; }
         .controls select { flex: 1; min-width: 0; width: auto; }
-        .hint {
-            margin-top: 0.75rem;
-            font-size: 0.8125rem;
-            color: var(--color-text-secondary, #5a6773);
-        }
         :host([disabled-controls]) .row,
         .disabled { color: var(--color-text-muted, #6b7681); }
     `];
@@ -503,11 +506,6 @@ export class WebmapxTimeSliderTool extends WebmapxBaseTool {
                 ${this.renderStep(1, STEP_FORWARD_ICON, 'later')}
             </div>
 
-            <div class="hint">
-                ${live
-                    ? 'The map runs with the clock. Switch Now off to choose a moment.'
-                    : 'Frozen. Switch Now on to run with the clock again.'}
-            </div>
         `;
     }
 }

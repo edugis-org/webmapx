@@ -377,6 +377,24 @@ A tool that adds a layer of its own (the sea level tool's coastal zones, the dee
 
 The states travel as `x: { <key>: state }` in the permalink; `webmapx-map` hands them to the tools through `store.toolRestore`, and each tool takes its own entry. The permalink code knows no tool by name.
 
+## The next step: a tip under the panel
+
+A tool whose next step happens on the map, or is not obvious from its controls, says so in a tip: one sentence the tool panel draws on the map, directly under the panel ("Click the map to set the start point."). People act first and read later, and while they act they look at the map, so the instruction goes there and the panel keeps only its controls. Override the getter:
+
+```typescript
+get toolTip(): string {
+  return this.start
+    ? `${this.touch.click} the map to set the end point.`
+    : `${this.touch.click} the map to set the start point.`;
+}
+```
+
+- Compute it from reactive state; the base class notices a changed text after each render and the panel re-reads it (`internal/tool-tip.ts`). Return `''` for no tip.
+- Say "Tap" on a touch screen: `TouchPointerController` (`internal/touch-pointer.ts`) gives `click` and `isTouch`.
+- Not a tip: an empty state such as "Add a layer … first" — without it the panel would show nothing, so it stays in the panel — and an explanation of a field, which goes behind an (i) at the right end of the field's label line: wrap the field in an element with class `field-with-info` and add `infoToggle(fieldLabel, text)` (`internal/info-toggle.ts`, styled by `helpTextStyles`). It opens on hover, focus and tap. If your tool closes itself on Escape, check `hasOpenInfo(this.shadowRoot)` first, so Escape closes the explanation and not the tool.
+- A tool that only asks for a choice its controls already show (a search box, a list of languages) needs no tip.
+- The tip is a live region, so screen readers hear each new step.
+
 ## Accessibility checklist
 
 - `WebmapxBaseTool.connectedCallback` auto-sets `aria-label` from `label` attribute or `toolId`. Provide a `label` on every tool.

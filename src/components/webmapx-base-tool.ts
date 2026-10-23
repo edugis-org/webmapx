@@ -5,6 +5,7 @@ import type { IMap } from '../map/IMapInterfaces';
 import { resolveMapAdapter, resolveMapElement } from './internal/map-context';
 import type { AppConfig, CatalogConfig, LayerDataConfig, MapConfig, ToolsConfig } from '../config/types';
 import type { WebmapxMapElement } from './webmapx-map';
+import { ToolTipNotifier } from './internal/tool-tip';
 
 /**
  * Base class for all WebMapX tool components.
@@ -24,6 +25,18 @@ export abstract class WebmapxBaseTool extends LitElement {
      * The handleStateChange method will ignore updates from 'UI' when this is true.
      */
     protected isSettingValue: boolean = false;
+
+    private readonly tipNotifier = new ToolTipNotifier(this);
+
+    /**
+     * The next step, shown by the tool panel on the map under the panel ("Click
+     * the map to set the start point."). Empty for no tip. Override it in a tool
+     * whose next step happens on the map or is not obvious from its controls;
+     * the panel is told whenever the text changes after a render.
+     */
+    get toolTip(): string {
+        return '';
+    }
 
     connectedCallback(): void {
         super.connectedCallback();
