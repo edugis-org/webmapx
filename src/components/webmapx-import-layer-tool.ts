@@ -310,7 +310,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
           <div class="actions">
             <sl-button class="main-action" size="small" variant="primary" ?disabled=${this.selected.size === 0} @click="${() => this.handleAdd()}">
               <span slot="prefix" class="add-to-map-icon">${addLayerIcon}</span>
-              ${this.selected.size > 1 ? `Add ${this.selected.size} layers to map` : 'Add to map'}
+              ${this.selected.size > 1 ? `Add ${this.selected.size} as map layers` : 'Add as map layer'}
             </sl-button>
           </div>
           <div class="results">

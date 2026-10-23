@@ -93,7 +93,7 @@ export const formLabelStyles = css`
     }
 
     /* The one thing a tool's panel ends with — Calculate isochrone, Print map,
-       Add to map: full width, so it reads as the last step and is easy to hit
+       Add as map layer: full width, so it reads as the last step and is easy to hit
        on a tablet. Its text says what you get, and it carries an icon like
        every action button. */
     sl-button.main-action {

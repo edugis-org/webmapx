@@ -1489,7 +1489,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
         `;
     }
 
-    /** "Add to map" / "Remove from map": the same labelled button as routing and isochrone, on its own row under the actions. */
+    /** "Add as map layer" / "Remove as map layer": the same labelled button as routing and isochrone, on its own row under the actions. */
     private renderLayerToggle(): TemplateResult {
         return addToMapButton({ added: this.addedLayerId !== null, disabled: !this.canAddToMap, onClick: this.toggleMapLayer });
     }
@@ -1513,7 +1513,7 @@ export class WebmapxMeasureTool extends WebmapxModalTool {
             const verb = this.touch.click;
             return this.addedLayerId
                 ? `Added to the map, and listed in the legend. ${verb} Clear to start a new measurement.`
-                : `Measurement finished. ${verb} Add to map to keep it, or Clear to start a new one.`;
+                : `Measurement finished. ${verb} Add as map layer to keep it, or Clear to start a new one.`;
         }
 
         const verb = this.touch.click;

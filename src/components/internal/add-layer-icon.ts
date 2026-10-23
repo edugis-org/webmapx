@@ -99,7 +99,7 @@ export interface AddToMapButtonOptions {
     onClick: () => void;
 }
 
-/** "Add to map" / "Remove from map": one labelled button, the same in every tool. */
+/** "Add as map layer" / "Remove as map layer": one labelled button, the same in every tool. */
 export function addToMapButton({ added, disabled = false, onClick }: AddToMapButtonOptions): TemplateResult {
     return html`
         <sl-button
@@ -108,6 +108,6 @@ export function addToMapButton({ added, disabled = false, onClick }: AddToMapBut
             data-added=${added ? 'true' : 'false'}
             ?disabled=${disabled}
             @click=${onClick}
-        ><span slot="prefix" class="add-to-map-icon">${addLayerIcon}</span>${added ? 'Remove from map' : 'Add to map'}</sl-button>
+        ><span slot="prefix" class="add-to-map-icon">${addLayerIcon}</span>${added ? 'Remove as map layer' : 'Add as map layer'}</sl-button>
     `;
 }

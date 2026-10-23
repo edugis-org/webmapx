@@ -213,7 +213,7 @@ export class WebmapxIsochroneTool extends WebmapxModalTool {
     @state() private rangeType: RangeType = 'time';
     @state() private rangesInput = '10, 20, 30';
     @state() private loading = false;
-    /** The legend layer "Add to map" made of the current result, so the same button can take it off again. */
+    /** The legend layer "Add as map layer" made of the current result, so the same button can take it off again. */
     @state() private addedLayerId: string | null = null;
     /** The layer is added asynchronously: only once the store has listed it does its absence mean it was removed. */
     private addedLayerSeen = false;
