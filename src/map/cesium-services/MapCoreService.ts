@@ -7,6 +7,7 @@ import { MapEventBus, LngLat, Pixel } from '../../store/map-events';
 import { throttle } from '../../utils/throttle';
 import { evaluateColor, evaluateNumber } from '../../utils/maplibre-expression-evaluator';
 import { isEventFromEditableElement } from '../../utils/dom-focus-utils';
+import { prefersReducedMotion } from '../../utils/reduced-motion';
 import { forceGeodesicArcType } from './MapLayerService';
 import { DEFAULT_DATA_COLOR } from '../default-paint';
 
@@ -872,21 +873,61 @@ export class MapCoreService implements IMapCore {
         const desiredHeight = this.zoomToCameraHeightMeters(zoom, center[1]);
         const verticalComponent = Math.max(0.01, Math.abs(Math.sin(pitch)));
         const range = Math.max(1, desiredHeight / verticalComponent);
+        const hpr = new Cesium.HeadingPitchRange(heading, pitch, range);
         const action = () => {
-            camera.lookAt(target, new Cesium.HeadingPitchRange(heading, pitch, range));
+            camera.lookAt(target, hpr);
             camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
         };
-        if (animate) {
-            camera.flyTo({
-                destination: target,
-                orientation: { heading, pitch, roll: camera.roll },
-                duration: 0.1,
-                complete: action
-            });
-        } else {
+
+        // Under "reduce motion" every engine jumps (see utils/reduced-motion.ts).
+        if (!animate || prefersReducedMotion()) {
             action();
+            return;
         }
+
+        // `flyTo`'s `destination` is the camera's own eye position, not a look-at
+        // target — flying straight to `target` (a ground-level point) would carry
+        // the camera into the terrain at the destination, with `action()` in
+        // `complete` only fixing that up *after* arriving. That went unnoticed
+        // because the flight used to be a fixed 0.1s — short enough nothing was
+        // ever really on screen to see it — rather than genuinely animated. Now
+        // that the flight is meant to be visible (duration omitted below so
+        // Cesium picks one from the distance travelled, the same "let the
+        // engine's own curve decide" rule MapLibre/Leaflet's native flyTo already
+        // gets here), the eye position/orientation `action()` would land on has
+        // to be the actual flight target. A scratch `action()` — jump there,
+        // read the pose off, jump back — gets that without reimplementing
+        // Cesium's own heading/pitch/range → world-position math by hand.
+        const original = {
+            destination: Cesium.Cartesian3.clone(camera.position),
+            orientation: { direction: Cesium.Cartesian3.clone(camera.direction), up: Cesium.Cartesian3.clone(camera.up) },
+        };
+        action();
+        const destination = Cesium.Cartesian3.clone(camera.position);
+        const orientation = { direction: Cesium.Cartesian3.clone(camera.direction), up: Cesium.Cartesian3.clone(camera.up) };
+        camera.setView(original);
+
+        // Cesium gives every flight at least about two seconds, which turned a
+        // keyboard nudge or a "+" zoom step (setZoom flies too) into a 2.4 s
+        // crawl. A move within about a screen of the camera — measured against
+        // the lower of the two heights, so one zoom level either way counts —
+        // gets OpenLayers' short-hop duration; only a real flight is left to
+        // Cesium's own curve.
+        const startHeight = Math.max(1, camera.positionCartographic.height);
+        const destinationHeight = Math.max(1, Cesium.Cartographic.fromCartesian(destination)?.height ?? startHeight);
+        const travel = Cesium.Cartesian3.distance(original.destination, destination);
+        const shortHop = travel < MapCoreService.SHORT_HOP_SCREENS * Math.min(startHeight, destinationHeight);
+
+        camera.flyTo({
+            destination, orientation, complete: action,
+            ...(shortHop ? { duration: MapCoreService.SHORT_HOP_SECONDS } : {}),
+        });
     }
+
+    /** A move shorter than this many camera heights is a hop, not a flight. */
+    private static readonly SHORT_HOP_SCREENS = 1.5;
+    /** Matches the shortest OpenLayers hop (500 ms). */
+    private static readonly SHORT_HOP_SECONDS = 0.5;
 
     private dispatchViewportState(): void {
         if (this.isClamping) {
