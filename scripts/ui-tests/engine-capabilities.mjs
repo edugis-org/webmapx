@@ -8,7 +8,7 @@ import { appUrl } from './lib/fixture-config.mjs';
 
 const EXPECTED = {
   maplibre: { terrain: 'raster-dem', raster: true, geojson: true, vector: true, 'raster-dem': true, warped: true, allmaps: true, pmtiles: true },
-  openlayers: { terrain: null, raster: true, geojson: true, vector: true, 'raster-dem': true, warped: true, allmaps: true, pmtiles: false },
+  openlayers: { terrain: null, raster: true, geojson: true, vector: true, 'raster-dem': true, warped: true, allmaps: true, pmtiles: true },
   leaflet: { terrain: null, raster: true, geojson: true, vector: false, 'raster-dem': false, warped: true, allmaps: true, pmtiles: false },
   cesium: { terrain: 'terrain-service', raster: true, geojson: true, vector: false, 'raster-dem': false, warped: false, allmaps: false, pmtiles: false },
 };
