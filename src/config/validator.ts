@@ -42,7 +42,7 @@ const KNOWN_KEYS = {
   sourceRaster: ['service', 'url', 'tiles', 'tileSize', 'minzoom', 'maxzoom', 'bounds', 'scheme', 'volatile', 'attribution', 'layers', 'format', 'transparent', 'version', 'crs'],
   sourceGeojson: ['data', 'attribution', 'minzoom', 'maxzoom', 'bounds', 'buffer', 'tolerance', 'cluster', 'clusterRadius', 'clusterMaxZoom', 'lineMetrics', 'generateId'],
   sourceVector: ['url', 'tiles', 'bounds', 'scheme', 'minzoom', 'maxzoom', 'attribution', 'volatile'],
-  sourceRasterDem: ['tiles', 'tileSize', 'encoding', 'maxzoom', 'attribution'],
+  sourceRasterDem: ['tiles', 'url', 'tileSize', 'encoding', 'maxzoom', 'attribution'],
   layer: ['id', 'type', 'source', 'source-layer', 'sources', 'layers', 'url', 'annotation', 'fallbackLayerId', 'singleGroup', 'title', 'metadata', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter', 'featureInfoLimit'],
   styleLayer: ['id', 'type', 'source', 'sourceLayer', 'source-layer', 'metadata', 'minzoom', 'maxzoom', 'paint', 'layout', 'filter'],
   tool: ['enabled', 'label', 'icon'],
@@ -639,8 +639,10 @@ function validateSources(
     } else if (s.type === 'raster-dem') {
       knownKeys.push(...KNOWN_KEYS.sourceRasterDem);
       const hasTiles = Array.isArray(s.tiles) && s.tiles.length > 0 && s.tiles.every((entry) => typeof entry === 'string' && entry.length > 0);
-      if (!hasTiles) {
-        errors.push({ severity: 'error', path: `${path}.tiles`, message: 'Raster-dem source requires a non-empty "tiles" string array' });
+      // A url is a TileJSON, or a `cog://<file>#dem` elevation model.
+      const hasUrl = typeof s.url === 'string' && s.url.length > 0;
+      if (!hasTiles && !hasUrl) {
+        errors.push({ severity: 'error', path: `${path}.tiles`, message: 'Raster-dem source requires a non-empty "tiles" string array or a "url"' });
       }
     }
 

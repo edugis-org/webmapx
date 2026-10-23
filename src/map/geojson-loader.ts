@@ -57,6 +57,14 @@ export async function resolveGeoJSONSources(
             return;
         }
 
+        // `geoparquet://<url>`: the pmtiles:// convention, read here because
+        // engines are handed inline data and never see the url.
+        if (s.data.startsWith('geoparquet://')) {
+            const { geoParquetUrlToGeoJSON } = await import('../utils/geoparquet');
+            s.data = await geoParquetUrlToGeoJSON(s.data.slice('geoparquet://'.length));
+            return;
+        }
+
         if (s.service === 'wfs') {
             const continuation = await fetchWFSFeatures(s);
             if (continuation) continuations.push(continuation);

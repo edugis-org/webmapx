@@ -1,5 +1,6 @@
 // src/map/maplibre-services/MapLayerService.ts
 
+import { archiveProtocolOf } from '../archive-urls';
 import { ILayerService, LayerInsertOptions, type SourceFeatureQueryOptions, type SourceFeatureSample, type QueryLayerFeaturesOptions } from '../IMapInterfaces';
 import { normalizeRawSource } from '../layer-source-utils';
 import type { AnyLayerConfig, StandardLayerConfig, SourceConfig, WMSSourceConfig, SubLayerSpec } from '../../config/types';
@@ -149,7 +150,10 @@ export class MapLayerService implements ILayerService {
         if (sourceConfig.type === 'raster') {
             if (sourceConfig.service === 'xyz' || sourceConfig.service === undefined) {
                 const tiles = Array.isArray(sourceConfig.url) ? sourceConfig.url : [sourceConfig.url];
-                nativeSource = { type: 'raster', tiles };
+                // An archive is one file, not a tile template: its protocol answers the TileJSON.
+                nativeSource = archiveProtocolOf(tiles[0])
+                    ? { type: 'raster', url: tiles[0], tileSize: 256 }
+                    : { type: 'raster', tiles };
                 if ('tileSize' in sourceConfig) nativeSource.tileSize = sourceConfig.tileSize;
                 if ('bounds' in sourceConfig) nativeSource.bounds = sourceConfig.bounds;
                 if (typeof sourceConfig.minzoom === 'number') nativeSource.minzoom = sourceConfig.minzoom;
@@ -185,7 +189,10 @@ export class MapLayerService implements ILayerService {
             if (typeof (sourceConfig as any).attribution === 'string') nativeSource.attribution = (sourceConfig as any).attribution;
         } else if (sourceConfig.type === 'raster-dem') {
             const dc = sourceConfig as any;
-            nativeSource = { type: 'raster-dem', tiles: dc.tiles };
+            nativeSource = Array.isArray(dc.tiles) && dc.tiles.length > 0
+                ? { type: 'raster-dem', tiles: dc.tiles }
+                // `cog://<file>#dem` (its protocol answers Terrain-RGB tiles at 256 px) or a TileJSON.
+                : { type: 'raster-dem', url: dc.url, ...(archiveProtocolOf(dc.url) ? { tileSize: 256 } : {}) };
             if (typeof dc.tileSize === 'number') nativeSource.tileSize = dc.tileSize;
             if (typeof dc.encoding === 'string') nativeSource.encoding = dc.encoding;
             if (typeof dc.maxzoom === 'number') nativeSource.maxzoom = dc.maxzoom;

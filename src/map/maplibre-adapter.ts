@@ -23,13 +23,19 @@ const BACKGROUND_LAYER_ID = 'webmapx-background-color';
 // .pmtiles archive with HTTP range requests, so any static host serves them.
 // The protocol is global to maplibre-gl, so every map (main, sub, print) has it.
 _ml.addProtocol('pmtiles', new PmtilesProtocol({ metadata: true }).tile);
+// `cog://<url>` raster sources, maplibre-cog-protocol's convention (`#color:` and
+// `#dem` in the fragment). Imported on first use: geotiff is not small.
+_ml.addProtocol('cog', async (params) => {
+    const { cogProtocol } = await import('@geomatico/maplibre-cog-protocol');
+    return cogProtocol(params);
+});
 
 /**
  * The concrete Map implementation for MapLibre.
  * Implements the unified IMap interface by delegating to specialized services.
  */
 const VECTOR_CAPABLE_SOURCE_TYPES: ReadonlySet<string> = new Set(['raster', 'geojson', 'vector', 'raster-dem']);
-const PMTILES_PROTOCOL: ReadonlySet<string> = new Set(['pmtiles']);
+const PMTILES_PROTOCOL: ReadonlySet<string> = new Set(['pmtiles', 'cog']);
 
 export class MapLibreAdapter extends BaseAdapter implements IMap {
     public readonly engineId = 'maplibre';
@@ -296,7 +302,7 @@ export class MapLibreAdapter extends BaseAdapter implements IMap {
         return VECTOR_CAPABLE_SOURCE_TYPES;
     }
 
-    /** `pmtiles://`, registered with MapLibre at the top of this module. */
+    /** `pmtiles://` and `cog://`, registered with MapLibre at the top of this module. */
     protected tileProtocols(): ReadonlySet<string> {
         return PMTILES_PROTOCOL;
     }

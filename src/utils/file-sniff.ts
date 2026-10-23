@@ -2,7 +2,7 @@ import { ZipReader, BlobReader, BlobWriter } from '@zip.js/zip.js';
 
 export interface FileSniffResult {
   /** Short machine-readable kind, e.g. 'geojson', 'topojson', 'style', 'webmapx-config',
-   *  'csv', 'xlsx', 'gpx', 'kml', 'kmz', 'shapefile-zip', 'gpkg', 'geotiff', 'json', 'zip', 'unknown' */
+   *  'csv', 'xlsx', 'gpx', 'kml', 'kmz', 'shapefile-zip', 'gpkg', 'parquet', 'geotiff', 'json', 'zip', 'unknown' */
   kind: string;
   /** Human-readable description for display */
   description: string;
@@ -197,6 +197,10 @@ export async function sniffBlob(blob: Blob): Promise<FileSniffResult> {
   }
   if (bytesEqual(headerBuf, 0, [0x53, 0x51, 0x4c, 0x69, 0x74, 0x65])) {
     return { kind: 'gpkg', description: 'GeoPackage' };
+  }
+  // "PAR1"; GeoParquet is told apart by its footer metadata, which the reader checks
+  if (bytesEqual(headerBuf, 0, [0x50, 0x41, 0x52, 0x31])) {
+    return { kind: 'parquet', description: 'Parquet (GeoParquet)' };
   }
   if (bytesEqual(headerBuf, 0, [0x49, 0x49, 0x2a, 0x00]) || bytesEqual(headerBuf, 0, [0x4d, 0x4d, 0x00, 0x2a])) {
     return { kind: 'geotiff', description: 'GeoTIFF - not yet supported', rejected: true };

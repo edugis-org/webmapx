@@ -99,7 +99,7 @@ function requestParamsOf(url: string | undefined): Record<string, string> {
 
 const BASE_DRAWABLE_SOURCE_TYPES: ReadonlySet<string> = new Set(['raster', 'geojson']);
 /** Tile archive protocols an engine has to register before a url can use them. */
-const TILE_PROTOCOLS: ReadonlySet<string> = new Set(['pmtiles']);
+const TILE_PROTOCOLS: ReadonlySet<string> = new Set(['pmtiles', 'cog']);
 const NO_TILE_PROTOCOLS: ReadonlySet<string> = new Set();
 const MERCATOR_ONLY: readonly string[] = ['mercator'];
 

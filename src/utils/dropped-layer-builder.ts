@@ -349,6 +349,13 @@ export async function buildLayerConfigsFromGroup(group: NamedBlob[], layerPicker
       } catch (error) {
         console.error(`[dropped-layer-builder] failed to convert "${item.name}" via GDAL`, error);
       }
+    } else if (sniff.kind === 'parquet') {
+      try {
+        const { geoParquetToGeoJSON } = await import('./geoparquet');
+        geojsonFiles.push({ name: item.name, data: await geoParquetToGeoJSON(await item.blob.arrayBuffer()) });
+      } catch (error) {
+        console.error(`[dropped-layer-builder] failed to read GeoParquet "${item.name}"`, error);
+      }
     } else if (sniff.kind === 'fgb') {
       gdalAttempted = true;
       try {
