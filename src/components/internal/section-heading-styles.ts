@@ -31,7 +31,10 @@ export const sectionHeadingStyles = css`
         border-top: 1px solid var(--color-border-light, #e2e7ec);
     }
 
+    /* Closer to what it heads (8px) than the 12px between fields, so the
+       heading reads as belonging to the section below it. */
     .section-heading {
+        margin: 0 0 var(--webmapx-space-sm, 0.5rem);
         font-size: var(--webmapx-label-size, var(--webmapx-font-size-sm, 0.75rem));
         font-weight: 600;
         line-height: 1.4;

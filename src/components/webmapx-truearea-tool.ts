@@ -230,6 +230,7 @@ export class WebmapxTrueAreaTool extends WebmapxModalTool {
         label { display: block; margin-bottom: 0.25rem; }
         sl-select { width: 100%; margin-bottom: 0.75rem; }
         .hint { margin-bottom: 0.5rem; }
+        .field-label + .hint { margin-top: 4px; }
         .copy-item { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
         .copy-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
         .copy-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

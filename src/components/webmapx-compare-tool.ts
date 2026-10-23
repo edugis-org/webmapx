@@ -64,7 +64,7 @@ export class WebmapxCompareTool extends WebmapxModalTool {
         * + .sides { margin-top: var(--webmapx-space-sm, 0.5rem); }
         .side { flex: 1; border: 1px solid var(--color-border, #d5dce3); border-radius: var(--webmapx-radius-sm, 4px); padding: var(--webmapx-space-sm, 0.5rem); }
         .side b { display: block; }
-        .action { display: block; width: 100%; margin-top: var(--webmapx-space-sm, 0.5rem); }
+        .action { display: block; width: 100%; margin-top: var(--webmapx-space-md, 0.75rem); }
         .action::part(base) { width: 100%; }
     `];
 

@@ -56,7 +56,6 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
     :host { display: block; width: 100%; pointer-events: auto; }
     :host([hidden]) { display: none !important; }
     .container { width: 100%; color: var(--color-text-primary); box-sizing: border-box; padding: var(--webmapx-tool-padding, 0); }
-    .section-title { margin: 0 0 6px; }
     .urlbox { display:flex; gap:6px; align-items:center; }
     sl-input.url { flex:1; min-width:0; }
     .error { color: var(--sl-color-danger-600, #c0392b); font-size: 12px; margin-top: 6px; }
@@ -76,7 +75,7 @@ export class WebmapxImportLayerTool extends WebmapxBaseTool {
       color: var(--color-text-secondary);
       cursor: pointer;
       transition: border-color var(--webmapx-motion-fast, 120ms), background var(--webmapx-motion-fast, 120ms);
-      margin-top: 6px;
+      margin-top: 12px;
     }
     .drop-zone:hover, .drop-zone.active {
       border-color: var(--sl-color-primary-500);

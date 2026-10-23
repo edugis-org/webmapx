@@ -80,7 +80,6 @@ export class WebmapxBufferTool extends WebmapxModalTool {
             display: flex;
             gap: var(--sl-spacing-x-small);
             justify-content: flex-end;
-            margin-top: var(--sl-spacing-x-small);
         }
 
         .status {

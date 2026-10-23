@@ -163,8 +163,10 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
             font-size: var(--sl-font-size-small);
         }
 
-        .category {
-            margin-bottom: var(--sl-spacing-x-small);
+        /* The sections are flex items, so the column's gap already separates
+           them: the shared divider's own margin would add a second 12px. */
+        .tool-content > .panel-section + .panel-section {
+            margin-top: 0;
         }
 
         /* Two columns, so the panel keeps the shared 300px default width. */
@@ -345,7 +347,6 @@ export class WebmapxGeoprocessingTool extends WebmapxModalTool {
             align-items: center;
             gap: var(--sl-spacing-x-small);
             justify-content: flex-end;
-            margin-top: var(--sl-spacing-x-small);
         }
 
         .status {

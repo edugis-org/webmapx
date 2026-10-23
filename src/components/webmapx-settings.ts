@@ -68,15 +68,16 @@ export class WebmapxSettings extends LitElement {
             box-sizing: border-box;
         }
 
-        h3 {
-            margin: 0 0 0.75rem 0;
+        /* 12px between fields, 8px under a section heading. */
+        .panel-section > * {
+            margin: 0;
         }
 
-        sl-input {
-            margin-top: 0.5rem;
+        .panel-section > * + * {
+            margin-top: 0.75rem;
         }
 
-        sl-select {
+        .panel-section > .section-heading + * {
             margin-top: 0.5rem;
         }
 

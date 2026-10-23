@@ -348,7 +348,7 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
         .period { color: var(--color-text-muted, #666); margin-bottom: 0.75rem; }
         input[type="range"] { width: 100%; }
         .controls { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
-        .models { margin-top: 0.5rem; font-size: 0.8125rem; color: var(--color-text-secondary, #5a6773); }
+        .models { margin: 0.5rem 0 0.75rem; font-size: 0.8125rem; color: var(--color-text-secondary, #5a6773); }
         .models label { display: flex; align-items: center; gap: 0.4rem; }
         .legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; margin-top: 0.75rem; }
         .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
