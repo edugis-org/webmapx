@@ -11,9 +11,17 @@ import type {
     SymbolLayerSpecification,
 } from '@maplibre/maplibre-gl-style-spec';
 
+/**
+ * A marker shape other than the plain pin. `info`: the information marker (a
+ * disc on a point with an italic i), for "information about this spot".
+ */
+export type MarkerGlyph = 'info';
+
 export interface MarkerOptions {
     /** Pin fill color (CSS color string). Default: engine default or red. */
     color?: string;
+    /** Marker shape. Default: the plain pin. Drawn the same on every engine. */
+    glyph?: MarkerGlyph;
     /** Whether the marker can be dragged by the user. Default: false. */
     draggable?: boolean;
     /** Called continuously while the marker is being dragged. */

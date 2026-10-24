@@ -28,7 +28,7 @@ export class MapMarkerService {
         const entity = this.viewer.entities.add({
             position: Cesium.Cartesian3.fromDegrees(lngLat[0], lngLat[1]),
             billboard: {
-                image: pinDataUrl(color),
+                image: pinDataUrl(color, options.glyph),
                 width: 24,
                 height: 36,
                 verticalOrigin: Cesium.VerticalOrigin.BOTTOM,

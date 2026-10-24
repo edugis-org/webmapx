@@ -2,12 +2,12 @@
 
 import * as L from 'leaflet';
 import type { LngLat } from '../../store/map-events';
-import type { MarkerOptions } from '../IMapInterfaces';
+import type { MarkerGlyph, MarkerOptions } from '../IMapInterfaces';
 import { pinSvg } from '../marker-utils';
 
-function makeDivIcon(color: string): L.DivIcon {
+function makeDivIcon(color: string, glyph?: MarkerGlyph): L.DivIcon {
     return L.divIcon({
-        html: pinSvg(color),
+        html: pinSvg(color, glyph),
         className: '',
         iconSize: [24, 36],
         iconAnchor: [12, 36],
@@ -23,7 +23,7 @@ export class MapMarkerService {
         this.remove(id);
         const color = options.color ?? '#e63946';
         const marker = L.marker([lngLat[1], lngLat[0]], {
-            icon: makeDivIcon(color),
+            icon: makeDivIcon(color, options.glyph),
             draggable: options.draggable ?? false,
         }).addTo(this.map);
 
