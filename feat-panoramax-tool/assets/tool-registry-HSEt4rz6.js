@@ -1,0 +1,1 @@
+import{$r as e,ni as t}from"./webmapx-shared-DN9Pm2FX.js";export{e as STANDALONE_TAGS,t as TOOL_ELEMENT_TAGS};

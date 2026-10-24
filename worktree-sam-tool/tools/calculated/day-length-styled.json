@@ -1,0 +1,167 @@
+{
+  "version": 0,
+  "apiKeysFile": "../../config/apikeys.json",
+  "project": {
+    "id": "docs-calculated-day-length-styled",
+    "title": "Day length",
+    "description": "Documentation demo for the calculated layer day-length.",
+    "language": "en"
+  },
+  "map": {
+    "label": "Day length",
+    "type": "maplibre",
+    "center": [
+      10,
+      20
+    ],
+    "zoom": 1
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "osm-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "day-length-source",
+        "type": "geojson",
+        "data": "internalfunc://day-length?refresh=auto",
+        "attribution": "Computed in the browser"
+      }
+    ],
+    "layers": [
+      {
+        "id": "osm",
+        "type": "raster",
+        "title": "OpenStreetMap",
+        "source": "osm-source",
+        "metadata": {
+          "reference": true,
+          "swatch": "#f2efe9"
+        }
+      },
+      {
+        "id": "day-length",
+        "type": "line",
+        "title": "Day length — styled as in demo.json",
+        "source": "day-length-source",
+        "paint": {
+          "line-color": [
+            "interpolate",
+            [
+              "linear"
+            ],
+            [
+              "get",
+              "hours"
+            ],
+            0,
+            "#08306b",
+            12,
+            "#6a51a3",
+            24,
+            "#d94801"
+          ],
+          "line-width": [
+            "case",
+            [
+              "==",
+              [
+                "get",
+                "hours"
+              ],
+              12
+            ],
+            2,
+            1.2
+          ],
+          "line-opacity": 0.9
+        },
+        "metadata": {
+          "title": "Hours of daylight",
+          "abstract": "Latitudes that get 0, 2, 4 … 24 hours of daylight today. The 0 and 24 hour lines exist only when there is polar night or midnight sun somewhere."
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeLayers": [
+      {
+        "ref": "osm",
+        "visible": true
+      },
+      {
+        "ref": "day-length",
+        "visible": true
+      }
+    ]
+  },
+  "tools": {
+    "timeSlider": {
+      "type": "timeSlider",
+      "enabled": true
+    },
+    "projection": {
+      "type": "projection",
+      "enabled": true
+    },
+    "info": {
+      "type": "info",
+      "enabled": true
+    },
+    "layerOverview": {
+      "type": "layerOverview",
+      "enabled": true
+    },
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "items": [
+        {
+          "type": "timeSlider",
+          "id": "timeSlider",
+          "enabled": true
+        },
+        {
+          "type": "projection",
+          "id": "projection",
+          "enabled": true
+        },
+        {
+          "type": "info",
+          "id": "info",
+          "enabled": true
+        },
+        {
+          "type": "layerOverview",
+          "id": "layerOverview",
+          "enabled": true
+        }
+      ]
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "fullscreen": {
+      "type": "fullscreen",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "attribution": {
+      "type": "attribution",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    }
+  }
+}

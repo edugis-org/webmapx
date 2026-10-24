@@ -1,0 +1,178 @@
+{
+  "version": 0,
+  "apiKeysFile": "../../config/apikeys.json",
+  "project": {
+    "id": "docs-calculated-paleo-coastlines-styled",
+    "title": "Palaeo coastlines",
+    "description": "Documentation demo for the calculated layer paleo-coastlines.",
+    "language": "en"
+  },
+  "map": {
+    "label": "Palaeo coastlines",
+    "type": "maplibre",
+    "center": [
+      10,
+      20
+    ],
+    "zoom": 1
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "osm-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "paleo-coastlines-source",
+        "type": "geojson",
+        "data": "internalfunc://paleo-coastlines?data=../../config/data/paleo/merdith2021&ma={ma}",
+        "attribution": "Merdith et al. 2021 plate model (CC-BY-4.0), reconstructed in the browser"
+      }
+    ],
+    "layers": [
+      {
+        "id": "osm",
+        "type": "raster",
+        "title": "OpenStreetMap",
+        "source": "osm-source",
+        "metadata": {
+          "reference": true,
+          "swatch": "#f2efe9"
+        }
+      },
+      {
+        "id": "paleo-coastlines",
+        "type": "fill",
+        "title": "Palaeo coastlines — styled as in demo.json",
+        "source": "paleo-coastlines-source",
+        "paint": {
+          "fill-color": [
+            "match",
+            [
+              "get",
+              "continent"
+            ],
+            "Africa",
+            "#c98a3f",
+            "Asia",
+            "#c2596f",
+            "Europe",
+            "#7a9e5c",
+            "North America",
+            "#4f86a8",
+            "South America",
+            "#b5674c",
+            "Oceania",
+            "#a87bb0",
+            "Antarctica",
+            "#8fa3ad",
+            "#96907f"
+          ],
+          "fill-opacity": 1,
+          "fill-outline-color": "#33302b"
+        },
+        "metadata": {
+          "title": "Palaeo-coastlines",
+          "abstract": "Where the land was, at the age the Deep time tool is set to. Each polygon is coloured by the continent it belongs to *today*, so a single mass splitting into Africa and South America is legible as exactly that. Not a stack of stored maps: the coastlines are held once, at present day, together with the rotation carrying each tectonic plate back through time, and the position at any age is worked out in the browser — which is why the slider is continuous rather than stepped, and why the whole billion-year model is about three megabytes instead of three hundred. Land that had not formed yet is absent rather than adrift: the Galapagos are four million years old and simply do not appear before that. Coastlines are meaningful for roughly the last 400 million years; the plate motions themselves go back a billion."
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeLayers": [
+      {
+        "ref": "osm",
+        "visible": true
+      },
+      {
+        "ref": "paleo-coastlines",
+        "visible": true
+      }
+    ]
+  },
+  "tools": {
+    "deeptime": {
+      "type": "deeptime",
+      "enabled": true,
+      "data": "../../config/data/paleo/merdith2021",
+      "to": 1000,
+      "models": [
+        {
+          "id": "merdith2021",
+          "label": "Merdith 2021 — 1000 Ma",
+          "data": "../../config/data/paleo/merdith2021",
+          "to": 1000
+        },
+        {
+          "id": "muller2019",
+          "label": "Müller 2019 — 250 Ma",
+          "data": "../../config/data/paleo/muller2019",
+          "to": 250,
+          "plates": "../../config/data/paleo/muller2019/plates"
+        }
+      ]
+    },
+    "projection": {
+      "type": "projection",
+      "enabled": true
+    },
+    "info": {
+      "type": "info",
+      "enabled": true
+    },
+    "layerOverview": {
+      "type": "layerOverview",
+      "enabled": true
+    },
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "items": [
+        {
+          "type": "deeptime",
+          "id": "deeptime",
+          "enabled": true
+        },
+        {
+          "type": "projection",
+          "id": "projection",
+          "enabled": true
+        },
+        {
+          "type": "info",
+          "id": "info",
+          "enabled": true
+        },
+        {
+          "type": "layerOverview",
+          "id": "layerOverview",
+          "enabled": true
+        }
+      ]
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "fullscreen": {
+      "type": "fullscreen",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "attribution": {
+      "type": "attribution",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    }
+  }
+}

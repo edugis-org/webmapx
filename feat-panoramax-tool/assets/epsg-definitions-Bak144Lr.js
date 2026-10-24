@@ -1,0 +1,1 @@
+import{dt as e,ft as t}from"./webmapx-shared-DN9Pm2FX.js";export{e as EPSG_DEFS,t as REGIONAL_CRS};

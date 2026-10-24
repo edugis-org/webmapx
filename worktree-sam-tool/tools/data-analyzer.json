@@ -1,0 +1,32 @@
+{
+  "id": "data-analyzer",
+  "label": "Data analyzer",
+  "tagline": "Finds useful fields, statistical families, and map-making options in a layer.",
+  "status": "experimental",
+  "element": "webmapx-data-analyzer-tool",
+  "placement": "toolbar",
+  "configType": "data-analyzer",
+  "demoConfig": "config/docs/tools/data-analyzer.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-data-analyzer-tool.ts",
+    "src/utils/data-analyzer.ts",
+    "src/workers/data-analyzer.worker.ts"
+  ],
+  "tests": [
+    "tests/data-analyzer.test.ts"
+  ],
+  "related": [
+    "import-layer",
+    "layerOverview",
+    "geoprocessing"
+  ],
+  "sections": {
+    "what": "Data analyzer examines the attributes in a vector layer and suggests useful\nways to understand or map them. It identifies numeric fields, missing and\nno-data values, likely identifiers, correlations, statistical families, and\nlikely borders between groups of related attributes.\n\nThe family detector uses field names in several languages, including Dutch,\nEnglish, Spanish, Finnish, and Greek. It also looks at the values themselves:\npercentages that form a whole, complementary fields, additive totals, and\nstrongly related measures can reveal a family even when the field names are\nshort, abbreviated, or unfamiliar.\n\nThe analysis runs in a Web Worker. The map remains usable while a large layer\nis being processed, and the panel reports that it is calculating. Canceling\nterminates the current calculation; refresh starts a new one.",
+    "use": "1. Open **Data analyzer** and choose a vector layer.\n2. Wait for the complete analysis to finish. The panel reports the feature count\n   and offers tabs for map options, fields, and families.\n3. Review a suggested profile, percentage, or relationship.\n4. Press **Map this** to apply a suitable graduated style to the selected field.\n\nThe analyzer uses all features available to the browser. GeoJSON, converted\ndropped data, and a complete WFS response can therefore be analyzed as a whole.\nFor MVT or other tiled sources, the browser normally has only the currently\nloaded tile features. The tool warns about this: its result describes the loaded\nview, not necessarily the complete dataset. Pan or zoom and refresh to analyze\nanother loaded extent.\n\nNo preview or sampling result is presented. A calculation is either still\nrunning, complete, or canceled.",
+    "embed": "Add `data-analyzer` to a toolbar. It needs no extra tool settings:\n\n```json\n{\n  \"tools\": {\n    \"data-analyzer\": {\n      \"type\": \"data-analyzer\",\n      \"enabled\": true\n    },\n    \"mainToolbar\": {\n      \"type\": \"toolbar\",\n      \"enabled\": true,\n      \"position\": \"top-left\",\n      \"orientation\": \"vertical\",\n      \"items\": [\n        {\n          \"type\": \"data-analyzer\",\n          \"id\": \"data-analyzer\",\n          \"enabled\": true\n        }\n      ]\n    }\n  }\n}\n```\n\nThe analyzer reads data through the active map adapter. Geometry is kept on the\nmain thread and only feature properties are sent to the worker, which avoids\ncopying large polygon geometries while preserving the full attribute analysis.",
+    "extend": "The pure analysis logic lives in `src/utils/data-analyzer.ts`, so it can be\ntested without a browser or map engine. The component collects available\nfeatures, sends their properties to `src/workers/data-analyzer.worker.ts`, and\nrenders the returned `DatasetAnalysis`.\n\nKeep the distinction between complete and tile-backed data visible when adding\nnew suggestions. A useful future extension is a full-data endpoint for tiled\nlayers, allowing the worker to analyze the complete source rather than the\nfeatures currently loaded in the viewport.\n\n`Map this` currently turns a single-field suggestion into a style-builder\nclassification and applies it through the adapter. Future map actions can use\nthe detected family to create coordinated multi-field maps, small multiples,\nor derived profile layers while keeping the analyzer independent from styling\nimplementation details."
+  },
+  "page": "https://webmapx.com/tools/data-analyzer.html",
+  "webmapxCommit": "cfd8ad6f1582c9aa5a0fa80c4c05ddb071c96dbf"
+}

@@ -1,0 +1,49 @@
+# WebMapX
+
+> Config-driven web map UI with adapters for MapLibre, OpenLayers, Leaflet and Cesium.
+> A map is a JSON config; every tool below is one entry in its `tools` section.
+
+## Building a config
+- [Building a config](https://webmapx.com/tools/setup.html): The setup page builds a WebMapX config — tools, layers, starting view, stories and plugins — without writing JSON by hand.
+
+## Tools
+- [3D](https://webmapx.com/tools/3d.html): Tilts the map and shows terrain. JSON: https://webmapx.com/tools/3d.json
+- [Engine label](https://webmapx.com/tools/activeAdapter.html): Shows which map engine is being used. JSON: https://webmapx.com/tools/activeAdapter.json
+- [Attribution](https://webmapx.com/tools/attribution.html): The credit your data requires, kept legible. JSON: https://webmapx.com/tools/attribution.json
+- [Buffer](https://webmapx.com/tools/buffer.html): Creates a zone at a set distance around a layer. JSON: https://webmapx.com/tools/buffer.json
+- [Cartogram](https://webmapx.com/tools/cartogram.html): Resizes regions by a numeric value. JSON: https://webmapx.com/tools/cartogram.json
+- [Compare](https://webmapx.com/tools/compare.html): Compares the current map with later changes. JSON: https://webmapx.com/tools/compare.json
+- [Coordinates](https://webmapx.com/tools/coordinates.html): Shows pointer coordinates in the chosen format. JSON: https://webmapx.com/tools/coordinates.json
+- [Data analyzer](https://webmapx.com/tools/data-analyzer.html): Finds useful fields, statistical families, and map-making options in a layer. JSON: https://webmapx.com/tools/data-analyzer.json
+- [Deep time](https://webmapx.com/tools/deeptime.html): Shows reconstructed coastlines from deep time. JSON: https://webmapx.com/tools/deeptime.json
+- [Draw and edit layers](https://webmapx.com/tools/draw.html): Adds points, lines and areas to the map, with your own fields. JSON: https://webmapx.com/tools/draw.json
+- [Fullscreen](https://webmapx.com/tools/fullscreen.html): Fills the screen with the map. JSON: https://webmapx.com/tools/fullscreen.json
+- [Geolocation](https://webmapx.com/tools/geolocation.html): Shows your location and optional track. JSON: https://webmapx.com/tools/geolocation.json
+- [Analysis](https://webmapx.com/tools/geoprocessing.html): Builds a new layer from one or two existing layers. JSON: https://webmapx.com/tools/geoprocessing.json
+- [Import layer](https://webmapx.com/tools/import-layer.html): Adds layers from a service URL. JSON: https://webmapx.com/tools/import-layer.json
+- [Feature info](https://webmapx.com/tools/info.html): Shows the attributes at a point on the map. JSON: https://webmapx.com/tools/info.json
+- [Inset map](https://webmapx.com/tools/insetMap.html): Shows where the main map is. JSON: https://webmapx.com/tools/insetMap.json
+- [Isochrone](https://webmapx.com/tools/isochrone.html): Shows where you can get within a chosen time or distance. JSON: https://webmapx.com/tools/isochrone.json
+- [Legend 3D](https://webmapx.com/tools/layerLegend3d.html): Shows map layers as a 3D stack. JSON: https://webmapx.com/tools/layerLegend3d.json
+- [Legend](https://webmapx.com/tools/layerOverview.html): Lists the layers on the map. JSON: https://webmapx.com/tools/layerOverview.json
+- [Catalog](https://webmapx.com/tools/layerTree.html): Lets readers choose layers from a grouped catalog. JSON: https://webmapx.com/tools/layerTree.json
+- [Map language](https://webmapx.com/tools/maplanguage.html): Changes the language used for map labels. JSON: https://webmapx.com/tools/maplanguage.json
+- [Measure](https://webmapx.com/tools/measure.html): Measures lengths, areas and perimeters by clicking on the map. JSON: https://webmapx.com/tools/measure.json
+- [Tools](https://webmapx.com/tools/menu.html): Puts several tools behind one menu button. JSON: https://webmapx.com/tools/menu.json
+- [Navigation](https://webmapx.com/tools/navigation.html): Provides zoom buttons and a compass. JSON: https://webmapx.com/tools/navigation.json
+- [Print](https://webmapx.com/tools/print.html): Prints the current map view. JSON: https://webmapx.com/tools/print.json
+- [Projection](https://webmapx.com/tools/projection.html): Changes the map projection. JSON: https://webmapx.com/tools/projection.json
+- [Routing](https://webmapx.com/tools/routing.html): Finds a route, distance and travel time. JSON: https://webmapx.com/tools/routing.json
+- [Scale bar](https://webmapx.com/tools/scale.html): Shows the current map scale. JSON: https://webmapx.com/tools/scale.json
+- [Sea level](https://webmapx.com/tools/sealevel.html): Moves the sea level from the last ice age to a world without land ice. JSON: https://webmapx.com/tools/sealevel.json
+- [Search](https://webmapx.com/tools/search.html): Finds a place by name and moves the map there. JSON: https://webmapx.com/tools/search.json
+- [Settings](https://webmapx.com/tools/settings.html): Changes theme, style, engine, and API keys. JSON: https://webmapx.com/tools/settings.json
+- [Spinner](https://webmapx.com/tools/spinner.html): Shows when the map is busy. JSON: https://webmapx.com/tools/spinner.json
+- [Stories](https://webmapx.com/tools/stories.html): Guides readers through a map step by step. JSON: https://webmapx.com/tools/stories.json
+- [Time](https://webmapx.com/tools/timeSlider.html): Sets the time used by time-based layers. JSON: https://webmapx.com/tools/timeSlider.json
+- [Toolbox](https://webmapx.com/tools/toolbox.html): Puts several tools behind one icon row. JSON: https://webmapx.com/tools/toolbox.json
+- [True area](https://webmapx.com/tools/truearea.html): Moves an outline to compare its true size at another latitude. JSON: https://webmapx.com/tools/truearea.json
+- [Zoom level](https://webmapx.com/tools/zoomLevel.html): Shows and sets the current zoom level. JSON: https://webmapx.com/tools/zoomLevel.json
+
+## Index
+- [All tools](https://webmapx.com/tools/index.json)

@@ -1,0 +1,51 @@
+[
+  {
+    "slug": "feat-info-unpin",
+    "branch": "feat/info-unpin",
+    "sha": "8cc23d277c7d1fe505b0d236a674dda21a4e9c93",
+    "deployed": "2026-10-24T07:25:24.470Z",
+    "bytes": 72904620,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "feat-panoramax-tool",
+    "branch": "feat/panoramax-tool",
+    "sha": "e533edadc51eda3a6963296d5afbe869fd1173d8",
+    "deployed": "2026-10-24T07:37:02.743Z",
+    "bytes": 72925835,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "main",
+    "branch": "main",
+    "sha": "292f41cfebf167bfa62323a5ba9105462bb395f3",
+    "deployed": "2026-10-23T17:41:15.572Z",
+    "bytes": 72904777,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "worktree-sam-tool",
+    "branch": "worktree-sam-tool",
+    "sha": "cfd8ad6f1582c9aa5a0fa80c4c05ddb071c96dbf",
+    "deployed": "2026-10-09T14:09:26.458Z",
+    "bytes": 70498352,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835,
+      "39f9f0894d478800487e.wasm": 26781914
+    }
+  }
+]

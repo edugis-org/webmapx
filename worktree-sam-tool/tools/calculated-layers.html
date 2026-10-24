@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculated layers</title>
+<meta name="description" content="Every internalfunc:// layer WebMapX computes in the browser — sun, moon, tides, graticules, projection distortion, deep time — with its parameters.">
+<link rel="canonical" href="https://webmapx.com/tools/calculated-layers.html">
+
+<link rel="icon" href="../favicon.png" type="image/png">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f8f8f8;color:#1a1a1a;line-height:1.6}
+a{color:#1b6ec2}
+header{background:#0f1923;color:#fff;padding:2rem 1.5rem}
+header .inner,main{max-width:52rem;margin:0 auto}
+header .crumb{font-size:.85rem;color:#8fa6bd}
+header .crumb a{color:#8fa6bd}
+header h1{font-size:2rem;letter-spacing:-.02em;margin:.4rem 0;display:flex;align-items:center;gap:.55rem}
+.tool-icon{display:inline-flex;align-items:center;flex:none}
+.tool-link{display:inline-flex;align-items:center;gap:.45rem}
+header p{color:#aac;max-width:42rem}
+.badges{margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-size:.75rem;border:1px solid #2e4358;color:#cfe0f0;border-radius:99px;padding:.15rem .6rem}
+.mapwrap{max-width:52rem;margin:1.5rem auto;height:26rem;border:1px solid #d8d8d8;border-radius:8px;overflow:hidden;background:#e9e9e9}
+.mapwrap iframe{width:100%;height:100%;border:0;display:block}
+.mapwrap .fallback{padding:2rem;font-size:.9rem;color:#555}
+main{padding:0 1.5rem 4rem}
+section{margin-top:2.5rem}
+/* The tools that exist but have no page yet, listed quietly under their own
+   group rather than in one lump at the bottom: a reader looking for a control
+   should find out there is one, in the place they were already looking. */
+.pending{margin-top:.8rem;font-size:.85rem;color:#666}
+/* One worked example, two pictures and a table. The colours are the tool's own:
+   the first layer neutral, the second layer the accent, the result filled. */
+.io{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;margin-top:1rem}
+.io .arrow{font-size:1.6rem;color:#888;flex:0 0 auto}
+.map-figure{margin:0;flex:0 0 auto}
+.map-figure svg{background:#eef3f7;border:1px solid #d8d8d8;border-radius:4px;display:block}
+.map-figure figcaption{font-size:.75rem;color:#666;margin-top:.25rem}
+svg .a{fill:#c9d6e0;stroke:#7d8f9d;stroke-width:.5}
+svg .ghost{fill:#eceff2;stroke:#dfe4e8;stroke-width:.5}
+svg .b{fill:rgba(217,99,60,.18);stroke:#d9633c;stroke-width:1.2}
+svg .out{fill:rgba(43,108,143,.55);stroke:#1b4a63;stroke-width:.8}
+svg .pt{fill:#1b4a63;stroke:#fff;stroke-width:1}
+table.attrs{font-size:.8rem;margin-top:.6rem;width:auto;border-collapse:collapse}
+table.attrs th,table.attrs td{border:1px solid #ddd;padding:.2rem .5rem;text-align:left}
+table.attrs th{background:#f0f2f4}
+table.attrs td.null{color:#aaa;font-style:italic}
+p.fields{font-size:.85rem;color:#555;margin-top:.8rem}
+.scroll{overflow-x:auto}
+table.matrix{font-size:.8rem;border-collapse:collapse;margin-top:.6rem;width:auto}
+table.matrix th,table.matrix td{border:1px solid #ddd;padding:.25rem .5rem;text-align:center}
+table.matrix th.op{text-align:left;white-space:nowrap;font-weight:600}
+table.matrix th.sub{font-weight:400;color:#666;font-size:.75rem}
+table.matrix thead th{background:#f0f2f4}
+.yes{color:#2f7d4f;font-weight:700}
+.none{color:#999}
+.err{color:#b03030;font-weight:700}
+p.legend{font-size:.85rem;color:#555;margin-top:.6rem}
+.no-geom{width:300px;height:180px;display:flex;align-items:center;justify-content:center;text-align:center;
+  background:#f4f6f8;border:1px dashed #cfd6dc;border-radius:4px;color:#7a848c;font-size:.85rem}
+p.pagenav{font-size:.9rem;margin-top:1.2rem;padding-bottom:.6rem;border-bottom:1px solid #e2e2e2}
+.pending code{background:#ececec;padding:.1em .35em;border-radius:3px}
+h2{font-size:1.3rem;letter-spacing:-.01em;margin-bottom:.6rem}
+p+p,p+ul,p+ol,ul+p,ol+p,pre+p{margin-top:.8rem}
+li{margin-left:1.2rem}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:#ececec;padding:.1em .35em;border-radius:3px}
+pre{background:#0f1923;color:#dfe8f0;padding:1rem;border-radius:6px;overflow-x:auto;margin-top:.8rem}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin-top:.8rem;font-size:.9rem}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid #ddd;vertical-align:top}
+footer{border-top:1px solid #ddd;margin-top:3rem;padding-top:1rem;font-size:.85rem;color:#666}
+@media (prefers-color-scheme:dark){
+ body{background:#12181e;color:#e6ebf0}a{color:#6db8ff}
+ .mapwrap{border-color:#25313d;background:#1a222a}
+ code{background:#222c36}th,td{border-color:#25313d}footer{border-color:#25313d;color:#9aa8b5}
+}
+</style>
+</head>
+<body>
+<style>
+/* A group is a divider, not a bigger layer. Small, spaced, ruled and muted
+   reads as "everything under here is Sun"; a heading in the same voice as the
+   layers had readers taking "Sun" for a layer next to "Sun position". */
+.group > h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.14em;color:#5b6b78;
+  border-bottom:2px solid #d7dee4;padding-bottom:.4rem;margin-bottom:.35rem}
+.group{margin-top:3.5rem}
+.group-blurb{color:#667783;font-size:.92rem;margin-bottom:.4rem}
+/* Each layer hangs off that rule, so the nesting is visible without reading. */
+.layer{margin-top:1.8rem;padding-left:1rem;border-left:3px solid #e2e8ec}
+.layer > h3{font-size:1.12rem;font-weight:700;letter-spacing:-.01em}
+.layer > h3 code{font-weight:400;font-size:.8em;color:#5b6b78}
+</style>
+<header><div class="inner">
+<div class="crumb"><a href="../index.html">WebMapX</a> / <a href="./index.html">Tools</a></div>
+<h1>Calculated layers</h1>
+<p>Layers whose data is worked out in the browser instead of fetched. A source url of <code>internalfunc://day-night</code> means “ask the code for it”: some data is a function of the moment rather than a document on a server, and fetching it would make it stale on arrival, unavailable offline, and a request for something a browser computes in a millisecond. The protocol is deliberately not <code>http</code>, so a reader of a config can see at a glance that nothing is downloaded.</p>
+</div></header>
+<main>
+<section>
+  <h2>Using one</h2>
+  <p>Name it as a source’s <code>data</code>, and style the layer as you would any GeoJSON. Parameters ride along as a query string.</p>
+  <pre>"sources": {
+  "daylight": { "type": "geojson", "data": "internalfunc://day-night?refresh=auto" }
+}</pre>
+  <p><code>refresh=auto</code> asks the layer to keep itself current as the wall clock runs — worth it for the ones that move visibly, wasted on the ones that are the same picture all year. Every computed layer is recomputed when the map’s clock <em>jumps</em>, refreshing or not. A url that pins its own moment with <code>?at=</code> stops following the clock at all, which is how a story shows one instant while the rest of the map moves.</p>
+  <p>21 layers, listed as the build that made this page has them.</p>
+</section>
+<section class="group">
+  <h2>Sun</h2>
+  <p class="group-blurb">Where the sun is, and what that does to the day.</p>
+  <section class="layer" id="day-night">
+  <h3>Day and night <code>day-night</code></h3>
+  <p>The bands of daylight, the three twilights and night, as they stand at the moment shown. The terminator is the edge between the first two.</p>
+  <p class="fields">Polygons, one band per light level. Redrawn whenever the map’s clock moves.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>at</code></td><td>An ISO instant to pin this layer to, so a time slider leaves it alone. <span class="muted">Left out: the map’s clock.</span></td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>id</code></td><td>Which band this is: <code>sunset</code>, <code>civil</code>, <code>nautical</code>, <code>astronomical</code> or <code>night</code>.</td><td></td></tr><tr><td><code>description</code></td><td>The band’s name, ready to show.</td><td></td></tr><tr><td><code>from</code></td><td>Sun altitude at the band’s bright edge.</td><td><code>degrees</code></td></tr><tr><td><code>to</code></td><td>Sun altitude at its dark edge.</td><td><code>degrees</code></td></tr><tr><td><code>timestamp</code></td><td>The moment the layer was computed for.</td><td><code>ISO 8601</code></td></tr></tbody></table>
+  <pre>internalfunc://day-night?refresh=auto</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=day-night">Open the demo &rarr;</a></p>
+</section><section class="layer" id="sun-position">
+  <h3>Sun position <code>sun-position</code></h3>
+  <p>The subsolar point: the one place on Earth with the sun straight overhead.</p>
+  <p class="fields">A single point. Redrawn whenever the map’s clock moves.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>at</code></td><td>An ISO instant to pin this layer to, so a time slider leaves it alone. <span class="muted">Left out: the map’s clock.</span></td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>description</code></td><td>What the point is.</td><td></td></tr><tr><td><code>declination</code></td><td>How far the sun stands north or south of the equator today.</td><td><code>degrees</code></td></tr><tr><td><code>equationOfTime</code></td><td>How far a sundial runs ahead of or behind the clock.</td><td><code>minutes</code></td></tr><tr><td><code>timestamp</code></td><td>The moment the layer was computed for.</td><td><code>ISO 8601</code></td></tr></tbody></table>
+  <pre>internalfunc://sun-position?refresh=auto</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=sun-position">Open the demo &rarr;</a></p>
+</section><section class="layer" id="sun-path">
+  <h3>Sun path <code>sun-path</code></h3>
+  <p>The track the subsolar point takes, a line per day — the figure that makes the sun’s yearly north–south swing one picture instead of a moving dot.</p>
+  <p class="fields">Lines, one per day drawn. The same picture whatever the moment.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>span</code></td><td>How wide a window to draw: <code>day</code> (just today), <code>half-year</code> (91 days either side of <code>at</code>), <code>solstice-to-solstice</code> (the half-cycle <code>at</code> sits in — snaps to the nearest solstices), or <code>year</code> (the calendar year <code>at</code> falls in). <span class="muted">Left out: solstice-to-solstice.</span></td></tr><tr><td><code>step</code></td><td>Degrees between points along each line.</td></tr><tr><td><code>year</code></td><td>Replaces <code>at</code>’s year (as 1 July), independent of <code>span</code> — pair with <code>span=year</code> for the whole calendar year.</td></tr><tr><td><code>at</code></td><td>An ISO instant to pin this layer to, so a time slider leaves it alone. <span class="muted">Left out: the map’s clock.</span></td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>date</code></td><td>The day this line is the sun’s track for.</td><td><code>YYYY-MM-DD</code></td></tr><tr><td><code>month</code></td><td>Its month, for colouring by season.</td><td><code>1–12</code></td></tr><tr><td><code>declination</code></td><td>The sun’s declination that day.</td><td><code>degrees</code></td></tr><tr><td><code>solstice</code></td><td><code>june</code> or <code>december</code> on the two extreme days, otherwise absent.</td><td></td></tr></tbody></table>
+  <pre>internalfunc://sun-path</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=sun-path">Open the demo &rarr;</a></p>
+</section><section class="layer" id="day-length">
+  <h3>Day length <code>day-length</code></h3>
+  <p>Where the day is a given number of hours long today — the polar-night and midnight-sun lines are the 0 and 24 hour cases.</p>
+  <p class="fields">Lines, one per hour value. Redrawn whenever the map’s clock moves.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>hours</code></td><td>Comma-separated hour values to draw. <span class="muted">Left out: a standard spread.</span></td></tr><tr><td><code>at</code></td><td>An ISO instant to pin this layer to, so a time slider leaves it alone. <span class="muted">Left out: the map’s clock.</span></td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>hours</code></td><td>How long the day is anywhere on this line.</td><td><code>hours</code></td></tr><tr><td><code>description</code></td><td>The same, in words.</td><td></td></tr><tr><td><code>date</code></td><td>The day it applies to — these lines move all year.</td><td><code>YYYY-MM-DD</code></td></tr></tbody></table>
+  <pre>internalfunc://day-length?hours=0,6,12,18,24</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=day-length">Open the demo &rarr;</a></p>
+</section><section class="layer" id="solar-time">
+  <h3>Solar time <code>solar-time</code></h3>
+  <p>The meridians where the sun stands at each whole hour of local solar time — noon is the one under the sun.</p>
+  <p class="fields">Lines, one per hour. Redrawn whenever the map’s clock moves.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>at</code></td><td>An ISO instant to pin this layer to, so a time slider leaves it alone. <span class="muted">Left out: the map’s clock.</span></td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>solarHour</code></td><td>The local solar hour along this meridian.</td><td><code>0–23</code></td></tr><tr><td><code>noon</code></td><td>True for the meridian directly under the sun.</td><td></td></tr><tr><td><code>timestamp</code></td><td>The moment the layer was computed for.</td><td><code>ISO 8601</code></td></tr></tbody></table>
+  <pre>internalfunc://solar-time?refresh=auto</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=solar-time">Open the demo &rarr;</a></p>
+</section><section class="layer" id="analemma">
+  <h3>Analemma <code>analemma</code></h3>
+  <p>The figure-of-eight the sun traces when seen at the same clock time all year — the shape that shows a clock and the sun keep different time.</p>
+  <p class="fields">A line, with points for the days. The same picture whatever the moment.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>year</code></td><td>Which year to trace. <span class="muted">Left out: the year of the current moment.</span></td></tr><tr><td><code>hour</code></td><td>The UTC hour to sample each day at.</td></tr><tr><td><code>at</code></td><td>An ISO instant to pin this layer to, so a time slider leaves it alone. <span class="muted">Left out: the map’s clock.</span></td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>description</code></td><td>What this point is: the sun’s place at that clock time on that date.</td><td></td></tr><tr><td><code>date</code></td><td>The day.</td><td><code>YYYY-MM-DD</code></td></tr><tr><td><code>dayOfYear</code></td><td>Its number in the year, for animating along the figure.</td><td><code>1–366</code></td></tr><tr><td><code>year</code></td><td>The year traced.</td><td></td></tr><tr><td><code>hourUtc</code></td><td>The clock hour the sun was sampled at.</td><td><code>UTC hour</code></td></tr><tr><td><code>longitude</code></td><td>Where the sun stood.</td><td><code>degrees</code></td></tr><tr><td><code>latitude</code></td><td>Where the sun stood.</td><td><code>degrees</code></td></tr><tr><td><code>equationOfTimeMinutes</code></td><td>The east–west half of the figure, which is what the equation of time measures.</td><td><code>minutes</code></td></tr><tr><td><code>today</code></td><td>True on the day the map is showing.</td><td></td></tr></tbody></table>
+  <pre>internalfunc://analemma?year=2026&amp;hour=12</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=analemma">Open the demo &rarr;</a></p>
+</section>
+</section><section class="group">
+  <h2>Moon</h2>
+  <p class="group-blurb">Where the moon is, how much of it is lit, and who can see it.</p>
+  <section class="layer" id="moon-position">
+  <h3>Moon position <code>moon-position</code></h3>
+  <p>The sublunar point: where the moon stands directly overhead.</p>
+  <p class="fields">A single point. Redrawn whenever the map’s clock moves.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>at</code></td><td>An ISO instant to pin this layer to, so a time slider leaves it alone. <span class="muted">Left out: the map’s clock.</span></td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>description</code></td><td>What the point is.</td><td></td></tr><tr><td><code>phase</code></td><td>Where the moon is in its cycle.</td><td><code>0–1</code></td></tr><tr><td><code>phaseName</code></td><td>That phase in words.</td><td></td></tr><tr><td><code>illumination</code></td><td>How much of the disc is lit.</td><td><code>0–1</code></td></tr><tr><td><code>distanceKm</code></td><td>How far away the moon is now — it varies by some 40 000 km.</td><td><code>km</code></td></tr><tr><td><code>timestamp</code></td><td>The moment the layer was computed for.</td><td><code>ISO 8601</code></td></tr></tbody></table>
+  <pre>internalfunc://moon-position?refresh=auto</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=moon-position">Open the demo &rarr;</a></p>
+</section><section class="layer" id="moon-phase">
+  <h3>Moon phase <code>moon-phase</code></h3>
+  <p>The moon drawn as a disc, its lit part shaded and turned to face the sun. Without an observer the turn follows the ground bearing to the sun — a fact about geometry, the same everywhere. With one, it is a <em>view</em>: the same moon tilts to whatever that place’s horizon does to it, so the identical crescent stands upright for one observer and lies nearly on its back for another at the same moment. Demoed with <code>observer={click}</code>, so clicking the map moves the observer and visibly rotates the crescent — that is the tilt changing, not the moon.</p>
+  <p class="fields">Polygons — the disc and its lit part, plus the observer’s horizon and position once an observer is given. Redrawn whenever the map’s clock moves.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>radius</code></td><td>Radius of the disc, in degrees.</td></tr><tr><td><code>observer</code></td><td>A <code>lon,lat</code> to draw the phase as seen from there, tilted to that place’s horizon — <code>{click}</code> follows the last place clicked on the map, with any tool active, so this layer needs no tool of its own. <span class="muted">Left out: drawn by the ground bearing to the sun, the same from anywhere.</span></td></tr><tr><td><code>at</code></td><td>An ISO instant to pin this layer to, so a time slider leaves it alone. <span class="muted">Left out: the map’s clock.</span></td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>id</code></td><td><code>disc</code> for the whole moon, <code>lit</code> for the sunlit part — or <code>horizon</code>/<code>observer</code> for the two extra shapes an observer adds.</td><td></td></tr><tr><td><code>description</code></td><td>What the shape is.</td><td></td></tr><tr><td><code>phase</code></td><td>Where the moon is in its cycle — the same for every shape, since it is a fact about the moon, not about who is looking.</td><td><code>0–1</code></td></tr><tr><td><code>phaseName</code></td><td>That phase in words.</td><td></td></tr><tr><td><code>illumination</code></td><td>How much of the disc is lit.</td><td><code>0–1</code></td></tr><tr><td><code>timestamp</code></td><td>The moment the layer was computed for.</td><td><code>ISO 8601</code></td></tr><tr><td><code>observerLon</code></td><td>The observer’s longitude — only present once one is given.</td><td><code>degrees</code></td></tr><tr><td><code>observerLat</code></td><td>The observer’s latitude — only present once one is given.</td><td><code>degrees</code></td></tr><tr><td><code>tilt</code></td><td>How far the lit side is turned from straight up, as that observer sees it — the number that changes when you click elsewhere. Only present with an observer.</td><td><code>degrees</code></td></tr><tr><td><code>altitude</code></td><td>How high the moon stands above that observer’s horizon. Only present with an observer.</td><td><code>degrees</code></td></tr><tr><td><code>sunAltitude</code></td><td>How high the sun stands there, which is what daylight and belowHorizon are read from. Only present with an observer.</td><td><code>degrees</code></td></tr><tr><td><code>belowHorizon</code></td><td>True if the moon is under that observer’s feet — the disc is still drawn, but nobody there can see it. Only present with an observer.</td><td></td></tr><tr><td><code>daylight</code></td><td>True where the sun is up for that observer. Only present with an observer.</td><td></td></tr><tr><td><code>nearZenith</code></td><td>True where the moon stands almost directly overhead, where a tilt stops meaning much. Only present with an observer.</td><td></td></tr></tbody></table>
+  <pre>internalfunc://moon-phase?radius=7&amp;observer={click}</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=moon-phase">Open the demo &rarr;</a></p>
+</section><section class="layer" id="moon-visibility">
+  <h3>Moon visibility <code>moon-visibility</code></h3>
+  <p>The half of the world with the moon above the horizon at this moment.</p>
+  <p class="fields">A polygon. Redrawn whenever the map’s clock moves.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>at</code></td><td>An ISO instant to pin this layer to, so a time slider leaves it alone. <span class="muted">Left out: the map’s clock.</span></td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>description</code></td><td>What the band is.</td><td></td></tr><tr><td><code>phaseName</code></td><td>The phase those people can see.</td><td></td></tr><tr><td><code>illumination</code></td><td>How much of it is lit.</td><td><code>0–1</code></td></tr><tr><td><code>timestamp</code></td><td>The moment the layer was computed for.</td><td><code>ISO 8601</code></td></tr></tbody></table>
+  <pre>internalfunc://moon-visibility?refresh=auto</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=moon-visibility">Open the demo &rarr;</a></p>
+</section><section class="layer" id="moon-in-sky">
+  <h3>Moon in the sky <code>moon-in-sky</code></h3>
+  <p>The same moon at a row of latitudes on one meridian, each disc turned the way an observer standing there sees it — which is how the crescent comes to lie on its back at the equator and stand upright in the north. A row is drawn only where the moon is above that observer’s horizon: pin <code>lon</code> to a fixed meridian and the moon can be below the horizon at every one of the sampled latitudes at once — measured, for one full day at a fixed meridian, empty for 29% of the hours — which reads as nothing rendering rather than as night. Left unpinned, the meridian is chosen fresh each moment for where the moon has the best chance of being seen, which is what the demo does.</p>
+  <p class="fields">Polygons, one moon per latitude. Redrawn whenever the map’s clock moves.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>lon</code></td><td>Meridian to place the row on. Pinning it can leave the moon below the horizon at every sampled latitude at once, for hours at a time — the layer is not empty, that meridian just has no view of the moon right then. <span class="muted">Left out: chosen fresh each moment for the best chance of a visible moon somewhere on it.</span></td></tr><tr><td><code>from</code></td><td>Southernmost latitude.</td></tr><tr><td><code>to</code></td><td>Northernmost latitude.</td></tr><tr><td><code>step</code></td><td>Degrees of latitude between discs.</td></tr><tr><td><code>radius</code></td><td>Radius of each disc, in degrees.</td></tr><tr><td><code>at</code></td><td>An ISO instant to pin this layer to, so a time slider leaves it alone. <span class="muted">Left out: the map’s clock.</span></td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>latitude</code></td><td>The latitude this moon is drawn for.</td><td><code>degrees</code></td></tr><tr><td><code>longitude</code></td><td>The meridian the row stands on.</td><td><code>degrees</code></td></tr><tr><td><code>tilt</code></td><td>How far the lit side is turned from up, as seen from there — the reason the crescent lies on its back at the equator.</td><td><code>degrees</code></td></tr><tr><td><code>altitude</code></td><td>How high the moon stands above the horizon there.</td><td><code>degrees</code></td></tr><tr><td><code>sunAltitude</code></td><td>How high the sun stands, which decides whether the moon is visible.</td><td><code>degrees</code></td></tr><tr><td><code>daylight</code></td><td>True where the sun is up.</td><td></td></tr><tr><td><code>nearZenith</code></td><td>True where the moon is nearly overhead, where &quot;turned&quot; stops meaning much.</td><td></td></tr><tr><td><code>illumination</code></td><td>How much of the disc is lit.</td><td><code>0–1</code></td></tr><tr><td><code>phaseName</code></td><td>The phase in words.</td><td></td></tr><tr><td><code>id</code></td><td><code>disc</code>, <code>lit</code> or the horizon marker.</td><td></td></tr><tr><td><code>description</code></td><td>What the shape is.</td><td></td></tr><tr><td><code>timestamp</code></td><td>The moment the layer was computed for.</td><td><code>ISO 8601</code></td></tr></tbody></table>
+  <pre>internalfunc://moon-in-sky?from=-60&amp;to=60&amp;step=15</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=moon-in-sky">Open the demo &rarr;</a></p>
+</section><section class="layer" id="moon-path">
+  <h3>Moon path <code>moon-path</code></h3>
+  <p>The track of the sublunar point over a month, which turns the moon’s north–south swing into one picture.</p>
+  <p class="fields">Lines. Redrawn whenever the map’s clock moves.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>days</code></td><td>How many days to trace. <span class="muted">Left out: one orbit, 27.32 days.</span></td></tr><tr><td><code>step</code></td><td>Hours between points. <span class="muted">Left out: 1 hour.</span></td></tr><tr><td><code>at</code></td><td>An ISO instant to pin this layer to, so a time slider leaves it alone. <span class="muted">Left out: the map’s clock.</span></td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>description</code></td><td>What the track is.</td><td></td></tr><tr><td><code>days</code></td><td>How many days it covers.</td><td><code>days</code></td></tr><tr><td><code>northernmost</code></td><td>The furthest north the moon gets in this stretch.</td><td><code>degrees</code></td></tr><tr><td><code>southernmost</code></td><td>The furthest south.</td><td><code>degrees</code></td></tr><tr><td><code>timestamp</code></td><td>The moment the layer was computed for.</td><td><code>ISO 8601</code></td></tr></tbody></table>
+  <pre>internalfunc://moon-path?days=27.32&amp;step=1</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=moon-path">Open the demo &rarr;</a></p>
+</section>
+</section><section class="group">
+  <h2>Tides</h2>
+  <p class="group-blurb">The pull that raises the ocean, not the tide a harbour measures.</p>
+  <section class="layer" id="equilibrium-tide">
+  <h3>Equilibrium tide <code>equilibrium-tide</code></h3>
+  <p>The shape the ocean would take if water could keep up with the moon and the sun — two bulges, one under the moon and one opposite. It is the <em>forcing</em>, not a tide table: real tides lag it by hours and are shaped by coastlines.</p>
+  <p class="fields">Lines at each level, and points at the extremes. Redrawn whenever the map’s clock moves.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>levels</code></td><td>Comma-separated metre levels to contour.</td></tr><tr><td><code>step</code></td><td>Degrees between sample points.</td></tr><tr><td><code>extremes</code></td><td><code>no</code> to leave out the high and low points.</td></tr><tr><td><code>at</code></td><td>An ISO instant to pin this layer to, so a time slider leaves it alone. <span class="muted">Left out: the map’s clock.</span></td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>id</code></td><td><code>low</code>, <code>high</code>, or the level for a contour.</td><td></td></tr><tr><td><code>description</code></td><td>The level in words.</td><td></td></tr><tr><td><code>metres</code></td><td>The height of this contour above mean level.</td><td><code>m</code></td></tr><tr><td><code>springFactor</code></td><td>How close this moment is to spring tide: 1 at full alignment.</td><td><code>0–1</code></td></tr><tr><td><code>phase</code></td><td>The moon’s phase now.</td><td><code>0–1</code></td></tr><tr><td><code>phaseName</code></td><td>That phase in words.</td><td></td></tr><tr><td><code>lunarAmplitude</code></td><td>The moon’s share of the bulge.</td><td><code>m</code></td></tr><tr><td><code>solarAmplitude</code></td><td>The sun’s share, about half the moon’s.</td><td><code>m</code></td></tr><tr><td><code>timestamp</code></td><td>The moment the layer was computed for.</td><td><code>ISO 8601</code></td></tr></tbody></table>
+  <pre>internalfunc://equilibrium-tide?levels=-0.2,0,0.3&amp;refresh=auto</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=equilibrium-tide">Open the demo &rarr;</a></p>
+</section>
+</section><section class="group">
+  <h2>Lines on the Earth</h2>
+  <p class="group-blurb">The grid and the circles a map is drawn against.</p>
+  <section class="layer" id="graticule">
+  <h3>Graticule <code>graticule</code></h3>
+  <p>Meridians and parallels: the grid a projection is drawn against, and the quickest way to see what a projection does to it.</p>
+  <p class="fields">Lines. The same picture whatever the moment.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>spacing</code></td><td>Degrees between lines. <span class="muted">Left out: 10.</span></td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>kind</code></td><td><code>meridian</code> or <code>parallel</code>.</td><td></td></tr><tr><td><code>degrees</code></td><td>Its longitude or latitude.</td><td><code>degrees</code></td></tr><tr><td><code>label</code></td><td>Ready to draw: <code>180° W</code>, <code>45° N</code>.</td><td></td></tr></tbody></table>
+  <pre>internalfunc://graticule?spacing=15</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=graticule">Open the demo &rarr;</a></p>
+</section><section class="layer" id="reference-circles">
+  <h3>Reference circles <code>reference-circles</code></h3>
+  <p>Equator, tropics and polar circles. The tropics and polar circles move with the Earth’s tilt, so they are computed for the moment shown rather than fixed at 23.5°.</p>
+  <p class="fields">Lines. Redrawn whenever the map’s clock moves.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>at</code></td><td>An ISO instant to pin this layer to, so a time slider leaves it alone. <span class="muted">Left out: the map’s clock.</span></td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>id</code></td><td><code>equator</code>, <code>tropic-cancer</code>, <code>tropic-capricorn</code>, <code>arctic</code> or <code>antarctic</code>.</td><td></td></tr><tr><td><code>description</code></td><td>Its name.</td><td></td></tr><tr><td><code>latitude</code></td><td>Where it lies today — the tropics and polar circles move with the tilt.</td><td><code>degrees</code></td></tr><tr><td><code>axialTilt</code></td><td>The Earth’s tilt on this date, which is what puts them there.</td><td><code>degrees</code></td></tr><tr><td><code>date</code></td><td>The date that tilt is for.</td><td><code>YYYY-MM-DD</code></td></tr></tbody></table>
+  <pre>internalfunc://reference-circles</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=reference-circles">Open the demo &rarr;</a></p>
+</section>
+</section><section class="group">
+  <h2>What a projection does</h2>
+  <p class="group-blurb">Shapes whose true size is known, so the distortion becomes visible.</p>
+  <section class="layer" id="tissot">
+  <h3>Tissot’s indicatrix <code>tissot</code></h3>
+  <p>Circles of equal ground radius, placed on a grid. Every one is a circle on the globe, so whatever the projection does to them is what it does to shape and area everywhere.</p>
+  <p class="fields">Polygons. The same picture whatever the moment.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>spacing</code></td><td>Degrees between circles.</td></tr><tr><td><code>radius</code></td><td>Ground radius of each circle, in kilometres.</td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>centre</code></td><td>Where the circle sits.</td><td><code>[lon, lat]</code></td></tr><tr><td><code>radiusKm</code></td><td>Its true radius on the ground — every circle has the same one.</td><td><code>km</code></td></tr><tr><td><code>description</code></td><td>Radius and position in words.</td><td></td></tr></tbody></table>
+  <pre>internalfunc://tissot?spacing=30&amp;radius=500</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=tissot">Open the demo &rarr;</a></p>
+</section>
+</section><section class="group">
+  <h2>Distance and direction</h2>
+  <p class="group-blurb">Spherical geometry about a place: how far, which way, and what is opposite.</p>
+  <section class="layer" id="range-rings">
+  <h3>Range rings <code>range-rings</code></h3>
+  <p>Circles of equal ground distance around a place — true circles on the globe, so a projection bends them exactly as much as it distorts.</p>
+  <p class="fields">Polygons. The same picture whatever the moment.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>at</code></td><td>Centre, as <code>lon,lat</code>. <span class="muted">Left out: 5,52.</span></td></tr><tr><td><code>radii</code></td><td>Comma-separated radii in kilometres.</td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>radiusKm</code></td><td>How far from the centre this ring is.</td><td><code>km</code></td></tr><tr><td><code>centre</code></td><td>The place the rings are drawn about.</td><td><code>[lon, lat]</code></td></tr><tr><td><code>description</code></td><td>The radius in words.</td><td></td></tr></tbody></table>
+  <pre>internalfunc://range-rings?at=4.9,52.4&amp;radii=500,1000,2000</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=range-rings">Open the demo &rarr;</a></p>
+</section><section class="layer" id="great-circle">
+  <h3>Great circle <code>great-circle</code></h3>
+  <p>The shortest path between two places on the globe — the line that looks bent on a Mercator map and is not.</p>
+  <p class="fields">A line. The same picture whatever the moment.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>from</code></td><td>Start, as <code>lon,lat</code>. <span class="muted">Left out: 4.9,52.4.</span></td></tr><tr><td><code>to</code></td><td>End, as <code>lon,lat</code>. <span class="muted">Left out: 139.7,35.7.</span></td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>description</code></td><td>What the line is.</td><td></td></tr><tr><td><code>distanceKm</code></td><td>The distance along it — the number the picture cannot show.</td><td><code>km</code></td></tr><tr><td><code>from</code></td><td>Start.</td><td><code>[lon, lat]</code></td></tr><tr><td><code>to</code></td><td>End.</td><td><code>[lon, lat]</code></td></tr></tbody></table>
+  <pre>internalfunc://great-circle?from=4.9,52.4&amp;to=139.7,35.7</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=great-circle">Open the demo &rarr;</a></p>
+</section><section class="layer" id="antipode">
+  <h3>Antipode <code>antipode</code></h3>
+  <p>The point on the exact other side of the Earth from a place.</p>
+  <p class="fields">A single point. The same picture whatever the moment.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>at</code></td><td>The place, as <code>lon,lat</code>. <span class="muted">Left out: 5,52.</span></td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>description</code></td><td><code>Here</code> or the antipode.</td><td></td></tr><tr><td><code>role</code></td><td><code>origin</code> or <code>antipode</code>, for styling the pair differently.</td><td></td></tr></tbody></table>
+  <pre>internalfunc://antipode?at=5,52</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=antipode">Open the demo &rarr;</a></p>
+</section>
+</section><section class="group">
+  <h2>Grids defined by rules</h2>
+  <p class="group-blurb">Zone systems that are a definition rather than a survey.</p>
+  <section class="layer" id="utm-zones">
+  <h3>UTM zones <code>utm-zones</code></h3>
+  <p>The 60 UTM zones, including the widened and split ones off Norway and Svalbard that the rule alone does not give you.</p>
+  <p class="fields">Polygons. The same picture whatever the moment.</p>
+  <p class="fields">No parameters.</p>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>designation</code></td><td>Zone and latitude band, as a grid reference gives it: <code>31U</code>.</td><td></td></tr><tr><td><code>zone</code></td><td>The zone number.</td><td><code>1–60</code></td></tr><tr><td><code>band</code></td><td>The latitude band letter.</td><td><code>C–X</code></td></tr><tr><td><code>epsg</code></td><td>The EPSG code to project this zone in — the practical answer, invisible on the map.</td><td></td></tr><tr><td><code>centralMeridian</code></td><td>The meridian the zone is measured from.</td><td><code>degrees</code></td></tr><tr><td><code>exception</code></td><td>Names the widened or split zones off Norway and Svalbard; null elsewhere.</td><td></td></tr></tbody></table>
+  <pre>internalfunc://utm-zones</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=utm-zones">Open the demo &rarr;</a></p>
+</section>
+</section><section class="group">
+  <h2>Deep time</h2>
+  <p class="group-blurb">The world at an age, reconstructed from plate motions.</p>
+  <section class="layer" id="paleo-coastlines">
+  <h3>Palaeo coastlines <code>paleo-coastlines</code></h3>
+  <p>Today’s coastlines carried back to a chosen age on the plates they ride. Rigid rotation: crust since shortened or stretched is not shown, so continents meet later here than the rocks say.</p>
+  <p class="fields">Polygons. Redrawn whenever the map’s clock moves.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>data</code></td><td>Directory of the rotation model, resolved against the config.</td></tr><tr><td><code>ma</code></td><td>Millions of years ago — <code>{ma}</code> follows the map’s clock.</td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>plateId</code></td><td>Which plate this piece rides on, in the model’s numbering.</td><td></td></tr><tr><td><code>continent</code></td><td>The continent it belongs to today.</td><td></td></tr><tr><td><code>fromAge</code></td><td>The oldest age the model reconstructs this piece for.</td><td><code>Ma</code></td></tr><tr><td><code>ma</code></td><td>The age it is drawn at.</td><td><code>Ma</code></td></tr></tbody></table>
+  <pre>internalfunc://paleo-coastlines?data=data/paleo/merdith2021&amp;ma={ma}</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=paleo-coastlines">Open the demo &rarr;</a></p>
+</section><section class="layer" id="paleo-plates">
+  <h3>Palaeo plate boundaries <code>paleo-plates</code></h3>
+  <p>Plate boundaries and deforming networks at a chosen age. Snapshots rather than a reconstruction: boundaries are born, die and change in number, so there is nothing to interpolate between two ages.</p>
+  <p class="fields">Lines and polygons. Redrawn whenever the map’s clock moves.</p>
+  <table class="attrs"><thead><tr><th>Parameter</th><th>What it does</th></tr></thead><tbody><tr><td><code>data</code></td><td>Directory of the plate snapshots, resolved against the config.</td></tr><tr><td><code>ma</code></td><td>Millions of years ago — <code>{ma}</code> follows the map’s clock.</td></tr></tbody></table>
+  <p class="fields">Every feature carries:</p><table class="attrs"><thead><tr><th>Attribute</th><th>What it holds</th><th>Unit</th></tr></thead><tbody><tr><td><code>ma</code></td><td>The age this snapshot is for.</td><td><code>Ma</code></td></tr><tr><td><code>type</code></td><td>The GPlates feature type, e.g. a topological closed plate boundary.</td><td></td></tr><tr><td><code>name</code></td><td>The plate or network’s name.</td><td></td></tr><tr><td><code>pid</code></td><td>Its plate id in the model.</td><td></td></tr><tr><td><code>deforming</code></td><td>True for a deforming network — crust being squeezed rather than a rigid plate.</td><td></td></tr></tbody></table>
+  <pre>internalfunc://paleo-plates?data=data/paleo/muller2019/plates&amp;ma={ma}</pre>
+  <p class="fields"><a href="./calculated-layer.html?layer=paleo-plates">Open the demo &rarr;</a></p>
+</section>
+</section>
+<footer>Generated from webmapx <code>cfd8ad6f1</code>; the list comes from the build, not from this page.</footer>
+</main>
+</body>
+</html>
