@@ -13,6 +13,7 @@ const TOOL_MAP: Record<string, () => Promise<unknown>> = {
   search:          () => import('../components/webmapx-search-tool.js'),
   geolocation:     () => import('../components/webmapx-geolocation-tool.js'),
   info:            () => import('../components/webmapx-info-tool.js'),
+  panoramax:       () => import('../components/webmapx-panoramax-tool.js'),
   maplanguage:     () => import('../components/webmapx-language-osmvector.js'),
   '3d':            () => import('../components/webmapx-3d-tool.js'),
   truearea:        () => import('../components/webmapx-truearea-tool.js'),
