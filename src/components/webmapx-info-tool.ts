@@ -1,6 +1,6 @@
 // src/components/webmapx-info-tool.ts
 // Info tool: queries vector features on hover, vector + WMS on click.
-// Click same location again to unpin and return to hover mode.
+// A click holds (pins) its result; Unpin or Escape lets go and hover resumes.
 
 import { announce } from './internal/announce';
 import { html, css, nothing, TemplateResult } from 'lit';
@@ -16,6 +16,7 @@ import { throttle } from '../utils/throttle';
 import { substituteApiKeys } from '../config/apikeys';
 import { isQueryableMetadata } from '../utils/layer-queryable';
 import { fetchWMSFeatureInfo } from '../map/wms-feature-info';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import { DATA_TOOL } from '../theme/data-colors';
@@ -24,8 +25,6 @@ import { TouchPointerController } from './internal/touch-pointer';
 
 const PIN_MARKER_ID = 'webmapx-info-pin';
 
-/** Pixel distance within which a second click is treated as "same location" to unpin. */
-const UNPIN_THRESHOLD_PX = 8;
 /** Hover query throttle interval ms. */
 const HOVER_THROTTLE_MS = 120;
 /** Hover tolerance in pixels for vector hit-test. */
@@ -47,10 +46,21 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 
     /** The next step, shown on the map under the panel. */
     get toolTip(): string {
-        if (this.mode === 'pinned') return `${this.touch.click} the same spot again to let go.`;
+        if (this.mode === 'pinned') {
+            return this.touch.isTouch
+                ? 'Tap another feature, or choose Unpin to remove the marker.'
+                : 'Click another feature, or choose Unpin to point again.';
+        }
         return this.touch.isTouch
             ? 'Tap a feature for more information.'
             : 'Point at a feature for more information, click to keep it in view.';
+    }
+
+    /** Escape lets go of a held result before it closes the panel. */
+    handleEscape(): boolean {
+        if (this.mode !== 'pinned') return false;
+        this.unpinByUser();
+        return true;
     }
 
     @state() private loading = false;
@@ -62,7 +72,6 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
     @state() private streetviewLoading = false;
     @state() private streetviewUnavailable = false;
 
-    private pinnedPixel: Pixel | null = null;
     private pinMarkerAdded = false;
 
     private unsubClick: (() => void) | null = null;
@@ -107,19 +116,14 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
             min-width: 200px;
         }
 
-        .mode-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.25rem;
-            font-size: 0.7rem;
-            font-weight: 600;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-            color: var(--color-text-secondary, #5a6773);
+        .info-container:focus {
+            outline: none;
         }
 
-        .mode-badge.pinned {
-            color: var(--color-primary, #2b6c8f);
+        .held-row {
+            display: flex;
+            align-items: center;
+            gap: var(--webmapx-space-sm, 0.5rem);
         }
 
         .instructions {
@@ -372,7 +376,6 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         this.elevation = null;
         this.mode = 'hover';
         this.pinnedLocation = null;
-        this.pinnedPixel = null;
     }
 
     private onDeactivate(): void {
@@ -380,7 +383,6 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         this.elevation = null;
         this.mode = 'hover';
         this.pinnedLocation = null;
-        this.pinnedPixel = null;
         this.removePinMarker();
     }
 
@@ -396,20 +398,9 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
     private async handleClick(event: ClickEvent): Promise<void> {
         if (!this.active || !this.adapter) return;
 
-        // Check unpin: click within threshold of pinned location
-        if (this.mode === 'pinned' && this.pinnedPixel) {
-            const dx = event.pixel[0] - this.pinnedPixel[0];
-            const dy = event.pixel[1] - this.pinnedPixel[1];
-            if (Math.sqrt(dx * dx + dy * dy) <= UNPIN_THRESHOLD_PX) {
-                this.unpin();
-                return;
-            }
-        }
-
-        // Pin at click location
+        // Pin at click location; a click on the held spot simply asks again.
         this.mode = 'pinned';
         this.pinnedLocation = event.coords;
-        this.pinnedPixel = event.pixel;
         this.loading = true;
         this.features = [];
         this.elevation = this.adapter.getElevation?.(event.coords) ?? null;
@@ -516,7 +507,6 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
     private unpin(): void {
         this.mode = 'hover';
         this.pinnedLocation = null;
-        this.pinnedPixel = null;
         this.features = [];
         this.elevation = null;
         this.streetviewImageUrl = null;
@@ -525,6 +515,13 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         this.streetviewUnavailable = false;
         this.removePinMarker();
     }
+
+    /** Unpin button or Escape. The button disappears with the pin, so focus stays in the panel. */
+    private unpinByUser = (): void => {
+        this.unpin();
+        announce(this, 'Unpinned');
+        this.updateComplete.then(() => this.shadowRoot?.querySelector<HTMLElement>('.info-container')?.focus());
+    };
 
     private get googleApiKey(): string | null {
         const cfg = this.toolsConfig?.['info'] as InfoToolConfig | undefined;
@@ -735,12 +732,16 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         const isPinned = this.mode === 'pinned';
 
         return html`
-            <div class="info-container">
-                <div class="mode-badge ${isPinned ? 'pinned' : ''}">
-                    <sl-icon name=${isPinned ? 'pin-angle-fill' : 'cursor'}></sl-icon>
-                    ${isPinned ? 'Pinned' : 'Hover'}
-                    ${this.loading ? html`<sl-spinner></sl-spinner>` : nothing}
-                </div>
+            <div class="info-container" tabindex="-1">
+                ${isPinned ? html`
+                    <div class="held-row">
+                        <sl-button size="small" title="Let go of this result (Esc)" @click=${this.unpinByUser}>
+                            <sl-icon name="x-lg" slot="prefix"></sl-icon>
+                            Unpin
+                        </sl-button>
+                        ${this.loading ? html`<sl-spinner></sl-spinner>` : nothing}
+                    </div>
+                ` : nothing}
 
                 ${isPinned && !this.loading && this.features.length === 0
                     ? html`<p class="empty-hint help-text">Nothing here. Try another spot.</p>`
