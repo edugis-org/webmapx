@@ -1,6 +1,7 @@
 import { html, css, type PropertyValues, type TemplateResult } from 'lit';
 import { accentControlStyles } from './internal/accent-control-styles';
 import { sectionHeadingStyles } from './internal/section-heading-styles';
+import { formLabelStyles } from './internal/form-label-styles';
 import { customElement, state, query } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
@@ -506,7 +507,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     // ─── Styles ───────────────────────────────────────────────────────────────
 
-    static styles = [accentControlStyles, sectionHeadingStyles, css`
+    static styles = [accentControlStyles, sectionHeadingStyles, formLabelStyles, css`
         :host {
             /* Shared by the "Edit attributes" table's Attribute/Type
              * columns and the add-attribute form below it (the "Add
@@ -569,22 +570,20 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             gap: 0.1rem;
             flex-shrink: 0;
         }
+        /* The row's heading takes a line of its own above the buttons (it
+           wraps to full width); row-gap 0 so the heading's own margin is the
+           only space between it and the buttons. */
         .toolbar-row {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            column-gap: 0.5rem;
+            row-gap: 0;
             flex-wrap: wrap;
             margin-bottom: 0.5rem;
             flex-shrink: 0;
         }
-        .toolbar-label {
-            font-size: 0.66rem;
-            font-weight: 700;
-            color: var(--color-text-muted, #8a95a1);
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            width: 2.75rem;
-            flex-shrink: 0;
+        .toolbar-row > .section-heading {
+            flex-basis: 100%;
         }
         /* Sized like the sl-icon-buttons beside it. A native button, not
            sl-icon-button, because only a real button can carry aria-pressed
@@ -722,11 +721,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             gap: 0.3rem;
         }
 
-        .editing-title-label {
-            font-size: 0.8rem;
-            color: var(--color-text-secondary, #5a6773);
-            flex-shrink: 0;
-        }
 
 
         .type-grid {
@@ -4814,7 +4808,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         return html`
             ${layer ? html`
                 <div class="editing-title-row">
-                    <span class="editing-title-label">You are editing:</span>
+                    <span class="field-label">Layer name</span>
                     <div class="editing-title-second-row">
                         <span class="color-swatch-wrap">
                             <span class="color-swatch color-swatch--${swatchShape(layer.type)}" style="${swatchStyle(this.currentDrawLayerColor(layer), layer.type)}"
@@ -4848,7 +4842,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             ` : ''}
 
             <div class="toolbar-row">
-                <span class="toolbar-label">Draw</span>
+                <h3 class="section-heading">Draw</h3>
                 <div class="pill">
                     ${this.toggleButton({
                         icon: type === 'Point' ? 'geo-fill' : type === 'LineString' ? 'slash-lg' : 'pentagon',
@@ -4903,7 +4897,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
             ${layerHasFeatures || this.moveHistoryIndex >= 0 ? html`
                 <div class="toolbar-row">
-                    <span class="toolbar-label">Edit</span>
+                    <h3 class="section-heading">Edit</h3>
                     <div class="pill">
                         ${this.toggleButton({
                             icon: 'arrows-move', label: 'Move features',
@@ -4954,7 +4948,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
             ${layerHasFeatures || this.moveHistoryIndex >= 0 ? html`
                 <div class="toolbar-row">
-                    <span class="toolbar-label">Delete</span>
+                    <h3 class="section-heading">Delete</h3>
                     <div class="pill">
                         ${this.toggleButton({
                             icon: 'hand-index-thumb', label: 'Select features by clicking',
@@ -5002,7 +4996,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             ` : ''}
 
             <div class="toolbar-row">
-                <span class="toolbar-label">Tools</span>
+                <h3 class="section-heading">Tools</h3>
                 <div class="pill">
                     ${this.toggleButton({
                         icon: 'magnet', label: 'Snap to points and edges',
