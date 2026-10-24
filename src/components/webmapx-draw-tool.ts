@@ -1252,10 +1252,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         .feature-row:hover { background: var(--color-background-secondary, #f4f6f8); }
         .feature-row.selected { background: var(--color-primary-soft, rgba(43, 108, 143, 0.12)); }
 
-        .divider {
-            width: 1px; height: 1.2rem;
-            background: var(--color-background-secondary, #f4f6f8);
-            margin: 0 0.1rem;
+        /* Delete stands a little apart from undo/redo — a gap, not a line,
+           since a line inside a panel means a new section starts. */
+        .history-actions sl-tooltip:has(.delete-feature-btn) {
+            margin-left: var(--webmapx-space-xs, 0.25rem);
         }
 
         .prop-row { display: flex; gap: 0.4rem; align-items: center; font-size: 0.82rem; margin-bottom: 0.2rem; }
@@ -4741,38 +4741,42 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             ${nothingToShow ? html`<p class="empty-state">No ${label.toLowerCase()} layers yet.</p>` : html`
                 <div class="layer-list">
                     ${layers.length > 0 ? html`
-                        ${catalogOptions.length > 0 ? html`<h3 class="section-heading">Your layers</h3>` : ''}
-                        <div class="layer-group">
-                            ${layers.map(l => html`
-                                <div class="layer-row">
-                                    <span class="color-dot color-dot--${swatchShape(l.type)}" style="${swatchStyle(this.currentDrawLayerColor(l), l.type)}"></span>
-                                    <span class="layer-name-wrap">
-                                        <span class="layer-name">${l.name || '(untitled)'}</span>
-                                        <span class="feature-count">(${this.features.filter(f => f.layerId === l.id).length} features)</span>
-                                    </span>
-                                    <sl-button size="small" variant="primary" @click=${() => this.startEditingLayer(l)}>Edit</sl-button>
-                                    <sl-tooltip content="Remove layer">
-                                        <sl-icon-button name="trash" class="remove-layer-btn" label="Remove ${l.name}"
-                                            @click=${(e: Event) => { e.stopPropagation(); this.releaseLayer(l); }}>
-                                        </sl-icon-button>
-                                    </sl-tooltip>
-                                </div>
-                            `)}
-                        </div>
+                        <section class="panel-section">
+                            ${catalogOptions.length > 0 ? html`<h3 class="section-heading">Your layers</h3>` : ''}
+                            <div class="layer-group">
+                                ${layers.map(l => html`
+                                    <div class="layer-row">
+                                        <span class="color-dot color-dot--${swatchShape(l.type)}" style="${swatchStyle(this.currentDrawLayerColor(l), l.type)}"></span>
+                                        <span class="layer-name-wrap">
+                                            <span class="layer-name">${l.name || '(untitled)'}</span>
+                                            <span class="feature-count">(${this.features.filter(f => f.layerId === l.id).length} features)</span>
+                                        </span>
+                                        <sl-button size="small" variant="primary" @click=${() => this.startEditingLayer(l)}>Edit</sl-button>
+                                        <sl-tooltip content="Remove layer">
+                                            <sl-icon-button name="trash" class="remove-layer-btn" label="Remove ${l.name}"
+                                                @click=${(e: Event) => { e.stopPropagation(); this.releaseLayer(l); }}>
+                                            </sl-icon-button>
+                                        </sl-tooltip>
+                                    </div>
+                                `)}
+                            </div>
+                        </section>
                     ` : ''}
                     ${catalogOptions.length > 0 ? html`
-                        <h3 class="section-heading" style=${layers.length > 0 ? 'margin-top:.5rem' : ''}>From the catalog</h3>
-                        <div class="layer-group">
-                            ${catalogOptions.map(opt => html`
-                                <div class="layer-row">
-                                    <span class="color-dot color-dot--${swatchShape(type)}" style="${swatchStyle(MAP_LAYER_COLOR, type)}"></span>
-                                    <span class="layer-name-wrap">
-                                        <span class="layer-name">${opt.label}</span>
-                                    </span>
-                                    <sl-button size="small" variant="primary" @click=${() => { this.pendingCatalogEditOption = opt; }}>Edit</sl-button>
-                                </div>
-                            `)}
-                        </div>
+                        <section class="panel-section">
+                            <h3 class="section-heading">From the catalog</h3>
+                            <div class="layer-group">
+                                ${catalogOptions.map(opt => html`
+                                    <div class="layer-row">
+                                        <span class="color-dot color-dot--${swatchShape(type)}" style="${swatchStyle(MAP_LAYER_COLOR, type)}"></span>
+                                        <span class="layer-name-wrap">
+                                            <span class="layer-name">${opt.label}</span>
+                                        </span>
+                                        <sl-button size="small" variant="primary" @click=${() => { this.pendingCatalogEditOption = opt; }}>Edit</sl-button>
+                                    </div>
+                                `)}
+                            </div>
+                        </section>
                     ` : ''}
                 </div>
             `}
@@ -4886,7 +4890,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                                 @click=${() => this.redoOrDraftForward()}>
                             </sl-icon-button>
                         </sl-tooltip>
-                        <div class="divider"></div>
                         <sl-tooltip content=${this.draftPoints.length > 0 ? 'Remove last point' : 'Delete this feature'}>
                             <sl-icon-button name="trash" size="small" class="delete-feature-btn"
                                 label=${this.draftPoints.length > 0 ? 'Remove last point' : 'Delete this feature'}
@@ -4937,7 +4940,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                                 </sl-icon-button>
                             </sl-tooltip>
                             ${this.mode === 'edit-vertices' ? html`
-                                <div class="divider"></div>
                                 <sl-tooltip content="Delete selected point">
                                     <sl-icon-button name="trash" size="small" class="delete-feature-btn" label="Delete selected point"
                                         ?disabled=${!this.selectedHandle}
@@ -4987,7 +4989,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                                     @click=${() => this.redoMove()}>
                                 </sl-icon-button>
                             </sl-tooltip>
-                            <div class="divider"></div>
                             <sl-tooltip content=${this.selectedFeatureIds.length > 1 ? `Delete ${this.selectedFeatureIds.length} selected` : 'Delete selected'}>
                                 <sl-icon-button name="trash" size="small" class="delete-feature-btn"
                                     label=${this.selectedFeatureIds.length > 1 ? `Delete ${this.selectedFeatureIds.length} selected` : 'Delete selected'}
