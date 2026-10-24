@@ -659,8 +659,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
          */
         .session-footer {
             display: flex;
-            align-items: center;
-            justify-content: flex-end;
+            flex-direction: column;
+            align-items: flex-start;
             gap: 0.5rem;
             margin-top: 0.6rem;
             padding-top: 0.5rem;
@@ -689,10 +689,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         /* Always rendered (unlike the hint, which only appears on a naming
            error) so the "Edit attributes" button stays pinned to the
            left edge and "Done" to the right, whichever else is showing. */
-        .footer-spacer {
-            flex: 1;
-        }
 
+        .finish-draft {
+            margin-bottom: 0.4rem;
+        }
         .name-required-hint {
             font-size: 0.78rem;
             color: var(--sl-color-danger-600, #dc2626);
@@ -1171,9 +1171,15 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         /* Undo/redo move here — one row below the add-attribute form — while
          * it's open, since the button they'd otherwise share a row with is
          * replaced by the form itself. Still right-aligned. */
-        .add-attr-undo-row {
+        /* Add attribute + cancel on their own line under the fields, which
+           stay aligned with the columns above; undo/redo at the far end. */
+        .add-attr-actions-row {
             display: flex;
-            justify-content: flex-end;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .add-attr-spacer {
+            flex: 1;
         }
         /* Keeps the undo/redo icons themselves next to each other — see
          * renderAttributeUndoRedo for why this can't just be a gap on the
@@ -4738,7 +4744,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                                             <span class="layer-name">${l.name || '(untitled)'}</span>
                                             <span class="feature-count">(${this.features.filter(f => f.layerId === l.id).length} features)</span>
                                         </span>
-                                        <sl-button size="small" variant="primary" @click=${() => this.startEditingLayer(l)}>Edit</sl-button>
+                                        <sl-button size="small" @click=${() => this.startEditingLayer(l)}>
+                                            <sl-icon slot="prefix" name="pencil"></sl-icon>
+                                            Edit
+                                        </sl-button>
                                         <sl-tooltip content="Remove layer">
                                             <sl-icon-button name="trash" class="remove-layer-btn" label="Remove ${l.name}"
                                                 @click=${(e: Event) => { e.stopPropagation(); this.releaseLayer(l); }}>
@@ -4759,7 +4768,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                                         <span class="layer-name-wrap">
                                             <span class="layer-name">${opt.label}</span>
                                         </span>
-                                        <sl-button size="small" variant="primary" @click=${() => { this.pendingCatalogEditOption = opt; }}>Edit</sl-button>
+                                        <sl-button size="small" @click=${() => { this.pendingCatalogEditOption = opt; }}>
+                                            <sl-icon slot="prefix" name="pencil"></sl-icon>
+                                            Edit
+                                        </sl-button>
                                     </div>
                                 `)}
                             </div>
@@ -5007,12 +5019,13 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
             ${this.isTouchDevice && (this.mode === 'draw-line' || this.mode === 'draw-line-dashed' || this.mode === 'draw-polygon') &&
               this.draftPoints.length >= (this.mode === 'draw-polygon' ? 3 : 2) ? html`
-                <sl-button size="small" variant="primary" style="margin-bottom:.4rem;width:100%"
+                <sl-button size="small" variant="primary" class="main-action finish-draft"
                     @click=${() => {
                         const geoType = modeToGeometryType(this.mode);
                         const lId = geoType ? this.activeLayerIds[geoType] : null;
                         if (lId) this.finishDraft(lId);
                     }}>
+                    <sl-icon slot="prefix" name="check-lg"></sl-icon>
                     Finish
                 </sl-button>
             ` : ''}
@@ -5151,14 +5164,18 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                                         `)}
                                     </sl-select>
                                 ` : ''}
+                            </div>
+                            <div class="add-attr-actions-row">
                                 <sl-button size="small" variant="primary"
                                     ?disabled=${!(this.newAttrName.trim() && this.newAttrType)}
                                     @click=${() => this.addActiveLayerProperty(layer)}>
-                                    OK
+                                    <sl-icon slot="prefix" name="plus-lg"></sl-icon>
+                                    Add attribute
                                 </sl-button>
                                 <sl-icon-button name="x-lg" label="Cancel" @click=${() => this.cancelAddAttribute()}></sl-icon-button>
+                                <span class="add-attr-spacer"></span>
+                                ${this.renderAttributeUndoRedo(layer)}
                             </div>
-                            <div class="add-attr-undo-row">${this.renderAttributeUndoRedo(layer)}</div>
                             <div class="add-attr-note">New attributes are added to the bottom of the list above.</div>
                         </div>
                     ` : html`
@@ -5209,9 +5226,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                     <sl-icon slot="prefix" name="table"></sl-icon>
                     Edit attributes (${layer.properties.length})
                 </sl-button>
-                <span class="footer-spacer"></span>
                 ${this.layerNameInvalid ? html`<span class="name-required-hint">Give the new layer a name.</span>` : ''}
-                <sl-button size="small" variant="primary" @click=${() => this.confirmDone()}>Done</sl-button>
+                <sl-button class="main-action" size="small" variant="primary" @click=${() => this.confirmDone()}>
+                    <sl-icon slot="prefix" name="check-lg"></sl-icon>
+                    Finish editing
+                </sl-button>
             </div>
         `;
     }
