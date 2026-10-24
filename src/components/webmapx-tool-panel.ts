@@ -453,6 +453,8 @@ export class WebmapxToolPanel extends LitElement {
       if (hasOpenInfo(tool?.shadowRoot)) return;
       e.preventDefault();
       e.stopPropagation();
+      // A tool may spend this Escape on something of its own first.
+      if ((tool as { handleEscape?: () => boolean } | null)?.handleEscape?.()) return;
       this.handleClose();
     }
   }

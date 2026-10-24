@@ -1,6 +1,6 @@
 // src/components/webmapx-info-tool.ts
 // Info tool: queries vector features on hover, vector + WMS on click.
-// Click same location again to unpin and return to hover mode.
+// A click holds (pins) its result; Unpin or Escape lets go and hover resumes.
 
 import { announce } from './internal/announce';
 import { html, css, nothing, TemplateResult } from 'lit';
@@ -11,21 +11,20 @@ import type { IMap } from '../map/IMapInterfaces';
 import type { ClickEvent, PointerMoveEvent } from '../store/map-events';
 import type { LngLat, Pixel } from '../store/map-events';
 import type { FeatureInfo } from '../map/IQueryService';
-import type { LayerAttributeConfig, LayerAttributeTranslation, InfoToolConfig } from '../config/types';
+import type { LayerAttributeConfig, LayerAttributeTranslation } from '../config/types';
 import { throttle } from '../utils/throttle';
-import { substituteApiKeys } from '../config/apikeys';
 import { isQueryableMetadata } from '../utils/layer-queryable';
 import { fetchWMSFeatureInfo } from '../map/wms-feature-info';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js';
 import { DATA_TOOL } from '../theme/data-colors';
+import pinOffIconUrl from '../icons/pin-off.svg?url';
 import { helpTextStyles } from './internal/help-text-styles';
 import { TouchPointerController } from './internal/touch-pointer';
 
 const PIN_MARKER_ID = 'webmapx-info-pin';
 
-/** Pixel distance within which a second click is treated as "same location" to unpin. */
-const UNPIN_THRESHOLD_PX = 8;
 /** Hover query throttle interval ms. */
 const HOVER_THROTTLE_MS = 120;
 /** Hover tolerance in pixels for vector hit-test. */
@@ -47,22 +46,27 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 
     /** The next step, shown on the map under the panel. */
     get toolTip(): string {
-        if (this.mode === 'pinned') return `${this.touch.click} the same spot again to let go.`;
+        if (this.mode === 'pinned') {
+            return this.touch.isTouch
+                ? 'Tap another feature, or choose Unpin to remove the marker.'
+                : 'Click another feature, or choose Unpin to point again.';
+        }
         return this.touch.isTouch
             ? 'Tap a feature for more information.'
             : 'Point at a feature for more information, click to keep it in view.';
     }
 
+    /** Escape lets go of a held result before it closes the panel. */
+    handleEscape(): boolean {
+        if (this.mode !== 'pinned') return false;
+        this.unpinByUser();
+        return true;
+    }
+
     @state() private loading = false;
     @state() private mode: 'hover' | 'pinned' = 'hover';
-    @state() private pinnedLocation: LngLat | null = null;
     @state() private elevation: number | null = null;
-    @state() private streetviewImageUrl: string | null = null;
-    @state() private streetviewPanoId: string | null = null;
-    @state() private streetviewLoading = false;
-    @state() private streetviewUnavailable = false;
 
-    private pinnedPixel: Pixel | null = null;
     private pinMarkerAdded = false;
 
     private unsubClick: (() => void) | null = null;
@@ -107,54 +111,17 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
             min-width: 200px;
         }
 
-        .mode-badge {
-            display: inline-flex;
+        .info-container:focus {
+            outline: none;
+        }
+
+        /* Unpin sits at the right, out of the way of the result it acts on. */
+        .held-row {
+            display: flex;
             align-items: center;
-            gap: 0.25rem;
-            font-size: 0.7rem;
-            font-weight: 600;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-            color: var(--color-text-secondary, #5a6773);
+            justify-content: flex-end;
+            gap: var(--webmapx-space-sm, 0.5rem);
         }
-
-        .mode-badge.pinned {
-            color: var(--color-primary, #2b6c8f);
-        }
-
-        .instructions {
-            margin: 0;
-        }
-
-        .streetview-link {
-            font-style: normal;
-            color: var(--color-primary, #2b6c8f);
-            text-decoration: none;
-        }
-
-        .streetview-link:hover {
-            text-decoration: underline;
-        }
-
-        .streetview-wrap {
-            margin: 0.4rem 0;
-        }
-
-        .streetview-thumb {
-            width: 100%;
-            max-width: 300px;
-            border-radius: 4px;
-            display: block;
-            cursor: pointer;
-        }
-
-        .streetview-caption {
-            font-size: 0.7rem;
-            color: var(--color-text-secondary, #5a6773);
-            font-style: italic;
-            margin: 0.2rem 0 0;
-        }
-
 
         .layer-group {
             border: 1px solid var(--color-border-light, #e2e7ec);
@@ -371,16 +338,12 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         this.features = [];
         this.elevation = null;
         this.mode = 'hover';
-        this.pinnedLocation = null;
-        this.pinnedPixel = null;
     }
 
     private onDeactivate(): void {
         this.features = [];
         this.elevation = null;
         this.mode = 'hover';
-        this.pinnedLocation = null;
-        this.pinnedPixel = null;
         this.removePinMarker();
     }
 
@@ -396,26 +359,11 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
     private async handleClick(event: ClickEvent): Promise<void> {
         if (!this.active || !this.adapter) return;
 
-        // Check unpin: click within threshold of pinned location
-        if (this.mode === 'pinned' && this.pinnedPixel) {
-            const dx = event.pixel[0] - this.pinnedPixel[0];
-            const dy = event.pixel[1] - this.pinnedPixel[1];
-            if (Math.sqrt(dx * dx + dy * dy) <= UNPIN_THRESHOLD_PX) {
-                this.unpin();
-                return;
-            }
-        }
-
-        // Pin at click location
+        // Pin at click location; a click on the held spot simply asks again.
         this.mode = 'pinned';
-        this.pinnedLocation = event.coords;
-        this.pinnedPixel = event.pixel;
         this.loading = true;
         this.features = [];
         this.elevation = this.adapter.getElevation?.(event.coords) ?? null;
-        this.streetviewImageUrl = null;
-        this.streetviewPanoId = null;
-        this.streetviewUnavailable = false;
         this.updatePinMarker(event.coords);
 
         try {
@@ -515,49 +463,17 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 
     private unpin(): void {
         this.mode = 'hover';
-        this.pinnedLocation = null;
-        this.pinnedPixel = null;
         this.features = [];
         this.elevation = null;
-        this.streetviewImageUrl = null;
-        this.streetviewPanoId = null;
-        this.streetviewLoading = false;
-        this.streetviewUnavailable = false;
         this.removePinMarker();
     }
 
-    private get googleApiKey(): string | null {
-        const cfg = this.toolsConfig?.['info'] as InfoToolConfig | undefined;
-        const raw = cfg?.googleApiKey ?? null;
-        if (!raw) return null;
-        const resolved = substituteApiKeys(raw);
-        return resolved.startsWith('{key-') ? null : resolved;
-    }
-
-    private async loadStreetview(coords: LngLat): Promise<void> {
-        const key = this.googleApiKey;
-        const [lng, lat] = coords;
-        if (!key) return;
-        this.streetviewLoading = true;
-        this.streetviewImageUrl = null;
-        this.streetviewPanoId = null;
-        this.streetviewUnavailable = false;
-        try {
-            const metaUrl = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${lat},${lng}&key=${key}`;
-            const res = await fetch(metaUrl);
-            const json = await res.json();
-            if (json.status === 'OK' && json.pano_id) {
-                this.streetviewPanoId = json.pano_id;
-                this.streetviewImageUrl = `https://maps.googleapis.com/maps/api/streetview?size=300x150&pano=${json.pano_id}&key=${key}`;
-            } else {
-                this.streetviewUnavailable = true;
-            }
-        } catch {
-            this.streetviewUnavailable = true;
-        } finally {
-            this.streetviewLoading = false;
-        }
-    }
+    /** Unpin button or Escape. The button disappears with the pin, so focus stays in the panel. */
+    private unpinByUser = (): void => {
+        this.unpin();
+        announce(this, 'Unpinned');
+        this.updateComplete.then(() => this.shadowRoot?.querySelector<HTMLElement>('.info-container')?.focus());
+    };
 
     // ─────────────────────────────────────────────────────────────────────
     // Rendering
@@ -735,12 +651,16 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         const isPinned = this.mode === 'pinned';
 
         return html`
-            <div class="info-container">
-                <div class="mode-badge ${isPinned ? 'pinned' : ''}">
-                    <sl-icon name=${isPinned ? 'pin-angle-fill' : 'cursor'}></sl-icon>
-                    ${isPinned ? 'Pinned' : 'Hover'}
-                    ${this.loading ? html`<sl-spinner></sl-spinner>` : nothing}
-                </div>
+            <div class="info-container" tabindex="-1">
+                ${isPinned ? html`
+                    <div class="held-row">
+                        ${this.loading ? html`<sl-spinner></sl-spinner>` : nothing}
+                        <sl-button size="small" title="Let go of this result (Esc)" @click=${this.unpinByUser}>
+                            <sl-icon src=${pinOffIconUrl} slot="prefix"></sl-icon>
+                            Unpin
+                        </sl-button>
+                    </div>
+                ` : nothing}
 
                 ${isPinned && !this.loading && this.features.length === 0
                     ? html`<p class="empty-hint help-text">Nothing here. Try another spot.</p>`
@@ -751,32 +671,6 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                     : nothing}
 
                 ${this.renderFeatures()}
-
-                ${isPinned && this.pinnedLocation
-                    ? html`
-                        ${this.googleApiKey ? html`
-                            ${!this.streetviewImageUrl && !this.streetviewLoading && !this.streetviewUnavailable ? html`
-                                <p class="instructions help-text">
-                                    <a class="streetview-link" href="#"
-                                       @click=${(e: Event) => { e.preventDefault(); this.loadStreetview(this.pinnedLocation!); }}>Street View</a>
-                                </p>` : ''}
-                            ${this.streetviewLoading ? html`<p class="instructions help-text"><sl-spinner></sl-spinner> Loading Street View…</p>` : ''}
-                            ${this.streetviewUnavailable ? html`<p class="instructions help-text">No Street View here.</p>` : ''}
-                            ${this.streetviewImageUrl ? html`
-                                <div class="streetview-wrap">
-                                    <a href="https://www.google.com/maps/@?api=1&amp;map_action=pano&amp;pano=${this.streetviewPanoId}"
-                                       target="_blank" rel="noopener noreferrer">
-                                        <img class="streetview-thumb" src="${this.streetviewImageUrl}" alt="Street View">
-                                    </a>
-                                    <p class="streetview-caption">Click the image to open Street View</p>
-                                </div>` : ''}
-                        ` : html`
-                            <p class="instructions help-text">
-                                <a class="streetview-link"
-                                   href="https://www.google.com/maps/@?api=1&amp;map_action=pano&amp;viewpoint=${this.pinnedLocation[1]},${this.pinnedLocation[0]}"
-                                   target="_blank" rel="noopener noreferrer">Street View</a>
-                            </p>`}
-                    ` : nothing}
             </div>
         `;
     }
