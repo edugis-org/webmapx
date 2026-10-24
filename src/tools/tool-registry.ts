@@ -90,6 +90,11 @@ const BUILT_IN_TOOLS: readonly ToolRegistryEntry[] = [
     },
     { id: 'measure', tag: 'webmapx-measure-tool', placement: 'toolbar', label: 'Measure', description: 'Measure a distance or an area on the map', icon: 'rulers' },
     { id: 'info', tag: 'webmapx-info-tool', placement: 'toolbar', label: 'Feature info', description: 'See the details of a feature on the map', icon: 'info-circle' },
+    {
+        // Named for what it shows, not where from: Panoramax, or Google Street View when a config has a key.
+        id: 'street-photos', tag: 'webmapx-street-photos-tool', placement: 'toolbar', label: 'Street photos',
+        description: 'See a street-level photo of a spot', icon: 'camera', aliases: ['panoramax'],
+    },
     { id: 'draw', tag: 'webmapx-draw-tool', placement: 'toolbar', label: 'Draw and edit layers', description: 'Draw your own layers and edit their points, lines and shapes', icon: 'pencil' },
     {
         id: 'geolocation', tag: 'webmapx-geolocation-tool', placement: 'toolbar', label: 'Geolocation', description: 'Show where you are on the map',
