@@ -439,10 +439,8 @@ export interface SearchToolConfig extends ToolConfig {
   attribution?: string;
 }
 
-export interface InfoToolConfig extends ToolConfig {
-  /** Google Maps API key — enables StreetView thumbnail preview in the info panel. */
-  googleApiKey?: string;
-}
+/** The info tool has no settings of its own; its Street View link moved to the street photos tool. */
+export type InfoToolConfig = ToolConfig;
 
 export interface ThreeDToolConfig extends ToolConfig {
   /** MapLibre terrain URL used by the 3D tool when no terrain layer exists in the configuration. */

@@ -3087,8 +3087,7 @@
       }
     },
     "info": {
-      "enabled": true,
-      "googleApiKey": "{key-google}"
+      "enabled": true
     },
     "maplanguage": {
       "enabled": true,
