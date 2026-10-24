@@ -203,6 +203,61 @@ async function assertInfoRendering(page) {
     });
 }
 
+/**
+ * A held result has an Unpin button, reached with the keyboard; Unpin and
+ * Escape both let go (Escape without closing the panel), and pointing works
+ * again afterwards. Expects a result to be held already.
+ */
+async function assertUnpin(page) {
+    const unpinButton = () => page.evaluate(() =>
+        [...document.querySelector('webmapx-info-tool').shadowRoot.querySelectorAll('sl-button')]
+            .some((b) => b.textContent.trim() === 'Unpin'));
+    const isPinned = () => page.evaluate(() => document.querySelector('webmapx-info-tool').mode === 'pinned');
+    const clickCenter = () => page.evaluate(async () => {
+        const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
+        const center = adapter.getViewportState().center;
+        adapter.events.emit({ type: 'click', coords: center, pixel: adapter.project(center), resolution: null });
+    });
+
+    if (!await unpinButton()) fail('a held result shows no Unpin button');
+
+    // Keyboard: Tab from the panel's start reaches Unpin first, Enter presses it.
+    await page.evaluate(() => {
+        const root = document.querySelector('webmapx-info-tool').shadowRoot;
+        root.querySelector('.info-container').focus();
+    });
+    const focusedText = () => page.evaluate(() =>
+        document.querySelector('webmapx-info-tool').shadowRoot.activeElement?.textContent?.trim());
+    await page.keyboard.press('Tab');
+    if (await focusedText() !== 'Unpin') fail(`Tab reached "${await focusedText()}", expected the Unpin button`);
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.querySelector('webmapx-info-tool').mode === 'hover',
+        undefined, { timeout: 5_000 }).catch(() => fail('Unpin did not let go of the result'));
+    if (await unpinButton()) fail('Unpin button still shown after unpinning');
+    const focusKept = await page.evaluate(() =>
+        document.querySelector('webmapx-info-tool').shadowRoot.activeElement?.classList.contains('info-container'));
+    if (!focusKept) fail('focus left the panel when the Unpin button went away');
+
+    // Pointing works again.
+    await page.evaluate(async () => {
+        const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
+        const center = adapter.getViewportState().center;
+        adapter.events.emit({ type: 'pointer-move', coords: center, pixel: adapter.project(center), resolution: null });
+    });
+    await page.waitForFunction(() => document.querySelector('webmapx-info-tool').features.length > 0,
+        undefined, { timeout: 5_000 }).catch(() => fail('pointing showed nothing after Unpin'));
+
+    // Escape lets go too, and leaves the panel open.
+    await clickCenter();
+    await page.waitForFunction(() => document.querySelector('webmapx-info-tool').mode === 'pinned',
+        undefined, { timeout: 5_000 });
+    await page.keyboard.press('Escape');
+    if (await isPinned()) fail('Escape did not let go of the result');
+    if (!await page.evaluate(() => document.querySelector('webmapx-info-tool').active)) {
+        fail('Escape closed the panel instead of only unpinning');
+    }
+}
+
 export async function run({ page, engine, baseUrl }) {
     const step = async (label, fn) => {
         try {
@@ -231,6 +286,8 @@ export async function run({ page, engine, baseUrl }) {
 
     const result = await assertInfoRendering(page);
     if (!result.ok) fail(result.reason);
+
+    await step('unpin with the button and with Escape', () => assertUnpin(page));
 }
 
 export const engines = ['maplibre'];
