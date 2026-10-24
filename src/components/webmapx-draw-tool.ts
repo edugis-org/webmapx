@@ -7,6 +7,7 @@ import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
 import type { LngLat, ClickEvent, PointerMoveEvent, ContextMenuEvent, PointerDownEvent, PointerUpEvent } from '../store/map-events';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
+import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import '@shoelace-style/shoelace/dist/components/dropdown/dropdown.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
@@ -1208,19 +1209,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             box-shadow: var(--sl-shadow-medium);
         }
         .auto-attr-checkbox {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            font-size: 0.82rem;
-            cursor: pointer;
             white-space: nowrap;
         }
-        /* A plain checkbox otherwise renders in the browser's own default
-         * accent color, not the app's theme blue — accent-color is the
-         * standards-based way to recolor native form controls without
-         * rebuilding the checkbox from scratch. */
-        .auto-attr-checkbox input[type="checkbox"] {
-            accent-color: var(--color-primary, #2b6c8f);
+        /* The whole row is clickable, as the native label row was. */
+        .auto-attr-checkbox::part(base) {
+            width: 100%;
         }
         .add-attr-note {
             font-size: 0.72rem;
@@ -5185,12 +5178,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                         </sl-button>
                         <div class="auto-attr-dropdown-panel">
                             ${this.availableAutoAttributeTypes(layer).map(t => html`
-                                <label class="auto-attr-checkbox">
-                                    <input type="checkbox"
-                                        .checked=${this.isAutoAttributeChecked(layer, t)}
-                                        @change=${() => this.toggleAutoAttribute(layer, t)}>
+                                <sl-checkbox size="small" class="auto-attr-checkbox"
+                                    .checked=${this.isAutoAttributeChecked(layer, t)}
+                                    @sl-change=${() => this.toggleAutoAttribute(layer, t)}>
                                     ${AUTO_PROPERTY_DEFAULTS[t]?.label ?? t}
-                                </label>
+                                </sl-checkbox>
                             `)}
                         </div>
                     </sl-dropdown>
