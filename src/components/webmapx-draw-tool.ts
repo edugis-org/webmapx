@@ -1,5 +1,6 @@
 import { html, css, type PropertyValues, type TemplateResult } from 'lit';
 import { accentControlStyles } from './internal/accent-control-styles';
+import { sectionHeadingStyles } from './internal/section-heading-styles';
 import { customElement, state, query } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
@@ -505,7 +506,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     // ─── Styles ───────────────────────────────────────────────────────────────
 
-    static styles = [accentControlStyles, css`
+    static styles = [accentControlStyles, sectionHeadingStyles, css`
         :host {
             /* Shared by the "Edit attributes" table's Attribute/Type
              * columns and the add-attribute form below it (the "Add
@@ -625,12 +626,13 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             min-height: 2.5em;
         }
 
-        .section-label {
+        /* Column headings of the selected feature's attribute table, not a
+           section heading: they name columns, the rows below are the content. */
+        .column-header {
             font-size: 0.7rem;
             text-transform: uppercase;
             letter-spacing: 0.06em;
             color: var(--color-text-muted, #6b7681);
-            margin-bottom: 0.25rem;
         }
 
         .flow-heading {
@@ -4739,7 +4741,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             ${nothingToShow ? html`<p class="empty-state">No ${label.toLowerCase()} layers yet.</p>` : html`
                 <div class="layer-list">
                     ${layers.length > 0 ? html`
-                        ${catalogOptions.length > 0 ? html`<div class="section-label">Your layers</div>` : ''}
+                        ${catalogOptions.length > 0 ? html`<h3 class="section-heading">Your layers</h3>` : ''}
                         <div class="layer-group">
                             ${layers.map(l => html`
                                 <div class="layer-row">
@@ -4759,7 +4761,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                         </div>
                     ` : ''}
                     ${catalogOptions.length > 0 ? html`
-                        <div class="section-label" style=${layers.length > 0 ? 'margin-top:.5rem' : ''}>From the catalog</div>
+                        <h3 class="section-heading" style=${layers.length > 0 ? 'margin-top:.5rem' : ''}>From the catalog</h3>
                         <div class="layer-group">
                             ${catalogOptions.map(opt => html`
                                 <div class="layer-row">
@@ -5029,8 +5031,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
             ${selFeature && selLayer ? html`
                 <div class="prop-row" style="margin-top:.5rem">
-                    <span class="prop-label section-label" style="margin-bottom:0">Attribute</span>
-                    <span class="prop-value section-label" style="margin-bottom:0">Value</span>
+                    <span class="prop-label column-header">Attribute</span>
+                    <span class="prop-value column-header">Value</span>
                 </div>
                 ${selLayer.properties.map(p => html`
                     <div class="prop-row" data-attr-name=${p.name}>
