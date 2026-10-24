@@ -502,7 +502,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         if (this.pinMarkerAdded) {
             this.adapter.moveMarker(PIN_MARKER_ID, coords);
         } else {
-            this.adapter.addMarker(PIN_MARKER_ID, coords, { color: DATA_TOOL });
+            this.adapter.addMarker(PIN_MARKER_ID, coords, { color: DATA_TOOL, glyph: 'info' });
             this.pinMarkerAdded = true;
         }
     }
