@@ -442,6 +442,15 @@ export interface SearchToolConfig extends ToolConfig {
 /** The info tool has no settings of its own; its Street View link moved to the street photos tool. */
 export type InfoToolConfig = ToolConfig;
 
+export interface PanoramaxToolConfig extends ToolConfig {
+  /** Panoramax search API. Default: the federated catalogue, `https://api.panoramax.xyz/api`. */
+  apiUrl?: string;
+  /** Panoramax viewer that "Open in Panoramax" goes to. Default: `https://api.panoramax.xyz/`. */
+  viewerUrl?: string;
+  /** How far from the clicked spot a photo may be, in metres. Default: 50. */
+  searchDistance?: number;
+}
+
 export interface ThreeDToolConfig extends ToolConfig {
   /** MapLibre terrain URL used by the 3D tool when no terrain layer exists in the configuration. */
   'maplibre-terrain-fallback-url'?: string;
@@ -491,7 +500,8 @@ export interface ToolsConfig {
   insetMap?: InsetMapToolConfig;
   search?: SearchToolConfig;
   info?: InfoToolConfig;
-  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | InfoToolConfig | CompareToolConfig | MegaSliderToolConfig | undefined;
+  panoramax?: PanoramaxToolConfig;
+  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | InfoToolConfig | PanoramaxToolConfig | CompareToolConfig | MegaSliderToolConfig | undefined;
 }
 
 /**
