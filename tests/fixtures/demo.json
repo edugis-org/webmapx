@@ -3328,6 +3328,13 @@
           "icon": "info-circle"
         },
         {
+          "id": "panoramax",
+          "type": "panoramax",
+          "enabled": true,
+          "title": "Street photos",
+          "icon": "camera"
+        },
+        {
           "id": "measure",
           "type": "measure",
           "enabled": true,
