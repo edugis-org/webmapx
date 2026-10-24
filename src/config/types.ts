@@ -442,12 +442,17 @@ export interface SearchToolConfig extends ToolConfig {
 /** The info tool has no settings of its own; its Street View link moved to the street photos tool. */
 export type InfoToolConfig = ToolConfig;
 
-export interface PanoramaxToolConfig extends ToolConfig {
+export interface StreetPhotosToolConfig extends ToolConfig {
+  /**
+   * Google Maps API key, usually `"{key-google}"`. With one, the panel offers
+   * Google Street View beside Panoramax; without, the tool is Panoramax only.
+   */
+  googleApiKey?: string;
   /** Panoramax search API. Default: the federated catalogue, `https://api.panoramax.xyz/api`. */
   apiUrl?: string;
   /** Panoramax viewer that "Open in Panoramax" goes to. Default: `https://api.panoramax.xyz/`. */
   viewerUrl?: string;
-  /** How far from the clicked spot a photo may be, in metres. Default: 50. */
+  /** The least distance from the clicked spot a photo may be, in metres. Default: 50. */
   searchDistance?: number;
 }
 
@@ -500,8 +505,8 @@ export interface ToolsConfig {
   insetMap?: InsetMapToolConfig;
   search?: SearchToolConfig;
   info?: InfoToolConfig;
-  panoramax?: PanoramaxToolConfig;
-  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | InfoToolConfig | PanoramaxToolConfig | CompareToolConfig | MegaSliderToolConfig | undefined;
+  'street-photos'?: StreetPhotosToolConfig;
+  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | InfoToolConfig | StreetPhotosToolConfig | CompareToolConfig | MegaSliderToolConfig | undefined;
 }
 
 /**

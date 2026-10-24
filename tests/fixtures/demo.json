@@ -3089,6 +3089,9 @@
     "info": {
       "enabled": true
     },
+    "street-photos": {
+      "googleApiKey": "not-a-real-key"
+    },
     "maplanguage": {
       "enabled": true,
       "visible": false,
@@ -3327,8 +3330,8 @@
           "icon": "info-circle"
         },
         {
-          "id": "panoramax",
-          "type": "panoramax",
+          "id": "street-photos",
+          "type": "street-photos",
           "enabled": true,
           "title": "Street photos",
           "icon": "camera"

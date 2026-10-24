@@ -6,9 +6,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+    buildPanoramaxPhotoUrl,
     buildPanoramaxSearchUrl,
+    panoramaxColour,
+    panoramaxCoverageLayer,
     panoramaxViewerUrl,
     parsePanoramaxPhoto,
+    yawTowards,
+    PANORAMAX_COVERAGE_LAYER_ID,
+    PANORAMAX_ROUTES_MIN_ZOOM,
 } from '../src/utils/panoramax';
 
 const ANSWER = {
@@ -92,4 +98,104 @@ test('the viewer link keeps a custom viewer address', () => {
     const url = new URL(panoramaxViewerUrl('https://panoramax.example.org/viewer', 'abc', [5, 52]));
     assert.equal(url.origin + url.pathname, 'https://panoramax.example.org/viewer');
     assert.equal(url.searchParams.get('map'), '18/52/5');
+});
+
+test('a 360° photo is recognised by its field of view, and keeps its heading', () => {
+    const feature = structuredClone(ANSWER.features[0]) as Record<string, unknown>;
+    (feature.properties as Record<string, unknown>)['pers:interior_orientation'] = { field_of_view: 360 };
+    (feature.properties as Record<string, unknown>)['view:azimuth'] = 20.5;
+    const photo = parsePanoramaxPhoto({ features: [feature] });
+    assert.equal(photo?.is360, true);
+    assert.equal(photo?.heading, 20.5);
+
+    const flat = parsePanoramaxPhoto(ANSWER);
+    assert.equal(flat?.is360, false, 'no field of view: a plain photo');
+    assert.equal(flat?.heading, null);
+});
+
+test('a photo dot asks for that one photo by id', () => {
+    const url = new URL(buildPanoramaxPhotoUrl('https://api.panoramax.xyz/api', 'abc-123'));
+    assert.equal(url.pathname, '/api/search');
+    assert.equal(url.searchParams.get('ids'), 'abc-123');
+});
+
+test('a 360° photo opens facing the clicked spot', () => {
+    const photo = { position: [5, 52] as [number, number], heading: 0 };
+    // Due east of the camera, camera facing north: turn right a quarter.
+    assert.ok(Math.abs(yawTowards(photo, [5.001, 52]) - 90) < 0.1);
+    // Facing east already: straight ahead.
+    assert.ok(Math.abs(yawTowards({ ...photo, heading: 90 }, [5.001, 52])) < 0.1);
+    // Behind, either way round, stays within -180..180.
+    const behind = yawTowards({ ...photo, heading: 0 }, [5, 51.999]);
+    assert.ok(Math.abs(Math.abs(behind) - 180) < 0.1);
+    // Unknown heading, or no spot (a dot click): the photo's own middle.
+    assert.equal(yawTowards({ ...photo, heading: null }, [5.001, 52]), 0);
+    assert.equal(yawTowards(photo, null), 0);
+});
+
+test('the coverage layer uses Panoramax tiles from the configured API, owned by the tool', () => {
+    const layer = panoramaxCoverageLayer('https://nl.panoramax.xyz/api/') as {
+        id: string; sources: Record<string, { type: string; tiles: string[] }>;
+        layers: Array<{ id: string; 'source-layer': string }>; metadata: Record<string, unknown>;
+    };
+    assert.equal(layer.id, PANORAMAX_COVERAGE_LAYER_ID);
+    const [source] = Object.values(layer.sources);
+    assert.equal(source.type, 'vector');
+    assert.deepEqual(source.tiles, ['https://nl.panoramax.xyz/api/map/{z}/{x}/{y}.mvt']);
+    // No density grid: it drew one photo as large as thousands, and below the
+    // routes' zoom it is all the tiles hold, so the source starts where routes do.
+    assert.deepEqual(layer.layers.map((l) => l['source-layer']), ['sequences', 'pictures']);
+    assert.equal((source as unknown as { minzoom: number }).minzoom, PANORAMAX_ROUTES_MIN_ZOOM);
+    assert.equal(layer.layers[layer.layers.length - 1].id, `${PANORAMAX_COVERAGE_LAYER_ID}-pictures`, 'the tool finds photo dots by this id');
+    assert.equal(layer.metadata.ownerTool, 'street-photos', 'kept out of the permalink layer list');
+});
+
+type Translation = { name: string; valuemap: Array<{ value: unknown; operator?: string; label: string }> };
+
+/** The legend label a `case` condition gets, looked up the way the legend does. */
+function labelFor(cond: unknown[], translations: Translation[]): string | undefined {
+    const [op, lhs, rhs] = cond as [string, [string, string], unknown];
+    const entry = translations.find((t) => t.name === lhs[1]);
+    return entry?.valuemap.find((m) => String(m.value) === String(rhs) && m.operator === op)?.label;
+}
+
+function translationsOf(colourBy: 'date' | 'camera'): Translation[] {
+    const layer = panoramaxCoverageLayer('https://api.panoramax.xyz/api', colourBy, 2026) as { metadata: { attributes: { translations: Translation[] } } };
+    return layer.metadata.attributes.translations;
+}
+
+test('every colour on the map has a legend label, missing values included', () => {
+    // The legend hides unlabelled branches, so an unlabelled colour is one
+    // nobody can read; a route with no camera type showed exactly that, in grey.
+    for (const colourBy of ['date', 'camera'] as const) {
+        for (const part of ['sequences', 'pictures'] as const) {
+            const expr = panoramaxColour(colourBy, part, 2026) as unknown[];
+            assert.equal(expr[0], 'case');
+            for (let i = 1; i + 1 < expr.length; i += 2) {
+                const label = labelFor(expr[i] as unknown[], translationsOf(colourBy));
+                assert.ok(label, `${colourBy}/${part}: no label for ${JSON.stringify(expr[i])}`);
+            }
+        }
+    }
+});
+
+test('date classes compare the date as a string, newest first, missing first of all', () => {
+    const route = panoramaxColour('date', 'sequences', 2026) as unknown[];
+    assert.deepEqual(route[1], ['==', ['get', 'date'], null], 'a missing date is caught before any ordering comparison');
+    assert.deepEqual(route[3], ['>=', ['get', 'date'], '2026-01-01']);
+    assert.deepEqual(route[5], ['>=', ['get', 'date'], '2025-01-01']);
+    assert.deepEqual(route[7], ['>=', ['get', 'date'], '2022-01-01']);
+    assert.deepEqual(route[9], ['<', ['get', 'date'], '2022-01-01']);
+    const photo = panoramaxColour('date', 'pictures', 2026) as unknown[];
+    assert.deepEqual(photo[3], ['>=', ['get', 'ts'], '2026-01-01'], 'photos carry a timestamp, not a date');
+
+    const labels = [3, 5, 7, 9, 1].map((i) => labelFor(route[i] as unknown[], translationsOf('date')));
+    assert.deepEqual(labels, ['This year (2026)', 'Last year (2025)', '2022–2024', 'Before 2022', 'Date unknown']);
+});
+
+test('camera classes: 360°, flat, unknown; coverage is one colour', () => {
+    const camera = panoramaxColour('camera', 'sequences', 2026) as unknown[];
+    const labels = [1, 3, 5].map((i) => labelFor(camera[i] as unknown[], translationsOf('camera')));
+    assert.deepEqual(labels, ['360° photos', 'Flat photos', 'Camera unknown']);
+    assert.equal(typeof panoramaxColour('coverage', 'sequences', 2026), 'string');
 });
