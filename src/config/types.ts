@@ -125,6 +125,8 @@ export interface VectorSourceConfig extends SourceConfigBase {
   type: 'vector';
   url?: string;
   tiles?: string[];
+  minzoom?: number;
+  maxzoom?: number;
 }
 
 export interface RasterDemSourceConfig extends SourceConfigBase {
