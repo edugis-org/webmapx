@@ -1,0 +1,99 @@
+[
+  {
+    "slug": "draw-consistency",
+    "branch": "draw-consistency",
+    "sha": "9747582036e52a24fe648edaee997bc207f4d545",
+    "deployed": "2026-10-25T07:53:54.085Z",
+    "bytes": 72906753,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "draw-mode-buttons",
+    "branch": "draw-mode-buttons",
+    "sha": "ceefdea2649cbc4a6ba80fa1a87167c8e820b6b6",
+    "deployed": "2026-10-25T10:37:40.413Z",
+    "bytes": 72906531,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "feat-info-marker",
+    "branch": "feat/info-marker",
+    "sha": "6b1f1c03bf9aec1f8c305dac4c75a8cea67f8a20",
+    "deployed": "2026-10-24T19:24:11.626Z",
+    "bytes": 72906310,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "feat-info-unpin",
+    "branch": "feat/info-unpin",
+    "sha": "fd16b5197dd86140e5fe1627c9de53076c0e412f",
+    "deployed": "2026-10-24T19:23:38.592Z",
+    "bytes": 72900355,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "feat-panoramax-tool",
+    "branch": "feat/panoramax-tool",
+    "sha": "587cca50a33a8ddc3af6c8996b07d742c98014d8",
+    "deployed": "2026-10-24T19:36:09.770Z",
+    "bytes": 73095086,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "fix-vector-source-zoom",
+    "branch": "fix/vector-source-zoom",
+    "sha": "63e8e5bfa1d39d7cc88c50ee2ebbe3c866c393db",
+    "deployed": "2026-10-24T19:30:12.794Z",
+    "bytes": 72905158,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "main",
+    "branch": "main",
+    "sha": "292f41cfebf167bfa62323a5ba9105462bb395f3",
+    "deployed": "2026-10-23T17:41:15.572Z",
+    "bytes": 72904777,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "worktree-sam-tool",
+    "branch": "worktree-sam-tool",
+    "sha": "cfd8ad6f1582c9aa5a0fa80c4c05ddb071c96dbf",
+    "deployed": "2026-10-09T14:09:26.458Z",
+    "bytes": 70498352,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835,
+      "39f9f0894d478800487e.wasm": 26781914
+    }
+  }
+]

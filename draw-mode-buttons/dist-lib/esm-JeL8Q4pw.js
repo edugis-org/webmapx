@@ -1,0 +1,5864 @@
+import { a as e } from "./chunk-HEgqtunE.js";
+import { t } from "./DataView-vhxkpRlZ.js";
+import { a as n, c as r, i, l as a, o, s, t as c } from "./globals-BOsICj20.js";
+import { t as l } from "./__vite-browser-external-BcgHECGb.js";
+//#region node_modules/d3-array/src/ascending.js
+function u(e, t) {
+	return e == null || t == null ? NaN : e < t ? -1 : e > t ? 1 : e >= t ? 0 : NaN;
+}
+//#endregion
+//#region node_modules/d3-array/src/descending.js
+function d(e, t) {
+	return e == null || t == null ? NaN : t < e ? -1 : t > e ? 1 : t >= e ? 0 : NaN;
+}
+//#endregion
+//#region node_modules/d3-array/src/bisector.js
+function f(e) {
+	let t, n, r;
+	e.length === 2 ? (t = e === u || e === d ? e : p, n = e, r = e) : (t = u, n = (t, n) => u(e(t), n), r = (t, n) => e(t) - n);
+	function i(e, r, i = 0, a = e.length) {
+		if (i < a) {
+			if (t(r, r) !== 0) return a;
+			do {
+				let t = i + a >>> 1;
+				n(e[t], r) < 0 ? i = t + 1 : a = t;
+			} while (i < a);
+		}
+		return i;
+	}
+	function a(e, r, i = 0, a = e.length) {
+		if (i < a) {
+			if (t(r, r) !== 0) return a;
+			do {
+				let t = i + a >>> 1;
+				n(e[t], r) <= 0 ? i = t + 1 : a = t;
+			} while (i < a);
+		}
+		return i;
+	}
+	function o(e, t, n = 0, a = e.length) {
+		let o = i(e, t, n, a - 1);
+		return o > n && r(e[o - 1], t) > -r(e[o], t) ? o - 1 : o;
+	}
+	return {
+		left: i,
+		center: o,
+		right: a
+	};
+}
+function p() {
+	return 0;
+}
+//#endregion
+//#region node_modules/d3-array/src/number.js
+function m(e) {
+	return e === null ? NaN : +e;
+}
+//#endregion
+//#region node_modules/d3-array/src/bisect.js
+var h = f(u), g = h.right;
+h.left, f(m).center;
+//#endregion
+//#region node_modules/d3-array/src/ticks.js
+var _ = Math.sqrt(50), v = Math.sqrt(10), y = Math.sqrt(2);
+function b(e, t, n) {
+	let r = (t - e) / Math.max(0, n), i = Math.floor(Math.log10(r)), a = r / 10 ** i, o = a >= _ ? 10 : a >= v ? 5 : a >= y ? 2 : 1, s, c, l;
+	return i < 0 ? (l = 10 ** -i / o, s = Math.round(e * l), c = Math.round(t * l), s / l < e && ++s, c / l > t && --c, l = -l) : (l = 10 ** i * o, s = Math.round(e / l), c = Math.round(t / l), s * l < e && ++s, c * l > t && --c), c < s && .5 <= n && n < 2 ? b(e, t, n * 2) : [
+		s,
+		c,
+		l
+	];
+}
+function x(e, t, n) {
+	if (t = +t, e = +e, n = +n, !(n > 0)) return [];
+	if (e === t) return [e];
+	let r = t < e, [i, a, o] = r ? b(t, e, n) : b(e, t, n);
+	if (!(a >= i)) return [];
+	let s = a - i + 1, c = Array(s);
+	if (r) if (o < 0) for (let e = 0; e < s; ++e) c[e] = (a - e) / -o;
+	else for (let e = 0; e < s; ++e) c[e] = (a - e) * o;
+	else if (o < 0) for (let e = 0; e < s; ++e) c[e] = (i + e) / -o;
+	else for (let e = 0; e < s; ++e) c[e] = (i + e) * o;
+	return c;
+}
+function S(e, t, n) {
+	return t = +t, e = +e, n = +n, b(e, t, n)[2];
+}
+function C(e, t, n) {
+	t = +t, e = +e, n = +n;
+	let r = t < e, i = r ? S(t, e, n) : S(e, t, n);
+	return (r ? -1 : 1) * (i < 0 ? 1 / -i : i);
+}
+//#endregion
+//#region node_modules/xml-utils/get-attribute.mjs
+function w(e, t, n) {
+	let r = n && n.debug || !1;
+	r && console.log("[xml-utils] getting " + t + " in " + e);
+	let i = typeof e == "object" ? e.outer : e, a = i.slice(0, i.indexOf(">") + 1), o = ["\"", "'"];
+	for (let e = 0; e < o.length; e++) {
+		let n = o[e], i = t + "\\=" + n + "([^" + n + "]*)" + n;
+		r && console.log("[xml-utils] pattern:", i);
+		let s = new RegExp(i).exec(a);
+		if (r && console.log("[xml-utils] match:", s), s) return s[1];
+	}
+}
+//#endregion
+//#region node_modules/xml-utils/index-of-match.mjs
+function T(e, t, n) {
+	let r = new RegExp(t).exec(e.slice(n));
+	return r ? n + r.index : -1;
+}
+//#endregion
+//#region node_modules/xml-utils/index-of-match-end.mjs
+function E(e, t, n) {
+	let r = new RegExp(t).exec(e.slice(n));
+	return r ? n + r.index + r[0].length - 1 : -1;
+}
+//#endregion
+//#region node_modules/xml-utils/count-substring.mjs
+function ee(e, t) {
+	let n = new RegExp(t, "g"), r = e.match(n);
+	return r ? r.length : 0;
+}
+//#endregion
+//#region node_modules/xml-utils/find-tag-by-name.mjs
+function D(e, t, n) {
+	let r = n && n.debug || !1, i = n && n.startIndex || 0;
+	r && console.log("[xml-utils] starting findTagByName with", t, " and ", n);
+	let a = T(e, `\<${t}[ \n\>\/]`, i);
+	if (r && console.log("[xml-utils] start:", a), a === -1) return;
+	let o = e.slice(a + t.length), s = E(o, "^[^<]*[ /]>", 0), c = s !== -1 && o[s - 1] === "/";
+	if (r && console.log("[xml-utils] selfClosing:", c), c === !1) {
+		let e = 0, n = 1, r = 0;
+		for (; (s = E(o, "[ /]" + t + ">", e)) !== -1;) {
+			let i = o.substring(e, s + 1);
+			if (n += ee(i, "<" + t + "[ \n	>]"), r += ee(i, "</" + t + ">"), r >= n) break;
+			e = s;
+		}
+	}
+	let l = a + t.length + s + 1;
+	if (r && console.log("[xml-utils] end:", l), l === -1) return;
+	let u = e.slice(a, l), d;
+	return d = c ? null : u.slice(u.indexOf(">") + 1, u.lastIndexOf("<")), {
+		inner: d,
+		outer: u,
+		start: a,
+		end: l
+	};
+}
+//#endregion
+//#region node_modules/xml-utils/find-tags-by-name.mjs
+function te(e, t, n) {
+	let r = [], i = n && n.debug || !1, a = n && typeof n.nested == "boolean" ? n.nested : !0, o = n && n.startIndex || 0, s;
+	for (; s = D(e, t, {
+		debug: i,
+		startIndex: o
+	});) o = a ? s.start + 1 + t.length : s.end, r.push(s);
+	return i && console.log("findTagsByName found", r.length, "tags"), r;
+}
+//#endregion
+//#region node_modules/@geomatico/maplibre-cog-protocol/node_modules/geotiff/dist-module/rgb.js
+function ne(e, t) {
+	let { width: n, height: r } = e, i = new Uint8Array(n * r * 3), a;
+	for (let n = 0, r = 0; n < e.length; ++n, r += 3) a = 256 - e[n] / t * 256, i[r] = a, i[r + 1] = a, i[r + 2] = a;
+	return i;
+}
+function re(e, t) {
+	let { width: n, height: r } = e, i = new Uint8Array(n * r * 3), a;
+	for (let n = 0, r = 0; n < e.length; ++n, r += 3) a = e[n] / t * 256, i[r] = a, i[r + 1] = a, i[r + 2] = a;
+	return i;
+}
+function ie(e, t) {
+	let { width: n, height: r } = e, i = new Uint8Array(n * r * 3), a = t.length / 3, o = t.length / 3 * 2;
+	for (let n = 0, r = 0; n < e.length; ++n, r += 3) {
+		let s = e[n];
+		i[r] = t[s] / 65536 * 256, i[r + 1] = t[s + a] / 65536 * 256, i[r + 2] = t[s + o] / 65536 * 256;
+	}
+	return i;
+}
+function ae(e) {
+	let { width: t, height: n } = e, r = new Uint8Array(t * n * 3);
+	for (let t = 0, n = 0; t < e.length; t += 4, n += 3) {
+		let i = e[t], a = e[t + 1], o = e[t + 2], s = e[t + 3];
+		r[n] = 255 * ((255 - i) / 256) * ((255 - s) / 256), r[n + 1] = 255 * ((255 - a) / 256) * ((255 - s) / 256), r[n + 2] = 255 * ((255 - o) / 256) * ((255 - s) / 256);
+	}
+	return r;
+}
+function oe(e) {
+	let { width: t, height: n } = e, r = new Uint8ClampedArray(t * n * 3);
+	for (let t = 0, n = 0; t < e.length; t += 3, n += 3) {
+		let i = e[t], a = e[t + 1], o = e[t + 2];
+		r[n] = i + 1.402 * (o - 128), r[n + 1] = i - .34414 * (a - 128) - .71414 * (o - 128), r[n + 2] = i + 1.772 * (a - 128);
+	}
+	return r;
+}
+var se = .95047, ce = 1, le = 1.08883;
+function ue(e) {
+	let { width: t, height: n } = e, r = new Uint8Array(t * n * 3);
+	for (let t = 0, n = 0; t < e.length; t += 3, n += 3) {
+		let i = e[t + 0], a = e[t + 1] << 24 >> 24, o = e[t + 2] << 24 >> 24, s = (i + 16) / 116, c = a / 500 + s, l = s - o / 200, u, d, f;
+		c = se * (c * c * c > .008856 ? c * c * c : (c - 16 / 116) / 7.787), s = ce * (s * s * s > .008856 ? s * s * s : (s - 16 / 116) / 7.787), l = le * (l * l * l > .008856 ? l * l * l : (l - 16 / 116) / 7.787), u = c * 3.2406 + s * -1.5372 + l * -.4986, d = c * -.9689 + s * 1.8758 + l * .0415, f = c * .0557 + s * -.204 + l * 1.057, u = u > .0031308 ? 1.055 * u ** (1 / 2.4) - .055 : 12.92 * u, d = d > .0031308 ? 1.055 * d ** (1 / 2.4) - .055 : 12.92 * d, f = f > .0031308 ? 1.055 * f ** (1 / 2.4) - .055 : 12.92 * f, r[n] = Math.max(0, Math.min(1, u)) * 255, r[n + 1] = Math.max(0, Math.min(1, d)) * 255, r[n + 2] = Math.max(0, Math.min(1, f)) * 255;
+	}
+	return r;
+}
+//#endregion
+//#region node_modules/@geomatico/maplibre-cog-protocol/node_modules/geotiff/dist-module/compression/index.js
+var O = /* @__PURE__ */ new Map();
+async function k(e) {
+	let t = !e.hasTag("StripOffsets");
+	return {
+		tileWidth: t ? await e.loadValue("TileWidth") : await e.loadValue("ImageWidth"),
+		tileHeight: t ? await e.loadValue("TileLength") : await e.loadValue("RowsPerStrip") || await e.loadValue("ImageLength"),
+		planarConfiguration: await e.loadValue("PlanarConfiguration"),
+		bitsPerSample: await e.loadValue("BitsPerSample"),
+		predictor: await e.loadValue("Predictor") || 1
+	};
+}
+function de(e, t, n = k, r = !0) {
+	Array.isArray(e) || (e = [e]), e.forEach((e) => {
+		O.set(e, {
+			importFn: t,
+			decoderParameterFn: n,
+			preferWorker: r
+		});
+	});
+}
+async function fe(e, t) {
+	if (!O.has(e)) throw Error(`Unknown compression method identifier: ${e}`);
+	let { decoderParameterFn: n } = O.get(e);
+	return n(t);
+}
+async function pe(e, t) {
+	if (!O.has(e)) throw Error(`Unknown compression method identifier: ${e}`);
+	let { importFn: n } = O.get(e);
+	return new (await (n()))(t);
+}
+function me(e) {
+	if (!O.has(e)) throw Error(`Unknown compression method identifier: ${e}`);
+	return O.get(e).preferWorker;
+}
+var he = [
+	{
+		cases: [void 0, 1],
+		importFn: () => import("./raw-CJYLixN2.js").then((e) => e.default),
+		preferWorker: !1
+	},
+	{
+		cases: 5,
+		importFn: () => import("./lzw-DEXXEVkW.js").then((e) => e.default)
+	},
+	{
+		cases: 6,
+		importFn: () => {
+			throw Error("old style JPEG compression is not supported.");
+		}
+	},
+	{
+		cases: 7,
+		importFn: () => import("./jpeg-A7Dp7r3q.js").then((e) => e.default),
+		decoderParameterFn: async (e) => ({
+			...await k(e),
+			JPEGTables: await e.loadValue("JPEGTables")
+		})
+	},
+	{
+		cases: [8, 32946],
+		importFn: () => import("./deflate-BPtD__NN.js").then((e) => e.default)
+	},
+	{
+		cases: 32773,
+		importFn: () => import("./packbits-Cpl_nCCU.js").then((e) => e.default)
+	},
+	{
+		cases: 34887,
+		importFn: () => import("./lerc-MvNwYpKx.js").then(async (e) => (await e.zstd.init(), e)).then((e) => e.default),
+		decoderParameterFn: async (e) => ({
+			...await k(e),
+			LercParameters: await e.loadValue("LercParameters")
+		})
+	},
+	{
+		cases: 5e4,
+		importFn: () => import("./zstd-C3gU16-Z.js").then(async (e) => (await e.zstd.init(), e)).then((e) => e.default)
+	},
+	{
+		cases: 50001,
+		importFn: () => import("./webimage-Cm3C8AQV.js").then((e) => e.default),
+		decoderParameterFn: async (e) => ({
+			...await k(e),
+			samplesPerPixel: Number(await e.loadValue("SamplesPerPixel")) || 4
+		}),
+		preferWorker: !1
+	}
+];
+for (let e of he) {
+	let { cases: t, importFn: n, decoderParameterFn: r, preferWorker: i } = e;
+	de(t, n, r, i);
+}
+//#endregion
+//#region node_modules/@geomatico/maplibre-cog-protocol/node_modules/geotiff/dist-module/resample.js
+function ge(e, t, n, r = 1) {
+	return new (Object.getPrototypeOf(e)).constructor(t * n * r);
+}
+function _e(e, t, n, r, i) {
+	let a = t / r, o = n / i;
+	return e.map((e) => {
+		let s = ge(e, r, i);
+		for (let c = 0; c < i; ++c) {
+			let i = Math.min(Math.round(o * c), n - 1);
+			for (let n = 0; n < r; ++n) {
+				let o = Math.min(Math.round(a * n), t - 1), l = e[i * t + o];
+				s[c * r + n] = l;
+			}
+		}
+		return s;
+	});
+}
+function A(e, t, n) {
+	return (1 - n) * e + n * t;
+}
+function ve(e, t, n, r, i) {
+	let a = t / r, o = n / i;
+	return e.map((e) => {
+		let s = ge(e, r, i);
+		for (let c = 0; c < i; ++c) {
+			let i = o * c, l = Math.floor(i), u = Math.min(Math.ceil(i), n - 1);
+			for (let n = 0; n < r; ++n) {
+				let o = a * n, d = o % 1, f = Math.floor(o), p = Math.min(Math.ceil(o), t - 1), m = e[l * t + f], h = e[l * t + p], g = e[u * t + f], _ = e[u * t + p], v = A(A(m, h, d), A(g, _, d), i % 1);
+				s[c * r + n] = v;
+			}
+		}
+		return s;
+	});
+}
+function ye(e, t, n, r, i, a = "nearest") {
+	switch (a.toLowerCase()) {
+		case "nearest": return _e(e, t, n, r, i);
+		case "bilinear":
+		case "linear": return ve(e, t, n, r, i);
+		default: throw Error(`Unsupported resampling method: '${a}'`);
+	}
+}
+function be(e, t, n, r, i, a) {
+	let o = t / r, s = n / i, c = ge(e, r, i, a);
+	for (let l = 0; l < i; ++l) {
+		let i = Math.min(Math.round(s * l), n - 1);
+		for (let n = 0; n < r; ++n) {
+			let s = Math.min(Math.round(o * n), t - 1);
+			for (let o = 0; o < a; ++o) {
+				let u = e[i * t * a + s * a + o];
+				c[l * r * a + n * a + o] = u;
+			}
+		}
+	}
+	return c;
+}
+function xe(e, t, n, r, i, a) {
+	let o = t / r, s = n / i, c = ge(e, r, i, a);
+	for (let l = 0; l < i; ++l) {
+		let i = s * l, u = Math.floor(i), d = Math.min(Math.ceil(i), n - 1);
+		for (let n = 0; n < r; ++n) {
+			let s = o * n, f = s % 1, p = Math.floor(s), m = Math.min(Math.ceil(s), t - 1);
+			for (let o = 0; o < a; ++o) {
+				let s = e[u * t * a + p * a + o], h = e[u * t * a + m * a + o], g = e[d * t * a + p * a + o], _ = e[d * t * a + m * a + o], v = A(A(s, h, f), A(g, _, f), i % 1);
+				c[l * r * a + n * a + o] = v;
+			}
+		}
+	}
+	return c;
+}
+function Se(e, t, n, r, i, a, o = "nearest") {
+	switch (o.toLowerCase()) {
+		case "nearest": return be(e, t, n, r, i, a);
+		case "bilinear":
+		case "linear": return xe(e, t, n, r, i, a);
+		default: throw Error(`Unsupported resampling method: '${o}'`);
+	}
+}
+//#endregion
+//#region node_modules/@geomatico/maplibre-cog-protocol/node_modules/geotiff/dist-module/geotiffimage.js
+function Ce(e, t, n) {
+	let r = 0;
+	for (let i = t; i < n; ++i) r += e[i];
+	return r;
+}
+function we(e, t, n) {
+	let r;
+	switch (e) {
+		case 1:
+			t <= 8 ? r = Uint8Array : t <= 16 ? r = Uint16Array : t <= 32 && (r = Uint32Array);
+			break;
+		case 2:
+			t === 8 ? r = Int8Array : t === 16 ? r = Int16Array : t === 32 && (r = Int32Array);
+			break;
+		case 3:
+			switch (t) {
+				case 16:
+				case 32:
+					r = Float32Array;
+					break;
+				case 64:
+					r = Float64Array;
+					break;
+				default: break;
+			}
+			break;
+		default: break;
+	}
+	if (r && (typeof n == "number" || n instanceof ArrayBuffer)) return new r(n);
+	throw Error("Unsupported data format/bitsPerSample");
+}
+function Te(e, t) {
+	return (e === 1 || e === 2) && t <= 32 && t % 8 == 0 ? !1 : !(e === 3 && (t === 16 || t === 32 || t === 64));
+}
+function Ee(e, t, n, r, i, a, o) {
+	let s = new DataView(e), c = n === 2 ? o * a : o * a * r, l = n === 2 ? 1 : r, u = we(t, i, c), d = parseInt("1".repeat(i), 2);
+	if (t === 1) {
+		let e;
+		e = n === 1 ? r * i : i;
+		let t = a * e;
+		t & 7 && (t = t + 7 & -8);
+		for (let e = 0; e < o; ++e) {
+			let n = e * t;
+			for (let t = 0; t < a; ++t) {
+				let r = n + t * l * i;
+				for (let n = 0; n < l; ++n) {
+					let o = r + n * i, c = (e * a + t) * l + n, f = Math.floor(o / 8), p = o % 8;
+					p + i <= 8 ? u[c] = s.getUint8(f) >> 8 - i - p & d : p + i <= 16 ? u[c] = s.getUint16(f) >> 16 - i - p & d : p + i <= 24 ? u[c] = (s.getUint16(f) << 8 | s.getUint8(f + 2)) >> 24 - i - p & d : u[c] = s.getUint32(f) >> 32 - i - p & d;
+				}
+			}
+		}
+	}
+	return u.buffer;
+}
+var De = class {
+	constructor(e, t, n, r) {
+		this.fileDirectory = e, this.littleEndian = t, this.tiles = n ? [] : null, this.isTiled = !e.hasTag("StripOffsets");
+		let i = e.getValue("PlanarConfiguration") ?? 1;
+		if (i !== 1 && i !== 2) throw Error("Invalid planar configuration.");
+		this.planarConfiguration = i, this.source = r;
+	}
+	getFileDirectory() {
+		return this.fileDirectory;
+	}
+	getGeoKeys() {
+		return this.fileDirectory.parseGeoKeyDirectory();
+	}
+	getWidth() {
+		return this.fileDirectory.getValue("ImageWidth") || 0;
+	}
+	getHeight() {
+		return this.fileDirectory.getValue("ImageLength") || 0;
+	}
+	getSamplesPerPixel() {
+		return this.fileDirectory.getValue("SamplesPerPixel") ?? 1;
+	}
+	getTileWidth() {
+		return this.isTiled ? this.fileDirectory.getValue("TileWidth") || 0 : this.getWidth();
+	}
+	getTileHeight() {
+		if (this.isTiled) return this.fileDirectory.getValue("TileLength") || 0;
+		let e = this.fileDirectory.hasTag("RowsPerStrip") && this.fileDirectory.getValue("RowsPerStrip");
+		return e ? Math.min(e, this.getHeight()) : this.getHeight();
+	}
+	getBlockWidth() {
+		return this.getTileWidth();
+	}
+	getBlockHeight(e) {
+		return this.isTiled || (e + 1) * this.getTileHeight() <= this.getHeight() ? this.getTileHeight() : this.getHeight() - e * this.getTileHeight();
+	}
+	getBytesPerPixel() {
+		let e = 0, t = this.fileDirectory.getValue("BitsPerSample") || [];
+		for (let n = 0; n < t.length; ++n) e += this.getSampleByteSize(n);
+		return e;
+	}
+	getSampleByteSize(e) {
+		let t = this.fileDirectory.getValue("BitsPerSample") || [];
+		if (e >= t.length) throw RangeError(`Sample index ${e} is out of range.`);
+		return Math.ceil(t[e] / 8);
+	}
+	getReaderForSample(e) {
+		let n = this.fileDirectory.getValue("SampleFormat"), r = n ? n[e] : 1, i = (this.fileDirectory.getValue("BitsPerSample") || [])[e];
+		switch (r) {
+			case 1:
+				if (i <= 8) return DataView.prototype.getUint8;
+				if (i <= 16) return DataView.prototype.getUint16;
+				if (i <= 32) return DataView.prototype.getUint32;
+				break;
+			case 2:
+				if (i <= 8) return DataView.prototype.getInt8;
+				if (i <= 16) return DataView.prototype.getInt16;
+				if (i <= 32) return DataView.prototype.getInt32;
+				break;
+			case 3:
+				switch (i) {
+					case 16: return function(e, n) {
+						return t(this, e, n);
+					};
+					case 32: return DataView.prototype.getFloat32;
+					case 64: return DataView.prototype.getFloat64;
+					default: break;
+				}
+				break;
+			default: break;
+		}
+		throw Error("Unsupported data format/bitsPerSample");
+	}
+	getSampleFormat(e = 0) {
+		let t = this.fileDirectory.getValue("SampleFormat");
+		return t ? t[e] : 1;
+	}
+	getBitsPerSample(e = 0) {
+		let t = this.fileDirectory.getValue("BitsPerSample");
+		return t ? t[e] : 0;
+	}
+	getArrayForSample(e, t) {
+		return we(this.getSampleFormat(e), this.getBitsPerSample(e), t);
+	}
+	async getTileOrStrip(e, t, n, r, i) {
+		let a = Math.ceil(this.getWidth() / this.getTileWidth()), o = Math.ceil(this.getHeight() / this.getTileHeight()), s, { tiles: c } = this;
+		if (this.planarConfiguration === 1 ? s = t * a + e : this.planarConfiguration === 2 && (s = n * a * o + t * a + e), s === void 0) throw Error("Could not determine tile or strip index.");
+		let l, u;
+		if (this.isTiled ? (l = Number(await this.fileDirectory.loadValueIndexed("TileOffsets", s)), u = Number(await this.fileDirectory.loadValueIndexed("TileByteCounts", s))) : (l = Number(await this.fileDirectory.loadValueIndexed("StripOffsets", s)), u = Number(await this.fileDirectory.loadValueIndexed("StripByteCounts", s))), u === 0) {
+			let r = this.getBlockHeight(t) * this.getTileWidth(), i = this.planarConfiguration === 2 ? this.getSampleByteSize(n) : this.getBytesPerPixel(), a = new ArrayBuffer(r * i);
+			return this.getArrayForSample(n, a).fill(this.getGDALNoData() || 0), {
+				x: e,
+				y: t,
+				sample: n,
+				data: a
+			};
+		}
+		let d = (await this.source.fetch([{
+			offset: l,
+			length: u
+		}], i))[0], f;
+		return c === null || !c[s] ? (f = (async () => {
+			let e = await r.decode(d), n = this.getSampleFormat(), i = this.getBitsPerSample();
+			return Te(n, i) && (e = Ee(e, n, this.planarConfiguration, this.getSamplesPerPixel(), i, this.getTileWidth(), this.getBlockHeight(t))), e;
+		})(), c !== null && (c[s] = f)) : f = c[s], {
+			x: e,
+			y: t,
+			sample: n,
+			data: await f
+		};
+	}
+	async _readRaster(e, t, n, r, i, a, o, s, c) {
+		let l = this.getTileWidth(), u = this.getTileHeight(), d = this.getWidth(), f = this.getHeight(), p = Math.max(Math.floor(e[0] / l), 0), m = Math.min(Math.ceil(e[2] / l), Math.ceil(d / l)), h = Math.max(Math.floor(e[1] / u), 0), g = Math.min(Math.ceil(e[3] / u), Math.ceil(f / u)), _ = e[2] - e[0], v = this.getBytesPerPixel(), y = [], b = [];
+		for (let e = 0; e < t.length; ++e) {
+			if (this.planarConfiguration === 1) {
+				let n = await this.fileDirectory.loadValue("BitsPerSample");
+				if (typeof n != "object") throw Error("Expected BitsPerSample to be an array or typed array.");
+				y.push(Ce(n, 0, t[e]) / 8);
+			} else y.push(0);
+			b.push(this.getReaderForSample(t[e]));
+		}
+		let x = [], { littleEndian: S } = this;
+		for (let a = h; a < g; ++a) for (let o = p; o < m; ++o) {
+			let s;
+			this.planarConfiguration === 1 && (s = this.getTileOrStrip(o, a, 0, i, c));
+			for (let p = 0; p < t.length; ++p) {
+				let m = p, h = t[p];
+				if (this.planarConfiguration === 2 && (v = this.getSampleByteSize(h), s = this.getTileOrStrip(o, a, h, i, c)), !s) throw Error("Could not get tile or strip data.");
+				let g = s.then((i) => {
+					let a = i.data, o = new DataView(a), s = this.getBlockHeight(i.y), c = i.y * u, p = i.x * l, h = c + s, g = (i.x + 1) * l, x = b[m], C = Math.min(s, s - (h - e[3]), f - c), w = Math.min(l, l - (g - e[2]), d - p);
+					for (let i = Math.max(0, e[1] - c); i < C; ++i) for (let a = Math.max(0, e[0] - p); a < w; ++a) {
+						let s = (i * l + a) * v, u = x.call(o, s + y[m], S), d;
+						r ? (d = (i + c - e[1]) * _ * t.length + (a + p - e[0]) * t.length + m, n[d] = u) : (d = (i + c - e[1]) * _ + a + p - e[0], n[m][d] = u);
+					}
+				});
+				x.push(g);
+			}
+		}
+		if (await Promise.all(x), a && e[2] - e[0] !== a || o && e[3] - e[1] !== o) {
+			let i;
+			i = r ? Se(n, e[2] - e[0], e[3] - e[1], a, o, t.length, s) : ye(n, e[2] - e[0], e[3] - e[1], a, o, s);
+			let c = i;
+			return c.width = a ?? e[2] - e[0], c.height = o ?? e[3] - e[1], c;
+		}
+		let C = n;
+		return C.width = a || e[2] - e[0], C.height = o || e[3] - e[1], C;
+	}
+	async readRasters(e = {}) {
+		let { window: t, samples: n = [], pool: r = null, width: i, height: a, resampleMethod: o, fillValue: s, signal: c } = e, l = "interleave" in e && e.interleave, u = t || [
+			0,
+			0,
+			this.getWidth(),
+			this.getHeight()
+		];
+		if (u[0] > u[2] || u[1] > u[3]) throw Error("Invalid subsets");
+		let d = (u[2] - u[0]) * (u[3] - u[1]), f = this.getSamplesPerPixel();
+		if (!n || !n.length) for (let e = 0; e < f; ++e) n.push(e);
+		else for (let e = 0; e < n.length; ++e) if (n[e] >= f) return Promise.reject(/* @__PURE__ */ RangeError(`Invalid sample index '${n[e]}'.`));
+		let p;
+		if (l) {
+			let { fileDirectory: e } = this, t = e.getValue("SampleFormat"), r = t ? Math.max.apply(null, Array.from(t)) : 1;
+			if (r !== 1 && r !== 2 && r !== 3) throw Error("Unsupported sample format for interleaved data. Must be 1, 2, or 3.");
+			let i = e.getValue("BitsPerSample");
+			if (p = we(r, i ? Math.max.apply(null, Array.from(i)) : 8, d * n.length), s) {
+				if (Array.isArray(s)) throw Error("When reading interleaved data, fillValue must be a single number.");
+				p.fill(s);
+			}
+		} else {
+			p = [];
+			for (let e = 0; e < n.length; ++e) {
+				let t = this.getArrayForSample(n[e], d);
+				Array.isArray(s) && e < s.length ? t.fill(s[e]) : s && !Array.isArray(s) && t.fill(s), p.push(t);
+			}
+		}
+		let m = this.fileDirectory.getValue("Compression") || 1, h = await fe(m, this.fileDirectory), g = r ? r.bindParameters(m, h) : await pe(m, h);
+		return await this._readRaster(u, n, p, l, g, i, a, o, c);
+	}
+	async readRGB(e = {}) {
+		let { window: t, pool: n = null, width: r, height: i, resampleMethod: a, enableAlpha: o = !1, signal: l } = e, u = ("interleave" in e && e.interleave) ?? !1, d = t || [
+			0,
+			0,
+			this.getWidth(),
+			this.getHeight()
+		];
+		if (d[0] > d[2] || d[1] > d[3]) throw Error("Invalid subsets");
+		let f = this.fileDirectory.getValue("PhotometricInterpretation");
+		if (f === s.RGB) {
+			let e = [
+				0,
+				1,
+				2
+			], s = this.fileDirectory.getValue("ExtraSamples");
+			if (s && s[0] !== c.Unspecified && o) {
+				e = [];
+				let t = this.fileDirectory.getValue("BitsPerSample") || [];
+				for (let n = 0; n < t.length; n += 1) e.push(n);
+			}
+			return this.readRasters({
+				window: t,
+				interleave: u,
+				samples: e,
+				pool: n,
+				width: r,
+				height: i,
+				resampleMethod: a,
+				signal: l
+			});
+		}
+		let p;
+		switch (f) {
+			case s.WhiteIsZero:
+			case s.BlackIsZero:
+			case s.Palette:
+				p = [0];
+				break;
+			case s.CMYK:
+				p = [
+					0,
+					1,
+					2,
+					3
+				];
+				break;
+			case s.YCbCr:
+			case s.CIELab:
+				p = [
+					0,
+					1,
+					2
+				];
+				break;
+			default: throw Error("Invalid or unsupported photometric interpretation.");
+		}
+		let m = {
+			window: d,
+			interleave: !0,
+			samples: p,
+			pool: n,
+			width: r,
+			height: i,
+			resampleMethod: a,
+			signal: l
+		}, { fileDirectory: h } = this, g = await this.readRasters(m), _ = 2 ** this.getBitsPerSample(0), v;
+		switch (f) {
+			case s.WhiteIsZero:
+				v = ne(g, _);
+				break;
+			case s.BlackIsZero:
+				v = re(g, _);
+				break;
+			case s.Palette:
+				v = ie(g, await h.loadValue("ColorMap"));
+				break;
+			case s.CMYK:
+				v = ae(g);
+				break;
+			case s.YCbCr:
+				v = oe(g);
+				break;
+			case s.CIELab:
+				v = ue(g);
+				break;
+			default: throw Error("Unsupported photometric interpretation.");
+		}
+		if (!u) {
+			let e = new Uint8Array(v.length / 3), t = new Uint8Array(v.length / 3), n = new Uint8Array(v.length / 3);
+			for (let r = 0, i = 0; r < v.length; r += 3, ++i) e[i] = v[r], t[i] = v[r + 1], n[i] = v[r + 2];
+			v = [
+				e,
+				t,
+				n
+			];
+		}
+		let y = v;
+		return y.width = g.width, y.height = g.height, y;
+	}
+	async getTiePoints() {
+		if (!this.fileDirectory.hasTag("ModelTiepoint")) return [];
+		let e = await this.fileDirectory.loadValue("ModelTiepoint");
+		if (typeof e != "object") throw Error("Expected ModelTiepoint to be an array or typed array.");
+		let t = [];
+		for (let n = 0; n < e.length; n += 6) t.push({
+			i: e[n],
+			j: e[n + 1],
+			k: e[n + 2],
+			x: e[n + 3],
+			y: e[n + 4],
+			z: e[n + 5]
+		});
+		return t;
+	}
+	async getGDALMetadata(e = null) {
+		let t = {};
+		if (!this.fileDirectory.hasTag("GDAL_METADATA")) return null;
+		let n = te(await this.fileDirectory.loadValue("GDAL_METADATA"), "Item");
+		n = e === null ? n.filter((e) => w(e, "sample") === void 0) : n.filter((t) => Number(w(t, "sample")) === e);
+		for (let e = 0; e < n.length; ++e) {
+			let r = n[e];
+			t[w(r, "name")] = r.inner;
+		}
+		return t;
+	}
+	getGDALNoData() {
+		let e = this.fileDirectory.hasTag("GDAL_NODATA") && this.fileDirectory.getValue("GDAL_NODATA");
+		return e ? Number(e.substring(0, e.length - 1)) : null;
+	}
+	getOrigin() {
+		let e = this.fileDirectory.getValue("ModelTiepoint"), t = this.fileDirectory.getValue("ModelTransformation");
+		if (e && e.length === 6) return [
+			e[3],
+			e[4],
+			e[5]
+		];
+		if (t) return [
+			t[3],
+			t[7],
+			t[11]
+		];
+		throw Error("The image does not have an affine transformation.");
+	}
+	getResolution(e = null) {
+		let t = this.fileDirectory.getValue("ModelPixelScale"), n = this.fileDirectory.getValue("ModelTransformation");
+		if (t) return [
+			t[0],
+			-t[1],
+			t[2]
+		];
+		if (n) return n[1] === 0 && n[4] === 0 ? [
+			n[0],
+			-n[5],
+			n[10]
+		] : [
+			Math.sqrt(n[0] * n[0] + n[4] * n[4]),
+			-Math.sqrt(n[1] * n[1] + n[5] * n[5]),
+			n[10]
+		];
+		if (e) {
+			let [t, n, r] = e.getResolution();
+			return [
+				t * e.getWidth() / this.getWidth(),
+				n * e.getHeight() / this.getHeight(),
+				r * e.getWidth() / this.getWidth()
+			];
+		}
+		throw Error("The image does not have an affine transformation.");
+	}
+	pixelIsArea() {
+		return this.getGeoKeys()?.GTRasterTypeGeoKey === 1;
+	}
+	getBoundingBox(e = !1) {
+		let t = this.getHeight(), n = this.getWidth(), r = this.fileDirectory.getValue("ModelTransformation");
+		if (r && !e) {
+			let [e, i, , a, o, s, , c] = r, l = [
+				[0, 0],
+				[0, t],
+				[n, 0],
+				[n, t]
+			].map(([t, n]) => [a + e * t + i * n, c + o * t + s * n]), u = l.map((e) => e[0]), d = l.map((e) => e[1]);
+			return [
+				Math.min(...u),
+				Math.min(...d),
+				Math.max(...u),
+				Math.max(...d)
+			];
+		} else {
+			let e = this.getOrigin(), r = this.getResolution(), i = e[0], a = e[1], o = i + r[0] * n, s = a + r[1] * t;
+			return [
+				Math.min(i, o),
+				Math.min(a, s),
+				Math.max(i, o),
+				Math.max(a, s)
+			];
+		}
+	}
+}, Oe = class {
+	constructor(e) {
+		this._dataView = new DataView(e);
+	}
+	get buffer() {
+		return this._dataView.buffer;
+	}
+	getUint64(e, t) {
+		let n = this.getUint32(e, t), r = this.getUint32(e + 4, t), i;
+		if (t) {
+			if (i = n + 2 ** 32 * r, !Number.isSafeInteger(i)) throw Error(`${i} exceeds MAX_SAFE_INTEGER. Precision may be lost. Please report if you get this message to https://github.com/geotiffjs/geotiff.js/issues`);
+			return i;
+		}
+		if (i = 2 ** 32 * n + r, !Number.isSafeInteger(i)) throw Error(`${i} exceeds MAX_SAFE_INTEGER. Precision may be lost. Please report if you get this message to https://github.com/geotiffjs/geotiff.js/issues`);
+		return i;
+	}
+	getInt64(e, t) {
+		let n = 0, r = (this._dataView.getUint8(e + (t ? 7 : 0)) & 128) > 0, i = !0;
+		for (let a = 0; a < 8; a++) {
+			let o = this._dataView.getUint8(e + (t ? a : 7 - a));
+			r && (i ? o !== 0 && (o = ~(o - 1) & 255, i = !1) : o = ~o & 255), n += o * 256 ** a;
+		}
+		return r && (n = -n), n;
+	}
+	getUint8(e) {
+		return this._dataView.getUint8(e);
+	}
+	getInt8(e) {
+		return this._dataView.getInt8(e);
+	}
+	getUint16(e, t) {
+		return this._dataView.getUint16(e, t);
+	}
+	getInt16(e, t) {
+		return this._dataView.getInt16(e, t);
+	}
+	getUint32(e, t) {
+		return this._dataView.getUint32(e, t);
+	}
+	getInt32(e, t) {
+		return this._dataView.getInt32(e, t);
+	}
+	getFloat16(e, n) {
+		return t(this._dataView, e, n);
+	}
+	getFloat32(e, t) {
+		return this._dataView.getFloat32(e, t);
+	}
+	getFloat64(e, t) {
+		return this._dataView.getFloat64(e, t);
+	}
+}, ke = class {
+	constructor(e, t, n, r) {
+		this._dataView = new DataView(e), this._sliceOffset = t, this._littleEndian = n, this._bigTiff = r;
+	}
+	get sliceOffset() {
+		return this._sliceOffset;
+	}
+	get sliceTop() {
+		return this._sliceOffset + this.buffer.byteLength;
+	}
+	get littleEndian() {
+		return this._littleEndian;
+	}
+	get bigTiff() {
+		return this._bigTiff;
+	}
+	get buffer() {
+		return this._dataView.buffer;
+	}
+	covers(e, t) {
+		return this.sliceOffset <= e && this.sliceTop >= e + t;
+	}
+	readUint8(e) {
+		return this._dataView.getUint8(e - this._sliceOffset);
+	}
+	readInt8(e) {
+		return this._dataView.getInt8(e - this._sliceOffset);
+	}
+	readUint16(e) {
+		return this._dataView.getUint16(e - this._sliceOffset, this._littleEndian);
+	}
+	readInt16(e) {
+		return this._dataView.getInt16(e - this._sliceOffset, this._littleEndian);
+	}
+	readUint32(e) {
+		return this._dataView.getUint32(e - this._sliceOffset, this._littleEndian);
+	}
+	readInt32(e) {
+		return this._dataView.getInt32(e - this._sliceOffset, this._littleEndian);
+	}
+	readFloat32(e) {
+		return this._dataView.getFloat32(e - this._sliceOffset, this._littleEndian);
+	}
+	readFloat64(e) {
+		return this._dataView.getFloat64(e - this._sliceOffset, this._littleEndian);
+	}
+	readUint64(e) {
+		let t = this.readUint32(e), n = this.readUint32(e + 4), r;
+		if (this._littleEndian) {
+			if (r = t + 2 ** 32 * n, !Number.isSafeInteger(r)) throw Error(`${r} exceeds MAX_SAFE_INTEGER. Precision may be lost. Please report if you get this message to https://github.com/geotiffjs/geotiff.js/issues`);
+			return r;
+		}
+		if (r = 2 ** 32 * t + n, !Number.isSafeInteger(r)) throw Error(`${r} exceeds MAX_SAFE_INTEGER. Precision may be lost. Please report if you get this message to https://github.com/geotiffjs/geotiff.js/issues`);
+		return r;
+	}
+	readInt64(e) {
+		let t = 0, n = (this._dataView.getUint8(e + (this._littleEndian ? 7 : 0)) & 128) > 0, r = !0;
+		for (let i = 0; i < 8; i++) {
+			let a = this._dataView.getUint8(e + (this._littleEndian ? i : 7 - i));
+			n && (r ? a !== 0 && (a = ~(a - 1) & 255, r = !1) : a = ~a & 255), t += a * 256 ** i;
+		}
+		return n && (t = -t), t;
+	}
+	readOffset(e) {
+		return this._bigTiff ? this.readUint64(e) : this.readUint32(e);
+	}
+}, Ae = typeof Worker < "u" ? Worker : void 0;
+//#endregion
+//#region node_modules/@geomatico/maplibre-cog-protocol/node_modules/geotiff/dist-module/worker/create.js
+function je() {
+	let e = "const A=new Map;async function I(A){const I=!A.hasTag(\"StripOffsets\");return{tileWidth:I?await A.loadValue(\"TileWidth\"):await A.loadValue(\"ImageWidth\"),tileHeight:I?await A.loadValue(\"TileLength\"):await A.loadValue(\"RowsPerStrip\")||await A.loadValue(\"ImageLength\"),planarConfiguration:await A.loadValue(\"PlanarConfiguration\"),bitsPerSample:await A.loadValue(\"BitsPerSample\"),predictor:await A.loadValue(\"Predictor\")||1}}function g(g,B,C=I,Q=!0){Array.isArray(g)||(g=[g]),g.forEach((I=>{A.set(I,{importFn:B,decoderParameterFn:C,preferWorker:Q})}))}const B=[{cases:[void 0,1],importFn:()=>Promise.resolve().then((function(){return e})).then((A=>A.default)),preferWorker:!1},{cases:5,importFn:()=>Promise.resolve().then((function(){return a})).then((A=>A.default))},{cases:6,importFn:()=>{throw new Error(\"old style JPEG compression is not supported.\")}},{cases:7,importFn:()=>Promise.resolve().then((function(){return w})).then((A=>A.default)),decoderParameterFn:async A=>({...await I(A),JPEGTables:await A.loadValue(\"JPEGTables\")})},{cases:[8,32946],importFn:()=>Promise.resolve().then((function(){return Qg})).then((A=>A.default))},{cases:32773,importFn:()=>Promise.resolve().then((function(){return ig})).then((A=>A.default))},{cases:34887,importFn:()=>Promise.resolve().then((function(){return Rg})).then((async A=>(await A.zstd.init(),A))).then((A=>A.default)),decoderParameterFn:async A=>({...await I(A),LercParameters:await A.loadValue(\"LercParameters\")})},{cases:5e4,importFn:()=>Promise.resolve().then((function(){return Jg})).then((async A=>(await A.zstd.init(),A))).then((A=>A.default))},{cases:50001,importFn:()=>Promise.resolve().then((function(){return Hg})).then((A=>A.default)),decoderParameterFn:async A=>({...await I(A),samplesPerPixel:Number(await A.loadValue(\"SamplesPerPixel\"))||4}),preferWorker:!1}];for(const A of B){const{cases:I,importFn:B,decoderParameterFn:C,preferWorker:Q}=A;g(I,B,C,Q)}const C=globalThis;function Q(A,I){let g=A.length-I,B=0;do{for(let g=I;g>0;g--)A[B+I]+=A[B],B++;g-=I}while(g>0)}function E(A,I,g){let B=0,C=A.length;const Q=C/g;for(;C>I;){for(let g=I;g>0;--g)A[B+I]+=A[B],++B;C-=I}const E=A.slice();for(let I=0;I<Q;++I)for(let B=0;B<g;++B)A[g*I+B]=E[(g-B-1)*Q+I]}C.addEventListener(\"message\",(async I=>{const{compression:g,decoderParameters:B,buffer:Q,...E}=I.data;try{const I=await async function(I,g){if(!A.has(I))throw new Error(`Unknown compression method identifier: ${I}`);const{importFn:B}=A.get(I);return new(await B())(g)}(g,B),i=await I.decode(Q);C.postMessage({decoded:i,...E},[i])}catch(A){A instanceof Error?C.postMessage({error:A.message,...E}):C.postMessage({error:String(A),...E})}}));class i{constructor(A){this.parameters=A}decodeBlock(A){throw new Error(\"decodeBlock not implemented\")}async decode(A){const I=await this.decodeBlock(A),{tileWidth:g,tileHeight:B,predictor:C,bitsPerSample:i,planarConfiguration:e}=this.parameters;if(1!==C){return function(A,I,g,B,C,i){if(!I||1===I)return A;for(let A=0;A<C.length;++A){if(C[A]%8!=0)throw new Error(\"When decoding with predictor, only multiple of 8 bits are supported.\");if(C[A]!==C[0])throw new Error(\"When decoding with predictor, all samples must have the same size.\")}const e=C[0]/8,t=2===i?1:C.length;for(let i=0;i<B&&!(i*t*g*e>=A.byteLength);++i){let B;if(2===I){switch(C[0]){case 8:B=new Uint8Array(A,i*t*g*e,t*g*e);break;case 16:B=new Uint16Array(A,i*t*g*e,t*g*e/2);break;case 32:B=new Uint32Array(A,i*t*g*e,t*g*e/4);break;default:throw new Error(`Predictor 2 not allowed with ${C[0]} bits per sample.`)}Q(B,t)}else 3===I&&(B=new Uint8Array(A,i*t*g*e,t*g*e),E(B,t,e))}return A}(I,C,g,B,Array.isArray(i)||ArrayBuffer.isView(i)?Array.from(i):[i],e)}return I}}var e=Object.freeze({__proto__:null,default:class extends i{decodeBlock(A){return A}}});function t(A,I){for(let g=I.length-1;g>=0;g--)A.push(I[g]);return A}function o(A){const I=new Uint16Array(4093),g=new Uint8Array(4093);for(let A=0;A<=257;A++)I[A]=4096,g[A]=A;let B=258,C=9,Q=0;function E(){B=258,C=9}function i(A){const I=function(A,I,g){const B=I%8,C=Math.floor(I/8),Q=8-B,E=I+g-8*(C+1);let i=8*(C+2)-(I+g);const e=8*(C+2)-I;if(i=Math.max(0,i),C>=A.length)return console.warn(\"ran off the end of the buffer before finding EOI_CODE (end on input code)\"),257;let t=A[C]&2**(8-B)-1;t<<=g-Q;let o=t;if(C+1<A.length){let I=A[C+1]>>>i;I<<=Math.max(0,g-e),o+=I}if(E>8&&C+2<A.length){const B=8*(C+3)-(I+g);o+=A[C+2]>>>B}return o}(A,Q,C);return Q+=C,I}function e(A,C){return g[B]=C,I[B]=A,B++,B-1}function o(A){const B=[];for(let C=A;4096!==C;C=I[C])B.push(g[C]);return B}const a=[];E();const s=new Uint8Array(A);let r,D=i(s);for(;257!==D;){if(256===D){for(E(),D=i(s);256===D;)D=i(s);if(257===D)break;if(D>256)throw new Error(`corrupted code at scanline ${D}`);t(a,o(D)),r=D}else if(D<B){const A=o(D);t(a,A),void 0!==r&&e(r,A[A.length-1]),r=D}else{if(void 0===r)throw new Error(`Invalid LZW code: ${D} with no previous code`);const A=o(r);if(!A)throw new Error(`Bogus entry. Not in dictionary, ${r} / ${B}, position: ${Q}`);t(a,A),a.push(A[A.length-1]),e(r,A[A.length-1]),r=D}B+1>=2**C&&(12===C?r=void 0:C++),D=i(s)}return new Uint8Array(a)}var a=Object.freeze({__proto__:null,default:class extends i{decodeBlock(A){return o(A).buffer}}});const s=new Int32Array([0,1,8,16,9,2,3,10,17,24,32,25,18,11,4,5,12,19,26,33,40,48,41,34,27,20,13,6,7,14,21,28,35,42,49,56,57,50,43,36,29,22,15,23,30,37,44,51,58,59,52,45,38,31,39,46,53,60,61,54,47,55,62,63]);function r(A,I){let g=0;const B=[];let C=16;for(;C>0&&!A[C-1];)--C;B.push({children:[],index:0});let Q,E=B[0];for(let i=0;i<C;i++){for(let C=0;C<A[i];C++){if(E=B.pop(),!E)throw new Error(\"buildHuffmanTable: codeLength mismatch\");for(E.children[E.index]=I[g];E.index>0;)if(E=B.pop(),!E)throw new Error(\"buildHuffmanTable: codeLength mismatch\");for(E.index++,B.push(E);B.length<=i;)B.push(Q={children:[],index:0}),E.children[E.index]=Q.children,E=Q;g++}i+1<C&&(B.push(Q={children:[],index:0}),E.children[E.index]=Q.children,E=Q)}return B[0].children}function D(A,I,g,B,C,Q,E,i,e){const{mcusPerLine:t,progressive:o}=g;if(B.length>1&&(void 0===t||void 0===g.mcusPerColumn))throw new Error(\"Missing MCU dimensions\");if(1===B.length&&(void 0===B[0].blocksPerLine||void 0===B[0].blocksPerColumn))throw new Error(\"Missing block dimensions\");const a=I;let r=I,D=0,n=0;function h(){if(n>0)return n--,D>>n&1;if(D=A[r++],255===D){const I=A[r++];if(I)throw new Error(`unexpected marker: ${(D<<8|I).toString(16)}`)}return n=7,D>>>7}function w(A){if(!A)throw new Error(\"Huffman table not found\");let I,g=A;for(;null!==(I=h());){const A=g[I];if(\"number\"==typeof A)return A;if(\"object\"!=typeof A)throw new Error(\"invalid huffman sequence\");g=A}return null}function y(A){let I=A,g=0;for(;I>0;){const A=h();if(null===A)return;g=g<<1|A,--I}return g}function G(A){const I=y(A);if(void 0!==I)return I>=1<<A-1?I:I+(-1<<A)+1}let S=0;let c,N=0;function d(A,I,g,B,C){const Q=g%t,E=(g/t|0)*A.v+B,i=Q*A.h+C;if(!A.blocks)throw new Error(\"Missing blocks\");I(A,A.blocks[E][i])}function l(A,I,g){const B=g/A.blocksPerLine|0,C=g%A.blocksPerLine;if(!A.blocks)throw new Error(\"Missing blocks\");I(A,A.blocks[B][C])}const k=B.length;let F,R,L,U,f,Y;Y=o?0===Q?0===i?function(A,I){const g=w(A.huffmanTableDC);if(null===g)throw new Error(\"Huffman error\");const B=G(g);if(void 0===B)throw new Error(\"Unexpected end of data in DC coefficient decoding\");const C=0===g?0:B<<e;void 0===A.pred&&(A.pred=0),A.pred+=C,I[0]=A.pred}:function(A,I){const g=h();if(null===g)throw new Error(\"Unexpected end of data in DC coefficient decoding\");I[0]|=g<<e}:0===i?function(A,I){if(S>0)return void S--;let g=Q;const B=E;for(;g<=B;){const B=w(A.huffmanTableAC);if(null===B)throw new Error(\"Unexpected end of data in AC coefficient decoding\");const C=15&B,Q=B>>4;if(0===C){if(Q<15){const A=y(Q);if(void 0===A)throw new Error(\"Unexpected end of data in AC coefficient decoding\");S=A+(1<<Q)-1;break}g+=16}else{g+=Q;const A=s[g],B=G(C);if(void 0===B)throw new Error(\"Unexpected end of data in AC coefficient decoding\");I[A]=B*(1<<e),g++}}}:function(A,I){let g=Q;const B=E;let C=0;for(;g<=B;){const B=s[g],Q=I[B]<0?-1:1;switch(N){case 0:{const I=w(A.huffmanTableAC);if(null===I)throw new Error(\"Unexpected end of data in AC coefficient decoding\");const g=15&I;if(C=I>>4,0===g)if(C<15){const A=y(C);if(void 0===A)throw new Error(\"Unexpected end of data in AC coefficient decoding\");S=A+(1<<C),N=4}else C=16,N=1;else{if(1!==g)throw new Error(\"invalid ACn encoding\");const A=G(g);if(void 0===A)throw new Error(\"Unexpected end of data in AC coefficient decoding\");c=A,N=C?2:3}continue}case 1:case 2:if(I[B]){const A=h();if(null===A)throw new Error(\"Unexpected end of data in AC coefficient decoding\");I[B]+=(A<<e)*Q}else C--,0===C&&(N=2===N?3:0);break;case 3:if(I[B]){const A=h();if(null===A)throw new Error(\"Unexpected end of data in AC coefficient decoding\");I[B]+=(A<<e)*Q}else I[B]=c<<e,N=0;break;case 4:if(I[B]){const A=h();if(null===A)throw new Error(\"Unexpected end of data in AC coefficient decoding\");I[B]+=(A<<e)*Q}}g++}4===N&&(S--,0===S&&(N=0))}:function(A,I){const g=w(A.huffmanTableDC);if(null===g)throw new Error(\"Huffman error\");const B=0===g?0:G(g);if(void 0===B)throw new Error(\"Unexpected end of stream\");void 0===A.pred&&(A.pred=0),A.pred+=B,I[0]=A.pred;let C=1;for(;C<64;){const g=w(A.huffmanTableAC);if(null===g)throw new Error(\"Unexpected end of data in AC coefficient decoding\");const B=15&g,Q=g>>4;if(0===B){if(Q<15)break;C+=16}else{C+=Q;const A=s[C],g=G(B);if(void 0===g)throw new Error(\"Unexpected end of stream\");I[A]=g,C++}}};let K,u,M=0;u=1===k?B[0].blocksPerLine*B[0].blocksPerColumn:t*g.mcusPerColumn;const J=C||u;for(;M<u;){for(R=0;R<k;R++)B[R].pred=0;if(S=0,1===k)for(F=B[0],f=0;f<J;f++)l(F,Y,M),M++;else for(f=0;f<J;f++){for(R=0;R<k;R++){F=B[R];const{h:A,v:I}=F;for(L=0;L<I;L++)for(U=0;U<A;U++)d(F,Y,M,L,U)}if(M++,M===u)break}if(n=0,K=A[r]<<8|A[r+1],K<65280)throw new Error(\"marker was not found\");if(!(K>=65488&&K<=65495))break;r+=2}return r-a}function n(A){const I=[],{blocksPerLine:g,blocksPerColumn:B}=A;if(!g||!B||!A.blocks)throw new Error(\"Missing component data\");const C=g<<3,Q=new Int32Array(64),E=new Uint8Array(64);function i(I,g,B){const C=A.quantizationTable;if(!C)throw new Error(\"No quantization table found\");let Q,E,i,e,t,o,a,s,r;const D=B;let n;for(n=0;n<64;n++)D[n]=I[n]*C[n];for(n=0;n<8;++n){const A=8*n;0!==D[1+A]||0!==D[2+A]||0!==D[3+A]||0!==D[4+A]||0!==D[5+A]||0!==D[6+A]||0!==D[7+A]?(Q=5793*D[0+A]+128>>8,E=5793*D[4+A]+128>>8,i=D[2+A],e=D[6+A],t=2896*(D[1+A]-D[7+A])+128>>8,s=2896*(D[1+A]+D[7+A])+128>>8,o=D[3+A]<<4,a=D[5+A]<<4,r=Q-E+1>>1,Q=Q+E+1>>1,E=r,r=3784*i+1567*e+128>>8,i=1567*i-3784*e+128>>8,e=r,r=t-a+1>>1,t=t+a+1>>1,a=r,r=s+o+1>>1,o=s-o+1>>1,s=r,r=Q-e+1>>1,Q=Q+e+1>>1,e=r,r=E-i+1>>1,E=E+i+1>>1,i=r,r=2276*t+3406*s+2048>>12,t=3406*t-2276*s+2048>>12,s=r,r=799*o+4017*a+2048>>12,o=4017*o-799*a+2048>>12,a=r,D[0+A]=Q+s,D[7+A]=Q-s,D[1+A]=E+a,D[6+A]=E-a,D[2+A]=i+o,D[5+A]=i-o,D[3+A]=e+t,D[4+A]=e-t):(r=5793*D[0+A]+512>>10,D[0+A]=r,D[1+A]=r,D[2+A]=r,D[3+A]=r,D[4+A]=r,D[5+A]=r,D[6+A]=r,D[7+A]=r)}for(n=0;n<8;++n){const A=n;0!==D[8+A]||0!==D[16+A]||0!==D[24+A]||0!==D[32+A]||0!==D[40+A]||0!==D[48+A]||0!==D[56+A]?(Q=5793*D[0+A]+2048>>12,E=5793*D[32+A]+2048>>12,i=D[16+A],e=D[48+A],t=2896*(D[8+A]-D[56+A])+2048>>12,s=2896*(D[8+A]+D[56+A])+2048>>12,o=D[24+A],a=D[40+A],r=Q-E+1>>1,Q=Q+E+1>>1,E=r,r=3784*i+1567*e+2048>>12,i=1567*i-3784*e+2048>>12,e=r,r=t-a+1>>1,t=t+a+1>>1,a=r,r=s+o+1>>1,o=s-o+1>>1,s=r,r=Q-e+1>>1,Q=Q+e+1>>1,e=r,r=E-i+1>>1,E=E+i+1>>1,i=r,r=2276*t+3406*s+2048>>12,t=3406*t-2276*s+2048>>12,s=r,r=799*o+4017*a+2048>>12,o=4017*o-799*a+2048>>12,a=r,D[0+A]=Q+s,D[56+A]=Q-s,D[8+A]=E+a,D[48+A]=E-a,D[16+A]=i+o,D[40+A]=i-o,D[24+A]=e+t,D[32+A]=e-t):(r=5793*B[n+0]+8192>>14,D[0+A]=r,D[8+A]=r,D[16+A]=r,D[24+A]=r,D[32+A]=r,D[40+A]=r,D[48+A]=r,D[56+A]=r)}for(n=0;n<64;++n){const A=128+(D[n]+8>>4);g[n]=A<0?0:A>255?255:A}}for(let e=0;e<B;e++){const B=e<<3;for(let A=0;A<8;A++)I.push(new Uint8Array(C));for(let C=0;C<g;C++){i(A.blocks[e][C],E,Q);let g=0;const t=C<<3;for(let A=0;A<8;A++){const C=I[B+A];for(let A=0;A<8;A++)C[t+A]=E[g++]}}}return I}class h{constructor(){this.jfif=null,this.adobe=null,this.resetInterval=0,this.quantizationTables=[],this.huffmanTablesAC=[],this.huffmanTablesDC=[],this.frames=[]}resetFrames(){this.frames=[]}parse(A){let I=0;function g(){const g=A[I]<<8|A[I+1];return I+=2,g}function B(){const B=g(),C=A.subarray(I,I+B-2);return I+=C.length,C}function C(A){let I,g,B=0,C=0;for(g in A.components)A.components.hasOwnProperty(g)&&(I=A.components[g],B<I.h&&(B=I.h),C<I.v&&(C=I.v));const Q=Math.ceil(A.samplesPerLine/8/B),E=Math.ceil(A.scanLines/8/C);for(g in A.components)if(A.components.hasOwnProperty(g)){I=A.components[g];const i=Math.ceil(Math.ceil(A.samplesPerLine/8)*I.h/B),e=Math.ceil(Math.ceil(A.scanLines/8)*I.v/C),t=Q*I.h,o=E*I.v,a=[];for(let A=0;A<o;A++){const A=[];for(let I=0;I<t;I++)A.push(new Int32Array(64));a.push(A)}I.blocksPerLine=i,I.blocksPerColumn=e,I.blocks=a}A.maxH=B,A.maxV=C,A.mcusPerLine=Q,A.mcusPerColumn=E}let Q=g();if(65496!==Q)throw new Error(\"SOI not found\");for(Q=g();65497!==Q;){switch(Q){case 65280:break;case 65504:case 65505:case 65506:case 65507:case 65508:case 65509:case 65510:case 65511:case 65512:case 65513:case 65514:case 65515:case 65516:case 65517:case 65518:case 65519:case 65534:{const A=B();65504===Q&&74===A[0]&&70===A[1]&&73===A[2]&&70===A[3]&&0===A[4]&&(this.jfif={version:{major:A[5],minor:A[6]},densityUnits:A[7],xDensity:A[8]<<8|A[9],yDensity:A[10]<<8|A[11],thumbWidth:A[12],thumbHeight:A[13],thumbData:A.subarray(14,14+3*A[12]*A[13])}),65518===Q&&65===A[0]&&100===A[1]&&111===A[2]&&98===A[3]&&101===A[4]&&0===A[5]&&(this.adobe={version:A[6],flags0:A[7]<<8|A[8],flags1:A[9]<<8|A[10],transformCode:A[11]});break}case 65499:{const B=g()+I-2;for(;I<B;){const B=A[I++],C=new Int32Array(64);if(B>>4==0)for(let g=0;g<64;g++){C[s[g]]=A[I++]}else{if(B>>4!=1)throw new Error(\"DQT: invalid table spec\");for(let A=0;A<64;A++){C[s[A]]=g()}}this.quantizationTables[15&B]=C}break}case 65472:case 65473:case 65474:{g();const B={extended:65473===Q,progressive:65474===Q,precision:A[I++],scanLines:g(),samplesPerLine:g(),components:{},componentsOrder:[],maxH:0,maxV:0,mcusPerLine:0,mcusPerColumn:0},E=A[I++];let i;for(let g=0;g<E;g++){i=A[I];const g=A[I+1]>>4,C=15&A[I+1],Q=A[I+2];B.componentsOrder.push(i),B.components[i]={h:g,v:C,quantizationIdx:Q,blocksPerLine:0,blocksPerColumn:0,blocks:[]},I+=3}C(B),this.frames.push(B);break}case 65476:{const B=g();for(let g=2;g<B;){const B=A[I++],C=new Uint8Array(16);let Q=0;for(let g=0;g<16;g++,I++)C[g]=A[I],Q+=C[g];const E=new Uint8Array(Q);for(let g=0;g<Q;g++,I++)E[g]=A[I];g+=17+Q,B>>4==0?this.huffmanTablesDC[15&B]=r(C,E):this.huffmanTablesAC[15&B]=r(C,E)}break}case 65501:g(),this.resetInterval=g();break;case 65498:{g();const B=A[I++],C=[],Q=this.frames[0];for(let g=0;g<B;g++){const g=Q.components[A[I++]],B=A[I++];g.huffmanTableDC=this.huffmanTablesDC[B>>4],g.huffmanTableAC=this.huffmanTablesAC[15&B],C.push(g)}const E=A[I++],i=A[I++],e=A[I++],t=D(A,I,Q,C,this.resetInterval,E,i,e>>4,15&e);I+=t;break}case 65535:255!==A[I]&&I--;break;default:if(255===A[I-3]&&A[I-2]>=192&&A[I-2]<=254){I-=3;break}throw new Error(`unknown JPEG marker ${Q.toString(16)}`)}Q=g()}}getResult(){const{frames:A}=this;if(0===this.frames.length)throw new Error(\"no frames were decoded\");this.frames.length>1&&console.warn(\"more than one frame is not supported\");for(let A=0;A<this.frames.length;A++){const I=this.frames[A].components;for(const A of Object.keys(I)){const g=I[A].quantizationIdx;\"number\"==typeof g&&(I[A].quantizationTable=this.quantizationTables[g],delete I[A].quantizationIdx)}}const I=A[0];if(!I.maxH||!I.maxV)throw new Error(\"Invalid frame dimensions\");const{components:g,componentsOrder:B}=I,C=[],Q=I.samplesPerLine,E=I.scanLines;for(let A=0;A<B.length;A++){const Q=g[B[A]];C.push({lines:n(Q),scaleX:Q.h/I.maxH,scaleY:Q.v/I.maxV})}const i=new Uint8Array(Q*E*C.length);let e=0;for(let A=0;A<E;++A)for(let I=0;I<Q;++I)for(let g=0;g<C.length;++g){const B=C[g];i[e]=B.lines[0|A*B.scaleY][0|I*B.scaleX],++e}return i}}var w=Object.freeze({__proto__:null,default:class extends i{constructor(A){super(A),this.reader=new h,A.JPEGTables&&this.reader.parse(A.JPEGTables)}decodeBlock(A){return this.reader.resetFrames(),this.reader.parse(new Uint8Array(A)),this.reader.getResult().buffer}}});\n/*! pako 2.0.4 https://github.com/nodeca/pako @license (MIT AND Zlib) */function y(A){let I=A.length;for(;--I>=0;)A[I]=0}const G=new Uint8Array([0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0]),S=new Uint8Array([0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13]),c=new Uint8Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,3,7]),N=new Uint8Array([16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15]),d=new Array(576);y(d);const l=new Array(60);y(l);const k=new Array(512);y(k);const F=new Array(256);y(F);const R=new Array(29);y(R);const L=new Array(30);function U(A,I,g,B,C){this.static_tree=A,this.extra_bits=I,this.extra_base=g,this.elems=B,this.max_length=C,this.has_stree=A&&A.length}let f,Y,K;function u(A,I){this.dyn_tree=A,this.max_code=0,this.stat_desc=I}y(L);const M=A=>A<256?k[A]:k[256+(A>>>7)],J=(A,I)=>{A.pending_buf[A.pending++]=255&I,A.pending_buf[A.pending++]=I>>>8&255},H=(A,I,g)=>{A.bi_valid>16-g?(A.bi_buf|=I<<A.bi_valid&65535,J(A,A.bi_buf),A.bi_buf=I>>16-A.bi_valid,A.bi_valid+=g-16):(A.bi_buf|=I<<A.bi_valid&65535,A.bi_valid+=g)},p=(A,I,g)=>{H(A,g[2*I],g[2*I+1])},m=(A,I)=>{let g=0;do{g|=1&A,A>>>=1,g<<=1}while(--I>0);return g>>>1},q=(A,I,g)=>{const B=new Array(16);let C,Q,E=0;for(C=1;C<=15;C++)B[C]=E=E+g[C-1]<<1;for(Q=0;Q<=I;Q++){let I=A[2*Q+1];0!==I&&(A[2*Q]=m(B[I]++,I))}},b=A=>{let I;for(I=0;I<286;I++)A.dyn_ltree[2*I]=0;for(I=0;I<30;I++)A.dyn_dtree[2*I]=0;for(I=0;I<19;I++)A.bl_tree[2*I]=0;A.dyn_ltree[512]=1,A.opt_len=A.static_len=0,A.last_lit=A.matches=0},x=A=>{A.bi_valid>8?J(A,A.bi_buf):A.bi_valid>0&&(A.pending_buf[A.pending++]=A.bi_buf),A.bi_buf=0,A.bi_valid=0},O=(A,I,g,B)=>{const C=2*I,Q=2*g;return A[C]<A[Q]||A[C]===A[Q]&&B[I]<=B[g]},T=(A,I,g)=>{const B=A.heap[g];let C=g<<1;for(;C<=A.heap_len&&(C<A.heap_len&&O(I,A.heap[C+1],A.heap[C],A.depth)&&C++,!O(I,B,A.heap[C],A.depth));)A.heap[g]=A.heap[C],g=C,C<<=1;A.heap[g]=B},_=(A,I,g)=>{let B,C,Q,E,i=0;if(0!==A.last_lit)do{B=A.pending_buf[A.d_buf+2*i]<<8|A.pending_buf[A.d_buf+2*i+1],C=A.pending_buf[A.l_buf+i],i++,0===B?p(A,C,I):(Q=F[C],p(A,Q+256+1,I),E=G[Q],0!==E&&(C-=R[Q],H(A,C,E)),B--,Q=M(B),p(A,Q,g),E=S[Q],0!==E&&(B-=L[Q],H(A,B,E)))}while(i<A.last_lit);p(A,256,I)},Z=(A,I)=>{const g=I.dyn_tree,B=I.stat_desc.static_tree,C=I.stat_desc.has_stree,Q=I.stat_desc.elems;let E,i,e,t=-1;for(A.heap_len=0,A.heap_max=573,E=0;E<Q;E++)0!==g[2*E]?(A.heap[++A.heap_len]=t=E,A.depth[E]=0):g[2*E+1]=0;for(;A.heap_len<2;)e=A.heap[++A.heap_len]=t<2?++t:0,g[2*e]=1,A.depth[e]=0,A.opt_len--,C&&(A.static_len-=B[2*e+1]);for(I.max_code=t,E=A.heap_len>>1;E>=1;E--)T(A,g,E);e=Q;do{E=A.heap[1],A.heap[1]=A.heap[A.heap_len--],T(A,g,1),i=A.heap[1],A.heap[--A.heap_max]=E,A.heap[--A.heap_max]=i,g[2*e]=g[2*E]+g[2*i],A.depth[e]=(A.depth[E]>=A.depth[i]?A.depth[E]:A.depth[i])+1,g[2*E+1]=g[2*i+1]=e,A.heap[1]=e++,T(A,g,1)}while(A.heap_len>=2);A.heap[--A.heap_max]=A.heap[1],((A,I)=>{const g=I.dyn_tree,B=I.max_code,C=I.stat_desc.static_tree,Q=I.stat_desc.has_stree,E=I.stat_desc.extra_bits,i=I.stat_desc.extra_base,e=I.stat_desc.max_length;let t,o,a,s,r,D,n=0;for(s=0;s<=15;s++)A.bl_count[s]=0;for(g[2*A.heap[A.heap_max]+1]=0,t=A.heap_max+1;t<573;t++)o=A.heap[t],s=g[2*g[2*o+1]+1]+1,s>e&&(s=e,n++),g[2*o+1]=s,o>B||(A.bl_count[s]++,r=0,o>=i&&(r=E[o-i]),D=g[2*o],A.opt_len+=D*(s+r),Q&&(A.static_len+=D*(C[2*o+1]+r)));if(0!==n){do{for(s=e-1;0===A.bl_count[s];)s--;A.bl_count[s]--,A.bl_count[s+1]+=2,A.bl_count[e]--,n-=2}while(n>0);for(s=e;0!==s;s--)for(o=A.bl_count[s];0!==o;)a=A.heap[--t],a>B||(g[2*a+1]!==s&&(A.opt_len+=(s-g[2*a+1])*g[2*a],g[2*a+1]=s),o--)}})(A,I),q(g,t,A.bl_count)},P=(A,I,g)=>{let B,C,Q=-1,E=I[1],i=0,e=7,t=4;for(0===E&&(e=138,t=3),I[2*(g+1)+1]=65535,B=0;B<=g;B++)C=E,E=I[2*(B+1)+1],++i<e&&C===E||(i<t?A.bl_tree[2*C]+=i:0!==C?(C!==Q&&A.bl_tree[2*C]++,A.bl_tree[32]++):i<=10?A.bl_tree[34]++:A.bl_tree[36]++,i=0,Q=C,0===E?(e=138,t=3):C===E?(e=6,t=3):(e=7,t=4))},v=(A,I,g)=>{let B,C,Q=-1,E=I[1],i=0,e=7,t=4;for(0===E&&(e=138,t=3),B=0;B<=g;B++)if(C=E,E=I[2*(B+1)+1],!(++i<e&&C===E)){if(i<t)do{p(A,C,A.bl_tree)}while(0!=--i);else 0!==C?(C!==Q&&(p(A,C,A.bl_tree),i--),p(A,16,A.bl_tree),H(A,i-3,2)):i<=10?(p(A,17,A.bl_tree),H(A,i-3,3)):(p(A,18,A.bl_tree),H(A,i-11,7));i=0,Q=C,0===E?(e=138,t=3):C===E?(e=6,t=3):(e=7,t=4)}};let j=!1;const W=(A,I,g,B)=>{H(A,0+(B?1:0),3),((A,I,g,B)=>{x(A),B&&(J(A,g),J(A,~g)),A.pending_buf.set(A.window.subarray(I,I+g),A.pending),A.pending+=g})(A,I,g,!0)};var V=(A,I,g,B)=>{let C,Q,E=0;A.level>0?(2===A.strm.data_type&&(A.strm.data_type=(A=>{let I,g=4093624447;for(I=0;I<=31;I++,g>>>=1)if(1&g&&0!==A.dyn_ltree[2*I])return 0;if(0!==A.dyn_ltree[18]||0!==A.dyn_ltree[20]||0!==A.dyn_ltree[26])return 1;for(I=32;I<256;I++)if(0!==A.dyn_ltree[2*I])return 1;return 0})(A)),Z(A,A.l_desc),Z(A,A.d_desc),E=(A=>{let I;for(P(A,A.dyn_ltree,A.l_desc.max_code),P(A,A.dyn_dtree,A.d_desc.max_code),Z(A,A.bl_desc),I=18;I>=3&&0===A.bl_tree[2*N[I]+1];I--);return A.opt_len+=3*(I+1)+5+5+4,I})(A),C=A.opt_len+3+7>>>3,Q=A.static_len+3+7>>>3,Q<=C&&(C=Q)):C=Q=g+5,g+4<=C&&-1!==I?W(A,I,g,B):4===A.strategy||Q===C?(H(A,2+(B?1:0),3),_(A,d,l)):(H(A,4+(B?1:0),3),((A,I,g,B)=>{let C;for(H(A,I-257,5),H(A,g-1,5),H(A,B-4,4),C=0;C<B;C++)H(A,A.bl_tree[2*N[C]+1],3);v(A,A.dyn_ltree,I-1),v(A,A.dyn_dtree,g-1)})(A,A.l_desc.max_code+1,A.d_desc.max_code+1,E+1),_(A,A.dyn_ltree,A.dyn_dtree)),b(A),B&&x(A)},z={_tr_init:A=>{j||((()=>{let A,I,g,B,C;const Q=new Array(16);for(g=0,B=0;B<28;B++)for(R[B]=g,A=0;A<1<<G[B];A++)F[g++]=B;for(F[g-1]=B,C=0,B=0;B<16;B++)for(L[B]=C,A=0;A<1<<S[B];A++)k[C++]=B;for(C>>=7;B<30;B++)for(L[B]=C<<7,A=0;A<1<<S[B]-7;A++)k[256+C++]=B;for(I=0;I<=15;I++)Q[I]=0;for(A=0;A<=143;)d[2*A+1]=8,A++,Q[8]++;for(;A<=255;)d[2*A+1]=9,A++,Q[9]++;for(;A<=279;)d[2*A+1]=7,A++,Q[7]++;for(;A<=287;)d[2*A+1]=8,A++,Q[8]++;for(q(d,287,Q),A=0;A<30;A++)l[2*A+1]=5,l[2*A]=m(A,5);f=new U(d,G,257,286,15),Y=new U(l,S,0,30,15),K=new U(new Array(0),c,0,19,7)})(),j=!0),A.l_desc=new u(A.dyn_ltree,f),A.d_desc=new u(A.dyn_dtree,Y),A.bl_desc=new u(A.bl_tree,K),A.bi_buf=0,A.bi_valid=0,b(A)},_tr_stored_block:W,_tr_flush_block:V,_tr_tally:(A,I,g)=>(A.pending_buf[A.d_buf+2*A.last_lit]=I>>>8&255,A.pending_buf[A.d_buf+2*A.last_lit+1]=255&I,A.pending_buf[A.l_buf+A.last_lit]=255&g,A.last_lit++,0===I?A.dyn_ltree[2*g]++:(A.matches++,I--,A.dyn_ltree[2*(F[g]+256+1)]++,A.dyn_dtree[2*M(I)]++),A.last_lit===A.lit_bufsize-1),_tr_align:A=>{H(A,2,3),p(A,256,d),(A=>{16===A.bi_valid?(J(A,A.bi_buf),A.bi_buf=0,A.bi_valid=0):A.bi_valid>=8&&(A.pending_buf[A.pending++]=255&A.bi_buf,A.bi_buf>>=8,A.bi_valid-=8)})(A)}};var X=(A,I,g,B)=>{let C=65535&A|0,Q=A>>>16&65535|0,E=0;for(;0!==g;){E=g>2e3?2e3:g,g-=E;do{C=C+I[B++]|0,Q=Q+C|0}while(--E);C%=65521,Q%=65521}return C|Q<<16|0};const $=new Uint32Array((()=>{let A,I=[];for(var g=0;g<256;g++){A=g;for(var B=0;B<8;B++)A=1&A?3988292384^A>>>1:A>>>1;I[g]=A}return I})());var AA=(A,I,g,B)=>{const C=$,Q=B+g;A^=-1;for(let g=B;g<Q;g++)A=A>>>8^C[255&(A^I[g])];return-1^A},IA={2:\"need dictionary\",1:\"stream end\",0:\"\",\"-1\":\"file error\",\"-2\":\"stream error\",\"-3\":\"data error\",\"-4\":\"insufficient memory\",\"-5\":\"buffer error\",\"-6\":\"incompatible version\"},gA={Z_NO_FLUSH:0,Z_PARTIAL_FLUSH:1,Z_SYNC_FLUSH:2,Z_FULL_FLUSH:3,Z_FINISH:4,Z_BLOCK:5,Z_TREES:6,Z_OK:0,Z_STREAM_END:1,Z_NEED_DICT:2,Z_ERRNO:-1,Z_STREAM_ERROR:-2,Z_DATA_ERROR:-3,Z_MEM_ERROR:-4,Z_BUF_ERROR:-5,Z_NO_COMPRESSION:0,Z_BEST_SPEED:1,Z_BEST_COMPRESSION:9,Z_DEFAULT_COMPRESSION:-1,Z_FILTERED:1,Z_HUFFMAN_ONLY:2,Z_RLE:3,Z_FIXED:4,Z_DEFAULT_STRATEGY:0,Z_BINARY:0,Z_TEXT:1,Z_UNKNOWN:2,Z_DEFLATED:8};const{_tr_init:BA,_tr_stored_block:CA,_tr_flush_block:QA,_tr_tally:EA,_tr_align:iA}=z,{Z_NO_FLUSH:eA,Z_PARTIAL_FLUSH:tA,Z_FULL_FLUSH:oA,Z_FINISH:aA,Z_BLOCK:sA,Z_OK:rA,Z_STREAM_END:DA,Z_STREAM_ERROR:nA,Z_DATA_ERROR:hA,Z_BUF_ERROR:wA,Z_DEFAULT_COMPRESSION:yA,Z_FILTERED:GA,Z_HUFFMAN_ONLY:SA,Z_RLE:cA,Z_FIXED:NA,Z_DEFAULT_STRATEGY:dA,Z_UNKNOWN:lA,Z_DEFLATED:kA}=gA,FA=(A,I)=>(A.msg=IA[I],I),RA=A=>(A<<1)-(A>4?9:0),LA=A=>{let I=A.length;for(;--I>=0;)A[I]=0};let UA=(A,I,g)=>(I<<A.hash_shift^g)&A.hash_mask;const fA=A=>{const I=A.state;let g=I.pending;g>A.avail_out&&(g=A.avail_out),0!==g&&(A.output.set(I.pending_buf.subarray(I.pending_out,I.pending_out+g),A.next_out),A.next_out+=g,I.pending_out+=g,A.total_out+=g,A.avail_out-=g,I.pending-=g,0===I.pending&&(I.pending_out=0))},YA=(A,I)=>{QA(A,A.block_start>=0?A.block_start:-1,A.strstart-A.block_start,I),A.block_start=A.strstart,fA(A.strm)},KA=(A,I)=>{A.pending_buf[A.pending++]=I},uA=(A,I)=>{A.pending_buf[A.pending++]=I>>>8&255,A.pending_buf[A.pending++]=255&I},MA=(A,I,g,B)=>{let C=A.avail_in;return C>B&&(C=B),0===C?0:(A.avail_in-=C,I.set(A.input.subarray(A.next_in,A.next_in+C),g),1===A.state.wrap?A.adler=X(A.adler,I,C,g):2===A.state.wrap&&(A.adler=AA(A.adler,I,C,g)),A.next_in+=C,A.total_in+=C,C)},JA=(A,I)=>{let g,B,C=A.max_chain_length,Q=A.strstart,E=A.prev_length,i=A.nice_match;const e=A.strstart>A.w_size-262?A.strstart-(A.w_size-262):0,t=A.window,o=A.w_mask,a=A.prev,s=A.strstart+258;let r=t[Q+E-1],D=t[Q+E];A.prev_length>=A.good_match&&(C>>=2),i>A.lookahead&&(i=A.lookahead);do{if(g=I,t[g+E]===D&&t[g+E-1]===r&&t[g]===t[Q]&&t[++g]===t[Q+1]){Q+=2,g++;do{}while(t[++Q]===t[++g]&&t[++Q]===t[++g]&&t[++Q]===t[++g]&&t[++Q]===t[++g]&&t[++Q]===t[++g]&&t[++Q]===t[++g]&&t[++Q]===t[++g]&&t[++Q]===t[++g]&&Q<s);if(B=258-(s-Q),Q=s-258,B>E){if(A.match_start=I,E=B,B>=i)break;r=t[Q+E-1],D=t[Q+E]}}}while((I=a[I&o])>e&&0!=--C);return E<=A.lookahead?E:A.lookahead},HA=A=>{const I=A.w_size;let g,B,C,Q,E;do{if(Q=A.window_size-A.lookahead-A.strstart,A.strstart>=I+(I-262)){A.window.set(A.window.subarray(I,I+I),0),A.match_start-=I,A.strstart-=I,A.block_start-=I,B=A.hash_size,g=B;do{C=A.head[--g],A.head[g]=C>=I?C-I:0}while(--B);B=I,g=B;do{C=A.prev[--g],A.prev[g]=C>=I?C-I:0}while(--B);Q+=I}if(0===A.strm.avail_in)break;if(B=MA(A.strm,A.window,A.strstart+A.lookahead,Q),A.lookahead+=B,A.lookahead+A.insert>=3)for(E=A.strstart-A.insert,A.ins_h=A.window[E],A.ins_h=UA(A,A.ins_h,A.window[E+1]);A.insert&&(A.ins_h=UA(A,A.ins_h,A.window[E+3-1]),A.prev[E&A.w_mask]=A.head[A.ins_h],A.head[A.ins_h]=E,E++,A.insert--,!(A.lookahead+A.insert<3)););}while(A.lookahead<262&&0!==A.strm.avail_in)},pA=(A,I)=>{let g,B;for(;;){if(A.lookahead<262){if(HA(A),A.lookahead<262&&I===eA)return 1;if(0===A.lookahead)break}if(g=0,A.lookahead>=3&&(A.ins_h=UA(A,A.ins_h,A.window[A.strstart+3-1]),g=A.prev[A.strstart&A.w_mask]=A.head[A.ins_h],A.head[A.ins_h]=A.strstart),0!==g&&A.strstart-g<=A.w_size-262&&(A.match_length=JA(A,g)),A.match_length>=3)if(B=EA(A,A.strstart-A.match_start,A.match_length-3),A.lookahead-=A.match_length,A.match_length<=A.max_lazy_match&&A.lookahead>=3){A.match_length--;do{A.strstart++,A.ins_h=UA(A,A.ins_h,A.window[A.strstart+3-1]),g=A.prev[A.strstart&A.w_mask]=A.head[A.ins_h],A.head[A.ins_h]=A.strstart}while(0!=--A.match_length);A.strstart++}else A.strstart+=A.match_length,A.match_length=0,A.ins_h=A.window[A.strstart],A.ins_h=UA(A,A.ins_h,A.window[A.strstart+1]);else B=EA(A,0,A.window[A.strstart]),A.lookahead--,A.strstart++;if(B&&(YA(A,!1),0===A.strm.avail_out))return 1}return A.insert=A.strstart<2?A.strstart:2,I===aA?(YA(A,!0),0===A.strm.avail_out?3:4):A.last_lit&&(YA(A,!1),0===A.strm.avail_out)?1:2},mA=(A,I)=>{let g,B,C;for(;;){if(A.lookahead<262){if(HA(A),A.lookahead<262&&I===eA)return 1;if(0===A.lookahead)break}if(g=0,A.lookahead>=3&&(A.ins_h=UA(A,A.ins_h,A.window[A.strstart+3-1]),g=A.prev[A.strstart&A.w_mask]=A.head[A.ins_h],A.head[A.ins_h]=A.strstart),A.prev_length=A.match_length,A.prev_match=A.match_start,A.match_length=2,0!==g&&A.prev_length<A.max_lazy_match&&A.strstart-g<=A.w_size-262&&(A.match_length=JA(A,g),A.match_length<=5&&(A.strategy===GA||3===A.match_length&&A.strstart-A.match_start>4096)&&(A.match_length=2)),A.prev_length>=3&&A.match_length<=A.prev_length){C=A.strstart+A.lookahead-3,B=EA(A,A.strstart-1-A.prev_match,A.prev_length-3),A.lookahead-=A.prev_length-1,A.prev_length-=2;do{++A.strstart<=C&&(A.ins_h=UA(A,A.ins_h,A.window[A.strstart+3-1]),g=A.prev[A.strstart&A.w_mask]=A.head[A.ins_h],A.head[A.ins_h]=A.strstart)}while(0!=--A.prev_length);if(A.match_available=0,A.match_length=2,A.strstart++,B&&(YA(A,!1),0===A.strm.avail_out))return 1}else if(A.match_available){if(B=EA(A,0,A.window[A.strstart-1]),B&&YA(A,!1),A.strstart++,A.lookahead--,0===A.strm.avail_out)return 1}else A.match_available=1,A.strstart++,A.lookahead--}return A.match_available&&(B=EA(A,0,A.window[A.strstart-1]),A.match_available=0),A.insert=A.strstart<2?A.strstart:2,I===aA?(YA(A,!0),0===A.strm.avail_out?3:4):A.last_lit&&(YA(A,!1),0===A.strm.avail_out)?1:2};function qA(A,I,g,B,C){this.good_length=A,this.max_lazy=I,this.nice_length=g,this.max_chain=B,this.func=C}const bA=[new qA(0,0,0,0,((A,I)=>{let g=65535;for(g>A.pending_buf_size-5&&(g=A.pending_buf_size-5);;){if(A.lookahead<=1){if(HA(A),0===A.lookahead&&I===eA)return 1;if(0===A.lookahead)break}A.strstart+=A.lookahead,A.lookahead=0;const B=A.block_start+g;if((0===A.strstart||A.strstart>=B)&&(A.lookahead=A.strstart-B,A.strstart=B,YA(A,!1),0===A.strm.avail_out))return 1;if(A.strstart-A.block_start>=A.w_size-262&&(YA(A,!1),0===A.strm.avail_out))return 1}return A.insert=0,I===aA?(YA(A,!0),0===A.strm.avail_out?3:4):(A.strstart>A.block_start&&(YA(A,!1),A.strm.avail_out),1)})),new qA(4,4,8,4,pA),new qA(4,5,16,8,pA),new qA(4,6,32,32,pA),new qA(4,4,16,16,mA),new qA(8,16,32,32,mA),new qA(8,16,128,128,mA),new qA(8,32,128,256,mA),new qA(32,128,258,1024,mA),new qA(32,258,258,4096,mA)];function xA(){this.strm=null,this.status=0,this.pending_buf=null,this.pending_buf_size=0,this.pending_out=0,this.pending=0,this.wrap=0,this.gzhead=null,this.gzindex=0,this.method=kA,this.last_flush=-1,this.w_size=0,this.w_bits=0,this.w_mask=0,this.window=null,this.window_size=0,this.prev=null,this.head=null,this.ins_h=0,this.hash_size=0,this.hash_bits=0,this.hash_mask=0,this.hash_shift=0,this.block_start=0,this.match_length=0,this.prev_match=0,this.match_available=0,this.strstart=0,this.match_start=0,this.lookahead=0,this.prev_length=0,this.max_chain_length=0,this.max_lazy_match=0,this.level=0,this.strategy=0,this.good_match=0,this.nice_match=0,this.dyn_ltree=new Uint16Array(1146),this.dyn_dtree=new Uint16Array(122),this.bl_tree=new Uint16Array(78),LA(this.dyn_ltree),LA(this.dyn_dtree),LA(this.bl_tree),this.l_desc=null,this.d_desc=null,this.bl_desc=null,this.bl_count=new Uint16Array(16),this.heap=new Uint16Array(573),LA(this.heap),this.heap_len=0,this.heap_max=0,this.depth=new Uint16Array(573),LA(this.depth),this.l_buf=0,this.lit_bufsize=0,this.last_lit=0,this.d_buf=0,this.opt_len=0,this.static_len=0,this.matches=0,this.insert=0,this.bi_buf=0,this.bi_valid=0}const OA=A=>{if(!A||!A.state)return FA(A,nA);A.total_in=A.total_out=0,A.data_type=lA;const I=A.state;return I.pending=0,I.pending_out=0,I.wrap<0&&(I.wrap=-I.wrap),I.status=I.wrap?42:113,A.adler=2===I.wrap?0:1,I.last_flush=eA,BA(I),rA},TA=A=>{const I=OA(A);var g;return I===rA&&((g=A.state).window_size=2*g.w_size,LA(g.head),g.max_lazy_match=bA[g.level].max_lazy,g.good_match=bA[g.level].good_length,g.nice_match=bA[g.level].nice_length,g.max_chain_length=bA[g.level].max_chain,g.strstart=0,g.block_start=0,g.lookahead=0,g.insert=0,g.match_length=g.prev_length=2,g.match_available=0,g.ins_h=0),I},_A=(A,I,g,B,C,Q)=>{if(!A)return nA;let E=1;if(I===yA&&(I=6),B<0?(E=0,B=-B):B>15&&(E=2,B-=16),C<1||C>9||g!==kA||B<8||B>15||I<0||I>9||Q<0||Q>NA)return FA(A,nA);8===B&&(B=9);const i=new xA;return A.state=i,i.strm=A,i.wrap=E,i.gzhead=null,i.w_bits=B,i.w_size=1<<i.w_bits,i.w_mask=i.w_size-1,i.hash_bits=C+7,i.hash_size=1<<i.hash_bits,i.hash_mask=i.hash_size-1,i.hash_shift=~~((i.hash_bits+3-1)/3),i.window=new Uint8Array(2*i.w_size),i.head=new Uint16Array(i.hash_size),i.prev=new Uint16Array(i.w_size),i.lit_bufsize=1<<C+6,i.pending_buf_size=4*i.lit_bufsize,i.pending_buf=new Uint8Array(i.pending_buf_size),i.d_buf=1*i.lit_bufsize,i.l_buf=3*i.lit_bufsize,i.level=I,i.strategy=Q,i.method=g,TA(A)};var ZA={deflateInit:(A,I)=>_A(A,I,kA,15,8,dA),deflateInit2:_A,deflateReset:TA,deflateResetKeep:OA,deflateSetHeader:(A,I)=>A&&A.state?2!==A.state.wrap?nA:(A.state.gzhead=I,rA):nA,deflate:(A,I)=>{let g,B;if(!A||!A.state||I>sA||I<0)return A?FA(A,nA):nA;const C=A.state;if(!A.output||!A.input&&0!==A.avail_in||666===C.status&&I!==aA)return FA(A,0===A.avail_out?wA:nA);C.strm=A;const Q=C.last_flush;if(C.last_flush=I,42===C.status)if(2===C.wrap)A.adler=0,KA(C,31),KA(C,139),KA(C,8),C.gzhead?(KA(C,(C.gzhead.text?1:0)+(C.gzhead.hcrc?2:0)+(C.gzhead.extra?4:0)+(C.gzhead.name?8:0)+(C.gzhead.comment?16:0)),KA(C,255&C.gzhead.time),KA(C,C.gzhead.time>>8&255),KA(C,C.gzhead.time>>16&255),KA(C,C.gzhead.time>>24&255),KA(C,9===C.level?2:C.strategy>=SA||C.level<2?4:0),KA(C,255&C.gzhead.os),C.gzhead.extra&&C.gzhead.extra.length&&(KA(C,255&C.gzhead.extra.length),KA(C,C.gzhead.extra.length>>8&255)),C.gzhead.hcrc&&(A.adler=AA(A.adler,C.pending_buf,C.pending,0)),C.gzindex=0,C.status=69):(KA(C,0),KA(C,0),KA(C,0),KA(C,0),KA(C,0),KA(C,9===C.level?2:C.strategy>=SA||C.level<2?4:0),KA(C,3),C.status=113);else{let I=kA+(C.w_bits-8<<4)<<8,g=-1;g=C.strategy>=SA||C.level<2?0:C.level<6?1:6===C.level?2:3,I|=g<<6,0!==C.strstart&&(I|=32),I+=31-I%31,C.status=113,uA(C,I),0!==C.strstart&&(uA(C,A.adler>>>16),uA(C,65535&A.adler)),A.adler=1}if(69===C.status)if(C.gzhead.extra){for(g=C.pending;C.gzindex<(65535&C.gzhead.extra.length)&&(C.pending!==C.pending_buf_size||(C.gzhead.hcrc&&C.pending>g&&(A.adler=AA(A.adler,C.pending_buf,C.pending-g,g)),fA(A),g=C.pending,C.pending!==C.pending_buf_size));)KA(C,255&C.gzhead.extra[C.gzindex]),C.gzindex++;C.gzhead.hcrc&&C.pending>g&&(A.adler=AA(A.adler,C.pending_buf,C.pending-g,g)),C.gzindex===C.gzhead.extra.length&&(C.gzindex=0,C.status=73)}else C.status=73;if(73===C.status)if(C.gzhead.name){g=C.pending;do{if(C.pending===C.pending_buf_size&&(C.gzhead.hcrc&&C.pending>g&&(A.adler=AA(A.adler,C.pending_buf,C.pending-g,g)),fA(A),g=C.pending,C.pending===C.pending_buf_size)){B=1;break}B=C.gzindex<C.gzhead.name.length?255&C.gzhead.name.charCodeAt(C.gzindex++):0,KA(C,B)}while(0!==B);C.gzhead.hcrc&&C.pending>g&&(A.adler=AA(A.adler,C.pending_buf,C.pending-g,g)),0===B&&(C.gzindex=0,C.status=91)}else C.status=91;if(91===C.status)if(C.gzhead.comment){g=C.pending;do{if(C.pending===C.pending_buf_size&&(C.gzhead.hcrc&&C.pending>g&&(A.adler=AA(A.adler,C.pending_buf,C.pending-g,g)),fA(A),g=C.pending,C.pending===C.pending_buf_size)){B=1;break}B=C.gzindex<C.gzhead.comment.length?255&C.gzhead.comment.charCodeAt(C.gzindex++):0,KA(C,B)}while(0!==B);C.gzhead.hcrc&&C.pending>g&&(A.adler=AA(A.adler,C.pending_buf,C.pending-g,g)),0===B&&(C.status=103)}else C.status=103;if(103===C.status&&(C.gzhead.hcrc?(C.pending+2>C.pending_buf_size&&fA(A),C.pending+2<=C.pending_buf_size&&(KA(C,255&A.adler),KA(C,A.adler>>8&255),A.adler=0,C.status=113)):C.status=113),0!==C.pending){if(fA(A),0===A.avail_out)return C.last_flush=-1,rA}else if(0===A.avail_in&&RA(I)<=RA(Q)&&I!==aA)return FA(A,wA);if(666===C.status&&0!==A.avail_in)return FA(A,wA);if(0!==A.avail_in||0!==C.lookahead||I!==eA&&666!==C.status){let g=C.strategy===SA?((A,I)=>{let g;for(;;){if(0===A.lookahead&&(HA(A),0===A.lookahead)){if(I===eA)return 1;break}if(A.match_length=0,g=EA(A,0,A.window[A.strstart]),A.lookahead--,A.strstart++,g&&(YA(A,!1),0===A.strm.avail_out))return 1}return A.insert=0,I===aA?(YA(A,!0),0===A.strm.avail_out?3:4):A.last_lit&&(YA(A,!1),0===A.strm.avail_out)?1:2})(C,I):C.strategy===cA?((A,I)=>{let g,B,C,Q;const E=A.window;for(;;){if(A.lookahead<=258){if(HA(A),A.lookahead<=258&&I===eA)return 1;if(0===A.lookahead)break}if(A.match_length=0,A.lookahead>=3&&A.strstart>0&&(C=A.strstart-1,B=E[C],B===E[++C]&&B===E[++C]&&B===E[++C])){Q=A.strstart+258;do{}while(B===E[++C]&&B===E[++C]&&B===E[++C]&&B===E[++C]&&B===E[++C]&&B===E[++C]&&B===E[++C]&&B===E[++C]&&C<Q);A.match_length=258-(Q-C),A.match_length>A.lookahead&&(A.match_length=A.lookahead)}if(A.match_length>=3?(g=EA(A,1,A.match_length-3),A.lookahead-=A.match_length,A.strstart+=A.match_length,A.match_length=0):(g=EA(A,0,A.window[A.strstart]),A.lookahead--,A.strstart++),g&&(YA(A,!1),0===A.strm.avail_out))return 1}return A.insert=0,I===aA?(YA(A,!0),0===A.strm.avail_out?3:4):A.last_lit&&(YA(A,!1),0===A.strm.avail_out)?1:2})(C,I):bA[C.level].func(C,I);if(3!==g&&4!==g||(C.status=666),1===g||3===g)return 0===A.avail_out&&(C.last_flush=-1),rA;if(2===g&&(I===tA?iA(C):I!==sA&&(CA(C,0,0,!1),I===oA&&(LA(C.head),0===C.lookahead&&(C.strstart=0,C.block_start=0,C.insert=0))),fA(A),0===A.avail_out))return C.last_flush=-1,rA}return I!==aA?rA:C.wrap<=0?DA:(2===C.wrap?(KA(C,255&A.adler),KA(C,A.adler>>8&255),KA(C,A.adler>>16&255),KA(C,A.adler>>24&255),KA(C,255&A.total_in),KA(C,A.total_in>>8&255),KA(C,A.total_in>>16&255),KA(C,A.total_in>>24&255)):(uA(C,A.adler>>>16),uA(C,65535&A.adler)),fA(A),C.wrap>0&&(C.wrap=-C.wrap),0!==C.pending?rA:DA)},deflateEnd:A=>{if(!A||!A.state)return nA;const I=A.state.status;return 42!==I&&69!==I&&73!==I&&91!==I&&103!==I&&113!==I&&666!==I?FA(A,nA):(A.state=null,113===I?FA(A,hA):rA)},deflateSetDictionary:(A,I)=>{let g=I.length;if(!A||!A.state)return nA;const B=A.state,C=B.wrap;if(2===C||1===C&&42!==B.status||B.lookahead)return nA;if(1===C&&(A.adler=X(A.adler,I,g,0)),B.wrap=0,g>=B.w_size){0===C&&(LA(B.head),B.strstart=0,B.block_start=0,B.insert=0);let A=new Uint8Array(B.w_size);A.set(I.subarray(g-B.w_size,g),0),I=A,g=B.w_size}const Q=A.avail_in,E=A.next_in,i=A.input;for(A.avail_in=g,A.next_in=0,A.input=I,HA(B);B.lookahead>=3;){let A=B.strstart,I=B.lookahead-2;do{B.ins_h=UA(B,B.ins_h,B.window[A+3-1]),B.prev[A&B.w_mask]=B.head[B.ins_h],B.head[B.ins_h]=A,A++}while(--I);B.strstart=A,B.lookahead=2,HA(B)}return B.strstart+=B.lookahead,B.block_start=B.strstart,B.insert=B.lookahead,B.lookahead=0,B.match_length=B.prev_length=2,B.match_available=0,A.next_in=E,A.input=i,A.avail_in=Q,B.wrap=C,rA},deflateInfo:\"pako deflate (from Nodeca project)\"};const PA=(A,I)=>Object.prototype.hasOwnProperty.call(A,I);var vA=function(A){const I=Array.prototype.slice.call(arguments,1);for(;I.length;){const g=I.shift();if(g){if(\"object\"!=typeof g)throw new TypeError(g+\"must be non-object\");for(const I in g)PA(g,I)&&(A[I]=g[I])}}return A},jA=A=>{let I=0;for(let g=0,B=A.length;g<B;g++)I+=A[g].length;const g=new Uint8Array(I);for(let I=0,B=0,C=A.length;I<C;I++){let C=A[I];g.set(C,B),B+=C.length}return g};let WA=!0;try{String.fromCharCode.apply(null,new Uint8Array(1))}catch(A){WA=!1}const VA=new Uint8Array(256);for(let A=0;A<256;A++)VA[A]=A>=252?6:A>=248?5:A>=240?4:A>=224?3:A>=192?2:1;VA[254]=VA[254]=1;var zA=A=>{if(\"function\"==typeof TextEncoder&&TextEncoder.prototype.encode)return(new TextEncoder).encode(A);let I,g,B,C,Q,E=A.length,i=0;for(C=0;C<E;C++)g=A.charCodeAt(C),55296==(64512&g)&&C+1<E&&(B=A.charCodeAt(C+1),56320==(64512&B)&&(g=65536+(g-55296<<10)+(B-56320),C++)),i+=g<128?1:g<2048?2:g<65536?3:4;for(I=new Uint8Array(i),Q=0,C=0;Q<i;C++)g=A.charCodeAt(C),55296==(64512&g)&&C+1<E&&(B=A.charCodeAt(C+1),56320==(64512&B)&&(g=65536+(g-55296<<10)+(B-56320),C++)),g<128?I[Q++]=g:g<2048?(I[Q++]=192|g>>>6,I[Q++]=128|63&g):g<65536?(I[Q++]=224|g>>>12,I[Q++]=128|g>>>6&63,I[Q++]=128|63&g):(I[Q++]=240|g>>>18,I[Q++]=128|g>>>12&63,I[Q++]=128|g>>>6&63,I[Q++]=128|63&g);return I},XA=(A,I)=>{const g=I||A.length;if(\"function\"==typeof TextDecoder&&TextDecoder.prototype.decode)return(new TextDecoder).decode(A.subarray(0,I));let B,C;const Q=new Array(2*g);for(C=0,B=0;B<g;){let I=A[B++];if(I<128){Q[C++]=I;continue}let E=VA[I];if(E>4)Q[C++]=65533,B+=E-1;else{for(I&=2===E?31:3===E?15:7;E>1&&B<g;)I=I<<6|63&A[B++],E--;E>1?Q[C++]=65533:I<65536?Q[C++]=I:(I-=65536,Q[C++]=55296|I>>10&1023,Q[C++]=56320|1023&I)}}return((A,I)=>{if(I<65534&&A.subarray&&WA)return String.fromCharCode.apply(null,A.length===I?A:A.subarray(0,I));let g=\"\";for(let B=0;B<I;B++)g+=String.fromCharCode(A[B]);return g})(Q,C)},$A=(A,I)=>{(I=I||A.length)>A.length&&(I=A.length);let g=I-1;for(;g>=0&&128==(192&A[g]);)g--;return g<0||0===g?I:g+VA[A[g]]>I?g:I};var AI=function(){this.input=null,this.next_in=0,this.avail_in=0,this.total_in=0,this.output=null,this.next_out=0,this.avail_out=0,this.total_out=0,this.msg=\"\",this.state=null,this.data_type=2,this.adler=0};const II=Object.prototype.toString,{Z_NO_FLUSH:gI,Z_SYNC_FLUSH:BI,Z_FULL_FLUSH:CI,Z_FINISH:QI,Z_OK:EI,Z_STREAM_END:iI,Z_DEFAULT_COMPRESSION:eI,Z_DEFAULT_STRATEGY:tI,Z_DEFLATED:oI}=gA;function aI(A){this.options=vA({level:eI,method:oI,chunkSize:16384,windowBits:15,memLevel:8,strategy:tI},A||{});let I=this.options;I.raw&&I.windowBits>0?I.windowBits=-I.windowBits:I.gzip&&I.windowBits>0&&I.windowBits<16&&(I.windowBits+=16),this.err=0,this.msg=\"\",this.ended=!1,this.chunks=[],this.strm=new AI,this.strm.avail_out=0;let g=ZA.deflateInit2(this.strm,I.level,I.method,I.windowBits,I.memLevel,I.strategy);if(g!==EI)throw new Error(IA[g]);if(I.header&&ZA.deflateSetHeader(this.strm,I.header),I.dictionary){let A;if(A=\"string\"==typeof I.dictionary?zA(I.dictionary):\"[object ArrayBuffer]\"===II.call(I.dictionary)?new Uint8Array(I.dictionary):I.dictionary,g=ZA.deflateSetDictionary(this.strm,A),g!==EI)throw new Error(IA[g]);this._dict_set=!0}}aI.prototype.push=function(A,I){const g=this.strm,B=this.options.chunkSize;let C,Q;if(this.ended)return!1;for(Q=I===~~I?I:!0===I?QI:gI,\"string\"==typeof A?g.input=zA(A):\"[object ArrayBuffer]\"===II.call(A)?g.input=new Uint8Array(A):g.input=A,g.next_in=0,g.avail_in=g.input.length;;)if(0===g.avail_out&&(g.output=new Uint8Array(B),g.next_out=0,g.avail_out=B),(Q===BI||Q===CI)&&g.avail_out<=6)this.onData(g.output.subarray(0,g.next_out)),g.avail_out=0;else{if(C=ZA.deflate(g,Q),C===iI)return g.next_out>0&&this.onData(g.output.subarray(0,g.next_out)),C=ZA.deflateEnd(this.strm),this.onEnd(C),this.ended=!0,C===EI;if(0!==g.avail_out){if(Q>0&&g.next_out>0)this.onData(g.output.subarray(0,g.next_out)),g.avail_out=0;else if(0===g.avail_in)break}else this.onData(g.output)}return!0},aI.prototype.onData=function(A){this.chunks.push(A)},aI.prototype.onEnd=function(A){A===EI&&(this.result=jA(this.chunks)),this.chunks=[],this.err=A,this.msg=this.strm.msg};var sI=function(A,I){let g,B,C,Q,E,i,e,t,o,a,s,r,D,n,h,w,y,G,S,c,N,d,l,k;const F=A.state;g=A.next_in,l=A.input,B=g+(A.avail_in-5),C=A.next_out,k=A.output,Q=C-(I-A.avail_out),E=C+(A.avail_out-257),i=F.dmax,e=F.wsize,t=F.whave,o=F.wnext,a=F.window,s=F.hold,r=F.bits,D=F.lencode,n=F.distcode,h=(1<<F.lenbits)-1,w=(1<<F.distbits)-1;A:do{r<15&&(s+=l[g++]<<r,r+=8,s+=l[g++]<<r,r+=8),y=D[s&h];I:for(;;){if(G=y>>>24,s>>>=G,r-=G,G=y>>>16&255,0===G)k[C++]=65535&y;else{if(!(16&G)){if(0==(64&G)){y=D[(65535&y)+(s&(1<<G)-1)];continue I}if(32&G){F.mode=12;break A}A.msg=\"invalid literal/length code\",F.mode=30;break A}S=65535&y,G&=15,G&&(r<G&&(s+=l[g++]<<r,r+=8),S+=s&(1<<G)-1,s>>>=G,r-=G),r<15&&(s+=l[g++]<<r,r+=8,s+=l[g++]<<r,r+=8),y=n[s&w];g:for(;;){if(G=y>>>24,s>>>=G,r-=G,G=y>>>16&255,!(16&G)){if(0==(64&G)){y=n[(65535&y)+(s&(1<<G)-1)];continue g}A.msg=\"invalid distance code\",F.mode=30;break A}if(c=65535&y,G&=15,r<G&&(s+=l[g++]<<r,r+=8,r<G&&(s+=l[g++]<<r,r+=8)),c+=s&(1<<G)-1,c>i){A.msg=\"invalid distance too far back\",F.mode=30;break A}if(s>>>=G,r-=G,G=C-Q,c>G){if(G=c-G,G>t&&F.sane){A.msg=\"invalid distance too far back\",F.mode=30;break A}if(N=0,d=a,0===o){if(N+=e-G,G<S){S-=G;do{k[C++]=a[N++]}while(--G);N=C-c,d=k}}else if(o<G){if(N+=e+o-G,G-=o,G<S){S-=G;do{k[C++]=a[N++]}while(--G);if(N=0,o<S){G=o,S-=G;do{k[C++]=a[N++]}while(--G);N=C-c,d=k}}}else if(N+=o-G,G<S){S-=G;do{k[C++]=a[N++]}while(--G);N=C-c,d=k}for(;S>2;)k[C++]=d[N++],k[C++]=d[N++],k[C++]=d[N++],S-=3;S&&(k[C++]=d[N++],S>1&&(k[C++]=d[N++]))}else{N=C-c;do{k[C++]=k[N++],k[C++]=k[N++],k[C++]=k[N++],S-=3}while(S>2);S&&(k[C++]=k[N++],S>1&&(k[C++]=k[N++]))}break}}break}}while(g<B&&C<E);S=r>>3,g-=S,r-=S<<3,s&=(1<<r)-1,A.next_in=g,A.next_out=C,A.avail_in=g<B?B-g+5:5-(g-B),A.avail_out=C<E?E-C+257:257-(C-E),F.hold=s,F.bits=r};const rI=new Uint16Array([3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258,0,0]),DI=new Uint8Array([16,16,16,16,16,16,16,16,17,17,17,17,18,18,18,18,19,19,19,19,20,20,20,20,21,21,21,21,16,72,78]),nI=new Uint16Array([1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577,0,0]),hI=new Uint8Array([16,16,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23,24,24,25,25,26,26,27,27,28,28,29,29,64,64]);var wI=(A,I,g,B,C,Q,E,i)=>{const e=i.bits;let t,o,a,s,r,D,n=0,h=0,w=0,y=0,G=0,S=0,c=0,N=0,d=0,l=0,k=null,F=0;const R=new Uint16Array(16),L=new Uint16Array(16);let U,f,Y,K=null,u=0;for(n=0;n<=15;n++)R[n]=0;for(h=0;h<B;h++)R[I[g+h]]++;for(G=e,y=15;y>=1&&0===R[y];y--);if(G>y&&(G=y),0===y)return C[Q++]=20971520,C[Q++]=20971520,i.bits=1,0;for(w=1;w<y&&0===R[w];w++);for(G<w&&(G=w),N=1,n=1;n<=15;n++)if(N<<=1,N-=R[n],N<0)return-1;if(N>0&&(0===A||1!==y))return-1;for(L[1]=0,n=1;n<15;n++)L[n+1]=L[n]+R[n];for(h=0;h<B;h++)0!==I[g+h]&&(E[L[I[g+h]]++]=h);if(0===A?(k=K=E,D=19):1===A?(k=rI,F-=257,K=DI,u-=257,D=256):(k=nI,K=hI,D=-1),l=0,h=0,n=w,r=Q,S=G,c=0,a=-1,d=1<<G,s=d-1,1===A&&d>852||2===A&&d>592)return 1;for(;;){U=n-c,E[h]<D?(f=0,Y=E[h]):E[h]>D?(f=K[u+E[h]],Y=k[F+E[h]]):(f=96,Y=0),t=1<<n-c,o=1<<S,w=o;do{o-=t,C[r+(l>>c)+o]=U<<24|f<<16|Y|0}while(0!==o);for(t=1<<n-1;l&t;)t>>=1;if(0!==t?(l&=t-1,l+=t):l=0,h++,0==--R[n]){if(n===y)break;n=I[g+E[h]]}if(n>G&&(l&s)!==a){for(0===c&&(c=G),r+=w,S=n-c,N=1<<S;S+c<y&&(N-=R[S+c],!(N<=0));)S++,N<<=1;if(d+=1<<S,1===A&&d>852||2===A&&d>592)return 1;a=l&s,C[a]=G<<24|S<<16|r-Q|0}}return 0!==l&&(C[r+l]=n-c<<24|64<<16|0),i.bits=G,0};const{Z_FINISH:yI,Z_BLOCK:GI,Z_TREES:SI,Z_OK:cI,Z_STREAM_END:NI,Z_NEED_DICT:dI,Z_STREAM_ERROR:lI,Z_DATA_ERROR:kI,Z_MEM_ERROR:FI,Z_BUF_ERROR:RI,Z_DEFLATED:LI}=gA,UI=A=>(A>>>24&255)+(A>>>8&65280)+((65280&A)<<8)+((255&A)<<24);function fI(){this.mode=0,this.last=!1,this.wrap=0,this.havedict=!1,this.flags=0,this.dmax=0,this.check=0,this.total=0,this.head=null,this.wbits=0,this.wsize=0,this.whave=0,this.wnext=0,this.window=null,this.hold=0,this.bits=0,this.length=0,this.offset=0,this.extra=0,this.lencode=null,this.distcode=null,this.lenbits=0,this.distbits=0,this.ncode=0,this.nlen=0,this.ndist=0,this.have=0,this.next=null,this.lens=new Uint16Array(320),this.work=new Uint16Array(288),this.lendyn=null,this.distdyn=null,this.sane=0,this.back=0,this.was=0}const YI=A=>{if(!A||!A.state)return lI;const I=A.state;return A.total_in=A.total_out=I.total=0,A.msg=\"\",I.wrap&&(A.adler=1&I.wrap),I.mode=1,I.last=0,I.havedict=0,I.dmax=32768,I.head=null,I.hold=0,I.bits=0,I.lencode=I.lendyn=new Int32Array(852),I.distcode=I.distdyn=new Int32Array(592),I.sane=1,I.back=-1,cI},KI=A=>{if(!A||!A.state)return lI;const I=A.state;return I.wsize=0,I.whave=0,I.wnext=0,YI(A)},uI=(A,I)=>{let g;if(!A||!A.state)return lI;const B=A.state;return I<0?(g=0,I=-I):(g=1+(I>>4),I<48&&(I&=15)),I&&(I<8||I>15)?lI:(null!==B.window&&B.wbits!==I&&(B.window=null),B.wrap=g,B.wbits=I,KI(A))},MI=(A,I)=>{if(!A)return lI;const g=new fI;A.state=g,g.window=null;const B=uI(A,I);return B!==cI&&(A.state=null),B};let JI,HI,pI=!0;const mI=A=>{if(pI){JI=new Int32Array(512),HI=new Int32Array(32);let I=0;for(;I<144;)A.lens[I++]=8;for(;I<256;)A.lens[I++]=9;for(;I<280;)A.lens[I++]=7;for(;I<288;)A.lens[I++]=8;for(wI(1,A.lens,0,288,JI,0,A.work,{bits:9}),I=0;I<32;)A.lens[I++]=5;wI(2,A.lens,0,32,HI,0,A.work,{bits:5}),pI=!1}A.lencode=JI,A.lenbits=9,A.distcode=HI,A.distbits=5},qI=(A,I,g,B)=>{let C;const Q=A.state;return null===Q.window&&(Q.wsize=1<<Q.wbits,Q.wnext=0,Q.whave=0,Q.window=new Uint8Array(Q.wsize)),B>=Q.wsize?(Q.window.set(I.subarray(g-Q.wsize,g),0),Q.wnext=0,Q.whave=Q.wsize):(C=Q.wsize-Q.wnext,C>B&&(C=B),Q.window.set(I.subarray(g-B,g-B+C),Q.wnext),(B-=C)?(Q.window.set(I.subarray(g-B,g),0),Q.wnext=B,Q.whave=Q.wsize):(Q.wnext+=C,Q.wnext===Q.wsize&&(Q.wnext=0),Q.whave<Q.wsize&&(Q.whave+=C))),0};var bI={inflateReset:KI,inflateReset2:uI,inflateResetKeep:YI,inflateInit:A=>MI(A,15),inflateInit2:MI,inflate:(A,I)=>{let g,B,C,Q,E,i,e,t,o,a,s,r,D,n,h,w,y,G,S,c,N,d,l=0;const k=new Uint8Array(4);let F,R;const L=new Uint8Array([16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15]);if(!A||!A.state||!A.output||!A.input&&0!==A.avail_in)return lI;g=A.state,12===g.mode&&(g.mode=13),E=A.next_out,C=A.output,e=A.avail_out,Q=A.next_in,B=A.input,i=A.avail_in,t=g.hold,o=g.bits,a=i,s=e,d=cI;A:for(;;)switch(g.mode){case 1:if(0===g.wrap){g.mode=13;break}for(;o<16;){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}if(2&g.wrap&&35615===t){g.check=0,k[0]=255&t,k[1]=t>>>8&255,g.check=AA(g.check,k,2,0),t=0,o=0,g.mode=2;break}if(g.flags=0,g.head&&(g.head.done=!1),!(1&g.wrap)||(((255&t)<<8)+(t>>8))%31){A.msg=\"incorrect header check\",g.mode=30;break}if((15&t)!==LI){A.msg=\"unknown compression method\",g.mode=30;break}if(t>>>=4,o-=4,N=8+(15&t),0===g.wbits)g.wbits=N;else if(N>g.wbits){A.msg=\"invalid window size\",g.mode=30;break}g.dmax=1<<g.wbits,A.adler=g.check=1,g.mode=512&t?10:12,t=0,o=0;break;case 2:for(;o<16;){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}if(g.flags=t,(255&g.flags)!==LI){A.msg=\"unknown compression method\",g.mode=30;break}if(57344&g.flags){A.msg=\"unknown header flags set\",g.mode=30;break}g.head&&(g.head.text=t>>8&1),512&g.flags&&(k[0]=255&t,k[1]=t>>>8&255,g.check=AA(g.check,k,2,0)),t=0,o=0,g.mode=3;case 3:for(;o<32;){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}g.head&&(g.head.time=t),512&g.flags&&(k[0]=255&t,k[1]=t>>>8&255,k[2]=t>>>16&255,k[3]=t>>>24&255,g.check=AA(g.check,k,4,0)),t=0,o=0,g.mode=4;case 4:for(;o<16;){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}g.head&&(g.head.xflags=255&t,g.head.os=t>>8),512&g.flags&&(k[0]=255&t,k[1]=t>>>8&255,g.check=AA(g.check,k,2,0)),t=0,o=0,g.mode=5;case 5:if(1024&g.flags){for(;o<16;){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}g.length=t,g.head&&(g.head.extra_len=t),512&g.flags&&(k[0]=255&t,k[1]=t>>>8&255,g.check=AA(g.check,k,2,0)),t=0,o=0}else g.head&&(g.head.extra=null);g.mode=6;case 6:if(1024&g.flags&&(r=g.length,r>i&&(r=i),r&&(g.head&&(N=g.head.extra_len-g.length,g.head.extra||(g.head.extra=new Uint8Array(g.head.extra_len)),g.head.extra.set(B.subarray(Q,Q+r),N)),512&g.flags&&(g.check=AA(g.check,B,r,Q)),i-=r,Q+=r,g.length-=r),g.length))break A;g.length=0,g.mode=7;case 7:if(2048&g.flags){if(0===i)break A;r=0;do{N=B[Q+r++],g.head&&N&&g.length<65536&&(g.head.name+=String.fromCharCode(N))}while(N&&r<i);if(512&g.flags&&(g.check=AA(g.check,B,r,Q)),i-=r,Q+=r,N)break A}else g.head&&(g.head.name=null);g.length=0,g.mode=8;case 8:if(4096&g.flags){if(0===i)break A;r=0;do{N=B[Q+r++],g.head&&N&&g.length<65536&&(g.head.comment+=String.fromCharCode(N))}while(N&&r<i);if(512&g.flags&&(g.check=AA(g.check,B,r,Q)),i-=r,Q+=r,N)break A}else g.head&&(g.head.comment=null);g.mode=9;case 9:if(512&g.flags){for(;o<16;){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}if(t!==(65535&g.check)){A.msg=\"header crc mismatch\",g.mode=30;break}t=0,o=0}g.head&&(g.head.hcrc=g.flags>>9&1,g.head.done=!0),A.adler=g.check=0,g.mode=12;break;case 10:for(;o<32;){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}A.adler=g.check=UI(t),t=0,o=0,g.mode=11;case 11:if(0===g.havedict)return A.next_out=E,A.avail_out=e,A.next_in=Q,A.avail_in=i,g.hold=t,g.bits=o,dI;A.adler=g.check=1,g.mode=12;case 12:if(I===GI||I===SI)break A;case 13:if(g.last){t>>>=7&o,o-=7&o,g.mode=27;break}for(;o<3;){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}switch(g.last=1&t,t>>>=1,o-=1,3&t){case 0:g.mode=14;break;case 1:if(mI(g),g.mode=20,I===SI){t>>>=2,o-=2;break A}break;case 2:g.mode=17;break;case 3:A.msg=\"invalid block type\",g.mode=30}t>>>=2,o-=2;break;case 14:for(t>>>=7&o,o-=7&o;o<32;){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}if((65535&t)!=(t>>>16^65535)){A.msg=\"invalid stored block lengths\",g.mode=30;break}if(g.length=65535&t,t=0,o=0,g.mode=15,I===SI)break A;case 15:g.mode=16;case 16:if(r=g.length,r){if(r>i&&(r=i),r>e&&(r=e),0===r)break A;C.set(B.subarray(Q,Q+r),E),i-=r,Q+=r,e-=r,E+=r,g.length-=r;break}g.mode=12;break;case 17:for(;o<14;){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}if(g.nlen=257+(31&t),t>>>=5,o-=5,g.ndist=1+(31&t),t>>>=5,o-=5,g.ncode=4+(15&t),t>>>=4,o-=4,g.nlen>286||g.ndist>30){A.msg=\"too many length or distance symbols\",g.mode=30;break}g.have=0,g.mode=18;case 18:for(;g.have<g.ncode;){for(;o<3;){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}g.lens[L[g.have++]]=7&t,t>>>=3,o-=3}for(;g.have<19;)g.lens[L[g.have++]]=0;if(g.lencode=g.lendyn,g.lenbits=7,F={bits:g.lenbits},d=wI(0,g.lens,0,19,g.lencode,0,g.work,F),g.lenbits=F.bits,d){A.msg=\"invalid code lengths set\",g.mode=30;break}g.have=0,g.mode=19;case 19:for(;g.have<g.nlen+g.ndist;){for(;l=g.lencode[t&(1<<g.lenbits)-1],h=l>>>24,w=l>>>16&255,y=65535&l,!(h<=o);){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}if(y<16)t>>>=h,o-=h,g.lens[g.have++]=y;else{if(16===y){for(R=h+2;o<R;){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}if(t>>>=h,o-=h,0===g.have){A.msg=\"invalid bit length repeat\",g.mode=30;break}N=g.lens[g.have-1],r=3+(3&t),t>>>=2,o-=2}else if(17===y){for(R=h+3;o<R;){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}t>>>=h,o-=h,N=0,r=3+(7&t),t>>>=3,o-=3}else{for(R=h+7;o<R;){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}t>>>=h,o-=h,N=0,r=11+(127&t),t>>>=7,o-=7}if(g.have+r>g.nlen+g.ndist){A.msg=\"invalid bit length repeat\",g.mode=30;break}for(;r--;)g.lens[g.have++]=N}}if(30===g.mode)break;if(0===g.lens[256]){A.msg=\"invalid code -- missing end-of-block\",g.mode=30;break}if(g.lenbits=9,F={bits:g.lenbits},d=wI(1,g.lens,0,g.nlen,g.lencode,0,g.work,F),g.lenbits=F.bits,d){A.msg=\"invalid literal/lengths set\",g.mode=30;break}if(g.distbits=6,g.distcode=g.distdyn,F={bits:g.distbits},d=wI(2,g.lens,g.nlen,g.ndist,g.distcode,0,g.work,F),g.distbits=F.bits,d){A.msg=\"invalid distances set\",g.mode=30;break}if(g.mode=20,I===SI)break A;case 20:g.mode=21;case 21:if(i>=6&&e>=258){A.next_out=E,A.avail_out=e,A.next_in=Q,A.avail_in=i,g.hold=t,g.bits=o,sI(A,s),E=A.next_out,C=A.output,e=A.avail_out,Q=A.next_in,B=A.input,i=A.avail_in,t=g.hold,o=g.bits,12===g.mode&&(g.back=-1);break}for(g.back=0;l=g.lencode[t&(1<<g.lenbits)-1],h=l>>>24,w=l>>>16&255,y=65535&l,!(h<=o);){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}if(w&&0==(240&w)){for(G=h,S=w,c=y;l=g.lencode[c+((t&(1<<G+S)-1)>>G)],h=l>>>24,w=l>>>16&255,y=65535&l,!(G+h<=o);){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}t>>>=G,o-=G,g.back+=G}if(t>>>=h,o-=h,g.back+=h,g.length=y,0===w){g.mode=26;break}if(32&w){g.back=-1,g.mode=12;break}if(64&w){A.msg=\"invalid literal/length code\",g.mode=30;break}g.extra=15&w,g.mode=22;case 22:if(g.extra){for(R=g.extra;o<R;){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}g.length+=t&(1<<g.extra)-1,t>>>=g.extra,o-=g.extra,g.back+=g.extra}g.was=g.length,g.mode=23;case 23:for(;l=g.distcode[t&(1<<g.distbits)-1],h=l>>>24,w=l>>>16&255,y=65535&l,!(h<=o);){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}if(0==(240&w)){for(G=h,S=w,c=y;l=g.distcode[c+((t&(1<<G+S)-1)>>G)],h=l>>>24,w=l>>>16&255,y=65535&l,!(G+h<=o);){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}t>>>=G,o-=G,g.back+=G}if(t>>>=h,o-=h,g.back+=h,64&w){A.msg=\"invalid distance code\",g.mode=30;break}g.offset=y,g.extra=15&w,g.mode=24;case 24:if(g.extra){for(R=g.extra;o<R;){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}g.offset+=t&(1<<g.extra)-1,t>>>=g.extra,o-=g.extra,g.back+=g.extra}if(g.offset>g.dmax){A.msg=\"invalid distance too far back\",g.mode=30;break}g.mode=25;case 25:if(0===e)break A;if(r=s-e,g.offset>r){if(r=g.offset-r,r>g.whave&&g.sane){A.msg=\"invalid distance too far back\",g.mode=30;break}r>g.wnext?(r-=g.wnext,D=g.wsize-r):D=g.wnext-r,r>g.length&&(r=g.length),n=g.window}else n=C,D=E-g.offset,r=g.length;r>e&&(r=e),e-=r,g.length-=r;do{C[E++]=n[D++]}while(--r);0===g.length&&(g.mode=21);break;case 26:if(0===e)break A;C[E++]=g.length,e--,g.mode=21;break;case 27:if(g.wrap){for(;o<32;){if(0===i)break A;i--,t|=B[Q++]<<o,o+=8}if(s-=e,A.total_out+=s,g.total+=s,s&&(A.adler=g.check=g.flags?AA(g.check,C,s,E-s):X(g.check,C,s,E-s)),s=e,(g.flags?t:UI(t))!==g.check){A.msg=\"incorrect data check\",g.mode=30;break}t=0,o=0}g.mode=28;case 28:if(g.wrap&&g.flags){for(;o<32;){if(0===i)break A;i--,t+=B[Q++]<<o,o+=8}if(t!==(4294967295&g.total)){A.msg=\"incorrect length check\",g.mode=30;break}t=0,o=0}g.mode=29;case 29:d=NI;break A;case 30:d=kI;break A;case 31:return FI;default:return lI}return A.next_out=E,A.avail_out=e,A.next_in=Q,A.avail_in=i,g.hold=t,g.bits=o,(g.wsize||s!==A.avail_out&&g.mode<30&&(g.mode<27||I!==yI))&&qI(A,A.output,A.next_out,s-A.avail_out),a-=A.avail_in,s-=A.avail_out,A.total_in+=a,A.total_out+=s,g.total+=s,g.wrap&&s&&(A.adler=g.check=g.flags?AA(g.check,C,s,A.next_out-s):X(g.check,C,s,A.next_out-s)),A.data_type=g.bits+(g.last?64:0)+(12===g.mode?128:0)+(20===g.mode||15===g.mode?256:0),(0===a&&0===s||I===yI)&&d===cI&&(d=RI),d},inflateEnd:A=>{if(!A||!A.state)return lI;let I=A.state;return I.window&&(I.window=null),A.state=null,cI},inflateGetHeader:(A,I)=>{if(!A||!A.state)return lI;const g=A.state;return 0==(2&g.wrap)?lI:(g.head=I,I.done=!1,cI)},inflateSetDictionary:(A,I)=>{const g=I.length;let B,C,Q;return A&&A.state?(B=A.state,0!==B.wrap&&11!==B.mode?lI:11===B.mode&&(C=1,C=X(C,I,g,0),C!==B.check)?kI:(Q=qI(A,I,g,g),Q?(B.mode=31,FI):(B.havedict=1,cI))):lI},inflateInfo:\"pako inflate (from Nodeca project)\"};var xI=function(){this.text=0,this.time=0,this.xflags=0,this.os=0,this.extra=null,this.extra_len=0,this.name=\"\",this.comment=\"\",this.hcrc=0,this.done=!1};const OI=Object.prototype.toString,{Z_NO_FLUSH:TI,Z_FINISH:_I,Z_OK:ZI,Z_STREAM_END:PI,Z_NEED_DICT:vI,Z_STREAM_ERROR:jI,Z_DATA_ERROR:WI,Z_MEM_ERROR:VI}=gA;function zI(A){this.options=vA({chunkSize:65536,windowBits:15,to:\"\"},A||{});const I=this.options;I.raw&&I.windowBits>=0&&I.windowBits<16&&(I.windowBits=-I.windowBits,0===I.windowBits&&(I.windowBits=-15)),!(I.windowBits>=0&&I.windowBits<16)||A&&A.windowBits||(I.windowBits+=32),I.windowBits>15&&I.windowBits<48&&0==(15&I.windowBits)&&(I.windowBits|=15),this.err=0,this.msg=\"\",this.ended=!1,this.chunks=[],this.strm=new AI,this.strm.avail_out=0;let g=bI.inflateInit2(this.strm,I.windowBits);if(g!==ZI)throw new Error(IA[g]);if(this.header=new xI,bI.inflateGetHeader(this.strm,this.header),I.dictionary&&(\"string\"==typeof I.dictionary?I.dictionary=zA(I.dictionary):\"[object ArrayBuffer]\"===OI.call(I.dictionary)&&(I.dictionary=new Uint8Array(I.dictionary)),I.raw&&(g=bI.inflateSetDictionary(this.strm,I.dictionary),g!==ZI)))throw new Error(IA[g])}function XI(A,I){const g=new zI(I);if(g.push(A),g.err)throw g.msg||IA[g.err];return g.result}zI.prototype.push=function(A,I){const g=this.strm,B=this.options.chunkSize,C=this.options.dictionary;let Q,E,i;if(this.ended)return!1;for(E=I===~~I?I:!0===I?_I:TI,\"[object ArrayBuffer]\"===OI.call(A)?g.input=new Uint8Array(A):g.input=A,g.next_in=0,g.avail_in=g.input.length;;){for(0===g.avail_out&&(g.output=new Uint8Array(B),g.next_out=0,g.avail_out=B),Q=bI.inflate(g,E),Q===vI&&C&&(Q=bI.inflateSetDictionary(g,C),Q===ZI?Q=bI.inflate(g,E):Q===WI&&(Q=vI));g.avail_in>0&&Q===PI&&g.state.wrap>0&&0!==A[g.next_in];)bI.inflateReset(g),Q=bI.inflate(g,E);switch(Q){case jI:case WI:case vI:case VI:return this.onEnd(Q),this.ended=!0,!1}if(i=g.avail_out,g.next_out&&(0===g.avail_out||Q===PI))if(\"string\"===this.options.to){let A=$A(g.output,g.next_out),I=g.next_out-A,C=XA(g.output,A);g.next_out=I,g.avail_out=B-I,I&&g.output.set(g.output.subarray(A,A+I),0),this.onData(C)}else this.onData(g.output.length===g.next_out?g.output:g.output.subarray(0,g.next_out));if(Q!==ZI||0!==i){if(Q===PI)return Q=bI.inflateEnd(this.strm),this.onEnd(Q),this.ended=!0,!0;if(0===g.avail_in)break}}return!0},zI.prototype.onData=function(A){this.chunks.push(A)},zI.prototype.onEnd=function(A){A===ZI&&(\"string\"===this.options.to?this.result=this.chunks.join(\"\"):this.result=jA(this.chunks)),this.chunks=[],this.err=A,this.msg=this.strm.msg};var $I={Inflate:zI,inflate:XI,inflateRaw:function(A,I){return(I=I||{}).raw=!0,XI(A,I)},ungzip:XI,constants:gA};const{Inflate:Ag,inflate:Ig,inflateRaw:gg,ungzip:Bg}=$I;var Cg=Ig;var Qg=Object.freeze({__proto__:null,default:class extends i{decodeBlock(A){return Cg(new Uint8Array(A)).buffer}}});var Eg,ig=Object.freeze({__proto__:null,default:class extends i{decodeBlock(A){const I=new DataView(A),g=[];for(let B=0;B<A.byteLength;++B){let A=I.getInt8(B);if(A<0){const C=I.getUint8(B+1);A=-A;for(let I=0;I<=A;++I)g.push(C);B+=1}else{for(let C=0;C<=A;++C)g.push(I.getUint8(B+C+1));B+=A+1}}return new Uint8Array(g).buffer}}}),eg={exports:{}};Eg=eg,\n/* Copyright 2015-2021 Esri. Licensed under the Apache License, Version 2.0 (the \"License\"); you may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0 @preserve */\nfunction(){var A,I,g,B,C,Q,E,i,e,t,o,a,s,r,D,n,h=(A={defaultNoDataValue:-34027999387901484e22,decode:function(Q,E){var i=(E=E||{}).encodedMaskData||null===E.encodedMaskData,e=C(Q,E.inputOffset||0,i),t=null!==E.noDataValue?E.noDataValue:A.defaultNoDataValue,o=I(e,E.pixelType||Float32Array,E.encodedMaskData,t,E.returnMask),a={width:e.width,height:e.height,pixelData:o.resultPixels,minValue:o.minValue,maxValue:e.pixels.maxValue,noDataValue:t};return o.resultMask&&(a.maskData=o.resultMask),E.returnEncodedMask&&e.mask&&(a.encodedMaskData=e.mask.bitset?e.mask.bitset:null),E.returnFileInfo&&(a.fileInfo=g(e),E.computeUsedBitDepths&&(a.fileInfo.bitDepths=B(e))),a}},I=function(A,I,g,B,C){var E,i,e,t=0,o=A.pixels.numBlocksX,a=A.pixels.numBlocksY,s=Math.floor(A.width/o),r=Math.floor(A.height/a),D=2*A.maxZError,n=Number.MAX_VALUE;g=g||(A.mask?A.mask.bitset:null),i=new I(A.width*A.height),C&&g&&(e=new Uint8Array(A.width*A.height));for(var h,w,y=new Float32Array(s*r),G=0;G<=a;G++){var S=G!==a?r:A.height%a;if(0!==S)for(var c=0;c<=o;c++){var N=c!==o?s:A.width%o;if(0!==N){var d,l,k,F,R=G*A.width*r+c*s,L=A.width-N,U=A.pixels.blocks[t];if(U.encoding<2?(0===U.encoding?d=U.rawData:(Q(U.stuffedData,U.bitsPerPixel,U.numValidPixels,U.offset,D,y,A.pixels.maxValue),d=y),l=0):k=2===U.encoding?0:U.offset,g)for(w=0;w<S;w++){for(7&R&&(F=g[R>>3],F<<=7&R),h=0;h<N;h++)7&R||(F=g[R>>3]),128&F?(e&&(e[R]=1),n=n>(E=U.encoding<2?d[l++]:k)?E:n,i[R++]=E):(e&&(e[R]=0),i[R++]=B),F<<=1;R+=L}else if(U.encoding<2)for(w=0;w<S;w++){for(h=0;h<N;h++)n=n>(E=d[l++])?E:n,i[R++]=E;R+=L}else for(n=n>k?k:n,w=0;w<S;w++){for(h=0;h<N;h++)i[R++]=k;R+=L}if(1===U.encoding&&l!==U.numValidPixels)throw\"Block and Mask do not match\";t++}}}return{resultPixels:i,resultMask:e,minValue:n}},g=function(A){return{fileIdentifierString:A.fileIdentifierString,fileVersion:A.fileVersion,imageType:A.imageType,height:A.height,width:A.width,maxZError:A.maxZError,eofOffset:A.eofOffset,mask:A.mask?{numBlocksX:A.mask.numBlocksX,numBlocksY:A.mask.numBlocksY,numBytes:A.mask.numBytes,maxValue:A.mask.maxValue}:null,pixels:{numBlocksX:A.pixels.numBlocksX,numBlocksY:A.pixels.numBlocksY,numBytes:A.pixels.numBytes,maxValue:A.pixels.maxValue,noDataValue:A.noDataValue}}},B=function(A){for(var I=A.pixels.numBlocksX*A.pixels.numBlocksY,g={},B=0;B<I;B++){var C=A.pixels.blocks[B];0===C.encoding?g.float32=!0:1===C.encoding?g[C.bitsPerPixel]=!0:g[0]=!0}return Object.keys(g)},C=function(A,I,g){var B={},C=new Uint8Array(A,I,10);if(B.fileIdentifierString=String.fromCharCode.apply(null,C),\"CntZImage\"!==B.fileIdentifierString.trim())throw\"Unexpected file identifier string: \"+B.fileIdentifierString;I+=10;var Q=new DataView(A,I,24);if(B.fileVersion=Q.getInt32(0,!0),B.imageType=Q.getInt32(4,!0),B.height=Q.getUint32(8,!0),B.width=Q.getUint32(12,!0),B.maxZError=Q.getFloat64(16,!0),I+=24,!g)if(Q=new DataView(A,I,16),B.mask={},B.mask.numBlocksY=Q.getUint32(0,!0),B.mask.numBlocksX=Q.getUint32(4,!0),B.mask.numBytes=Q.getUint32(8,!0),B.mask.maxValue=Q.getFloat32(12,!0),I+=16,B.mask.numBytes>0){var E=new Uint8Array(Math.ceil(B.width*B.height/8)),i=(Q=new DataView(A,I,B.mask.numBytes)).getInt16(0,!0),e=2,t=0;do{if(i>0)for(;i--;)E[t++]=Q.getUint8(e++);else{var o=Q.getUint8(e++);for(i=-i;i--;)E[t++]=o}i=Q.getInt16(e,!0),e+=2}while(e<B.mask.numBytes);if(-32768!==i||t<E.length)throw\"Unexpected end of mask RLE encoding\";B.mask.bitset=E,I+=B.mask.numBytes}else 0==(B.mask.numBytes|B.mask.numBlocksY|B.mask.maxValue)&&(B.mask.bitset=new Uint8Array(Math.ceil(B.width*B.height/8)));Q=new DataView(A,I,16),B.pixels={},B.pixels.numBlocksY=Q.getUint32(0,!0),B.pixels.numBlocksX=Q.getUint32(4,!0),B.pixels.numBytes=Q.getUint32(8,!0),B.pixels.maxValue=Q.getFloat32(12,!0),I+=16;var a=B.pixels.numBlocksX,s=B.pixels.numBlocksY,r=a+(B.width%a>0?1:0),D=s+(B.height%s>0?1:0);B.pixels.blocks=new Array(r*D);for(var n=0,h=0;h<D;h++)for(var w=0;w<r;w++){var y=0,G=A.byteLength-I;Q=new DataView(A,I,Math.min(10,G));var S={};B.pixels.blocks[n++]=S;var c=Q.getUint8(0);if(y++,S.encoding=63&c,S.encoding>3)throw\"Invalid block encoding (\"+S.encoding+\")\";if(2!==S.encoding){if(0!==c&&2!==c){if(c>>=6,S.offsetType=c,2===c)S.offset=Q.getInt8(1),y++;else if(1===c)S.offset=Q.getInt16(1,!0),y+=2;else{if(0!==c)throw\"Invalid block offset type\";S.offset=Q.getFloat32(1,!0),y+=4}if(1===S.encoding)if(c=Q.getUint8(y),y++,S.bitsPerPixel=63&c,c>>=6,S.numValidPixelsType=c,2===c)S.numValidPixels=Q.getUint8(y),y++;else if(1===c)S.numValidPixels=Q.getUint16(y,!0),y+=2;else{if(0!==c)throw\"Invalid valid pixel count type\";S.numValidPixels=Q.getUint32(y,!0),y+=4}}var N;if(I+=y,3!==S.encoding)if(0===S.encoding){var d=(B.pixels.numBytes-1)/4;if(d!==Math.floor(d))throw\"uncompressed block has invalid length\";N=new ArrayBuffer(4*d),new Uint8Array(N).set(new Uint8Array(A,I,4*d));var l=new Float32Array(N);S.rawData=l,I+=4*d}else if(1===S.encoding){var k=Math.ceil(S.numValidPixels*S.bitsPerPixel/8),F=Math.ceil(k/4);N=new ArrayBuffer(4*F),new Uint8Array(N).set(new Uint8Array(A,I,k)),S.stuffedData=new Uint32Array(N),I+=k}}else I++}return B.eofOffset=I,B},Q=function(A,I,g,B,C,Q,E){var i,e,t,o=(1<<I)-1,a=0,s=0,r=Math.ceil((E-B)/C),D=4*A.length-Math.ceil(I*g/8);for(A[A.length-1]<<=8*D,i=0;i<g;i++){if(0===s&&(t=A[a++],s=32),s>=I)e=t>>>s-I&o,s-=I;else{var n=I-s;e=(t&o)<<n&o,e+=(t=A[a++])>>>(s=32-n)}Q[i]=e<r?B+e*C:E}return Q},A),w=(E=function(A,I,g,B,C,Q,E,i){var e,t,o,a,s,r=(1<<g)-1,D=0,n=0,h=4*A.length-Math.ceil(g*B/8);if(A[A.length-1]<<=8*h,C)for(e=0;e<B;e++)0===n&&(o=A[D++],n=32),n>=g?(t=o>>>n-g&r,n-=g):(t=(o&r)<<(a=g-n)&r,t+=(o=A[D++])>>>(n=32-a)),I[e]=C[t];else for(s=Math.ceil((i-Q)/E),e=0;e<B;e++)0===n&&(o=A[D++],n=32),n>=g?(t=o>>>n-g&r,n-=g):(t=(o&r)<<(a=g-n)&r,t+=(o=A[D++])>>>(n=32-a)),I[e]=t<s?Q+t*E:i},i=function(A,I,g,B,C,Q){var E,i=(1<<I)-1,e=0,t=0,o=0,a=0,s=0,r=[],D=4*A.length-Math.ceil(I*g/8);A[A.length-1]<<=8*D;var n=Math.ceil((Q-B)/C);for(t=0;t<g;t++)0===a&&(E=A[e++],a=32),a>=I?(s=E>>>a-I&i,a-=I):(s=(E&i)<<(o=I-a)&i,s+=(E=A[e++])>>>(a=32-o)),r[t]=s<n?B+s*C:Q;return r.unshift(B),r},e=function(A,I,g,B,C,Q,E,i){var e,t,o,a,s=(1<<g)-1,r=0,D=0,n=0;if(C)for(e=0;e<B;e++)0===D&&(o=A[r++],D=32,n=0),D>=g?(t=o>>>n&s,D-=g,n+=g):(t=o>>>n&s,D=32-(a=g-D),t|=((o=A[r++])&(1<<a)-1)<<g-a,n=a),I[e]=C[t];else{var h=Math.ceil((i-Q)/E);for(e=0;e<B;e++)0===D&&(o=A[r++],D=32,n=0),D>=g?(t=o>>>n&s,D-=g,n+=g):(t=o>>>n&s,D=32-(a=g-D),t|=((o=A[r++])&(1<<a)-1)<<g-a,n=a),I[e]=t<h?Q+t*E:i}return I},t=function(A,I,g,B,C,Q){var E,i=(1<<I)-1,e=0,t=0,o=0,a=0,s=0,r=0,D=[],n=Math.ceil((Q-B)/C);for(t=0;t<g;t++)0===a&&(E=A[e++],a=32,r=0),a>=I?(s=E>>>r&i,a-=I,r+=I):(s=E>>>r&i,a=32-(o=I-a),s|=((E=A[e++])&(1<<o)-1)<<I-o,r=o),D[t]=s<n?B+s*C:Q;return D.unshift(B),D},o=function(A,I,g,B){var C,Q,E,i,e=(1<<g)-1,t=0,o=0,a=4*A.length-Math.ceil(g*B/8);for(A[A.length-1]<<=8*a,C=0;C<B;C++)0===o&&(E=A[t++],o=32),o>=g?(Q=E>>>o-g&e,o-=g):(Q=(E&e)<<(i=g-o)&e,Q+=(E=A[t++])>>>(o=32-i)),I[C]=Q;return I},a=function(A,I,g,B){var C,Q,E,i,e=(1<<g)-1,t=0,o=0,a=0;for(C=0;C<B;C++)0===o&&(E=A[t++],o=32,a=0),o>=g?(Q=E>>>a&e,o-=g,a+=g):(Q=E>>>a&e,o=32-(i=g-o),Q|=((E=A[t++])&(1<<i)-1)<<g-i,a=i),I[C]=Q;return I},s={HUFFMAN_LUT_BITS_MAX:12,computeChecksumFletcher32:function(A){for(var I=65535,g=65535,B=A.length,C=Math.floor(B/2),Q=0;C;){var E=C>=359?359:C;C-=E;do{I+=A[Q++]<<8,g+=I+=A[Q++]}while(--E);I=(65535&I)+(I>>>16),g=(65535&g)+(g>>>16)}return 1&B&&(g+=I+=A[Q]<<8),((g=(65535&g)+(g>>>16))<<16|(I=(65535&I)+(I>>>16)))>>>0},readHeaderInfo:function(A,I){var g=I.ptr,B=new Uint8Array(A,g,6),C={};if(C.fileIdentifierString=String.fromCharCode.apply(null,B),0!==C.fileIdentifierString.lastIndexOf(\"Lerc2\",0))throw\"Unexpected file identifier string (expect Lerc2 ): \"+C.fileIdentifierString;g+=6;var Q,E=new DataView(A,g,8),i=E.getInt32(0,!0);if(C.fileVersion=i,g+=4,i>=3&&(C.checksum=E.getUint32(4,!0),g+=4),E=new DataView(A,g,12),C.height=E.getUint32(0,!0),C.width=E.getUint32(4,!0),g+=8,i>=4?(C.numDims=E.getUint32(8,!0),g+=4):C.numDims=1,E=new DataView(A,g,40),C.numValidPixel=E.getUint32(0,!0),C.microBlockSize=E.getInt32(4,!0),C.blobSize=E.getInt32(8,!0),C.imageType=E.getInt32(12,!0),C.maxZError=E.getFloat64(16,!0),C.zMin=E.getFloat64(24,!0),C.zMax=E.getFloat64(32,!0),g+=40,I.headerInfo=C,I.ptr=g,i>=3&&(Q=i>=4?52:48,this.computeChecksumFletcher32(new Uint8Array(A,g-Q,C.blobSize-14))!==C.checksum))throw\"Checksum failed.\";return!0},checkMinMaxRanges:function(A,I){var g=I.headerInfo,B=this.getDataTypeArray(g.imageType),C=g.numDims*this.getDataTypeSize(g.imageType),Q=this.readSubArray(A,I.ptr,B,C),E=this.readSubArray(A,I.ptr+C,B,C);I.ptr+=2*C;var i,e=!0;for(i=0;i<g.numDims;i++)if(Q[i]!==E[i]){e=!1;break}return g.minValues=Q,g.maxValues=E,e},readSubArray:function(A,I,g,B){var C;if(g===Uint8Array)C=new Uint8Array(A,I,B);else{var Q=new ArrayBuffer(B);new Uint8Array(Q).set(new Uint8Array(A,I,B)),C=new g(Q)}return C},readMask:function(A,I){var g,B,C=I.ptr,Q=I.headerInfo,E=Q.width*Q.height,i=Q.numValidPixel,e=new DataView(A,C,4),t={};if(t.numBytes=e.getUint32(0,!0),C+=4,(0===i||E===i)&&0!==t.numBytes)throw\"invalid mask\";if(0===i)g=new Uint8Array(Math.ceil(E/8)),t.bitset=g,B=new Uint8Array(E),I.pixels.resultMask=B,C+=t.numBytes;else if(t.numBytes>0){g=new Uint8Array(Math.ceil(E/8));var o=(e=new DataView(A,C,t.numBytes)).getInt16(0,!0),a=2,s=0,r=0;do{if(o>0)for(;o--;)g[s++]=e.getUint8(a++);else for(r=e.getUint8(a++),o=-o;o--;)g[s++]=r;o=e.getInt16(a,!0),a+=2}while(a<t.numBytes);if(-32768!==o||s<g.length)throw\"Unexpected end of mask RLE encoding\";B=new Uint8Array(E);var D=0,n=0;for(n=0;n<E;n++)7&n?(D=g[n>>3],D<<=7&n):D=g[n>>3],128&D&&(B[n]=1);I.pixels.resultMask=B,t.bitset=g,C+=t.numBytes}return I.ptr=C,I.mask=t,!0},readDataOneSweep:function(A,I,g,B){var C,Q=I.ptr,E=I.headerInfo,i=E.numDims,e=E.width*E.height,t=E.imageType,o=E.numValidPixel*s.getDataTypeSize(t)*i,a=I.pixels.resultMask;if(g===Uint8Array)C=new Uint8Array(A,Q,o);else{var r=new ArrayBuffer(o);new Uint8Array(r).set(new Uint8Array(A,Q,o)),C=new g(r)}if(C.length===e*i)I.pixels.resultPixels=B?s.swapDimensionOrder(C,e,i,g,!0):C;else{I.pixels.resultPixels=new g(e*i);var D=0,n=0,h=0,w=0;if(i>1){if(B){for(n=0;n<e;n++)if(a[n])for(w=n,h=0;h<i;h++,w+=e)I.pixels.resultPixels[w]=C[D++]}else for(n=0;n<e;n++)if(a[n])for(w=n*i,h=0;h<i;h++)I.pixels.resultPixels[w+h]=C[D++]}else for(n=0;n<e;n++)a[n]&&(I.pixels.resultPixels[n]=C[D++])}return Q+=o,I.ptr=Q,!0},readHuffmanTree:function(A,I){var g=this.HUFFMAN_LUT_BITS_MAX,B=new DataView(A,I.ptr,16);if(I.ptr+=16,B.getInt32(0,!0)<2)throw\"unsupported Huffman version\";var C=B.getInt32(4,!0),Q=B.getInt32(8,!0),E=B.getInt32(12,!0);if(Q>=E)return!1;var i=new Uint32Array(E-Q);s.decodeBits(A,I,i);var e,t,o,a,D=[];for(e=Q;e<E;e++)D[t=e-(e<C?0:C)]={first:i[e-Q],second:null};var n=A.byteLength-I.ptr,h=Math.ceil(n/4),w=new ArrayBuffer(4*h);new Uint8Array(w).set(new Uint8Array(A,I.ptr,n));var y,G=new Uint32Array(w),S=0,c=0;for(y=G[0],e=Q;e<E;e++)(a=D[t=e-(e<C?0:C)].first)>0&&(D[t].second=y<<S>>>32-a,32-S>=a?32===(S+=a)&&(S=0,y=G[++c]):(S+=a-32,y=G[++c],D[t].second|=y>>>32-S));var N=0,d=0,l=new r;for(e=0;e<D.length;e++)void 0!==D[e]&&(N=Math.max(N,D[e].first));d=N>=g?g:N;var k,F,R,L,U,f=[];for(e=Q;e<E;e++)if((a=D[t=e-(e<C?0:C)].first)>0)if(k=[a,t],a<=d)for(F=D[t].second<<d-a,R=1<<d-a,o=0;o<R;o++)f[F|o]=k;else for(F=D[t].second,U=l,L=a-1;L>=0;L--)F>>>L&1?(U.right||(U.right=new r),U=U.right):(U.left||(U.left=new r),U=U.left),0!==L||U.val||(U.val=k[1]);return{decodeLut:f,numBitsLUTQick:d,numBitsLUT:N,tree:l,stuffedData:G,srcPtr:c,bitPos:S}},readHuffman:function(A,I,g,B){var C,Q,E,i,e,t,o,a,r,D=I.headerInfo.numDims,n=I.headerInfo.height,h=I.headerInfo.width,w=h*n,y=this.readHuffmanTree(A,I),G=y.decodeLut,S=y.tree,c=y.stuffedData,N=y.srcPtr,d=y.bitPos,l=y.numBitsLUTQick,k=y.numBitsLUT,F=0===I.headerInfo.imageType?128:0,R=I.pixels.resultMask,L=0;d>0&&(N++,d=0);var U,f=c[N],Y=1===I.encodeMode,K=new g(w*D),u=K;if(D<2||Y){for(U=0;U<D;U++)if(D>1&&(u=new g(K.buffer,w*U,w),L=0),I.headerInfo.numValidPixel===h*n)for(a=0,t=0;t<n;t++)for(o=0;o<h;o++,a++){if(Q=0,e=i=f<<d>>>32-l,32-d<l&&(e=i|=c[N+1]>>>64-d-l),G[e])Q=G[e][1],d+=G[e][0];else for(e=i=f<<d>>>32-k,32-d<k&&(e=i|=c[N+1]>>>64-d-k),C=S,r=0;r<k;r++)if(!(C=i>>>k-r-1&1?C.right:C.left).left&&!C.right){Q=C.val,d=d+r+1;break}d>=32&&(d-=32,f=c[++N]),E=Q-F,Y?(E+=o>0?L:t>0?u[a-h]:L,E&=255,u[a]=E,L=E):u[a]=E}else for(a=0,t=0;t<n;t++)for(o=0;o<h;o++,a++)if(R[a]){if(Q=0,e=i=f<<d>>>32-l,32-d<l&&(e=i|=c[N+1]>>>64-d-l),G[e])Q=G[e][1],d+=G[e][0];else for(e=i=f<<d>>>32-k,32-d<k&&(e=i|=c[N+1]>>>64-d-k),C=S,r=0;r<k;r++)if(!(C=i>>>k-r-1&1?C.right:C.left).left&&!C.right){Q=C.val,d=d+r+1;break}d>=32&&(d-=32,f=c[++N]),E=Q-F,Y?(o>0&&R[a-1]?E+=L:t>0&&R[a-h]?E+=u[a-h]:E+=L,E&=255,u[a]=E,L=E):u[a]=E}}else for(a=0,t=0;t<n;t++)for(o=0;o<h;o++)if(a=t*h+o,!R||R[a])for(U=0;U<D;U++,a+=w){if(Q=0,e=i=f<<d>>>32-l,32-d<l&&(e=i|=c[N+1]>>>64-d-l),G[e])Q=G[e][1],d+=G[e][0];else for(e=i=f<<d>>>32-k,32-d<k&&(e=i|=c[N+1]>>>64-d-k),C=S,r=0;r<k;r++)if(!(C=i>>>k-r-1&1?C.right:C.left).left&&!C.right){Q=C.val,d=d+r+1;break}d>=32&&(d-=32,f=c[++N]),E=Q-F,u[a]=E}I.ptr=I.ptr+4*(N+1)+(d>0?4:0),I.pixels.resultPixels=K,D>1&&!B&&(I.pixels.resultPixels=s.swapDimensionOrder(K,w,D,g))},decodeBits:function(A,I,g,B,C){var Q=I.headerInfo,s=Q.fileVersion,r=0,D=A.byteLength-I.ptr>=5?5:A.byteLength-I.ptr,n=new DataView(A,I.ptr,D),h=n.getUint8(0);r++;var w=h>>6,y=0===w?4:3-w,G=(32&h)>0,S=31&h,c=0;if(1===y)c=n.getUint8(r),r++;else if(2===y)c=n.getUint16(r,!0),r+=2;else{if(4!==y)throw\"Invalid valid pixel count type\";c=n.getUint32(r,!0),r+=4}var N,d,l,k,F,R,L,U,f,Y=2*Q.maxZError,K=Q.numDims>1?Q.maxValues[C]:Q.zMax;if(G){for(I.counter.lut++,U=n.getUint8(r),r++,k=Math.ceil((U-1)*S/8),F=Math.ceil(k/4),d=new ArrayBuffer(4*F),l=new Uint8Array(d),I.ptr+=r,l.set(new Uint8Array(A,I.ptr,k)),L=new Uint32Array(d),I.ptr+=k,f=0;U-1>>>f;)f++;k=Math.ceil(c*f/8),F=Math.ceil(k/4),d=new ArrayBuffer(4*F),(l=new Uint8Array(d)).set(new Uint8Array(A,I.ptr,k)),N=new Uint32Array(d),I.ptr+=k,R=s>=3?t(L,S,U-1,B,Y,K):i(L,S,U-1,B,Y,K),s>=3?e(N,g,f,c,R):E(N,g,f,c,R)}else I.counter.bitstuffer++,f=S,I.ptr+=r,f>0&&(k=Math.ceil(c*f/8),F=Math.ceil(k/4),d=new ArrayBuffer(4*F),(l=new Uint8Array(d)).set(new Uint8Array(A,I.ptr,k)),N=new Uint32Array(d),I.ptr+=k,s>=3?null==B?a(N,g,f,c):e(N,g,f,c,!1,B,Y,K):null==B?o(N,g,f,c):E(N,g,f,c,!1,B,Y,K))},readTiles:function(A,I,g,B){var C=I.headerInfo,Q=C.width,E=C.height,i=Q*E,e=C.microBlockSize,t=C.imageType,o=s.getDataTypeSize(t),a=Math.ceil(Q/e),r=Math.ceil(E/e);I.pixels.numBlocksY=r,I.pixels.numBlocksX=a,I.pixels.ptr=0;var D,n,h,w,y,G,S,c,N,d,l=0,k=0,F=0,R=0,L=0,U=0,f=0,Y=0,K=0,u=0,M=0,J=0,H=0,p=0,m=0,q=new g(e*e),b=E%e||e,x=Q%e||e,O=C.numDims,T=I.pixels.resultMask,_=I.pixels.resultPixels,Z=C.fileVersion>=5?14:15,P=C.zMax;for(F=0;F<r;F++)for(L=F!==r-1?e:b,R=0;R<a;R++)for(u=F*Q*e+R*e,M=Q-(U=R!==a-1?e:x),c=0;c<O;c++){if(O>1?(d=_,u=F*Q*e+R*e,_=new g(I.pixels.resultPixels.buffer,i*c*o,i),P=C.maxValues[c]):d=null,f=A.byteLength-I.ptr,n={},m=0,Y=(D=new DataView(A,I.ptr,Math.min(10,f))).getUint8(0),m++,N=C.fileVersion>=5?4&Y:0,K=Y>>6&255,(Y>>2&Z)!=(R*e>>3&Z))throw\"integrity issue\";if(N&&0===c)throw\"integrity issue\";if((y=3&Y)>3)throw I.ptr+=m,\"Invalid block encoding (\"+y+\")\";if(2!==y)if(0===y){if(N)throw\"integrity issue\";if(I.counter.uncompressed++,I.ptr+=m,J=(J=L*U*o)<(H=A.byteLength-I.ptr)?J:H,h=new ArrayBuffer(J%o==0?J:J+o-J%o),new Uint8Array(h).set(new Uint8Array(A,I.ptr,J)),w=new g(h),p=0,T)for(l=0;l<L;l++){for(k=0;k<U;k++)T[u]&&(_[u]=w[p++]),u++;u+=M}else for(l=0;l<L;l++){for(k=0;k<U;k++)_[u++]=w[p++];u+=M}I.ptr+=p*o}else if(G=s.getDataTypeUsed(N&&t<6?4:t,K),S=s.getOnePixel(n,m,G,D),m+=s.getDataTypeSize(G),3===y)if(I.ptr+=m,I.counter.constantoffset++,T)for(l=0;l<L;l++){for(k=0;k<U;k++)T[u]&&(_[u]=N?Math.min(P,d[u]+S):S),u++;u+=M}else for(l=0;l<L;l++){for(k=0;k<U;k++)_[u]=N?Math.min(P,d[u]+S):S,u++;u+=M}else if(I.ptr+=m,s.decodeBits(A,I,q,S,c),m=0,N)if(T)for(l=0;l<L;l++){for(k=0;k<U;k++)T[u]&&(_[u]=q[m++]+d[u]),u++;u+=M}else for(l=0;l<L;l++){for(k=0;k<U;k++)_[u]=q[m++]+d[u],u++;u+=M}else if(T)for(l=0;l<L;l++){for(k=0;k<U;k++)T[u]&&(_[u]=q[m++]),u++;u+=M}else for(l=0;l<L;l++){for(k=0;k<U;k++)_[u++]=q[m++];u+=M}else{if(N)if(T)for(l=0;l<L;l++)for(k=0;k<U;k++)T[u]&&(_[u]=d[u]),u++;else for(l=0;l<L;l++)for(k=0;k<U;k++)_[u]=d[u],u++;I.counter.constant++,I.ptr+=m}}O>1&&!B&&(I.pixels.resultPixels=s.swapDimensionOrder(I.pixels.resultPixels,i,O,g))},formatFileInfo:function(A){return{fileIdentifierString:A.headerInfo.fileIdentifierString,fileVersion:A.headerInfo.fileVersion,imageType:A.headerInfo.imageType,height:A.headerInfo.height,width:A.headerInfo.width,numValidPixel:A.headerInfo.numValidPixel,microBlockSize:A.headerInfo.microBlockSize,blobSize:A.headerInfo.blobSize,maxZError:A.headerInfo.maxZError,pixelType:s.getPixelType(A.headerInfo.imageType),eofOffset:A.eofOffset,mask:A.mask?{numBytes:A.mask.numBytes}:null,pixels:{numBlocksX:A.pixels.numBlocksX,numBlocksY:A.pixels.numBlocksY,maxValue:A.headerInfo.zMax,minValue:A.headerInfo.zMin,noDataValue:A.noDataValue}}},constructConstantSurface:function(A,I){var g=A.headerInfo.zMax,B=A.headerInfo.zMin,C=A.headerInfo.maxValues,Q=A.headerInfo.numDims,E=A.headerInfo.height*A.headerInfo.width,i=0,e=0,t=0,o=A.pixels.resultMask,a=A.pixels.resultPixels;if(o)if(Q>1){if(I)for(i=0;i<Q;i++)for(t=i*E,g=C[i],e=0;e<E;e++)o[e]&&(a[t+e]=g);else for(e=0;e<E;e++)if(o[e])for(t=e*Q,i=0;i<Q;i++)a[t+Q]=C[i]}else for(e=0;e<E;e++)o[e]&&(a[e]=g);else if(Q>1&&B!==g)if(I)for(i=0;i<Q;i++)for(t=i*E,g=C[i],e=0;e<E;e++)a[t+e]=g;else for(e=0;e<E;e++)for(t=e*Q,i=0;i<Q;i++)a[t+i]=C[i];else for(e=0;e<E*Q;e++)a[e]=g},getDataTypeArray:function(A){var I;switch(A){case 0:I=Int8Array;break;case 1:I=Uint8Array;break;case 2:I=Int16Array;break;case 3:I=Uint16Array;break;case 4:I=Int32Array;break;case 5:I=Uint32Array;break;case 6:default:I=Float32Array;break;case 7:I=Float64Array}return I},getPixelType:function(A){var I;switch(A){case 0:I=\"S8\";break;case 1:I=\"U8\";break;case 2:I=\"S16\";break;case 3:I=\"U16\";break;case 4:I=\"S32\";break;case 5:I=\"U32\";break;case 6:default:I=\"F32\";break;case 7:I=\"F64\"}return I},isValidPixelValue:function(A,I){if(null==I)return!1;var g;switch(A){case 0:g=I>=-128&&I<=127;break;case 1:g=I>=0&&I<=255;break;case 2:g=I>=-32768&&I<=32767;break;case 3:g=I>=0&&I<=65536;break;case 4:g=I>=-2147483648&&I<=2147483647;break;case 5:g=I>=0&&I<=4294967296;break;case 6:g=I>=-34027999387901484e22&&I<=34027999387901484e22;break;case 7:g=I>=-17976931348623157e292&&I<=17976931348623157e292;break;default:g=!1}return g},getDataTypeSize:function(A){var I=0;switch(A){case 0:case 1:I=1;break;case 2:case 3:I=2;break;case 4:case 5:case 6:I=4;break;case 7:I=8;break;default:I=A}return I},getDataTypeUsed:function(A,I){var g=A;switch(A){case 2:case 4:g=A-I;break;case 3:case 5:g=A-2*I;break;case 6:g=0===I?A:1===I?2:1;break;case 7:g=0===I?A:A-2*I+1;break;default:g=A}return g},getOnePixel:function(A,I,g,B){var C=0;switch(g){case 0:C=B.getInt8(I);break;case 1:C=B.getUint8(I);break;case 2:C=B.getInt16(I,!0);break;case 3:C=B.getUint16(I,!0);break;case 4:C=B.getInt32(I,!0);break;case 5:C=B.getUInt32(I,!0);break;case 6:C=B.getFloat32(I,!0);break;case 7:C=B.getFloat64(I,!0);break;default:throw\"the decoder does not understand this pixel type\"}return C},swapDimensionOrder:function(A,I,g,B,C){var Q=0,E=0,i=0,e=0,t=A;if(g>1)if(t=new B(I*g),C)for(Q=0;Q<I;Q++)for(e=Q,i=0;i<g;i++,e+=I)t[e]=A[E++];else for(Q=0;Q<I;Q++)for(e=Q,i=0;i<g;i++,e+=I)t[E++]=A[e];return t}},r=function(A,I,g){this.val=A,this.left=I,this.right=g},{decode:function(A,I){var g=(I=I||{}).noDataValue,B=0,C={};C.ptr=I.inputOffset||0,C.pixels={},s.readHeaderInfo(A,C);var Q=C.headerInfo,E=Q.fileVersion,i=s.getDataTypeArray(Q.imageType);if(E>5)throw\"unsupported lerc version 2.\"+E;s.readMask(A,C),Q.numValidPixel===Q.width*Q.height||C.pixels.resultMask||(C.pixels.resultMask=I.maskData);var e=Q.width*Q.height;C.pixels.resultPixels=new i(e*Q.numDims),C.counter={onesweep:0,uncompressed:0,lut:0,bitstuffer:0,constant:0,constantoffset:0};var t,o=!I.returnPixelInterleavedDims;if(0!==Q.numValidPixel)if(Q.zMax===Q.zMin)s.constructConstantSurface(C,o);else if(E>=4&&s.checkMinMaxRanges(A,C))s.constructConstantSurface(C,o);else{var a=new DataView(A,C.ptr,2),r=a.getUint8(0);if(C.ptr++,r)s.readDataOneSweep(A,C,i,o);else if(E>1&&Q.imageType<=1&&Math.abs(Q.maxZError-.5)<1e-5){var D=a.getUint8(1);if(C.ptr++,C.encodeMode=D,D>2||E<4&&D>1)throw\"Invalid Huffman flag \"+D;D?s.readHuffman(A,C,i,o):s.readTiles(A,C,i,o)}else s.readTiles(A,C,i,o)}C.eofOffset=C.ptr,I.inputOffset?(t=C.headerInfo.blobSize+I.inputOffset-C.ptr,Math.abs(t)>=1&&(C.eofOffset=I.inputOffset+C.headerInfo.blobSize)):(t=C.headerInfo.blobSize-C.ptr,Math.abs(t)>=1&&(C.eofOffset=C.headerInfo.blobSize));var n={width:Q.width,height:Q.height,pixelData:C.pixels.resultPixels,minValue:Q.zMin,maxValue:Q.zMax,validPixelCount:Q.numValidPixel,dimCount:Q.numDims,dimStats:{minValues:Q.minValues,maxValues:Q.maxValues},maskData:C.pixels.resultMask};if(C.pixels.resultMask&&s.isValidPixelValue(Q.imageType,g)){var h=C.pixels.resultMask;for(B=0;B<e;B++)h[B]||(n.pixelData[B]=g);n.noDataValue=g}return C.noDataValue=g,I.returnFileInfo&&(n.fileInfo=s.formatFileInfo(C)),n},getBandCount:function(A){for(var I=0,g=0,B={ptr:0,pixels:{}};g<A.byteLength-58;)s.readHeaderInfo(A,B),g+=B.headerInfo.blobSize,I++,B.ptr=g;return I}}),y=(D=new ArrayBuffer(4),n=new Uint8Array(D),new Uint32Array(D)[0]=1,1===n[0]),G={decode:function(A,I){if(!y)throw\"Big endian system is not supported.\";var g,B,C=(I=I||{}).inputOffset||0,Q=new Uint8Array(A,C,10),E=String.fromCharCode.apply(null,Q);if(\"CntZImage\"===E.trim())g=h,B=1;else{if(\"Lerc2\"!==E.substring(0,5))throw\"Unexpected file identifier string: \"+E;g=w,B=2}for(var i,e,t,o,a,s,r=0,D=A.byteLength-10,n=[],G={width:0,height:0,pixels:[],pixelType:I.pixelType,mask:null,statistics:[]},S=0;C<D;){var c=g.decode(A,{inputOffset:C,encodedMaskData:i,maskData:t,returnMask:0===r,returnEncodedMask:0===r,returnFileInfo:!0,returnPixelInterleavedDims:I.returnPixelInterleavedDims,pixelType:I.pixelType||null,noDataValue:I.noDataValue||null});C=c.fileInfo.eofOffset,t=c.maskData,0===r&&(i=c.encodedMaskData,G.width=c.width,G.height=c.height,G.dimCount=c.dimCount||1,G.pixelType=c.pixelType||c.fileInfo.pixelType,G.mask=t),B>1&&(t&&n.push(t),c.fileInfo.mask&&c.fileInfo.mask.numBytes>0&&S++),r++,G.pixels.push(c.pixelData),G.statistics.push({minValue:c.minValue,maxValue:c.maxValue,noDataValue:c.noDataValue,dimStats:c.dimStats})}if(B>1&&S>1){for(s=G.width*G.height,G.bandMasks=n,(t=new Uint8Array(s)).set(n[0]),o=1;o<n.length;o++)for(e=n[o],a=0;a<s;a++)t[a]=t[a]&e[a];G.maskData=t}return G}};Eg.exports?Eg.exports=G:this.Lerc=G}();var tg=eg.exports;let og,ag,sg;const rg={env:{emscripten_notify_memory_growth:A=>{sg=new Uint8Array(ag.exports.memory.buffer)}}};const Dg=\"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AikACDcACCAHIDo3AAAgEUEZSA0BIARBGGohBANAIAIpABAhOiAEIAIpABg3AAggBCA6NwAAIAIpACAhOiAEIAIpACg3ABggBCA6NwAQIAJBIGohAiAEQSBqIgQgCkkNAAsMAQsCQAJAIAUoAswCIhEgBUHgAWogJUEHcUEMbGoiDygCACICaiIHIBxLDQAgCSAPKAIEIgogAmoiBmogG0sNACAGQSBqIBQgCWtNDQELIAUgDygCCDYCoAEgBSAPKQIANwOYASAJIBQgBUGYAWogBUHMAmogHCALIBcgIhAgIQYMAQsgAiAJaiEEIA8oAgghFSARKQAAITogCSARKQAINwAIIAkgOjcAAAJAIAJBEUkNACARKQAQITogCSARKQAYNwAYIAkgOjcAECACQRBrQRFIDQAgEUEQaiECIAlBIGohEgNAIAIpABAhOiASIAIpABg3AAggEiA6NwAAIAIpACAhOiASIAIpACg3ABggEiA6NwAQIAJBIGohAiASQSBqIhIgBEkNAAsLIAQgFWshAiAFIAc2AswCIAQgC2sgFUkEQCAVIAQgF2tLDQwgIiAiIAIgC2siD2oiByAKak8EQCAKRQ0CIAQgByAK/AoAAAwCC0EAIA9rIgIEQCAEIAcgAvwKAAALIAogD2ohCiAEIA9rIQQgCyECCyAVQRBPBEAgAikAACE6IAQgAikACDcACCAEIDo3AAAgCkERSA0BIAQgCmohByAEQRBqIQQDQCACKQAQITogBCACKQAYNwAIIAQgOjcAACACKQAgITogBCACKQAoNwAYIAQgOjcAECACQSBqIQIgBEEgaiIEIAdJDQALDAELAkAgFUEHTQRAIAQgAi0AADoAACAEIAItAAE6AAEgBCACLQACOgACIAQgAi0AAzoAAyAEIAIgFUECdCIHQeAaaigCAGoiAigAADYABCACIAdBgBtqKAIAayECDAELIAQgAikAADcAAAsgCkEJSQ0AIAQgCmohDyAEQQhqIgcgAkEIaiICa0EPTARAA0AgByACKQAANwAAIAJBCGohAiAHQQhqIgcgD0kNAAwCCwALIAIpAAAhOiAHIAIpAAg3AAggByA6NwAAIApBGUgNACAEQRhqIQQDQCACKQAQITogBCACKQAYNwAIIAQgOjcAACACKQAgITogBCACKQAoNwAYIAQgOjcAECACQSBqIQIgBEEgaiIEIA9JDQALCyAGQYh/SwRAIAYhAwwLCyAFQeABaiAlQQdxQQxsaiICIA02AgggAiAMNgIEIAIgEDYCAAsgBiAJaiEJICVBAWohJSAQIC1qIAxqIS0MAQsLIAUoArABIAUoArQBRw0HIAUoAqwBQSBHDQcgDiAoayEQA0ACQCAOIBBMBEBBACECA0AgAkEDRg0CIDIgAkECdCIDaiADICZqKAIANgIAIAJBAWohAgwACwALIAVB4AFqIBBBB3FBDGxqIQoCfwJAIAgoAoTsAUECRgRAIAUoAswCIg8gCigCACIEaiIHIAgoAoDsASICSwRAIAIgD0cEQCACIA9rIgIgFCAJa0sNCyAJIA8gAhAfIAogBCACayIENgIAIAIgCWohCQsgBSAWNgLMAiAIQQA2AoTsAQJAAkACQCAEQYCABEoNACAJIAooAgQiDSAEaiIGaiAbSw0AIAZBIGogFCAJa00NAQsgBSAKKAIINgJQIAUgCikCADcDSCAJIBQgBUHIAGogBUHMAmogGSALIBcgIhAgIQYMAQsgBCAWaiEHIAQgCWohDCAKKAIIIQogFikAACE6IAkgFikACDcACCAJIDo3AAACQCAEQRFJDQAgHikAACE6IAkgHikACDcAGCAJIDo3ABAgBEEQa0ERSA0AIAlBIGohAiAeIQQDQCAEKQAQITogAiAEKQAYNwAIIAIgOjcAACAEKQAgITogAiAEKQAoNwAYIAIgOjcAECAEQSBqIQQgAkEgaiICIAxJDQALCyAMIAprIQIgBSAHNgLMAiAMIAtrIApJBEAgCiAMIBdrSw0PICIgIiACIAtrIgdqIgQgDWpPBEAgDUUNAiAMIAQgDfwKAAAMAgtBACAHayICBEAgDCAEIAL8CgAACyAHIA1qIQ0gDCAHayEMIAshAgsgCkEQTwRAIAIpAAAhOiAMIAIpAAg3AAggDCA6NwAAIA1BEUgNASAMIA1qIQcgDEEQaiEEA0AgAikAECE6IAQgAikAGDcACCAEIDo3AAAgAikAICE6IAQgAikAKDcAGCAEIDo3ABAgAkEgaiECIARBIGoiBCAHSQ0ACwwBCwJAIApBB00EQCAMIAItAAA6AAAgDCACLQABOgABIAwgAi0AAjoAAiAMIAItAAM6AAMgDCACIApBAnQiBEHgGmooAgBqIgIoAAA2AAQgAiAEQYAbaigCAGshAgwBCyAMIAIpAAA3AAALIA1BCUkNACAMIA1qIQcgDEEIaiIEIAJBCGoiAmtBD0wEQANAIAQgAikAADcAACACQQhqIQIgBEEIaiIEIAdJDQAMAgsACyACKQAAITogBCACKQAINwAIIAQgOjcAACANQRlIDQAgDEEYaiEEA0AgAikAECE6IAQgAikAGDcACCAEIDo3AAAgAikAICE6IAQgAikAKDcAGCAEIDo3ABAgAkEgaiECIARBIGoiBCAHSQ0ACwsgBkGJf08EQCAGIQMMDgsgGSEcIAYgCWoMAwsgB0EgayECAkACQCAHIBxLDQAgCSAKKAIEIhIgBGoiDGogAksNACAMQSBqIBQgCWtNDQELIAUgCigCCDYCYCAFIAopAgA3A1ggCSAUIAIgBUHYAGogBUHMAmogHCALIBcgIhAhIQwMAgsgBCAJaiEGIAooAgghCiAPKQAAITogCSAPKQAINwAIIAkgOjcAAAJAIARBEUkNACAPKQAQITogCSAPKQAYNwAYIAkgOjcAECAEQRBrQRFIDQAgD0EQaiECIAlBIGohBANAIAIpABAhOiAEIAIpABg3AAggBCA6NwAAIAIpACAhOiAEIAIpACg3ABggBCA6NwAQIAJBIGohAiAEQSBqIgQgBkkNAAsLIAYgCmshAiAFIAc2AswCIAYgC2sgCkkEQCAKIAYgF2tLDQ0gIiAiIAIgC2siB2oiBCASak8EQCASRQ0DIAYgBCAS/AoAAAwDC0EAIAdrIgIEQCAGIAQgAvwKAAALIAcgEmohEiAGIAdrIQYgCyECCyAKQRBPBEAgAikAACE6IAYgAikACDcACCAGIDo3AAAgEkERSA0CIAYgEmohByAGQRBqIQQDQCACKQAQITogBCACKQAYNwAIIAQgOjcAACACKQAgITogBCACKQAoNwAYIAQgOjcAECACQSBqIQIgBEEgaiIEIAdJDQALDAILAkAgCkEHTQRAIAYgAi0AADoAACAGIAItAAE6AAEgBiACLQACOgACIAYgAi0AAzoAAyAGIAIgCkECdCIEQeAaaigCAGoiAigAADYABCACIARBgBtqKAIAayECDAELIAYgAikAADcAAAsgEkEJSQ0BIAYgEmohByAGQQhqIgQgAkEIaiICa0EPTARAA0AgBCACKQAANwAAIAJBCGohAiAE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\",ng={BYTE:1,ASCII:2,SHORT:3,LONG:4,RATIONAL:5,SBYTE:6,UNDEFINED:7,SSHORT:8,SLONG:9,SRATIONAL:10,FLOAT:11,DOUBLE:12,IFD:13,LONG8:16,SLONG8:17,IFD8:18},hg={NewSubfileType:{tag:254,type:ng.LONG,eager:!0},SubfileType:{tag:255,type:ng.SHORT,eager:!0},ImageWidth:{tag:256,type:ng.SHORT,eager:!0},ImageLength:{tag:257,type:ng.SHORT,eager:!0},BitsPerSample:{tag:258,type:ng.SHORT,isArray:!0,eager:!0},Compression:{tag:259,type:ng.SHORT,eager:!0},PhotometricInterpretation:{tag:262,type:ng.SHORT,eager:!0},Threshholding:{tag:263,type:ng.SHORT},CellWidth:{tag:264,type:ng.SHORT},CellLength:{tag:265,type:ng.SHORT},FillOrder:{tag:266,type:ng.SHORT},DocumentName:{tag:269,type:ng.ASCII},ImageDescription:{tag:270,type:ng.ASCII},Make:{tag:271,type:ng.ASCII},Model:{tag:272,type:ng.ASCII},StripOffsets:{tag:273,type:ng.SHORT,isArray:!0},Orientation:{tag:274,type:ng.SHORT},SamplesPerPixel:{tag:277,type:ng.SHORT,eager:!0},RowsPerStrip:{tag:278,type:ng.SHORT,eager:!0},StripByteCounts:{tag:279,type:ng.LONG,isArray:!0},MinSampleValue:{tag:280,type:ng.SHORT,isArray:!0},MaxSampleValue:{tag:281,type:ng.SHORT,isArray:!0},XResolution:{tag:282,type:ng.RATIONAL},YResolution:{tag:283,type:ng.RATIONAL},PlanarConfiguration:{tag:284,type:ng.SHORT,eager:!0},PageName:{tag:285,type:ng.ASCII},XPosition:{tag:286,type:ng.RATIONAL},YPosition:{tag:287,type:ng.RATIONAL},FreeOffsets:{tag:288,type:ng.LONG},FreeByteCounts:{tag:289,type:ng.LONG},GrayResponseUnit:{tag:290,type:ng.SHORT},GrayResponseCurve:{tag:291,type:ng.SHORT,isArray:!0},T4Options:{tag:292,type:ng.LONG},T6Options:{tag:293,type:ng.LONG},ResolutionUnit:{tag:296,type:ng.SHORT},PageNumber:{tag:297,type:ng.SHORT,isArray:!0},TransferFunction:{tag:301,type:ng.SHORT,isArray:!0},Software:{tag:305,type:ng.ASCII},DateTime:{tag:306,type:ng.ASCII},Artist:{tag:315,type:ng.ASCII},HostComputer:{tag:316,type:ng.ASCII},Predictor:{tag:317,type:ng.SHORT},WhitePoint:{tag:318,type:ng.RATIONAL,isArray:!0},PrimaryChromaticities:{tag:319,type:ng.RATIONAL,isArray:!0},ColorMap:{tag:320,type:ng.SHORT,isArray:!0},HalftoneHints:{tag:321,type:ng.SHORT,isArray:!0},TileWidth:{tag:322,type:ng.SHORT,eager:!0},TileLength:{tag:323,type:ng.SHORT,eager:!0},TileOffsets:{tag:324,type:ng.LONG,isArray:!0},TileByteCounts:{tag:325,type:ng.SHORT,isArray:!0},InkSet:{tag:332,type:ng.SHORT},InkNames:{tag:333,type:ng.ASCII},NumberOfInks:{tag:334,type:ng.SHORT},DotRange:{tag:336,type:ng.BYTE,isArray:!0},TargetPrinter:{tag:337,type:ng.ASCII},ExtraSamples:{tag:338,type:ng.BYTE,isArray:!0,eager:!0},SampleFormat:{tag:339,type:ng.SHORT,isArray:!0,eager:!0},SMinSampleValue:{tag:340,isArray:!0},SMaxSampleValue:{tag:341,isArray:!0},TransferRange:{tag:342,type:ng.SHORT,isArray:!0},JPEGProc:{tag:512,type:ng.SHORT},JPEGInterchangeFormat:{tag:513,type:ng.LONG},JPEGInterchangeFormatLngth:{tag:514,type:ng.LONG},JPEGRestartInterval:{tag:515,type:ng.SHORT},JPEGLosslessPredictors:{tag:517,type:ng.SHORT,isArray:!0},JPEGPointTransforms:{tag:518,type:ng.SHORT,isArray:!0},JPEGQTables:{tag:519,type:ng.LONG,isArray:!0},JPEGDCTables:{tag:520,type:ng.LONG,isArray:!0},JPEGACTables:{tag:521,type:ng.LONG,isArray:!0},YCbCrCoefficients:{tag:529,type:ng.RATIONAL,isArray:!0},YCbCrSubSampling:{tag:530,type:ng.SHORT,isArray:!0},YCbCrPositioning:{tag:531,type:ng.SHORT},ReferenceBlackWhite:{tag:532,type:ng.LONG,isArray:!0},Copyright:{tag:33432,type:ng.ASCII},BadFaxLines:{tag:326},CleanFaxData:{tag:327},ClipPath:{tag:343},ConsecutiveBadFaxLines:{tag:328},Decode:{tag:433},DefaultImageColor:{tag:434},Indexed:{tag:346},JPEGTables:{tag:347,isArray:!0,eager:!0},StripRowCounts:{tag:559,isArray:!0},SubIFDs:{tag:330,isArray:!0},XClipPathUnits:{tag:344},YClipPathUnits:{tag:345},ApertureValue:{tag:37378},ColorSpace:{tag:40961},DateTimeDigitized:{tag:36868},DateTimeOriginal:{tag:36867},ExifIFD:{tag:34665,name:\"Exif IFD\",type:ng.LONG},ExifVersion:{tag:36864},ExposureTime:{tag:33434},FileSource:{tag:41728},Flash:{tag:37385},FlashpixVersion:{tag:40960},FNumber:{tag:33437},ImageUniqueID:{tag:42016},LightSource:{tag:37384},MakerNote:{tag:37500},ShutterSpeedValue:{tag:37377},UserComment:{tag:37510},IPTC:{tag:33723},CZ_LSMINFO:{tag:34412},ICCProfile:{tag:34675,name:\"ICC Profile\"},XMP:{tag:700},GDAL_METADATA:{tag:42112},GDAL_NODATA:{tag:42113,type:ng.ASCII,eager:!0},Photoshop:{tag:34377},ModelPixelScale:{tag:33550,type:ng.DOUBLE,isArray:!0,eager:!0},ModelTiepoint:{tag:33922,type:ng.DOUBLE,isArray:!0,eager:!0},ModelTransformation:{tag:34264,type:ng.DOUBLE,isArray:!0,eager:!0},GeoKeyDirectory:{tag:34735,type:ng.SHORT,isArray:!0,eager:!0},GeoDoubleParams:{tag:34736,type:ng.DOUBLE,isArray:!0,eager:!0},GeoAsciiParams:{tag:34737,type:ng.ASCII,eager:!0},LercParameters:{tag:50674,eager:!0}},wg={},yg={};function Gg(A,I,g,B=!1,C=!1){wg[I]=A,yg[A]={tag:A,name:I,type:\"string\"==typeof g?ng[g]:g,isArray:B,eager:C}}for(const[A,I]of Object.entries(hg)){const g=I;Gg(g.tag,g.name||A,g.type,g.isArray,g.eager)}const Sg=1,cg=0,Ng=1,dg=2,lg={1024:\"GTModelTypeGeoKey\",1025:\"GTRasterTypeGeoKey\",1026:\"GTCitationGeoKey\",2048:\"GeographicTypeGeoKey\",2049:\"GeogCitationGeoKey\",2050:\"GeogGeodeticDatumGeoKey\",2051:\"GeogPrimeMeridianGeoKey\",2052:\"GeogLinearUnitsGeoKey\",2053:\"GeogLinearUnitSizeGeoKey\",2054:\"GeogAngularUnitsGeoKey\",2055:\"GeogAngularUnitSizeGeoKey\",2056:\"GeogEllipsoidGeoKey\",2057:\"GeogSemiMajorAxisGeoKey\",2058:\"GeogSemiMinorAxisGeoKey\",2059:\"GeogInvFlatteningGeoKey\",2060:\"GeogAzimuthUnitsGeoKey\",2061:\"GeogPrimeMeridianLongGeoKey\",2062:\"GeogTOWGS84GeoKey\",3072:\"ProjectedCSTypeGeoKey\",3073:\"PCSCitationGeoKey\",3074:\"ProjectionGeoKey\",3075:\"ProjCoordTransGeoKey\",3076:\"ProjLinearUnitsGeoKey\",3077:\"ProjLinearUnitSizeGeoKey\",3078:\"ProjStdParallel1GeoKey\",3079:\"ProjStdParallel2GeoKey\",3080:\"ProjNatOriginLongGeoKey\",3081:\"ProjNatOriginLatGeoKey\",3082:\"ProjFalseEastingGeoKey\",3083:\"ProjFalseNorthingGeoKey\",3084:\"ProjFalseOriginLongGeoKey\",3085:\"ProjFalseOriginLatGeoKey\",3086:\"ProjFalseOriginEastingGeoKey\",3087:\"ProjFalseOriginNorthingGeoKey\",3088:\"ProjCenterLongGeoKey\",3089:\"ProjCenterLatGeoKey\",3090:\"ProjCenterEastingGeoKey\",3091:\"ProjCenterNorthingGeoKey\",3092:\"ProjScaleAtNatOriginGeoKey\",3093:\"ProjScaleAtCenterGeoKey\",3094:\"ProjAzimuthAngleGeoKey\",3095:\"ProjStraightVertPoleLongGeoKey\",3096:\"ProjRectifiedGridAngleGeoKey\",4096:\"VerticalCSTypeGeoKey\",4097:\"VerticalCitationGeoKey\",4098:\"VerticalDatumGeoKey\",4099:\"VerticalUnitsGeoKey\"},kg={};for(const[A,I]of Object.entries(lg))kg[I]=parseInt(A,10);const Fg=new class{init(){return og||(og=\"undefined\"!=typeof fetch?fetch(`data:application/wasm;base64,${Dg}`).then((A=>A.arrayBuffer())).then((A=>WebAssembly.instantiate(A,rg))).then(this._init):WebAssembly.instantiate(Buffer.from(Dg,\"base64\"),rg).then(this._init),og)}_init(A){ag=A.instance,rg.env.emscripten_notify_memory_growth(0)}decode(A,I=0){if(!ag)throw new Error(\"ZSTDDecoder: Await .init() before decoding.\");const g=A.byteLength,B=ag.exports.malloc(g);sg.set(A,B),I=I||Number(ag.exports.ZSTD_findDecompressedSize(B,g));const C=ag.exports.malloc(I),Q=ag.exports.ZSTD_decompress(C,I,B,g),E=sg.slice(C,C+Q);return ag.exports.free(B),ag.exports.free(C),E}};var Rg=Object.freeze({__proto__:null,zstd:Fg,default:class extends i{decodeBlock(A){const I=this.parameters.LercParameters?.[Sg];let g=A;switch(I){case cg:break;case Ng:g=Cg(new Uint8Array(g)).buffer;break;case dg:g=Fg.decode(new Uint8Array(g)).buffer;break;default:throw new Error(`Unsupported LERC additional compression method identifier: ${I}`)}return tg.decode(g,{returnPixelInterleavedDims:1===this.parameters.planarConfiguration}).pixels[0].buffer}}});let Lg,Ug,fg,Yg;const Kg={env:{emscripten_notify_memory_growth:A=>{fg=new Uint8Array(Ug.exports.memory.buffer),Yg=new DataView(fg.buffer)}}};const ug=\"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QQhyIQBBACEDA0AgACADTQ0DIANBQGshAwwACwALQWwhCiAOIA5B/ABqIA5B+ABqIAUgBhAGIgJBiH9LDQEgDigCeCIDIARLDQEgACAOIA4oAnwgByAIIAMgDRAlIAEgADYCACACIQoMAQtBbCEKCyAOQYABaiQAIAoLcAEEfyAAQgA3AgAgAgRAIAFBCmohBiABKAIEIQRBACECQQAhAQNAIAEgBHZFBEAgAiAGIAFBA3RqLQAAIgUgAiAFSxshAiABQQFqIQEgAyAFQRZLaiEDDAELCyAAIAI2AgQgACADQQggBGt0NgIACwuuAQEEfyABIAIoAgQiAyABKAIEaiIENgIEIAAgA0ECdEGwGWooAgAgASgCAEEAIARrdnE2AgACQCAEQSFPBEAgAUGwGjYCCAwBCyABKAIIIgMgASgCEE8EQCABEAwMAQsgAyABKAIMIgVGDQAgASADIAMgBWsgBEEDdiIGIAMgBmsgBUkbIgNrIgU2AgggASAEIANBA3RrNgIEIAEgBSgAADYCAAsgACACQQhqNgIEC40CAgN/AX4gACACaiEEAkACQCACQQhOBEAgACABayICQXlIDQELA0AgACAETw0CIAAgAS0AADoAACAAQQFqIQAgAUEBaiEBDAALAAsCQAJAIAJBb0sNACAAIARBIGsiAksNACABKQAAIQYgACABKQAINwAIIAAgBjcAACACIABrIgVBEU4EQCAAQRBqIQAgASEDA0AgAykAECEGIAAgAykAGDcACCAAIAY3AAAgAykAICEGIAAgAykAKDcAGCAAIAY3ABAgA0EgaiEDIABBIGoiACACSQ0ACwsgASAFaiEBDAELIAAhAgsDQCACIARPDQEgAiABLQAAOgAAIAJBAWohAiABQQFqIQEMAAsACwvfAQEGf0G6fyEKAkAgAigCBCIIIAIoAgAiCWoiDSABIABrSw0AQWwhCiAJIAQgAygCACILa0sNACAAIAlqIgQgAigCCCIMayECIAAgAUEgayIBIAsgCUEAEDMgAyAJIAtqNgIAAkACQCAEIAVrIAxPBEAgAiEFDAELIAwgBCAGa0sNAiAHIAcgAiAFayIDaiICIAhqTwRAIAhFDQIgBCACIAj8CgAADAILQQAgA2siAARAIAQgAiAA/AoAAAsgAyAIaiEIIAQgA2shBAsgBCABIAUgCEEBEDML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\",Mg=new class{init(){return Lg||(Lg=\"undefined\"!=typeof fetch?fetch(`data:application/wasm;base64,${ug}`).then((A=>A.arrayBuffer())).then((A=>WebAssembly.instantiate(A,Kg))).then(this._init):WebAssembly.instantiate(Buffer.from(ug,\"base64\"),Kg).then(this._init),Lg)}_init(A){Ug=A.instance,Kg.env.emscripten_notify_memory_growth(0)}decode(A,I=0){if(!Ug)throw new Error(\"ZSTDDecoder: Await .init() before decoding.\");const g=A.byteLength,B=Ug.exports.malloc(g);if(fg.set(A,B),0===I&&(I=Number(Ug.exports.ZSTD_findDecompressedSize(B,g))),-1===I){Ug.exports.free(B);const I=[];for(const g of this.decodeStreaming([A]))I.push(g);if(1===I.length)return I[0];const g=I.reduce(((A,I)=>A+I.byteLength),0),C=new Uint8Array(g);let Q=0;for(const A of I)C.set(A,Q),Q+=A.byteLength;return C}const C=Ug.exports.malloc(I),Q=Ug.exports.ZSTD_decompress(C,I,B,g),E=fg.slice(C,C+Q);return Ug.exports.free(B),Ug.exports.free(C),E}*decodeStreaming(A){if(!Ug)throw new Error(\"ZSTDDecoder: Await .init() before decoding.\");const I=Ug.exports.ZSTD_DStreamInSize(),g=Ug.exports.malloc(I),B=Ug.exports.ZSTD_DStreamOutSize(),C=Ug.exports.malloc(B),Q=Ug.exports.ZSTD_createDCtx(),E=Ug.exports.malloc(12),i=Ug.exports.malloc(12);let e=0;for(const I of A){const A=Ug.exports.malloc(I.byteLength);for(fg.set(I,A),Yg.setInt32(E,A,!0),Yg.setInt32(E+4,I.byteLength,!0),Yg.setInt32(E+4+4,0,!0);Yg.getUint32(E+4+4,!0)<Yg.getUint32(E+4,!0);){Yg.setInt32(i,C,!0),Yg.setInt32(i+4,B,!0),Yg.setInt32(i+4+4,0,!0),e=Ug.exports.ZSTD_decompressStream(Q,i,E);const A=Yg.getUint32(i+4+4,!0);yield fg.slice(C,C+A)}Ug.exports.free(A)}if(Ug.exports.ZSTD_freeDCtx(Q),Ug.exports.free(g),Ug.exports.free(C),Ug.exports.free(E),Ug.exports.free(i),0!==e)throw new Error(\"Incomplete stream, more data expected.\")}};var Jg=Object.freeze({__proto__:null,zstd:Mg,default:class extends i{decodeBlock(A){return Mg.decode(new Uint8Array(A)).buffer}}});var Hg=Object.freeze({__proto__:null,default:class extends i{constructor(A){if(super(A),\"undefined\"==typeof createImageBitmap)throw new Error(\"Cannot decode WebImage as `createImageBitmap` is not available\");if(\"undefined\"==typeof document&&\"undefined\"==typeof OffscreenCanvas)throw new Error(\"Cannot decode WebImage as neither `document` nor `OffscreenCanvas` is not available\")}async decodeBlock(A){const I=new Blob([A]),g=await createImageBitmap(I);let B;\"undefined\"!=typeof document?(B=document.createElement(\"canvas\"),B.width=g.width,B.height=g.height):B=new OffscreenCanvas(g.width,g.height);const C=B.getContext(\"2d\");C.drawImage(g,0,0);const Q=C.getImageData(0,0,g.width,g.height).data,E=this.parameters.samplesPerPixel||4;if(4===E)return Q.buffer;if(3===E){const A=new Uint8ClampedArray(g.width*g.height*3);for(let I=0,g=0;I<A.length;I+=3,g+=4)A[I]=Q[g],A[I+1]=Q[g+1],A[I+2]=Q[g+2];return A.buffer}throw new Error(`Unsupported SamplesPerPixel value: ${E}`)}}});";
+	return new Ae(typeof Buffer < "u" ? "data:application/javascript;base64," + Buffer.from(e, "binary").toString("base64") : URL.createObjectURL(new Blob([e], { type: "application/javascript" })));
+}
+//#endregion
+//#region node_modules/@geomatico/maplibre-cog-protocol/node_modules/geotiff/dist-module/pool.js
+var Me = typeof navigator < "u" && navigator.hardwareConcurrency || 2, Ne = class {
+	constructor(e) {
+		this.worker = e, this.worker.addEventListener("message", (e) => this._onWorkerMessage(e)), this.jobIdCounter = 0, this.jobs = /* @__PURE__ */ new Map();
+	}
+	newJobId() {
+		return this.jobIdCounter++;
+	}
+	getJobCount() {
+		return this.jobs.size;
+	}
+	_onWorkerMessage(e) {
+		let { jobId: t, error: n, ...r } = e.data, i = this.jobs.get(t);
+		this.jobs.delete(t), n ? i.reject(Error(n)) : i.resolve(r);
+	}
+	submitJob(e, t) {
+		let n = this.newJobId(), r, i, a = new Promise((e, t) => {
+			r = e, i = t;
+		});
+		return this.jobs.set(n, {
+			resolve: r,
+			reject: i
+		}), t ? this.worker.postMessage({
+			...e,
+			jobId: n
+		}, t) : this.worker.postMessage({
+			...e,
+			jobId: n
+		}), a;
+	}
+	terminate() {
+		this.worker.terminate();
+	}
+}, Pe = new FinalizationRegistry((e) => {
+	e.terminate();
+}), Fe = class {
+	constructor(e = Me, t = je) {
+		this.workerWrappers = null, e && (this.workerWrappers = (async () => {
+			let n = [];
+			for (let r = 0; r < e; r++) {
+				let e = t(), r = new Ne(e);
+				n.push(r), Pe.register(r, e, r);
+			}
+			return n;
+		})());
+	}
+	bindParameters(e, t) {
+		return { decode: async (n) => {
+			if (me(e) && this.workerWrappers) {
+				let { decoded: r } = await (await this.workerWrappers).reduce((e, t) => e.getJobCount() < t.getJobCount() ? e : t).submitJob({
+					compression: e,
+					decoderParameters: t,
+					buffer: n
+				}, [n]);
+				return r;
+			} else return (await pe(e, t)).decode(n);
+		} };
+	}
+	async destroy() {
+		this.workerWrappers &&= ((await this.workerWrappers).forEach((e) => {
+			e.terminate();
+		}), null);
+	}
+}, Ie = "\r\n\r\n";
+function Le(e) {
+	if (Object.fromEntries !== void 0) return Object.fromEntries(e);
+	let t = {};
+	for (let [n, r] of e) t[n.toLowerCase()] = r;
+	return t;
+}
+function Re(e) {
+	return Le(e.split("\r\n").map((e) => {
+		let t = e.split(":").map((e) => e.trim());
+		return t[0] = t[0].toLowerCase(), t;
+	}));
+}
+function ze(e) {
+	if (!e) return {
+		type: null,
+		params: {}
+	};
+	let [t, ...n] = e.split(";").map((e) => e.trim());
+	return {
+		type: t,
+		params: Le(n.map((e) => e.split("=")))
+	};
+}
+function Be(e) {
+	let t = NaN, n = NaN, r = NaN;
+	return e && ([, t, n, r] = (e.match(/bytes (\d+)-(\d+)\/(\d+)/) || []).map(Number)), {
+		start: t,
+		end: n,
+		total: r
+	};
+}
+function Ve(e, t) {
+	let n = -1, r = new TextDecoder("ascii"), i = [], a = `--${t}`, o = `${a}--`;
+	for (let t = 0; t < 10; ++t) r.decode(new Uint8Array(e, t, a.length)) === a && (n = t);
+	if (n === -1) throw Error("Could not find initial boundary");
+	for (; n < e.byteLength;) {
+		let t = r.decode(new Uint8Array(e, n, Math.min(a.length + 1024, e.byteLength - n)));
+		if (t.length === 0 || t.startsWith(o)) break;
+		if (!t.startsWith(a)) throw Error("Part does not start with boundary");
+		let s = t.substr(a.length + 2);
+		if (s.length === 0) break;
+		let c = s.indexOf(Ie), l = Re(s.substr(0, c)), { start: u, end: d, total: f } = Be(l["content-range"]), p = n + a.length + c + 4, m = d + 1 - u;
+		i.push({
+			headers: l,
+			data: e.slice(p, p + m),
+			offset: u,
+			length: m,
+			fileSize: f
+		}), n = p + m + 4;
+	}
+	return i;
+}
+//#endregion
+//#region node_modules/@geomatico/maplibre-cog-protocol/node_modules/geotiff/dist-module/source/basesource.js
+var He = class {
+	async fetch(e, t) {
+		return Promise.all(e.map(async (e) => (await this.fetchSlice(e, t)).data));
+	}
+	async fetchSlice(e, t) {
+		throw Error(`fetching of slice ${e} not possible, not implemented`);
+	}
+	get fileSize() {
+		return null;
+	}
+	async close() {}
+}, Ue = class extends Map {
+	constructor(e = {}) {
+		if (super(), !(e.maxSize && e.maxSize > 0)) throw TypeError("`maxSize` must be a number greater than 0");
+		if (typeof e.maxAge == "number" && e.maxAge === 0) throw TypeError("`maxAge` must be a number greater than 0");
+		this.maxSize = e.maxSize, this.maxAge = e.maxAge || Infinity, this.onEviction = e.onEviction, this.cache = /* @__PURE__ */ new Map(), this.oldCache = /* @__PURE__ */ new Map(), this._size = 0;
+	}
+	_emitEvictions(e) {
+		if (typeof this.onEviction == "function") for (let [t, n] of e) this.onEviction(t, n.value);
+	}
+	_deleteIfExpired(e, t) {
+		return typeof t.expiry == "number" && t.expiry <= Date.now() ? (typeof this.onEviction == "function" && this.onEviction(e, t.value), this.delete(e)) : !1;
+	}
+	_getOrDeleteIfExpired(e, t) {
+		if (this._deleteIfExpired(e, t) === !1) return t.value;
+	}
+	_getItemValue(e, t) {
+		return t.expiry ? this._getOrDeleteIfExpired(e, t) : t.value;
+	}
+	_peek(e, t) {
+		let n = t.get(e);
+		return this._getItemValue(e, n);
+	}
+	_set(e, t) {
+		this.cache.set(e, t), this._size++, this._size >= this.maxSize && (this._size = 0, this._emitEvictions(this.oldCache), this.oldCache = this.cache, this.cache = /* @__PURE__ */ new Map());
+	}
+	_moveToRecent(e, t) {
+		this.oldCache.delete(e), this._set(e, t);
+	}
+	*_entriesAscending() {
+		for (let e of this.oldCache) {
+			let [t, n] = e;
+			this.cache.has(t) || this._deleteIfExpired(t, n) === !1 && (yield e);
+		}
+		for (let e of this.cache) {
+			let [t, n] = e;
+			this._deleteIfExpired(t, n) === !1 && (yield e);
+		}
+	}
+	get(e) {
+		if (this.cache.has(e)) {
+			let t = this.cache.get(e);
+			return this._getItemValue(e, t);
+		}
+		if (this.oldCache.has(e)) {
+			let t = this.oldCache.get(e);
+			if (this._deleteIfExpired(e, t) === !1) return this._moveToRecent(e, t), t.value;
+		}
+	}
+	set(e, t, { maxAge: n = this.maxAge } = {}) {
+		let r = typeof n == "number" && n !== Infinity ? Date.now() + n : void 0;
+		return this.cache.has(e) ? this.cache.set(e, {
+			value: t,
+			expiry: r
+		}) : this._set(e, {
+			value: t,
+			expiry: r
+		}), this;
+	}
+	has(e) {
+		return this.cache.has(e) ? !this._deleteIfExpired(e, this.cache.get(e)) : this.oldCache.has(e) ? !this._deleteIfExpired(e, this.oldCache.get(e)) : !1;
+	}
+	peek(e) {
+		if (this.cache.has(e)) return this._peek(e, this.cache);
+		if (this.oldCache.has(e)) return this._peek(e, this.oldCache);
+	}
+	delete(e) {
+		let t = this.cache.delete(e);
+		return t && this._size--, this.oldCache.delete(e) || t;
+	}
+	clear() {
+		this.cache.clear(), this.oldCache.clear(), this._size = 0;
+	}
+	resize(e) {
+		if (!(e && e > 0)) throw TypeError("`maxSize` must be a number greater than 0");
+		let t = [...this._entriesAscending()], n = t.length - e;
+		n < 0 ? (this.cache = new Map(t), this.oldCache = /* @__PURE__ */ new Map(), this._size = t.length) : (n > 0 && this._emitEvictions(t.slice(0, n)), this.oldCache = new Map(t.slice(n)), this.cache = /* @__PURE__ */ new Map(), this._size = 0), this.maxSize = e;
+	}
+	*keys() {
+		for (let [e] of this) yield e;
+	}
+	*values() {
+		for (let [, e] of this) yield e;
+	}
+	*[Symbol.iterator]() {
+		for (let e of this.cache) {
+			let [t, n] = e;
+			this._deleteIfExpired(t, n) === !1 && (yield [t, n.value]);
+		}
+		for (let e of this.oldCache) {
+			let [t, n] = e;
+			this.cache.has(t) || this._deleteIfExpired(t, n) === !1 && (yield [t, n.value]);
+		}
+	}
+	*entriesDescending() {
+		let e = [...this.cache];
+		for (let t = e.length - 1; t >= 0; --t) {
+			let [n, r] = e[t];
+			this._deleteIfExpired(n, r) === !1 && (yield [n, r.value]);
+		}
+		e = [...this.oldCache];
+		for (let t = e.length - 1; t >= 0; --t) {
+			let [n, r] = e[t];
+			this.cache.has(n) || this._deleteIfExpired(n, r) === !1 && (yield [n, r.value]);
+		}
+	}
+	*entriesAscending() {
+		for (let [e, t] of this._entriesAscending()) yield [e, t.value];
+	}
+	get size() {
+		if (!this._size) return this.oldCache.size;
+		let e = 0;
+		for (let t of this.oldCache.keys()) this.cache.has(t) || e++;
+		return Math.min(this._size + e, this.maxSize);
+	}
+	entries() {
+		return this.entriesAscending();
+	}
+	forEach(e, t = this) {
+		for (let [n, r] of this.entriesAscending()) e.call(t, r, n, this);
+	}
+	get [Symbol.toStringTag]() {
+		return JSON.stringify([...this.entriesAscending()]);
+	}
+};
+//#endregion
+//#region node_modules/@geomatico/maplibre-cog-protocol/node_modules/geotiff/dist-module/utils.js
+async function We(e) {
+	return new Promise((t) => setTimeout(t, e));
+}
+function Ge(e, t) {
+	let n = Array.isArray(e) ? e : Array.from(e), r = Array.isArray(t) ? t : Array.from(t);
+	return n.map((e, t) => [e, r[t]]);
+}
+var j = class e extends Error {
+	constructor(...t) {
+		super(...t), Error.captureStackTrace && Error.captureStackTrace(this, e), this.name = "AbortError", this.signal = void 0;
+	}
+}, Ke = class extends Error {
+	constructor(e, t) {
+		super(t), this.errors = e, this.message = t, this.name = "AggregateError";
+	}
+}, qe = class {
+	constructor(e, t, n) {
+		this.offset = e, this.length = t, this.data = n;
+	}
+	get top() {
+		return this.offset + this.length;
+	}
+}, Je = class {
+	constructor(e, t, n) {
+		this.offset = e, this.length = t, this.blockIds = n;
+	}
+}, Ye = class extends He {
+	constructor(e, { blockSize: t = 65536, cacheSize: n = 100 } = {}) {
+		super(), this.source = e, this.blockSize = t, this.blockCache = new Ue({
+			maxSize: n,
+			onEviction: (e, t) => {
+				this.evictedBlocks.set(e, t);
+			}
+		}), this.evictedBlocks = /* @__PURE__ */ new Map(), this.blockRequests = /* @__PURE__ */ new Map(), this.blockIdsToFetch = /* @__PURE__ */ new Set(), this.abortedBlockIds = /* @__PURE__ */ new Set();
+	}
+	get fileSize() {
+		return this.source.fileSize;
+	}
+	async fetch(e, t) {
+		let n = [], r = [], i = [];
+		this.evictedBlocks.clear();
+		for (let { offset: t, length: a } of e) {
+			let e = t + a, { fileSize: o } = this;
+			o !== null && (e = Math.min(e, o));
+			let s = Math.floor(t / this.blockSize) * this.blockSize;
+			for (let t = s; t < e; t += this.blockSize) {
+				let e = Math.floor(t / this.blockSize);
+				!this.blockCache.has(e) && !this.blockRequests.has(e) && (this.blockIdsToFetch.add(e), r.push(e)), this.blockRequests.has(e) && n.push(this.blockRequests.get(e)), i.push(e);
+			}
+		}
+		await We(), this.fetchBlocks(t);
+		let a = [];
+		for (let e of r) this.blockRequests.has(e) && a.push(this.blockRequests.get(e));
+		await Promise.allSettled(n), await Promise.allSettled(a);
+		let o = [], s = i.filter((e) => this.abortedBlockIds.has(e) || !this.blockCache.has(e));
+		if (s.forEach((e) => this.blockIdsToFetch.add(e)), s.length > 0 && t && !t.aborted) {
+			this.fetchBlocks();
+			for (let e of s) {
+				let t = this.blockRequests.get(e);
+				if (!t) throw Error(`Block ${e} is not in the block requests`);
+				o.push(t);
+			}
+			await Promise.allSettled(o);
+		}
+		if (t && t.aborted) throw new j("Request was aborted");
+		let c = i.map((e) => this.blockCache.get(e) || this.evictedBlocks.get(e)), l = c.filter((e) => !e);
+		if (l.length) throw new Ke(l, "Request failed");
+		let u = new Map(Ge(i, c));
+		return this.readSliceData(e, u);
+	}
+	fetchBlocks(e) {
+		if (this.blockIdsToFetch.size > 0) {
+			let t = this.groupBlocks(this.blockIdsToFetch), n = t.map(async (t) => ({
+				...t,
+				...await this.source.fetchSlice(t, e)
+			}));
+			for (let r = 0; r < t.length; ++r) {
+				let i = t[r];
+				for (let t of i.blockIds) this.blockRequests.set(t, (async () => {
+					try {
+						let e = (await Promise.all(n))[r], i = t * this.blockSize, a = i - e.offset, o = Math.min(a + this.blockSize, e.data.byteLength), s = e.data.slice(a, o), c = new qe(i, s.byteLength, s);
+						this.blockCache.set(t, c), this.abortedBlockIds.delete(t);
+					} catch (n) {
+						if (n instanceof j && n.name === "AbortError") n.signal = e, this.blockCache.delete(t), this.abortedBlockIds.add(t);
+						else throw n;
+					} finally {
+						this.blockRequests.delete(t);
+					}
+				})());
+			}
+			this.blockIdsToFetch.clear();
+		}
+	}
+	groupBlocks(e) {
+		let t = Array.from(e).sort((e, t) => e - t);
+		if (t.length === 0) return [];
+		let n = [], r = null, i = [];
+		for (let e of t) r === null || r + 1 === e ? (n.push(e), r = e) : (i.push(new Je(n[0] * this.blockSize, n.length * this.blockSize, n)), n = [e], r = e);
+		return i.push(new Je(n[0] * this.blockSize, n.length * this.blockSize, n)), i;
+	}
+	readSliceData(e, t) {
+		return e.map((e) => {
+			let n = e.offset + e.length;
+			this.fileSize !== null && (n = Math.min(this.fileSize, n));
+			let r = Math.floor(e.offset / this.blockSize), i = Math.floor((n - 1) / this.blockSize), a = new ArrayBuffer(e.length), o = new Uint8Array(a);
+			for (let a = r; a <= i; ++a) {
+				let r = t.get(a);
+				if (!r) continue;
+				let i = r.offset - e.offset, s = r.top - n, c = 0, l = 0, u;
+				i < 0 ? c = -i : i > 0 && (l = i), u = s < 0 ? r.length - c : n - r.offset - c;
+				let d = new Uint8Array(r.data, c, u);
+				o.set(d, l);
+			}
+			return a;
+		});
+	}
+}, Xe = class {
+	get ok() {
+		return this.status >= 200 && this.status <= 299;
+	}
+	get status() {
+		throw Error("not implemented");
+	}
+	getHeader(e) {
+		throw Error("not implemented");
+	}
+	async getData() {
+		throw Error("not implemented");
+	}
+}, Ze = class {
+	constructor(e) {
+		this.url = e;
+	}
+	async request(e) {
+		throw Error("request is not implemented");
+	}
+}, Qe = class extends Xe {
+	constructor(e) {
+		super(), this.response = e;
+	}
+	get status() {
+		return this.response.status;
+	}
+	getHeader(e) {
+		return this.response.headers.get(e) || void 0;
+	}
+	async getData() {
+		return this.response.arrayBuffer ? await this.response.arrayBuffer() : (await this.response.buffer()).buffer;
+	}
+}, $e = class extends Ze {
+	constructor(e, t) {
+		super(e), this.credentials = t;
+	}
+	async request({ headers: e, signal: t } = {}) {
+		return new Qe(await fetch(this.url, {
+			headers: e,
+			credentials: this.credentials,
+			signal: t
+		}));
+	}
+}, et = class extends Xe {
+	constructor(e, t) {
+		super(), this.xhr = e, this.data = t;
+	}
+	get status() {
+		return this.xhr.status;
+	}
+	getHeader(e) {
+		return this.xhr.getResponseHeader(e) || void 0;
+	}
+	async getData() {
+		return this.data;
+	}
+}, tt = class extends Ze {
+	constructRequest(e, t) {
+		return new Promise((n, r) => {
+			let i = new XMLHttpRequest();
+			i.open("GET", this.url), i.responseType = "arraybuffer";
+			for (let [t, n] of Object.entries(e)) i.setRequestHeader(t, n);
+			i.onload = () => {
+				let e = i.response;
+				n(new et(i, e));
+			}, i.onerror = r, i.onabort = () => r(new j("Request aborted")), i.send(), t && (t.aborted && i.abort(), t.addEventListener("abort", () => i.abort()));
+		});
+	}
+	async request({ headers: e = {}, signal: t = void 0 } = {}) {
+		return await this.constructRequest(e, t);
+	}
+}, nt = /* @__PURE__ */ e(l(), 1), rt = class extends Xe {
+	constructor(e, t) {
+		super(), this.response = e, this.dataPromise = t;
+	}
+	get status() {
+		return this.response.statusCode;
+	}
+	getHeader(e) {
+		let t = this.response.headers[e];
+		return Array.isArray(t) ? t.join(", ") : t;
+	}
+	async getData() {
+		return await this.dataPromise;
+	}
+}, it = class extends Ze {
+	constructor(e) {
+		super(e), this.parsedUrl = nt.default.parse(this.url), this.httpApi = (this.parsedUrl.protocol, nt.default);
+	}
+	constructRequest(e, t) {
+		return new Promise((n, r) => {
+			let i = this.httpApi.get({
+				...this.parsedUrl,
+				headers: e
+			}, (e) => {
+				n(new rt(e, new Promise((t) => {
+					let n = [];
+					e.on("data", (e) => {
+						n.push(e);
+					}), e.on("end", () => {
+						let e = Buffer.concat(n).buffer;
+						t(e);
+					}), e.on("error", r);
+				})));
+			});
+			i.on("error", r), t && (t.aborted && i.destroy(new j("Request aborted")), t.addEventListener("abort", () => i.destroy(new j("Request aborted"))));
+		});
+	}
+	async request({ headers: e = {}, signal: t = void 0 } = {}) {
+		return await this.constructRequest(e, t);
+	}
+}, at = class extends He {
+	constructor(e, { headers: t, maxRanges: n = 0, allowFullFile: r } = {}) {
+		super(), this.client = e, this.headers = t, this.maxRanges = n, this.allowFullFile = r, this._fileSize = null;
+	}
+	async fetch(e, t) {
+		return this.maxRanges >= e.length ? this.fetchSlices(e, t).then((e) => e.map((e) => e.data)) : (this.maxRanges > 0 && e.length, Promise.all(e.map(async (e) => (await this.fetchSlice(e, t)).data)));
+	}
+	async fetchSlices(e, t) {
+		let n = await this.client.request({
+			headers: {
+				...this.headers,
+				Range: `bytes=${e.map(({ offset: e, length: t }) => `${e}-${e + t - 1}`).join(",")}`
+			},
+			signal: t
+		});
+		if (!n.ok) throw Error("Error fetching data.");
+		if (n.status === 206) {
+			let { type: r, params: i } = ze(n.getHeader("content-type"));
+			if (r === "multipart/byteranges") {
+				let e = Ve(await n.getData(), i.boundary);
+				return this._fileSize = e[0].fileSize || null, e;
+			}
+			let a = await n.getData(), { start: o, end: s, total: c } = Be(n.getHeader("content-range"));
+			this._fileSize = c || null;
+			let l = [{
+				data: a,
+				offset: o,
+				length: s + 1 - o
+			}];
+			if (e.length > 1) {
+				let n = await Promise.all(e.slice(1).map((e) => this.fetchSlice(e, t)));
+				return l.concat(n);
+			}
+			return l;
+		} else {
+			if (!this.allowFullFile) throw Error("Server responded with full file");
+			let e = await n.getData();
+			return this._fileSize = e.byteLength, [{
+				data: e,
+				offset: 0,
+				length: e.byteLength
+			}];
+		}
+	}
+	async fetchSlice(e, t) {
+		let { offset: n, length: r } = e, i = await this.client.request({
+			headers: {
+				...this.headers,
+				Range: `bytes=${n}-${n + r - 1}`
+			},
+			signal: t
+		});
+		if (!i.ok) throw Error("Error fetching data.");
+		if (i.status === 206) {
+			let e = await i.getData(), { total: t } = Be(i.getHeader("content-range"));
+			return this._fileSize = t || null, {
+				data: e,
+				offset: n,
+				length: r
+			};
+		} else {
+			if (!this.allowFullFile) throw Error("Server responded with full file");
+			let e = await i.getData();
+			return this._fileSize = e.byteLength, {
+				data: e,
+				offset: 0,
+				length: e.byteLength
+			};
+		}
+	}
+	get fileSize() {
+		return this._fileSize;
+	}
+};
+function ot(e, { blockSize: t, cacheSize: n }) {
+	return t === void 0 ? e : new Ye(e, {
+		blockSize: t,
+		cacheSize: n
+	});
+}
+function st(e, { headers: t = {}, credentials: n, maxRanges: r = 0, allowFullFile: i = !1, ...a } = {}) {
+	return ot(new at(new $e(e, n), {
+		headers: t,
+		maxRanges: r,
+		allowFullFile: i
+	}), a);
+}
+function ct(e, { headers: t = {}, maxRanges: n = 0, allowFullFile: r = !1, ...i } = {}) {
+	return ot(new at(new tt(e), {
+		headers: t,
+		maxRanges: n,
+		allowFullFile: r
+	}), i);
+}
+function lt(e, { headers: t = {}, maxRanges: n = 0, allowFullFile: r = !1, ...i } = {}) {
+	return ot(new at(new it(e), {
+		headers: t,
+		maxRanges: n,
+		allowFullFile: r
+	}), i);
+}
+function ut(e, { forceXHR: t = !1, ...n } = {}) {
+	return typeof fetch == "function" && !t ? st(e, n) : typeof XMLHttpRequest < "u" ? ct(e, n) : lt(e, n);
+}
+//#endregion
+//#region node_modules/@geomatico/maplibre-cog-protocol/node_modules/geotiff/dist-module/imagefiledirectory.js
+function M(e, t) {
+	switch (e) {
+		case i.BYTE:
+		case i.ASCII:
+		case i.UNDEFINED: return new Uint8Array(t);
+		case i.SBYTE: return new Int8Array(t);
+		case i.SHORT: return new Uint16Array(t);
+		case i.SSHORT: return new Int16Array(t);
+		case i.LONG:
+		case i.IFD: return new Uint32Array(t);
+		case i.SLONG: return new Int32Array(t);
+		case i.LONG8:
+		case i.IFD8: return Array(t);
+		case i.SLONG8: return Array(t);
+		case i.RATIONAL: return new Uint32Array(t * 2);
+		case i.SRATIONAL: return new Int32Array(t * 2);
+		case i.FLOAT: return new Float32Array(t);
+		case i.DOUBLE: return new Float64Array(t);
+		default: throw RangeError(`Invalid field type: ${e}`);
+	}
+}
+function N(e, t) {
+	switch (t) {
+		case i.BYTE:
+		case i.ASCII:
+		case i.UNDEFINED: return e.readUint8;
+		case i.SBYTE: return e.readInt8;
+		case i.SHORT: return e.readUint16;
+		case i.SSHORT: return e.readInt16;
+		case i.LONG:
+		case i.IFD: return e.readUint32;
+		case i.SLONG: return e.readInt32;
+		case i.LONG8:
+		case i.IFD8: return e.readUint64;
+		case i.SLONG8: return e.readInt64;
+		case i.RATIONAL: return e.readUint32;
+		case i.SRATIONAL: return e.readInt32;
+		case i.FLOAT: return e.readFloat32;
+		case i.DOUBLE: return e.readFloat64;
+		default: throw RangeError(`Invalid field type: ${t}`);
+	}
+}
+function P(e = null, t, n, r, a, s, c = !1) {
+	let l = o(r), u = e || M(r, a), d = r === i.RATIONAL || r === i.SRATIONAL;
+	if (d) for (let e = 0; e < a; e += 2) u[e] = t.call(n, s + e * l), u[e + 1] = t.call(n, s + (e * l + 4));
+	else for (let e = 0; e < a; ++e) u[e] = t.call(n, s + e * l);
+	return r === i.ASCII ? new TextDecoder("utf-8").decode(u) : a === 1 && !c && !d ? u[0] : u;
+}
+var dt = class {
+	constructor(e, t, n, r, i) {
+		this.source = e, this.arrayOffset = t, this.littleEndian = n, this.fieldType = r, this.length = i, this.data = M(r, i), this.itemSize = o(r), this.maskBitmap = new Uint8Array(Math.ceil(i / 8)), this.fetchIndexPromises = /* @__PURE__ */ new Map(), this.fullFetchPromise = null;
+	}
+	async loadAll() {
+		return this.fullFetchPromise ||= this.source.fetch([{
+			offset: this.arrayOffset,
+			length: this.itemSize * this.length
+		}]).then((e) => {
+			let t = new ke(e[0], this.arrayOffset, !0, !1), n = P(this.data, N(t, this.fieldType), t, this.fieldType, this.length, this.arrayOffset, !0);
+			return this.maskBitmap.fill(255), this.fetchIndexPromises.clear(), n;
+		}), this.fullFetchPromise;
+	}
+	async get(e) {
+		if (e < 0 || e >= this.data.length) throw RangeError(`Index ${e} out of bounds for length ${this.data.length}`);
+		let t = Math.floor(e / 8), n = 1 << e % 8, r = this.arrayOffset + e * this.itemSize;
+		if ((this.maskBitmap[t] & n) === 0) {
+			if (!this.fetchIndexPromises.has(e)) {
+				let i = this.source.fetch([{
+					offset: r,
+					length: this.itemSize
+				}]).then((i) => {
+					let a = new ke(i[0], this.arrayOffset + e * this.itemSize, !0, !1), o = N(a, this.fieldType).call(a, r);
+					return this.data[e] = o, this.maskBitmap[t] |= n, this.fetchIndexPromises.delete(e), o;
+				});
+				this.fetchIndexPromises.set(e, i);
+			}
+			return this.fetchIndexPromises.get(e);
+		}
+		return this.data[e];
+	}
+}, ft = class {
+	constructor(e, t, n, r) {
+		this.actualizedFields = e, this.deferredFields = t, this.deferredFieldsBeingResolved = /* @__PURE__ */ new Map(), this.deferredArrays = n, this.nextIFDByteOffset = r;
+	}
+	hasTag(e) {
+		let t = r(e);
+		return this.actualizedFields.has(t) || this.deferredFields.has(t) || this.deferredArrays.has(t);
+	}
+	getValue(e) {
+		let t = r(e);
+		if (this.deferredFields.has(t) || this.deferredArrays.has(t)) {
+			let e = a[t]?.name || `Tag${t}`;
+			throw Error(`Field '${e}' (${t}) is deferred. Use loadValue() to load it asynchronously.`);
+		}
+		if (this.actualizedFields.has(t)) return this.actualizedFields.get(t);
+	}
+	async loadValue(e) {
+		let t = r(e);
+		if (this.actualizedFields.has(t)) return this.actualizedFields.get(t);
+		if (this.deferredFieldsBeingResolved.has(t)) return this.deferredFieldsBeingResolved.get(t);
+		let n = this.deferredFields.get(t);
+		if (n) {
+			this.deferredFields.delete(t);
+			let e = (async () => {
+				try {
+					let e = await n();
+					return this.actualizedFields.set(t, e), e;
+				} finally {
+					this.deferredFieldsBeingResolved.delete(t);
+				}
+			})();
+			return this.deferredFieldsBeingResolved.set(t, e), e;
+		}
+		let i = this.deferredArrays.get(t);
+		if (i) return i.loadAll();
+	}
+	async loadValueIndexed(e, t) {
+		let n = r(e);
+		if (this.actualizedFields.has(n)) return this.actualizedFields.get(n)[t];
+		if (this.deferredArrays.has(n)) return this.deferredArrays.get(n).get(t);
+		if (this.hasTag(n)) {
+			let e = await this.loadValue(n);
+			if (e && typeof e != "number") return e[t];
+		}
+	}
+	parseGeoKeyDirectory() {
+		let e = this.getValue("GeoKeyDirectory");
+		if (!e) return null;
+		let t = {};
+		for (let r = 4; r <= e[3] * 4; r += 4) {
+			let i = n[e[r]], a = e[r + 1] || null, o = e[r + 2], s = e[r + 3], c = null;
+			if (!a) c = s;
+			else {
+				if (c = this.getValue(a), c == null) throw Error(`Could not get value of geoKey '${i}'.`);
+				typeof c == "string" ? c = c.substring(s, s + o - 1) : c.subarray && (c = c.subarray(s, s + o), o === 1 && (c = c[0]));
+			}
+			t[i] = c;
+		}
+		return t;
+	}
+	toObject() {
+		let e = {};
+		for (let [t, n] of this.actualizedFields.entries()) {
+			let r = typeof t == "number" ? a[t] : void 0, i = r ? r.name : `Tag${t}`;
+			e[i] = n;
+		}
+		return e;
+	}
+}, pt = class {
+	constructor(e, t, n, r = !1) {
+		this.source = e, this.littleEndian = t, this.bigTiff = n, this.eager = r;
+	}
+	async getSlice(e, t) {
+		let n = this.bigTiff ? 4048 : 1024;
+		return new ke((await this.source.fetch([{
+			offset: e,
+			length: t === void 0 ? n : t
+		}]))[0], e, this.littleEndian, this.bigTiff);
+	}
+	async parseFileDirectoryAt(e) {
+		let t = this.bigTiff ? 20 : 12, n = this.bigTiff ? 8 : 2, r = await this.getSlice(e), i = this.bigTiff ? r.readUint64(e) : r.readUint16(e), s = i * (t + (this.bigTiff ? 16 : 6));
+		r.covers(e, s) || (r = await this.getSlice(e, s));
+		let c = /* @__PURE__ */ new Map(), l = /* @__PURE__ */ new Map(), u = /* @__PURE__ */ new Map(), d = e + (this.bigTiff ? 8 : 2);
+		for (let e = 0; e < i; d += t, ++e) {
+			let e = r.readUint16(d), t = r.readUint16(d + 2), n = this.bigTiff ? r.readUint64(d + 4) : r.readUint32(d + 4), i = null, s = null, f = null, p = o(t), m = d + (this.bigTiff ? 12 : 8), h = a[e]?.isArray, g = a[e]?.eager || this.eager;
+			if (p * n <= (this.bigTiff ? 8 : 4)) i = P(M(t, n), N(r, t), r, t, n, m, h);
+			else {
+				let e = r.readOffset(m), a = o(t) * n;
+				if (r.covers(e, a)) i = P(M(t, n), N(r, t), r, t, n, e, h);
+				else if (g) {
+					let r = await this.getSlice(e, a);
+					i = P(M(t, n), N(r, t), r, t, n, e, h);
+				} else h ? f = new dt(this.source, e, this.littleEndian, t, n) : s = async () => {
+					let r = await this.getSlice(e, a);
+					return P(M(t, n), N(r, t), r, t, n, e, h);
+				};
+			}
+			i === null ? s === null ? f !== null && u.set(e, f) : l.set(e, s) : c.set(e, i);
+		}
+		return new ft(c, l, u, r.readOffset(e + n + t * i));
+	}
+};
+//#endregion
+//#region node_modules/@geomatico/maplibre-cog-protocol/node_modules/geotiff/dist-module/geotiff.js
+function mt(e, t, n, r) {
+	let a = null, s = null, c = o(t);
+	switch (t) {
+		case i.BYTE:
+		case i.ASCII:
+		case i.UNDEFINED:
+			a = new Uint8Array(n), s = e.readUint8;
+			break;
+		case i.SBYTE:
+			a = new Int8Array(n), s = e.readInt8;
+			break;
+		case i.SHORT:
+			a = new Uint16Array(n), s = e.readUint16;
+			break;
+		case i.SSHORT:
+			a = new Int16Array(n), s = e.readInt16;
+			break;
+		case i.LONG:
+		case i.IFD:
+			a = new Uint32Array(n), s = e.readUint32;
+			break;
+		case i.SLONG:
+			a = new Int32Array(n), s = e.readInt32;
+			break;
+		case i.LONG8:
+		case i.IFD8:
+			a = Array(n), s = e.readUint64;
+			break;
+		case i.SLONG8:
+			a = Array(n), s = e.readInt64;
+			break;
+		case i.RATIONAL:
+			a = new Uint32Array(n * 2), s = e.readUint32;
+			break;
+		case i.SRATIONAL:
+			a = new Int32Array(n * 2), s = e.readInt32;
+			break;
+		case i.FLOAT:
+			a = new Float32Array(n), s = e.readFloat32;
+			break;
+		case i.DOUBLE:
+			a = new Float64Array(n), s = e.readFloat64;
+			break;
+		default:
+	}
+	if (a === null || s === null) throw RangeError(`Invalid field type: ${t}`);
+	if (t === i.RATIONAL || t === i.SRATIONAL) for (let t = 0; t < n; t += 2) a[t] = s.call(e, r + t * c), a[t + 1] = s.call(e, r + (t * c + 4));
+	else for (let t = 0; t < n; ++t) a[t] = s.call(e, r + t * c);
+	return t === i.ASCII ? new TextDecoder("utf-8").decode(a) : a;
+}
+var ht = class extends Error {
+	constructor(e) {
+		super(`No image at index ${e}`), this.index = e;
+	}
+}, gt = class {
+	async getImage(e = 0) {
+		throw Error("Not implemented");
+	}
+	async getImageCount() {
+		throw Error("Not implemented");
+	}
+	async readRasters(e = {}) {
+		let { window: t, width: n, height: r } = e, { resX: i, resY: a, bbox: o } = e, s = await this.getImage(), c = s, l = await this.getImageCount(), u = s.getBoundingBox();
+		if (t && o) throw Error("Both \"bbox\" and \"window\" passed.");
+		if (n || r) {
+			if (t) {
+				let [e, n] = s.getOrigin(), [r, i] = s.getResolution();
+				o = [
+					e + t[0] * r,
+					n + t[1] * i,
+					e + t[2] * r,
+					n + t[3] * i
+				];
+			}
+			let e = o || u;
+			if (n) {
+				if (i) throw Error("Both width and resX passed");
+				i = (e[2] - e[0]) / n;
+			}
+			if (r) {
+				if (a) throw Error("Both width and resY passed");
+				a = (e[3] - e[1]) / r;
+			}
+		}
+		if (i || a) {
+			let e = [];
+			for (let t = 0; t < l; ++t) {
+				let n = await this.getImage(t), r = n.fileDirectory.getValue("SubfileType"), i = n.fileDirectory.getValue("NewSubfileType");
+				(t === 0 || r === 2 || (i || 0) & 1) && e.push(n);
+			}
+			e.sort((e, t) => e.getWidth() - t.getWidth());
+			for (let t = 0; t < e.length; ++t) {
+				let n = e[t], r = (u[2] - u[0]) / n.getWidth(), o = (u[3] - u[1]) / n.getHeight();
+				if (c = n, i && i > r || a && a > o) break;
+			}
+		}
+		let d = t;
+		if (o) {
+			let [e, t] = s.getOrigin(), [n, r] = c.getResolution(s);
+			d = [
+				Math.round((o[0] - e) / n),
+				Math.round((o[1] - t) / r),
+				Math.round((o[2] - e) / n),
+				Math.round((o[3] - t) / r)
+			], d = [
+				Math.min(d[0], d[2]),
+				Math.min(d[1], d[3]),
+				Math.max(d[0], d[2]),
+				Math.max(d[1], d[3])
+			];
+		}
+		return c.readRasters({
+			...e,
+			window: d
+		});
+	}
+}, _t = class e extends gt {
+	constructor(e, t, n, r, i = {}) {
+		super(), this.source = e, this.parser = new pt(e, t, n, !1), this.littleEndian = t, this.bigTiff = n, this.firstIFDOffset = r, this.cache = i.cache || !1, this.ifdRequests = [], this.ghostValues = null;
+	}
+	async getSlice(e, t) {
+		let n = this.bigTiff ? 4048 : 1024;
+		return new ke((await this.source.fetch([{
+			offset: e,
+			length: t === void 0 ? n : t
+		}]))[0], e, this.littleEndian, this.bigTiff);
+	}
+	async requestIFD(e) {
+		if (this.ifdRequests[e]) return this.ifdRequests[e];
+		if (e === 0) return this.ifdRequests[e] = this.parser.parseFileDirectoryAt(this.firstIFDOffset), this.ifdRequests[e];
+		if (!this.ifdRequests[e - 1]) try {
+			this.ifdRequests[e - 1] = this.requestIFD(e - 1);
+		} catch (t) {
+			throw t instanceof ht ? new ht(e) : t;
+		}
+		return this.ifdRequests[e] = (async () => {
+			let t = this.ifdRequests[e - 1];
+			if (!t) throw Error("Previous IFD request missing");
+			let n = await t;
+			if (n.nextIFDByteOffset === 0) throw new ht(e);
+			return this.parser.parseFileDirectoryAt(n.nextIFDByteOffset);
+		})(), this.ifdRequests[e];
+	}
+	async getImage(e = 0) {
+		return new De(await this.requestIFD(e), this.littleEndian, this.cache, this.source);
+	}
+	async getImageCount() {
+		let e = 0, t = !0;
+		for (; t;) try {
+			await this.requestIFD(e), ++e;
+		} catch (e) {
+			if (e instanceof ht) t = !1;
+			else throw e;
+		}
+		return e;
+	}
+	async getGhostValues() {
+		let e = this.bigTiff ? 16 : 8;
+		if (this.ghostValues !== null) return this.ghostValues;
+		let t = await this.getSlice(e, 130);
+		if (mt(t, i.ASCII, 30, e) === "GDAL_STRUCTURAL_METADATA_SIZE=") {
+			let n = mt(t, i.ASCII, 130, e).split("\n")[0], r = Number(n.split("=")[1].split(" ")[0]) + n.length;
+			r > 130 && (t = await this.getSlice(e, r));
+			let a = mt(t, i.ASCII, r, e), o = {};
+			a.split("\n").filter((e) => e.length > 0).map((e) => e.split("=")).forEach(([e, t]) => {
+				o[e] = t;
+			}), this.ghostValues = o;
+		}
+		return this.ghostValues;
+	}
+	static async fromSource(t, n, r) {
+		let i = (await t.fetch([{
+			offset: 0,
+			length: 1024
+		}], r))[0], a = new Oe(i), o = a.getUint16(0, !1), s;
+		if (o === 18761) s = !0;
+		else if (o === 19789) s = !1;
+		else throw TypeError("Invalid byte order value.");
+		let c = a.getUint16(2, s), l;
+		if (c === 42) l = !1;
+		else if (c === 43) {
+			if (l = !0, a.getUint16(4, s) !== 8) throw Error("Unsupported offset byte-size.");
+		} else throw TypeError("Invalid magic number.");
+		let u = l ? a.getUint64(8, s) : a.getUint32(4, s);
+		return new e(t, s, l, u, n);
+	}
+	close() {
+		return typeof this.source.close == "function" ? this.source.close() : !1;
+	}
+};
+async function vt(e, t = {}, n) {
+	return _t.fromSource(ut(e, t), void 0, n);
+}
+//#endregion
+//#region node_modules/@geomatico/maplibre-cog-protocol/node_modules/quick-lru/index.js
+var yt = class extends Map {
+	#e = 0;
+	#t = /* @__PURE__ */ new Map();
+	#n = /* @__PURE__ */ new Map();
+	#r;
+	#i;
+	#a;
+	constructor(e = {}) {
+		if (super(), !(e.maxSize && e.maxSize > 0)) throw TypeError("`maxSize` must be a number greater than 0");
+		if (typeof e.maxAge == "number" && e.maxAge === 0) throw TypeError("`maxAge` must be a number greater than 0");
+		this.#r = e.maxSize, this.#i = e.maxAge || Infinity, this.#a = e.onEviction;
+	}
+	get __oldCache() {
+		return this.#n;
+	}
+	#o(e) {
+		if (typeof this.#a == "function") for (let [t, n] of e) this.#a(t, n.value);
+	}
+	#s(e, t) {
+		return typeof t.expiry == "number" && t.expiry <= Date.now() ? (typeof this.#a == "function" && this.#a(e, t.value), this.delete(e)) : !1;
+	}
+	#c(e, t) {
+		if (this.#s(e, t) === !1) return t.value;
+	}
+	#l(e, t) {
+		return t.expiry ? this.#c(e, t) : t.value;
+	}
+	#u(e, t) {
+		let n = t.get(e);
+		return this.#l(e, n);
+	}
+	#d(e, t) {
+		this.#t.set(e, t), this.#e++, this.#e >= this.#r && (this.#e = 0, this.#o(this.#n), this.#n = this.#t, this.#t = /* @__PURE__ */ new Map());
+	}
+	#f(e, t) {
+		this.#n.delete(e), this.#d(e, t);
+	}
+	*#p() {
+		for (let e of this.#n) {
+			let [t, n] = e;
+			this.#t.has(t) || this.#s(t, n) === !1 && (yield e);
+		}
+		for (let e of this.#t) {
+			let [t, n] = e;
+			this.#s(t, n) === !1 && (yield e);
+		}
+	}
+	get(e) {
+		if (this.#t.has(e)) {
+			let t = this.#t.get(e);
+			return this.#l(e, t);
+		}
+		if (this.#n.has(e)) {
+			let t = this.#n.get(e);
+			if (this.#s(e, t) === !1) return this.#f(e, t), t.value;
+		}
+	}
+	set(e, t, { maxAge: n = this.#i } = {}) {
+		let r = typeof n == "number" && n !== Infinity ? Date.now() + n : void 0;
+		return this.#t.has(e) ? this.#t.set(e, {
+			value: t,
+			expiry: r
+		}) : this.#d(e, {
+			value: t,
+			expiry: r
+		}), this;
+	}
+	has(e) {
+		return this.#t.has(e) ? !this.#s(e, this.#t.get(e)) : this.#n.has(e) ? !this.#s(e, this.#n.get(e)) : !1;
+	}
+	peek(e) {
+		if (this.#t.has(e)) return this.#u(e, this.#t);
+		if (this.#n.has(e)) return this.#u(e, this.#n);
+	}
+	expiresIn(e) {
+		let t = this.#t.get(e) ?? this.#n.get(e);
+		if (t) return t.expiry ? t.expiry - Date.now() : Infinity;
+	}
+	delete(e) {
+		let t = this.#t.delete(e);
+		return t && this.#e--, this.#n.delete(e) || t;
+	}
+	clear() {
+		this.#t.clear(), this.#n.clear(), this.#e = 0;
+	}
+	resize(e) {
+		if (!(e && e > 0)) throw TypeError("`maxSize` must be a number greater than 0");
+		let t = [...this.#p()], n = t.length - e;
+		n < 0 ? (this.#t = new Map(t), this.#n = /* @__PURE__ */ new Map(), this.#e = t.length) : (n > 0 && this.#o(t.slice(0, n)), this.#n = new Map(t.slice(n)), this.#t = /* @__PURE__ */ new Map(), this.#e = 0), this.#r = e;
+	}
+	evict(e = 1) {
+		let t = Number(e);
+		if (!t || t <= 0) return;
+		let n = [...this.#p()], r = Math.trunc(Math.min(t, Math.max(n.length - 1, 0)));
+		r <= 0 || (this.#o(n.slice(0, r)), this.#n = new Map(n.slice(r)), this.#t = /* @__PURE__ */ new Map(), this.#e = 0);
+	}
+	*keys() {
+		for (let [e] of this) yield e;
+	}
+	*values() {
+		for (let [, e] of this) yield e;
+	}
+	*[Symbol.iterator]() {
+		for (let e of this.#t) {
+			let [t, n] = e;
+			this.#s(t, n) === !1 && (yield [t, n.value]);
+		}
+		for (let e of this.#n) {
+			let [t, n] = e;
+			this.#t.has(t) || this.#s(t, n) === !1 && (yield [t, n.value]);
+		}
+	}
+	*entriesDescending() {
+		let e = [...this.#t];
+		for (let t = e.length - 1; t >= 0; --t) {
+			let [n, r] = e[t];
+			this.#s(n, r) === !1 && (yield [n, r.value]);
+		}
+		e = [...this.#n];
+		for (let t = e.length - 1; t >= 0; --t) {
+			let [n, r] = e[t];
+			this.#t.has(n) || this.#s(n, r) === !1 && (yield [n, r.value]);
+		}
+	}
+	*entriesAscending() {
+		for (let [e, t] of this.#p()) yield [e, t.value];
+	}
+	get size() {
+		if (!this.#e) return this.#n.size;
+		let e = 0;
+		for (let t of this.#n.keys()) this.#t.has(t) || e++;
+		return Math.min(this.#e + e, this.#r);
+	}
+	get maxSize() {
+		return this.#r;
+	}
+	get maxAge() {
+		return this.#i;
+	}
+	entries() {
+		return this.entriesAscending();
+	}
+	forEach(e, t = this) {
+		for (let [n, r] of this.entriesAscending()) e.call(t, r, n, this);
+	}
+	get [Symbol.toStringTag]() {
+		return "QuickLRU";
+	}
+	toString() {
+		return `QuickLRU(${this.size}/${this.maxSize})`;
+	}
+	[Symbol.for("nodejs.util.inspect.custom")]() {
+		return this.toString();
+	}
+}, bt = () => !1, xt = (e, t) => {
+	if (e === void 0) return bt;
+	if (Number.isNaN(e)) return (e) => Number.isNaN(e);
+	let n = t instanceof Float32Array ? Math.fround(e) : e;
+	return (e) => e === n;
+}, St = (e) => {
+	if (e === void 0) return;
+	let t = e.replace(/\0+$/, "").trim().toLowerCase();
+	if (t === "nan") return NaN;
+	if (t === "inf" || t === "+inf" || t === "infinity" || t === "+infinity") return Infinity;
+	if (t === "-inf" || t === "-infinity") return -Infinity;
+	let n = Number(t);
+	return Number.isNaN(n) ? void 0 : n;
+}, Ct = Math.PI / 180, wt = 180 / Math.PI, Tt = 6378137, Et = "900913", Dt = "WGS84", F = {};
+function Ot(e) {
+	return Number(e) === e && e % 1 != 0;
+}
+var kt = class {
+	#e;
+	#t;
+	#n;
+	#r;
+	#i;
+	#a;
+	constructor(e = {}) {
+		if (this.#e = e.size || 256, this.#t = e.antimeridian ? 2 : 1, !F[this.#e]) {
+			let e = this.#e, t = F[this.#e] = {};
+			t.Bc = [], t.Cc = [], t.zc = [], t.Ac = [];
+			for (let n = 0; n < 30; n++) t.Bc.push(e / 360), t.Cc.push(e / (2 * Math.PI)), t.zc.push(e / 2), t.Ac.push(e), e *= 2;
+		}
+		this.#n = F[this.#e].Bc, this.#r = F[this.#e].Cc, this.#i = F[this.#e].zc, this.#a = F[this.#e].Ac;
+	}
+	px(e, t) {
+		if (Ot(t)) {
+			let n = this.#e * 2 ** t, r = n / 2, i = n / 360, a = n / (2 * Math.PI), o = n, s = Math.min(Math.max(Math.sin(Ct * e[1]), -.9999), .9999), c = r + e[0] * i, l = r + .5 * Math.log((1 + s) / (1 - s)) * -a;
+			return c > o * this.#t && (c = o * this.#t), l > o && (l = o), [c, l];
+		} else {
+			let n = this.#i[t], r = Math.min(Math.max(Math.sin(Ct * e[1]), -.9999), .9999), i = Math.round(n + e[0] * this.#n[t]), a = Math.round(n + .5 * Math.log((1 + r) / (1 - r)) * -this.#r[t]);
+			return i > this.#a[t] * this.#t && (i = this.#a[t] * this.#t), a > this.#a[t] && (a = this.#a[t]), [i, a];
+		}
+	}
+	ll(e, t) {
+		if (Ot(t)) {
+			let n = this.#e * 2 ** t, r = n / 360, i = n / (2 * Math.PI), a = n / 2, o = (e[1] - a) / -i;
+			return [(e[0] - a) / r, wt * (2 * Math.atan(Math.exp(o)) - .5 * Math.PI)];
+		} else {
+			let n = (e[1] - this.#i[t]) / -this.#r[t];
+			return [(e[0] - this.#i[t]) / this.#n[t], wt * (2 * Math.atan(Math.exp(n)) - .5 * Math.PI)];
+		}
+	}
+	convert(e, t) {
+		return t === "900913" ? [...this.forward(e.slice(0, 2)), ...this.forward(e.slice(2, 4))] : [...this.inverse(e.slice(0, 2)), ...this.inverse(e.slice(2, 4))];
+	}
+	inverse(e) {
+		return [e[0] * wt / Tt, (Math.PI * .5 - 2 * Math.atan(Math.exp(-e[1] / Tt))) * wt];
+	}
+	forward(e) {
+		let t = [Tt * e[0] * Ct, Tt * Math.log(Math.tan(Math.PI * .25 + .5 * e[1] * Ct))];
+		return t[0] > 20037508.342789244 && (t[0] = 20037508.342789244), t[0] < -20037508.342789244 && (t[0] = -20037508.342789244), t[1] > 20037508.342789244 && (t[1] = 20037508.342789244), t[1] < -20037508.342789244 && (t[1] = -20037508.342789244), t;
+	}
+	bbox(e, t, n, r, i) {
+		r && (t = 2 ** n - 1 - t);
+		let a = [e * this.#e, (+t + 1) * this.#e], o = [(+e + 1) * this.#e, t * this.#e], s = [...this.ll(a, n), ...this.ll(o, n)];
+		return i === "900913" ? this.convert(s, Et) : s;
+	}
+	xyz(e, t, n, r) {
+		let i = r === "900913" ? this.convert(e, Dt) : e, a = [i[0], i[1]], o = [i[2], i[3]], s = this.px(a, t), c = this.px(o, t), l = [Math.floor(s[0] / this.#e), Math.floor((c[0] - 1) / this.#e)], u = [Math.floor(c[1] / this.#e), Math.floor((s[1] - 1) / this.#e)], d = {
+			minX: Math.min.apply(Math, l) < 0 ? 0 : Math.min.apply(Math, l),
+			minY: Math.min.apply(Math, u) < 0 ? 0 : Math.min.apply(Math, u),
+			maxX: Math.max.apply(Math, l),
+			maxY: Math.max.apply(Math, u)
+		};
+		if (n) {
+			let e = {
+				minY: 2 ** t - 1 - d.maxY,
+				maxY: 2 ** t - 1 - d.minY
+			};
+			d.minY = e.minY, d.maxY = e.maxY;
+		}
+		return d;
+	}
+}, At = 256, jt = 2 * 20037508.342789244, Mt = new kt({
+	size: At,
+	antimeridian: !0
+}), Nt = ({ x: e, y: t, z: n }) => Mt.bbox(e, t, n, !1, "900913"), Pt = ([e, t, n, r]) => {
+	let [i, a] = Mt.inverse([e, t]), [o, s] = Mt.inverse([n, r]);
+	return [
+		i,
+		a,
+		o,
+		s
+	];
+}, Ft = (e) => Math.log2(jt / (At * e)), It = ({ x: e, y: t, z: n }, r, i, a) => {
+	let [o, s, c, l] = Nt({
+		x: e,
+		y: t,
+		z: n
+	}), u = i / (r[2] - r[0]), d = a / (r[3] - r[1]);
+	return [
+		Math.round((o - r[0]) * u),
+		Math.round((r[3] - l) * d),
+		Math.round((c - r[0]) * u),
+		Math.round((r[3] - s) * d)
+	];
+}, Lt = (e, t, n, r) => {
+	let i = t - e, a = i / r, o = (e) => Math.min(Math.max(e, 0), r), s = o(Math.ceil((i - .5) / a)), c = e + i - 1 >= 0 && e + i - 1 < n, l = o(Math.ceil((-e - .5) / a)), u = Math.min(o(Math.ceil((n - e - .5) / a)), s);
+	return c ? [u > l ? l : s, r] : u > l ? [l, u] : [0, 0];
+}, Rt = ([e, t, n, r], i, a, o) => {
+	let [s, c] = Lt(e, n, i, o), [l, u] = Lt(t, r, a, o);
+	return {
+		left: s,
+		top: l,
+		right: c,
+		bottom: u
+	};
+}, zt = {
+	1: {
+		8: Uint8Array,
+		16: Uint16Array,
+		32: Uint32Array
+	},
+	2: {
+		8: Int8Array,
+		16: Int16Array,
+		32: Int32Array
+	},
+	3: {
+		32: Float32Array,
+		64: Float64Array
+	}
+}, Bt = (e) => {
+	let t = e.getSamplesPerPixel(), n = e.getBitsPerSample(0), r = e.getSampleFormat(0);
+	for (let i = 1; i < t; i++) if (e.getBitsPerSample(i) !== n || e.getSampleFormat(i) !== r) return;
+	if (!(n > 8 && !e.littleEndian)) return zt[r]?.[n];
+}, Vt = new Set([
+	1,
+	5,
+	7,
+	8,
+	32773,
+	32946,
+	5e4,
+	34887,
+	50001
+]), Ht = 7, Ut = 34887, Wt = 50001, Gt = async (e, t, n, r) => {
+	let i = t === Ht ? { JPEGTables: await e.fileDirectory.loadValue("JPEGTables") } : t === Ut ? { LercParameters: await e.fileDirectory.loadValue("LercParameters") } : t === Wt ? { samplesPerPixel: e.getSamplesPerPixel() } : {};
+	return r.bindParameters(t, {
+		tileWidth: e.getTileWidth(),
+		tileHeight: e.getTileHeight(),
+		planarConfiguration: e.planarConfiguration,
+		bitsPerSample: await e.fileDirectory.loadValue("BitsPerSample") ?? e.getBitsPerSample(0),
+		predictor: n,
+		...i
+	});
+}, Kt = (e, t, n) => {
+	let r = t - e, i = r / n, a = new Int32Array(n);
+	for (let t = 0; t < n; t++) a[t] = e + Math.min(Math.round(t * i), r - 1);
+	return a;
+}, qt = async (e, { window: [t, n, r, i], width: a, height: o, fillValue: s, pool: c }) => {
+	if (e.planarConfiguration !== 1) return;
+	let l = await e.fileDirectory.loadValue("Compression") ?? 1, u = await e.fileDirectory.loadValue("Predictor") ?? 1;
+	if (!Vt.has(l) || u !== 1 && !e.isTiled) return;
+	let d = Bt(e);
+	if (d === void 0) return;
+	let f = e.getSamplesPerPixel(), p = e.getWidth(), m = e.getHeight(), h = e.getTileWidth(), g = e.getTileHeight(), _ = Math.ceil(p / h);
+	if (a === h && o === g && r - t === h && i - n === g && t % h === 0 && n % g === 0 && t >= 0 && n >= 0 && r <= p && i <= m) {
+		let r = await Gt(e, l, u, c), i = new d((await e.getTileOrStrip(t / h, n / g, 0, r)).data);
+		if (i.length === h * g * f) return i;
+	}
+	let v = Kt(t, r, a), y = Kt(n, i, o), b = new Int32Array(a).fill(-1), x = new Int32Array(a);
+	for (let e = 0; e < a; e++) {
+		let t = v[e];
+		t < 0 || t >= p || (b[e] = Math.floor(t / h), x[e] = t % h * f);
+	}
+	let S = [];
+	for (let e = 0; e < a; e++) {
+		let t = b[e];
+		if (t === -1) continue;
+		let n = S[S.length - 1];
+		n !== void 0 && n.block === t && n.column + n.length === e && n.source + n.length * f === x[e] ? n.length++ : S.push({
+			block: t,
+			source: x[e],
+			column: e,
+			length: 1
+		});
+	}
+	let C = new Set(Array.from(b).filter((e) => e !== -1)), w = /* @__PURE__ */ new Set();
+	for (let e of y) e >= 0 && e < m && w.add(Math.floor(e / g));
+	let T = await Gt(e, l, u, c), E = h * g * f, ee = /* @__PURE__ */ new Map();
+	if ((await Promise.all([...w].flatMap((t) => [...C].map(async (n) => {
+		let r = new d((await e.getTileOrStrip(n, t, 0, T)).data);
+		return ee.set(t * _ + n, r), r.length;
+	})))).some((e) => e !== E)) return;
+	let D = new d(a * o * f);
+	s && D.fill(s);
+	for (let e = 0; e < o; e++) {
+		let t = y[e];
+		if (t < 0 || t >= m) continue;
+		let n = Math.floor(t / g), r = t % g * h * f, i = e * a * f;
+		for (let e of S) {
+			let t = ee.get(n * _ + e.block), a = r + e.source, o = e.length * f;
+			if (t === void 0 || a + o > t.length) continue;
+			let s = i + e.column * f;
+			if (o > 4) D.set(t.subarray(a, a + o), s);
+			else for (let e = 0; e < o; e++) D[s + e] = t[a + e];
+		}
+	}
+	return D;
+}, Jt = 3600 * 1e3, I, Yt, Xt = new yt({
+	maxSize: 16,
+	maxAge: Jt
+}), Zt = new yt({
+	maxSize: 16,
+	maxAge: Jt
+}), Qt = new yt({
+	maxSize: 1024,
+	maxAge: Jt
+}), $t = (e, t) => {
+	if (e === void 0 || t === void 0) return {};
+	let n = Array.from(e), r = n.findIndex((e) => e === 1 || e === 2);
+	return r === -1 ? {} : {
+		alphaBand: t - n.length + r,
+		premultipliedAlpha: n[r] === 1
+	};
+}, en = (e) => {
+	I === void 0 && (I = new Fe());
+	let t = (e) => {
+		let t = Xt.get(e);
+		if (t) return t;
+		{
+			let t = vt(e, {
+				blockSize: 65536,
+				...Yt ? { headers: Yt } : {}
+			});
+			return Xt.set(e, t), t;
+		}
+	}, n = async () => {
+		let n = Zt.get(e);
+		if (n) return n;
+		{
+			let n = await t(e), r = await n.getImage(), i = r.getGeoKeys()?.ProjectedCSTypeGeoKey;
+			if (i !== void 0 && i !== 3857 && i !== 102113) throw Error(`COG projection EPSG:${i} in ${e} is not supported. Reproject to EPSG:3857 (Web Mercator).`);
+			let a = await r.getGDALMetadata(0), o = r.fileDirectory, s = await o?.loadValue("Artist"), c = await o?.loadValue("GDAL_NODATA"), l = await o?.loadValue("BitsPerSample"), u = await o?.loadValue("ColorMap"), d = await o?.loadValue("ExtraSamples"), f = await o?.loadValue("SamplesPerPixel"), p = Pt(r.getBoundingBox()), m = [], h = await n.getImageCount();
+			for (let e = 0; e < h; e++) {
+				let t = await n.getImage(e), i = await t.fileDirectory.loadValue("NewSubfileType") ?? 0, a = Ft(t.getResolution(r)[0]), o = !!(i & 1), s = !!(i & 4);
+				m.push({
+					zoom: a,
+					isOverview: o,
+					isMask: s
+				});
+			}
+			let g = {
+				offset: a && typeof a.OFFSET == "string" ? parseFloat(a.OFFSET) : 0,
+				scale: a && typeof a.SCALE == "string" ? parseFloat(a.SCALE) : 1,
+				noData: typeof c == "string" ? St(c) : r.getGDALNoData() ?? void 0,
+				photometricInterpretation: await o?.loadValue("PhotometricInterpretation"),
+				bitsPerSample: l ? Array.from(l) : void 0,
+				colorMap: u ? Array.from(u) : void 0,
+				...$t(d, f ?? l?.length),
+				artist: s,
+				bbox: p,
+				images: m
+			};
+			return Zt.set(e, g), g;
+		}
+	}, r = async (e) => {
+		let { artist: t, images: r, bbox: i } = await n(), a = r.map((e) => e.zoom);
+		return {
+			tilejson: "2.2.0",
+			tiles: [`${e}/{z}/{x}/{y}`],
+			attribution: t,
+			minzoom: 0,
+			maxzoom: Math.round(Math.max(...a)),
+			bounds: i
+		};
+	}, i = (e, t, n) => {
+		let r = e.map((e, t) => ({
+			...e,
+			index: t
+		})).filter((e) => n ? e.isMask : !e.isMask);
+		if (r.length === 0) return null;
+		let i = r.filter((e) => Math.round(e.zoom) >= t);
+		return (i.length > 0 ? i.reduce((e, t) => e.zoom < t.zoom ? e : t) : r.reduce((e, t) => e.zoom > t.zoom ? e : t)).index;
+	}, a = async ({ z: r, x: a, y: o }, { tileSize: s = 256 } = {}) => {
+		let { images: c } = await n(), l = i(c, r, !1);
+		if (l === null) return {
+			left: 0,
+			top: 0,
+			right: 0,
+			bottom: 0
+		};
+		let u = await t(e), d = await u.getImage(0), f = await u.getImage(l);
+		return Rt(It({
+			x: a,
+			y: o,
+			z: r
+		}, d.getBoundingBox(), f.getWidth(), f.getHeight()), f.getWidth(), f.getHeight(), s);
+	}, o = async (e, t) => {
+		let n = await qt(e, t);
+		if (n) return n;
+		let { window: r, width: i, height: a, fillValue: o } = t;
+		return await e.readRasters({
+			window: r,
+			width: i,
+			height: a,
+			interleave: !0,
+			resampleMethod: "nearest",
+			pool: I,
+			fillValue: o
+		});
+	};
+	async function s({ z: r, x: a, y: s }, { mask: c = !1, tileSize: l = 256 } = {}) {
+		let u = `${e}/${c ? "mask/" : "image/"}${l}/${r}/${a}/${s}`, d = Qt.get(u);
+		if (d !== void 0) return d;
+		let { noData: f, images: p } = await n(), m = c ? 0 : f === void 0 || Number.isNaN(f) ? Infinity : f, h = i(p, r, c);
+		if (h === null) return null;
+		let g = await t(e), _ = await g.getImage(0), v = await g.getImage(h), y = o(v, {
+			window: It({
+				x: a,
+				y: s,
+				z: r
+			}, _.getBoundingBox(), v.getWidth(), v.getHeight()),
+			width: l,
+			height: l,
+			fillValue: m,
+			pool: I
+		});
+		return Qt.set(u, y), y;
+	}
+	return {
+		getTilejson: r,
+		getMetadata: n,
+		getRawTile: s,
+		getTileCoverage: a
+	};
+}, tn = 256 * 256, nn = (e, t, { band: n, bitsPerSample: r = 8, premultiplied: i = !1 }) => {
+	let a = t.length / tn;
+	if (n >= a) return;
+	let o = 2 ** r - 1;
+	for (let r = 0; r < tn; r++) {
+		let s = t[r * a + n] / o * 255;
+		if (i && s > 0 && s < 255) {
+			let t = 255 / s;
+			e[r * 4] *= t, e[r * 4 + 1] *= t, e[r * 4 + 2] *= t;
+		}
+		e[r * 4 + 3] = e[r * 4 + 3] * s / 255;
+	}
+}, rn = (e, t, n, r) => {
+	for (let i = n; i < r; i++) e[(t * 256 + i) * 4 + 3] = 0;
+}, an = (e, { left: t, top: n, right: r, bottom: i }) => {
+	if (!(t <= 0 && n <= 0 && r >= 256 && i >= 256)) for (let a = 0; a < 256; a++) a < n || a >= i ? rn(e, a, 0, 256) : (rn(e, a, 0, t), rn(e, a, r, 256));
+}, on = {}, sn = {
+	get: (e) => on[e],
+	set: (e, t) => {
+		on[e] = t;
+	},
+	delete: (e) => {
+		delete on[e];
+	}
+}, cn = new kt({
+	size: 256,
+	antimeridian: !0
+}), ln, un = (e, { x: t, y: n, z: r }) => {
+	let [i, a] = cn.px([e[0], e[1]], r);
+	return [i - t * 256, a - n * 256];
+}, dn = (e) => e.type === "Polygon" ? [e.coordinates] : e.type === "MultiPolygon" ? e.coordinates : [], fn = (e, t) => {
+	if (!ln || typeof OffscreenCanvas > "u") return;
+	let n = new OffscreenCanvas(256, 256).getContext("2d");
+	if (!n) return;
+	let r = n.createImageData(256, 256);
+	r.data.set(e), n.putImageData(r, 0, 0);
+	let i = new Path2D();
+	for (let { geometry: e } of ln.features) for (let n of dn(e)) for (let e of n) e.forEach((e, n) => {
+		let [r, a] = un(e, t);
+		n === 0 ? i.moveTo(r, a) : i.lineTo(r, a);
+	}), i.closePath();
+	n.globalCompositeOperation = "destination-in", n.fillStyle = "black", n.fill(i, "evenodd"), e.set(n.getImageData(0, 0, 256, 256).data);
+};
+//#endregion
+//#region node_modules/d3-scale/src/init.js
+function pn(e, t) {
+	switch (arguments.length) {
+		case 0: break;
+		case 1:
+			this.range(e);
+			break;
+		default:
+			this.range(t).domain(e);
+			break;
+	}
+	return this;
+}
+//#endregion
+//#region node_modules/d3-color/src/define.js
+function mn(e, t, n) {
+	e.prototype = t.prototype = n, n.constructor = e;
+}
+function hn(e, t) {
+	var n = Object.create(e.prototype);
+	for (var r in t) n[r] = t[r];
+	return n;
+}
+//#endregion
+//#region node_modules/d3-color/src/color.js
+function L() {}
+var R = .7, gn = 1 / R, z = "\\s*([+-]?\\d+)\\s*", B = "\\s*([+-]?(?:\\d*\\.)?\\d+(?:[eE][+-]?\\d+)?)\\s*", V = "\\s*([+-]?(?:\\d*\\.)?\\d+(?:[eE][+-]?\\d+)?)%\\s*", _n = /^#([0-9a-f]{3,8})$/, vn = RegExp(`^rgb\\(${z},${z},${z}\\)$`), yn = RegExp(`^rgb\\(${V},${V},${V}\\)$`), bn = RegExp(`^rgba\\(${z},${z},${z},${B}\\)$`), xn = RegExp(`^rgba\\(${V},${V},${V},${B}\\)$`), Sn = RegExp(`^hsl\\(${B},${V},${V}\\)$`), Cn = RegExp(`^hsla\\(${B},${V},${V},${B}\\)$`), wn = {
+	aliceblue: 15792383,
+	antiquewhite: 16444375,
+	aqua: 65535,
+	aquamarine: 8388564,
+	azure: 15794175,
+	beige: 16119260,
+	bisque: 16770244,
+	black: 0,
+	blanchedalmond: 16772045,
+	blue: 255,
+	blueviolet: 9055202,
+	brown: 10824234,
+	burlywood: 14596231,
+	cadetblue: 6266528,
+	chartreuse: 8388352,
+	chocolate: 13789470,
+	coral: 16744272,
+	cornflowerblue: 6591981,
+	cornsilk: 16775388,
+	crimson: 14423100,
+	cyan: 65535,
+	darkblue: 139,
+	darkcyan: 35723,
+	darkgoldenrod: 12092939,
+	darkgray: 11119017,
+	darkgreen: 25600,
+	darkgrey: 11119017,
+	darkkhaki: 12433259,
+	darkmagenta: 9109643,
+	darkolivegreen: 5597999,
+	darkorange: 16747520,
+	darkorchid: 10040012,
+	darkred: 9109504,
+	darksalmon: 15308410,
+	darkseagreen: 9419919,
+	darkslateblue: 4734347,
+	darkslategray: 3100495,
+	darkslategrey: 3100495,
+	darkturquoise: 52945,
+	darkviolet: 9699539,
+	deeppink: 16716947,
+	deepskyblue: 49151,
+	dimgray: 6908265,
+	dimgrey: 6908265,
+	dodgerblue: 2003199,
+	firebrick: 11674146,
+	floralwhite: 16775920,
+	forestgreen: 2263842,
+	fuchsia: 16711935,
+	gainsboro: 14474460,
+	ghostwhite: 16316671,
+	gold: 16766720,
+	goldenrod: 14329120,
+	gray: 8421504,
+	green: 32768,
+	greenyellow: 11403055,
+	grey: 8421504,
+	honeydew: 15794160,
+	hotpink: 16738740,
+	indianred: 13458524,
+	indigo: 4915330,
+	ivory: 16777200,
+	khaki: 15787660,
+	lavender: 15132410,
+	lavenderblush: 16773365,
+	lawngreen: 8190976,
+	lemonchiffon: 16775885,
+	lightblue: 11393254,
+	lightcoral: 15761536,
+	lightcyan: 14745599,
+	lightgoldenrodyellow: 16448210,
+	lightgray: 13882323,
+	lightgreen: 9498256,
+	lightgrey: 13882323,
+	lightpink: 16758465,
+	lightsalmon: 16752762,
+	lightseagreen: 2142890,
+	lightskyblue: 8900346,
+	lightslategray: 7833753,
+	lightslategrey: 7833753,
+	lightsteelblue: 11584734,
+	lightyellow: 16777184,
+	lime: 65280,
+	limegreen: 3329330,
+	linen: 16445670,
+	magenta: 16711935,
+	maroon: 8388608,
+	mediumaquamarine: 6737322,
+	mediumblue: 205,
+	mediumorchid: 12211667,
+	mediumpurple: 9662683,
+	mediumseagreen: 3978097,
+	mediumslateblue: 8087790,
+	mediumspringgreen: 64154,
+	mediumturquoise: 4772300,
+	mediumvioletred: 13047173,
+	midnightblue: 1644912,
+	mintcream: 16121850,
+	mistyrose: 16770273,
+	moccasin: 16770229,
+	navajowhite: 16768685,
+	navy: 128,
+	oldlace: 16643558,
+	olive: 8421376,
+	olivedrab: 7048739,
+	orange: 16753920,
+	orangered: 16729344,
+	orchid: 14315734,
+	palegoldenrod: 15657130,
+	palegreen: 10025880,
+	paleturquoise: 11529966,
+	palevioletred: 14381203,
+	papayawhip: 16773077,
+	peachpuff: 16767673,
+	peru: 13468991,
+	pink: 16761035,
+	plum: 14524637,
+	powderblue: 11591910,
+	purple: 8388736,
+	rebeccapurple: 6697881,
+	red: 16711680,
+	rosybrown: 12357519,
+	royalblue: 4286945,
+	saddlebrown: 9127187,
+	salmon: 16416882,
+	sandybrown: 16032864,
+	seagreen: 3050327,
+	seashell: 16774638,
+	sienna: 10506797,
+	silver: 12632256,
+	skyblue: 8900331,
+	slateblue: 6970061,
+	slategray: 7372944,
+	slategrey: 7372944,
+	snow: 16775930,
+	springgreen: 65407,
+	steelblue: 4620980,
+	tan: 13808780,
+	teal: 32896,
+	thistle: 14204888,
+	tomato: 16737095,
+	turquoise: 4251856,
+	violet: 15631086,
+	wheat: 16113331,
+	white: 16777215,
+	whitesmoke: 16119285,
+	yellow: 16776960,
+	yellowgreen: 10145074
+};
+mn(L, H, {
+	copy(e) {
+		return Object.assign(new this.constructor(), this, e);
+	},
+	displayable() {
+		return this.rgb().displayable();
+	},
+	hex: Tn,
+	formatHex: Tn,
+	formatHex8: En,
+	formatHsl: Dn,
+	formatRgb: On,
+	toString: On
+});
+function Tn() {
+	return this.rgb().formatHex();
+}
+function En() {
+	return this.rgb().formatHex8();
+}
+function Dn() {
+	return Ln(this).formatHsl();
+}
+function On() {
+	return this.rgb().formatRgb();
+}
+function H(e) {
+	var t, n;
+	return e = (e + "").trim().toLowerCase(), (t = _n.exec(e)) ? (n = t[1].length, t = parseInt(t[1], 16), n === 6 ? kn(t) : n === 3 ? new U(t >> 8 & 15 | t >> 4 & 240, t >> 4 & 15 | t & 240, (t & 15) << 4 | t & 15, 1) : n === 8 ? An(t >> 24 & 255, t >> 16 & 255, t >> 8 & 255, (t & 255) / 255) : n === 4 ? An(t >> 12 & 15 | t >> 8 & 240, t >> 8 & 15 | t >> 4 & 240, t >> 4 & 15 | t & 240, ((t & 15) << 4 | t & 15) / 255) : null) : (t = vn.exec(e)) ? new U(t[1], t[2], t[3], 1) : (t = yn.exec(e)) ? new U(t[1] * 255 / 100, t[2] * 255 / 100, t[3] * 255 / 100, 1) : (t = bn.exec(e)) ? An(t[1], t[2], t[3], t[4]) : (t = xn.exec(e)) ? An(t[1] * 255 / 100, t[2] * 255 / 100, t[3] * 255 / 100, t[4]) : (t = Sn.exec(e)) ? In(t[1], t[2] / 100, t[3] / 100, 1) : (t = Cn.exec(e)) ? In(t[1], t[2] / 100, t[3] / 100, t[4]) : wn.hasOwnProperty(e) ? kn(wn[e]) : e === "transparent" ? new U(NaN, NaN, NaN, 0) : null;
+}
+function kn(e) {
+	return new U(e >> 16 & 255, e >> 8 & 255, e & 255, 1);
+}
+function An(e, t, n, r) {
+	return r <= 0 && (e = t = n = NaN), new U(e, t, n, r);
+}
+function jn(e) {
+	return e instanceof L || (e = H(e)), e ? (e = e.rgb(), new U(e.r, e.g, e.b, e.opacity)) : new U();
+}
+function Mn(e, t, n, r) {
+	return arguments.length === 1 ? jn(e) : new U(e, t, n, r ?? 1);
+}
+function U(e, t, n, r) {
+	this.r = +e, this.g = +t, this.b = +n, this.opacity = +r;
+}
+mn(U, Mn, hn(L, {
+	brighter(e) {
+		return e = e == null ? gn : gn ** +e, new U(this.r * e, this.g * e, this.b * e, this.opacity);
+	},
+	darker(e) {
+		return e = e == null ? R : R ** +e, new U(this.r * e, this.g * e, this.b * e, this.opacity);
+	},
+	rgb() {
+		return this;
+	},
+	clamp() {
+		return new U(G(this.r), G(this.g), G(this.b), W(this.opacity));
+	},
+	displayable() {
+		return -.5 <= this.r && this.r < 255.5 && -.5 <= this.g && this.g < 255.5 && -.5 <= this.b && this.b < 255.5 && 0 <= this.opacity && this.opacity <= 1;
+	},
+	hex: Nn,
+	formatHex: Nn,
+	formatHex8: Pn,
+	formatRgb: Fn,
+	toString: Fn
+}));
+function Nn() {
+	return `#${K(this.r)}${K(this.g)}${K(this.b)}`;
+}
+function Pn() {
+	return `#${K(this.r)}${K(this.g)}${K(this.b)}${K((isNaN(this.opacity) ? 1 : this.opacity) * 255)}`;
+}
+function Fn() {
+	let e = W(this.opacity);
+	return `${e === 1 ? "rgb(" : "rgba("}${G(this.r)}, ${G(this.g)}, ${G(this.b)}${e === 1 ? ")" : `, ${e})`}`;
+}
+function W(e) {
+	return isNaN(e) ? 1 : Math.max(0, Math.min(1, e));
+}
+function G(e) {
+	return Math.max(0, Math.min(255, Math.round(e) || 0));
+}
+function K(e) {
+	return e = G(e), (e < 16 ? "0" : "") + e.toString(16);
+}
+function In(e, t, n, r) {
+	return r <= 0 ? e = t = n = NaN : n <= 0 || n >= 1 ? e = t = NaN : t <= 0 && (e = NaN), new q(e, t, n, r);
+}
+function Ln(e) {
+	if (e instanceof q) return new q(e.h, e.s, e.l, e.opacity);
+	if (e instanceof L || (e = H(e)), !e) return new q();
+	if (e instanceof q) return e;
+	e = e.rgb();
+	var t = e.r / 255, n = e.g / 255, r = e.b / 255, i = Math.min(t, n, r), a = Math.max(t, n, r), o = NaN, s = a - i, c = (a + i) / 2;
+	return s ? (o = t === a ? (n - r) / s + (n < r) * 6 : n === a ? (r - t) / s + 2 : (t - n) / s + 4, s /= c < .5 ? a + i : 2 - a - i, o *= 60) : s = c > 0 && c < 1 ? 0 : o, new q(o, s, c, e.opacity);
+}
+function Rn(e, t, n, r) {
+	return arguments.length === 1 ? Ln(e) : new q(e, t, n, r ?? 1);
+}
+function q(e, t, n, r) {
+	this.h = +e, this.s = +t, this.l = +n, this.opacity = +r;
+}
+mn(q, Rn, hn(L, {
+	brighter(e) {
+		return e = e == null ? gn : gn ** +e, new q(this.h, this.s, this.l * e, this.opacity);
+	},
+	darker(e) {
+		return e = e == null ? R : R ** +e, new q(this.h, this.s, this.l * e, this.opacity);
+	},
+	rgb() {
+		var e = this.h % 360 + (this.h < 0) * 360, t = isNaN(e) || isNaN(this.s) ? 0 : this.s, n = this.l, r = n + (n < .5 ? n : 1 - n) * t, i = 2 * n - r;
+		return new U(Vn(e >= 240 ? e - 240 : e + 120, i, r), Vn(e, i, r), Vn(e < 120 ? e + 240 : e - 120, i, r), this.opacity);
+	},
+	clamp() {
+		return new q(zn(this.h), Bn(this.s), Bn(this.l), W(this.opacity));
+	},
+	displayable() {
+		return (0 <= this.s && this.s <= 1 || isNaN(this.s)) && 0 <= this.l && this.l <= 1 && 0 <= this.opacity && this.opacity <= 1;
+	},
+	formatHsl() {
+		let e = W(this.opacity);
+		return `${e === 1 ? "hsl(" : "hsla("}${zn(this.h)}, ${Bn(this.s) * 100}%, ${Bn(this.l) * 100}%${e === 1 ? ")" : `, ${e})`}`;
+	}
+}));
+function zn(e) {
+	return e = (e || 0) % 360, e < 0 ? e + 360 : e;
+}
+function Bn(e) {
+	return Math.max(0, Math.min(1, e || 0));
+}
+function Vn(e, t, n) {
+	return (e < 60 ? t + (n - t) * e / 60 : e < 180 ? n : e < 240 ? t + (n - t) * (240 - e) / 60 : t) * 255;
+}
+//#endregion
+//#region node_modules/d3-interpolate/src/constant.js
+var Hn = (e) => () => e;
+//#endregion
+//#region node_modules/d3-interpolate/src/color.js
+function Un(e, t) {
+	return function(n) {
+		return e + n * t;
+	};
+}
+function Wn(e, t, n) {
+	return e **= +n, t = t ** +n - e, n = 1 / n, function(r) {
+		return (e + r * t) ** +n;
+	};
+}
+function Gn(e) {
+	return (e = +e) == 1 ? Kn : function(t, n) {
+		return n - t ? Wn(t, n, e) : Hn(isNaN(t) ? n : t);
+	};
+}
+function Kn(e, t) {
+	var n = t - e;
+	return n ? Un(e, n) : Hn(isNaN(e) ? t : e);
+}
+//#endregion
+//#region node_modules/d3-interpolate/src/rgb.js
+var qn = (function e(t) {
+	var n = Gn(t);
+	function r(e, t) {
+		var r = n((e = Mn(e)).r, (t = Mn(t)).r), i = n(e.g, t.g), a = n(e.b, t.b), o = Kn(e.opacity, t.opacity);
+		return function(t) {
+			return e.r = r(t), e.g = i(t), e.b = a(t), e.opacity = o(t), e + "";
+		};
+	}
+	return r.gamma = e, r;
+})(1);
+//#endregion
+//#region node_modules/d3-interpolate/src/numberArray.js
+function Jn(e, t) {
+	t ||= [];
+	var n = e ? Math.min(t.length, e.length) : 0, r = t.slice(), i;
+	return function(a) {
+		for (i = 0; i < n; ++i) r[i] = e[i] * (1 - a) + t[i] * a;
+		return r;
+	};
+}
+function Yn(e) {
+	return ArrayBuffer.isView(e) && !(e instanceof DataView);
+}
+//#endregion
+//#region node_modules/d3-interpolate/src/array.js
+function Xn(e, t) {
+	var n = t ? t.length : 0, r = e ? Math.min(n, e.length) : 0, i = Array(r), a = Array(n), o;
+	for (o = 0; o < r; ++o) i[o] = ar(e[o], t[o]);
+	for (; o < n; ++o) a[o] = t[o];
+	return function(e) {
+		for (o = 0; o < r; ++o) a[o] = i[o](e);
+		return a;
+	};
+}
+//#endregion
+//#region node_modules/d3-interpolate/src/date.js
+function Zn(e, t) {
+	var n = /* @__PURE__ */ new Date();
+	return e = +e, t = +t, function(r) {
+		return n.setTime(e * (1 - r) + t * r), n;
+	};
+}
+//#endregion
+//#region node_modules/d3-interpolate/src/number.js
+function Qn(e, t) {
+	return e = +e, t = +t, function(n) {
+		return e * (1 - n) + t * n;
+	};
+}
+//#endregion
+//#region node_modules/d3-interpolate/src/object.js
+function $n(e, t) {
+	var n = {}, r = {}, i;
+	for (i in (typeof e != "object" || !e) && (e = {}), (typeof t != "object" || !t) && (t = {}), t) i in e ? n[i] = ar(e[i], t[i]) : r[i] = t[i];
+	return function(e) {
+		for (i in n) r[i] = n[i](e);
+		return r;
+	};
+}
+//#endregion
+//#region node_modules/d3-interpolate/src/string.js
+var er = /[-+]?(?:\d+\.?\d*|\.?\d+)(?:[eE][-+]?\d+)?/g, tr = new RegExp(er.source, "g");
+function nr(e) {
+	return function() {
+		return e;
+	};
+}
+function rr(e) {
+	return function(t) {
+		return e(t) + "";
+	};
+}
+function ir(e, t) {
+	var n = er.lastIndex = tr.lastIndex = 0, r, i, a, o = -1, s = [], c = [];
+	for (e += "", t += ""; (r = er.exec(e)) && (i = tr.exec(t));) (a = i.index) > n && (a = t.slice(n, a), s[o] ? s[o] += a : s[++o] = a), (r = r[0]) === (i = i[0]) ? s[o] ? s[o] += i : s[++o] = i : (s[++o] = null, c.push({
+		i: o,
+		x: Qn(r, i)
+	})), n = tr.lastIndex;
+	return n < t.length && (a = t.slice(n), s[o] ? s[o] += a : s[++o] = a), s.length < 2 ? c[0] ? rr(c[0].x) : nr(t) : (t = c.length, function(e) {
+		for (var n = 0, r; n < t; ++n) s[(r = c[n]).i] = r.x(e);
+		return s.join("");
+	});
+}
+//#endregion
+//#region node_modules/d3-interpolate/src/value.js
+function ar(e, t) {
+	var n = typeof t, r;
+	return t == null || n === "boolean" ? Hn(t) : (n === "number" ? Qn : n === "string" ? (r = H(t)) ? (t = r, qn) : ir : t instanceof H ? qn : t instanceof Date ? Zn : Yn(t) ? Jn : Array.isArray(t) ? Xn : typeof t.valueOf != "function" && typeof t.toString != "function" || isNaN(t) ? $n : Qn)(e, t);
+}
+//#endregion
+//#region node_modules/d3-interpolate/src/round.js
+function or(e, t) {
+	return e = +e, t = +t, function(n) {
+		return Math.round(e * (1 - n) + t * n);
+	};
+}
+//#endregion
+//#region node_modules/d3-scale/src/constant.js
+function sr(e) {
+	return function() {
+		return e;
+	};
+}
+//#endregion
+//#region node_modules/d3-scale/src/number.js
+function cr(e) {
+	return +e;
+}
+//#endregion
+//#region node_modules/d3-scale/src/continuous.js
+var lr = [0, 1];
+function J(e) {
+	return e;
+}
+function ur(e, t) {
+	return (t -= e = +e) ? function(n) {
+		return (n - e) / t;
+	} : sr(isNaN(t) ? NaN : .5);
+}
+function dr(e, t) {
+	var n;
+	return e > t && (n = e, e = t, t = n), function(n) {
+		return Math.max(e, Math.min(t, n));
+	};
+}
+function fr(e, t, n) {
+	var r = e[0], i = e[1], a = t[0], o = t[1];
+	return i < r ? (r = ur(i, r), a = n(o, a)) : (r = ur(r, i), a = n(a, o)), function(e) {
+		return a(r(e));
+	};
+}
+function pr(e, t, n) {
+	var r = Math.min(e.length, t.length) - 1, i = Array(r), a = Array(r), o = -1;
+	for (e[r] < e[0] && (e = e.slice().reverse(), t = t.slice().reverse()); ++o < r;) i[o] = ur(e[o], e[o + 1]), a[o] = n(t[o], t[o + 1]);
+	return function(t) {
+		var n = g(e, t, 1, r) - 1;
+		return a[n](i[n](t));
+	};
+}
+function mr(e, t) {
+	return t.domain(e.domain()).range(e.range()).interpolate(e.interpolate()).clamp(e.clamp()).unknown(e.unknown());
+}
+function hr() {
+	var e = lr, t = lr, n = ar, r, i, a, o = J, s, c, l;
+	function u() {
+		var n = Math.min(e.length, t.length);
+		return o !== J && (o = dr(e[0], e[n - 1])), s = n > 2 ? pr : fr, c = l = null, d;
+	}
+	function d(i) {
+		return i == null || isNaN(i = +i) ? a : (c ||= s(e.map(r), t, n))(r(o(i)));
+	}
+	return d.invert = function(n) {
+		return o(i((l ||= s(t, e.map(r), Qn))(n)));
+	}, d.domain = function(t) {
+		return arguments.length ? (e = Array.from(t, cr), u()) : e.slice();
+	}, d.range = function(e) {
+		return arguments.length ? (t = Array.from(e), u()) : t.slice();
+	}, d.rangeRound = function(e) {
+		return t = Array.from(e), n = or, u();
+	}, d.clamp = function(e) {
+		return arguments.length ? (o = e ? !0 : J, u()) : o !== J;
+	}, d.interpolate = function(e) {
+		return arguments.length ? (n = e, u()) : n;
+	}, d.unknown = function(e) {
+		return arguments.length ? (a = e, d) : a;
+	}, function(e, t) {
+		return r = e, i = t, u();
+	};
+}
+function gr() {
+	return hr()(J, J);
+}
+//#endregion
+//#region node_modules/d3-format/src/formatDecimal.js
+function _r(e) {
+	return Math.abs(e = Math.round(e)) >= 1e21 ? e.toLocaleString("en").replace(/,/g, "") : e.toString(10);
+}
+function vr(e, t) {
+	if (!isFinite(e) || e === 0) return null;
+	var n = (e = t ? e.toExponential(t - 1) : e.toExponential()).indexOf("e"), r = e.slice(0, n);
+	return [r.length > 1 ? r[0] + r.slice(2) : r, +e.slice(n + 1)];
+}
+//#endregion
+//#region node_modules/d3-format/src/exponent.js
+function Y(e) {
+	return e = vr(Math.abs(e)), e ? e[1] : NaN;
+}
+//#endregion
+//#region node_modules/d3-format/src/formatGroup.js
+function yr(e, t) {
+	return function(n, r) {
+		for (var i = n.length, a = [], o = 0, s = e[0], c = 0; i > 0 && s > 0 && (c + s + 1 > r && (s = Math.max(1, r - c)), a.push(n.substring(i -= s, i + s)), !((c += s + 1) > r));) s = e[o = (o + 1) % e.length];
+		return a.reverse().join(t);
+	};
+}
+//#endregion
+//#region node_modules/d3-format/src/formatNumerals.js
+function br(e) {
+	return function(t) {
+		return t.replace(/[0-9]/g, function(t) {
+			return e[+t];
+		});
+	};
+}
+//#endregion
+//#region node_modules/d3-format/src/formatSpecifier.js
+var xr = /^(?:(.)?([<>=^]))?([+\-( ])?([$#])?(0)?(\d+)?(,)?(\.\d+)?(~)?([a-z%])?$/i;
+function Sr(e) {
+	if (!(t = xr.exec(e))) throw Error("invalid format: " + e);
+	var t;
+	return new Cr({
+		fill: t[1],
+		align: t[2],
+		sign: t[3],
+		symbol: t[4],
+		zero: t[5],
+		width: t[6],
+		comma: t[7],
+		precision: t[8] && t[8].slice(1),
+		trim: t[9],
+		type: t[10]
+	});
+}
+Sr.prototype = Cr.prototype;
+function Cr(e) {
+	this.fill = e.fill === void 0 ? " " : e.fill + "", this.align = e.align === void 0 ? ">" : e.align + "", this.sign = e.sign === void 0 ? "-" : e.sign + "", this.symbol = e.symbol === void 0 ? "" : e.symbol + "", this.zero = !!e.zero, this.width = e.width === void 0 ? void 0 : +e.width, this.comma = !!e.comma, this.precision = e.precision === void 0 ? void 0 : +e.precision, this.trim = !!e.trim, this.type = e.type === void 0 ? "" : e.type + "";
+}
+Cr.prototype.toString = function() {
+	return this.fill + this.align + this.sign + this.symbol + (this.zero ? "0" : "") + (this.width === void 0 ? "" : Math.max(1, this.width | 0)) + (this.comma ? "," : "") + (this.precision === void 0 ? "" : "." + Math.max(0, this.precision | 0)) + (this.trim ? "~" : "") + this.type;
+};
+//#endregion
+//#region node_modules/d3-format/src/formatTrim.js
+function wr(e) {
+	out: for (var t = e.length, n = 1, r = -1, i; n < t; ++n) switch (e[n]) {
+		case ".":
+			r = i = n;
+			break;
+		case "0":
+			r === 0 && (r = n), i = n;
+			break;
+		default:
+			if (!+e[n]) break out;
+			r > 0 && (r = 0);
+			break;
+	}
+	return r > 0 ? e.slice(0, r) + e.slice(i + 1) : e;
+}
+//#endregion
+//#region node_modules/d3-format/src/formatPrefixAuto.js
+var Tr;
+function Er(e, t) {
+	var n = vr(e, t);
+	if (!n) return Tr = void 0, e.toPrecision(t);
+	var r = n[0], i = n[1], a = i - (Tr = Math.max(-8, Math.min(8, Math.floor(i / 3))) * 3) + 1, o = r.length;
+	return a === o ? r : a > o ? r + Array(a - o + 1).join("0") : a > 0 ? r.slice(0, a) + "." + r.slice(a) : "0." + Array(1 - a).join("0") + vr(e, Math.max(0, t + a - 1))[0];
+}
+//#endregion
+//#region node_modules/d3-format/src/formatRounded.js
+function Dr(e, t) {
+	var n = vr(e, t);
+	if (!n) return e + "";
+	var r = n[0], i = n[1];
+	return i < 0 ? "0." + Array(-i).join("0") + r : r.length > i + 1 ? r.slice(0, i + 1) + "." + r.slice(i + 1) : r + Array(i - r.length + 2).join("0");
+}
+//#endregion
+//#region node_modules/d3-format/src/formatTypes.js
+var Or = {
+	"%": (e, t) => (e * 100).toFixed(t),
+	b: (e) => Math.round(e).toString(2),
+	c: (e) => e + "",
+	d: _r,
+	e: (e, t) => e.toExponential(t),
+	f: (e, t) => e.toFixed(t),
+	g: (e, t) => e.toPrecision(t),
+	o: (e) => Math.round(e).toString(8),
+	p: (e, t) => Dr(e * 100, t),
+	r: Dr,
+	s: Er,
+	X: (e) => Math.round(e).toString(16).toUpperCase(),
+	x: (e) => Math.round(e).toString(16)
+};
+//#endregion
+//#region node_modules/d3-format/src/identity.js
+function kr(e) {
+	return e;
+}
+//#endregion
+//#region node_modules/d3-format/src/locale.js
+var Ar = Array.prototype.map, jr = [
+	"y",
+	"z",
+	"a",
+	"f",
+	"p",
+	"n",
+	"µ",
+	"m",
+	"",
+	"k",
+	"M",
+	"G",
+	"T",
+	"P",
+	"E",
+	"Z",
+	"Y"
+];
+function Mr(e) {
+	var t = e.grouping === void 0 || e.thousands === void 0 ? kr : yr(Ar.call(e.grouping, Number), e.thousands + ""), n = e.currency === void 0 ? "" : e.currency[0] + "", r = e.currency === void 0 ? "" : e.currency[1] + "", i = e.decimal === void 0 ? "." : e.decimal + "", a = e.numerals === void 0 ? kr : br(Ar.call(e.numerals, String)), o = e.percent === void 0 ? "%" : e.percent + "", s = e.minus === void 0 ? "−" : e.minus + "", c = e.nan === void 0 ? "NaN" : e.nan + "";
+	function l(e, l) {
+		e = Sr(e);
+		var u = e.fill, d = e.align, f = e.sign, p = e.symbol, m = e.zero, h = e.width, g = e.comma, _ = e.precision, v = e.trim, y = e.type;
+		y === "n" ? (g = !0, y = "g") : Or[y] || (_ === void 0 && (_ = 12), v = !0, y = "g"), (m || u === "0" && d === "=") && (m = !0, u = "0", d = "=");
+		var b = (l && l.prefix !== void 0 ? l.prefix : "") + (p === "$" ? n : p === "#" && /[boxX]/.test(y) ? "0" + y.toLowerCase() : ""), x = (p === "$" ? r : /[%p]/.test(y) ? o : "") + (l && l.suffix !== void 0 ? l.suffix : ""), S = Or[y], C = /[defgprs%]/.test(y);
+		_ = _ === void 0 ? 6 : /[gprs]/.test(y) ? Math.max(1, Math.min(21, _)) : Math.max(0, Math.min(20, _));
+		function w(e) {
+			var n = b, r = x, o, l, p;
+			if (y === "c") r = S(e) + r, e = "";
+			else {
+				e = +e;
+				var w = e < 0 || 1 / e < 0;
+				if (e = isNaN(e) ? c : S(Math.abs(e), _), v && (e = wr(e)), w && +e == 0 && f !== "+" && (w = !1), n = (w ? f === "(" ? f : s : f === "-" || f === "(" ? "" : f) + n, r = (y === "s" && !isNaN(e) && Tr !== void 0 ? jr[8 + Tr / 3] : "") + r + (w && f === "(" ? ")" : ""), C) {
+					for (o = -1, l = e.length; ++o < l;) if (p = e.charCodeAt(o), 48 > p || p > 57) {
+						r = (p === 46 ? i + e.slice(o + 1) : e.slice(o)) + r, e = e.slice(0, o);
+						break;
+					}
+				}
+			}
+			g && !m && (e = t(e, Infinity));
+			var T = n.length + e.length + r.length, E = T < h ? Array(h - T + 1).join(u) : "";
+			switch (g && m && (e = t(E + e, E.length ? h - r.length : Infinity), E = ""), d) {
+				case "<":
+					e = n + e + r + E;
+					break;
+				case "=":
+					e = n + E + e + r;
+					break;
+				case "^":
+					e = E.slice(0, T = E.length >> 1) + n + e + r + E.slice(T);
+					break;
+				default:
+					e = E + n + e + r;
+					break;
+			}
+			return a(e);
+		}
+		return w.toString = function() {
+			return e + "";
+		}, w;
+	}
+	function u(e, t) {
+		var n = Math.max(-8, Math.min(8, Math.floor(Y(t) / 3))) * 3, r = 10 ** -n, i = l((e = Sr(e), e.type = "f", e), { suffix: jr[8 + n / 3] });
+		return function(e) {
+			return i(r * e);
+		};
+	}
+	return {
+		format: l,
+		formatPrefix: u
+	};
+}
+//#endregion
+//#region node_modules/d3-format/src/defaultLocale.js
+var X, Nr, Pr;
+Fr({
+	thousands: ",",
+	grouping: [3],
+	currency: ["$", ""]
+});
+function Fr(e) {
+	return X = Mr(e), Nr = X.format, Pr = X.formatPrefix, X;
+}
+//#endregion
+//#region node_modules/d3-format/src/precisionFixed.js
+function Ir(e) {
+	return Math.max(0, -Y(Math.abs(e)));
+}
+//#endregion
+//#region node_modules/d3-format/src/precisionPrefix.js
+function Lr(e, t) {
+	return Math.max(0, Math.max(-8, Math.min(8, Math.floor(Y(t) / 3))) * 3 - Y(Math.abs(e)));
+}
+//#endregion
+//#region node_modules/d3-format/src/precisionRound.js
+function Rr(e, t) {
+	return e = Math.abs(e), t = Math.abs(t) - e, Math.max(0, Y(t) - Y(e)) + 1;
+}
+//#endregion
+//#region node_modules/d3-scale/src/tickFormat.js
+function zr(e, t, n, r) {
+	var i = C(e, t, n), a;
+	switch (r = Sr(r ?? ",f"), r.type) {
+		case "s":
+			var o = Math.max(Math.abs(e), Math.abs(t));
+			return r.precision == null && !isNaN(a = Lr(i, o)) && (r.precision = a), Pr(r, o);
+		case "":
+		case "e":
+		case "g":
+		case "p":
+		case "r":
+			r.precision == null && !isNaN(a = Rr(i, Math.max(Math.abs(e), Math.abs(t)))) && (r.precision = a - (r.type === "e"));
+			break;
+		case "f":
+		case "%":
+			r.precision == null && !isNaN(a = Ir(i)) && (r.precision = a - (r.type === "%") * 2);
+			break;
+	}
+	return Nr(r);
+}
+//#endregion
+//#region node_modules/d3-scale/src/linear.js
+function Br(e) {
+	var t = e.domain;
+	return e.ticks = function(e) {
+		var n = t();
+		return x(n[0], n[n.length - 1], e ?? 10);
+	}, e.tickFormat = function(e, n) {
+		var r = t();
+		return zr(r[0], r[r.length - 1], e ?? 10, n);
+	}, e.nice = function(n) {
+		n ??= 10;
+		var r = t(), i = 0, a = r.length - 1, o = r[i], s = r[a], c, l, u = 10;
+		for (s < o && (l = o, o = s, s = l, l = i, i = a, a = l); u-- > 0;) {
+			if (l = S(o, s, n), l === c) return r[i] = o, r[a] = s, t(r);
+			if (l > 0) o = Math.floor(o / l) * l, s = Math.ceil(s / l) * l;
+			else if (l < 0) o = Math.ceil(o * l) / l, s = Math.floor(s * l) / l;
+			else break;
+			c = l;
+		}
+		return e;
+	}, e;
+}
+function Vr() {
+	var e = gr();
+	return e.copy = function() {
+		return mr(e, Vr());
+	}, pn.apply(e, arguments), Br(e);
+}
+//#endregion
+//#region node_modules/d3-scale/src/threshold.js
+function Hr() {
+	var e = [.5], t = [0, 1], n, r = 1;
+	function i(i) {
+		return i != null && i <= i ? t[g(e, i, 0, r)] : n;
+	}
+	return i.domain = function(n) {
+		return arguments.length ? (e = Array.from(n), r = Math.min(e.length, t.length - 1), i) : e.slice();
+	}, i.range = function(n) {
+		return arguments.length ? (t = Array.from(n), r = Math.min(e.length, t.length - 1), i) : t.slice();
+	}, i.invertExtent = function(n) {
+		var r = t.indexOf(n);
+		return [e[r - 1], e[r]];
+	}, i.unknown = function(e) {
+		return arguments.length ? (n = e, i) : n;
+	}, i.copy = function() {
+		return Hr().domain(e).range(t).unknown(n);
+	}, pn.apply(i, arguments);
+}
+//#endregion
+//#region node_modules/@geomatico/maplibre-cog-protocol/dist/esm/render/colorScale.js
+var Ur = {
+	BrewerYlGn3: [
+		"#f7fcb9",
+		"#addd8e",
+		"#31a354"
+	],
+	BrewerYlGn4: [
+		"#ffffcc",
+		"#c2e699",
+		"#78c679",
+		"#238443"
+	],
+	BrewerYlGn5: [
+		"#ffffcc",
+		"#c2e699",
+		"#78c679",
+		"#31a354",
+		"#006837"
+	],
+	BrewerYlGn6: [
+		"#ffffcc",
+		"#d9f0a3",
+		"#addd8e",
+		"#78c679",
+		"#31a354",
+		"#006837"
+	],
+	BrewerYlGn7: [
+		"#ffffcc",
+		"#d9f0a3",
+		"#addd8e",
+		"#78c679",
+		"#41ab5d",
+		"#238443",
+		"#005a32"
+	],
+	BrewerYlGn8: [
+		"#ffffe5",
+		"#f7fcb9",
+		"#d9f0a3",
+		"#addd8e",
+		"#78c679",
+		"#41ab5d",
+		"#238443",
+		"#005a32"
+	],
+	BrewerYlGn9: [
+		"#ffffe5",
+		"#f7fcb9",
+		"#d9f0a3",
+		"#addd8e",
+		"#78c679",
+		"#41ab5d",
+		"#238443",
+		"#006837",
+		"#004529"
+	],
+	BrewerYlGnBu3: [
+		"#edf8b1",
+		"#7fcdbb",
+		"#2c7fb8"
+	],
+	BrewerYlGnBu4: [
+		"#ffffcc",
+		"#a1dab4",
+		"#41b6c4",
+		"#225ea8"
+	],
+	BrewerYlGnBu5: [
+		"#ffffcc",
+		"#a1dab4",
+		"#41b6c4",
+		"#2c7fb8",
+		"#253494"
+	],
+	BrewerYlGnBu6: [
+		"#ffffcc",
+		"#c7e9b4",
+		"#7fcdbb",
+		"#41b6c4",
+		"#2c7fb8",
+		"#253494"
+	],
+	BrewerYlGnBu7: [
+		"#ffffcc",
+		"#c7e9b4",
+		"#7fcdbb",
+		"#41b6c4",
+		"#1d91c0",
+		"#225ea8",
+		"#0c2c84"
+	],
+	BrewerYlGnBu8: [
+		"#ffffd9",
+		"#edf8b1",
+		"#c7e9b4",
+		"#7fcdbb",
+		"#41b6c4",
+		"#1d91c0",
+		"#225ea8",
+		"#0c2c84"
+	],
+	BrewerYlGnBu9: [
+		"#ffffd9",
+		"#edf8b1",
+		"#c7e9b4",
+		"#7fcdbb",
+		"#41b6c4",
+		"#1d91c0",
+		"#225ea8",
+		"#253494",
+		"#081d58"
+	],
+	BrewerGnBu3: [
+		"#e0f3db",
+		"#a8ddb5",
+		"#43a2ca"
+	],
+	BrewerGnBu4: [
+		"#f0f9e8",
+		"#bae4bc",
+		"#7bccc4",
+		"#2b8cbe"
+	],
+	BrewerGnBu5: [
+		"#f0f9e8",
+		"#bae4bc",
+		"#7bccc4",
+		"#43a2ca",
+		"#0868ac"
+	],
+	BrewerGnBu6: [
+		"#f0f9e8",
+		"#ccebc5",
+		"#a8ddb5",
+		"#7bccc4",
+		"#43a2ca",
+		"#0868ac"
+	],
+	BrewerGnBu7: [
+		"#f0f9e8",
+		"#ccebc5",
+		"#a8ddb5",
+		"#7bccc4",
+		"#4eb3d3",
+		"#2b8cbe",
+		"#08589e"
+	],
+	BrewerGnBu8: [
+		"#f7fcf0",
+		"#e0f3db",
+		"#ccebc5",
+		"#a8ddb5",
+		"#7bccc4",
+		"#4eb3d3",
+		"#2b8cbe",
+		"#08589e"
+	],
+	BrewerGnBu9: [
+		"#f7fcf0",
+		"#e0f3db",
+		"#ccebc5",
+		"#a8ddb5",
+		"#7bccc4",
+		"#4eb3d3",
+		"#2b8cbe",
+		"#0868ac",
+		"#084081"
+	],
+	BrewerBuGn3: [
+		"#e5f5f9",
+		"#99d8c9",
+		"#2ca25f"
+	],
+	BrewerBuGn4: [
+		"#edf8fb",
+		"#b2e2e2",
+		"#66c2a4",
+		"#238b45"
+	],
+	BrewerBuGn5: [
+		"#edf8fb",
+		"#b2e2e2",
+		"#66c2a4",
+		"#2ca25f",
+		"#006d2c"
+	],
+	BrewerBuGn6: [
+		"#edf8fb",
+		"#ccece6",
+		"#99d8c9",
+		"#66c2a4",
+		"#2ca25f",
+		"#006d2c"
+	],
+	BrewerBuGn7: [
+		"#edf8fb",
+		"#ccece6",
+		"#99d8c9",
+		"#66c2a4",
+		"#41ae76",
+		"#238b45",
+		"#005824"
+	],
+	BrewerBuGn8: [
+		"#f7fcfd",
+		"#e5f5f9",
+		"#ccece6",
+		"#99d8c9",
+		"#66c2a4",
+		"#41ae76",
+		"#238b45",
+		"#005824"
+	],
+	BrewerBuGn9: [
+		"#f7fcfd",
+		"#e5f5f9",
+		"#ccece6",
+		"#99d8c9",
+		"#66c2a4",
+		"#41ae76",
+		"#238b45",
+		"#006d2c",
+		"#00441b"
+	],
+	BrewerPuBuGn3: [
+		"#ece2f0",
+		"#a6bddb",
+		"#1c9099"
+	],
+	BrewerPuBuGn4: [
+		"#f6eff7",
+		"#bdc9e1",
+		"#67a9cf",
+		"#02818a"
+	],
+	BrewerPuBuGn5: [
+		"#f6eff7",
+		"#bdc9e1",
+		"#67a9cf",
+		"#1c9099",
+		"#016c59"
+	],
+	BrewerPuBuGn6: [
+		"#f6eff7",
+		"#d0d1e6",
+		"#a6bddb",
+		"#67a9cf",
+		"#1c9099",
+		"#016c59"
+	],
+	BrewerPuBuGn7: [
+		"#f6eff7",
+		"#d0d1e6",
+		"#a6bddb",
+		"#67a9cf",
+		"#3690c0",
+		"#02818a",
+		"#016450"
+	],
+	BrewerPuBuGn8: [
+		"#fff7fb",
+		"#ece2f0",
+		"#d0d1e6",
+		"#a6bddb",
+		"#67a9cf",
+		"#3690c0",
+		"#02818a",
+		"#016450"
+	],
+	BrewerPuBuGn9: [
+		"#fff7fb",
+		"#ece2f0",
+		"#d0d1e6",
+		"#a6bddb",
+		"#67a9cf",
+		"#3690c0",
+		"#02818a",
+		"#016c59",
+		"#014636"
+	],
+	BrewerPuBu3: [
+		"#ece7f2",
+		"#a6bddb",
+		"#2b8cbe"
+	],
+	BrewerPuBu4: [
+		"#f1eef6",
+		"#bdc9e1",
+		"#74a9cf",
+		"#0570b0"
+	],
+	BrewerPuBu5: [
+		"#f1eef6",
+		"#bdc9e1",
+		"#74a9cf",
+		"#2b8cbe",
+		"#045a8d"
+	],
+	BrewerPuBu6: [
+		"#f1eef6",
+		"#d0d1e6",
+		"#a6bddb",
+		"#74a9cf",
+		"#2b8cbe",
+		"#045a8d"
+	],
+	BrewerPuBu7: [
+		"#f1eef6",
+		"#d0d1e6",
+		"#a6bddb",
+		"#74a9cf",
+		"#3690c0",
+		"#0570b0",
+		"#034e7b"
+	],
+	BrewerPuBu8: [
+		"#fff7fb",
+		"#ece7f2",
+		"#d0d1e6",
+		"#a6bddb",
+		"#74a9cf",
+		"#3690c0",
+		"#0570b0",
+		"#034e7b"
+	],
+	BrewerPuBu9: [
+		"#fff7fb",
+		"#ece7f2",
+		"#d0d1e6",
+		"#a6bddb",
+		"#74a9cf",
+		"#3690c0",
+		"#0570b0",
+		"#045a8d",
+		"#023858"
+	],
+	BrewerBuPu3: [
+		"#e0ecf4",
+		"#9ebcda",
+		"#8856a7"
+	],
+	BrewerBuPu4: [
+		"#edf8fb",
+		"#b3cde3",
+		"#8c96c6",
+		"#88419d"
+	],
+	BrewerBuPu5: [
+		"#edf8fb",
+		"#b3cde3",
+		"#8c96c6",
+		"#8856a7",
+		"#810f7c"
+	],
+	BrewerBuPu6: [
+		"#edf8fb",
+		"#bfd3e6",
+		"#9ebcda",
+		"#8c96c6",
+		"#8856a7",
+		"#810f7c"
+	],
+	BrewerBuPu7: [
+		"#edf8fb",
+		"#bfd3e6",
+		"#9ebcda",
+		"#8c96c6",
+		"#8c6bb1",
+		"#88419d",
+		"#6e016b"
+	],
+	BrewerBuPu8: [
+		"#f7fcfd",
+		"#e0ecf4",
+		"#bfd3e6",
+		"#9ebcda",
+		"#8c96c6",
+		"#8c6bb1",
+		"#88419d",
+		"#6e016b"
+	],
+	BrewerBuPu9: [
+		"#f7fcfd",
+		"#e0ecf4",
+		"#bfd3e6",
+		"#9ebcda",
+		"#8c96c6",
+		"#8c6bb1",
+		"#88419d",
+		"#810f7c",
+		"#4d004b"
+	],
+	BrewerRdPu3: [
+		"#fde0dd",
+		"#fa9fb5",
+		"#c51b8a"
+	],
+	BrewerRdPu4: [
+		"#feebe2",
+		"#fbb4b9",
+		"#f768a1",
+		"#ae017e"
+	],
+	BrewerRdPu5: [
+		"#feebe2",
+		"#fbb4b9",
+		"#f768a1",
+		"#c51b8a",
+		"#7a0177"
+	],
+	BrewerRdPu6: [
+		"#feebe2",
+		"#fcc5c0",
+		"#fa9fb5",
+		"#f768a1",
+		"#c51b8a",
+		"#7a0177"
+	],
+	BrewerRdPu7: [
+		"#feebe2",
+		"#fcc5c0",
+		"#fa9fb5",
+		"#f768a1",
+		"#dd3497",
+		"#ae017e",
+		"#7a0177"
+	],
+	BrewerRdPu8: [
+		"#fff7f3",
+		"#fde0dd",
+		"#fcc5c0",
+		"#fa9fb5",
+		"#f768a1",
+		"#dd3497",
+		"#ae017e",
+		"#7a0177"
+	],
+	BrewerRdPu9: [
+		"#fff7f3",
+		"#fde0dd",
+		"#fcc5c0",
+		"#fa9fb5",
+		"#f768a1",
+		"#dd3497",
+		"#ae017e",
+		"#7a0177",
+		"#49006a"
+	],
+	BrewerPuRd3: [
+		"#e7e1ef",
+		"#c994c7",
+		"#dd1c77"
+	],
+	BrewerPuRd4: [
+		"#f1eef6",
+		"#d7b5d8",
+		"#df65b0",
+		"#ce1256"
+	],
+	BrewerPuRd5: [
+		"#f1eef6",
+		"#d7b5d8",
+		"#df65b0",
+		"#dd1c77",
+		"#980043"
+	],
+	BrewerPuRd6: [
+		"#f1eef6",
+		"#d4b9da",
+		"#c994c7",
+		"#df65b0",
+		"#dd1c77",
+		"#980043"
+	],
+	BrewerPuRd7: [
+		"#f1eef6",
+		"#d4b9da",
+		"#c994c7",
+		"#df65b0",
+		"#e7298a",
+		"#ce1256",
+		"#91003f"
+	],
+	BrewerPuRd8: [
+		"#f7f4f9",
+		"#e7e1ef",
+		"#d4b9da",
+		"#c994c7",
+		"#df65b0",
+		"#e7298a",
+		"#ce1256",
+		"#91003f"
+	],
+	BrewerPuRd9: [
+		"#f7f4f9",
+		"#e7e1ef",
+		"#d4b9da",
+		"#c994c7",
+		"#df65b0",
+		"#e7298a",
+		"#ce1256",
+		"#980043",
+		"#67001f"
+	],
+	BrewerOrRd3: [
+		"#fee8c8",
+		"#fdbb84",
+		"#e34a33"
+	],
+	BrewerOrRd4: [
+		"#fef0d9",
+		"#fdcc8a",
+		"#fc8d59",
+		"#d7301f"
+	],
+	BrewerOrRd5: [
+		"#fef0d9",
+		"#fdcc8a",
+		"#fc8d59",
+		"#e34a33",
+		"#b30000"
+	],
+	BrewerOrRd6: [
+		"#fef0d9",
+		"#fdd49e",
+		"#fdbb84",
+		"#fc8d59",
+		"#e34a33",
+		"#b30000"
+	],
+	BrewerOrRd7: [
+		"#fef0d9",
+		"#fdd49e",
+		"#fdbb84",
+		"#fc8d59",
+		"#ef6548",
+		"#d7301f",
+		"#990000"
+	],
+	BrewerOrRd8: [
+		"#fff7ec",
+		"#fee8c8",
+		"#fdd49e",
+		"#fdbb84",
+		"#fc8d59",
+		"#ef6548",
+		"#d7301f",
+		"#990000"
+	],
+	BrewerOrRd9: [
+		"#fff7ec",
+		"#fee8c8",
+		"#fdd49e",
+		"#fdbb84",
+		"#fc8d59",
+		"#ef6548",
+		"#d7301f",
+		"#b30000",
+		"#7f0000"
+	],
+	BrewerYlOrRd3: [
+		"#ffeda0",
+		"#feb24c",
+		"#f03b20"
+	],
+	BrewerYlOrRd4: [
+		"#ffffb2",
+		"#fecc5c",
+		"#fd8d3c",
+		"#e31a1c"
+	],
+	BrewerYlOrRd5: [
+		"#ffffb2",
+		"#fecc5c",
+		"#fd8d3c",
+		"#f03b20",
+		"#bd0026"
+	],
+	BrewerYlOrRd6: [
+		"#ffffb2",
+		"#fed976",
+		"#feb24c",
+		"#fd8d3c",
+		"#f03b20",
+		"#bd0026"
+	],
+	BrewerYlOrRd7: [
+		"#ffffb2",
+		"#fed976",
+		"#feb24c",
+		"#fd8d3c",
+		"#fc4e2a",
+		"#e31a1c",
+		"#b10026"
+	],
+	BrewerYlOrRd8: [
+		"#ffffcc",
+		"#ffeda0",
+		"#fed976",
+		"#feb24c",
+		"#fd8d3c",
+		"#fc4e2a",
+		"#e31a1c",
+		"#b10026"
+	],
+	BrewerYlOrRd9: [
+		"#ffffcc",
+		"#ffeda0",
+		"#fed976",
+		"#feb24c",
+		"#fd8d3c",
+		"#fc4e2a",
+		"#e31a1c",
+		"#bd0026",
+		"#800026"
+	],
+	BrewerYlOrBr3: [
+		"#fff7bc",
+		"#fec44f",
+		"#d95f0e"
+	],
+	BrewerYlOrBr4: [
+		"#ffffd4",
+		"#fed98e",
+		"#fe9929",
+		"#cc4c02"
+	],
+	BrewerYlOrBr5: [
+		"#ffffd4",
+		"#fed98e",
+		"#fe9929",
+		"#d95f0e",
+		"#993404"
+	],
+	BrewerYlOrBr6: [
+		"#ffffd4",
+		"#fee391",
+		"#fec44f",
+		"#fe9929",
+		"#d95f0e",
+		"#993404"
+	],
+	BrewerYlOrBr7: [
+		"#ffffd4",
+		"#fee391",
+		"#fec44f",
+		"#fe9929",
+		"#ec7014",
+		"#cc4c02",
+		"#8c2d04"
+	],
+	BrewerYlOrBr8: [
+		"#ffffe5",
+		"#fff7bc",
+		"#fee391",
+		"#fec44f",
+		"#fe9929",
+		"#ec7014",
+		"#cc4c02",
+		"#8c2d04"
+	],
+	BrewerYlOrBr9: [
+		"#ffffe5",
+		"#fff7bc",
+		"#fee391",
+		"#fec44f",
+		"#fe9929",
+		"#ec7014",
+		"#cc4c02",
+		"#993404",
+		"#662506"
+	],
+	BrewerPurples3: [
+		"#efedf5",
+		"#bcbddc",
+		"#756bb1"
+	],
+	BrewerPurples4: [
+		"#f2f0f7",
+		"#cbc9e2",
+		"#9e9ac8",
+		"#6a51a3"
+	],
+	BrewerPurples5: [
+		"#f2f0f7",
+		"#cbc9e2",
+		"#9e9ac8",
+		"#756bb1",
+		"#54278f"
+	],
+	BrewerPurples6: [
+		"#f2f0f7",
+		"#dadaeb",
+		"#bcbddc",
+		"#9e9ac8",
+		"#756bb1",
+		"#54278f"
+	],
+	BrewerPurples7: [
+		"#f2f0f7",
+		"#dadaeb",
+		"#bcbddc",
+		"#9e9ac8",
+		"#807dba",
+		"#6a51a3",
+		"#4a1486"
+	],
+	BrewerPurples8: [
+		"#fcfbfd",
+		"#efedf5",
+		"#dadaeb",
+		"#bcbddc",
+		"#9e9ac8",
+		"#807dba",
+		"#6a51a3",
+		"#4a1486"
+	],
+	BrewerPurples9: [
+		"#fcfbfd",
+		"#efedf5",
+		"#dadaeb",
+		"#bcbddc",
+		"#9e9ac8",
+		"#807dba",
+		"#6a51a3",
+		"#54278f",
+		"#3f007d"
+	],
+	BrewerBlues3: [
+		"#deebf7",
+		"#9ecae1",
+		"#3182bd"
+	],
+	BrewerBlues4: [
+		"#eff3ff",
+		"#bdd7e7",
+		"#6baed6",
+		"#2171b5"
+	],
+	BrewerBlues5: [
+		"#eff3ff",
+		"#bdd7e7",
+		"#6baed6",
+		"#3182bd",
+		"#08519c"
+	],
+	BrewerBlues6: [
+		"#eff3ff",
+		"#c6dbef",
+		"#9ecae1",
+		"#6baed6",
+		"#3182bd",
+		"#08519c"
+	],
+	BrewerBlues7: [
+		"#eff3ff",
+		"#c6dbef",
+		"#9ecae1",
+		"#6baed6",
+		"#4292c6",
+		"#2171b5",
+		"#084594"
+	],
+	BrewerBlues8: [
+		"#f7fbff",
+		"#deebf7",
+		"#c6dbef",
+		"#9ecae1",
+		"#6baed6",
+		"#4292c6",
+		"#2171b5",
+		"#084594"
+	],
+	BrewerBlues9: [
+		"#f7fbff",
+		"#deebf7",
+		"#c6dbef",
+		"#9ecae1",
+		"#6baed6",
+		"#4292c6",
+		"#2171b5",
+		"#08519c",
+		"#08306b"
+	],
+	BrewerGreens3: [
+		"#e5f5e0",
+		"#a1d99b",
+		"#31a354"
+	],
+	BrewerGreens4: [
+		"#edf8e9",
+		"#bae4b3",
+		"#74c476",
+		"#238b45"
+	],
+	BrewerGreens5: [
+		"#edf8e9",
+		"#bae4b3",
+		"#74c476",
+		"#31a354",
+		"#006d2c"
+	],
+	BrewerGreens6: [
+		"#edf8e9",
+		"#c7e9c0",
+		"#a1d99b",
+		"#74c476",
+		"#31a354",
+		"#006d2c"
+	],
+	BrewerGreens7: [
+		"#edf8e9",
+		"#c7e9c0",
+		"#a1d99b",
+		"#74c476",
+		"#41ab5d",
+		"#238b45",
+		"#005a32"
+	],
+	BrewerGreens8: [
+		"#f7fcf5",
+		"#e5f5e0",
+		"#c7e9c0",
+		"#a1d99b",
+		"#74c476",
+		"#41ab5d",
+		"#238b45",
+		"#005a32"
+	],
+	BrewerGreens9: [
+		"#f7fcf5",
+		"#e5f5e0",
+		"#c7e9c0",
+		"#a1d99b",
+		"#74c476",
+		"#41ab5d",
+		"#238b45",
+		"#006d2c",
+		"#00441b"
+	],
+	BrewerOranges3: [
+		"#fee6ce",
+		"#fdae6b",
+		"#e6550d"
+	],
+	BrewerOranges4: [
+		"#feedde",
+		"#fdbe85",
+		"#fd8d3c",
+		"#d94701"
+	],
+	BrewerOranges5: [
+		"#feedde",
+		"#fdbe85",
+		"#fd8d3c",
+		"#e6550d",
+		"#a63603"
+	],
+	BrewerOranges6: [
+		"#feedde",
+		"#fdd0a2",
+		"#fdae6b",
+		"#fd8d3c",
+		"#e6550d",
+		"#a63603"
+	],
+	BrewerOranges7: [
+		"#feedde",
+		"#fdd0a2",
+		"#fdae6b",
+		"#fd8d3c",
+		"#f16913",
+		"#d94801",
+		"#8c2d04"
+	],
+	BrewerOranges8: [
+		"#fff5eb",
+		"#fee6ce",
+		"#fdd0a2",
+		"#fdae6b",
+		"#fd8d3c",
+		"#f16913",
+		"#d94801",
+		"#8c2d04"
+	],
+	BrewerOranges9: [
+		"#fff5eb",
+		"#fee6ce",
+		"#fdd0a2",
+		"#fdae6b",
+		"#fd8d3c",
+		"#f16913",
+		"#d94801",
+		"#a63603",
+		"#7f2704"
+	],
+	BrewerReds3: [
+		"#fee0d2",
+		"#fc9272",
+		"#de2d26"
+	],
+	BrewerReds4: [
+		"#fee5d9",
+		"#fcae91",
+		"#fb6a4a",
+		"#cb181d"
+	],
+	BrewerReds5: [
+		"#fee5d9",
+		"#fcae91",
+		"#fb6a4a",
+		"#de2d26",
+		"#a50f15"
+	],
+	BrewerReds6: [
+		"#fee5d9",
+		"#fcbba1",
+		"#fc9272",
+		"#fb6a4a",
+		"#de2d26",
+		"#a50f15"
+	],
+	BrewerReds7: [
+		"#fee5d9",
+		"#fcbba1",
+		"#fc9272",
+		"#fb6a4a",
+		"#ef3b2c",
+		"#cb181d",
+		"#99000d"
+	],
+	BrewerReds8: [
+		"#fff5f0",
+		"#fee0d2",
+		"#fcbba1",
+		"#fc9272",
+		"#fb6a4a",
+		"#ef3b2c",
+		"#cb181d",
+		"#99000d"
+	],
+	BrewerReds9: [
+		"#fff5f0",
+		"#fee0d2",
+		"#fcbba1",
+		"#fc9272",
+		"#fb6a4a",
+		"#ef3b2c",
+		"#cb181d",
+		"#a50f15",
+		"#67000d"
+	],
+	BrewerGreys3: [
+		"#f0f0f0",
+		"#bdbdbd",
+		"#636363"
+	],
+	BrewerGreys4: [
+		"#f7f7f7",
+		"#cccccc",
+		"#969696",
+		"#525252"
+	],
+	BrewerGreys5: [
+		"#f7f7f7",
+		"#cccccc",
+		"#969696",
+		"#636363",
+		"#252525"
+	],
+	BrewerGreys6: [
+		"#f7f7f7",
+		"#d9d9d9",
+		"#bdbdbd",
+		"#969696",
+		"#636363",
+		"#252525"
+	],
+	BrewerGreys7: [
+		"#f7f7f7",
+		"#d9d9d9",
+		"#bdbdbd",
+		"#969696",
+		"#737373",
+		"#525252",
+		"#252525"
+	],
+	BrewerGreys8: [
+		"#ffffff",
+		"#f0f0f0",
+		"#d9d9d9",
+		"#bdbdbd",
+		"#969696",
+		"#737373",
+		"#525252",
+		"#252525"
+	],
+	BrewerGreys9: [
+		"#ffffff",
+		"#f0f0f0",
+		"#d9d9d9",
+		"#bdbdbd",
+		"#969696",
+		"#737373",
+		"#525252",
+		"#252525",
+		"#000000"
+	],
+	BrewerPuOr3: [
+		"#f1a340",
+		"#f7f7f7",
+		"#998ec3"
+	],
+	BrewerPuOr4: [
+		"#e66101",
+		"#fdb863",
+		"#b2abd2",
+		"#5e3c99"
+	],
+	BrewerPuOr5: [
+		"#e66101",
+		"#fdb863",
+		"#f7f7f7",
+		"#b2abd2",
+		"#5e3c99"
+	],
+	BrewerPuOr6: [
+		"#b35806",
+		"#f1a340",
+		"#fee0b6",
+		"#d8daeb",
+		"#998ec3",
+		"#542788"
+	],
+	BrewerPuOr7: [
+		"#b35806",
+		"#f1a340",
+		"#fee0b6",
+		"#f7f7f7",
+		"#d8daeb",
+		"#998ec3",
+		"#542788"
+	],
+	BrewerPuOr8: [
+		"#b35806",
+		"#e08214",
+		"#fdb863",
+		"#fee0b6",
+		"#d8daeb",
+		"#b2abd2",
+		"#8073ac",
+		"#542788"
+	],
+	BrewerPuOr9: [
+		"#b35806",
+		"#e08214",
+		"#fdb863",
+		"#fee0b6",
+		"#f7f7f7",
+		"#d8daeb",
+		"#b2abd2",
+		"#8073ac",
+		"#542788"
+	],
+	BrewerPuOr10: [
+		"#7f3b08",
+		"#b35806",
+		"#e08214",
+		"#fdb863",
+		"#fee0b6",
+		"#d8daeb",
+		"#b2abd2",
+		"#8073ac",
+		"#542788",
+		"#2d004b"
+	],
+	BrewerPuOr11: [
+		"#7f3b08",
+		"#b35806",
+		"#e08214",
+		"#fdb863",
+		"#fee0b6",
+		"#f7f7f7",
+		"#d8daeb",
+		"#b2abd2",
+		"#8073ac",
+		"#542788",
+		"#2d004b"
+	],
+	BrewerBrBG3: [
+		"#d8b365",
+		"#f5f5f5",
+		"#5ab4ac"
+	],
+	BrewerBrBG4: [
+		"#a6611a",
+		"#dfc27d",
+		"#80cdc1",
+		"#018571"
+	],
+	BrewerBrBG5: [
+		"#a6611a",
+		"#dfc27d",
+		"#f5f5f5",
+		"#80cdc1",
+		"#018571"
+	],
+	BrewerBrBG6: [
+		"#8c510a",
+		"#d8b365",
+		"#f6e8c3",
+		"#c7eae5",
+		"#5ab4ac",
+		"#01665e"
+	],
+	BrewerBrBG7: [
+		"#8c510a",
+		"#d8b365",
+		"#f6e8c3",
+		"#f5f5f5",
+		"#c7eae5",
+		"#5ab4ac",
+		"#01665e"
+	],
+	BrewerBrBG8: [
+		"#8c510a",
+		"#bf812d",
+		"#dfc27d",
+		"#f6e8c3",
+		"#c7eae5",
+		"#80cdc1",
+		"#35978f",
+		"#01665e"
+	],
+	BrewerBrBG9: [
+		"#8c510a",
+		"#bf812d",
+		"#dfc27d",
+		"#f6e8c3",
+		"#f5f5f5",
+		"#c7eae5",
+		"#80cdc1",
+		"#35978f",
+		"#01665e"
+	],
+	BrewerBrBG10: [
+		"#543005",
+		"#8c510a",
+		"#bf812d",
+		"#dfc27d",
+		"#f6e8c3",
+		"#c7eae5",
+		"#80cdc1",
+		"#35978f",
+		"#01665e",
+		"#003c30"
+	],
+	BrewerBrBG11: [
+		"#543005",
+		"#8c510a",
+		"#bf812d",
+		"#dfc27d",
+		"#f6e8c3",
+		"#f5f5f5",
+		"#c7eae5",
+		"#80cdc1",
+		"#35978f",
+		"#01665e",
+		"#003c30"
+	],
+	BrewerPRGn3: [
+		"#af8dc3",
+		"#f7f7f7",
+		"#7fbf7b"
+	],
+	BrewerPRGn4: [
+		"#7b3294",
+		"#c2a5cf",
+		"#a6dba0",
+		"#008837"
+	],
+	BrewerPRGn5: [
+		"#7b3294",
+		"#c2a5cf",
+		"#f7f7f7",
+		"#a6dba0",
+		"#008837"
+	],
+	BrewerPRGn6: [
+		"#762a83",
+		"#af8dc3",
+		"#e7d4e8",
+		"#d9f0d3",
+		"#7fbf7b",
+		"#1b7837"
+	],
+	BrewerPRGn7: [
+		"#762a83",
+		"#af8dc3",
+		"#e7d4e8",
+		"#f7f7f7",
+		"#d9f0d3",
+		"#7fbf7b",
+		"#1b7837"
+	],
+	BrewerPRGn8: [
+		"#762a83",
+		"#9970ab",
+		"#c2a5cf",
+		"#e7d4e8",
+		"#d9f0d3",
+		"#a6dba0",
+		"#5aae61",
+		"#1b7837"
+	],
+	BrewerPRGn9: [
+		"#762a83",
+		"#9970ab",
+		"#c2a5cf",
+		"#e7d4e8",
+		"#f7f7f7",
+		"#d9f0d3",
+		"#a6dba0",
+		"#5aae61",
+		"#1b7837"
+	],
+	BrewerPRGn10: [
+		"#40004b",
+		"#762a83",
+		"#9970ab",
+		"#c2a5cf",
+		"#e7d4e8",
+		"#d9f0d3",
+		"#a6dba0",
+		"#5aae61",
+		"#1b7837",
+		"#00441b"
+	],
+	BrewerPRGn11: [
+		"#40004b",
+		"#762a83",
+		"#9970ab",
+		"#c2a5cf",
+		"#e7d4e8",
+		"#f7f7f7",
+		"#d9f0d3",
+		"#a6dba0",
+		"#5aae61",
+		"#1b7837",
+		"#00441b"
+	],
+	BrewerPiYG3: [
+		"#e9a3c9",
+		"#f7f7f7",
+		"#a1d76a"
+	],
+	BrewerPiYG4: [
+		"#d01c8b",
+		"#f1b6da",
+		"#b8e186",
+		"#4dac26"
+	],
+	BrewerPiYG5: [
+		"#d01c8b",
+		"#f1b6da",
+		"#f7f7f7",
+		"#b8e186",
+		"#4dac26"
+	],
+	BrewerPiYG6: [
+		"#c51b7d",
+		"#e9a3c9",
+		"#fde0ef",
+		"#e6f5d0",
+		"#a1d76a",
+		"#4d9221"
+	],
+	BrewerPiYG7: [
+		"#c51b7d",
+		"#e9a3c9",
+		"#fde0ef",
+		"#f7f7f7",
+		"#e6f5d0",
+		"#a1d76a",
+		"#4d9221"
+	],
+	BrewerPiYG8: [
+		"#c51b7d",
+		"#de77ae",
+		"#f1b6da",
+		"#fde0ef",
+		"#e6f5d0",
+		"#b8e186",
+		"#7fbc41",
+		"#4d9221"
+	],
+	BrewerPiYG9: [
+		"#c51b7d",
+		"#de77ae",
+		"#f1b6da",
+		"#fde0ef",
+		"#f7f7f7",
+		"#e6f5d0",
+		"#b8e186",
+		"#7fbc41",
+		"#4d9221"
+	],
+	BrewerPiYG10: [
+		"#8e0152",
+		"#c51b7d",
+		"#de77ae",
+		"#f1b6da",
+		"#fde0ef",
+		"#e6f5d0",
+		"#b8e186",
+		"#7fbc41",
+		"#4d9221",
+		"#276419"
+	],
+	BrewerPiYG11: [
+		"#8e0152",
+		"#c51b7d",
+		"#de77ae",
+		"#f1b6da",
+		"#fde0ef",
+		"#f7f7f7",
+		"#e6f5d0",
+		"#b8e186",
+		"#7fbc41",
+		"#4d9221",
+		"#276419"
+	],
+	BrewerRdBu3: [
+		"#ef8a62",
+		"#f7f7f7",
+		"#67a9cf"
+	],
+	BrewerRdBu4: [
+		"#ca0020",
+		"#f4a582",
+		"#92c5de",
+		"#0571b0"
+	],
+	BrewerRdBu5: [
+		"#ca0020",
+		"#f4a582",
+		"#f7f7f7",
+		"#92c5de",
+		"#0571b0"
+	],
+	BrewerRdBu6: [
+		"#b2182b",
+		"#ef8a62",
+		"#fddbc7",
+		"#d1e5f0",
+		"#67a9cf",
+		"#2166ac"
+	],
+	BrewerRdBu7: [
+		"#b2182b",
+		"#ef8a62",
+		"#fddbc7",
+		"#f7f7f7",
+		"#d1e5f0",
+		"#67a9cf",
+		"#2166ac"
+	],
+	BrewerRdBu8: [
+		"#b2182b",
+		"#d6604d",
+		"#f4a582",
+		"#fddbc7",
+		"#d1e5f0",
+		"#92c5de",
+		"#4393c3",
+		"#2166ac"
+	],
+	BrewerRdBu9: [
+		"#b2182b",
+		"#d6604d",
+		"#f4a582",
+		"#fddbc7",
+		"#f7f7f7",
+		"#d1e5f0",
+		"#92c5de",
+		"#4393c3",
+		"#2166ac"
+	],
+	BrewerRdBu10: [
+		"#67001f",
+		"#b2182b",
+		"#d6604d",
+		"#f4a582",
+		"#fddbc7",
+		"#d1e5f0",
+		"#92c5de",
+		"#4393c3",
+		"#2166ac",
+		"#053061"
+	],
+	BrewerRdBu11: [
+		"#67001f",
+		"#b2182b",
+		"#d6604d",
+		"#f4a582",
+		"#fddbc7",
+		"#f7f7f7",
+		"#d1e5f0",
+		"#92c5de",
+		"#4393c3",
+		"#2166ac",
+		"#053061"
+	],
+	BrewerRdGy3: [
+		"#ef8a62",
+		"#ffffff",
+		"#999999"
+	],
+	BrewerRdGy4: [
+		"#ca0020",
+		"#f4a582",
+		"#bababa",
+		"#404040"
+	],
+	BrewerRdGy5: [
+		"#ca0020",
+		"#f4a582",
+		"#ffffff",
+		"#bababa",
+		"#404040"
+	],
+	BrewerRdGy6: [
+		"#b2182b",
+		"#ef8a62",
+		"#fddbc7",
+		"#e0e0e0",
+		"#999999",
+		"#4d4d4d"
+	],
+	BrewerRdGy7: [
+		"#b2182b",
+		"#ef8a62",
+		"#fddbc7",
+		"#ffffff",
+		"#e0e0e0",
+		"#999999",
+		"#4d4d4d"
+	],
+	BrewerRdGy8: [
+		"#b2182b",
+		"#d6604d",
+		"#f4a582",
+		"#fddbc7",
+		"#e0e0e0",
+		"#bababa",
+		"#878787",
+		"#4d4d4d"
+	],
+	BrewerRdGy9: [
+		"#b2182b",
+		"#d6604d",
+		"#f4a582",
+		"#fddbc7",
+		"#ffffff",
+		"#e0e0e0",
+		"#bababa",
+		"#878787",
+		"#4d4d4d"
+	],
+	BrewerRdGy10: [
+		"#67001f",
+		"#b2182b",
+		"#d6604d",
+		"#f4a582",
+		"#fddbc7",
+		"#e0e0e0",
+		"#bababa",
+		"#878787",
+		"#4d4d4d",
+		"#1a1a1a"
+	],
+	BrewerRdGy11: [
+		"#67001f",
+		"#b2182b",
+		"#d6604d",
+		"#f4a582",
+		"#fddbc7",
+		"#ffffff",
+		"#e0e0e0",
+		"#bababa",
+		"#878787",
+		"#4d4d4d",
+		"#1a1a1a"
+	],
+	BrewerRdYlBu3: [
+		"#fc8d59",
+		"#ffffbf",
+		"#91bfdb"
+	],
+	BrewerRdYlBu4: [
+		"#d7191c",
+		"#fdae61",
+		"#abd9e9",
+		"#2c7bb6"
+	],
+	BrewerRdYlBu5: [
+		"#d7191c",
+		"#fdae61",
+		"#ffffbf",
+		"#abd9e9",
+		"#2c7bb6"
+	],
+	BrewerRdYlBu6: [
+		"#d73027",
+		"#fc8d59",
+		"#fee090",
+		"#e0f3f8",
+		"#91bfdb",
+		"#4575b4"
+	],
+	BrewerRdYlBu7: [
+		"#d73027",
+		"#fc8d59",
+		"#fee090",
+		"#ffffbf",
+		"#e0f3f8",
+		"#91bfdb",
+		"#4575b4"
+	],
+	BrewerRdYlBu8: [
+		"#d73027",
+		"#f46d43",
+		"#fdae61",
+		"#fee090",
+		"#e0f3f8",
+		"#abd9e9",
+		"#74add1",
+		"#4575b4"
+	],
+	BrewerRdYlBu9: [
+		"#d73027",
+		"#f46d43",
+		"#fdae61",
+		"#fee090",
+		"#ffffbf",
+		"#e0f3f8",
+		"#abd9e9",
+		"#74add1",
+		"#4575b4"
+	],
+	BrewerRdYlBu10: [
+		"#a50026",
+		"#d73027",
+		"#f46d43",
+		"#fdae61",
+		"#fee090",
+		"#e0f3f8",
+		"#abd9e9",
+		"#74add1",
+		"#4575b4",
+		"#313695"
+	],
+	BrewerRdYlBu11: [
+		"#a50026",
+		"#d73027",
+		"#f46d43",
+		"#fdae61",
+		"#fee090",
+		"#ffffbf",
+		"#e0f3f8",
+		"#abd9e9",
+		"#74add1",
+		"#4575b4",
+		"#313695"
+	],
+	BrewerSpectral3: [
+		"#fc8d59",
+		"#ffffbf",
+		"#99d594"
+	],
+	BrewerSpectral4: [
+		"#d7191c",
+		"#fdae61",
+		"#abdda4",
+		"#2b83ba"
+	],
+	BrewerSpectral5: [
+		"#d7191c",
+		"#fdae61",
+		"#ffffbf",
+		"#abdda4",
+		"#2b83ba"
+	],
+	BrewerSpectral6: [
+		"#d53e4f",
+		"#fc8d59",
+		"#fee08b",
+		"#e6f598",
+		"#99d594",
+		"#3288bd"
+	],
+	BrewerSpectral7: [
+		"#d53e4f",
+		"#fc8d59",
+		"#fee08b",
+		"#ffffbf",
+		"#e6f598",
+		"#99d594",
+		"#3288bd"
+	],
+	BrewerSpectral8: [
+		"#d53e4f",
+		"#f46d43",
+		"#fdae61",
+		"#fee08b",
+		"#e6f598",
+		"#abdda4",
+		"#66c2a5",
+		"#3288bd"
+	],
+	BrewerSpectral9: [
+		"#d53e4f",
+		"#f46d43",
+		"#fdae61",
+		"#fee08b",
+		"#ffffbf",
+		"#e6f598",
+		"#abdda4",
+		"#66c2a5",
+		"#3288bd"
+	],
+	BrewerSpectral10: [
+		"#9e0142",
+		"#d53e4f",
+		"#f46d43",
+		"#fdae61",
+		"#fee08b",
+		"#e6f598",
+		"#abdda4",
+		"#66c2a5",
+		"#3288bd",
+		"#5e4fa2"
+	],
+	BrewerSpectral11: [
+		"#9e0142",
+		"#d53e4f",
+		"#f46d43",
+		"#fdae61",
+		"#fee08b",
+		"#ffffbf",
+		"#e6f598",
+		"#abdda4",
+		"#66c2a5",
+		"#3288bd",
+		"#5e4fa2"
+	],
+	BrewerRdYlGn3: [
+		"#fc8d59",
+		"#ffffbf",
+		"#91cf60"
+	],
+	BrewerRdYlGn4: [
+		"#d7191c",
+		"#fdae61",
+		"#a6d96a",
+		"#1a9641"
+	],
+	BrewerRdYlGn5: [
+		"#d7191c",
+		"#fdae61",
+		"#ffffbf",
+		"#a6d96a",
+		"#1a9641"
+	],
+	BrewerRdYlGn6: [
+		"#d73027",
+		"#fc8d59",
+		"#fee08b",
+		"#d9ef8b",
+		"#91cf60",
+		"#1a9850"
+	],
+	BrewerRdYlGn7: [
+		"#d73027",
+		"#fc8d59",
+		"#fee08b",
+		"#ffffbf",
+		"#d9ef8b",
+		"#91cf60",
+		"#1a9850"
+	],
+	BrewerRdYlGn8: [
+		"#d73027",
+		"#f46d43",
+		"#fdae61",
+		"#fee08b",
+		"#d9ef8b",
+		"#a6d96a",
+		"#66bd63",
+		"#1a9850"
+	],
+	BrewerRdYlGn9: [
+		"#d73027",
+		"#f46d43",
+		"#fdae61",
+		"#fee08b",
+		"#ffffbf",
+		"#d9ef8b",
+		"#a6d96a",
+		"#66bd63",
+		"#1a9850"
+	],
+	BrewerRdYlGn10: [
+		"#a50026",
+		"#d73027",
+		"#f46d43",
+		"#fdae61",
+		"#fee08b",
+		"#d9ef8b",
+		"#a6d96a",
+		"#66bd63",
+		"#1a9850",
+		"#006837"
+	],
+	BrewerRdYlGn11: [
+		"#a50026",
+		"#d73027",
+		"#f46d43",
+		"#fdae61",
+		"#fee08b",
+		"#ffffbf",
+		"#d9ef8b",
+		"#a6d96a",
+		"#66bd63",
+		"#1a9850",
+		"#006837"
+	],
+	BrewerAccent3: [
+		"#7fc97f",
+		"#beaed4",
+		"#fdc086"
+	],
+	BrewerAccent4: [
+		"#7fc97f",
+		"#beaed4",
+		"#fdc086",
+		"#ffff99"
+	],
+	BrewerAccent5: [
+		"#7fc97f",
+		"#beaed4",
+		"#fdc086",
+		"#ffff99",
+		"#386cb0"
+	],
+	BrewerAccent6: [
+		"#7fc97f",
+		"#beaed4",
+		"#fdc086",
+		"#ffff99",
+		"#386cb0",
+		"#f0027f"
+	],
+	BrewerAccent7: [
+		"#7fc97f",
+		"#beaed4",
+		"#fdc086",
+		"#ffff99",
+		"#386cb0",
+		"#f0027f",
+		"#bf5b17"
+	],
+	BrewerAccent8: [
+		"#7fc97f",
+		"#beaed4",
+		"#fdc086",
+		"#ffff99",
+		"#386cb0",
+		"#f0027f",
+		"#bf5b17",
+		"#666666"
+	],
+	BrewerDark23: [
+		"#1b9e77",
+		"#d95f02",
+		"#7570b3"
+	],
+	BrewerDark24: [
+		"#1b9e77",
+		"#d95f02",
+		"#7570b3",
+		"#e7298a"
+	],
+	BrewerDark25: [
+		"#1b9e77",
+		"#d95f02",
+		"#7570b3",
+		"#e7298a",
+		"#66a61e"
+	],
+	BrewerDark26: [
+		"#1b9e77",
+		"#d95f02",
+		"#7570b3",
+		"#e7298a",
+		"#66a61e",
+		"#e6ab02"
+	],
+	BrewerDark27: [
+		"#1b9e77",
+		"#d95f02",
+		"#7570b3",
+		"#e7298a",
+		"#66a61e",
+		"#e6ab02",
+		"#a6761d"
+	],
+	BrewerDark28: [
+		"#1b9e77",
+		"#d95f02",
+		"#7570b3",
+		"#e7298a",
+		"#66a61e",
+		"#e6ab02",
+		"#a6761d",
+		"#666666"
+	],
+	BrewerPaired3: [
+		"#a6cee3",
+		"#1f78b4",
+		"#b2df8a"
+	],
+	BrewerPaired4: [
+		"#a6cee3",
+		"#1f78b4",
+		"#b2df8a",
+		"#33a02c"
+	],
+	BrewerPaired5: [
+		"#a6cee3",
+		"#1f78b4",
+		"#b2df8a",
+		"#33a02c",
+		"#fb9a99"
+	],
+	BrewerPaired6: [
+		"#a6cee3",
+		"#1f78b4",
+		"#b2df8a",
+		"#33a02c",
+		"#fb9a99",
+		"#e31a1c"
+	],
+	BrewerPaired7: [
+		"#a6cee3",
+		"#1f78b4",
+		"#b2df8a",
+		"#33a02c",
+		"#fb9a99",
+		"#e31a1c",
+		"#fdbf6f"
+	],
+	BrewerPaired8: [
+		"#a6cee3",
+		"#1f78b4",
+		"#b2df8a",
+		"#33a02c",
+		"#fb9a99",
+		"#e31a1c",
+		"#fdbf6f",
+		"#ff7f00"
+	],
+	BrewerPaired9: [
+		"#a6cee3",
+		"#1f78b4",
+		"#b2df8a",
+		"#33a02c",
+		"#fb9a99",
+		"#e31a1c",
+		"#fdbf6f",
+		"#ff7f00",
+		"#cab2d6"
+	],
+	BrewerPaired10: [
+		"#a6cee3",
+		"#1f78b4",
+		"#b2df8a",
+		"#33a02c",
+		"#fb9a99",
+		"#e31a1c",
+		"#fdbf6f",
+		"#ff7f00",
+		"#cab2d6",
+		"#6a3d9a"
+	],
+	BrewerPaired11: [
+		"#a6cee3",
+		"#1f78b4",
+		"#b2df8a",
+		"#33a02c",
+		"#fb9a99",
+		"#e31a1c",
+		"#fdbf6f",
+		"#ff7f00",
+		"#cab2d6",
+		"#6a3d9a",
+		"#ffff99"
+	],
+	BrewerPaired12: [
+		"#a6cee3",
+		"#1f78b4",
+		"#b2df8a",
+		"#33a02c",
+		"#fb9a99",
+		"#e31a1c",
+		"#fdbf6f",
+		"#ff7f00",
+		"#cab2d6",
+		"#6a3d9a",
+		"#ffff99",
+		"#b15928"
+	],
+	BrewerPastel13: [
+		"#fbb4ae",
+		"#b3cde3",
+		"#ccebc5"
+	],
+	BrewerPastel14: [
+		"#fbb4ae",
+		"#b3cde3",
+		"#ccebc5",
+		"#decbe4"
+	],
+	BrewerPastel15: [
+		"#fbb4ae",
+		"#b3cde3",
+		"#ccebc5",
+		"#decbe4",
+		"#fed9a6"
+	],
+	BrewerPastel16: [
+		"#fbb4ae",
+		"#b3cde3",
+		"#ccebc5",
+		"#decbe4",
+		"#fed9a6",
+		"#ffffcc"
+	],
+	BrewerPastel17: [
+		"#fbb4ae",
+		"#b3cde3",
+		"#ccebc5",
+		"#decbe4",
+		"#fed9a6",
+		"#ffffcc",
+		"#e5d8bd"
+	],
+	BrewerPastel18: [
+		"#fbb4ae",
+		"#b3cde3",
+		"#ccebc5",
+		"#decbe4",
+		"#fed9a6",
+		"#ffffcc",
+		"#e5d8bd",
+		"#fddaec"
+	],
+	BrewerPastel19: [
+		"#fbb4ae",
+		"#b3cde3",
+		"#ccebc5",
+		"#decbe4",
+		"#fed9a6",
+		"#ffffcc",
+		"#e5d8bd",
+		"#fddaec",
+		"#f2f2f2"
+	],
+	BrewerPastel23: [
+		"#b3e2cd",
+		"#fdcdac",
+		"#cbd5e8"
+	],
+	BrewerPastel24: [
+		"#b3e2cd",
+		"#fdcdac",
+		"#cbd5e8",
+		"#f4cae4"
+	],
+	BrewerPastel25: [
+		"#b3e2cd",
+		"#fdcdac",
+		"#cbd5e8",
+		"#f4cae4",
+		"#e6f5c9"
+	],
+	BrewerPastel26: [
+		"#b3e2cd",
+		"#fdcdac",
+		"#cbd5e8",
+		"#f4cae4",
+		"#e6f5c9",
+		"#fff2ae"
+	],
+	BrewerPastel27: [
+		"#b3e2cd",
+		"#fdcdac",
+		"#cbd5e8",
+		"#f4cae4",
+		"#e6f5c9",
+		"#fff2ae",
+		"#f1e2cc"
+	],
+	BrewerPastel28: [
+		"#b3e2cd",
+		"#fdcdac",
+		"#cbd5e8",
+		"#f4cae4",
+		"#e6f5c9",
+		"#fff2ae",
+		"#f1e2cc",
+		"#cccccc"
+	],
+	BrewerSet13: [
+		"#e41a1c",
+		"#377eb8",
+		"#4daf4a"
+	],
+	BrewerSet14: [
+		"#e41a1c",
+		"#377eb8",
+		"#4daf4a",
+		"#984ea3"
+	],
+	BrewerSet15: [
+		"#e41a1c",
+		"#377eb8",
+		"#4daf4a",
+		"#984ea3",
+		"#ff7f00"
+	],
+	BrewerSet16: [
+		"#e41a1c",
+		"#377eb8",
+		"#4daf4a",
+		"#984ea3",
+		"#ff7f00",
+		"#ffff33"
+	],
+	BrewerSet17: [
+		"#e41a1c",
+		"#377eb8",
+		"#4daf4a",
+		"#984ea3",
+		"#ff7f00",
+		"#ffff33",
+		"#a65628"
+	],
+	BrewerSet18: [
+		"#e41a1c",
+		"#377eb8",
+		"#4daf4a",
+		"#984ea3",
+		"#ff7f00",
+		"#ffff33",
+		"#a65628",
+		"#f781bf"
+	],
+	BrewerSet19: [
+		"#e41a1c",
+		"#377eb8",
+		"#4daf4a",
+		"#984ea3",
+		"#ff7f00",
+		"#ffff33",
+		"#a65628",
+		"#f781bf",
+		"#999999"
+	],
+	BrewerSet23: [
+		"#66c2a5",
+		"#fc8d62",
+		"#8da0cb"
+	],
+	BrewerSet24: [
+		"#66c2a5",
+		"#fc8d62",
+		"#8da0cb",
+		"#e78ac3"
+	],
+	BrewerSet25: [
+		"#66c2a5",
+		"#fc8d62",
+		"#8da0cb",
+		"#e78ac3",
+		"#a6d854"
+	],
+	BrewerSet26: [
+		"#66c2a5",
+		"#fc8d62",
+		"#8da0cb",
+		"#e78ac3",
+		"#a6d854",
+		"#ffd92f"
+	],
+	BrewerSet27: [
+		"#66c2a5",
+		"#fc8d62",
+		"#8da0cb",
+		"#e78ac3",
+		"#a6d854",
+		"#ffd92f",
+		"#e5c494"
+	],
+	BrewerSet28: [
+		"#66c2a5",
+		"#fc8d62",
+		"#8da0cb",
+		"#e78ac3",
+		"#a6d854",
+		"#ffd92f",
+		"#e5c494",
+		"#b3b3b3"
+	],
+	BrewerSet33: [
+		"#8dd3c7",
+		"#ffffb3",
+		"#bebada"
+	],
+	BrewerSet34: [
+		"#8dd3c7",
+		"#ffffb3",
+		"#bebada",
+		"#fb8072"
+	],
+	BrewerSet35: [
+		"#8dd3c7",
+		"#ffffb3",
+		"#bebada",
+		"#fb8072",
+		"#80b1d3"
+	],
+	BrewerSet36: [
+		"#8dd3c7",
+		"#ffffb3",
+		"#bebada",
+		"#fb8072",
+		"#80b1d3",
+		"#fdb462"
+	],
+	BrewerSet37: [
+		"#8dd3c7",
+		"#ffffb3",
+		"#bebada",
+		"#fb8072",
+		"#80b1d3",
+		"#fdb462",
+		"#b3de69"
+	],
+	BrewerSet38: [
+		"#8dd3c7",
+		"#ffffb3",
+		"#bebada",
+		"#fb8072",
+		"#80b1d3",
+		"#fdb462",
+		"#b3de69",
+		"#fccde5"
+	],
+	BrewerSet39: [
+		"#8dd3c7",
+		"#ffffb3",
+		"#bebada",
+		"#fb8072",
+		"#80b1d3",
+		"#fdb462",
+		"#b3de69",
+		"#fccde5",
+		"#d9d9d9"
+	],
+	BrewerSet310: [
+		"#8dd3c7",
+		"#ffffb3",
+		"#bebada",
+		"#fb8072",
+		"#80b1d3",
+		"#fdb462",
+		"#b3de69",
+		"#fccde5",
+		"#d9d9d9",
+		"#bc80bd"
+	],
+	BrewerSet311: [
+		"#8dd3c7",
+		"#ffffb3",
+		"#bebada",
+		"#fb8072",
+		"#80b1d3",
+		"#fdb462",
+		"#b3de69",
+		"#fccde5",
+		"#d9d9d9",
+		"#bc80bd",
+		"#ccebc5"
+	],
+	BrewerSet312: [
+		"#8dd3c7",
+		"#ffffb3",
+		"#bebada",
+		"#fb8072",
+		"#80b1d3",
+		"#fdb462",
+		"#b3de69",
+		"#fccde5",
+		"#d9d9d9",
+		"#bc80bd",
+		"#ccebc5",
+		"#ffed6f"
+	],
+	CartoBurg: [
+		"#ffc6c4",
+		"#f4a3a8",
+		"#e38191",
+		"#cc607d",
+		"#ad466c",
+		"#8b3058",
+		"#672044"
+	],
+	CartoBurgYl: [
+		"#fbe6c5",
+		"#f5ba98",
+		"#ee8a82",
+		"#dc7176",
+		"#c8586c",
+		"#9c3f5d",
+		"#70284a"
+	],
+	CartoRedOr: [
+		"#f6d2a9",
+		"#f5b78e",
+		"#f19c7c",
+		"#ea8171",
+		"#dd686c",
+		"#ca5268",
+		"#b13f64"
+	],
+	CartoOrYel: [
+		"#ecda9a",
+		"#efc47e",
+		"#f3ad6a",
+		"#f7945d",
+		"#f97b57",
+		"#f66356",
+		"#ee4d5a"
+	],
+	CartoPeach: [
+		"#fde0c5",
+		"#facba6",
+		"#f8b58b",
+		"#f59e72",
+		"#f2855d",
+		"#ef6a4c",
+		"#eb4a40"
+	],
+	CartoPinkYl: [
+		"#fef6b5",
+		"#ffdd9a",
+		"#ffc285",
+		"#ffa679",
+		"#fa8a76",
+		"#f16d7a",
+		"#e15383"
+	],
+	CartoMint: [
+		"#e4f1e1",
+		"#b4d9cc",
+		"#89c0b6",
+		"#63a6a0",
+		"#448c8a",
+		"#287274",
+		"#0d585f"
+	],
+	CartoBluGrn: [
+		"#c4e6c3",
+		"#96d2a4",
+		"#6dbc90",
+		"#4da284",
+		"#36877a",
+		"#266b6e",
+		"#1d4f60"
+	],
+	CartoDarkMint: [
+		"#d2fbd4",
+		"#a5dbc2",
+		"#7bbcb0",
+		"#559c9e",
+		"#3a7c89",
+		"#235d72",
+		"#123f5a"
+	],
+	CartoEmrld: [
+		"#d3f2a3",
+		"#97e196",
+		"#6cc08b",
+		"#4c9b82",
+		"#217a79",
+		"#105965",
+		"#074050"
+	],
+	CartoBluYl: [
+		"#f7feae",
+		"#b7e6a5",
+		"#7ccba2",
+		"#46aea0",
+		"#089099",
+		"#00718b",
+		"#045275"
+	],
+	CartoTeal: [
+		"#d1eeea",
+		"#a8dbd9",
+		"#85c4c9",
+		"#68abb8",
+		"#4f90a6",
+		"#3b738f",
+		"#2a5674"
+	],
+	CartoTealGrn: [
+		"#b0f2bc",
+		"#89e8ac",
+		"#67dba5",
+		"#4cc8a3",
+		"#38b2a3",
+		"#2c98a0",
+		"#257d98"
+	],
+	CartoPurp: [
+		"#f3e0f7",
+		"#e4c7f1",
+		"#d1afe8",
+		"#b998dd",
+		"#9f82ce",
+		"#826dba",
+		"#63589f"
+	],
+	CartoPurpOr: [
+		"#f9ddda",
+		"#f2b9c4",
+		"#e597b9",
+		"#ce78b3",
+		"#ad5fad",
+		"#834ba0",
+		"#573b88"
+	],
+	CartoSunset: [
+		"#f3e79b",
+		"#fac484",
+		"#f8a07e",
+		"#eb7f86",
+		"#ce6693",
+		"#a059a0",
+		"#5c53a5"
+	],
+	CartoMagenta: [
+		"#f3cbd3",
+		"#eaa9bd",
+		"#dd88ac",
+		"#ca699d",
+		"#b14d8e",
+		"#91357d",
+		"#6c2167"
+	],
+	CartoSunsetDark: [
+		"#fcde9c",
+		"#faa476",
+		"#f0746e",
+		"#e34f6f",
+		"#dc3977",
+		"#b9257a",
+		"#7c1d6f"
+	],
+	CartoBrwnYl: [
+		"#ede5cf",
+		"#e0c2a2",
+		"#d39c83",
+		"#c1766f",
+		"#a65461",
+		"#813753",
+		"#541f3f"
+	],
+	CartoArmyRose: [
+		"#798234",
+		"#a3ad62",
+		"#d0d3a2",
+		"#fdfbe4",
+		"#f0c6c3",
+		"#df91a3",
+		"#d46780"
+	],
+	CartoFall: [
+		"#3d5941",
+		"#778868",
+		"#b5b991",
+		"#f6edbd",
+		"#edbb8a",
+		"#de8a5a",
+		"#ca562c"
+	],
+	CartoGeyser: [
+		"#008080",
+		"#70a494",
+		"#b4c8a8",
+		"#f6edbd",
+		"#edbb8a",
+		"#de8a5a",
+		"#ca562c"
+	],
+	CartoTemps: [
+		"#009392",
+		"#39b185",
+		"#9ccb86",
+		"#e9e29c",
+		"#eeb479",
+		"#e88471",
+		"#cf597e"
+	],
+	CartoTealRose: [
+		"#009392",
+		"#72aaa1",
+		"#b1c7b3",
+		"#f1eac8",
+		"#e5b9ad",
+		"#d98994",
+		"#d0587e"
+	],
+	CartoTropic: [
+		"#009B9E",
+		"#42B7B9",
+		"#A7D3D4",
+		"#F1F1F1",
+		"#E4C1D9",
+		"#D691C1",
+		"#C75DAB"
+	],
+	CartoEarth: [
+		"#A16928",
+		"#bd925a",
+		"#d6bd8d",
+		"#edeac2",
+		"#b5c8b8",
+		"#79a7ac",
+		"#2887a1"
+	]
+}, Wr = Object.keys(Ur);
+function Gr(e) {
+	return Wr.includes(e);
+}
+var Kr = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i, qr = (e) => {
+	let t = Kr.exec(e);
+	if (t !== null) return [
+		parseInt(t[1], 16),
+		parseInt(t[2], 16),
+		parseInt(t[3], 16)
+	];
+	throw Error(`Cannot parse hex color "${e}"`);
+}, Jr = (e, t, n) => Array.from({ length: n }, (r, i) => e + i * (t - e) / (n - 1)), Yr = (e, t, n) => Array.from({ length: n - 1 }, (r, i) => e + (i + 1) * (t - e) / n), Xr = ({ colorScheme: e, customColors: t, min: n, max: r, isReverse: i = !1, isContinuous: a = !1 }) => {
+	let o;
+	if (e) if (Gr(e)) o = Ur[e];
+	else throw Error(`"${e}" is not a supported color scheme`);
+	else if (t && t.length >= 2) o = t;
+	else throw Error("You must provide a colorScheme or an array of at least 2 customColors");
+	let s = o.map(qr), c = i ? s.reverse() : s;
+	return a ? Vr(Jr(n, r, c.length), c).clamp(!0) : Hr(Yr(n, r, c.length), c);
+}, Zr = (e, { offset: t, scale: n, noData: r, colorScale: i }) => {
+	let a = 256 * 256, o = e.length / a, s = new Uint8ClampedArray(a * 4), c = Xr(i), l = xt(r, e);
+	for (let r = 0; r < a; r++) {
+		let i = e[r * o], a = t + i * n;
+		if (l(i) || !Number.isFinite(a)) s[4 * r] = 0, s[4 * r + 1] = 0, s[4 * r + 2] = 0, s[4 * r + 3] = 0;
+		else {
+			let e = c(a);
+			s[4 * r] = e[0], s[4 * r + 1] = e[1], s[4 * r + 2] = e[2], s[4 * r + 3] = 255;
+		}
+	}
+	return s;
+}, Z = 256 * 256, Q = (e) => e.length / Z;
+function Qr(e, t, n) {
+	let r = new Uint8ClampedArray(Z * 4), i = Q(e), a;
+	for (let o = 0; o < Z; o++) a = 255 - e[o * i] / t * 255, r[o * 4] = a, r[o * 4 + 1] = a, r[o * 4 + 2] = a, r[o * 4 + 3] = n(e[o * i]) ? 0 : 255;
+	return r;
+}
+function $r(e, t, n) {
+	let r = new Uint8ClampedArray(Z * 4), i = Q(e), a;
+	for (let o = 0; o < Z; o++) a = e[o * i] / t * 255, r[o * 4] = a, r[o * 4 + 1] = a, r[o * 4 + 2] = a, r[o * 4 + 3] = n(e[o * i]) ? 0 : 255;
+	return r;
+}
+function ei(e, t) {
+	let n = new Uint8ClampedArray(Z * 4), r = Q(e);
+	for (let i = 0; i < Z; i++) n[i * 4] = e[i * r], n[i * 4 + 1] = e[i * r + 1], n[i * 4 + 2] = e[i * r + 2], n[i * 4 + 3] = t(e[i * r]) && t(e[i * r + 1]) && t(e[i * r + 2]) ? 0 : 255;
+	return n;
+}
+function ti(e, t, n) {
+	let r = new Uint8ClampedArray(Z * 4), i = Q(e), a = t.length / 3, o = t.length / 3 * 2;
+	for (let s = 0; s < Z; s++) {
+		let c = e[s * i];
+		r[s * 4] = t[c] / 65536 * 256, r[s * 4 + 1] = t[c + a] / 65536 * 256, r[s * 4 + 2] = t[c + o] / 65536 * 256, r[s * 4 + 3] = n(e[s * i]) ? 0 : 255;
+	}
+	return r;
+}
+function ni(e, t) {
+	let n = new Uint8ClampedArray(Z * 4), r = Q(e);
+	for (let i = 0; i < Z; i++) {
+		let a = e[i * r], o = e[i * r + 1], s = e[i * r + 2], c = e[i * r + 3];
+		n[i * 4] = 255 * ((255 - a) / 256) * ((255 - c) / 256), n[i * 4 + 1] = 255 * ((255 - o) / 256) * ((255 - c) / 256), n[i * 4 + 2] = 255 * ((255 - s) / 256) * ((255 - c) / 256), n[i * 4 + 3] = t(a) && t(o) && t(s) && t(c) ? 0 : 255;
+	}
+	return n;
+}
+function ri(e, t) {
+	let n = new Uint8ClampedArray(Z * 4), r = Q(e);
+	for (let i = 0; i < Z; i++) {
+		let a = e[i * r], o = e[i * r + 1], s = e[i * r + 2];
+		n[i * 4] = a + 1.402 * (s - 128), n[i * 4 + 1] = a - .34414 * (o - 128) - .71414 * (s - 128), n[i * 4 + 2] = a + 1.772 * (o - 128), n[i * 4 + 3] = t(n[i * 4]) && t(n[i * 4 + 1]) && t(n[i * 4 + 2]) ? 0 : 255;
+	}
+	return n;
+}
+var ii = .95047, ai = 1, oi = 1.08883;
+function si(e, t) {
+	let n = new Uint8ClampedArray(Z * 4), r = Q(e);
+	for (let i = 0; i < Z; i++) {
+		let a = e[i * r], o = e[i * r + 1] << 24 >> 24, s = e[i * r + 2] << 24 >> 24, c = (a + 16) / 116, l = o / 500 + c, u = c - s / 200, d, f, p;
+		l = ii * (l * l * l > .008856 ? l * l * l : (l - 16 / 116) / 7.787), c = ai * (c * c * c > .008856 ? c * c * c : (c - 16 / 116) / 7.787), u = oi * (u * u * u > .008856 ? u * u * u : (u - 16 / 116) / 7.787), d = l * 3.2406 + c * -1.5372 + u * -.4986, f = l * -.9689 + c * 1.8758 + u * .0415, p = l * .0557 + c * -.204 + u * 1.057, d = d > .0031308 ? 1.055 * d ** (1 / 2.4) - .055 : 12.92 * d, f = f > .0031308 ? 1.055 * f ** (1 / 2.4) - .055 : 12.92 * f, p = p > .0031308 ? 1.055 * p ** (1 / 2.4) - .055 : 12.92 * p, n[4 * i] = Math.max(0, Math.min(1, d)) * 255, n[4 * i + 1] = Math.max(0, Math.min(1, f)) * 255, n[4 * i + 2] = Math.max(0, Math.min(1, p)) * 255, n[i * 4 + 3] = t(e[i * r]) && t(e[i * r + 1]) && t(e[i * r + 2]) ? 0 : 255;
+	}
+	return n;
+}
+//#endregion
+//#region node_modules/@geomatico/maplibre-cog-protocol/dist/esm/render/renderPhoto.js
+var $;
+(function(e) {
+	e[e.WhiteIsZero = 0] = "WhiteIsZero", e[e.BlackIsZero = 1] = "BlackIsZero", e[e.RGB = 2] = "RGB", e[e.Palette = 3] = "Palette", e[e.TransparencyMask = 4] = "TransparencyMask", e[e.CMYK = 5] = "CMYK", e[e.YCbCr = 6] = "YCbCr", e[e.CIELab = 8] = "CIELab", e[e.ICCLab = 9] = "ICCLab";
+})($ ||= {});
+var ci = (e, { noData: t, photometricInterpretation: n, bitsPerSample: r, colorMap: i }) => {
+	let a = r?.[0] ? 2 ** r[0] : NaN, o = xt(t, e), s;
+	switch (n) {
+		case $.WhiteIsZero:
+			s = Qr(e, a, o);
+			break;
+		case $.BlackIsZero:
+			s = $r(e, a, o);
+			break;
+		case $.RGB:
+			s = ei(e, o);
+			break;
+		case $.Palette:
+			if (i) s = ti(e, i, o);
+			else throw Error("colorMap for paletted image not found.");
+			break;
+		case $.CMYK:
+			s = ni(e, o);
+			break;
+		case $.YCbCr:
+			s = ri(e, o);
+			break;
+		case $.CIELab:
+			s = si(e, o);
+			break;
+		default: throw Error("Unsupported photometric interpretation.");
+	}
+	return s;
+}, li = (e, { offset: t, scale: n, noData: r }) => {
+	let i = 256 * 256, a = e.length / i, o = new Uint8ClampedArray(i * 4), s = xt(r, e);
+	for (let r = 0; r < i; r++) {
+		let i = e[r * a], c = t + i * n, l = ((Number.isFinite(c) && !s(i) ? c : 0) - -1e4) / .1;
+		o[4 * r] = Math.floor(l / 256 / 256) % 256, o[4 * r + 1] = Math.floor(l / 256) % 256, o[4 * r + 2] = l % 256, o[4 * r + 3] = 255;
+	}
+	return o;
+}, ui = async (e) => {
+	let t = /* @__PURE__ */ new RegExp(/cog:\/\/(.+)\/(\d+)\/(\d+)\/(\d+)/), n = e.match(t);
+	if (!n) throw Error(`Invalid COG protocol URL '${e}'`);
+	let r = n[1].split("#"), i = r[0];
+	r.shift();
+	let a = r.join("#") ?? "", o = parseInt(n[2], 10), s = parseInt(n[3], 10), c = parseInt(n[4], 10), l = en(i), u = await l.getRawTile({
+		z: o,
+		x: s,
+		y: c
+	}), d = await l.getRawTile({
+		x: s,
+		y: c,
+		z: o
+	}, { mask: !0 }), f = await l.getMetadata(), p = d ? {
+		...f,
+		noData: void 0
+	} : f, m = !d && f.noData === void 0 ? f.alphaBand : void 0, h, g = sn.get(i), _ = g === void 0 && a.startsWith("dem");
+	if (g !== void 0) h = g(u, f);
+	else if (_) h = li(u, p);
+	else if (a.startsWith("color")) {
+		let e = a.split("color").pop()?.substring(1);
+		if (e) {
+			let t = e.match(/\[("#([0-9a-fA-F]{3,6})"(,(\s)?)?)+]/)?.[0], n = "", r = [], i, a, o;
+			t ? (r = JSON.parse(t), [i, a, o] = e.replace(`${t},`, "").split(",")) : [n, i, a, o] = e.split(",");
+			let s = parseFloat(i), c = parseFloat(a), l = o?.includes("-") || !1, d = o?.includes("c") || !1;
+			h = Zr(u, {
+				...p,
+				colorScale: {
+					colorScheme: n,
+					customColors: r,
+					min: s,
+					max: c,
+					isReverse: l,
+					isContinuous: d
+				}
+			});
+		} else throw Error("Color params are not defined");
+	} else h = ci(u, p);
+	if (d) for (let e = 0; e < 65536; e++) d[e] === 0 && (h[e * 4 + 3] = 0);
+	return _ || (m !== void 0 && nn(h, u, {
+		band: m,
+		bitsPerSample: f.bitsPerSample?.[m],
+		premultiplied: f.premultipliedAlpha
+	}), an(h, await l.getTileCoverage({
+		z: o,
+		x: s,
+		y: c
+	}))), fn(h, {
+		x: s,
+		y: c,
+		z: o
+	}), await createImageBitmap(new ImageData(h, 256, 256));
+}, di = async (e) => {
+	if (e.type === "json") {
+		let t = e.url.replace("cog://", "").split("#")[0];
+		return { data: await en(t).getTilejson(e.url) };
+	} else if (e.type === "image") return { data: await ui(e.url) };
+	else throw Error(`Unsupported request type '${e.type}'`);
+};
+//#endregion
+export { Xr as n, Wr as r, di as t };

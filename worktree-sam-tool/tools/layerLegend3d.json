@@ -1,0 +1,30 @@
+{
+  "id": "layerLegend3d",
+  "label": "Legend 3D",
+  "tagline": "Shows map layers as a 3D stack.",
+  "status": "stable",
+  "element": "webmapx-layer-legend3d",
+  "placement": "toolbar",
+  "configType": "layerLegend3d",
+  "demoConfig": "config/docs/tools/layerLegend3d.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-layer-legend3d.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "layerOverview",
+    "3d",
+    "layerTree"
+  ],
+  "sections": {
+    "what": "This is the legend shown differently. Instead of a list, layers are shown as\nslabs stacked in perspective, in the order the map draws them.\n\nThe basemap is at the bottom, with other layers over it. Dragging a slab to a\ndifferent depth changes what covers what.\n\nEach slab has the same actions as a legend row: visibility, opacity, zoom to\nextent, description, style, and remove. It shares the same dialogs as the flat\nlegend.\n\nUse the flat legend for short layer lists. Use the stack when the main question\nis which layers cover others.",
+    "use": "- Drag a slab up or down to reorder the map.\n- Use a slab's controls exactly as you would a legend row's.",
+    "embed": "Add `layerLegend3d` to a toolbar. The 3D legend reads the same layer state as\nthe flat legend, so the two can coexist and stay in sync.",
+    "extend": "The 3D legend uses the same info, style, save, permalink, and clear dialogs as\nthe flat legend. Keep behavior in the shared components."
+  },
+  "page": "https://webmapx.com/tools/layerLegend3d.html",
+  "webmapxCommit": "cfd8ad6f1582c9aa5a0fa80c4c05ddb071c96dbf"
+}

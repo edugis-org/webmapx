@@ -1,0 +1,30 @@
+{
+  "id": "toolbox",
+  "label": "Toolbox",
+  "tagline": "Puts several tools behind one icon row.",
+  "status": "stable",
+  "element": "webmapx-toolbox-tool",
+  "placement": "toolbar",
+  "configType": "toolbox",
+  "demoConfig": "config/docs/tools/toolbox.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-toolbox-tool.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "menu",
+    "layerOverview",
+    "settings"
+  ],
+  "sections": {
+    "what": "Toolbox is a container for other tools. It shows them as a scrolling row of\nicons inside one panel.\n\nToolbars run out of room. A toolbox puts a related group, such as measuring or\ndrawing tools, behind one toolbar entry.\n\nOnly one child tool is active at a time.",
+    "use": "Open the toolbox and pick an icon. The selected tool takes over the panel. Pick\nanother icon and the panel switches to that tool.",
+    "embed": "Give the `toolbox` entry an `items` list, exactly like a toolbar's, naming the\ntools it holds.\n\nNesting is allowed in the config to any depth, but a toolbox **flattens** it:\neverything ends up in one row, with no submenus. If you want the hierarchy to\nsurvive, use the menu container instead.",
+    "extend": "The DOM a container builds is flat, whatever the config nesting: every sub-tool\nis a direct child. Inactive children are hidden with `hidden` and `inert` so\neach sub-tool keeps its own layout."
+  },
+  "page": "https://webmapx.com/tools/toolbox.html",
+  "webmapxCommit": "cfd8ad6f1582c9aa5a0fa80c4c05ddb071c96dbf"
+}

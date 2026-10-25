@@ -1,0 +1,1 @@
+import{vt as e}from"./webmapx-shared-36hqiL5f.js";export{e as buildLayoutFromConfig};

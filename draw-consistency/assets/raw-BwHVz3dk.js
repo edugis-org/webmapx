@@ -1,0 +1,1 @@
+import{s as e}from"./vendor-openlayers-core-BTHl-h1P.js";var t=class extends e{decodeBlock(e){return e}};export{t as default};

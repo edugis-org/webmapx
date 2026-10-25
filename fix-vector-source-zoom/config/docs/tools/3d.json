@@ -1,0 +1,123 @@
+{
+  "version": 0,
+  "apiKeysFile": "../../apikeys.json",
+  "project": {
+    "id": "docs-3d",
+    "title": "3D",
+    "description": "Documentation demo for the 3D tool: a mountainous area with elevation data, so tilting and terrain have something to show.",
+    "language": "en"
+  },
+  "map": {
+    "label": "3D",
+    "type": "maplibre",
+    "center": [
+      7.9,
+      46.55
+    ],
+    "zoom": 11
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "osm-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "elevation-source",
+        "type": "raster-dem",
+        "tiles": [
+          "https://t1.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png",
+          "https://t2.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png",
+          "https://t3.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png",
+          "https://t4.edugis.nl/mapproxy/nextzenelevation/wmts/nextzenelevation/webmercator/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "encoding": "terrarium",
+        "maxzoom": 15,
+        "attribution": "NextZen"
+      }
+    ],
+    "layers": [
+      {
+        "id": "osm",
+        "type": "raster",
+        "title": "OpenStreetMap",
+        "source": "osm-source",
+        "metadata": {
+          "reference": true,
+          "swatch": "#f2efe9",
+          "abstract": "Plain OpenStreetMap raster tiles. A measurement needs something recognisable underneath it — a canal, a block, a runway — so the numbers can be checked against the world."
+        }
+      },
+      {
+        "id": "relief",
+        "type": "hillshade",
+        "title": "Relief (hillshade)",
+        "source": "elevation-source",
+        "paint": {
+          "hillshade-exaggeration": 0.2
+        },
+        "metadata": {
+          "abstract": "An elevation source, drawn as hillshade. It is here for a second reason: with an elevation layer active the measure tool draws a height profile under the line it has just measured."
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeLayers": [
+      {
+        "ref": "osm",
+        "visible": true
+      },
+      {
+        "ref": "relief",
+        "visible": true
+      }
+    ]
+  },
+  "tools": {
+    "3d": {
+      "type": "3d",
+      "enabled": true
+    },
+    "layerOverview": {
+      "type": "layerOverview",
+      "enabled": true
+    },
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "items": [
+        {
+          "type": "3d",
+          "id": "3d",
+          "enabled": true
+        },
+        {
+          "type": "layerOverview",
+          "id": "layerOverview",
+          "enabled": true
+        }
+      ]
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "attribution": {
+      "type": "attribution",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    }
+  }
+}

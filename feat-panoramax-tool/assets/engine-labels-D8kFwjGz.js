@@ -1,0 +1,1 @@
+var e={maplibre:`MapLibre GL`,openlayers:`OpenLayers`,leaflet:`Leaflet`,cesium:`Cesium`};function t(t){return e[t]??t}export{t};

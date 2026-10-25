@@ -1,0 +1,106 @@
+{
+  "version": 0,
+  "apiKeysFile": "../../apikeys.json",
+  "project": {
+    "id": "docs-sealevel",
+    "title": "Sea level",
+    "description": "Documentation demo for the sea level tool: coastal zones over a plain basemap, from the last glacial maximum to a world without land ice.",
+    "language": "en"
+  },
+  "map": {
+    "label": "Sea level",
+    "type": "maplibre",
+    "center": [
+      3.5,
+      54.0
+    ],
+    "zoom": 4
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "osm-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>"
+      }
+    ],
+    "layers": [
+      {
+        "id": "osm",
+        "type": "raster",
+        "title": "OpenStreetMap",
+        "source": "osm-source",
+        "metadata": {
+          "reference": true,
+          "swatch": "#f2efe9",
+          "abstract": "Plain OpenStreetMap raster tiles. Its land and water colours are the ones the sea level tool paints with, so the coastal zones sit on it without a seam."
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeLayers": [
+      {
+        "ref": "osm",
+        "visible": true
+      }
+    ]
+  },
+  "tools": {
+    "sealevel": {
+      "type": "sealevel",
+      "enabled": true,
+      "data": "../../data/sealevel/lambeck2014-approx.json",
+      "tiles": "../../../data/coastal_zones.pmtiles",
+      "geojson": "../../../data/coastal_zones_16m.geojson"
+    },
+    "layerOverview": {
+      "type": "layerOverview",
+      "enabled": true
+    },
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "items": [
+        {
+          "type": "layerOverview",
+          "id": "layerOverview",
+          "enabled": true
+        },
+        {
+          "type": "sealevel",
+          "id": "sealevel",
+          "enabled": true
+        }
+      ]
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "fullscreen": {
+      "type": "fullscreen",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "scale": {
+      "type": "scale",
+      "enabled": true,
+      "position": "bottom-left"
+    },
+    "attribution": {
+      "type": "attribution",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    }
+  }
+}

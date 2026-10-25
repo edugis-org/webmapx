@@ -1,0 +1,1 @@
+import{Qr as e,Yr as t}from"./webmapx-shared-w3aXbGhv.js";export{t as STANDALONE_TAGS,e as TOOL_ELEMENT_TAGS};

@@ -1,0 +1,1 @@
+import{Tt as e,wt as t}from"./webmapx-shared-CW18CGkS.js";export{t as EPSG_DEFS,e as REGIONAL_CRS};
