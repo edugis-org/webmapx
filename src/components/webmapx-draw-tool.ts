@@ -1,10 +1,13 @@
 import { html, css, type PropertyValues, type TemplateResult } from 'lit';
 import { accentControlStyles } from './internal/accent-control-styles';
+import { sectionHeadingStyles } from './internal/section-heading-styles';
+import { formLabelStyles } from './internal/form-label-styles';
 import { customElement, state, query } from 'lit/decorators.js';
 import { WebmapxModalTool } from './webmapx-modal-tool';
 import type { IMap } from '../map/IMapInterfaces';
 import type { LngLat, ClickEvent, PointerMoveEvent, ContextMenuEvent, PointerDownEvent, PointerUpEvent } from '../store/map-events';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
+import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js';
 import '@shoelace-style/shoelace/dist/components/dialog/dialog.js';
 import '@shoelace-style/shoelace/dist/components/dropdown/dropdown.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
@@ -28,6 +31,7 @@ import editVerticesPolygonIconUrl from '../icons/edit-vertices-polygon.svg?url';
 import featureValuesIconUrl from '../icons/feature-values.svg?url';
 import lassoSelectIconUrl from '../icons/lasso-select.svg?url';
 import { drawTypeIcon } from './internal/draw-type-icons';
+import { TouchPointerController } from './internal/touch-pointer';
 
 // ─── Shared source / layer IDs ────────────────────────────────────────────────
 
@@ -308,7 +312,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
      * field instead of always snapping back to the first one.
      */
     private lastFocusedAttributeName: string | null = null;
-    @state() private helpText = '';
+    /** Live size while dragging a circle or rectangle ("Radius: 1.2 km"); shown in the panel, not in the tip. */
+    @state() private readout = '';
     @state() private pendingMode: DrawMode | null = null;
     /** Bumped on history/draft-stack changes to trigger re-render of undo/redo buttons. */
     @state() private uiVersion = 0;
@@ -320,10 +325,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
      */
     @state() private panelView: 'type' | 'layers' | 'editing' = 'type';
     @state() private pickedType: GeometryType | null = null;
-
-    /** "What do you want to draw or edit?" — shown on both the type picker and the layer
-     *  list until the first editing session is completed via "Done", then dropped. */
-    @state() private showDrawIntro = true;
 
     /**
      * Map layers of `pickedType` that aren't draw layers yet — fetched async
@@ -424,13 +425,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     // ── Touch detection ───────────────────────────────────────────────────────
 
-    private touchMQ = window.matchMedia('(pointer: coarse)');
-    @state() private isTouchDevice = this.touchMQ.matches;
-    private onTouchMQChange = (e: MediaQueryListEvent) => { this.isTouchDevice = e.matches; };
+    private readonly touch = new TouchPointerController(this);
 
     connectedCallback(): void {
         super.connectedCallback();
-        this.touchMQ.addEventListener('change', this.onTouchMQChange);
     }
 
     // ── Snap state ────────────────────────────────────────────────────────────
@@ -505,7 +503,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     // ─── Styles ───────────────────────────────────────────────────────────────
 
-    static styles = [accentControlStyles, css`
+    static styles = [accentControlStyles, sectionHeadingStyles, formLabelStyles, css`
         :host {
             /* Shared by the "Edit attributes" table's Attribute/Type
              * columns and the add-attribute form below it (the "Add
@@ -568,22 +566,22 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             gap: 0.1rem;
             flex-shrink: 0;
         }
+        /* The row's label names the control (a choice of mode), so it is a
+           field label, on a line of its own above the buttons (it wraps to
+           full width); row-gap 0 so the label's own margin is the only space
+           between it and the buttons. */
         .toolbar-row {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            column-gap: var(--webmapx-space-sm, 0.5rem);
+            row-gap: 0;
             flex-wrap: wrap;
-            margin-bottom: 0.5rem;
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
             flex-shrink: 0;
         }
-        .toolbar-label {
-            font-size: 0.66rem;
-            font-weight: 700;
-            color: var(--color-text-muted, #8a95a1);
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            width: 2.75rem;
-            flex-shrink: 0;
+        .toolbar-row > .field-label {
+            flex-basis: 100%;
+            margin-bottom: var(--webmapx-space-xs, 0.25rem);
         }
         /* Sized like the sl-icon-buttons beside it. A native button, not
            sl-icon-button, because only a real button can carry aria-pressed
@@ -618,25 +616,19 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             cursor: not-allowed;
         }
 
-        .help {
+        .readout {
             font-size: 0.8rem;
             color: var(--color-text-secondary, #5a6773);
-            margin-bottom: 0.5rem;
-            min-height: 2.5em;
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
         }
 
-        .section-label {
+        /* Column headings of the selected feature's attribute table, not a
+           section heading: they name columns, the rows below are the content. */
+        .column-header {
             font-size: 0.7rem;
             text-transform: uppercase;
             letter-spacing: 0.06em;
             color: var(--color-text-muted, #6b7681);
-            margin-bottom: 0.25rem;
-        }
-
-        .flow-heading {
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
         }
 
         /*
@@ -657,11 +649,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
          */
         .session-footer {
             display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 0.5rem;
-            margin-top: 0.6rem;
-            padding-top: 0.5rem;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: var(--webmapx-space-sm, 0.5rem);
+            margin-top: var(--webmapx-space-md, 0.75rem);
+            padding-top: var(--webmapx-space-md, 0.75rem);
             /*
              * Matches :host's own padding (the gutter .panel-content itself
              * has none of — see :host's 'padding' above), so the buttons
@@ -687,10 +679,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         /* Always rendered (unlike the hint, which only appears on a naming
            error) so the "Edit attributes" button stays pinned to the
            left edge and "Done" to the right, whichever else is showing. */
-        .footer-spacer {
-            flex: 1;
-        }
 
+        .finish-draft {
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
+        }
         .name-required-hint {
             font-size: 0.78rem;
             color: var(--sl-color-danger-600, #dc2626);
@@ -699,8 +691,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         .layer-picker-header {
             display: flex;
             align-items: center;
-            margin-top: 0.75rem;
-            margin-bottom: 0.5rem;
+            margin-top: var(--webmapx-space-md, 0.75rem);
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
         }
 
         .add-layer-btn {
@@ -710,8 +702,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         .editing-title-row {
             display: flex;
             flex-direction: column;
-            gap: 0.3rem;
-            margin-bottom: 0.5rem;
+            gap: var(--webmapx-space-xs, 0.25rem);
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
         }
 
         .editing-title-second-row {
@@ -720,17 +712,12 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             gap: 0.3rem;
         }
 
-        .editing-title-label {
-            font-size: 0.8rem;
-            color: var(--color-text-secondary, #5a6773);
-            flex-shrink: 0;
-        }
 
 
         .type-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 0.5rem;
+            gap: var(--webmapx-space-sm, 0.5rem);
         }
 
         .type-card {
@@ -780,7 +767,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }
 
         .layer-list {
-            margin-bottom: 0.5rem;
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
         }
 
         .layer-group {
@@ -1212,19 +1199,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             box-shadow: var(--sl-shadow-medium);
         }
         .auto-attr-checkbox {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            font-size: 0.82rem;
-            cursor: pointer;
             white-space: nowrap;
         }
-        /* A plain checkbox otherwise renders in the browser's own default
-         * accent color, not the app's theme blue — accent-color is the
-         * standards-based way to recolor native form controls without
-         * rebuilding the checkbox from scratch. */
-        .auto-attr-checkbox input[type="checkbox"] {
-            accent-color: var(--color-primary, #2b6c8f);
+        /* The whole row is clickable, as the native label row was. */
+        .auto-attr-checkbox::part(base) {
+            width: 100%;
         }
         .add-attr-note {
             font-size: 0.72rem;
@@ -1250,13 +1229,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         .feature-row:hover { background: var(--color-background-secondary, #f4f6f8); }
         .feature-row.selected { background: var(--color-primary-soft, rgba(43, 108, 143, 0.12)); }
 
-        .divider {
-            width: 1px; height: 1.2rem;
-            background: var(--color-background-secondary, #f4f6f8);
-            margin: 0 0.1rem;
+        /* Delete stands a little apart from undo/redo — a gap, not a line,
+           since a line inside a panel means a new section starts. */
+        .history-actions sl-tooltip:has(.delete-feature-btn) {
+            margin-left: var(--webmapx-space-xs, 0.25rem);
         }
 
         .prop-row { display: flex; gap: 0.4rem; align-items: center; font-size: 0.82rem; margin-bottom: 0.2rem; }
+        .prop-header-row { margin-top: var(--webmapx-space-md, 0.75rem); }
         .prop-label { width: 80px; color: var(--color-text-muted, #6b7681); flex-shrink: 0; }
         .prop-value { flex: 1; min-width: 0; }
         .prop-link { display: block; width: 100%; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1339,6 +1319,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.circleDraft = null;
         this.rectDraft = null;
         this.rectSelectDraft = null;
+        this.readout = '';
         this.lassoSelectDraft = null;
         this.cursorPos = null;
         this.snapPos = null;
@@ -1357,7 +1338,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     disconnectedCallback(): void {
-        this.touchMQ.removeEventListener('change', this.onTouchMQChange);
         for (const timer of this.missingLayerChecks.values()) clearTimeout(timer);
         this.missingLayerChecks.clear();
         for (const { timer } of this.releasedLayers.values()) clearTimeout(timer);
@@ -1930,6 +1910,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private setModeInternal(mode: DrawMode): void {
+        this.readout = '';
         if (this.circleDraft) {
             this.circleDraft = null;
             this.adapter?.setPanEnabled(true);
@@ -1992,9 +1973,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                     this.updateMultiSelectSource();
                     this.updateEditHandles();
                 }
-                this.helpText = mode === 'select' ? 'Click a feature to delete it.'
-                    : mode === 'select-rect' ? 'Drag a rectangle to delete the features inside it.'
-                    : 'Draw a free-hand shape to delete the features inside it.';
                 break;
             case 'attributes':
                 this.adapter?.setDoubleClickZoomEnabled(true);
@@ -2017,7 +1995,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 this.updateSelectedSource();
                 this.updateMultiSelectSource();
                 this.updateEditHandles();
-                this.helpText = 'Hover a feature to preview it, then click to view or edit its attributes.';
                 if (this.selectedFeatureId) {
                     // A carried-over selection means there's already a real
                     // feature to edit the instant this mode is picked —
@@ -2057,9 +2034,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 this.updateSelectedSource();
                 this.updateMultiSelectSource();
                 this.updateEditHandles();
-                this.helpText = mode === 'edit-move'
-                    ? 'Click a feature to select it, or drag it directly to move it.'
-                    : 'Click a feature to edit its points — drag one to reshape it, or select one and press Delete to remove it.';
                 break;
             }
             case 'draw-point':
@@ -2077,11 +2051,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 this.updateSelectedSource();
                 this.updateMultiSelectSource();
                 this.adapter?.setCursor('crosshair');
-                this.helpText = this.mode === 'draw-point' ? 'Click to place a point.'
-                    : this.mode === 'draw-line' || this.mode === 'draw-line-dashed' ? 'Click to add vertices. Right-click or double-click to finish.'
-                    : this.mode === 'draw-circle' ? 'Click and drag to draw a circle.'
-                    : this.mode === 'draw-rectangle' ? 'Click and drag to draw a rectangle.'
-                    : 'Click to add vertices. Click first point or double-click to close.';
                 break;
         }
     }
@@ -2704,7 +2673,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             return;
         }
         this.layerNameInvalid = false;
-        this.showDrawIntro = false;
         this.stopEditingCurrent();
     }
 
@@ -2847,6 +2815,16 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.adapter.store.dispatch({
             mapLayers: { ...current, [mapLayerId]: { ...entry, properties } }
         }, 'MAP');
+    }
+
+    /** Opens the add-attribute form with the cursor in its name field, ready to type. */
+    private async startAddAttribute(): Promise<void> {
+        this.addingAttribute = true;
+        await this.updateComplete;
+        const input = this.shadowRoot?.querySelector<SlInput>('.add-attr-name-input');
+        if (!input) return;
+        await input.updateComplete;
+        input.focus();
     }
 
     private addActiveLayerProperty(cfg: DrawLayerConfig): void {
@@ -3098,7 +3076,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             this.draftRedoStack = [];
             this.uiVersion++;
             this.updateRubberband();
-            this.updateHelpTextDuring();
+            this.requestUpdate();
             return;
         }
 
@@ -3568,14 +3546,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         const center = (this.effectiveSnap && this.snapPos) ? this.snapPos : coords;
         this.circleDraft = { center, radiusM: 0 };
         this.adapter?.setPanEnabled(false);
-        this.helpText = 'Drag to set circle radius.';
+        this.requestUpdate();
     }
 
     private updateCircleDraft(coords: LngLat): void {
         if (!this.circleDraft) return;
         this.circleDraft.radiusM = haversineDistanceCm(this.circleDraft.center, coords) / 100;
         this.updateCirclePreview();
-        this.helpText = `Radius: ${formatDistance(this.circleDraft.radiusM * 100)}`;
+        this.readout = `Radius: ${formatDistance(this.circleDraft.radiusM * 100)}`;
     }
 
     private updateCirclePreview(): void {
@@ -3604,7 +3582,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 coordinates: [circlePolygonRing(center, radiusM)], properties: this.defaultProperties(layerId)
             });
         }
-        this.helpText = 'Click and drag to draw a circle.';
+        this.readout = '';
     }
 
     // ─── Rectangle drawing ───────────────────────────────────────────────────
@@ -3615,7 +3593,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         const corner = (this.effectiveSnap && this.snapPos) ? this.snapPos : coords;
         this.rectDraft = { corner1: corner, corner2: corner };
         this.adapter?.setPanEnabled(false);
-        this.helpText = 'Drag to the opposite corner.';
+        this.requestUpdate();
     }
 
     private updateRectDraft(coords: LngLat): void {
@@ -3623,7 +3601,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.rectDraft.corner2 = (this.effectiveSnap && this.snapPos) ? this.snapPos : coords;
         this.updateRectPreview();
         const diagM = haversineDistanceCm(this.rectDraft.corner1, this.rectDraft.corner2) / 100;
-        this.helpText = `Diagonal: ${formatDistance(diagM * 100)}`;
+        this.readout = `Diagonal: ${formatDistance(diagM * 100)}`;
     }
 
     /** Closed ring for the axis-aligned (in lng/lat) box between two opposite corners. */
@@ -3661,7 +3639,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 coordinates: [this.rectRing(corner1, corner2)], properties: this.defaultProperties(layerId)
             });
         }
-        this.helpText = 'Click and drag to draw a rectangle.';
+        this.readout = '';
     }
 
     // ─── Rectangle / lasso select ───────────────────────────────────────────
@@ -3701,7 +3679,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (diagM >= MIN_DRAG_SIZE_M) {
             this.applyShapeSelection(this.rectRing(corner1, corner2));
         }
-        this.helpText = 'Drag a rectangle to select the features inside it.';
+        this.requestUpdate();
     }
 
     private startLassoSelectDraft(coords: LngLat): void {
@@ -3741,7 +3719,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (points.length >= 3) {
             this.applyShapeSelection([...points, points[0]]);
         }
-        this.helpText = 'Draw a free-hand shape to select the features inside it.';
+        this.requestUpdate();
     }
 
     /** Draws (or clears, on `null`) the dashed/tinted rectangle or lasso outline while dragging. */
@@ -4320,7 +4298,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.draftRedoStack.push(this.draftPoints.pop()!);
         this.uiVersion++;
         this.updateRubberband();
-        this.updateHelpTextDuring();
+        this.requestUpdate();
     }
 
     /** Draw row's Undo — also steps back through an in-progress draft one point at a time. */
@@ -4338,7 +4316,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             this.draftPoints.push(this.draftRedoStack.pop()!);
             this.uiVersion++;
             this.updateRubberband();
-            this.updateHelpTextDuring();
+            this.requestUpdate();
         } else {
             this.redoDraw();
         }
@@ -4383,7 +4361,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             this.draftRedoStack = [];
             this.cursorPos = this.draftPoints[this.draftPoints.length - 1];
             this.updateRubberband();
-            this.updateHelpTextDuring();
+            this.requestUpdate();
         }
     }
 
@@ -4674,14 +4652,48 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         target?.dispatchEvent(new CustomEvent(event, { detail, bubbles: true, composed: true }));
     }
 
-    private updateHelpTextDuring(): void {
+    /** The description asks what to draw or edit; once a layer is open, that is answered. */
+    get showsDescription(): boolean {
+        return this.panelView !== 'editing';
+    }
+
+    /** The next step, shown on the map under the panel. */
+    get toolTip(): string {
+        if (this.panelView !== 'editing') return '';
+        const click = this.touch.click;
+        // The touch-only Finish button appears once a line or polygon can be finished.
+        const finish = this.touch.isTouch ? 'tap Stop drawing' : 'finish with a double-click or right-click';
         const n = this.draftPoints.length;
-        if (this.mode === 'draw-line' || this.mode === 'draw-line-dashed') {
-            this.helpText = `${n} pt${n !== 1 ? 's' : ''}. Double-click or right-click to finish.`;
-        } else if (this.mode === 'draw-polygon') {
-            this.helpText = n >= 3
-                ? `${n} pts. Click first point, double-click, or right-click to close.`
-                : `${n} pt${n !== 1 ? 's' : ''}. Need at least 3 to close.`;
+        switch (this.mode) {
+            case 'select':
+                return `${click} a feature to select it, then use the bin to delete it.`;
+            case 'select-rect':
+                return 'Drag a rectangle around the features you want to delete, then use the bin.';
+            case 'select-lasso':
+                return 'Draw a shape around the features you want to delete, then use the bin.';
+            case 'attributes':
+                return this.touch.isTouch
+                    ? 'Tap a feature to see or edit its attributes.'
+                    : 'Point at a feature to preview it, then click it to see or edit its attributes.';
+            case 'edit-move':
+                return `${click} a feature to select it, or drag it to move it.`;
+            case 'edit-vertices':
+                return `${click} a feature to edit its points. Drag a point to reshape it, or select one and ${this.touch.isTouch ? 'tap the bin' : 'press Delete'} to remove it.`;
+            case 'draw-point':
+                return `${click} the map to place a point.`;
+            case 'draw-line':
+            case 'draw-line-dashed':
+                return n === 0 ? `${click} the map to start the line.`
+                    : n === 1 ? `${click} to add the next point.`
+                    : `${click} to add points, or ${finish}.`;
+            case 'draw-polygon':
+                return n === 0 ? `${click} the map to place the first corner.`
+                    : n < 3 ? `${click} to add the next corner. A polygon needs at least 3.`
+                    : `${click} the first corner to close the polygon, or ${finish}.`;
+            case 'draw-circle':
+                return this.circleDraft ? 'Drag to make the circle bigger or smaller.' : 'Press and drag on the map to draw a circle.';
+            case 'draw-rectangle':
+                return this.rectDraft ? 'Drag to the opposite corner.' : 'Press and drag on the map to draw a rectangle.';
         }
     }
 
@@ -4705,10 +4717,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private renderTypePicker() {
-        return html`
-            ${this.showDrawIntro ? html`<div class="flow-heading">What do you want to draw or edit?</div>` : ''}
-            ${this.renderTypeGrid(null)}
-        `;
+        return this.renderTypeGrid(null);
     }
 
     private layerCountLabel(type: GeometryType): string {
@@ -4728,7 +4737,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         // the same thing.
         const justify = type === 'Point' ? 'flex-start' : type === 'LineString' ? 'center' : 'flex-end';
         return html`
-            ${this.showDrawIntro ? html`<div class="flow-heading">What do you want to draw or edit?</div>` : ''}
             ${this.renderTypeGrid(type)}
             <div class="layer-picker-header" style="justify-content:${justify}">
                 <sl-button variant="default" size="small" class="add-layer-btn" @click=${() => this.createNewLayer()}>
@@ -4739,38 +4747,48 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             ${nothingToShow ? html`<p class="empty-state">No ${label.toLowerCase()} layers yet.</p>` : html`
                 <div class="layer-list">
                     ${layers.length > 0 ? html`
-                        ${catalogOptions.length > 0 ? html`<div class="section-label">Your layers</div>` : ''}
-                        <div class="layer-group">
-                            ${layers.map(l => html`
-                                <div class="layer-row">
-                                    <span class="color-dot color-dot--${swatchShape(l.type)}" style="${swatchStyle(this.currentDrawLayerColor(l), l.type)}"></span>
-                                    <span class="layer-name-wrap">
-                                        <span class="layer-name">${l.name || '(untitled)'}</span>
-                                        <span class="feature-count">(${this.features.filter(f => f.layerId === l.id).length} features)</span>
-                                    </span>
-                                    <sl-button size="small" variant="primary" @click=${() => this.startEditingLayer(l)}>Edit</sl-button>
-                                    <sl-tooltip content="Remove layer">
-                                        <sl-icon-button name="trash" class="remove-layer-btn" label="Remove ${l.name}"
-                                            @click=${(e: Event) => { e.stopPropagation(); this.releaseLayer(l); }}>
-                                        </sl-icon-button>
-                                    </sl-tooltip>
-                                </div>
-                            `)}
-                        </div>
+                        <section class="panel-section">
+                            ${catalogOptions.length > 0 ? html`<h3 class="section-heading">Your layers</h3>` : ''}
+                            <div class="layer-group">
+                                ${layers.map(l => html`
+                                    <div class="layer-row">
+                                        <span class="color-dot color-dot--${swatchShape(l.type)}" style="${swatchStyle(this.currentDrawLayerColor(l), l.type)}"></span>
+                                        <span class="layer-name-wrap">
+                                            <span class="layer-name">${l.name || '(untitled)'}</span>
+                                            <span class="feature-count">(${featureCountLabel(this.features.filter(f => f.layerId === l.id).length)})</span>
+                                        </span>
+                                        <sl-button size="small" @click=${() => this.startEditingLayer(l)}>
+                                            <sl-icon slot="prefix" name="pencil"></sl-icon>
+                                            Edit
+                                        </sl-button>
+                                        <sl-tooltip content="Remove layer">
+                                            <sl-icon-button name="trash" class="remove-layer-btn" label="Remove ${l.name}"
+                                                @click=${(e: Event) => { e.stopPropagation(); this.releaseLayer(l); }}>
+                                            </sl-icon-button>
+                                        </sl-tooltip>
+                                    </div>
+                                `)}
+                            </div>
+                        </section>
                     ` : ''}
                     ${catalogOptions.length > 0 ? html`
-                        <div class="section-label" style=${layers.length > 0 ? 'margin-top:.5rem' : ''}>From the catalog</div>
-                        <div class="layer-group">
-                            ${catalogOptions.map(opt => html`
-                                <div class="layer-row">
-                                    <span class="color-dot color-dot--${swatchShape(type)}" style="${swatchStyle(MAP_LAYER_COLOR, type)}"></span>
-                                    <span class="layer-name-wrap">
-                                        <span class="layer-name">${opt.label}</span>
-                                    </span>
-                                    <sl-button size="small" variant="primary" @click=${() => { this.pendingCatalogEditOption = opt; }}>Edit</sl-button>
-                                </div>
-                            `)}
-                        </div>
+                        <section class="panel-section">
+                            <h3 class="section-heading">From the catalog</h3>
+                            <div class="layer-group">
+                                ${catalogOptions.map(opt => html`
+                                    <div class="layer-row">
+                                        <span class="color-dot color-dot--${swatchShape(type)}" style="${swatchStyle(MAP_LAYER_COLOR, type)}"></span>
+                                        <span class="layer-name-wrap">
+                                            <span class="layer-name">${opt.label}</span>
+                                        </span>
+                                        <sl-button size="small" @click=${() => { this.pendingCatalogEditOption = opt; }}>
+                                            <sl-icon slot="prefix" name="pencil"></sl-icon>
+                                            Edit
+                                        </sl-button>
+                                    </div>
+                                `)}
+                            </div>
+                        </section>
                     ` : ''}
                 </div>
             `}
@@ -4808,7 +4826,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         return html`
             ${layer ? html`
                 <div class="editing-title-row">
-                    <span class="editing-title-label">You are editing:</span>
+                    <span class="field-label">Layer name</span>
                     <div class="editing-title-second-row">
                         <span class="color-swatch-wrap">
                             <span class="color-swatch color-swatch--${swatchShape(layer.type)}" style="${swatchStyle(this.currentDrawLayerColor(layer), layer.type)}"
@@ -4842,8 +4860,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             ` : ''}
 
             <div class="toolbar-row">
-                <span class="toolbar-label">Draw</span>
-                <div class="pill">
+                <span class="field-label">Draw</span>
+                <div class="pill" role="group" aria-label="Draw">
                     ${this.toggleButton({
                         icon: type === 'Point' ? 'geo-fill' : type === 'LineString' ? 'slash-lg' : 'pentagon',
                         label: `Draw ${typeLabelPlural(type).toLowerCase()}`,
@@ -4884,7 +4902,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                                 @click=${() => this.redoOrDraftForward()}>
                             </sl-icon-button>
                         </sl-tooltip>
-                        <div class="divider"></div>
                         <sl-tooltip content=${this.draftPoints.length > 0 ? 'Remove last point' : 'Delete this feature'}>
                             <sl-icon-button name="trash" size="small" class="delete-feature-btn"
                                 label=${this.draftPoints.length > 0 ? 'Remove last point' : 'Delete this feature'}
@@ -4898,8 +4915,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
             ${layerHasFeatures || this.moveHistoryIndex >= 0 ? html`
                 <div class="toolbar-row">
-                    <span class="toolbar-label">Edit</span>
-                    <div class="pill">
+                    <span class="field-label">Edit</span>
+                    <div class="pill" role="group" aria-label="Edit">
                         ${this.toggleButton({
                             icon: 'arrows-move', label: 'Move features',
                             tooltip: 'Click a feature to select it, or drag it directly to move it',
@@ -4935,7 +4952,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                                 </sl-icon-button>
                             </sl-tooltip>
                             ${this.mode === 'edit-vertices' ? html`
-                                <div class="divider"></div>
                                 <sl-tooltip content="Delete selected point">
                                     <sl-icon-button name="trash" size="small" class="delete-feature-btn" label="Delete selected point"
                                         ?disabled=${!this.selectedHandle}
@@ -4950,8 +4966,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
             ${layerHasFeatures || this.moveHistoryIndex >= 0 ? html`
                 <div class="toolbar-row">
-                    <span class="toolbar-label">Delete</span>
-                    <div class="pill">
+                    <span class="field-label">Delete</span>
+                    <div class="pill" role="group" aria-label="Delete">
                         ${this.toggleButton({
                             icon: 'hand-index-thumb', label: 'Select features by clicking',
                             tooltip: 'Click a feature to delete it',
@@ -4985,7 +5001,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                                     @click=${() => this.redoMove()}>
                                 </sl-icon-button>
                             </sl-tooltip>
-                            <div class="divider"></div>
                             <sl-tooltip content=${this.selectedFeatureIds.length > 1 ? `Delete ${this.selectedFeatureIds.length} selected` : 'Delete selected'}>
                                 <sl-icon-button name="trash" size="small" class="delete-feature-btn"
                                     label=${this.selectedFeatureIds.length > 1 ? `Delete ${this.selectedFeatureIds.length} selected` : 'Delete selected'}
@@ -4999,8 +5014,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             ` : ''}
 
             <div class="toolbar-row">
-                <span class="toolbar-label">Tools</span>
-                <div class="pill">
+                <span class="field-label">Tools</span>
+                <div class="pill" role="group" aria-label="Tools">
                     ${this.toggleButton({
                         icon: 'magnet', label: 'Snap to points and edges',
                         tooltip: `Snap to points and edges (${this.snapEnabled ? 'on' : 'off'}) — hold Alt to toggle`,
@@ -5013,24 +5028,25 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 </div>
             </div>
 
-            <div class="help">${this.helpText}</div>
+            ${this.readout ? html`<div class="readout">${this.readout}</div>` : ''}
 
-            ${this.isTouchDevice && (this.mode === 'draw-line' || this.mode === 'draw-line-dashed' || this.mode === 'draw-polygon') &&
+            ${this.touch.isTouch && (this.mode === 'draw-line' || this.mode === 'draw-line-dashed' || this.mode === 'draw-polygon') &&
               this.draftPoints.length >= (this.mode === 'draw-polygon' ? 3 : 2) ? html`
-                <sl-button size="small" variant="primary" style="margin-bottom:.4rem;width:100%"
+                <sl-button size="small" variant="primary" class="main-action finish-draft"
                     @click=${() => {
                         const geoType = modeToGeometryType(this.mode);
                         const lId = geoType ? this.activeLayerIds[geoType] : null;
                         if (lId) this.finishDraft(lId);
                     }}>
-                    Finish
+                    <sl-icon slot="prefix" name="check-lg"></sl-icon>
+                    Stop drawing
                 </sl-button>
             ` : ''}
 
             ${selFeature && selLayer ? html`
-                <div class="prop-row" style="margin-top:.5rem">
-                    <span class="prop-label section-label" style="margin-bottom:0">Attribute</span>
-                    <span class="prop-value section-label" style="margin-bottom:0">Value</span>
+                <div class="prop-row prop-header-row">
+                    <span class="prop-label column-header">Attribute</span>
+                    <span class="prop-value column-header">Value</span>
                 </div>
                 ${selLayer.properties.map(p => html`
                     <div class="prop-row" data-attr-name=${p.name}>
@@ -5174,7 +5190,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                     ` : html`
                         <div class="add-attr-row">
                             <sl-button variant="default" size="small" class="add-attr-btn-below"
-                                @click=${() => { this.addingAttribute = true; }}>
+                                @click=${() => this.startAddAttribute()}>
                                 <sl-icon slot="prefix" name="plus-lg"></sl-icon>
                                 Add attribute
                             </sl-button>
@@ -5188,12 +5204,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                         </sl-button>
                         <div class="auto-attr-dropdown-panel">
                             ${this.availableAutoAttributeTypes(layer).map(t => html`
-                                <label class="auto-attr-checkbox">
-                                    <input type="checkbox"
-                                        .checked=${this.isAutoAttributeChecked(layer, t)}
-                                        @change=${() => this.toggleAutoAttribute(layer, t)}>
+                                <sl-checkbox size="small" class="auto-attr-checkbox"
+                                    .checked=${this.isAutoAttributeChecked(layer, t)}
+                                    @sl-change=${() => this.toggleAutoAttribute(layer, t)}>
                                     ${AUTO_PROPERTY_DEFAULTS[t]?.label ?? t}
-                                </label>
+                                </sl-checkbox>
                             `)}
                         </div>
                     </sl-dropdown>
@@ -5216,13 +5231,15 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (!layer) return '';
         return html`
             <div class="session-footer">
-                <sl-button variant="default" size="small" @click=${() => this.attributesDialog?.show()}>
+                <sl-button class="main-action" variant="default" size="small" @click=${() => this.attributesDialog?.show()}>
                     <sl-icon slot="prefix" name="table"></sl-icon>
                     Edit attributes (${layer.properties.length})
                 </sl-button>
-                <span class="footer-spacer"></span>
                 ${this.layerNameInvalid ? html`<span class="name-required-hint">Give the new layer a name.</span>` : ''}
-                <sl-button size="small" variant="primary" @click=${() => this.confirmDone()}>Done</sl-button>
+                <sl-button class="main-action" size="small" variant="primary" @click=${() => this.confirmDone()}>
+                    <sl-icon slot="prefix" name="check-lg"></sl-icon>
+                    Finish editing
+                </sl-button>
             </div>
         `;
     }
@@ -5290,6 +5307,10 @@ function drawModeForType(type: GeometryType): DrawMode {
  *  to a single click-drag gesture (circle, rectangle). */
 function isVertexDrawMode(mode: DrawMode): boolean {
     return mode === 'draw-point' || mode === 'draw-line' || mode === 'draw-line-dashed' || mode === 'draw-polygon';
+}
+
+function featureCountLabel(n: number): string {
+    return `${n} feature${n === 1 ? '' : 's'}`;
 }
 
 function typeLabelPlural(type: GeometryType): string {

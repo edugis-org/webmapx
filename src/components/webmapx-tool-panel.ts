@@ -20,6 +20,8 @@ export class WebmapxToolPanel extends LitElement {
   @property({ type: Boolean, reflect: true }) collapsed = false;
   /** What the active tool is for, drawn under the title (`panel-description` on the tool). */
   @state() private description = '';
+  /** Whether the active tool wants its description shown in its current view (`showsDescription`). */
+  @state() private descriptionShown = true;
   /** The active tool's next step, drawn on the map under the panel (see internal/tool-tip.ts). */
   @state() private tip = '';
   /** The active tool's icon, drawn as a tile before the title in styles that show it. */
@@ -160,13 +162,14 @@ export class WebmapxToolPanel extends LitElement {
   }
 
   /**
-   * Re-read the active tool's tip. Any tool may announce a change (a hidden one
+   * Re-read the active tool's tip, and whether it shows its description. Any tool may announce a change (a hidden one
    * too, or a sub-tool inside a toolbox), so the panel always asks the open tool
    * rather than taking the text from the event.
    */
   private readTip(): void {
     const tool = this.activeToolId ? this.toolIndex.get(this.activeToolId)?.element : null;
     this.tip = (tool as (HTMLElement & Partial<ToolTipSource>) | null | undefined)?.toolTip ?? '';
+    this.descriptionShown = (tool as (HTMLElement & Partial<ToolTipSource>) | null | undefined)?.showsDescription ?? true;
   }
 
   /**
@@ -490,7 +493,7 @@ export class WebmapxToolPanel extends LitElement {
         </sl-button>
       </div>
       <div class="panel-content">
-        ${this.description ? html`<p class="panel-description">${this.description}</p>` : nothing}
+        ${this.description && this.descriptionShown ? html`<p class="panel-description">${this.description}</p>` : nothing}
         <slot @slotchange=${this.handleSlotChange}></slot>
       </div>
       <slot name="footer"></slot>
