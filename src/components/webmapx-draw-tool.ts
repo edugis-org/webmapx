@@ -4642,6 +4642,11 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         target?.dispatchEvent(new CustomEvent(event, { detail, bubbles: true, composed: true }));
     }
 
+    /** The description asks what to draw or edit; once a layer is open, that is answered. */
+    get showsDescription(): boolean {
+        return this.panelView !== 'editing';
+    }
+
     /** The next step, shown on the map under the panel. */
     get toolTip(): string {
         if (this.panelView !== 'editing') return '';

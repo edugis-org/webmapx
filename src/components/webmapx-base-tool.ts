@@ -38,6 +38,16 @@ export abstract class WebmapxBaseTool extends LitElement {
         return '';
     }
 
+    /**
+     * Whether the panel shows this tool's description under the title. A tool
+     * whose description is a question answered by its first view ("What do
+     * you want to draw or edit?") returns false once it has been answered;
+     * the panel re-reads it whenever it re-reads the tip.
+     */
+    get showsDescription(): boolean {
+        return true;
+    }
+
     connectedCallback(): void {
         super.connectedCallback();
         // Auto-label from toolId / tool-id attribute if not explicitly set
