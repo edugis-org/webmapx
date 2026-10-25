@@ -31,6 +31,7 @@ import editVerticesPolygonIconUrl from '../icons/edit-vertices-polygon.svg?url';
 import featureValuesIconUrl from '../icons/feature-values.svg?url';
 import lassoSelectIconUrl from '../icons/lasso-select.svg?url';
 import { drawTypeIcon } from './internal/draw-type-icons';
+import { TouchPointerController } from './internal/touch-pointer';
 
 // ─── Shared source / layer IDs ────────────────────────────────────────────────
 
@@ -311,7 +312,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
      * field instead of always snapping back to the first one.
      */
     private lastFocusedAttributeName: string | null = null;
-    @state() private helpText = '';
+    /** Live size while dragging a circle or rectangle ("Radius: 1.2 km"); shown in the panel, not in the tip. */
+    @state() private readout = '';
     @state() private pendingMode: DrawMode | null = null;
     /** Bumped on history/draft-stack changes to trigger re-render of undo/redo buttons. */
     @state() private uiVersion = 0;
@@ -423,13 +425,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     // ── Touch detection ───────────────────────────────────────────────────────
 
-    private touchMQ = window.matchMedia('(pointer: coarse)');
-    @state() private isTouchDevice = this.touchMQ.matches;
-    private onTouchMQChange = (e: MediaQueryListEvent) => { this.isTouchDevice = e.matches; };
+    private readonly touch = new TouchPointerController(this);
 
     connectedCallback(): void {
         super.connectedCallback();
-        this.touchMQ.addEventListener('change', this.onTouchMQChange);
     }
 
     // ── Snap state ────────────────────────────────────────────────────────────
@@ -617,11 +616,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             cursor: not-allowed;
         }
 
-        .help {
+        .readout {
             font-size: 0.8rem;
             color: var(--color-text-secondary, #5a6773);
             margin-bottom: 0.5rem;
-            min-height: 2.5em;
         }
 
         /* Column headings of the selected feature's attribute table, not a
@@ -1320,6 +1318,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.circleDraft = null;
         this.rectDraft = null;
         this.rectSelectDraft = null;
+        this.readout = '';
         this.lassoSelectDraft = null;
         this.cursorPos = null;
         this.snapPos = null;
@@ -1338,7 +1337,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     disconnectedCallback(): void {
-        this.touchMQ.removeEventListener('change', this.onTouchMQChange);
         for (const timer of this.missingLayerChecks.values()) clearTimeout(timer);
         this.missingLayerChecks.clear();
         for (const { timer } of this.releasedLayers.values()) clearTimeout(timer);
@@ -1911,6 +1909,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private setModeInternal(mode: DrawMode): void {
+        this.readout = '';
         if (this.circleDraft) {
             this.circleDraft = null;
             this.adapter?.setPanEnabled(true);
@@ -1973,9 +1972,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                     this.updateMultiSelectSource();
                     this.updateEditHandles();
                 }
-                this.helpText = mode === 'select' ? 'Click a feature to delete it.'
-                    : mode === 'select-rect' ? 'Drag a rectangle to delete the features inside it.'
-                    : 'Draw a free-hand shape to delete the features inside it.';
                 break;
             case 'attributes':
                 this.adapter?.setDoubleClickZoomEnabled(true);
@@ -1998,7 +1994,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 this.updateSelectedSource();
                 this.updateMultiSelectSource();
                 this.updateEditHandles();
-                this.helpText = 'Hover a feature to preview it, then click to view or edit its attributes.';
                 if (this.selectedFeatureId) {
                     // A carried-over selection means there's already a real
                     // feature to edit the instant this mode is picked —
@@ -2038,9 +2033,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 this.updateSelectedSource();
                 this.updateMultiSelectSource();
                 this.updateEditHandles();
-                this.helpText = mode === 'edit-move'
-                    ? 'Click a feature to select it, or drag it directly to move it.'
-                    : 'Click a feature to edit its points — drag one to reshape it, or select one and press Delete to remove it.';
                 break;
             }
             case 'draw-point':
@@ -2058,11 +2050,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 this.updateSelectedSource();
                 this.updateMultiSelectSource();
                 this.adapter?.setCursor('crosshair');
-                this.helpText = this.mode === 'draw-point' ? 'Click to place a point.'
-                    : this.mode === 'draw-line' || this.mode === 'draw-line-dashed' ? 'Click to add vertices. Right-click or double-click to finish.'
-                    : this.mode === 'draw-circle' ? 'Click and drag to draw a circle.'
-                    : this.mode === 'draw-rectangle' ? 'Click and drag to draw a rectangle.'
-                    : 'Click to add vertices. Click first point or double-click to close.';
                 break;
         }
     }
@@ -3078,7 +3065,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             this.draftRedoStack = [];
             this.uiVersion++;
             this.updateRubberband();
-            this.updateHelpTextDuring();
+            this.requestUpdate();
             return;
         }
 
@@ -3548,14 +3535,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         const center = (this.effectiveSnap && this.snapPos) ? this.snapPos : coords;
         this.circleDraft = { center, radiusM: 0 };
         this.adapter?.setPanEnabled(false);
-        this.helpText = 'Drag to set circle radius.';
+        this.requestUpdate();
     }
 
     private updateCircleDraft(coords: LngLat): void {
         if (!this.circleDraft) return;
         this.circleDraft.radiusM = haversineDistanceCm(this.circleDraft.center, coords) / 100;
         this.updateCirclePreview();
-        this.helpText = `Radius: ${formatDistance(this.circleDraft.radiusM * 100)}`;
+        this.readout = `Radius: ${formatDistance(this.circleDraft.radiusM * 100)}`;
     }
 
     private updateCirclePreview(): void {
@@ -3584,7 +3571,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 coordinates: [circlePolygonRing(center, radiusM)], properties: this.defaultProperties(layerId)
             });
         }
-        this.helpText = 'Click and drag to draw a circle.';
+        this.readout = '';
     }
 
     // ─── Rectangle drawing ───────────────────────────────────────────────────
@@ -3595,7 +3582,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         const corner = (this.effectiveSnap && this.snapPos) ? this.snapPos : coords;
         this.rectDraft = { corner1: corner, corner2: corner };
         this.adapter?.setPanEnabled(false);
-        this.helpText = 'Drag to the opposite corner.';
+        this.requestUpdate();
     }
 
     private updateRectDraft(coords: LngLat): void {
@@ -3603,7 +3590,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.rectDraft.corner2 = (this.effectiveSnap && this.snapPos) ? this.snapPos : coords;
         this.updateRectPreview();
         const diagM = haversineDistanceCm(this.rectDraft.corner1, this.rectDraft.corner2) / 100;
-        this.helpText = `Diagonal: ${formatDistance(diagM * 100)}`;
+        this.readout = `Diagonal: ${formatDistance(diagM * 100)}`;
     }
 
     /** Closed ring for the axis-aligned (in lng/lat) box between two opposite corners. */
@@ -3641,7 +3628,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 coordinates: [this.rectRing(corner1, corner2)], properties: this.defaultProperties(layerId)
             });
         }
-        this.helpText = 'Click and drag to draw a rectangle.';
+        this.readout = '';
     }
 
     // ─── Rectangle / lasso select ───────────────────────────────────────────
@@ -3681,7 +3668,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (diagM >= MIN_DRAG_SIZE_M) {
             this.applyShapeSelection(this.rectRing(corner1, corner2));
         }
-        this.helpText = 'Drag a rectangle to select the features inside it.';
+        this.requestUpdate();
     }
 
     private startLassoSelectDraft(coords: LngLat): void {
@@ -3721,7 +3708,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (points.length >= 3) {
             this.applyShapeSelection([...points, points[0]]);
         }
-        this.helpText = 'Draw a free-hand shape to select the features inside it.';
+        this.requestUpdate();
     }
 
     /** Draws (or clears, on `null`) the dashed/tinted rectangle or lasso outline while dragging. */
@@ -4300,7 +4287,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.draftRedoStack.push(this.draftPoints.pop()!);
         this.uiVersion++;
         this.updateRubberband();
-        this.updateHelpTextDuring();
+        this.requestUpdate();
     }
 
     /** Draw row's Undo — also steps back through an in-progress draft one point at a time. */
@@ -4318,7 +4305,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             this.draftPoints.push(this.draftRedoStack.pop()!);
             this.uiVersion++;
             this.updateRubberband();
-            this.updateHelpTextDuring();
+            this.requestUpdate();
         } else {
             this.redoDraw();
         }
@@ -4363,7 +4350,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             this.draftRedoStack = [];
             this.cursorPos = this.draftPoints[this.draftPoints.length - 1];
             this.updateRubberband();
-            this.updateHelpTextDuring();
+            this.requestUpdate();
         }
     }
 
@@ -4654,14 +4641,43 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         target?.dispatchEvent(new CustomEvent(event, { detail, bubbles: true, composed: true }));
     }
 
-    private updateHelpTextDuring(): void {
+    /** The next step, shown on the map under the panel. */
+    get toolTip(): string {
+        if (this.panelView !== 'editing') return '';
+        const click = this.touch.click;
+        // The touch-only Finish button appears once a line or polygon can be finished.
+        const finish = this.touch.isTouch ? 'finish with the Finish button' : 'finish with a double-click or right-click';
         const n = this.draftPoints.length;
-        if (this.mode === 'draw-line' || this.mode === 'draw-line-dashed') {
-            this.helpText = `${n} pt${n !== 1 ? 's' : ''}. Double-click or right-click to finish.`;
-        } else if (this.mode === 'draw-polygon') {
-            this.helpText = n >= 3
-                ? `${n} pts. Click first point, double-click, or right-click to close.`
-                : `${n} pt${n !== 1 ? 's' : ''}. Need at least 3 to close.`;
+        switch (this.mode) {
+            case 'select':
+                return `${click} a feature to select it, then use the bin to delete it.`;
+            case 'select-rect':
+                return 'Drag a rectangle around the features you want to delete, then use the bin.';
+            case 'select-lasso':
+                return 'Draw a shape around the features you want to delete, then use the bin.';
+            case 'attributes':
+                return this.touch.isTouch
+                    ? 'Tap a feature to see or edit its attributes.'
+                    : 'Point at a feature to preview it, then click it to see or edit its attributes.';
+            case 'edit-move':
+                return `${click} a feature to select it, or drag it to move it.`;
+            case 'edit-vertices':
+                return `${click} a feature to edit its points. Drag a point to reshape it, or select one and ${this.touch.isTouch ? 'tap the bin' : 'press Delete'} to remove it.`;
+            case 'draw-point':
+                return `${click} the map to place a point.`;
+            case 'draw-line':
+            case 'draw-line-dashed':
+                return n === 0 ? `${click} the map to start the line.`
+                    : n === 1 ? `${click} to add the next point.`
+                    : `${click} to add points, or ${finish}.`;
+            case 'draw-polygon':
+                return n === 0 ? `${click} the map to place the first corner.`
+                    : n < 3 ? `${click} to add the next corner. A polygon needs at least 3.`
+                    : `${click} the first corner to close the polygon, or ${finish}.`;
+            case 'draw-circle':
+                return this.circleDraft ? 'Drag to make the circle bigger or smaller.' : 'Press and drag on the map to draw a circle.';
+            case 'draw-rectangle':
+                return this.rectDraft ? 'Drag to the opposite corner.' : 'Press and drag on the map to draw a rectangle.';
         }
     }
 
@@ -4723,7 +4739,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                                         <span class="color-dot color-dot--${swatchShape(l.type)}" style="${swatchStyle(this.currentDrawLayerColor(l), l.type)}"></span>
                                         <span class="layer-name-wrap">
                                             <span class="layer-name">${l.name || '(untitled)'}</span>
-                                            <span class="feature-count">(${this.features.filter(f => f.layerId === l.id).length} features)</span>
+                                            <span class="feature-count">(${featureCountLabel(this.features.filter(f => f.layerId === l.id).length)})</span>
                                         </span>
                                         <sl-button size="small" @click=${() => this.startEditingLayer(l)}>
                                             <sl-icon slot="prefix" name="pencil"></sl-icon>
@@ -4996,9 +5012,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 </div>
             </div>
 
-            <div class="help">${this.helpText}</div>
+            ${this.readout ? html`<div class="readout">${this.readout}</div>` : ''}
 
-            ${this.isTouchDevice && (this.mode === 'draw-line' || this.mode === 'draw-line-dashed' || this.mode === 'draw-polygon') &&
+            ${this.touch.isTouch && (this.mode === 'draw-line' || this.mode === 'draw-line-dashed' || this.mode === 'draw-polygon') &&
               this.draftPoints.length >= (this.mode === 'draw-polygon' ? 3 : 2) ? html`
                 <sl-button size="small" variant="primary" class="main-action finish-draft"
                     @click=${() => {
@@ -5275,6 +5291,10 @@ function drawModeForType(type: GeometryType): DrawMode {
  *  to a single click-drag gesture (circle, rectangle). */
 function isVertexDrawMode(mode: DrawMode): boolean {
     return mode === 'draw-point' || mode === 'draw-line' || mode === 'draw-line-dashed' || mode === 'draw-polygon';
+}
+
+function featureCountLabel(n: number): string {
+    return `${n} feature${n === 1 ? '' : 's'}`;
 }
 
 function typeLabelPlural(type: GeometryType): string {
