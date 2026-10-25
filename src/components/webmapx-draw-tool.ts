@@ -2817,6 +2817,16 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }, 'MAP');
     }
 
+    /** Opens the add-attribute form with the cursor in its name field, ready to type. */
+    private async startAddAttribute(): Promise<void> {
+        this.addingAttribute = true;
+        await this.updateComplete;
+        const input = this.shadowRoot?.querySelector<SlInput>('.add-attr-name-input');
+        if (!input) return;
+        await input.updateComplete;
+        input.focus();
+    }
+
     private addActiveLayerProperty(cfg: DrawLayerConfig): void {
         const name = this.newAttrName.trim();
         if (!name || !this.newAttrType || cfg.properties.some(p => p.name === name)) return;
@@ -4652,7 +4662,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (this.panelView !== 'editing') return '';
         const click = this.touch.click;
         // The touch-only Finish button appears once a line or polygon can be finished.
-        const finish = this.touch.isTouch ? 'finish with the Finish button' : 'finish with a double-click or right-click';
+        const finish = this.touch.isTouch ? 'tap Stop drawing' : 'finish with a double-click or right-click';
         const n = this.draftPoints.length;
         switch (this.mode) {
             case 'select':
@@ -5029,7 +5039,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                         if (lId) this.finishDraft(lId);
                     }}>
                     <sl-icon slot="prefix" name="check-lg"></sl-icon>
-                    Finish
+                    Stop drawing
                 </sl-button>
             ` : ''}
 
@@ -5180,7 +5190,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                     ` : html`
                         <div class="add-attr-row">
                             <sl-button variant="default" size="small" class="add-attr-btn-below"
-                                @click=${() => { this.addingAttribute = true; }}>
+                                @click=${() => this.startAddAttribute()}>
                                 <sl-icon slot="prefix" name="plus-lg"></sl-icon>
                                 Add attribute
                             </sl-button>
