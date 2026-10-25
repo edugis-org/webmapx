@@ -324,10 +324,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     @state() private panelView: 'type' | 'layers' | 'editing' = 'type';
     @state() private pickedType: GeometryType | null = null;
 
-    /** "What do you want to draw or edit?" — shown on both the type picker and the layer
-     *  list until the first editing session is completed via "Done", then dropped. */
-    @state() private showDrawIntro = true;
-
     /**
      * Map layers of `pickedType` that aren't draw layers yet — fetched async
      * (source data may need a fetch) whenever the layer picker is shown, so
@@ -633,12 +629,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             text-transform: uppercase;
             letter-spacing: 0.06em;
             color: var(--color-text-muted, #6b7681);
-        }
-
-        .flow-heading {
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
         }
 
         /*
@@ -2693,7 +2683,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             return;
         }
         this.layerNameInvalid = false;
-        this.showDrawIntro = false;
         this.stopEditingCurrent();
     }
 
@@ -4694,10 +4683,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     }
 
     private renderTypePicker() {
-        return html`
-            ${this.showDrawIntro ? html`<div class="flow-heading">What do you want to draw or edit?</div>` : ''}
-            ${this.renderTypeGrid(null)}
-        `;
+        return this.renderTypeGrid(null);
     }
 
     private layerCountLabel(type: GeometryType): string {
@@ -4717,7 +4703,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         // the same thing.
         const justify = type === 'Point' ? 'flex-start' : type === 'LineString' ? 'center' : 'flex-end';
         return html`
-            ${this.showDrawIntro ? html`<div class="flow-heading">What do you want to draw or edit?</div>` : ''}
             ${this.renderTypeGrid(type)}
             <div class="layer-picker-header" style="justify-content:${justify}">
                 <sl-button variant="default" size="small" class="add-layer-btn" @click=${() => this.createNewLayer()}>
