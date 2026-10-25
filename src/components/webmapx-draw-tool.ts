@@ -547,73 +547,130 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             min-height: 0;
         }
 
-        /* Each mode row is its own boxed pill — select, draw shape, snap —
-           since those are switches you pick between. Undo/redo/delete are
-           one-off actions, not a mode, so they get the plain, unboxed
-           .history-actions treatment instead (see below), slightly smaller
-           than the mode icons they sit beside. */
-        .pill {
-            display: inline-flex;
-            gap: 0.15rem;
-            padding: 3px;
-            border: 1px solid var(--color-background-secondary, #e2e5e8);
+        /* The modes as three columns — Draw, Edit, Delete — each tinted in its
+           own colour, so which job you are doing shows at a glance. Each
+           mode is a white labelled button on that tint; the chosen one is
+           pressed in and filled with the column's colour. Colours come from
+           the theme (primary, success, danger), so dark mode follows. */
+        .mode-matrix {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: var(--webmapx-space-xs, 0.25rem);
+            align-items: start;
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
+        }
+        .mode-col {
+            --mode-ink: var(--color-primary, #2b6c8f);
+            display: flex;
+            flex-direction: column;
+            gap: var(--webmapx-space-xs, 0.25rem);
+            padding: var(--webmapx-space-xs, 0.25rem);
             border-radius: 8px;
-            flex-shrink: 0;
+            background: color-mix(in srgb, var(--mode-ink) 10%, transparent);
+            color: var(--mode-ink);
         }
-        .history-actions {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.1rem;
-            flex-shrink: 0;
+        .mode-col--edit { --mode-ink: var(--color-success, #1c7c4a); }
+        .mode-col--delete { --mode-ink: var(--color-danger, #b3261e); }
+        .mode-col-label {
+            font-size: var(--webmapx-font-size-sm, 0.75rem);
+            font-weight: 600;
+            text-align: center;
+            line-height: 1.4;
         }
-        /* The row's label names the control (a choice of mode), so it is a
-           field label, on a line of its own above the buttons (it wraps to
-           full width); row-gap 0 so the label's own margin is the only space
-           between it and the buttons. */
-        .toolbar-row {
+        /* Undo/redo (and the bin, where it does something undo cannot) are
+           one-off actions, not modes: a small plain row in the matrix's second
+           grid row, under the column whose job is active, so they sit next to
+           what they undo. Under Draw, Snap takes the bin's place — there undo
+           already removes what was drawn. The row keeps its height when empty
+           (Values), so the panel does not jump when the mode changes. */
+        .mode-actions {
             display: flex;
             align-items: center;
-            column-gap: var(--webmapx-space-sm, 0.5rem);
-            row-gap: 0;
-            flex-wrap: wrap;
-            margin-bottom: var(--webmapx-space-md, 0.75rem);
-            flex-shrink: 0;
+            justify-content: center;
+            min-height: 1.75rem;
+            font-size: 1rem;
         }
-        .toolbar-row > .field-label {
-            flex-basis: 100%;
-            margin-bottom: var(--webmapx-space-xs, 0.25rem);
+        .mode-actions sl-icon-button::part(base) {
+            padding: 0.25rem;
         }
         /* Sized like the sl-icon-buttons beside it. A native button, not
            sl-icon-button, because only a real button can carry aria-pressed
            (see toggleButton). */
         .toggle-button {
-            display: inline-flex;
+            display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: inherit;
-            padding: var(--sl-spacing-x-small, 0.5rem);
-            border: none;
+            gap: 0.375rem;
+            width: 100%;
+            min-height: 2rem;
+            padding: 0 0.375rem;
+            font: inherit;
+            font-size: var(--webmapx-font-size-sm, 0.75rem);
+            text-align: start;
+            border: 1px solid color-mix(in srgb, var(--mode-ink, #5a6773) 25%, transparent);
             border-radius: 6px;
-            background: none;
-            color: var(--sl-color-neutral-600, #5a6773);
+            background: rgb(var(--color-surface-rgb, 255 255 255));
+            color: var(--mode-ink, var(--color-text-primary, #16202a));
+            box-shadow: 0 1px 2px rgb(22 32 42 / 0.15), inset 0 -2px 0 rgb(22 32 42 / 0.06);
             cursor: pointer;
         }
+        .toggle-button sl-icon {
+            flex: none;
+            font-size: 1.125rem;
+        }
+        .toggle-text {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
         .toggle-button:not([aria-pressed="true"]):not(:disabled):hover {
-            color: var(--color-primary, #2b6c8f);
-            background: var(--color-background-secondary, #e8ebee);
+            border-color: var(--mode-ink, var(--color-primary, #2b6c8f));
         }
         .toggle-button:focus-visible {
             outline: var(--webmapx-focus-ring, 2px solid var(--color-primary, #2b6c8f));
             outline-offset: var(--webmapx-focus-offset, 2px);
         }
         .toggle-button[aria-pressed="true"] {
-            color: #fff;
-            background: var(--color-primary, #2b6c8f);
-            box-shadow: 0 2px 6px -2px var(--color-primary, #2b6c8f);
+            border-color: transparent;
+            background: var(--mode-ink, var(--color-primary, #2b6c8f));
+            color: rgb(var(--color-surface-rgb, 255 255 255));
+            font-weight: 600;
+            box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.35);
         }
         .toggle-button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+        }
+        /* A tooltip over the mode buttons must never take the click meant for
+           the button under it, and only appears once the pointer rests, so
+           moving across the columns does not flash one over the next row. */
+        .mode-matrix sl-tooltip {
+            --show-delay: 500ms;
+        }
+        .mode-matrix sl-tooltip::part(base__popup),
+        .mode-matrix sl-tooltip::part(body) {
+            pointer-events: none;
+        }
+        /* Snap: a round icon button the size of undo/redo beside it, filled when on. */
+        .mode-actions .toggle-button {
+            justify-content: center;
+            width: 1.625rem;
+            height: 1.625rem;
+            min-height: 0;
+            padding: 0;
+            border: none;
+            border-radius: 999px;
+            background: none;
+            box-shadow: none;
+            color: var(--sl-color-neutral-600, #5a6773);
+        }
+        .mode-actions .toggle-button sl-icon {
+            font-size: 0.875rem;
+        }
+        .mode-actions .toggle-button[aria-pressed="true"] {
+            background: var(--color-primary, #2b6c8f);
+            color: rgb(var(--color-surface-rgb, 255 255 255));
+            box-shadow: none;
         }
 
         .readout {
@@ -652,7 +709,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             flex-direction: column;
             align-items: flex-start;
             gap: var(--webmapx-space-sm, 0.5rem);
-            margin-top: var(--webmapx-space-md, 0.75rem);
+            /* No margin of its own: the content above ends in a 12px margin
+               (the mode matrix, or the last attribute row), so the line has
+               12px on both sides instead of 24 above and 12 below. */
+            margin-top: 0;
             padding-top: var(--webmapx-space-md, 0.75rem);
             /*
              * Matches :host's own padding (the gutter .panel-content itself
@@ -1229,14 +1289,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         .feature-row:hover { background: var(--color-background-secondary, #f4f6f8); }
         .feature-row.selected { background: var(--color-primary-soft, rgba(43, 108, 143, 0.12)); }
 
-        /* Delete stands a little apart from undo/redo — a gap, not a line,
-           since a line inside a panel means a new section starts. */
-        .history-actions sl-tooltip:has(.delete-feature-btn) {
-            margin-left: var(--webmapx-space-xs, 0.25rem);
-        }
 
         .prop-row { display: flex; gap: 0.4rem; align-items: center; font-size: 0.82rem; margin-bottom: 0.2rem; }
         .prop-header-row { margin-top: var(--webmapx-space-md, 0.75rem); }
+        .prop-row:not(:has(~ .prop-row)) { margin-bottom: var(--webmapx-space-md, 0.75rem); }
         .prop-label { width: 80px; color: var(--color-text-muted, #6b7681); flex-shrink: 0; }
         .prop-value { flex: 1; min-width: 0; }
         .prop-link { display: block; width: 100%; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -4859,174 +4915,117 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 </div>
             ` : ''}
 
-            <div class="toolbar-row">
-                <span class="field-label">Draw</span>
-                <div class="pill" role="group" aria-label="Draw">
+            <div class="mode-matrix">
+                <div class="mode-col mode-col--draw" role="group" aria-label="Draw">
+                    <span class="mode-col-label" aria-hidden="true">Draw</span>
                     ${this.toggleButton({
                         icon: type === 'Point' ? 'geo-fill' : type === 'LineString' ? 'slash-lg' : 'pentagon',
+                        text: type === 'Point' ? 'Point' : type === 'LineString' ? 'Line' : 'Shape',
                         label: `Draw ${typeLabelPlural(type).toLowerCase()}`,
                         pressed: this.mode === drawMode,
                         onClick: () => this.setModeInternal(drawMode),
                     })}
-                    ${type === 'LineString' ? html`
-                        ${this.toggleButton({
-                            src: dashLineIconUrl, name: 'dash-line', label: 'Draw dashed lines',
-                            pressed: this.mode === 'draw-line-dashed',
-                            onClick: () => this.setModeInternal('draw-line-dashed'),
-                        })}
-                    ` : ''}
+                    ${type === 'LineString' ? this.toggleButton({
+                        src: dashLineIconUrl, name: 'dash-line', text: 'Dashed', label: 'Draw dashed lines',
+                        pressed: this.mode === 'draw-line-dashed',
+                        onClick: () => this.setModeInternal('draw-line-dashed'),
+                    }) : ''}
                     ${type === 'Polygon' ? html`
                         ${this.toggleButton({
-                            icon: 'circle', label: 'Draw circles',
+                            icon: 'circle', text: 'Circle', label: 'Draw circles',
                             pressed: this.mode === 'draw-circle',
                             onClick: () => this.setModeInternal('draw-circle'),
                         })}
                         ${this.toggleButton({
-                            icon: 'square', label: 'Draw rectangles',
+                            icon: 'square', text: 'Box', label: 'Draw rectangles',
                             pressed: this.mode === 'draw-rectangle',
                             onClick: () => this.setModeInternal('draw-rectangle'),
                         })}
                     ` : ''}
                 </div>
-                ${this.isDrawMode() ? html`
-                    <div class="history-actions">
-                        <sl-tooltip content="Undo (${this.modKey}+Z)">
-                            <sl-icon-button name="arrow-counterclockwise" size="small" label="Undo"
-                                ?disabled=${this.drawHistoryIndex < 0 && this.draftPoints.length === 0}
-                                @click=${() => this.undoOrDraftBack()}>
-                            </sl-icon-button>
-                        </sl-tooltip>
-                        <sl-tooltip content="Redo (${this.modKey}+Y)">
-                            <sl-icon-button name="arrow-clockwise" size="small" label="Redo"
-                                ?disabled=${this.drawHistoryIndex >= this.drawHistory.length - 1 && this.draftRedoStack.length === 0}
-                                @click=${() => this.redoOrDraftForward()}>
-                            </sl-icon-button>
-                        </sl-tooltip>
-                        <sl-tooltip content=${this.draftPoints.length > 0 ? 'Remove last point' : 'Delete this feature'}>
-                            <sl-icon-button name="trash" size="small" class="delete-feature-btn"
-                                label=${this.draftPoints.length > 0 ? 'Remove last point' : 'Delete this feature'}
-                                ?disabled=${this.draftPoints.length === 0 && !this.selectedFeatureId}
-                                @click=${() => this.draftPoints.length > 0 ? this.removeLastDraftPoint() : this.deleteJustDrawnFeature()}>
-                            </sl-icon-button>
-                        </sl-tooltip>
-                    </div>
-                ` : ''}
-            </div>
-
-            ${layerHasFeatures || this.moveHistoryIndex >= 0 ? html`
-                <div class="toolbar-row">
-                    <span class="field-label">Edit</span>
-                    <div class="pill" role="group" aria-label="Edit">
-                        ${this.toggleButton({
-                            icon: 'arrows-move', label: 'Move features',
-                            tooltip: 'Click a feature to select it, or drag it directly to move it',
-                            pressed: this.mode === 'edit-move', disabled: !layerHasFeatures,
-                            onClick: () => this.setModeInternal('edit-move'),
-                        })}
-                        ${this.toggleButton({
-                            src: type === 'Polygon' ? editVerticesPolygonIconUrl : editVerticesIconUrl,
-                            name: 'edit-vertices', label: 'Edit points',
-                            tooltip: 'Click a feature to edit its points',
-                            pressed: this.mode === 'edit-vertices', disabled: !layerHasFeatures,
-                            onClick: () => this.setModeInternal('edit-vertices'),
-                        })}
-                        ${this.toggleButton({
-                            src: featureValuesIconUrl, name: 'feature-values', label: 'Edit attributes',
-                            tooltip: 'Hover a feature, then click it to view or edit its attributes',
-                            pressed: this.mode === 'attributes', disabled: !layerHasFeatures,
-                            onClick: () => this.setModeInternal('attributes'),
-                        })}
-                    </div>
-                    ${this.isEditMode() ? html`
-                        <div class="history-actions">
-                            <sl-tooltip content="Undo (${this.modKey}+Z)">
-                                <sl-icon-button name="arrow-counterclockwise" size="small" label="Undo"
-                                    ?disabled=${this.moveHistoryIndex < 0}
-                                    @click=${() => this.undoMove()}>
-                                </sl-icon-button>
-                            </sl-tooltip>
-                            <sl-tooltip content="Redo (${this.modKey}+Y)">
-                                <sl-icon-button name="arrow-clockwise" size="small" label="Redo"
-                                    ?disabled=${this.moveHistoryIndex >= this.moveHistory.length - 1}
-                                    @click=${() => this.redoMove()}>
-                                </sl-icon-button>
-                            </sl-tooltip>
-                            ${this.mode === 'edit-vertices' ? html`
-                                <sl-tooltip content="Delete selected point">
-                                    <sl-icon-button name="trash" size="small" class="delete-feature-btn" label="Delete selected point"
-                                        ?disabled=${!this.selectedHandle}
-                                        @click=${() => this.deleteSelectedVertex()}>
-                                    </sl-icon-button>
-                                </sl-tooltip>
-                            ` : ''}
-                        </div>
-                    ` : ''}
-                </div>
-            ` : ''}
-
-            ${layerHasFeatures || this.moveHistoryIndex >= 0 ? html`
-                <div class="toolbar-row">
-                    <span class="field-label">Delete</span>
-                    <div class="pill" role="group" aria-label="Delete">
-                        ${this.toggleButton({
-                            icon: 'hand-index-thumb', label: 'Select features by clicking',
-                            tooltip: 'Click a feature to delete it',
-                            pressed: this.mode === 'select', disabled: !layerHasFeatures,
-                            onClick: () => this.setModeInternal('select'),
-                        })}
-                        ${this.toggleButton({
-                            src: rectSelectIconUrl, name: 'rect-select', label: 'Select features in a rectangle',
-                            tooltip: 'Drag a rectangle to delete the features inside it',
-                            pressed: this.mode === 'select-rect', disabled: !layerHasFeatures,
-                            onClick: () => this.setModeInternal('select-rect'),
-                        })}
-                        ${this.toggleButton({
-                            src: lassoSelectIconUrl, name: 'lasso-select', label: 'Select features in a free-hand shape',
-                            tooltip: 'Draw a free-hand shape to delete the features inside it',
-                            pressed: this.mode === 'select-lasso', disabled: !layerHasFeatures,
-                            onClick: () => this.setModeInternal('select-lasso'),
-                        })}
-                    </div>
-                    ${this.isSelectMode() ? html`
-                        <div class="history-actions">
-                            <sl-tooltip content="Undo (${this.modKey}+Z)">
-                                <sl-icon-button name="arrow-counterclockwise" size="small" label="Undo"
-                                    ?disabled=${this.moveHistoryIndex < 0}
-                                    @click=${() => this.undoMove()}>
-                                </sl-icon-button>
-                            </sl-tooltip>
-                            <sl-tooltip content="Redo (${this.modKey}+Y)">
-                                <sl-icon-button name="arrow-clockwise" size="small" label="Redo"
-                                    ?disabled=${this.moveHistoryIndex >= this.moveHistory.length - 1}
-                                    @click=${() => this.redoMove()}>
-                                </sl-icon-button>
-                            </sl-tooltip>
-                            <sl-tooltip content=${this.selectedFeatureIds.length > 1 ? `Delete ${this.selectedFeatureIds.length} selected` : 'Delete selected'}>
-                                <sl-icon-button name="trash" size="small" class="delete-feature-btn"
-                                    label=${this.selectedFeatureIds.length > 1 ? `Delete ${this.selectedFeatureIds.length} selected` : 'Delete selected'}
-                                    ?disabled=${this.selectedFeatureIds.length === 0}
-                                    @click=${() => this.deleteSelected()}>
-                                </sl-icon-button>
-                            </sl-tooltip>
-                        </div>
-                    ` : ''}
-                </div>
-            ` : ''}
-
-            <div class="toolbar-row">
-                <span class="field-label">Tools</span>
-                <div class="pill" role="group" aria-label="Tools">
+                <div class="mode-col mode-col--edit" role="group" aria-label="Edit">
+                    <span class="mode-col-label" aria-hidden="true">Edit</span>
                     ${this.toggleButton({
-                        icon: 'magnet', label: 'Snap to points and edges',
-                        tooltip: `Snap to points and edges (${this.snapEnabled ? 'on' : 'off'}) — hold Alt to toggle`,
-                        pressed: this.effectiveSnap,
-                        onClick: () => {
-                            this.snapEnabled = !this.snapEnabled;
-                            if (!this.snapEnabled) { this.snapPos = null; this.updateRubberband(); }
-                        },
+                        icon: 'arrows-move', text: 'Move', label: 'Move features',
+                        tooltip: 'Click a feature to select it, or drag it directly to move it',
+                        pressed: this.mode === 'edit-move', disabled: !layerHasFeatures,
+                        onClick: () => this.setModeInternal('edit-move'),
+                    })}
+                    ${this.toggleButton({
+                        src: type === 'Polygon' ? editVerticesPolygonIconUrl : editVerticesIconUrl,
+                        name: 'edit-vertices', text: 'Points', label: 'Edit points',
+                        tooltip: 'Click a feature to edit its points',
+                        pressed: this.mode === 'edit-vertices', disabled: !layerHasFeatures,
+                        onClick: () => this.setModeInternal('edit-vertices'),
+                    })}
+                    ${this.toggleButton({
+                        src: featureValuesIconUrl, name: 'feature-values', text: 'Values', label: 'Edit attributes',
+                        tooltip: 'Hover a feature, then click it to view or edit its attributes',
+                        pressed: this.mode === 'attributes', disabled: !layerHasFeatures,
+                        onClick: () => this.setModeInternal('attributes'),
                     })}
                 </div>
+                <div class="mode-col mode-col--delete" role="group" aria-label="Delete">
+                    <span class="mode-col-label" aria-hidden="true">Delete</span>
+                    ${this.toggleButton({
+                        icon: 'hand-index-thumb', text: 'Click', label: 'Select features by clicking',
+                        tooltip: 'Click a feature to select it, then use the bin to delete it',
+                        pressed: this.mode === 'select', disabled: !layerHasFeatures,
+                        onClick: () => this.setModeInternal('select'),
+                    })}
+                    ${this.toggleButton({
+                        src: rectSelectIconUrl, name: 'rect-select', text: 'In box', label: 'Select features in a rectangle',
+                        tooltip: 'Drag a rectangle around the features you want to delete',
+                        pressed: this.mode === 'select-rect', disabled: !layerHasFeatures,
+                        onClick: () => this.setModeInternal('select-rect'),
+                    })}
+                    ${this.toggleButton({
+                        src: lassoSelectIconUrl, name: 'lasso-select', text: 'Lasso', label: 'Select features in a free-hand shape',
+                        tooltip: 'Draw a shape around the features you want to delete',
+                        pressed: this.mode === 'select-lasso', disabled: !layerHasFeatures,
+                        onClick: () => this.setModeInternal('select-lasso'),
+                    })}
+                </div>
+                <div class="mode-actions" style="grid-column:${this.isDrawMode() ? 1 : this.isEditMode() ? 2 : 3}">
+                    ${this.isDrawMode() ? html`
+                        ${this.undoRedoButtons(
+                            this.drawHistoryIndex < 0 && this.draftPoints.length === 0,
+                            this.drawHistoryIndex >= this.drawHistory.length - 1 && this.draftRedoStack.length === 0,
+                            () => this.undoOrDraftBack(), () => this.redoOrDraftForward())}
+                        ${this.toggleButton({
+                            icon: 'magnet', label: 'Snap to points and edges',
+                            tooltip: `Snap to points and edges (${this.snapEnabled ? 'on' : 'off'}) — hold Alt to toggle`,
+                            pressed: this.effectiveSnap,
+                            onClick: () => {
+                                this.snapEnabled = !this.snapEnabled;
+                                if (!this.snapEnabled) { this.snapPos = null; this.updateRubberband(); }
+                            },
+                        })}
+                    ` : ''}
+                    ${this.isEditMode() || this.isSelectMode() ? this.undoRedoButtons(
+                        this.moveHistoryIndex < 0,
+                        this.moveHistoryIndex >= this.moveHistory.length - 1,
+                        () => this.undoMove(), () => this.redoMove()) : ''}
+                    ${this.mode === 'edit-vertices' ? html`
+                        <sl-tooltip content="Delete selected point">
+                            <sl-icon-button name="trash" class="delete-feature-btn" label="Delete selected point"
+                                ?disabled=${!this.selectedHandle}
+                                @click=${() => this.deleteSelectedVertex()}>
+                            </sl-icon-button>
+                        </sl-tooltip>
+                    ` : ''}
+                    ${this.isSelectMode() ? html`
+                        <sl-tooltip content=${this.selectedFeatureIds.length > 1 ? `Delete ${this.selectedFeatureIds.length} selected` : 'Delete selected'}>
+                            <sl-icon-button name="trash" class="delete-feature-btn"
+                                label=${this.selectedFeatureIds.length > 1 ? `Delete ${this.selectedFeatureIds.length} selected` : 'Delete selected'}
+                                ?disabled=${this.selectedFeatureIds.length === 0}
+                                @click=${() => this.deleteSelected()}>
+                            </sl-icon-button>
+                        </sl-tooltip>
+                    ` : ''}
+                </div>
             </div>
+
 
             ${this.readout ? html`<div class="readout">${this.readout}</div>` : ''}
 
@@ -5244,35 +5243,52 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         `;
     }
 
+    /** Undo and redo for the active column's history (draw, or move/edit/delete). */
+    private undoRedoButtons(undoDisabled: boolean, redoDisabled: boolean, undo: () => void, redo: () => void): TemplateResult {
+        return html`
+            <sl-tooltip content="Undo (${this.modKey}+Z)">
+                <sl-icon-button name="arrow-counterclockwise" label="Undo" ?disabled=${undoDisabled} @click=${undo}></sl-icon-button>
+            </sl-tooltip>
+            <sl-tooltip content="Redo (${this.modKey}+Y)">
+                <sl-icon-button name="arrow-clockwise" label="Redo" ?disabled=${redoDisabled} @click=${redo}></sl-icon-button>
+            </sl-tooltip>`;
+    }
+
     /**
      * An on/off button in the draw toolbar. A native <button> rather than
      * sl-icon-button, because only a real button can carry `aria-pressed`: the
      * mode buttons and snap are toggles, and a screen reader otherwise hears
      * "Draw polygon, button" with no word on whether it is the active mode.
      * `name` is the built-in icon name, or the image file's name for a
-     * custom icon, which is how the UI tests address them.
+     * custom icon, which is how the UI tests address them. `text` is the
+     * short word shown beside the icon; the accessible name starts with it
+     * (so a voice user can say what they see) and adds the full label. The
+     * tooltip opens on hover only: opened on focus it stayed up after every
+     * click, over the column headings, saying what the button already says.
      */
     private toggleButton(opts: {
         icon?: string;
         src?: string;
         name?: string;
         label: string;
+        text?: string;
         pressed: boolean;
         disabled?: boolean;
         tooltip?: string;
         onClick: () => void;
     }): TemplateResult {
-        const { icon, src, label, pressed, disabled = false, tooltip = label, onClick } = opts;
+        const { icon, src, label, text, pressed, disabled = false, tooltip = label, onClick } = opts;
         const name = opts.name ?? icon ?? '';
         return html`
-            <sl-tooltip content=${tooltip}>
+            <sl-tooltip content=${tooltip} trigger="hover">
                 <button type="button" class="toggle-button" name=${name}
-                    aria-label=${label} aria-pressed=${pressed ? 'true' : 'false'}
+                    aria-label=${text ? `${text}: ${label}` : label} aria-pressed=${pressed ? 'true' : 'false'}
                     ?disabled=${disabled}
                     @click=${onClick}>
                     ${src
                         ? html`<sl-icon src=${src} aria-hidden="true"></sl-icon>`
                         : html`<sl-icon name=${icon} aria-hidden="true"></sl-icon>`}
+                    ${text ? html`<span class="toggle-text" aria-hidden="true">${text}</span>` : ''}
                 </button>
             </sl-tooltip>`;
     }
