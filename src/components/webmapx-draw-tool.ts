@@ -1171,15 +1171,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         /* Undo/redo move here — one row below the add-attribute form — while
          * it's open, since the button they'd otherwise share a row with is
          * replaced by the form itself. Still right-aligned. */
-        /* Add attribute + cancel on their own line under the fields, which
-           stay aligned with the columns above; undo/redo at the far end. */
-        .add-attr-actions-row {
+        .add-attr-undo-row {
             display: flex;
-            align-items: center;
-            gap: 0.25rem;
-        }
-        .add-attr-spacer {
-            flex: 1;
+            justify-content: flex-end;
         }
         /* Keeps the undo/redo icons themselves next to each other — see
          * renderAttributeUndoRedo for why this can't just be a gap on the
@@ -5164,18 +5158,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                                         `)}
                                     </sl-select>
                                 ` : ''}
-                            </div>
-                            <div class="add-attr-actions-row">
                                 <sl-button size="small" variant="primary"
                                     ?disabled=${!(this.newAttrName.trim() && this.newAttrType)}
                                     @click=${() => this.addActiveLayerProperty(layer)}>
-                                    <sl-icon slot="prefix" name="plus-lg"></sl-icon>
-                                    Add attribute
+                                    OK
                                 </sl-button>
                                 <sl-icon-button name="x-lg" label="Cancel" @click=${() => this.cancelAddAttribute()}></sl-icon-button>
-                                <span class="add-attr-spacer"></span>
-                                ${this.renderAttributeUndoRedo(layer)}
                             </div>
+                            <div class="add-attr-undo-row">${this.renderAttributeUndoRedo(layer)}</div>
                             <div class="add-attr-note">New attributes are added to the bottom of the list above.</div>
                         </div>
                     ` : html`
@@ -5222,7 +5212,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         if (!layer) return '';
         return html`
             <div class="session-footer">
-                <sl-button variant="default" size="small" @click=${() => this.attributesDialog?.show()}>
+                <sl-button class="main-action" variant="default" size="small" @click=${() => this.attributesDialog?.show()}>
                     <sl-icon slot="prefix" name="table"></sl-icon>
                     Edit attributes (${layer.properties.length})
                 </sl-button>
