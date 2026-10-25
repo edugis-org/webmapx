@@ -573,10 +573,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         .toolbar-row {
             display: flex;
             align-items: center;
-            column-gap: 0.5rem;
+            column-gap: var(--webmapx-space-sm, 0.5rem);
             row-gap: 0;
             flex-wrap: wrap;
-            margin-bottom: 0.5rem;
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
             flex-shrink: 0;
         }
         .toolbar-row > .field-label {
@@ -619,7 +619,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         .readout {
             font-size: 0.8rem;
             color: var(--color-text-secondary, #5a6773);
-            margin-bottom: 0.5rem;
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
         }
 
         /* Column headings of the selected feature's attribute table, not a
@@ -651,9 +651,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            gap: 0.5rem;
-            margin-top: 0.6rem;
-            padding-top: 0.5rem;
+            gap: var(--webmapx-space-sm, 0.5rem);
+            margin-top: var(--webmapx-space-md, 0.75rem);
+            padding-top: var(--webmapx-space-md, 0.75rem);
             /*
              * Matches :host's own padding (the gutter .panel-content itself
              * has none of — see :host's 'padding' above), so the buttons
@@ -681,7 +681,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
            left edge and "Done" to the right, whichever else is showing. */
 
         .finish-draft {
-            margin-bottom: 0.4rem;
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
         }
         .name-required-hint {
             font-size: 0.78rem;
@@ -691,8 +691,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         .layer-picker-header {
             display: flex;
             align-items: center;
-            margin-top: 0.75rem;
-            margin-bottom: 0.5rem;
+            margin-top: var(--webmapx-space-md, 0.75rem);
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
         }
 
         .add-layer-btn {
@@ -702,8 +702,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         .editing-title-row {
             display: flex;
             flex-direction: column;
-            gap: 0.3rem;
-            margin-bottom: 0.5rem;
+            gap: var(--webmapx-space-xs, 0.25rem);
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
         }
 
         .editing-title-second-row {
@@ -717,7 +717,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         .type-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 0.5rem;
+            gap: var(--webmapx-space-sm, 0.5rem);
         }
 
         .type-card {
@@ -767,7 +767,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }
 
         .layer-list {
-            margin-bottom: 0.5rem;
+            margin-bottom: var(--webmapx-space-md, 0.75rem);
         }
 
         .layer-group {
@@ -1236,6 +1236,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         }
 
         .prop-row { display: flex; gap: 0.4rem; align-items: center; font-size: 0.82rem; margin-bottom: 0.2rem; }
+        .prop-header-row { margin-top: var(--webmapx-space-md, 0.75rem); }
         .prop-label { width: 80px; color: var(--color-text-muted, #6b7681); flex-shrink: 0; }
         .prop-value { flex: 1; min-width: 0; }
         .prop-link { display: block; width: 100%; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -5028,7 +5029,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             ` : ''}
 
             ${selFeature && selLayer ? html`
-                <div class="prop-row" style="margin-top:.5rem">
+                <div class="prop-row prop-header-row">
                     <span class="prop-label column-header">Attribute</span>
                     <span class="prop-value column-header">Value</span>
                 </div>
