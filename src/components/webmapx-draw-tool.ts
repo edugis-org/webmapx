@@ -567,9 +567,10 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             gap: 0.1rem;
             flex-shrink: 0;
         }
-        /* The row's heading takes a line of its own above the buttons (it
-           wraps to full width); row-gap 0 so the heading's own margin is the
-           only space between it and the buttons. */
+        /* The row's label names the control (a choice of mode), so it is a
+           field label, on a line of its own above the buttons (it wraps to
+           full width); row-gap 0 so the label's own margin is the only space
+           between it and the buttons. */
         .toolbar-row {
             display: flex;
             align-items: center;
@@ -579,8 +580,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             margin-bottom: 0.5rem;
             flex-shrink: 0;
         }
-        .toolbar-row > .section-heading {
+        .toolbar-row > .field-label {
             flex-basis: 100%;
+            margin-bottom: var(--webmapx-space-xs, 0.25rem);
         }
         /* Sized like the sl-icon-buttons beside it. A native button, not
            sl-icon-button, because only a real button can carry aria-pressed
@@ -4826,8 +4828,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             ` : ''}
 
             <div class="toolbar-row">
-                <h3 class="section-heading">Draw</h3>
-                <div class="pill">
+                <span class="field-label">Draw</span>
+                <div class="pill" role="group" aria-label="Draw">
                     ${this.toggleButton({
                         icon: type === 'Point' ? 'geo-fill' : type === 'LineString' ? 'slash-lg' : 'pentagon',
                         label: `Draw ${typeLabelPlural(type).toLowerCase()}`,
@@ -4881,8 +4883,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
             ${layerHasFeatures || this.moveHistoryIndex >= 0 ? html`
                 <div class="toolbar-row">
-                    <h3 class="section-heading">Edit</h3>
-                    <div class="pill">
+                    <span class="field-label">Edit</span>
+                    <div class="pill" role="group" aria-label="Edit">
                         ${this.toggleButton({
                             icon: 'arrows-move', label: 'Move features',
                             tooltip: 'Click a feature to select it, or drag it directly to move it',
@@ -4932,8 +4934,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
             ${layerHasFeatures || this.moveHistoryIndex >= 0 ? html`
                 <div class="toolbar-row">
-                    <h3 class="section-heading">Delete</h3>
-                    <div class="pill">
+                    <span class="field-label">Delete</span>
+                    <div class="pill" role="group" aria-label="Delete">
                         ${this.toggleButton({
                             icon: 'hand-index-thumb', label: 'Select features by clicking',
                             tooltip: 'Click a feature to delete it',
@@ -4980,8 +4982,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             ` : ''}
 
             <div class="toolbar-row">
-                <h3 class="section-heading">Tools</h3>
-                <div class="pill">
+                <span class="field-label">Tools</span>
+                <div class="pill" role="group" aria-label="Tools">
                     ${this.toggleButton({
                         icon: 'magnet', label: 'Snap to points and edges',
                         tooltip: `Snap to points and edges (${this.snapEnabled ? 'on' : 'off'}) — hold Alt to toggle`,
