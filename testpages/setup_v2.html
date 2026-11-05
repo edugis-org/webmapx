@@ -505,8 +505,8 @@
     .info-btn { font-size: 0 !important; }
     .info-btn::before {
       content: ""; width: 17px; height: 17px; background: currentColor;
-      -webkit-mask: url("../shoelace-assets/assets/icons/pencil-square.svg") center / contain no-repeat;
-      mask: url("../shoelace-assets/assets/icons/pencil-square.svg") center / contain no-repeat;
+      -webkit-mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/pencil-square.svg") center / contain no-repeat;
+      mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/pencil-square.svg") center / contain no-repeat;
     }
 
 
@@ -543,13 +543,13 @@
     #activelayers-list .active-layer-row > input[type=checkbox] {
       appearance: none; -webkit-appearance: none; margin: 0; flex-shrink: 0; cursor: pointer;
       width: 18px; height: 18px; background: var(--v2-muted);
-      -webkit-mask: url("../shoelace-assets/assets/icons/eye-slash.svg") center / contain no-repeat;
-      mask: url("../shoelace-assets/assets/icons/eye-slash.svg") center / contain no-repeat;
+      -webkit-mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/eye-slash.svg") center / contain no-repeat;
+      mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/eye-slash.svg") center / contain no-repeat;
     }
     #activelayers-list .active-layer-row > input[type=checkbox]:checked {
       background: var(--v2-text);
-      -webkit-mask-image: url("../shoelace-assets/assets/icons/eye.svg");
-      mask-image: url("../shoelace-assets/assets/icons/eye.svg");
+      -webkit-mask-image: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/eye.svg");
+      mask-image: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/eye.svg");
     }
     #layertree-list .tree-leaf > input:focus-visible, #activelayers-list .active-layer-row > input:focus-visible { outline: 2px solid var(--v2-primary); outline-offset: 2px; }
     /* Names are editable: a text cursor there, the grab cursor only on the rest of the row */
@@ -1576,7 +1576,7 @@
       const icon = document.createElement('span');
       icon.className = 'v2-tool-icon';
       const iconUrl = typeof known?.icon === 'string'
-        ? `../shoelace-assets/assets/icons/${known.icon}.svg`
+        ? `https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/${known.icon}.svg`
         : known?.icon?.src;
       if (iconUrl) icon.style.setProperty('--icon', `url("${iconUrl}")`);
       else icon.classList.add('v2-tool-icon--none');
