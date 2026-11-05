@@ -540,18 +540,18 @@
     #layertree-list .tree-leaf > input[type=checkbox]:checked { background: var(--v2-primary); }
     #layertree-list .tree-leaf > input[type=checkbox]:checked::after { left: 16px; }
     /* Legend stack: visibility is an eye, as in the viewer's Legend */
-    #activelayers-list .active-layer-row > input[type=checkbox] {
+    #activelayers-list .active-layer-row > input[type=checkbox], #step-layers-list .active-layer-row > input[type=checkbox] {
       appearance: none; -webkit-appearance: none; margin: 0; flex-shrink: 0; cursor: pointer;
       width: 18px; height: 18px; background: var(--v2-muted);
       -webkit-mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/eye-slash.svg") center / contain no-repeat;
       mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/eye-slash.svg") center / contain no-repeat;
     }
-    #activelayers-list .active-layer-row > input[type=checkbox]:checked {
+    #activelayers-list .active-layer-row > input[type=checkbox]:checked, #step-layers-list .active-layer-row > input[type=checkbox]:checked {
       background: var(--v2-text);
       -webkit-mask-image: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/eye.svg");
       mask-image: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/eye.svg");
     }
-    #layertree-list .tree-leaf > input:focus-visible, #activelayers-list .active-layer-row > input:focus-visible { outline: 2px solid var(--v2-primary); outline-offset: 2px; }
+    #layertree-list .tree-leaf > input:focus-visible, #activelayers-list .active-layer-row > input:focus-visible, #step-layers-list .active-layer-row > input:focus-visible { outline: 2px solid var(--v2-primary); outline-offset: 2px; }
     /* Names are editable: a text cursor there, the grab cursor only on the rest of the row */
     #layertree-list [contenteditable], #activelayers-list [contenteditable], #catalog-list [contenteditable] { cursor: text; }
     #layertree-list .drag-handle { cursor: grab; }
@@ -578,6 +578,89 @@
     .v2-from-view { flex-shrink: 0; font-size: 12px; padding: 4px 9px; background: var(--v2-primary); border-color: var(--v2-primary); color: #fff; }
     .v2-from-view:hover { background: var(--v2-primary-hover); }
     #btn-map-sync { display: none !important; }
+
+    /* Stories: one outline, a lean step editor */
+    .v2-story-switch { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--v2-muted); flex: 1; }
+    .v2-story-switch[hidden], .story-toolbar:has(> .v2-story-switch[hidden]) { display: none; }
+    #tab-stories .v2-card-title h2 { flex: 1; }
+    .v2-story-switch select { flex: 1; max-width: 320px; }
+    .story-toolbar { justify-content: flex-start; }
+    .v2-story-title-row { display: flex; align-items: center; gap: 6px; margin: 4px 0 10px; }
+    .v2-story-name { font-size: 20px; font-weight: 700; cursor: text; border-radius: 6px; padding: 2px 6px; margin-left: -6px; min-width: 4ch; }
+    .v2-story-name:hover { box-shadow: inset 0 0 0 1px var(--v2-border); background: var(--v2-surface-2); }
+    .v2-story-name:focus { outline: 2px solid var(--v2-primary); background: var(--v2-surface); }
+    .v2-story-name::after { content: ''; display: inline-block; width: 14px; height: 14px; margin-left: 8px; background: var(--v2-muted); opacity: 0; vertical-align: middle;
+      -webkit-mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/pencil.svg") center / contain no-repeat;
+      mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/pencil.svg") center / contain no-repeat; }
+    .v2-story-name:hover::after { opacity: 1; }
+    .v2-story-name:focus::after { display: none; }
+    .v2-story-settings { border: 1px solid var(--v2-border); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; background: var(--v2-surface-2); }
+    .v2-link-danger { margin-top: 8px; background: none; border: 0; color: var(--v2-danger); padding: 0; cursor: pointer; }
+    .v2-story-h { font-size: 14px; margin: 14px 0 6px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .v2-outline { border: 1px solid var(--v2-border); border-radius: 8px; padding: 4px; max-height: 340px; overflow-y: auto; }
+    .v2-outline-row { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px; min-height: 30px; font-size: 13px; }
+    .v2-outline-row .row-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .v2-outline-chapter-row { font-weight: 600; cursor: pointer; }
+    .v2-outline-chapter-row:hover, .v2-outline-step:hover { background: var(--v2-surface-2); }
+    .v2-outline-step { padding-left: 34px; cursor: pointer; }
+    .v2-outline-step.selected { background: var(--v2-primary-soft); color: var(--v2-primary); font-weight: 600; }
+    .v2-outline-step:focus-visible { outline: 2px solid var(--v2-primary); outline-offset: -2px; }
+    .v2-step-num { min-width: 18px; height: 18px; border-radius: 9px; background: var(--v2-border); color: var(--v2-text); font-size: 11px; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; }
+    .v2-outline-step.selected .v2-step-num { background: var(--v2-primary); color: #fff; }
+    .v2-outline-toggle { border: 0; background: none; padding: 0 2px; width: 18px; color: var(--v2-muted); cursor: pointer; }
+    .v2-outline-btn { border: 0; background: none; padding: 2px 6px; font-size: 12px; color: var(--v2-muted); cursor: pointer; border-radius: 5px; }
+    .v2-outline-btn:hover { background: var(--v2-border); color: var(--v2-text); }
+    .v2-outline-btn.row-remove:hover { color: var(--v2-danger); }
+    .v2-icon-btn-mask { width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+    .v2-icon-btn-mask::before {
+      content: ''; width: 17px; height: 17px; background: currentColor;
+      -webkit-mask: var(--icon) center / contain no-repeat; mask: var(--icon) center / contain no-repeat;
+    }
+    .v2-icon-gear { --icon: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/gear.svg"); }
+    .v2-icon-trash { --icon: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/trash3.svg"); }
+    .v2-outline .drag-handle { cursor: grab; color: var(--v2-muted); }
+    .v2-outline .dragging { opacity: .4; }
+    .v2-outline-none { margin: 4px 0 8px 40px; font-size: 13px; color: var(--v2-muted); display: flex; align-items: center; gap: 8px; }
+    .v2-chapter-settings { margin: 2px 6px 8px 30px; padding: 8px 10px; border: 1px solid var(--v2-border); border-radius: 8px; background: var(--v2-surface-2); }
+    .v2-gate { border: 1px solid #f0c36d; background: #fff8e6; border-radius: 8px; padding: 12px 14px; }
+    .v2-gate p { margin: 0 0 10px; }
+    .v2-gate .section-hint { margin: 10px 0 0; }
+    /* Add buttons: one look for story, chapter and step */
+    .v2-add-btn {
+      border: 1px solid var(--v2-primary); background: var(--v2-primary-soft); color: var(--v2-primary);
+      font-weight: 600; font-size: 12px; padding: 2px 9px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+    }
+    .v2-add-btn:hover, .v2-add-btn:focus-visible { background: var(--v2-primary); color: #fff; }
+    .v2-add-btn--big { font-size: 13px; padding: 6px 14px; }
+    /* A step's + Step shows on the current step, and on hover/focus elsewhere, so the list stays calm */
+    .v2-outline-step .v2-add-btn { visibility: hidden; }
+    .v2-outline-step.selected .v2-add-btn, .v2-outline-step:hover .v2-add-btn, .v2-outline-step:focus-within .v2-add-btn { visibility: visible; }
+    .v2-outline-title { cursor: text; border-radius: 4px; padding: 1px 4px; margin-left: -4px; flex: 0 1 auto !important; min-width: 2ch; }
+    .v2-outline-title:hover { background: var(--v2-surface); box-shadow: inset 0 0 0 1px var(--v2-border); }
+    .v2-outline-title:focus { outline: 2px solid var(--v2-primary); background: var(--v2-surface); color: var(--v2-text); text-overflow: clip; }
+    .v2-outline-row .v2-outline-title + .v2-add-btn { margin-left: auto; }
+    .v2-chapter-num { min-width: 18px; font-weight: 700; color: var(--v2-muted); }
+    #step-editor h2 .section-hint { font-weight: 400; }
+    #step-editor .v2-step-ref { font: inherit; color: var(--v2-primary); }
+    .v2-btn-layers { display: inline-flex; align-items: center; gap: 6px; }
+    .v2-btn-layers::before { content: ''; width: 15px; height: 15px; background: currentColor;
+      -webkit-mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/layers.svg") center / contain no-repeat;
+      mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/layers.svg") center / contain no-repeat; }
+    #step-editor .step-block-label input { width: 100%; box-sizing: border-box; margin-top: 3px; }
+    .v2-step-layers .active-layer-row { gap: 8px; }
+    .v2-not-in-catalog { color: var(--v2-danger); }
+    .v2-step-layer-opt { font-size: 12px; color: var(--v2-muted); gap: 3px; }
+    #step-layers-list .v2-step-layer-opt input[type=number] { width: 56px; flex: none; }
+    #step-layers-list .layer-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .v2-step-layer-add { margin-top: 6px; max-width: 100%; }
+    .v2-step-view { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; font-variant-numeric: tabular-nums; }
+    .v2-step-view span { flex: 1; }
+    .v2-step-more { margin-top: 8px; font-size: 13px; }
+    .v2-step-more summary { cursor: pointer; color: var(--v2-muted); margin-bottom: 6px; }
+    @keyframes v2-flash { from { background: var(--v2-primary-soft); } to { background: transparent; } }
+    .v2-flash { animation: v2-flash 1.2s ease-out; border-radius: 4px; }
+    #btn-step-capture-map { margin-left: auto; }
+
     @media (max-width: 960px) {
       .v2-with-preview.active, #tab-layers.active { grid-template-columns: 1fr; }
       .v2-preview { position: static; }
@@ -875,99 +958,107 @@
   <div class="tab-panel v2-with-preview" id="tab-stories">
     <div class="v2-form">
     <div class="v2-panel-head"><h1>Stories</h1><p>Guided tours through the map, in chapters and steps.</p></div>
+    <section class="layers-section v2-gate" id="stories-tool-off" hidden>
+      <p><strong>The Stories tool is off.</strong> Viewers can only open a story from the Stories button in a toolbar, so turn the tool on before writing one.</p>
+      <button id="btn-stories-tool-on" type="button" class="v2-add-btn v2-add-btn--big">Turn on the Stories tool</button>
+      <p class="section-hint" id="stories-tool-off-hint"></p>
+    </section>
+    <div id="stories-tool-on">
     <section class="layers-section">
-      <h2>Stories <span class="section-hint">— guided tours (config `stories` section)</span></h2>
-
+      <div class="v2-card-title"><h2>1. Story <span class="section-hint">Click the name to rename it; the gear holds its other settings.</span></h2>
+        <button id="btn-story-add" type="button" class="v2-add-btn v2-add-btn--big">+ New story</button></div>
       <div class="story-toolbar">
-        <select id="story-select"></select>
-        <button id="btn-story-add" type="button">+ New story</button>
-        <button id="btn-story-delete" type="button">Delete story</button>
+        <label class="v2-story-switch" id="story-switch">Switch to
+          <select id="story-select"></select>
+        </label>
       </div>
       <p id="stories-empty" class="placeholder" style="display:none; padding:0.5rem 0;">No stories yet — click "+ New story" to create one.</p>
-
-      <div id="story-editor" class="story-editor" hidden>
-        <div class="map-form-grid">
-          <label>Name
-            <input type="text" id="story-name">
-          </label>
-          <label>Panel width <span class="section-hint">(e.g. 480px)</span>
-            <input type="text" id="story-width" placeholder="(default)">
-          </label>
-          <label style="grid-column: 1 / -1">Description
-            <input type="text" id="story-description">
-          </label>
+      <div id="story-head" hidden>
+        <div class="v2-story-title-row">
+          <span id="story-name-slot"></span>
+          <button id="btn-story-settings" type="button" class="v2-outline-btn v2-icon-btn-mask v2-icon-gear" title="Story settings" aria-label="Story settings" aria-expanded="false"></button>
         </div>
-
-        <div class="story-columns">
-          <div class="story-column">
-            <h3>Chapters <button id="btn-chapter-add" type="button" class="btn-add-small">+ Add</button></h3>
-            <div id="chapters-list" class="story-list"></div>
-            <div id="chapter-meta" class="chapter-meta" hidden>
-              <label>Title <input type="text" id="chapter-title"></label>
-              <label>Button text <input type="text" id="chapter-buttontext"></label>
-              <label>Id <input type="text" id="chapter-id"></label>
-            </div>
-          </div>
-          <div class="story-column">
-            <h3>Steps <button id="btn-step-add" type="button" class="btn-add-small">+ Add</button></h3>
-            <div id="steps-list" class="story-list"></div>
-          </div>
-        </div>
-
-        <div id="step-editor" class="step-editor" hidden>
-          <h3>Step</h3>
+        <div id="story-settings" class="v2-story-settings" hidden>
           <div class="map-form-grid">
-            <label style="grid-column: 1 / -1">Title
-              <input type="text" id="step-title">
+            <label>Panel width <span class="section-hint">(e.g. 480px)</span>
+              <input type="text" id="story-width" placeholder="(default)">
+            </label>
+            <label style="grid-column: 1 / -1">Description
+              <input type="text" id="story-description">
             </label>
           </div>
-          <label class="step-block-label">Content <span class="section-hint">(inline HTML, sanitized on render)</span>
-            <textarea id="step-html" rows="3"></textarea>
-          </label>
-
-          <div class="map-form-grid">
-            <label>Center longitude
-              <input type="number" id="step-lon" step="any">
-            </label>
-            <label>Center latitude
-              <input type="number" id="step-lat" step="any">
-            </label>
-            <label>Zoom
-              <input type="number" id="step-zoom" step="any">
-            </label>
-            <label>Bearing
-              <input type="number" id="step-bearing" step="any">
-            </label>
-            <label>Pitch
-              <input type="number" id="step-pitch" step="any">
-            </label>
-            <label>Projection
-              <select id="step-projection">
-                <option value="">(default — mercator)</option>
-                <option value="mercator">mercator</option>
-                <option value="globe">globe</option>
-              </select>
-            </label>
-          </div>
-          <label class="map-checkbox-row"><input type="checkbox" id="step-terrain"> 3D terrain enabled</label>
-
-          <h4>Layers <span class="section-hint">— checked = shown; "hidden" = loaded but not visible</span></h4>
-          <div id="step-layers-list" class="story-list"></div>
-
-          <div class="step-actions">
-            <button id="btn-step-capture" type="button">↻ Capture current view from map</button>
-            <button id="btn-step-preview" type="button">▶ Preview step on map</button>
-            <button id="btn-step-delete" type="button" class="btn-danger">Delete step</button>
-          </div>
+          <button id="btn-story-delete" type="button" class="v2-link-danger">Delete this story</button>
         </div>
       </div>
+    </section>
 
+    <div id="story-editor" hidden>
+    <section class="layers-section">
+      <h2>2. Outline <span class="section-hint">Click a step to show it on the map, click a title to rename it. Drag ⠿ to reorder.</span></h2>
+      <div id="story-outline" class="v2-outline"></div>
+    </section>
+
+    <div id="step-editor" hidden>
+    <section class="layers-section">
+      <h2>3. Set the map view for <span class="v2-step-ref">this step</span> <span class="section-hint">Where the map looks during this step.</span></h2>
+      <div class="v2-step-view">
+        <span id="step-view-summary"></span>
+        <button id="btn-step-capture" type="button" class="v2-from-view">Use map view</button>
+      </div>
+      <details class="v2-step-more">
+        <summary>More: exact numbers, projection, 3D terrain</summary>
+        <div class="map-form-grid">
+          <label>Center longitude
+            <input type="number" id="step-lon" step="any">
+          </label>
+          <label>Center latitude
+            <input type="number" id="step-lat" step="any">
+          </label>
+          <label>Zoom
+            <input type="number" id="step-zoom" step="any">
+          </label>
+          <label>Bearing
+            <input type="number" id="step-bearing" step="any">
+          </label>
+          <label>Pitch
+            <input type="number" id="step-pitch" step="any">
+          </label>
+          <label>Projection
+            <select id="step-projection">
+              <option value="">(default — mercator)</option>
+              <option value="mercator">mercator</option>
+              <option value="globe">globe</option>
+            </select>
+          </label>
+        </div>
+        <label class="map-checkbox-row"><input type="checkbox" id="step-terrain"> 3D terrain enabled</label>
+      </details>
+    </section>
+
+    <section class="layers-section">
+      <div class="v2-card-title"><h2>4. Layers in <span class="v2-step-ref">this step</span> <span class="section-hint">From the Map catalog. Top of the list is on top of the map; the eye hides a layer without removing it.</span></h2>
+        <button type="button" id="btn-step-layers-from-map" class="v2-from-view v2-btn-layers" title="Copy the layers on the preview map — which are on, hidden, their order and transparency — into this step">Use the layers on the map</button></div>
+      <div id="step-layers-list" class="v2-step-layers"></div>
+      <select id="step-layer-add" class="v2-step-layer-add" aria-label="Add a layer to this step"></select>
+    </section>
+
+    <section class="layers-section">
+      <h2>5. Edit <span id="step-editor-title" class="v2-step-ref">step</span> <span class="section-hint">Edit the title and content of this step.</span></h2>
+      <label class="step-block-label">Title
+        <input type="text" id="step-title">
+      </label>
+      <label class="step-block-label">Text <span class="section-hint">(HTML allowed, sanitized on render)</span>
+        <textarea id="step-html" rows="4"></textarea>
+      </label>
     </section>
     </div>
+    </div>
+    </div>
+    </div>
     <aside class="v2-preview">
-      <div class="map-preview-actions"><span class="v2-preview-title">Preview</span></div>
+      <div class="map-preview-actions"><span class="v2-preview-title">Preview</span><button id="btn-step-capture-map" type="button" class="v2-from-view">📍 Use this view for the step</button></div>
       <iframe id="stories-preview-frame" class="map-preview" src="./preview.html?storageKey=webmapx-setup-stories-preview-config"></iframe>
-      <p class="section-hint map-preview-hint">A real webmapx map — same engine, tools, and active layers as your config. Position it, then "Capture current view" to fill in a step's camera, or "Preview step" to see what a step looks like.</p>
+      <p class="section-hint map-preview-hint">Selecting a step shows it here. Move the map, then "Use this view" to give the step this camera.</p>
     </aside>
   </div>
   </main>
@@ -3804,6 +3895,22 @@
       const ov = getSaved();
       ov['stories:data'] = JSON.parse(JSON.stringify(storiesData));
       saveOverrides(ov);
+      updateStepRefs();
+    }
+
+    // Names the selected step in the step cards' headings: by its own and its chapter's
+    // title once the author has given one, by number while it still has the default name.
+    function updateStepRefs() {
+      const chapter = currentChapter();
+      const step = currentStep();
+      if (!chapter || !step) return;
+      const named = (title, fallback) => (title && title !== fallback ? `“${title}”` : null);
+      const ch = named(chapter.title, 'New chapter') ?? `Chapter ${selChapterIdx + 1}`;
+      const st = named(step.title, 'New step') ?? `step ${selStepIdx + 1}`;
+      document.querySelectorAll('#step-editor .v2-step-ref').forEach((el) => {
+        el.textContent = `${ch} › ${st}`;
+        el.title = `Chapter ${selChapterIdx + 1}, step ${selStepIdx + 1}`;
+      });
     }
 
     function buildStoriesUI(config) {
@@ -3812,7 +3919,46 @@
       renderStoriesTab(config);
     }
 
+    // Chapters the outline shows folded, and the one whose settings are open (by object, so
+    // both survive reordering).
+    const collapsedChapters = new WeakSet();
+    let chapterSettingsOpen = null;
+
+    // The Stories tab edits stories only while the Stories tool is on (ticked in a toolbar on
+    // the Tools tab), since without it the map has no way to open them. Read from the Tools
+    // tab's own checkboxes, so it follows unsaved ticks exactly as the preview does.
+    function storiesToolCheckbox() {
+      return document.querySelector('#ui input[data-tool="stories"][data-toolbar]');
+    }
+    function updateStoriesToolGate() {
+      const on = !!document.querySelector('#ui input[data-tool="stories"]:checked');
+      document.getElementById('stories-tool-off').hidden = on;
+      document.getElementById('stories-tool-on').hidden = !on;
+      const cb = storiesToolCheckbox();
+      const btn = document.getElementById('btn-stories-tool-on');
+      const toolbar = cb?.closest('.v2-tool-card')?.querySelector('h2')?.firstChild?.textContent?.trim();
+      btn.textContent = toolbar ? `Turn on the Stories tool in ${toolbar}` : 'Turn on the Stories tool';
+      btn.hidden = !cb;
+      document.getElementById('stories-tool-off-hint').textContent = cb
+        ? 'You can move it to another toolbar later on the Tools tab.'
+        : 'This config has no toolbar to put it in; add one on the Tools tab first.';
+      if (storiesData.length && !on) {
+        document.getElementById('stories-tool-off-hint').textContent += ` This config already holds ${storiesData.length} ${storiesData.length === 1 ? 'story; it is' : 'stories; they are'} kept.`;
+      }
+      return on;
+    }
+
+    document.getElementById('btn-stories-tool-on').addEventListener('click', () => {
+      const cb = storiesToolCheckbox();
+      if (!cb) return;
+      cb.checked = true;
+      cb.dispatchEvent(new Event('change'));
+      renderStoriesTab(baseConfig);
+      refreshStoriesPreviewFrame(baseConfig);
+    });
+
     function renderStoriesTab(config) {
+      if (!updateStoriesToolGate()) return;
       const select = document.getElementById('story-select');
       select.innerHTML = '';
       storiesData.forEach((s, i) => {
@@ -3825,114 +3971,363 @@
       if (hasStory) select.value = String(selStoryIdx);
       document.getElementById('stories-empty').style.display = hasStory ? 'none' : '';
       document.getElementById('story-editor').hidden = !hasStory;
+      document.getElementById('story-head').hidden = !hasStory;
+      // With one story there is nothing to switch to; the story's own name is the heading.
+      document.getElementById('story-switch').hidden = storiesData.length < 2;
       if (!hasStory) return;
 
       const story = currentStory();
       if (!Array.isArray(story.chapters)) story.chapters = [];
       if (selChapterIdx >= story.chapters.length) selChapterIdx = story.chapters.length - 1;
       if (selChapterIdx < 0 && story.chapters.length > 0) selChapterIdx = 0;
+      const chapter = currentChapter();
+      if (chapter) {
+        if (!Array.isArray(chapter.steps)) chapter.steps = [];
+        if (selStepIdx >= chapter.steps.length) selStepIdx = chapter.steps.length - 1;
+      }
 
-      document.getElementById('story-name').value = story.name ?? '';
+      const nameSlot = document.getElementById('story-name-slot');
+      const name = makeEditableText('v2-story-name', story.name || 'Untitled story', (val) => {
+        story.name = val;
+        persistStoriesData();
+        renderStoriesTab(config);
+      });
+      name.setAttribute('role', 'textbox');
+      name.setAttribute('aria-label', 'Story name');
+      nameSlot.replaceChildren(name);
       document.getElementById('story-description').value = story.description ?? '';
       document.getElementById('story-width').value = story.width ?? '';
 
-      renderChaptersList(config);
-      renderStepsList(config);
+      renderOutline(config);
       renderStepEditor(config);
     }
 
-    function renderChaptersList(config) {
+    // --- Outline: chapters with their steps, one list ---
+    let storyDrag = null; // { chapter } or { step, from }
+
+    function outlineButton(text, title, onClick, className = 'v2-outline-btn') {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = className;
+      b.textContent = text;
+      b.title = title;
+      b.setAttribute('aria-label', title);
+      b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+      return b;
+    }
+
+    function selectStep(config, chapterIdx, stepIdx) {
+      selChapterIdx = chapterIdx;
+      selStepIdx = stepIdx;
+      renderStoriesTab(config);
+      previewCurrentStep();
+    }
+
+    // After a drag the indices are stale; find the selected step again by object.
+    function reselect(step) {
+      currentStory().chapters.forEach((c, ci) => {
+        const si = (c.steps ?? []).indexOf(step);
+        if (si >= 0) { selChapterIdx = ci; selStepIdx = si; }
+      });
+    }
+
+    function clearOutlineDropMarks() {
+      document.querySelectorAll('#story-outline .drop-before, #story-outline .drop-after, #story-outline .v2-drop-into')
+        .forEach(x => x.classList.remove('drop-before', 'drop-after', 'v2-drop-into'));
+    }
+
+    function makeOutlineDraggable(row, payload) {
+      const handle = document.createElement('span');
+      handle.className = 'drag-handle';
+      handle.textContent = '⠿';
+      handle.title = 'Drag to move';
+      row.insertBefore(handle, row.firstChild);
+      row.draggable = true;
+      row.addEventListener('dragstart', (e) => {
+        if (e.target.closest('input, textarea')) { e.preventDefault(); return; }
+        storyDrag = payload;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', '');
+        row.classList.add('dragging');
+      });
+      row.addEventListener('dragend', () => {
+        storyDrag = null;
+        row.classList.remove('dragging');
+        clearOutlineDropMarks();
+      });
+    }
+
+    // where: 'before' | 'after' | 'into' (a step dropped on a chapter goes to its end).
+    function wireOutlineDrop(row, config, target, zoneOf) {
+      const accepts = () => storyDrag && (storyDrag.chapter ? target.chapter && target.chapter !== storyDrag.chapter : storyDrag.step !== target.step);
+      const mark = { before: 'drop-before', after: 'drop-after', into: 'v2-drop-into' };
+      row.addEventListener('dragover', (e) => {
+        if (!accepts()) return;
+        e.preventDefault();
+        clearOutlineDropMarks();
+        row.classList.add(mark[zoneOf(e)]);
+      });
+      row.addEventListener('drop', (e) => {
+        if (!accepts()) return;
+        e.preventDefault();
+        const where = zoneOf(e);
+        const story = currentStory();
+        const selected = currentStep();
+        if (storyDrag.chapter) {
+          story.chapters.splice(story.chapters.indexOf(storyDrag.chapter), 1);
+          const i = story.chapters.indexOf(target.chapter);
+          story.chapters.splice(where === 'before' ? i : i + 1, 0, storyDrag.chapter);
+        } else {
+          const { step, from } = storyDrag;
+          from.steps.splice(from.steps.indexOf(step), 1);
+          if (target.step) {
+            const i = target.parent.steps.indexOf(target.step);
+            target.parent.steps.splice(where === 'after' ? i + 1 : i, 0, step);
+          } else {
+            target.chapter.steps.push(step);
+            collapsedChapters.delete(target.chapter);
+          }
+        }
+        storyDrag = null;
+        clearOutlineDropMarks();
+        if (selected) reselect(selected);
+        persistStoriesData();
+        renderStoriesTab(config);
+      });
+    }
+
+    // Titles in the outline are renamed in place; a click on the text edits it, a click
+    // elsewhere on the row selects (step) or folds (chapter).
+    function outlineTitle(text, onSave) {
+      const span = makeEditableText('row-label v2-outline-title', text, onSave);
+      span.addEventListener('click', (e) => e.stopPropagation());
+      span.addEventListener('mousedown', (e) => e.stopPropagation());
+      return span;
+    }
+
+    // Puts the caret in a title just added, selected, so typing replaces "New step".
+    function editTitle(span) {
+      if (!span) return;
+      span.scrollIntoView({ block: 'nearest' });
+      span.focus();
+      const range = document.createRange();
+      range.selectNodeContents(span);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+
+    function renderOutline(config) {
       const story = currentStory();
-      const list = document.getElementById('chapters-list');
-      list.innerHTML = '';
-      (story.chapters ?? []).forEach((chapter, i) => {
-        const row = document.createElement('div');
-        row.className = 'story-list-row' + (i === selChapterIdx ? ' selected' : '');
-        const label = document.createElement('span');
-        label.className = 'row-label';
-        label.textContent = chapter.title || chapter.id || `Chapter ${i + 1}`;
-        row.appendChild(label);
-        const remove = document.createElement('span');
-        remove.className = 'row-remove';
-        remove.textContent = '✕';
-        remove.title = 'Delete chapter';
-        remove.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (!confirm(`Delete chapter "${label.textContent}" and its steps?`)) return;
-          story.chapters.splice(i, 1);
+      const outline = document.getElementById('story-outline');
+      outline.innerHTML = '';
+      const half = (row, e) => { const r = row.getBoundingClientRect(); return (e.clientY - r.top) / r.height; };
+
+      if (!story.chapters.length) {
+        const none = document.createElement('div');
+        none.className = 'v2-outline-none';
+        none.append('This story has no chapters. ');
+        none.appendChild(outlineButton('+ Chapter', 'Add a chapter', () => addChapter(config, null), 'v2-add-btn'));
+        outline.appendChild(none);
+      }
+
+      story.chapters.forEach((chapter, ci) => {
+        const group = document.createElement('div');
+        group.className = 'v2-outline-chapter';
+        const collapsed = collapsedChapters.has(chapter);
+
+        const head = document.createElement('div');
+        head.className = 'v2-outline-row v2-outline-chapter-row';
+        head.dataset.chapter = String(ci);
+        const toggle = outlineButton(collapsed ? '▸' : '▾', collapsed ? 'Open chapter' : 'Close chapter', () => {
+          if (collapsed) collapsedChapters.delete(chapter); else collapsedChapters.add(chapter);
+          renderOutline(config);
+        }, 'v2-outline-toggle');
+        toggle.setAttribute('aria-expanded', String(!collapsed));
+        head.appendChild(toggle);
+        const num = document.createElement('span');
+        num.className = 'v2-chapter-num';
+        num.textContent = String(ci + 1);
+        head.appendChild(num);
+        head.appendChild(outlineTitle(chapter.title || chapter.id || 'Chapter', (val) => {
+          chapter.title = val;
+          persistStoriesData();
+        }));
+        head.appendChild(outlineButton('+ Chapter', 'Add a chapter after this one', () => addChapter(config, chapter), 'v2-add-btn'));
+        head.appendChild(outlineButton('', 'Chapter settings', () => {
+          chapterSettingsOpen = chapterSettingsOpen === chapter ? null : chapter;
+          renderOutline(config);
+        }, 'v2-outline-btn v2-icon-btn-mask v2-icon-gear'));
+        head.appendChild(outlineButton('', 'Delete chapter', () => {
+          if (!confirm(`Delete chapter "${chapter.title || 'Chapter'}" and its steps?`)) return;
+          story.chapters.splice(ci, 1);
           selChapterIdx = 0;
           selStepIdx = 0;
           persistStoriesData();
           renderStoriesTab(config);
+        }, 'v2-outline-btn row-remove v2-icon-btn-mask v2-icon-trash'));
+        head.addEventListener('click', () => toggle.click());
+        makeOutlineDraggable(head, { chapter });
+        wireOutlineDrop(head, config, { chapter }, (e) => {
+          if (storyDrag?.step) return 'into';
+          return half(head, e) < 0.5 ? 'before' : 'after';
         });
-        row.appendChild(remove);
-        row.addEventListener('click', () => {
-          selChapterIdx = i;
-          selStepIdx = 0;
-          renderStoriesTab(config);
-        });
-        list.appendChild(row);
-      });
+        group.appendChild(head);
 
-      const chapter = currentChapter();
-      const meta = document.getElementById('chapter-meta');
-      meta.hidden = !chapter;
-      if (chapter) {
-        document.getElementById('chapter-title').value = chapter.title ?? '';
-        document.getElementById('chapter-buttontext').value = chapter.buttonText ?? '';
-        document.getElementById('chapter-id').value = chapter.id ?? '';
-      }
+        if (chapterSettingsOpen === chapter) group.appendChild(chapterSettings(config, chapter));
+
+        if (!collapsed) {
+          (chapter.steps ?? []).forEach((step, si) => {
+            const row = document.createElement('div');
+            const selected = ci === selChapterIdx && si === selStepIdx;
+            row.className = 'v2-outline-row v2-outline-step' + (selected ? ' selected' : '');
+            row.tabIndex = 0;
+            row.setAttribute('role', 'button');
+            row.setAttribute('aria-pressed', String(selected));
+            const stepNum = document.createElement('span');
+            stepNum.className = 'v2-step-num';
+            stepNum.textContent = String(si + 1);
+            row.appendChild(stepNum);
+            const title = outlineTitle(step.title || `Step ${si + 1}`, (val) => {
+              step.title = val;
+              persistStoriesData();
+              if (step === currentStep()) document.getElementById('step-title').value = val;
+            });
+            // Editing a title also makes that step the current one.
+            title.addEventListener('focus', () => {
+              if (step !== currentStep()) {
+                selChapterIdx = ci;
+                selStepIdx = si;
+                document.querySelectorAll('#story-outline .v2-outline-step.selected').forEach(r => { r.classList.remove('selected'); r.setAttribute('aria-pressed', 'false'); });
+                row.classList.add('selected');
+                row.setAttribute('aria-pressed', 'true');
+                renderStepEditor(config);
+                previewCurrentStep();
+              }
+            });
+            row.appendChild(title);
+            row.appendChild(outlineButton('+ Step', 'Add a step after this one', () => addStep(config, chapter, step), 'v2-add-btn'));
+            row.appendChild(outlineButton('', 'Delete step', () => {
+              if (!confirm(`Delete step "${step.title || `Step ${si + 1}`}"?`)) return;
+              chapter.steps.splice(si, 1);
+              if (ci === selChapterIdx && selStepIdx >= si) selStepIdx = Math.max(0, selStepIdx - 1);
+              persistStoriesData();
+              renderStoriesTab(config);
+            }, 'v2-outline-btn row-remove v2-icon-btn-mask v2-icon-trash'));
+            row.addEventListener('click', () => selectStep(config, ci, si));
+            row.addEventListener('keydown', (e) => {
+              if (e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); selectStep(config, ci, si); }
+            });
+            makeOutlineDraggable(row, { step, from: chapter });
+            wireOutlineDrop(row, config, { step, parent: chapter }, (e) => (half(row, e) < 0.5 ? 'before' : 'after'));
+            group.appendChild(row);
+          });
+          if (!(chapter.steps ?? []).length) {
+            const none = document.createElement('div');
+            none.className = 'v2-outline-none';
+            none.append('No steps yet. ');
+            none.appendChild(outlineButton('+ Step', 'Add a step to this chapter', () => addStep(config, chapter, null), 'v2-add-btn'));
+            group.appendChild(none);
+          }
+        }
+        outline.appendChild(group);
+      });
     }
 
-    function renderStepsList(config) {
-      const chapter = currentChapter();
-      const list = document.getElementById('steps-list');
-      list.innerHTML = '';
-      if (!chapter) return;
-      if (!Array.isArray(chapter.steps)) chapter.steps = [];
-      if (selStepIdx >= chapter.steps.length) selStepIdx = chapter.steps.length - 1;
-      if (selStepIdx < 0 && chapter.steps.length > 0) selStepIdx = 0;
-
-      chapter.steps.forEach((step, i) => {
-        const row = document.createElement('div');
-        row.className = 'story-list-row' + (i === selStepIdx ? ' selected' : '');
-        const label = document.createElement('span');
-        label.className = 'row-label';
-        label.textContent = step.title || `Step ${i + 1}`;
-        row.appendChild(label);
-        const remove = document.createElement('span');
-        remove.className = 'row-remove';
-        remove.textContent = '✕';
-        remove.title = 'Delete step';
-        remove.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (!confirm(`Delete step "${label.textContent}"?`)) return;
-          chapter.steps.splice(i, 1);
-          selStepIdx = 0;
+    function chapterSettings(config, chapter) {
+      const box = document.createElement('div');
+      box.className = 'chapter-meta v2-chapter-settings';
+      [
+        ['Title', 'title', 'Shown as the chapter heading'],
+        ['Button text', 'buttonText', 'Label of the chapter button in the story panel'],
+        ['Id', 'id', 'Technical name; leave as is unless you link to this chapter'],
+      ].forEach(([text, key, hint]) => {
+        const label = document.createElement('label');
+        label.textContent = text;
+        label.title = hint;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = chapter[key] ?? '';
+        input.addEventListener('change', () => {
+          chapter[key] = input.value;
           persistStoriesData();
-          renderStoriesTab(config);
+          renderOutline(config);
         });
-        row.appendChild(remove);
-        row.addEventListener('click', () => {
-          selStepIdx = i;
-          renderStoriesTab(config);
-        });
-        list.appendChild(row);
+        label.appendChild(input);
+        box.appendChild(label);
       });
+      return box;
+    }
+
+    // The step that comes before position `index` of `chapter` in the whole story, if any.
+    function stepBefore(chapter, index) {
+      const story = currentStory();
+      if (index > 0) return chapter.steps[index - 1];
+      return story.chapters.slice(0, story.chapters.indexOf(chapter)).flatMap(c => c.steps ?? []).pop();
+    }
+
+    // A new step starts where the tour already is: the view and layers of the step before it.
+    function newStepAfter(prev) {
+      const step = emptyStep();
+      step.html = '';
+      if (prev?.state) step.state = JSON.parse(JSON.stringify(prev.state));
+      return step;
+    }
+
+    // Adds a step right after `afterStep` (or at the start of an empty chapter), selects
+    // it, and puts the caret in its title.
+    function addStep(config, chapter, afterStep) {
+      if (!Array.isArray(chapter.steps)) chapter.steps = [];
+      const index = afterStep ? chapter.steps.indexOf(afterStep) + 1 : chapter.steps.length;
+      const step = newStepAfter(stepBefore(chapter, index));
+      chapter.steps.splice(index, 0, step);
+      collapsedChapters.delete(chapter);
+      persistStoriesData();
+      selectStep(config, currentStory().chapters.indexOf(chapter), index);
+      editTitle(document.querySelector('#story-outline .v2-outline-step.selected .v2-outline-title'));
+    }
+
+    // Adds a chapter, with its first step, right after `afterChapter` (or at the end).
+    function addChapter(config, afterChapter) {
+      const story = currentStory();
+      const index = afterChapter ? story.chapters.indexOf(afterChapter) + 1 : story.chapters.length;
+      const chapter = emptyChapter();
+      const prev = story.chapters.slice(0, index).flatMap(c => c.steps ?? []).pop();
+      chapter.steps = [newStepAfter(prev)];
+      story.chapters.splice(index, 0, chapter);
+      persistStoriesData();
+      selectStep(config, index, 0);
+      // The new chapter's step is shown; the chapter title is what to name first.
+      const head = document.querySelector(`#story-outline .v2-outline-chapter-row[data-chapter="${index}"]`);
+      document.querySelector('#story-outline .v2-outline-step.selected')?.scrollIntoView({ block: 'nearest' });
+      editTitle(head?.querySelector('.v2-outline-title'));
+    }
+
+    function viewSummary(view) {
+      const [lon = 0, lat = 0] = view?.center ?? [];
+      const ns = lat >= 0 ? 'N' : 'S';
+      const ew = lon >= 0 ? 'E' : 'W';
+      const parts = [`${Math.abs(lat).toFixed(3)}°${ns} ${Math.abs(lon).toFixed(3)}°${ew}`, `zoom ${+(view?.zoom ?? 0).toFixed(2)}`];
+      if (view?.bearing) parts.push(`bearing ${+view.bearing.toFixed(1)}°`);
+      if (view?.pitch) parts.push(`pitch ${+view.pitch.toFixed(1)}°`);
+      return parts.join(' · ');
     }
 
     function renderStepEditor(config) {
       const step = currentStep();
       const editor = document.getElementById('step-editor');
       editor.hidden = !step;
+      document.getElementById('btn-step-capture-map').disabled = !step;
       if (!step) return;
 
       if (!step.state) step.state = { layers: [], view: { center: [0, 0], zoom: 2 } };
       if (!step.state.view) step.state.view = { center: [0, 0], zoom: 2 };
       if (!Array.isArray(step.state.layers)) step.state.layers = [];
 
+      updateStepRefs();
       document.getElementById('step-title').value = step.title ?? '';
       document.getElementById('step-html').value = step.html ?? '';
+      document.getElementById('step-view-summary').textContent = viewSummary(step.state.view);
       document.getElementById('step-lon').value = step.state.view.center?.[0] ?? 0;
       document.getElementById('step-lat').value = step.state.view.center?.[1] ?? 0;
       document.getElementById('step-zoom').value = step.state.view.zoom ?? 2;
@@ -3944,79 +4339,128 @@
       renderStepLayersList(config, step);
     }
 
-    // One row per catalog layer: checkbox = included in state.layers, "hidden" checkbox =
-    // included in state.hiddenLayers (only meaningful/shown when the layer is checked), and a
-    // transparency number input (0-100%, only kept in state.transparency when non-zero).
+    // The step's own layers as a stack, laid out like the Legend menu layer stack: eye =
+    // shown/hidden (state.hiddenLayers), transparency 0-100% (only kept in
+    // state.transparency when non-zero), drag to reorder. state.layers is bottom-to-top, the
+    // list shows it top-to-bottom. Layers are offered from the Map catalog only; a layer
+    // the story needs beyond that is added to the catalog on the Layers tab first.
     function renderStepLayersList(config, step) {
       const list = document.getElementById('step-layers-list');
       list.innerHTML = '';
       const layersById = getLayersById(config);
-      // Sort by the visible title, not the internal id — otherwise the list order looks
-      // scrambled relative to what's actually shown in each row.
-      const layerIds = Object.keys(layersById).sort((a, b) =>
-        (layersById[a]?.title ?? a).localeCompare(layersById[b]?.title ?? b)
-      );
+      const titleOf = (id) => getLayerTitle(id, layersById[id]);
+      const treeLoc = findLayerTreeLocation(config);
+      const catalogIds = treeLoc ? collectTreeLayerIds(getTree(config, treeLoc)) : new Set(Object.keys(layersById));
       const hiddenSet = new Set(step.state.hiddenLayers ?? []);
       const transparency = step.state.transparency ?? {};
+      const changed = () => { persistStoriesData(); previewCurrentStep(); };
 
-      layerIds.forEach((id) => {
+      if (!step.state.layers.length) {
+        const none = document.createElement('p');
+        none.className = 'section-hint';
+        none.textContent = 'No layers — the step shows only the base map.';
+        list.appendChild(none);
+      }
+
+      step.state.layers.slice().reverse().forEach((id) => {
         const row = document.createElement('div');
-        row.className = 'layer-row';
+        row.className = 'active-layer-row';
+        row.draggable = true;
 
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = step.state.layers.includes(id);
-        cb.addEventListener('change', () => {
-          if (cb.checked) {
-            if (!step.state.layers.includes(id)) step.state.layers.push(id);
-          } else {
-            step.state.layers = step.state.layers.filter((l) => l !== id);
-            step.state.hiddenLayers = (step.state.hiddenLayers ?? []).filter((l) => l !== id);
-            delete (step.state.transparency ?? {})[id];
-          }
-          persistStoriesData();
-          renderStepLayersList(config, step);
+        const handle = document.createElement('span');
+        handle.className = 'drag-handle';
+        handle.textContent = '⠿';
+        handle.title = 'Drag to reorder';
+        row.appendChild(handle);
+
+        const visCb = document.createElement('input');
+        visCb.type = 'checkbox';
+        visCb.checked = !hiddenSet.has(id);
+        visCb.title = 'Shown in this step';
+        visCb.setAttribute('aria-label', `${titleOf(id)} shown`);
+        visCb.addEventListener('change', () => {
+          const set = new Set(step.state.hiddenLayers ?? []);
+          if (visCb.checked) set.delete(id); else set.add(id);
+          step.state.hiddenLayers = [...set];
+          changed();
         });
-        row.appendChild(cb);
+        row.appendChild(visCb);
 
-        const idLabel = document.createElement('span');
-        idLabel.className = 'layer-id';
-        idLabel.textContent = layersById[id]?.title ?? id;
-        row.appendChild(idLabel);
-
-        if (cb.checked) {
-          const hiddenLabel = document.createElement('label');
-          hiddenLabel.style.fontSize = '0.78rem';
-          const hiddenCb = document.createElement('input');
-          hiddenCb.type = 'checkbox';
-          hiddenCb.checked = hiddenSet.has(id);
-          hiddenCb.addEventListener('change', () => {
-            const set = new Set(step.state.hiddenLayers ?? []);
-            if (hiddenCb.checked) set.add(id); else set.delete(id);
-            step.state.hiddenLayers = [...set];
-            persistStoriesData();
-          });
-          hiddenLabel.appendChild(hiddenCb);
-          hiddenLabel.append(' hidden');
-          row.appendChild(hiddenLabel);
-
-          const transInput = document.createElement('input');
-          transInput.type = 'number';
-          transInput.min = '0';
-          transInput.max = '100';
-          transInput.title = 'Transparency %';
-          transInput.value = transparency[id] ?? 0;
-          transInput.addEventListener('change', () => {
-            const value = Number(transInput.value) || 0;
-            const t = { ...(step.state.transparency ?? {}) };
-            if (value > 0) t[id] = value; else delete t[id];
-            step.state.transparency = t;
-            persistStoriesData();
-          });
-          row.appendChild(transInput);
+        const title = document.createElement('span');
+        title.className = 'layer-title';
+        title.textContent = titleOf(id);
+        row.appendChild(title);
+        if (!catalogIds.has(id)) {
+          const warn = document.createElement('span');
+          warn.className = 'type-badge v2-not-in-catalog';
+          warn.textContent = 'not in catalog';
+          warn.title = 'This layer is not in the Map catalog. It still works in the story, but viewers cannot find it in the Catalog menu.';
+          row.appendChild(warn);
         }
 
+        const transLabel = document.createElement('label');
+        transLabel.className = 'v2-step-layer-opt';
+        transLabel.title = 'Transparency %';
+        const transInput = document.createElement('input');
+        transInput.type = 'number';
+        transInput.min = '0';
+        transInput.max = '100';
+        transInput.value = transparency[id] ?? 0;
+        transInput.setAttribute('aria-label', `${titleOf(id)} transparency %`);
+        transInput.addEventListener('change', () => {
+          const value = Number(transInput.value) || 0;
+          const t = { ...(step.state.transparency ?? {}) };
+          if (value > 0) t[id] = value; else delete t[id];
+          step.state.transparency = t;
+          changed();
+        });
+        transLabel.append(transInput, ' %');
+        row.appendChild(transLabel);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'layer-remove';
+        removeBtn.textContent = '✕';
+        removeBtn.title = 'Remove from this step';
+        removeBtn.addEventListener('click', () => {
+          step.state.layers = step.state.layers.filter((l) => l !== id);
+          step.state.hiddenLayers = (step.state.hiddenLayers ?? []).filter((l) => l !== id);
+          delete (step.state.transparency ?? {})[id];
+          changed();
+          renderStepLayersList(config, step);
+        });
+        row.appendChild(removeBtn);
+
+        row.addEventListener('dragstart', (e) => {
+          if (e.target.closest('input')) { e.preventDefault(); return; }
+          const items = () => [...list.querySelectorAll(':scope > .active-layer-row')];
+          startReorder(e, row, list, items, (from, to, side) => {
+            const topDown = step.state.layers.slice().reverse();
+            step.state.layers = moveItem(topDown, from, to, side).reverse();
+            persistStoriesData();
+            renderStepLayersList(config, step);
+          });
+        });
+        row.addEventListener('dragend', endReorder);
+
         list.appendChild(row);
+      });
+
+      const add = document.getElementById('step-layer-add');
+      add.innerHTML = '';
+      const first = document.createElement('option');
+      first.value = '';
+      const offered = [...catalogIds]
+        .filter((id) => layersById[id] && !step.state.layers.includes(id))
+        .sort((a, b) => titleOf(a).localeCompare(titleOf(b)));
+      first.textContent = offered.length ? '+ Add from the Map catalog…' : 'Every Map catalog layer is in this step';
+      add.appendChild(first);
+      add.disabled = !offered.length;
+      offered.forEach((id) => {
+        const o = document.createElement('option');
+        o.value = id;
+        o.textContent = titleOf(id);
+        add.appendChild(o);
       });
     }
 
@@ -4046,6 +4490,14 @@
       selStepIdx = 0;
       persistStoriesData();
       renderStoriesTab(baseConfig);
+      previewCurrentStep();
+      editTitle(document.querySelector('#story-name-slot .v2-story-name'));
+    });
+
+    document.getElementById('btn-story-settings').addEventListener('click', (e) => {
+      const panel = document.getElementById('story-settings');
+      panel.hidden = !panel.hidden;
+      e.currentTarget.setAttribute('aria-expanded', String(!panel.hidden));
     });
 
     document.getElementById('btn-story-delete').addEventListener('click', () => {
@@ -4065,15 +4517,9 @@
       selChapterIdx = 0;
       selStepIdx = 0;
       renderStoriesTab(baseConfig);
+      previewCurrentStep();
     });
 
-    document.getElementById('story-name').addEventListener('change', (e) => {
-      const story = currentStory();
-      if (!story) return;
-      story.name = e.target.value;
-      persistStoriesData();
-      renderStoriesTab(baseConfig);
-    });
     document.getElementById('story-description').addEventListener('change', (e) => {
       const story = currentStory();
       if (!story) return;
@@ -4087,60 +4533,48 @@
       persistStoriesData();
     });
 
-    document.getElementById('btn-chapter-add').addEventListener('click', () => {
-      const story = currentStory();
-      if (!story) return;
-      story.chapters.push(emptyChapter());
-      selChapterIdx = story.chapters.length - 1;
-      selStepIdx = 0;
-      persistStoriesData();
-      renderStoriesTab(baseConfig);
-    });
-
-    ['chapter-title', 'chapter-buttontext', 'chapter-id'].forEach((id) => {
-      document.getElementById(id).addEventListener('change', (e) => {
-        const chapter = currentChapter();
-        if (!chapter) return;
-        if (id === 'chapter-title') chapter.title = e.target.value;
-        if (id === 'chapter-buttontext') chapter.buttonText = e.target.value;
-        if (id === 'chapter-id') chapter.id = e.target.value;
-        persistStoriesData();
-        renderChaptersList(baseConfig);
-      });
-    });
-
-    document.getElementById('btn-step-add').addEventListener('click', () => {
-      const chapter = currentChapter();
-      if (!chapter) return;
-      chapter.steps.push(emptyStep());
-      selStepIdx = chapter.steps.length - 1;
-      persistStoriesData();
-      renderStoriesTab(baseConfig);
-    });
-
-    document.getElementById('btn-step-delete').addEventListener('click', () => {
-      const chapter = currentChapter();
-      const step = currentStep();
-      if (!chapter || !step) return;
-      if (!confirm(`Delete step "${step.title}"?`)) return;
-      chapter.steps.splice(selStepIdx, 1);
-      selStepIdx = 0;
-      persistStoriesData();
-      renderStoriesTab(baseConfig);
-    });
-
     document.getElementById('step-title').addEventListener('change', (e) => {
       const step = currentStep();
       if (!step) return;
       step.title = e.target.value;
       persistStoriesData();
-      renderStepsList(baseConfig);
+      renderOutline(baseConfig);
     });
     document.getElementById('step-html').addEventListener('change', (e) => {
       const step = currentStep();
       if (!step) return;
       step.html = e.target.value;
       persistStoriesData();
+    });
+
+    // Copies the preview map's layer stack into the step: order, eye, transparency. Only
+    // layers this config defines are taken; layers a tool drew (measure, draw, a dropped
+    // file) have no catalog entry a story could load.
+    document.getElementById('btn-step-layers-from-map').addEventListener('click', async () => {
+      const step = currentStep();
+      if (!step) return;
+      const adapter = await storiesPreviewAdapter();
+      if (!adapter) { alert('Preview map not ready yet.'); return; }
+      const layersById = getLayersById(baseConfig);
+      const entries = Object.entries(adapter.store.getState().mapLayers ?? {})
+        .filter(([id, l]) => layersById[id] && !l.dynamic && !l.ownerTool);
+      step.state.layers = entries.map(([id]) => id);
+      step.state.hiddenLayers = entries.filter(([, l]) => l.visible === false).map(([id]) => id);
+      const t = {};
+      for (const [id, l] of entries) if (l.transparency > 0) t[id] = l.transparency;
+      step.state.transparency = t;
+      persistStoriesData();
+      renderStepLayersList(baseConfig, step);
+    });
+
+    document.getElementById('step-layer-add').addEventListener('change', (e) => {
+      const step = currentStep();
+      const id = e.target.value;
+      if (!step || !id) return;
+      step.state.layers.push(id);
+      persistStoriesData();
+      renderStepLayersList(baseConfig, step);
+      previewCurrentStep();
     });
 
     [
@@ -4155,6 +4589,8 @@
         if (!step) return;
         apply(step, Number(e.target.value));
         persistStoriesData();
+        document.getElementById('step-view-summary').textContent = viewSummary(step.state.view);
+        previewCurrentStep();
       });
     });
 
@@ -4163,15 +4599,17 @@
       if (!step) return;
       step.state.projection = e.target.value || undefined;
       persistStoriesData();
+      previewCurrentStep();
     });
     document.getElementById('step-terrain').addEventListener('change', (e) => {
       const step = currentStep();
       if (!step) return;
       step.state.terrain = e.target.checked || undefined;
       persistStoriesData();
+      previewCurrentStep();
     });
 
-    document.getElementById('btn-step-capture').addEventListener('click', async () => {
+    async function captureStepView() {
       const step = currentStep();
       if (!step) return;
       const adapter = await storiesPreviewAdapter();
@@ -4179,46 +4617,73 @@
       const view = adapter.getViewportState();
       const engine = getMapFields(baseConfig).type ?? 'maplibre';
       const caps = ENGINE_VIEW_CAPABILITIES[engine] ?? ENGINE_VIEW_CAPABILITIES.maplibre;
+      const round = (v, d) => (typeof v === 'number' ? +v.toFixed(d) : v);
       step.state.view = {
-        center: view.center,
-        zoom: view.zoom,
-        bearing: caps.bearing ? view.bearing : undefined,
-        pitch: caps.pitch ? view.pitch : undefined,
+        center: view.center.map((c) => round(c, 5)),
+        zoom: round(view.zoom, 2),
+        bearing: caps.bearing ? round(view.bearing, 1) || undefined : undefined,
+        pitch: caps.pitch ? round(view.pitch, 1) || undefined : undefined,
       };
       if (caps.projection) step.state.projection = adapter.getProjection?.()?.name ?? undefined;
       step.state.terrain = adapter.isTerrainEnabled?.() === true || undefined;
       persistStoriesData();
       renderStepEditor(baseConfig);
-    });
+      const summary = document.getElementById('step-view-summary');
+      summary.classList.remove('v2-flash');
+      void summary.offsetWidth;
+      summary.classList.add('v2-flash');
+    }
+    document.getElementById('btn-step-capture').addEventListener('click', captureStepView);
+    document.getElementById('btn-step-capture-map').addEventListener('click', captureStepView);
 
     // Union of layer ids referenced by any step of the given story — a layer left visible by
-    // a previous "Preview step" click must be dealt with again when previewing a step that
-    // doesn't reference it (mirrors webmapx-stories-tool's storyLayerIds/applyStep).
+    // a previous preview must be dealt with again when previewing a step that doesn't
+    // reference it (mirrors webmapx-stories-tool's storyLayerIds/applyStep).
     function storyLayerIds(story) {
       return new Set((story?.chapters ?? []).flatMap((c) => (c.steps ?? []).flatMap((st) => st.state?.layers ?? [])));
     }
 
     // Layers this preview has itself lazily added (as opposed to ones already on the
-    // config's default map) — mirrors webmapx-stories-tool's addedLayerIds, so "Preview step"
+    // config's default map) — mirrors webmapx-stories-tool's addedLayerIds, so a preview
     // removes them outright once unneeded instead of leaving them hidden-but-listed forever.
     const previewAddedLayerIds = new Set();
+    const previewAddingLayers = new Map(); // layer id → its addLayerRequest still in flight
+    document.getElementById('stories-preview-frame').addEventListener('load', () => {
+      previewAddedLayerIds.clear();
+      previewAddingLayers.clear();
+      previewCurrentStep();
+    });
 
-    document.getElementById('btn-step-preview').addEventListener('click', async () => {
+    // Shows the selected step on the preview map. Quietly does nothing while the map is
+    // still loading; the frame's load handler calls it again.
+    let previewRun = 0;
+    async function previewCurrentStep() {
+      const run = ++previewRun;
       const story = currentStory();
       const step = currentStep();
       if (!story || !step) return;
       const mapEl = storiesPreviewMapEl();
       const adapter = await mapEl?.getAdapterAsync?.();
-      if (!adapter || !mapEl) { alert('Preview map not ready yet.'); return; }
+      if (!adapter || !mapEl || step !== currentStep()) return;
       const s = toStoryStepState(step.state);
 
       // Mirror the real stories tool's applyStep: lazily add any referenced layer that isn't
       // loaded in the preview yet (same catalog-lookup path as addLayerRequest elsewhere).
+      let addedHere = false;
       await Promise.all(s.l.map(async (id) => {
+        // A preview started just before may still be adding this layer; wait for that add
+        // rather than starting a second one, which the engine refuses.
+        if (previewAddingLayers.has(id)) { await previewAddingLayers.get(id); return; }
         if (id in (adapter.store.getState().mapLayers ?? {})) return;
-        await mapEl.addLayerRequest({ layerId: id });
+        const adding = mapEl.addLayerRequest({ layerId: id });
+        previewAddingLayers.set(id, adding);
+        try { await adding; } finally { previewAddingLayers.delete(id); }
         previewAddedLayerIds.add(id);
+        addedHere = true;
       }));
+      // A later click started its own preview while layers were loading; that one wins,
+      // but may have finished before these layers arrived, so it is run once more to tidy up.
+      if (run !== previewRun) { if (addedHere) previewCurrentStep(); return; }
 
       const [lng, lat, zoom, bearing, pitch] = s.v;
       adapter.setBearing(bearing);
@@ -4227,7 +4692,7 @@
       const hidden = new Set(s.h ?? []);
       const visibleHere = new Set(s.l);
       const mapLayers = adapter.store.getState().mapLayers ?? {};
-      for (const id of storyLayerIds(story)) {
+      for (const id of new Set([...storyLayerIds(story), ...previewAddedLayerIds])) {
         if (!(id in mapLayers)) continue;
         if (!visibleHere.has(id)) {
           if (previewAddedLayerIds.has(id)) {
@@ -4244,7 +4709,7 @@
       }
       adapter.setTerrainEnabled(!!s.terrain);
       adapter.setProjection(s.p ?? 'mercator');
-    });
+    }
 
     // --- Tabs ---
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -4258,7 +4723,10 @@
           buildStyleUI(baseConfig);
           refreshStylePreviewFrame(baseConfig);
         }
-        if (btn.dataset.tab === 'stories' && baseConfig) refreshStoriesPreviewFrame(baseConfig);
+        if (btn.dataset.tab === 'stories' && baseConfig) {
+          renderStoriesTab(baseConfig);
+          refreshStoriesPreviewFrame(baseConfig);
+        }
         if (btn.dataset.tab === 'tools' && baseConfig) refreshToolsPreviewFrame(baseConfig);
       });
     });
