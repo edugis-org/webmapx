@@ -1,0 +1,1 @@
+import{s as e}from"./vendor-openlayers-core-DZTXF9g5.js";import{t}from"./pako.esm-B3qD_89v.js";var n=class extends e{decodeBlock(e){return t(new Uint8Array(e)).buffer}};export{n as default};

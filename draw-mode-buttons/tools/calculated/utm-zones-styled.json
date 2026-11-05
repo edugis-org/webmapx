@@ -1,0 +1,164 @@
+{
+  "version": 0,
+  "apiKeysFile": "../../config/apikeys.json",
+  "project": {
+    "id": "docs-calculated-utm-zones-styled",
+    "title": "UTM zones",
+    "description": "Documentation demo for the calculated layer utm-zones.",
+    "language": "en"
+  },
+  "map": {
+    "label": "UTM zones",
+    "type": "maplibre",
+    "center": [
+      10,
+      20
+    ],
+    "zoom": 1
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "osm-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "utm-zones-source",
+        "type": "geojson",
+        "data": "internalfunc://utm-zones",
+        "attribution": "Computed in the browser"
+      }
+    ],
+    "layers": [
+      {
+        "id": "osm",
+        "type": "raster",
+        "title": "OpenStreetMap",
+        "source": "osm-source",
+        "metadata": {
+          "reference": true,
+          "swatch": "#f2efe9"
+        }
+      },
+      {
+        "id": "utm-zones",
+        "type": "line",
+        "title": "UTM zones — styled as in demo.json",
+        "source": "utm-zones-source",
+        "paint": {
+          "line-color": [
+            "case",
+            [
+              "!=",
+              [
+                "get",
+                "exception"
+              ],
+              null
+            ],
+            "#d62728",
+            "#4a90d9"
+          ],
+          "line-width": [
+            "case",
+            [
+              "!=",
+              [
+                "get",
+                "exception"
+              ],
+              null
+            ],
+            1.6,
+            0.6
+          ],
+          "line-opacity": 0.8
+        },
+        "metadata": {
+          "title": "UTM grid zones",
+          "abstract": "The sixty zones and twenty bands, from the rules — including the hand-made exceptions: 32V widened for Norway, three zones missing over Svalbard, and row X twelve degrees tall. The exceptions are drawn in red."
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeLayers": [
+      {
+        "ref": "osm",
+        "visible": true
+      },
+      {
+        "ref": "utm-zones",
+        "visible": true
+      }
+    ]
+  },
+  "tools": {
+    "timeSlider": {
+      "type": "timeSlider",
+      "enabled": true
+    },
+    "projection": {
+      "type": "projection",
+      "enabled": true
+    },
+    "info": {
+      "type": "info",
+      "enabled": true
+    },
+    "layerOverview": {
+      "type": "layerOverview",
+      "enabled": true
+    },
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "items": [
+        {
+          "type": "timeSlider",
+          "id": "timeSlider",
+          "enabled": true
+        },
+        {
+          "type": "projection",
+          "id": "projection",
+          "enabled": true
+        },
+        {
+          "type": "info",
+          "id": "info",
+          "enabled": true
+        },
+        {
+          "type": "layerOverview",
+          "id": "layerOverview",
+          "enabled": true
+        }
+      ]
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "fullscreen": {
+      "type": "fullscreen",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "attribution": {
+      "type": "attribution",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    }
+  }
+}

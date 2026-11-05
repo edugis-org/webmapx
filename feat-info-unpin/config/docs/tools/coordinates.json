@@ -1,0 +1,68 @@
+{
+  "version": 0,
+  "apiKeysFile": "../../apikeys.json",
+  "project": {
+    "id": "docs-coordinates",
+    "title": "Coordinates",
+    "description": "Documentation demo for the coordinate readout, following the pointer across a street map.",
+    "language": "en"
+  },
+  "map": {
+    "label": "Coordinates",
+    "type": "maplibre",
+    "center": [
+      4.895,
+      52.372
+    ],
+    "zoom": 12
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "osm-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>"
+      }
+    ],
+    "layers": [
+      {
+        "id": "osm",
+        "type": "raster",
+        "title": "OpenStreetMap",
+        "source": "osm-source",
+        "metadata": {
+          "reference": true,
+          "swatch": "#f2efe9",
+          "abstract": "Plain OpenStreetMap raster tiles. A measurement needs something recognisable underneath it — a canal, a block, a runway — so the numbers can be checked against the world."
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeLayers": [
+      {
+        "ref": "osm",
+        "visible": true
+      }
+    ]
+  },
+  "tools": {
+    "coordinates": {
+      "type": "coordinates",
+      "enabled": true,
+      "position": "bottom-left",
+      "defaultFormat": "geographic-en"
+    },
+    "attribution": {
+      "type": "attribution",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    }
+  }
+}

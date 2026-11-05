@@ -1,0 +1,1 @@
+import{Nr as e}from"./webmapx-shared-X-MgrlSg.js";export{e as storeDroppedConfig};

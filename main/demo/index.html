@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" href="../favicon.png" type="image/png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebMapX Demo</title>
+
+  <!-- Exact versions, not major-version ranges.
+       These are the versions webmapx is built and tested against, and the
+       demo has to run the same ones: the bundle here is compiled against a
+       particular OpenLayers, and the CDN supplies it at runtime.
+
+       A range is not a smaller version of that promise, it is the absence of
+       one. `ol@10` floated from 10.7 to 10.10, and at 10.10 esm.sh changed how
+       it builds the package: `ol/Map` stopped importing `./View.mjs` and
+       inlined a copy of it instead, so `ol/Map` and `ol/View` no longer shared
+       a View class. OpenLayers' own `setView` does
+       `view instanceof View ? … : view.then(…)`, so it took the map's view for
+       a promise and threw `view.then is not a function`. The choropleth demo —
+       the only OpenLayers one — came up as an empty white box, with nothing
+       committed here to explain it.
+
+       Bump these deliberately, with the versions in webmapx's package.json. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "maplibre-gl": "https://esm.sh/maplibre-gl@5.24.0",
+      "ol": "https://esm.sh/ol@10.7.0",
+      "ol/": "https://esm.sh/ol@10.7.0/",
+      "ol-mapbox-style": "https://esm.sh/ol-mapbox-style@13.2.0?external=ol",
+      "ol/ol.css": "data:text/javascript,",
+      "leaflet": "https://esm.sh/leaflet@1.9.4"
+    }
+  }
+  </script>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2/cdn/themes/light.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2/cdn/themes/dark.css">
+  <script>
+    // WebMapX colours key off [data-theme] while Shoelace keys off the
+    // .sl-theme-dark class, so both must be set or the UI comes out half dark
+    // and half light. webmapx-settings does exactly this once it mounts, but
+    // demos without the settings tool have no one to do it — hence here, before
+    // first paint. Honour a stored choice so the setting survives a reload.
+    (function () {
+      var stored = null;
+      try { stored = localStorage.getItem('webmapx-theme'); } catch (e) { /* private mode */ }
+      var theme = stored === 'light' || stored === 'dark'
+        ? stored
+        : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      document.documentElement.classList.toggle('sl-theme-dark', theme === 'dark');
+    })();
+  </script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1/dist/leaflet.css">
+  <!-- OpenLayers ships its CSS as `import 'ol/ol.css'`, which a bare-module
+       setup resolves to a stylesheet the browser refuses to run as a module.
+       The importmap sends that specifier to an empty module and the real
+       stylesheet is linked here instead. -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.7.0/ol.css">
+  <link rel="stylesheet" href="../dist-lib/webmapx.css">
+
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+    #map { width: 100%; height: 100%; }
+    #error { display: none; font-family: sans-serif; padding: 2rem; color: #c00; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="error"></div>
+
+  <script type="module">
+    import { WebMapX } from '../dist-lib/webmapx.js';
+
+    const params = new URLSearchParams(window.location.search);
+    const configParam = params.get('config') ?? '../config/demo.json';
+
+    /**
+     * Tell an embedding page (the landing-page demo grid) when the map has
+     * actually settled, so it can drop its preview image at the right moment.
+     *
+     * WebMapX.mount() resolves once the engine is initialized — well before
+     * tiles are fetched and painted — and every engine signals "done"
+     * differently (maplibre 'idle', OpenLayers 'rendercomplete', leaflet
+     * 'load'). Instead of engine-specific hooks, watch the network: once no
+     * new resource has been requested for QUIET_MS, the tiles are in.
+     */
+    function reportReadyToParent() {
+      if (window.parent === window) return;
+
+      const QUIET_MS = 700;
+      const MAX_WAIT_MS = 30000;
+      let timer;
+      let done = false;
+
+      const finish = (reason) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        observer.disconnect();
+        window.parent.postMessage({ type: 'webmapx:ready', reason }, window.location.origin);
+      };
+
+      const armQuietTimer = () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => finish('quiet'), QUIET_MS);
+      };
+
+      const observer = new PerformanceObserver(armQuietTimer);
+      observer.observe({ type: 'resource', buffered: true });
+      armQuietTimer();
+      // Live sources keep polling and never go quiet — reveal anyway.
+      setTimeout(() => finish('timeout'), MAX_WAIT_MS);
+    }
+
+    try {
+      await WebMapX.mount('#map', { config: configParam });
+      reportReadyToParent();
+    } catch (e) {
+      const el = document.getElementById('error');
+      el.style.display = 'block';
+      el.textContent = 'Failed to load map: ' + e.message;
+      console.error(e);
+    }
+  </script>
+</body>
+</html>

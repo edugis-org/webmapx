@@ -1,0 +1,1 @@
+import{t as e}from"./openlayers-adapter-amauUTfX.js";export{e as OpenLayersAdapter};

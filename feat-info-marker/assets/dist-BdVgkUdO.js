@@ -1,0 +1,1 @@
+import{ut as e}from"./webmapx-shared-X-MgrlSg.js";export{e as WmsEndpoint};

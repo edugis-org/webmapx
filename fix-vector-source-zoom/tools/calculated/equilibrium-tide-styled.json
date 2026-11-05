@@ -1,0 +1,231 @@
+{
+  "version": 0,
+  "apiKeysFile": "../../config/apikeys.json",
+  "project": {
+    "id": "docs-calculated-equilibrium-tide-styled",
+    "title": "Equilibrium tide",
+    "description": "Documentation demo for the calculated layer equilibrium-tide.",
+    "language": "en"
+  },
+  "map": {
+    "label": "Equilibrium tide",
+    "type": "maplibre",
+    "center": [
+      10,
+      20
+    ],
+    "zoom": 1
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "osm-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>"
+      },
+      {
+        "type": "geojson",
+        "data": "internalfunc://equilibrium-tide?refresh=auto",
+        "attribution": "Computed in the browser",
+        "id": "equilibrium-tide-source"
+      }
+    ],
+    "layers": [
+      {
+        "id": "osm",
+        "type": "raster",
+        "title": "OpenStreetMap",
+        "source": "osm-source",
+        "metadata": {
+          "reference": true,
+          "swatch": "#f2efe9"
+        }
+      },
+      {
+        "id": "equilibrium-tide",
+        "title": "Equilibrium tide — styled as in world.json",
+        "type": "style",
+        "sources": {
+          "equilibrium-tide-source": {
+            "type": "geojson",
+            "data": "internalfunc://equilibrium-tide?refresh=auto",
+            "attribution": "Computed in the browser"
+          }
+        },
+        "layers": [
+          {
+            "id": "equilibrium-tide-contours",
+            "type": "line",
+            "source": "equilibrium-tide-source",
+            "filter": [
+              "==",
+              [
+                "geometry-type"
+              ],
+              "LineString"
+            ],
+            "paint": {
+              "line-color": [
+                "interpolate",
+                [
+                  "linear"
+                ],
+                [
+                  "get",
+                  "metres"
+                ],
+                -0.3,
+                "#2166ac",
+                -0.05,
+                "#92c5de",
+                0,
+                "#f7f7f7",
+                0.05,
+                "#f4a582",
+                0.6,
+                "#b2182b"
+              ],
+              "line-width": [
+                "case",
+                [
+                  "==",
+                  [
+                    "get",
+                    "metres"
+                  ],
+                  0
+                ],
+                2,
+                1.2
+              ],
+              "line-opacity": 0.9
+            }
+          },
+          {
+            "id": "equilibrium-tide-bulges",
+            "type": "circle",
+            "source": "equilibrium-tide-source",
+            "filter": [
+              "==",
+              [
+                "geometry-type"
+              ],
+              "Point"
+            ],
+            "paint": {
+              "circle-radius": 6,
+              "circle-color": "#b2182b",
+              "circle-stroke-width": 1.5,
+              "circle-stroke-color": "#ffffff",
+              "circle-opacity": 0.9
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Getijdenkracht (evenwichtsgetijde)",
+          "abstract": "The shape the sea would take if the water could follow the moon and the sun at once. Two bulges: one under the moon, and one on the far side of the Earth, where the moon's pull is weakest. The sun does the same thing at 46% of the strength — far heavier, but so much further away, and the effect falls off with the cube of the distance. Add the two together and the 28-day cycle of the moon becomes visible: at new moon and at full moon the sun and the moon pull along the same line and their bulges add up, giving the largest tides of the month; a week later, at half moon, they pull at right angles and partly cancel, giving the smallest. The difference between the two is about two to one. The red dots mark the two bulges. They sit near the moon but are dragged towards the sun, by as much as 25 degrees at half moon. There is no matching dot for low water, because the lowest level is not a place but a belt right around the world, a quarter turn away from the bulges — the blue contour lines show it. This is not the tide at any coast. Real water cannot keep up with the pull: it arrives hours late, is amplified or damped by the shape of the sea floor, and turns around points where there is hardly any tide at all — three of them in the North Sea alone. A tide table needs measurements taken at each harbour over years. This map shows the pull, not the water level.",
+          "attributes": {
+            "translations": [
+              {
+                "name": "metres",
+                "translation": "level",
+                "unit": " m"
+              },
+              {
+                "name": "phaseName",
+                "translation": "moon phase"
+              },
+              {
+                "name": "springFactor",
+                "translation": "sun and moon in line"
+              },
+              {
+                "name": "description",
+                "translation": "what this is"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeLayers": [
+      {
+        "ref": "osm",
+        "visible": true
+      },
+      {
+        "ref": "equilibrium-tide",
+        "visible": true
+      }
+    ]
+  },
+  "tools": {
+    "timeSlider": {
+      "type": "timeSlider",
+      "enabled": true
+    },
+    "projection": {
+      "type": "projection",
+      "enabled": true
+    },
+    "info": {
+      "type": "info",
+      "enabled": true
+    },
+    "layerOverview": {
+      "type": "layerOverview",
+      "enabled": true
+    },
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "items": [
+        {
+          "type": "timeSlider",
+          "id": "timeSlider",
+          "enabled": true
+        },
+        {
+          "type": "projection",
+          "id": "projection",
+          "enabled": true
+        },
+        {
+          "type": "info",
+          "id": "info",
+          "enabled": true
+        },
+        {
+          "type": "layerOverview",
+          "id": "layerOverview",
+          "enabled": true
+        }
+      ]
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "fullscreen": {
+      "type": "fullscreen",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "attribution": {
+      "type": "attribution",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    }
+  }
+}

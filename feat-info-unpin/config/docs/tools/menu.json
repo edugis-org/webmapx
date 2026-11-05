@@ -1,0 +1,110 @@
+{
+  "version": 0,
+  "apiKeysFile": "../../apikeys.json",
+  "project": {
+    "id": "docs-menu",
+    "title": "Tools menu",
+    "description": "Documentation demo for the menu container: several tools behind one button, as a drill-in list.",
+    "language": "en"
+  },
+  "map": {
+    "label": "Tools menu",
+    "type": "maplibre",
+    "center": [
+      4.895,
+      52.372
+    ],
+    "zoom": 12
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "osm-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>"
+      }
+    ],
+    "layers": [
+      {
+        "id": "osm",
+        "type": "raster",
+        "title": "OpenStreetMap",
+        "source": "osm-source",
+        "metadata": {
+          "reference": true,
+          "swatch": "#f2efe9",
+          "abstract": "Plain OpenStreetMap raster tiles. A measurement needs something recognisable underneath it — a canal, a block, a runway — so the numbers can be checked against the world."
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeLayers": [
+      {
+        "ref": "osm",
+        "visible": true
+      }
+    ]
+  },
+  "tools": {
+    "menu": {
+      "type": "menu",
+      "enabled": true,
+      "items": [
+        {
+          "type": "measure",
+          "id": "measure",
+          "enabled": true
+        },
+        {
+          "type": "info",
+          "id": "info",
+          "enabled": true
+        },
+        {
+          "type": "draw",
+          "id": "draw",
+          "enabled": true
+        }
+      ]
+    },
+    "layerOverview": {
+      "type": "layerOverview",
+      "enabled": true
+    },
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "items": [
+        {
+          "type": "menu",
+          "id": "menu",
+          "enabled": true
+        },
+        {
+          "type": "layerOverview",
+          "id": "layerOverview",
+          "enabled": true
+        }
+      ]
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "attribution": {
+      "type": "attribution",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    }
+  }
+}
