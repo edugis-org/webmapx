@@ -84,6 +84,7 @@ export default defineConfig({
       input: {
         main: 'index.html',
         setup: 'testpages/setup.html',
+        setupV2: 'testpages/setup_v2.html',
         preview: 'testpages/preview.html',
       },
       output: {
