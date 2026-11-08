@@ -289,6 +289,14 @@ async function assertUnpin(page) {
     if (!await page.evaluate(() => document.querySelector('webmapx-info-tool').active)) {
         fail('Escape closed the panel instead of only unpinning');
     }
+
+    // A click holds a spot, so clicking that spot again lets go of it.
+    await clickCenter();
+    await page.waitForFunction(() => document.querySelector('webmapx-info-tool').mode === 'pinned',
+        undefined, { timeout: 5_000 });
+    await clickCenter();
+    await page.waitForFunction(() => document.querySelector('webmapx-info-tool').mode === 'hover',
+        undefined, { timeout: 5_000 }).catch(() => fail('clicking the held spot did not let go of it'));
 }
 
 export async function run({ page, engine, baseUrl }) {

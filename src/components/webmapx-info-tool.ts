@@ -1,6 +1,6 @@
 // src/components/webmapx-info-tool.ts
 // Info tool: queries vector features on hover, vector + WMS on click.
-// A click holds (pins) its result; Unpin or Escape lets go and hover resumes.
+// A click holds (pins) its result; clicking that spot again, Unpin or Escape lets go and hover resumes.
 
 import { announce } from './internal/announce';
 import { html, css, nothing, TemplateResult } from 'lit';
@@ -26,6 +26,8 @@ import { TouchPointerController } from './internal/touch-pointer';
 
 const PIN_MARKER_ID = 'webmapx-info-pin';
 
+/** Pixel distance within which a second click is treated as "same location" to unpin. */
+const UNPIN_THRESHOLD_PX = 8;
 /** Hover query throttle interval ms. */
 const HOVER_THROTTLE_MS = 120;
 /** Hover tolerance in pixels for vector hit-test. */
@@ -49,8 +51,8 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
     get toolTip(): string {
         if (this.mode === 'pinned') {
             return this.touch.isTouch
-                ? 'Tap another feature, or choose Unpin to remove the marker.'
-                : 'Click another feature, or choose Unpin to point again.';
+                ? 'Tap the same spot again or choose Unpin to remove the marker.'
+                : 'Click the same spot again or choose Unpin to point again.';
         }
         return this.touch.isTouch
             ? 'Tap a feature for more information.'
@@ -73,6 +75,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
     @state() private streetviewLoading = false;
     @state() private streetviewUnavailable = false;
 
+    private pinnedPixel: Pixel | null = null;
     private pinMarkerAdded = false;
 
     private unsubClick: (() => void) | null = null;
@@ -400,10 +403,22 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
     private async handleClick(event: ClickEvent): Promise<void> {
         if (!this.active || !this.adapter) return;
 
-        // Pin at click location; a click on the held spot simply asks again.
+        // A click holds a spot, so a click on that same spot lets go of it.
+        if (this.mode === 'pinned' && this.pinnedPixel) {
+            const dx = event.pixel[0] - this.pinnedPixel[0];
+            const dy = event.pixel[1] - this.pinnedPixel[1];
+            if (Math.sqrt(dx * dx + dy * dy) <= UNPIN_THRESHOLD_PX) {
+                this.unpin();
+                announce(this, 'Unpinned');
+                return;
+            }
+        }
+
+        // Pin at click location
         this.mode = 'pinned';
         this.resetStreetview();
         this.pinnedLocation = event.coords;
+        this.pinnedPixel = event.pixel;
         this.loading = true;
         this.features = [];
         this.elevation = this.adapter.getElevation?.(event.coords) ?? null;
@@ -514,6 +529,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 
     private resetStreetview(): void {
         this.pinnedLocation = null;
+        this.pinnedPixel = null;
         this.streetviewImageUrl = null;
         this.streetviewPanoId = null;
         this.streetviewLoading = false;
