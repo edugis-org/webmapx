@@ -442,7 +442,7 @@ export interface SearchToolConfig extends ToolConfig {
 }
 
 export interface InfoToolConfig extends ToolConfig {
-  /** Google Maps API key — enables StreetView thumbnail preview in the info panel. */
+  /** Google Maps API key. With one, a pinned result offers Street View; without, it does not. */
   googleApiKey?: string;
 }
 

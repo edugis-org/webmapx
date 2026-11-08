@@ -38,6 +38,15 @@ export abstract class WebmapxBaseTool extends LitElement {
         return '';
     }
 
+    /**
+     * Asked by the tool panel when Escape is pressed, before it closes. Return
+     * true when Escape undid something in the tool (the info tool lets go of a
+     * held result), so this press does not also close the panel.
+     */
+    handleEscape(): boolean {
+        return false;
+    }
+
     connectedCallback(): void {
         super.connectedCallback();
         // Auto-label from toolId / tool-id attribute if not explicitly set
