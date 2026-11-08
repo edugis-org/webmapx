@@ -439,8 +439,10 @@ export interface SearchToolConfig extends ToolConfig {
   attribution?: string;
 }
 
-/** The info tool has no settings of its own; its Street View link moved to the street photos tool. */
-export type InfoToolConfig = ToolConfig;
+export interface InfoToolConfig extends ToolConfig {
+  /** Google Maps API key. With one, a pinned result offers Street View; without, it does not. */
+  googleApiKey?: string;
+}
 
 export interface ThreeDToolConfig extends ToolConfig {
   /** MapLibre terrain URL used by the 3D tool when no terrain layer exists in the configuration. */

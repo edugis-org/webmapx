@@ -204,6 +204,39 @@ async function assertInfoRendering(page) {
 }
 
 /**
+ * Street View follows the info tool's own key: none, and a held result does not
+ * mention it; with one, it is offered and shows the panorama. Google is faked.
+ * Expects a result to be held already.
+ */
+async function assertStreetView(page) {
+    await page.route('**/maps.googleapis.com/maps/api/streetview/metadata**', (route) =>
+        route.fulfill({ json: { status: 'OK', pano_id: 'fake-pano' } }));
+    await page.route('**/maps.googleapis.com/maps/api/streetview?**', (route) =>
+        route.fulfill({ status: 200, contentType: 'image/png', body: '' }));
+
+    const setKey = (key) => page.evaluate(async (value) => {
+        const tool = document.querySelector('webmapx-info-tool');
+        tool.toolsConfig.info.googleApiKey = value;
+        tool.requestUpdate();
+        await tool.updateComplete;
+    }, key);
+    const link = () => page.evaluate(() =>
+        !!document.querySelector('webmapx-info-tool').shadowRoot.querySelector('.streetview-link'));
+
+    await setKey(undefined);
+    if (await link()) fail('Street View offered without a key');
+
+    await setKey('not-a-real-key');
+    if (!await link()) fail('Street View not offered with a key');
+
+    await page.evaluate(() =>
+        document.querySelector('webmapx-info-tool').shadowRoot.querySelector('.streetview-link').click());
+    await page.waitForFunction(() =>
+        document.querySelector('webmapx-info-tool').shadowRoot.querySelector('.streetview-thumb')?.src.includes('pano=fake-pano'),
+        undefined, { timeout: 5_000 }).catch(() => fail('Street View did not show the panorama'));
+}
+
+/**
  * A held result has an Unpin button, reached with the keyboard; Unpin and
  * Escape both let go (Escape without closing the panel), and pointing works
  * again afterwards. Expects a result to be held already.
@@ -286,6 +319,8 @@ export async function run({ page, engine, baseUrl }) {
 
     const result = await assertInfoRendering(page);
     if (!result.ok) fail(result.reason);
+
+    await step('Street View follows the key', () => assertStreetView(page));
 
     await step('unpin with the button and with Escape', () => assertUnpin(page));
 }

@@ -11,8 +11,9 @@ import type { IMap } from '../map/IMapInterfaces';
 import type { ClickEvent, PointerMoveEvent } from '../store/map-events';
 import type { LngLat, Pixel } from '../store/map-events';
 import type { FeatureInfo } from '../map/IQueryService';
-import type { LayerAttributeConfig, LayerAttributeTranslation } from '../config/types';
+import type { LayerAttributeConfig, LayerAttributeTranslation, InfoToolConfig } from '../config/types';
 import { throttle } from '../utils/throttle';
+import { substituteApiKeys } from '../config/apikeys';
 import { isQueryableMetadata } from '../utils/layer-queryable';
 import { fetchWMSFeatureInfo } from '../map/wms-feature-info';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
@@ -65,7 +66,12 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 
     @state() private loading = false;
     @state() private mode: 'hover' | 'pinned' = 'hover';
+    @state() private pinnedLocation: LngLat | null = null;
     @state() private elevation: number | null = null;
+    @state() private streetviewImageUrl: string | null = null;
+    @state() private streetviewPanoId: string | null = null;
+    @state() private streetviewLoading = false;
+    @state() private streetviewUnavailable = false;
 
     private pinMarkerAdded = false;
 
@@ -121,6 +127,39 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
             align-items: center;
             justify-content: flex-end;
             gap: var(--webmapx-space-sm, 0.5rem);
+        }
+
+        .instructions {
+            margin: 0;
+        }
+
+        .streetview-link {
+            font-style: normal;
+            color: var(--color-primary, #2b6c8f);
+            text-decoration: none;
+        }
+
+        .streetview-link:hover {
+            text-decoration: underline;
+        }
+
+        .streetview-wrap {
+            margin: 0.4rem 0;
+        }
+
+        .streetview-thumb {
+            width: 100%;
+            max-width: 300px;
+            border-radius: 4px;
+            display: block;
+            cursor: pointer;
+        }
+
+        .streetview-caption {
+            font-size: 0.7rem;
+            color: var(--color-text-secondary, #5a6773);
+            font-style: italic;
+            margin: 0.2rem 0 0;
         }
 
         .layer-group {
@@ -338,12 +377,14 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         this.features = [];
         this.elevation = null;
         this.mode = 'hover';
+        this.resetStreetview();
     }
 
     private onDeactivate(): void {
         this.features = [];
         this.elevation = null;
         this.mode = 'hover';
+        this.resetStreetview();
         this.removePinMarker();
     }
 
@@ -361,6 +402,8 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
 
         // Pin at click location; a click on the held spot simply asks again.
         this.mode = 'pinned';
+        this.resetStreetview();
+        this.pinnedLocation = event.coords;
         this.loading = true;
         this.features = [];
         this.elevation = this.adapter.getElevation?.(event.coords) ?? null;
@@ -465,7 +508,50 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         this.mode = 'hover';
         this.features = [];
         this.elevation = null;
+        this.resetStreetview();
         this.removePinMarker();
+    }
+
+    private resetStreetview(): void {
+        this.pinnedLocation = null;
+        this.streetviewImageUrl = null;
+        this.streetviewPanoId = null;
+        this.streetviewLoading = false;
+        this.streetviewUnavailable = false;
+    }
+
+    /** Street View is offered exactly when the config gives this tool a key that resolves. */
+    private get googleApiKey(): string | null {
+        const cfg = this.toolsConfig?.['info'] as InfoToolConfig | undefined;
+        const raw = cfg?.googleApiKey ?? null;
+        if (!raw) return null;
+        const resolved = substituteApiKeys(raw);
+        return resolved.startsWith('{key-') ? null : resolved;
+    }
+
+    private async loadStreetview(coords: LngLat): Promise<void> {
+        const key = this.googleApiKey;
+        const [lng, lat] = coords;
+        if (!key) return;
+        this.streetviewLoading = true;
+        this.streetviewImageUrl = null;
+        this.streetviewPanoId = null;
+        this.streetviewUnavailable = false;
+        try {
+            const metaUrl = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${lat},${lng}&key=${key}`;
+            const res = await fetch(metaUrl);
+            const json = await res.json();
+            if (json.status === 'OK' && json.pano_id) {
+                this.streetviewPanoId = json.pano_id;
+                this.streetviewImageUrl = `https://maps.googleapis.com/maps/api/streetview?size=300x150&pano=${json.pano_id}&key=${key}`;
+            } else {
+                this.streetviewUnavailable = true;
+            }
+        } catch {
+            this.streetviewUnavailable = true;
+        } finally {
+            this.streetviewLoading = false;
+        }
     }
 
     /** Unpin button or Escape. The button disappears with the pin, so focus stays in the panel. */
@@ -671,6 +757,24 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                     : nothing}
 
                 ${this.renderFeatures()}
+
+                ${isPinned && this.pinnedLocation && this.googleApiKey ? html`
+                    ${!this.streetviewImageUrl && !this.streetviewLoading && !this.streetviewUnavailable ? html`
+                        <p class="instructions help-text">
+                            <a class="streetview-link" href="#"
+                               @click=${(e: Event) => { e.preventDefault(); this.loadStreetview(this.pinnedLocation!); }}>Street View</a>
+                        </p>` : nothing}
+                    ${this.streetviewLoading ? html`<p class="instructions help-text"><sl-spinner></sl-spinner> Loading Street View…</p>` : nothing}
+                    ${this.streetviewUnavailable ? html`<p class="instructions help-text">No Street View here.</p>` : nothing}
+                    ${this.streetviewImageUrl ? html`
+                        <div class="streetview-wrap">
+                            <a href="https://www.google.com/maps/@?api=1&amp;map_action=pano&amp;pano=${this.streetviewPanoId}"
+                               target="_blank" rel="noopener noreferrer">
+                                <img class="streetview-thumb" src="${this.streetviewImageUrl}" alt="Street View">
+                            </a>
+                            <p class="streetview-caption">Click the image to open Street View</p>
+                        </div>` : nothing}
+                ` : nothing}
             </div>
         `;
     }
