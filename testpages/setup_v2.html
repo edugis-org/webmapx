@@ -492,7 +492,9 @@
     }
     label:hover .info-btn, label:focus-within .info-btn, .info-btn:focus-visible { opacity: 1; }
     .v2-menu-panel > button#btn-publish { background: none; }
-    .v2-topbar #btn-reset { color: var(--v2-danger); }
+    .tabs #btn-reset { color: var(--v2-danger); }
+    .tabs { align-items: center; }
+    .tabs .actions { margin-left: auto; padding: 6px 0; }
     .v2-select-all[hidden] { display: none; }
     /* Compact rows: the edit button no longer sets the row height */
     #ui .tool-list { gap: 0; }
@@ -641,16 +643,51 @@
     .v2-outline-row .v2-outline-title + .v2-add-btn { margin-left: auto; }
     .v2-chapter-num { min-width: 18px; font-weight: 700; color: var(--v2-muted); }
     #step-editor h2 .section-hint { font-weight: 400; }
-    #step-editor .v2-step-ref { font: inherit; color: var(--v2-primary); }
-    .v2-btn-layers { display: inline-flex; align-items: center; gap: 6px; }
-    .v2-btn-layers::before { content: ''; width: 15px; height: 15px; background: currentColor;
-      -webkit-mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/layers.svg") center / contain no-repeat;
-      mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/layers.svg") center / contain no-repeat; }
+    #step-editor .v2-step-ref, #stories-preview-step { font: inherit; color: var(--v2-primary); }
+    #stories-preview-step:not(:empty)::before { content: ': '; color: var(--v2-text); }
+    #tab-stories .v2-preview-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .v2-btn-view { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .v2-btn-view::before { content: ''; width: 15px; height: 15px; flex: none; background: currentColor;
+      -webkit-mask: var(--btn-icon) center / contain no-repeat; mask: var(--btn-icon) center / contain no-repeat; }
+    .v2-btn-view { --btn-icon: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/geo-alt.svg"); }
     #step-editor .step-block-label input { width: 100%; box-sizing: border-box; margin-top: 3px; }
     .v2-step-layers .active-layer-row { gap: 8px; }
     .v2-not-in-catalog { color: var(--v2-danger); }
-    .v2-step-layer-opt { font-size: 12px; color: var(--v2-muted); gap: 3px; }
-    #step-layers-list .v2-step-layer-opt input[type=number] { width: 56px; flex: none; }
+    /* Transparency slider: a copy of the legend menu's (webmapx-layer-overview .opacity-row) */
+    #step-layers-list .opacity-row { flex: 0 0 150px; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--v2-muted); }
+    #step-layers-list .layer-title { flex: 1 1 auto; }
+    #step-layers-list .opacity-row input[type="range"] {
+      min-width: 0; width: auto;
+      --slider-track-grey: linear-gradient(to right, #d5dce3 0%, #d5dce3 var(--slider-pct, 0%), #6b7681 var(--slider-pct, 0%), #6b7681 100%);
+      --slider-track-blue: linear-gradient(to right, #bcdcf5 0%, #bcdcf5 var(--slider-pct, 0%), var(--v2-primary) var(--slider-pct, 0%), var(--v2-primary) 100%);
+      flex: 1 1 auto; -webkit-appearance: none; appearance: none; height: 2px; margin: 8px 0; padding: 0; border: 0;
+      background: var(--slider-track-grey); border-radius: 2px; outline: none; transition: background 120ms ease;
+    }
+    #step-layers-list .opacity-row input[type="range"]:hover,
+    #step-layers-list .opacity-row input[type="range"]:active { background: var(--slider-track-blue); --thumb-fill: var(--v2-primary); }
+    #step-layers-list .opacity-row input[type="range"]:focus-visible { outline: 2px solid var(--v2-primary); outline-offset: 2px; }
+    #step-layers-list .opacity-row input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%;
+      background: var(--thumb-fill, #6b7681) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M8 15A7 7 0 1 0 8 1zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16'/%3E%3C/svg%3E") center / 80% no-repeat; cursor: pointer;
+      transition: width 120ms ease, height 120ms ease, background-color 120ms ease;
+    }
+    #step-layers-list .opacity-row input[type="range"]::-moz-range-thumb {
+      width: 16px; height: 16px; border-radius: 50%; border: none;
+      background: var(--thumb-fill, #6b7681) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M8 15A7 7 0 1 0 8 1zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16'/%3E%3C/svg%3E") center / 80% no-repeat; cursor: pointer;
+    }
+    #step-layers-list .opacity-row input[type="range"]:active::-webkit-slider-thumb { width: 24px; height: 24px; background-color: #0b4db0; }
+    #step-layers-list .opacity-row input[type="range"]:active::-moz-range-thumb { width: 24px; height: 24px; background-color: #0b4db0; }
+    #step-layers-list .opacity-row input[type="range"]::-moz-range-track { height: 2px; background: var(--slider-track-grey); border-radius: 2px; }
+    #step-layers-list .opacity-value {
+      flex: 0 0 auto; min-width: 2.6em; font-variant-numeric: tabular-nums; cursor: pointer; border-radius: 2px;
+      text-decoration: underline dotted; text-underline-offset: 2px;
+    }
+    #step-layers-list .opacity-value:hover, #step-layers-list .opacity-value:focus-visible { color: var(--v2-primary); }
+    #step-layers-list .opacity-value:focus-visible { outline: 2px solid var(--v2-primary); outline-offset: 2px; }
+    #step-layers-list .opacity-value-input { flex: 0 0 auto; width: 3.2em; padding: 0 2px; font-size: 12px; text-align: right; border-radius: 2px; }
+    #step-layers-list .v2-step-layer.dragging { opacity: .4; }
+    #step-layers-list .drag-handle { cursor: grab; }
+    #step-layers-list .active-layer-row { cursor: default; }
     #step-layers-list .layer-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .v2-step-layer-add { margin-top: 6px; max-width: 100%; }
     .v2-step-view { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -667,7 +704,9 @@
       .v2-preview .map-preview { height: 380px; }
       .v2-topbar { flex-wrap: wrap; padding: 10px 16px; }
       .actions { flex-wrap: wrap; }
-      .tabs { padding: 0 8px; overflow-x: auto; }
+      .tabs { padding: 0 8px; flex-wrap: wrap; }
+      .tabs .actions { margin-left: 0; width: 100%; padding: 0 0 8px; }
+      .tabs .v2-menu-panel { left: 0; right: auto; max-width: calc(100vw - 32px); }
       .tab-btn { padding: 12px 10px 10px; }
       .v2-main { padding: 16px; }
     }
@@ -676,30 +715,6 @@
 <body>
   <header class="v2-topbar">
     <h1 class="v2-brand"><span class="v2-brand-mark" aria-hidden="true"></span>WebMapX Setup</h1>
-    <div class="v2-spacer"></div>
-    <div class="actions">
-      <details class="v2-menu">
-        <summary class="v2-btn">Open</summary>
-        <div class="v2-menu-panel">
-          <button id="btn-upload" type="button">Upload config file…</button>
-          <input id="config-upload-input" type="file" accept=".json,application/json" hidden>
-          <div class="upload-path-row">
-            <input id="config-path-input" type="text" placeholder="Paste config path or URL, e.g. \\wsl$\Ubuntu-22.04\home\anneb\projects\webmapx-configs\nl.json">
-            <button id="btn-open-config-path" type="button">Open path</button>
-          </div>
-          <p class="upload-hint">You can also drop a JSON config or a path anywhere on this page.</p>
-        </div>
-      </details>
-      <details class="v2-menu">
-        <summary class="v2-btn">Export</summary>
-        <div class="v2-menu-panel">
-          <button id="btn-download">Download config</button>
-          <button id="btn-publish">Publish to GitHub…</button>
-        </div>
-      </details>
-      <button id="btn-reset" class="v2-danger">Reset to defaults</button>
-      <button id="btn-launch">Update preview</button>
-    </div>
   </header>
 
   <div id="publish-panel" class="publish-panel" hidden>
@@ -737,6 +752,30 @@
     <button class="tab-btn" data-tab="map"><span class="v2-tab-ico" aria-hidden="true">🗺</span>Map</button>
     <button class="tab-btn" data-tab="style"><span class="v2-tab-ico" aria-hidden="true">🎨</span>Style</button>
     <button class="tab-btn" data-tab="stories"><span class="v2-tab-ico" aria-hidden="true">📖</span>Stories</button>
+    <!-- In the sticky tab row, so the actions stay in reach while scrolling -->
+    <div class="actions">
+      <details class="v2-menu">
+        <summary class="v2-btn">Open</summary>
+        <div class="v2-menu-panel">
+          <button id="btn-upload" type="button">Upload config file…</button>
+          <input id="config-upload-input" type="file" accept=".json,application/json" hidden>
+          <div class="upload-path-row">
+            <input id="config-path-input" type="text" placeholder="Paste config path or URL, e.g. \\wsl$\Ubuntu-22.04\home\anneb\projects\webmapx-configs\nl.json">
+            <button id="btn-open-config-path" type="button">Open path</button>
+          </div>
+          <p class="upload-hint">You can also drop a JSON config or a path anywhere on this page.</p>
+        </div>
+      </details>
+      <details class="v2-menu">
+        <summary class="v2-btn">Export</summary>
+        <div class="v2-menu-panel">
+          <button id="btn-download">Download config</button>
+          <button id="btn-publish">Publish to GitHub…</button>
+        </div>
+      </details>
+      <button id="btn-reset" class="v2-danger">Reset to defaults</button>
+      <button id="btn-launch">Update preview</button>
+    </div>
   </nav>
   <main class="v2-main">
 
@@ -1000,10 +1039,10 @@
 
     <div id="step-editor" hidden>
     <section class="layers-section">
-      <h2>3. Set the map view for <span class="v2-step-ref">this step</span> <span class="section-hint">Where the map looks during this step.</span></h2>
+      <div class="v2-card-title"><h2>3. Map view for <span class="v2-step-ref">this step</span> <span class="section-hint">Where the map looks during this step.</span></h2>
+        <button id="btn-step-capture" type="button" class="v2-from-view v2-btn-view" title="Give this step the camera of the preview map: centre, zoom, bearing and pitch">Use this map view</button></div>
       <div class="v2-step-view">
         <span id="step-view-summary"></span>
-        <button id="btn-step-capture" type="button" class="v2-from-view">Use map view</button>
       </div>
       <details class="v2-step-more">
         <summary>More: exact numbers, projection, 3D terrain</summary>
@@ -1036,14 +1075,13 @@
     </section>
 
     <section class="layers-section">
-      <div class="v2-card-title"><h2>4. Layers in <span class="v2-step-ref">this step</span> <span class="section-hint">From the Map catalog. Top of the list is on top of the map; the eye hides a layer without removing it.</span></h2>
-        <button type="button" id="btn-step-layers-from-map" class="v2-from-view v2-btn-layers" title="Copy the layers on the preview map — which are on, hidden, their order and transparency — into this step">Use the layers on the map</button></div>
+      <h2>4. Layers in <span class="v2-step-ref">this step</span> <span class="section-hint">This list and the preview map are the same: switch, hide, reorder or fade a layer in either and the other follows. Top of the list is on top of the map.</span></h2>
       <div id="step-layers-list" class="v2-step-layers"></div>
       <select id="step-layer-add" class="v2-step-layer-add" aria-label="Add a layer to this step"></select>
     </section>
 
     <section class="layers-section">
-      <h2>5. Edit <span id="step-editor-title" class="v2-step-ref">step</span> <span class="section-hint">Edit the title and content of this step.</span></h2>
+      <h2>5. Content for <span id="step-editor-title" class="v2-step-ref">step</span> <span class="section-hint">Edit the title and content of this step.</span></h2>
       <label class="step-block-label">Title
         <input type="text" id="step-title">
       </label>
@@ -1056,9 +1094,9 @@
     </div>
     </div>
     <aside class="v2-preview">
-      <div class="map-preview-actions"><span class="v2-preview-title">Preview</span><button id="btn-step-capture-map" type="button" class="v2-from-view">📍 Use this view for the step</button></div>
+      <div class="map-preview-actions"><span class="v2-preview-title">Preview<span id="stories-preview-step"></span></span><button id="btn-step-capture-map" type="button" class="v2-from-view v2-btn-view" title="Give this step the camera of the preview map: centre, zoom, bearing and pitch">Use this map view</button></div>
       <iframe id="stories-preview-frame" class="map-preview" src="./preview.html?storageKey=webmapx-setup-stories-preview-config"></iframe>
-      <p class="section-hint map-preview-hint">Selecting a step shows it here. Move the map, then "Use this view" to give the step this camera.</p>
+      <p class="section-hint map-preview-hint">Selecting a step shows it here. Move the map, then "Use this map view" to give the step this camera.</p>
     </aside>
   </div>
   </main>
@@ -3903,6 +3941,8 @@
     function updateStepRefs() {
       const chapter = currentChapter();
       const step = currentStep();
+      const previewRef = document.getElementById('stories-preview-step');
+      previewRef.textContent = '';
       if (!chapter || !step) return;
       const named = (title, fallback) => (title && title !== fallback ? `“${title}”` : null);
       const ch = named(chapter.title, 'New chapter') ?? `Chapter ${selChapterIdx + 1}`;
@@ -3911,6 +3951,8 @@
         el.textContent = `${ch} › ${st}`;
         el.title = `Chapter ${selChapterIdx + 1}, step ${selStepIdx + 1}`;
       });
+      previewRef.textContent = `${ch} › ${st}`;
+      previewRef.title = `Chapter ${selChapterIdx + 1}, step ${selStepIdx + 1}`;
     }
 
     function buildStoriesUI(config) {
@@ -3959,6 +4001,7 @@
 
     function renderStoriesTab(config) {
       if (!updateStoriesToolGate()) return;
+      updateStepRefs();
       const select = document.getElementById('story-select');
       select.innerHTML = '';
       storiesData.forEach((s, i) => {
@@ -4363,14 +4406,18 @@
       }
 
       step.state.layers.slice().reverse().forEach((id) => {
+        const block = document.createElement('div');
+        block.className = 'v2-step-layer';
         const row = document.createElement('div');
         row.className = 'active-layer-row';
-        row.draggable = true;
+        block.appendChild(row);
 
         const handle = document.createElement('span');
         handle.className = 'drag-handle';
         handle.textContent = '⠿';
         handle.title = 'Drag to reorder';
+        // Only the handle drags: a draggable row would take over a drag on the slider.
+        handle.draggable = true;
         row.appendChild(handle);
 
         const visCb = document.createElement('input');
@@ -4383,6 +4430,7 @@
           if (visCb.checked) set.delete(id); else set.add(id);
           step.state.hiddenLayers = [...set];
           changed();
+          renderStepLayersList(config, step);
         });
         row.appendChild(visCb);
 
@@ -4398,25 +4446,6 @@
           row.appendChild(warn);
         }
 
-        const transLabel = document.createElement('label');
-        transLabel.className = 'v2-step-layer-opt';
-        transLabel.title = 'Transparency %';
-        const transInput = document.createElement('input');
-        transInput.type = 'number';
-        transInput.min = '0';
-        transInput.max = '100';
-        transInput.value = transparency[id] ?? 0;
-        transInput.setAttribute('aria-label', `${titleOf(id)} transparency %`);
-        transInput.addEventListener('change', () => {
-          const value = Number(transInput.value) || 0;
-          const t = { ...(step.state.transparency ?? {}) };
-          if (value > 0) t[id] = value; else delete t[id];
-          step.state.transparency = t;
-          changed();
-        });
-        transLabel.append(transInput, ' %');
-        row.appendChild(transLabel);
-
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
         removeBtn.className = 'layer-remove';
@@ -4429,21 +4458,27 @@
           changed();
           renderStepLayersList(config, step);
         });
+        // Beside the title, to keep the list compact; only while the eye is open, as in the
+        // legend. A hidden layer keeps an empty slot so the remove buttons stay in one column.
+        row.appendChild(hiddenSet.has(id)
+          ? Object.assign(document.createElement('span'), { className: 'opacity-row v2-opacity-slot' })
+          : transparencySlider(id, titleOf(id), transparency[id] ?? 0, step));
         row.appendChild(removeBtn);
 
-        row.addEventListener('dragstart', (e) => {
-          if (e.target.closest('input')) { e.preventDefault(); return; }
-          const items = () => [...list.querySelectorAll(':scope > .active-layer-row')];
-          startReorder(e, row, list, items, (from, to, side) => {
+        handle.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setDragImage(block, 12, 14);
+          const items = () => [...list.querySelectorAll(':scope > .v2-step-layer')];
+          startReorder(e, block, list, items, (from, to, side) => {
             const topDown = step.state.layers.slice().reverse();
             step.state.layers = moveItem(topDown, from, to, side).reverse();
             persistStoriesData();
             renderStepLayersList(config, step);
+            previewCurrentStep();
           });
         });
-        row.addEventListener('dragend', endReorder);
+        handle.addEventListener('dragend', endReorder);
 
-        list.appendChild(row);
+        list.appendChild(block);
       });
 
       const add = document.getElementById('step-layer-add');
@@ -4464,9 +4499,104 @@
       });
     }
 
+    // The legend menu's transparency slider (webmapx-layer-overview, .opacity-row): range
+    // input plus a percentage that turns into a number field when clicked. Dragging shows
+    // the change on the preview map at once; it is saved when the drag ends.
+    function transparencySlider(id, title, value, step) {
+      const wrap = document.createElement('div');
+      wrap.className = 'opacity-row';
+      const range = document.createElement('input');
+      range.type = 'range';
+      range.min = '0';
+      range.max = '100';
+      range.value = String(value);
+      range.title = 'Transparency';
+      range.setAttribute('aria-label', `Transparency of ${title}`);
+      range.style.setProperty('--slider-pct', `${value}%`);
+      const label = document.createElement('span');
+      label.className = 'opacity-value';
+      label.setAttribute('role', 'button');
+      label.tabIndex = 0;
+      label.title = 'Fill in';
+      label.setAttribute('aria-label', `Transparency of ${title}, ${value} percent. Fill in`);
+      label.textContent = `${value}%`;
+
+      const show = (v) => {
+        range.style.setProperty('--slider-pct', `${v}%`);
+        label.textContent = `${v}%`;
+        storiesPreviewAdapter().then((a) => {
+          if (!a || !(id in (a.store.getState().mapLayers ?? {}))) return;
+          applyingPreview++;
+          try { a.setLayerOpacity(id, (100 - v) / 100); } finally { applyingPreview--; }
+        });
+      };
+      const save = (v) => {
+        const t = { ...(step.state.transparency ?? {}) };
+        if (v > 0) t[id] = v; else delete t[id];
+        step.state.transparency = t;
+        persistStoriesData();
+      };
+      range.addEventListener('input', () => show(Number(range.value)));
+      range.addEventListener('change', () => save(Number(range.value)));
+
+      const beginEdit = () => {
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'opacity-value-input';
+        input.min = '0';
+        input.max = '100';
+        input.inputMode = 'numeric';
+        input.value = range.value;
+        input.setAttribute('aria-label', `Transparency of ${title}, percent`);
+        let done = false;
+        const finish = (commit) => {
+          if (done) return;
+          done = true;
+          if (commit) {
+            const v = Math.max(0, Math.min(100, Math.round(Number(input.value) || 0)));
+            range.value = String(v);
+            show(v);
+            save(v);
+          }
+          input.replaceWith(label);
+          label.focus();
+        };
+        input.addEventListener('blur', () => finish(true));
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+          if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+        label.replaceWith(input);
+        input.focus();
+        input.select();
+      };
+      label.addEventListener('click', beginEdit);
+      label.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        beginEdit();
+      });
+
+      wrap.append(range, label);
+      return wrap;
+    }
+
     function storiesPreviewMapEl() {
       const frame = document.getElementById('stories-preview-frame');
       return frame?.contentDocument?.querySelector('webmapx-map') ?? null;
+    }
+
+    // The frame's load event fires before its <webmapx-map> exists or is upgraded, so a
+    // preview started then (opening the tab, turning the tool on) must wait for it; giving
+    // up there left the map at the config's own view instead of the selected step.
+    async function waitForStoriesPreviewMap(timeoutMs = 15000) {
+      const until = Date.now() + timeoutMs;
+      for (;;) {
+        const el = storiesPreviewMapEl();
+        if (el?.getAdapterAsync) return el;
+        if (Date.now() > until) return null;
+        await new Promise((r) => setTimeout(r, 100));
+      }
     }
 
     async function storiesPreviewAdapter() {
@@ -4547,25 +4677,60 @@
       persistStoriesData();
     });
 
-    // Copies the preview map's layer stack into the step: order, eye, transparency. Only
-    // layers this config defines are taken; layers a tool drew (measure, draw, a dropped
-    // file) have no catalog entry a story could load.
-    document.getElementById('btn-step-layers-from-map').addEventListener('click', async () => {
-      const step = currentStep();
-      if (!step) return;
-      const adapter = await storiesPreviewAdapter();
-      if (!adapter) { alert('Preview map not ready yet.'); return; }
+    // --- The step's layers and the preview map are one thing ---
+    // Card 4 drives the map through previewCurrentStep; the map drives card 4 through
+    // syncStepFromPreview, so a layer switched, hidden, reordered or faded in the preview's
+    // own legend is the step's. Only layers this config defines count: a layer a tool drew
+    // (measure, draw, a dropped file) has no catalog entry a story could load.
+    let watchedPreviewAdapter = null;
+    let unwatchPreviewLayers = null;
+    // Above zero while this page is changing the preview map itself (showing a step, a
+    // slider being dragged in card 4): those changes are not edits, and must not echo back.
+    let applyingPreview = 0;
+
+    function storyLayerCandidates(mapLayers) {
       const layersById = getLayersById(baseConfig);
-      const entries = Object.entries(adapter.store.getState().mapLayers ?? {})
-        .filter(([id, l]) => layersById[id] && !l.dynamic && !l.ownerTool);
-      step.state.layers = entries.map(([id]) => id);
-      step.state.hiddenLayers = entries.filter(([, l]) => l.visible === false).map(([id]) => id);
-      const t = {};
-      for (const [id, l] of entries) if (l.transparency > 0) t[id] = l.transparency;
-      step.state.transparency = t;
+      return Object.entries(mapLayers ?? {}).filter(([id, l]) => layersById[id] && !l.dynamic && !l.ownerTool);
+    }
+
+    // The step's layer state as the map has it: bottom-to-top, hidden, non-zero transparency.
+    function stepLayersFromMap(mapLayers) {
+      const entries = storyLayerCandidates(mapLayers);
+      const transparency = {};
+      for (const [id, l] of entries) if (l.transparency > 0) transparency[id] = l.transparency;
+      return {
+        layers: entries.map(([id]) => id),
+        hiddenLayers: entries.filter(([, l]) => l.visible === false).map(([id]) => id),
+        transparency,
+      };
+    }
+
+    const sameLayerState = (a, b) => JSON.stringify([a.layers ?? [], [...(a.hiddenLayers ?? [])].sort(), Object.entries(a.transparency ?? {}).filter(([, v]) => v > 0).sort()])
+      === JSON.stringify([b.layers ?? [], [...(b.hiddenLayers ?? [])].sort(), Object.entries(b.transparency ?? {}).filter(([, v]) => v > 0).sort()]);
+
+    function syncStepFromPreview(mapLayers) {
+      if (applyingPreview) return;
+      const step = currentStep();
+      if (!step?.state) return;
+      const next = stepLayersFromMap(mapLayers);
+      if (sameLayerState(step.state, next)) return;
+      Object.assign(step.state, next);
       persistStoriesData();
       renderStepLayersList(baseConfig, step);
-    });
+      const card = document.getElementById('step-layers-list').closest('section');
+      card.classList.remove('v2-flash');
+      void card.offsetWidth;
+      card.classList.add('v2-flash');
+    }
+
+    // Called with the preview's adapter whenever a preview reaches it; a reloaded frame
+    // brings a new adapter, and the watch moves to it.
+    function watchPreviewLayers(adapter) {
+      if (adapter === watchedPreviewAdapter) return;
+      unwatchPreviewLayers?.();
+      watchedPreviewAdapter = adapter;
+      unwatchPreviewLayers = adapter.store.subscribe((state) => syncStepFromPreview(state.mapLayers));
+    }
 
     document.getElementById('step-layer-add').addEventListener('change', (e) => {
       const step = currentStep();
@@ -4636,20 +4801,8 @@
     document.getElementById('btn-step-capture').addEventListener('click', captureStepView);
     document.getElementById('btn-step-capture-map').addEventListener('click', captureStepView);
 
-    // Union of layer ids referenced by any step of the given story — a layer left visible by
-    // a previous preview must be dealt with again when previewing a step that doesn't
-    // reference it (mirrors webmapx-stories-tool's storyLayerIds/applyStep).
-    function storyLayerIds(story) {
-      return new Set((story?.chapters ?? []).flatMap((c) => (c.steps ?? []).flatMap((st) => st.state?.layers ?? [])));
-    }
-
-    // Layers this preview has itself lazily added (as opposed to ones already on the
-    // config's default map) — mirrors webmapx-stories-tool's addedLayerIds, so a preview
-    // removes them outright once unneeded instead of leaving them hidden-but-listed forever.
-    const previewAddedLayerIds = new Set();
     const previewAddingLayers = new Map(); // layer id → its addLayerRequest still in flight
     document.getElementById('stories-preview-frame').addEventListener('load', () => {
-      previewAddedLayerIds.clear();
       previewAddingLayers.clear();
       previewCurrentStep();
     });
@@ -4662,9 +4815,15 @@
       const story = currentStory();
       const step = currentStep();
       if (!story || !step) return;
-      const mapEl = storiesPreviewMapEl();
+      const mapEl = await waitForStoriesPreviewMap();
       const adapter = await mapEl?.getAdapterAsync?.();
+      if (adapter) watchPreviewLayers(adapter);
       if (!adapter || !mapEl || step !== currentStep()) return;
+      applyingPreview++;
+      try { await applyStepToPreview(run, story, step, mapEl, adapter); } finally { applyingPreview--; }
+    }
+
+    async function applyStepToPreview(run, story, step, mapEl, adapter) {
       const s = toStoryStepState(step.state);
 
       // Mirror the real stories tool's applyStep: lazily add any referenced layer that isn't
@@ -4678,7 +4837,6 @@
         const adding = mapEl.addLayerRequest({ layerId: id });
         previewAddingLayers.set(id, adding);
         try { await adding; } finally { previewAddingLayers.delete(id); }
-        previewAddedLayerIds.add(id);
         addedHere = true;
       }));
       // A later click started its own preview while layers were loading; that one wins,
@@ -4690,23 +4848,21 @@
       adapter.setPitch(pitch);
       adapter.setViewport([lng, lat], zoom);
       const hidden = new Set(s.h ?? []);
-      const visibleHere = new Set(s.l);
-      const mapLayers = adapter.store.getState().mapLayers ?? {};
-      for (const id of new Set([...storyLayerIds(story), ...previewAddedLayerIds])) {
-        if (!(id in mapLayers)) continue;
-        if (!visibleHere.has(id)) {
-          if (previewAddedLayerIds.has(id)) {
-            adapter.removeLogicalLayer(id);
-            previewAddedLayerIds.delete(id);
-          } else {
-            adapter.setLayerVisibility(id, false);
-          }
-          continue;
-        }
-        adapter.setLayerVisibility(id, !hidden.has(id));
-        const t = s.t?.[id] ?? 0;
-        adapter.setLayerOpacity(id, (100 - t) / 100);
+      const inStep = new Set(s.l);
+      // Removed rather than hidden (the stories tool hides a layer it did not add), so the
+      // preview's legend lists exactly the step's layers: in this editor the map *is* the step.
+      for (const [id] of storyLayerCandidates(adapter.store.getState().mapLayers)) {
+        if (!inStep.has(id)) adapter.removeLogicalLayer(id);
       }
+      for (const id of s.l) {
+        if (!(id in (adapter.store.getState().mapLayers ?? {}))) continue;
+        adapter.setLayerVisibility(id, !hidden.has(id));
+        adapter.setLayerOpacity(id, (100 - (s.t?.[id] ?? 0)) / 100);
+      }
+      // Order: moving each to the top, bottom layer first, leaves them in the step's order.
+      const onMap = Object.keys(adapter.store.getState().mapLayers ?? {}).filter((id) => inStep.has(id));
+      const wanted = s.l.filter((id) => onMap.includes(id));
+      if (onMap.join() !== wanted.join()) for (const id of wanted) adapter.moveLayer(id, null);
       adapter.setTerrainEnabled(!!s.terrain);
       adapter.setProjection(s.p ?? 'mercator');
     }
