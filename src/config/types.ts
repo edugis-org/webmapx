@@ -125,6 +125,8 @@ export interface VectorSourceConfig extends SourceConfigBase {
   type: 'vector';
   url?: string;
   tiles?: string[];
+  minzoom?: number;
+  maxzoom?: number;
 }
 
 export interface RasterDemSourceConfig extends SourceConfigBase {
@@ -439,8 +441,10 @@ export interface SearchToolConfig extends ToolConfig {
   attribution?: string;
 }
 
-/** The info tool has no settings of its own; its Street View link moved to the street photos tool. */
-export type InfoToolConfig = ToolConfig;
+export interface InfoToolConfig extends ToolConfig {
+  /** Google Maps API key. With one, a pinned result offers Street View; without, it does not. */
+  googleApiKey?: string;
+}
 
 export interface StreetPhotosToolConfig extends ToolConfig {
   /**

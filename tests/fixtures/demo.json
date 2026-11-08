@@ -3087,7 +3087,8 @@
       }
     },
     "info": {
-      "enabled": true
+      "enabled": true,
+      "googleApiKey": "{key-google}"
     },
     "street-photos": {
       "googleApiKey": "not-a-real-key"
