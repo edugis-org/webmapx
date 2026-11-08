@@ -446,6 +446,20 @@ export interface InfoToolConfig extends ToolConfig {
   googleApiKey?: string;
 }
 
+export interface StreetPhotosToolConfig extends ToolConfig {
+  /**
+   * Google Maps API key, usually `"{key-google}"`. With one, the panel offers
+   * Google Street View beside Panoramax; without, the tool is Panoramax only.
+   */
+  googleApiKey?: string;
+  /** Panoramax search API. Default: the federated catalogue, `https://api.panoramax.xyz/api`. */
+  apiUrl?: string;
+  /** Panoramax viewer that "Open in Panoramax" goes to. Default: `https://api.panoramax.xyz/`. */
+  viewerUrl?: string;
+  /** The least distance from the clicked spot a photo may be, in metres. Default: 50. */
+  searchDistance?: number;
+}
+
 export interface ThreeDToolConfig extends ToolConfig {
   /** MapLibre terrain URL used by the 3D tool when no terrain layer exists in the configuration. */
   'maplibre-terrain-fallback-url'?: string;
@@ -495,7 +509,8 @@ export interface ToolsConfig {
   insetMap?: InsetMapToolConfig;
   search?: SearchToolConfig;
   info?: InfoToolConfig;
-  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | InfoToolConfig | CompareToolConfig | MegaSliderToolConfig | undefined;
+  'street-photos'?: StreetPhotosToolConfig;
+  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | InfoToolConfig | StreetPhotosToolConfig | CompareToolConfig | MegaSliderToolConfig | undefined;
 }
 
 /**
