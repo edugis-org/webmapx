@@ -770,8 +770,9 @@ export class WebmapxMapElement extends HTMLElement {
       const ref = typeof activeEntry.ref === 'string'
         ? activeEntry.ref
         : (typeof activeEntry.layerId === 'string' ? activeEntry.layerId : null);
-      const visible = activeEntry.visible !== false;
-      if (ref && visible) {
+      // A hidden entry is still loaded: it belongs in the legend with its eye closed,
+      // ready to switch on (collectInitialHiddenLayerRefs hides it once added).
+      if (ref) {
         refs.push(ref);
       }
     }
@@ -779,9 +780,25 @@ export class WebmapxMapElement extends HTMLElement {
     return Array.from(new Set(refs));
   }
 
+  /** Config `activeLayers` entries with `visible: false`. A permalink carries its own (`h`). */
+  private collectInitialHiddenLayerRefs(): Set<string> {
+    const hidden = new Set<string>();
+    if (getPermalinkStateForIndex(getMapDomIndex(this))?.l?.length) return hidden;
+    for (const entry of this.configInstance?.state?.activeLayers ?? []) {
+      if (!entry || typeof entry !== 'object') continue;
+      const activeEntry = entry as ActiveLayerStateObject;
+      const ref = typeof activeEntry.ref === 'string'
+        ? activeEntry.ref
+        : (typeof activeEntry.layerId === 'string' ? activeEntry.layerId : null);
+      if (ref && activeEntry.visible === false) hidden.add(ref);
+    }
+    return hidden;
+  }
+
   private getBackgroundSeedLayerId(): string | null {
-    const refs = this.collectInitialActiveLayerRefs();
-    return refs.length > 0 ? refs[0] : null;
+    // The seed is the first layer actually showing, as before hidden entries were loaded.
+    const hidden = this.collectInitialHiddenLayerRefs();
+    return this.collectInitialActiveLayerRefs().find(ref => !hidden.has(ref)) ?? null;
   }
 
   private collectSingleSelectionGroupByLayerId(): Map<string, string> {
@@ -1624,8 +1641,12 @@ export class WebmapxMapElement extends HTMLElement {
     this.applyPermalinkTime(adapter);
 
     const activeLayerRefs = this.collectInitialActiveLayerRefs();
+    const hiddenLayerRefs = this.collectInitialHiddenLayerRefs();
     for (const layerId of activeLayerRefs) {
       const success = await this.tryAddLayerRequest(adapter, { layerId });
+      if (success && hiddenLayerRefs.has(layerId)) {
+        adapter.setLayerVisibility(layerId, false);
+      }
       if (!success) {
         this.dispatchEvent(new CustomEvent('webmapx-addlayer-failed', {
           detail: { layerId },
