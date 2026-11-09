@@ -95,7 +95,7 @@ const BUILT_IN_TOOLS: readonly ToolRegistryEntry[] = [
         id: 'street-photos', tag: 'webmapx-street-photos-tool', placement: 'toolbar', label: 'Street photos',
         description: 'See a street-level photo of a spot', icon: 'camera', aliases: ['panoramax'],
     },
-    { id: 'draw', tag: 'webmapx-draw-tool', placement: 'toolbar', label: 'Draw and edit layers', description: 'Draw your own layers and edit their points, lines and shapes', icon: 'pencil' },
+    { id: 'draw', tag: 'webmapx-draw-tool', placement: 'toolbar', label: 'Draw and edit layers', description: 'What do you want to draw or edit?', icon: 'pencil' },
     {
         id: 'geolocation', tag: 'webmapx-geolocation-tool', placement: 'toolbar', label: 'Geolocation', description: 'Show where you are on the map',
         icon: 'crosshair', metadataAliases: ['geolocate'],

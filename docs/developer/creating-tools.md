@@ -394,6 +394,7 @@ get toolTip(): string {
 - Not a tip: an empty state such as "Add a layer … first" — without it the panel would show nothing, so it stays in the panel — and an explanation of a field, which goes behind an (i) at the right end of the field's label line: wrap the field in an element with class `field-with-info` and add `infoToggle(fieldLabel, text)` (`internal/info-toggle.ts`, styled by `helpTextStyles`). It opens on hover, focus and tap. If your tool closes itself on Escape, check `hasOpenInfo(this.shadowRoot)` first, so Escape closes the explanation and not the tool.
 - A tool that only asks for a choice its controls already show (a search box, a list of languages) needs no tip.
 - The tip is a live region, so screen readers hear each new step.
+- A description that is a question answered by the tool's first view ("What do you want to draw or edit?") can step aside once it is answered: override `get showsDescription()` to return `false` in that view. The panel re-reads it together with the tip.
 
 ## Accessibility checklist
 

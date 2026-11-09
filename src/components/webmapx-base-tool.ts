@@ -39,6 +39,16 @@ export abstract class WebmapxBaseTool extends LitElement {
     }
 
     /**
+     * Whether the panel shows this tool's description under the title. A tool
+     * whose description is a question answered by its first view ("What do
+     * you want to draw or edit?") returns false once it has been answered;
+     * the panel re-reads it whenever it re-reads the tip.
+     */
+    get showsDescription(): boolean {
+        return true;
+    }
+
+    /**
      * Asked by the tool panel when Escape is pressed, before it closes. Return
      * true when Escape undid something in the tool (the info tool lets go of a
      * held result), so this press does not also close the panel.

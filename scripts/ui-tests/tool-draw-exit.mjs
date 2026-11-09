@@ -190,6 +190,51 @@ async function removeOpenToolOutsideToolManager(page, baseUrl) {
   return problems;
 }
 
+// Escape undoes the innermost edit first and closes the panel only when nothing
+// is left. The panel catches Escape on the document in the capture phase, so
+// without the tool's handleEscape a press inside the add-attribute form or the
+// layer-name field closed the whole panel. Real key presses, not dispatched
+// events: the capture listener is the point.
+async function escapeStepsBack(page, baseUrl) {
+  await openPage(page, baseUrl);
+  await page.evaluate(async () => {
+    const x = window.__exit;
+    x.toggleDraw();
+    const tool = await x.waitFor(() => x.tool()?.shadowRoot?.querySelector('.type-card') && x.tool(), 10_000, 'draw panel');
+    tool.shadowRoot.querySelector('.type-card[data-type="Polygon"]').click();
+    (await x.waitFor(() => tool.shadowRoot.querySelector('.add-layer-btn'), 5000, 'New layer button')).click();
+    await x.waitFor(() => tool.panelView === 'editing', 5000, 'editing session');
+    [...tool.shadowRoot.querySelectorAll('sl-button.main-action')].find((b) => b.textContent.includes('Edit attributes')).click();
+    await x.waitFor(() => tool.attributesDialog?.open, 5000, 'attributes dialog');
+    // Shoelace focuses the dialog itself once its show animation ends; a user cannot click sooner.
+    await x.sleep(600);
+    [...tool.shadowRoot.querySelectorAll('#attributes-dialog sl-button')].find((b) => b.textContent.trim() === 'Add attribute').click();
+    await x.waitFor(() => tool.shadowRoot.activeElement?.classList.contains('add-attr-name-input'), 5000, 'cursor in the attribute name');
+  });
+  const state = () => page.evaluate(() => {
+    const tool = window.__exit.tool();
+    return { adding: tool.addingAttribute, dialog: !!tool.attributesDialog?.open, draft: tool.layerNameDraft, open: tool.active };
+  });
+  const press = async () => { await page.keyboard.press('Escape'); await page.waitForTimeout(300); };
+  const problems = [];
+  await page.keyboard.type('depth');
+  await press();
+  let s = await state();
+  if (s.adding || !s.dialog || !s.open) problems.push(`Escape in the add-attribute form: ${JSON.stringify(s)}, expected only the form closed`);
+  await press();
+  s = await state();
+  if (s.dialog || !s.open) problems.push(`Escape in the attributes dialog: ${JSON.stringify(s)}, expected only the dialog closed`);
+  await page.evaluate(() => window.__exit.tool().shadowRoot.querySelector('sl-input.editing-layer-name').focus());
+  await page.keyboard.type('Rivers');
+  await press();
+  s = await state();
+  if (s.draft !== null || !s.open) problems.push(`Escape in the layer name: ${JSON.stringify(s)}, expected only the rename dropped`);
+  await press();
+  s = await state();
+  if (s.open) problems.push('Escape with nothing in progress: the panel stayed open');
+  return problems;
+}
+
 export async function run({ page, baseUrl }) {
   await page.addInitScript(LISTENER_TRACKER);
   const problems = [
@@ -197,6 +242,7 @@ export async function run({ page, baseUrl }) {
     ...await closeBeforeMapLoads(page, baseUrl),
     ...await removeOpenToolbarTool(page, baseUrl),
     ...await removeOpenToolOutsideToolManager(page, baseUrl),
+    ...await escapeStepsBack(page, baseUrl),
   ];
   if (problems.length) throw new Error(problems.join('\n'));
 }
