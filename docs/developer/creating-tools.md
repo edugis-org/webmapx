@@ -443,7 +443,7 @@ Register in `src/utils/dynamic-layout.ts` and import in `src/components/index.ts
 - [ ] Add `aria-label`, keyboard access, and Escape to close
 - [ ] Add one `TOOL_REGISTRY` entry in `tool-registry.ts`, plus a loader in `tool-loader.ts` (unless bundled)
 - [ ] Declare in config JSON under `tools`
-- [ ] Test in `testpages/setup.html` — tool should appear in the tool list
+- [ ] Test in `testpages/setup.html` — tool should appear on the Tools tab
 
 ---
 
@@ -462,11 +462,11 @@ The dev workflow for testing a new tool interactively:
 
 1. Start the dev server: `npm run dev`
 2. Open `http://localhost:5173/testpages/setup.html` in one tab — this is the config builder.
-3. Open `http://localhost:5173/testpages/preview.html` in a second tab (or use the link at the top of setup.html) — this is the live map.
+3. The Tools, Map, Style and Stories tabs show a live preview beside their settings. For the full app in its own tab, open `http://localhost:5173/testpages/preview.html`.
 
 ### How it works
 
-- **setup.html** reads `config/demo.json` (or `?config=path/to/other.json`), shows all known tools as checkboxes, and lets you toggle them on/off and edit their props.
+- **setup.html** reads `config/demo.json` (or `?config=path/to/other.json`; **Open ▾** loads another file or path), shows all known tools with a switch each, and lets you turn them on/off and edit their props.
 - Clicking **"Update preview"** serialises the assembled config to `localStorage` key `webmapx-setup-config` and opens/reloads preview.html.
 - **preview.html** reads that key from `localStorage` and mounts the full `WebMapX` app. It also listens for `storage` events, so it reloads automatically each time you push from setup.html.
 - Overrides are **session-only** (in-memory in setup.html): refreshing setup.html starts fresh from `demo.json`.
@@ -475,12 +475,12 @@ The dev workflow for testing a new tool interactively:
 
 setup.html builds its tool list from `KNOWN_TOOLS`, which is derived from `TOOL_REGISTRY` in `src/tools/tool-registry.ts`. A tool with a registry entry appears there automatically; one without an entry cannot be added in setup.html at all (see "Config wiring" above). Set `offered: false` on the entry to keep a type out of that list deliberately.
 
-Toolbar tools appear in the **"Toolbar"** section with drag-to-reorder handles. Standalone/control tools appear in the **"Map controls"** section.
+Toolbar tools appear in one card per toolbar (**"Toolbar A"**, **"Toolbar B"**, …) with drag-to-reorder handles; a Toolbox or Menu lists its contents under its own row. Standalone/control tools appear in the **"Map controls"** and **"Mega controls"** cards.
 
 ### Testing checklist
 
 1. Register the tool in `dynamic-layout.ts`, then verify it appears in setup.html with its label and icon.
-2. Check the tool in setup.html, click **"Update preview"** — confirm the element is rendered in the live map.
+2. Switch the tool on in setup.html, click **"Update preview"** — confirm the element is rendered in the live map.
 3. Open the browser devtools console in preview.html and confirm no errors on mount.
 4. Test activation / deactivation (toolbar button click, keyboard, Escape to close for modal tools).
 5. Test in at least MapLibre and one other engine (switch `map.type` in demo.json or via the active-adapter control).
@@ -489,11 +489,11 @@ Toolbar tools appear in the **"Toolbar"** section with drag-to-reorder handles. 
 
 ### Prop editing in setup.html
 
-Each tool's ⚙ icon (appears on hover) opens a prop editor popup. Fields are generated from the tool's config object in `demo.json`. Add a well-typed entry for your tool in `demo.json` and users can tweak it without editing JSON.
+Each tool's ✎ button opens a prop editor popup; a tool with no configured options offers `title` and `icon`. Fields are generated from the tool's config object in `demo.json`. Add a well-typed entry for your tool in `demo.json` and users can tweak it without editing JSON.
 
 ### Download config
 
-"Download config" in setup.html saves the fully assembled JSON (with all overrides baked in) as a file. Use this to capture a specific test configuration for bug reports or regression testing.
+**Export ▾ → Download config** in setup.html saves the fully assembled JSON (with all overrides baked in) as a file. Use this to capture a specific test configuration for bug reports or regression testing.
 
 ---
 
