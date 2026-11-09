@@ -77,6 +77,27 @@ test('normalizeRawSource: raster-dem passthrough preserves tiles/encoding/tileSi
     assert.equal((result as any).maxzoom, 15);
 });
 
+test('normalizeRawSource: a vector source keeps its zoom range and attribution', () => {
+    // Dropped, an engine asked the server for tiles past its last level — one
+    // HTTP error per tile — instead of over-zooming that level.
+    const result = normalizeRawSource('panoramax', {
+        type: 'vector',
+        tiles: ['https://api.panoramax.xyz/api/map/{z}/{x}/{y}.mvt'],
+        minzoom: 6,
+        maxzoom: 15,
+        attribution: 'Panoramax',
+    });
+    assert.ok(result);
+    assert.equal((result as any).minzoom, 6);
+    assert.equal((result as any).maxzoom, 15);
+    assert.equal((result as any).attribution, 'Panoramax');
+    assert.deepEqual(
+        normalizeRawSource('plain', { type: 'vector', url: 'https://example.com/tiles.json' }),
+        { id: 'plain', type: 'vector', url: 'https://example.com/tiles.json' },
+        'nothing added when the config gives no range'
+    );
+});
+
 test('normalizeRawSource: raster-dem without id field returns null (not handled by normalizeRawSource)', () => {
     // raster-dem must be passed with an inline `id` to be recognised as already-normalized
     const result = normalizeRawSource('dem-src', {

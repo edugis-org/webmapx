@@ -55,7 +55,7 @@ The configs repository ships `data/sealevel/lambeck2014-approx.json`, an approxi
 
 ## Configuration
 
-Nothing is required: every key has a default, so a toolbar item `{ "type": "sealevel" }` is enough. That is also how to add it to a config without it — the demo config does not include the tool; add it in `testpages/setup.html`, whose ⚙ options for the tool are `data` and `tiles` (written to `tools.sealevel`).
+Nothing is required: every key has a default, so a toolbar item `{ "type": "sealevel" }` is enough. That is also how to add it to a config without it — the demo config does not include the tool; add it in `testpages/setup.html`, whose ✎ options for the tool are `data` and `tiles` (written to `tools.sealevel`).
 
 A config can also put the layer in its catalog — to show it without the tool — and name it in a `sealevel` section. The tool adopts that layer only when it is already on the map; it never adds it from the catalog, since the catalog's format was chosen without knowing the engine:
 
