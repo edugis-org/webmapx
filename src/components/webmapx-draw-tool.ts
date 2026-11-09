@@ -427,10 +427,6 @@ export class WebmapxDrawTool extends WebmapxModalTool {
 
     private readonly touch = new TouchPointerController(this);
 
-    connectedCallback(): void {
-        super.connectedCallback();
-    }
-
     // ── Snap state ────────────────────────────────────────────────────────────
 
     @state() private snapEnabled = true;
@@ -2764,6 +2760,23 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     /** Cross button (or Escape) on the layer name field — discards the draft, same as `cancelRenameAttribute`. */
     private cancelLayerNameEdit(): void {
         this.layerNameDraft = null;
+    }
+
+    /**
+     * Escape undoes the innermost thing in progress — the add-attribute form, an
+     * attribute rename, the attributes dialog, the "edit a copy?" dialog, a
+     * layer rename — before it closes the panel, one step per press. The panel
+     * catches Escape on the document in the capture phase and stops it there,
+     * so neither the fields' own Escape handlers nor the dialogs (which live in
+     * this shadow root, out of the panel's sight) ever see it.
+     */
+    handleEscape(): boolean {
+        if (this.addingAttribute) { this.cancelAddAttribute(); return true; }
+        if (this.renamingAttributeIndex !== null) { this.cancelRenameAttribute(); return true; }
+        if (this.attributesDialog?.open) { this.attributesDialog.hide(); return true; }
+        if (this.pendingCatalogEditOption !== null) { this.cancelEditCatalogLayer(); return true; }
+        if (this.layerNameDraft !== null) { this.cancelLayerNameEdit(); return true; }
+        return false;
     }
 
     /**
