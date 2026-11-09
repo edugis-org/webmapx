@@ -2624,7 +2624,16 @@
             setTree(rootTree);
           });
           header.appendChild(label);
-          // Dividers are added only from the top of the column, then dragged into place.
+          const addDividerBtn = document.createElement('button');
+          addDividerBtn.className = 'btn-add';
+          addDividerBtn.textContent = '+ Divider';
+          addDividerBtn.title = 'Add a divider in this group';
+          addDividerBtn.addEventListener('click', () => {
+            node.children = [{ label: 'New divider', separator: true }, ...(node.children ?? [])];
+            setTree(rootTree);
+            buildLayersUI(config);
+          });
+          header.appendChild(addDividerBtn);
           const addGroupBtn = document.createElement('button');
           addGroupBtn.className = 'btn-add';
           addGroupBtn.textContent = '+ Subgroup';
@@ -2635,6 +2644,11 @@
             buildLayersUI(config);
           });
           header.appendChild(addGroupBtn);
+          header.appendChild(createAddLayerSelect(config, rootTree, (layerId) => {
+            node.children = [{ layerId }, ...(node.children ?? [])];
+            setTree(rootTree);
+            buildLayersUI(config);
+          }));
           if ((node.children ?? []).length === 0) {
             const removeGroupBtn = document.createElement('button');
             removeGroupBtn.className = 'layer-remove';
@@ -3124,8 +3138,8 @@
               buildLayersUI(config);
             });
           }
-          // With a Layer tree, being on at start is ticked there; without one this is the only place.
-          if (!treeLoc) row.appendChild(cb);
+          // On at start without a catalog entry: a layer can be on the map and not offered in the catalog.
+          row.appendChild(cb);
 
           const title = makeEditableText('layer-title', getLayerTitle(id, layer), (val) => setLayerTitle(id, val));
           row.appendChild(title);
@@ -4385,8 +4399,8 @@
     // The step's own layers as a stack, laid out like the Legend menu layer stack: eye =
     // shown/hidden (state.hiddenLayers), transparency 0-100% (only kept in
     // state.transparency when non-zero), drag to reorder. state.layers is bottom-to-top, the
-    // list shows it top-to-bottom. Layers are offered from the Map catalog only; a layer
-    // the story needs beyond that is added to the catalog on the Layers tab first.
+    // list shows it top-to-bottom. Every layer of the config is offered; one that is not in
+    // the Map catalog is marked, since viewers cannot find it there after the story.
     function renderStepLayersList(config, step) {
       const list = document.getElementById('step-layers-list');
       list.innerHTML = '';
@@ -4485,10 +4499,11 @@
       add.innerHTML = '';
       const first = document.createElement('option');
       first.value = '';
-      const offered = [...catalogIds]
-        .filter((id) => layersById[id] && !step.state.layers.includes(id))
+      // Every layer of the config, not only the catalog's: a story may show a layer the catalog does not offer.
+      const offered = Object.keys(layersById)
+        .filter((id) => !step.state.layers.includes(id))
         .sort((a, b) => titleOf(a).localeCompare(titleOf(b)));
-      first.textContent = offered.length ? '+ Add from the Map catalog…' : 'Every Map catalog layer is in this step';
+      first.textContent = offered.length ? '+ Add a layer…' : 'Every layer is in this step';
       add.appendChild(first);
       add.disabled = !offered.length;
       offered.forEach((id) => {
