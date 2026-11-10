@@ -1,6 +1,12 @@
 // src/map/marker-utils.ts
 // Shared SVG marker icons for HTML-overlay-based marker implementations, and
 // for MapLibre whenever a marker is not its default pin.
+//
+// Both SVGs are `display:block`. Inline, an SVG sits on the text baseline, so
+// the element wrapping it grows by the descender (40–42px for a 36px pin) and
+// a bottom-anchored marker floats 4–6px above its point — a fixed pixel
+// offset that reads as drift when zooming. Leaflet sizes its icon explicitly
+// and Cesium draws an image, so only MapLibre and OpenLayers showed it.
 
 import type { MarkerGlyph } from './IMapInterfaces';
 
@@ -16,7 +22,7 @@ function infoSignSvg(color: string): string {
     // tangents from the tip (12, 35) would, near (7.5, 21) and (16.5, 21).
     // The i's bounding box (measured: centre 12.54, 13.05; 17.1 tall) is
     // scaled to about half the disc's height and centred on the disc.
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36">
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36" style="display:block">
   <path d="M12 35 7.5 21A10.5 10.5 0 1 1 16.5 21Z" fill="${color}" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
   <g fill="white" transform="translate(12 11.5) scale(0.64) translate(-12.54 -13.05)">
     <circle cx="13.6" cy="6.4" r="1.9"/>
@@ -27,7 +33,7 @@ function infoSignSvg(color: string): string {
 
 export function pinSvg(color = '#e63946', glyph?: MarkerGlyph): string {
     if (glyph === 'info') return infoSignSvg(color);
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36">
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36" style="display:block">
   <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24S24 21 24 12C24 5.373 18.627 0 12 0z" fill="${color}" stroke="rgba(0,0,0,0.25)" stroke-width="1"/>
   <circle cx="12" cy="12" r="5" fill="white" opacity="0.9"/>
 </svg>`;
