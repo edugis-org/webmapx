@@ -340,6 +340,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         this.unsubPointerMove = adapter.events.on('pointer-move', this.handlePointerMove.bind(this));
         this.unsubViewChange = adapter.events.on('view-change', () => { this.mapIsMoving = true; });
         this.unsubViewChangeEnd = adapter.events.on('view-change-end', () => { this.mapIsMoving = false; });
+        if (this.active) adapter.setCursor('crosshair');
     }
 
     protected onMapDetached(): void {
@@ -381,6 +382,9 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         this.elevation = null;
         this.mode = 'hover';
         this.resetStreetview();
+        // The engine's default cursor is a grab hand, which shows no point;
+        // the crosshair's centre is exactly where a click asks about.
+        this.adapter?.setCursor('crosshair');
     }
 
     private onDeactivate(): void {
@@ -389,6 +393,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         this.mode = 'hover';
         this.resetStreetview();
         this.removePinMarker();
+        this.adapter?.setCursor('');
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -508,7 +513,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         if (this.pinMarkerAdded) {
             this.adapter.moveMarker(PIN_MARKER_ID, coords);
         } else {
-            this.adapter.addMarker(PIN_MARKER_ID, coords, { color: DATA_TOOL });
+            this.adapter.addMarker(PIN_MARKER_ID, coords, { color: DATA_TOOL, glyph: 'info' });
             this.pinMarkerAdded = true;
         }
     }
