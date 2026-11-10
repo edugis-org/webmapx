@@ -20,10 +20,13 @@ export const TOOL_TIP_CHANGE_EVENT = 'webmapx-tool-tip-change';
 
 export interface ToolTipSource {
     readonly toolTip: string;
+    /** False while the tool is in a view its description no longer fits (see `WebmapxBaseTool.showsDescription`). */
+    readonly showsDescription?: boolean;
 }
 
 export class ToolTipNotifier implements ReactiveController {
     private last = '';
+    private lastShows: boolean | undefined;
 
     constructor(private readonly host: ReactiveControllerHost & HTMLElement & ToolTipSource) {
         host.addController(this);
@@ -32,12 +35,15 @@ export class ToolTipNotifier implements ReactiveController {
     hostConnected(): void {
         // A tool can be re-attached with a different tip than it had; let the panel re-read.
         this.last = '';
+        this.lastShows = undefined;
     }
 
     hostUpdated(): void {
         const tip = this.host.toolTip;
-        if (tip === this.last) return;
+        const shows = this.host.showsDescription;
+        if (tip === this.last && shows === this.lastShows) return;
         this.last = tip;
+        this.lastShows = shows;
         this.host.dispatchEvent(new CustomEvent(TOOL_TIP_CHANGE_EVENT, { bubbles: true, composed: true }));
     }
 }

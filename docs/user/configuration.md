@@ -728,20 +728,20 @@ put its settings in the `tools` section under that same id.
 
 `testpages/setup.html` handles plugins on the **Tools** tab:
 
-1. The **Plugins** section lists the config's plugins and loads them; their
+1. The **Advanced: plugins** section (collapsed, at the bottom of the tab) lists the config's plugins and loads them; their
    tools appear in the toolbar and standalone lists, like built-in tools.
 2. To add one, type its path (relative to the config, e.g.
    `../plugins/bookmarks.js`) and press **Add plugin**. It is written into the
    config's `plugins`. **Remove** takes it out of the config again; its tools
    stay listed until the page is reloaded, since a loaded module cannot be
    unloaded.
-3. Tick the plugin's tool in a toolbar list to place it. If the config has no
+3. Switch on the plugin's tool in a toolbar list to place it. If the config has no
    `tools.<id>` section yet, the plugin's default settings (its template) are
    written into the config — for bookmarks: World, Amsterdam and Eiffel Tower.
-4. Hover the tool and click **⚙** to edit its settings. Simple values get a
+4. Click the tool's **✎** to edit its settings. Simple values get a
    field; lists and objects such as `views` are edited as JSON. **OK** stores
    them in `tools.<id>`, **Reset** returns to what the config had.
-5. **Update preview** shows the result; **Download config** saves it.
+5. **Update preview** shows the result; **Export ▾ → Download config** saves it.
 
 ## API Keys
 
