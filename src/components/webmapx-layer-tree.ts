@@ -1143,7 +1143,9 @@ export class WebmapxLayerTree extends LitElement {
         const nodeContext = this.getChildSelectionContext(node, context, nodeKey);
         this.nodeByKey.set(nodeKey, node);
 
-        if (node.children && node.children.length > 0) {
+        // Having a children array is what makes a node a group, even an empty one: a group
+        // whose layers were all moved out must not turn into a switchable layer.
+        if (Array.isArray(node.children)) {
             // A capabilities child stands in for the layers it lists, as the EduGIS
             // viewer replaced it: its layers sit directly in this group. Drawn as a
             // node of its own it repeated the group's name one level down.

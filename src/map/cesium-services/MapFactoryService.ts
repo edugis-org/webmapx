@@ -291,6 +291,10 @@ export class MapFactoryService implements ISubMapFactory {
         creditContainer.style.display = 'none';
 
         const viewer = new Cesium.Viewer(container, {
+            // Draw only when something changed. Rendering continuously keeps a CPU-only
+            // WebGL (CI, machines without a GPU) fully busy on an idle map.
+            requestRenderMode: true,
+            maximumRenderTimeChange: Infinity,
             animation: false,
             baseLayerPicker: false,
             fullscreenButton: false,

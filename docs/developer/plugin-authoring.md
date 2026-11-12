@@ -76,7 +76,7 @@ reads them as `this.toolsConfig?.<id>`:
 ```
 
 A plugin can register a `configTemplate`: its default config section. In
-`testpages/setup.html` a plugin tool's ⚙ button edits that section (arrays and
+`testpages/setup.html` a plugin tool's ✎ button edits that section (arrays and
 objects as JSON), starting from the template when the config has none, and a
 plugin tool placed on a toolbar without a section gets the template written
 into the config. The bookmarks plugin's template holds World, Amsterdam and the
@@ -99,12 +99,12 @@ validated and its toolbars built, so its tool ids are known at that point. This
 happens on every entry point: `?config=`, a map's `src`, a dropped config, and
 `WebMapX.mount`. A plugin named by several configs on one page is loaded once.
 
-In `testpages/setup.html` the Tools tab has a **Plugins** section: the plugins
+In `testpages/setup.html` the Tools tab has an **Advanced: plugins** section: the plugins
 of the loaded config are loaded, their tools appear in the toolbar and
 standalone lists, and a plugin can be added by URL (it is written into the
 config's `plugins`).
 Config authors' steps (adding a plugin, placing its tool, editing its settings
-with ⚙) are in [configuration.md → Plugins Section](../user/configuration.md#plugins-section).
+with ✎) are in [configuration.md → Plugins Section](../user/configuration.md#plugins-section).
 
 ### Where a plugin may be loaded from
 

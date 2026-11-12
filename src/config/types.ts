@@ -125,6 +125,8 @@ export interface VectorSourceConfig extends SourceConfigBase {
   type: 'vector';
   url?: string;
   tiles?: string[];
+  minzoom?: number;
+  maxzoom?: number;
 }
 
 export interface RasterDemSourceConfig extends SourceConfigBase {
@@ -440,8 +442,22 @@ export interface SearchToolConfig extends ToolConfig {
 }
 
 export interface InfoToolConfig extends ToolConfig {
-  /** Google Maps API key — enables StreetView thumbnail preview in the info panel. */
+  /** Google Maps API key. With one, a pinned result offers Street View; without, it does not. */
   googleApiKey?: string;
+}
+
+export interface StreetPhotosToolConfig extends ToolConfig {
+  /**
+   * Google Maps API key, usually `"{key-google}"`. With one, the panel offers
+   * Google Street View beside Panoramax; without, the tool is Panoramax only.
+   */
+  googleApiKey?: string;
+  /** Panoramax search API. Default: the federated catalogue, `https://api.panoramax.xyz/api`. */
+  apiUrl?: string;
+  /** Panoramax viewer that "Open in Panoramax" goes to. Default: `https://api.panoramax.xyz/`. */
+  viewerUrl?: string;
+  /** The least distance from the clicked spot a photo may be, in metres. Default: 50. */
+  searchDistance?: number;
 }
 
 export interface ThreeDToolConfig extends ToolConfig {
@@ -493,7 +509,8 @@ export interface ToolsConfig {
   insetMap?: InsetMapToolConfig;
   search?: SearchToolConfig;
   info?: InfoToolConfig;
-  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | InfoToolConfig | CompareToolConfig | MegaSliderToolConfig | undefined;
+  'street-photos'?: StreetPhotosToolConfig;
+  [toolName: string]: ToolConfig | MeasureToolConfig | SearchToolConfig | InsetMapToolConfig | ThreeDToolConfig | InfoToolConfig | StreetPhotosToolConfig | CompareToolConfig | MegaSliderToolConfig | undefined;
 }
 
 /**

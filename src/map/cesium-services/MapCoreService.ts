@@ -185,6 +185,10 @@ export class MapCoreService implements IMapCore {
         creditContainer.style.display = 'none';
 
         this.viewer = new Cesium.Viewer(target, {
+            // Draw only when something changed. Rendering continuously keeps a CPU-only
+            // WebGL (CI, machines without a GPU) fully busy on an idle map.
+            requestRenderMode: true,
+            maximumRenderTimeChange: Infinity,
             animation: false,
             baseLayerPicker: false,
             fullscreenButton: false,
