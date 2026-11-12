@@ -339,7 +339,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
      *  layer picker actually lists (drawLayers + not-yet-borrowed catalog layers). */
     @state() private catalogLayerCounts: Partial<Record<GeometryType, number>> = {};
 
-    /** Set the moment "Edit" is pressed on a "From the catalog" option — holds it
+    /** Set the moment "Edit" is pressed on a "Catalog layers" option — holds it
      *  until the confirmation dialog resolves (see `startEditingCatalogLayer`),
      *  so nothing about the layer changes just from a click. */
     @state() private pendingCatalogEditOption: import('./webmapx-draw-layer-dialog').MapLayerOption | null = null;
@@ -378,7 +378,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
      * `Object.keys(store.mapLayers)` from the last `reconcileExternallyDeletedLayers`
      * pass, sorted and joined — lets it tell "a layer was added/removed" apart
      * from the many unrelated dispatches (pointer moves, etc.) that also run
-     * through `store.subscribe`, so a catalog layer's own "From the catalog"
+     * through `store.subscribe`, so a catalog layer's own "Catalog layers"
      * refresh only fires when the map layer set actually changed.
      */
     private lastMapLayerIdsKey = '';
@@ -1863,6 +1863,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                     label: (entry as any).label ?? layerId,
                     properties: (entry as any).properties ?? (data ? this.inferPropertyDefs(data) : undefined),
                     allowedAttributes: (entry as any).attributes?.allowedAttributes ?? undefined,
+                    fromCatalog: this.isCatalogLayer(layerId),
                 });
                 continue;
             }
@@ -1879,9 +1880,25 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                 label: (entry as any).label ?? layerId,
                 properties: (entry as any).properties ?? this.inferPropertyDefs(dataOrUrl),
                 allowedAttributes: (entry as any).attributes?.allowedAttributes ?? undefined,
+                fromCatalog: this.isCatalogLayer(layerId),
             });
         }
         return result;
+    }
+
+    /**
+     * Whether the config declares this layer. Only such a layer is edited as
+     * a copy: the catalog's version is what every other visitor gets, so the
+     * user should be able to compare against it. A layer added at runtime —
+     * a dropped file, a URL, an analysis result — exists only in this
+     * session, and a copy of it is just a second layer to explain.
+     */
+    private isCatalogLayer(layerId: string): boolean {
+        const configured = this.mapHost?.layerDataConfig?.layers as unknown;
+        if (Array.isArray(configured)) {
+            return configured.some(layer => (layer as { id?: unknown })?.id === layerId);
+        }
+        return !!configured && typeof configured === 'object' && layerId in configured;
     }
 
     private async resolveFeatureCollection(dataOrUrl: GeoJSON.FeatureCollection | string): Promise<GeoJSON.FeatureCollection | null> {
@@ -2305,7 +2322,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
         this.confirmedRestingLayerIds.delete(cfg.id);
         // A released catalog-borrowed layer becomes available to borrow
         // again — both the type-picker's per-type counts and this type's
-        // own "From the catalog" list need to catch up, or they keep counting
+        // own "Catalog layers" list need to catch up, or they keep counting
         // it as still borrowed.
         void this.refreshCatalogLayerOptions();
         void this.refreshTypeCatalogCounts();
@@ -2364,7 +2381,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
      * observed present) tells "still being created" apart from "deleted".
      *
      * A *catalog* layer's own entry isn't watched the same way above (it's
-     * not this tool's to delete), but its "From the catalog" row and the
+     * not this tool's to delete), but its "Catalog layers" row and the
      * type-picker's per-type counts still read straight from `mapLayers` —
      * so deleting it via the legend's trash icon (not just hiding it) has to
      * refresh those too, or the removed layer keeps showing as editable.
@@ -2452,7 +2469,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
      * The legend's Undo puts a deleted layer back several seconds later —
      * after `REBUILD_GRACE_MS` has already ruled it deleted. Without this the
      * layer came back as a stranger: gone from this tool's list, offered
-     * under "From the catalog", and editing it made a copy.
+     * under "Catalog layers", and editing it made a copy.
      */
     private rememberReleasedLayer(cfg: DrawLayerConfig): void {
         this.forgetReleasedLayer(cfg.id);
@@ -2535,7 +2552,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
      * same one click either way, and auto-restoring would need the user to
      * re-discover it was ever hidden in the first place.
      */
-    private startEditingCatalogLayer(option: import('./webmapx-draw-layer-dialog').MapLayerOption): void {
+    private startEditingCatalogLayer(option: import('./webmapx-draw-layer-dialog').MapLayerOption, adopt = false): void {
         this.pendingCatalogEditOption = null;
         if (!this.pickedType || !this.adapter) return;
         const type = this.pickedType;
@@ -2547,7 +2564,7 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             // and drops it from the displayed name entirely, so a suffix
             // form would show correctly in this panel but silently lose
             // "(copy)" in the Legend.
-            name: `Copy of ${option.label}`,
+            name: adopt ? option.label : `Copy of ${option.label}`,
             properties: option.properties?.map(p => ({ ...p })) ?? base.properties,
             // No borrowedSourceId: `applyLayerConfig` then treats this as a
             // brand-new *owned* layer (its own perm layer), not a borrow
@@ -2555,13 +2572,51 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             // otherwise-empty layer the copy's starting content instead.
         };
         const seedData = this.adapter.getSourceData(option.sourceId) ?? undefined;
+        // The layer just above the original, so an adopted layer can take the
+        // original's place in the stack rather than jumping to the top.
+        const order = Object.keys(this.adapter.store.getState().mapLayers ?? {});
+        const above = order[order.indexOf(option.layerId) + 1];
         this.adapter.setLayerVisibility(option.layerId, false);
         // Unlike "New layer" (empty, so straight to drawing), this layer
         // already has features on the map — land in 'select' so the first
         // thing the user can do is click one, same as "Edit" on a draw layer
         // (`startEditingLayer`).
         this.pendingMode = 'select';
-        void this.applyLayerConfig(cfg, seedData).then(() => this.copyLayerStyle(option.layerId, cfg));
+        void this.applyLayerConfig(cfg, seedData)
+            .then(() => this.copyLayerStyle(option.layerId, cfg))
+            .then(() => { if (adopt) this.replaceAdoptedOriginal(option.layerId, cfg, above); });
+    }
+
+    /**
+     * Adopting a runtime layer is a copy whose original then goes: the user
+     * asked to edit *their* layer, and two layers of the same name — one of
+     * them hidden — would be the copy flow under another name. The original's
+     * data was already read as the seed and its style copied, so nothing of
+     * it is lost; the adopted layer moves into its slot in the stack.
+     */
+    /**
+     * "Remove layer" on a layer the user added themselves (dropped file, URL,
+     * analysis result) before it was ever edited. It sits among their drawn
+     * layers, so it gets the same trash they have — before, it only appeared
+     * once Edit had turned the layer into a draw layer.
+     */
+    private removeOwnLayer(option: import('./webmapx-draw-layer-dialog').MapLayerOption): void {
+        if (option.fromCatalog) return;
+        this.dispatch('webmapx-remove-layer', option.layerId);
+        void this.refreshCatalogLayerOptions();
+        void this.refreshTypeCatalogCounts();
+    }
+
+    private replaceAdoptedOriginal(originalLayerId: string, cfg: DrawLayerConfig, above: string | undefined): void {
+        if (!this.adapter) return;
+        if (this.adapter.store.getState().mapLayers?.[originalLayerId]) {
+            this.dispatch('webmapx-remove-layer', originalLayerId);
+        }
+        if (above && above !== drawMapLayerId(cfg.id) && this.adapter.store.getState().mapLayers?.[above]) {
+            this.adapter.moveLayer(drawMapLayerId(cfg.id), above);
+        }
+        void this.refreshCatalogLayerOptions();
+        void this.refreshTypeCatalogCounts();
     }
 
     /**
@@ -4797,9 +4852,14 @@ export class WebmapxDrawTool extends WebmapxModalTool {
     private renderLayerPicker() {
         const type = this.pickedType!;
         const layers = this.drawLayers.filter(l => l.type === type);
-        const catalogOptions = this.catalogLayerOptions;
+        // A layer the user added themselves (dropped file, URL, analysis
+        // result) is listed with their drawn layers and edited in place; only
+        // a catalog layer is edited as a copy. Which section a row is in is
+        // therefore what tells the user what Edit will do.
+        const ownOptions = this.catalogLayerOptions.filter(o => !o.fromCatalog);
+        const catalogOptions = this.catalogLayerOptions.filter(o => o.fromCatalog);
         const label = typeLabelPlural(type);
-        const nothingToShow = layers.length === 0 && catalogOptions.length === 0;
+        const nothingToShow = layers.length === 0 && this.catalogLayerOptions.length === 0;
         // The button's position mirrors which card is selected — left for
         // Point, centered for Line, right for Polygon — rather than adding a
         // fourth way (after the type grid and the highlighted card) to show
@@ -4815,9 +4875,9 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             </div>
             ${nothingToShow ? html`<p class="empty-state">No ${label.toLowerCase()} layers yet.</p>` : html`
                 <div class="layer-list">
-                    ${layers.length > 0 ? html`
+                    ${layers.length + ownOptions.length > 0 ? html`
                         <section class="panel-section">
-                            ${catalogOptions.length > 0 ? html`<h3 class="section-heading">Your layers</h3>` : ''}
+                            ${catalogOptions.length > 0 ? html`<h3 class="section-heading">My ${type === 'Point' ? 'point' : type === 'LineString' ? 'line' : 'polygon'} layers</h3>` : ''}
                             <div class="layer-group">
                                 ${layers.map(l => html`
                                     <div class="layer-row">
@@ -4837,12 +4897,29 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                                         </sl-tooltip>
                                     </div>
                                 `)}
+                                ${ownOptions.map(opt => html`
+                                    <div class="layer-row">
+                                        <span class="color-dot color-dot--${swatchShape(type)}" style="${swatchStyle(MAP_LAYER_COLOR, type)}"></span>
+                                        <span class="layer-name-wrap">
+                                            <span class="layer-name">${opt.label}</span>
+                                        </span>
+                                        <sl-button size="small" @click=${() => this.startEditingCatalogLayer(opt, true)}>
+                                            <sl-icon slot="prefix" name="pencil"></sl-icon>
+                                            Edit
+                                        </sl-button>
+                                        <sl-tooltip content="Remove layer">
+                                            <sl-icon-button name="trash" class="remove-layer-btn" label="Remove ${opt.label}"
+                                                @click=${(e: Event) => { e.stopPropagation(); this.removeOwnLayer(opt); }}>
+                                            </sl-icon-button>
+                                        </sl-tooltip>
+                                    </div>
+                                `)}
                             </div>
                         </section>
                     ` : ''}
                     ${catalogOptions.length > 0 ? html`
                         <section class="panel-section">
-                            <h3 class="section-heading">From the catalog</h3>
+                            <h3 class="section-heading">Catalog layers</h3>
                             <div class="layer-group">
                                 ${catalogOptions.map(opt => html`
                                     <div class="layer-row">
@@ -4851,8 +4928,8 @@ export class WebmapxDrawTool extends WebmapxModalTool {
                                             <span class="layer-name">${opt.label}</span>
                                         </span>
                                         <sl-button size="small" @click=${() => { this.pendingCatalogEditOption = opt; }}>
-                                            <sl-icon slot="prefix" name="pencil"></sl-icon>
-                                            Edit
+                                            <sl-icon slot="prefix" name="files"></sl-icon>
+                                            Edit a copy
                                         </sl-button>
                                     </div>
                                 `)}
