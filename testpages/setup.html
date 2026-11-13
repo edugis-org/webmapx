@@ -1110,7 +1110,9 @@
     import { toStoryStepState } from '/src/config/story-step-state.ts';
     import { TOOL_PALETTE, ToolAccentSequence } from '/src/utils/tool-accent.ts';
 
-    const LAYER_REPO_RAW_BASE = 'https://raw.githubusercontent.com/edugis-org/webmapx-layer-repository/main/layers';
+    // The Pages site, not raw.githubusercontent: the repository's deploy workflow
+    // generates index.json, so it does not exist in the git tree.
+    const LAYER_REPO_RAW_BASE = 'https://edugis-org.github.io/webmapx-layer-repository/layers';
 
     const STORAGE_KEY = 'webmapx-setup-config';
 
