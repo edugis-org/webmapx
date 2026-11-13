@@ -45,10 +45,18 @@ jobs:
     # Pull requests only: a push to main has already been through this on its
     # pull request, and every-push browser runs are not worth the wait.
     if: github.event_name == 'pull_request'
-    # The whole set now takes over twenty minutes on a runner (Cesium suites are
-    # slow there). Forty is still bounded — a hung browser or a wait that never
-    # resolves cannot run for hours.
-    timeout-minutes: 40
+    # The whole set took over twenty minutes on one runner, one run at a time.
+    # Split over four runners that work at the same time (the repository is
+    # public, so parallel jobs cost nothing). Within a shard the runner picks how
+    # many runs to keep in flight from the cores and free memory it finds (two on
+    # a four-core runner). Every shard is still bounded on its own —
+    # a hung browser or a wait that never resolves cannot run for hours.
+    timeout-minutes: 20
+    strategy:
+      # Every shard reports, so one red shard does not hide another.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
 
     steps:
       - uses: actions/checkout@v5
@@ -81,5 +89,5 @@ jobs:
 
       # The suites need no network: they run against the local dev server and
       # tolerate the external tile requests failing, which they do on a runner.
-      - name: UI tests
-        run: npm run ui-test
+      - name: UI tests (shard ${{ matrix.shard }}/4)
+        run: node ./scripts/run-ui-tests.mjs --all --shard ${{ matrix.shard }}/4
