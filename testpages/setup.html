@@ -2139,8 +2139,10 @@
             layersEl.textContent = 'Loading…';
             try {
               const file = await loadRepoProvider(entry.path);
+              // A provider file groups its layers per service (services[].layers).
+              const fileLayers = file.layers ?? (file.services ?? []).flatMap(s => s.layers ?? []);
               layersEl.innerHTML = '';
-              for (const layer of file.layers ?? []) {
+              for (const layer of fileLayers) {
                 const row = document.createElement('div');
                 row.className = 'repo-layer-row';
                 const title = document.createElement('span');
@@ -2184,7 +2186,7 @@
                 row.appendChild(addBtn);
                 layersEl.appendChild(row);
               }
-              if (!(file.layers ?? []).length) layersEl.textContent = 'No layers in this provider file.';
+              if (!fileLayers.length) layersEl.textContent = 'No layers in this provider file.';
             } catch (err) {
               layersEl.textContent = `Failed to load: ${err.message}`;
             }
