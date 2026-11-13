@@ -49,6 +49,8 @@ const MEMORY_PER_RUN = 750 * 1024 * 1024;
 const CORES_PER_RUN = 3;
 // Left over for the dev server, the OS and whatever else the machine is doing.
 const MEMORY_RESERVE = 1024 * 1024 * 1024;
+// Cesium runs in flight at once, whatever `--jobs` says; see the worker below.
+const MAX_CESIUM_IN_FLIGHT = 2;
 
 /**
  * How many runs to keep in flight. `auto` takes whichever of cores and
@@ -402,8 +404,37 @@ async function run() {
     // says it is short.
     const expected = ({ suiteId, engine }) => timings[`${suiteId}:${engine}`] ?? Infinity;
     const queue = [...tasks].sort((a, b) => expected(b) - expected(a));
+
+    // Cesium draws on the CPU here (SwiftShader), and four Cesium runs at once
+    // starve each other: with only Cesium suites queued, three random suites
+    // failed per run (timeouts, a 5 s arrow-key move) and each passed on its own.
+    // A worker that would start a third Cesium run takes the next other engine
+    // instead, and waits only when nothing else is left.
+    let cesiumInFlight = 0;
+    const waitingForCesiumSlot = [];
+    const takeNext = () => {
+      const index = queue.findIndex((task) => task.engine !== 'cesium' || cesiumInFlight < MAX_CESIUM_IN_FLIGHT);
+      return index === -1 ? null : queue.splice(index, 1)[0];
+    };
     const worker = async () => {
-      while (queue.length > 0) await runTask(queue.shift());
+      while (queue.length > 0) {
+        const task = takeNext();
+        if (!task) {
+          await new Promise((resolve) => waitingForCesiumSlot.push(resolve));
+          continue;
+        }
+        if (task.engine !== 'cesium') {
+          await runTask(task);
+          continue;
+        }
+        cesiumInFlight++;
+        try {
+          await runTask(task);
+        } finally {
+          cesiumInFlight--;
+          waitingForCesiumSlot.splice(0).forEach((resolve) => resolve());
+        }
+      }
     };
     const { jobs, reason } = resolveJobs(args.jobs);
     process.stdout.write(`[ui-test] ${tasks.length} runs, ${jobs} at a time (${reason})\n`);
