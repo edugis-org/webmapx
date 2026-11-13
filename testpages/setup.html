@@ -1112,7 +1112,7 @@
 
     // The Pages site, not raw.githubusercontent: the repository's deploy workflow
     // generates index.json, so it does not exist in the git tree.
-    const LAYER_REPO_RAW_BASE = 'https://edugis-org.github.io/webmapx-layer-repository/layers';
+    const LAYER_REPO_BASE = 'https://edugis-org.github.io/webmapx-layer-repository/layers';
 
     const STORAGE_KEY = 'webmapx-setup-config';
 
@@ -2067,7 +2067,7 @@
 
     function loadRepoIndex() {
       if (!repoIndexPromise) {
-        repoIndexPromise = fetch(`${LAYER_REPO_RAW_BASE}/index.json`).then(r => {
+        repoIndexPromise = fetch(`${LAYER_REPO_BASE}/index.json`).then(r => {
           if (!r.ok) throw new Error(`Repository index fetch failed (${r.status})`);
           return r.json();
         });
@@ -2077,7 +2077,7 @@
 
     async function loadRepoProvider(path) {
       if (!repoProviderCache.has(path)) {
-        repoProviderCache.set(path, fetch(`${LAYER_REPO_RAW_BASE}/${path}`).then(r => {
+        repoProviderCache.set(path, fetch(`${LAYER_REPO_BASE}/${path}`).then(r => {
           if (!r.ok) throw new Error(`Provider file fetch failed (${r.status})`);
           return r.json();
         }));
