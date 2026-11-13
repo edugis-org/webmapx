@@ -65,7 +65,11 @@ export async function run({ page, baseUrl }) {
 
   const nudge = await fly(page, await nudgeTarget(page));
   if (nudge.ms === null) problems.push('an arrow-key-sized move never arrived');
-  else if (nudge.ms > 1200) problems.push(`an arrow-key-sized move took ${nudge.ms} ms`);
+  // The hop itself is 0.5 s (Cesium's SHORT_HOP_SECONDS); the regression this
+  // guards against is Cesium's own minimum of about two seconds. 1.8 s sits
+  // between the two with room for a loaded machine: at 1.2 s the check failed
+  // with four suites running at once (1225 ms) while the hop was fine.
+  else if (nudge.ms > 1800) problems.push(`an arrow-key-sized move took ${nudge.ms} ms`);
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   try {
