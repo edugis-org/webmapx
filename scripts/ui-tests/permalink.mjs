@@ -179,6 +179,33 @@ export async function run({ page, engine, baseUrl }) {
     }, undefined, { timeout: 30_000 });
     console.log('    Layer "osm" present via s.0=');
   });
+
+  // ── Part 4: a resized map keeps its zoom ─────────────────────────────────
+  // Cesium kept its camera height instead, so a canvas that widened after the
+  // view was restored (a page still laying out on a loaded machine) reported a
+  // zoom one or two levels deeper than the permalink asked for.
+
+  await step('zoom survives a window resize', async () => {
+    const readZoom = () => page.evaluate(async () => {
+      const map = document.querySelector('webmapx-map');
+      const adapter = await map?.getAdapterAsync?.();
+      return adapter?.getViewportState?.()?.zoom ?? null;
+    });
+    const original = page.viewportSize();
+    const before = await readZoom();
+    try {
+      // A different final size, not a round trip: going back to the starting size
+      // restores the starting zoom even when every step in between was wrong.
+      await page.setViewportSize({ width: 640, height: 600 });
+      await page.waitForTimeout(500);
+      const after = await readZoom();
+      if (before === null || after === null) fail('Could not read zoom from adapter');
+      if (Math.abs(after - before) > 0.05) fail(`Zoom changed on resize: ${before.toFixed(2)} → ${after.toFixed(2)}`);
+      console.log(`    Zoom after resize: ${after.toFixed(2)}`);
+    } finally {
+      if (original) await page.setViewportSize(original);
+    }
+  });
 }
 
 export const engines = ['maplibre', 'openlayers', 'leaflet', 'cesium'];
