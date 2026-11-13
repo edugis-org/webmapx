@@ -1,0 +1,17 @@
+//#region src/theme/data-colors.ts
+var e = "#0f62fe", t = "#ffffff", n = "#2563eb", r = "#22c55e", i = "#e63946", a = "#000000", o = [
+	"#e6194b",
+	"#3cb44b",
+	"#ffe119",
+	"#4363d8",
+	"#f58231",
+	"#911eb4",
+	"#46f0f0",
+	"#f032e6",
+	"#bcf60c",
+	"#fabebe",
+	"#008080",
+	"#e6beff"
+];
+//#endregion
+export { r as a, n as i, i as n, e as o, a as r, t as s, o as t };

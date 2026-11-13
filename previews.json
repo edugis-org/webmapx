@@ -1,0 +1,27 @@
+[
+  {
+    "slug": "main",
+    "branch": "main",
+    "sha": "fe37b646c41a7e933c1446b71402c7e747a1b0a0",
+    "deployed": "2026-11-13T17:03:31.640Z",
+    "bytes": 73192377,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "worktree-sam-tool",
+    "branch": "worktree-sam-tool",
+    "sha": "cfd8ad6f1582c9aa5a0fa80c4c05ddb071c96dbf",
+    "deployed": "2026-10-09T14:09:26.458Z",
+    "bytes": 70498352,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835,
+      "39f9f0894d478800487e.wasm": 26781914
+    }
+  }
+]

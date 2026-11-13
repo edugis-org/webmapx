@@ -1,0 +1,32 @@
+{
+  "id": "street-photos",
+  "label": "Street photos",
+  "tagline": "Shows a street-level photo of a spot on the map.",
+  "status": "stable",
+  "element": "webmapx-street-photos-tool",
+  "placement": "toolbar",
+  "configType": "street-photos",
+  "demoConfig": "config/docs/tools/street-photos.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-street-photos-tool.ts",
+    "src/utils/panoramax.ts",
+    "src/utils/google-street-view.ts"
+  ],
+  "tests": [
+    "tests/panoramax.test.ts",
+    "tests/google-street-view.test.ts"
+  ],
+  "related": [
+    "info",
+    "layerOverview"
+  ],
+  "sections": {
+    "what": "Street photos answers \"what does it look like there?\". Click a spot and the\npanel shows a photo taken at street level, looking at that spot.\n\nThe photos come from one of two services:\n\n- **Panoramax**, the default. An open, federated collection of street photos.\n  It needs no account or API key, the photos are openly licensed, and a click\n  goes to an open project rather than an advertising company. Coverage depends\n  on what people have uploaded, so some places have none.\n- **Google Street View**, offered only when the config has a Google API key.\n  Panoramax stays the default, because every Google request sends the clicked\n  position to Google.\n\nWhile the tool is open with Panoramax chosen, the map shows where photos exist:\nlines along the photographed routes, and one dot per photo at street level. This\nis a layer called \"Panoramax photos\". It is listed in the legend while the tool\nis open, goes away when the tool closes, and is not stored in permalinks.\n\nGoogle allows its coverage layer only through its own map library, so with\nGoogle chosen there is no coverage map.",
+    "use": "1. Open Street photos from the toolbar.\n2. Zoom in until the photographed routes appear. Further out than zoom level 6\n   there is nothing to show, and a click does not search.\n3. Click a route, or click a photo dot to see exactly that photo. A click\n   anywhere else looks for the nearest photo facing that spot.\n4. Use **Colour by** to color the routes by coverage, by date, or by camera.\n5. Choose **Open larger picture** to enlarge it, or **Open 360 view** for a 360°\n   photo, which you can turn by dragging or with the arrow keys.\n6. In the enlarged view, **Open in Panoramax** or **Open in Google Street View**\n   takes you to that service. **Escape** closes the enlarged view first and the\n   panel only on the next press.\n\nIf the config has a Google key, **Photos from** switches between the services.",
+    "embed": "Add `street-photos` to a toolbar. Panoramax then works with no further\nconfiguration. The older name `panoramax` is still accepted.\n\nTo offer Google Street View, give the tool a key:\n\n```json\n\"tools\": {\n  \"street-photos\": { \"googleApiKey\": \"{key-google}\" }\n}\n```\n\nThe key needs the **Street View Static API** enabled and a billing account.\nIt is visible in every visitor's browser, so restrict it to that API and to your\nown sites. A click first asks Google whether there is imagery, which is free;\nonly then are images loaded, which Google bills per image.\n\nThis key is separate from the info tool's `googleApiKey`, which puts Street View\nin the info panel.\n\nOther options are `searchDistance` (metres, default 50), and `apiUrl` and\n`viewerUrl`, which point the tool at one Panoramax instance instead of all of\nthem.\n\nThe coverage map needs vector tiles, which MapLibre and OpenLayers draw. On\nLeaflet and Cesium the panel says the map cannot show coverage, and clicking\nstill works.",
+    "extend": "`utils/street-photo.ts` is the one photo model both services produce, so the\npanel does not know which service answered. `utils/panoramax.ts` and\n`utils/google-street-view.ts` are pure functions for URLs, parsing and colors.\n\nThe search uses Panoramax's `place_position`, which finds pictures looking at a\nspot rather than pictures merely taken near it. How far it looks follows the\nzoom: about 12 pixels on screen, between `searchDistance` and 500 m.\n\nThe 360° viewer is Pannellum. It is loaded the first time someone enlarges a\n360° photo, so a visitor who never does pays nothing for it.\n\nPanoramax's density grid is left out on purpose: it draws an area with one photo\nas large as one with thousands."
+  },
+  "page": "https://webmapx.com/tools/street-photos.html",
+  "webmapxCommit": "fe37b646c41a7e933c1446b71402c7e747a1b0a0"
+}

@@ -1,0 +1,27 @@
+{
+  "version": 8,
+  "name": "OsmRaster",
+  "id": "ciwf3o3u2008z2pmsdfasxq",
+  "sources": {
+    "osmraster": {
+      "type" : "raster",
+      "tileSize" : 256,
+          "tiles": [
+              "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+          ],
+          "attribution":"&copy; <a href=\"https://www.openstreetmap.org/about\" target=\"copyright\">OpenStreetMap contributors</a>",
+          "maxzoom": 19
+    }
+  },
+  "layers": [
+    {
+      "id" : "openstreetmap",
+      "type" : "raster",
+      "metadata" : {
+        "legendurl" : "https://mapserver.edugis.nl/legends/wereld/osm_logo.png",
+        "abstract":"voor meer informatie zie https://openstreetmap.org"
+      },
+      "source" : "osmraster"
+    }
+  ]
+}

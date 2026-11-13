@@ -1,0 +1,232 @@
+{
+  "version": 0,
+  "apiKeysFile": "../../apikeys.json",
+  "project": {
+    "id": "docs-compare",
+    "title": "Compare",
+    "description": "Documentation demo for the compare tool: freeze the map as it is, then keep changing it and drag the handle to see the difference.",
+    "language": "en"
+  },
+  "map": {
+    "label": "Compare",
+    "type": "maplibre",
+    "center": [
+      4.9,
+      52.37
+    ],
+    "zoom": 9
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "osm-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "countries-source",
+        "type": "vector",
+        "bounds": [
+          -180,
+          -89,
+          180,
+          83.6341006530001
+        ],
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_admin_0_countries/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,pop_est&include_nulls=0"
+        ],
+        "attribution": "Natural Earth"
+      },
+      {
+        "id": "s2cloudless-2018-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2018_3857/default/g/{z}/{y}/{x}.jpg"
+        ],
+        "tileSize": 256,
+        "maxzoom": 14,
+        "attribution": "<a href=\"https://s2maps.eu\" target=\"_blank\" rel=\"noopener\">Sentinel-2 cloudless 2018</a> by <a href=\"https://eox.at\" target=\"_blank\" rel=\"noopener\">EOX IT Services GmbH</a> (Contains modified Copernicus Sentinel data 2018)"
+      },
+      {
+        "id": "s2cloudless-2024-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg"
+        ],
+        "tileSize": 256,
+        "maxzoom": 14,
+        "attribution": "<a href=\"https://s2maps.eu\" target=\"_blank\" rel=\"noopener\">Sentinel-2 cloudless 2024</a> by <a href=\"https://eox.at\" target=\"_blank\" rel=\"noopener\">EOX IT Services GmbH</a> (Contains modified Copernicus Sentinel data 2024)"
+      }
+    ],
+    "layers": [
+      {
+        "id": "osm",
+        "type": "raster",
+        "title": "OpenStreetMap",
+        "source": "osm-source",
+        "metadata": {
+          "reference": true,
+          "swatch": "#f2efe9",
+          "abstract": "Plain OpenStreetMap raster tiles, so there is something recognisable under whatever is being compared."
+        }
+      },
+      {
+        "id": "countries",
+        "type": "fill",
+        "title": "Countries — population",
+        "source": "countries-source",
+        "source-layer": "public.ne_10m_admin_0_countries",
+        "paint": {
+          "fill-color": "#4f86a8",
+          "fill-opacity": 0.75,
+          "fill-outline-color": "#1d3f56"
+        },
+        "metadata": {
+          "title": "Countries — population",
+          "abstract": "Natural Earth country polygons carrying a population estimate (<code>pop_est</code>). Turn it on or off, or restyle it, once the comparison has started: the left half keeps what it looked like at that moment.",
+          "attributes": {
+            "translations": [
+              {
+                "name": "name",
+                "translation": "country",
+                "unit": ""
+              },
+              {
+                "name": "pop_est",
+                "translation": "population",
+                "unit": " inh"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "s2cloudless-2018",
+        "type": "raster",
+        "title": "Satellite 2018 (Sentinel-2 cloudless)",
+        "source": "s2cloudless-2018-source",
+        "metadata": {
+          "title": "Satellite 2018 (Sentinel-2 cloudless)",
+          "swatch": "#3f5233",
+          "abstract": "Cloudless mosaic of Copernicus Sentinel-2 imagery for 2018, worldwide, published by EOX. Free to use with attribution and needs no API key. Turn one year on before the freeze and the other after it to sweep six years of change across the handle."
+        }
+      },
+      {
+        "id": "s2cloudless-2024",
+        "type": "raster",
+        "title": "Satellite 2024 (Sentinel-2 cloudless)",
+        "source": "s2cloudless-2024-source",
+        "metadata": {
+          "title": "Satellite 2024 (Sentinel-2 cloudless)",
+          "swatch": "#3f5233",
+          "abstract": "Cloudless mosaic of Copernicus Sentinel-2 imagery for 2024, worldwide, published by EOX. Free to use with attribution and needs no API key. Turn one year on before the freeze and the other after it to sweep six years of change across the handle."
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeLayers": [
+      {
+        "ref": "osm",
+        "visible": true
+      },
+      {
+        "ref": "s2cloudless-2018",
+        "visible": true
+      }
+    ]
+  },
+  "tools": {
+    "compare": {
+      "type": "compare",
+      "enabled": true,
+      "labels": {
+        "reference": "before",
+        "live": "now"
+      },
+      "initialSplit": 50
+    },
+    "layerOverview": {
+      "type": "layerOverview",
+      "enabled": true
+    },
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "items": [
+        {
+          "type": "compare",
+          "id": "compare",
+          "enabled": true
+        },
+        {
+          "type": "layerTree",
+          "id": "layerTree",
+          "enabled": true,
+          "title": "Catalog",
+          "icon": "layers",
+          "tree": [
+            {
+              "label": "Base map",
+              "selectionMode": "single",
+              "selectionGroup": "basemap",
+              "allowNone": false,
+              "expanded": true,
+              "children": [
+                {
+                  "layerId": "osm"
+                }
+              ]
+            },
+            {
+              "label": "Satellite imagery",
+              "expanded": true,
+              "children": [
+                {
+                  "layerId": "s2cloudless-2018"
+                },
+                {
+                  "layerId": "s2cloudless-2024"
+                }
+              ]
+            },
+            {
+              "label": "Data layers",
+              "expanded": true,
+              "children": [
+                {
+                  "layerId": "countries"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "layerOverview",
+          "id": "layerOverview",
+          "enabled": true
+        }
+      ]
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "attribution": {
+      "type": "attribution",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    }
+  }
+}

@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <link rel="icon" href="../favicon.png">
+  <title>WebMapX Setup</title>
+  <!-- For the tool palette tokens the Style tab's swatches are drawn with. -->
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.4rem; margin-bottom: 1.5rem; }
+    .tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid #ddd; margin-bottom: 1.25rem; }
+    .tab-btn {
+      background: none; border: none; padding: 0.5rem 0.9rem; font-size: 0.9rem;
+      cursor: pointer; color: #666; border-bottom: 2px solid transparent; border-radius: 0;
+    }
+    .tab-btn:hover { color: #0f62fe; }
+    .tab-btn.active { color: #0f62fe; border-bottom-color: #0f62fe; font-weight: 600; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .placeholder { color: #888; font-style: italic; padding: 2rem 0; }
+    .layers-section { margin-bottom: 1.75rem; }
+    .layers-section h2 { font-size: 1rem; margin: 0 0 0.6rem; color: #333; }
+    .map-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.6rem 1rem; }
+    .map-form-grid label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; color: #555; }
+    .map-form-grid input, .map-form-grid select {
+      padding: 0.35rem 0.5rem; font-size: 0.85rem; border: 1px solid #ccc; border-radius: 4px;
+    }
+    .map-checkbox-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; margin-bottom: 0.6rem; cursor: pointer; }
+    #map-maxbounds-fields.disabled { opacity: 0.45; pointer-events: none; }
+    .map-preview-hint { margin: 0.9rem 0 0.4rem; }
+    .map-preview { width: 100%; height: 380px; border: 1px solid #ccc; border-radius: 4px; display: block; }
+
+    /* Stories tab */
+    .story-toolbar { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.6rem; }
+    .story-toolbar select { flex: 1; max-width: 320px; padding: 0.3rem; }
+    .story-editor { margin-top: 0.8rem; }
+    .story-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.8rem; }
+    .story-column h3, .step-editor h3 { font-size: 0.85rem; margin: 0 0 0.4rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+    .chapter-meta { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.5rem; font-size: 0.8rem; }
+    .chapter-meta input { width: 100%; box-sizing: border-box; }
+    .step-editor h4 { font-size: 0.8rem; margin: 0.8rem 0 0.3rem; color: #555; }
+    .btn-add-small { font-size: 0.75rem; padding: 0.15rem 0.5rem; cursor: pointer; }
+    .story-list { display: flex; flex-direction: column; gap: 0.2rem; max-height: 260px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; padding: 0.3rem; }
+    .story-list-row { display: flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.4rem; border-radius: 3px; cursor: pointer; font-size: 0.85rem; }
+    .story-list-row:hover { background: #f5f7fb; }
+    .story-list-row.selected { background: #e5edff; font-weight: 600; }
+    .story-list-row .row-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .story-list-row .row-remove { color: #b00; cursor: pointer; font-size: 0.8rem; }
+    .step-editor { margin-top: 1rem; border-top: 1px solid #eee; padding-top: 0.8rem; }
+    .step-block-label { display: block; font-size: 0.85rem; margin: 0.5rem 0; }
+    .step-block-label textarea { width: 100%; box-sizing: border-box; margin-top: 0.2rem; font-family: inherit; }
+    .step-actions { display: flex; gap: 0.5rem; margin-top: 0.8rem; flex-wrap: wrap; }
+    .btn-danger { color: #b00; }
+    .layer-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.2rem 0.3rem; font-size: 0.82rem; }
+    .layer-row .layer-id { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .layer-row input[type=number] { width: 4.5rem; }
+    .map-preview-actions { display: flex; gap: 0.6rem; margin-top: 0.5rem; }
+    /* Style tab */
+    .style-toolbar { margin: 0 0 1.1rem; }
+    .style-toolbar h3 { font-size: 0.9rem; margin: 0 0 0.4rem; color: #333; }
+    .style-tool-rows { display: grid; grid-template-columns: auto 1fr auto auto; gap: 0.3rem 0.7rem; align-items: center; }
+    .style-swatch { width: 1.4rem; height: 1.4rem; border-radius: 6px; border: 1px solid rgb(0 0 0 / .15); }
+    .style-tool-name { font-size: 0.85rem; }
+    .style-tool-rows select { padding: 0.25rem 0.4rem; font-size: 0.8rem; border: 1px solid #ccc; border-radius: 4px; }
+    .style-tool-rows input[type=color] { width: 2.2rem; height: 1.6rem; padding: 0; border: 1px solid #ccc; border-radius: 4px; }
+    /* Keeps its grid cell when hidden, so the rows stay aligned. */
+    .style-tool-rows input[type=color][hidden] { display: block; visibility: hidden; }
+    .style-chosen-warning { background: #fff7e0; border: 1px solid #e8c766; border-radius: 4px; padding: 0.5rem 0.7rem; font-size: 0.85rem; margin: 0 0 0.8rem; }
+    .style-chosen-warning button { margin-left: 0.4rem; }
+    .btn-map-sync {
+      background: #0f62fe; color: #fff; border: none; border-radius: 4px;
+      font-size: 0.8rem; padding: 0.4rem 0.9rem; cursor: pointer;
+    }
+    .btn-map-sync:hover { background: #0353e9; }
+    .btn-map-refresh { background: #e0e0e0; color: #333; }
+    .btn-map-refresh:hover { background: #c6c6c6; }
+    .section-hint { font-size: 0.75rem; font-weight: normal; color: #888; text-transform: none; letter-spacing: normal; }
+    .active-layer-row {
+      display: flex; align-items: center; gap: 0.4rem; padding: 0.15rem 0;
+    }
+    .active-layer-row .layer-title { flex: 1; }
+    .active-layer-row .layer-remove {
+      background: none; border: none; color: #999; cursor: pointer; font-size: 0.9rem;
+      padding: 0 0.3rem; line-height: 1;
+    }
+    .active-layer-row .layer-remove:hover { color: #c00; }
+    .catalog-search {
+      width: 100%; box-sizing: border-box; padding: 0.4rem 0.6rem; margin-bottom: 0.6rem;
+      border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem;
+    }
+    .btn-add-layer {
+      background: #0f62fe; color: #fff; border: none; border-radius: 4px;
+      font-size: 0.8rem; padding: 0.35rem 0.8rem; cursor: pointer; margin-bottom: 0.6rem;
+    }
+    .btn-add-layer:hover { background: #0353e9; }
+    .add-layer-panel {
+      border: 1px solid #ddd; border-radius: 6px; padding: 0.7rem; margin-bottom: 0.8rem; background: #fafbfc;
+    }
+    .add-layer-tabs { display: flex; gap: 0.3rem; margin-bottom: 0.6rem; }
+    .add-layer-tab {
+      background: none; border: 1px solid transparent; border-bottom: 2px solid transparent;
+      padding: 0.3rem 0.6rem; font-size: 0.8rem; color: #666; cursor: pointer;
+    }
+    .add-layer-tab.active { color: #0f62fe; border-bottom-color: #0f62fe; font-weight: 600; }
+    .add-layer-source { display: none; }
+    .add-layer-source.active { display: block; }
+    .add-layer-source input[type=search], .add-layer-source input[type=text] {
+      width: 100%; box-sizing: border-box; padding: 0.35rem 0.5rem; font-size: 0.8rem;
+      border: 1px solid #ccc; border-radius: 4px;
+    }
+    .add-layer-source .urlbox { display: flex; gap: 0.4rem; }
+    .add-layer-source .urlbox input { flex: 1; }
+    .discover-error { color: #c00; font-size: 0.75rem; margin-top: 0.3rem; }
+    .add-layer-results { margin-top: 0.5rem; max-height: 260px; overflow-y: auto; }
+    .repo-provider { border-bottom: 1px solid #eee; padding: 0.3rem 0; }
+    .repo-provider-header {
+      display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.8rem; padding: 0.2rem 0;
+    }
+    .repo-provider-header .provider-name { flex: 1; font-weight: 600; }
+    .repo-provider-layers { padding-left: 0.9rem; display: none; }
+    .repo-provider-layers.open { display: block; }
+    .repo-layer-row, .discover-layer-row {
+      display: flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0; font-size: 0.8rem;
+    }
+    .repo-layer-row .layer-title, .discover-layer-row .layer-title { flex: 1; }
+    .catalog-group { margin-bottom: 0.3rem; }
+    .catalog-group > summary {
+      cursor: pointer; font-size: 0.8rem; color: #777; text-transform: uppercase;
+      letter-spacing: .04em; padding: 0.25rem 0; user-select: none;
+    }
+    .catalog-group > summary:hover { color: #0f62fe; }
+    .catalog-group .tool-list { padding-left: 0.6rem; }
+    .catalog-group[hidden] { display: none; }
+    .type-badge {
+      display: inline-block; font-size: 0.65rem; text-transform: uppercase; letter-spacing: .03em;
+      background: #eef1f6; color: #5a6472; border-radius: 3px; padding: 1px 5px; margin-left: 0.4rem;
+      flex-shrink: 0;
+    }
+    .pool-row {
+      display: flex; align-items: center; gap: 0.4rem; padding: 0.15rem 0;
+    }
+    .pool-row .layer-title { flex: 1; }
+    .pool-row .btn-add {
+      background: #f0f4ff; color: #0f62fe; border: 1px solid #cdd9ff; border-radius: 3px;
+      font-size: 0.7rem; padding: 1px 6px; cursor: pointer;
+    }
+    .pool-row .btn-add:hover { background: #dde8ff; }
+    .tree-group { margin: 0.2rem 0 0.2rem 0.9rem; }
+    .tree-group-header { display: flex; align-items: center; gap: 0.4rem; }
+    .tree-group-label { font-size: 0.8rem; font-weight: 600; color: #555; padding: 0.15rem 0; flex: 1; }
+    .tree-separator {
+      display: flex; align-items: center; gap: 0.4rem; margin: 0.35rem 0 0.15rem 0.9rem;
+      border-top: 1px dashed #ddd; padding-top: 0.2rem;
+    }
+    .tree-separator-label { font-size: 0.7rem; letter-spacing: .04em; color: #999; flex: 1; }
+    .tree-root-controls { display: flex; gap: 0.4rem; margin-bottom: 0.5rem; }
+    .add-layer-select {
+      font-size: 0.7rem; padding: 1px 4px; border: 1px solid #cdd9ff; border-radius: 3px;
+      background: #f0f4ff; color: #0f62fe; cursor: pointer; max-width: 160px;
+    }
+    .tree-leaf {
+      display: flex; align-items: center; gap: 0.4rem; padding: 0.15rem 0 0.15rem 0.9rem;
+    }
+    .tree-leaf .layer-title { flex: 1; }
+    h2 { font-size: 1rem; margin: 1.5rem 0 0.5rem; color: #555; text-transform: uppercase; letter-spacing: .05em; }
+    .tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.4rem; }
+    .tool-list { display: flex; flex-direction: column; gap: 0.25rem; }
+    .plugin-list { list-style: none; margin: 0 0 0.4rem; padding: 0; font-size: 0.85rem; }
+    .plugin-list li { display: flex; align-items: center; gap: 0.5rem; padding: 0.15rem 0; }
+    .plugin-list code { flex: 1; overflow-wrap: anywhere; }
+    .plugin-list .plugin-tools { color: #666; }
+    .plugin-add-row { display: flex; gap: 0.4rem; max-width: 40rem; }
+    .plugin-add-row input { flex: 1; min-width: 0; }
+    label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; position: relative; }
+    label input[type=checkbox] { cursor: pointer; flex-shrink: 0; }
+    /* Follows the checkbox, not the base config: an unchecked tool is left out of the saved config. */
+    label.tool-label:has(> input[type=checkbox]:not(:checked)) { color: #888; font-style: italic; }
+    .tool-name { flex: 1; }
+    .drag-handle {
+      cursor: grab; color: #bbb; font-size: 13px; flex-shrink: 0;
+      user-select: none; padding: 0 2px; line-height: 1;
+    }
+    .drag-handle:active { cursor: grabbing; }
+    /* Drop position while reordering: a line on the side the item will land. */
+    .drop-before { box-shadow: 0 -2px 0 #0f62fe; }
+    .drop-after { box-shadow: 0 2px 0 #0f62fe; }
+    .drag-handle.placeholder { visibility: hidden; }
+    label.dragging { opacity: 0.4; }
+    .info-btn {
+      width: 16px; height: 16px; border-radius: 50%; background: #ccc; color: #555;
+      font-size: 10px; line-height: 16px; text-align: center; flex-shrink: 0;
+      cursor: pointer; border: none; padding: 0; display: none; user-select: none;
+    }
+    label:hover .info-btn, label:focus-within .info-btn { display: block; }
+    .info-btn.active, .info-btn:hover { background: #0f62fe; color: #fff; }
+
+    /* Props popup */
+    .prop-popup {
+      display: none; position: fixed; z-index: 1000;
+      background: #fff; border: 1px solid #bbb; border-radius: 6px;
+      padding: 0.75rem; font-size: 0.8rem;
+      width: 320px; max-height: 380px; overflow-y: auto;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    }
+    .prop-popup.visible { display: block; }
+    .toolbox-section { margin: 0.3rem 0 0.3rem 1.4rem; padding: 0.3rem 0.5rem; border-left: 2px solid #ddd; }
+    .toolbox-section h4 { font-size: 0.75rem; color: #777; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 0.3rem; }
+    .prop-popup h3 { margin: 0 0 0.5rem; font-size: 0.85rem; color: #333; border-bottom: 1px solid #eee; padding-bottom: 0.35rem; }
+    .prop-row { display: flex; flex-direction: column; margin-bottom: 0.5rem; }
+    .prop-row label { font-size: 0.75rem; color: #666; margin-bottom: 2px; font-weight: 500; cursor: default; display: block; flex: none; }
+    .prop-row select { background: #fff; }
+    .prop-row input[type=text], .prop-row input[type=number], .prop-row textarea, .prop-row select {
+      width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 3px;
+      padding: 0.25rem 0.4rem; font-size: 0.8rem; font-family: inherit;
+    }
+    .prop-row input[type=checkbox] { width: auto; cursor: pointer; margin-top: 2px; }
+    .prop-row textarea { font-family: monospace; resize: vertical; min-height: 60px; }
+    .prop-row textarea.json-invalid { border-color: #c00; }
+    .prop-popup-footer { margin-top: 0.5rem; display: flex; justify-content: flex-end; gap: 0.4rem; }
+    .prop-popup-footer button { padding: 0.3rem 0.7rem; font-size: 0.8rem; border-radius: 3px; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; }
+    .prop-popup-footer .btn-apply { background: #0f62fe; color: #fff; border-color: #0f62fe; }
+
+    .actions { margin-top: 2rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+    button { padding: 0.6rem 1.4rem; font-size: 1rem; cursor: pointer; border: none; border-radius: 4px; }
+    #btn-launch { background: #0f62fe; color: #fff; }
+    #btn-launch:hover { background: #0353e9; }
+    #btn-reset { background: #e0e0e0; }
+    #btn-reset:hover { background: #c6c6c6; }
+    #status { margin-top: 1rem; font-size: 0.875rem; color: #555; }
+    #btn-publish { background: #e0e0e0; }
+    #btn-publish:hover { background: #c6c6c6; }
+    #btn-upload { background: #e0e0e0; border: 1px dashed transparent; }
+    #btn-upload:hover, #btn-upload.drag-over { background: #dbe8ff; border-color: #0f62fe; color: #0f62fe; }
+    .upload-hint { flex-basis: 100%; margin: -0.4rem 0 0; font-size: 0.8rem; color: #777; }
+    .upload-path-row { flex-basis: 100%; display: flex; gap: 0.5rem; align-items: center; }
+    .upload-path-row input {
+      flex: 1; min-width: 260px; box-sizing: border-box;
+      padding: 0.45rem 0.6rem; font-size: 0.85rem; border: 1px solid #ccc; border-radius: 4px;
+    }
+    .upload-path-row button { padding: 0.45rem 0.9rem; font-size: 0.85rem; background: #e0e0e0; }
+    body.config-drag-over::before {
+      content: "Drop config file to upload";
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(15, 98, 254, 0.12); color: #0f3f9e;
+      border: 4px dashed #0f62fe; box-sizing: border-box;
+      font-size: 1.4rem; font-weight: 600; pointer-events: none;
+    }
+    .publish-panel {
+      border: 1px solid #ddd; border-radius: 6px; padding: 0.9rem; margin: 0.75rem 0 1.25rem;
+      background: #fafbfc; max-width: 480px;
+    }
+    .publish-row { margin-bottom: 0.6rem; }
+    .publish-row label { display: block; font-size: 0.8rem; color: #555; margin-bottom: 0.2rem; }
+    .publish-row input {
+      width: 100%; box-sizing: border-box; padding: 0.35rem 0.5rem; font-size: 0.85rem;
+      border: 1px solid #ccc; border-radius: 4px;
+    }
+    .publish-actions { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
+    .publish-actions button { padding: 0.4rem 0.9rem; font-size: 0.85rem; }
+    #btn-publish-submit { background: #0f62fe; color: #fff; }
+    #btn-publish-submit:hover { background: #0353e9; }
+    #btn-publish-forget { background: none; border: 1px solid #ccc; margin-left: auto; }
+    .publish-status { margin-top: 0.6rem; font-size: 0.8rem; }
+    .publish-status.error { color: #c00; }
+    .publish-status.success { color: #0a7d2c; }
+
+    /* ===== v2 look ===== */
+    :root {
+      --v2-bg: #f4f5f7; --v2-surface: #fff; --v2-surface-2: #f8f9fb; --v2-border: #e3e6eb;
+      --v2-text: #1d2330; --v2-muted: #5d6675; --v2-primary: #0f5fd7; --v2-primary-hover: #0b4db0;
+      --v2-primary-soft: #e8f0fd; --v2-danger: #b42318; --v2-radius: 10px;
+      --v2-shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+    }
+    body {
+      max-width: none; margin: 0; padding: 0; min-height: 100vh;
+      font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: var(--v2-text); background: var(--v2-bg);
+    }
+    :focus-visible { outline: 2px solid var(--v2-primary); outline-offset: 2px; }
+
+    /* Buttons: one quiet default, one primary */
+    button {
+      font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 7px;
+      border: 1px solid var(--v2-border); background: var(--v2-surface); color: var(--v2-text);
+    }
+    button:hover { background: var(--v2-surface-2); }
+    #btn-launch, #btn-publish-submit, .btn-map-sync, .btn-add-layer, .prop-popup-footer .btn-apply {
+      background: var(--v2-primary); border-color: var(--v2-primary); color: #fff;
+    }
+    #btn-launch:hover, #btn-publish-submit:hover, .btn-map-sync:hover, .btn-add-layer:hover { background: var(--v2-primary-hover); }
+    .btn-map-refresh { background: var(--v2-surface); color: var(--v2-text); border-color: var(--v2-border); }
+    .btn-map-refresh:hover { background: var(--v2-surface-2); }
+    #btn-reset, #btn-publish, #btn-upload, .upload-path-row button { background: var(--v2-surface); }
+    #btn-reset:hover, #btn-publish:hover, #btn-upload:hover { background: var(--v2-surface-2); }
+    .btn-danger, .v2-danger { color: var(--v2-danger) !important; }
+    input[type=text], input[type=number], input[type=search], input[type=password], select, textarea {
+      font: inherit; font-size: 13px; color: var(--v2-text); background: var(--v2-surface);
+      border: 1px solid var(--v2-border); border-radius: 7px; padding: 6px 8px;
+    }
+
+    /* Top bar */
+    .v2-topbar {
+      display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+      background: var(--v2-surface); border-bottom: 1px solid var(--v2-border);
+    }
+    .v2-brand { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 16px; font-weight: 650; }
+    .v2-brand-mark { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(135deg, #0f5fd7, #12a37f); }
+    .v2-spacer { flex: 1; }
+    .actions { margin: 0; display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; }
+    .v2-menu { position: relative; }
+    .v2-menu > summary {
+      list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+      font-size: 13px; padding: 6px 12px; border-radius: 7px; border: 1px solid var(--v2-border); background: var(--v2-surface);
+    }
+    .v2-menu > summary::-webkit-details-marker { display: none; }
+    .v2-menu > summary::after { content: "▾"; font-size: 10px; opacity: .7; }
+    .v2-menu > summary:hover { background: var(--v2-surface-2); }
+    .v2-menu-panel {
+      position: absolute; right: 0; top: calc(100% + 6px); z-index: 50; width: 360px;
+      display: flex; flex-direction: column; gap: 6px; padding: 8px;
+      background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: 9px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.14);
+    }
+    .v2-menu-panel > button { text-align: left; border: 0; }
+    .v2-menu-panel hr { width: 100%; border: 0; border-top: 1px solid var(--v2-border); margin: 2px 0; }
+    .upload-path-row input { min-width: 0; padding: 6px 8px; font-size: 13px; border-color: var(--v2-border); }
+    .upload-path-row button { padding: 6px 10px; font-size: 13px; }
+    .upload-hint { margin: 0; font-size: 12px; color: var(--v2-muted); }
+
+    /* Publish: the same panel, shown as a dialog */
+    .publish-panel {
+      position: fixed; z-index: 1001; top: 72px; right: 24px; width: 420px; max-width: calc(100vw - 32px);
+      margin: 0; padding: 16px; background: var(--v2-surface); border-color: var(--v2-border);
+      border-radius: var(--v2-radius); box-shadow: 0 12px 40px rgba(0,0,0,.2);
+    }
+    .publish-panel[hidden] { display: none; }
+    .publish-row label { color: var(--v2-muted); }
+    #btn-publish-forget { background: none; }
+
+    /* Tabs */
+    .tabs {
+      position: sticky; top: 0; z-index: 40; margin: 0; gap: 4px; padding: 0 24px;
+      background: var(--v2-surface); border-bottom: 1px solid var(--v2-border);
+    }
+    .tab-btn {
+      display: inline-flex; align-items: center; gap: 8px; padding: 12px 16px 10px;
+      font-size: 15px; font-weight: 550; color: var(--v2-muted);
+      border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: none;
+    }
+    .tab-btn:hover { color: var(--v2-text); background: none; }
+    .tab-btn.active { color: var(--v2-primary); border-bottom-color: var(--v2-primary); font-weight: 600; }
+    .v2-tab-ico { font-size: 17px; }
+
+    /* Page */
+    .v2-main { max-width: 1400px; margin: 0 auto; padding: 24px 24px 64px; }
+    .v2-panel-head h1 { margin: 0; font-size: 20px; }
+    .v2-panel-head p { margin: 4px 0 16px; color: var(--v2-muted); max-width: 70ch; }
+    .v2-select-all { display: inline-flex; margin-bottom: 14px; font-size: 13px; color: var(--v2-muted); }
+    h2 { font-size: 14px; margin: 0 0 10px; color: var(--v2-text); text-transform: none; letter-spacing: 0; font-weight: 650; }
+    .section-hint { display: block; margin-top: 2px; font-size: 12px; color: var(--v2-muted); }
+    .placeholder { color: var(--v2-muted); }
+    h2 .info-btn { display: inline-block; }
+
+    /* Cards: every section, and every toolbar column the script builds */
+    .layers-section, .v2-card, #ui > div:first-child > div, #ui > .tool-grid {
+      background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-radius);
+      box-shadow: var(--v2-shadow); padding: 14px 16px; margin: 0 0 16px;
+    }
+    .layers-section h2 { font-size: 14px; color: var(--v2-text); }
+    #ui > div:first-child { gap: 16px !important; }
+    #ui > div:first-child > div { min-width: 260px !important; margin: 0; }
+    #ui > h2 { margin: 8px 0 8px 2px; color: var(--v2-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+    #ui > .tool-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+    .v2-card > summary { list-style: none; cursor: pointer; }
+    .v2-card > summary::-webkit-details-marker { display: none; }
+    .v2-card > summary h2 { margin: 0; }
+    .v2-card > summary h2::before { content: "▸ "; color: var(--v2-muted); }
+    .v2-card[open] > summary h2::before { content: "▾ "; }
+    .v2-card[open] > summary { margin-bottom: 10px; }
+
+    /* Tool rows: the checkbox is drawn as a switch on the right */
+    label.tool-label { padding: 5px 6px; border-radius: 7px; gap: 8px; }
+    label.tool-label:hover { background: var(--v2-surface-2); }
+    label.tool-label:has(> input[type=checkbox]:not(:checked)) { color: var(--v2-muted); font-style: normal; }
+    label.tool-label > input[type=checkbox] { order: 10; }
+    label input[type=checkbox] {
+      appearance: none; -webkit-appearance: none; position: relative; margin: 0;
+      width: 32px; height: 18px; border-radius: 9px; background: #c4cad4; transition: background .15s;
+    }
+    label input[type=checkbox]::after {
+      content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+      border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2);
+    }
+    label input[type=checkbox]:checked { background: var(--v2-primary); }
+    label input[type=checkbox]:checked::after { left: 16px; }
+    label input[type=checkbox]:indeterminate { background: #8aa9e0; }
+    label input[type=checkbox]:indeterminate::after { left: 9px; }
+    .info-btn {
+      display: block; width: 22px; height: 22px; line-height: 22px; font-size: 12px;
+      background: none; color: var(--v2-muted); border-radius: 6px; opacity: .35;
+    }
+    label:hover .info-btn, label:focus-within .info-btn { opacity: 1; }
+    .info-btn.active, .info-btn:hover { opacity: 1; background: var(--v2-primary-soft); color: var(--v2-primary); }
+    .drag-handle { color: #b6bcc6; }
+    .drop-before { box-shadow: 0 -2px 0 var(--v2-primary); }
+    .drop-after { box-shadow: 0 2px 0 var(--v2-primary); }
+    .toolbox-section { border-left-color: var(--v2-border); }
+    .prop-popup { border-color: var(--v2-border); border-radius: var(--v2-radius); box-shadow: 0 12px 40px rgba(0,0,0,.2); }
+    .prop-popup-footer button { border-color: var(--v2-border); }
+
+    /* Layers */
+    .catalog-search, .add-layer-source input[type=search], .add-layer-source input[type=text] { border-color: var(--v2-border); border-radius: 7px; padding: 7px 9px; }
+    .add-layer-panel { background: var(--v2-surface-2); border-color: var(--v2-border); border-radius: 9px; }
+    .add-layer-tab { border-radius: 0; background: none; }
+    .add-layer-tab.active { color: var(--v2-primary); border-bottom-color: var(--v2-primary); }
+    .pool-row, .active-layer-row, .tree-leaf { padding: 4px 6px; border-radius: 7px; }
+    .pool-row:hover, .active-layer-row:hover, .tree-leaf:hover { background: var(--v2-surface-2); }
+    .pool-row .btn-add, .btn-add, .add-layer-select {
+      background: var(--v2-primary-soft); color: var(--v2-primary); border: 1px solid transparent;
+      border-radius: 6px; padding: 2px 8px; font-size: 12px;
+    }
+    .type-badge { background: var(--v2-surface-2); border: 1px solid var(--v2-border); border-radius: 10px; }
+    .catalog-group > summary:hover { color: var(--v2-primary); }
+    #tab-layers.active { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 0 16px; align-items: start; }
+    #tab-layers > .v2-panel-head { grid-column: 1 / -1; }
+
+    /* Forms */
+    .map-form-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 14px; }
+    .map-form-grid label { font-size: 12px; color: var(--v2-muted); gap: 4px; }
+    .map-form-grid input, .map-form-grid select { padding: 7px 9px; font-size: 13px; border-color: var(--v2-border); border-radius: 7px; }
+    .map-checkbox-row { gap: 8px; }
+    .story-list { border-color: var(--v2-border); border-radius: 8px; }
+    .story-list-row.selected { background: var(--v2-primary-soft); color: var(--v2-primary); }
+    .step-editor { border-top-color: var(--v2-border); }
+    .style-chosen-warning { border-radius: 8px; }
+
+    /* Map, Style and Stories: settings left, the tab's own preview right */
+    .v2-with-preview.active { display: grid; grid-template-columns: minmax(420px, 1fr) minmax(420px, 1.2fr); gap: 24px; align-items: start; }
+    .v2-preview {
+      position: sticky; top: 72px; display: flex; flex-direction: column; gap: 8px;
+      background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-radius);
+      box-shadow: var(--v2-shadow); padding: 10px;
+    }
+    .v2-preview .map-preview-actions { margin: 0; align-items: center; flex-wrap: wrap; }
+    .v2-preview-title { font-weight: 650; margin-right: auto; padding-left: 4px; }
+    .v2-preview .map-preview { height: calc(100vh - 190px); min-height: 360px; border: 1px solid var(--v2-border); border-radius: 8px; }
+    .v2-preview .map-preview-hint { margin: 0 4px; }
+
+    /* Status line as a toast */
+    #status {
+      position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 60; margin: 0;
+      max-width: min(640px, calc(100vw - 32px)); padding: 9px 14px; border-radius: 8px;
+      background: #1d2330; color: #fff; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.2);
+    }
+    #status:empty { display: none; }
+    body.config-drag-over::before { border-color: var(--v2-primary); }
+
+
+    /* Field labels sit above their input, left-aligned */
+    .map-form-grid label, .chapter-meta label { align-items: stretch; flex-direction: column; gap: 4px; font-size: 12px; color: var(--v2-muted); }
+    .map-form-grid label .section-hint { display: inline; margin: 0; }
+    .layer-remove, .active-layer-row .layer-remove { border: 0; background: none; padding: 2px 6px; color: var(--v2-muted); }
+    .layer-remove:hover { color: var(--v2-danger); background: var(--v2-surface-2); }
+
+
+    /* Round 2: tool cards, icons, edit buttons */
+    .v2-tool-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; align-items: start; margin-bottom: 16px; }
+    #ui .v2-tool-card {
+      background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-radius);
+      box-shadow: var(--v2-shadow); padding: 12px 14px; margin: 0; min-width: 0 !important;
+    }
+    .v2-card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--v2-border); }
+    .v2-card-head h2 { margin: 0; flex: 1; display: flex; align-items: center; gap: 4px; }
+    #ui > h2 { margin: 8px 0 8px 2px; }
+    label.v2-col-select { font-size: 12px; color: var(--v2-muted); gap: 5px; }
+    /* Select-all is a plain checkbox, not a switch */
+    label input[type=checkbox].col-select-all {
+      appearance: auto; -webkit-appearance: auto; width: 15px; height: 15px; background: none; accent-color: var(--v2-primary);
+    }
+    label input[type=checkbox].col-select-all::after { content: none; }
+    .v2-tool-icon {
+      width: 18px; height: 18px; flex-shrink: 0; background: currentColor; opacity: .8;
+      -webkit-mask: var(--icon) center / contain no-repeat; mask: var(--icon) center / contain no-repeat;
+    }
+    .v2-tool-icon--none { background: none; }
+    .info-btn {
+      width: 30px; height: 30px; line-height: 30px; font-size: 17px; border-radius: 7px;
+      color: var(--v2-muted); opacity: .55; display: inline-flex !important; align-items: center; justify-content: center;
+    }
+    label:hover .info-btn, label:focus-within .info-btn, .info-btn:focus-visible { opacity: 1; }
+    .v2-menu-panel > button#btn-publish { background: none; }
+    .tabs #btn-reset { color: var(--v2-danger); }
+    .tabs { align-items: center; }
+    .tabs .actions { margin-left: auto; padding: 6px 0; }
+    .v2-select-all[hidden] { display: none; }
+    /* Compact rows: the edit button no longer sets the row height */
+    #ui .tool-list { gap: 0; }
+    #ui label.tool-label { padding: 1px 6px; min-height: 30px; }
+    #ui .info-btn { width: 26px; height: 26px; line-height: 26px; }
+    #ui .info-btn::before { width: 16px; height: 16px; }
+    #ui .v2-tool-icon { width: 16px; height: 16px; }
+    .toolbox-section { margin-top: 2px; margin-bottom: 6px; }
+    /* The edit button draws a pencil icon instead of its text glyph */
+    .info-btn { font-size: 0 !important; }
+    .info-btn::before {
+      content: ""; width: 17px; height: 17px; background: currentColor;
+      -webkit-mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/pencil-square.svg") center / contain no-repeat;
+      mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/pencil-square.svg") center / contain no-repeat;
+    }
+
+
+    /* Layers: add flow */
+    #tab-layers .add-layer-panel { background: none; border: 0; padding: 0; margin: 0; }
+    #tab-layers .add-layer-tabs { border-bottom: 1px solid var(--v2-border); margin-bottom: 10px; }
+    #tab-layers .add-layer-tab { font-size: 13px; padding: 6px 10px; }
+    .v2-source-hint { margin: 0 0 8px; }
+    .v2-add-to { max-width: 150px; margin-left: auto; }
+    #tab-layers .layers-section h2 { font-size: 15px; }
+    #catalog-list { max-height: 60vh; overflow: auto; }
+
+
+    /* Map catalog drag & drop */
+    #layertree-list .tree-leaf, #layertree-list .tree-group-header, #layertree-list .tree-separator { cursor: grab; }
+    #layertree-list .dragging { opacity: .4; }
+    .v2-drop-into { background: var(--v2-primary-soft); outline: 2px dashed var(--v2-primary); outline-offset: -2px; border-radius: 6px; }
+    .v2-add-to { margin-left: auto; }
+
+    .v2-empty-catalog { margin-left: auto; background: none !important; color: var(--v2-danger) !important; border: 1px solid var(--v2-border) !important; }
+    .v2-empty-catalog:disabled { opacity: .4; cursor: default; }
+    /* Map catalog: "on at start" is a switch, as in the viewer's Catalog */
+    #layertree-list .tree-leaf > input[type=checkbox] {
+      appearance: none; -webkit-appearance: none; position: relative; margin: 0; flex-shrink: 0; cursor: pointer;
+      width: 32px; height: 18px; border-radius: 9px; background: #c4cad4; transition: background .15s;
+    }
+    #layertree-list .tree-leaf > input[type=checkbox]::after {
+      content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+      border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2);
+    }
+    #layertree-list .tree-leaf > input[type=checkbox]:checked { background: var(--v2-primary); }
+    #layertree-list .tree-leaf > input[type=checkbox]:checked::after { left: 16px; }
+    /* Legend stack: visibility is an eye, as in the viewer's Legend */
+    #activelayers-list .active-layer-row > input[type=checkbox], #step-layers-list .active-layer-row > input[type=checkbox] {
+      appearance: none; -webkit-appearance: none; margin: 0; flex-shrink: 0; cursor: pointer;
+      width: 18px; height: 18px; background: var(--v2-muted);
+      -webkit-mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/eye-slash.svg") center / contain no-repeat;
+      mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/eye-slash.svg") center / contain no-repeat;
+    }
+    #activelayers-list .active-layer-row > input[type=checkbox]:checked, #step-layers-list .active-layer-row > input[type=checkbox]:checked {
+      background: var(--v2-text);
+      -webkit-mask-image: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/eye.svg");
+      mask-image: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/eye.svg");
+    }
+    #layertree-list .tree-leaf > input:focus-visible, #activelayers-list .active-layer-row > input:focus-visible, #step-layers-list .active-layer-row > input:focus-visible { outline: 2px solid var(--v2-primary); outline-offset: 2px; }
+    /* Names are editable: a text cursor there, the grab cursor only on the rest of the row */
+    #layertree-list [contenteditable], #activelayers-list [contenteditable], #catalog-list [contenteditable] { cursor: text; }
+    #layertree-list .drag-handle { cursor: grab; }
+    /* As in the viewer: name first, switch (or radio) on the right, then remove */
+    #layertree-list .tree-leaf > .drag-handle { order: 0; }
+    #layertree-list .tree-leaf > .layer-title { order: 1; }
+    #layertree-list .tree-leaf > .type-badge { order: 2; }
+    #layertree-list .tree-leaf > input { order: 3; margin-left: 6px; }
+    #layertree-list .tree-leaf > .layer-remove { order: 4; }
+    /* A radio is narrower than a switch: centre it in the same 32px so the column lines up */
+    #layertree-list .tree-leaf > input[type=radio] { margin: 0 9px 0 15px; }
+    /* Open/close groups in the Map catalog */
+    .tree-group.v2-collapsed > :not(.tree-group-header) { display: none; }
+    .v2-group-toggle {
+      width: 20px; height: 20px; padding: 0; border: 0; background: none; flex-shrink: 0;
+      color: var(--v2-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .v2-group-toggle::before { content: "▾"; font-size: 12px; transition: transform .15s; }
+    .v2-group-toggle[aria-expanded="false"]::before { transform: rotate(-90deg); }
+    .v2-group-toggle:hover { color: var(--v2-text); background: var(--v2-surface-2); }
+    .v2-tree-all { background: none !important; color: var(--v2-muted) !important; }
+    .v2-card-title { display: flex; align-items: flex-start; gap: 10px; }
+    .v2-card-title h2 { flex: 1; }
+    .v2-from-view { flex-shrink: 0; font-size: 12px; padding: 4px 9px; background: var(--v2-primary); border-color: var(--v2-primary); color: #fff; }
+    .v2-from-view:hover { background: var(--v2-primary-hover); }
+    #btn-map-sync { display: none !important; }
+
+    /* Stories: one outline, a lean step editor */
+    .v2-story-switch { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--v2-muted); flex: 1; }
+    .v2-story-switch[hidden], .story-toolbar:has(> .v2-story-switch[hidden]) { display: none; }
+    #tab-stories .v2-card-title h2 { flex: 1; }
+    .v2-story-switch select { flex: 1; max-width: 320px; }
+    .story-toolbar { justify-content: flex-start; }
+    .v2-story-title-row { display: flex; align-items: center; gap: 6px; margin: 4px 0 10px; }
+    .v2-story-name { font-size: 20px; font-weight: 700; cursor: text; border-radius: 6px; padding: 2px 6px; margin-left: -6px; min-width: 4ch; }
+    .v2-story-name:hover { box-shadow: inset 0 0 0 1px var(--v2-border); background: var(--v2-surface-2); }
+    .v2-story-name:focus { outline: 2px solid var(--v2-primary); background: var(--v2-surface); }
+    .v2-story-name::after { content: ''; display: inline-block; width: 14px; height: 14px; margin-left: 8px; background: var(--v2-muted); opacity: 0; vertical-align: middle;
+      -webkit-mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/pencil.svg") center / contain no-repeat;
+      mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/pencil.svg") center / contain no-repeat; }
+    .v2-story-name:hover::after { opacity: 1; }
+    .v2-story-name:focus::after { display: none; }
+    .v2-story-settings { border: 1px solid var(--v2-border); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; background: var(--v2-surface-2); }
+    .v2-link-danger { margin-top: 8px; background: none; border: 0; color: var(--v2-danger); padding: 0; cursor: pointer; }
+    .v2-story-h { font-size: 14px; margin: 14px 0 6px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .v2-outline { border: 1px solid var(--v2-border); border-radius: 8px; padding: 4px; max-height: 340px; overflow-y: auto; }
+    .v2-outline-row { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px; min-height: 30px; font-size: 13px; }
+    .v2-outline-row .row-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .v2-outline-chapter-row { font-weight: 600; cursor: pointer; }
+    .v2-outline-chapter-row:hover, .v2-outline-step:hover { background: var(--v2-surface-2); }
+    .v2-outline-step { padding-left: 34px; cursor: pointer; }
+    .v2-outline-step.selected { background: var(--v2-primary-soft); color: var(--v2-primary); font-weight: 600; }
+    .v2-outline-step:focus-visible { outline: 2px solid var(--v2-primary); outline-offset: -2px; }
+    .v2-step-num { min-width: 18px; height: 18px; border-radius: 9px; background: var(--v2-border); color: var(--v2-text); font-size: 11px; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; }
+    .v2-outline-step.selected .v2-step-num { background: var(--v2-primary); color: #fff; }
+    .v2-outline-toggle { border: 0; background: none; padding: 0 2px; width: 18px; color: var(--v2-muted); cursor: pointer; }
+    .v2-outline-btn { border: 0; background: none; padding: 2px 6px; font-size: 12px; color: var(--v2-muted); cursor: pointer; border-radius: 5px; }
+    .v2-outline-btn:hover { background: var(--v2-border); color: var(--v2-text); }
+    .v2-outline-btn.row-remove:hover { color: var(--v2-danger); }
+    .v2-icon-btn-mask { width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+    .v2-icon-btn-mask::before {
+      content: ''; width: 17px; height: 17px; background: currentColor;
+      -webkit-mask: var(--icon) center / contain no-repeat; mask: var(--icon) center / contain no-repeat;
+    }
+    .v2-icon-gear { --icon: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/gear.svg"); }
+    .v2-icon-trash { --icon: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/trash3.svg"); }
+    .v2-outline .drag-handle { cursor: grab; color: var(--v2-muted); }
+    .v2-outline .dragging { opacity: .4; }
+    .v2-outline-none { margin: 4px 0 8px 40px; font-size: 13px; color: var(--v2-muted); display: flex; align-items: center; gap: 8px; }
+    .v2-chapter-settings { margin: 2px 6px 8px 30px; padding: 8px 10px; border: 1px solid var(--v2-border); border-radius: 8px; background: var(--v2-surface-2); }
+    .v2-gate { border: 1px solid #f0c36d; background: #fff8e6; border-radius: 8px; padding: 12px 14px; }
+    .v2-gate p { margin: 0 0 10px; }
+    .v2-gate .section-hint { margin: 10px 0 0; }
+    /* Add buttons: one look for story, chapter and step */
+    .v2-add-btn {
+      border: 1px solid var(--v2-primary); background: var(--v2-primary-soft); color: var(--v2-primary);
+      font-weight: 600; font-size: 12px; padding: 2px 9px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+    }
+    .v2-add-btn:hover, .v2-add-btn:focus-visible { background: var(--v2-primary); color: #fff; }
+    .v2-add-btn--big { font-size: 13px; padding: 6px 14px; }
+    /* A step's + Step shows on the current step, and on hover/focus elsewhere, so the list stays calm */
+    .v2-outline-step .v2-add-btn { visibility: hidden; }
+    .v2-outline-step.selected .v2-add-btn, .v2-outline-step:hover .v2-add-btn, .v2-outline-step:focus-within .v2-add-btn { visibility: visible; }
+    .v2-outline-title { cursor: text; border-radius: 4px; padding: 1px 4px; margin-left: -4px; flex: 0 1 auto !important; min-width: 2ch; }
+    .v2-outline-title:hover { background: var(--v2-surface); box-shadow: inset 0 0 0 1px var(--v2-border); }
+    .v2-outline-title:focus { outline: 2px solid var(--v2-primary); background: var(--v2-surface); color: var(--v2-text); text-overflow: clip; }
+    .v2-outline-row .v2-outline-title + .v2-add-btn { margin-left: auto; }
+    .v2-chapter-num { min-width: 18px; font-weight: 700; color: var(--v2-muted); }
+    #step-editor h2 .section-hint { font-weight: 400; }
+    #step-editor .v2-step-ref, #stories-preview-step { font: inherit; color: var(--v2-primary); }
+    #stories-preview-step:not(:empty)::before { content: ': '; color: var(--v2-text); }
+    #tab-stories .v2-preview-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .v2-btn-view { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .v2-btn-view::before { content: ''; width: 15px; height: 15px; flex: none; background: currentColor;
+      -webkit-mask: var(--btn-icon) center / contain no-repeat; mask: var(--btn-icon) center / contain no-repeat; }
+    .v2-btn-view { --btn-icon: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/geo-alt.svg"); }
+    #step-editor .step-block-label input { width: 100%; box-sizing: border-box; margin-top: 3px; }
+    .v2-step-layers .active-layer-row { gap: 8px; }
+    .v2-not-in-catalog { color: var(--v2-danger); }
+    /* Transparency slider: a copy of the legend menu's (webmapx-layer-overview .opacity-row) */
+    #step-layers-list .opacity-row { flex: 0 0 150px; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--v2-muted); }
+    #step-layers-list .layer-title { flex: 1 1 auto; }
+    #step-layers-list .opacity-row input[type="range"] {
+      min-width: 0; width: auto;
+      --slider-track-grey: linear-gradient(to right, #d5dce3 0%, #d5dce3 var(--slider-pct, 0%), #6b7681 var(--slider-pct, 0%), #6b7681 100%);
+      --slider-track-blue: linear-gradient(to right, #bcdcf5 0%, #bcdcf5 var(--slider-pct, 0%), var(--v2-primary) var(--slider-pct, 0%), var(--v2-primary) 100%);
+      flex: 1 1 auto; -webkit-appearance: none; appearance: none; height: 2px; margin: 8px 0; padding: 0; border: 0;
+      background: var(--slider-track-grey); border-radius: 2px; outline: none; transition: background 120ms ease;
+    }
+    #step-layers-list .opacity-row input[type="range"]:hover,
+    #step-layers-list .opacity-row input[type="range"]:active { background: var(--slider-track-blue); --thumb-fill: var(--v2-primary); }
+    #step-layers-list .opacity-row input[type="range"]:focus-visible { outline: 2px solid var(--v2-primary); outline-offset: 2px; }
+    #step-layers-list .opacity-row input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%;
+      background: var(--thumb-fill, #6b7681) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M8 15A7 7 0 1 0 8 1zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16'/%3E%3C/svg%3E") center / 80% no-repeat; cursor: pointer;
+      transition: width 120ms ease, height 120ms ease, background-color 120ms ease;
+    }
+    #step-layers-list .opacity-row input[type="range"]::-moz-range-thumb {
+      width: 16px; height: 16px; border-radius: 50%; border: none;
+      background: var(--thumb-fill, #6b7681) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M8 15A7 7 0 1 0 8 1zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16'/%3E%3C/svg%3E") center / 80% no-repeat; cursor: pointer;
+    }
+    #step-layers-list .opacity-row input[type="range"]:active::-webkit-slider-thumb { width: 24px; height: 24px; background-color: #0b4db0; }
+    #step-layers-list .opacity-row input[type="range"]:active::-moz-range-thumb { width: 24px; height: 24px; background-color: #0b4db0; }
+    #step-layers-list .opacity-row input[type="range"]::-moz-range-track { height: 2px; background: var(--slider-track-grey); border-radius: 2px; }
+    #step-layers-list .opacity-value {
+      flex: 0 0 auto; min-width: 2.6em; font-variant-numeric: tabular-nums; cursor: pointer; border-radius: 2px;
+      text-decoration: underline dotted; text-underline-offset: 2px;
+    }
+    #step-layers-list .opacity-value:hover, #step-layers-list .opacity-value:focus-visible { color: var(--v2-primary); }
+    #step-layers-list .opacity-value:focus-visible { outline: 2px solid var(--v2-primary); outline-offset: 2px; }
+    #step-layers-list .opacity-value-input { flex: 0 0 auto; width: 3.2em; padding: 0 2px; font-size: 12px; text-align: right; border-radius: 2px; }
+    #step-layers-list .v2-step-layer.dragging { opacity: .4; }
+    #step-layers-list .drag-handle { cursor: grab; }
+    #step-layers-list .active-layer-row { cursor: default; }
+    #step-layers-list .layer-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .v2-step-layer-add { margin-top: 6px; max-width: 100%; }
+    .v2-step-view { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; font-variant-numeric: tabular-nums; }
+    .v2-step-view span { flex: 1; }
+    .v2-step-more { margin-top: 8px; font-size: 13px; }
+    .v2-step-more summary { cursor: pointer; color: var(--v2-muted); margin-bottom: 6px; }
+    @keyframes v2-flash { from { background: var(--v2-primary-soft); } to { background: transparent; } }
+    .v2-flash { animation: v2-flash 1.2s ease-out; border-radius: 4px; }
+    #btn-step-capture-map { margin-left: auto; }
+
+    @media (max-width: 960px) {
+      .v2-with-preview.active, #tab-layers.active { grid-template-columns: 1fr; }
+      .v2-preview { position: static; }
+      .v2-preview .map-preview { height: 380px; }
+      .v2-topbar { flex-wrap: wrap; padding: 10px 16px; }
+      .actions { flex-wrap: wrap; }
+      .tabs { padding: 0 8px; flex-wrap: wrap; }
+      .tabs .actions { margin-left: 0; width: 100%; padding: 0 0 8px; }
+      .tabs .v2-menu-panel { left: 0; right: auto; max-width: calc(100vw - 32px); }
+      .tab-btn { padding: 12px 10px 10px; }
+      .v2-main { padding: 16px; }
+    }
+  </style>
+  <script type="module" crossorigin src="../assets/setup-vQmcwRe0.js"></script>
+  <link rel="modulepreload" crossorigin href="../assets/cesium-adapter-DMUTyycQ.js">
+  <link rel="modulepreload" crossorigin href="../assets/rolldown-runtime-Cyuzqnbw.js">
+  <link rel="modulepreload" crossorigin href="../assets/maplibre-adapter-9xYX62vR.js">
+  <link rel="modulepreload" crossorigin href="../assets/openlayers-adapter-CXMVre7o.js">
+  <link rel="modulepreload" crossorigin href="../assets/vendor-allmaps-foundation-6pAQKk9O.js">
+  <link rel="modulepreload" crossorigin href="../assets/vendor-lit-DP8NDNGT.js">
+  <link rel="modulepreload" crossorigin href="../assets/webmapx-shared-Bw7GDse1.js">
+  <link rel="modulepreload" crossorigin href="../assets/i18n-rh3e2U7u.js">
+  <link rel="modulepreload" crossorigin href="../assets/decorate-C4sx0XcE.js">
+  <link rel="modulepreload" crossorigin href="../assets/webmapx-base-tool-B-9Xp4oO.js">
+  <link rel="modulepreload" crossorigin href="../assets/webmapx-modal-tool-BQrojl2G.js">
+  <link rel="modulepreload" crossorigin href="../assets/plugin-loader-BTjpVw4V.js">
+  <link rel="stylesheet" crossorigin href="../assets/maplibre-adapter-B2k4QVOw.css">
+  <link rel="stylesheet" crossorigin href="../assets/openlayers-adapter-c_1sG1-7.css">
+  <link rel="stylesheet" crossorigin href="../assets/plugin-loader-CLpxuBXo.css">
+</head>
+<body>
+  <header class="v2-topbar">
+    <h1 class="v2-brand"><span class="v2-brand-mark" aria-hidden="true"></span>WebMapX Setup</h1>
+  </header>
+
+  <div id="publish-panel" class="publish-panel" hidden>
+    <div class="publish-row">
+      <label>Personal access token <span class="section-hint">(repo / contents:write scope, saved in this browser's localStorage)</span></label>
+      <input type="password" id="publish-token" autocomplete="off">
+    </div>
+    <div class="publish-row">
+      <label>Repository <span class="section-hint">(owner/repo)</span></label>
+      <input type="text" id="publish-repo" placeholder="owner/repo">
+    </div>
+    <div class="publish-row">
+      <label>Branch</label>
+      <input type="text" id="publish-branch" value="main">
+    </div>
+    <div class="publish-row">
+      <label>File path</label>
+      <input type="text" id="publish-path" value="configs/webmapx-config.json">
+    </div>
+    <div class="publish-row">
+      <label>Commit message</label>
+      <input type="text" id="publish-message" value="Update webmapx config">
+    </div>
+    <div class="publish-actions">
+      <button id="btn-publish-submit">Publish</button>
+      <button id="btn-publish-cancel">Cancel</button>
+      <button id="btn-publish-forget">Forget saved token</button>
+    </div>
+    <div id="publish-status" class="publish-status"></div>
+  </div>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="tools"><span class="v2-tab-ico" aria-hidden="true">🛠</span>Tools</button>
+    <button class="tab-btn" data-tab="layers"><span class="v2-tab-ico" aria-hidden="true">🗂</span>Layers</button>
+    <button class="tab-btn" data-tab="map"><span class="v2-tab-ico" aria-hidden="true">🗺</span>Map</button>
+    <button class="tab-btn" data-tab="style"><span class="v2-tab-ico" aria-hidden="true">🎨</span>Style</button>
+    <button class="tab-btn" data-tab="stories"><span class="v2-tab-ico" aria-hidden="true">📖</span>Stories</button>
+    <!-- In the sticky tab row, so the actions stay in reach while scrolling -->
+    <div class="actions">
+      <details class="v2-menu">
+        <summary class="v2-btn">Open</summary>
+        <div class="v2-menu-panel">
+          <button id="btn-upload" type="button">Upload config file…</button>
+          <input id="config-upload-input" type="file" accept=".json,application/json" hidden>
+          <div class="upload-path-row">
+            <input id="config-path-input" type="text" placeholder="Paste config path or URL, e.g. \\wsl$\Ubuntu-22.04\home\anneb\projects\webmapx-configs\nl.json">
+            <button id="btn-open-config-path" type="button">Open path</button>
+          </div>
+          <p class="upload-hint">You can also drop a JSON config or a path anywhere on this page.</p>
+        </div>
+      </details>
+      <details class="v2-menu">
+        <summary class="v2-btn">Export</summary>
+        <div class="v2-menu-panel">
+          <button id="btn-download">Download config</button>
+          <button id="btn-publish">Publish to GitHub…</button>
+        </div>
+      </details>
+      <button id="btn-reset" class="v2-danger">Reset to defaults</button>
+      <button id="btn-launch">Update preview</button>
+    </div>
+  </nav>
+  <main class="v2-main">
+
+  <div class="tab-panel active v2-with-preview" id="tab-tools">
+    <div class="v2-form">
+    <div class="v2-panel-head">
+      <h1>Tools</h1>
+      <p>Choose which tools appear on the map and in what order. The pencil opens a tool's settings, ⠿ drags it. The preview beside this follows every change.</p>
+      <label class="v2-select-all" hidden><input type="checkbox" id="select-all" checked> Select / deselect all</label>
+    </div>
+    <div id="ui"></div>
+    <details class="plugins-section v2-card">
+      <summary><h2>Advanced: plugins <span class="section-hint">module URLs, relative to the config file — their tools appear in the lists above</span></h2></summary>
+      <ul id="plugin-list" class="plugin-list"></ul>
+      <form id="plugin-add-form" class="plugin-add-row">
+        <input id="plugin-url-input" type="text" aria-label="Plugin URL" placeholder="e.g. ../plugins/bookmarks.js">
+        <button type="submit">Add plugin</button>
+      </form>
+    </details>
+    </div>
+    <aside class="v2-preview">
+      <div class="map-preview-actions"><span class="v2-preview-title">Preview</span></div>
+      <iframe id="tools-preview-frame" class="map-preview" src="./preview.html?storageKey=webmapx-setup-tools-preview-config"></iframe>
+    </aside>
+  </div>
+
+  <div class="tab-panel" id="tab-layers">
+    <div class="v2-panel-head"><h1>Layers</h1><p>Which layers the catalog offers, how it groups them, and what is on the map when it opens.</p></div>
+    <div class="v2-layers-col">
+    <section class="layers-section">
+      <h2>1. Add layers <span class="section-hint">Find a layer and add it to the Map catalog. It lands at the bottom; drag it into a group there if you want one.</span></h2>
+      <button id="btn-add-layer" class="btn-add-layer" hidden>+ Add layer…</button>
+      <div id="add-layer-panel" class="add-layer-panel">
+        <div class="add-layer-tabs">
+          <button class="add-layer-tab active" data-source="config" type="button">This config</button>
+          <button class="add-layer-tab" data-source="repo" type="button">Repository</button>
+          <button class="add-layer-tab" data-source="url" type="button">Service URL</button>
+        </div>
+
+        <div id="add-layer-config" class="add-layer-source active">
+          <p class="section-hint v2-source-hint">Layers defined in this config that are not in the Map catalog yet.</p>
+          <input type="search" id="catalog-search" class="catalog-search" placeholder="Filter layers…">
+          <div id="catalog-list"></div>
+        </div>
+
+        <div id="add-layer-repo" class="add-layer-source">
+          <p class="section-hint v2-source-hint">The shared webmapx layer repository on GitHub.</p>
+          <input type="search" id="repo-search" placeholder="Search provider, region, category…">
+          <div id="repo-results" class="add-layer-results"></div>
+        </div>
+
+        <div id="add-layer-url" class="add-layer-source">
+          <p class="section-hint v2-source-hint">Ask a WMS, WMTS, Esri or XYZ service which layers it offers.</p>
+          <div class="urlbox">
+            <input type="text" id="discover-url" placeholder="Paste a WMS/WMTS/Esri/XYZ service URL…">
+            <button id="btn-discover">Discover</button>
+          </div>
+          <div id="discover-error" class="discover-error"></div>
+          <div id="discover-results" class="add-layer-results"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="layers-section">
+      <h2>Built-in data <span class="section-hint">— terrain and other tools needing bundled data</span></h2>
+      <p class="placeholder">Coming soon (e.g. 3D terrain exaggeration).</p>
+    </section>
+    </div>
+    <section class="layers-section">
+      <h2>2. Map catalog <span class="section-hint">What the Catalog menu offers, in groups. Drag ⠿ to move a layer or group. Tick a layer to have it on when the map opens.</span></h2>
+      <div id="layertree-list"></div>
+      <p id="layertree-empty" class="placeholder" style="display:none; padding:0.5rem 0;">No layerTree tool found in this config.</p>
+    </section>
+
+    <section class="layers-section">
+      <h2>3. Legend menu layer stack <span class="section-hint">The layers that are on when the map opens, as the Legend shows them. Follows the ticks in the Map catalog. Drag to set the order: top of the list is on top of the map.</span></h2>
+      <div id="activelayers-list" class="tool-list"></div>
+      <p id="activelayers-empty" class="placeholder" style="display:none; padding:0.5rem 0;">Nothing is on yet — tick a layer in the Map catalog.</p>
+    </section>
+
+  </div>
+  <div class="tab-panel v2-with-preview" id="tab-map">
+    <div class="v2-form">
+    <div class="v2-panel-head"><h1>Map</h1><p>Where the map starts, which engine draws it, and how far users can move it.</p></div>
+    <section class="layers-section">
+      <div class="v2-card-title"><h2>Initial map view and engine <span class="section-hint">Where the map opens and which engine draws it. Pan the preview and use the button to copy its view.</span></h2>
+        <button type="button" id="btn-map-view-from-preview" class="v2-from-view" title="Fill in centre, zoom, bearing and pitch from the preview map">↻ Update from the current view</button></div>
+      <div class="map-form-grid">
+        <label>Label
+          <input type="text" id="map-label">
+        </label>
+        <label>Engine
+          <select id="map-type">
+            <option value="maplibre">maplibre</option>
+            <option value="openlayers">openlayers</option>
+            <option value="leaflet">leaflet</option>
+            <option value="cesium">cesium</option>
+          </select>
+        </label>
+        <label>Center longitude
+          <input type="number" id="map-center-lon" step="any">
+        </label>
+        <label>Center latitude
+          <input type="number" id="map-center-lat" step="any">
+        </label>
+        <label>Zoom
+          <input type="number" id="map-zoom" step="any">
+        </label>
+        <label>Bearing
+          <input type="number" id="map-bearing" step="any">
+        </label>
+        <label>Pitch
+          <input type="number" id="map-pitch" step="any">
+        </label>
+        <label>Projection <span class="section-hint">(view-mode tool default)</span>
+          <select id="map-projection">
+            <option value="">(default — mercator)</option>
+            <option value="mercator">mercator</option>
+            <option value="globe">globe</option>
+          </select>
+        </label>
+      </div>
+
+    </section>
+
+    <section class="layers-section">
+      <h2>View limits <span class="section-hint">How far users can zoom in and out, and how far they can tilt the map. Leave a field empty for no limit.</span></h2>
+      <div class="map-form-grid">
+        <label>Min zoom
+          <input type="number" id="map-minzoom" step="any">
+        </label>
+        <label>Max zoom
+          <input type="number" id="map-maxzoom" step="any">
+        </label>
+        <label>Min pitch
+          <input type="number" id="map-minpitch" step="any">
+        </label>
+        <label>Max pitch
+          <input type="number" id="map-maxpitch" step="any">
+        </label>
+      </div>
+    </section>
+
+    <section class="layers-section">
+      <div class="v2-card-title"><h2>Maximum extent <span class="section-hint">Keep the map inside this area: users cannot pan outside it or zoom out beyond it. Use the button to take the area the preview shows.</span></h2>
+        <button type="button" id="btn-map-extent-from-preview" class="v2-from-view" title="Restrict to what the preview map shows now">↻ Update from the current view</button></div>
+      <label class="map-checkbox-row"><input type="checkbox" id="map-maxbounds-enabled"> Restrict to a bounding box</label>
+      <div class="map-form-grid" id="map-maxbounds-fields">
+        <label>West
+          <input type="number" id="map-maxbounds-west" step="any">
+        </label>
+        <label>South
+          <input type="number" id="map-maxbounds-south" step="any">
+        </label>
+        <label>East
+          <input type="number" id="map-maxbounds-east" step="any">
+        </label>
+        <label>North
+          <input type="number" id="map-maxbounds-north" step="any">
+        </label>
+      </div>
+    </section>
+    </div>
+    <aside class="v2-preview">
+      <div class="map-preview-actions">
+        <span class="v2-preview-title">Preview</span>
+        <button id="btn-map-refresh" class="btn-map-sync btn-map-refresh">⟳ Refresh preview from form</button>
+        <button id="btn-map-sync" class="btn-map-sync" hidden>↻ Update form with map settings</button>
+      </div>
+      <iframe id="map-preview-frame" class="map-preview" src="./preview.html?storageKey=webmapx-setup-map-preview-config"></iframe>
+      <p class="section-hint map-preview-hint">A real webmapx map — same engine, tools, and active layers as your config. Pan/zoom/rotate/tilt it, then pull those values back into the form.</p>
+    </aside>
+  </div>
+  <div class="tab-panel v2-with-preview" id="tab-style">
+    <div class="v2-form">
+    <div class="v2-panel-head"><h1>Style</h1><p>The look the map opens with. A viewer's own choice in Settings outranks it.</p></div>
+    <section class="layers-section">
+      <h2>Appearance <span class="section-hint">— config `ui`; a viewer's own choice in Settings outranks it</span></h2>
+      <div class="map-form-grid">
+        <label>Style
+          <select id="style-ui-style">
+            <option value="">(default — atlas)</option>
+            <option value="atlas">Atlas — soft and roomy</option>
+            <option value="folio">Folio — flat and precise</option>
+            <option value="console">Console — dense</option>
+            <option value="classroom">Classroom — coloured tool tiles</option>
+          </select>
+        </label>
+        <label>Theme
+          <select id="style-ui-theme">
+            <option value="">(default — match system)</option>
+            <option value="auto">Match system</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <section class="layers-section">
+      <h2>Toolbar buttons <span class="section-hint">— colours are drawn by the classroom style; "automatic" goes by position</span></h2>
+      <div id="style-toolbars"></div>
+    </section>
+
+    </div>
+    <aside class="v2-preview">
+      <div id="style-chosen-warning" class="style-chosen-warning" hidden>
+        This browser has its own style/theme choice from the Settings tool, which outranks the config, so the preview may not show what you pick here.
+        <button id="btn-style-forget-choice" type="button">Forget my own choice</button>
+      </div>
+      <div class="map-preview-actions">
+        <span class="v2-preview-title">Preview</span>
+        <button id="btn-style-refresh" class="btn-map-sync btn-map-refresh">⟳ Refresh preview</button>
+      </div>
+      <iframe id="style-preview-frame" class="map-preview" src="./preview.html?storageKey=webmapx-setup-style-preview-config"></iframe>
+    </aside>
+  </div>
+
+  <div class="tab-panel v2-with-preview" id="tab-stories">
+    <div class="v2-form">
+    <div class="v2-panel-head"><h1>Stories</h1><p>Guided tours through the map, in chapters and steps.</p></div>
+    <section class="layers-section v2-gate" id="stories-tool-off" hidden>
+      <p><strong>The Stories tool is off.</strong> Viewers can only open a story from the Stories button in a toolbar, so turn the tool on before writing one.</p>
+      <button id="btn-stories-tool-on" type="button" class="v2-add-btn v2-add-btn--big">Turn on the Stories tool</button>
+      <p class="section-hint" id="stories-tool-off-hint"></p>
+    </section>
+    <div id="stories-tool-on">
+    <section class="layers-section">
+      <div class="v2-card-title"><h2>1. Story <span class="section-hint">Click the name to rename it; the gear holds its other settings.</span></h2>
+        <button id="btn-story-add" type="button" class="v2-add-btn v2-add-btn--big">+ New story</button></div>
+      <div class="story-toolbar">
+        <label class="v2-story-switch" id="story-switch">Switch to
+          <select id="story-select"></select>
+        </label>
+      </div>
+      <p id="stories-empty" class="placeholder" style="display:none; padding:0.5rem 0;">No stories yet — click "+ New story" to create one.</p>
+      <div id="story-head" hidden>
+        <div class="v2-story-title-row">
+          <span id="story-name-slot"></span>
+          <button id="btn-story-settings" type="button" class="v2-outline-btn v2-icon-btn-mask v2-icon-gear" title="Story settings" aria-label="Story settings" aria-expanded="false"></button>
+        </div>
+        <div id="story-settings" class="v2-story-settings" hidden>
+          <div class="map-form-grid">
+            <label>Panel width <span class="section-hint">(e.g. 480px)</span>
+              <input type="text" id="story-width" placeholder="(default)">
+            </label>
+            <label style="grid-column: 1 / -1">Description
+              <input type="text" id="story-description">
+            </label>
+          </div>
+          <button id="btn-story-delete" type="button" class="v2-link-danger">Delete this story</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="story-editor" hidden>
+    <section class="layers-section">
+      <h2>2. Outline <span class="section-hint">Click a step to show it on the map, click a title to rename it. Drag ⠿ to reorder.</span></h2>
+      <div id="story-outline" class="v2-outline"></div>
+    </section>
+
+    <div id="step-editor" hidden>
+    <section class="layers-section">
+      <div class="v2-card-title"><h2>3. Map view for <span class="v2-step-ref">this step</span> <span class="section-hint">Where the map looks during this step.</span></h2>
+        <button id="btn-step-capture" type="button" class="v2-from-view v2-btn-view" title="Give this step the camera of the preview map: centre, zoom, bearing and pitch">Use this map view</button></div>
+      <div class="v2-step-view">
+        <span id="step-view-summary"></span>
+      </div>
+      <details class="v2-step-more">
+        <summary>More: exact numbers, projection, 3D terrain</summary>
+        <div class="map-form-grid">
+          <label>Center longitude
+            <input type="number" id="step-lon" step="any">
+          </label>
+          <label>Center latitude
+            <input type="number" id="step-lat" step="any">
+          </label>
+          <label>Zoom
+            <input type="number" id="step-zoom" step="any">
+          </label>
+          <label>Bearing
+            <input type="number" id="step-bearing" step="any">
+          </label>
+          <label>Pitch
+            <input type="number" id="step-pitch" step="any">
+          </label>
+          <label>Projection
+            <select id="step-projection">
+              <option value="">(default — mercator)</option>
+              <option value="mercator">mercator</option>
+              <option value="globe">globe</option>
+            </select>
+          </label>
+        </div>
+        <label class="map-checkbox-row"><input type="checkbox" id="step-terrain"> 3D terrain enabled</label>
+      </details>
+    </section>
+
+    <section class="layers-section">
+      <h2>4. Layers in <span class="v2-step-ref">this step</span> <span class="section-hint">This list and the preview map are the same: switch, hide, reorder or fade a layer in either and the other follows. Top of the list is on top of the map.</span></h2>
+      <div id="step-layers-list" class="v2-step-layers"></div>
+      <select id="step-layer-add" class="v2-step-layer-add" aria-label="Add a layer to this step"></select>
+    </section>
+
+    <section class="layers-section">
+      <h2>5. Content for <span id="step-editor-title" class="v2-step-ref">step</span> <span class="section-hint">Edit the title and content of this step.</span></h2>
+      <label class="step-block-label">Title
+        <input type="text" id="step-title">
+      </label>
+      <label class="step-block-label">Text <span class="section-hint">(HTML allowed, sanitized on render)</span>
+        <textarea id="step-html" rows="4"></textarea>
+      </label>
+    </section>
+    </div>
+    </div>
+    </div>
+    </div>
+    <aside class="v2-preview">
+      <div class="map-preview-actions"><span class="v2-preview-title">Preview<span id="stories-preview-step"></span></span><button id="btn-step-capture-map" type="button" class="v2-from-view v2-btn-view" title="Give this step the camera of the preview map: centre, zoom, bearing and pitch">Use this map view</button></div>
+      <iframe id="stories-preview-frame" class="map-preview" src="./preview.html?storageKey=webmapx-setup-stories-preview-config"></iframe>
+      <p class="section-hint map-preview-hint">Selecting a step shows it here. Move the map, then "Use this map view" to give the step this camera.</p>
+    </aside>
+  </div>
+  </main>
+  <div id="status" role="status"></div>
+
+  <script>
+    document.addEventListener('click', (e) => {
+      document.querySelectorAll('details.v2-menu[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; });
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') document.querySelectorAll('details.v2-menu[open]').forEach(d => { d.open = false; });
+    });
+    // Choosing an item closes its menu, so the next click doesn't find it still open.
+    document.querySelectorAll('.v2-menu-panel > button').forEach(b => b.addEventListener('click', () => { b.closest('details').open = false; }));
+  </script>
+</body>
+</html>

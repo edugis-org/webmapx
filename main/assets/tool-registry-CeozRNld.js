@@ -1,0 +1,1 @@
+import{si as e,ui as t}from"./webmapx-shared-Bw7GDse1.js";export{e as STANDALONE_TAGS,t as TOOL_ELEMENT_TAGS};

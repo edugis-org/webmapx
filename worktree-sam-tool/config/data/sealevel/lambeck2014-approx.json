@@ -1,0 +1,22 @@
+{
+  "name": "Global mean sea level, last 26,000 years",
+  "attribution": "Sea level after <a href=\"https://doi.org/10.1073/pnas.1411762111\" target=\"_blank\" rel=\"noopener\">Lambeck et al. 2014</a>",
+  "note": "Piecewise-linear approximation of the ice-volume equivalent sea level of Lambeck et al. (2014, PNAS 111:15296), built from the amounts and rates the paper states per interval (key results i-xii); the tabulated curve (SI Appendix Table S3) was not used. Expect departures of about 5 m from the published curve. Values are relative to present (pre-industrial) sea level.",
+  "unit": "m",
+  "points": [
+    [26, -130],
+    [21, -134],
+    [18, -122],
+    [16.5, -121],
+    [15, -97],
+    [14.5, -96],
+    [14, -76],
+    [12.5, -58],
+    [11.5, -55],
+    [8.2, -10],
+    [6.7, -4],
+    [4.2, -1],
+    [0.15, 0],
+    [0, 0]
+  ]
+}
