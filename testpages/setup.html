@@ -1537,6 +1537,28 @@
       return ordered;
     }
 
+    // The Tools tab stores an order as tool ids (`layerTree`), but a config item may carry
+    // its own id (`{ id: 'layers', type: 'layerTree' }`). Matching the order on the item's
+    // id therefore missed every such item, which kept its config position whatever was
+    // dragged. Items are matched on the tool id the list shows, the way buildUI does.
+    function toolIdOfItem(item, catalog) {
+      const own = item.id ?? item.type;
+      return catalog.find(t => t.id === own || t.id === item.type)?.id ?? own;
+    }
+
+    // Reorders the items the order names within the positions they already hold, so an
+    // item the list does not show (a spacer) stays where the config put it.
+    function applyToolOrder(items, order, catalog) {
+      const rank = (item) => order.indexOf(toolIdOfItem(item, catalog));
+      const slots = [];
+      const moving = [];
+      items.forEach((item, i) => { if (rank(item) >= 0) { slots.push(i); moving.push(item); } });
+      moving.sort((a, b) => rank(a) - rank(b));
+      const result = items.slice();
+      slots.forEach((slot, n) => { result[slot] = moving[n]; });
+      return result;
+    }
+
     // The list is the toolbar as it will be saved: checked tools in toolbar order, then
     // the unchecked ones alphabetically. Unchecked tools are not written to the config,
     // so any position they held would be lost on download → upload.
@@ -3391,10 +3413,7 @@
         // Apply stored drag order to toolbar items
         const toolOrder = overrides[`order:toolbar:${toolbarKey}`];
         if (Array.isArray(toolOrder) && toolOrder.length > 0) {
-          const itemById = new Map(toolbar.items.map(i => [i.id ?? i.type, i]));
-          const ordered = toolOrder.map(id => itemById.get(id)).filter(Boolean);
-          const unordered = toolbar.items.filter(i => !toolOrder.includes(i.id ?? i.type));
-          toolbar.items = [...ordered, ...unordered];
+          toolbar.items = applyToolOrder(toolbar.items, toolOrder, TOOLBAR_TOOLS);
         }
 
         // Apply stored drag order to container sub-items
@@ -3403,10 +3422,7 @@
           const containerId = item.id ?? item.type;
           const subOrder = overrides[`order:${item.type}:${toolbarKey}:${containerId}`];
           if (Array.isArray(subOrder) && subOrder.length > 0) {
-            const subById = new Map(item.items.map(s => [s.id ?? s.type, s]));
-            const ordered = subOrder.map(id => subById.get(id)).filter(Boolean);
-            const unordered = item.items.filter(s => !subOrder.includes(s.id ?? s.type));
-            item.items = [...ordered, ...unordered];
+            item.items = applyToolOrder(item.items, subOrder, LEAF_TOOLBAR_TOOLS);
           }
         }
       }
