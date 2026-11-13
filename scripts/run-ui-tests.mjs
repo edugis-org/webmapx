@@ -1,14 +1,37 @@
 import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import net from 'node:net';
+import os from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { readdir } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
 const suitesDir = path.join(__dirname, 'ui-tests');
+// How long each suite × engine took last time, so the next run can start the
+// longest ones first. With several runs in flight, a long one picked up last
+// keeps the whole run waiting while every other worker sits idle. Local cache,
+// not committed: the numbers belong to this machine.
+const TIMINGS_FILE = path.join(repoRoot, 'node_modules', '.cache', 'webmapx-ui-timings.json');
+
+async function readTimings() {
+  try {
+    return JSON.parse(await readFile(TIMINGS_FILE, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+async function writeTimings(timings) {
+  try {
+    await mkdir(path.dirname(TIMINGS_FILE), { recursive: true });
+    await writeFile(TIMINGS_FILE, `${JSON.stringify(timings, null, 2)}\n`);
+  } catch {
+    // A missing cache only costs the ordering next time.
+  }
+}
 
 const DEFAULT_ENGINES = ['maplibre', 'openlayers', 'leaflet', 'cesium'];
 const DEV_HOST = process.env.UI_TEST_HOST ?? '127.0.0.1';
@@ -18,11 +41,43 @@ const DEV_HOST = process.env.UI_TEST_HOST ?? '127.0.0.1';
 // on a fixed port.
 const EXPLICIT_PORT = process.env.UI_TEST_PORT ? Number(process.env.UI_TEST_PORT) : null;
 
+// What one suite × engine run costs, measured with four in flight on a
+// 12-core laptop: Chromium held ~3.1 GB (≈ 750 MB a run, its share of the
+// browser and GPU processes included) and the load average sat at 10 —
+// SwiftShader renders WebGL on the CPU, so a run keeps two to three cores busy.
+const MEMORY_PER_RUN = 750 * 1024 * 1024;
+const CORES_PER_RUN = 3;
+// Left over for the dev server, the OS and whatever else the machine is doing.
+const MEMORY_RESERVE = 1024 * 1024 * 1024;
+
+/**
+ * How many runs to keep in flight. `auto` takes whichever of cores and
+ * *currently available* memory runs out first, so a busy laptop gets fewer
+ * than an idle one; past that, more runs only make each one slower (and a slow
+ * run is a run that times out).
+ */
+function resolveJobs(requested) {
+  if (requested !== 'auto') {
+    const jobs = Number(requested);
+    if (!Number.isInteger(jobs) || jobs < 1) throw new Error(`--jobs expects a positive number or "auto", got "${requested}"`);
+    return { jobs, reason: 'requested' };
+  }
+  const cores = os.availableParallelism?.() ?? os.cpus().length;
+  const byCpu = Math.max(1, Math.ceil(cores / CORES_PER_RUN));
+  const byMemory = Math.max(1, Math.floor((os.freemem() - MEMORY_RESERVE) / MEMORY_PER_RUN));
+  return {
+    jobs: Math.min(byCpu, byMemory),
+    reason: `auto: ${cores} cores allow ${byCpu}, ${(os.freemem() / 2 ** 30).toFixed(1)} GB free allows ${byMemory}`,
+  };
+}
+
 function parseArgs(argv) {
   const result = {
     all: false,
     suite: null,
     engines: null,
+    jobs: process.env.UI_TEST_JOBS ?? 'auto',
+    shard: null,
   };
 
   for (let i = 0; i < argv.length; i++) {
@@ -33,6 +88,22 @@ function parseArgs(argv) {
     }
     if (arg === '--suite') {
       result.suite = argv[i + 1] ?? null;
+      i += 1;
+      continue;
+    }
+    if (arg === '--shard') {
+      // `--shard 2/4`: the second of four slices of the suite × engine runs,
+      // so separate machines (the CI matrix) can each take one.
+      const match = /^(\d+)\/(\d+)$/.exec(argv[i + 1] ?? '');
+      if (!match || Number(match[1]) < 1 || Number(match[1]) > Number(match[2])) {
+        throw new Error(`--shard expects k/n with 1 <= k <= n, got "${argv[i + 1] ?? ''}"`);
+      }
+      result.shard = { index: Number(match[1]) - 1, count: Number(match[2]) };
+      i += 1;
+      continue;
+    }
+    if (arg === '--jobs') {
+      result.jobs = argv[i + 1] ?? 'auto';
       i += 1;
       continue;
     }
@@ -61,7 +132,7 @@ async function listSuiteIds() {
 
 async function resolveSuiteIds(args) {
   if (args.suite) {
-    return [args.suite];
+    return args.suite.split(',').map((id) => id.trim()).filter(Boolean);
   }
   if (args.all) {
     return listSuiteIds();
@@ -229,6 +300,11 @@ async function run() {
       args: ['--disable-gpu', '--use-gl=swiftshader'],
     });
 
+    // Collect every suite × engine run first, then work through them with
+    // `--jobs` runs in flight at once. Each run has its own browser context, so
+    // they share nothing but the dev server and the browser process.
+    const timings = await readTimings();
+    const tasks = [];
     for (const suiteId of suiteIds) {
       const suite = await importSuite(suiteId);
       const suiteEngines = Array.isArray(suite.engines) && suite.engines.length > 0
@@ -243,7 +319,25 @@ async function run() {
         continue;
       }
 
-      for (const engine of engines) {
+      for (const engine of engines) tasks.push({ suiteId, suite, engine });
+    }
+
+    // Dealt back and forth (1..n, n..1, 1..n…) over the alphabetical
+    // suite × engine list. Plain round-robin would line four engines up with
+    // four shards and hand one shard every Cesium run, the slow ones.
+    if (args.shard) {
+      const { index, count } = args.shard;
+      const shardOf = (position) => {
+        const lap = Math.floor(position / count);
+        const offset = position % count;
+        return lap % 2 === 0 ? offset : count - 1 - offset;
+      };
+      const mine = tasks.filter((_, position) => shardOf(position) === index);
+      tasks.length = 0;
+      tasks.push(...mine);
+    }
+
+    const runTask = async ({ suiteId, suite, engine }) => {
         const context = await browser.newContext({
           extraHTTPHeaders: { 'Referer': 'https://webmapx.com' },
         });
@@ -256,6 +350,7 @@ async function run() {
         // what caused it: Vite logs to the console before reloading) from a
         // crash from a navigation elsewhere.
         const startedAt = Date.now();
+        const elapsed = () => `${((Date.now() - startedAt) / 1000).toFixed(1)}s`;
         const pageEvents = [];
         const note = (text) => pageEvents.push(`${((Date.now() - startedAt) / 1000).toFixed(1)}s ${text}`);
         page.on('framenavigated', (frame) => { if (frame === page.mainFrame()) note(`navigated ${frame.url()}`); });
@@ -292,16 +387,30 @@ async function run() {
             baseUrl,
           });
 
-          process.stdout.write(`PASS ${suiteId} (${engine})\n`);
+          timings[`${suiteId}:${engine}`] = Date.now() - startedAt;
+          process.stdout.write(`PASS ${suiteId} (${engine}) ${elapsed()}\n`);
         } catch (error) {
           failures += 1;
-          process.stderr.write(`FAIL ${suiteId} (${engine}): ${error instanceof Error ? error.message : String(error)}\n`);
+          process.stderr.write(`FAIL ${suiteId} (${engine}) ${elapsed()}: ${error instanceof Error ? error.message : String(error)}\n`);
           process.stderr.write(`  page events:\n${pageEvents.map((line) => `    ${line}`).join('\n')}\n`);
         } finally {
           await context.close();
         }
-      }
-    }
+    };
+
+    // Longest first; a run never timed before counts as long, since nothing
+    // says it is short.
+    const expected = ({ suiteId, engine }) => timings[`${suiteId}:${engine}`] ?? Infinity;
+    const queue = [...tasks].sort((a, b) => expected(b) - expected(a));
+    const worker = async () => {
+      while (queue.length > 0) await runTask(queue.shift());
+    };
+    const { jobs, reason } = resolveJobs(args.jobs);
+    process.stdout.write(`[ui-test] ${tasks.length} runs, ${jobs} at a time (${reason})\n`);
+    const runStartedAt = Date.now();
+    await Promise.all(Array.from({ length: Math.min(jobs, tasks.length) }, worker));
+    await writeTimings(timings);
+    process.stdout.write(`[ui-test] ${tasks.length} runs, ${failures} failed, ${((Date.now() - runStartedAt) / 1000).toFixed(0)}s with ${jobs} at a time\n`);
   } catch (error) {
     if (error instanceof Error && /Executable doesn't exist|browserType\.launch/i.test(error.message)) {
       console.error('Playwright browser binaries are missing. Run: npx playwright install chromium');
