@@ -131,6 +131,7 @@
     .repo-layer .repo-layer-row { padding-bottom: 0; }
     .repo-layer-meta { font-size: 0.72rem; color: #5a6472; padding: 0 0 0.1rem; overflow-wrap: anywhere; }
     .repo-layer-details { font-size: 0.72rem; color: #5a6472; }
+    .repo-layer-norecord { font-style: italic; }
     .repo-layer-details > summary { cursor: pointer; width: fit-content; user-select: none; }
     .repo-layer-details p { margin: 0.2rem 0; }
     .repo-subjects { display: flex; flex-wrap: wrap; gap: 3px; margin: 0.2rem 0; }
@@ -2195,6 +2196,11 @@
       applyFilter();
     }
 
+    // "Scan from images.memorix.nl": the server an unattributed scan comes from.
+    function scanHost(layer) {
+      try { return `Scan from ${new URL(layer.webmapxConfig?.layer?.metadata?.iiifResource).host}`; } catch { return null; }
+    }
+
     function renderRepoLayerRow(config, layer, onSubject) {
       const wrap = Object.assign(document.createElement('div'), { className: 'repo-layer' });
       const row = document.createElement('div');
@@ -2219,7 +2225,17 @@
       // person choosing between ten sheets of the same town needs to see.
       const r = repoLayerRecord(layer);
       const facts = [r.creator, r.date, r.scale && (/^\s*1\s*:/.test(r.scale) ? r.scale : `scale ${r.scale}`), r.holder].filter(Boolean);
-      if (facts.length) {
+      // A scan with no link to a catalogue record (46% of Allmaps' maps) has
+      // nothing to show; saying so beats a bare library name that looks like a
+      // record we failed to read.
+      const noRecord = !r.creator && !r.date && !r.scale && !r.subjects.length && !r.manifest
+        && layer.webmapxConfig?.layer?.metadata?.allmapsId;
+      if (noRecord) {
+        wrap.appendChild(Object.assign(document.createElement('div'), {
+          className: 'repo-layer-meta repo-layer-norecord',
+          textContent: `${r.holder ?? scanHost(layer) ?? 'Holding library'}: no metadata for this map`,
+        }));
+      } else if (facts.length) {
         wrap.appendChild(Object.assign(document.createElement('div'), {
           className: 'repo-layer-meta', textContent: facts.join(' · '),
         }));
@@ -2230,7 +2246,7 @@
       const abstractText = norm(r.abstract);
       const restates = !abstractText || abstractText === norm(layer.title) || (facts.length > 0
         && abstractText.startsWith(norm(layer.title)) && facts.every(f => abstractText.includes(norm(f).replace(/^scale /, ''))));
-      if (restates) r.abstract = undefined;
+      if (restates || noRecord) r.abstract = undefined;
       if (r.subjects.length || r.manifest || r.abstract) {
         const details = Object.assign(document.createElement('details'), { className: 'repo-layer-details' });
         details.appendChild(Object.assign(document.createElement('summary'), { textContent: 'More' }));
