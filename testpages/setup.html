@@ -125,6 +125,20 @@
       display: flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0; font-size: 0.8rem;
     }
     .repo-layer-row .layer-title, .discover-layer-row .layer-title { flex: 1; }
+    /* Repository layers carry their catalogue record (maker, date, scale, holder) */
+    #repo-results { max-height: 60vh; }
+    .repo-layer { border-top: 1px solid #f0f0f0; padding: 0.15rem 0; }
+    .repo-layer .repo-layer-row { padding-bottom: 0; }
+    .repo-layer-meta { font-size: 0.72rem; color: #5a6472; padding: 0 0 0.1rem; overflow-wrap: anywhere; }
+    .repo-layer-details { font-size: 0.72rem; color: #5a6472; }
+    .repo-layer-details > summary { cursor: pointer; width: fit-content; user-select: none; }
+    .repo-layer-details p { margin: 0.2rem 0; }
+    .repo-subjects { display: flex; flex-wrap: wrap; gap: 3px; margin: 0.2rem 0; }
+    .repo-subjects .type-badge { margin-left: 0; text-transform: none; letter-spacing: 0; cursor: pointer; }
+    .repo-layer-filter { display: flex; gap: 0.4rem; align-items: center; margin: 0.2rem 0 0.3rem; }
+    .repo-layer-filter input { flex: 1; }
+    .repo-layer-count { font-size: 0.72rem; color: #5a6472; white-space: nowrap; }
+    .repo-more { margin: 0.3rem 0; font-size: 0.75rem; }
     .catalog-group { margin-bottom: 0.3rem; }
     .catalog-group > summary {
       cursor: pointer; font-size: 0.8rem; color: #777; text-transform: uppercase;
@@ -2106,6 +2120,174 @@
       return repoProviderCache.get(path);
     }
 
+    // A harvested layer's catalogue record, as the layer repository publishes it in
+    // `webmapxConfig.layer.metadata` (creator, date/year, scale, subjects, holder,
+    // iiifManifest — Allmaps layers read these from each library's IIIF manifest).
+    function repoLayerRecord(layer) {
+      const m = layer.webmapxConfig?.layer?.metadata ?? {};
+      return {
+        creator: m.creator, date: m.date ?? (m.year ? String(m.year) : undefined),
+        scale: m.scale, subjects: Array.isArray(m.subjects) ? m.subjects : [],
+        holder: m.holder, manifest: m.iiifManifest, abstract: m.abstract ?? layer.abstract,
+      };
+    }
+
+    // Lower-cased text a provider filter matches against: title plus the record.
+    function repoLayerHaystack(layer) {
+      const r = repoLayerRecord(layer);
+      return [layer.title, r.creator, r.date, r.scale, r.holder, ...r.subjects]
+        .filter(Boolean).join(' \u0001 ').toLowerCase();
+    }
+
+    // One page of rows at a time: Allmaps' New York file alone holds ~19,000 layers.
+    const REPO_PAGE = 100;
+
+    function renderRepoLayerList(config, layersEl, layers) {
+      const haystacks = new Map();
+      const hay = (layer) => {
+        if (!haystacks.has(layer)) haystacks.set(layer, repoLayerHaystack(layer));
+        return haystacks.get(layer);
+      };
+      const listEl = document.createElement('div');
+      const moreBtn = Object.assign(document.createElement('button'), { className: 'repo-more', type: 'button' });
+      const countEl = Object.assign(document.createElement('span'), { className: 'repo-layer-count' });
+      let filterEl = null;
+      if (layers.length > 10) {
+        const bar = Object.assign(document.createElement('div'), { className: 'repo-layer-filter' });
+        filterEl = Object.assign(document.createElement('input'), {
+          type: 'search', placeholder: 'Filter by title, maker, year, subject…',
+        });
+        bar.append(filterEl, countEl);
+        layersEl.appendChild(bar);
+      }
+      layersEl.append(listEl, moreBtn);
+
+      let matches = layers;
+      let shown = 0;
+      const showMore = () => {
+        const next = matches.slice(shown, shown + REPO_PAGE);
+        for (const layer of next) listEl.appendChild(renderRepoLayerRow(config, layer, (subject) => {
+          if (!filterEl) return;
+          filterEl.value = subject;
+          applyFilter();
+        }));
+        shown += next.length;
+        const left = matches.length - shown;
+        moreBtn.hidden = left <= 0;
+        moreBtn.textContent = `Show ${Math.min(left, REPO_PAGE)} more (${left} left)`;
+      };
+      const applyFilter = () => {
+        // Every word must match somewhere, so "sanborn 1913" narrows rather than widens.
+        const words = (filterEl?.value ?? '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+        matches = words.length ? layers.filter(layer => words.every(w => hay(layer).includes(w))) : layers;
+        countEl.textContent = words.length ? `${matches.length} of ${layers.length}` : `${layers.length} layers`;
+        listEl.innerHTML = '';
+        shown = 0;
+        if (!matches.length) listEl.textContent = 'No layers match.';
+        showMore();
+      };
+      moreBtn.addEventListener('click', showMore);
+      let pending = 0;
+      filterEl?.addEventListener('input', () => {
+        clearTimeout(pending);
+        pending = setTimeout(applyFilter, 150);
+      });
+      applyFilter();
+    }
+
+    function renderRepoLayerRow(config, layer, onSubject) {
+      const wrap = Object.assign(document.createElement('div'), { className: 'repo-layer' });
+      const row = document.createElement('div');
+      row.className = 'repo-layer-row';
+      const title = document.createElement('span');
+      title.className = 'layer-title';
+      title.textContent = layer.title ?? layer.id;
+      row.appendChild(title);
+      const typeB = document.createElement('span');
+      typeB.className = 'type-badge';
+      typeB.textContent = layer.type ?? '?';
+      row.appendChild(typeB);
+      if (layer.requiresKey) {
+        const keyB = document.createElement('span');
+        keyB.className = 'type-badge';
+        keyB.textContent = 'needs api key';
+        row.appendChild(keyB);
+      }
+      wrap.appendChild(row);
+
+      // Who made it, when, at what scale, and who holds it: one line, what a
+      // person choosing between ten sheets of the same town needs to see.
+      const r = repoLayerRecord(layer);
+      const facts = [r.creator, r.date, r.scale && (/^\s*1\s*:/.test(r.scale) ? r.scale : `scale ${r.scale}`), r.holder].filter(Boolean);
+      if (facts.length) {
+        wrap.appendChild(Object.assign(document.createElement('div'), {
+          className: 'repo-layer-meta', textContent: facts.join(' · '),
+        }));
+      }
+      // An abstract that only restates the title and the facts above (as Allmaps'
+      // generated ones do) adds nothing; one with its own prose is shown.
+      const norm = (t) => String(t ?? '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+      const abstractText = norm(r.abstract);
+      const restates = !abstractText || abstractText === norm(layer.title) || (facts.length > 0
+        && abstractText.startsWith(norm(layer.title)) && facts.every(f => abstractText.includes(norm(f).replace(/^scale /, ''))));
+      if (restates) r.abstract = undefined;
+      if (r.subjects.length || r.manifest || r.abstract) {
+        const details = Object.assign(document.createElement('details'), { className: 'repo-layer-details' });
+        details.appendChild(Object.assign(document.createElement('summary'), { textContent: 'More' }));
+        // Built on first open: thousands of rows, few of them ever opened.
+        details.addEventListener('toggle', () => {
+          if (!details.open || details.dataset.built) return;
+          details.dataset.built = '1';
+          if (r.abstract) details.appendChild(Object.assign(document.createElement('p'), { textContent: r.abstract }));
+          if (r.subjects.length) {
+            const chips = Object.assign(document.createElement('div'), { className: 'repo-subjects' });
+            for (const subject of r.subjects) {
+              const chip = Object.assign(document.createElement('span'), {
+                className: 'type-badge', textContent: subject, title: 'Show layers with this subject',
+              });
+              chip.addEventListener('click', () => onSubject?.(subject));
+              chips.appendChild(chip);
+            }
+            details.appendChild(chips);
+          }
+          if (r.manifest) {
+            const p = document.createElement('p');
+            p.appendChild(Object.assign(document.createElement('a'), {
+              href: r.manifest, target: '_blank', rel: 'noopener', textContent: 'Catalogue record (IIIF manifest)',
+            }));
+            details.appendChild(p);
+          }
+        });
+        wrap.appendChild(details);
+      }
+
+      const repoTreeLoc = findLayerTreeLocation(config);
+      if (repoTreeLoc) {
+        row.appendChild(makeAddToTreeSelect(config, repoTreeLoc, (path) => {
+          const cfg = layer.webmapxConfig;
+          if (!cfg?.source || !cfg?.layer) return;
+          const id = addLayerData(config, cfg.source, cfg.layer, layer.title, cfg.layer.type);
+          placeInTree(config, repoTreeLoc, id, path);
+          buildLayersUI(config);
+          row.querySelector('.v2-add-to')?.replaceWith(Object.assign(document.createElement('span'), { className: 'type-badge', textContent: 'added' }));
+          document.getElementById('status').textContent = `Added "${layer.title}" to the bottom of the Map catalog.`;
+        }));
+        return wrap;
+      }
+      const addBtn = document.createElement('button');
+      addBtn.className = 'btn-add';
+      addBtn.textContent = '+ Add';
+      addBtn.addEventListener('click', () => {
+        const cfg = layer.webmapxConfig;
+        if (!cfg?.source || !cfg?.layer) return;
+        addLayerData(config, cfg.source, cfg.layer, layer.title, cfg.layer.type);
+        buildLayersUI(config);
+        document.getElementById('status').textContent = `Added "${layer.title}" — find it under This config.`;
+      });
+      row.appendChild(addBtn);
+      return wrap;
+    }
+
     async function buildRepoResults(config, filterText) {
       const resultsEl = document.getElementById('repo-results');
       resultsEl.textContent = 'Loading…';
@@ -2162,51 +2344,8 @@
               const file = await loadRepoProvider(entry.path);
               const layers = file.services?.flatMap(service => service.layers ?? []) ?? file.layers ?? [];
               layersEl.innerHTML = '';
-              for (const layer of layers) {
-                const row = document.createElement('div');
-                row.className = 'repo-layer-row';
-                const title = document.createElement('span');
-                title.className = 'layer-title';
-                title.textContent = layer.title ?? layer.id;
-                row.appendChild(title);
-                const typeB = document.createElement('span');
-                typeB.className = 'type-badge';
-                typeB.textContent = layer.type ?? '?';
-                row.appendChild(typeB);
-                if (layer.requiresKey) {
-                  const keyB = document.createElement('span');
-                  keyB.className = 'type-badge';
-                  keyB.textContent = 'needs api key';
-                  row.appendChild(keyB);
-                }
-                const addBtn = document.createElement('button');
-                addBtn.className = 'btn-add';
-                addBtn.textContent = '+ Add';
-                const repoTreeLoc = findLayerTreeLocation(config);
-                if (repoTreeLoc) {
-                  row.appendChild(makeAddToTreeSelect(config, repoTreeLoc, (path) => {
-                    const cfg = layer.webmapxConfig;
-                    if (!cfg?.source || !cfg?.layer) return;
-                    const id = addLayerData(config, cfg.source, cfg.layer, layer.title, cfg.layer.type);
-                    placeInTree(config, repoTreeLoc, id, path);
-                    buildLayersUI(config);
-                    row.querySelector('.v2-add-to')?.replaceWith(Object.assign(document.createElement('span'), { className: 'type-badge', textContent: 'added' }));
-                    document.getElementById('status').textContent = `Added "${layer.title}" to the bottom of the Map catalog.`;
-                  }));
-                  layersEl.appendChild(row);
-                  continue;
-                }
-                addBtn.addEventListener('click', () => {
-                  const cfg = layer.webmapxConfig;
-                  if (!cfg?.source || !cfg?.layer) return;
-                  addLayerData(config, cfg.source, cfg.layer, layer.title, cfg.layer.type);
-                  buildLayersUI(config);
-                  document.getElementById('status').textContent = `Added "${layer.title}" — find it under This config.`;
-                });
-                row.appendChild(addBtn);
-                layersEl.appendChild(row);
-              }
               if (!layers.length) layersEl.textContent = 'No layers in this provider file.';
+              else renderRepoLayerList(config, layersEl, layers);
             } catch (err) {
               layersEl.textContent = `Failed to load: ${err.message}`;
             }
