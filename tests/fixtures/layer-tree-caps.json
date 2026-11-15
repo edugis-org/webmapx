@@ -1,0 +1,54 @@
+{
+  "version": 0,
+  "project": {
+    "id": "layer-tree-caps",
+    "title": "Layer tree capabilities fixture"
+  },
+  "map": {
+    "label": "Capabilities fixture",
+    "center": [5, 52],
+    "zoom": 6,
+    "type": "maplibre",
+    "style": { "version": 8, "sources": {}, "layers": [] }
+  },
+  "layerData": { "sources": [], "layers": [] },
+  "tools": {
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "panel": { "enabled": true, "position": "after" },
+      "items": [
+        {
+          "id": "layers",
+          "type": "layerTree",
+          "enabled": true,
+          "title": "Catalog",
+          "tree": [
+            {
+              "label": "Historic maps",
+              "children": [
+                {
+                  "label": "Historic maps",
+                  "type": "getcapabilities",
+                  "url": "https://wms.example.test/wms?map=historic"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "legendToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-right",
+      "orientation": "vertical",
+      "panel": { "enabled": true, "position": "after", "opened": true },
+      "items": [
+        { "id": "legend", "type": "layerOverview", "enabled": true, "title": "Legend" }
+      ]
+    }
+  }
+}
