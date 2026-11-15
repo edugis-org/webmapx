@@ -75,7 +75,10 @@ function resolveConfigRelativeUrl(value: string, baseUrl: string): string {
     return value;
   }
   try {
-    return new URL(value, baseUrl).toString();
+    const resolved = new URL(value, baseUrl).toString();
+    // `URL` percent-encodes braces in the path, which turns a tile template's
+    // `{z}/{x}/{y}` into literals no engine substitutes — put them back.
+    return value.includes('{') ? resolved.replace(/%7B([\w-]+)%7D/gi, '{$1}') : resolved;
   } catch {
     return value;
   }
@@ -108,6 +111,12 @@ function resolveInternalFuncPaths(value: string, baseUrl: string): string {
   // recognised as following the map's clock, so it is never redrawn. It draws
   // once, at whatever the placeholder falls back to, and sits there.
   return `${name}?${params.toString().replace(/%7B/gi, '{').replace(/%7D/gi, '}')}`;
+}
+
+/** A layer's inline source map is keyed by its local name; the scoped `id` belongs to the registered copy only. */
+function withoutId(source: Record<string, unknown>): Record<string, unknown> {
+  const { id: _id, ...rest } = source;
+  return rest;
 }
 
 function normalizeSourceDefinition(id: string, value: unknown, baseUrl: string): Record<string, unknown> {
@@ -229,8 +238,9 @@ function normalizeLayerEntry(value: Record<string, unknown>, extraSources: Recor
       for (const [srcId, srcDef] of Object.entries(value.sources)) {
         const scoped = `${id}:${srcId}`;
         sourceAliases.set(srcId, scoped);
-        extraSources.push(normalizeSourceDefinition(scoped, srcDef, configUrl));
-        localSources[srcId] = srcDef;
+        const normalized = normalizeSourceDefinition(scoped, srcDef, configUrl);
+        extraSources.push(normalized);
+        localSources[srcId] = withoutId(normalized);
       }
     }
     const layers = Array.isArray(value.layers)
@@ -247,7 +257,10 @@ function normalizeLayerEntry(value: Record<string, unknown>, extraSources: Recor
       ...base,
       type: 'style',
       ...(typeof value.url === 'string' ? { url: resolveConfigRelativeUrl(value.url, configUrl) } : {}),
-      sources: value.sources ?? {},
+      // The resolved copies, not `value.sources`: adding the layer registers
+      // its sources from this map, so a raw `data/x.geojson` here was fetched
+      // against the page even though the scoped copies above were resolved.
+      sources: localSources,
       layers,
     };
   }
@@ -289,8 +302,9 @@ function normalizeLayerEntry(value: Record<string, unknown>, extraSources: Recor
       for (const [srcId, srcDef] of Object.entries(style.sources)) {
         const scoped = `${id}:${srcId}`;
         sourceAliases.set(srcId, scoped);
-        extraSources.push(normalizeSourceDefinition(scoped, srcDef, configUrl));
-        localSources[srcId] = srcDef;
+        const normalized = normalizeSourceDefinition(scoped, srcDef, configUrl);
+        extraSources.push(normalized);
+        localSources[srcId] = withoutId(normalized);
       }
     }
     const layers = Array.isArray(style.layers)
