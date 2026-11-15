@@ -132,6 +132,11 @@
     .repo-layer-meta { font-size: 0.72rem; color: #5a6472; padding: 0 0 0.1rem; overflow-wrap: anywhere; }
     .repo-layer-details { font-size: 0.72rem; color: #5a6472; }
     .repo-layer-norecord { font-style: italic; }
+    .repo-record-links { display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; align-items: center; }
+    .repo-record-links .repo-more { margin: 0; }
+    .repo-record-table { display: grid; grid-template-columns: minmax(7em, max-content) 1fr; gap: 0.15rem 0.6rem; margin: 0.3rem 0; color: #2d333b; }
+    .repo-record-table dt { color: #5a6472; font-weight: 600; }
+    .repo-record-table dd { margin: 0; overflow-wrap: anywhere; }
     .repo-layer-details > summary { cursor: pointer; width: fit-content; user-select: none; }
     .repo-layer-details p { margin: 0.2rem 0; }
     .repo-subjects { display: flex; flex-wrap: wrap; gap: 3px; margin: 0.2rem 0; }
@@ -2201,6 +2206,182 @@
       try { return `Scan from ${new URL(layer.webmapxConfig?.layer?.metadata?.iiifResource).host}`; } catch { return null; }
     }
 
+    // --- A IIIF manifest as a person reads it -------------------------------
+    // A manifest is the library's catalogue record; its readable part is the
+    // `metadata` list of label/value pairs, in whatever words that library uses.
+    // Values are language maps (IIIF 3) or strings/@value objects (IIIF 2) and
+    // often carry HTML (NYPL wraps every value in links), so they are reduced
+    // to text and links here rather than injected.
+
+    /** Text of a IIIF value, preferring English or the page's language. */
+    function iiifText(value) {
+      if (value == null) return [];
+      if (typeof value === 'string' || typeof value === 'number') return [String(value)];
+      if (Array.isArray(value)) return value.flatMap(iiifText);
+      if (typeof value === 'object') {
+        if ('@value' in value) return iiifText(value['@value']);
+        const lang = navigator.language.slice(0, 2);
+        const pick = value[lang] ?? value.en ?? value.none ?? Object.values(value)[0];
+        return iiifText(pick);
+      }
+      return [];
+    }
+
+    /** One catalogue value as DOM: text plus the links it contained, nothing else. */
+    function iiifValueNode(raw) {
+      const out = document.createElement('span');
+      const doc = new DOMParser().parseFromString(`<body>${raw}</body>`, 'text/html');
+      const walk = (node) => {
+        for (const child of node.childNodes) {
+          if (child.nodeType === Node.TEXT_NODE) {
+            // Bare URLs become links too ("Notice du catalogue : http://…").
+            const parts = child.textContent.split(/(https?:\/\/[^\s<>"]+)/);
+            parts.forEach((part, i) => {
+              if (i % 2) out.appendChild(Object.assign(document.createElement('a'), { href: part, target: '_blank', rel: 'noopener', textContent: part }));
+              else if (part) out.appendChild(document.createTextNode(part));
+            });
+          } else if (child.nodeName === 'A' && /^https?:/i.test(child.getAttribute('href') ?? '')) {
+            out.appendChild(Object.assign(document.createElement('a'), {
+              href: child.getAttribute('href'), target: '_blank', rel: 'noopener', textContent: child.textContent.trim(),
+            }));
+          } else if (child.nodeName === 'BR') {
+            out.appendChild(document.createTextNode(' '));
+          } else if (child.nodeType === Node.ELEMENT_NODE) {
+            walk(child);
+            if (/^(P|DIV|LI)$/.test(child.nodeName)) out.appendChild(document.createTextNode(' '));
+          }
+        }
+      };
+      walk(doc.body);
+      out.normalize();
+      return out;
+    }
+
+    /** The library's own page for the record: IIIF 3 `homepage`, IIIF 2 `related`. */
+    function manifestHomepage(manifest) {
+      const first = (v) => (Array.isArray(v) ? v[0] : v);
+      const home = first(manifest.homepage) ?? first(manifest.related);
+      const url = typeof home === 'string' ? home : (home?.id ?? home?.['@id']);
+      return /^https?:/i.test(url ?? '') ? { url, label: iiifText(home?.label)[0] } : null;
+    }
+
+    function viewerLink(layer) {
+      const id = layer.webmapxConfig?.layer?.metadata?.allmapsId;
+      return Object.assign(document.createElement('a'), {
+        href: `https://viewer.allmaps.org/?url=${encodeURIComponent(`https://annotations.allmaps.org/maps/${id}`)}`,
+        target: '_blank', rel: 'noopener', textContent: 'Open in Allmaps viewer',
+      });
+    }
+
+    const manifestCache = new Map(); // url → Promise<manifest JSON>
+
+    function renderManifestRecord(manifestUrl, layer) {
+      const box = Object.assign(document.createElement('div'), { className: 'repo-record' });
+      const links = Object.assign(document.createElement('p'), { className: 'repo-record-links' });
+      const showBtn = Object.assign(document.createElement('button'), {
+        type: 'button', className: 'repo-more', textContent: 'Show catalogue record',
+      });
+      const download = Object.assign(document.createElement('a'), {
+        href: manifestUrl, target: '_blank', rel: 'noopener', textContent: 'Download JSON',
+        title: 'The IIIF manifest as the library publishes it',
+      });
+      links.append(showBtn);
+      links.append(Object.assign(document.createElement('a'), {
+        href: `https://theseusviewer.org/?iiif-content=${encodeURIComponent(manifestUrl)}`,
+        target: '_blank', rel: 'noopener', textContent: 'Open in IIIF viewer',
+        title: 'The scan and its record side by side',
+      }));
+      if (layer.webmapxConfig?.layer?.metadata?.allmapsId) links.append(viewerLink(layer));
+      links.append(download);
+      box.appendChild(links);
+
+      const load = () => {
+        if (!manifestCache.has(manifestUrl)) {
+          manifestCache.set(manifestUrl, fetch(manifestUrl, { headers: { accept: 'application/ld+json, application/json;q=0.9, */*;q=0.8' } })
+            .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); }));
+        }
+        return manifestCache.get(manifestUrl);
+      };
+
+      // A cross-origin <a download> is ignored by browsers, so the file is
+      // fetched and handed over as a blob; on failure the link just opens it.
+      download.addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+          const json = await load();
+          const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+          const a = Object.assign(document.createElement('a'), {
+            href: URL.createObjectURL(blob),
+            download: `${(iiifText(json.label)[0] ?? 'manifest').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '').slice(0, 60) || 'manifest'}.json`,
+          });
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        } catch {
+          window.open(manifestUrl, '_blank', 'noopener');
+        }
+      });
+
+      showBtn.addEventListener('click', async () => {
+        showBtn.disabled = true;
+        showBtn.textContent = 'Loading…';
+        try {
+          const manifest = await load();
+          const table = Object.assign(document.createElement('dl'), { className: 'repo-record-table' });
+          const add = (label, nodes) => {
+            table.appendChild(Object.assign(document.createElement('dt'), { textContent: label }));
+            const dd = document.createElement('dd');
+            nodes.forEach((n, i) => { if (i) dd.appendChild(document.createElement('br')); dd.appendChild(n); });
+            table.appendChild(dd);
+          };
+          // One row per label: Leiden lists each author, and each rights
+          // statement, as a field of its own.
+          const grouped = new Map();
+          for (const entry of Array.isArray(manifest.metadata) ? manifest.metadata : []) {
+            const label = iiifText(entry?.label)[0]?.trim();
+            const values = iiifText(entry?.value).filter(v => v.trim());
+            if (!label || !values.length) continue;
+            const key = label.toLowerCase();
+            if (!grouped.has(key)) grouped.set(key, [label, []]);
+            for (const v of values) if (!grouped.get(key)[1].includes(v)) grouped.get(key)[1].push(v);
+          }
+          const entries = [...grouped.values()];
+          // A field the library already lists (NYPL has its own "Title" and
+          // "Rights") is not repeated from the manifest's own properties.
+          const listed = new Set(entries.map(([label]) => label.trim().toLowerCase()));
+          const title = iiifText(manifest.label)[0];
+          if (title && !['title', 'titel', 'titre', 'titolo'].some(l => listed.has(l))) add('Title', [iiifValueNode(title)]);
+          for (const [label, values] of entries) add(label, values.map(iiifValueNode));
+          for (const [label, value] of [
+            ['Description', manifest.summary ?? manifest.description],
+            ['Rights', manifest.rights ?? manifest.license],
+            [iiifText(manifest.requiredStatement?.label)[0] ?? 'Attribution', manifest.requiredStatement?.value ?? manifest.attribution],
+          ]) {
+            const values = iiifText(value).filter(v => v.trim() && v !== 'undefined');
+            if (values.length && !listed.has(label.trim().toLowerCase())) add(label, values.map(iiifValueNode));
+          }
+          const home = manifestHomepage(manifest);
+          if (home) {
+            links.insertBefore(Object.assign(document.createElement('a'), {
+              href: home.url, target: '_blank', rel: 'noopener', textContent: 'Library page',
+              title: home.label ?? 'The record on the library’s own website',
+            }), showBtn.nextSibling);
+          }
+          if (!table.children.length) {
+            box.appendChild(Object.assign(document.createElement('p'), { textContent: 'The library’s record names nothing beyond the scan itself.' }));
+          } else {
+            box.appendChild(table);
+          }
+          showBtn.remove();
+        } catch (err) {
+          // Gallica and the Library of Congress refuse scripted requests; a
+          // library may also not allow cross-origin reads. The links still work.
+          showBtn.textContent = 'Record could not be loaded here';
+          showBtn.title = String(err?.message ?? err);
+        }
+      });
+      return box;
+    }
+
     function renderRepoLayerRow(config, layer, onSubject) {
       const wrap = Object.assign(document.createElement('div'), { className: 'repo-layer' });
       const row = document.createElement('div');
@@ -2266,12 +2447,11 @@
             }
             details.appendChild(chips);
           }
-          if (r.manifest) {
-            const p = document.createElement('p');
-            p.appendChild(Object.assign(document.createElement('a'), {
-              href: r.manifest, target: '_blank', rel: 'noopener', textContent: 'Catalogue record (IIIF manifest)',
-            }));
-            details.appendChild(p);
+          if (r.manifest) details.appendChild(renderManifestRecord(r.manifest, layer));
+          else if (layer.webmapxConfig?.layer?.metadata?.allmapsId) {
+            const links = Object.assign(document.createElement('p'), { className: 'repo-record-links' });
+            links.appendChild(viewerLink(layer));
+            details.appendChild(links);
           }
         });
         wrap.appendChild(details);
