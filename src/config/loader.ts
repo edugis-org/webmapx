@@ -468,6 +468,31 @@ function injectLayerTreeIntoTools(tools: unknown, tree: unknown[]): Record<strin
   return clonedTools;
 }
 
+// GetMap-only parameters, and the template placeholders that would otherwise
+// reach the server unresolved. Everything else — SERVICE, VERSION, SRS/CRS and
+// any vendor parameter such as MapServer's `map=` — stays on the URL.
+const GETMAP_ONLY_PARAMS = new Set(['request', 'bbox', 'width', 'height', 'format', 'transparent', 'styles', 'time', 'bgcolor', 'exceptions']);
+
+/**
+ * The GetFeatureInfo URL for a WMS GetMap tile template, or null when the
+ * template is not one (no REQUEST=GetMap, or no LAYERS to ask about).
+ */
+export function featureInfoUrlFromGetMap(template: string): string | null {
+  let u: URL;
+  try { u = new URL(template); } catch { return null; }
+  const params = [...u.searchParams];
+  const get = (name: string) => params.find(([k]) => k.toLowerCase() === name)?.[1];
+  if (get('request')?.toLowerCase() !== 'getmap') return null;
+  const layers = get('layers');
+  if (!layers) return null;
+  for (const [key] of params) {
+    if (GETMAP_ONLY_PARAMS.has(key.toLowerCase())) u.searchParams.delete(key);
+  }
+  u.searchParams.set('REQUEST', 'GetFeatureInfo');
+  u.searchParams.set('QUERY_LAYERS', layers);
+  return u.toString();
+}
+
 function normalizeLayerDataSection(layerData: unknown, configUrl: string): { sources: unknown[]; layers: unknown[] } {
   if (!isObject(layerData)) {
     return { sources: [], layers: [] };
@@ -497,9 +522,20 @@ function normalizeLayerDataSection(layerData: unknown, configUrl: string): { sou
     const l = layer as Record<string, unknown>;
     const srcId = typeof l.source === 'string' ? l.source : null;
     const src = srcId ? sourceById.get(srcId) : null;
-    if (!src || src.type !== 'raster' || src.service !== 'wms') return layer;
+    if (!src || src.type !== 'raster') return layer;
     const meta = isObject(l.metadata) ? { ...(l.metadata as Record<string, unknown>) } : {};
     if (typeof meta.getFeatureInfoUrl === 'string') return layer; // already set
+    if (meta.queryable === false) return layer;
+    if (src.service !== 'wms') {
+      // A raster source given as a WMS GetMap tile template (`tiles` with
+      // REQUEST=GetMap&LAYERS=…) is still a WMS, whatever `service` says.
+      const template = Array.isArray(src.url) ? src.url[0] : (src.url ?? (Array.isArray(src.tiles) ? src.tiles[0] : undefined));
+      const gfiUrl = typeof template === 'string' ? featureInfoUrlFromGetMap(template) : null;
+      if (!gfiUrl) return layer;
+      meta.getFeatureInfoUrl = gfiUrl;
+      meta.getFeatureInfoFormat = 'application/json';
+      return { ...l, metadata: meta };
+    }
     const baseUrl = Array.isArray(src.url) ? src.url[0] : src.url;
     if (typeof baseUrl !== 'string') return layer;
     const layers_ = src.layers ?? '';
