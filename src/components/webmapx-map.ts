@@ -25,7 +25,8 @@ import {
   resolveSingleGroupInsertionOptionsForGroup,
 } from './internal/single-group-policy';
 import { resolveLegendRoleForLayer } from './internal/legend-role-policy';
-import { resolveGeoJSONSources, type PagedSourceContinuation } from '../map/geojson-loader';
+import { resolveGeoJSONSources, type MapViewContext, type PagedSourceContinuation } from '../map/geojson-loader';
+import { viewBox } from '../map/wfs-requests';
 import { timeOf } from '../utils/map-clock';
 import { applyMapState } from '../utils/internal-sources';
 import { inlineLayerSources } from '../map/layer-source-resolver';
@@ -1599,8 +1600,9 @@ export class WebmapxMapElement extends HTMLElement {
       const role: LegendRole = metadata.legendRole === 'background' ? 'background' : 'overlay';
       this.logicalLayerRole.set(layer.id, role);
       this.insertIntoLogicalOrder(layer.id, options);
+      const view = this.mapViewContext(adapter, typeof (layer as any).title === 'string' ? (layer as any).title : layer.id);
       for (const c of continuations) {
-        c.run((data) => { const src = adapter.getSource(c.id); if (!src) return false; src.setData(data); return true; });
+        c.run((data) => { const src = adapter.getSource(c.id); if (!src) return false; src.setData(data); return true; }, view);
       }
     }
     return success;
@@ -1627,10 +1629,28 @@ export class WebmapxMapElement extends HTMLElement {
       this.logicalLayerRole.set(layerId, role);
       this.insertIntoLogicalOrder(layerId, insertOptions);
     }
+    const view = this.mapViewContext(adapter, typeof nativeLayer.title === 'string' ? nativeLayer.title : (layerId ?? 'Layer'));
     for (const c of continuations) {
-      c.run((data) => { const src = adapter.getSource(c.id); if (!src) return false; src.setData(data); return true; });
+      c.run((data) => { const src = adapter.getSource(c.id); if (!src) return false; src.setData(data); return true; }, view);
     }
     return true;
+  }
+
+  /**
+   * The map view for a source that loads what is in view (a WFS too large to
+   * load whole). Until the map reports bounds of its own, the view is worked
+   * out from its centre, zoom and size.
+   */
+  private mapViewContext(adapter: IMap, title: string): MapViewContext {
+    return {
+      currentBox: () => {
+        const { center, zoom } = adapter.getViewportState();
+        return viewBox(center, zoom, this.clientWidth || 1024, this.clientHeight || 768);
+      },
+      onViewEnd: (callback) => adapter.events.on('view-change-end', (e) =>
+        callback([e.bounds.sw[0], e.bounds.sw[1], e.bounds.ne[0], e.bounds.ne[1]])),
+      notify: (message) => { void showToast(`${title}: ${message}`, { variant: 'neutral' }); },
+    };
   }
 
   private async applyInitialStateLayers(adapter: IMap, _layerData: LayerDataConfig): Promise<void> {

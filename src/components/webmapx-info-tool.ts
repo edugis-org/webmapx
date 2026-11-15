@@ -16,6 +16,7 @@ import { throttle } from '../utils/throttle';
 import { substituteApiKeys } from '../config/apikeys';
 import { isQueryableMetadata } from '../utils/layer-queryable';
 import { fetchWMSFeatureInfo } from '../map/wms-feature-info';
+import { clickBox, wfsPageUrl } from '../map/wfs-requests';
 import { fetchPointFeatureInfo, isPointInfoUrl, type PointInfoRequest } from '../utils/point-feature-info';
 import '@shoelace-style/shoelace/dist/components/button/button.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
@@ -310,7 +311,7 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
             vertical-align: middle;
         }
 
-        .source-badge.wms {
+        .source-badge.wms, .source-badge.wfs {
             background: var(--color-primary-soft, #e6f0f5);
             color: var(--color-primary, #2b6c8f);
         }
@@ -435,9 +436,15 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
                 { pixel: event.pixel, lngLat: event.coords },
                 { tolerancePx: CLICK_TOLERANCE_PX, includeWMS: true }
             );
-            // Also query any visible raster layers with getFeatureInfoUrl in metadata
-            const gfiResults = await this.queryGFILayers(event.pixel, event.coords);
-            this.features = [...results, ...gfiResults];
+            // Also query any visible raster layers with getFeatureInfoUrl in metadata,
+            // and ask WFS layers about the spot themselves.
+            const [gfiResults, wfs] = await Promise.all([
+                this.queryGFILayers(event.pixel, event.coords),
+                this.queryWFSLayers(event.coords),
+            ]);
+            // The service's answer replaces what the map had drawn for the same
+            // layer: it is the same feature, or one the map never loaded.
+            this.features = [...results.filter((f) => !wfs.answered.has(f.layerId)), ...gfiResults, ...wfs.features];
             // Only for a click: hover results change with every mouse move and
             // would talk over everything else.
             const n = this.features.length;
@@ -445,6 +452,42 @@ export class WebmapxInfoTool extends WebmapxBaseTool {
         } finally {
             this.loading = false;
         }
+    }
+
+    /**
+     * Ask each visible WFS layer (metadata.wfsQueryUrl) for the features at the
+     * clicked spot. A layer that loads per map view may have drawn none of
+     * them yet, or only one page of many, so the map's own hit test is not
+     * enough. `answered` names the layers whose service did answer.
+     */
+    private async queryWFSLayers(lngLat: LngLat): Promise<{ features: FeatureInfo[]; answered: Set<string> }> {
+        const answered = new Set<string>();
+        if (!this.adapter) return { features: [], answered };
+        const mapLayers = this.adapter.store.getState().mapLayers ?? {};
+        const zoom = this.adapter.getViewportState()?.zoom ?? 0;
+        const box = clickBox([lngLat[0], lngLat[1]], zoom, CLICK_TOLERANCE_PX);
+        const lists = await Promise.all(Object.entries(mapLayers).map(async ([layerId, meta]) => {
+            const m = meta as Record<string, unknown>;
+            if (typeof m?.wfsQueryUrl !== 'string' || m.visible === false || !isQueryableMetadata(m)) return [];
+            const limit = typeof m.featureInfoLimit === 'number' ? m.featureInfoLimit : 10;
+            const version = typeof m.wfsVersion === 'string' ? m.wfsVersion : '2.0.0';
+            try {
+                const resp = await fetch(wfsPageUrl(m.wfsQueryUrl, { version, pageSize: limit + 1, box }));
+                if (!resp.ok) return [];
+                const fc = await resp.json() as GeoJSON.FeatureCollection;
+                answered.add(layerId);
+                const layerTitle = typeof m.label === 'string' ? m.label : layerId;
+                return (fc.features ?? []).map((f): FeatureInfo => ({
+                    layerId, layerTitle,
+                    properties: (f.properties as Record<string, unknown>) ?? {},
+                    geometry: f.geometry ?? undefined,
+                    source: 'wfs',
+                }));
+            } catch {
+                return [];
+            }
+        }));
+        return { features: lists.flat(), answered };
     }
 
     /** Query raster layers that expose getFeatureInfoUrl in their mapLayers metadata. */
