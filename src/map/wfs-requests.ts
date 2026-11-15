@@ -21,8 +21,12 @@ export const MAX_FULL_PAGES = 5;
  */
 export const FALLBACK_PAGE_SIZE = 1000;
 
-/** How long a hit count may take before it is read as "a great many". */
-export const HITS_TIMEOUT_MS = 3000;
+/**
+ * How long a hit count may take before it is read as "a great many". PDOK
+ * counts layers small enough to load whole in about 0.2 s; 227,030 features
+ * took 3.5 s, 907,676 took 8.5 s and BAG pand (11.4 million) over a minute.
+ */
+export const HITS_TIMEOUT_MS = 5000;
 
 const PAGING_KEYS = ['count', 'maxfeatures', 'startindex', 'resulttype', 'bbox'];
 
