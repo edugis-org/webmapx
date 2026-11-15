@@ -27,6 +27,24 @@ import {
 import { resolveLegendRoleForLayer } from './internal/legend-role-policy';
 import { resolveGeoJSONSources, type MapViewContext, type PagedSourceContinuation } from '../map/geojson-loader';
 import { viewBox } from '../map/wfs-requests';
+
+/** The web-mercator world, as far north and south as a map can show. */
+const WORLD_EXTENT: [number, number, number, number] = [-180, -85.0511, 180, 85.0511];
+
+/**
+ * The zoom-to extent for a layer whose source loads per map view (a WFS too
+ * large to load whole). What is loaded is only the current view, so an extent
+ * worked out from the data would zoom to where the map already is. Without
+ * stated bounds the extent is unknown, which means the whole world.
+ */
+function withPerViewExtent(metadata: unknown, sources: Record<string, any> | undefined): any {
+  const meta = (metadata && typeof metadata === 'object') ? metadata as Record<string, unknown> : undefined;
+  if (Array.isArray(meta?.bounds) && meta.bounds.length === 4) return metadata;
+  const perView = Object.values(sources ?? {}).find((s) => s && s.wfsPerView);
+  if (!perView) return metadata;
+  const bounds = Array.isArray(perView.bounds) && perView.bounds.length === 4 ? perView.bounds : WORLD_EXTENT;
+  return { ...(meta ?? {}), bounds };
+}
 import { timeOf } from '../utils/map-clock';
 import { applyMapState } from '../utils/internal-sources';
 import { inlineLayerSources } from '../map/layer-source-resolver';
@@ -1588,6 +1606,7 @@ export class WebmapxMapElement extends HTMLElement {
         layer.metadata = { ...(layerMetadata ?? {}), bounds: sourceConfig.bounds };
       }
     }
+    layer.metadata = withPerViewExtent(layer.metadata, enriched.sources);
 
     let success: boolean;
     try {
@@ -1620,6 +1639,7 @@ export class WebmapxMapElement extends HTMLElement {
         (url) => applyMapState(url, adapter.store.getState().lastClickedCoordinates),
       );
     }
+    nativeLayer.metadata = withPerViewExtent(nativeLayer.metadata, nativeLayer.sources as Record<string, any> | undefined);
     const metadata = (nativeLayer.metadata && typeof nativeLayer.metadata === 'object') ? nativeLayer.metadata as Record<string, unknown> : {};
     const role: LegendRole = metadata.legendRole === 'background' ? 'background' : 'overlay';
     const insertOptions = this.computeInsertOptionsForLayer(role, options);
