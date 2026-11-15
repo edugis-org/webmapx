@@ -81,3 +81,67 @@ test('a legacy inline style object resolves its url too', () => {
     const layer = config.layerData.layers?.find((entry) => entry.id === 'legacy');
     assert.equal((layer as { url?: string }).url, 'http://example.org/styles/legacy.json');
 });
+
+/**
+ * A style layer's own `sources` are config-relative too. The loader already
+ * resolved them into the scoped copies it registers (`<layerId>:<key>`), but
+ * handed the layer back with the *raw* map, and adding the layer reads that
+ * one: a `data/x.topojson` in a config under /config/ was fetched from
+ * /data/x.topojson, where the dev server answers with index.html.
+ */
+function styleLayerSources(layer: Record<string, unknown>): Record<string, Record<string, unknown>> {
+    const config = parseAndValidateConfig({
+        version: 0,
+        map: { type: 'maplibre', center: [0, 0], zoom: 2 },
+        layerData: { sources: [], layers: [layer] },
+    }, 'test', CONFIG_URL);
+
+    const found = config.layerData.layers?.find((entry) => entry.id === layer.id);
+    return (found as { sources?: Record<string, Record<string, unknown>> }).sources ?? {};
+}
+
+test("a style layer's own sources are resolved against the config", () => {
+    const sources = styleLayerSources({
+        id: 'borders',
+        title: 'Borders',
+        type: 'style',
+        sources: {
+            shapes: { type: 'geojson', data: 'data/borders.topojson#borders' },
+            tiles: { type: 'raster', tiles: ['tiles/{z}/{x}/{y}.png'] },
+        },
+        layers: [{ id: 'borders-line', type: 'line', source: 'shapes' }],
+    });
+
+    assert.equal(sources.shapes.data, 'http://example.org/config/data/borders.topojson#borders');
+    assert.deepEqual(sources.tiles.tiles, ['http://example.org/config/tiles/{z}/{x}/{y}.png']);
+});
+
+test("a legacy inline style object's sources are resolved too", () => {
+    const sources = styleLayerSources({
+        id: 'legacy-borders',
+        title: 'Legacy borders',
+        style: {
+            sources: { shapes: { type: 'geojson', data: '../data/borders.geojson' } },
+            layers: [{ id: 'legacy-line', type: 'line', source: 'shapes' }],
+        },
+    });
+
+    assert.equal(sources.shapes.data, 'http://example.org/data/borders.geojson');
+});
+
+test('a relative tile template keeps its placeholders', () => {
+    // `new URL` percent-encodes braces, and `%7Bz%7D` is a literal to every engine.
+    const config = parseAndValidateConfig({
+        version: 0,
+        map: { type: 'maplibre', center: [0, 0], zoom: 2 },
+        layerData: {
+            sources: [{ id: 'local-tiles', type: 'raster', tiles: ['tiles/{z}/{x}/{y}.png'] }],
+            layers: [{ id: 'local', title: 'Local', type: 'raster', source: 'local-tiles' }],
+        },
+    }, 'test', CONFIG_URL);
+
+    const source = config.layerData.sources?.find((entry) => entry.id === 'local-tiles') as { tiles?: string[]; url?: string | string[] };
+    const urls = [source.tiles ?? [], source.url ?? []].flat();
+    assert.ok(urls.length > 0);
+    for (const url of urls) assert.equal(url, 'http://example.org/config/tiles/{z}/{x}/{y}.png');
+});
