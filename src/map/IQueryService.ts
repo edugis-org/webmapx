@@ -25,8 +25,11 @@ export interface FeatureInfo {
     properties: Record<string, unknown>;
     /** Optional geometry (not always available, e.g. from WMS text responses). */
     geometry?: GeoJSON.Geometry;
-    /** Whether feature came from a vector engine query or WMS GetFeatureInfo. */
-    source: 'vector' | 'wms';
+    /**
+     * Whether feature came from a vector engine query, WMS GetFeatureInfo, or a
+     * JSON service asked about the clicked point (`utils/point-feature-info.ts`).
+     */
+    source: 'vector' | 'wms' | 'point';
     /** For composite style layers: the sub-layer id (e.g. "label_country_3"). */
     subLayerId?: string;
     /** For composite style layers: the sub-layer type (fill, line, symbol, etc.). */
