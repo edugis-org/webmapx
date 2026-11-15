@@ -150,6 +150,8 @@ export class MapCoreService implements IMapCore {
     private enforcingMaxBounds = false;
     private isClamping = false;
     private lastCenter: [number, number] = [0, 0];
+    /** `canvasPixelsPerHeight()` when the camera was last placed; see `keepZoomAcrossResize`. */
+    private lastPixelsPerHeight: number | null = null;
     private lastStyledZoom: number | null = null;
     private readonly dispatchViewportStateThrottled = throttle(() => this.dispatchViewportState(), 100);
     private runtimeLayerOrder: string[] = [];
@@ -217,6 +219,8 @@ export class MapCoreService implements IMapCore {
         const clampedZoom = this.clampZoom(zoom);
         this.setCameraView(center, clampedZoom, false);
         this.applyZoomDistanceLimits(center[1]);
+        this.lastPixelsPerHeight = this.canvasPixelsPerHeight();
+        this.viewer.scene.preUpdate.addEventListener(() => this.keepZoomAcrossResize());
 
         if (this.maxBounds) {
             // camera.changed fires only after 50% camera movement by default — far too
@@ -743,6 +747,42 @@ export class MapCoreService implements IMapCore {
         const frustum = this.viewer.camera.frustum;
         const fovy = (frustum && 'fovy' in frustum) ? (frustum as any).fovy : Math.PI / 3;
         return Math.max(10, (metersPerPixel * heightPx) / (2 * Math.tan(fovy / 2)));
+    }
+
+    /**
+     * How many canvas pixels one metre of camera height spans: what turns a camera
+     * height into a zoom level (see `cameraHeightMetersToZoom`). Cesium's `fov` is
+     * the angle across the *wider* side, so on a landscape canvas this follows the
+     * width, not the height.
+     */
+    private canvasPixelsPerHeight(): number | null {
+        if (!this.viewer) return null;
+        const canvas = this.viewer.scene.canvas;
+        const heightPx = canvas.clientHeight || canvas.height;
+        const frustum = this.viewer.camera.frustum;
+        const fovy = (frustum && 'fovy' in frustum) ? (frustum as any).fovy : Math.PI / 3;
+        if (!heightPx || !isFinite(fovy) || fovy <= 0) return null;
+        return heightPx / Math.tan(fovy / 2);
+    }
+
+    /**
+     * A canvas that changes size keeps its zoom, as it does on every other engine.
+     * Cesium keeps the camera's *height* instead, so a canvas that widened from
+     * 400 px to 1280 px went from zoom 5 to 6.9: the same ground spread over more
+     * pixels. A narrow canvas at construction is ordinary — a page still laying out
+     * when the viewer is built, which a loaded machine makes likely — and the view
+     * restored from a permalink or config then came back one or two levels deeper.
+     * Runs on `preUpdate`, after Cesium has resized the canvas and frustum and
+     * before the frame is drawn, so the wrong zoom is never on screen.
+     */
+    private keepZoomAcrossResize(): void {
+        const now = this.canvasPixelsPerHeight();
+        const before = this.lastPixelsPerHeight;
+        if (now === null) return;
+        this.lastPixelsPerHeight = now;
+        if (before === null || Math.abs(now / before - 1) < 1e-6) return;
+        const viewport = this.getViewportState();
+        this.setCameraView(viewport.center, viewport.zoom - Math.log2(now / before), false);
     }
 
     private cameraHeightMetersToZoom(heightMeters: number, lat: number): number {
