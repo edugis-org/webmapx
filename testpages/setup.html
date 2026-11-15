@@ -125,6 +125,30 @@
       display: flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0; font-size: 0.8rem;
     }
     .repo-layer-row .layer-title, .discover-layer-row .layer-title { flex: 1; }
+    /* Repository layers carry their catalogue record (maker, date, scale, holder) */
+    #repo-results { max-height: 60vh; }
+    .repo-layer { border-top: 1px solid #f0f0f0; padding: 0.15rem 0; }
+    .repo-layer .repo-layer-row { padding-bottom: 0; }
+    .repo-layer-meta { font-size: 0.72rem; color: #5a6472; padding: 0 0 0.1rem; overflow-wrap: anywhere; }
+    .repo-layer-details { font-size: 0.72rem; color: #5a6472; }
+    .repo-layer-norecord { font-style: italic; }
+    .repo-facets { display: flex; flex-wrap: wrap; gap: 0.4rem 0.8rem; margin-top: 0.4rem; font-size: 0.75rem; color: #5a6472; }
+    .repo-facets label { display: flex; align-items: center; gap: 0.3rem; flex: 1 1 12rem; min-width: 0; }
+    .repo-facets select { flex: 1; min-width: 0; font-size: 0.75rem; }
+    .repo-summary { font-size: 0.72rem; color: #5a6472; margin-top: 0.3rem; }
+    .repo-record-links { display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; align-items: center; }
+    .repo-record-links .repo-more { margin: 0; }
+    .repo-record-table { display: grid; grid-template-columns: minmax(7em, max-content) 1fr; gap: 0.15rem 0.6rem; margin: 0.3rem 0; color: #2d333b; }
+    .repo-record-table dt { color: #5a6472; font-weight: 600; }
+    .repo-record-table dd { margin: 0; overflow-wrap: anywhere; }
+    .repo-layer-details > summary { cursor: pointer; width: fit-content; user-select: none; }
+    .repo-layer-details p { margin: 0.2rem 0; }
+    .repo-subjects { display: flex; flex-wrap: wrap; gap: 3px; margin: 0.2rem 0; }
+    .repo-subjects .type-badge { margin-left: 0; text-transform: none; letter-spacing: 0; cursor: pointer; }
+    .repo-layer-filter { display: flex; gap: 0.4rem; align-items: center; margin: 0.2rem 0 0.3rem; }
+    .repo-layer-filter input { flex: 1; }
+    .repo-layer-count { font-size: 0.72rem; color: #5a6472; white-space: nowrap; }
+    .repo-more { margin: 0.3rem 0; font-size: 0.75rem; }
     .catalog-group { margin-bottom: 0.3rem; }
     .catalog-group > summary {
       cursor: pointer; font-size: 0.8rem; color: #777; text-transform: uppercase;
@@ -823,7 +847,12 @@
 
         <div id="add-layer-repo" class="add-layer-source">
           <p class="section-hint v2-source-hint">The shared webmapx layer repository on GitHub.</p>
-          <input type="search" id="repo-search" placeholder="Search provider, region, category…">
+          <input type="search" id="repo-search" placeholder="Search layers: BAG, Sanborn 1913, population…">
+          <div class="repo-facets">
+            <label>Region <select id="repo-region"><option value="">All regions</option></select></label>
+            <label>Provider <select id="repo-provider"><option value="">All providers</option></select></label>
+          </div>
+          <div id="repo-summary" class="repo-summary"></div>
           <div id="repo-results" class="add-layer-results"></div>
         </div>
 
@@ -2106,8 +2135,455 @@
       return repoProviderCache.get(path);
     }
 
-    async function buildRepoResults(config, filterText) {
+    // A harvested layer's catalogue record, as the layer repository publishes it in
+    // `webmapxConfig.layer.metadata` (creator, date/year, scale, subjects, holder,
+    // iiifManifest — Allmaps layers read these from each library's IIIF manifest).
+    function repoLayerRecord(layer) {
+      const m = layer.webmapxConfig?.layer?.metadata ?? {};
+      return {
+        creator: m.creator, date: m.date ?? (m.year ? String(m.year) : undefined),
+        scale: m.scale, subjects: Array.isArray(m.subjects) ? m.subjects : [],
+        holder: m.holder, manifest: m.iiifManifest, abstract: m.abstract ?? layer.abstract,
+      };
+    }
+
+    // Lower-cased text a provider filter matches against: title plus the record.
+    // What a layer inherits from its service: its title and the endpoint path.
+    // PDOK names a layer "ligplaats" and says "BAG" only in the service
+    // (service.pdok.nl/lv/bag/wms/v2_0), so a search for "bag" would find the
+    // WFS layer "bag:ligplaats" and miss the WMS layer beside it.
+    const repoLayerServiceWords = new WeakMap();
+    function repoServiceWords(service) {
+      let path = '';
+      try { path = new URL(service.endpoint).pathname.replace(/[\/_.-]+/g, ' '); } catch { /* no endpoint */ }
+      return [service.title, path].filter(Boolean).join(' ');
+    }
+
+    function repoLayerHaystack(layer) {
+      const r = repoLayerRecord(layer);
+      // The abstract too, so a word that found the provider file in the index
+      // (whose layerWords include abstracts) also finds the layer in it.
+      return [layer.title, layer.name, r.creator, r.date, r.scale, r.holder, ...r.subjects, r.abstract,
+        repoLayerServiceWords.get(layer)]
+        .filter(Boolean).join(' \u0001 ').toLowerCase();
+    }
+
+    // One page of rows at a time: Allmaps' New York file alone holds ~19,000 layers.
+    const REPO_PAGE = 100;
+
+    function renderRepoLayerList(config, layersEl, layers, initialFilter = '') {
+      const haystacks = new Map();
+      const hay = (layer) => {
+        if (!haystacks.has(layer)) haystacks.set(layer, repoLayerHaystack(layer));
+        return haystacks.get(layer);
+      };
+      const listEl = document.createElement('div');
+      const moreBtn = Object.assign(document.createElement('button'), { className: 'repo-more', type: 'button' });
+      const countEl = Object.assign(document.createElement('span'), { className: 'repo-layer-count' });
+      let filterEl = null;
+      if (layers.length > 10) {
+        const bar = Object.assign(document.createElement('div'), { className: 'repo-layer-filter' });
+        filterEl = Object.assign(document.createElement('input'), {
+          type: 'search', placeholder: 'Filter by title, maker, year, subject…',
+        });
+        bar.append(filterEl, countEl);
+        layersEl.appendChild(bar);
+      }
+      layersEl.append(listEl, moreBtn);
+
+      let matches = layers;
+      let shown = 0;
+      const showMore = () => {
+        const next = matches.slice(shown, shown + REPO_PAGE);
+        for (const layer of next) listEl.appendChild(renderRepoLayerRow(config, layer, (subject) => {
+          if (!filterEl) return;
+          filterEl.value = subject;
+          applyFilter();
+        }));
+        shown += next.length;
+        const left = matches.length - shown;
+        moreBtn.hidden = left <= 0;
+        moreBtn.textContent = `Show ${Math.min(left, REPO_PAGE)} more (${left} left)`;
+      };
+      const applyFilter = () => {
+        const matcher = repoMatcher(filterEl?.value);
+        matches = matcher.empty ? layers : layers.filter(layer => matcher.test(hay(layer)));
+        countEl.textContent = matcher.empty ? `${layers.length} layers` : `${matches.length} of ${layers.length}`;
+        listEl.innerHTML = '';
+        shown = 0;
+        if (!matches.length) listEl.textContent = 'No layers match.';
+        showMore();
+      };
+      moreBtn.addEventListener('click', showMore);
+      // Opened from a search: start on the layers that match it. The file may
+      // have matched on a provider or service description no layer repeats;
+      // then every layer is shown rather than none.
+      if (filterEl && initialFilter) {
+        filterEl.value = initialFilter;
+        const matcher = repoMatcher(initialFilter);
+        if (!layers.some(layer => matcher.test(hay(layer)))) filterEl.value = '';
+      }
+      let pending = 0;
+      filterEl?.addEventListener('input', () => {
+        clearTimeout(pending);
+        pending = setTimeout(applyFilter, 150);
+      });
+      applyFilter();
+    }
+
+    // "Scan from images.memorix.nl": the server an unattributed scan comes from.
+    function scanHost(layer) {
+      try { return `Scan from ${new URL(layer.webmapxConfig?.layer?.metadata?.iiifResource).host}`; } catch { return null; }
+    }
+
+    // --- A IIIF manifest as a person reads it -------------------------------
+    // A manifest is the library's catalogue record; its readable part is the
+    // `metadata` list of label/value pairs, in whatever words that library uses.
+    // Values are language maps (IIIF 3) or strings/@value objects (IIIF 2) and
+    // often carry HTML (NYPL wraps every value in links), so they are reduced
+    // to text and links here rather than injected.
+
+    /** Text of a IIIF value, preferring English or the page's language. */
+    function iiifText(value) {
+      if (value == null) return [];
+      if (typeof value === 'string' || typeof value === 'number') return [String(value)];
+      if (Array.isArray(value)) return value.flatMap(iiifText);
+      if (typeof value === 'object') {
+        if ('@value' in value) return iiifText(value['@value']);
+        const lang = navigator.language.slice(0, 2);
+        const pick = value[lang] ?? value.en ?? value.none ?? Object.values(value)[0];
+        return iiifText(pick);
+      }
+      return [];
+    }
+
+    /** One catalogue value as DOM: text plus the links it contained, nothing else. */
+    function iiifValueNode(raw) {
+      const out = document.createElement('span');
+      const doc = new DOMParser().parseFromString(`<body>${raw}</body>`, 'text/html');
+      const walk = (node) => {
+        for (const child of node.childNodes) {
+          if (child.nodeType === Node.TEXT_NODE) {
+            // Bare URLs become links too ("Notice du catalogue : http://…").
+            const parts = child.textContent.split(/(https?:\/\/[^\s<>"]+)/);
+            parts.forEach((part, i) => {
+              if (i % 2) out.appendChild(Object.assign(document.createElement('a'), { href: part, target: '_blank', rel: 'noopener', textContent: part }));
+              else if (part) out.appendChild(document.createTextNode(part));
+            });
+          } else if (child.nodeName === 'A' && /^https?:/i.test(child.getAttribute('href') ?? '')) {
+            out.appendChild(Object.assign(document.createElement('a'), {
+              href: child.getAttribute('href'), target: '_blank', rel: 'noopener', textContent: child.textContent.trim(),
+            }));
+          } else if (child.nodeName === 'BR') {
+            out.appendChild(document.createTextNode(' '));
+          } else if (child.nodeType === Node.ELEMENT_NODE) {
+            walk(child);
+            if (/^(P|DIV|LI)$/.test(child.nodeName)) out.appendChild(document.createTextNode(' '));
+          }
+        }
+      };
+      walk(doc.body);
+      out.normalize();
+      return out;
+    }
+
+    /** The library's own page for the record: IIIF 3 `homepage`, IIIF 2 `related`. */
+    function manifestHomepage(manifest) {
+      const first = (v) => (Array.isArray(v) ? v[0] : v);
+      const home = first(manifest.homepage) ?? first(manifest.related);
+      const url = typeof home === 'string' ? home : (home?.id ?? home?.['@id']);
+      return /^https?:/i.test(url ?? '') ? { url, label: iiifText(home?.label)[0] } : null;
+    }
+
+    function viewerLink(layer) {
+      const id = layer.webmapxConfig?.layer?.metadata?.allmapsId;
+      return Object.assign(document.createElement('a'), {
+        href: `https://viewer.allmaps.org/?url=${encodeURIComponent(`https://annotations.allmaps.org/maps/${id}`)}`,
+        target: '_blank', rel: 'noopener', textContent: 'Open in Allmaps viewer',
+      });
+    }
+
+    const manifestCache = new Map(); // url → Promise<manifest JSON>
+
+    function renderManifestRecord(manifestUrl, layer) {
+      const box = Object.assign(document.createElement('div'), { className: 'repo-record' });
+      const links = Object.assign(document.createElement('p'), { className: 'repo-record-links' });
+      const showBtn = Object.assign(document.createElement('button'), {
+        type: 'button', className: 'repo-more', textContent: 'Show catalogue record',
+      });
+      const download = Object.assign(document.createElement('a'), {
+        href: manifestUrl, target: '_blank', rel: 'noopener', textContent: 'Download JSON',
+        title: 'The IIIF manifest as the library publishes it',
+      });
+      links.append(showBtn);
+      links.append(Object.assign(document.createElement('a'), {
+        href: `https://theseusviewer.org/?iiif-content=${encodeURIComponent(manifestUrl)}`,
+        target: '_blank', rel: 'noopener', textContent: 'Open in IIIF viewer',
+        title: 'The scan and its record side by side',
+      }));
+      if (layer.webmapxConfig?.layer?.metadata?.allmapsId) links.append(viewerLink(layer));
+      links.append(download);
+      box.appendChild(links);
+
+      const load = () => {
+        if (!manifestCache.has(manifestUrl)) {
+          manifestCache.set(manifestUrl, fetch(manifestUrl, { headers: { accept: 'application/ld+json, application/json;q=0.9, */*;q=0.8' } })
+            .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); }));
+        }
+        return manifestCache.get(manifestUrl);
+      };
+
+      // A cross-origin <a download> is ignored by browsers, so the file is
+      // fetched and handed over as a blob; on failure the link just opens it.
+      download.addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+          const json = await load();
+          const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+          const a = Object.assign(document.createElement('a'), {
+            href: URL.createObjectURL(blob),
+            download: `${(iiifText(json.label)[0] ?? 'manifest').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '').slice(0, 60) || 'manifest'}.json`,
+          });
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        } catch {
+          window.open(manifestUrl, '_blank', 'noopener');
+        }
+      });
+
+      showBtn.addEventListener('click', async () => {
+        showBtn.disabled = true;
+        showBtn.textContent = 'Loading…';
+        try {
+          const manifest = await load();
+          const table = Object.assign(document.createElement('dl'), { className: 'repo-record-table' });
+          const add = (label, nodes) => {
+            table.appendChild(Object.assign(document.createElement('dt'), { textContent: label }));
+            const dd = document.createElement('dd');
+            nodes.forEach((n, i) => { if (i) dd.appendChild(document.createElement('br')); dd.appendChild(n); });
+            table.appendChild(dd);
+          };
+          // One row per label: Leiden lists each author, and each rights
+          // statement, as a field of its own.
+          const grouped = new Map();
+          for (const entry of Array.isArray(manifest.metadata) ? manifest.metadata : []) {
+            const label = iiifText(entry?.label)[0]?.trim();
+            const values = iiifText(entry?.value).filter(v => v.trim());
+            if (!label || !values.length) continue;
+            const key = label.toLowerCase();
+            if (!grouped.has(key)) grouped.set(key, [label, []]);
+            for (const v of values) if (!grouped.get(key)[1].includes(v)) grouped.get(key)[1].push(v);
+          }
+          const entries = [...grouped.values()];
+          // A field the library already lists (NYPL has its own "Title" and
+          // "Rights") is not repeated from the manifest's own properties.
+          const listed = new Set(entries.map(([label]) => label.trim().toLowerCase()));
+          const title = iiifText(manifest.label)[0];
+          if (title && !['title', 'titel', 'titre', 'titolo'].some(l => listed.has(l))) add('Title', [iiifValueNode(title)]);
+          for (const [label, values] of entries) add(label, values.map(iiifValueNode));
+          for (const [label, value] of [
+            ['Description', manifest.summary ?? manifest.description],
+            ['Rights', manifest.rights ?? manifest.license],
+            [iiifText(manifest.requiredStatement?.label)[0] ?? 'Attribution', manifest.requiredStatement?.value ?? manifest.attribution],
+          ]) {
+            const values = iiifText(value).filter(v => v.trim() && v !== 'undefined');
+            if (values.length && !listed.has(label.trim().toLowerCase())) add(label, values.map(iiifValueNode));
+          }
+          const home = manifestHomepage(manifest);
+          if (home) {
+            links.insertBefore(Object.assign(document.createElement('a'), {
+              href: home.url, target: '_blank', rel: 'noopener', textContent: 'Library page',
+              title: home.label ?? 'The record on the library’s own website',
+            }), showBtn.nextSibling);
+          }
+          if (!table.children.length) {
+            box.appendChild(Object.assign(document.createElement('p'), { textContent: 'The library’s record names nothing beyond the scan itself.' }));
+          } else {
+            box.appendChild(table);
+          }
+          showBtn.remove();
+        } catch (err) {
+          // Gallica and the Library of Congress refuse scripted requests; a
+          // library may also not allow cross-origin reads. The links still work.
+          showBtn.textContent = 'Record could not be loaded here';
+          showBtn.title = String(err?.message ?? err);
+        }
+      });
+      return box;
+    }
+
+    function renderRepoLayerRow(config, layer, onSubject) {
+      const wrap = Object.assign(document.createElement('div'), { className: 'repo-layer' });
+      const row = document.createElement('div');
+      row.className = 'repo-layer-row';
+      const title = document.createElement('span');
+      title.className = 'layer-title';
+      title.textContent = layer.title ?? layer.id;
+      row.appendChild(title);
+      const typeB = document.createElement('span');
+      typeB.className = 'type-badge';
+      typeB.textContent = layer.type ?? '?';
+      row.appendChild(typeB);
+      if (layer.requiresKey) {
+        const keyB = document.createElement('span');
+        keyB.className = 'type-badge';
+        keyB.textContent = 'needs api key';
+        row.appendChild(keyB);
+      }
+      wrap.appendChild(row);
+
+      // Who made it, when, at what scale, and who holds it: one line, what a
+      // person choosing between ten sheets of the same town needs to see.
+      const r = repoLayerRecord(layer);
+      const facts = [r.creator, r.date, r.scale && (/^\s*1\s*:/.test(r.scale) ? r.scale : `scale ${r.scale}`), r.holder].filter(Boolean);
+      // A scan with no link to a catalogue record (46% of Allmaps' maps) has
+      // nothing to show; saying so beats a bare library name that looks like a
+      // record we failed to read.
+      const noRecord = !r.creator && !r.date && !r.scale && !r.subjects.length && !r.manifest
+        && layer.webmapxConfig?.layer?.metadata?.allmapsId;
+      if (noRecord) {
+        wrap.appendChild(Object.assign(document.createElement('div'), {
+          className: 'repo-layer-meta repo-layer-norecord',
+          textContent: `${r.holder ?? scanHost(layer) ?? 'Holding library'}: no metadata for this map`,
+        }));
+      } else if (facts.length) {
+        wrap.appendChild(Object.assign(document.createElement('div'), {
+          className: 'repo-layer-meta', textContent: facts.join(' · '),
+        }));
+      }
+      // An abstract that only restates the title and the facts above (as Allmaps'
+      // generated ones do) adds nothing; one with its own prose is shown.
+      const norm = (t) => String(t ?? '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+      const abstractText = norm(r.abstract);
+      const restates = !abstractText || abstractText === norm(layer.title) || (facts.length > 0
+        && abstractText.startsWith(norm(layer.title)) && facts.every(f => abstractText.includes(norm(f).replace(/^scale /, ''))));
+      if (restates || noRecord) r.abstract = undefined;
+      if (r.subjects.length || r.manifest || r.abstract) {
+        const details = Object.assign(document.createElement('details'), { className: 'repo-layer-details' });
+        details.appendChild(Object.assign(document.createElement('summary'), { textContent: 'More' }));
+        // Built on first open: thousands of rows, few of them ever opened.
+        details.addEventListener('toggle', () => {
+          if (!details.open || details.dataset.built) return;
+          details.dataset.built = '1';
+          if (r.abstract) details.appendChild(Object.assign(document.createElement('p'), { textContent: r.abstract }));
+          if (r.subjects.length) {
+            const chips = Object.assign(document.createElement('div'), { className: 'repo-subjects' });
+            for (const subject of r.subjects) {
+              const chip = Object.assign(document.createElement('span'), {
+                className: 'type-badge', textContent: subject, title: 'Show layers with this subject',
+              });
+              chip.addEventListener('click', () => onSubject?.(subject));
+              chips.appendChild(chip);
+            }
+            details.appendChild(chips);
+          }
+          if (r.manifest) details.appendChild(renderManifestRecord(r.manifest, layer));
+          else if (layer.webmapxConfig?.layer?.metadata?.allmapsId) {
+            const links = Object.assign(document.createElement('p'), { className: 'repo-record-links' });
+            links.appendChild(viewerLink(layer));
+            details.appendChild(links);
+          }
+        });
+        wrap.appendChild(details);
+      }
+
+      const repoTreeLoc = findLayerTreeLocation(config);
+      if (repoTreeLoc) {
+        row.appendChild(makeAddToTreeSelect(config, repoTreeLoc, (path) => {
+          const cfg = layer.webmapxConfig;
+          if (!cfg?.source || !cfg?.layer) return;
+          const id = addLayerData(config, cfg.source, cfg.layer, layer.title, cfg.layer.type);
+          placeInTree(config, repoTreeLoc, id, path);
+          buildLayersUI(config);
+          row.querySelector('.v2-add-to')?.replaceWith(Object.assign(document.createElement('span'), { className: 'type-badge', textContent: 'added' }));
+          document.getElementById('status').textContent = `Added "${layer.title}" to the bottom of the Map catalog.`;
+        }));
+        return wrap;
+      }
+      const addBtn = document.createElement('button');
+      addBtn.className = 'btn-add';
+      addBtn.textContent = '+ Add';
+      addBtn.addEventListener('click', () => {
+        const cfg = layer.webmapxConfig;
+        if (!cfg?.source || !cfg?.layer) return;
+        addLayerData(config, cfg.source, cfg.layer, layer.title, cfg.layer.type);
+        buildLayersUI(config);
+        document.getElementById('status').textContent = `Added "${layer.title}" — find it under This config.`;
+      });
+      row.appendChild(addBtn);
+      return wrap;
+    }
+
+    // Search words match at the start of a word ("bag" finds "BAG panden" and
+    // "Baghdad", not "Rabago"), and every word must match. An exact word scores
+    // above a prefix, so BAG ranks above Baghdad.
+    function repoMatcher(text) {
+      const words = String(text ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+      const esc = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const res = words.map(w => ({
+        start: new RegExp(`(?:^|[^\\p{L}\\p{N}])${esc(w)}`, 'u'),
+        exact: new RegExp(`(?:^|[^\\p{L}\\p{N}])${esc(w)}(?:$|[^\\p{L}\\p{N}])`, 'u'),
+      }));
+      return {
+        empty: !words.length,
+        test: (hay) => res.every(r => r.start.test(hay)),
+        score: (hay) => res.reduce((n, r) => n + (r.exact.test(hay) ? 2 : 1), 0),
+      };
+    }
+
+    // What the search box matches for one index entry: the provider, its region
+    // and categories, the layer titles, and every word from titles and
+    // abstracts (`layerWords`, which for Allmaps includes makers, years and
+    // subjects). Built once per entry; 1,373 entries, ~5 MB of text.
+    const repoEntryHay = new WeakMap();
+    function repoEntryHaystack(entry) {
+      if (!repoEntryHay.has(entry)) {
+        repoEntryHay.set(entry, [
+          entry.providerName, entry.region, entry.path, ...(entry.categories ?? []),
+          ...(entry.layerNames ?? []), (entry.layerWords ?? []).join(' '),
+        ].join(' \u0001 ').toLowerCase());
+      }
+      return repoEntryHay.get(entry);
+    }
+
+    /** Fill the region and provider pickers from the index, once. */
+    function fillRepoFacets(index) {
+      const regionSel = document.getElementById('repo-region');
+      const providerSel = document.getElementById('repo-provider');
+      if (regionSel.dataset.filled) return;
+      regionSel.dataset.filled = '1';
+      // Every region and its ancestors, as a tree: picking "netherlands" includes
+      // its provinces. Counts are provider files at or below that region.
+      const counts = new Map();
+      for (const entry of index) {
+        const parts = entry.region.split('/');
+        for (let i = 1; i <= parts.length; i++) {
+          const key = parts.slice(0, i).join('/');
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+      }
+      for (const region of [...counts.keys()].sort()) {
+        const parts = region.split('/');
+        const name = parts.at(-1).replace(/-/g, ' ');
+        regionSel.appendChild(Object.assign(document.createElement('option'), {
+          value: region,
+          textContent: `${'\u2003'.repeat(parts.length - 1)}${name.charAt(0).toUpperCase()}${name.slice(1)} (${counts.get(region)})`,
+        }));
+      }
+      const providers = new Map();
+      for (const entry of index) providers.set(entry.providerName, (providers.get(entry.providerName) ?? 0) + 1);
+      for (const name of [...providers.keys()].sort((a, b) => a.localeCompare(b))) {
+        providerSel.appendChild(Object.assign(document.createElement('option'), {
+          value: name, textContent: `${name} (${providers.get(name)})`,
+        }));
+      }
+    }
+
+    const REPO_RESULTS_PAGE = 60;
+
+    async function buildRepoResults(config, filterText = document.getElementById('repo-search').value) {
       const resultsEl = document.getElementById('repo-results');
+      const summaryEl = document.getElementById('repo-summary');
       resultsEl.textContent = 'Loading…';
       let index;
       try {
@@ -2116,20 +2592,48 @@
         resultsEl.textContent = `Failed to load repository: ${err.message}`;
         return;
       }
+      fillRepoFacets(index);
 
-      const text = filterText.trim().toLowerCase();
-      const matches = index.filter(entry => !text
-        || entry.providerName.toLowerCase().includes(text)
-        || entry.region.toLowerCase().includes(text)
-        || (entry.categories ?? []).some(c => c.toLowerCase().includes(text)));
+      const region = document.getElementById('repo-region').value;
+      const providerName = document.getElementById('repo-provider').value;
+      const query = filterText.trim();
+      const matcher = repoMatcher(query);
+      const words = matcher.empty ? [] : [query];
+      const matches = index.filter(entry =>
+        (!region || entry.region === region || entry.region.startsWith(`${region}/`))
+        && (!providerName || entry.providerName === providerName)
+        && (matcher.empty || matcher.test(repoEntryHaystack(entry))));
+      // Exact words first, then the provider's own name or titles over words
+      // from deep in an abstract; otherwise the index's own order.
+      if (!matcher.empty) {
+        const rank = (entry) => matcher.score(repoEntryHaystack(entry)) * 2
+          + matcher.score([entry.providerName, ...(entry.layerNames ?? [])].join(' \u0001 ').toLowerCase());
+        const ranks = new Map(matches.map(e => [e, rank(e)]));
+        matches.sort((a, b) => ranks.get(b) - ranks.get(a));
+      }
 
       resultsEl.innerHTML = '';
+      summaryEl.textContent = matches.length
+        ? `${matches.length} provider file${matches.length === 1 ? '' : 's'}, ${matches.reduce((n, e) => n + (e.layerCount ?? 0), 0).toLocaleString()} layers in them${words.length ? ' — open one to see the layers that match' : ''}`
+        : '';
       if (matches.length === 0) {
-        resultsEl.textContent = 'No providers match.';
+        resultsEl.textContent = words.length ? `No layers match "${query}"${region || providerName ? ' here; try All regions / All providers' : ''}.` : 'No providers match.';
         return;
       }
 
-      for (const entry of matches.slice(0, 60)) {
+      let shown = 0;
+      const moreBtn = Object.assign(document.createElement('button'), { className: 'repo-more', type: 'button' });
+      const showMore = () => {
+        for (const entry of matches.slice(shown, shown + REPO_RESULTS_PAGE)) resultsEl.insertBefore(renderRepoEntry(entry), moreBtn);
+        shown = Math.min(matches.length, shown + REPO_RESULTS_PAGE);
+        moreBtn.hidden = shown >= matches.length;
+        moreBtn.textContent = `Show more (${matches.length - shown} left)`;
+      };
+      moreBtn.addEventListener('click', showMore);
+      resultsEl.appendChild(moreBtn);
+      showMore();
+
+      function renderRepoEntry(entry) {
         const provider = document.createElement('div');
         provider.className = 'repo-provider';
         const header = document.createElement('div');
@@ -2160,60 +2664,21 @@
             layersEl.textContent = 'Loading…';
             try {
               const file = await loadRepoProvider(entry.path);
-              const layers = file.services?.flatMap(service => service.layers ?? []) ?? file.layers ?? [];
+              const layers = file.services?.flatMap(service => {
+                const words = repoServiceWords(service);
+                for (const l of service.layers ?? []) repoLayerServiceWords.set(l, words);
+                return service.layers ?? [];
+              }) ?? file.layers ?? [];
               layersEl.innerHTML = '';
-              for (const layer of layers) {
-                const row = document.createElement('div');
-                row.className = 'repo-layer-row';
-                const title = document.createElement('span');
-                title.className = 'layer-title';
-                title.textContent = layer.title ?? layer.id;
-                row.appendChild(title);
-                const typeB = document.createElement('span');
-                typeB.className = 'type-badge';
-                typeB.textContent = layer.type ?? '?';
-                row.appendChild(typeB);
-                if (layer.requiresKey) {
-                  const keyB = document.createElement('span');
-                  keyB.className = 'type-badge';
-                  keyB.textContent = 'needs api key';
-                  row.appendChild(keyB);
-                }
-                const addBtn = document.createElement('button');
-                addBtn.className = 'btn-add';
-                addBtn.textContent = '+ Add';
-                const repoTreeLoc = findLayerTreeLocation(config);
-                if (repoTreeLoc) {
-                  row.appendChild(makeAddToTreeSelect(config, repoTreeLoc, (path) => {
-                    const cfg = layer.webmapxConfig;
-                    if (!cfg?.source || !cfg?.layer) return;
-                    const id = addLayerData(config, cfg.source, cfg.layer, layer.title, cfg.layer.type);
-                    placeInTree(config, repoTreeLoc, id, path);
-                    buildLayersUI(config);
-                    row.querySelector('.v2-add-to')?.replaceWith(Object.assign(document.createElement('span'), { className: 'type-badge', textContent: 'added' }));
-                    document.getElementById('status').textContent = `Added "${layer.title}" to the bottom of the Map catalog.`;
-                  }));
-                  layersEl.appendChild(row);
-                  continue;
-                }
-                addBtn.addEventListener('click', () => {
-                  const cfg = layer.webmapxConfig;
-                  if (!cfg?.source || !cfg?.layer) return;
-                  addLayerData(config, cfg.source, cfg.layer, layer.title, cfg.layer.type);
-                  buildLayersUI(config);
-                  document.getElementById('status').textContent = `Added "${layer.title}" — find it under This config.`;
-                });
-                row.appendChild(addBtn);
-                layersEl.appendChild(row);
-              }
               if (!layers.length) layersEl.textContent = 'No layers in this provider file.';
+              else renderRepoLayerList(config, layersEl, layers, query);
             } catch (err) {
               layersEl.textContent = `Failed to load: ${err.message}`;
             }
           }
         });
 
-        resultsEl.appendChild(provider);
+        return provider;
       }
     }
 
@@ -4940,9 +5405,14 @@
       });
     });
 
+    let repoSearchTimer = 0;
     document.getElementById('repo-search').addEventListener('input', (e) => {
-      buildRepoResults(baseConfig, e.target.value);
+      clearTimeout(repoSearchTimer);
+      repoSearchTimer = setTimeout(() => buildRepoResults(baseConfig, e.target.value), 200);
     });
+    for (const id of ['repo-region', 'repo-provider']) {
+      document.getElementById(id).addEventListener('change', () => buildRepoResults(baseConfig));
+    }
 
     document.getElementById('btn-discover').addEventListener('click', () => runDiscovery(baseConfig));
     document.getElementById('discover-url').addEventListener('keydown', (e) => {

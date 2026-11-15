@@ -25,7 +25,26 @@ import {
   resolveSingleGroupInsertionOptionsForGroup,
 } from './internal/single-group-policy';
 import { resolveLegendRoleForLayer } from './internal/legend-role-policy';
-import { resolveGeoJSONSources, type PagedSourceContinuation } from '../map/geojson-loader';
+import { resolveGeoJSONSources, type MapViewContext, type PagedSourceContinuation } from '../map/geojson-loader';
+import { viewBox } from '../map/wfs-requests';
+
+/** The web-mercator world, as far north and south as a map can show. */
+const WORLD_EXTENT: [number, number, number, number] = [-180, -85.0511, 180, 85.0511];
+
+/**
+ * The zoom-to extent for a layer whose source loads per map view (a WFS too
+ * large to load whole). What is loaded is only the current view, so an extent
+ * worked out from the data would zoom to where the map already is. Without
+ * stated bounds the extent is unknown, which means the whole world.
+ */
+function withPerViewExtent(metadata: unknown, sources: Record<string, any> | undefined): any {
+  const meta = (metadata && typeof metadata === 'object') ? metadata as Record<string, unknown> : undefined;
+  if (Array.isArray(meta?.bounds) && meta.bounds.length === 4) return metadata;
+  const perView = Object.values(sources ?? {}).find((s) => s && s.wfsPerView);
+  if (!perView) return metadata;
+  const bounds = Array.isArray(perView.bounds) && perView.bounds.length === 4 ? perView.bounds : WORLD_EXTENT;
+  return { ...(meta ?? {}), bounds };
+}
 import { timeOf } from '../utils/map-clock';
 import { applyMapState } from '../utils/internal-sources';
 import { inlineLayerSources } from '../map/layer-source-resolver';
@@ -1587,6 +1606,7 @@ export class WebmapxMapElement extends HTMLElement {
         layer.metadata = { ...(layerMetadata ?? {}), bounds: sourceConfig.bounds };
       }
     }
+    layer.metadata = withPerViewExtent(layer.metadata, enriched.sources);
 
     let success: boolean;
     try {
@@ -1599,8 +1619,9 @@ export class WebmapxMapElement extends HTMLElement {
       const role: LegendRole = metadata.legendRole === 'background' ? 'background' : 'overlay';
       this.logicalLayerRole.set(layer.id, role);
       this.insertIntoLogicalOrder(layer.id, options);
+      const view = this.mapViewContext(adapter, typeof (layer as any).title === 'string' ? (layer as any).title : layer.id);
       for (const c of continuations) {
-        c.run((data) => { const src = adapter.getSource(c.id); if (!src) return false; src.setData(data); return true; });
+        c.run((data) => { const src = adapter.getSource(c.id); if (!src) return false; src.setData(data); return true; }, view);
       }
     }
     return success;
@@ -1618,6 +1639,7 @@ export class WebmapxMapElement extends HTMLElement {
         (url) => applyMapState(url, adapter.store.getState().lastClickedCoordinates),
       );
     }
+    nativeLayer.metadata = withPerViewExtent(nativeLayer.metadata, nativeLayer.sources as Record<string, any> | undefined);
     const metadata = (nativeLayer.metadata && typeof nativeLayer.metadata === 'object') ? nativeLayer.metadata as Record<string, unknown> : {};
     const role: LegendRole = metadata.legendRole === 'background' ? 'background' : 'overlay';
     const insertOptions = this.computeInsertOptionsForLayer(role, options);
@@ -1627,10 +1649,28 @@ export class WebmapxMapElement extends HTMLElement {
       this.logicalLayerRole.set(layerId, role);
       this.insertIntoLogicalOrder(layerId, insertOptions);
     }
+    const view = this.mapViewContext(adapter, typeof nativeLayer.title === 'string' ? nativeLayer.title : (layerId ?? 'Layer'));
     for (const c of continuations) {
-      c.run((data) => { const src = adapter.getSource(c.id); if (!src) return false; src.setData(data); return true; });
+      c.run((data) => { const src = adapter.getSource(c.id); if (!src) return false; src.setData(data); return true; }, view);
     }
     return true;
+  }
+
+  /**
+   * The map view for a source that loads what is in view (a WFS too large to
+   * load whole). Until the map reports bounds of its own, the view is worked
+   * out from its centre, zoom and size.
+   */
+  private mapViewContext(adapter: IMap, title: string): MapViewContext {
+    return {
+      currentBox: () => {
+        const { center, zoom } = adapter.getViewportState();
+        return viewBox(center, zoom, this.clientWidth || 1024, this.clientHeight || 768);
+      },
+      onViewEnd: (callback) => adapter.events.on('view-change-end', (e) =>
+        callback([e.bounds.sw[0], e.bounds.sw[1], e.bounds.ne[0], e.bounds.ne[1]])),
+      notify: (message) => { void showToast(`${title}: ${message}`, { variant: 'neutral' }); },
+    };
   }
 
   private async applyInitialStateLayers(adapter: IMap, _layerData: LayerDataConfig): Promise<void> {
