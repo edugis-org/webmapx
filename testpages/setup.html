@@ -2148,11 +2148,23 @@
     }
 
     // Lower-cased text a provider filter matches against: title plus the record.
+    // What a layer inherits from its service: its title and the endpoint path.
+    // PDOK names a layer "ligplaats" and says "BAG" only in the service
+    // (service.pdok.nl/lv/bag/wms/v2_0), so a search for "bag" would find the
+    // WFS layer "bag:ligplaats" and miss the WMS layer beside it.
+    const repoLayerServiceWords = new WeakMap();
+    function repoServiceWords(service) {
+      let path = '';
+      try { path = new URL(service.endpoint).pathname.replace(/[\/_.-]+/g, ' '); } catch { /* no endpoint */ }
+      return [service.title, path].filter(Boolean).join(' ');
+    }
+
     function repoLayerHaystack(layer) {
       const r = repoLayerRecord(layer);
       // The abstract too, so a word that found the provider file in the index
       // (whose layerWords include abstracts) also finds the layer in it.
-      return [layer.title, layer.name, r.creator, r.date, r.scale, r.holder, ...r.subjects, r.abstract]
+      return [layer.title, layer.name, r.creator, r.date, r.scale, r.holder, ...r.subjects, r.abstract,
+        repoLayerServiceWords.get(layer)]
         .filter(Boolean).join(' \u0001 ').toLowerCase();
     }
 
@@ -2652,7 +2664,11 @@
             layersEl.textContent = 'Loading…';
             try {
               const file = await loadRepoProvider(entry.path);
-              const layers = file.services?.flatMap(service => service.layers ?? []) ?? file.layers ?? [];
+              const layers = file.services?.flatMap(service => {
+                const words = repoServiceWords(service);
+                for (const l of service.layers ?? []) repoLayerServiceWords.set(l, words);
+                return service.layers ?? [];
+              }) ?? file.layers ?? [];
               layersEl.innerHTML = '';
               if (!layers.length) layersEl.textContent = 'No layers in this provider file.';
               else renderRepoLayerList(config, layersEl, layers, query);
