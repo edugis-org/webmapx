@@ -132,6 +132,10 @@
     .repo-layer-meta { font-size: 0.72rem; color: #5a6472; padding: 0 0 0.1rem; overflow-wrap: anywhere; }
     .repo-layer-details { font-size: 0.72rem; color: #5a6472; }
     .repo-layer-norecord { font-style: italic; }
+    .repo-facets { display: flex; flex-wrap: wrap; gap: 0.4rem 0.8rem; margin-top: 0.4rem; font-size: 0.75rem; color: #5a6472; }
+    .repo-facets label { display: flex; align-items: center; gap: 0.3rem; flex: 1 1 12rem; min-width: 0; }
+    .repo-facets select { flex: 1; min-width: 0; font-size: 0.75rem; }
+    .repo-summary { font-size: 0.72rem; color: #5a6472; margin-top: 0.3rem; }
     .repo-record-links { display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; align-items: center; }
     .repo-record-links .repo-more { margin: 0; }
     .repo-record-table { display: grid; grid-template-columns: minmax(7em, max-content) 1fr; gap: 0.15rem 0.6rem; margin: 0.3rem 0; color: #2d333b; }
@@ -843,7 +847,12 @@
 
         <div id="add-layer-repo" class="add-layer-source">
           <p class="section-hint v2-source-hint">The shared webmapx layer repository on GitHub.</p>
-          <input type="search" id="repo-search" placeholder="Search provider, region, category…">
+          <input type="search" id="repo-search" placeholder="Search layers: BAG, Sanborn 1913, population…">
+          <div class="repo-facets">
+            <label>Region <select id="repo-region"><option value="">All regions</option></select></label>
+            <label>Provider <select id="repo-provider"><option value="">All providers</option></select></label>
+          </div>
+          <div id="repo-summary" class="repo-summary"></div>
           <div id="repo-results" class="add-layer-results"></div>
         </div>
 
@@ -2141,14 +2150,16 @@
     // Lower-cased text a provider filter matches against: title plus the record.
     function repoLayerHaystack(layer) {
       const r = repoLayerRecord(layer);
-      return [layer.title, r.creator, r.date, r.scale, r.holder, ...r.subjects]
+      // The abstract too, so a word that found the provider file in the index
+      // (whose layerWords include abstracts) also finds the layer in it.
+      return [layer.title, layer.name, r.creator, r.date, r.scale, r.holder, ...r.subjects, r.abstract]
         .filter(Boolean).join(' \u0001 ').toLowerCase();
     }
 
     // One page of rows at a time: Allmaps' New York file alone holds ~19,000 layers.
     const REPO_PAGE = 100;
 
-    function renderRepoLayerList(config, layersEl, layers) {
+    function renderRepoLayerList(config, layersEl, layers, initialFilter = '') {
       const haystacks = new Map();
       const hay = (layer) => {
         if (!haystacks.has(layer)) haystacks.set(layer, repoLayerHaystack(layer));
@@ -2183,16 +2194,23 @@
         moreBtn.textContent = `Show ${Math.min(left, REPO_PAGE)} more (${left} left)`;
       };
       const applyFilter = () => {
-        // Every word must match somewhere, so "sanborn 1913" narrows rather than widens.
-        const words = (filterEl?.value ?? '').trim().toLowerCase().split(/\s+/).filter(Boolean);
-        matches = words.length ? layers.filter(layer => words.every(w => hay(layer).includes(w))) : layers;
-        countEl.textContent = words.length ? `${matches.length} of ${layers.length}` : `${layers.length} layers`;
+        const matcher = repoMatcher(filterEl?.value);
+        matches = matcher.empty ? layers : layers.filter(layer => matcher.test(hay(layer)));
+        countEl.textContent = matcher.empty ? `${layers.length} layers` : `${matches.length} of ${layers.length}`;
         listEl.innerHTML = '';
         shown = 0;
         if (!matches.length) listEl.textContent = 'No layers match.';
         showMore();
       };
       moreBtn.addEventListener('click', showMore);
+      // Opened from a search: start on the layers that match it. The file may
+      // have matched on a provider or service description no layer repeats;
+      // then every layer is shown rather than none.
+      if (filterEl && initialFilter) {
+        filterEl.value = initialFilter;
+        const matcher = repoMatcher(initialFilter);
+        if (!layers.some(layer => matcher.test(hay(layer)))) filterEl.value = '';
+      }
       let pending = 0;
       filterEl?.addEventListener('input', () => {
         clearTimeout(pending);
@@ -2484,8 +2502,76 @@
       return wrap;
     }
 
-    async function buildRepoResults(config, filterText) {
+    // Search words match at the start of a word ("bag" finds "BAG panden" and
+    // "Baghdad", not "Rabago"), and every word must match. An exact word scores
+    // above a prefix, so BAG ranks above Baghdad.
+    function repoMatcher(text) {
+      const words = String(text ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+      const esc = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const res = words.map(w => ({
+        start: new RegExp(`(?:^|[^\\p{L}\\p{N}])${esc(w)}`, 'u'),
+        exact: new RegExp(`(?:^|[^\\p{L}\\p{N}])${esc(w)}(?:$|[^\\p{L}\\p{N}])`, 'u'),
+      }));
+      return {
+        empty: !words.length,
+        test: (hay) => res.every(r => r.start.test(hay)),
+        score: (hay) => res.reduce((n, r) => n + (r.exact.test(hay) ? 2 : 1), 0),
+      };
+    }
+
+    // What the search box matches for one index entry: the provider, its region
+    // and categories, the layer titles, and every word from titles and
+    // abstracts (`layerWords`, which for Allmaps includes makers, years and
+    // subjects). Built once per entry; 1,373 entries, ~5 MB of text.
+    const repoEntryHay = new WeakMap();
+    function repoEntryHaystack(entry) {
+      if (!repoEntryHay.has(entry)) {
+        repoEntryHay.set(entry, [
+          entry.providerName, entry.region, entry.path, ...(entry.categories ?? []),
+          ...(entry.layerNames ?? []), (entry.layerWords ?? []).join(' '),
+        ].join(' \u0001 ').toLowerCase());
+      }
+      return repoEntryHay.get(entry);
+    }
+
+    /** Fill the region and provider pickers from the index, once. */
+    function fillRepoFacets(index) {
+      const regionSel = document.getElementById('repo-region');
+      const providerSel = document.getElementById('repo-provider');
+      if (regionSel.dataset.filled) return;
+      regionSel.dataset.filled = '1';
+      // Every region and its ancestors, as a tree: picking "netherlands" includes
+      // its provinces. Counts are provider files at or below that region.
+      const counts = new Map();
+      for (const entry of index) {
+        const parts = entry.region.split('/');
+        for (let i = 1; i <= parts.length; i++) {
+          const key = parts.slice(0, i).join('/');
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+      }
+      for (const region of [...counts.keys()].sort()) {
+        const parts = region.split('/');
+        const name = parts.at(-1).replace(/-/g, ' ');
+        regionSel.appendChild(Object.assign(document.createElement('option'), {
+          value: region,
+          textContent: `${'\u2003'.repeat(parts.length - 1)}${name.charAt(0).toUpperCase()}${name.slice(1)} (${counts.get(region)})`,
+        }));
+      }
+      const providers = new Map();
+      for (const entry of index) providers.set(entry.providerName, (providers.get(entry.providerName) ?? 0) + 1);
+      for (const name of [...providers.keys()].sort((a, b) => a.localeCompare(b))) {
+        providerSel.appendChild(Object.assign(document.createElement('option'), {
+          value: name, textContent: `${name} (${providers.get(name)})`,
+        }));
+      }
+    }
+
+    const REPO_RESULTS_PAGE = 60;
+
+    async function buildRepoResults(config, filterText = document.getElementById('repo-search').value) {
       const resultsEl = document.getElementById('repo-results');
+      const summaryEl = document.getElementById('repo-summary');
       resultsEl.textContent = 'Loading…';
       let index;
       try {
@@ -2494,20 +2580,48 @@
         resultsEl.textContent = `Failed to load repository: ${err.message}`;
         return;
       }
+      fillRepoFacets(index);
 
-      const text = filterText.trim().toLowerCase();
-      const matches = index.filter(entry => !text
-        || entry.providerName.toLowerCase().includes(text)
-        || entry.region.toLowerCase().includes(text)
-        || (entry.categories ?? []).some(c => c.toLowerCase().includes(text)));
+      const region = document.getElementById('repo-region').value;
+      const providerName = document.getElementById('repo-provider').value;
+      const query = filterText.trim();
+      const matcher = repoMatcher(query);
+      const words = matcher.empty ? [] : [query];
+      const matches = index.filter(entry =>
+        (!region || entry.region === region || entry.region.startsWith(`${region}/`))
+        && (!providerName || entry.providerName === providerName)
+        && (matcher.empty || matcher.test(repoEntryHaystack(entry))));
+      // Exact words first, then the provider's own name or titles over words
+      // from deep in an abstract; otherwise the index's own order.
+      if (!matcher.empty) {
+        const rank = (entry) => matcher.score(repoEntryHaystack(entry)) * 2
+          + matcher.score([entry.providerName, ...(entry.layerNames ?? [])].join(' \u0001 ').toLowerCase());
+        const ranks = new Map(matches.map(e => [e, rank(e)]));
+        matches.sort((a, b) => ranks.get(b) - ranks.get(a));
+      }
 
       resultsEl.innerHTML = '';
+      summaryEl.textContent = matches.length
+        ? `${matches.length} provider file${matches.length === 1 ? '' : 's'}, ${matches.reduce((n, e) => n + (e.layerCount ?? 0), 0).toLocaleString()} layers in them${words.length ? ' — open one to see the layers that match' : ''}`
+        : '';
       if (matches.length === 0) {
-        resultsEl.textContent = 'No providers match.';
+        resultsEl.textContent = words.length ? `No layers match "${query}"${region || providerName ? ' here; try All regions / All providers' : ''}.` : 'No providers match.';
         return;
       }
 
-      for (const entry of matches.slice(0, 60)) {
+      let shown = 0;
+      const moreBtn = Object.assign(document.createElement('button'), { className: 'repo-more', type: 'button' });
+      const showMore = () => {
+        for (const entry of matches.slice(shown, shown + REPO_RESULTS_PAGE)) resultsEl.insertBefore(renderRepoEntry(entry), moreBtn);
+        shown = Math.min(matches.length, shown + REPO_RESULTS_PAGE);
+        moreBtn.hidden = shown >= matches.length;
+        moreBtn.textContent = `Show more (${matches.length - shown} left)`;
+      };
+      moreBtn.addEventListener('click', showMore);
+      resultsEl.appendChild(moreBtn);
+      showMore();
+
+      function renderRepoEntry(entry) {
         const provider = document.createElement('div');
         provider.className = 'repo-provider';
         const header = document.createElement('div');
@@ -2541,14 +2655,14 @@
               const layers = file.services?.flatMap(service => service.layers ?? []) ?? file.layers ?? [];
               layersEl.innerHTML = '';
               if (!layers.length) layersEl.textContent = 'No layers in this provider file.';
-              else renderRepoLayerList(config, layersEl, layers);
+              else renderRepoLayerList(config, layersEl, layers, query);
             } catch (err) {
               layersEl.textContent = `Failed to load: ${err.message}`;
             }
           }
         });
 
-        resultsEl.appendChild(provider);
+        return provider;
       }
     }
 
@@ -5275,9 +5389,14 @@
       });
     });
 
+    let repoSearchTimer = 0;
     document.getElementById('repo-search').addEventListener('input', (e) => {
-      buildRepoResults(baseConfig, e.target.value);
+      clearTimeout(repoSearchTimer);
+      repoSearchTimer = setTimeout(() => buildRepoResults(baseConfig, e.target.value), 200);
     });
+    for (const id of ['repo-region', 'repo-provider']) {
+      document.getElementById(id).addEventListener('change', () => buildRepoResults(baseConfig));
+    }
 
     document.getElementById('btn-discover').addEventListener('click', () => runDiscovery(baseConfig));
     document.getElementById('discover-url').addEventListener('keydown', (e) => {
