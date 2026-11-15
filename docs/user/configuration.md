@@ -389,6 +389,34 @@ GeoJSON, WMS, composite styles — and it governs **feature info only**. Analysi
 tools still read the layer's data, so a basemap nobody may click is still a
 layer you can clip or intersect against.
 
+### Feature info from a point service (`metadata.getFeatureInfoUrl`)
+
+A tile layer has no features of its own: a temperature map is only coloured
+pixels. To make a click on it answer anyway, point `getFeatureInfoUrl` at a
+JSON service that answers about one place. `{latitude}` and `{longitude}` are
+filled in with the clicked point, and `{key-…}` from `apikeys.json` as in any
+url:
+
+```json
+"metadata": {
+  "getFeatureInfoUrl": "https://api.weatherapi.com/v1/current.json?key={key-weatherapi}&q={latitude},{longitude}&lang=nl",
+  "attributes": {
+    "translations": [
+      { "name": "location.name", "translation": "locatie" },
+      { "name": "current.temp_c", "translation": "temperatuur", "unit": " °C" }
+    ]
+  }
+}
+```
+
+The answer is shown like any feature's properties. Nested values are named by
+their path (`current.temp_c`), which is what `translations` refer to; with
+translations present, only the translated values are shown. Layers that name
+the same url share one request per click, and each shows its own translated
+values. A hidden layer is not asked, since such services usually count every
+request against your key. A url without `{latitude}`/`{longitude}` is treated
+as a WMS GetFeatureInfo request, as before.
+
 ---
 
 **Allmaps layer** (`type: "allmaps"`)
@@ -758,6 +786,22 @@ In source URLs, use `{key-<name>}` where `<name>` matches a key in `apikeys.json
 ```
 
 At load time, `{key-mapbox}` is replaced with the value of `"mapbox"` from `apikeys.json`.
+
+### Time placeholders
+
+Some tile services address their data by moment rather than serving "now" at a fixed address. A source URL may contain:
+
+| Placeholder | Becomes | Example |
+|---|---|---|
+| `{utcdatehour}` | the hour as `yyyyMMddHH`, in UTC | `2026110211` |
+
+```json
+{
+  "url": ["https://weathermaps.weatherapi.com/tmp2m/tiles/{utcdatehour}/{z}/{x}/{y}.png"]
+}
+```
+
+It is filled in from the map's clock when the layer is added, so a map pinned to a moment (a permalink, the time tool) asks for that moment. A live map keeps the hour the layer was added at; it does not reload the layer every hour.
 
 ### apikeys.json
 
