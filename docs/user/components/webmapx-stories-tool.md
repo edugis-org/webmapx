@@ -7,6 +7,8 @@ The `<webmapx-stories-tool>` component provides a guided-tour UI: a sequence of 
 1.  **Activate the tool:** Click the corresponding toolbar button, activate via `ToolManager`, or deep-link with `?story=<name>` in the page URL (matches `StoryConfig.name`, case-insensitive; auto-activates the tool and opens that story).
 2.  **Pick a story:** If more than one story is configured, the tool lists them; pick one to open it.
 3.  **Navigate:** Use Next/Prev to step through the chapters. Chapter buttons (`buttonText`) jump straight to the first step of that chapter.
+
+The camera *flies* between steps, also when the operating system asks for reduced motion ("Show animations" off on Windows): zooming out, across and back in is how a story shows where the next view is relative to the previous one, and a jump would lose that. Other camera moves (search results, keyboard panning) jump under that setting.
 4.  **Close:** Closing the tool (or deactivating it) restores the camera, layer visibility/opacity, projection, and terrain state that was active before the story opened, and removes any layers the story added that weren't already on the map.
 
 ## Attributes
@@ -88,7 +90,7 @@ Configure stories via the top-level `stories` section of the app config:
 |---|---|---|
 | `id` | `string` | Unique chapter id. |
 | `title` | `string` | Chapter title. |
-| `buttonText` | `string?` | Label for the chapter-jump button. |
+| `buttonText` | `string?` | Label for the chapter-jump button. Defaults to the chapter `title`. |
 | `steps` | `StoryStepConfig[]` | Ordered list of steps in this chapter. |
 
 ### `StoryStepConfig`

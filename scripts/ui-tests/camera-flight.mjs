@@ -8,17 +8,19 @@
 //   least about two seconds of its own, which made each keypress crawl.
 // - Under the OS "reduce motion" setting every engine jumps instead: zooming
 //   out, across and back in is the kind of motion that setting exists to stop.
+// - Except an `essential` move (a story step): there the flight is what shows
+//   how the next view relates to the last, so it flies regardless.
 
 import { appUrl } from './lib/fixture-config.mjs';
 
 /** Starts the move, then samples the zoom until the camera settles on the target. */
-async function fly(page, { to, zoom }) {
-  return page.evaluate(async ({ to, zoom }) => {
+async function fly(page, { to, zoom, essential = false }) {
+  return page.evaluate(async ({ to, zoom, essential }) => {
     const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const zooms = new Set();
     const started = performance.now();
-    adapter.setViewport(to, zoom);
+    adapter.setViewport(to, zoom, essential ? { essential: true } : undefined);
     let stableSince = null;
     while (performance.now() - started < 15_000) {
       const v = adapter.getViewportState();
@@ -33,7 +35,7 @@ async function fly(page, { to, zoom }) {
       await sleep(20);
     }
     return { ms: null, zoomsSeen: zooms.size };
-  }, { to, zoom });
+  }, { to, zoom, essential });
 }
 
 async function startAt(page, center, zoom) {
@@ -77,6 +79,11 @@ export async function run({ page, baseUrl }) {
     const reduced = await fly(page, { to: [139.69, 35.69], zoom: 10 });
     if (reduced.ms === null) problems.push('under "reduce motion" the long move never arrived');
     else if (reduced.zoomsSeen > 2 || reduced.ms > 300) problems.push(`under "reduce motion" the long move flew (${reduced.ms} ms, zoom levels seen: ${reduced.zoomsSeen})`);
+
+    await startAt(page, [4.9, 52.37], 10);
+    const essential = await fly(page, { to: [139.69, 35.69], zoom: 10, essential: true });
+    if (essential.ms === null) problems.push('under "reduce motion" an essential move never arrived');
+    else if (essential.zoomsSeen <= 2) problems.push(`under "reduce motion" an essential move jumped (zoom levels seen: ${essential.zoomsSeen})`);
   } finally {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
   }

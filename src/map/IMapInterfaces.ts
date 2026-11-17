@@ -114,6 +114,13 @@ export interface LayerRemovalSnapshot {
 export interface ViewportChangeOptions {
     /** False writes the camera instantly instead of animating towards it. Default true. */
     animate?: boolean;
+    /**
+     * True keeps the flight under the OS "reduce motion" setting, which otherwise turns
+     * every camera move into a jump. Only for a move whose motion *is* the message —
+     * a story step, where flying out and in is what shows how the new view relates to
+     * the previous one; a jump there leaves the viewer with no idea where they are.
+     */
+    essential?: boolean;
 }
 
 /**
