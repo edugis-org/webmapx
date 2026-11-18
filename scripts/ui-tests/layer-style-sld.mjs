@@ -46,6 +46,17 @@ async function installWaitFor(page) {
         await new Promise((resolve) => setTimeout(resolve, step));
       }
     };
+    // Clicks a panel button once it is there and enabled. Setting a draft and
+    // awaiting one `updateComplete` does not guarantee the button is rendered on
+    // a slow runner — `find(...)` then returned undefined and the step failed
+    // with "Cannot read properties of undefined (reading 'click')" on CI only.
+    // A click on a disabled button is silently lost, so that is waited out too.
+    window.__wmxClickButton = async (root, text, timeout = 10000) => {
+      const button = await window.__wmxWaitFor(() => [...root.querySelectorAll('sl-button')]
+        .find((b) => b.textContent.includes(text) && !b.disabled), timeout);
+      if (!button) throw new Error(`no enabled "${text}" button within ${timeout} ms`);
+      button.click();
+    };
   });
 }
 
@@ -186,7 +197,7 @@ export async function run({ page, engine, baseUrl }) {
       colour.click();
       panel.setDraft({ color: '#ff00ff' });
       await panel.updateComplete;
-      [...root.querySelectorAll('sl-button')].find((b) => b.textContent.includes('Draw it')).click();
+      await window.__wmxClickButton(root, 'Draw it');
       const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
       const entry = adapter.store.getState().mapLayers[id];
       const after = await window.__wmxWaitFor(() => {
@@ -242,7 +253,7 @@ export async function run({ page, engine, baseUrl }) {
       await panel.updateComplete;
       if ((panel.sldDraft.values?.length ?? 0) === 0) return { skipped: 'the WFS returned no values' };
 
-      [...root.querySelectorAll('sl-button')].find((b) => b.textContent.includes('Draw it')).click();
+      await window.__wmxClickButton(root, 'Draw it');
       const sourceId = panel.context?.raster?.sourceId;
       const urls = () => decodeURIComponent(JSON.stringify(adapter.getSourceTiles(sourceId) ?? ''));
       await window.__wmxWaitFor(() => /PropertyIsLessThan/.test(urls()), 10000);
@@ -281,21 +292,20 @@ export async function run({ page, engine, baseUrl }) {
       const root = panel.shadowRoot;
       await window.__wmxWaitFor(() => panel.sldProbe !== null && !panel.sldProbing, 30000);
       if (!panel.sldProbe?.supported) return { skipped: 'the service did not offer its own styling' };
-      const draw = () => [...root.querySelectorAll('sl-button')]
-        .find((b) => b.textContent.includes('Draw it')).click();
+      const draw = () => window.__wmxClickButton(root, 'Draw it');
 
       // Long values, so the document outgrows the url at a plausible count.
       const values = Array.from({ length: 60 }, (_, i) => `een tamelijk lange waarde nummer ${i}`);
       panel.setDraft({ driver: 'attribute', attribute: 'gebruiksdoel', values, classCount: 60 });
       await panel.updateComplete;
-      draw();
+      await draw();
       await window.__wmxWaitFor(() => panel.sldProblem, 30000);
       const refused = panel.sldProblem;
       if (!refused) return { skipped: 'the service accepted even 60 classes' };
 
       panel.setDraft({ classCount: 2 });
       await panel.updateComplete;
-      draw();
+      await draw();
       await window.__wmxWaitFor(() => !panel.sldVerifying, 30000);
       // Long enough for the earlier refusal to have landed, had it been kept.
       await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -343,7 +353,7 @@ export async function run({ page, engine, baseUrl }) {
 
       panel().setDraft({ driver: 'single', color: 'rgba(255,0,255,1)' });
       await panel().updateComplete;
-      [...panel().shadowRoot.querySelectorAll('sl-button')].find((b) => b.textContent.includes('Draw it')).click();
+      await window.__wmxClickButton(panel().shadowRoot, 'Draw it');
       await new Promise((resolve) => setTimeout(resolve, 800));
       const afterOwn = shown();
       panel().close();
@@ -374,7 +384,7 @@ export async function run({ page, engine, baseUrl }) {
 
       panel.setDraft({ driver: 'single', color: '#ff00ff' });
       await panel.updateComplete;
-      [...root.querySelectorAll('sl-button')].find((b) => b.textContent.includes('Draw it')).click();
+      await window.__wmxClickButton(root, 'Draw it');
       const sourceId = panel.context?.raster?.sourceId;
       const urls = () => JSON.stringify(adapter.getSourceTiles(sourceId) ?? '');
       // This step's *own* style, not merely "some SLD": an earlier step may
@@ -389,7 +399,7 @@ export async function run({ page, engine, baseUrl }) {
       // at all.
       await window.__wmxWaitFor(() => !panel.sldVerifying, 30000);
       await panel.updateComplete;
-      [...root.querySelectorAll('sl-button')].find((b) => b.textContent.includes('service')).click();
+      await window.__wmxClickButton(root, 'service');
       await window.__wmxWaitFor(() => !/SLD_BODY/i.test(urls()), 15000);
       const tiles = urls();
       const diag = { message: panel.message, applied: panel.sldApplied, problem: panel.sldProblem,
