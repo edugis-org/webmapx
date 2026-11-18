@@ -4410,7 +4410,7 @@
       return { title: 'New step', html: '<p>New step</p>', state: { layers: [], view: { center: [0, 0], zoom: 2 } } };
     }
     function emptyChapter() {
-      return { id: 'chapter-' + Date.now().toString(36), title: 'New chapter', buttonText: 'Chapter', steps: [emptyStep()] };
+      return { id: 'chapter-' + Date.now().toString(36), title: 'New chapter', steps: [emptyStep()] };
     }
     function emptyStory() {
       return { name: 'New story', description: '', chapters: [emptyChapter()] };
@@ -4779,7 +4779,7 @@
       box.className = 'chapter-meta v2-chapter-settings';
       [
         ['Title', 'title', 'Shown as the chapter heading'],
-        ['Button text', 'buttonText', 'Label of the chapter button in the story panel'],
+        ['Button text', 'buttonText', 'Label of the chapter button in the story panel; empty uses the title'],
         ['Id', 'id', 'Technical name; leave as is unless you link to this chapter'],
       ].forEach(([text, key, hint]) => {
         const label = document.createElement('label');
@@ -4788,8 +4788,13 @@
         const input = document.createElement('input');
         input.type = 'text';
         input.value = chapter[key] ?? '';
+        // The button shows the chapter title unless given its own text.
+        if (key === 'buttonText') input.placeholder = chapter.title || '';
         input.addEventListener('change', () => {
-          chapter[key] = input.value;
+          const value = input.value.trim();
+          // An emptied button text falls back to the title rather than an empty button.
+          if (key === 'buttonText' && !value) delete chapter[key];
+          else chapter[key] = input.value;
           persistStoriesData();
           renderOutline(config);
         });

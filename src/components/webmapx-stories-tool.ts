@@ -244,7 +244,9 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
         // cancels any in-progress flyTo — so the animated setViewport call must go last.
         adapter.setBearing(bearing);
         adapter.setPitch(pitch);
-        adapter.setViewport([lng, lat], zoom);
+        // `essential`: the flight is how a story shows where the next view is relative
+        // to the last one, so it survives the OS "reduce motion" setting.
+        adapter.setViewport([lng, lat], zoom, { essential: true });
 
         // Iterate the story's full layer union, not just this step's `l` — a layer shown by
         // an earlier step but not referenced by this one must be dealt with again (regression:
@@ -459,7 +461,7 @@ export class WebmapxStoriesTool extends WebmapxModalTool {
                         size="small"
                         variant=${current?.chapter === chapter ? 'primary' : 'default'}
                         @click=${() => this.goToChapter(chapter)}
-                    >${chapter.buttonText ?? chapter.title}</sl-button>
+                    >${chapter.buttonText || chapter.title}</sl-button>
                 `)}
             </div>
 

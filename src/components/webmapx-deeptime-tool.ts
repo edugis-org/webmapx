@@ -41,6 +41,14 @@ import type { WebmapxMapElement } from './webmapx-map';
 const DEFAULT_DATA = 'data/paleo/merdith2021';
 
 /**
+ * Where the period scenes are when no config said: beside the default model,
+ * config-relative like `DEFAULT_DATA`. A config gets them unless it opts out
+ * with `"scenes": false` — a tool added through setup.html never writes the
+ * key, and leaving the pictures out by default is not what anyone asked for.
+ */
+const DEFAULT_SCENES = 'data/paleo';
+
+/**
  * Who to credit when no config said.
  *
  * Attribution belongs on the *source*, not the layer — that is the rule for
@@ -287,8 +295,9 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
      * Directory holding `deeptime-periods.json` and the sprite it names, both
      * config assets: a path relative to the config, like `data`.
      *
-     * Unset, the tool shows the period name alone — the scenes are an
-     * illustration of the age on the slider, not something it needs to work.
+     * Unset, `DEFAULT_SCENES`; `"scenes": false` (or `""`) in the config shows
+     * the period name alone — the scenes illustrate the age on the slider, not
+     * something the tool needs to work, so a missing file is not an error.
      */
     @property({ type: String }) scenes: string | null = null;
     /** Youngest age the slider reaches, in Ma. */
@@ -481,8 +490,11 @@ export class WebmapxDeeptimeTool extends WebmapxModalTool {
 
         // Same treatment as `data`: the loader resolves what the config wrote,
         // and an attribute on the element wins over both.
-        if (!this.hasAttribute('scenes') && typeof section?.scenes === 'string') {
-            this.scenes = section.scenes;
+        if (!this.hasAttribute('scenes')) {
+            const configured = section?.scenes;
+            this.scenes = typeof configured === 'string'
+                ? (configured || null)
+                : configured === false ? null : DEFAULT_SCENES;
         }
 
         // A config's own list wins; otherwise the built-in one, whose paths are

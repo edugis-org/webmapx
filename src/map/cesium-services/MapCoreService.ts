@@ -7,7 +7,7 @@ import { MapEventBus, LngLat, Pixel } from '../../store/map-events';
 import { throttle } from '../../utils/throttle';
 import { evaluateColor, evaluateNumber } from '../../utils/maplibre-expression-evaluator';
 import { isEventFromEditableElement } from '../../utils/dom-focus-utils';
-import { prefersReducedMotion } from '../../utils/reduced-motion';
+import { shouldJump } from '../../utils/reduced-motion';
 import { forceGeodesicArcType } from './MapLayerService';
 import { DEFAULT_DATA_COLOR } from '../default-paint';
 
@@ -298,13 +298,13 @@ export class MapCoreService implements IMapCore {
         return { center, zoom, bearing, pitch };
     }
 
-    public setViewport(center: [number, number], zoom: number, options?: { animate?: boolean }): void {
+    public setViewport(center: [number, number], zoom: number, options?: { animate?: boolean; essential?: boolean }): void {
         if (!this.viewer) return;
         const Cesium = getCesium();
         if (!Cesium) return;
         const clampedZoom = this.clampZoom(zoom);
         this.lastCenter = center;
-        this.setCameraView(center, clampedZoom, options?.animate !== false);
+        this.setCameraView(center, clampedZoom, !shouldJump(options));
         this.applyZoomDistanceLimits(center[1]);
     }
 
@@ -923,8 +923,8 @@ export class MapCoreService implements IMapCore {
             camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
         };
 
-        // Under "reduce motion" every engine jumps (see utils/reduced-motion.ts).
-        if (!animate || prefersReducedMotion()) {
+        // Reduced motion is decided by the caller (`shouldJump` in setViewport).
+        if (!animate) {
             action();
             return;
         }
