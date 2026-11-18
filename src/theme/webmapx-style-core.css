@@ -239,6 +239,19 @@
     --webmapx-label-spacing: .06em;
     --webmapx-label-transform: uppercase;
 
+    /* Control buttons — one look for every button that sits on a floating
+       surface: toolbar tools and map controls (zoom, compass, fullscreen).
+       They used to follow two systems: Shoelace's (own fill, grey icon, accent
+       fill + outline on hover) and webmapx's (no fill, text-colour icon, a 6%
+       film on hover). At rest a control has no fill of its own, so the rail or
+       control shell shows through; on hover it takes the accent. Colour
+       values, but only references to the theme's colour tokens. */
+    --webmapx-control-bg: transparent;
+    --webmapx-control-fg: var(--color-text-primary);
+    --webmapx-control-hover-bg: var(--color-primary-soft);
+    --webmapx-control-hover-fg: var(--color-primary);
+    --webmapx-control-hover-border: color-mix(in srgb, var(--color-primary) 40%, transparent);
+
     /* Layout */
     --overlay-inset: 16px;
 

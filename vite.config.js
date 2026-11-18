@@ -85,6 +85,8 @@ export default defineConfig({
         main: 'index.html',
         setup: 'testpages/setup.html',
         preview: 'testpages/preview.html',
+        // Style mock-ups, built so a branch preview can be shared for review.
+        'styles-mockup': 'testpages/styles-mockup.html',
       },
       output: {
         manualChunks(id) {

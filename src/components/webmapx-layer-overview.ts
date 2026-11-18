@@ -331,16 +331,32 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
       align-items: flex-start;
       gap: var(--webmapx-space-xs, 0.35rem);
       padding: var(--webmapx-space-xs, 0.35rem) var(--webmapx-space-sm, 0.625rem);
-      border: 1px solid var(--color-border, #d5dce3);
+      border: 1px solid var(--webmapx-legend-card-border, var(--color-border, #d5dce3));
       border-radius: var(--webmapx-radius-lg, 0.75rem);
-      background: var(--color-background, #fff);
+      /* A card is a layer on the map, so it is lifted off the panel: a faint
+         accent tint over the surface, where it used to be the panel's own
+         background and read as part of it. */
+      background: var(--webmapx-legend-card-bg, color-mix(in srgb, var(--color-primary, #2b6c8f) 6%, var(--color-surface, #fff)));
       box-shadow: var(--webmapx-shadow-sm, 0 1px 3px rgba(15, 23, 42, 0.08));
       box-sizing: border-box;
+      transition: background-color var(--webmapx-motion-fast, 120ms) ease, border-color var(--webmapx-motion-fast, 120ms) ease;
       /* drag-handle width (1em, i.e. its own font-size) plus the .layer-row
          gap that sits between it and the eye icon — the indent everything
          in .layer-details lines up with, except .layer-details-actions,
          which breaks back out of it (see below). */
       --details-indent: calc(var(--webmapx-font-size-md, 0.95rem) + var(--webmapx-space-xs, 0.25rem));
+    }
+
+    /* A hidden layer is still in the list but not on the map: the card sinks
+       back into the panel (no tint, no lift, dashed edge) and its name is
+       muted, so on/off reads at a glance and not only from the eye icon. */
+    .layer-card.is-hidden {
+      background: var(--webmapx-legend-card-hidden-bg, transparent);
+      border-style: dashed;
+      box-shadow: none;
+    }
+    .layer-card.is-hidden .layer-label:not(:hover):not(:focus-visible) {
+      color: var(--color-text-secondary, #5a6773);
     }
 
     /* The temporary row a removed layer leaves behind — muted and dashed so it
@@ -1056,7 +1072,7 @@ export class WebmapxLayerOverview extends WebmapxBaseTool {
                   ${this.dropTargetLayerId === item.layerId && this.dropTargetPosition === 'above'
                     ? html`<div class="drop-indicator"></div>`
                     : null}
-                  <div class="layer-card" data-layer-id=${item.layerId}>
+                  <div class="layer-card${item.visible ? '' : ' is-hidden'}" data-layer-id=${item.layerId}>
                     <div class="layer-row">
                       <sl-tooltip content="Drag to change layer order" ?disabled=${items.length <= 1}>
                         <sl-icon
