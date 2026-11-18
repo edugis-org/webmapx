@@ -265,13 +265,17 @@
     }
     .upload-path-row button { padding: 0.45rem 0.9rem; font-size: 0.85rem; background: #e0e0e0; }
     body.config-drag-over::before {
-      content: "Drop config file to upload";
+      content: "Drop to open a configuration or add a layer to it";
       position: fixed; inset: 0; z-index: 9999;
       display: flex; align-items: center; justify-content: center;
       background: rgba(15, 98, 254, 0.12); color: #0f3f9e;
       border: 4px dashed #0f62fe; box-sizing: border-box;
       font-size: 1.4rem; font-weight: 600; pointer-events: none;
     }
+    /* A preview map has its own drop import, which adds a layer to that map for the
+       moment and leaves the configuration untouched. In setup a drop must mean one thing
+       everywhere, so during a drag the previews let it fall through to this page. */
+    body.config-drag-over iframe.map-preview { pointer-events: none; }
     .publish-panel {
       border: 1px solid #ddd; border-radius: 6px; padding: 0.9rem; margin: 0.75rem 0 1.25rem;
       background: #fafbfc; max-width: 480px;
@@ -357,6 +361,32 @@
     /* Open configuration dialog: shared controls (open file, paste URL, drop zone) */
     .open-fixed { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-bottom: 1px solid var(--v2-border); }
     .open-url { display: flex; gap: 6px; }
+    /* Layers › From file */
+    .open-fixed.layer-file-row { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px; padding: 0; border: 0; }
+    .layer-file-drop { flex: 1; min-width: 220px; }
+    .layer-file-results { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .layer-file-results li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; font-size: 13px; }
+    .layer-file-results .ok { color: var(--v2-text); white-space: nowrap; }
+    .layer-file-results .meta { color: var(--v2-muted); font-size: 12px; white-space: nowrap; }
+    .layer-file-results .warn { flex-basis: 100%; padding-left: 1.1em; color: #8a5300; font-size: 12px; }
+    .layer-file-hint { margin: 8px 0 0; color: var(--v2-text); font-size: 12px; }
+    .layer-file-hint .catalog-ref { white-space: nowrap; font-weight: 600; }
+    .layer-file-hint .catalog-ref svg { vertical-align: -2px; margin-right: 3px; }
+    .layer-file-results li:has(.ok) {
+      padding: 8px 10px; border-radius: 6px;
+      border: 1px solid color-mix(in srgb, #1a7f37 35%, transparent);
+      border-left: 4px solid #1a7f37;
+      background: color-mix(in srgb, #1a7f37 8%, transparent);
+    }
+    .layer-file-results .ok { font-weight: 600; }
+    /* A new result lights up once, so it is noticed after a drop from another tab. */
+    .layer-file-results li.fresh { animation: layer-result-flash 1.6s ease-out 2; }
+    @keyframes layer-result-flash {
+      0%   { background: color-mix(in srgb, #1a7f37 30%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, #1a7f37 30%, transparent); }
+      100% { background: color-mix(in srgb, #1a7f37 8%, transparent); box-shadow: 0 0 0 0 transparent; }
+    }
+    @media (prefers-reduced-motion: reduce) { .layer-file-results li.fresh { animation: none; } }
+    .layer-file-results .err { color: var(--v2-danger); }
     .open-url input { flex: 1; min-width: 0; }
     /* Shoelace's small button and input (as in the viewer's Import layer tool), without loading Shoelace */
     .open-fixed .sl-like, .open-fixed #btn-upload.sl-like {
@@ -1044,6 +1074,7 @@
           <button class="add-layer-tab active" data-source="config" type="button">This config</button>
           <button class="add-layer-tab" data-source="repo" type="button">Repository</button>
           <button class="add-layer-tab" data-source="url" type="button">Service URL</button>
+          <button class="add-layer-tab" data-source="file" type="button">From file</button>
         </div>
 
         <div id="add-layer-config" class="add-layer-source active">
@@ -1071,6 +1102,19 @@
           </div>
           <div id="discover-error" class="discover-error"></div>
           <div id="discover-results" class="add-layer-results"></div>
+        </div>
+
+        <!-- From file: the same import the map does on a drop, so it reads what the map
+             reads — including what the map's "Save layers" writes. -->
+        <div id="add-layer-file" class="add-layer-source">
+          <p class="section-hint v2-source-hint">A layer saved from the map (<em>Save layers</em>), or a GeoJSON, shapefile (.zip), GeoPackage, KML, GPX, CSV or TopoJSON file. Its data is stored inside this configuration.</p>
+          <div class="open-fixed layer-file-row">
+            <button id="btn-layer-file" type="button" class="sl-like"><span class="open-ico open-ico-folder" aria-hidden="true"></span>Open file…</button>
+            <input id="layer-file-input" type="file" multiple hidden>
+            <div class="open-drop layer-file-drop"><span class="open-ico open-ico-drop" aria-hidden="true"></span>or drop the file here, or anywhere on this page</div>
+          </div>
+          <ul id="layer-file-results" class="layer-file-results"></ul>
+          <p id="layer-file-hint" class="layer-file-hint" hidden>To see a layer on the map, open the <span class="catalog-ref"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M8.235 1.559a.5.5 0 0 0-.47 0l-7.5 4a.5.5 0 0 0 0 .882L3.188 8 .264 9.559a.5.5 0 0 0 0 .882l7.5 4a.5.5 0 0 0 .47 0l7.5-4a.5.5 0 0 0 0-.882L12.813 8l2.922-1.559a.5.5 0 0 0 0-.882zm3.515 7.008L14.438 10 8 13.433 1.562 10 4.25 8.567l3.515 1.874a.5.5 0 0 0 .47 0zM8 9.433 1.562 6 8 2.567 14.438 6z"/></svg>Map catalog</span> or turn on its switch in card 2.</p>
         </div>
       </div>
     </section>
@@ -1351,6 +1395,7 @@
     import { discoverLayers } from '/src/utils/layer-discovery.ts';
     import { toStoryStepState } from '/src/config/story-step-state.ts';
     import { TOOL_PALETTE, ToolAccentSequence } from '/src/utils/tool-accent.ts';
+    import { putPreviewConfig } from './preview-store.js';
 
     // The generated index and harvested providers are published by the Pages build.
     const LAYER_REPO_BASE = 'https://edugis-org.github.io/webmapx-layer-repository/layers';
@@ -1362,11 +1407,16 @@
     // would fall back to preview.html's own location. Store the config's origin URL beside
     // it under "<key>-url" so the preview can pass it to WebMapX.mount as configUrl. Kept
     // as a separate key so the stored config stays byte-for-byte publishable.
+    //
+    // Handed over through IndexedDB, not localStorage (see preview-store.js): setup keeps a
+    // copy per preview, and a few imported layers with inline data blew the ~5 MB
+    // localStorage budget, after which every preview silently stayed on its last config.
+    // Snapshot synchronously: callers go on mutating the config after this returns.
     function storeConfig(key, config) {
-      // The URL first: the config key is what an open preview tab reloads on.
-      if (activeConfigUrl) localStorage.setItem(key + '-url', new URL(activeConfigUrl, window.location.href).href);
-      else localStorage.removeItem(key + '-url');
-      localStorage.setItem(key, JSON.stringify(config));
+      const url = activeConfigUrl ? new URL(activeConfigUrl, window.location.href).href : null;
+      const snapshot = structuredClone(config);
+      try { localStorage.removeItem(key); localStorage.removeItem(key + '-url'); } catch { /* ignore */ }
+      putPreviewConfig(key, snapshot, url).catch((e) => console.error('[setup] preview hand-over failed', e));
     }
 
     // Derive toolbar keys dynamically from config instead of hardcoding names.
@@ -2838,6 +2888,161 @@
       return id;
     }
 
+    // --- From file: a layer file becomes a catalog layer with its data inside the config ---
+    //
+    // The map's own drop import (dropped-layer-builder) does the reading, so setup accepts
+    // exactly what the map accepts — including what the map's "Save layers" writes. Its
+    // result is a composite `type: 'style'` layer whose inline sources are keyed
+    // `<id>:<file>`. Like the config-edit tool (mergeDynamicLayers), those sources are
+    // lifted into layerData.sources under the same keys, and the layer keeps referring to
+    // them; sublayers resolve a source local-first, then from layerData.sources.
+
+    /** Above this, the warning: every visitor downloads the config, data included. */
+    const LARGE_LAYER_BYTES = 1_000_000;
+    // TEMPORARY limits until imported data is stored beside the config rather than in it.
+    // Setup copies the whole config to every preview and to "Recent" (localStorage,
+    // ~5 MB) and re-serialises it every 1.5 s, so a few MB of inline data freezes the
+    // page or silently loses edits. Our largest shipped config is ~0.8 MB.
+    const MAX_IMPORTED_DATA_BYTES = 3_000_000;
+    const MAX_CONFIG_FILE_BYTES = 4_000_000;
+    const tooLargeText = (what, bytes, max) =>
+      `${what} is ${formatBytes(bytes)}; setup accepts at most ${formatBytes(max)} for now. Make the file smaller (fewer features or attributes, simplified shapes, fewer decimals) and try again.`;
+
+    function importedDataBytes() {
+      return JSON.stringify(getAddedLayerData().sources ?? {}).length;
+    }
+
+    function formatBytes(n) {
+      return n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1000))} KB`;
+    }
+
+    // A composite's ids and source keys all start with "<id>:"; give it a free id and
+    // carry the prefix along, the way the map renames a layer dropped twice.
+    function renameComposite(comp, newId) {
+      const prefix = `${comp.id}:`;
+      const swap = (s) => (typeof s === 'string' && s.startsWith(prefix) ? `${newId}:${s.slice(prefix.length)}` : s);
+      return {
+        ...comp,
+        id: newId,
+        sources: Object.fromEntries(Object.entries(comp.sources ?? {}).map(([k, v]) => [swap(k), v])),
+        layers: (comp.layers ?? []).map(l => ({ ...l, id: swap(l.id), source: swap(l.source) })),
+      };
+    }
+
+    function addCompositeLayer(config, comp) {
+      const id = uniqueLayerId(config, comp.id);
+      const c = id === comp.id ? { ...comp } : renameComposite(comp, id);
+      // A file without a style file is titled by its name; the extension is not a title.
+      if (typeof c.title === 'string') c.title = c.title.replace(/\.(geo)?json$|\.(topojson|kml|kmz|gpx|csv|zip|gpkg|shp)$/i, '');
+      // `dynamic` marks a layer the map added at runtime; in a config it is a catalog layer.
+      const { dynamic, ...metadata } = c.metadata ?? {};
+      const { sources, version, ...layer } = c;
+      const added = getAddedLayerData();
+      const ov = getSaved();
+      ov['layerData:added'] = {
+        sources: { ...added.sources, ...sources },
+        layers: { ...added.layers, [id]: { ...layer, id, title: c.title ?? id, metadata } },
+      };
+      saveOverrides(ov);
+      const treeLoc = findLayerTreeLocation(config);
+      if (treeLoc) placeInTree(config, treeLoc, id, null);
+      return { id, title: c.title ?? id, bytes: JSON.stringify(sources ?? {}).length };
+    }
+
+    function showLayerFileResult(items) {
+      const list = document.getElementById('layer-file-results');
+      for (const item of items) {
+        const li = document.createElement('li');
+        if (item.error) {
+          li.append(Object.assign(document.createElement('span'), { className: 'err', textContent: item.error }));
+        } else {
+          li.dataset.layerId = item.id;
+          li.append(
+            Object.assign(document.createElement('span'), { className: 'ok', textContent: `✓ ${item.title}` }),
+            Object.assign(document.createElement('span'), { className: 'meta', textContent: `added to the Map catalog · ${formatBytes(item.bytes)}` }),
+          );
+          if (item.bytes > LARGE_LAYER_BYTES) {
+            li.append(Object.assign(document.createElement('span'), {
+              className: 'warn',
+              textContent: `Large: every visitor downloads these ${formatBytes(item.bytes)} with the configuration.`,
+            }));
+          }
+        }
+        li.classList.add('fresh');
+        li.addEventListener('animationend', () => li.classList.remove('fresh'), { once: true });
+        list.prepend(li);
+        li.scrollIntoView({ block: 'nearest' });
+      }
+      updateLayerFileHint();
+    }
+
+    // One instruction for the whole list, shown while it lists an added layer.
+    function updateLayerFileHint() {
+      document.getElementById('layer-file-hint').hidden =
+        !document.querySelector('#layer-file-results li[data-layer-id]');
+    }
+
+    // A result row says "added to the Map catalog"; once the layer leaves the catalog
+    // (back to the pool, or deleted) the row — and its size warning — go with it.
+    function pruneLayerFileResults(catalogIds) {
+      for (const li of document.querySelectorAll('#layer-file-results li[data-layer-id]')) {
+        if (!catalogIds.has(li.dataset.layerId)) li.remove();
+      }
+      updateLayerFileHint();
+    }
+
+    // Show the From file tab, so a drop elsewhere on the page shows where its result went.
+    function revealLayerFileTab() {
+      document.querySelector('.tab-btn[data-tab="layers"]')?.click();
+      document.querySelector('.add-layer-tab[data-source="file"]')?.click();
+    }
+
+    async function importLayerFiles(files) {
+      if (!baseConfig || !files.length) return;
+      const status = document.getElementById('status');
+      const names = files.map(f => f.name).join(', ');
+      status.textContent = `Reading “${names}”…`;
+      try {
+        const { groupDroppedFiles, buildLayerConfigsFromGroup } = await import('/src/utils/dropped-layer-builder.ts');
+        const layerPicker = async (filename, layers) => (await import('/src/utils/layer-picker-dialog.ts')).showLayerPickerDialog(filename, layers);
+        const results = [];
+        for (const group of await groupDroppedFiles(files)) {
+          const groupName = `“${group.map(g => g.name.split('/').pop()).join(', ')}”`;
+          // Refuse before reading: parsing a huge file is itself what freezes the page.
+          const rawBytes = group.reduce((n, g) => n + (g.blob?.size ?? 0), 0);
+          if (rawBytes > MAX_IMPORTED_DATA_BYTES) {
+            results.push({ error: tooLargeText(groupName, rawBytes, MAX_IMPORTED_DATA_BYTES) });
+            continue;
+          }
+          const comps = (await buildLayerConfigsFromGroup(group, layerPicker))
+            .filter(c => Object.keys(c.sources ?? {}).length > 0);
+          if (!comps.length) {
+            results.push({ error: `No layer found in ${groupName}.` });
+            continue;
+          }
+          for (const comp of comps) {
+            // A zip or GeoPackage unpacks to more than its file size, and earlier imports
+            // count too: the limit is on the data the config ends up carrying.
+            const total = importedDataBytes() + JSON.stringify(comp.sources ?? {}).length;
+            if (total > MAX_IMPORTED_DATA_BYTES) {
+              results.push({ error: tooLargeText(`Imported data with “${comp.title ?? comp.id}” added`, total, MAX_IMPORTED_DATA_BYTES) });
+              continue;
+            }
+            results.push(addCompositeLayer(baseConfig, comp));
+          }
+        }
+        buildLayersUI(baseConfig);
+        showLayerFileResult(results);
+        const ok = results.filter(r => !r.error);
+        status.textContent = ok.length
+          ? `Added ${ok.map(r => `“${r.title}”`).join(', ')} to the bottom of the Map catalog.`
+          : (results.find(r => r.error)?.error ?? `Could not read a layer from “${names}”.`);
+      } catch (err) {
+        showLayerFileResult([{ error: `Could not read “${names}”: ${err.message ?? String(err)}` }]);
+        status.textContent = `Could not read “${names}”.`;
+      }
+    }
+
     // --- Repository tab: browse the GitHub-hosted webmapx-layer-repository ---
     let repoIndexPromise = null;
     const repoProviderCache = new Map(); // path → provider file JSON
@@ -4296,6 +4501,8 @@
       const treeLoc = findLayerTreeLocation(config);
       const tree = getTree(config, treeLoc);
       const treeLayerIds = collectTreeLayerIds(tree);
+      // Without a layer tree there is no catalog to leave; existing is what counts.
+      pruneLayerFileResults(treeLoc ? treeLayerIds : new Set(Object.keys(layers)));
 
       // Available layers: layers not yet placed in the layerTree tool's tree.
       // Grouped by type + filterable — configs can have 200+ layers.
@@ -4845,6 +5052,10 @@
     async function uploadConfigFile(file) {
       if (!file) return;
       const status = document.getElementById('status');
+      if (file.size > MAX_CONFIG_FILE_BYTES) {
+        status.textContent = tooLargeText(`"${file.name}"`, file.size, MAX_CONFIG_FILE_BYTES);
+        return;
+      }
       status.textContent = `Loading "${file.name}"…`;
       let parsed;
       try {
@@ -4926,11 +5137,6 @@
       document.querySelectorAll('.open-drop').forEach(el => el.classList.toggle('drag-over', active));
     }
 
-    function droppedFile(event) {
-      const files = [...(event.dataTransfer?.files ?? [])];
-      return files.find(file => file.name.toLowerCase().endsWith('.json')) ?? files[0];
-    }
-
     function droppedPath(event) {
       return event.dataTransfer?.getData('text/uri-list') || event.dataTransfer?.getData('text/plain') || '';
     }
@@ -4950,6 +5156,23 @@
       if (!hasConfigDragData(e)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
+      // Entered straight into a preview frame, this page saw no dragenter; the frame
+      // stops taking pointer events once the class is on, so dragover arrives here.
+      if (!document.body.classList.contains('config-drag-over')) setConfigDragOver(true);
+    });
+    // No pointer moves during a drag, so one that arrives means the drag ended somewhere
+    // this page did not hear about (cancelled over a frame, Escape, left the window):
+    // clear the cover, or the previews would stay unclickable.
+    document.addEventListener('pointermove', () => {
+      if (document.body.classList.contains('config-drag-over')) { pageDragDepth = 0; setConfigDragOver(false); }
+    });
+    // A drag that enters the window over a preview never reaches this document; the
+    // preview reports it (preview.html), and the class makes the frames let it through.
+    window.addEventListener('message', (e) => {
+      if (e.origin === location.origin && e.data?.type === 'webmapx-setup-file-drag') {
+        pageDragDepth = 0;
+        setConfigDragOver(true);
+      }
     });
     document.addEventListener('dragleave', (e) => {
       if (!hasConfigDragData(e)) return;
@@ -4962,9 +5185,34 @@
       pageDragDepth = 0;
       setConfigDragOver(false);
       document.getElementById('config-gallery')?.close();
-      const file = droppedFile(e);
-      if (file) uploadConfigFile(file);
+      const files = [...(e.dataTransfer?.files ?? [])];
+      if (files.length) routeDroppedFiles(files);
       else uploadConfigPath(droppedPath(e));
+    });
+
+    // A dropped file is a configuration or a layer, and the content says which: nobody
+    // should have to pick a drop zone. Several files at once (a shapefile's .shp/.dbf/.prj)
+    // are always a layer.
+    async function routeDroppedFiles(files) {
+      if (files.length === 1) {
+        const { sniffBlob } = await import('/src/utils/file-sniff.ts');
+        const kind = (await sniffBlob(files[0])).kind;
+        // The sniffer wants version + project + map; setup (like configs:index) counts
+        // anything with a `map` section as a configuration, so a minimal one still opens.
+        let isConfig = kind === 'webmapx-config';
+        if (!isConfig && kind === 'json') {
+          try { const obj = JSON.parse(await files[0].text()); isConfig = !!obj && typeof obj === 'object' && 'map' in obj; } catch { /* not JSON after all */ }
+        }
+        if (isConfig) { uploadConfigFile(files[0]); return; }
+      }
+      revealLayerFileTab();
+      importLayerFiles(files);
+    }
+
+    document.getElementById('btn-layer-file').addEventListener('click', () => document.getElementById('layer-file-input').click());
+    document.getElementById('layer-file-input').addEventListener('change', (e) => {
+      importLayerFiles([...(e.target.files ?? [])]);
+      e.target.value = '';
     });
 
     // Open in new tab: the full-page viewer, as a visitor sees it. One named tab, reused.
