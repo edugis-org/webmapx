@@ -231,6 +231,7 @@ export async function buildLayerConfigsFromGroup(group: NamedBlob[], layerPicker
   const dbfFiles = new Map<string, NamedBlob>();
   const prjFiles = new Map<string, NamedBlob>();
   let qmlStyle: QmlStyle | null = null;
+  const embeddedStyles: { name: string; layer: Record<string, unknown> }[] = [];
 
   for (const item of group) {
     const sniff = await sniffBlob(item.blob);
@@ -243,7 +244,16 @@ export async function buildLayerConfigsFromGroup(group: NamedBlob[], layerPicker
       prjFiles.set(stripExtension(lowerName), item);
     } else if (sniff.kind === 'geojson') {
       try {
-        geojsonFiles.push({ name: item.name, data: JSON.parse(await item.blob.text()) });
+        const data = JSON.parse(await item.blob.text());
+        // EduGIS exports carry their layer style inside the FeatureCollection
+        // (a top-level `style` member holding one MapLibre layer). Lift it out
+        // into a style document so it is honoured like a separate _style.json.
+        const embedded = data?.style;
+        if (embedded && typeof embedded === 'object' && typeof embedded.type === 'string') {
+          delete data.style;
+          embeddedStyles.push({ name: item.name, layer: embedded });
+        }
+        geojsonFiles.push({ name: item.name, data });
       } catch {
         // skip unparsable file
       }
@@ -453,6 +463,30 @@ export async function buildLayerConfigsFromGroup(group: NamedBlob[], layerPicker
         console.error(`[dropped-layer-builder] failed to parse shapefile "${shp.name}"`, error);
       }
     }
+  }
+
+  if (!styleFile && embeddedStyles.length > 0 && embeddedStyles.length === geojsonFiles.length) {
+    const sources: Record<string, unknown> = {};
+    const layers: Record<string, unknown>[] = [];
+    let title: string | undefined;
+    for (const { name, layer } of embeddedStyles) {
+      const key = sanitizeId(name);
+      const meta = (layer.metadata as Record<string, unknown> | undefined) ?? {};
+      title ??= typeof meta.title === 'string' ? meta.title : undefined;
+      const sourceSpec = (typeof layer.source === 'object' && layer.source) ? layer.source as Record<string, unknown> : {};
+      sources[key] = { ...sourceSpec, type: 'geojson', data: name };
+      const { metadata: _m, source: _s, id: _id, ...rest } = layer;
+      // EduGIS keeps opacity as `metadata.transparency` (0–100); honour it only
+      // when the paint does not already say how opaque the layer is.
+      const paint = { ...((rest.paint as Record<string, unknown> | undefined) ?? {}) };
+      const opacityKey = `${String(layer.type)}-opacity`;
+      if (typeof meta.transparency === 'number' && !(opacityKey in paint)
+        && ['fill', 'line', 'circle', 'raster', 'fill-extrusion'].includes(String(layer.type))) {
+        paint[opacityKey] = Math.max(0, Math.min(1, 1 - meta.transparency / 100));
+      }
+      layers.push({ ...rest, paint, id: `${key}-${String(layer.type)}`, source: key });
+    }
+    styleFile = { name: embeddedStyles[0].name, style: { version: 8, ...(title ? { title } : {}), sources, layers } };
   }
 
   if (geojsonFiles.length === 0 && !styleFile) {

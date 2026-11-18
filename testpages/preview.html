@@ -55,6 +55,7 @@
   <div id="error" hidden></div>
   <script type="module">
     import { WebMapX } from '/src/lib.ts';
+    import { getPreviewConfig, onPreviewConfigChange } from './preview-store.js';
 
     // Allows a caller (e.g. setup.html's embedded Map-tab preview iframe) to point this
     // page at its own localStorage key, independent of the main "Update preview" window.
@@ -70,13 +71,21 @@
     async function loadAndMount() {
       const params = new URLSearchParams(window.location.search);
       const configUrl = params.get('config');
-      const raw = localStorage.getItem(STORAGE_KEY);
+      // setup.html hands configs over through IndexedDB (preview-store.js); a
+      // localStorage key is still honoured for hand-set overrides.
+      const stored = await getPreviewConfig(STORAGE_KEY).catch(() => null);
+      const raw = stored ? null : localStorage.getItem(STORAGE_KEY);
       // Base for relative resource paths inside the config. Without it a config
       // fetched from another origin in setup.html would resolve its sibling data
       // files against this page instead of against the config's own location.
       let baseUrl = null;
       let config;
-      if (raw) {
+      if (stored) {
+        console.warn(`[preview] using the config setup.html stored under "${STORAGE_KEY}"`
+          + (configUrl ? `, ignoring ?config=${configUrl}` : ''));
+        config = stored.config;
+        baseUrl = stored.url;
+      } else if (raw) {
         // localStorage always wins — setup.html writes the fully-merged config here.
         // Said out loud, because this page otherwise looks like it is showing the
         // file you asked for: a stale snapshot here survives every reload (it is
@@ -126,6 +135,17 @@
     window.addEventListener('storage', (e) => {
       if (e.key === STORAGE_KEY) location.reload();
     });
+    onPreviewConfigChange(STORAGE_KEY, () => location.reload());
+
+    // Embedded in setup.html, a dropped file belongs to the configuration, not to this
+    // map for the moment. Tell setup a file drag has arrived; it then makes the preview
+    // frames transparent to pointer events, so the drop lands on setup itself.
+    if (window.parent !== window) {
+      window.addEventListener('dragenter', (e) => {
+        if (![...(e.dataTransfer?.types ?? [])].includes('Files')) return;
+        window.parent.postMessage({ type: 'webmapx-setup-file-drag' }, location.origin);
+      }, true);
+    }
 
     loadAndMount();
   </script>

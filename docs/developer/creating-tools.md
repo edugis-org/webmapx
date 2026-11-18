@@ -468,8 +468,8 @@ The dev workflow for testing a new tool interactively:
 ### How it works
 
 - **setup.html** reads `config/demo.json` (or `?config=path/to/other.json`; **Open ▾** loads another file or path), shows all known tools with a switch each, and lets you turn them on/off and edit their props.
-- Clicking **"Update preview"** serialises the assembled config to `localStorage` key `webmapx-setup-config` and opens/reloads preview.html.
-- **preview.html** reads that key from `localStorage` and mounts the full `WebMapX` app. It also listens for `storage` events, so it reloads automatically each time you push from setup.html.
+- Every tab's preview (and its **Open in new tab**) receives the assembled config through IndexedDB (`testpages/preview-store.js`, keyed by the `storageKey` the preview was opened with) and reloads when setup posts a change. Not localStorage: setup keeps one copy per preview, and configs with imported layer data exceeded its ~5 MB budget.
+- **preview.html** reads its config from that store (falling back to a hand-set `localStorage` key of the same name, then to `?config=`) and mounts the full `WebMapX` app. Embedded in setup, it hands file drags to setup, so a dropped file is added to the configuration rather than to that preview for the moment.
 - Overrides are **session-only** (in-memory in setup.html): refreshing setup.html starts fresh from `demo.json`.
 
 ### Making your tool appear in setup.html
