@@ -186,6 +186,15 @@
          with vivid, the light surface the cards stand out in. */
       --webmapx-field-bg: var(--webmapx-legend-card-bg, color-mix(in srgb, var(--color-primary) 6%, var(--color-surface)));
       --sl-input-background-color: var(--webmapx-field-bg);
+      /* Edges: Shoelace draws fields and buttons with its own neutral grey
+         (neutral-300), which stood out against every tinted edge around it.
+         All of them take the palette's edge colour, hover a step towards the
+         accent. */
+      --sl-input-border-color: var(--color-border);
+      --sl-input-border-color-hover: color-mix(in srgb, var(--color-primary) 50%, var(--color-border));
+      --sl-input-border-color-focus: var(--color-primary);
+      --sl-color-neutral-300: var(--color-border);
+      --sl-color-neutral-200: var(--color-border-light);
       --sl-input-background-color-hover: var(--webmapx-field-bg);
       --sl-input-background-color-focus: var(--webmapx-field-bg);
       /* Shoelace's own light grey: the selected row in the catalog tree, and
