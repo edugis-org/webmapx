@@ -42,6 +42,15 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
   private previewSourceId = 'search-preview';
   private previewLayerIds = ['search-preview-fill', 'search-preview-line', 'search-preview-point'];
   private previewLayersAdded = false;
+  /** The result last clicked: its preview stays on the map after hover/focus moves away,
+   *  until another result is clicked or the results are cleared. */
+  private clickedFeature: GeoJSON.Feature | null = null;
+  /** Preview updates run one at a time, and only the newest pending one runs. A click
+   *  fires blur (old row), focus and click (new row) back to back; each update awaits
+   *  layer adds, so run concurrently an older one could finish last and leave the
+   *  previously clicked result on the map. */
+  private previewQueue: Promise<void> = Promise.resolve();
+  private previewGeneration = 0;
   // Keyed by a value derived from the feature's own identity, never by object identity:
   // a repeated search returns equal-but-new feature objects for the same place, and a
   // WeakMap keyed on those reports "not added" for a result whose layer is on the map —
@@ -255,6 +264,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     // the mouse is, and a result's own @focus handler shows the preview without needing
     // the mouse at all. Left uncleared, a hover preview outlives the panel that can clean
     // it up, stranded on the map with nothing left open to remove it.
+    this.clickedFeature = null;
     this.clearPreview();
     (this as HTMLElement).hidden = true;
     this.dispatchEvent(new CustomEvent('webmapx-search-closed', { bubbles: true, composed: true }));
@@ -429,6 +439,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     this.query = '';
     this.results = null;
     this.selectedIndex = -1;
+    this.clickedFeature = null;
     this.clearPreview();
     // Focus goes back to the field: the button the user just pressed is about to be
     // removed from the DOM, which would otherwise drop focus to the document.
@@ -461,6 +472,8 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
         .sort((a, b) => (matchRank(a.f) - matchRank(b.f)) || (localRank(a.f) - localRank(b.f)) || (a.i - b.i))
         .map(({ f }) => f);
 
+      this.clickedFeature = null;
+      this.clearPreview();
       this.results = { type: 'FeatureCollection', features };
       announce(this, features.length === 0 ? `No results for ${q}`
         : `${features.length} ${features.length === 1 ? 'result' : 'results'} for ${q}`);
@@ -611,6 +624,8 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
   }
 
   private handleSelect(feature: GeoJSON.Feature) {
+    this.clickedFeature = feature;
+    if (!this.isPersisted(feature)) this.showPreviewForFeature(feature);
     this.centerFeature(feature);
     const bbox = (feature as any).bbox ?? null;
     this.dispatchEvent(new CustomEvent('webmapx-search-selected', { detail: { feature, bbox, center: null }, bubbles: true, composed: true }));
@@ -725,7 +740,7 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     this.persistedMap.delete(persistKey);
   }
 
-  private async showPreviewLayers(
+  private async drawPreviewLayers(
     featureCollection: GeoJSON.FeatureCollection,
     colors?: { fill?: string; line?: string; point?: string }
   ) {
@@ -747,14 +762,13 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
       if (map.hasLayer(lid)) mapElement.removeInlineLayer(lid);
     }
 
-    // Update or create source
+    // Always a fresh source. `setData` on the one still there is not enough: on MapLibre
+    // and Cesium the layers re-added below draw the data the source was first created
+    // with, so going straight from one result's preview to another's (a clicked result
+    // returning after a hover) kept showing the earlier result.
     try {
-      const existing = map.getSource(this.previewSourceId as string);
-      if (existing && typeof existing.setData === 'function') {
-        existing.setData(featureCollection);
-      } else {
-        map.addSource(this.previewSourceId, { type: 'geojson', data: featureCollection });
-      }
+      try { map.removeSource(this.previewSourceId); } catch (_e) { /* not there */ }
+      map.addSource(this.previewSourceId, { type: 'geojson', data: featureCollection });
     } catch (e) {
       console.warn('preview source update failed', e);
     }
@@ -786,7 +800,25 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     return `#${toHex(R)}${toHex(G)}${toHex(B)}`;
   }
 
+  private queuePreview(work: () => void | Promise<void>): void {
+    const generation = ++this.previewGeneration;
+    this.previewQueue = this.previewQueue
+      .then(() => (generation === this.previewGeneration ? work() : undefined))
+      .catch((e) => console.warn('search preview update failed', e));
+  }
+
+  private showPreviewLayers(
+    featureCollection: GeoJSON.FeatureCollection,
+    colors?: { fill?: string; line?: string; point?: string }
+  ): void {
+    this.queuePreview(() => this.drawPreviewLayers(featureCollection, colors));
+  }
+
   private clearPreview() {
+    this.queuePreview(() => this.removePreviewLayers());
+  }
+
+  private removePreviewLayers() {
     if (!this.adapter || !this.mapElement) return;
     const map = this.adapter;
     const mapElement = this.mapElement;
@@ -795,6 +827,13 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
     }
     try { map.removeSource(this.previewSourceId); } catch (_e) { /* ignore */ }
     this.previewLayersAdded = false;
+  }
+
+  /** Hover/focus left a result: fall back to the clicked result, if any, else clear. */
+  private endPreview() {
+    const clicked = this.clickedFeature;
+    if (clicked && !this.isPersisted(clicked)) this.showPreviewForFeature(clicked);
+    else this.clearPreview();
   }
 
   private showPreviewForFeature(feature: GeoJSON.Feature) {
@@ -817,6 +856,8 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
       this.clearPreview();
       this.addPersistedFeature(feature);
       this.persistedChanged(feature, true);
+      if (this.clickedFeature === feature) this.clickedFeature = null;
+      else this.endPreview();
     }
     // Ensure UI updates
     this.requestUpdate();
@@ -857,10 +898,10 @@ export class WebmapxSearchTool extends WebmapxBaseTool {
               ${(this.results.features || []).map((f, i) => html`
                 <li class="result-item" ?selected=${i === this.selectedIndex}
                     @mouseenter=${() => this.showPreviewForFeature(f)}
-                    @mouseleave=${() => this.clearPreview()}>
+                    @mouseleave=${() => this.endPreview()}>
                   <button type="button" class="result-select" @click=${() => this.handleSelect(f)}
                           @focus=${() => this.showPreviewForFeature(f)}
-                          @blur=${() => this.clearPreview()}>
+                          @blur=${() => this.endPreview()}>
                     <span class="result-title">${this.renderResultTitle(f)}</span>
                     ${(() => {
                       const meta = f.properties ? (f.properties.type || f.properties.category || '') : '';
