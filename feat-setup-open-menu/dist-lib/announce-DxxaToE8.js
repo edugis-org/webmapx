@@ -1,0 +1,26 @@
+//#region src/components/internal/announce.ts
+var e = "webmapx-live-region", t = [
+	"position:absolute",
+	"width:1px",
+	"height:1px",
+	"margin:-1px",
+	"padding:0",
+	"overflow:hidden",
+	"clip:rect(0 0 0 0)",
+	"white-space:nowrap",
+	"border:0"
+].join(";");
+function n(n) {
+	let r = n.closest("webmapx-map") ?? document.body, i = Array.from(r.children).find((t) => t.classList.contains(e));
+	return i || (i = document.createElement("div"), i.className = e, i.setAttribute("role", "status"), i.setAttribute("aria-live", "polite"), i.setAttribute("aria-atomic", "true"), i.style.cssText = t, r.appendChild(i)), i;
+}
+var r = /* @__PURE__ */ new WeakMap();
+function i(e, t) {
+	if (typeof document > "u" || !t) return;
+	let i = n(e);
+	i.textContent = "", clearTimeout(r.get(i)), r.set(i, setTimeout(() => {
+		i.textContent = t;
+	}, 60));
+}
+//#endregion
+export { i as t };

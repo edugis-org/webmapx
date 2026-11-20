@@ -1,0 +1,773 @@
+{
+  "version": 0,
+  "project": {
+    "id": "tijdzones",
+    "title": "tijdzones",
+    "description": "Converted from an EduGIS map configuration."
+  },
+  "map": {
+    "center": [
+      14.593918064855416,
+      53.475811620788555
+    ],
+    "zoom": 0.5,
+    "minZoom": 0,
+    "maxZoom": 22,
+    "type": "maplibre",
+    "label": "tijdzones",
+    "style": {
+      "version": 8,
+      "sources": {},
+      "layers": []
+    },
+    "maxPitch": 80,
+    "projection": "globe"
+  },
+  "runtimeMap": {
+    "maxPitch": 80
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "esriworldimagery-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        ],
+        "tileSize": 256,
+        "maxzoom": 22,
+        "attribution": "ESRI World Imagery"
+      },
+      {
+        "id": "satellite-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.webp?access_token={key-mapbox}"
+        ],
+        "tileSize": 256,
+        "attribution": "Mapbox World Imagery"
+      },
+      {
+        "id": "bingmapaerial-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://ecn.t0.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=12327",
+          "https://ecn.t1.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=12327",
+          "https://ecn.t2.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=12327",
+          "https://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=12327"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "attribution": "© 2024 Microsoft Corporation|© 2024 Maxar|©CNES (2024) Distribution Airbus DS|© 2024 TMAP MOBILITY|Earthstar Geographics  SIO"
+      },
+      {
+        "id": "openstreetmap-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/about\" target=\"copyright\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "openstreetmapgray-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osmgrayscale_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/about\" target=\"copyright\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "bingmaproad-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://ecn.t0.tiles.virtualearth.net/tiles/r{quadkey}.jpeg?g=12327&mkt=nl-BE&shading=hill",
+          "https://ecn.t1.tiles.virtualearth.net/tiles/r{quadkey}.jpeg?g=12327&mkt=nl-BE&shading=hill",
+          "https://ecn.t2.tiles.virtualearth.net/tiles/r{quadkey}.jpeg?g=12327&mkt=nl-BE&shading=hill",
+          "https://ecn.t3.tiles.virtualearth.net/tiles/r{quadkey}.jpeg?g=12327&mkt=nl-BE&shading=hill"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "© 2022 Microsoft Corporation|© 2022 TomTom|© 2022 Zenrin"
+      },
+      {
+        "id": "bingmaphybrid-source",
+        "type": "raster",
+        "service": "wms",
+        "url": [
+          "https://ecn.t0.tiles.virtualearth.net/tiles/h{quadkey}.jpeg?g=12327&mkt=nl-BE",
+          "https://ecn.t1.tiles.virtualearth.net/tiles/h{quadkey}.jpeg?g=12327&mkt=nl-BE",
+          "https://ecn.t2.tiles.virtualearth.net/tiles/h{quadkey}.jpeg?g=12327&mkt=nl-BE",
+          "https://ecn.t3.tiles.virtualearth.net/tiles/h{quadkey}.jpeg?g=12327&mkt=nl-BE"
+        ],
+        "tileSize": 256,
+        "maxzoom": 18,
+        "attribution": "© 2023 Microsoft Corporation|© 2023 Maxar|©CNES (2023) Distribution Airbus DS|© 2023 TMAP MOBILITY|Earthstar Geographics  SIO|© 2023 TomTom|© 2023 Zenrin"
+      },
+      {
+        "id": "timezones:timezones",
+        "type": "vector",
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_time_zones/mvt/{z}/{x}/{y}?geom_column=geom&columns=tz_name1st,zone&include_nulls=0"
+        ],
+        "bounds": [
+          -180,
+          -89.5,
+          180,
+          89.5
+        ],
+        "attribution": "Natural Earth"
+      }
+    ],
+    "layers": [
+      {
+        "id": "esriworldimagery",
+        "title": "Wereld (ESRI World Imagery)",
+        "type": "raster",
+        "source": "esriworldimagery-source",
+        "metadata": {
+          "reference": true,
+          "title": "Wereld (ESRI World Imagery)",
+          "userlayer": true,
+          "label": "Wereld (ESRI World Imagery)"
+        }
+      },
+      {
+        "id": "satellite",
+        "title": "Wereld (Mapbox)",
+        "type": "raster",
+        "source": "satellite-source",
+        "metadata": {
+          "title": "Wereld (Mapbox)",
+          "reference": true,
+          "userlayer": true,
+          "label": "Wereld (Mapbox)"
+        }
+      },
+      {
+        "id": "bingmapaerial",
+        "title": "Wereld (Bing)",
+        "type": "raster",
+        "source": "bingmapaerial-source",
+        "metadata": {
+          "reference": true,
+          "bing": true,
+          "title": "Wereld (Bing)",
+          "userlayer": true,
+          "label": "Wereld (Bing)",
+          "getFeatureInfoUrl": "https://ecn.t0.tiles.virtualearth.net/tiles/a%7Bquadkey%7D.jpeg?g=12327&SERVICE=WMS&REQUEST=GetFeatureInfo&VERSION=1.1.1&LAYERS=&QUERY_LAYERS=",
+          "getFeatureInfoFormat": "application/json"
+        }
+      },
+      {
+        "id": "openstreetmap",
+        "title": "Standaard (OSM)",
+        "type": "raster",
+        "source": "openstreetmap-source",
+        "metadata": {
+          "legendurl": "https://mapserver.edugis.nl/legends/wereld/osm_logo.png",
+          "title": "Standaard (OSM)",
+          "reference": true,
+          "label": "Standaard (OSM)"
+        }
+      },
+      {
+        "id": "openstreetmapgray",
+        "title": "Grijs (OSM)",
+        "type": "raster",
+        "source": "openstreetmapgray-source",
+        "metadata": {
+          "legendurl": "https://mapserver.edugis.nl/legends/wereld/osm_logo.png",
+          "title": "Grijs (OSM)",
+          "reference": true,
+          "label": "Grijs (OSM)"
+        }
+      },
+      {
+        "id": "osmbright",
+        "title": "Helder (OSM)",
+        "type": "style",
+        "url": "styles/openmaptiles/osmbright.json",
+        "metadata": {
+          "reference": true,
+          "title": "Helder (OSM)",
+          "styleid": "OsmBright",
+          "styletitle": "OpenStreetMap | Helder",
+          "label": "Helder (OSM)"
+        },
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "bingmaproad",
+        "title": "Standaard (Bing)",
+        "type": "raster",
+        "source": "bingmaproad-source",
+        "metadata": {
+          "reference": true,
+          "bing": true,
+          "title": "Standaard (Bing)",
+          "userlayer": true,
+          "label": "Standaard (Bing)",
+          "getFeatureInfoUrl": "https://ecn.t0.tiles.virtualearth.net/tiles/r%7Bquadkey%7D.jpeg?g=12327&mkt=nl-BE&shading=hill&SERVICE=WMS&REQUEST=GetFeatureInfo&VERSION=1.1.1&LAYERS=&QUERY_LAYERS=",
+          "getFeatureInfoFormat": "application/json"
+        }
+      },
+      {
+        "id": "bingmaphybrid",
+        "title": "Hybride (Bing)",
+        "type": "raster",
+        "source": "bingmaphybrid-source",
+        "metadata": {
+          "reference": true,
+          "bing": true,
+          "title": "Bing | Combinatie",
+          "userlayer": true,
+          "label": "Hybride (Bing)",
+          "getFeatureInfoUrl": "https://ecn.t0.tiles.virtualearth.net/tiles/h%7Bquadkey%7D.jpeg?g=12327&mkt=nl-BE&SERVICE=WMS&REQUEST=GetFeatureInfo&VERSION=1.1.1&LAYERS=&QUERY_LAYERS=",
+          "getFeatureInfoFormat": "application/json"
+        }
+      },
+      {
+        "id": "timezones",
+        "title": "Tijdzones",
+        "type": "style",
+        "sources": {
+          "timezones": {
+            "type": "vector",
+            "tiles": [
+              "https://tiles.edugis.nl/data/public.ne_10m_time_zones/mvt/{z}/{x}/{y}?geom_column=geom&columns=tz_name1st,zone&include_nulls=0"
+            ],
+            "bounds": [
+              -180,
+              -89.5,
+              180,
+              89.5
+            ],
+            "attribution": "Natural Earth"
+          }
+        },
+        "layers": [
+          {
+            "id": "Tijdzones",
+            "metadata": {
+              "attributes": {
+                "translations": [
+                  {
+                    "name": "tz_name1st",
+                    "translation": "naam"
+                  },
+                  {
+                    "name": "zone",
+                    "translation": "zone"
+                  }
+                ]
+              }
+            },
+            "type": "fill",
+            "source": "timezones:timezones",
+            "source-layer": "public.ne_10m_time_zones",
+            "paint": {
+              "fill-color": [
+                "case",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  -11
+                ],
+                "#40004b",
+                [
+                  "<",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  -8
+                ],
+                "#762a83",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  -4
+                ],
+                "#9970ab",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  -2
+                ],
+                "#c2a5cf",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  1
+                ],
+                "#e7d4e8",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  3.5
+                ],
+                "#f7f7f7",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  5
+                ],
+                "#d9f0d3",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  6
+                ],
+                "#a6dba0",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  8.75
+                ],
+                "#5aae61",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  10.5
+                ],
+                "#1b7837",
+                [
+                  "<=",
+                  [
+                    "get",
+                    "zone"
+                  ],
+                  14
+                ],
+                "#00441b",
+                "#00441b"
+              ],
+              "fill-outline-color": "white",
+              "fill-opacity": 0.4
+            }
+          },
+          {
+            "id": "Tijdzones-lijnen",
+            "type": "line",
+            "source": "timezones:timezones",
+            "source-layer": "public.ne_10m_time_zones",
+            "paint": {
+              "line-color": "white",
+              "line-opacity": 0.8,
+              "line-width": [
+                "interpolate",
+                [
+                  "linear"
+                ],
+                [
+                  "zoom"
+                ],
+                0,
+                1,
+                10,
+                10,
+                24,
+                10
+              ]
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Tijdzones",
+          "styleid": "timezones",
+          "styletitle": "Tijdzones",
+          "label": "Tijdzones"
+        }
+      },
+      {
+        "id": "water-en-waterwegen",
+        "title": "Water en waterwegen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/preview/maps/layers/osmbrightwater.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "waternamen",
+        "title": "Waternamen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/preview/maps/layers/osmbrightwatername.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "administratieve-grenzen",
+        "title": "Administratieve grenzen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/preview/maps/layers/osmbrightadminborders.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "landnamen",
+        "title": "Landnamen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/preview/maps/layers/osmbrightcountrynames.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "landnamen-nl",
+        "title": "Landnamen (nl)",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/preview/maps/layers/osmbrightcountrynames_nl.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "snelwegen",
+        "title": "Snelwegen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/preview/maps/layers/osmbrightroads.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "snelwegnamen",
+        "title": "Snelwegnamen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/preview/maps/layers/brightmotorwayname.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "wegen",
+        "title": "Wegen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/preview/maps/layers/osmbrightallroads.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "wegnamen",
+        "title": "Wegnamen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/preview/maps/layers/osmbrightallroadnames.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "spoorwegen",
+        "title": "Spoorwegen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/preview/maps/layers/osmbrightrail.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "plaatsen",
+        "title": "Plaatsen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/preview/maps/layers/osmbrightpoi.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "plaatsnamen",
+        "title": "Plaatsnamen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/preview/maps/layers/osmbrightpoiname.json",
+        "sources": {},
+        "layers": []
+      },
+      {
+        "id": "gebouwen",
+        "title": "Gebouwen",
+        "type": "style",
+        "url": "https://kaart.edugis.nl/preview/maps/layers/osmbrightbuildings.json",
+        "sources": {},
+        "layers": []
+      }
+    ]
+  },
+  "state": {
+    "activeBackground": "esriworldimagery",
+    "activeLayers": [
+      {
+        "ref": "esriworldimagery",
+        "visible": true
+      },
+      {
+        "ref": "timezones",
+        "visible": true
+      }
+    ],
+    "activeExclusiveLayers": {
+      "basemap": "esriworldimagery"
+    }
+  },
+  "tools": {
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-right",
+      "orientation": "horizontal",
+      "panel": {
+        "enabled": true,
+        "position": "after"
+      },
+      "items": [
+        {
+          "id": "info",
+          "type": "info",
+          "enabled": true,
+          "title": "Feature info"
+        },
+        {
+          "id": "view-mode",
+          "type": "view-mode",
+          "enabled": true,
+          "title": "Projection"
+        },
+        {
+          "id": "search",
+          "type": "search",
+          "enabled": false,
+          "title": "Search",
+          "provider": "nominatim",
+          "attribution": "&copy; OpenStreetMap contributors | &copy; Nominatim"
+        },
+        {
+          "id": "layers",
+          "type": "layerTree",
+          "enabled": false,
+          "title": "Catalog",
+          "tree": [
+            {
+              "label": "Achtergrondlagen",
+              "children": [
+                {
+                  "label": "Luchtfoto- en satellietachtergrond",
+                  "separator": true
+                },
+                {
+                  "label": "Wereld (ESRI World Imagery)",
+                  "layerId": "esriworldimagery",
+                  "selectionGroup": "basemap",
+                  "checked": true
+                },
+                {
+                  "label": "Wereld (Mapbox)",
+                  "layerId": "satellite",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Wereld (Bing)",
+                  "layerId": "bingmapaerial",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Topografische achtergrondlagen",
+                  "separator": true
+                },
+                {
+                  "label": "Standaard (OSM)",
+                  "layerId": "openstreetmap",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Grijs (OSM)",
+                  "layerId": "openstreetmapgray",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Helder (OSM)",
+                  "layerId": "osmbright",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Standaard (Bing)",
+                  "layerId": "bingmaproad",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                },
+                {
+                  "label": "Hybride (Bing)",
+                  "layerId": "bingmaphybrid",
+                  "selectionGroup": "basemap",
+                  "checked": false
+                }
+              ],
+              "selectionMode": "single",
+              "selectionGroup": "basemap",
+              "allowNone": false
+            },
+            {
+              "label": "Tijdzones",
+              "expanded": true,
+              "children": [
+                {
+                  "label": "Tijdzones",
+                  "layerId": "timezones",
+                  "checked": true
+                }
+              ]
+            },
+            {
+              "label": "Topografie lagen",
+              "children": [
+                {
+                  "label": "Water en waterwegen",
+                  "layerId": "water-en-waterwegen"
+                },
+                {
+                  "label": "Waternamen",
+                  "layerId": "waternamen"
+                },
+                {
+                  "label": "Administratieve grenzen",
+                  "layerId": "administratieve-grenzen"
+                },
+                {
+                  "label": "Landnamen",
+                  "layerId": "landnamen"
+                },
+                {
+                  "label": "Landnamen (nl)",
+                  "layerId": "landnamen-nl"
+                },
+                {
+                  "label": "Snelwegen",
+                  "layerId": "snelwegen"
+                },
+                {
+                  "label": "Snelwegnamen",
+                  "layerId": "snelwegnamen"
+                },
+                {
+                  "label": "Wegen",
+                  "layerId": "wegen"
+                },
+                {
+                  "label": "Wegnamen",
+                  "layerId": "wegnamen"
+                },
+                {
+                  "label": "Spoorwegen",
+                  "layerId": "spoorwegen"
+                },
+                {
+                  "label": "Plaatsen",
+                  "layerId": "plaatsen"
+                },
+                {
+                  "label": "Plaatsnamen",
+                  "layerId": "plaatsnamen"
+                },
+                {
+                  "label": "Gebouwen",
+                  "layerId": "gebouwen"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "measure",
+          "type": "measure",
+          "enabled": false,
+          "title": "Measure"
+        },
+        {
+          "id": "3d",
+          "type": "3d",
+          "enabled": false,
+          "title": "3D"
+        },
+        {
+          "id": "draw",
+          "type": "draw",
+          "enabled": false,
+          "title": "Draw"
+        },
+        {
+          "id": "import-layer",
+          "type": "import-layer",
+          "enabled": false,
+          "title": "Import layer"
+        }
+      ]
+    },
+    "attribution": {
+      "type": "attributionControl",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    },
+    "coordinates": {
+      "type": "coordinates",
+      "enabled": false,
+      "position": "bottom-center",
+      "defaultFormat": "geographic-en"
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "bottom-right",
+      "direction": "vertical",
+      "orientation": "vertical"
+    },
+    "scale": {
+      "type": "scaleControl",
+      "enabled": true,
+      "position": "bottom-left",
+      "maxWidth": 140,
+      "margin": "0 0 5px 0"
+    },
+    "zoomLevel": {
+      "type": "zoomLevel",
+      "enabled": false,
+      "position": "bottom-left"
+    },
+    "spinner": {
+      "type": "spinner",
+      "enabled": true,
+      "position": "middle-center"
+    }
+  }
+}

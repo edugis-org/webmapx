@@ -1,0 +1,157 @@
+{
+  "version": 0,
+  "apiKeysFile": "../../config/apikeys.json",
+  "project": {
+    "id": "docs-calculated-moon-path-styled",
+    "title": "Moon path",
+    "description": "Documentation demo for the calculated layer moon-path.",
+    "language": "en"
+  },
+  "map": {
+    "label": "Moon path",
+    "type": "maplibre",
+    "center": [
+      10,
+      20
+    ],
+    "zoom": 1
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "osm-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>"
+      },
+      {
+        "type": "geojson",
+        "data": "internalfunc://moon-path",
+        "attribution": "Computed in the browser",
+        "id": "moon-path-source"
+      }
+    ],
+    "layers": [
+      {
+        "id": "osm",
+        "type": "raster",
+        "title": "OpenStreetMap",
+        "source": "osm-source",
+        "metadata": {
+          "reference": true,
+          "swatch": "#f2efe9"
+        }
+      },
+      {
+        "id": "moon-path",
+        "title": "Moon path — styled as in world.json",
+        "type": "style",
+        "sources": {
+          "moon-path-source": {
+            "type": "geojson",
+            "data": "internalfunc://moon-path",
+            "attribution": "Computed in the browser"
+          }
+        },
+        "layers": [
+          {
+            "id": "moon-path-line",
+            "type": "line",
+            "source": "moon-path-source",
+            "paint": {
+              "line-color": "#9c8dd6",
+              "line-width": 1.2,
+              "line-opacity": 0.85,
+              "line-dasharray": [
+                3,
+                2
+              ]
+            }
+          }
+        ],
+        "metadata": {
+          "title": "Maanpad",
+          "abstract": "The track of the point the moon stands over, for the month that follows the moment shown. The line runs west almost 28 times, once for each turn of the Earth, and swings from about 28 degrees north to 28 degrees south and back once over the month. That swing is the moon's orbit, tilted 5 degrees against the plane the Earth travels in, which is itself tilted 23 degrees against the equator. The two tilts add up or partly cancel depending on where the orbit is pointing, and that turns right around over 18.6 years: in 2024 the moon reached 28.4 degrees, in 2034 it only reaches 18.5. Stone circles at Stonehenge and Callanish are lined up on that same cycle."
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeLayers": [
+      {
+        "ref": "osm",
+        "visible": true
+      },
+      {
+        "ref": "moon-path",
+        "visible": true
+      }
+    ]
+  },
+  "tools": {
+    "timeSlider": {
+      "type": "timeSlider",
+      "enabled": true
+    },
+    "projection": {
+      "type": "projection",
+      "enabled": true
+    },
+    "info": {
+      "type": "info",
+      "enabled": true
+    },
+    "layerOverview": {
+      "type": "layerOverview",
+      "enabled": true
+    },
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "items": [
+        {
+          "type": "timeSlider",
+          "id": "timeSlider",
+          "enabled": true
+        },
+        {
+          "type": "projection",
+          "id": "projection",
+          "enabled": true
+        },
+        {
+          "type": "info",
+          "id": "info",
+          "enabled": true
+        },
+        {
+          "type": "layerOverview",
+          "id": "layerOverview",
+          "enabled": true
+        }
+      ]
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "fullscreen": {
+      "type": "fullscreen",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "attribution": {
+      "type": "attribution",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    }
+  }
+}

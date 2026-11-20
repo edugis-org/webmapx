@@ -1,0 +1,75 @@
+[
+  {
+    "slug": "feat-more-styles",
+    "branch": "feat/more-styles",
+    "sha": "9586804f3f0a5f41031cad651d4ac34369705c80",
+    "deployed": "2026-11-20T10:14:03.982Z",
+    "bytes": 82433067,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "feat-setup-from-file",
+    "branch": "feat/setup-from-file",
+    "sha": "9990cc45b41f3cadded1216292165ff08683858c",
+    "deployed": "2026-11-18T16:02:09.567Z",
+    "bytes": 75379383,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "feat-setup-open-menu",
+    "branch": "feat/setup-open-menu",
+    "sha": "b6590c9db171a4a68bf9cfb8eb781562e059202d",
+    "deployed": "2026-11-18T11:22:57.341Z",
+    "bytes": 75366830,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "fix-search-keep-clicked-result",
+    "branch": "fix/search-keep-clicked-result",
+    "sha": "072d3113943b28250fb123b85efca1aabe1a62b0",
+    "deployed": "2026-11-20T11:47:39.802Z",
+    "bytes": 75338212,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "main",
+    "branch": "main",
+    "sha": "d6e05da9a1092c3c2ae329b3b751f2e59d34ffc3",
+    "deployed": "2026-11-18T01:00:45.808Z",
+    "bytes": 75336648,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835
+    }
+  },
+  {
+    "slug": "worktree-sam-tool",
+    "branch": "worktree-sam-tool",
+    "sha": "cfd8ad6f1582c9aa5a0fa80c4c05ddb071c96dbf",
+    "deployed": "2026-10-09T14:09:26.458Z",
+    "bytes": 70498352,
+    "shared": {
+      "032835c6b30e3cd408e2.wasm": 686960,
+      "e473e1e9f20af114bbb4.bin": 11595145,
+      "350eec4ce9ae4bc10bca.wasm": 28219835,
+      "39f9f0894d478800487e.wasm": 26781914
+    }
+  }
+]

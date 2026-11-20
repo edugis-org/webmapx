@@ -1,0 +1,135 @@
+{
+  "version": 0,
+  "apiKeysFile": "../../apikeys.json",
+  "project": {
+    "id": "docs-data-analyzer",
+    "title": "Data analyzer",
+    "description": "Documentation demo for the data analyzer: inspect a vector layer's fields, discover statistical families, and map a suggested numeric field.",
+    "language": "en"
+  },
+  "map": {
+    "label": "Data analyzer",
+    "type": "maplibre",
+    "center": [
+      10,
+      45
+    ],
+    "zoom": 4
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "osm-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tiles.edugis.nl/mapproxy/osm/tiles/osm_EPSG900913/{z}/{x}/{y}.png?origin=nw"
+        ],
+        "tileSize": 256,
+        "maxzoom": 19,
+        "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap contributors</a>"
+      },
+      {
+        "id": "countries-source",
+        "type": "vector",
+        "bounds": [
+          -180,
+          -89,
+          180,
+          83.6341006530001
+        ],
+        "tiles": [
+          "https://tiles.edugis.nl/data/public.ne_10m_admin_0_countries/mvt/{z}/{x}/{y}?geom_column=geom&columns=name,pop_est&include_nulls=0"
+        ],
+        "attribution": "Natural Earth"
+      }
+    ],
+    "layers": [
+      {
+        "id": "osm",
+        "type": "raster",
+        "title": "OpenStreetMap",
+        "source": "osm-source",
+        "metadata": {
+          "reference": true,
+          "swatch": "#f2efe9"
+        }
+      },
+      {
+        "id": "countries",
+        "type": "fill",
+        "title": "Countries — population",
+        "source": "countries-source",
+        "source-layer": "public.ne_10m_admin_0_countries",
+        "paint": {
+          "fill-color": "#4f86a8",
+          "fill-opacity": 0.75,
+          "fill-outline-color": "#1d3f56"
+        },
+        "metadata": {
+          "title": "Countries — population",
+          "abstract": "Natural Earth country polygons with a population estimate in the pop_est field."
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeLayers": [
+      {
+        "ref": "osm",
+        "visible": true
+      },
+      {
+        "ref": "countries",
+        "visible": true
+      }
+    ]
+  },
+  "tools": {
+    "data-analyzer": {
+      "type": "data-analyzer",
+      "enabled": true
+    },
+    "info": {
+      "type": "info",
+      "enabled": true
+    },
+    "layerOverview": {
+      "type": "layerOverview",
+      "enabled": true
+    },
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "items": [
+        {
+          "type": "data-analyzer",
+          "id": "data-analyzer",
+          "enabled": true
+        },
+        {
+          "type": "info",
+          "id": "info",
+          "enabled": true
+        },
+        {
+          "type": "layerOverview",
+          "id": "layerOverview",
+          "enabled": true
+        }
+      ]
+    },
+    "navigation": {
+      "type": "navigation",
+      "enabled": true,
+      "position": "top-right"
+    },
+    "attribution": {
+      "type": "attribution",
+      "enabled": true,
+      "position": "edge-bottom-right"
+    }
+  }
+}

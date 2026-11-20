@@ -1,0 +1,30 @@
+{
+  "id": "scale",
+  "label": "Scale bar",
+  "tagline": "Shows the current map scale.",
+  "status": "stable",
+  "element": "webmapx-scale-control",
+  "placement": "standalone",
+  "configType": "scale",
+  "demoConfig": "config/docs/tools/scale.json",
+  "configFragment": null,
+  "source": [
+    "src/components/webmapx-scale-control.ts"
+  ],
+  "tests": [
+    "tests/tool-registration.test.ts"
+  ],
+  "related": [
+    "measure",
+    "coordinates",
+    "navigation"
+  ],
+  "sections": {
+    "what": "The scale bar shows what a distance on the screen is worth on the ground.\n\nScale changes with latitude. The same pixel is a shorter ground distance near\nthe poles than at the equator, so the bar is sized from the map's current\nbounds.\n\nThe number is rounded to something readable. The bar length changes to land on\na round value such as \"500 m.\"\n\nA scale bar is not a ruler. For an actual measurement, with a total and an area,\nuse the measure tool.",
+    "use": "Read it. The bar shows a distance and the length on screen that distance\noccupies. The scale redraws as you zoom and pan.",
+    "embed": "Add `scale` with a `position`, usually `bottom-left`.\n\n- `unit`: `metric` (default), `imperial`, or `nautical`. Nautical is there\n  because a chart is read in nautical miles and converting in your head is how\n  mistakes are made.\n- `max-width`: the widest the bar may be, in pixels. The rounding happens\n  inside that limit.",
+    "extend": "The control asks the adapter for the map's bounds. That gives the same path for\nall engines and for projections other than Web Mercator."
+  },
+  "page": "https://webmapx.com/tools/scale.html",
+  "webmapxCommit": "cfd8ad6f1582c9aa5a0fa80c4c05ddb071c96dbf"
+}
