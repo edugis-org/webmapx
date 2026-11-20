@@ -15,17 +15,36 @@
 // because host pages read `webmapx-theme` in an inline script before first
 // paint (see testpages/preview.html).
 
-export const UI_STYLE_VALUES = ['atlas', 'folio', 'console', 'classroom'] as const;
+export const UI_STYLE_VALUES = [
+  'atlas', 'folio', 'console', 'classroom', 'glass', 'pebble', 'studio', 'island', 'ink',
+] as const;
 export const UI_THEME_VALUES = ['auto', 'light', 'dark'] as const;
+/** Colour palettes (`ui.palette`); each has a light and a dark variant. `default` is the theme's own colours. */
+export const UI_PALETTE_VALUES = ['default', 'ocean', 'forest', 'coral', 'violet', 'graphite'] as const;
+/** UI faces (`ui.font`); `style` keeps the face the style brings. All self-hosted. */
+export const UI_FONT_VALUES = [
+  'style', 'system', 'inter', 'poppins', 'nunito', 'atkinson', 'lexend', 'merriweather', 'condensed', 'mono',
+] as const;
 export type UiStyle = typeof UI_STYLE_VALUES[number];
 export type UiTheme = typeof UI_THEME_VALUES[number];
+export type UiPalette = typeof UI_PALETTE_VALUES[number];
+export type UiFont = typeof UI_FONT_VALUES[number];
 
+/**
+ * Style and theme can be chosen by the viewer in Settings; palette and font
+ * belong to the config author alone (a palette is part of how a map is
+ * branded, not a reading preference).
+ */
 export interface UiAppearance {
   style: UiStyle;
   theme: UiTheme;
+  palette: UiPalette;
+  font: UiFont;
 }
 
-export const DEFAULT_APPEARANCE: UiAppearance = { style: 'atlas', theme: 'auto' };
+type ViewerChoice = Partial<Pick<UiAppearance, 'style' | 'theme'>>;
+
+export const DEFAULT_APPEARANCE: UiAppearance = { style: 'atlas', theme: 'auto', palette: 'default', font: 'style' };
 
 const STYLE_KEY = 'webmapx-style';
 const THEME_KEY = 'webmapx-theme';
@@ -50,6 +69,14 @@ export function isUiTheme(value: unknown): value is UiTheme {
   return typeof value === 'string' && (UI_THEME_VALUES as readonly string[]).includes(value);
 }
 
+export function isUiPalette(value: unknown): value is UiPalette {
+  return typeof value === 'string' && (UI_PALETTE_VALUES as readonly string[]).includes(value);
+}
+
+export function isUiFont(value: unknown): value is UiFont {
+  return typeof value === 'string' && (UI_FONT_VALUES as readonly string[]).includes(value);
+}
+
 let configured: Partial<UiAppearance> = {};
 let systemDark: MediaQueryList | null = null;
 
@@ -58,7 +85,7 @@ function storage(): Storage | null {
 }
 
 /** What the viewer chose in settings, if they ever did. */
-export function readChosenAppearance(): Partial<UiAppearance> {
+export function readChosenAppearance(): ViewerChoice {
   const store = storage();
   if (!store || store.getItem(CHOSEN_KEY) !== '1') return {};
   const style = store.getItem(STYLE_KEY);
@@ -92,11 +119,19 @@ export function applyAppearance(): UiAppearance {
   const theme = resolveTheme(appearance.theme);
   html.setAttribute('data-style', appearance.style);
   html.setAttribute('data-theme', theme);
+  // Absent rather than "default": the palette rules key on the attribute's presence.
+  setOrRemove(html, 'data-palette', appearance.palette === 'default' ? null : appearance.palette);
+  setOrRemove(html, 'data-font', appearance.font === 'style' ? null : appearance.font);
   html.classList.toggle('sl-theme-dark', theme === 'dark');
   html.style.colorScheme = theme;
   watchSystemTheme();
   document.dispatchEvent(new CustomEvent(APPEARANCE_CHANGE_EVENT, { detail: { ...appearance, resolvedTheme: theme } }));
   return appearance;
+}
+
+function setOrRemove(el: Element, name: string, value: string | null): void {
+  if (value === null) el.removeAttribute(name);
+  else el.setAttribute(name, value);
 }
 
 /** 'Match system' has to keep matching, not just read the preference once. */
@@ -117,12 +152,14 @@ export function setConfiguredAppearance(ui: unknown): void {
   configured = {
     ...(isUiStyle(record.style) ? { style: record.style } : {}),
     ...(isUiTheme(record.theme) ? { theme: record.theme } : {}),
+    ...(isUiPalette(record.palette) ? { palette: record.palette } : {}),
+    ...(isUiFont(record.font) ? { font: record.font } : {}),
   };
   applyAppearance();
 }
 
 /** The viewer's choice from settings: remembered, and outranks the config from now on. */
-export function chooseAppearance(choice: Partial<UiAppearance>): UiAppearance {
+export function chooseAppearance(choice: ViewerChoice): UiAppearance {
   const store = storage();
   const next = { ...effectiveAppearance(), ...choice };
   try {

@@ -14,9 +14,25 @@
  * correctly when this file is not loaded.
  */
 
-/* Rounded UI face for the classroom style, self-hosted (no third-party font
-   request). @font-face only downloads when a rule actually uses the family. */
+/* UI faces for the styles and the `ui.font` choice, all self-hosted (no
+   third-party font request). @font-face only downloads when a rule actually
+   uses the family, so a map in atlas fetches none of these. */
 @import '@fontsource-variable/nunito/index.css';
+@import '@fontsource-variable/inter/index.css';
+@import '@fontsource-variable/manrope/index.css';
+@import '@fontsource-variable/space-grotesk/index.css';
+@import '@fontsource-variable/lexend/index.css';
+@import '@fontsource-variable/jetbrains-mono/index.css';
+@import '@fontsource/poppins/400.css';
+@import '@fontsource/poppins/500.css';
+@import '@fontsource/poppins/600.css';
+@import '@fontsource/atkinson-hyperlegible/400.css';
+@import '@fontsource/atkinson-hyperlegible/700.css';
+@import '@fontsource/merriweather/400.css';
+@import '@fontsource/merriweather/700.css';
+@import '@fontsource/ibm-plex-sans-condensed/400.css';
+@import '@fontsource/ibm-plex-sans-condensed/500.css';
+@import '@fontsource/ibm-plex-sans-condensed/600.css';
 
 /* ════════════════════════════════════════════════════════════════
    COLOUR AXIS — light (default)
@@ -492,6 +508,355 @@
     --sl-color-primary-700: color-mix(in srgb, var(--webmapx-tool-accent) 82%, black);
     --webmapx-on-accent: var(--webmapx-tool-ink);
     --webmapx-accent-text: var(--color-text-primary);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   STYLES: glass, pebble, studio, island, ink. Form only, like the four
+   above, so each works with every theme and palette. Each brings its own
+   face; `ui.font` (data-font, further down) replaces it.
+   ════════════════════════════════════════════════════════════════ */
+
+/* glass — frosted, light, airy. Translucent with a strong blur, so the map
+   shows through as colour but never as detail behind text. atlas went opaque
+   because a panel at 14% read differently per backdrop; at 72% + 20px blur
+   that effect is small. */
+[data-style="glass"] {
+    --webmapx-font-ui: "Inter Variable", "Inter", system-ui, sans-serif;
+    --webmapx-radius-xs: 6px;
+    --webmapx-radius-sm: 10px;
+    --webmapx-radius-md: 14px;
+    --webmapx-radius-lg: 18px;
+    --webmapx-surface-alpha: .72;
+    --webmapx-surface-blur: blur(20px) saturate(1.6);
+    --webmapx-surface-border: 1px solid rgb(var(--color-surface-rgb) / .55);
+    --webmapx-surface-radius: var(--webmapx-radius-lg);
+    --webmapx-surface-shadow: 0 1px 1px rgb(var(--shadow-key) / .05), 0 18px 40px -12px rgb(var(--shadow-key) / .28);
+    --webmapx-row-height: 36px;
+    --webmapx-hit-size: 40px;
+    --webmapx-label-transform: none;
+    --webmapx-label-spacing: 0;
+    --webmapx-control-icon-size: 19px;
+    --sl-font-sans: var(--webmapx-font-ui);
+    --sl-border-radius-small: var(--webmapx-radius-sm);
+    --sl-border-radius-medium: var(--webmapx-radius-md);
+    --sl-border-radius-large: var(--webmapx-radius-lg);
+}
+
+/* pebble — friendly, fully rounded, no edges. Pills for controls, very round
+   panels, a soft lift instead of borders, sentence-case labels. */
+[data-style="pebble"] {
+    --webmapx-font-ui: "Nunito Variable", "Nunito", ui-rounded, system-ui, sans-serif;
+    --webmapx-radius-xs: 999px;
+    --webmapx-radius-sm: 999px;
+    --webmapx-radius-md: 16px;
+    --webmapx-radius-lg: 24px;
+    --webmapx-space-md: .9rem;
+    --webmapx-space-lg: 1.15rem;
+    --webmapx-font-size-md: .925rem;
+    --webmapx-surface-alpha: 1;
+    --webmapx-surface-blur: none;
+    --webmapx-surface-border: 0 solid transparent;
+    --webmapx-surface-radius: var(--webmapx-radius-lg);
+    --webmapx-surface-shadow: 0 2px 6px rgb(var(--shadow-key) / .08), 0 10px 28px rgb(var(--shadow-key) / .14);
+    --webmapx-row-height: 40px;
+    --webmapx-hit-size: 44px;
+    --webmapx-label-transform: none;
+    --webmapx-label-spacing: 0;
+    --webmapx-label-size: .8rem;
+    --webmapx-control-icon-size: 21px;
+    /* The rail must be at least as round as its buttons: a one-button toolbar
+       (the legend toggle) is a circle in a 24px-rounded square otherwise, and
+       the square's corners show as a rim around it. */
+    --webmapx-toolbar-radius: 999px;
+    --sl-font-sans: var(--webmapx-font-ui);
+    --sl-border-radius-small: 999px;
+    --sl-border-radius-medium: 999px;
+    --sl-border-radius-large: 24px;
+    --sl-input-height-medium: 2.6rem;
+}
+
+/* studio — crisp, flat, precise. No shadows at all; a firm 1.5px edge and a
+   medium radius do the work. */
+[data-style="studio"] {
+    --webmapx-font-ui: "Inter Variable", "Inter", system-ui, sans-serif;
+    --webmapx-radius-xs: 4px;
+    --webmapx-radius-sm: 6px;
+    --webmapx-radius-md: 8px;
+    --webmapx-radius-lg: 10px;
+    --webmapx-surface-alpha: 1;
+    --webmapx-surface-blur: none;
+    --webmapx-surface-border: 1.5px solid var(--color-border);
+    --webmapx-surface-radius: var(--webmapx-radius-lg);
+    --webmapx-surface-shadow: none;
+    --webmapx-row-height: 32px;
+    --webmapx-hit-size: 36px;
+    --webmapx-label-size: .6875rem;
+    --webmapx-label-spacing: .08em;
+    --webmapx-control-icon-size: 18px;
+    --sl-font-sans: var(--webmapx-font-ui);
+    --sl-border-radius-small: 6px;
+    --sl-border-radius-medium: 8px;
+    --sl-border-radius-large: 10px;
+}
+
+/* island — big detached islands floating high. A larger gap to the map edge,
+   generous radius, one deep diffuse shadow, bigger touch targets. For tablets
+   and touch screens. */
+[data-style="island"] {
+    --webmapx-font-ui: "Manrope Variable", "Manrope", system-ui, sans-serif;
+    --webmapx-radius-xs: 8px;
+    --webmapx-radius-sm: 12px;
+    --webmapx-radius-md: 16px;
+    --webmapx-radius-lg: 22px;
+    --webmapx-space-md: .9rem;
+    --webmapx-space-lg: 1.25rem;
+    --webmapx-surface-alpha: 1;
+    --webmapx-surface-blur: none;
+    --webmapx-surface-border: 1px solid var(--color-border-light);
+    --webmapx-surface-radius: var(--webmapx-radius-lg);
+    --webmapx-surface-shadow: 0 30px 60px -20px rgb(var(--shadow-key) / .35), 0 6px 14px rgb(var(--shadow-key) / .08);
+    --webmapx-row-height: 42px;
+    --webmapx-hit-size: 48px;
+    --webmapx-label-transform: none;
+    --webmapx-label-spacing: .01em;
+    --webmapx-control-icon-size: 23px;
+    --overlay-inset: 24px;
+    --sl-font-sans: var(--webmapx-font-ui);
+    --sl-border-radius-small: 12px;
+    --sl-border-radius-medium: 14px;
+    --sl-border-radius-large: 22px;
+    --sl-input-height-medium: 2.75rem;
+}
+
+/* ink — playful neo-brutalist. A heavy outline and a hard offset shadow in
+   the text colour, so it follows the theme without naming a colour. The
+   outline also helps in bright rooms and on projectors. */
+[data-style="ink"] {
+    --webmapx-font-ui: "Space Grotesk Variable", "Space Grotesk", system-ui, sans-serif;
+    --webmapx-radius-xs: 4px;
+    --webmapx-radius-sm: 6px;
+    --webmapx-radius-md: 8px;
+    --webmapx-radius-lg: 10px;
+    --webmapx-surface-alpha: 1;
+    --webmapx-surface-blur: none;
+    --webmapx-surface-border: 2px solid var(--color-text-primary);
+    --webmapx-surface-radius: var(--webmapx-radius-lg);
+    --webmapx-surface-shadow: 4px 4px 0 var(--color-text-primary);
+    --webmapx-row-height: 36px;
+    --webmapx-hit-size: 40px;
+    --webmapx-label-spacing: .1em;
+    --webmapx-label-size: .7rem;
+    --webmapx-control-icon-size: 20px;
+    --sl-font-sans: var(--webmapx-font-ui);
+    --sl-border-radius-small: 6px;
+    --sl-border-radius-medium: 8px;
+    --sl-border-radius-large: 10px;
+    --sl-input-border-width: 2px;
+}
+
+/* Tool icons take the same size token as the map controls (zoom, compass,
+   fullscreen). Without it a toolbar icon inherits Shoelace's 14px text size
+   whatever the button size, a third of a 40–48px tile. Only styles that set
+   the token are affected; classroom sizes its tiles itself. */
+webmapx-toolbar sl-button > sl-icon {
+    font-size: var(--webmapx-control-icon-size, inherit);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   FONT — `ui.font`. Replaces the style's own face, to choose type on its
+   own. html[...] outranks [data-style], so these win. Shoelace reads
+   --sl-font-sans, so inputs and buttons follow.
+   ════════════════════════════════════════════════════════════════ */
+html[data-font="system"] { --webmapx-font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+html[data-font="inter"] { --webmapx-font-ui: "Inter Variable", "Inter", system-ui, sans-serif; }
+html[data-font="poppins"] { --webmapx-font-ui: "Poppins", system-ui, sans-serif; }
+html[data-font="nunito"] { --webmapx-font-ui: "Nunito Variable", "Nunito", system-ui, sans-serif; }
+html[data-font="atkinson"] { --webmapx-font-ui: "Atkinson Hyperlegible", system-ui, sans-serif; }
+html[data-font="lexend"] { --webmapx-font-ui: "Lexend Variable", "Lexend", system-ui, sans-serif; }
+html[data-font="merriweather"] { --webmapx-font-ui: "Merriweather", Georgia, serif; }
+html[data-font="condensed"] { --webmapx-font-ui: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif; }
+html[data-font="mono"] { --webmapx-font-ui: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace; }
+html[data-font] { --sl-font-sans: var(--webmapx-font-ui); }
+
+/* ════════════════════════════════════════════════════════════════
+   COLOUR AXIS — palettes (`ui.palette`, data-palette). Each palette is a
+   theme pair: a light and a dark variant of the same colour tokens
+   [data-theme] sets, so any palette goes with any style. Accent text is
+   chosen ≥ 4.5:1 on its own surface (WCAG AA). Shoelace's primary scale
+   follows the accent, so switches, focus rings and the active toolbar
+   button change with it.
+   ════════════════════════════════════════════════════════════════ */
+html[data-palette] {
+    --color-primary-hover: color-mix(in srgb, var(--color-primary) 80%, black);
+    --color-primary-soft: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+    --color-surface-raised: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface));
+    --color-background: var(--color-surface);
+    --color-background-tertiary: color-mix(in srgb, var(--color-primary) 10%, var(--color-background-secondary));
+    --color-background-hover: color-mix(in srgb, var(--color-primary) 9%, transparent);
+    --color-text-muted: var(--color-text-secondary);
+    --sl-color-primary-50: var(--color-primary-soft);
+    --sl-color-primary-100: color-mix(in srgb, var(--color-primary) 20%, var(--color-surface));
+    --sl-color-primary-300: color-mix(in srgb, var(--color-primary) 55%, var(--color-surface));
+    --sl-color-primary-500: color-mix(in srgb, var(--color-primary) 85%, white);
+    --sl-color-primary-600: var(--color-primary);
+    --sl-color-primary-700: var(--color-primary-hover);
+    --sl-input-focus-ring-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+    /* Fields — every place you set something (search, text, number, select) —
+       take the colour of an active legend card, so "a thing you can act on"
+       has one look: the light surface the cards stand out in. */
+    --webmapx-field-bg: var(--webmapx-legend-card-bg, color-mix(in srgb, var(--color-primary) 6%, var(--color-surface)));
+    --sl-input-background-color: var(--webmapx-field-bg);
+    --sl-input-background-color-hover: var(--webmapx-field-bg);
+    --sl-input-background-color-focus: var(--webmapx-field-bg);
+    /* Edges: Shoelace draws fields and buttons in its own neutral grey, which
+       stood out against every tinted edge around it. */
+    --sl-input-border-color: var(--color-border);
+    --sl-input-border-color-hover: color-mix(in srgb, var(--color-primary) 50%, var(--color-border));
+    --sl-input-border-color-focus: var(--color-primary);
+    --sl-color-neutral-300: var(--color-border);
+    --sl-color-neutral-200: var(--color-border-light);
+    /* Shoelace's light grey: the selected catalog row, hovered menu items. */
+    --sl-color-neutral-100: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+    /* Native checkboxes/radios (the catalog's background-map choice) stay
+       browser-blue otherwise. Inherited into shadow roots. */
+    accent-color: var(--color-primary);
+}
+
+html[data-palette][data-theme="dark"] {
+    --color-primary-hover: color-mix(in srgb, var(--color-primary) 78%, white);
+    --color-primary-soft: color-mix(in srgb, var(--color-primary) 18%, var(--color-surface));
+    --sl-color-primary-500: var(--color-primary);
+    --sl-color-primary-600: color-mix(in srgb, var(--color-primary) 85%, black);
+}
+
+/* Every palette is tinted throughout: surfaces carry a clear tint, the
+   panel header is a coloured band, the toolbar rail is tinted, and edges,
+   selection and hover are stronger. Text keeps its contrast: tints stay
+   light in the light theme and dark in the dark one. Declared after the
+   block above, so these win where both set a token. */
+html[data-palette] {
+    --webmapx-panel-bg: color-mix(in srgb, var(--color-primary) 7%, var(--color-surface));
+    /* Tool content (the legend) paints --color-background over the panel, and
+       the catalog paints its own token: both tinted like the panel, or they
+       read as a third, whiter band. */
+    --color-background: var(--webmapx-panel-bg);
+    --webmapx-layer-tree-bg: var(--webmapx-panel-bg);
+    /* On a tinted panel a layer is the light card on it. */
+    --webmapx-legend-card-bg: var(--color-surface);
+    --webmapx-legend-card-border: color-mix(in srgb, var(--color-primary) 30%, var(--color-surface));
+    --sl-color-neutral-100: color-mix(in srgb, var(--color-primary) 20%, var(--color-surface));
+    --webmapx-panel-header-bg: color-mix(in srgb, var(--color-primary) 20%, var(--color-surface));
+    --webmapx-panel-header-divider: 1px solid color-mix(in srgb, var(--color-primary) 35%, var(--color-surface));
+    --webmapx-toolbar-bg: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface));
+    --webmapx-navigation-bg: var(--webmapx-toolbar-bg);
+    --webmapx-toolbar-separator-color: color-mix(in srgb, var(--color-primary) 22%, var(--color-surface));
+    --color-surface-raised: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+    --color-primary-soft: color-mix(in srgb, var(--color-primary) 24%, var(--color-surface));
+    --color-background-hover: color-mix(in srgb, var(--color-primary) 16%, transparent);
+    --color-border: color-mix(in srgb, var(--color-primary) 38%, var(--color-surface));
+    --color-border-light: color-mix(in srgb, var(--color-primary) 26%, var(--color-surface));
+    --sl-color-neutral-0: color-mix(in srgb, var(--color-primary) 5%, var(--color-surface));
+    --shadow-alpha-far: .28;
+}
+
+html[data-palette][data-theme="dark"] {
+    --webmapx-panel-bg: color-mix(in srgb, var(--color-primary) 9%, var(--color-surface));
+    --color-background: var(--webmapx-panel-bg);
+    --webmapx-panel-header-bg: color-mix(in srgb, var(--color-primary) 24%, var(--color-surface));
+    --webmapx-toolbar-bg: color-mix(in srgb, var(--color-primary) 16%, var(--color-surface));
+    --webmapx-navigation-bg: var(--webmapx-toolbar-bg);
+    --sl-color-neutral-0: color-mix(in srgb, var(--color-primary) 7%, var(--color-surface));
+    --shadow-alpha-far: .6;
+}
+
+/* ocean — deep teal on a cool, faintly blue paper */
+html[data-palette="ocean"] {
+    --color-primary: #0a6a86; --color-on-primary: #fff;
+    --color-surface: #f7fbfc; --color-surface-rgb: 247 251 252;
+    --color-background-secondary: #eaf3f6;
+    --color-text-primary: #0d2530; --color-text-secondary: #4a6470;
+    --color-border: #c9dde4; --color-border-light: #dbe9ee;
+    --shadow-key: 10 50 70;
+}
+html[data-palette="ocean"][data-theme="dark"] {
+    --color-primary: #5fc3dc; --color-on-primary: #04161c;
+    --color-surface: #0e1d24; --color-surface-rgb: 14 29 36;
+    --color-background-secondary: #13262e;
+    --color-text-primary: #e3f1f5; --color-text-secondary: #9bb7c1;
+    --color-border: #24404c; --color-border-light: #1c333d;
+    --shadow-key: 0 0 0;
+}
+
+/* forest — moss green on warm unbleached paper, like a field guide */
+html[data-palette="forest"] {
+    --color-primary: #2f6b3f; --color-on-primary: #fff;
+    --color-surface: #fbf9f3; --color-surface-rgb: 251 249 243;
+    --color-background-secondary: #f1eee3;
+    --color-text-primary: #1e2a20; --color-text-secondary: #57614f;
+    --color-border: #dcd6c4; --color-border-light: #e8e3d4;
+    --shadow-key: 45 50 30;
+}
+html[data-palette="forest"][data-theme="dark"] {
+    --color-primary: #8fd19e; --color-on-primary: #0c1a0f;
+    --color-surface: #161c17; --color-surface-rgb: 22 28 23;
+    --color-background-secondary: #1c241d;
+    --color-text-primary: #e8efe6; --color-text-secondary: #a6b3a3;
+    --color-border: #2f3b30; --color-border-light: #263027;
+    --shadow-key: 0 0 0;
+}
+
+/* coral — warm terracotta on cream, sunny and inviting */
+html[data-palette="coral"] {
+    --color-primary: #b93c0b; --color-on-primary: #fff;
+    --color-surface: #fffaf5; --color-surface-rgb: 255 250 245;
+    --color-background-secondary: #fbefe5;
+    --color-text-primary: #2a1a12; --color-text-secondary: #6b5144;
+    --color-border: #efd9c8; --color-border-light: #f5e6da;
+    --shadow-key: 90 40 15;
+}
+html[data-palette="coral"][data-theme="dark"] {
+    --color-primary: #ff9a6b; --color-on-primary: #2a0f04;
+    --color-surface: #1f1612; --color-surface-rgb: 31 22 18;
+    --color-background-secondary: #281d18;
+    --color-text-primary: #f6e9e2; --color-text-secondary: #c4ab9e;
+    --color-border: #43312a; --color-border-light: #372821;
+    --shadow-key: 0 0 0;
+}
+
+/* violet — electric purple on a lilac-white, the playful one */
+html[data-palette="violet"] {
+    --color-primary: #6a3cc4; --color-on-primary: #fff;
+    --color-surface: #fcfbff; --color-surface-rgb: 252 251 255;
+    --color-background-secondary: #f2eefb;
+    --color-text-primary: #1d1630; --color-text-secondary: #5d5475;
+    --color-border: #ddd4f0; --color-border-light: #ebe5f7;
+    --shadow-key: 60 30 120;
+}
+html[data-palette="violet"][data-theme="dark"] {
+    --color-primary: #b79cff; --color-on-primary: #160b2e;
+    --color-surface: #17131f; --color-surface-rgb: 23 19 31;
+    --color-background-secondary: #1f1a2a;
+    --color-text-primary: #ece7f7; --color-text-secondary: #ada4c4;
+    --color-border: #342b47; --color-border-light: #2a2339;
+    --shadow-key: 0 0 0;
+}
+
+/* graphite — near-monochrome with a lime accent, editorial and sharp */
+html[data-palette="graphite"] {
+    --color-primary: #3f6a0a; --color-on-primary: #fff;
+    --color-surface: #fafafa; --color-surface-rgb: 250 250 250;
+    --color-background-secondary: #f0f0f0;
+    --color-text-primary: #111111; --color-text-secondary: #555555;
+    --color-border: #dddddd; --color-border-light: #e8e8e8;
+    --shadow-key: 0 0 0;
+}
+html[data-palette="graphite"][data-theme="dark"] {
+    --color-primary: #b5f23d; --color-on-primary: #111800;
+    --color-surface: #141414; --color-surface-rgb: 20 20 20;
+    --color-background-secondary: #1c1c1c;
+    --color-text-primary: #f2f2f2; --color-text-secondary: #a8a8a8;
+    --color-border: #303030; --color-border-light: #262626;
+    --shadow-key: 0 0 0;
 }
 
 /* ── Deprecated style aliases ────────────────────────────────────
