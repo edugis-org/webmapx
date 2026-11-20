@@ -42,7 +42,12 @@ const UI_STYLES: { value: WebmapxUiStyle; label: string; hint: string }[] = [
     { value: 'atlas', label: 'Atlas', hint: 'Soft and roomy — public maps' },
     { value: 'folio', label: 'Folio', hint: 'Flat and precise — page embeds' },
     { value: 'console', label: 'Console', hint: 'Dense — daily operational use' },
-    { value: 'classroom', label: 'Classroom', hint: 'Coloured tool tiles — learners' }
+    { value: 'classroom', label: 'Classroom', hint: 'Coloured tool tiles — learners' },
+    { value: 'glass', label: 'Glass', hint: 'Frosted and airy' },
+    { value: 'pebble', label: 'Pebble', hint: 'Fully rounded, no edges' },
+    { value: 'studio', label: 'Studio', hint: 'Crisp and flat, no shadows' },
+    { value: 'island', label: 'Island', hint: 'Large floating panels — touch screens' },
+    { value: 'ink', label: 'Ink', hint: 'Bold outlines — projectors' }
 ];
 
 const UI_THEMES: { value: WebmapxUiTheme; label: string }[] = [

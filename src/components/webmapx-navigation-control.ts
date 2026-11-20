@@ -106,9 +106,12 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
       border-left: 1px solid var(--webmapx-navigation-separator-color, var(--color-border-light, #e2e7ec));
     }
 
+    /* The shared control look, as the toolbar's tool buttons have it. The
+       outline is an inset ring: a border would shift the stacked separators. */
     .nav-btn:hover:not(:disabled) {
-      background: var(--webmapx-navigation-hover-bg, var(--color-background-hover, rgba(22, 32, 42, 0.06)));
-      color: var(--webmapx-navigation-hover-color, var(--color-text-primary, #16202a));
+      background: var(--webmapx-navigation-hover-bg, var(--webmapx-control-hover-bg, var(--color-primary-soft, #e6f0f5)));
+      color: var(--webmapx-navigation-hover-color, var(--webmapx-control-hover-fg, var(--color-primary, #2b6c8f)));
+      box-shadow: inset 0 0 0 1px var(--webmapx-control-hover-border, transparent);
     }
 
     .nav-btn:active:not(:disabled) {
@@ -120,17 +123,20 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
       cursor: not-allowed;
     }
 
+    /* Icon size follows --webmapx-control-icon-size (shared with the toolbar's
+       tool icons; default 16px). The +/- are text glyphs, which draw smaller
+       than their font size, hence the 1.25. */
     .icon {
       font-weight: 400;
-      font-size: 20px;
+      font-size: calc(var(--webmapx-control-icon-size, 16px) * 1.25);
       line-height: 1;
       user-select: none;
     }
 
     .compass-body {
       position: relative;
-      width: 16px;
-      height: 16px;
+      width: var(--webmapx-control-icon-size, 16px);
+      height: var(--webmapx-control-icon-size, 16px);
       border-radius: 50%;
       border: 1.5px solid var(--webmapx-navigation-separator-color, var(--color-border-light, #e2e7ec));
       display: inline-flex;
@@ -144,9 +150,9 @@ export class WebmapxNavigationControl extends WebmapxBaseTool {
     .compass-arrow {
       width: 0;
       height: 0;
-      border-left: 4px solid transparent;
-      border-right: 4px solid transparent;
-      border-bottom: 7px solid var(--color-primary, #2b6c8f);
+      border-left: calc(var(--webmapx-control-icon-size, 16px) * .25) solid transparent;
+      border-right: calc(var(--webmapx-control-icon-size, 16px) * .25) solid transparent;
+      border-bottom: calc(var(--webmapx-control-icon-size, 16px) * .44) solid var(--color-primary, #2b6c8f);
       transform-origin: center 70%;
       filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.2));
     }

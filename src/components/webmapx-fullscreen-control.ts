@@ -28,6 +28,9 @@ export class WebmapxFullscreenControl extends WebmapxBaseTool {
       border: var(--webmapx-navigation-border, var(--webmapx-surface-border, 1px solid var(--color-border-light, #e2e7ec)));
       box-shadow: var(--webmapx-navigation-shadow, var(--webmapx-surface-shadow, 0 1px 2px rgba(16, 24, 40, 0.07)));
       border-radius: var(--webmapx-navigation-radius, var(--webmapx-surface-radius, 6px));
+      /* The hover fill is square; the shell's rounding has to clip it (the
+         zoom control's shell already does). Its own shadow is not clipped. */
+      overflow: hidden;
     }
 
     .nav-btn:focus-visible {
@@ -51,9 +54,11 @@ export class WebmapxFullscreenControl extends WebmapxBaseTool {
       transition: background var(--webmapx-motion-fast, 120ms) ease, transform var(--webmapx-motion-fast, 120ms) ease;
     }
 
+    /* The shared control look, as the toolbar's tool buttons have it. */
     .nav-btn:hover {
-      background: var(--webmapx-navigation-hover-bg, var(--color-background-hover, rgba(22, 32, 42, 0.06)));
-      color: var(--webmapx-navigation-hover-color, var(--color-text-primary, #16202a));
+      background: var(--webmapx-navigation-hover-bg, var(--webmapx-control-hover-bg, var(--color-primary-soft, #e6f0f5)));
+      color: var(--webmapx-navigation-hover-color, var(--webmapx-control-hover-fg, var(--color-primary, #2b6c8f)));
+      box-shadow: inset 0 0 0 1px var(--webmapx-control-hover-border, transparent);
     }
 
     .nav-btn:active {
@@ -61,8 +66,8 @@ export class WebmapxFullscreenControl extends WebmapxBaseTool {
     }
 
     svg {
-      width: 16px;
-      height: 16px;
+      width: var(--webmapx-control-icon-size, 16px);
+      height: var(--webmapx-control-icon-size, 16px);
       fill: none;
       stroke: currentColor;
       stroke-width: 2;

@@ -12,10 +12,12 @@ const store = new Map<string, string>();
 const { effectiveAppearance, setConfiguredAppearance, chooseAppearance } = await import('../src/utils/appearance.js');
 const { validateConfig } = await import('../src/config/validator.js');
 
+const styleAndTheme = () => { const { style, theme } = effectiveAppearance(); return { style, theme }; };
+
 test('the config sets the default appearance', () => {
   store.clear();
   setConfiguredAppearance({ style: 'classroom', theme: 'dark' });
-  assert.deepEqual(effectiveAppearance(), { style: 'classroom', theme: 'dark' });
+  assert.deepEqual(styleAndTheme(), { style: 'classroom', theme: 'dark' });
 });
 
 test('stored values that nobody chose do not outrank the config', () => {
@@ -31,15 +33,22 @@ test('a choice made in settings outranks the config', () => {
   store.clear();
   setConfiguredAppearance({ style: 'classroom', theme: 'light' });
   chooseAppearance({ theme: 'dark' });
-  assert.deepEqual(effectiveAppearance(), { style: 'classroom', theme: 'dark' });
+  assert.deepEqual(styleAndTheme(), { style: 'classroom', theme: 'dark' });
   setConfiguredAppearance({ style: 'folio', theme: 'light' });
-  assert.deepEqual(effectiveAppearance(), { style: 'classroom', theme: 'dark' });
+  assert.deepEqual(styleAndTheme(), { style: 'classroom', theme: 'dark' });
 });
 
 test('unknown config values fall back to the default', () => {
   store.clear();
-  setConfiguredAppearance({ style: 'glitter', theme: 'sepia' });
-  assert.deepEqual(effectiveAppearance(), { style: 'atlas', theme: 'auto' });
+  setConfiguredAppearance({ style: 'glitter', theme: 'sepia', palette: 'neon', font: 'comic' });
+  assert.deepEqual(effectiveAppearance(), { style: 'atlas', theme: 'auto', palette: 'default', font: 'style' });
+});
+
+test('palette and font come from the config, and settings cannot override them', () => {
+  store.clear();
+  setConfiguredAppearance({ style: 'pebble', palette: 'forest', font: 'atkinson' });
+  chooseAppearance({ style: 'studio' });
+  assert.deepEqual(effectiveAppearance(), { style: 'studio', theme: 'auto', palette: 'forest', font: 'atkinson' });
 });
 
 function minimalConfig(extra: Record<string, unknown>) {
@@ -53,7 +62,11 @@ test('validator warns on an unknown ui style or theme, and accepts known ones', 
   assert.ok(paths.includes('ui.theme'));
   assert.ok(paths.some(p => p.startsWith('ui') && p.includes('font')));
 
-  const good = validateConfig(minimalConfig({ ui: { style: 'classroom', theme: 'auto' } }));
+  const worse = validateConfig(minimalConfig({ ui: { palette: 'neon', font: 'comic' } }));
+  const worsePaths = worse.warnings.map(w => w.path);
+  for (const p of ['ui.palette', 'ui.font']) assert.ok(worsePaths.includes(p), p);
+
+  const good = validateConfig(minimalConfig({ ui: { style: 'ink', theme: 'auto', palette: 'coral', font: 'lexend' } }));
   assert.equal(good.warnings.filter(w => w.path.startsWith('ui')).length, 0);
 });
 

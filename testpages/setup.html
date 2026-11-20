@@ -991,6 +991,11 @@
             <option value="folio">Folio — flat and precise</option>
             <option value="console">Console — dense</option>
             <option value="classroom">Classroom — coloured tool tiles</option>
+            <option value="glass">Glass — frosted and airy</option>
+            <option value="pebble">Pebble — fully rounded, no edges</option>
+            <option value="studio">Studio — crisp and flat, no shadows</option>
+            <option value="island">Island — large floating panels, for touch</option>
+            <option value="ink">Ink — bold outlines, for projectors</option>
           </select>
         </label>
         <label>Theme
@@ -999,6 +1004,30 @@
             <option value="auto">Match system</option>
             <option value="light">Light</option>
             <option value="dark">Dark</option>
+          </select>
+        </label>
+        <label>Colours
+          <select id="style-ui-palette">
+            <option value="">(default — webmapx blue)</option>
+            <option value="ocean">Ocean — deep teal</option>
+            <option value="forest">Forest — moss green on warm paper</option>
+            <option value="coral">Coral — terracotta on cream</option>
+            <option value="violet">Violet — electric purple</option>
+            <option value="graphite">Graphite — monochrome, lime accent</option>
+          </select>
+        </label>
+        <label>Font
+          <select id="style-ui-font">
+            <option value="">(the style's own font)</option>
+            <option value="system">System</option>
+            <option value="inter">Inter</option>
+            <option value="poppins">Poppins</option>
+            <option value="nunito">Nunito</option>
+            <option value="atkinson">Atkinson Hyperlegible — for low vision</option>
+            <option value="lexend">Lexend — easy reading</option>
+            <option value="merriweather">Merriweather — serif</option>
+            <option value="condensed">IBM Plex Sans Condensed — narrow</option>
+            <option value="mono">JetBrains Mono — monospace</option>
           </select>
         </label>
       </div>
@@ -3306,6 +3335,8 @@
       const merged = applyOverrides(config, getSaved());
       document.getElementById('style-ui-style').value = merged.ui?.style ?? '';
       document.getElementById('style-ui-theme').value = merged.ui?.theme ?? '';
+      document.getElementById('style-ui-palette').value = merged.ui?.palette ?? '';
+      document.getElementById('style-ui-font').value = merged.ui?.font ?? '';
 
       const host = document.getElementById('style-toolbars');
       host.replaceChildren();
@@ -3398,6 +3429,16 @@
       document.getElementById('style-ui-theme').addEventListener('change', (e) => {
         setUiField('theme', e.target.value);
         forgetViewerAppearance();
+        scheduleStylePreview();
+      });
+      // Palette and font are the config's alone (the Settings tool does
+      // not offer them), so there is no viewer choice to drop.
+      document.getElementById('style-ui-palette').addEventListener('change', (e) => {
+        setUiField('palette', e.target.value);
+        scheduleStylePreview();
+      });
+      document.getElementById('style-ui-font').addEventListener('change', (e) => {
+        setUiField('font', e.target.value);
         scheduleStylePreview();
       });
       document.getElementById('btn-style-refresh').addEventListener('click', () => refreshStylePreviewFrame(baseConfig));

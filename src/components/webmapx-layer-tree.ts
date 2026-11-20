@@ -127,11 +127,40 @@ export class WebmapxLayerTree extends LitElement {
             height: auto;
             overflow: visible;
             box-sizing: border-box;
+            /* The chevron is drawn a few px inside its 16px expand button, behind
+               the row's 3px selection edge, so the tree read as indented against
+               the panel's subtitle. Pulled left by that inset, the top-level
+               chevrons line up with the subtitle's first letter. */
+            margin-inline-start: calc(-1 * var(--webmapx-layer-tree-chevron-inset, 0.4rem));
+            /* One level indents exactly one expand button (16px), and a layer
+               row drops the empty expand slot it never uses: a layer's swatch
+               then starts under its group's name, and a subgroup's chevron
+               under its parent's name. Was 20px plus the empty slot, so layers
+               sat 20px right of their group's title. */
+            --indent-size: var(--webmapx-layer-tree-indent, 16px);
+        }
+        sl-tree-item:not(.group-item):not(.separator-item)::part(expand-button) {
+            display: none;
         }
         sl-tree-item::part(item) {
             padding-top: 0;
             padding-bottom: 0;
             min-height: 1.25rem;
+        }
+        /* Groups. A top-level group after the first starts with a gap, so an
+           opened group's end — and the next one's start — is visible at a
+           glance. Whitespace
+           only: a divider line was tried and found busier. Nested groups get a
+           smaller gap. */
+        sl-tree > sl-tree-item.group-item ~ sl-tree-item.group-item {
+            margin-top: var(--webmapx-layer-tree-group-gap, var(--webmapx-space-md, 0.75rem));
+        }
+        /* Every group name, nested ones included, reads as a heading. */
+        sl-tree-item.group-item > span {
+            font-weight: 600;
+        }
+        sl-tree-item sl-tree-item.group-item ~ sl-tree-item.group-item {
+            margin-top: var(--webmapx-space-xs, 0.25rem);
         }
         /* The control sits at the row's trailing edge, as in the legend, which
            takes growth at BOTH levels. Shoelace's label part is a <slot> that
@@ -219,6 +248,9 @@ export class WebmapxLayerTree extends LitElement {
             border-radius: 50%;
             width: 0.875rem;
             height: 0.875rem;
+            /* Centred in the square swatch's 1.125rem, so names line up after
+               a round swatch as after a square one. */
+            margin-inline: 0.125rem;
         }
         /* A real tile (or a style's paper colour) stood in for the hatch.
            Cover + centre so an 18px box shows the middle of the tile, which at
@@ -257,7 +289,11 @@ export class WebmapxLayerTree extends LitElement {
             align-items: center;
             gap: 0.4em;
             width: 100%;
-            font-weight: 600;
+            /* A divider label sits centred on its line, in regular weight and a
+               size below the layer names: it divides, it is not a heading
+               (group names are the bold ones). */
+            font-weight: 400;
+            font-size: 0.9em;
             color: var(--color-text-muted, #6b7681);
             padding: 0.25rem 0 0.1rem;
             pointer-events: none;
@@ -265,8 +301,8 @@ export class WebmapxLayerTree extends LitElement {
         }
         .tree-separator::before {
             content: '';
-            width: 12px;
-            flex: 0 0 12px;
+            flex: 1;
+            min-width: 8px;
             height: 1px;
             background: currentColor;
             opacity: 0.35;
@@ -306,9 +342,12 @@ export class WebmapxLayerTree extends LitElement {
             flex: 1;
             min-width: 0;
         }
+        /* The gap under the filter matches the one above it, which is the
+           panel's content padding (under the subtitle); a fixed 0.25rem left
+           it a third of that. */
         .search {
             position: relative;
-            margin-bottom: 0.25rem;
+            margin-bottom: var(--webmapx-panel-content-padding, var(--webmapx-space-md, 0.75rem));
         }
         .layer-radio input[type='radio'] {
             width: 0.75rem;
@@ -1150,7 +1189,7 @@ export class WebmapxLayerTree extends LitElement {
             }
 
             return html`
-                <sl-tree-item ?expanded=${node.expanded} data-node-key=${nodeKey}
+                <sl-tree-item class="group-item" ?expanded=${node.expanded} data-node-key=${nodeKey}
                     @sl-expand=${() => { void this.fetchCapabilities(node); }}>
                     <span style="cursor:pointer">${node.label ?? node.url}</span>
                     ${children}
@@ -1177,7 +1216,7 @@ export class WebmapxLayerTree extends LitElement {
             const fetchCaps = () => { for (const child of capsChildren) void this.fetchCapabilities(child); };
             if (node.expanded && capsChildren.length > 0) queueMicrotask(fetchCaps);
             return html`
-                <sl-tree-item ?expanded=${node.expanded} data-node-key=${nodeKey}
+                <sl-tree-item class="group-item" ?expanded=${node.expanded} data-node-key=${nodeKey}
                     @sl-expand=${(e: Event) => { if (e.target === e.currentTarget) fetchCaps(); }}>
                     <span @click=${(e: Event) => {
                         const item = (e.currentTarget as HTMLElement).closest('sl-tree-item') as (HTMLElement & { expanded?: boolean }) | null;
