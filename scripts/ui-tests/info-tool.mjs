@@ -203,6 +203,102 @@ async function assertInfoRendering(page) {
     });
 }
 
+/**
+ * Street View follows the info tool's own key: none, and a held result does not
+ * mention it; with one, it is offered and shows the panorama. Google is faked.
+ * Expects a result to be held already.
+ */
+async function assertStreetView(page) {
+    await page.route('**/maps.googleapis.com/maps/api/streetview/metadata**', (route) =>
+        route.fulfill({ json: { status: 'OK', pano_id: 'fake-pano' } }));
+    await page.route('**/maps.googleapis.com/maps/api/streetview?**', (route) =>
+        route.fulfill({ status: 200, contentType: 'image/png', body: '' }));
+
+    const setKey = (key) => page.evaluate(async (value) => {
+        const tool = document.querySelector('webmapx-info-tool');
+        tool.toolsConfig.info.googleApiKey = value;
+        tool.requestUpdate();
+        await tool.updateComplete;
+    }, key);
+    const link = () => page.evaluate(() =>
+        !!document.querySelector('webmapx-info-tool').shadowRoot.querySelector('.streetview-link'));
+
+    await setKey(undefined);
+    if (await link()) fail('Street View offered without a key');
+
+    await setKey('not-a-real-key');
+    if (!await link()) fail('Street View not offered with a key');
+
+    await page.evaluate(() =>
+        document.querySelector('webmapx-info-tool').shadowRoot.querySelector('.streetview-link').click());
+    await page.waitForFunction(() =>
+        document.querySelector('webmapx-info-tool').shadowRoot.querySelector('.streetview-thumb')?.src.includes('pano=fake-pano'),
+        undefined, { timeout: 5_000 }).catch(() => fail('Street View did not show the panorama'));
+}
+
+/**
+ * A held result has an Unpin button, reached with the keyboard; Unpin and
+ * Escape both let go (Escape without closing the panel), and pointing works
+ * again afterwards. Expects a result to be held already.
+ */
+async function assertUnpin(page) {
+    const unpinButton = () => page.evaluate(() =>
+        [...document.querySelector('webmapx-info-tool').shadowRoot.querySelectorAll('sl-button')]
+            .some((b) => b.textContent.trim() === 'Unpin'));
+    const isPinned = () => page.evaluate(() => document.querySelector('webmapx-info-tool').mode === 'pinned');
+    const clickCenter = () => page.evaluate(async () => {
+        const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
+        const center = adapter.getViewportState().center;
+        adapter.events.emit({ type: 'click', coords: center, pixel: adapter.project(center), resolution: null });
+    });
+
+    if (!await unpinButton()) fail('a held result shows no Unpin button');
+
+    // Keyboard: Tab from the panel's start reaches Unpin first, Enter presses it.
+    await page.evaluate(() => {
+        const root = document.querySelector('webmapx-info-tool').shadowRoot;
+        root.querySelector('.info-container').focus();
+    });
+    const focusedText = () => page.evaluate(() =>
+        document.querySelector('webmapx-info-tool').shadowRoot.activeElement?.textContent?.trim());
+    await page.keyboard.press('Tab');
+    if (await focusedText() !== 'Unpin') fail(`Tab reached "${await focusedText()}", expected the Unpin button`);
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.querySelector('webmapx-info-tool').mode === 'hover',
+        undefined, { timeout: 5_000 }).catch(() => fail('Unpin did not let go of the result'));
+    if (await unpinButton()) fail('Unpin button still shown after unpinning');
+    const focusKept = await page.evaluate(() =>
+        document.querySelector('webmapx-info-tool').shadowRoot.activeElement?.classList.contains('info-container'));
+    if (!focusKept) fail('focus left the panel when the Unpin button went away');
+
+    // Pointing works again.
+    await page.evaluate(async () => {
+        const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
+        const center = adapter.getViewportState().center;
+        adapter.events.emit({ type: 'pointer-move', coords: center, pixel: adapter.project(center), resolution: null });
+    });
+    await page.waitForFunction(() => document.querySelector('webmapx-info-tool').features.length > 0,
+        undefined, { timeout: 5_000 }).catch(() => fail('pointing showed nothing after Unpin'));
+
+    // Escape lets go too, and leaves the panel open.
+    await clickCenter();
+    await page.waitForFunction(() => document.querySelector('webmapx-info-tool').mode === 'pinned',
+        undefined, { timeout: 5_000 });
+    await page.keyboard.press('Escape');
+    if (await isPinned()) fail('Escape did not let go of the result');
+    if (!await page.evaluate(() => document.querySelector('webmapx-info-tool').active)) {
+        fail('Escape closed the panel instead of only unpinning');
+    }
+
+    // A click holds a spot, so clicking that spot again lets go of it.
+    await clickCenter();
+    await page.waitForFunction(() => document.querySelector('webmapx-info-tool').mode === 'pinned',
+        undefined, { timeout: 5_000 });
+    await clickCenter();
+    await page.waitForFunction(() => document.querySelector('webmapx-info-tool').mode === 'hover',
+        undefined, { timeout: 5_000 }).catch(() => fail('clicking the held spot did not let go of it'));
+}
+
 export async function run({ page, engine, baseUrl }) {
     const step = async (label, fn) => {
         try {
@@ -231,6 +327,10 @@ export async function run({ page, engine, baseUrl }) {
 
     const result = await assertInfoRendering(page);
     if (!result.ok) fail(result.reason);
+
+    await step('Street View follows the key', () => assertStreetView(page));
+
+    await step('unpin with the button and with Escape', () => assertUnpin(page));
 }
 
 export const engines = ['maplibre'];

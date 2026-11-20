@@ -36,6 +36,10 @@ export interface MapLayerOption {
     properties?: PropertyDef[];
     /** When set, users can only add properties whose names are in this list. */
     allowedAttributes?: string[];
+    /** Declared in the config's catalog — edited as a copy. A layer added at
+     *  runtime (dropped file, URL, analysis result) is the user's own and is
+     *  edited in place. */
+    fromCatalog?: boolean;
 }
 
 export const TYPE_LABELS: Partial<Record<PropertyDef['type'], string>> = {

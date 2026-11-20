@@ -1,5 +1,9 @@
 import * as topojson from 'topojson-client';
 import { isInternalFuncUrl, resolveInternalFuncUrl } from '../utils/internal-sources';
+import {
+    FALLBACK_PAGE_SIZE, HITS_TIMEOUT_MS, MAX_FULL_PAGES, boxContains, fetchHitCount, growBox,
+    wfsGetFeatureInfo, wfsHitsUrl, wfsPageUrl, type LonLatBox,
+} from './wfs-requests';
 
 /**
  * A paged source whose first page is already in `sources[id].data`. Call
@@ -10,7 +14,22 @@ import { isInternalFuncUrl, resolveInternalFuncUrl } from '../utils/internal-sou
  */
 export interface PagedSourceContinuation {
     id: string;
-    run: (onUpdate: (data: GeoJSON.FeatureCollection) => boolean) => void;
+    /**
+     * `view` lets a source follow the map: a WFS too large to load whole
+     * loads what is in view, and again after every move. Without it such a
+     * source stays empty.
+     */
+    run: (onUpdate: (data: GeoJSON.FeatureCollection) => boolean, view?: MapViewContext) => void;
+}
+
+/** What a source that follows the map view needs from the map. */
+export interface MapViewContext {
+    /** The map view now, as [west, south, east, north]. */
+    currentBox(): LonLatBox;
+    /** Calls back after every finished move; returns an unsubscribe. */
+    onViewEnd(callback: (box: LonLatBox) => void): () => void;
+    /** A notice for the person looking at the map. */
+    notify(message: string): void;
 }
 
 /**
@@ -65,7 +84,8 @@ export async function resolveGeoJSONSources(
             return;
         }
 
-        if (s.service === 'wfs') {
+        // A GetFeature URL is a WFS whether or not the config says so.
+        if (s.service === 'wfs' || (s.service === undefined && wfsGetFeatureInfo(s.data))) {
             const continuation = await fetchWFSFeatures(s);
             if (continuation) continuations.push(continuation);
             return;
@@ -102,8 +122,13 @@ export async function resolveGeoJSONSources(
 // Stop paging once the loaded features' combined vertex count exceeds this.
 const VERTEX_CAP = 6_000_000;
 
-// Page size for paged WFS/Esri requests.
+// Page size for paged Esri requests.
 const PAGE_SIZE = 10_000;
+
+/** A feature's identity for de-duplicating pages: its id, or the whole feature when it has none. */
+function featureKey(f: GeoJSON.Feature): string {
+    return f.id !== undefined ? `id:${f.id}` : JSON.stringify(f);
+}
 
 export function countFeatureCollectionVertices(fc: GeoJSON.FeatureCollection): number {
     return (fc.features ?? []).reduce((sum, f) => sum + countVertices(f.geometry), 0);
@@ -130,56 +155,55 @@ function countVertices(geometry: GeoJSON.Geometry | null | undefined): number {
 }
 
 /**
- * Fetches a WFS GeoJSON source's first page, sets `s.data` to it, and (if
- * the service supports paging and more features remain) returns a
- * continuation that fetches the rest in the background, calling `onUpdate`
- * with the growing FeatureCollection after each page — until either all
- * features are loaded or the combined vertex count exceeds `VERTEX_CAP`.
+ * Fetches a WFS source, whole or per map view.
+ *
+ * Whole: when the layer's total (`featureCount`, or a hit count asked here)
+ * fits in `MAX_FULL_PAGES` of the server's own page size (`wfsPageSize`, its
+ * published CountDefault), the first page is awaited and the rest stream in
+ * through the continuation.
+ *
+ * Per view: otherwise — and when the total is unknown, or too slow to count —
+ * `s.data` starts empty and the continuation loads what is in the map view,
+ * again whole if it fits in `MAX_FULL_PAGES` pages and one page otherwise,
+ * with a notice that there is more to see when zoomed in.
  */
 async function fetchWFSFeatures(s: any): Promise<PagedSourceContinuation | null> {
-    const supportsPaging: boolean = Boolean(s.wfsSupportsPaging);
-    const isWfs2 = s.wfsVersion === '2.0.0';
-    const pageSizeKey = isWfs2 ? 'COUNT' : 'MAXFEATURES';
-
     const baseUrl: string = s.data;
-    const buildUrl = (startIndex: number): URL => {
-        const url = new URL(baseUrl);
-        // Strip any case-variant of the standard paging keys (the discovery
-        // URL already carries one of these for the first page).
-        for (const key of [...url.searchParams.keys()]) {
-            if (['maxfeatures', 'count', 'startindex'].includes(key.toLowerCase())) {
-                url.searchParams.delete(key);
-            }
-        }
-        url.searchParams.set(pageSizeKey, String(PAGE_SIZE));
-        if (supportsPaging && startIndex > 0) url.searchParams.set('STARTINDEX', String(startIndex));
-        return url;
-    };
+    const version: string = String(s.wfsVersion ?? wfsGetFeatureInfo(baseUrl)?.version ?? '2.0.0');
+    const pageSize: number = Number(s.wfsPageSize) > 0 ? Number(s.wfsPageSize) : FALLBACK_PAGE_SIZE;
+    // Paging (STARTINDEX) is part of WFS 2.0; a 1.x server may support it as
+    // a vendor extension, which discovery reports through wfsSupportsPaging.
+    const supportsPaging: boolean = s.wfsSupportsPaging ?? version.startsWith('2');
 
     type Page = GeoJSON.FeatureCollection & { crs?: unknown; numberMatched?: number; numberReturned?: number };
-
-    const fetchPage = async (startIndex: number): Promise<Page> => {
-        const url = buildUrl(startIndex);
-        const resp = await fetch(url.toString());
+    const fetchPage = async (startIndex: number, box?: LonLatBox, signal?: AbortSignal): Promise<Page> => {
+        const url = wfsPageUrl(baseUrl, { version, pageSize, startIndex, box });
+        const resp = await fetch(url, { signal });
         if (!resp.ok) throw new Error(`geojson-loader: failed to fetch ${url}: ${resp.status}`);
         return await resp.json() as Page;
     };
+    const collection = (features: GeoJSON.Feature[], crs?: unknown) =>
+        ({ type: 'FeatureCollection', features, ...(crs ? { crs } : {}) }) as GeoJSON.FeatureCollection;
+
+    const total: number | undefined = Number.isFinite(s.featureCount)
+        ? Number(s.featureCount)
+        : await fetchHitCount(wfsHitsUrl(baseUrl, { version }));
+    if (total !== undefined) s.featureCount = total;
+
+    if (total === undefined || Math.ceil(total / pageSize) > MAX_FULL_PAGES) {
+        s.data = collection([]);
+        s.wfsPerView = true;
+        return { id: s.id, run: (onUpdate, view) => runPerView(onUpdate, view) };
+    }
 
     const first = await fetchPage(0);
     const features: GeoJSON.Feature[] = [...(first.features ?? [])];
     const crs = first.crs;
-    let numberMatched = first.numberMatched;
     let vertices = 0;
     for (const f of features) vertices += countVertices(f.geometry);
+    s.data = collection(features, crs);
 
-    // Reported by the service in the first page's response; lets callers see
-    // the true total even when truncated by `VERTEX_CAP`.
-    if (numberMatched !== undefined) s.featureCount = numberMatched;
-
-    s.data = { type: 'FeatureCollection', features, ...(crs ? { crs } : {}) } as GeoJSON.FeatureCollection;
-
-    const reachedTotal = numberMatched !== undefined && features.length >= numberMatched;
-    if (!supportsPaging || (first.features?.length ?? 0) === 0 || reachedTotal || vertices >= VERTEX_CAP) {
+    if (!supportsPaging || features.length === 0 || total <= pageSize || vertices >= VERTEX_CAP) {
         return null;
     }
 
@@ -187,28 +211,104 @@ async function fetchWFSFeatures(s: any): Promise<PagedSourceContinuation | null>
         id: s.id,
         run: (onUpdate) => {
             void (async () => {
-                let startIndex = features.length;
-                for (;;) {
-                    const page = await fetchPage(startIndex);
-                    const pageFeatures = page.features ?? [];
+                // By the page size, as in the per-view loop below.
+                const seen = new Set(features.map(featureKey));
+                for (let start = pageSize; start < total; start += pageSize) {
+                    const page = await fetchPage(start);
+                    const pageFeatures = (page.features ?? []).filter((f) => {
+                        const key = featureKey(f);
+                        if (seen.has(key)) return false;
+                        seen.add(key);
+                        return true;
+                    });
+                    if (!page.features?.length) break;
                     features.push(...pageFeatures);
                     for (const f of pageFeatures) vertices += countVertices(f.geometry);
-                    numberMatched = numberMatched ?? page.numberMatched;
-                    if (numberMatched !== undefined) s.featureCount = numberMatched;
-
-                    const collection = { type: 'FeatureCollection', features, ...(crs ? { crs } : {}) } as GeoJSON.FeatureCollection;
-                    s.data = collection;
-                    if (!onUpdate(collection)) break; // layer removed; abort paging
-
-                    const done = pageFeatures.length === 0
-                        || (numberMatched !== undefined && features.length >= numberMatched)
-                        || vertices >= VERTEX_CAP;
-                    if (done) break;
-                    startIndex += pageFeatures.length;
+                    s.data = collection(features, crs);
+                    if (!onUpdate(s.data)) break; // layer removed; abort paging
+                    if (vertices >= VERTEX_CAP) break;
                 }
             })();
         },
     };
+
+    function runPerView(onUpdate: (data: GeoJSON.FeatureCollection) => boolean, view?: MapViewContext): void {
+        if (!view) return; // nothing to follow: the source stays empty
+        // The box last loaded in full. A view inside it needs no request: what
+        // is drawn is already everything there is.
+        let covered: LonLatBox | null = null;
+        let generation = 0;
+        let ctrl: AbortController | null = null;
+        let warned = false;
+        let unsubscribe: (() => void) | null = null;
+
+        const load = async (viewBox: LonLatBox): Promise<void> => {
+            if (covered && boxContains(covered, viewBox)) return;
+            // A margin, so a small pan stays inside what was loaded.
+            const box = growBox(viewBox, 0.25);
+            const mine = ++generation;
+            ctrl?.abort();
+            ctrl = new AbortController();
+            const signal = ctrl.signal;
+
+            // Counted alongside the first page, not after it. A page short of
+            // COUNT does not prove the view complete: MapServer (PDOK) fills a
+            // page from index candidates and then drops the ones whose geometry
+            // misses the box, so 1000 asked can come back as 984 out of 69,343 —
+            // with numberMatched="984" on the page itself.
+            const hitsCtrl = new AbortController();
+            signal.addEventListener('abort', () => hitsCtrl.abort());
+            const hits = fetchHitCount(wfsHitsUrl(baseUrl, { version, box }), HITS_TIMEOUT_MS, hitsCtrl.signal);
+
+            const first = await fetchPage(0, box, signal);
+            if (mine !== generation) { hitsCtrl.abort(); return; }
+            const features: GeoJSON.Feature[] = [...(first.features ?? [])];
+            // A page less than half full was not cut off by the page size; the
+            // count, possibly slow, is not needed. Otherwise the count decides,
+            // and one that takes too long is answer enough: a great many.
+            let n: number | undefined;
+            if (features.length < pageSize / 2) {
+                hitsCtrl.abort();
+                n = features.length;
+            } else {
+                n = await hits;
+            }
+            if (mine !== generation) return;
+            let complete = n !== undefined && (features.length >= n || n <= pageSize);
+
+            if (!complete && n !== undefined && supportsPaging && Math.ceil(n / pageSize) <= MAX_FULL_PAGES) {
+                // Step by the page size, not by what came back: a page cut short
+                // by the server's own filtering still used up its index range.
+                const seen = new Set(features.map(featureKey));
+                for (let start = pageSize; start < n; start += pageSize) {
+                    const page = await fetchPage(start, box, signal);
+                    if (mine !== generation) return;
+                    if (!page.features?.length) break;
+                    for (const f of page.features) {
+                        const key = featureKey(f);
+                        if (!seen.has(key)) { seen.add(key); features.push(f); }
+                    }
+                }
+                complete = true;
+            }
+
+            s.data = collection(features, first.crs);
+            if (!onUpdate(s.data)) { stop(); return; }
+            covered = complete ? box : null;
+            if (complete) {
+                warned = false;
+            } else if (!warned) {
+                warned = true;
+                view.notify(n !== undefined
+                    ? `${features.length.toLocaleString()} of ${n.toLocaleString()} features shown. Zoom in to see them all.`
+                    : `Showing the first ${features.length.toLocaleString()} features here. Zoom in to see them all.`);
+            }
+        };
+        const stop = () => { unsubscribe?.(); unsubscribe = null; ctrl?.abort(); };
+        const run = (box: LonLatBox) => { load(box).catch(() => { /* aborted or failed: the next view tries again */ }); };
+        unsubscribe = view.onViewEnd(run);
+        run(view.currentBox());
+    }
 }
 
 /**

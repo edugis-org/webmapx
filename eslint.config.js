@@ -13,6 +13,9 @@ export default tseslint.config(
       'public/**',
       'docs/**',
       'testpages/**',
+      // Agent worktrees: full checkouts of other branches, each with its own
+      // tsconfig, which made typescript-eslint refuse every file in the repo.
+      '.claude/**',
     ],
   },
   js.configs.recommended,
@@ -23,6 +26,9 @@ export default tseslint.config(
     files: ['**/*.{ts,js,mjs}'],
     languageOptions: {
       globals: { ...globals.browser, ...globals.node },
+      // Pinned, so a nested checkout with its own tsconfig cannot make the
+      // root ambiguous again.
+      parserOptions: { tsconfigRootDir: import.meta.dirname },
     },
     rules: {
       // Unused code: report, but allow the _-prefix escape hatch.

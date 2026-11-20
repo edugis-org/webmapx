@@ -477,10 +477,14 @@ async function discoverWfs(baseUrl: string): Promise<DiscoveredLayer[]> {
           // explicit paint, MapLibre's fill-color default ('#000000') would
           // render an opaque black layer over the map.
           paint: { 'fill-color': DEFAULT_DATA_COLOR, 'fill-opacity': DEFAULT_FILL_OPACITY, 'fill-outline-color': DEFAULT_OUTLINE_COLOR },
-          ...((ft.abstract || bounds) ? { metadata: {
+          metadata: {
             ...(ft.abstract ? { abstract: ft.abstract } : {}),
             ...(bounds ? { bounds } : {}),
-          } } : {}),
+            // The info tool asks the service about a clicked spot (see
+            // webmapx-info-tool queryWFSLayers), drawn or not.
+            wfsQueryUrl: data,
+            wfsVersion: version,
+          },
         },
       });
     }

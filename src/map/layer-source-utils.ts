@@ -49,7 +49,18 @@ export function normalizeRawSource(logicalId: string, rawDef: unknown): SourceCo
     if (def.type === 'vector') {
         const tiles = Array.isArray(def.tiles) ? def.tiles.filter((t): t is string => typeof t === 'string') : undefined;
         if (typeof def.url !== 'string' && !tiles?.length) return null;
-        return { id: logicalId, type: 'vector', ...(typeof def.url === 'string' ? { url: def.url } : {}), ...(tiles?.length ? { tiles } : {}) } as VectorSourceConfig;
+        // The zoom range is the server's: without maxzoom an engine asks for
+        // tiles past the last level the server has (an error per tile) instead
+        // of over-zooming it; without minzoom it fetches levels it should skip.
+        return {
+            id: logicalId,
+            type: 'vector',
+            ...(typeof def.url === 'string' ? { url: def.url } : {}),
+            ...(tiles?.length ? { tiles } : {}),
+            ...(typeof def.minzoom === 'number' ? { minzoom: def.minzoom } : {}),
+            ...(typeof def.maxzoom === 'number' ? { maxzoom: def.maxzoom } : {}),
+            ...(typeof def.attribution === 'string' ? { attribution: def.attribution } : {}),
+        } as VectorSourceConfig;
     }
     return null;
 }

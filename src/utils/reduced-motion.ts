@@ -13,3 +13,13 @@ export function prefersReducedMotion(): boolean {
         && typeof window.matchMedia === 'function'
         && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
+
+/**
+ * Whether a camera move should be written instantly rather than animated:
+ * asked for explicitly (`animate: false`), or reduced motion is on and the
+ * move is not marked `essential`.
+ */
+export function shouldJump(options?: { animate?: boolean; essential?: boolean }): boolean {
+    if (options?.animate === false) return true;
+    return !options?.essential && prefersReducedMotion();
+}

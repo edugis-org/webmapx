@@ -663,6 +663,24 @@ export class WebmapxLayerTree extends LitElement {
         }
     }
 
+    /**
+     * The layers a capabilities node fetched live in `capsCache`, not in the
+     * tree, so a mapper applied to the tree alone never reaches them: a layer
+     * removed from the legend left its switch on.
+     */
+    private updateCapsChildren(mapper: (node: LayerNode) => LayerNode): void {
+        let changed = false;
+        for (const [key, entry] of this.capsCache) {
+            if (entry.status !== 'loaded') continue;
+            const children = this.mapTreeNodes(entry.children, mapper);
+            if (children !== entry.children) {
+                this.capsCache.set(key, { status: 'loaded', children });
+                changed = true;
+            }
+        }
+        if (changed) this.requestUpdate();
+    }
+
     private setLayerCheckedInNode(node: LayerNode, layerId: string, checked: boolean): LayerNode {
         let changed = false;
         let nextChildren = node.children;
@@ -686,7 +704,9 @@ export class WebmapxLayerTree extends LitElement {
     }
 
     private setLayerCheckedState(layerId: string, checked: boolean): void {
-        this.updateEffectiveTree((node) => this.setLayerCheckedInNode(node, layerId, checked));
+        const mapper = (node: LayerNode) => this.setLayerCheckedInNode(node, layerId, checked);
+        this.updateEffectiveTree(mapper);
+        this.updateCapsChildren(mapper);
     }
 
     private syncCheckedLayersFromStore(): void {
@@ -719,6 +739,7 @@ export class WebmapxLayerTree extends LitElement {
         };
 
         this.updateEffectiveTree(syncNode);
+        this.updateCapsChildren(syncNode);
     }
 
     /** Unsubscribe from config events */
@@ -1124,6 +1145,9 @@ export class WebmapxLayerTree extends LitElement {
             }
 
             this.capsCache.set(key, { status: 'loaded', children });
+            // A layer may already be on the map (a permalink, another tool)
+            // before its category was first opened.
+            if (this.adapter) this.syncCheckedLayersFromStore();
         } catch (e) {
             this.capsCache.set(key, { status: 'error', error: e instanceof Error ? e.message : String(e) });
         }
@@ -1182,7 +1206,9 @@ export class WebmapxLayerTree extends LitElement {
         const nodeContext = this.getChildSelectionContext(node, context, nodeKey);
         this.nodeByKey.set(nodeKey, node);
 
-        if (node.children && node.children.length > 0) {
+        // Having a children array is what makes a node a group, even an empty one: a group
+        // whose layers were all moved out must not turn into a switchable layer.
+        if (Array.isArray(node.children)) {
             // A capabilities child stands in for the layers it lists, as the EduGIS
             // viewer replaced it: its layers sit directly in this group. Drawn as a
             // node of its own it repeated the group's name one level down.

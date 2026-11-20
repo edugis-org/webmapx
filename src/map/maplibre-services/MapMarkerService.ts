@@ -3,6 +3,7 @@
 import * as maplibregl from 'maplibre-gl';
 import type { LngLat } from '../../store/map-events';
 import type { MarkerOptions } from '../IMapInterfaces';
+import { pinSvg } from '../marker-utils';
 
 export class MapMarkerService {
     private markers = new Map<string, maplibregl.Marker>();
@@ -11,8 +12,13 @@ export class MapMarkerService {
 
     add(id: string, lngLat: LngLat, options: MarkerOptions = {}): void {
         this.remove(id);
+        const color = options.color ?? '#e63946';
+        // The plain pin stays MapLibre's own; any other shape is the shared
+        // SVG the other engines draw, so it looks the same everywhere.
+        const element = options.glyph ? document.createElement('div') : undefined;
+        if (element) element.innerHTML = pinSvg(color, options.glyph);
         const marker = new maplibregl.Marker({
-            color: options.color ?? '#e63946',
+            ...(element ? { element, anchor: 'bottom' as const } : { color }),
             draggable: options.draggable ?? false,
         })
             .setLngLat([lngLat[0], lngLat[1]])

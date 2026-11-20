@@ -27,7 +27,7 @@ import KeyboardPan from 'ol/interaction/KeyboardPan';
 import KeyboardZoom from 'ol/interaction/KeyboardZoom';
 import { noModifierKeys, platformModifierKey } from 'ol/events/condition';
 import { isEventFromEditableElement } from '../../utils/dom-focus-utils';
-import { prefersReducedMotion } from '../../utils/reduced-motion';
+import { shouldJump } from '../../utils/reduced-motion';
 
 /**
  * Implements the core map contract (IMapCore) for OpenLayers.
@@ -107,14 +107,14 @@ export class MapCoreService implements IMapCore {
         return { center: [0, 0], zoom: 1, bearing: 0, pitch: 0 };
     }
 
-    public setViewport(center: [number, number], zoom: number, options?: { animate?: boolean }): void {
+    public setViewport(center: [number, number], zoom: number, options?: { animate?: boolean; essential?: boolean }): void {
         if (!this.mapInstance) return;
         const clampedZoom = this.clampZoom(zoom);
         const view = this.mapInstance.getView();
         // An animated move is cancelled by any later camera write, so a caller following
         // another map frame by frame (the compare tool's frozen half) never arrives.
         // Under "reduce motion" every engine jumps (see utils/reduced-motion.ts).
-        if (options?.animate === false || prefersReducedMotion()) {
+        if (shouldJump(options)) {
             view.setCenter(this.toMapCoord(center));
             view.setZoom(this.toOLZoom(clampedZoom));
         } else {

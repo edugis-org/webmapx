@@ -389,6 +389,34 @@ GeoJSON, WMS, composite styles — and it governs **feature info only**. Analysi
 tools still read the layer's data, so a basemap nobody may click is still a
 layer you can clip or intersect against.
 
+### Feature info from a point service (`metadata.getFeatureInfoUrl`)
+
+A tile layer has no features of its own: a temperature map is only coloured
+pixels. To make a click on it answer anyway, point `getFeatureInfoUrl` at a
+JSON service that answers about one place. `{latitude}` and `{longitude}` are
+filled in with the clicked point, and `{key-…}` from `apikeys.json` as in any
+url:
+
+```json
+"metadata": {
+  "getFeatureInfoUrl": "https://api.weatherapi.com/v1/current.json?key={key-weatherapi}&q={latitude},{longitude}&lang=nl",
+  "attributes": {
+    "translations": [
+      { "name": "location.name", "translation": "locatie" },
+      { "name": "current.temp_c", "translation": "temperatuur", "unit": " °C" }
+    ]
+  }
+}
+```
+
+The answer is shown like any feature's properties. Nested values are named by
+their path (`current.temp_c`), which is what `translations` refer to; with
+translations present, only the translated values are shown. Layers that name
+the same url share one request per click, and each shows its own translated
+values. A hidden layer is not asked, since such services usually count every
+request against your key. A url without `{latitude}`/`{longitude}` is treated
+as a WMS GetFeatureInfo request, as before.
+
 ---
 
 **Allmaps layer** (`type: "allmaps"`)
@@ -728,20 +756,20 @@ put its settings in the `tools` section under that same id.
 
 `testpages/setup.html` handles plugins on the **Tools** tab:
 
-1. The **Plugins** section lists the config's plugins and loads them; their
+1. The **Advanced: plugins** section (collapsed, at the bottom of the tab) lists the config's plugins and loads them; their
    tools appear in the toolbar and standalone lists, like built-in tools.
 2. To add one, type its path (relative to the config, e.g.
    `../plugins/bookmarks.js`) and press **Add plugin**. It is written into the
    config's `plugins`. **Remove** takes it out of the config again; its tools
    stay listed until the page is reloaded, since a loaded module cannot be
    unloaded.
-3. Tick the plugin's tool in a toolbar list to place it. If the config has no
+3. Switch on the plugin's tool in a toolbar list to place it. If the config has no
    `tools.<id>` section yet, the plugin's default settings (its template) are
    written into the config — for bookmarks: World, Amsterdam and Eiffel Tower.
-4. Hover the tool and click **⚙** to edit its settings. Simple values get a
+4. Click the tool's **✎** to edit its settings. Simple values get a
    field; lists and objects such as `views` are edited as JSON. **OK** stores
    them in `tools.<id>`, **Reset** returns to what the config had.
-5. **Update preview** shows the result; **Download config** saves it.
+5. **Update preview** shows the result; **Export ▾ → Download config** saves it.
 
 ## API Keys
 
@@ -758,6 +786,22 @@ In source URLs, use `{key-<name>}` where `<name>` matches a key in `apikeys.json
 ```
 
 At load time, `{key-mapbox}` is replaced with the value of `"mapbox"` from `apikeys.json`.
+
+### Time placeholders
+
+Some tile services address their data by moment rather than serving "now" at a fixed address. A source URL may contain:
+
+| Placeholder | Becomes | Example |
+|---|---|---|
+| `{utcdatehour}` | the hour as `yyyyMMddHH`, in UTC | `2026110211` |
+
+```json
+{
+  "url": ["https://weathermaps.weatherapi.com/tmp2m/tiles/{utcdatehour}/{z}/{x}/{y}.png"]
+}
+```
+
+It is filled in from the map's clock when the layer is added, so a map pinned to a moment (a permalink, the time tool) asks for that moment. A live map keeps the hour the layer was added at; it does not reload the layer every hour.
 
 ### apikeys.json
 

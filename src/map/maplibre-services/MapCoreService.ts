@@ -66,7 +66,7 @@ export class MapCoreService implements IMapCore {
         return { center: [0, 0], zoom: 1, bearing: 0, pitch: 0 }; 
     }
     
-    public setViewport(center: [number, number], zoom: number, options?: { animate?: boolean }): void {
+    public setViewport(center: [number, number], zoom: number, options?: { animate?: boolean; essential?: boolean }): void {
         if (!this.mapInstance) return;
         // `jumpTo` rather than an animated move: a flight is cancelled by any later camera
         // write, so a caller following the map frame by frame (the compare tool's frozen
@@ -75,9 +75,9 @@ export class MapCoreService implements IMapCore {
             this.mapInstance.jumpTo({ center, zoom });
             return;
         }
-        // Not `essential`: under the OS "reduce motion" setting MapLibre turns this
-        // flight into a jump, as every engine does (see utils/reduced-motion.ts).
-        this.mapInstance.flyTo({ center, zoom });
+        // MapLibre itself turns a non-`essential` flight into a jump under the OS
+        // "reduce motion" setting, as every engine does (see utils/reduced-motion.ts).
+        this.mapInstance.flyTo({ center, zoom, essential: options?.essential === true });
     }
 
     public initialize(containerId: string, options?: { center?: [number, number]; zoom?: number; bearing?: number; pitch?: number; minZoom?: number; maxZoom?: number; minPitch?: number; maxPitch?: number; maxBounds?: [number, number, number, number]; styleUrl?: string; style?: MapStyle; projection?: string; backgroundColor?: string }): void {

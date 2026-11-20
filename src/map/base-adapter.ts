@@ -24,6 +24,7 @@ import type { MapProjectionState, MapTimeState } from '../store/IMapState';
 import { MapEventBus } from '../store/map-events';
 import type { DeferredLogicalLayerExecutor } from './logical-layer-executor';
 import { ensureApiKeysLoaded, substituteApiKeysDeep } from '../config/apikeys';
+import { substituteTimeTokensDeep } from '../config/time-tokens';
 import {
     applyMapState,
     collectComputedSources,
@@ -457,6 +458,7 @@ export abstract class BaseAdapter {
     async addLayer(layer: any, options?: LayerInsertOptions): Promise<boolean> {
         await ensureApiKeysLoaded();
         layer = substituteApiKeysDeep(layer);
+        layer = substituteTimeTokensDeep(layer, this.clockNow());
         // Which sources asked to keep themselves current has to be read *before*
         // the urls are replaced by the data they stand for: afterwards nothing
         // says the source was computed at all.

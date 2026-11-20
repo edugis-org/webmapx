@@ -28,7 +28,7 @@ export class MapMarkerService {
 
         const element = document.createElement('div');
         element.style.cssText = 'cursor:pointer;user-select:none;';
-        element.innerHTML = pinSvg(color);
+        element.innerHTML = pinSvg(color, options.glyph);
 
         const overlay = new Overlay({
             element,

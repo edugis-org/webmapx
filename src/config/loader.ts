@@ -4,6 +4,7 @@
 import type { AppConfig, MapAdapterType, MapConfig, RuntimeMapConfig } from './types.js';
 import { validateConfig } from './validator.js';
 import { setApiKeysUrl } from './apikeys';
+import { wfsGetFeatureInfo } from '../map/wfs-requests';
 
 const CONFIG_URL_PARAM = 'config';
 const MAP_ADAPTER_ALIASES: Record<string, MapAdapterType> = {
@@ -75,7 +76,10 @@ function resolveConfigRelativeUrl(value: string, baseUrl: string): string {
     return value;
   }
   try {
-    return new URL(value, baseUrl).toString();
+    const resolved = new URL(value, baseUrl).toString();
+    // `URL` percent-encodes braces in the path, which turns a tile template's
+    // `{z}/{x}/{y}` into literals no engine substitutes — put them back.
+    return value.includes('{') ? resolved.replace(/%7B([\w-]+)%7D/gi, '{$1}') : resolved;
   } catch {
     return value;
   }
@@ -110,6 +114,12 @@ function resolveInternalFuncPaths(value: string, baseUrl: string): string {
   return `${name}?${params.toString().replace(/%7B/gi, '{').replace(/%7D/gi, '}')}`;
 }
 
+/** A layer's inline source map is keyed by its local name; the scoped `id` belongs to the registered copy only. */
+function withoutId(source: Record<string, unknown>): Record<string, unknown> {
+  const { id: _id, ...rest } = source;
+  return rest;
+}
+
 function normalizeSourceDefinition(id: string, value: unknown, baseUrl: string): Record<string, unknown> {
   if (!isObject(value)) {
     return { id, type: 'geojson', data: value };
@@ -121,6 +131,15 @@ function normalizeSourceDefinition(id: string, value: unknown, baseUrl: string):
   }
   if (normalized.type === 'raster' && normalized.service === undefined) {
     normalized.service = 'xyz';
+  }
+  // A GeoJSON source given as a WFS GetFeature URL is a WFS: it pages, and
+  // loads per map view when it is too large to load whole.
+  if (normalized.type === 'geojson' && normalized.service === undefined && typeof normalized.data === 'string') {
+    const wfs = wfsGetFeatureInfo(normalized.data);
+    if (wfs) {
+      normalized.service = 'wfs';
+      if (normalized.wfsVersion === undefined) normalized.wfsVersion = wfs.version;
+    }
   }
 
   if (typeof normalized.data === 'string') {
@@ -229,8 +248,9 @@ function normalizeLayerEntry(value: Record<string, unknown>, extraSources: Recor
       for (const [srcId, srcDef] of Object.entries(value.sources)) {
         const scoped = `${id}:${srcId}`;
         sourceAliases.set(srcId, scoped);
-        extraSources.push(normalizeSourceDefinition(scoped, srcDef, configUrl));
-        localSources[srcId] = srcDef;
+        const normalized = normalizeSourceDefinition(scoped, srcDef, configUrl);
+        extraSources.push(normalized);
+        localSources[srcId] = withoutId(normalized);
       }
     }
     const layers = Array.isArray(value.layers)
@@ -247,7 +267,10 @@ function normalizeLayerEntry(value: Record<string, unknown>, extraSources: Recor
       ...base,
       type: 'style',
       ...(typeof value.url === 'string' ? { url: resolveConfigRelativeUrl(value.url, configUrl) } : {}),
-      sources: value.sources ?? {},
+      // The resolved copies, not `value.sources`: adding the layer registers
+      // its sources from this map, so a raw `data/x.geojson` here was fetched
+      // against the page even though the scoped copies above were resolved.
+      sources: localSources,
       layers,
     };
   }
@@ -289,8 +312,9 @@ function normalizeLayerEntry(value: Record<string, unknown>, extraSources: Recor
       for (const [srcId, srcDef] of Object.entries(style.sources)) {
         const scoped = `${id}:${srcId}`;
         sourceAliases.set(srcId, scoped);
-        extraSources.push(normalizeSourceDefinition(scoped, srcDef, configUrl));
-        localSources[srcId] = srcDef;
+        const normalized = normalizeSourceDefinition(scoped, srcDef, configUrl);
+        extraSources.push(normalized);
+        localSources[srcId] = withoutId(normalized);
       }
     }
     const layers = Array.isArray(style.layers)
@@ -468,6 +492,31 @@ function injectLayerTreeIntoTools(tools: unknown, tree: unknown[]): Record<strin
   return clonedTools;
 }
 
+// GetMap-only parameters, and the template placeholders that would otherwise
+// reach the server unresolved. Everything else — SERVICE, VERSION, SRS/CRS and
+// any vendor parameter such as MapServer's `map=` — stays on the URL.
+const GETMAP_ONLY_PARAMS = new Set(['request', 'bbox', 'width', 'height', 'format', 'transparent', 'styles', 'time', 'bgcolor', 'exceptions']);
+
+/**
+ * The GetFeatureInfo URL for a WMS GetMap tile template, or null when the
+ * template is not one (no REQUEST=GetMap, or no LAYERS to ask about).
+ */
+export function featureInfoUrlFromGetMap(template: string): string | null {
+  let u: URL;
+  try { u = new URL(template); } catch { return null; }
+  const params = [...u.searchParams];
+  const get = (name: string) => params.find(([k]) => k.toLowerCase() === name)?.[1];
+  if (get('request')?.toLowerCase() !== 'getmap') return null;
+  const layers = get('layers');
+  if (!layers) return null;
+  for (const [key] of params) {
+    if (GETMAP_ONLY_PARAMS.has(key.toLowerCase())) u.searchParams.delete(key);
+  }
+  u.searchParams.set('REQUEST', 'GetFeatureInfo');
+  u.searchParams.set('QUERY_LAYERS', layers);
+  return u.toString();
+}
+
 function normalizeLayerDataSection(layerData: unknown, configUrl: string): { sources: unknown[]; layers: unknown[] } {
   if (!isObject(layerData)) {
     return { sources: [], layers: [] };
@@ -497,9 +546,31 @@ function normalizeLayerDataSection(layerData: unknown, configUrl: string): { sou
     const l = layer as Record<string, unknown>;
     const srcId = typeof l.source === 'string' ? l.source : null;
     const src = srcId ? sourceById.get(srcId) : null;
-    if (!src || src.type !== 'raster' || src.service !== 'wms') return layer;
+    if (!src) return layer;
+    if (src.type === 'geojson' && src.service === 'wfs' && typeof src.data === 'string') {
+      // The info tool asks the WFS about the clicked spot itself, so a click
+      // answers even where nothing is drawn (yet): a layer loaded per view, or
+      // a feature beyond what one page could carry.
+      const meta = isObject(l.metadata) ? { ...(l.metadata as Record<string, unknown>) } : {};
+      if (meta.queryable === false || typeof meta.wfsQueryUrl === 'string') return layer;
+      meta.wfsQueryUrl = src.data;
+      meta.wfsVersion = src.wfsVersion ?? '2.0.0';
+      return { ...l, metadata: meta };
+    }
+    if (src.type !== 'raster') return layer;
     const meta = isObject(l.metadata) ? { ...(l.metadata as Record<string, unknown>) } : {};
     if (typeof meta.getFeatureInfoUrl === 'string') return layer; // already set
+    if (meta.queryable === false) return layer;
+    if (src.service !== 'wms') {
+      // A raster source given as a WMS GetMap tile template (`tiles` with
+      // REQUEST=GetMap&LAYERS=…) is still a WMS, whatever `service` says.
+      const template = Array.isArray(src.url) ? src.url[0] : (src.url ?? (Array.isArray(src.tiles) ? src.tiles[0] : undefined));
+      const gfiUrl = typeof template === 'string' ? featureInfoUrlFromGetMap(template) : null;
+      if (!gfiUrl) return layer;
+      meta.getFeatureInfoUrl = gfiUrl;
+      meta.getFeatureInfoFormat = 'application/json';
+      return { ...l, metadata: meta };
+    }
     const baseUrl = Array.isArray(src.url) ? src.url[0] : src.url;
     if (typeof baseUrl !== 'string') return layer;
     const layers_ = src.layers ?? '';

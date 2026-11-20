@@ -6,8 +6,10 @@ import { appUrl } from './lib/fixture-config.mjs';
  * Tests that:
  * 1. Search for "Utrecht" returns results
  * 2. Persisting a search result creates a layer on the map
- * 3. The persisted layer can be selected in the draw tool
- * 4. After selecting the layer, the polygon data is loaded into the draw tool
+ * 3. The persisted layer is listed in the draw tool as the user's own layer
+ * 4. "Edit" adopts it in place: no copy dialog, same name, its polygon loaded
+ *    into the draw tool, and the original search layer replaced
+ * 5. After closing the draw tool the edited layer stays on the map
  */
 
 function fail(message) {
@@ -206,11 +208,14 @@ async function clickPolygonModeAndSelectUtrechtLayer(page) {
     polygonCard.click();
     await waitFor(() => tool.panelView === 'layers' && tool.pickedType === 'Polygon', 5_000, 'polygon layer picker');
 
-    await waitFor(
-      () => tool.catalogLayerOptions?.some(o => o.label?.toLowerCase().includes('utrecht')),
+    const option = await waitFor(
+      () => tool.catalogLayerOptions?.find(o => o.label?.toLowerCase().includes('utrecht')),
       10_000,
       'Utrecht layer in catalogLayerOptions'
     );
+    // A search result is added at runtime, so it is the user's own layer:
+    // listed with their drawn layers and edited in place, not as a copy.
+    if (option.fromCatalog) throw new Error('Persisted search layer is listed as a catalog layer');
 
     const rows = await waitFor(
       () => {
@@ -226,53 +231,44 @@ async function clickPolygonModeAndSelectUtrechtLayer(page) {
       throw new Error(`Utrecht layer row not found. Available: ${JSON.stringify(allNames)}`);
     }
 
+    // An own layer's button is plain "Edit"; only catalog layers say "Edit a copy".
     const startBtn = Array.from(utrechtRow.querySelectorAll('sl-button'))
-      .find(b => (b.textContent ?? '').includes('Edit'));
+      .find(b => (b.textContent ?? '').trim() === 'Edit');
     if (!startBtn) throw new Error('Edit button not found on Utrecht row');
     startBtn.click();
 
-    return { success: true };
+    return { success: true, originalLayerId: option.layerId, label: option.label };
   });
 
   if (!result.success) {
     fail('Failed to select Utrecht layer in draw tool');
   }
 
-  // A catalog layer's "Edit" button no longer jumps straight into the
-  // editing session — it opens a confirmation dialog first ("You are about
-  // to create and edit a copy of..."), since editing now always makes an
-  // independent copy rather than mutating the shared/persisted original.
-  // Confirm it to actually enter the session.
-  await page.waitForFunction(() => {
-    const tool = document.querySelector('webmapx-map')?.querySelector('webmapx-draw-tool');
-    return Boolean(tool?.shadowRoot?.querySelector('sl-dialog[open]'));
-  }, undefined, { timeout: 5_000 });
-
-  await page.evaluate(() => {
-    const tool = document.querySelector('webmapx-map')?.querySelector('webmapx-draw-tool');
-    const dialog = tool.shadowRoot.querySelector('sl-dialog[open]');
-    const confirmBtn = Array.from(dialog.querySelectorAll('sl-button'))
-      .find((b) => (b.textContent ?? '').includes('Create a copy and edit'));
-    if (!confirmBtn) throw new Error('"Create a copy and edit" button not found in confirmation dialog');
-    confirmBtn.click();
-  });
-
-  // Wait for the layer to be active and features to be loaded
-  await page.waitForFunction(() => {
+  // Wait for the adopted layer to be active with its features loaded, and for
+  // the original search layer to have made way for it.
+  await page.waitForFunction(({ originalLayerId, label }) => {
     const map = document.querySelector('webmapx-map');
     const tool = map?.querySelector('webmapx-draw-tool');
     if (!tool) return false;
 
-    // Check drawLayers for borrowed polygon layer
-    const drawLayers = tool.drawLayers || [];
-    const polygonLayer = drawLayers.find(l => l.type === 'Polygon' && l.borrowedSourceId);
-    if (!polygonLayer) return false;
+    const activeId = tool.activeLayerIds?.['Polygon'];
+    const active = (tool.drawLayers || []).find(l => l.id === activeId);
+    if (!active || active.name !== label) return false;
 
-    // Check features array
     const features = tool.features || [];
-    const polygonFeatures = features.filter(f => f.type === 'Polygon' || f.type === 'MultiPolygon');
-    return polygonFeatures.length > 0;
-  }, undefined, { timeout: 15_000 });
+    if (!features.some(f => f.type === 'Polygon' || f.type === 'MultiPolygon')) return false;
+
+    return !map.adapter?.store?.getState()?.mapLayers?.[originalLayerId];
+  }, { originalLayerId: result.originalLayerId, label: result.label }, { timeout: 15_000 });
+
+  // Editing your own layer is not a copy: no confirmation dialog.
+  const dialogOpen = await page.evaluate(() => {
+    const tool = document.querySelector('webmapx-map')?.querySelector('webmapx-draw-tool');
+    return Boolean(tool?.shadowRoot?.querySelector('sl-dialog[open]'));
+  });
+  if (dialogOpen) fail('Editing an own layer opened a dialog');
+
+  return result;
 }
 
 async function verifyUtrechtDataInDrawTool(page) {
@@ -314,16 +310,16 @@ async function verifyUtrechtDataInDrawTool(page) {
       return { ok: false, reason: 'Active layer config not found' };
     }
 
-    // Check that it has a borrowedSourceId (indicates it was borrowed from a map layer)
-    if (!activeLayer.borrowedSourceId) {
-      return { ok: false, reason: 'Active layer does not have borrowedSourceId' };
+    // Adopted, not copied: it keeps the original's name.
+    if (activeLayer.name?.startsWith('Copy of')) {
+      return { ok: false, reason: `Own layer was edited as a copy: "${activeLayer.name}"` };
     }
 
     return {
       ok: true,
       featureCount: polygonFeatures.length,
       activeLayerId: activePolygonLayerId,
-      borrowedSourceId: activeLayer.borrowedSourceId
+      name: activeLayer.name
     };
   });
 
@@ -396,8 +392,9 @@ export async function run({ page, engine, baseUrl }) {
     await openDrawTool(page);
   });
 
-  await step('click polygon mode and select Utrecht layer', async () => {
-    await clickPolygonModeAndSelectUtrechtLayer(page);
+  let selected;
+  await step('click polygon mode and edit Utrecht layer in place', async () => {
+    selected = await clickPolygonModeAndSelectUtrechtLayer(page);
   });
 
   let verifyResult;
@@ -406,16 +403,16 @@ export async function run({ page, engine, baseUrl }) {
     if (!verifyResult.ok) {
       fail(verifyResult.reason);
     }
-    console.log(`    Utrecht polygon loaded: ${verifyResult.featureCount} feature(s), borrowedSourceId: ${verifyResult.borrowedSourceId}`);
+    console.log(`    Utrecht polygon loaded: ${verifyResult.featureCount} feature(s) in "${verifyResult.name}"`);
   });
 
   await step('close draw tool', async () => {
     await closeDrawTool(page);
   });
 
-  // Verify the original layer is restored after closing draw tool
-  await step('verify Utrecht layer restored after closing draw tool', async () => {
-    const restored = await page.evaluate(() => {
+  // The edited layer replaced the original; closing the draw tool keeps it.
+  await step('verify edited Utrecht layer kept after closing draw tool', async () => {
+    const restored = await page.evaluate(({ originalLayerId }) => {
       const map = document.querySelector('webmapx-map');
       if (!map) return { ok: false, reason: 'Map not found' };
 
@@ -425,28 +422,26 @@ export async function run({ page, engine, baseUrl }) {
       const state = adapter.store.getState();
       const mapLayers = state.mapLayers || {};
 
-      // Find a layer that looks like a persisted Utrecht layer
-      const utrechtLayers = Object.entries(mapLayers).filter(([id, meta]) => {
-        return id.includes('search-persist') ||
-               (meta.label && meta.label.toLowerCase().includes('utrecht'));
-      });
-
-      if (utrechtLayers.length === 0) {
-        return { ok: false, reason: 'No Utrecht layer found in mapLayers' };
+      if (mapLayers[originalLayerId]) {
+        return { ok: false, reason: 'Original search layer came back after closing the draw tool' };
       }
-
-      return { ok: true, layerCount: utrechtLayers.length };
-    });
+      const utrechtLayers = Object.entries(mapLayers).filter(([, meta]) =>
+        meta.label && meta.label.toLowerCase().includes('utrecht'));
+      if (utrechtLayers.length !== 1) {
+        return { ok: false, reason: `Expected one Utrecht layer, found ${utrechtLayers.length}` };
+      }
+      return { ok: true, id: utrechtLayers[0][0] };
+    }, { originalLayerId: selected.originalLayerId });
 
     if (!restored.ok) {
       fail(restored.reason);
     }
-    console.log(`    Utrecht layer restored: ${restored.layerCount} layer(s) found`);
+    console.log(`    Edited Utrecht layer kept: ${restored.id}`);
   });
 
   // The clear button replaced deactivate()'s silent wipe: emptying the field is now
   // something the user does on purpose. It must take the query, its results and any
-  // preview — and leave the persisted layer, which is an ordinary map layer by now.
+  // preview — and leave the persisted layer (adopted by the draw tool by now).
   await step('clear the search field', async () => {
     const cleared = await page.evaluate(() => {
       const map = document.querySelector('webmapx-map');
@@ -475,7 +470,8 @@ export async function run({ page, engine, baseUrl }) {
     const layersKept = await page.evaluate(() => {
       const map = document.querySelector('webmapx-map');
       const state = map?.adapter?.store?.getState?.() ?? {};
-      return Object.keys(state.mapLayers || {}).filter((id) => id.includes('search-persist')).length;
+      return Object.values(state.mapLayers || {})
+        .filter((meta) => meta.label?.toLowerCase().includes('utrecht')).length;
     });
     if (layersKept === 0) {
       fail('Clearing the search field removed the persisted layer');
