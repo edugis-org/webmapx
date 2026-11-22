@@ -250,8 +250,6 @@
     button { padding: 0.6rem 1.4rem; font-size: 1rem; cursor: pointer; border: none; border-radius: 4px; }
     #btn-launch { background: #0f62fe; color: #fff; }
     #btn-launch:hover { background: #0353e9; }
-    #btn-reset { background: #e0e0e0; }
-    #btn-reset:hover { background: #c6c6c6; }
     #status { margin-top: 1rem; font-size: 0.875rem; color: #555; }
     #btn-publish { background: #e0e0e0; }
     #btn-publish:hover { background: #c6c6c6; }
@@ -317,8 +315,13 @@
     #btn-launch:hover, #btn-publish-submit:hover, .btn-map-sync:hover, .btn-add-layer:hover { background: var(--v2-primary-hover); }
     .btn-map-refresh { background: var(--v2-surface); color: var(--v2-text); border-color: var(--v2-border); }
     .btn-map-refresh:hover { background: var(--v2-surface-2); }
-    #btn-reset, #btn-publish, #btn-upload, .upload-path-row button { background: var(--v2-surface); }
-    #btn-reset:hover, #btn-publish:hover, #btn-upload:hover { background: var(--v2-surface-2); }
+    #btn-undo, #btn-redo, #btn-original, #btn-publish, #btn-upload, .upload-path-row button { background: var(--v2-surface); }
+    #btn-undo:hover:not(:disabled), #btn-redo:hover:not(:disabled), #btn-original:hover, #btn-publish:hover, #btn-upload:hover { background: var(--v2-surface-2); }
+    #btn-undo:disabled, #btn-redo:disabled { color: var(--v2-muted); opacity: .55; cursor: default; }
+    /* Undo and redo read as one control: joined, sharing a border */
+    .v2-undo-group { display: inline-flex; }
+    .v2-undo-group #btn-undo { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+    .v2-undo-group #btn-redo { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left: 0; }
     .btn-danger, .v2-danger { color: var(--v2-danger) !important; }
     input[type=text], input[type=number], input[type=search], input[type=password], select, textarea {
       font: inherit; font-size: 13px; color: var(--v2-text); background: var(--v2-surface);
@@ -354,6 +357,174 @@
     .upload-path-row button { padding: 6px 10px; font-size: 13px; }
     .upload-hint { margin: 0; font-size: 12px; color: var(--v2-muted); }
 
+    /* Open configuration dialog: shared controls (open file, paste URL, drop zone) */
+    .open-fixed { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-bottom: 1px solid var(--v2-border); }
+    .open-url { display: flex; gap: 6px; }
+    .open-url input { flex: 1; min-width: 0; }
+    /* Shoelace's small button and input (as in the viewer's Import layer tool), without loading Shoelace */
+    .open-fixed .sl-like, .open-fixed #btn-upload.sl-like {
+      display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px;
+      font: 500 12px/1 system-ui, sans-serif; color: #3f3f46;
+      background: #fff; border: 1px solid #d4d4d8; border-radius: 4px; cursor: pointer;
+      transition: background 120ms, border-color 120ms, color 120ms;
+    }
+    .open-fixed .sl-like:hover, .open-fixed #btn-upload.sl-like:hover { background: #f0f9ff; border-color: #7dd3fc; color: #0369a1; }
+    .open-fixed .sl-like:active { background: #e0f2fe; }
+    .open-fixed .sl-like-input {
+      height: 30px; padding: 0 8px; font-size: 12px; color: #27272a;
+      background: #fff; border: 1px solid #d4d4d8; border-radius: 4px;
+    }
+    .open-fixed .sl-like-input:focus { outline: none; border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,.35); }
+    .open-drop {
+      display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+      border: 2px dashed #d5dce3; border-radius: 4px; font-size: 12px; color: var(--v2-muted);
+      transition: border-color 120ms, background 120ms, color 120ms;
+    }
+    .open-drop.drag-over { border-color: #0ea5e9; background: #f0f9ff; color: #0369a1; }
+    .open-ico-grid {
+      -webkit-mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/grid-3x3-gap.svg") center / contain no-repeat;
+      mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/grid-3x3-gap.svg") center / contain no-repeat;
+    }
+
+    /* Gallery: the visual way to open a config */
+    .config-gallery {
+      width: min(1100px, calc(100vw - 32px)); height: min(820px, calc(100vh - 48px)); max-width: none; max-height: none;
+      padding: 0; border: 1px solid var(--v2-border); border-radius: 12px; color: var(--v2-text); background: var(--v2-bg);
+    }
+    .config-gallery[open] { display: flex; flex-direction: column; }
+    .config-gallery::backdrop { background: rgba(0,0,0,.35); }
+    /* Title left, filter centred, start-screen hint and × right */
+    .gallery-head {
+      display: grid; grid-template-columns: 1fr minmax(180px, 320px) 1fr; align-items: center; gap: 16px; padding: 14px 20px;
+      background: var(--v2-surface); border-bottom: 1px solid var(--v2-border);
+    }
+    .gallery-head h2 { margin: 0; font-size: 18px; }
+    .gallery-head input { width: 100%; }
+    .gallery-head-end { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+    .gallery-close { border: 0; background: none; font-size: 22px; line-height: 1; padding: 2px 8px; }
+    .gallery-body { flex: 1; overflow-y: auto; padding: 0 20px 24px; }
+    .gallery-section h3 { margin: 16px 0 10px; font-size: 14px; font-weight: 700; }
+    .gallery-section[hidden] { display: none; }
+    /* Pinned top-right of the list and floating over it while scrolling; height 0 so it takes no room */
+    .gallery-toolbar { position: sticky; top: 0; z-index: 2; height: 0; display: flex; justify-content: flex-end; }
+    .gallery-toolbar .gallery-view { height: fit-content; margin-top: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.16); }
+    .gallery-view { display: inline-flex; border: 1px solid var(--v2-border); border-radius: 7px; overflow: hidden; }
+    .gallery-view-btn {
+      display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 0;
+      padding: 5px 10px; font-size: 12px; background: var(--v2-surface); color: var(--v2-muted); cursor: pointer;
+    }
+    .gallery-view-btn + .gallery-view-btn { border-left: 1px solid var(--v2-border); }
+    .gallery-view-btn[aria-pressed="true"] { background: color-mix(in srgb, var(--v2-primary) 12%, var(--v2-surface)); color: var(--v2-primary); font-weight: 600; }
+    .open-ico-save {
+      -webkit-mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/floppy.svg") center / contain no-repeat;
+      mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/floppy.svg") center / contain no-repeat;
+    }
+    .open-ico-publish {
+      -webkit-mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/cloud-upload.svg") center / contain no-repeat;
+      mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/cloud-upload.svg") center / contain no-repeat;
+    }
+    button.v2-publish-btn { display: inline-flex; align-items: center; gap: 6px; }
+    /* Save as is the main action of the row: keeping your work. */
+    .tabs button#btn-save-as { background: var(--v2-primary); border-color: var(--v2-primary); color: #fff; }
+    .tabs button#btn-save-as:hover { background: var(--v2-primary-hover); }
+    .v2-open-tab {
+      display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 12px;
+      color: var(--v2-primary); border-color: var(--v2-border); background: var(--v2-surface);
+    }
+    .v2-open-tab:hover { border-color: var(--v2-primary); background: var(--v2-surface); }
+    .open-ico-newtab {
+      width: 12px; height: 12px;
+      -webkit-mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/box-arrow-up-right.svg") center / contain no-repeat;
+      mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/box-arrow-up-right.svg") center / contain no-repeat;
+    }
+    .open-ico-list {
+      -webkit-mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/list-ul.svg") center / contain no-repeat;
+      mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/list-ul.svg") center / contain no-repeat;
+    }
+    /* List view: one row per config, a small thumbnail to the left */
+    .config-gallery.list-view .gallery-grid { grid-template-columns: 1fr; gap: 6px; }
+    .config-gallery.list-view .gallery-card { flex-direction: row; align-items: center; }
+    .config-gallery.list-view .gallery-thumb { flex: none; width: 88px; aspect-ratio: 16 / 10; }
+    .config-gallery.list-view .gallery-thumb .placeholder { font-size: 18px; }
+    .config-gallery.list-view .gallery-badge { top: 3px; left: 3px; padding: 0 5px; font-size: 10px; }
+    .config-gallery.list-view .gallery-badge.current { left: auto; right: 3px; }
+    .config-gallery.list-view .gallery-text { flex-direction: row; align-items: baseline; gap: 12px; padding: 6px 12px; flex: 1; }
+    .config-gallery.list-view .gallery-title { flex: 0 0 auto; max-width: 40%; }
+    .config-gallery.list-view .gallery-sub { flex: 1; }
+    .gallery-foot {
+      flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+      padding: 10px 20px; background: var(--v2-surface); border-top: 0; border-bottom: 1px solid var(--v2-border);
+    }
+    .gallery-foot .open-url { flex: 0 1 360px; }
+    .gallery-foot-hint { font-size: 12px; color: var(--v2-muted); }
+    .gallery-drop { padding: 5px 10px; }
+    .gallery-start-hint { text-align: right; }
+    .gallery-foot-hint[hidden] { display: none; }
+    .gallery-section-head { display: flex; align-items: baseline; gap: 12px; }
+    .gallery-clear { border: 0; background: none; padding: 2px 4px; font-size: 12px; color: var(--v2-muted); cursor: pointer; }
+    .gallery-clear:hover { color: var(--v2-text); text-decoration: underline; background: none; }
+    .gallery-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+    .gallery-card {
+      width: 100%; display: flex; flex-direction: column; padding: 0; text-align: left; overflow: hidden;
+      border: 1px solid var(--v2-border); border-radius: 9px; background: var(--v2-surface); cursor: pointer;
+      transition: box-shadow 120ms, border-color 120ms, transform 120ms;
+    }
+    .gallery-card:hover, .gallery-card:focus-visible { border-color: var(--v2-primary); box-shadow: 0 6px 18px rgba(0,0,0,.12); background: var(--v2-surface); }
+    .gallery-card.is-current { border-color: var(--v2-primary); box-shadow: 0 0 0 2px var(--v2-primary); }
+    .gallery-thumb { position: relative; aspect-ratio: 16 / 10; background: var(--v2-surface-2); overflow: hidden; }
+    .gallery-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .gallery-thumb .placeholder {
+      width: 100%; height: 100%; display: grid; place-items: center;
+      font-size: 34px; font-weight: 700; color: rgba(255,255,255,.92);
+    }
+    .gallery-badge {
+      position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: 999px;
+      font-size: 11px; font-weight: 600; color: #fff; background: rgba(15,95,215,.92);
+    }
+    .gallery-badge.current { left: auto; right: 8px; background: rgba(18,163,127,.95); }
+    .gallery-text { display: flex; flex-direction: column; gap: 2px; padding: 9px 11px 11px; min-width: 0; }
+    .gallery-title { font-weight: 650; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gallery-sub { font-size: 12px; color: var(--v2-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* The way back to the configs once the start screen is closed: outlined in the
+       primary colour, one step below the solid "Update preview". */
+    .v2-menu > summary.v2-open-btn, button.v2-browse-btn {
+      gap: 6px; font-weight: 600; color: var(--v2-primary);
+      border-color: var(--v2-primary); background: var(--v2-surface);
+    }
+    button.v2-browse-btn { display: inline-flex; align-items: center; cursor: pointer; }
+    .v2-menu > summary.v2-open-btn:hover, .v2-menu[open] > summary.v2-open-btn, button.v2-browse-btn:hover {
+      background: color-mix(in srgb, var(--v2-primary) 10%, var(--v2-surface));
+    }
+    /* After the start screen closes: show where it went. */
+    @keyframes v2-open-glow {
+      0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--v2-primary) 0%, transparent); }
+      50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--v2-primary) 35%, transparent); }
+    }
+    .v2-open-btn.v2-glow { animation: v2-open-glow 0.9s ease-in-out 2; }
+    @media (prefers-reduced-motion: reduce) {
+      .v2-open-btn.v2-glow { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--v2-primary) 35%, transparent); }
+    }
+    .open-ico { flex: none; width: 14px; height: 14px; background: currentColor; }
+    .open-ico-folder {
+      -webkit-mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/folder2-open.svg") center / contain no-repeat;
+      mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/folder2-open.svg") center / contain no-repeat;
+    }
+    .open-ico-drop {
+      width: 16px; height: 16px;
+      -webkit-mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/file-earmark-arrow-up.svg") center / contain no-repeat;
+      mask: url("https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/assets/icons/file-earmark-arrow-up.svg") center / contain no-repeat;
+    }
+    .v2-source { margin: 0 0 0 4px; font-size: 13px; color: var(--v2-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .v2-source strong { color: var(--v2-text); font-weight: 600; }
+    .v2-source .v2-edited { color: var(--v2-primary); }
+    .open-confirm { border: 1px solid var(--v2-border); border-radius: 10px; padding: 18px; max-width: 420px; color: var(--v2-text); background: var(--v2-surface); }
+    .open-confirm::backdrop { background: rgba(0,0,0,.3); }
+    .open-confirm h2 { margin: 0 0 8px; font-size: 16px; }
+    .open-confirm p { margin: 0 0 16px; font-size: 13px; color: var(--v2-muted); }
+    .open-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .open-confirm-primary { background: var(--v2-primary); border-color: var(--v2-primary); color: #fff; }
+    .open-confirm-primary:hover { background: var(--v2-primary-hover); }
+
     /* Publish: the same panel, shown as a dialog */
     .publish-panel {
       position: fixed; z-index: 1001; top: 72px; right: 24px; width: 420px; max-width: calc(100vw - 32px);
@@ -361,6 +532,8 @@
       border-radius: var(--v2-radius); box-shadow: 0 12px 40px rgba(0,0,0,.2);
     }
     .publish-panel[hidden] { display: none; }
+    .publish-intro { margin: 0 0 12px; font-size: 13px; line-height: 1.45; color: var(--v2-muted); }
+    .publish-intro strong { color: var(--v2-text); }
     .publish-row label { color: var(--v2-muted); }
     #btn-publish-forget { background: none; }
 
@@ -448,8 +621,6 @@
     }
     .type-badge { background: var(--v2-surface-2); border: 1px solid var(--v2-border); border-radius: 10px; }
     .catalog-group > summary:hover { color: var(--v2-primary); }
-    #tab-layers.active { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 0 16px; align-items: start; }
-    #tab-layers > .v2-panel-head { grid-column: 1 / -1; }
 
     /* Forms */
     .map-form-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 14px; }
@@ -516,7 +687,6 @@
     }
     label:hover .info-btn, label:focus-within .info-btn, .info-btn:focus-visible { opacity: 1; }
     .v2-menu-panel > button#btn-publish { background: none; }
-    .tabs #btn-reset { color: var(--v2-danger); }
     .tabs { align-items: center; }
     .tabs .actions { margin-left: auto; padding: 6px 0; }
     .v2-select-all[hidden] { display: none; }
@@ -723,7 +893,7 @@
     #btn-step-capture-map { margin-left: auto; }
 
     @media (max-width: 960px) {
-      .v2-with-preview.active, #tab-layers.active { grid-template-columns: 1fr; }
+      .v2-with-preview.active { grid-template-columns: 1fr; }
       .v2-preview { position: static; }
       .v2-preview .map-preview { height: 380px; }
       .v2-topbar { flex-wrap: wrap; padding: 10px 16px; }
@@ -739,9 +909,63 @@
 <body>
   <header class="v2-topbar">
     <h1 class="v2-brand"><span class="v2-brand-mark" aria-hidden="true"></span>WebMapX Setup</h1>
+    <p id="config-source" class="v2-source" aria-live="polite"></p>
   </header>
 
+  <dialog id="config-gallery" class="config-gallery" aria-labelledby="config-gallery-title">
+    <div class="gallery-head">
+      <h2 id="config-gallery-title">Open configuration</h2>
+      <input id="gallery-filter" type="search" placeholder="Filter configs…" aria-label="Filter configs">
+      <div class="gallery-head-end">
+        <span id="gallery-start-hint" class="gallery-foot-hint gallery-start-hint" hidden></span>
+        <button type="button" class="gallery-close" aria-label="Close">×</button>
+      </div>
+    </div>
+    <!-- Ways in besides the lists; first, so they are seen before the list -->
+    <div class="gallery-foot open-fixed">
+      <button id="btn-gallery-upload" type="button" class="sl-like"><span class="open-ico open-ico-folder" aria-hidden="true"></span>Open file…</button>
+      <input id="config-upload-input" type="file" accept=".json,application/json" hidden>
+      <div class="open-url">
+        <input id="gallery-path-input" type="text" class="sl-like-input" placeholder="…or paste a URL or path" aria-label="Config URL or path" title="e.g. https://…/nl.json, or \\wsl$\Ubuntu-22.04\home\anneb\projects\webmapx-configs\nl.json">
+        <button id="btn-gallery-open-path" type="button" class="sl-like">Open</button>
+      </div>
+      <div class="open-drop gallery-drop"><span class="open-ico open-ico-drop" aria-hidden="true"></span>or drop a config file, or a path to one, anywhere</div>
+    </div>
+    <div class="gallery-body">
+      <!-- Pinned: floats top-right over the list while it scrolls -->
+      <div class="gallery-toolbar">
+        <div class="gallery-view" role="group" aria-label="Show as">
+          <button type="button" id="view-grid" class="gallery-view-btn" aria-pressed="true"><span class="open-ico open-ico-grid" aria-hidden="true"></span>Thumbnails</button>
+          <button type="button" id="view-list" class="gallery-view-btn" aria-pressed="false"><span class="open-ico open-ico-list" aria-hidden="true"></span>List</button>
+        </div>
+      </div>
+      <section id="gallery-recent" class="gallery-section" hidden>
+        <div class="gallery-section-head">
+          <h3>Recent in this browser</h3>
+          <button id="btn-gallery-clear-recent" type="button" class="gallery-clear">Clear recent</button>
+        </div>
+        <ul class="gallery-grid" id="gallery-recent-grid"></ul>
+      </section>
+      <section id="gallery-repo" class="gallery-section" hidden>
+        <h3>From the config repository</h3>
+        <ul class="gallery-grid" id="gallery-repo-grid"></ul>
+      </section>
+      <p id="gallery-empty" class="upload-hint" hidden>No configs match.</p>
+    </div>
+  </dialog>
+
+  <dialog id="open-confirm" class="open-confirm" aria-labelledby="open-confirm-title">
+    <h2 id="open-confirm-title"></h2>
+    <p id="open-confirm-text"></p>
+    <div class="open-confirm-actions">
+      <button type="button" value="cancel">Cancel</button>
+      <button type="button" value="download">Download first</button>
+      <button type="button" value="open" class="open-confirm-primary">Open</button>
+    </div>
+  </dialog>
+
   <div id="publish-panel" class="publish-panel" hidden>
+    <p class="publish-intro"><strong>Publish</strong> puts this configuration in a GitHub repository, as a commit, so others can open it. To keep a copy for yourself, use <em>Save as…</em> instead.</p>
     <div class="publish-row">
       <label>Personal access token <span class="section-hint">(repo / contents:write scope, saved in this browser's localStorage)</span></label>
       <input type="password" id="publish-token" autocomplete="off">
@@ -778,27 +1002,17 @@
     <button class="tab-btn" data-tab="stories"><span class="v2-tab-ico" aria-hidden="true">📖</span>Stories</button>
     <!-- In the sticky tab row, so the actions stay in reach while scrolling -->
     <div class="actions">
-      <details class="v2-menu">
-        <summary class="v2-btn">Open</summary>
-        <div class="v2-menu-panel">
-          <button id="btn-upload" type="button">Upload config file…</button>
-          <input id="config-upload-input" type="file" accept=".json,application/json" hidden>
-          <div class="upload-path-row">
-            <input id="config-path-input" type="text" placeholder="Paste config path or URL, e.g. \\wsl$\Ubuntu-22.04\home\anneb\projects\webmapx-configs\nl.json">
-            <button id="btn-open-config-path" type="button">Open path</button>
-          </div>
-          <p class="upload-hint">You can also drop a JSON config or a path anywhere on this page.</p>
-        </div>
-      </details>
-      <details class="v2-menu">
-        <summary class="v2-btn">Export</summary>
-        <div class="v2-menu-panel">
-          <button id="btn-download">Download config</button>
-          <button id="btn-publish">Publish to GitHub…</button>
-        </div>
-      </details>
-      <button id="btn-reset" class="v2-danger">Reset to defaults</button>
-      <button id="btn-launch">Update preview</button>
+      <!-- The one way to the configs: the dialog the start screen also is -->
+      <button id="btn-open-config" type="button" class="v2-open-btn v2-browse-btn"><span class="open-ico open-ico-folder" aria-hidden="true"></span>Open configuration…</button>
+      <!-- Save as: a file on your own computer. Publish: to the config repository, for others. -->
+      <button id="btn-save-as" type="button" class="v2-open-btn v2-browse-btn" title="Save this configuration as a file on your computer"><span class="open-ico open-ico-save" aria-hidden="true"></span>Save as…</button>
+      <button id="btn-publish" type="button" class="v2-publish-btn" title="Publish this configuration to the config repository on GitHub, so others can open it"><span class="open-ico open-ico-publish" aria-hidden="true"></span>Publish…</button>
+      <!-- Undo/redo step through your own actions; "Back to the original" is the rarer, bigger step -->
+      <span class="v2-undo-group" role="group" aria-label="Undo and redo">
+        <button id="btn-undo" type="button" title="Undo your last change (Ctrl+Z)" disabled><span aria-hidden="true">↶ </span>Undo</button>
+        <button id="btn-redo" type="button" title="Redo (Ctrl+Shift+Z or Ctrl+Y)" aria-label="Redo" disabled><span aria-hidden="true">↷</span></button>
+      </span>
+      <button id="btn-original" type="button" hidden>Back to the original…</button>
     </div>
   </nav>
   <main class="v2-main">
@@ -821,14 +1035,14 @@
     </details>
     </div>
     <aside class="v2-preview">
-      <div class="map-preview-actions"><span class="v2-preview-title">Preview</span></div>
+      <div class="map-preview-actions"><span class="v2-preview-title">Preview</span><button type="button" class="v2-open-tab" data-open-preview title="Open the full map in a new browser tab. It follows your changes."><span class="open-ico open-ico-newtab" aria-hidden="true"></span>Open in new tab</button></div>
       <iframe id="tools-preview-frame" class="map-preview" src="./preview.html?storageKey=webmapx-setup-tools-preview-config"></iframe>
     </aside>
   </div>
 
-  <div class="tab-panel" id="tab-layers">
+  <div class="tab-panel v2-with-preview" id="tab-layers">
+    <div class="v2-form">
     <div class="v2-panel-head"><h1>Layers</h1><p>Which layers the catalog offers, how it groups them, and what is on the map when it opens.</p></div>
-    <div class="v2-layers-col">
     <section class="layers-section">
       <h2>1. Add layers <span class="section-hint">Find a layer and add it to the Map catalog. It lands at the bottom; drag it into a group there if you want one.</span></h2>
       <button id="btn-add-layer" class="btn-add-layer" hidden>+ Add layer…</button>
@@ -869,11 +1083,6 @@
     </section>
 
     <section class="layers-section">
-      <h2>Built-in data <span class="section-hint">— terrain and other tools needing bundled data</span></h2>
-      <p class="placeholder">Coming soon (e.g. 3D terrain exaggeration).</p>
-    </section>
-    </div>
-    <section class="layers-section">
       <h2>2. Map catalog <span class="section-hint">What the Catalog menu offers, in groups. Drag ⠿ to move a layer or group. Tick a layer to have it on when the map opens.</span></h2>
       <div id="layertree-list"></div>
       <p id="layertree-empty" class="placeholder" style="display:none; padding:0.5rem 0;">No layerTree tool found in this config.</p>
@@ -885,6 +1094,15 @@
       <p id="activelayers-empty" class="placeholder" style="display:none; padding:0.5rem 0;">Nothing is on yet — tick a layer in the Map catalog.</p>
     </section>
 
+    <section class="layers-section">
+      <h2>Built-in data <span class="section-hint">— terrain and other tools needing bundled data</span></h2>
+      <p class="placeholder">Coming soon (e.g. 3D terrain exaggeration).</p>
+    </section>
+    </div>
+    <aside class="v2-preview">
+      <div class="map-preview-actions"><span class="v2-preview-title">Preview</span><button type="button" class="v2-open-tab" data-open-preview title="Open the full map in a new browser tab. It follows your changes."><span class="open-ico open-ico-newtab" aria-hidden="true"></span>Open in new tab</button></div>
+      <iframe id="layers-preview-frame" class="map-preview" src="./preview.html?storageKey=webmapx-setup-layers-preview-config"></iframe>
+    </aside>
   </div>
   <div class="tab-panel v2-with-preview" id="tab-map">
     <div class="v2-form">
@@ -973,6 +1191,7 @@
         <span class="v2-preview-title">Preview</span>
         <button id="btn-map-refresh" class="btn-map-sync btn-map-refresh">⟳ Refresh preview from form</button>
         <button id="btn-map-sync" class="btn-map-sync" hidden>↻ Update form with map settings</button>
+        <button type="button" class="v2-open-tab" data-open-preview title="Open the full map in a new browser tab. It follows your changes."><span class="open-ico open-ico-newtab" aria-hidden="true"></span>Open in new tab</button>
       </div>
       <iframe id="map-preview-frame" class="map-preview" src="./preview.html?storageKey=webmapx-setup-map-preview-config"></iframe>
       <p class="section-hint map-preview-hint">A real webmapx map — same engine, tools, and active layers as your config. Pan/zoom/rotate/tilt it, then pull those values back into the form.</p>
@@ -1047,6 +1266,7 @@
       <div class="map-preview-actions">
         <span class="v2-preview-title">Preview</span>
         <button id="btn-style-refresh" class="btn-map-sync btn-map-refresh">⟳ Refresh preview</button>
+        <button type="button" class="v2-open-tab" data-open-preview title="Open the full map in a new browser tab. It follows your changes."><span class="open-ico open-ico-newtab" aria-hidden="true"></span>Open in new tab</button>
       </div>
       <iframe id="style-preview-frame" class="map-preview" src="./preview.html?storageKey=webmapx-setup-style-preview-config"></iframe>
     </aside>
@@ -1152,7 +1372,7 @@
     </div>
     </div>
     <aside class="v2-preview">
-      <div class="map-preview-actions"><span class="v2-preview-title">Preview<span id="stories-preview-step"></span></span><button id="btn-step-capture-map" type="button" class="v2-from-view v2-btn-view" title="Give this step the camera of the preview map: centre, zoom, bearing and pitch">Use this map view</button></div>
+      <div class="map-preview-actions"><span class="v2-preview-title">Preview<span id="stories-preview-step"></span></span><button id="btn-step-capture-map" type="button" class="v2-from-view v2-btn-view" title="Give this step the camera of the preview map: centre, zoom, bearing and pitch">Use this map view</button><button type="button" class="v2-open-tab" data-open-preview title="Open the full map in a new browser tab. It follows your changes."><span class="open-ico open-ico-newtab" aria-hidden="true"></span>Open in new tab</button></div>
       <iframe id="stories-preview-frame" class="map-preview" src="./preview.html?storageKey=webmapx-setup-stories-preview-config"></iframe>
       <p class="section-hint map-preview-hint">Selecting a step shows it here. Move the map, then "Use this map view" to give the step this camera.</p>
     </aside>
@@ -1179,9 +1399,10 @@
     // it under "<key>-url" so the preview can pass it to WebMapX.mount as configUrl. Kept
     // as a separate key so the stored config stays byte-for-byte publishable.
     function storeConfig(key, config) {
-      localStorage.setItem(key, JSON.stringify(config));
+      // The URL first: the config key is what an open preview tab reloads on.
       if (activeConfigUrl) localStorage.setItem(key + '-url', new URL(activeConfigUrl, window.location.href).href);
       else localStorage.removeItem(key + '-url');
+      localStorage.setItem(key, JSON.stringify(config));
     }
 
     // Derive toolbar keys dynamically from config instead of hardcoding names.
@@ -1206,6 +1427,22 @@
       clearTimeout(toolsPreviewTimer);
       toolsPreviewTimer = setTimeout(() => refreshToolsPreviewFrame(baseConfig), 400);
     }
+    // Layers-tab preview. Layer edits change baseConfig in place rather than going
+    // through saveOverrides, so nothing calls a "schedule" here: trackEdits notices the
+    // change (and is nudged right after any interaction in the tab, below) and refreshes.
+    const LAYERS_PREVIEW_STORAGE_KEY = 'webmapx-setup-layers-preview-config';
+    function refreshLayersPreviewFrame(config) {
+      if (!config) return;
+      const finalConfig = applyOverrides(config, getSaved());
+      storeConfig(LAYERS_PREVIEW_STORAGE_KEY, finalConfig);
+      const frame = document.getElementById('layers-preview-frame');
+      if (!frame) return;
+      setPreviewEngine(frame.getAttribute('src'), finalConfig.engine ?? finalConfig.map?.type ?? 'maplibre');
+      frame.contentWindow.location.reload();
+    }
+    function layersTabActive() {
+      return !!document.getElementById('tab-layers')?.classList.contains('active');
+    }
     function refreshToolsPreviewFrame(config) {
       if (!config) return;
       const finalConfig = applyOverrides(config, getSaved());
@@ -1223,9 +1460,711 @@
       activeConfigUrl = params.get('config') ?? '../config/demo.json';
       const res = await fetch(activeConfigUrl);
       if (!res.ok) throw new Error(`Failed to load config: ${activeConfigUrl} (${res.status})`);
+      activeConfigUrl = res.url;
       baseConfig = normalizeRawConfig(await res.json());
       return baseConfig;
     }
+
+    // --- Open menu: where the config came from, and what was opened recently ---
+    //
+    // The repository list is the configs repo's own index.json (served beside the configs),
+    // so the people who write configs decide what is offered. Recent lives in this browser:
+    // an unedited repository/path config is kept as a reference (its URL), anything edited
+    // or uploaded keeps its whole config, because there is nowhere else to get it back from.
+    // Edits never overwrite the clean entry they started from — an edited copy is its own
+    // entry, so the original stays one click away.
+    const CONFIG_DIR_URL = new URL('../config/', window.location.href).href;
+    const RECENT_KEY = 'webmapx-setup-recent';
+    const RECENT_MAX = 8;
+
+    // { kind: 'repo'|'path'|'upload'|'recent', title, label } — label says where it came from.
+    let activeSource = null;
+    let openedSnapshot = null;   // merged config JSON right after opening: "edited" = differs from it
+    let lastSeenSnapshot = null;
+    let activeRecentId = null;   // the edited entry this session writes to, once there are edits
+    let openedFromRecentId = null; // set when the config on screen was opened from an edited Recent copy
+    // The clean Recent entry an edited copy started from. A copy of a repository or path
+    // config finds its original again by URL; an uploaded file exists only as that entry.
+    let activeOriginId = null;
+    let configIndex = null;        // [{ file, title, description, url }] or [] when there is no index
+
+    function mergedConfigJson() {
+      return baseConfig ? JSON.stringify(applyOverrides(baseConfig, getSaved())) : null;
+    }
+    function isEdited() {
+      return openedSnapshot !== null && mergedConfigJson() !== openedSnapshot;
+    }
+    function fileNameOf(url) {
+      try { return decodeURIComponent(new URL(url, window.location.href).pathname.split('/').pop() || url); }
+      catch { return String(url); }
+    }
+    function configTitle(config, fallback) {
+      const t = config?.project?.title ?? config?.title ?? config?.map?.title ?? config?.map?.label;
+      return typeof t === 'string' && t.trim() ? t.trim() : fallback;
+    }
+    function repoEntryFor(url) {
+      if (!url || !configIndex) return null;
+      const abs = new URL(url, window.location.href).href.split('?')[0];
+      return configIndex.find(e => e.url === abs) ?? null;
+    }
+    function sourceForUrl(url, config) {
+      const repo = repoEntryFor(url);
+      if (repo) return { kind: 'repo', title: repo.title, label: `config repository (${repo.file})` };
+      const name = fileNameOf(url);
+      return { kind: 'path', title: configTitle(config, name), label: name };
+    }
+
+    function readRecent() {
+      try {
+        const list = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]');
+        return Array.isArray(list) ? list : [];
+      } catch { return []; }
+    }
+    // Configs can be close to a megabyte, so a full localStorage is expected rather than
+    // exceptional: drop the oldest entries until the list fits, keeping the current one.
+    function writeRecent(list) {
+      let entries = list.slice(0, RECENT_MAX);
+      while (entries.length) {
+        try { localStorage.setItem(RECENT_KEY, JSON.stringify(entries)); return true; }
+        catch {
+          const dropAt = entries.findLastIndex(e => e.id !== activeRecentId);
+          if (dropAt < 0) break;
+          entries.splice(dropAt, 1);
+        }
+      }
+      try { localStorage.setItem(RECENT_KEY, JSON.stringify(entries)); } catch { /* nothing fits */ }
+      return false;
+    }
+    function upsertRecent(entry) {
+      const list = readRecent().filter(e => e.id !== entry.id);
+      list.unshift(entry);
+      if (!writeRecent(list)) {
+        document.getElementById('status').textContent =
+          'This browser is out of space for recent configs — download your config to keep it.';
+      }
+    }
+
+    // A clean open: remember it as a reference. A URL-backed config needs no copy.
+    function rememberOpened() {
+      if (!activeSource || activeSource.kind === 'recent') return;
+      const url = activeConfigUrl ? new URL(activeConfigUrl, window.location.href).href : null;
+      const existing = readRecent().find(e => !e.edited && ((url && e.url === url) || (!url && e.label === activeSource.label)));
+      activeOriginId = existing?.id ?? crypto.randomUUID();
+      upsertRecent({
+        id: activeOriginId,
+        title: activeSource.title,
+        label: activeSource.label,
+        url,
+        edited: false,
+        time: Date.now(),
+        config: url ? undefined : JSON.parse(openedSnapshot),
+      });
+    }
+
+    // Called on a timer: edits mutate baseConfig in many places, so comparing the merged
+    // config is the one check that sees all of them.
+    function trackEdits() {
+      if (!baseConfig || document.hidden) return;
+      const json = mergedConfigJson();
+      if (json === lastSeenSnapshot) return;
+      lastSeenSnapshot = json;
+      // An open "Open in new tab" viewer reloads when this key changes, so it follows
+      // every edit without a button to press.
+      try { storeConfig(STORAGE_KEY, JSON.parse(json)); } catch { /* storage full: the tab just stays behind */ }
+      if (layersTabActive()) refreshLayersPreviewFrame(baseConfig);
+      if (json !== openedSnapshot) {
+        if (!activeRecentId) activeRecentId = crypto.randomUUID();
+        upsertRecent({
+          id: activeRecentId,
+          title: activeSource?.title ?? configTitle(baseConfig, 'Untitled'),
+          label: activeSource?.kind === 'recent' ? activeSource.label : `from ${activeSource?.label ?? 'unknown'}`,
+          url: activeConfigUrl ? new URL(activeConfigUrl, window.location.href).href : null,
+          edited: true,
+          originId: activeOriginId,
+          time: Date.now(),
+          config: JSON.parse(json),
+        });
+      }
+      // An edit that completes on its own time (a dropped file being read) ends no user
+      // action, so the timer is also what turns it into an undo step.
+      commitStep();
+      renderSourceLine();
+    }
+    setInterval(trackEdits, 1500);
+    window.addEventListener('pagehide', trackEdits);
+
+    // --- Undo / redo: one step per user action ---
+    //
+    // Each step is a copy of the merged config, taken shortly after a user action ends
+    // (change, input, click, drop, pointerup) and only when it differs from the step
+    // before. That needs no hook in any editor, so an editor added later is covered too.
+    // The short wait gathers what one action does in several events (a drag, a burst of
+    // typing) into one step; it is not the 1.5 s timer, which would merge two separate
+    // actions made within one tick.
+    const UNDO_SETTLE_MS = 350;
+    const UNDO_MAX_STEPS = 50;
+    // Configs can carry imported data inline (up to ~3 MB), so the history is also
+    // bounded by size: the oldest steps go first.
+    const UNDO_MAX_CHARS = 40_000_000;
+    let undoStack = [];
+    let undoIndex = -1;
+    let undoPending = false;
+    let undoTimer = null;
+    let restoringStep = false;
+
+    function resetHistory() {
+      clearTimeout(undoTimer);
+      undoPending = false;
+      undoStack = baseConfig ? [mergedConfigJson()] : [];
+      undoIndex = undoStack.length - 1;
+      updateUndoButtons();
+    }
+    function commitStep() {
+      clearTimeout(undoTimer);
+      undoPending = false;
+      if (!baseConfig || restoringStep || undoIndex < 0) { updateUndoButtons(); return; }
+      const json = mergedConfigJson();
+      if (json !== undoStack[undoIndex]) {
+        undoStack.splice(undoIndex + 1);
+        undoStack.push(json);
+        undoIndex = undoStack.length - 1;
+        let chars = undoStack.reduce((n, s) => n + s.length, 0);
+        while (undoIndex > 0 && (undoStack.length > UNDO_MAX_STEPS || chars > UNDO_MAX_CHARS)) {
+          chars -= undoStack.shift().length;
+          undoIndex--;
+        }
+        renderSourceLine();
+      }
+      updateUndoButtons();
+    }
+    function scheduleStep() {
+      if (restoringStep || !baseConfig) return;
+      undoPending = true;
+      clearTimeout(undoTimer);
+      undoTimer = setTimeout(commitStep, UNDO_SETTLE_MS);
+      updateUndoButtons();
+    }
+    function updateUndoButtons() {
+      const undo = document.getElementById('btn-undo');
+      const redo = document.getElementById('btn-redo');
+      if (!undo || !redo) return;
+      // A pending action may still turn out to change nothing; Undo then says so.
+      undo.disabled = restoringStep || !(undoIndex > 0 || undoPending);
+      redo.disabled = restoringStep || undoIndex >= undoStack.length - 1;
+    }
+    // Rebuilds the setup from one step, keeping the place you were at: the scroll
+    // position and the selected story, chapter and step.
+    async function restoreStep(index, statusText) {
+      restoringStep = true;
+      updateUndoButtons();
+      const scrollY = window.scrollY;
+      try {
+        undoIndex = index;
+        baseConfig = normalizeRawConfig(JSON.parse(undoStack[index]));
+        await reinitializeFromConfig(baseConfig, statusText, { keepSelection: true });
+        // Normalizing may spell the config slightly differently; the step must match
+        // what is now on screen, or the next check would record a phantom step.
+        undoStack[index] = mergedConfigJson();
+      } finally {
+        restoringStep = false;
+      }
+      window.scrollTo(0, scrollY);
+      trackEdits();
+      updateUndoButtons();
+      renderSourceLine();
+    }
+    async function undoStep() {
+      if (restoringStep) return;
+      commitStep();
+      if (undoIndex <= 0) {
+        document.getElementById('status').textContent = 'Nothing to undo — no changes since you opened this configuration.';
+        return;
+      }
+      await restoreStep(undoIndex - 1, 'Undone.');
+    }
+    async function redoStep() {
+      if (restoringStep) return;
+      commitStep();
+      if (undoIndex >= undoStack.length - 1) {
+        document.getElementById('status').textContent = 'Nothing to redo.';
+        return;
+      }
+      await restoreStep(undoIndex + 1, 'Redone.');
+    }
+
+    for (const type of ['change', 'input', 'click', 'drop', 'pointerup']) {
+      document.addEventListener(type, (e) => {
+        // The undo controls themselves are not edits.
+        if (e.target instanceof Element && e.target.closest('#btn-undo, #btn-redo')) return;
+        scheduleStep();
+      }, true);
+    }
+    // Ctrl+Z / Cmd+Z undoes, Ctrl+Shift+Z / Ctrl+Y redoes — except while typing, where
+    // the browser's own undo for that field is what is meant, and while a dialog is open.
+    function isTextEntry(el) {
+      if (!(el instanceof Element)) return false;
+      if (el.closest('[contenteditable=""], [contenteditable="true"]')) return true;
+      if (el instanceof HTMLTextAreaElement) return true;
+      return el instanceof HTMLInputElement
+        && !['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file'].includes(el.type);
+    }
+    document.addEventListener('keydown', (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const key = e.key.toLowerCase();
+      const redo = (key === 'z' && e.shiftKey) || (key === 'y' && !e.shiftKey);
+      const undo = key === 'z' && !e.shiftKey;
+      if (!undo && !redo) return;
+      if (isTextEntry(e.target) || document.querySelector('dialog[open]')) return;
+      e.preventDefault();
+      if (undo) undoStep(); else redoStep();
+    });
+
+    function renderSourceLine() {
+      const el = document.getElementById('config-source');
+      if (!el || !activeSource) return;
+      el.replaceChildren();
+      const title = document.createElement('strong');
+      title.textContent = activeSource.title;
+      el.append(title, ` · ${activeSource.kind === 'recent' ? activeSource.label : 'from ' + activeSource.label}`);
+      // Two different things, so two words: "edited copy" is where it came from (your
+      // earlier changes, kept under Recent), "edited" is what happened since opening.
+      const tags = [];
+      if (activeSource.kind === 'recent') tags.push('edited copy');
+      if (isEdited()) tags.push('edited');
+      for (const tag of tags) {
+        const ed = document.createElement('span');
+        ed.className = 'v2-edited';
+        ed.textContent = ` · ${tag}`;
+        el.append(ed);
+      }
+      el.title = el.textContent;
+      updateOriginalButton();
+    }
+
+    // --- Back to the original ---
+    //
+    // Not an undo: it leaves the history and the copy you were working on behind. For a
+    // config opened as it is, the original is that config as opened, and going back is
+    // itself a step (Undo brings your changes back). For an edited copy from Recent, the
+    // original is the config the copy was made from — re-read from its URL, or the clean
+    // Recent entry of an uploaded file — and it is opened in its place.
+    function originalOfCopy() {
+      if (activeSource?.kind !== 'recent') return null;
+      const copy = readRecent().find(e => e.id === openedFromRecentId);
+      if (copy?.url) {
+        const repo = repoEntryFor(copy.url);
+        return repo
+          ? { url: copy.url, title: repo.title, where: `the config repository (${repo.file})`,
+              source: { kind: 'repo', title: repo.title, label: `config repository (${repo.file})` } }
+          : { url: copy.url, title: copy.title, where: fileNameOf(copy.url),
+              source: { kind: 'path', title: copy.title, label: fileNameOf(copy.url) } };
+      }
+      const clean = copy?.originId ? readRecent().find(e => e.id === copy.originId && !e.edited && e.config) : null;
+      return clean ? { recentId: clean.id, title: clean.title, where: clean.label } : null;
+    }
+    function updateOriginalButton() {
+      const btn = document.getElementById('btn-original');
+      if (!btn) return;
+      const original = originalOfCopy();
+      btn.hidden = !(original || (activeSource && activeSource.kind !== 'recent' && isEdited()));
+      btn.title = original
+        ? `Open the original “${original.title}” from ${original.where}. This edited copy stays under Recent.`
+        : 'Put the configuration back the way it was when you opened it. Undo brings your changes back.';
+    }
+    async function backToOriginal() {
+      trackEdits();
+      const status = document.getElementById('status');
+      const original = originalOfCopy();
+      if (!original) {
+        if (!isEdited()) return;
+        // Going back is one more step, so it needs no question: Undo reverses it.
+        commitStep();
+        undoStack.splice(undoIndex + 1);
+        undoStack.push(openedSnapshot);
+        await restoreStep(undoStack.length - 1, 'Back to the original — Undo brings your changes back.');
+        return;
+      }
+      const answer = await askDialog({
+        title: `Back to the original “${original.title}”?`,
+        text: `This opens “${original.title}” from ${original.where}, as it is there now. `
+          + 'The edited copy you are working on stays under Recent in this browser, so you can open it again from there.',
+        buttons: [
+          { value: 'cancel', label: 'Cancel' },
+          { value: 'open', label: 'Open the original', primary: true },
+        ],
+      });
+      if (answer !== 'open') return;
+      if (original.recentId) {
+        const entry = readRecent().find(e => e.id === original.recentId);
+        if (!entry) { status.textContent = 'The original is no longer under Recent.'; return; }
+        await openConfig(structuredClone(entry.config), null, { kind: 'upload', title: entry.title, label: entry.label },
+          `Opened the original “${entry.title}”.`);
+        return;
+      }
+      await openFromUrlUnchecked(original.url, original.source);
+    }
+
+    async function loadConfigIndex() {
+      if (configIndex) return configIndex;
+      try {
+        const res = await fetch(new URL('index.json', CONFIG_DIR_URL));
+        if (!res.ok) throw new Error(String(res.status));
+        const data = await res.json();
+        configIndex = (Array.isArray(data?.configs) ? data.configs : [])
+          .filter(c => typeof c?.file === 'string')
+          .map(c => ({
+            file: c.file,
+            title: c.title || c.file.replace(/\.json$/i, ''),
+            description: c.description ?? '',
+            url: new URL(c.file, CONFIG_DIR_URL).href,
+            // Baked by `npm run generate:config-thumbnails`; absent → a placeholder card.
+            thumbnail: typeof c.thumbnail === 'string' ? new URL(c.thumbnail, CONFIG_DIR_URL).href : null,
+          }));
+      } catch {
+        configIndex = [];   // no index: the section is simply not offered
+      }
+      return configIndex;
+    }
+
+    function timeAgo(ms) {
+      const s = Math.round((Date.now() - ms) / 1000);
+      if (s < 60) return 'just now';
+      const m = Math.round(s / 60);
+      if (m < 60) return `${m} min ago`;
+      const h = Math.round(m / 60);
+      if (h < 24) return `${h} h ago`;
+      const d = Math.round(h / 24);
+      return d === 1 ? 'yesterday' : `${d} days ago`;
+    }
+
+    // Opening replaces the work on screen. Edits are already in Recent, so nothing is lost
+    // either way — the question is a reminder, and only asked when there are edits.
+    // One small question dialog for every "are you sure". `buttons` are
+    // { value, label, primary?, action? }: a button with an `action` runs it and
+    // leaves the question open (Download first); any other answers it. Escape = 'cancel'.
+    function askDialog({ title, text, buttons }) {
+      const dlg = document.getElementById('open-confirm');
+      document.getElementById('open-confirm-title').textContent = title;
+      document.getElementById('open-confirm-text').textContent = text;
+      const row = dlg.querySelector('.open-confirm-actions');
+      row.replaceChildren(...buttons.map(b => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.value = b.value;
+        btn.textContent = b.label;
+        if (b.primary) btn.className = 'open-confirm-primary';
+        return btn;
+      }));
+      return new Promise(resolve => {
+        const done = (v) => {
+          dlg.removeEventListener('click', onClick);
+          dlg.removeEventListener('cancel', onCancel);
+          if (dlg.open) dlg.close();
+          resolve(v);
+        };
+        const onClick = (e) => {
+          const v = e.target.closest('button')?.value;
+          if (!v) return;
+          const action = buttons.find(b => b.value === v)?.action;
+          if (action) { action(); return; }
+          done(v);
+        };
+        const onCancel = () => done('cancel');
+        dlg.addEventListener('click', onClick);
+        dlg.addEventListener('cancel', onCancel);
+        dlg.showModal();
+        row.querySelector('.open-confirm-primary')?.focus();
+      });
+    }
+
+    async function confirmLeave(nextTitle) {
+      trackEdits();
+      if (!isEdited()) return true;
+      const answer = await askDialog({
+        title: `Open “${nextTitle}”?`,
+        text: `Your changes to “${activeSource?.title ?? 'this config'}” have not been saved. They stay under Recent in this browser.`,
+        buttons: [
+          { value: 'cancel', label: 'Cancel' },
+          { value: 'save', label: 'Save as… first', action: () => saveConfigAs() },
+          { value: 'open', label: 'Open', primary: true },
+        ],
+      });
+      return answer === 'open';
+    }
+
+    // Clearing Recent is harmless for an entry that only points at a URL: the config
+    // is still there. An uploaded file or an edited copy exists nowhere else, so say
+    // which ones would be lost before removing them.
+    async function clearRecent() {
+      trackEdits();
+      const removed = readRecent().filter(e => e.id !== activeRecentId);
+      const onlyHere = removed.filter(e => e.config);
+      if (onlyHere.length) {
+        const names = onlyHere.map(e => `“${e.title}${e.edited ? ' (edited)' : ''}”`).join(', ');
+        const answer = await askDialog({
+          title: 'Clear recent configs?',
+          text: `${names} ${onlyHere.length === 1 ? 'exists' : 'exist'} only in this browser — an uploaded file or unexported changes. Clearing removes ${onlyHere.length === 1 ? 'it' : 'them'} for good.`,
+          buttons: [
+            { value: 'cancel', label: 'Cancel', primary: true },
+            { value: 'clear', label: 'Clear anyway' },
+          ],
+        });
+        if (answer !== 'clear') return false;
+      }
+      writeRecent(readRecent().filter(e => e.id === activeRecentId));
+      return true;
+    }
+
+    // The one way in: every Open path ends here.
+    async function openConfig(raw, url, source, statusText, recentId = null) {
+      baseConfig = normalizeRawConfig(raw);
+      activeConfigUrl = url;
+      activeSource = source;
+      await reinitializeFromConfig(baseConfig, statusText);
+      openedSnapshot = lastSeenSnapshot = mergedConfigJson();
+      activeRecentId = openedFromRecentId = activeOriginId = null;
+      if (recentId) {
+        // Reopening an edited copy: further edits continue that same entry, and the
+        // copy as stored counts as its starting point.
+        activeRecentId = openedFromRecentId = recentId;
+        activeOriginId = readRecent().find(e => e.id === recentId)?.originId ?? null;
+      } else {
+        rememberOpened();
+      }
+      resetHistory();
+      renderSourceLine();
+    }
+
+    async function openFromUrl(url, source) {
+      if (!(await confirmLeave(source.title))) return;
+      const status = document.getElementById('status');
+      status.textContent = `Loading “${source.title}”…`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        await openConfig(await res.json(), res.url, source, `Opened “${source.title}”.`);
+      } catch (err) {
+        status.textContent = `Could not open “${source.title}”: ${err.message ?? String(err)}`;
+      }
+    }
+
+    async function openRecent(id) {
+      const entry = readRecent().find(e => e.id === id);
+      if (!entry) return;
+      const shownTitle = entry.edited ? `${entry.title} (edited)` : entry.title;
+      if (!(await confirmLeave(shownTitle))) return;
+      if (!entry.config && entry.url) {
+        const repo = repoEntryFor(entry.url);
+        return openFromUrlUnchecked(entry.url, repo
+          ? { kind: 'repo', title: repo.title, label: `config repository (${repo.file})` }
+          : { kind: 'path', title: entry.title, label: entry.label });
+      }
+      await openConfig(structuredClone(entry.config), entry.url,
+        entry.edited ? { kind: 'recent', title: entry.title, label: entry.label }
+                     : { kind: 'upload', title: entry.title, label: entry.label },
+        `Opened “${shownTitle}” from Recent.`, entry.edited ? entry.id : null);
+    }
+
+    async function openFromUrlUnchecked(url, source) {
+      const status = document.getElementById('status');
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        await openConfig(await res.json(), res.url, source, `Opened “${source.title}”.`);
+      } catch (err) {
+        status.textContent = `Could not open “${source.title}”: ${err.message ?? String(err)}`;
+      }
+    }
+    // --- The Open configuration dialog: Recent + the repository list, as thumbnails or a list ---
+    // Also the start screen. Every way of opening ends in openConfig().
+    // Thumbnails are baked into the config repository (index.json "thumbnail"); an edited
+    // copy borrows its original's, marked "edited"; anything else gets a placeholder.
+    function placeholderFor(title) {
+      let h = 0;
+      for (const ch of title) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+      const hue = h % 360;
+      const el = document.createElement('div');
+      el.className = 'placeholder';
+      el.style.background = `linear-gradient(135deg, hsl(${hue} 55% 42%), hsl(${(hue + 40) % 360} 60% 32%))`;
+      el.textContent = (title.trim()[0] ?? '?').toUpperCase();
+      el.setAttribute('aria-hidden', 'true');
+      return el;
+    }
+
+    function galleryCard({ title, sub, thumbnail, badge, current, onOpen }) {
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'gallery-card' + (current ? ' is-current' : '');
+      const thumb = document.createElement('div');
+      thumb.className = 'gallery-thumb';
+      if (thumbnail) {
+        const img = document.createElement('img');
+        img.src = thumbnail;
+        img.alt = '';
+        img.loading = 'lazy';
+        img.addEventListener('error', () => img.replaceWith(placeholderFor(title)), { once: true });
+        thumb.append(img);
+      } else {
+        thumb.append(placeholderFor(title));
+      }
+      if (badge) {
+        const b = document.createElement('span');
+        b.className = 'gallery-badge';
+        b.textContent = badge;
+        thumb.append(b);
+      }
+      if (current) {
+        const c = document.createElement('span');
+        c.className = 'gallery-badge current';
+        c.textContent = 'current';
+        thumb.append(c);
+      }
+      const text = document.createElement('div');
+      text.className = 'gallery-text';
+      const t = document.createElement('span');
+      t.className = 'gallery-title';
+      t.textContent = title;
+      text.append(t);
+      if (sub) {
+        const s = document.createElement('span');
+        s.className = 'gallery-sub';
+        s.textContent = sub;
+        s.title = sub;
+        text.append(s);
+      }
+      btn.append(thumb, text);
+      btn.dataset.search = `${title} ${sub ?? ''}`.toLowerCase();
+      btn.addEventListener('click', () => {
+        document.getElementById('config-gallery').close();
+        onOpen();
+      });
+      li.append(btn);
+      return li;
+    }
+
+    async function renderGallery() {
+      const index = await loadConfigIndex();
+      const currentUrl = activeConfigUrl ? new URL(activeConfigUrl, window.location.href).href : null;
+      const edited = isEdited();
+
+      document.getElementById('gallery-repo-grid').replaceChildren(...index.map(e => galleryCard({
+        title: e.title,
+        sub: e.description || e.file,
+        thumbnail: e.thumbnail,
+        current: !edited && activeSource?.kind === 'repo' && e.url === currentUrl,
+        onOpen: () => openFromUrl(e.url, { kind: 'repo', title: e.title, label: `config repository (${e.file})` }),
+      })));
+      document.getElementById('gallery-repo').hidden = index.length === 0;
+
+      const recent = readRecent();
+      document.getElementById('gallery-recent-grid').replaceChildren(...recent.map(e => galleryCard({
+        title: e.title,
+        sub: `${timeAgo(e.time)} · ${e.label}`,
+        thumbnail: repoEntryFor(e.url)?.thumbnail ?? null,
+        badge: e.edited ? 'edited' : null,
+        current: e.edited ? e.id === activeRecentId
+          : (!edited && activeSource?.kind !== 'recent' && !!e.url && e.url === currentUrl),
+        onOpen: () => openRecent(e.id),
+      })));
+      document.getElementById('gallery-recent').hidden = recent.length === 0;
+      applyGalleryFilter();
+    }
+
+    function applyGalleryFilter() {
+      const q = document.getElementById('gallery-filter').value.trim().toLowerCase();
+      let shown = 0;
+      for (const id of ['gallery-recent', 'gallery-repo']) {
+        const sec = document.getElementById(id);
+        const cards = [...sec.querySelectorAll('.gallery-card')];
+        if (!cards.length) continue;
+        let visible = 0;
+        for (const card of cards) {
+          const match = !q || card.dataset.search.includes(q);
+          card.parentElement.hidden = !match;
+          if (match) visible++;
+        }
+        sec.hidden = visible === 0;
+        shown += visible;
+      }
+      document.getElementById('gallery-empty').hidden = !q || shown > 0;
+    }
+
+    // `asStartScreen`: shown when setup opens without ?config=. The default config is
+    // already loaded behind it, so closing simply continues with that one.
+    async function openGallery({ asStartScreen = false } = {}) {
+      trackEdits();
+      const dlg = document.getElementById('config-gallery');
+      document.getElementById('gallery-filter').value = '';
+      document.getElementById('gallery-path-input').value = '';
+      const hint = document.getElementById('gallery-start-hint');
+      hint.hidden = !asStartScreen;
+      hint.textContent = asStartScreen ? `Close to continue with “${activeSource?.title ?? 'the default config'}”.` : '';
+      document.getElementById('config-gallery-title').textContent = asStartScreen ? 'What do you want to work on?' : 'Open configuration';
+      await renderGallery();
+      dlg.showModal();
+      document.getElementById('gallery-filter').focus();
+      if (asStartScreen) {
+        // Closing the start screen hides every config at once; point at where they went.
+        dlg.addEventListener('close', () => {
+          for (const id of ['btn-open-config']) {
+            const btn = document.getElementById(id);
+            btn.classList.remove('v2-glow');
+            void btn.offsetWidth;   // restart the animation
+            btn.classList.add('v2-glow');
+            setTimeout(() => btn.classList.remove('v2-glow'), 2000);
+          }
+        }, { once: true });
+      }
+    }
+
+    document.getElementById('btn-gallery-upload').addEventListener('click', () => {
+      document.getElementById('config-gallery').close();
+      document.getElementById('config-upload-input').click();
+    });
+    const galleryOpenPath = () => {
+      const value = document.getElementById('gallery-path-input').value;
+      if (!value.trim()) return;
+      document.getElementById('config-gallery').close();
+      uploadConfigPath(value);
+    };
+    document.getElementById('btn-gallery-open-path').addEventListener('click', galleryOpenPath);
+    document.getElementById('gallery-path-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); galleryOpenPath(); }
+    });
+
+    document.getElementById('btn-open-config').addEventListener('click', () => openGallery());
+
+    // Thumbnails or list: thumbnails to recognise a map, a list to scan names. The choice
+    // is a per-browser convenience, so it lives in localStorage (and works without it).
+    const GALLERY_VIEW_KEY = 'webmapx-setup-gallery-view';
+    function setGalleryView(view) {
+      const list = view === 'list';
+      document.getElementById('config-gallery').classList.toggle('list-view', list);
+      document.getElementById('view-grid').setAttribute('aria-pressed', String(!list));
+      document.getElementById('view-list').setAttribute('aria-pressed', String(list));
+      try { localStorage.setItem(GALLERY_VIEW_KEY, list ? 'list' : 'grid'); } catch { /* not remembered */ }
+    }
+    try { setGalleryView(localStorage.getItem(GALLERY_VIEW_KEY) ?? 'grid'); } catch { setGalleryView('grid'); }
+    document.getElementById('view-grid').addEventListener('click', () => setGalleryView('grid'));
+    document.getElementById('view-list').addEventListener('click', () => setGalleryView('list'));
+
+    // Enter in the filter opens the first match: "nl", Enter.
+    document.getElementById('gallery-filter').addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      const first = [...document.querySelectorAll('#config-gallery .gallery-card')]
+        .find(card => !card.parentElement.hidden && !card.closest('section').hidden);
+      if (first) { e.preventDefault(); first.click(); }
+    });
+    document.getElementById('btn-gallery-clear-recent').addEventListener('click', async () => {
+      if (await clearRecent()) renderGallery();
+    });
+    document.getElementById('gallery-filter').addEventListener('input', applyGalleryFilter);
+    document.querySelector('#config-gallery .gallery-close').addEventListener('click', () => document.getElementById('config-gallery').close());
+    // A click on the backdrop lands on the dialog element itself.
+    document.getElementById('config-gallery').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) e.currentTarget.close();
+    });
 
     // Real configs use one of 3 top-level shapes for layer catalog data (see
     // src/config/loader.ts normalizeAppConfig): `layerData` (canonical), `catalog`
@@ -4135,19 +5074,24 @@
       updateSelectAll();
     });
 
-    async function reinitializeFromConfig(config, statusText) {
+    // keepSelection: an undo step rebuilds the same config, so the story, chapter and
+    // step being edited stay selected (out-of-range indices are clamped by the tab).
+    async function reinitializeFromConfig(config, statusText, { keepSelection = false } = {}) {
       await loadConfigPlugins(config);
       renderPluginList(config);
       saveOverrides({});
       closePopup();
       buildUI(config, {});
       buildLayersUI(config);
+      if (layersTabActive()) refreshLayersPreviewFrame(config);
       buildMapUI(config);
       refreshMapPreviewFrame(config);
       buildStyleUI(config);
-      selStoryIdx = 0;
-      selChapterIdx = 0;
-      selStepIdx = 0;
+      if (!keepSelection) {
+        selStoryIdx = 0;
+        selChapterIdx = 0;
+        selStepIdx = 0;
+      }
       buildStoriesUI(config);
       refreshStoriesPreviewFrame(config);
       updateSelectAll();
@@ -4166,11 +5110,12 @@
         status.textContent = `Could not read "${file.name}" as JSON: ${err.message ?? String(err)}`;
         return;
       }
-      baseConfig = normalizeRawConfig(parsed);
       // Browsers do not expose a picked file's local path. The config itself is
       // transferred via localStorage; there is no honest URL to put in preview.
-      activeConfigUrl = null;
-      reinitializeFromConfig(baseConfig, `Uploaded "${file.name}" — setup reinitialized.`);
+      const title = configTitle(parsed, file.name);
+      if (!(await confirmLeave(title))) { status.textContent = ''; return; }
+      await openConfig(parsed, null, { kind: 'upload', title, label: `uploaded file (${file.name})` },
+        `Uploaded "${file.name}" — setup reinitialized.`);
     }
 
     function devServerUrlForPath(rawPath) {
@@ -4211,19 +5156,20 @@
         status.textContent = `Could not open "${rawPath.trim()}" (${res.status}). If this is a local dev path, restart Vite after the latest config change.`;
         return;
       }
+      let parsed;
       try {
-        baseConfig = normalizeRawConfig(await res.json());
+        parsed = await res.json();
       } catch (err) {
         status.textContent = `Could not parse "${rawPath.trim()}" as JSON: ${err.message ?? String(err)}`;
         return;
       }
-      activeConfigUrl = res.url;
-      reinitializeFromConfig(baseConfig, `Opened "${rawPath.trim()}" — setup reinitialized.`);
+      await loadConfigIndex();
+      const source = sourceForUrl(res.url, parsed);
+      if (!(await confirmLeave(source.title))) { status.textContent = ''; return; }
+      await openConfig(parsed, res.url, source, `Opened "${rawPath.trim()}" — setup reinitialized.`);
     }
 
-    const uploadBtn = document.getElementById('btn-upload');
     const uploadInput = document.getElementById('config-upload-input');
-    const pathInput = document.getElementById('config-path-input');
     let pageDragDepth = 0;
 
     function hasConfigDragData(event) {
@@ -4234,7 +5180,7 @@
 
     function setConfigDragOver(active) {
       document.body.classList.toggle('config-drag-over', active);
-      uploadBtn.classList.toggle('drag-over', active);
+      document.querySelectorAll('.open-drop').forEach(el => el.classList.toggle('drag-over', active));
     }
 
     function droppedFile(event) {
@@ -4246,17 +5192,9 @@
       return event.dataTransfer?.getData('text/uri-list') || event.dataTransfer?.getData('text/plain') || '';
     }
 
-    uploadBtn.addEventListener('click', () => uploadInput.click());
     uploadInput.addEventListener('change', () => {
       uploadConfigFile(uploadInput.files?.[0]);
       uploadInput.value = '';
-    });
-    document.getElementById('btn-open-config-path').addEventListener('click', () => uploadConfigPath(pathInput.value));
-    pathInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        uploadConfigPath(pathInput.value);
-      }
     });
 
     document.addEventListener('dragenter', (e) => {
@@ -4280,15 +5218,18 @@
       e.preventDefault();
       pageDragDepth = 0;
       setConfigDragOver(false);
+      document.getElementById('config-gallery')?.close();
       const file = droppedFile(e);
       if (file) uploadConfigFile(file);
       else uploadConfigPath(droppedPath(e));
     });
 
-    document.getElementById('btn-launch').addEventListener('click', () => {
+    // Open in new tab: the full-page viewer, as a visitor sees it. One named tab, reused.
+    // It follows edits by itself (trackEdits writes STORAGE_KEY, preview.html reloads on
+    // that storage event), so this only opens — there is nothing to "update" by hand.
+    function openPreviewTab() {
       if (!baseConfig) return;
-      const overrides = getSaved();
-      const finalConfig = applyOverrides(baseConfig, overrides);
+      const finalConfig = applyOverrides(baseConfig, getSaved());
       storeConfig(STORAGE_KEY, finalConfig);
       const previewParams = new URLSearchParams(window.location.search);
       if (activeConfigUrl) previewParams.set('config', activeConfigUrl);
@@ -4298,24 +5239,54 @@
       const engine = finalConfig.engine ?? finalConfig.map?.type ?? 'maplibre';
       setPreviewEngine(previewUrl, engine);
       window.open(previewUrl, 'webmapx-preview');
-      document.getElementById('status').textContent = 'Config saved — preview updated.';
-    });
+    }
+    document.querySelectorAll('[data-open-preview]').forEach(btn => btn.addEventListener('click', openPreviewTab));
 
-    document.getElementById('btn-reset').addEventListener('click', () => {
-      reinitializeFromConfig(baseConfig, 'Reset to defaults — preview updated.');
-    });
+    document.getElementById('btn-undo').addEventListener('click', () => undoStep());
+    document.getElementById('btn-redo').addEventListener('click', () => redoStep());
+    document.getElementById('btn-original').addEventListener('click', () => backToOriginal());
 
-    document.getElementById('btn-download').addEventListener('click', () => {
-      if (!baseConfig) return;
-      const finalConfig = applyOverrides(baseConfig, getSaved());
-      const blob = new Blob([JSON.stringify(finalConfig, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
+    // Save as: a file on the user's own computer. Chrome and Edge offer a real save
+    // dialog (name and folder); elsewhere it is a download. Either way the name comes
+    // from the config, so saved files do not overwrite each other in Downloads.
+    function suggestedFileName() {
+      if (activeConfigUrl) return fileNameOf(activeConfigUrl);
+      const slug = (activeSource?.title ?? configTitle(baseConfig, 'configuration'))
+        .toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      return `${slug || 'configuration'}.json`;
+    }
+
+    async function saveConfigAs() {
+      if (!baseConfig) return false;
+      const text = JSON.stringify(applyOverrides(baseConfig, getSaved()), null, 2);
+      const name = suggestedFileName();
+      const status = document.getElementById('status');
+      if (typeof window.showSaveFilePicker === 'function') {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: name,
+            types: [{ description: 'WebMapX configuration', accept: { 'application/json': ['.json'] } }],
+          });
+          const out = await handle.createWritable();
+          await out.write(text);
+          await out.close();
+          status.textContent = `Saved as “${handle.name}”.`;
+          return true;
+        } catch (err) {
+          if (err?.name === 'AbortError') return false;   // the user cancelled
+          // Anything else (blocked, unsupported here): fall back to a download.
+        }
+      }
+      const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'webmapx-config.json';
+      a.download = name;
       a.click();
       URL.revokeObjectURL(url);
-    });
+      status.textContent = `Saved “${name}” to your Downloads folder.`;
+      return true;
+    }
+    document.getElementById('btn-save-as').addEventListener('click', saveConfigAs);
 
     // --- Publish to GitHub (Contents API, called directly from the browser — CORS is allowed) ---
     const GITHUB_AUTH_KEY = 'webmapx-setup-github-auth';
@@ -4422,6 +5393,12 @@
       if (!baseConfig) return;
       const panel = document.getElementById('publish-panel');
       fillPublishForm(getGithubAuth());
+      // The file belongs to the configuration on screen, not to the last publish: the
+      // config repository is flat, so a config opened from it goes back under its own name.
+      const file = suggestedFileName();
+      document.getElementById('publish-path').value = file;
+      if (!document.getElementById('publish-repo').value) document.getElementById('publish-repo').value = 'edugis-org/webmapx-configs';
+      document.getElementById('publish-message').value = `Update ${file}`;
       panel.hidden = !panel.hidden;
       setPublishStatus('');
     });
@@ -5428,8 +6405,17 @@
           refreshStoriesPreviewFrame(baseConfig);
         }
         if (btn.dataset.tab === 'tools' && baseConfig) refreshToolsPreviewFrame(baseConfig);
+        if (btn.dataset.tab === 'layers' && baseConfig) refreshLayersPreviewFrame(baseConfig);
       });
     });
+
+    // A layer edit is a click, tick, drop or typed value somewhere in the tab; check soon
+    // after one instead of waiting for the next 1.5 s tick, so the preview keeps up.
+    {
+      let layersEditTimer = null;
+      const nudge = () => { clearTimeout(layersEditTimer); layersEditTimer = setTimeout(trackEdits, 400); };
+      for (const type of ['change', 'drop', 'click', 'input']) document.getElementById('tab-layers').addEventListener(type, nudge);
+    }
 
     document.getElementById('catalog-search').addEventListener('input', () => buildLayersUI(baseConfig));
 
@@ -5485,6 +6471,14 @@
     refreshStoriesPreviewFrame(config);
     refreshToolsPreviewFrame(config);
     updateSelectAll();
+    await loadConfigIndex();
+    activeSource = sourceForUrl(activeConfigUrl, config);
+    openedSnapshot = lastSeenSnapshot = mergedConfigJson();
+    rememberOpened();
+    resetHistory();
+    renderSourceLine();
+    // Start screen: a link with ?config= knows what it wants; a bare visit gets asked.
+    if (!new URLSearchParams(window.location.search).has('config')) openGallery({ asStartScreen: true });
   </script>
   <script>
     document.addEventListener('click', (e) => {
