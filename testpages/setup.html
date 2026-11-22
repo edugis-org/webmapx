@@ -250,8 +250,6 @@
     button { padding: 0.6rem 1.4rem; font-size: 1rem; cursor: pointer; border: none; border-radius: 4px; }
     #btn-launch { background: #0f62fe; color: #fff; }
     #btn-launch:hover { background: #0353e9; }
-    #btn-reset { background: #e0e0e0; }
-    #btn-reset:hover { background: #c6c6c6; }
     #status { margin-top: 1rem; font-size: 0.875rem; color: #555; }
     #btn-publish { background: #e0e0e0; }
     #btn-publish:hover { background: #c6c6c6; }
@@ -317,8 +315,13 @@
     #btn-launch:hover, #btn-publish-submit:hover, .btn-map-sync:hover, .btn-add-layer:hover { background: var(--v2-primary-hover); }
     .btn-map-refresh { background: var(--v2-surface); color: var(--v2-text); border-color: var(--v2-border); }
     .btn-map-refresh:hover { background: var(--v2-surface-2); }
-    #btn-reset, #btn-publish, #btn-upload, .upload-path-row button { background: var(--v2-surface); }
-    #btn-reset:hover, #btn-publish:hover, #btn-upload:hover { background: var(--v2-surface-2); }
+    #btn-undo, #btn-redo, #btn-original, #btn-publish, #btn-upload, .upload-path-row button { background: var(--v2-surface); }
+    #btn-undo:hover:not(:disabled), #btn-redo:hover:not(:disabled), #btn-original:hover, #btn-publish:hover, #btn-upload:hover { background: var(--v2-surface-2); }
+    #btn-undo:disabled, #btn-redo:disabled { color: var(--v2-muted); opacity: .55; cursor: default; }
+    /* Undo and redo read as one control: joined, sharing a border */
+    .v2-undo-group { display: inline-flex; }
+    .v2-undo-group #btn-undo { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+    .v2-undo-group #btn-redo { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left: 0; }
     .btn-danger, .v2-danger { color: var(--v2-danger) !important; }
     input[type=text], input[type=number], input[type=search], input[type=password], select, textarea {
       font: inherit; font-size: 13px; color: var(--v2-text); background: var(--v2-surface);
@@ -684,7 +687,6 @@
     }
     label:hover .info-btn, label:focus-within .info-btn, .info-btn:focus-visible { opacity: 1; }
     .v2-menu-panel > button#btn-publish { background: none; }
-    .tabs #btn-reset { color: var(--v2-danger); }
     .tabs { align-items: center; }
     .tabs .actions { margin-left: auto; padding: 6px 0; }
     .v2-select-all[hidden] { display: none; }
@@ -1005,7 +1007,12 @@
       <!-- Save as: a file on your own computer. Publish: to the config repository, for others. -->
       <button id="btn-save-as" type="button" class="v2-open-btn v2-browse-btn" title="Save this configuration as a file on your computer"><span class="open-ico open-ico-save" aria-hidden="true"></span>Save as…</button>
       <button id="btn-publish" type="button" class="v2-publish-btn" title="Publish this configuration to the config repository on GitHub, so others can open it"><span class="open-ico open-ico-publish" aria-hidden="true"></span>Publish…</button>
-      <button id="btn-reset" type="button" class="v2-danger" title="Put the configuration back the way it was when you opened it">Undo all changes</button>
+      <!-- Undo/redo step through your own actions; "Back to the original" is the rarer, bigger step -->
+      <span class="v2-undo-group" role="group" aria-label="Undo and redo">
+        <button id="btn-undo" type="button" title="Undo your last change (Ctrl+Z)" disabled><span aria-hidden="true">↶ </span>Undo</button>
+        <button id="btn-redo" type="button" title="Redo (Ctrl+Shift+Z or Ctrl+Y)" aria-label="Redo" disabled><span aria-hidden="true">↷</span></button>
+      </span>
+      <button id="btn-original" type="button" hidden>Back to the original…</button>
     </div>
   </nav>
   <main class="v2-main">
@@ -1447,6 +1454,9 @@
     let lastSeenSnapshot = null;
     let activeRecentId = null;   // the edited entry this session writes to, once there are edits
     let openedFromRecentId = null; // set when the config on screen was opened from an edited Recent copy
+    // The clean Recent entry an edited copy started from. A copy of a repository or path
+    // config finds its original again by URL; an uploaded file exists only as that entry.
+    let activeOriginId = null;
     let configIndex = null;        // [{ file, title, description, url }] or [] when there is no index
 
     function mergedConfigJson() {
@@ -1510,8 +1520,9 @@
       if (!activeSource || activeSource.kind === 'recent') return;
       const url = activeConfigUrl ? new URL(activeConfigUrl, window.location.href).href : null;
       const existing = readRecent().find(e => !e.edited && ((url && e.url === url) || (!url && e.label === activeSource.label)));
+      activeOriginId = existing?.id ?? crypto.randomUUID();
       upsertRecent({
-        id: existing?.id ?? crypto.randomUUID(),
+        id: activeOriginId,
         title: activeSource.title,
         label: activeSource.label,
         url,
@@ -1540,14 +1551,144 @@
           label: activeSource?.kind === 'recent' ? activeSource.label : `from ${activeSource?.label ?? 'unknown'}`,
           url: activeConfigUrl ? new URL(activeConfigUrl, window.location.href).href : null,
           edited: true,
+          originId: activeOriginId,
           time: Date.now(),
           config: JSON.parse(json),
         });
       }
+      // An edit that completes on its own time (a dropped file being read) ends no user
+      // action, so the timer is also what turns it into an undo step.
+      commitStep();
       renderSourceLine();
     }
     setInterval(trackEdits, 1500);
     window.addEventListener('pagehide', trackEdits);
+
+    // --- Undo / redo: one step per user action ---
+    //
+    // Each step is a copy of the merged config, taken shortly after a user action ends
+    // (change, input, click, drop, pointerup) and only when it differs from the step
+    // before. That needs no hook in any editor, so an editor added later is covered too.
+    // The short wait gathers what one action does in several events (a drag, a burst of
+    // typing) into one step; it is not the 1.5 s timer, which would merge two separate
+    // actions made within one tick.
+    const UNDO_SETTLE_MS = 350;
+    const UNDO_MAX_STEPS = 50;
+    // Configs can carry imported data inline (up to ~3 MB), so the history is also
+    // bounded by size: the oldest steps go first.
+    const UNDO_MAX_CHARS = 40_000_000;
+    let undoStack = [];
+    let undoIndex = -1;
+    let undoPending = false;
+    let undoTimer = null;
+    let restoringStep = false;
+
+    function resetHistory() {
+      clearTimeout(undoTimer);
+      undoPending = false;
+      undoStack = baseConfig ? [mergedConfigJson()] : [];
+      undoIndex = undoStack.length - 1;
+      updateUndoButtons();
+    }
+    function commitStep() {
+      clearTimeout(undoTimer);
+      undoPending = false;
+      if (!baseConfig || restoringStep || undoIndex < 0) { updateUndoButtons(); return; }
+      const json = mergedConfigJson();
+      if (json !== undoStack[undoIndex]) {
+        undoStack.splice(undoIndex + 1);
+        undoStack.push(json);
+        undoIndex = undoStack.length - 1;
+        let chars = undoStack.reduce((n, s) => n + s.length, 0);
+        while (undoIndex > 0 && (undoStack.length > UNDO_MAX_STEPS || chars > UNDO_MAX_CHARS)) {
+          chars -= undoStack.shift().length;
+          undoIndex--;
+        }
+        renderSourceLine();
+      }
+      updateUndoButtons();
+    }
+    function scheduleStep() {
+      if (restoringStep || !baseConfig) return;
+      undoPending = true;
+      clearTimeout(undoTimer);
+      undoTimer = setTimeout(commitStep, UNDO_SETTLE_MS);
+      updateUndoButtons();
+    }
+    function updateUndoButtons() {
+      const undo = document.getElementById('btn-undo');
+      const redo = document.getElementById('btn-redo');
+      if (!undo || !redo) return;
+      // A pending action may still turn out to change nothing; Undo then says so.
+      undo.disabled = restoringStep || !(undoIndex > 0 || undoPending);
+      redo.disabled = restoringStep || undoIndex >= undoStack.length - 1;
+    }
+    // Rebuilds the setup from one step, keeping the place you were at: the scroll
+    // position and the selected story, chapter and step.
+    async function restoreStep(index, statusText) {
+      restoringStep = true;
+      updateUndoButtons();
+      const scrollY = window.scrollY;
+      try {
+        undoIndex = index;
+        baseConfig = normalizeRawConfig(JSON.parse(undoStack[index]));
+        await reinitializeFromConfig(baseConfig, statusText, { keepSelection: true });
+        // Normalizing may spell the config slightly differently; the step must match
+        // what is now on screen, or the next check would record a phantom step.
+        undoStack[index] = mergedConfigJson();
+      } finally {
+        restoringStep = false;
+      }
+      window.scrollTo(0, scrollY);
+      trackEdits();
+      updateUndoButtons();
+      renderSourceLine();
+    }
+    async function undoStep() {
+      if (restoringStep) return;
+      commitStep();
+      if (undoIndex <= 0) {
+        document.getElementById('status').textContent = 'Nothing to undo — no changes since you opened this configuration.';
+        return;
+      }
+      await restoreStep(undoIndex - 1, 'Undone.');
+    }
+    async function redoStep() {
+      if (restoringStep) return;
+      commitStep();
+      if (undoIndex >= undoStack.length - 1) {
+        document.getElementById('status').textContent = 'Nothing to redo.';
+        return;
+      }
+      await restoreStep(undoIndex + 1, 'Redone.');
+    }
+
+    for (const type of ['change', 'input', 'click', 'drop', 'pointerup']) {
+      document.addEventListener(type, (e) => {
+        // The undo controls themselves are not edits.
+        if (e.target instanceof Element && e.target.closest('#btn-undo, #btn-redo')) return;
+        scheduleStep();
+      }, true);
+    }
+    // Ctrl+Z / Cmd+Z undoes, Ctrl+Shift+Z / Ctrl+Y redoes — except while typing, where
+    // the browser's own undo for that field is what is meant, and while a dialog is open.
+    function isTextEntry(el) {
+      if (!(el instanceof Element)) return false;
+      if (el.closest('[contenteditable=""], [contenteditable="true"]')) return true;
+      if (el instanceof HTMLTextAreaElement) return true;
+      return el instanceof HTMLInputElement
+        && !['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file'].includes(el.type);
+    }
+    document.addEventListener('keydown', (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const key = e.key.toLowerCase();
+      const redo = (key === 'z' && e.shiftKey) || (key === 'y' && !e.shiftKey);
+      const undo = key === 'z' && !e.shiftKey;
+      if (!undo && !redo) return;
+      if (isTextEntry(e.target) || document.querySelector('dialog[open]')) return;
+      e.preventDefault();
+      if (undo) undoStep(); else redoStep();
+    });
 
     function renderSourceLine() {
       const el = document.getElementById('config-source');
@@ -1556,13 +1697,82 @@
       const title = document.createElement('strong');
       title.textContent = activeSource.title;
       el.append(title, ` · ${activeSource.kind === 'recent' ? activeSource.label : 'from ' + activeSource.label}`);
-      if (activeSource.kind === 'recent' || isEdited()) {
+      // Two different things, so two words: "edited copy" is where it came from (your
+      // earlier changes, kept under Recent), "edited" is what happened since opening.
+      const tags = [];
+      if (activeSource.kind === 'recent') tags.push('edited copy');
+      if (isEdited()) tags.push('edited');
+      for (const tag of tags) {
         const ed = document.createElement('span');
         ed.className = 'v2-edited';
-        ed.textContent = ' · edited';
+        ed.textContent = ` · ${tag}`;
         el.append(ed);
       }
       el.title = el.textContent;
+      updateOriginalButton();
+    }
+
+    // --- Back to the original ---
+    //
+    // Not an undo: it leaves the history and the copy you were working on behind. For a
+    // config opened as it is, the original is that config as opened, and going back is
+    // itself a step (Undo brings your changes back). For an edited copy from Recent, the
+    // original is the config the copy was made from — re-read from its URL, or the clean
+    // Recent entry of an uploaded file — and it is opened in its place.
+    function originalOfCopy() {
+      if (activeSource?.kind !== 'recent') return null;
+      const copy = readRecent().find(e => e.id === openedFromRecentId);
+      if (copy?.url) {
+        const repo = repoEntryFor(copy.url);
+        return repo
+          ? { url: copy.url, title: repo.title, where: `the config repository (${repo.file})`,
+              source: { kind: 'repo', title: repo.title, label: `config repository (${repo.file})` } }
+          : { url: copy.url, title: copy.title, where: fileNameOf(copy.url),
+              source: { kind: 'path', title: copy.title, label: fileNameOf(copy.url) } };
+      }
+      const clean = copy?.originId ? readRecent().find(e => e.id === copy.originId && !e.edited && e.config) : null;
+      return clean ? { recentId: clean.id, title: clean.title, where: clean.label } : null;
+    }
+    function updateOriginalButton() {
+      const btn = document.getElementById('btn-original');
+      if (!btn) return;
+      const original = originalOfCopy();
+      btn.hidden = !(original || (activeSource && activeSource.kind !== 'recent' && isEdited()));
+      btn.title = original
+        ? `Open the original “${original.title}” from ${original.where}. This edited copy stays under Recent.`
+        : 'Put the configuration back the way it was when you opened it. Undo brings your changes back.';
+    }
+    async function backToOriginal() {
+      trackEdits();
+      const status = document.getElementById('status');
+      const original = originalOfCopy();
+      if (!original) {
+        if (!isEdited()) return;
+        // Going back is one more step, so it needs no question: Undo reverses it.
+        commitStep();
+        undoStack.splice(undoIndex + 1);
+        undoStack.push(openedSnapshot);
+        await restoreStep(undoStack.length - 1, 'Back to the original — Undo brings your changes back.');
+        return;
+      }
+      const answer = await askDialog({
+        title: `Back to the original “${original.title}”?`,
+        text: `This opens “${original.title}” from ${original.where}, as it is there now. `
+          + 'The edited copy you are working on stays under Recent in this browser, so you can open it again from there.',
+        buttons: [
+          { value: 'cancel', label: 'Cancel' },
+          { value: 'open', label: 'Open the original', primary: true },
+        ],
+      });
+      if (answer !== 'open') return;
+      if (original.recentId) {
+        const entry = readRecent().find(e => e.id === original.recentId);
+        if (!entry) { status.textContent = 'The original is no longer under Recent.'; return; }
+        await openConfig(structuredClone(entry.config), null, { kind: 'upload', title: entry.title, label: entry.label },
+          `Opened the original “${entry.title}”.`);
+        return;
+      }
+      await openFromUrlUnchecked(original.url, original.source);
     }
 
     async function loadConfigIndex() {
@@ -1683,14 +1893,16 @@
       activeSource = source;
       await reinitializeFromConfig(baseConfig, statusText);
       openedSnapshot = lastSeenSnapshot = mergedConfigJson();
-      activeRecentId = openedFromRecentId = null;
+      activeRecentId = openedFromRecentId = activeOriginId = null;
       if (recentId) {
         // Reopening an edited copy: further edits continue that same entry, and the
         // copy as stored counts as its starting point.
         activeRecentId = openedFromRecentId = recentId;
+        activeOriginId = readRecent().find(e => e.id === recentId)?.originId ?? null;
       } else {
         rememberOpened();
       }
+      resetHistory();
       renderSourceLine();
     }
 
@@ -4821,7 +5033,9 @@
       updateSelectAll();
     });
 
-    async function reinitializeFromConfig(config, statusText) {
+    // keepSelection: an undo step rebuilds the same config, so the story, chapter and
+    // step being edited stay selected (out-of-range indices are clamped by the tab).
+    async function reinitializeFromConfig(config, statusText, { keepSelection = false } = {}) {
       await loadConfigPlugins(config);
       renderPluginList(config);
       saveOverrides({});
@@ -4832,9 +5046,11 @@
       buildMapUI(config);
       refreshMapPreviewFrame(config);
       buildStyleUI(config);
-      selStoryIdx = 0;
-      selChapterIdx = 0;
-      selStepIdx = 0;
+      if (!keepSelection) {
+        selStoryIdx = 0;
+        selChapterIdx = 0;
+        selStepIdx = 0;
+      }
       buildStoriesUI(config);
       refreshStoriesPreviewFrame(config);
       updateSelectAll();
@@ -4985,32 +5201,9 @@
     }
     document.querySelectorAll('[data-open-preview]').forEach(btn => btn.addEventListener('click', openPreviewTab));
 
-    // Undo all changes: back to the config as it was opened (openedSnapshot), not to
-    // baseConfig — edits change baseConfig in place, so "re-apply baseConfig" undid
-    // nothing but the tool toggles. Asked first, since it cannot itself be undone here;
-    // the edits are still in Recent, and the dialog says so.
-    document.getElementById('btn-reset').addEventListener('click', async () => {
-      trackEdits();
-      const status = document.getElementById('status');
-      if (!isEdited()) { status.textContent = 'Nothing to undo — no changes since you opened this configuration.'; return; }
-      const answer = await askDialog({
-        title: 'Undo all changes?',
-        text: `This puts “${activeSource?.title ?? 'this configuration'}” back the way it was when you opened it. `
-          + 'Your changes stay under Recent in this browser, so you can still open them from there.',
-        buttons: [
-          { value: 'cancel', label: 'Cancel', primary: true },
-          { value: 'undo', label: 'Undo all changes' },
-        ],
-      });
-      if (answer !== 'undo') return;
-      baseConfig = normalizeRawConfig(JSON.parse(openedSnapshot));
-      await reinitializeFromConfig(baseConfig, 'All changes undone.');
-      lastSeenSnapshot = mergedConfigJson();
-      // New edits must not overwrite the copy that holds the undone ones — unless this
-      // config was itself opened from that copy, in which case it continues it.
-      activeRecentId = openedFromRecentId;
-      renderSourceLine();
-    });
+    document.getElementById('btn-undo').addEventListener('click', () => undoStep());
+    document.getElementById('btn-redo').addEventListener('click', () => redoStep());
+    document.getElementById('btn-original').addEventListener('click', () => backToOriginal());
 
     // Save as: a file on the user's own computer. Chrome and Edge offer a real save
     // dialog (name and folder); elsewhere it is a download. Either way the name comes
@@ -6241,6 +6434,7 @@
     activeSource = sourceForUrl(activeConfigUrl, config);
     openedSnapshot = lastSeenSnapshot = mergedConfigJson();
     rememberOpened();
+    resetHistory();
     renderSourceLine();
     // Start screen: a link with ?config= knows what it wants; a bare visit gets asked.
     if (!new URLSearchParams(window.location.search).has('config')) openGallery({ asStartScreen: true });
