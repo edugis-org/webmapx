@@ -1,0 +1,174 @@
+{
+  "version": 0,
+  "project": "Portolan reference catalog",
+  "map": {
+    "label": "Portolan collections",
+    "center": [
+      5.3,
+      52.1
+    ],
+    "zoom": 6,
+    "type": "maplibre",
+    "style": {
+      "version": 8,
+      "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+      "sources": {},
+      "layers": []
+    }
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "osm-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "attribution": "&copy; OpenStreetMap contributors"
+      }
+    ],
+    "layers": [
+      {
+        "id": "osm",
+        "type": "raster",
+        "source": "osm-source",
+        "singleGroup": "basemap",
+        "title": "OpenStreetMap"
+      },
+      {
+        "id": "nl-provinces",
+        "type": "style",
+        "url": "https://data.source.coop/portolan-mirrors/portolan-spec-examples/portolan-reference/main/boundaries/netherlands-provinces/collection.json"
+      },
+      {
+        "id": "ne-countries",
+        "type": "style",
+        "url": "https://data.source.coop/portolan-mirrors/portolan-spec-examples/portolan-reference/main/reference/natural-earth-countries/collection.json"
+      },
+      {
+        "id": "edugis-woonplaats",
+        "type": "style",
+        "url": "https://edugis.b-cdn.net/bag-light-woonplaats-6bc4f3ea/collection.json"
+      },
+      {
+        "id": "edugis-pand",
+        "type": "style",
+        "url": "https://edugis.b-cdn.net/bag-light-pand-69d34205/collection.json"
+      },
+      {
+        "id": "edugis-wateringen-1832",
+        "type": "style",
+        "url": "https://edugis.b-cdn.net/1832-wegen-en-wateringen-1832-wateringen-c9eeaa5b/collection.json"
+      },
+      {
+        "id": "edugis-landen",
+        "type": "style",
+        "url": "https://edugis.b-cdn.net/geoboundariescgaz-adm0-bbe04625/collection.json"
+      }
+    ]
+  },
+  "state": {
+    "activeExclusiveLayers": {
+      "basemap": "osm"
+    },
+    "activeLayers": [
+      {
+        "ref": "osm",
+        "visible": true
+      },
+      {
+        "ref": "ne-countries",
+        "visible": true
+      },
+      {
+        "ref": "nl-provinces",
+        "visible": true
+      }
+    ]
+  },
+  "tools": {
+    "info": {
+      "enabled": true
+    },
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "panel": {
+        "enabled": true,
+        "label": "Tools",
+        "position": "after"
+      },
+      "items": [
+        {
+          "id": "layerTree",
+          "type": "layerTree",
+          "enabled": true,
+          "title": "Catalog",
+          "icon": "layers",
+          "tree": [
+            {
+              "label": "Base map",
+              "selectionMode": "single",
+              "selectionGroup": "basemap",
+              "allowNone": true,
+              "expanded": false,
+              "children": [
+                {
+                  "layerId": "osm"
+                }
+              ]
+            },
+            {
+              "label": "Portolan reference catalog",
+              "expanded": true,
+              "children": [
+                {
+                  "layerId": "nl-provinces"
+                },
+                {
+                  "layerId": "ne-countries"
+                }
+              ]
+            },
+            {
+              "label": "EduGIS library (Bunny en Hetzner)",
+              "expanded": true,
+              "children": [
+                {
+                  "layerId": "edugis-woonplaats"
+                },
+                {
+                  "layerId": "edugis-pand"
+                },
+                {
+                  "layerId": "edugis-wateringen-1832"
+                },
+                {
+                  "layerId": "edugis-landen"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "layerOverview",
+          "type": "layerOverview",
+          "enabled": true,
+          "title": "Legend",
+          "icon": "list-ul"
+        },
+        {
+          "id": "info",
+          "type": "info",
+          "enabled": true,
+          "title": "Info",
+          "icon": "info-circle"
+        }
+      ]
+    }
+  }
+}

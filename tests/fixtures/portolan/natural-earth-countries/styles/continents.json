@@ -1,0 +1,48 @@
+{
+  "version": 8,
+  "name": "Countries by continent",
+  "sources": {
+    "data": {
+      "type": "vector",
+      "url": "../natural-earth-countries.parquet"
+    }
+  },
+  "layers": [
+    {
+      "id": "natural-earth-countries",
+      "type": "fill",
+      "source": "data",
+      "paint": {
+        "fill-color": [
+          "match",
+          [
+            "get",
+            "CONTINENT"
+          ],
+          "Africa",
+          "#4e79a7",
+          "Asia",
+          "#f28e2b",
+          "Europe",
+          "#59a14f",
+          "North America",
+          "#e15759",
+          "South America",
+          "#b07aa1",
+          "Oceania",
+          "#76b7b2",
+          "Antarctica",
+          "#edc948",
+          "Seven seas (open ocean)",
+          "#ff9da7",
+          "#cccccc"
+        ],
+        "fill-outline-color": "#ffffff",
+        "fill-opacity": 0.6
+      }
+    }
+  ],
+  "metadata": {
+    "description": "Each continent shares one colour from the catalog palette, including the Seven seas (open ocean) group Natural Earth assigns the French Southern and Antarctic Lands."
+  }
+}

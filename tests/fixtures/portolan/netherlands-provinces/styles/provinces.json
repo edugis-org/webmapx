@@ -1,0 +1,57 @@
+{
+  "version": 8,
+  "name": "Provinces by name",
+  "sources": {
+    "data": {
+      "type": "vector",
+      "url": "pmtiles://../netherlands-provinces.pmtiles"
+    }
+  },
+  "layers": [
+    {
+      "id": "netherlands-provinces",
+      "type": "fill",
+      "source": "data",
+      "paint": {
+        "fill-color": [
+          "match",
+          [
+            "get",
+            "naam"
+          ],
+          "Drenthe",
+          "#4e79a7",
+          "Flevoland",
+          "#f28e2b",
+          "Fryslân",
+          "#59a14f",
+          "Gelderland",
+          "#e15759",
+          "Groningen",
+          "#b07aa1",
+          "Limburg",
+          "#76b7b2",
+          "Noord-Brabant",
+          "#edc948",
+          "Noord-Holland",
+          "#ff9da7",
+          "Overijssel",
+          "#4e79a7",
+          "Utrecht",
+          "#f28e2b",
+          "Zeeland",
+          "#59a14f",
+          "Zuid-Holland",
+          "#e15759",
+          "#cccccc"
+        ],
+        "fill-outline-color": "#ffffff",
+        "fill-opacity": 0.6
+      },
+      "source-layer": "netherlands-provinces"
+    }
+  ],
+  "metadata": {
+    "description": "Twelve provinces, one palette colour each."
+  }
+}

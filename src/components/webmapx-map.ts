@@ -49,6 +49,13 @@ import { timeOf } from '../utils/map-clock';
 import { applyMapState } from '../utils/internal-sources';
 import { inlineLayerSources } from '../map/layer-source-resolver';
 import { showToast } from '../utils/toast';
+import {
+  bindStyleToCollection,
+  fallbackStyle,
+  isStacCollection,
+  portolanLayerMetadata,
+  readPortolanCollection,
+} from '../utils/portolan-collection';
 
 const MAP_VIEW_SLOT = 'map-view';
 const MAP_SURFACE_CLASS = 'webmapx-map__surface';
@@ -1041,6 +1048,11 @@ export class WebmapxMapElement extends HTMLElement {
         }
 
         const styleDoc = this.toRecord(await response.json());
+        // A Portolan collection stands where a style would: the same `url`, the same
+        // `styleUrl` in a request. What is drawn comes from its default style asset.
+        if (isStacCollection(styleDoc)) {
+          return this.expandPortolanCollection(layer, styleDoc, styleUrl, scopedPrefix);
+        }
         return this.buildExpandedStyleLayer(layer, styleDoc, styleUrl, scopedPrefix);
       } catch {
         return null;
@@ -1272,6 +1284,52 @@ export class WebmapxMapElement extends HTMLElement {
       }
     }
     return null;
+  }
+
+  /**
+   * A Portolan collection (docs/adr/0001-portolan-catalogs.md) as a composite layer: its
+   * default style, bound to the collection's own PMTiles — or, for a small collection
+   * without them, its GeoParquet. Nothing here is engine-specific; the result is an ordinary
+   * style layer with its sources inline, and `canDrawSource` decides as for any other.
+   */
+  private async expandPortolanCollection(
+    layer: AnyLayerConfig,
+    collection: Record<string, unknown>,
+    collectionUrl: string,
+    scopedPrefix: string,
+  ): Promise<LayerInformation | null> {
+    const info = readPortolanCollection(collection, collectionUrl);
+    if (info.renderPath !== 'tiles' && info.renderPath !== 'geoparquet') {
+      console.warn(`[webmapx-map] Portolan collection ${collectionUrl} cannot be drawn: ${info.notDrawable ?? 'unknown reason'}`);
+      return null;
+    }
+
+    const chosen = info.styles[0];
+    let styleDoc: Record<string, unknown> | null = null;
+    if (chosen) {
+      try {
+        const response = await fetch(chosen.href);
+        const doc = response.ok ? this.toRecord(await response.json()) : null;
+        styleDoc = doc ? bindStyleToCollection(doc, chosen.href, info) : null;
+      } catch {
+        styleDoc = null;
+      }
+      if (!styleDoc) {
+        console.warn(`[webmapx-map] Style "${chosen.title}" of ${collectionUrl} could not be read; drawing the collection unstyled.`);
+      }
+    }
+    styleDoc ??= fallbackStyle(info);
+    if (!styleDoc) return null;
+
+    const configured = this.getLayerMetadata(layer) ?? {};
+    const withCollectionMetadata = {
+      ...layer,
+      title: layer.title ?? info.title,
+      // What the config says about the layer outranks what the collection says.
+      metadata: { ...portolanLayerMetadata(info, chosen), ...configured },
+    } as AnyLayerConfig;
+    // Sources are already absolute, so no style URL to resolve them against.
+    return this.buildExpandedStyleLayer(withCollectionMetadata, styleDoc, null, scopedPrefix);
   }
 
   private isStyleRequest(detail: Record<string, unknown>): boolean {

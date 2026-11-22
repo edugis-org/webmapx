@@ -354,6 +354,25 @@ To load a full style from a URL (e.g. a vector basemap), set `metadata.styleUrl`
 
 Sub-layer properties follow the MapLibre spec (`source`, `source-layer`, `minzoom`, `maxzoom`, `paint`, `layout`, `filter`).
 
+**Portolan collection** (`type: "style"` with `url` pointing at a `collection.json`)
+
+A dataset published as a [Portolan](https://github.com/portolan-sdi/portolan-spec) collection (for example by PolderGIS) is added by pointing `url` at its `collection.json`. webmapx draws it in the publisher's **default style** (the style asset with roles `style` and `default`), bound to the collection's own data:
+
+- with a PMTiles `visual` asset, from those tiles — any size;
+- without one, from its GeoParquet `data` asset, loaded whole — only for small collections (up to 50 000 rows); a larger collection without PMTiles is not drawn and the console says why.
+
+The layer takes its title, description, extent and attribution (producer and licence) from the collection; anything set in the config (`title`, `metadata`) wins. Raster (COG) collections are not supported yet. Vector tiles need MapLibre or OpenLayers.
+
+```json
+{
+  "id": "nl-provinces",
+  "type": "style",
+  "url": "https://data.source.coop/portolan-mirrors/portolan-spec-examples/portolan-reference/main/boundaries/netherlands-provinces/collection.json"
+}
+```
+
+A relative `url` is resolved against the config file, like every other path in it.
+
 ### Feature info (`metadata.queryable`)
 
 Clicking with the info tool asks every visible layer what lies under the

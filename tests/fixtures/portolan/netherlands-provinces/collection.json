@@ -1,0 +1,279 @@
+{
+  "type": "Collection",
+  "stac_version": "1.1.0",
+  "stac_extensions": [
+    "https://schemas.portolan-sdi.org/portolan/v0.4.0/schema.json",
+    "https://stac-extensions.github.io/file/v2.1.0/schema.json",
+    "https://stac-extensions.github.io/table/v1.2.0/schema.json",
+    "https://stac-extensions.github.io/projection/v2.0.0/schema.json",
+    "https://stac-extensions.github.io/web-map-links/v1.3.0/schema.json",
+    "https://stac-extensions.github.io/attribution/v0.1.0/schema.json",
+    "https://stac-extensions.github.io/language/v1.0.0/schema.json"
+  ],
+  "id": "boundaries/netherlands-provinces",
+  "title": "Netherlands Provinces",
+  "description": "The 12 provinces of the Netherlands, administrative boundaries from the Dutch national spatial data infrastructure PDOK, derived from the Kadaster BRK Bestuurlijke Gebieden. Republished as cloud-native GeoParquet with a PMTiles visualization and categorical, labeled MapLibre styles.",
+  "license": "CC-BY-4.0",
+  "keywords": [
+    "boundaries",
+    "provinces",
+    "netherlands",
+    "administrative",
+    "pdok"
+  ],
+  "providers": [
+    {
+      "name": "Kadaster",
+      "url": "https://www.kadaster.nl",
+      "roles": [
+        "producer",
+        "licensor"
+      ]
+    },
+    {
+      "name": "PDOK",
+      "url": "https://www.pdok.nl",
+      "roles": [
+        "processor"
+      ]
+    },
+    {
+      "name": "Portolan SDI",
+      "url": "https://github.com/portolan-sdi",
+      "email": "portolan@googlegroups.com",
+      "roles": [
+        "host"
+      ]
+    }
+  ],
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          3.307938,
+          50.750367,
+          7.227498,
+          53.576423
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "2026-01-01T00:00:00Z",
+          null
+        ]
+      ]
+    }
+  },
+  "table:columns": [
+    {
+      "name": "fid",
+      "type": "bigint",
+      "description": "Feature id from the source GeoPackage layer, 1 to 12. Unique in this file."
+    },
+    {
+      "name": "identificatie",
+      "type": "varchar",
+      "description": "Province identifier PV20 through PV31, PV plus the CBS province code. The join key to CBS StatLine regional tables."
+    },
+    {
+      "name": "naam",
+      "type": "varchar",
+      "description": "Official province name. Fryslân carries its official Frisian spelling, a filter on Friesland returns nothing."
+    },
+    {
+      "name": "code",
+      "type": "varchar",
+      "description": "Two-digit CBS province code as a string, 20 through 31. Joins to ligt_in_provincie_code in the source's municipality layer."
+    },
+    {
+      "name": "ligt_in_land_code",
+      "type": "varchar",
+      "description": "Country code, the constant 6030 for Nederland."
+    },
+    {
+      "name": "ligt_in_land_naam",
+      "type": "varchar",
+      "description": "Country name, the constant Nederland."
+    },
+    {
+      "name": "geom",
+      "type": "geometry('epsg:28992')",
+      "description": "Province geometry, multipolygon, in the Dutch national grid EPSG:28992 in meters."
+    },
+    {
+      "name": "bbox",
+      "type": "struct(xmin double, ymin double, xmax double, ymax double)",
+      "description": "Per-feature bounding box struct in RD New meters, the GeoParquet covering."
+    }
+  ],
+  "table:primary_geometry": "geom",
+  "table:row_count": 12,
+  "assets": {
+    "data": {
+      "href": "./netherlands-provinces.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "Netherlands Provinces (GeoParquet)",
+      "roles": [
+        "data"
+      ],
+      "file:size": 872875,
+      "file:checksum": "12204041b0c384032ead2a68bf154bc35c7806cb906c6604a453d99ecd5e1dc8b374",
+      "proj:code": "EPSG:28992",
+      "description": "The 12 province polygons with their names and codes, in the Dutch national grid (EPSG:28992)."
+    },
+    "source": {
+      "href": "https://service.pdok.nl/kadaster/brk-bestuurlijke-gebieden/atom/downloads/BestuurlijkeGebieden_2026.gpkg",
+      "type": "application/geopackage+sqlite3",
+      "title": "PDOK Bestuurlijke Gebieden 2026 (GeoPackage)",
+      "roles": [
+        "source"
+      ],
+      "file:size": 14495744,
+      "file:checksum": "12201efa5bbed78bb5aa9d918d48bcabcd9a3c0e816671545e42cd68be057b8423e6",
+      "description": "The PDOK GeoPackage of 2026 administrative boundaries, with the provinciegebied layer that the provinces come from."
+    },
+    "visual": {
+      "href": "./netherlands-provinces.pmtiles",
+      "type": "application/vnd.pmtiles",
+      "title": "Netherlands Provinces (PMTiles)",
+      "roles": [
+        "visual"
+      ],
+      "file:size": 435122,
+      "file:checksum": "1220a7a9d30cbd97f9a92161530a4f335aa50db1307ce24ab7d16f7de668595d519e",
+      "description": "Vector tiles of the province polygons for web maps, in one layer named netherlands-provinces."
+    },
+    "style-provinces": {
+      "href": "./styles/provinces.json",
+      "type": "application/vnd.mapbox.style+json",
+      "title": "Provinces by name",
+      "roles": [
+        "style",
+        "default"
+      ],
+      "file:size": 1181,
+      "file:checksum": "1220a4d07c4c1b065162e6f732701089d8113050b32751373bf6db58dab8afa802b6",
+      "description": "Twelve provinces, one palette colour each."
+    },
+    "style-labeled": {
+      "href": "./styles/labeled.json",
+      "type": "application/vnd.mapbox.style+json",
+      "title": "Provinces with names",
+      "roles": [
+        "style"
+      ],
+      "file:size": 1621,
+      "file:checksum": "1220a43d7de872e3be3681810c1908163a861c6616309c1aa0d293bcc3c4905180e5",
+      "description": "The province colouring with a naam label on each."
+    },
+    "style-randstad": {
+      "href": "./styles/randstad.json",
+      "type": "application/vnd.mapbox.style+json",
+      "title": "The Randstad and the rest",
+      "roles": [
+        "style"
+      ],
+      "file:size": 888,
+      "file:checksum": "122020b1129b4287304507f1d0f5a4079c6d2aa4c4a1f789c9364e5daaa717263628",
+      "description": "Noord-Holland, Zuid-Holland, and Utrecht, the provinces of the Randstad conurbation, highlighted orange against the rest in muted green."
+    },
+    "style-boundaries": {
+      "href": "./styles/boundaries.json",
+      "type": "application/vnd.mapbox.style+json",
+      "title": "Boundary lines only",
+      "roles": [
+        "style"
+      ],
+      "file:size": 533,
+      "file:checksum": "122013feb7c07c1c517924d55cc90603ae6e1dd9bba54aad6585abe180cdddf09db6",
+      "description": "Province borders as bare lines with no fill, for use over other layers."
+    },
+    "thumbnail": {
+      "href": "./thumbnail.png",
+      "type": "image/png",
+      "title": "Preview thumbnail over a light basemap. © OpenStreetMap contributors © CARTO.",
+      "roles": [
+        "thumbnail"
+      ],
+      "file:size": 188545,
+      "file:checksum": "12203e5bed76be1af81a77828cebf137805a4168848e56289de7d197eb7341ebb2b0",
+      "description": "A PNG map of the province polygons over a light basemap."
+    },
+    "metadata": {
+      "href": "./iso19115.xml",
+      "type": "application/vnd.iso.19139+xml",
+      "title": "ISO 19115 metadata record, BRK Bestuurlijke Gebieden (Nationaal Georegister)",
+      "roles": [
+        "metadata",
+        "iso-19115"
+      ],
+      "file:size": 40942,
+      "file:checksum": "122039561f53e91b85883209646f809d8ff6a3976eb6539528d8e4802c5689f75fe7",
+      "description": "The ISO 19115 metadata record of the BRK Bestuurlijke Gebieden data from the Nationaal Georegister, as XML."
+    }
+  },
+  "links": [
+    {
+      "rel": "root",
+      "href": "../../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "parent",
+      "href": "../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "pmtiles",
+      "href": "./netherlands-provinces.pmtiles",
+      "type": "application/vnd.pmtiles",
+      "title": "Web map tiles",
+      "pmtiles:layers": [
+        "netherlands-provinces"
+      ]
+    },
+    {
+      "rel": "via",
+      "href": "https://www.pdok.nl/introductie/-/article/bestuurlijke-gebieden",
+      "type": "text/html",
+      "title": "Original source"
+    },
+    {
+      "rel": "agents",
+      "href": "./AGENTS.md",
+      "type": "text/markdown",
+      "title": "Guidance for AI agents",
+      "hreflang": "en"
+    },
+    {
+      "rel": "describedby",
+      "href": "./README.md",
+      "type": "text/markdown",
+      "title": "Human-readable documentation",
+      "hreflang": "en"
+    },
+    {
+      "rel": "alternate",
+      "href": "../../ar/boundaries/netherlands-provinces/collection.json",
+      "type": "application/json",
+      "title": "Arabic",
+      "hreflang": "ar"
+    }
+  ],
+  "attribution": "Kadaster / PDOK",
+  "updated": "2026-07-16T00:00:00Z",
+  "language": {
+    "code": "en",
+    "name": "English"
+  },
+  "languages": [
+    {
+      "code": "ar",
+      "name": "العربية",
+      "alternate": "Arabic",
+      "dir": "rtl"
+    }
+  ]
+}

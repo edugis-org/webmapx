@@ -1,0 +1,194 @@
+{
+  "type": "Collection",
+  "stac_version": "1.1.0",
+  "stac_extensions": [
+    "https://schemas.portolan-sdi.org/portolan/v0.4.0/schema.json",
+    "https://stac-extensions.github.io/file/v2.1.0/schema.json",
+    "https://stac-extensions.github.io/table/v1.2.0/schema.json",
+    "https://stac-extensions.github.io/attribution/v0.1.0/schema.json",
+    "https://stac-extensions.github.io/language/v1.0.0/schema.json"
+  ],
+  "id": "tabular/eurostat-electricity-prices",
+  "title": "Eurostat Electricity Prices for Household Consumers",
+  "description": "Semi-annual electricity prices for household consumers across European countries by consumption band, tax component, and currency, Eurostat table nrg_pc_204. Non-geospatial companion table, join key is the country code column geo (NUTS-0), converted to cloud-native Parquet.",
+  "license": "CC-BY-4.0",
+  "keywords": [
+    "energy",
+    "electricity",
+    "prices",
+    "eurostat",
+    "tabular"
+  ],
+  "providers": [
+    {
+      "name": "Eurostat",
+      "url": "https://ec.europa.eu/eurostat",
+      "roles": [
+        "producer",
+        "licensor"
+      ]
+    },
+    {
+      "name": "Portolan SDI",
+      "url": "https://github.com/portolan-sdi",
+      "email": "portolan@googlegroups.com",
+      "roles": [
+        "host"
+      ]
+    }
+  ],
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -31.5,
+          34.0,
+          46.5,
+          71.5
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "2007-01-01T00:00:00Z",
+          null
+        ]
+      ]
+    }
+  },
+  "table:columns": [
+    {
+      "name": "DATAFLOW",
+      "type": "varchar",
+      "description": "Eurostat dataflow identifier, the constant ESTAT nrg_pc_204 version 1.0."
+    },
+    {
+      "name": "LAST UPDATE",
+      "type": "timestamp",
+      "description": "Frozen at one 2019 timestamp for every row of this snapshot while the data runs to 2025. Unreliable, do not derive freshness from it."
+    },
+    {
+      "name": "freq",
+      "type": "varchar",
+      "description": "Observation frequency, the constant S for semi-annual. S1 is January to June, S2 is July to December."
+    },
+    {
+      "name": "siec",
+      "type": "varchar",
+      "description": "Energy product code, the constant E7000 for electricity."
+    },
+    {
+      "name": "nrg_cons",
+      "type": "varchar",
+      "description": "Annual consumption band. KWH_LT1000, KWH1000-2499, KWH2500-4999 the headline household band, KWH5000-14999, KWH_GE15000, and TOT_KWH the weighted all-band average that exists only from 2017-S2."
+    },
+    {
+      "name": "unit",
+      "type": "varchar",
+      "description": "Unit of measure, the constant KWH. Prices are per kilowatt-hour."
+    },
+    {
+      "name": "tax",
+      "type": "varchar",
+      "description": "Tax level. X_TAX excludes all taxes and levies, X_VAT excludes VAT and recoverable taxes, I_TAX includes everything a household pays."
+    },
+    {
+      "name": "currency",
+      "type": "varchar",
+      "description": "EUR, NAC for national currency, or PPS purchasing power standard. NAC equals EUR in the euro area."
+    },
+    {
+      "name": "geo",
+      "type": "varchar",
+      "description": "Reporting country as a Eurostat NUTS-0 code, ISO 3166-1 alpha-2 except EL for Greece and UK for the United Kingdom, plus the aggregates EU27_2020 and EA. The join key to a geometry Collection."
+    },
+    {
+      "name": "TIME_PERIOD",
+      "type": "varchar",
+      "description": "Reference semester as a string, 2025-S2. Fixed format, so string ordering and MAX work."
+    },
+    {
+      "name": "OBS_VALUE",
+      "type": "double",
+      "description": "The observed electricity price in the stated currency per kilowatt-hour."
+    },
+    {
+      "name": "OBS_FLAG",
+      "type": "varchar",
+      "description": "Observation status, e estimated, p provisional, d definition differs, null for 98 percent of rows."
+    },
+    {
+      "name": "CONF_STATUS",
+      "type": "varchar",
+      "description": "Confidentiality status, entirely null in this snapshot."
+    }
+  ],
+  "table:row_count": 65466,
+  "assets": {
+    "data": {
+      "href": "./eurostat-electricity-prices.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "Eurostat Electricity Prices for Household Consumers (Parquet)",
+      "roles": [
+        "data"
+      ],
+      "file:size": 162919,
+      "file:checksum": "122051a96f8677c374f6b54cb6e876dcf6af33bc2982b52c9445d0c9a857240b6477",
+      "description": "The rows of Eurostat table nrg_pc_204, one price for each country or country group, half year, consumption band, tax level, and currency."
+    }
+  },
+  "links": [
+    {
+      "rel": "root",
+      "href": "../../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "parent",
+      "href": "../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "via",
+      "href": "https://ec.europa.eu/eurostat/databrowser/view/nrg_pc_204/default/table",
+      "type": "text/html",
+      "title": "Original source"
+    },
+    {
+      "rel": "agents",
+      "href": "./AGENTS.md",
+      "type": "text/markdown",
+      "title": "Guidance for AI agents",
+      "hreflang": "en"
+    },
+    {
+      "rel": "describedby",
+      "href": "./README.md",
+      "type": "text/markdown",
+      "title": "Human-readable documentation",
+      "hreflang": "en"
+    },
+    {
+      "rel": "alternate",
+      "href": "../../ar/tabular/eurostat-electricity-prices/collection.json",
+      "type": "application/json",
+      "title": "Arabic",
+      "hreflang": "ar"
+    }
+  ],
+  "attribution": "Source, Eurostat",
+  "updated": "2026-07-21T00:00:00Z",
+  "language": {
+    "code": "en",
+    "name": "English"
+  },
+  "languages": [
+    {
+      "code": "ar",
+      "name": "العربية",
+      "alternate": "Arabic",
+      "dir": "rtl"
+    }
+  ]
+}
