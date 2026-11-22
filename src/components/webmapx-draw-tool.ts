@@ -1776,9 +1776,22 @@ export class WebmapxDrawTool extends WebmapxModalTool {
             }
         });
         this.unsubCtx   = this.adapter.events.on('contextmenu',  (e: ContextMenuEvent) => this.handleContextMenu(e));
-        this.unsubDown  = this.adapter.events.on('pointer-down', (e: PointerDownEvent) => this.handlePointerDown(e));
-        this.unsubUp    = this.adapter.events.on('pointer-up',   (e: PointerUpEvent)   => this.handlePointerUp(e));
+        // A press or release first applies any move still waiting for its frame.
+        // Otherwise a drag released within one frame of its last move — a quick
+        // flick, or any drag on a busy machine — is ended before that move is
+        // applied: the release sees nothing moved and records no undo step, and
+        // the move then lands after the drag is over.
+        this.unsubDown  = this.adapter.events.on('pointer-down', (e: PointerDownEvent) => { this.flushPendingMove(); this.handlePointerDown(e); });
+        this.unsubUp    = this.adapter.events.on('pointer-up',   (e: PointerUpEvent)   => { this.flushPendingMove(); this.handlePointerUp(e); });
         this.unsubLeave = this.adapter.events.on('pointer-leave', () => this.handlePointerLeave());
+    }
+
+    /** Apply the move that is waiting for the next animation frame, now. */
+    private flushPendingMove(): void {
+        if (this.moveRafId !== null) { cancelAnimationFrame(this.moveRafId); this.moveRafId = null; }
+        const pending = this.pendingMoveEvent;
+        this.pendingMoveEvent = null;
+        if (pending) this.handlePointerMove(pending);
     }
 
     private unbindEvents(): void {

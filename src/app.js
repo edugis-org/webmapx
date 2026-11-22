@@ -18,7 +18,7 @@ import { loadAppConfig, resolveMapConfig, fetchConfig, parseAndValidateConfig, g
 import { getConfigUrlForIndex, getPermalinkStateForIndex } from './utils/permalink.ts';
 import { consumeDroppedConfig } from './utils/dropped-config.ts';
 import { isConfigEditEnabled } from './utils/config-edit-mode.ts';
-import { showToast } from './utils/toast.ts';
+import { showToast, escapeHtml } from './utils/toast.ts';
 import { DEFAULT_ADAPTER_NAME } from './map/adapter-registry';
 import {
     getMapScopedStorageKey,
@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.log('[app] Loaded config from dropped file');
             } catch (error) {
                 console.error('[app] Failed to load dropped config:', error);
-                showToast(`<strong>Failed to load dropped config</strong><br>${error.message}`, { variant: 'danger' });
+                showToast(`<strong>Failed to load dropped config</strong><br>${escapeHtml(error.message)}`, { variant: 'danger' });
             }
         }
     } catch (error) {
@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.log(`[app] Loaded config for map[${mapIndex}] from: ${perMapConfigUrl}`);
             } catch (error) {
                 console.error(`[app] Failed to load config for map[${mapIndex}] from "${perMapConfigUrl}":`, error);
-                showToast(`<strong>Failed to load config</strong><br>${perMapConfigUrl}<br>${error.message}`, { variant: 'danger' });
+                showToast(`<strong>Failed to load config</strong><br>${escapeHtml(perMapConfigUrl)}<br>${escapeHtml(error.message)}`, { variant: 'danger' });
             }
         } else if (mapIndex === 0 && !mapConfig) {
             // Index 0, no per-map URL param: fall back to legacy ?config= / dropped config
@@ -128,7 +128,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             } catch (error) {
                 console.error('[app] Failed to load app config:', error);
-                showToast(`<strong>Failed to load config</strong><br>${getConfigUrlParam()}<br>${error.message}`, { variant: 'danger' });
+                showToast(`<strong>Failed to load config</strong><br>${escapeHtml(getConfigUrlParam())}<br>${escapeHtml(error.message)}`, { variant: 'danger' });
             }
         }
 
@@ -168,7 +168,7 @@ async function initializeMap(mapElement, appConfig, mapIndex = 0) {
                 console.log(`[app] Loaded config for "${mapId}" from src="${srcAttr}"`);
             } catch (error) {
                 console.error(`[app] Failed to load config from src="${srcAttr}":`, error);
-                showToast(`<strong>Failed to load config</strong><br>${srcAttr}<br>${error.message}`, { variant: 'danger' });
+                showToast(`<strong>Failed to load config</strong><br>${escapeHtml(srcAttr)}<br>${escapeHtml(error.message)}`, { variant: 'danger' });
             }
         }
     }
