@@ -14,6 +14,8 @@ import { legendGraphicUrl } from '../utils/wms-sld';
 
 /** Fill for proportional bubbles whose colour is classified separately. */
 const NEUTRAL_BUBBLE_COLOR = '#bdbdbd';
+/** Graduated circles shrink to fit this height, below the collapse threshold (180). */
+const GRADUATED_CIRCLES_MAX_HEIGHT = 160;
 
 /**
  * A label the browser may wrap inside long identifiers: a zero-width space after
@@ -663,7 +665,10 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
 
             const rawColorExpr = colorKey ? (evalPaint[colorKey] ?? paint[colorKey]) : null;
             const dataCases = rawColorExpr ? this.extractDataCases(rawColorExpr, attrTr) : null;
-            const ramp = this.extractColorRamp(rawColorExpr, attrTr);
+            // A circle sized by the data is explained by its circles, not by a
+            // colour bar: the bar alone hides that size carries the value too.
+            const sizedByData = type === 'circle' && this.isDataDriven(evalPaint['circle-radius'] ?? paint['circle-radius']);
+            const ramp = sizedByData ? null : this.extractColorRamp(rawColorExpr, attrTr);
 
             if (ramp) {
                 // A continuous ramp reads as one bar, as the EduGIS viewer drew it:
@@ -674,7 +679,7 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 if (!dedupGroups.has(dedupKey)) dedupGroups.set(dedupKey, [rawId]);
                 if (!singleSublayer) rows.push(html`<div class="sub-group-title">${label}</div>`);
                 rows.push(this.renderColorRamp(ramp));
-            } else if (dataCases && dataCases.length > 1) {
+            } else if (dataCases && dataCases.length > 1 && !sizedByData) {
                 // Multi-class legend: title row + case rows
                 const dedupKey = `${type}|${rawId}`;
                 if (seen.has(dedupKey)) continue;
@@ -973,6 +978,39 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
                 ${allSameColor ? '' : svg`<svg width="${totalSwatchW}" height="${swatchH + 12}" style="overflow:visible">
                     ${swatches}
                 </svg>`}
+            </div>`;
+    }
+
+    /**
+     * One circle per stop, stacked, at the radius the map draws it — scaled
+     * down only as far as needed to fit under the legend's collapse height,
+     * so the largest class is never hidden behind "show more".
+     */
+    private renderGraduatedCircles(
+        mapStops: Array<{value: string, color: string, radius: number}>,
+        strokeColor: string,
+        strokeWidth: number
+    ): TemplateResult {
+        const sw = Math.min(strokeWidth, 1.5);
+        const gap = 4;
+        const total = mapStops.reduce((t, s) => t + s.radius * 2 + sw * 2, 0) + gap * (mapStops.length - 1);
+        const fit = Math.min(1, GRADUATED_CIRCLES_MAX_HEIGHT / total);
+        const stops = mapStops.map(s => ({ ...s, radius: s.radius * fit }));
+        const maxR = Math.max(...stops.map(s => s.radius));
+        let y = 0;
+        const parts = stops.map(s => {
+            // Left-aligned, each label beside its own circle.
+            const cx = s.radius + sw + 1;
+            const cy = y + s.radius + sw;
+            y = cy + s.radius + sw + gap;
+            return svg`
+                <circle cx="${cx}" cy="${cy}" r="${s.radius}" fill="${s.color}" stroke="${strokeColor}" stroke-width="${sw}"/>
+                <text x="${cx + s.radius + sw + 6}" y="${cy + 4}" font-size="12" fill="currentColor">${s.value}</text>`;
+        });
+        const width = maxR * 2 + sw * 2 + 40;
+        return html`
+            <div class="legend-row">
+                ${svg`<svg width="${width}" height="${Math.max(1, y - gap)}" role="img" aria-label=${stops.map(s => s.value).join(', ')}>${parts}</svg>`}
             </div>`;
     }
 
@@ -1882,6 +1920,12 @@ export class WebmapxLayerLegend extends WebmapxBaseTool {
             }
 
             if (stops2.length > 1 && radiusStops.length > 1) {
+                // Colour and size both step with the value: one circle per stop,
+                // stacked, as the EduGIS viewer drew it. Nested
+                // bubbles would hide every colour but the smallest's.
+                if (stops2.some(s => s.color !== stops2[0].color)) {
+                    return [this.renderGraduatedCircles(stops2, strokeColor, strokeWidth)];
+                }
                 return [this.renderBubbleLegend(stops2, strokeColor, strokeWidth)];
             }
             return stops2.map(s => this.renderCircleRow(s.color, strokeColor, strokeWidth, s.radius, s.value));
