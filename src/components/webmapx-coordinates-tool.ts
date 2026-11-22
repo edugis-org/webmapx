@@ -93,6 +93,9 @@ export class WebmapxCoordinatesTool extends WebmapxBaseTool {
       display: inline-flex;
       flex-direction: column;
       border: var(--webmapx-coordinates-border, 1px solid var(--color-border));
+      /* Rounded like the other floating controls (it never read the radius).
+         Not overflow-clipped: the format pop-ups are positioned inside it. */
+      border-radius: var(--webmapx-coordinates-radius, var(--webmapx-radius-md, 6px));
       background: var(--webmapx-coordinates-bg, var(--color-background-secondary));
       color: var(--webmapx-coordinates-color, var(--color-text-primary));
       padding: var(--compact-padding-vertical) var(--compact-padding-horizontal);

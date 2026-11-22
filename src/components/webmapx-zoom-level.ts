@@ -38,7 +38,14 @@ export class WebmapxZoomLevel extends WebmapxBaseTool {
 
         .tool-container {
             border: var(--webmapx-zoom-border, 1px solid var(--color-border));
-            padding: var(--compact-padding-vertical) var(--compact-padding-horizontal);
+            /* Rounded like the other floating controls; this box never read the
+               style's radius, so it stayed square in every style. */
+            border-radius: var(--webmapx-zoom-radius, var(--webmapx-radius-md, 6px));
+            /* One even gap around the field (top, right, bottom); the label side
+               gets the field's gap plus the label's own, so the text stays clear
+               of a rounded corner. Was 2px above/below and 8px beside. */
+            padding: var(--webmapx-zoom-padding, var(--webmapx-space-xs, 0.25rem));
+            padding-left: calc(var(--webmapx-zoom-padding, var(--webmapx-space-xs, 0.25rem)) + var(--webmapx-space-sm, 0.5rem));
             background: var(--webmapx-zoom-bg, var(--color-background-secondary));
             opacity: var(--tool-background-opacity);
             color: var(--webmapx-zoom-color, var(--color-text-primary));
@@ -52,10 +59,12 @@ export class WebmapxZoomLevel extends WebmapxBaseTool {
             width: 3.4em;
             height: 1.8em;
             padding: 0 0.2em;
+            text-align: center;
             font-size: var(--font-size-small);
             font-family: inherit;
             color: inherit;
-            background: transparent;
+            /* A field: --webmapx-field-bg, as the Shoelace inputs read it. */
+            background: var(--webmapx-field-bg, transparent);
             border: 1px solid var(--color-border);
             border-radius: var(--sl-input-border-radius-small, 3px);
             outline: none;
