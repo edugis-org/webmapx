@@ -12,6 +12,7 @@ import { isConfigEditEnabled } from '../utils/config-edit-mode.js';
 import { getMapDomIndex, getPermalinkStateForIndex } from '../utils/permalink.js';
 import { resolveInitOptions } from './resolve-init-options.js';
 import { injectConfigEditTool } from './inject-config-edit-tool.js';
+import { showToast, escapeHtml } from '../utils/toast.js';
 
 declare const __WEBMAPX_VERSION__: string;
 const SHOELACE_VERSION = '2';
@@ -25,6 +26,37 @@ function toolArrayToConfig(tools: string[]): ToolsConfig {
   } as unknown as ToolsConfig;
 }
 
+/**
+ * Fetch and parse a config, telling the *visitor* when that fails. Mount
+ * rejects either way, but a rejection reaches only the host page's script:
+ * a page that does not show it (or shows it under a full-screen map) leaves a
+ * blank screen with nothing to say a link named a config that is not there.
+ * src/app.js has always shown this toast; every page embedding webmapx gets
+ * it now too.
+ */
+async function loadConfigOrNotify(url: string): Promise<{ config: WebMapXConfig; url: string }> {
+  let reason: string;
+  try {
+    const response = await fetch(url);
+    if (response.ok) {
+      try {
+        return { config: await response.json() as WebMapXConfig, url: response.url };
+      } catch {
+        reason = 'The file is not valid JSON.';
+      }
+    } else {
+      reason = `The server answered ${response.status}${response.statusText ? ` ${response.statusText}` : ''}.`;
+    }
+  } catch (error) {
+    reason = `It could not be fetched (${error instanceof Error ? error.message : String(error)}).`;
+  }
+  void showToast(
+    `<strong>Failed to load config</strong><br>${escapeHtml(url)}<br>${escapeHtml(reason)}`,
+    { variant: 'danger' },
+  );
+  throw new Error(`[webmapx] Failed to load config: ${url} — ${reason}`);
+}
+
 export class WebMapX {
   static async mount(selector: string, options: WebMapXMountOptions): Promise<void> {
     // Base for resolving relative resource paths inside the config. For a URL
@@ -33,16 +65,15 @@ export class WebMapX {
     // back to the page URL for inline configs with no file of their own.
     let configUrl = options.configUrl;
     let config: WebMapXConfig;
+    // Before loading the config: a failure to load it is reported in a toast,
+    // and the toast's icon is fetched from the Shoelace base path.
+    setBasePath(SHOELACE_CDN);
     if (typeof options.config === 'string') {
-      const response = await fetch(options.config);
-      if (!response.ok) throw new Error(`[webmapx] Failed to load config: ${options.config}`);
-      config = await response.json();
-      configUrl = response.url;
+      ({ config, url: configUrl } = await loadConfigOrNotify(options.config));
     } else {
       config = options.config;
     }
 
-    setBasePath(SHOELACE_CDN);
     await initI18n();
 
     // `map.type` is the engine a config declares (the validator requires it), and
