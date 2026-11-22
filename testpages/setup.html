@@ -480,6 +480,8 @@
       background: #1d2330; color: #fff; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.2);
     }
     #status:empty { display: none; }
+    #status.error { background: #8a1c1c; }
+    .portolan-style-select { font-size: 12px; max-width: 14em; }
     body.config-drag-over::before { border-color: var(--v2-primary); }
 
 
@@ -1165,8 +1167,17 @@
     import { loadPlugins } from '/src/bootstrap/plugin-loader.ts';
     import { TOOL_REGISTRY } from '/src/tools/tool-registry.ts';
     import { discoverLayers } from '/src/utils/layer-discovery.ts';
+    import { PORTOLAN_PREFIX, portolanTarget, portolanOwnStyle } from '/src/map/portolan-sources.ts';
     import { toStoryStepState } from '/src/config/story-step-state.ts';
     import { TOOL_PALETTE, ToolAccentSequence } from '/src/utils/tool-accent.ts';
+
+    // An error toast turns red; any later message (from anywhere on the page) is ordinary again.
+    {
+      const statusEl = document.getElementById('status');
+      new MutationObserver(() => {
+        if (statusEl.textContent !== statusEl.dataset.errorText) statusEl.classList.remove('error');
+      }).observe(statusEl, { childList: true, characterData: true, subtree: true });
+    }
 
     // The generated index and harvested providers are published by the Pages build.
     const LAYER_REPO_BASE = 'https://edugis-org.github.io/webmapx-layer-repository/layers';
@@ -2127,14 +2138,17 @@
     }
 
     // Registers a source + layer pair (from repository or URL discovery) as an available layer.
+    // A self-contained layer (a style layer naming its own url or sources) passes sourceObj null.
     function addLayerData(config, sourceObj, layerObj, title, type) {
       const added = getAddedLayerData();
       const id = uniqueLayerId(config, layerObj.id || (layerObj.metadata?.title) || title);
       const sourceKey = `${id}-source`;
       const ov = getSaved();
+      const layer = { ...layerObj, id, title: title ?? layerObj.metadata?.title ?? id, type: type ?? layerObj.type };
+      if (sourceObj) layer.source = sourceKey;
       ov['layerData:added'] = {
-        sources: { ...added.sources, [sourceKey]: sourceObj },
-        layers: { ...added.layers, [id]: { ...layerObj, id, source: sourceKey, title: title ?? layerObj.metadata?.title ?? id, type: type ?? layerObj.type } },
+        sources: sourceObj ? { ...added.sources, [sourceKey]: sourceObj } : { ...added.sources },
+        layers: { ...added.layers, [id]: layer },
       };
       saveOverrides(ov);
       return id;
@@ -2516,31 +2530,107 @@
         wrap.appendChild(details);
       }
 
+      // A Portolan collection can be drawn in one of its publisher's styles or in a
+      // copy the author restyles; the choice sits beside the Add button.
+      const styleSelect = portolanCollectionOf(layer.webmapxConfig) ? makePortolanStyleSelect(layer.webmapxConfig) : null;
+      if (styleSelect) row.appendChild(styleSelect);
+      const status = (text, isError = false) => {
+        const el = document.getElementById('status');
+        el.dataset.errorText = isError ? text : '';
+        el.textContent = text;
+        el.classList.toggle('error', isError);
+      };
+      const add = async (btn, done) => {
+        btn.disabled = true;
+        if (styleSelect) styleSelect.disabled = true;
+        try {
+          const { id, note } = await addRepoLayer(config, layer, styleSelect?.value);
+          done(id, note ?? '');
+        } catch (err) {
+          btn.disabled = false;
+          if (styleSelect) styleSelect.disabled = false;
+          status(`Could not add "${layer.title}": ${err.message}`, true);
+        }
+      };
+
       const repoTreeLoc = findLayerTreeLocation(config);
       if (repoTreeLoc) {
-        row.appendChild(makeAddToTreeSelect(config, repoTreeLoc, (path) => {
-          const cfg = layer.webmapxConfig;
-          if (!cfg?.source || !cfg?.layer) return;
-          const id = addLayerData(config, cfg.source, cfg.layer, layer.title, cfg.layer.type);
+        const btn = makeAddToTreeSelect(config, repoTreeLoc, (path) => add(btn, (id, note) => {
           placeInTree(config, repoTreeLoc, id, path);
           buildLayersUI(config);
-          row.querySelector('.v2-add-to')?.replaceWith(Object.assign(document.createElement('span'), { className: 'type-badge', textContent: 'added' }));
-          document.getElementById('status').textContent = `Added "${layer.title}" to the bottom of the Map catalog.`;
+          btn.replaceWith(Object.assign(document.createElement('span'), { className: 'type-badge', textContent: 'added' }));
+          styleSelect?.remove();
+          status(`Added "${layer.title}" to the bottom of the Map catalog.${note}`);
         }));
+        row.appendChild(btn);
         return wrap;
       }
       const addBtn = document.createElement('button');
       addBtn.className = 'btn-add';
       addBtn.textContent = '+ Add';
-      addBtn.addEventListener('click', () => {
-        const cfg = layer.webmapxConfig;
-        if (!cfg?.source || !cfg?.layer) return;
-        addLayerData(config, cfg.source, cfg.layer, layer.title, cfg.layer.type);
+      addBtn.addEventListener('click', () => add(addBtn, (_id, note) => {
+        addBtn.disabled = false;
+        if (styleSelect) styleSelect.disabled = false;
         buildLayersUI(config);
-        document.getElementById('status').textContent = `Added "${layer.title}" — find it under This config.`;
-      });
+        status(`Added "${layer.title}" — find it under This config.${note}`);
+      }));
       row.appendChild(addBtn);
       return wrap;
+    }
+
+    // The collection a repository layer names, or null when it is not a Portolan layer.
+    // The repository writes { type: 'style', url: 'portolan://<collection.json>' };
+    // older harvests wrote the bare collection URL, with metadata.portolan.collection.
+    function portolanCollectionOf(cfg) {
+      const meta = cfg?.metadata?.portolan;
+      if (typeof meta?.collection === 'string') return meta.collection;
+      return typeof cfg?.url === 'string' ? portolanTarget(cfg.url)?.collectionUrl ?? null : null;
+    }
+
+    // "Publisher style" draws the collection as its publisher styled it and follows that
+    // style when it is republished; "own style" copies the default style into the config,
+    // where the author can change it (and from then on it is theirs, not the publisher's).
+    function makePortolanStyleSelect(cfg) {
+      const styles = Array.isArray(cfg.metadata?.portolan?.styles) ? cfg.metadata.portolan.styles : [];
+      const isDefault = (s) => s.default === true || s.isDefault === true;
+      const ordered = [...styles].sort((a, b) => Number(isDefault(b)) - Number(isDefault(a)));
+      const sel = Object.assign(document.createElement('select'), {
+        className: 'portolan-style-select',
+        title: 'Publisher style: drawn as published, and updated with it. Own style: an editable copy in this config.',
+      });
+      sel.setAttribute('aria-label', 'Style');
+      if (ordered.length <= 1) {
+        sel.appendChild(new Option('Publisher style', 'publisher:'));
+      } else {
+        for (const s of ordered) {
+          sel.appendChild(new Option(`Publisher style: ${s.title ?? s.key}`, `publisher:${isDefault(s) ? '' : s.key}`));
+        }
+      }
+      sel.appendChild(new Option('Own style (editable copy)', 'own:'));
+      return sel;
+    }
+
+    // Adds a repository layer to this config; resolves to { id, note } or throws with the
+    // reason, so a layer that cannot be added says so instead of doing nothing.
+    async function addRepoLayer(config, layer, styleChoice) {
+      const cfg = layer.webmapxConfig;
+      const collection = portolanCollectionOf(cfg);
+      if (collection) {
+        const sep = (styleChoice ?? 'publisher:').indexOf(':');
+        const mode = (styleChoice ?? 'publisher:').slice(0, sep);
+        const key = (styleChoice ?? 'publisher:').slice(sep + 1);
+        if (mode === 'own') {
+          const own = await portolanOwnStyle(collection, 'data');
+          const { url: _url, ...rest } = cfg;
+          const id = addLayerData(config, null, { ...rest, sources: { data: own.source }, layers: own.layers }, layer.title, 'style');
+          const note = own.dropped ? ` ${own.dropped} background/basemap layer(s) of the publisher style were left out.` : '';
+          return { id, note };
+        }
+        const url = `${PORTOLAN_PREFIX}${collection}${key ? `#${encodeURIComponent(key)}` : ''}`;
+        return { id: addLayerData(config, null, { ...cfg, url }, layer.title, 'style') };
+      }
+      if (!cfg?.source || !cfg?.layer) throw new Error('the repository gives no source and layer for it');
+      return { id: addLayerData(config, cfg.source, cfg.layer, layer.title, cfg.layer.type) };
     }
 
     // Search words match at the start of a word ("bag" finds "BAG panden" and

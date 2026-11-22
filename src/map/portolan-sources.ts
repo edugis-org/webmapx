@@ -13,7 +13,7 @@
  * collection without tiles, a GeoJSON source the GeoJSON loader then reads from
  * `geoparquet://…`).
  */
-import { readPortolanCollection, isStacCollection, type PortolanCollectionInfo } from '../utils/portolan-collection';
+import { readPortolanCollection, isStacCollection, ownStyleLayers, type PortolanCollectionInfo } from '../utils/portolan-collection';
 
 export const PORTOLAN_PREFIX = 'portolan://';
 
@@ -92,4 +92,33 @@ export async function resolvePortolanSources(sources: Record<string, any>): Prom
     if (attribution) s.attribution = attribution;
     sources[key] = s;
   }));
+}
+
+/**
+ * What a config needs to draw a collection in a style of its own: a source naming the
+ * collection and a copy of one of its styles (the default unless `styleKey` names another)
+ * drawing from that source. Used by setup's "own style" choice; the copy is a starting
+ * point for the author, not a link — a later change to the publisher's style is not seen.
+ */
+export async function portolanOwnStyle(collectionUrl: string, sourceId: string, styleKey?: string): Promise<{
+  source: { type: 'vector'; url: string };
+  layers: Record<string, unknown>[];
+  dropped: number;
+  info: PortolanCollectionInfo;
+  styleTitle?: string;
+}> {
+  const { info } = await loadPortolanCollection(collectionUrl);
+  if (info.renderPath !== 'tiles' && info.renderPath !== 'geoparquet') {
+    throw new Error(info.notDrawable ?? 'this collection cannot be drawn');
+  }
+  const ref = (styleKey ? info.styles.find((s) => s.key === styleKey) : undefined) ?? info.styles[0];
+  let style: { doc: Record<string, unknown>; url: string } | null = null;
+  if (ref) {
+    const response = await fetch(ref.href);
+    if (!response.ok) throw new Error(`HTTP ${response.status} reading style ${ref.href}`);
+    style = { doc: await response.json(), url: ref.href };
+  }
+  const own = ownStyleLayers(info, sourceId, style);
+  if (!own || own.layers.length === 0) throw new Error('its style has no layers for this collection');
+  return { source: { type: 'vector', url: `${PORTOLAN_PREFIX}${collectionUrl}` }, ...own, info, styleTitle: ref?.title };
 }

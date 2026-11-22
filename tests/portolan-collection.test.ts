@@ -9,6 +9,7 @@ import {
     fallbackStyle,
     isStacCollection,
     MAX_SOURCE_ROWS,
+    ownStyleLayers,
     readPortolanCollection,
     resolveWrappedUrl,
 } from '../src/utils/portolan-collection';
@@ -156,4 +157,46 @@ test('a collection without styles gets one unstyled layer per geometry kind', as
     const layers = style?.layers as Array<Record<string, unknown>>;
     assert.deepEqual(layers.map((l) => l.type), ['fill', 'line', 'circle']);
     assert.ok(layers.every((l) => l['source-layer'] === 'netherlands-provinces' && !('paint' in l)));
+});
+
+test('own style: the publisher layers are copied onto the config source, paint and source-layer intact', async () => {
+    const info = readPortolanCollection(await fixture('netherlands-provinces/collection.json'), PROVINCES_URL);
+    const doc = await fixture('netherlands-provinces/styles/labeled.json');
+    const own = ownStyleLayers(info, 'provinces-source', { doc, url: info.styles[0].href });
+
+    assert.equal(own?.dropped, 0);
+    assert.deepEqual(own?.layers.map((l) => [l.type, l.source, l['source-layer']]), [
+        ['fill', 'provinces-source', 'netherlands-provinces'],
+        ['symbol', 'provinces-source', 'netherlands-provinces'],
+    ]);
+    const original = (doc.layers as Array<Record<string, unknown>>)[0];
+    assert.deepEqual(own?.layers[0].paint, original.paint);
+});
+
+test('own style: a background and a basemap the style leans on are dropped, not copied', async () => {
+    const info = readPortolanCollection(await fixture('netherlands-provinces/collection.json'), PROVINCES_URL);
+    const own = ownStyleLayers(info, 's', {
+        url: info.styles[0].href,
+        doc: {
+            version: 8,
+            sources: { data: { type: 'vector', url: 'pmtiles://../netherlands-provinces.pmtiles' }, base: { type: 'raster', tiles: ['../t/{z}/{x}/{y}.png'] } },
+            layers: [
+                { id: 'bg', type: 'background' },
+                { id: 'base', type: 'raster', source: 'base' },
+                { id: 'fill', type: 'fill', source: 'data', 'source-layer': 'netherlands-provinces' },
+            ],
+        },
+    });
+    assert.deepEqual(own?.layers.map((l) => l.id), ['fill']);
+    assert.equal(own?.dropped, 2);
+});
+
+test('own style: a GeoParquet collection loses source-layer, and no style falls back to plain layers', async () => {
+    const info = readPortolanCollection(await fixture('natural-earth-countries/collection.json'), COUNTRIES_URL);
+    const styled = ownStyleLayers(info, 's', { doc: await fixture('natural-earth-countries/styles/continents.json'), url: info.styles[0].href });
+    assert.ok(styled && styled.layers.length > 0);
+    assert.ok(styled.layers.every((l) => !('source-layer' in l) && l.source === 's'));
+
+    const plain = ownStyleLayers(info, 's', null);
+    assert.deepEqual(plain?.layers.map((l) => l.type), ['fill', 'line', 'circle']);
 });

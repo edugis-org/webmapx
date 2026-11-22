@@ -390,6 +390,20 @@ The layer follows the publisher: a restyle or a data fix shows up without touchi
 ]
 ```
 
+The same thing fits in one catalog entry when the source sits inside a `style` layer — this is what **setup.html** writes when you add a Portolan layer from the Repository tab with *Own style (editable copy)*: the publisher's default style, copied into `layers`, drawing from the collection:
+
+```json
+{
+  "id": "tunnels", "type": "style", "title": "Rijkswaterstaat Tunnels",
+  "sources": { "data": { "type": "vector", "url": "portolan://https://data.source.coop/cholmes/portolan-nl/rijkswaterstaat/fme_disk_tunnels/collection.json" } },
+  "layers": [
+    { "id": "tunnels-circle", "type": "circle", "source": "data", "source-layer": "fme_disk_tunnels", "paint": { "circle-color": "#d7191c" } }
+  ]
+}
+```
+
+The copy is a starting point: from then on the paint is yours, and a later change to the publisher's style is not picked up. *Publisher style* in setup writes the `"type": "style", "url": "portolan://…"` form above instead, which does follow it.
+
 The `source-layer` names are listed under `pmtiles:layers` in the collection. Attribution (producer and licence) comes from the collection unless the source sets its own.
 
 What is drawn: the collection's PMTiles `visual` asset, of any size; or, for a small collection without one (up to 50 000 rows), its GeoParquet `data`, loaded whole as GeoJSON — such a source has no `source-layer`. A larger collection without PMTiles is not drawn and the console says why. Raster (COG) collections are not supported yet. Vector tiles need MapLibre or OpenLayers; the catalog does not offer Portolan layers on Leaflet or Cesium.

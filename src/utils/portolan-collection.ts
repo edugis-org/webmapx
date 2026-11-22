@@ -368,3 +368,35 @@ export function portolanLayerMetadata(info: PortolanCollectionInfo, style?: Port
     },
   };
 }
+
+/**
+ * A collection's style as layers of the config's own ("own style" in setup): the same
+ * paint, filters and source-layers as the publisher's, but drawing from `sourceId`, a
+ * config source that names the collection (`portolan://<collection.json>`), so the author
+ * can restyle it and the data still follows the collection when it is republished.
+ *
+ * Only layers that draw the collection's own data are kept. A layer with no source (a
+ * background) or one drawing another source (a basemap the style leans on) is counted in
+ * `dropped` rather than copied: it is not part of this dataset, and copying it would add
+ * a second basemap to the author's map. With no style (`style` null) the collection's
+ * fallback layers are used, as the map itself does.
+ */
+export function ownStyleLayers(
+  info: PortolanCollectionInfo,
+  sourceId: string,
+  style: { doc: Json; url: string } | null,
+): { layers: Json[]; dropped: number } | null {
+  const own = collectionSource(info);
+  if (!own) return null;
+  const bound = style ? bindStyleToCollection(style.doc, style.url, info) : fallbackStyle(info);
+  if (!bound) return null;
+  const sources = isRecord(bound.sources) ? bound.sources : {};
+  const ownIds = new Set(Object.entries(sources)
+    .filter(([, s]) => isRecord(s) && s.type === own.type && s.url === own.url && s.data === own.data)
+    .map(([id]) => id));
+  const all = Array.isArray(bound.layers) ? bound.layers.filter(isRecord) : [];
+  const layers = all
+    .filter((layer) => typeof layer.source === 'string' && ownIds.has(layer.source))
+    .map((layer) => ({ ...layer, source: sourceId }));
+  return { layers, dropped: all.length - layers.length };
+}
