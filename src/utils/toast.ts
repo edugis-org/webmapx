@@ -1,4 +1,18 @@
 /**
+ * Escape text for use inside a toast message, which is HTML. Anything that
+ * came from outside — a URL parameter, a file name, a server's error text —
+ * goes through this, or `?config=<img onerror=…>` runs script on the page.
+ */
+export function escapeHtml(text: unknown): string {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * Show a Shoelace toast notification. Lazily imports sl-alert and sl-icon
  * so the components are only loaded when actually needed.
  */
