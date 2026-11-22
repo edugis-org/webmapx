@@ -1,7 +1,10 @@
 // src/config/validator.ts
 // Runtime validator for WebMapX configuration files
 
-import { isUiStyle, isUiTheme, UI_STYLE_VALUES, UI_THEME_VALUES } from '../utils/appearance.js';
+import {
+  isUiFont, isUiPalette, isUiStyle, isUiTheme,
+  UI_FONT_VALUES, UI_PALETTE_VALUES, UI_STYLE_VALUES, UI_THEME_VALUES,
+} from '../utils/appearance.js';
 import { TOOL_PALETTE } from '../utils/tool-accent.js';
 import { CONFIG_SCHEMA_VERSION, configVersionStatus } from './schema-version.js';
 import {
@@ -1196,7 +1199,13 @@ function validateUiSection(ui: unknown, warnings: ValidationMessage[]): void {
     return;
   }
   const record = ui as Record<string, unknown>;
-  checkUnknownKeys(record, ['style', 'theme'], 'ui', warnings);
+  checkUnknownKeys(record, ['style', 'theme', 'palette', 'font'], 'ui', warnings);
+  if (record.palette !== undefined && !isUiPalette(record.palette)) {
+    warnings.push({ severity: 'warning', path: 'ui.palette', message: `Unknown palette ${JSON.stringify(record.palette)}; expected one of ${UI_PALETTE_VALUES.join(', ')} — "default" is used instead` });
+  }
+  if (record.font !== undefined && !isUiFont(record.font)) {
+    warnings.push({ severity: 'warning', path: 'ui.font', message: `Unknown font ${JSON.stringify(record.font)}; expected one of ${UI_FONT_VALUES.join(', ')} — the style's own font is used instead` });
+  }
   if (record.style !== undefined && !isUiStyle(record.style)) {
     warnings.push({ severity: 'warning', path: 'ui.style', message: `Unknown style ${JSON.stringify(record.style)}; expected one of ${UI_STYLE_VALUES.join(', ')} — "atlas" is used instead` });
   }

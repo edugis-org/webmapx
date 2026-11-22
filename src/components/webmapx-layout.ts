@@ -48,7 +48,13 @@ export class WebmapxLayout extends LitElement {
       pointer-events: none;
       min-height: 0;
       max-height: 100%;
+      /* Clipped so a crowded column cannot spill over the map — but with room
+         for the controls' shadows, which reach past the zone's edge: a hard
+         offset shadow (style "ink") or a deep soft one was cut off flat at the
+         zone edge. Browsers without overflow-clip-margin clip as before. */
       overflow: hidden;
+      overflow: clip;
+      overflow-clip-margin: var(--webmapx-layout-shadow-room, 24px);
     }
 
     .slot-zone[data-direction='horizontal'] {

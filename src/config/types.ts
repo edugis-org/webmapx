@@ -623,11 +623,13 @@ export interface AppConfig {
   apiKeysFile?: string;
   project?: Record<string, unknown>;
   /**
-   * Default appearance: `style` is form (atlas, folio, console, classroom),
-   * `theme` is colour (auto, light, dark). A choice the viewer makes in the
-   * settings tool outranks it.
+   * Default appearance: `style` is form (atlas, folio, console, classroom,
+   * glass, pebble, studio, island, ink), `theme` is light/dark (auto, light,
+   * dark), `palette` the colours in both themes (default, ocean, forest,
+   * coral, violet, graphite) and `font` replaces the style's face. A style or theme the viewer picks in the settings tool
+   * outranks the config's; palette and font are the author's alone.
    */
-  ui?: { style?: string; theme?: string };
+  ui?: { style?: string; theme?: string; palette?: string; font?: string };
   map: MapConfig;
   runtimeMap?: RuntimeMapConfig;
   layerData: LayerDataConfig;

@@ -205,18 +205,54 @@ export class WebmapxToolbar extends LitElement {
     }
   }
 
+  // Per-button rules a toolbar needs inside sl-button's shadow root. The
+  // separator is the bottom edge of each button, coloured only while the
+  // button is at rest. It used to be an inline `border-bottom`, and an inline
+  // style outranks Shoelace's :hover border — so a hovered button's outline
+  // had three sides and the grey separator for a fourth.
+  private static separatorSheet: CSSStyleSheet | null = null;
+
+  private static getSeparatorSheet(): CSSStyleSheet {
+    if (!WebmapxToolbar.separatorSheet) {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(`
+        /* The toolbar sizes the sl-button host (--webmapx-toolbar-button-size),
+           but Shoelace gives the inner base a min-height of --sl-input-height-medium (40px).
+           Under 40px (studio, console) the base hung out of the host and
+           covered the toolbar's bottom border. */
+        :host [part="base"] { height: 100%; min-height: 0; }
+        /* The shared control look (--webmapx-control-*), as the map controls
+           have it — instead of Shoelace's own fill and grey icon. The active
+           tool (variant="primary") keeps Shoelace's accent fill. A style that
+           restyles tool buttons through ::part (classroom) still wins: rules
+           from outside a shadow root beat these. */
+        :host [part="base"]:not(.button--primary) {
+          background: var(--webmapx-control-bg, transparent);
+          color: var(--webmapx-control-fg, var(--color-text-primary, #16202a));
+        }
+        :host [part="base"]:not(.button--primary):hover {
+          background: var(--webmapx-control-hover-bg, var(--color-primary-soft, #e6f0f5));
+          color: var(--webmapx-control-hover-fg, var(--color-primary, #2b6c8f));
+          border-color: var(--webmapx-control-hover-border, transparent);
+        }
+        :host([data-toolbar-separator]) [part="base"]:not(:hover):not(:focus-visible):not(.button--primary) {
+          border-bottom-color: var(--webmapx-toolbar-separator-color, var(--color-border-light, #e2e7ec));
+        }`);
+      WebmapxToolbar.separatorSheet = sheet;
+    }
+    return WebmapxToolbar.separatorSheet;
+  }
+
   private applyToolbarSeparators(): void {
     const slottedButtons = this.buttons.filter((btn) => btn.tagName.toLowerCase() === 'sl-button');
+    const sheet = WebmapxToolbar.getSeparatorSheet();
     slottedButtons.forEach((btn, idx) => {
       const isLast = idx === slottedButtons.length - 1;
-      const base = (btn as HTMLElement).shadowRoot?.querySelector<HTMLElement>('[part="base"]');
-      if (!base) return;
-
-      if (this.orientation === 'vertical' && !isLast) {
-        base.style.borderBottom = '1px solid var(--webmapx-toolbar-separator-color, var(--color-border-light, #e2e7ec))';
-      } else {
-        base.style.borderBottom = '';
-      }
+      const root = (btn as HTMLElement).shadowRoot;
+      if (!root) return;
+      if (!root.adoptedStyleSheets.includes(sheet)) root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
+      root.querySelector<HTMLElement>('[part="base"]')?.style.removeProperty('border-bottom');
+      btn.toggleAttribute('data-toolbar-separator', this.orientation === 'vertical' && !isLast);
     });
   }
 
