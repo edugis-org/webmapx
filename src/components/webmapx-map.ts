@@ -26,6 +26,7 @@ import {
 } from './internal/single-group-policy';
 import { resolveLegendRoleForLayer } from './internal/legend-role-policy';
 import { resolveGeoJSONSources, type MapViewContext, type PagedSourceContinuation } from '../map/geojson-loader';
+import { resolvePortolanSources, portolanTarget, loadPortolanCollection } from '../map/portolan-sources';
 import { viewBox } from '../map/wfs-requests';
 
 /** The web-mercator world, as far north and south as a map can show. */
@@ -1042,16 +1043,25 @@ export class WebmapxMapElement extends HTMLElement {
 
     const promise = (async () => {
       try {
+        // `portolan://<collection.json>[#style-key]`: the publisher's style of a
+        // Portolan collection, bound to the collection's current data.
+        const portolan = portolanTarget(styleUrl);
+        if (portolan) {
+          const { collection } = await loadPortolanCollection(portolan.collectionUrl);
+          return this.expandPortolanCollection(layer, collection, portolan.collectionUrl, scopedPrefix, portolan.styleKey);
+        }
+
         const response = await fetch(styleUrl);
         if (!response.ok) {
           return null;
         }
 
         const styleDoc = this.toRecord(await response.json());
-        // A Portolan collection stands where a style would: the same `url`, the same
-        // `styleUrl` in a request. What is drawn comes from its default style asset.
+        // A collection is not a style: say how to ask for its style instead of
+        // drawing nothing in silence.
         if (isStacCollection(styleDoc)) {
-          return this.expandPortolanCollection(layer, styleDoc, styleUrl, scopedPrefix);
+          console.warn(`[webmapx-map] ${styleUrl} is a Portolan/STAC collection, not a style; use "portolan://${styleUrl}" to draw it in its publisher's style.`);
+          return null;
         }
         return this.buildExpandedStyleLayer(layer, styleDoc, styleUrl, scopedPrefix);
       } catch {
@@ -1297,6 +1307,7 @@ export class WebmapxMapElement extends HTMLElement {
     collection: Record<string, unknown>,
     collectionUrl: string,
     scopedPrefix: string,
+    styleKey?: string,
   ): Promise<LayerInformation | null> {
     const info = readPortolanCollection(collection, collectionUrl);
     if (info.renderPath !== 'tiles' && info.renderPath !== 'geoparquet') {
@@ -1304,7 +1315,12 @@ export class WebmapxMapElement extends HTMLElement {
       return null;
     }
 
-    const chosen = info.styles[0];
+    // A named style (`#style-key`) when the config asks for one, else the default.
+    const named = styleKey ? info.styles.find((style) => style.key === styleKey) : undefined;
+    if (styleKey && !named) {
+      console.warn(`[webmapx-map] ${collectionUrl} has no style "${styleKey}" (it has: ${info.styles.map((style) => style.key).join(', ') || 'none'}); using its default.`);
+    }
+    const chosen = named ?? info.styles[0];
     let styleDoc: Record<string, unknown> | null = null;
     if (chosen) {
       try {
@@ -1646,6 +1662,10 @@ export class WebmapxMapElement extends HTMLElement {
     const enriched = inlineLayerSources(layerInformation.layer, this.layerDataConfig?.sources);
     let continuations: PagedSourceContinuation[] = [];
     if (enriched.sources && typeof enriched.sources === 'object') {
+      // portolan:// first: a small collection resolves to a geoparquet:// GeoJSON
+      // source, which the GeoJSON loader then reads.
+      enriched.sources = { ...enriched.sources };
+      await resolvePortolanSources(enriched.sources);
       continuations = await resolveGeoJSONSources(
         enriched.sources,
         timeOf(adapter.store.getState().mapTime),
@@ -1691,6 +1711,8 @@ export class WebmapxMapElement extends HTMLElement {
     // the catalog-layer path in addLogicalLayerInternal.
     let continuations: PagedSourceContinuation[] = [];
     if (nativeLayer.sources && typeof nativeLayer.sources === 'object') {
+      nativeLayer.sources = { ...(nativeLayer.sources as Record<string, any>) };
+      await resolvePortolanSources(nativeLayer.sources as Record<string, any>);
       continuations = await resolveGeoJSONSources(
         nativeLayer.sources as Record<string, any>,
         timeOf(adapter.store.getState().mapTime),

@@ -21,7 +21,7 @@ import type { MapProjectionState } from '../store/IMapState';
  * Implements the unified IMap interface by delegating to specialized services.
  */
 const VECTOR_CAPABLE_SOURCE_TYPES: ReadonlySet<string> = new Set(['raster', 'geojson', 'vector', 'raster-dem']);
-const ARCHIVE_PROTOCOLS: ReadonlySet<string> = new Set(['pmtiles', 'cog']);
+const ARCHIVE_PROTOCOLS: ReadonlySet<string> = new Set(['pmtiles', 'cog', 'portolan']);
 
 export class OpenLayersAdapter extends BaseAdapter implements IMap {
     public readonly engineId = 'openlayers';

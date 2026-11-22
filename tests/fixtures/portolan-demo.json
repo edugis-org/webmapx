@@ -27,6 +27,11 @@
         ],
         "tileSize": 256,
         "attribution": "&copy; OpenStreetMap contributors"
+      },
+      {
+        "id": "bag-panden",
+        "type": "vector",
+        "url": "portolan://https://edugis.b-cdn.net/bag-light-pand-69d34205/collection.json"
       }
     ],
     "layers": [
@@ -40,32 +45,88 @@
       {
         "id": "nl-provinces",
         "type": "style",
-        "url": "https://data.source.coop/portolan-mirrors/portolan-spec-examples/portolan-reference/main/boundaries/netherlands-provinces/collection.json"
+        "url": "portolan://https://data.source.coop/portolan-mirrors/portolan-spec-examples/portolan-reference/main/boundaries/netherlands-provinces/collection.json"
+      },
+      {
+        "id": "nl-provinces-labeled",
+        "type": "style",
+        "title": "Provinces with names (publisher style 'labeled')",
+        "url": "portolan://https://data.source.coop/portolan-mirrors/portolan-spec-examples/portolan-reference/main/boundaries/netherlands-provinces/collection.json#style-labeled"
       },
       {
         "id": "ne-countries",
         "type": "style",
-        "url": "https://data.source.coop/portolan-mirrors/portolan-spec-examples/portolan-reference/main/reference/natural-earth-countries/collection.json"
+        "url": "portolan://https://data.source.coop/portolan-mirrors/portolan-spec-examples/portolan-reference/main/reference/natural-earth-countries/collection.json"
       },
       {
         "id": "edugis-woonplaats",
         "type": "style",
-        "url": "https://edugis.b-cdn.net/bag-light-woonplaats-6bc4f3ea/collection.json"
-      },
-      {
-        "id": "edugis-pand",
-        "type": "style",
-        "url": "https://edugis.b-cdn.net/bag-light-pand-69d34205/collection.json"
+        "url": "portolan://https://edugis.b-cdn.net/bag-light-woonplaats-6bc4f3ea/collection.json"
       },
       {
         "id": "edugis-wateringen-1832",
         "type": "style",
-        "url": "https://edugis.b-cdn.net/1832-wegen-en-wateringen-1832-wateringen-c9eeaa5b/collection.json"
+        "url": "portolan://https://edugis.b-cdn.net/1832-wegen-en-wateringen-1832-wateringen-c9eeaa5b/collection.json"
       },
       {
         "id": "edugis-landen",
         "type": "style",
-        "url": "https://edugis.b-cdn.net/geoboundariescgaz-adm0-bbe04625/collection.json"
+        "url": "portolan://https://edugis.b-cdn.net/geoboundariescgaz-adm0-bbe04625/collection.json"
+      },
+      {
+        "id": "edugis-pand",
+        "type": "style",
+        "url": "portolan://https://edugis.b-cdn.net/bag-light-pand-69d34205/collection.json"
+      },
+      {
+        "id": "panden-bouwjaar",
+        "type": "fill",
+        "title": "Panden naar bouwjaar (eigen stijl)",
+        "source": "bag-panden",
+        "source-layer": "pand",
+        "paint": {
+          "fill-color": [
+            "step",
+            [
+              "get",
+              "bouwjaar"
+            ],
+            "#8c2d04",
+            1900,
+            "#d94801",
+            1945,
+            "#fd8d3c",
+            1975,
+            "#fdd0a2",
+            2000,
+            "#c6dbef"
+          ],
+          "fill-opacity": 0.8
+        }
+      },
+      {
+        "id": "panden-amsterdam",
+        "type": "fill",
+        "title": "Panden Amsterdam (eigen filter)",
+        "source": "bag-panden",
+        "source-layer": "pand",
+        "filter": [
+          "==",
+          [
+            "slice",
+            [
+              "get",
+              "identificatie"
+            ],
+            0,
+            4
+          ],
+          "0363"
+        ],
+        "paint": {
+          "fill-color": "#c51b7d",
+          "fill-opacity": 0.6
+        }
       }
     ]
   },
@@ -130,6 +191,9 @@
                   "layerId": "nl-provinces"
                 },
                 {
+                  "layerId": "nl-provinces-labeled"
+                },
+                {
                   "layerId": "ne-countries"
                 }
               ]
@@ -149,6 +213,18 @@
                 },
                 {
                   "layerId": "edugis-landen"
+                }
+              ]
+            },
+            {
+              "label": "Own styles on a Portolan source",
+              "expanded": true,
+              "children": [
+                {
+                  "layerId": "panden-bouwjaar"
+                },
+                {
+                  "layerId": "panden-amsterdam"
                 }
               ]
             }

@@ -24,7 +24,7 @@ const PARQUET_MEDIA_TYPE = 'application/vnd.apache.parquet';
 const COG_MEDIA_TYPE = 'image/tiff';
 
 /** URL wrappers webmapx reads as "this file, through a protocol" (same set as the config loader). */
-const WRAPPER = /^(pmtiles|geoparquet|cog):\/\//;
+const WRAPPER = /^(pmtiles|geoparquet|cog|portolan):\/\//;
 
 export interface PortolanStyleRef {
   /** Asset key, e.g. `style-labeled`. */

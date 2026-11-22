@@ -1,11 +1,16 @@
 /**
- * UI Test: a Portolan collection as a layer (docs/adr/0001-portolan-catalogs.md, step 1)
+ * UI Test: Portolan collections as layers (docs/adr/0001-portolan-catalogs.md, step 1)
  *
- * A config layer `{ type: 'style', url: '<collection.json>' }` is drawn from the collection's
- * default style asset, bound to the collection's own data: the PMTiles `visual` for the
- * Dutch provinces, the GeoParquet `data` for the small Natural Earth countries (which ship
- * no PMTiles). Both come from the Portolan spec's reference catalog as hosted on
- * source.coop, so the suite skips rather than fails when that host is unreachable.
+ * `portolan://<collection.json>` in both places a URL can stand:
+ * - as a style URL (`{ type: 'style', url: 'portolan://…' }`): the publisher's default
+ *   style, or a named one with `#style-key`, bound to the collection's own data — the
+ *   PMTiles `visual` for the Dutch provinces, the GeoParquet `data` for the small Natural
+ *   Earth countries (which ship no PMTiles);
+ * - as a source URL: the collection's current data under the config's own paint and filter
+ *   (the EduGIS BAG buildings, filtered to Amsterdam by the municipality code their id
+ *   starts with).
+ * The reference catalog is hosted on source.coop, so the suite skips rather than fails
+ * when that host is unreachable.
  *
  * Engines: the ones that draw vector tiles. Leaflet and Cesium cannot draw PMTiles, so the
  * provinces are not theirs to show (ADR 0001, "Engines").
@@ -82,7 +87,35 @@ export async function run({ page, engine, baseUrl }) {
     return count > 100 ? count : null;
   }, [features.toString(), 'ne-countries'], 'the GeoParquet countries never loaded');
 
-  console.log(`  provinces drawn: ${provinceNames.length}, countries loaded: ${countryCount}`);
+  // A named publisher style: `#style-labeled` adds a symbol layer the default lacks.
+  await page.evaluate(async () => {
+    await document.querySelector('webmapx-map').addLayerRequest({ layerId: 'nl-provinces-labeled' });
+  });
+  const labeledHasLabels = await poll(async () => {
+    const adapter = await document.querySelector('webmapx-map').getAdapterAsync();
+    const entry = adapter.store.getState().mapLayers['nl-provinces-labeled'];
+    if (!entry) return null;
+    return JSON.stringify(entry).includes('"symbol"') ? 'yes' : 'no';
+  }, undefined, 'the labeled publisher style never reached the map');
+  if (labeledHasLabels !== 'yes') fail('#style-labeled was drawn without its label layer — the default style was used instead');
+
+  // portolan:// as a source URL, under the config's own filter: only Amsterdam's
+  // buildings (BAG ids start with the municipality code, 0363 for Amsterdam).
+  await page.evaluate(async () => {
+    const map = document.querySelector('webmapx-map');
+    await map.addLayerRequest({ layerId: 'panden-amsterdam' });
+    const adapter = await map.getAdapterAsync();
+    adapter.setViewport([4.8897, 52.3731], 15, { animate: false });
+  });
+  const ids = await poll(async ([fnSource, id]) => {
+    const read = new Function(`return (${fnSource})`)();
+    const found = (await read(id)).map((p) => String(p.identificatie ?? '')).filter(Boolean);
+    return found.length > 0 ? found : null;
+  }, [features.toString(), 'panden-amsterdam'], 'no Amsterdam buildings were drawn from the portolan:// source');
+  const outside = ids.filter((id) => !id.startsWith('0363'));
+  if (outside.length) fail(`the filter let through ${outside.length} buildings outside Amsterdam, e.g. ${outside[0]}`);
+
+  console.log(`  provinces drawn: ${provinceNames.length}, countries loaded: ${countryCount}, Amsterdam buildings: ${ids.length}`);
   if (process.env.WEBMAPX_SCREENSHOT) {
     await page.waitForTimeout(1500);
     await page.screenshot({ path: process.env.WEBMAPX_SCREENSHOT.replace('{engine}', engine) });
