@@ -23,7 +23,9 @@ export async function showLayerPickerDialog(
           `<sl-checkbox name="${l.name}" checked style="display:block;margin-bottom:0.4rem">` +
           `${l.name}` +
           (l.featureCount > 0
-            ? ` <span style="color:var(--sl-color-neutral-400);font-size:0.85em">(${l.featureCount.toLocaleString()} features)</span>`
+            // An estimate (a GeoPackage without stored counts) is the highest FID: exact unless
+            // features were deleted, and counting instead would read the whole file first.
+            ? ` <span style="color:var(--sl-color-neutral-400);font-size:0.85em"${l.featureCountEstimated ? ' title="Estimated from the file without counting"' : ''}>(${l.featureCountEstimated ? '≈ ' : ''}${l.featureCount.toLocaleString()} features)</span>`
             : '') +
           `</sl-checkbox>`,
       )
