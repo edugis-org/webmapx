@@ -22,11 +22,15 @@ import workerJsUrl from 'gdal3.js/dist/package/gdal3.js?url';
 // one never fetches it.
 import goCartWasmUrl from 'go-cart-wasm/dist/cart.wasm?url';
 
+import { openFast, closeFast, listLayers, installReadCache, type FastDataset } from './gdal-fast-open';
+
 // ─── Message types (re-exported so the manager can import them) ───────────────
 
 export interface GpkgLayerInfo {
     name: string;
     featureCount: number;
+    /** The count is the layer's highest FID, not a count (a GeoPackage without stored counts). */
+    featureCountEstimated?: boolean;
 }
 
 export type SpatialOp =
@@ -80,6 +84,7 @@ function getGdal(): Promise<GdalInstance> {
         logHandler: (text: string) => handleOutput('stdout', text),
         errorHandler: (text: string) => handleOutput('stderr', text),
     }).then((gdal: GdalInstance) => {
+        installReadCache(gdal);
         gdalInstance = gdal;
         return gdal;
     });
@@ -88,6 +93,21 @@ function getGdal(): Promise<GdalInstance> {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Opens a dropped file. `openFast` first: `gdal.open` counts every feature of
+ * every layer after opening (see `gdal-fast-open.ts`), a full read of a
+ * GeoPackage without stored counts. `gdal.open` stays the fallback, for what
+ * GDALOpenEx cannot open by name (a zipped shapefile) and for its error text.
+ */
+async function openInput(gdal: GdalInstance, file: File): Promise<{ ds: any; fast: FastDataset | null; close: () => Promise<void> }> {
+    const fast = openFast(gdal, file);
+    if (fast) return { ds: fast, fast, close: () => closeFast(gdal, fast) };
+    const { datasets, errors } = await gdal.open(file);
+    const ds = datasets[0];
+    if (!ds) throw new Error(`GDAL could not open "${file.name}": ${errors.join('; ')}`);
+    return { ds, fast: null, close: () => gdal.close(ds) };
+}
 
 async function filePathToFeatureCollection(gdal: GdalInstance, filePath: string | { local: string; real: string }): Promise<GeoJSON.FeatureCollection> {
     const bytes = await gdal.getFileBytes(filePath as string | Parameters<GdalInstance['getFileBytes']>[0]);
@@ -106,10 +126,7 @@ async function convertToGeoJSON(
     filename: string,
 ): Promise<GeoJSON.FeatureCollection> {
     const gdalName = filename.split('/').pop()!;
-    const inputFile = new File([data], gdalName);
-    const { datasets, errors } = await gdal.open(inputFile);
-    const inputDs = datasets[0];
-    if (!inputDs) throw new Error(`GDAL could not open "${filename}": ${errors.join('; ')}`);
+    const { ds: inputDs, close } = await openInput(gdal, new File([data], gdalName));
 
     const isGml = /\.gml$/i.test(gdalName);
     const detectedSrs = isGml ? detectGmlSrs(data) : null;
@@ -127,7 +144,7 @@ async function convertToGeoJSON(
         const fc = await filePathToFeatureCollection(gdal, outputPath);
         return fc;
     } finally {
-        await gdal.close(inputDs);
+        await close();
     }
 }
 
@@ -158,8 +175,7 @@ function detectGmlSrs(data: ArrayBuffer): string | null {
 
 // ─── Multi-layer file session store ──────────────────────────────────────────
 
-// Sessions store the raw file data so each layer can be opened independently
-// using GDAL's TABLE= open option — avoiding -sql which suppresses -progress.
+// Sessions store the raw file data so each layer can be converted on its own.
 const fileSessions = new Map<string, { data: ArrayBuffer; filename: string; totalLayers: number }>();
 let sessionCounter = 0;
 
@@ -170,19 +186,20 @@ async function inspectFile(
 ): Promise<{ sessionKey: string; layers: GpkgLayerInfo[] }> {
     // Strip path separators: gdal3.js WORKERFS mounts by file.name and can't create subdirs
     const gdalName = filename.split('/').pop()!;
-    const inputFile = new File([data], gdalName);
-    const { datasets, errors } = await gdal.open(inputFile);
-    const dataset = datasets[0];
-    if (!dataset) throw new Error(`GDAL could not open "${filename}": ${errors.join('; ')}`);
-
-    const info = await gdal.getInfo(dataset);
-    await gdal.close(dataset);
+    const { ds, fast, close } = await openInput(gdal, new File([data], gdalName));
+    let found: { name: string; featureCount: number; estimated?: boolean }[];
+    try {
+        // getInfo counts every layer in full, which is the slow part this avoids.
+        found = fast ? (await listLayers(gdal, fast)).layers : ((await gdal.getInfo(ds)).layers ?? []);
+    } finally {
+        await close();
+    }
 
     // Filter QGIS/GPKG metadata tables that aren't real data layers
     const METADATA_TABLES = new Set(['layer_styles', 'layer_metadata', 'qgis_projects', 'qgis_3d_styles']);
-    const layers: GpkgLayerInfo[] = (info.layers ?? [])
+    const layers: GpkgLayerInfo[] = found
         .filter((l) => !METADATA_TABLES.has(l.name.toLowerCase()))
-        .map((l) => ({ name: l.name, featureCount: l.featureCount }));
+        .map((l) => ({ name: l.name, featureCount: l.featureCount, ...(l.estimated ? { featureCountEstimated: true } : {}) }));
 
 
     const sessionKey = `fs-${++sessionCounter}`;
@@ -201,9 +218,7 @@ async function convertFileLayer(
     // Safe output name: WASM FS path must not contain spaces or special chars
     const safeName = layerName.replace(/[^a-zA-Z0-9_-]/g, '_');
 
-    const { datasets, errors } = await gdal.open(new File([session.data], session.filename));
-    const ds = datasets[0];
-    if (!ds) throw new Error(`GDAL could not open "${session.filename}": ${errors.join('; ')}`);
+    const { ds, close } = await openInput(gdal, new File([session.data], session.filename));
 
     // For GML: GDAL's driver may not find the source CRS when srsName appears
     // only on individual feature geometries (not the root element). Scan the
@@ -229,17 +244,18 @@ async function convertFileLayer(
         if (session.totalLayers <= 1) {
             outputPath = await gdal.ogr2ogr(ds, commonArgs, `converted_${safeName}`);
         } else {
+            // The layer named as ogr2ogr's positional argument, not `SELECT *`:
+            // the driver then reads the table directly, and the FID is kept.
             outputPath = await gdal.ogr2ogr(ds, [
                 ...commonArgs,
-                '-sql', `SELECT * FROM "${layerName.replace(/"/g, '""')}"`,
-                '-dialect', 'OGRSQL',
                 '-nln', safeName,
+                layerName,
             ], `converted_${safeName}`);
         }
         const fc = await filePathToFeatureCollection(gdal, outputPath);
         return fc;
     } finally {
-        await gdal.close(ds);
+        await close();
     }
 }
 
