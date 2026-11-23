@@ -1,0 +1,179 @@
+{
+  "type": "Collection",
+  "stac_version": "1.1.0",
+  "stac_extensions": [
+    "https://schemas.portolan-sdi.org/portolan/v0.4.0/schema.json",
+    "https://stac-extensions.github.io/file/v2.1.0/schema.json",
+    "https://stac-extensions.github.io/projection/v2.0.0/schema.json",
+    "https://stac-extensions.github.io/language/v1.0.0/schema.json"
+  ],
+  "id": "raster/sample-cog",
+  "title": "Sample Raster COG",
+  "description": "A small 3-band Cloud Optimized GeoTIFF used to exercise the raster path end to end, rasterio's RGB.byte.tif test fixture, derived from USGS Landsat 7 imagery over Andros Island in the Bahamas. Optimized to a COG with per-band statistics, minimum, maximum, mean, and standard deviation, embedded in the header, in UTM zone 18N (EPSG:32618).",
+  "license": "CC0-1.0",
+  "keywords": [
+    "raster",
+    "cog",
+    "sample",
+    "rgb",
+    "geotiff"
+  ],
+  "providers": [
+    {
+      "name": "rasterio",
+      "url": "https://github.com/rasterio/rasterio",
+      "roles": [
+        "producer",
+        "licensor"
+      ]
+    },
+    {
+      "name": "Portolan SDI",
+      "url": "https://github.com/portolan-sdi",
+      "email": "portolan@googlegroups.com",
+      "roles": [
+        "host"
+      ]
+    }
+  ],
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -78.95865,
+          23.564991,
+          -76.574924,
+          25.550874
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "1999-04-15T00:00:00Z",
+          null
+        ]
+      ]
+    }
+  },
+  "assets": {
+    "data": {
+      "href": "./sample-cog.tif",
+      "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+      "title": "Sample Raster COG (COG)",
+      "roles": [
+        "data"
+      ],
+      "file:size": 1054493,
+      "file:checksum": "1220b2e1aa393fe37dc26e516b13c8f4fb3b1e99efd01a6661c894a5e840201c8c96",
+      "bands": [
+        {
+          "data_type": "uint8",
+          "statistics": {
+            "minimum": 1.0,
+            "maximum": 255.0,
+            "mean": 44.396,
+            "stddev": 58.4784,
+            "valid_percent": 67.4572
+          }
+        },
+        {
+          "data_type": "uint8",
+          "statistics": {
+            "minimum": 1.0,
+            "maximum": 255.0,
+            "mean": 65.9922,
+            "stddev": 58.2068,
+            "valid_percent": 67.4572
+          }
+        },
+        {
+          "data_type": "uint8",
+          "statistics": {
+            "minimum": 1.0,
+            "maximum": 255.0,
+            "mean": 71.3248,
+            "stddev": 60.8373,
+            "valid_percent": 67.4572
+          }
+        }
+      ],
+      "proj:code": "EPSG:32618",
+      "description": "The 3-band 8-bit RGB image in UTM zone 18N, with band statistics in its header."
+    },
+    "source": {
+      "href": "https://raw.githubusercontent.com/rasterio/rasterio/main/tests/data/RGB.byte.tif",
+      "type": "image/tiff",
+      "title": "rasterio RGB.byte.tif test fixture (GeoTIFF)",
+      "roles": [
+        "source"
+      ],
+      "file:size": 1745956,
+      "file:checksum": "1220d7cbe932c7ed74a627706a9e9df99f706df3e5abc7d45a49e9d00677a6b09eb4",
+      "description": "The rasterio RGB.byte.tif test image, the 3-band 8-bit GeoTIFF that the COG is made from."
+    },
+    "thumbnail": {
+      "href": "./thumbnail.png",
+      "type": "image/png",
+      "title": "Preview thumbnail over a light basemap. © OpenStreetMap contributors © CARTO.",
+      "roles": [
+        "thumbnail"
+      ],
+      "file:size": 243153,
+      "file:checksum": "12203f05e92e5b77ab80d92d7e319053dfa48f00ce72d05f8c7251959b88dbd57971",
+      "description": "A PNG of the image over a light basemap."
+    }
+  },
+  "links": [
+    {
+      "rel": "root",
+      "href": "../../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "parent",
+      "href": "../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "via",
+      "href": "https://github.com/rasterio/rasterio/blob/main/tests/data/RGB.byte.tif",
+      "type": "text/html",
+      "title": "Original source"
+    },
+    {
+      "rel": "agents",
+      "href": "./AGENTS.md",
+      "type": "text/markdown",
+      "title": "Guidance for AI agents",
+      "hreflang": "en"
+    },
+    {
+      "rel": "describedby",
+      "href": "./README.md",
+      "type": "text/markdown",
+      "title": "Human-readable documentation",
+      "hreflang": "en"
+    },
+    {
+      "rel": "alternate",
+      "href": "../../ar/raster/sample-cog/collection.json",
+      "type": "application/json",
+      "title": "Arabic",
+      "hreflang": "ar"
+    }
+  ],
+  "updated": "2026-07-21T00:00:00Z",
+  "language": {
+    "code": "en",
+    "name": "English"
+  },
+  "languages": [
+    {
+      "code": "ar",
+      "name": "العربية",
+      "alternate": "Arabic",
+      "dir": "rtl"
+    }
+  ]
+}

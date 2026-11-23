@@ -1,0 +1,992 @@
+{
+  "type": "Collection",
+  "stac_version": "1.1.0",
+  "stac_extensions": [
+    "https://schemas.portolan-sdi.org/portolan/v0.4.0/schema.json",
+    "https://stac-extensions.github.io/file/v2.1.0/schema.json",
+    "https://stac-extensions.github.io/table/v1.2.0/schema.json",
+    "https://stac-extensions.github.io/projection/v2.0.0/schema.json",
+    "https://stac-extensions.github.io/language/v1.0.0/schema.json"
+  ],
+  "id": "reference/natural-earth-countries",
+  "title": "Natural Earth Countries (1:110m)",
+  "description": "World country boundaries at 1:110m scale from Natural Earth, the public domain reference basemap maintained by NACIS. Republished as cloud-native GeoParquet alongside the original zipped Shapefile.",
+  "license": "CC0-1.0",
+  "keywords": [
+    "boundaries",
+    "countries",
+    "natural-earth",
+    "reference",
+    "basemap"
+  ],
+  "providers": [
+    {
+      "name": "Natural Earth",
+      "url": "https://www.naturalearthdata.com",
+      "roles": [
+        "producer",
+        "licensor"
+      ]
+    },
+    {
+      "name": "Portolan SDI",
+      "url": "https://github.com/portolan-sdi",
+      "email": "portolan@googlegroups.com",
+      "roles": [
+        "host"
+      ]
+    }
+  ],
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -180.0,
+          -90.0,
+          180.0,
+          83.64513
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "2022-05-12T00:00:00Z",
+          null
+        ]
+      ]
+    }
+  },
+  "table:columns": [
+    {
+      "name": "fid",
+      "type": "bigint",
+      "description": "Feature id that GDAL assigned when the generator read the source layer. Unique in this file. It is not an upstream key."
+    },
+    {
+      "name": "featurecla",
+      "type": "varchar"
+    },
+    {
+      "name": "scalerank",
+      "type": "integer"
+    },
+    {
+      "name": "LABELRANK",
+      "type": "integer"
+    },
+    {
+      "name": "SOVEREIGNT",
+      "type": "varchar",
+      "description": "The owning sovereign state, which differs from ADMIN for territories such as Greenland (Denmark)."
+    },
+    {
+      "name": "SOV_A3",
+      "type": "varchar",
+      "description": "Natural Earth three-letter code of the sovereign state. Natural Earth states that the code is unique to its own coding system and somewhat follows the ISO alpha-3 codes."
+    },
+    {
+      "name": "ADM0_DIF",
+      "type": "integer"
+    },
+    {
+      "name": "LEVEL",
+      "type": "integer"
+    },
+    {
+      "name": "TYPE",
+      "type": "varchar",
+      "description": "Unit type, Sovereign country, Country, Dependency, Disputed, Indeterminate, or Sovereignty."
+    },
+    {
+      "name": "TLC",
+      "type": "varchar",
+      "description": "Flag for the top-level-country (TLC) point of view. Natural Earth describes TLC as a superset of ISO. The value is 1 in 176 rows and null in one row."
+    },
+    {
+      "name": "ADMIN",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3",
+      "type": "varchar",
+      "description": "Natural Earth's own three-letter country code. Never a sentinel value, and the join key to the populated places Collection."
+    },
+    {
+      "name": "GEOU_DIF",
+      "type": "integer",
+      "description": "Flag that states if the geographic unit is different from its parent administrative unit. Natural Earth provides it so that a map does not repeat labels. The value is 0 in every row of this file."
+    },
+    {
+      "name": "GEOUNIT",
+      "type": "varchar"
+    },
+    {
+      "name": "GU_A3",
+      "type": "varchar",
+      "description": "Natural Earth three-letter code of the geographic unit. Natural Earth states that the code is unique to its own coding system and somewhat follows the ISO alpha-3 codes."
+    },
+    {
+      "name": "SU_DIF",
+      "type": "integer"
+    },
+    {
+      "name": "SUBUNIT",
+      "type": "varchar"
+    },
+    {
+      "name": "SU_A3",
+      "type": "varchar",
+      "description": "Natural Earth three-letter code of the administrative sub-unit. Natural Earth states that it is like an ISO alpha-3 code, but different."
+    },
+    {
+      "name": "BRK_DIFF",
+      "type": "integer"
+    },
+    {
+      "name": "NAME",
+      "type": "varchar",
+      "description": "Short map label, for example Dem. Rep. Congo."
+    },
+    {
+      "name": "NAME_LONG",
+      "type": "varchar",
+      "description": "Long-form name, for example Democratic Republic of the Congo. Differs from NAME on 21 rows."
+    },
+    {
+      "name": "BRK_A3",
+      "type": "varchar"
+    },
+    {
+      "name": "BRK_NAME",
+      "type": "varchar"
+    },
+    {
+      "name": "BRK_GROUP",
+      "type": "varchar"
+    },
+    {
+      "name": "ABBREV",
+      "type": "varchar"
+    },
+    {
+      "name": "POSTAL",
+      "type": "varchar"
+    },
+    {
+      "name": "FORMAL_EN",
+      "type": "varchar"
+    },
+    {
+      "name": "FORMAL_FR",
+      "type": "varchar"
+    },
+    {
+      "name": "NAME_CIAWF",
+      "type": "varchar"
+    },
+    {
+      "name": "NOTE_ADM0",
+      "type": "varchar",
+      "description": "Short note that gives context to the sovereignty of the feature, such as Fr. or U.K. Null for most rows."
+    },
+    {
+      "name": "NOTE_BRK",
+      "type": "varchar",
+      "description": "Note that gives context to the sovereignty of a breakaway or disputed feature, such as a self-administered status or the country that claims it. Null for most rows."
+    },
+    {
+      "name": "NAME_SORT",
+      "type": "varchar",
+      "description": "Name for sorted lists. Natural Earth provides it so that a list can ignore a prefix such as The."
+    },
+    {
+      "name": "NAME_ALT",
+      "type": "varchar"
+    },
+    {
+      "name": "MAPCOLOR7",
+      "type": "integer",
+      "description": "Map color index. Natural Earth states that its map color derives from a US State Department political world map, where no neighboring countries have the same color and all territories of a sovereign state share one color."
+    },
+    {
+      "name": "MAPCOLOR8",
+      "type": "integer",
+      "description": "Map color index. Natural Earth states that its map color derives from a US State Department political world map, where no neighboring countries have the same color and all territories of a sovereign state share one color."
+    },
+    {
+      "name": "MAPCOLOR9",
+      "type": "integer",
+      "description": "Map color index. Natural Earth states that its map color derives from a US State Department political world map, where no neighboring countries have the same color and all territories of a sovereign state share one color."
+    },
+    {
+      "name": "MAPCOLOR13",
+      "type": "integer",
+      "description": "Map color index. Natural Earth states that its map color derives from a US State Department political world map, where no neighboring countries have the same color and all territories of a sovereign state share one color."
+    },
+    {
+      "name": "POP_EST",
+      "type": "double",
+      "description": "Population estimate, mostly the 2019 vintage. See POP_YEAR."
+    },
+    {
+      "name": "POP_RANK",
+      "type": "integer"
+    },
+    {
+      "name": "POP_YEAR",
+      "type": "integer",
+      "description": "Year the population estimate refers to."
+    },
+    {
+      "name": "GDP_MD",
+      "type": "integer",
+      "description": "GDP in millions of US dollars, mostly the 2019 vintage. See GDP_YEAR."
+    },
+    {
+      "name": "GDP_YEAR",
+      "type": "integer",
+      "description": "Year the GDP figure refers to."
+    },
+    {
+      "name": "ECONOMY",
+      "type": "varchar"
+    },
+    {
+      "name": "INCOME_GRP",
+      "type": "varchar"
+    },
+    {
+      "name": "FIPS_10",
+      "type": "varchar"
+    },
+    {
+      "name": "ISO_A2",
+      "type": "varchar",
+      "description": "ISO 3166-1 alpha-2 code, -99 for the same five countries as ISO_A3."
+    },
+    {
+      "name": "ISO_A2_EH",
+      "type": "varchar",
+      "description": "ISO alpha-2 with France, Norway, and Kosovo (XK) repaired."
+    },
+    {
+      "name": "ISO_A3",
+      "type": "varchar",
+      "description": "ISO 3166-1 alpha-3 code, with the sentinel -99 for France, Norway, Kosovo, Northern Cyprus, and Somaliland. Prefer ISO_A3_EH."
+    },
+    {
+      "name": "ISO_A3_EH",
+      "type": "varchar",
+      "description": "ISO alpha-3 with France and Norway repaired. The column to join external ISO-coded statistics on."
+    },
+    {
+      "name": "ISO_N3",
+      "type": "varchar"
+    },
+    {
+      "name": "ISO_N3_EH",
+      "type": "varchar"
+    },
+    {
+      "name": "UN_A3",
+      "type": "varchar"
+    },
+    {
+      "name": "WB_A2",
+      "type": "varchar"
+    },
+    {
+      "name": "WB_A3",
+      "type": "varchar"
+    },
+    {
+      "name": "WOE_ID",
+      "type": "integer"
+    },
+    {
+      "name": "WOE_ID_EH",
+      "type": "integer"
+    },
+    {
+      "name": "WOE_NOTE",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_ISO",
+      "type": "varchar",
+      "description": "Country code in the ISO point of view. Natural Earth renamed it from adm0_a3_iso in version 5.1.0."
+    },
+    {
+      "name": "ADM0_DIFF",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_TLC",
+      "type": "varchar",
+      "description": "Country code in the top-level-country (TLC) point of view, which Natural Earth added in version 5.1.0."
+    },
+    {
+      "name": "ADM0_A3_US",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_FR",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_RU",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_ES",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_CN",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_TW",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_IN",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_NP",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_PK",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_DE",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_GB",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_BR",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_IL",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_PS",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_SA",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_EG",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_MA",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_PT",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_AR",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_JP",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_KO",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_VN",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_TR",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_ID",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_PL",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_GR",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_IT",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_NL",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_SE",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_BD",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_UA",
+      "type": "varchar"
+    },
+    {
+      "name": "ADM0_A3_UN",
+      "type": "integer"
+    },
+    {
+      "name": "ADM0_A3_WB",
+      "type": "integer"
+    },
+    {
+      "name": "CONTINENT",
+      "type": "varchar",
+      "description": "Continent rollup. Includes the value Seven seas (open ocean), so a GROUP BY returns eight groups."
+    },
+    {
+      "name": "REGION_UN",
+      "type": "varchar",
+      "description": "United Nations macro region."
+    },
+    {
+      "name": "SUBREGION",
+      "type": "varchar",
+      "description": "United Nations subregion."
+    },
+    {
+      "name": "REGION_WB",
+      "type": "varchar"
+    },
+    {
+      "name": "NAME_LEN",
+      "type": "integer"
+    },
+    {
+      "name": "LONG_LEN",
+      "type": "integer"
+    },
+    {
+      "name": "ABBREV_LEN",
+      "type": "integer"
+    },
+    {
+      "name": "TINY",
+      "type": "integer"
+    },
+    {
+      "name": "HOMEPART",
+      "type": "integer"
+    },
+    {
+      "name": "MIN_ZOOM",
+      "type": "double",
+      "description": "Minimum web map zoom at which to show the feature. Natural Earth optimizes it for the web Mercator projection."
+    },
+    {
+      "name": "MIN_LABEL",
+      "type": "double",
+      "description": "Minimum zoom at which to show the label. Natural Earth provides it where the label appears later than the geometry."
+    },
+    {
+      "name": "MAX_LABEL",
+      "type": "double",
+      "description": "Zoom at which the label stops."
+    },
+    {
+      "name": "LABEL_X",
+      "type": "double",
+      "description": "Longitude of the preferred label point."
+    },
+    {
+      "name": "LABEL_Y",
+      "type": "double",
+      "description": "Latitude of the preferred label point."
+    },
+    {
+      "name": "NE_ID",
+      "type": "bigint",
+      "description": "Stable Natural Earth feature id, unique in this file."
+    },
+    {
+      "name": "WIKIDATAID",
+      "type": "varchar",
+      "description": "Wikidata QID, present on all 177 rows."
+    },
+    {
+      "name": "NAME_AR",
+      "type": "varchar",
+      "description": "Name in Arabic. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_BN",
+      "type": "varchar",
+      "description": "Name in Bengali. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_DE",
+      "type": "varchar",
+      "description": "Name in German. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_EN",
+      "type": "varchar",
+      "description": "Name in English. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_ES",
+      "type": "varchar",
+      "description": "Name in Spanish. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_FA",
+      "type": "varchar",
+      "description": "Name in Farsi. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_FR",
+      "type": "varchar",
+      "description": "Name in French. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_EL",
+      "type": "varchar",
+      "description": "Name in Greek. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_HE",
+      "type": "varchar",
+      "description": "Name in Hebrew. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_HI",
+      "type": "varchar",
+      "description": "Name in Hindi. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_HU",
+      "type": "varchar",
+      "description": "Name in Hungarian. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_ID",
+      "type": "varchar",
+      "description": "Name in Indonesian. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_IT",
+      "type": "varchar",
+      "description": "Name in Italian. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_JA",
+      "type": "varchar",
+      "description": "Name in Japanese. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_KO",
+      "type": "varchar",
+      "description": "Name in Korean. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_NL",
+      "type": "varchar",
+      "description": "Name in Dutch. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_PL",
+      "type": "varchar",
+      "description": "Name in Polish. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_PT",
+      "type": "varchar",
+      "description": "Name in Portuguese. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_RU",
+      "type": "varchar",
+      "description": "Name in Russian. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_SV",
+      "type": "varchar",
+      "description": "Name in Swedish. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_TR",
+      "type": "varchar",
+      "description": "Name in Turkish. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_UK",
+      "type": "varchar",
+      "description": "Name in Ukrainian. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_UR",
+      "type": "varchar",
+      "description": "Name in Urdu. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_VI",
+      "type": "varchar",
+      "description": "Name in Vietnamese. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_ZH",
+      "type": "varchar",
+      "description": "Name in Simplified Chinese. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "NAME_ZHT",
+      "type": "varchar",
+      "description": "Name in Traditional Chinese. Natural Earth takes its localized names from Wikidata."
+    },
+    {
+      "name": "FCLASS_ISO",
+      "type": "varchar",
+      "description": "Feature class from the ISO point of view. Natural Earth lists the values Admin-0 country, Admin-0 dependency, Admin-1 states provinces, and Unrecognized."
+    },
+    {
+      "name": "TLC_DIFF",
+      "type": "varchar",
+      "description": "Flag that Natural Earth added with the top-level-country (TLC) point of view. The value is 1 in 4 rows and null in the others."
+    },
+    {
+      "name": "FCLASS_TLC",
+      "type": "varchar",
+      "description": "Feature class from the top-level-country (TLC) point of view. This file contains Admin-0 country, Admin-0 dependency, and Unrecognized."
+    },
+    {
+      "name": "FCLASS_US",
+      "type": "varchar",
+      "description": "Feature class from the point of view of the United States. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_FR",
+      "type": "varchar",
+      "description": "Feature class from the point of view of France. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_RU",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Russia. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_ES",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Spain. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_CN",
+      "type": "varchar",
+      "description": "Feature class from the point of view of China. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_TW",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Taiwan. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_IN",
+      "type": "varchar",
+      "description": "Feature class from the point of view of India. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_NP",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Nepal. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_PK",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Pakistan. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_DE",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Germany. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_GB",
+      "type": "varchar",
+      "description": "Feature class from the point of view of the United Kingdom. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_BR",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Brazil. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_IL",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Israel. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_PS",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Palestine. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_SA",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Saudi Arabia. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_EG",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Egypt. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_MA",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Morocco. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_PT",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Portugal. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_AR",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Argentina. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_JP",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Japan. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_KO",
+      "type": "varchar",
+      "description": "Feature class from the point of view of South Korea. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_VN",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Vietnam. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_TR",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Turkey. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_ID",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Indonesia. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_PL",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Poland. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_GR",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Greece. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_IT",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Italy. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_NL",
+      "type": "varchar",
+      "description": "Feature class from the point of view of the Netherlands. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_SE",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Sweden. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_BD",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Bangladesh. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "FCLASS_UA",
+      "type": "varchar",
+      "description": "Feature class from the point of view of Ukraine. One of the Natural Earth FCLASS columns for alternate points of view. Null where that point of view sets no class."
+    },
+    {
+      "name": "geom",
+      "type": "geometry",
+      "description": "Country geometry, polygon or multipolygon, WGS84 longitude and latitude."
+    },
+    {
+      "name": "bbox",
+      "type": "struct(xmin double, ymin double, xmax double, ymax double)",
+      "description": "Per-feature bounding box struct, the GeoParquet covering used for spatial predicate pushdown."
+    }
+  ],
+  "table:primary_geometry": "geom",
+  "table:row_count": 177,
+  "assets": {
+    "data": {
+      "href": "./natural-earth-countries.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "Natural Earth Countries (1:110m) (GeoParquet)",
+      "roles": [
+        "data"
+      ],
+      "file:size": 280650,
+      "file:checksum": "122060be40dbafd2491ccf1627ae848b3a035bc082de7d8130a885033856ac3c3c86",
+      "proj:code": "EPSG:4326",
+      "description": "The 177 country polygons with their attribute columns, in WGS84 longitude and latitude."
+    },
+    "source": {
+      "href": "https://naciscdn.org/naturalearth/110m/cultural/ne_110m_admin_0_countries.zip",
+      "type": "application/zip",
+      "title": "Natural Earth 110m Admin 0 Countries (zipped Shapefile)",
+      "roles": [
+        "source"
+      ],
+      "file:size": 214976,
+      "file:checksum": "12200f243aeac8ac6cf26f0417285b0bd33ac47f1b5bdb719fd3e0df37d03ea37110",
+      "description": "The Natural Earth 1:110m Admin 0 countries Shapefile, zipped, as Natural Earth publishes it."
+    },
+    "style-continents": {
+      "href": "./styles/continents.json",
+      "type": "application/vnd.mapbox.style+json",
+      "title": "Countries by continent",
+      "roles": [
+        "style",
+        "default"
+      ],
+      "file:size": 1091,
+      "file:checksum": "1220c9c376ba88d683ee22bfc8e93ad061cf82e600bccb7f7e16633564dbb6f5991b",
+      "description": "Each continent shares one colour from the catalog palette, including the Seven seas (open ocean) group Natural Earth assigns the French Southern and Antarctic Lands."
+    },
+    "style-map-colors": {
+      "href": "./styles/map-colors.json",
+      "type": "application/vnd.mapbox.style+json",
+      "title": "Classic seven-colour map",
+      "roles": [
+        "style"
+      ],
+      "file:size": 928,
+      "file:checksum": "1220fded282fcd2b3977036d5fd76a4b173ec6d9187ab201b6fe9a1eba3c524f23a3",
+      "description": "Natural Earth's MAPCOLOR7 index, precomputed so neighbouring countries never share a colour, the classic political-map look."
+    },
+    "style-income-groups": {
+      "href": "./styles/income-groups.json",
+      "type": "application/vnd.mapbox.style+json",
+      "title": "World Bank income groups",
+      "roles": [
+        "style"
+      ],
+      "file:size": 991,
+      "file:checksum": "1220eece4c18adf53bcf1aa147f4621474b9d316dc02781254e10da9be4d4a1fde88",
+      "description": "The INCOME_GRP ordinal, deep green for high-income OECD economies through red for low-income, a five-step diverging palette in the field's own order."
+    },
+    "style-population": {
+      "href": "./styles/population.json",
+      "type": "application/vnd.mapbox.style+json",
+      "title": "Population in four classes",
+      "roles": [
+        "style"
+      ],
+      "file:size": 867,
+      "file:checksum": "1220691258bd2fc61f19a4cd634109ad52190c2d3584ccb4a7c2c369abfb547173f3",
+      "description": "POP_EST binned at ten million, fifty million, and two hundred million, light to dark blue, class breaks chosen so the map separates small states from the giants despite the skew."
+    },
+    "style-labeled": {
+      "href": "./styles/labeled.json",
+      "type": "application/vnd.mapbox.style+json",
+      "title": "Continents with country names",
+      "roles": [
+        "style"
+      ],
+      "file:size": 1372,
+      "file:checksum": "1220b85d724abb9212c6f2a2049ec4c30cf111fbc7345dc83c3b77648d0348185866",
+      "description": "The continent colouring with a NAME label per country."
+    },
+    "thumbnail": {
+      "href": "./thumbnail.png",
+      "type": "image/png",
+      "title": "Preview thumbnail over a light basemap. © OpenStreetMap contributors © CARTO.",
+      "roles": [
+        "thumbnail"
+      ],
+      "file:size": 71048,
+      "file:checksum": "12205fda9e12c86f1dbc13fcf9778afd2f0895fcf2ea0826b522af2a004874ce2de2",
+      "description": "A PNG map of the countries coloured by continent over a light basemap."
+    }
+  },
+  "links": [
+    {
+      "rel": "root",
+      "href": "../../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "parent",
+      "href": "../catalog.json",
+      "type": "application/json"
+    },
+    {
+      "rel": "via",
+      "href": "https://www.naturalearthdata.com/downloads/110m-cultural-vectors/",
+      "type": "text/html",
+      "title": "Original source"
+    },
+    {
+      "rel": "agents",
+      "href": "./AGENTS.md",
+      "type": "text/markdown",
+      "title": "Guidance for AI agents",
+      "hreflang": "en"
+    },
+    {
+      "rel": "describedby",
+      "href": "./README.md",
+      "type": "text/markdown",
+      "title": "Human-readable documentation",
+      "hreflang": "en"
+    },
+    {
+      "rel": "alternate",
+      "href": "../../ar/reference/natural-earth-countries/collection.json",
+      "type": "application/json",
+      "title": "Arabic",
+      "hreflang": "ar"
+    }
+  ],
+  "updated": "2026-07-16T00:00:00Z",
+  "language": {
+    "code": "en",
+    "name": "English"
+  },
+  "languages": [
+    {
+      "code": "ar",
+      "name": "العربية",
+      "alternate": "Arabic",
+      "dir": "rtl"
+    }
+  ]
+}

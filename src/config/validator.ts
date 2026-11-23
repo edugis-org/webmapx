@@ -651,8 +651,10 @@ function validateSources(
 
     checkUnknownKeys(s, knownKeys, path, warnings);
 
-    // Warning for missing attribution
-    if (s.attribution === undefined) {
+    // Warning for missing attribution. A portolan:// source carries its own: the
+    // collection names its producer and licence, and webmapx reads them from there.
+    const selfAttributing = typeof s.url === 'string' && s.url.startsWith('portolan://');
+    if (s.attribution === undefined && !selfAttributing) {
       warnings.push({ severity: 'warning', path, message: 'Source is missing "attribution"' });
     }
   });

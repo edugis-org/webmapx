@@ -7,10 +7,10 @@
 import { appUrl } from './lib/fixture-config.mjs';
 
 const EXPECTED = {
-  maplibre: { terrain: 'raster-dem', raster: true, geojson: true, vector: true, 'raster-dem': true, warped: true, allmaps: true, pmtiles: true },
-  openlayers: { terrain: null, raster: true, geojson: true, vector: true, 'raster-dem': true, warped: true, allmaps: true, pmtiles: true },
-  leaflet: { terrain: null, raster: true, geojson: true, vector: false, 'raster-dem': false, warped: true, allmaps: true, pmtiles: false },
-  cesium: { terrain: 'terrain-service', raster: true, geojson: true, vector: false, 'raster-dem': false, warped: false, allmaps: false, pmtiles: false },
+  maplibre: { terrain: 'raster-dem', raster: true, geojson: true, vector: true, 'raster-dem': true, warped: true, allmaps: true, pmtiles: true, portolan: true },
+  openlayers: { terrain: null, raster: true, geojson: true, vector: true, 'raster-dem': true, warped: true, allmaps: true, pmtiles: true, portolan: true },
+  leaflet: { terrain: null, raster: true, geojson: true, vector: false, 'raster-dem': false, warped: true, allmaps: true, pmtiles: false, portolan: false },
+  cesium: { terrain: 'terrain-service', raster: true, geojson: true, vector: false, 'raster-dem': false, warped: false, allmaps: false, pmtiles: false, portolan: false },
 };
 
 export async function run({ page, baseUrl, engine }) {
@@ -32,6 +32,8 @@ export async function run({ page, baseUrl, engine }) {
       'raster-dem': spec({ type: 'raster-dem', tiles: ['https://example.org/{z}/{x}/{y}.png'] }),
       warped: spec({ type: 'raster', url: 'warpedmap://annotation' }),
       pmtiles: spec({ type: 'vector', url: 'pmtiles://https://example.org/zones.pmtiles' }),
+      // A Portolan collection resolves to PMTiles, so it is offered where those are.
+      portolan: spec({ type: 'vector', url: 'portolan://https://example.org/zones/collection.json' }),
       allmaps: adapter.canDrawLayerType('allmaps'),
       views: adapter.getViewProjections(),
       terrain: adapter.getTerrainSourceKind(),

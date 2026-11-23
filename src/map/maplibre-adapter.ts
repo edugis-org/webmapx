@@ -35,7 +35,7 @@ _ml.addProtocol('cog', async (params) => {
  * Implements the unified IMap interface by delegating to specialized services.
  */
 const VECTOR_CAPABLE_SOURCE_TYPES: ReadonlySet<string> = new Set(['raster', 'geojson', 'vector', 'raster-dem']);
-const PMTILES_PROTOCOL: ReadonlySet<string> = new Set(['pmtiles', 'cog']);
+const PMTILES_PROTOCOL: ReadonlySet<string> = new Set(['pmtiles', 'cog', 'portolan']);
 
 export class MapLibreAdapter extends BaseAdapter implements IMap {
     public readonly engineId = 'maplibre';

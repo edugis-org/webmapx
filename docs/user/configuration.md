@@ -354,6 +354,48 @@ To load a full style from a URL (e.g. a vector basemap), set `metadata.styleUrl`
 
 Sub-layer properties follow the MapLibre spec (`source`, `source-layer`, `minzoom`, `maxzoom`, `paint`, `layout`, `filter`).
 
+**Portolan collections** (`portolan://<collection.json>`)
+
+A dataset published as a [Portolan](https://github.com/portolan-sdi/portolan-spec) collection (for example by PolderGIS) is referenced with `portolan://` in front of the URL of its `collection.json` — the same convention as `pmtiles://`. Reference the collection, never its data files: publishers put a hash in every file name, so a direct link to the PMTiles breaks at the next republication, while `collection.json` always points at the current files.
+
+`portolan://` can stand where a style URL stands or where a source URL stands:
+
+*The publisher's style* — a composite layer drawn in the collection's default style (the style asset with roles `style` and `default`), or a named one with `#<asset key>`:
+
+```json
+{ "id": "provinces", "type": "style", "url": "portolan://https://example.org/provinces/collection.json" }
+{ "id": "provinces-labeled", "type": "style", "url": "portolan://https://example.org/provinces/collection.json#style-labeled" }
+```
+
+The layer follows the publisher: a restyle or a data fix shows up without touching the config. It takes its title, description and extent from the collection; `title` and `metadata` in the config win.
+
+*Your own style* — `portolan://` as the `url` of a `vector` source, with ordinary layers on it. The data still follows the publisher; paint and filter are yours:
+
+```json
+"sources": [
+  { "id": "bag-panden", "type": "vector", "url": "portolan://https://edugis.b-cdn.net/bag-light-pand-69d34205/collection.json" }
+],
+"layers": [
+  {
+    "id": "panden-bouwjaar", "type": "fill", "title": "Panden naar bouwjaar",
+    "source": "bag-panden", "source-layer": "pand",
+    "paint": { "fill-color": ["step", ["get", "bouwjaar"], "#8c2d04", 1900, "#d94801", 1945, "#fd8d3c", 1975, "#fdd0a2", 2000, "#c6dbef"] }
+  },
+  {
+    "id": "panden-amsterdam", "type": "fill", "title": "Panden Amsterdam",
+    "source": "bag-panden", "source-layer": "pand",
+    "filter": ["==", ["slice", ["get", "identificatie"], 0, 4], "0363"],
+    "paint": { "fill-color": "#c51b7d", "fill-opacity": 0.6 }
+  }
+]
+```
+
+The `source-layer` names are listed under `pmtiles:layers` in the collection. Attribution (producer and licence) comes from the collection unless the source sets its own.
+
+What is drawn: the collection's PMTiles `visual` asset, of any size; or, for a small collection without one (up to 50 000 rows), its GeoParquet `data`, loaded whole as GeoJSON — such a source has no `source-layer`. A larger collection without PMTiles is not drawn and the console says why. Raster (COG) collections are not supported yet. Vector tiles need MapLibre or OpenLayers; the catalog does not offer Portolan layers on Leaflet or Cesium.
+
+A plain `url` pointing at a `collection.json`, without `portolan://`, is refused with a console message: a collection is not a style. A relative URL inside `portolan://` is resolved against the config file, like every other path in it.
+
 ### Feature info (`metadata.queryable`)
 
 Clicking with the info tool asks every visible layer what lies under the

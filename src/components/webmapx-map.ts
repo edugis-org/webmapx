@@ -26,6 +26,7 @@ import {
 } from './internal/single-group-policy';
 import { resolveLegendRoleForLayer } from './internal/legend-role-policy';
 import { resolveGeoJSONSources, type MapViewContext, type PagedSourceContinuation } from '../map/geojson-loader';
+import { resolvePortolanSources, portolanTarget, loadPortolanCollection } from '../map/portolan-sources';
 import { viewBox } from '../map/wfs-requests';
 
 /** The web-mercator world, as far north and south as a map can show. */
@@ -49,6 +50,13 @@ import { timeOf } from '../utils/map-clock';
 import { applyMapState } from '../utils/internal-sources';
 import { inlineLayerSources } from '../map/layer-source-resolver';
 import { showToast } from '../utils/toast';
+import {
+  bindStyleToCollection,
+  fallbackStyle,
+  isStacCollection,
+  portolanLayerMetadata,
+  readPortolanCollection,
+} from '../utils/portolan-collection';
 
 const MAP_VIEW_SLOT = 'map-view';
 const MAP_SURFACE_CLASS = 'webmapx-map__surface';
@@ -1035,12 +1043,26 @@ export class WebmapxMapElement extends HTMLElement {
 
     const promise = (async () => {
       try {
+        // `portolan://<collection.json>[#style-key]`: the publisher's style of a
+        // Portolan collection, bound to the collection's current data.
+        const portolan = portolanTarget(styleUrl);
+        if (portolan) {
+          const { collection } = await loadPortolanCollection(portolan.collectionUrl);
+          return this.expandPortolanCollection(layer, collection, portolan.collectionUrl, scopedPrefix, portolan.styleKey);
+        }
+
         const response = await fetch(styleUrl);
         if (!response.ok) {
           return null;
         }
 
         const styleDoc = this.toRecord(await response.json());
+        // A collection is not a style: say how to ask for its style instead of
+        // drawing nothing in silence.
+        if (isStacCollection(styleDoc)) {
+          console.warn(`[webmapx-map] ${styleUrl} is a Portolan/STAC collection, not a style; use "portolan://${styleUrl}" to draw it in its publisher's style.`);
+          return null;
+        }
         return this.buildExpandedStyleLayer(layer, styleDoc, styleUrl, scopedPrefix);
       } catch {
         return null;
@@ -1272,6 +1294,58 @@ export class WebmapxMapElement extends HTMLElement {
       }
     }
     return null;
+  }
+
+  /**
+   * A Portolan collection (docs/adr/0001-portolan-catalogs.md) as a composite layer: its
+   * default style, bound to the collection's own PMTiles — or, for a small collection
+   * without them, its GeoParquet. Nothing here is engine-specific; the result is an ordinary
+   * style layer with its sources inline, and `canDrawSource` decides as for any other.
+   */
+  private async expandPortolanCollection(
+    layer: AnyLayerConfig,
+    collection: Record<string, unknown>,
+    collectionUrl: string,
+    scopedPrefix: string,
+    styleKey?: string,
+  ): Promise<LayerInformation | null> {
+    const info = readPortolanCollection(collection, collectionUrl);
+    if (info.renderPath !== 'tiles' && info.renderPath !== 'geoparquet') {
+      console.warn(`[webmapx-map] Portolan collection ${collectionUrl} cannot be drawn: ${info.notDrawable ?? 'unknown reason'}`);
+      return null;
+    }
+
+    // A named style (`#style-key`) when the config asks for one, else the default.
+    const named = styleKey ? info.styles.find((style) => style.key === styleKey) : undefined;
+    if (styleKey && !named) {
+      console.warn(`[webmapx-map] ${collectionUrl} has no style "${styleKey}" (it has: ${info.styles.map((style) => style.key).join(', ') || 'none'}); using its default.`);
+    }
+    const chosen = named ?? info.styles[0];
+    let styleDoc: Record<string, unknown> | null = null;
+    if (chosen) {
+      try {
+        const response = await fetch(chosen.href);
+        const doc = response.ok ? this.toRecord(await response.json()) : null;
+        styleDoc = doc ? bindStyleToCollection(doc, chosen.href, info) : null;
+      } catch {
+        styleDoc = null;
+      }
+      if (!styleDoc) {
+        console.warn(`[webmapx-map] Style "${chosen.title}" of ${collectionUrl} could not be read; drawing the collection unstyled.`);
+      }
+    }
+    styleDoc ??= fallbackStyle(info);
+    if (!styleDoc) return null;
+
+    const configured = this.getLayerMetadata(layer) ?? {};
+    const withCollectionMetadata = {
+      ...layer,
+      title: layer.title ?? info.title,
+      // What the config says about the layer outranks what the collection says.
+      metadata: { ...portolanLayerMetadata(info, chosen), ...configured },
+    } as AnyLayerConfig;
+    // Sources are already absolute, so no style URL to resolve them against.
+    return this.buildExpandedStyleLayer(withCollectionMetadata, styleDoc, null, scopedPrefix);
   }
 
   private isStyleRequest(detail: Record<string, unknown>): boolean {
@@ -1588,6 +1662,10 @@ export class WebmapxMapElement extends HTMLElement {
     const enriched = inlineLayerSources(layerInformation.layer, this.layerDataConfig?.sources);
     let continuations: PagedSourceContinuation[] = [];
     if (enriched.sources && typeof enriched.sources === 'object') {
+      // portolan:// first: a small collection resolves to a geoparquet:// GeoJSON
+      // source, which the GeoJSON loader then reads.
+      enriched.sources = { ...enriched.sources };
+      await resolvePortolanSources(enriched.sources);
       continuations = await resolveGeoJSONSources(
         enriched.sources,
         timeOf(adapter.store.getState().mapTime),
@@ -1633,6 +1711,8 @@ export class WebmapxMapElement extends HTMLElement {
     // the catalog-layer path in addLogicalLayerInternal.
     let continuations: PagedSourceContinuation[] = [];
     if (nativeLayer.sources && typeof nativeLayer.sources === 'object') {
+      nativeLayer.sources = { ...(nativeLayer.sources as Record<string, any>) };
+      await resolvePortolanSources(nativeLayer.sources as Record<string, any>);
       continuations = await resolveGeoJSONSources(
         nativeLayer.sources as Record<string, any>,
         timeOf(adapter.store.getState().mapTime),

@@ -1,0 +1,250 @@
+{
+  "version": 0,
+  "project": "Portolan reference catalog",
+  "map": {
+    "label": "Portolan collections",
+    "center": [
+      5.3,
+      52.1
+    ],
+    "zoom": 6,
+    "type": "maplibre",
+    "style": {
+      "version": 8,
+      "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+      "sources": {},
+      "layers": []
+    }
+  },
+  "layerData": {
+    "sources": [
+      {
+        "id": "osm-source",
+        "type": "raster",
+        "service": "xyz",
+        "url": [
+          "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        ],
+        "tileSize": 256,
+        "attribution": "&copy; OpenStreetMap contributors"
+      },
+      {
+        "id": "bag-panden",
+        "type": "vector",
+        "url": "portolan://https://edugis.b-cdn.net/bag-light-pand-69d34205/collection.json"
+      }
+    ],
+    "layers": [
+      {
+        "id": "osm",
+        "type": "raster",
+        "source": "osm-source",
+        "singleGroup": "basemap",
+        "title": "OpenStreetMap"
+      },
+      {
+        "id": "nl-provinces",
+        "type": "style",
+        "url": "portolan://https://data.source.coop/portolan-mirrors/portolan-spec-examples/portolan-reference/main/boundaries/netherlands-provinces/collection.json"
+      },
+      {
+        "id": "nl-provinces-labeled",
+        "type": "style",
+        "title": "Provinces with names (publisher style 'labeled')",
+        "url": "portolan://https://data.source.coop/portolan-mirrors/portolan-spec-examples/portolan-reference/main/boundaries/netherlands-provinces/collection.json#style-labeled"
+      },
+      {
+        "id": "ne-countries",
+        "type": "style",
+        "url": "portolan://https://data.source.coop/portolan-mirrors/portolan-spec-examples/portolan-reference/main/reference/natural-earth-countries/collection.json"
+      },
+      {
+        "id": "edugis-woonplaats",
+        "type": "style",
+        "url": "portolan://https://edugis.b-cdn.net/bag-light-woonplaats-6bc4f3ea/collection.json"
+      },
+      {
+        "id": "edugis-wateringen-1832",
+        "type": "style",
+        "url": "portolan://https://edugis.b-cdn.net/1832-wegen-en-wateringen-1832-wateringen-c9eeaa5b/collection.json"
+      },
+      {
+        "id": "edugis-landen",
+        "type": "style",
+        "url": "portolan://https://edugis.b-cdn.net/geoboundariescgaz-adm0-bbe04625/collection.json"
+      },
+      {
+        "id": "edugis-pand",
+        "type": "style",
+        "url": "portolan://https://edugis.b-cdn.net/bag-light-pand-69d34205/collection.json"
+      },
+      {
+        "id": "panden-bouwjaar",
+        "type": "fill",
+        "title": "Panden naar bouwjaar (eigen stijl)",
+        "source": "bag-panden",
+        "source-layer": "pand",
+        "paint": {
+          "fill-color": [
+            "step",
+            [
+              "get",
+              "bouwjaar"
+            ],
+            "#8c2d04",
+            1900,
+            "#d94801",
+            1945,
+            "#fd8d3c",
+            1975,
+            "#fdd0a2",
+            2000,
+            "#c6dbef"
+          ],
+          "fill-opacity": 0.8
+        }
+      },
+      {
+        "id": "panden-amsterdam",
+        "type": "fill",
+        "title": "Panden Amsterdam (eigen filter)",
+        "source": "bag-panden",
+        "source-layer": "pand",
+        "filter": [
+          "==",
+          [
+            "slice",
+            [
+              "get",
+              "identificatie"
+            ],
+            0,
+            4
+          ],
+          "0363"
+        ],
+        "paint": {
+          "fill-color": "#c51b7d",
+          "fill-opacity": 0.6
+        }
+      }
+    ]
+  },
+  "state": {
+    "activeExclusiveLayers": {
+      "basemap": "osm"
+    },
+    "activeLayers": [
+      {
+        "ref": "osm",
+        "visible": true
+      },
+      {
+        "ref": "ne-countries",
+        "visible": true
+      },
+      {
+        "ref": "nl-provinces",
+        "visible": true
+      }
+    ]
+  },
+  "tools": {
+    "info": {
+      "enabled": true
+    },
+    "mainToolbar": {
+      "type": "toolbar",
+      "enabled": true,
+      "position": "top-left",
+      "orientation": "vertical",
+      "panel": {
+        "enabled": true,
+        "label": "Tools",
+        "position": "after"
+      },
+      "items": [
+        {
+          "id": "layerTree",
+          "type": "layerTree",
+          "enabled": true,
+          "title": "Catalog",
+          "icon": "layers",
+          "tree": [
+            {
+              "label": "Base map",
+              "selectionMode": "single",
+              "selectionGroup": "basemap",
+              "allowNone": true,
+              "expanded": false,
+              "children": [
+                {
+                  "layerId": "osm"
+                }
+              ]
+            },
+            {
+              "label": "Portolan reference catalog",
+              "expanded": true,
+              "children": [
+                {
+                  "layerId": "nl-provinces"
+                },
+                {
+                  "layerId": "nl-provinces-labeled"
+                },
+                {
+                  "layerId": "ne-countries"
+                }
+              ]
+            },
+            {
+              "label": "EduGIS library (Bunny en Hetzner)",
+              "expanded": true,
+              "children": [
+                {
+                  "layerId": "edugis-woonplaats"
+                },
+                {
+                  "layerId": "edugis-pand"
+                },
+                {
+                  "layerId": "edugis-wateringen-1832"
+                },
+                {
+                  "layerId": "edugis-landen"
+                }
+              ]
+            },
+            {
+              "label": "Own styles on a Portolan source",
+              "expanded": true,
+              "children": [
+                {
+                  "layerId": "panden-bouwjaar"
+                },
+                {
+                  "layerId": "panden-amsterdam"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "layerOverview",
+          "type": "layerOverview",
+          "enabled": true,
+          "title": "Legend",
+          "icon": "list-ul"
+        },
+        {
+          "id": "info",
+          "type": "info",
+          "enabled": true,
+          "title": "Info",
+          "icon": "info-circle"
+        }
+      ]
+    }
+  }
+}
