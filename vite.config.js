@@ -35,7 +35,16 @@ function pruneConfigCheckout() {
 
 export default defineConfig({
   base: './', // Set base to relative path for correct asset loading
-  optimizeDeps: _mlMajor >= 6 ? { exclude: ['maplibre-gl'] } : {},
+  // gdal3.js is imported only by the spatial worker, and Vite's dependency scan
+  // does not follow workers, so it was discovered on first use — in a UI run,
+  // while other pages were mid-test. Re-optimizing then gives every module a new
+  // version hash, and a page that already loaded the old ones fails its next
+  // lazy import: tool-draw lost its drawn point whenever an Analysis test shared
+  // its shard. Listing it here optimizes it at startup instead.
+  optimizeDeps: {
+    include: ['gdal3.js'],
+    ...(_mlMajor >= 6 ? { exclude: ['maplibre-gl'] } : {}),
+  },
   server: {
     // The UI test runner starts its own dev server on this same working tree.
     // Any file changing under it — an edit, a checkout, a stash, another
